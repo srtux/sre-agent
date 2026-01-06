@@ -455,6 +455,66 @@ def compare_span_timings(
             _record_telemetry("compare_span_timings", success, duration_ms)
 
 
+def summarize_trace(trace_data: Union[str, Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Creates a summary of a trace to save context window tokens.
+    Extracts high-level stats, top 5 slowest spans, and error spans.
+    """
+    if isinstance(trace_data, str):
+        try:
+            trace_data = json.loads(trace_data)
+        except json.JSONDecodeError:
+            return {"error": "Invalid JSON"}
+
+    if "error" in trace_data:
+        return trace_data
+
+    spans = trace_data.get("spans", [])
+    duration_ms = trace_data.get("duration_ms", 0)
+
+    # Extract errors
+    # Note: we can't easily reuse extract_errors here without circular deps or redundant parsing if passed a dict
+    # but since extract_errors takes str/dict, it's fine.
+    # However, to avoid double parsing, let's just do a quick scan if it's a dict
+
+    errors = []
+    if isinstance(trace_data, dict) and "spans" in trace_data:
+        # Quick extract to avoid overhead
+        for s in trace_data["spans"]:
+             if "error" in str(s.get("labels", {})).lower() or \
+                s.get("labels", {}).get("error") == "true":
+                 errors.append({"span_name": s.get("name"), "error": "Detected"})
+    else:
+        errors = extract_errors(trace_data) # Fallback to full tool
+
+    # Extract slow spans
+    # Sort spans by duration if available, else calc
+    spans_with_dur = []
+    for s in spans:
+        dur = 0
+        if "duration_ms" in s:
+            dur = s["duration_ms"]
+        elif s.get("start_time") and s.get("end_time"):
+             try:
+                start = datetime.fromisoformat(s["start_time"].replace('Z', '+00:00'))
+                end = datetime.fromisoformat(s["end_time"].replace('Z', '+00:00'))
+                dur = (end - start).total_seconds() * 1000
+             except: pass
+        spans_with_dur.append({"name": s.get("name"), "duration_ms": dur})
+
+    spans_with_dur.sort(key=lambda x: x["duration_ms"], reverse=True)
+    top_slowest = spans_with_dur[:5]
+
+    return {
+        "trace_id": trace_data.get("trace_id"),
+        "total_spans": len(spans),
+        "duration_ms": duration_ms,
+        "error_count": len(errors),
+        "errors": errors[:5], # Limit errors
+        "slowest_spans": top_slowest
+    }
+
+
 def find_structural_differences(
     baseline_trace: str,
     target_trace: str,
