@@ -43,6 +43,14 @@ def _record_telemetry(func_name: str, success: bool = True, duration_ms: float =
     execution_duration.record(duration_ms, attributes)
 
 
+def get_current_time() -> str:
+    """
+    Returns the current UTC time in ISO format. 
+    Use this to calculate relative time ranges (e.g., 'now - 1 hour') for list_traces.
+    """
+    return datetime.now(timezone.utc).isoformat()
+
+
 def _get_project_id() -> str:
     """Get the GCP project ID from environment."""
     project_id = os.environ.get("TRACE_PROJECT_ID") or os.environ.get("GOOGLE_CLOUD_PROJECT")

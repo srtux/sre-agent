@@ -5,7 +5,7 @@ from google.adk.agents import LlmAgent, ParallelAgent
 from google.adk.tools import AgentTool
 
 from . import prompt
-from .tools.trace_client import find_example_traces, fetch_trace, list_traces, get_trace_by_url
+from .tools.trace_client import find_example_traces, fetch_trace, list_traces, get_trace_by_url, get_current_time
 from .tools.trace_analysis import summarize_trace
 from .sub_agents.latency.agent import latency_analyzer
 from .sub_agents.error.agent import error_analyzer
@@ -39,6 +39,7 @@ trace_analyzer_agent = LlmAgent(
         list_traces,
         get_trace_by_url,
         summarize_trace,
+        get_current_time,
         # The parallel squad as a single tool
         AgentTool(agent=trace_analysis_squad),
     ],

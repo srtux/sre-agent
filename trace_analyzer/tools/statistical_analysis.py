@@ -15,12 +15,12 @@ tracer = get_tracer(__name__)
 meter = get_meter(__name__)
 
 
-def compute_latency_statistics(traces: List[Union[str, Dict[str, Any]]]) -> Dict[str, Any]:
+def compute_latency_statistics(traces: List[str]) -> Dict[str, Any]:
     """
     Computes aggregate latency statistics for a list of traces.
     
     Args:
-        traces: List of trace JSON strings or dictionaries.
+        traces: List of trace JSON strings.
 
     Returns:
         Dictionary containing statistical metrics.
@@ -107,8 +107,8 @@ def compute_latency_statistics(traces: List[Union[str, Dict[str, Any]]]) -> Dict
 
 
 def detect_latency_anomalies(
-    baseline_traces: List[Union[str, Dict[str, Any]]],
-    target_trace: Union[str, Dict[str, Any]],
+    baseline_traces: List[str],
+    target_trace: str,
     threshold_sigma: float = 2.0
 ) -> Dict[str, Any]:
     """
@@ -116,8 +116,8 @@ def detect_latency_anomalies(
     Also checks individual spans for anomalies if baseline data allows.
     
     Args:
-        baseline_traces: List of normal traces.
-        target_trace: The trace to check.
+        baseline_traces: List of normal traces as JSON strings.
+        target_trace: The trace to check as a JSON string.
         threshold_sigma: Number of standard deviations to consider anomalous.
 
     Returns:
@@ -201,11 +201,14 @@ def detect_latency_anomalies(
         }
 
 
-def analyze_critical_path(trace: Union[str, Dict[str, Any]]) -> Dict[str, Any]:
+def analyze_critical_path(trace: str) -> Dict[str, Any]:
     """
     Identifies the critical path of spans in a trace.
     
     The critical path is calculated by finding the longest path through the span dependency graph.
+    
+    Args:
+        trace: The trace data to analyze as a JSON string.
     """
     with tracer.start_as_current_span("analyze_critical_path"):
         trace_data = trace
@@ -298,11 +301,15 @@ def analyze_critical_path(trace: Union[str, Dict[str, Any]]) -> Dict[str, Any]:
 
 
 def perform_causal_analysis(
-    baseline_trace: Union[str, Dict[str, Any]],
-    target_trace: Union[str, Dict[str, Any]]
+    baseline_trace: Any,
+    target_trace: Any
 ) -> Dict[str, Any]:
     """
     Attempts to identify the root cause span for a slowdown.
+    
+    Args:
+        baseline_trace: The reference trace data.
+        target_trace: The abnormal trace data to analyze.
     """
     baseline_data = baseline_trace if isinstance(baseline_trace, dict) else json.loads(baseline_trace)
     target_data = target_trace if isinstance(target_trace, dict) else json.loads(target_trace)
@@ -387,8 +394,13 @@ def perform_causal_analysis(
         "analysis_method": "critical_path_diff_intersection"
     }
 
-def compute_service_level_stats(traces: List[Union[str, Dict[str, Any]]]) -> Dict[str, Any]:
-    """Computes stats aggregated by service name (if available in labels)."""
+def compute_service_level_stats(traces: List[str]) -> Dict[str, Any]:
+    """
+    Computes stats aggregated by service name (if available in labels).
+    
+    Args:
+        traces: List of trace JSON strings.
+    """
     service_stats = defaultdict(lambda: {"count": 0, "errors": 0, "total_duration": 0})
 
     for t in traces:

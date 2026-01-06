@@ -461,10 +461,13 @@ def compare_span_timings(
             _record_telemetry("compare_span_timings", success, duration_ms)
 
 
-def summarize_trace(trace_data: Union[str, Dict[str, Any]]) -> Dict[str, Any]:
+def summarize_trace(trace_data: str) -> Dict[str, Any]:
     """
     Creates a summary of a trace to save context window tokens.
     Extracts high-level stats, top 5 slowest spans, and error spans.
+    
+    Args:
+        trace_data: The trace data to summarize as a JSON string (from fetch_trace).
     """
     if isinstance(trace_data, str):
         try:
