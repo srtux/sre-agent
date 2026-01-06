@@ -198,7 +198,13 @@ def extract_errors(trace: str) -> List[Dict[str, Any]]:
                     
                     # Check for explicitly named error/exception labels
                     if any(indicator in key_lower for indicator in error_indicators):
-                        if value_str and value_str not in ("false", "0", "none", "ok"):
+                        # Special handling for 'status' which might be numeric
+                        if "status" in key_lower and value_str.isdigit():
+                             # We already handled numeric status above (HTTP/gRPC check)
+                             # If it was 200/0, it didn't set is_error.
+                             # If we are here, we don't want to re-flag it just because it's not "ok"
+                             pass
+                        elif value_str and value_str not in ("false", "0", "none", "ok"):
                             is_error = True
                             error_info["error_type"] = key
                             error_info["error_message"] = str(value)

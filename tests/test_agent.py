@@ -16,7 +16,10 @@ def load_env():
     dotenv.load_dotenv()
 
 
+import os
+
 @pytest.mark.asyncio
+@pytest.mark.skipif(not os.environ.get("GOOGLE_API_KEY"), reason="Requires GOOGLE_API_KEY")
 async def test_happy_path():
     """Runs the agent on a simple input and expects a normal response."""
     user_input = textwrap.dedent(
