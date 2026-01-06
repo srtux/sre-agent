@@ -48,6 +48,8 @@ def test_fetch_trace_success(mock_trace_service_client):
     mock_span.name = "span_name"
     mock_span.start_time.isoformat.return_value = "2023-01-01T00:00:00Z"
     mock_span.end_time.isoformat.return_value = "2023-01-01T00:00:01Z"
+    mock_span.start_time.timestamp.return_value = 1672531200.0
+    mock_span.end_time.timestamp.return_value = 1672531201.0
     mock_span.parent_span_id = None
     mock_span.labels = {"key": "value"}
 
@@ -142,20 +144,21 @@ def test_find_example_traces_success(mock_env_vars, mock_trace_service_client):
     # Mock list_traces indirectly by mocking the client it uses
     # Or we can patch list_traces. Let's patch list_traces to verify integration logic
     with mock.patch("trace_analyzer.tools.trace_client.list_traces") as mock_list:
-        mock_list.return_value = json.dumps([{"trace_id": "example"}])
+        mock_list.return_value = json.dumps([{"trace_id": "example", "duration_ms": 100}])
 
         result_json = find_example_traces()
         result = json.loads(result_json)
 
         mock_list.assert_called()
-        assert len(result) == 1
-        assert result[0]["trace_id"] == "example"
+        assert "stats" in result
+        assert "baseline" in result
+        assert result["baseline"]["trace_id"] == "example"
 
 def test_find_example_traces_no_project_id():
     with mock.patch.dict(os.environ, {}, clear=True):
         result_json = find_example_traces()
         result = json.loads(result_json)
-        assert "error" in result[0]
+        assert "error" in result
 
 def test_get_trace_by_url_success(mock_trace_service_client):
     url = "https://console.cloud.google.com/traces/list?project=test-project&tid=test-trace-id"

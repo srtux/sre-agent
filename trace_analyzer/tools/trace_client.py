@@ -11,7 +11,7 @@ import statistics
 from google.cloud import trace_v1
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from ..telemetry import get_tracer, get_meter
+from ..telemetry import get_tracer, get_meter, log_tool_call
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +76,10 @@ def fetch_trace(project_id: str, trace_id: str) -> str:
     with tracer.start_as_current_span("fetch_trace") as span:
         span.set_attribute("trace_analyzer.project_id", project_id)
         span.set_attribute("trace_analyzer.trace_id", trace_id)
+        span.set_attribute("trace_analyzer.trace_id", trace_id)
         span.set_attribute("code.function", "fetch_trace")
+        
+        log_tool_call(logger, "fetch_trace", project_id=project_id, trace_id=trace_id)
         
         try:
             client = trace_v1.TraceServiceClient()
@@ -160,6 +163,8 @@ def list_traces(
 
     with tracer.start_as_current_span("list_traces") as span:
         span.set_attribute("trace_analyzer.project_id", project_id)
+
+        log_tool_call(logger, "list_traces", project_id=project_id, start_time=start_time, end_time=end_time, limit=limit, filter_str=filter_str, min_latency_ms=min_latency_ms, error_only=error_only, attributes=attributes)
 
         # Build filter string if not provided
         final_filter = filter_str
@@ -267,6 +272,7 @@ def find_example_traces() -> str:
     success = True
     
     with tracer.start_as_current_span("find_example_traces") as span:
+        log_tool_call(logger, "find_example_traces")
         try:
             try:
                 project_id = _get_project_id()
@@ -359,6 +365,8 @@ def get_trace_by_url(url: str) -> str:
     with tracer.start_as_current_span("get_trace_by_url") as span:
         span.set_attribute("trace_analyzer.url", url)
         span.set_attribute("code.function", "get_trace_by_url")
+        
+        log_tool_call(logger, "get_trace_by_url", url=url)
         
         try:
             from urllib.parse import urlparse, parse_qs

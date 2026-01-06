@@ -5,7 +5,10 @@ import json
 from datetime import datetime
 import time
 
-from ..telemetry import get_tracer, get_meter
+import logging
+from ..telemetry import get_tracer, get_meter, log_tool_call
+
+logger = logging.getLogger(__name__)
 
 # Telemetry setup
 tracer = get_tracer(__name__)
@@ -65,6 +68,8 @@ def calculate_span_durations(trace: str) -> List[SpanData]:
     
     with tracer.start_as_current_span("calculate_span_durations") as span:
         span.set_attribute("code.function", "calculate_span_durations")
+        
+        log_tool_call(logger, "calculate_span_durations", trace="<trace_data_truncated>")
         
         try:
             if isinstance(trace, str):
@@ -147,6 +152,8 @@ def extract_errors(trace: str) -> List[Dict[str, Any]]:
 
     with tracer.start_as_current_span("extract_errors") as span:
         span.set_attribute("code.function", "extract_errors")
+        
+        log_tool_call(logger, "extract_errors", trace="<trace_data_truncated>")
         
         try:
             if isinstance(trace, str):
@@ -254,6 +261,8 @@ def build_call_graph(trace: str) -> Dict[str, Any]:
     
     with tracer.start_as_current_span("build_call_graph") as span:
         span.set_attribute("code.function", "build_call_graph")
+        
+        log_tool_call(logger, "build_call_graph", trace="<trace_data_truncated>")
         
         try:
             if isinstance(trace, str):
@@ -363,6 +372,8 @@ def compare_span_timings(
     with tracer.start_as_current_span("compare_span_timings") as span:
         span.set_attribute("code.function", "compare_span_timings")
         
+        log_tool_call(logger, "compare_span_timings", baseline_trace="<trace_data_truncated>", target_trace="<trace_data_truncated>")
+        
         try:
             # calculate_span_durations handles string parsing
             baseline_timings = calculate_span_durations(baseline_trace)
@@ -469,6 +480,7 @@ def summarize_trace(trace_data: str) -> Dict[str, Any]:
     Args:
         trace_data: The trace data to summarize as a JSON string (from fetch_trace).
     """
+    log_tool_call(logger, "summarize_trace", trace_data="<trace_data_truncated>")
     if isinstance(trace_data, str):
         try:
             trace_data = json.loads(trace_data)
@@ -547,6 +559,8 @@ def find_structural_differences(
     
     with tracer.start_as_current_span("find_structural_differences") as span:
         span.set_attribute("code.function", "find_structural_differences")
+        
+        log_tool_call(logger, "find_structural_differences", baseline_trace="<trace_data_truncated>", target_trace="<trace_data_truncated>")
         
         try:
             # build_call_graph handles string parsing
