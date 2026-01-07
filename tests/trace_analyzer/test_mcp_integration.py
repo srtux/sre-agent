@@ -2,6 +2,7 @@
 import unittest
 from unittest.mock import MagicMock, patch
 import sys
+import os
 
 # Mock toolbox_core
 mock_toolbox = MagicMock()
@@ -48,24 +49,20 @@ class TestMCPIntegration(unittest.TestCase):
         
         tools = load_mcp_tools()
         
-        # Check if ApiRegistry was initialized with project id
-        mock_registry_cls.assert_called_with("mock-project-id")
-        
-        # Check if get_toolset was called
-        mock_registry_instance.get_toolset.assert_called()
-        
-        # Check if tools were returned
-        self.assertIn("bq_tool_1", tools)
+        # Check if LazyMcpRegistryToolset is in tools
+        lazy_toolset = next((t for t in tools if type(t).__name__ == 'LazyMcpRegistryToolset'), None)
+        self.assertIsNotNone(lazy_toolset)
         
     def test_toolbox_integration(self):
-        from trace_analyzer.agent import load_mcp_tools
-        # Setup toolbox mock
-        mock_instance = mock_client_cls.return_value
-        mock_instance.list_tools.return_value = ["local_tool_1"]
-        
-        tools = load_mcp_tools()
-        
-        self.assertIn("local_tool_1", tools)
+        with patch.dict(os.environ, {"TOOLBOX_MCP_URL": "http://localhost:8080"}):
+            from trace_analyzer.agent import load_mcp_tools
+            # Setup toolbox mock
+            mock_instance = mock_client_cls.return_value
+            mock_instance.list_tools.return_value = ["local_tool_1"]
+            
+            tools = load_mcp_tools()
+            
+            self.assertIn("local_tool_1", tools)
 
 if __name__ == "__main__":
     unittest.main()

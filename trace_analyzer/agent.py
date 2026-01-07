@@ -22,7 +22,9 @@ Stage 2 analysis for efficient, targeted investigation.
 
 import json
 from google.adk.agents import LlmAgent, ParallelAgent
-from google.adk.tools import AgentTool, adk_tool, Tool
+from google.adk.tools import AgentTool, ToolContext
+
+from .decorators import adk_tool
 
 from . import prompt
 from .tools.trace_client import (
@@ -92,7 +94,6 @@ import os
 import google.auth
 from google.adk.tools.api_registry import ApiRegistry
 from google.adk.tools.base_toolset import BaseToolset
-from toolbox_core import ToolboxSyncClient
 
 class LazyMcpRegistryToolset(BaseToolset):
     """Lazily initializes the ApiRegistry and McpToolset to ensure session creation happens in the correct event loop."""
@@ -168,52 +169,78 @@ def load_mcp_tools():
         
     return tools
 
-from google.adk.tools import adk_tool, Tool
+
 
 
 @adk_tool
 async def run_two_stage_analysis(
-    baseline_trace_id: str, target_trace_id: str
+    baseline_trace_id: str,
+    target_trace_id: str,
+    project_id: str = None,
+    tool_context: ToolContext = None,
 ) -> dict:
     """
-    Runs a two-stage analysis comparing a baseline and target trace.
+    Orchestrates a two-stage analysis (Triage -> Deep Dive) on two traces.
 
     Args:
-        baseline_trace_id: The ID of the baseline trace to analyze.
-        target_trace_id: The ID of the target trace to analyze.
+        baseline_trace_id: The ID of the normal/baseline trace.
+        target_trace_id: The ID of the anomalous/target trace.
+        project_id: The Google Cloud Project ID.
+        tool_context: The tool context provided by the ADK.
 
     Returns:
-        A dictionary containing the analysis reports from both stages.
+        A dictionary containing the combined analysis reports.
     """
-    print(
-        "Executing Stage 1 (Triage) analysis for baseline "
-        f"{baseline_trace_id} and target {target_trace_id}..."
-    )
+    if tool_context is None:
+        # This handles local testing or direct calls where context might be missing,
+        # but in ADK execution it should be provided.
+        # We can't easily run sub-agents without context via AgentTool, 
+        # so we might need to error or mock.
+        raise ValueError("tool_context is required for running sub-agents")
+
     stage1_input = {
         "baseline_trace_id": baseline_trace_id,
         "target_trace_id": target_trace_id,
+        "project_id": project_id,
     }
-    stage1_report = await stage1_triage_squad.arun(
-        context=stage1_input, instruction="Analyze the traces provided."
+    
+    # Run Stage 1: Triage
+    # We use AgentTool to wrap and run the agent, enabling it to access the current session/context.
+    triage_tool = AgentTool(stage1_triage_squad)
+    stage1_response = await triage_tool.run_async(
+        args={"request": f"Context: {json.dumps(stage1_input)}\nInstruction: Analyze the traces provided."},
+        tool_context=tool_context
     )
+    
+    # AgentTool returns the result as string (processed by output schema if valid, or text).
+    # ParallelAgent usually returns text combined from sub-agents.
+    stage1_report = stage1_response
 
-    print("Executing Stage 2 (Deep Dive) analysis...")
     stage2_input = {
         "baseline_trace_id": baseline_trace_id,
         "target_trace_id": target_trace_id,
         "stage1_report": stage1_report,
+        "project_id": project_id,
     }
-    stage2_report = await stage2_deep_dive_squad.arun(
-        context=stage2_input,
-        instruction=(
-            "Using the Stage 1 triage report, perform a deep-dive analysis "
-            "to find the root cause and service impact."
-        ),
+
+    # Run Stage 2: Deep Dive
+    deep_dive_tool = AgentTool(stage2_deep_dive_squad)
+    stage2_response = await deep_dive_tool.run_async(
+        args={
+            "request": (
+                f"Context: {json.dumps(stage2_input)}\n"
+                "Instruction: Using the Stage 1 triage report, perform a deep-dive analysis "
+                "to determine root cause and service impact."
+            )
+        },
+        tool_context=tool_context
     )
+    stage2_report = stage2_response
 
-    return {"stage1_report": stage1_report, "stage2_report": stage2_report}
-
-
+    return {
+        "stage1_triage_report": stage1_report,
+        "stage2_deep_dive_report": stage2_report,
+    }
 # Initialize base tools
 base_tools = [
     # Two-stage analysis architecture

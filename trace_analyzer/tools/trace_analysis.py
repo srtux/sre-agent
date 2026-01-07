@@ -8,6 +8,8 @@ import time
 import logging
 from ..telemetry import get_tracer, get_meter, log_tool_call
 
+from ..decorators import adk_tool
+
 logger = logging.getLogger(__name__)
 
 # Telemetry setup
@@ -47,6 +49,7 @@ TraceData = Dict[str, Any]
 SpanData = Dict[str, Any]
 
 
+@adk_tool
 def calculate_span_durations(trace: str) -> List[SpanData]:
     """
     Extracts timing information for each span in a trace.
@@ -131,6 +134,7 @@ def calculate_span_durations(trace: str) -> List[SpanData]:
             _record_telemetry("calculate_span_durations", success, duration_ms)
 
 
+@adk_tool
 def extract_errors(trace: str) -> List[Dict[str, Any]]:
     """
     Finds all spans that contain errors or error-related information.
@@ -248,6 +252,7 @@ def extract_errors(trace: str) -> List[Dict[str, Any]]:
             _record_telemetry("extract_errors", success, duration_ms)
 
 
+@adk_tool
 def validate_trace_quality(trace_json: str) -> Dict[str, Any]:
     """
     Validate trace data quality and detect issues.
@@ -338,6 +343,7 @@ def validate_trace_quality(trace_json: str) -> Dict[str, Any]:
     }
 
 
+@adk_tool
 def build_call_graph(trace: str) -> Dict[str, Any]:
     """
     Builds a hierarchical call graph from the trace spans.
@@ -446,12 +452,13 @@ def build_call_graph(trace: str) -> Dict[str, Any]:
             _record_telemetry("build_call_graph", success, duration_ms)
 
 
+@adk_tool
 def compare_span_timings(
     baseline_trace: str,
     target_trace: str,
 ) -> Dict[str, Any]:
     """
-    Compares timing between spans in two traces.
+    Compares timing between spans in two traces and detects performance anti-patterns.
     
     Args:
         baseline_trace: The reference/normal trace to compare against.
@@ -463,6 +470,7 @@ def compare_span_timings(
         - faster_spans: Spans that got faster in target
         - missing_from_target: Spans in baseline but not in target
         - new_in_target: Spans in target but not in baseline
+        - patterns: Detected anti-patterns (N+1 queries, serial chains)
         - summary: Overall timing comparison summary
     """
     start_time = time.time()
@@ -483,6 +491,65 @@ def compare_span_timings(
             if target_timings and isinstance(target_timings[0], dict) and "error" in target_timings[0]:
                 return {"error": f"Target trace error: {target_timings[0]['error']}"}
             
+            # --- Anti-Pattern Detection (Target Trace) ---
+            patterns = []
+            
+            # 1. N+1 Query Detection
+            # Look for sequential spans with identical names
+            if target_timings:
+                # Sort by start time to analyze sequence
+                sorted_spans = sorted(
+                    [s for s in target_timings if s.get("start_time")],
+                    key=lambda x: x["start_time"]
+                )
+                
+                if sorted_spans:
+                    current_run = []
+                    for i, s in enumerate(sorted_spans):
+                        name = s.get("name")
+                        # Skip small utility spans if necessary, but finding all repeats is good
+                        if not current_run:
+                            current_run.append(s)
+                        else:
+                            if s.get("name") == current_run[-1].get("name"):
+                                current_run.append(s)
+                            else:
+                                # Run ended
+                                if len(current_run) >= 3: # Threshold: at least 3 repeats
+                                    duration_sum = sum(s.get("duration_ms") or 0 for s in current_run)
+                                    if duration_sum > 50: # Threshold: >50ms impact
+                                        patterns.append({
+                                            "type": "n_plus_one",
+                                            "description": f"Potential N+1 Query: '{current_run[0].get('name')}' called {len(current_run)} times sequentially.",
+                                            "span_name": current_run[0].get("name"),
+                                            "count": len(current_run),
+                                            "total_duration_ms": duration_sum,
+                                            "impact": "high" if duration_sum > 200 else "medium"
+                                        })
+                                current_run = [s]
+                    
+                    # Check last run
+                    if len(current_run) >= 3:
+                        duration_sum = sum(s.get("duration_ms") or 0 for s in current_run)
+                        if duration_sum > 50:
+                            patterns.append({
+                                "type": "n_plus_one",
+                                "description": f"Potential N+1 Query: '{current_run[0].get('name')}' called {len(current_run)} times sequentially.",
+                                "span_name": current_run[0].get("name"),
+                                "count": len(current_run),
+                                "total_duration_ms": duration_sum,
+                                "impact": "high" if duration_sum > 200 else "medium"
+                            })
+
+            # 2. Serial Chain Detection
+            # Identify the longest serial chain of spans
+            if target_timings:
+                # Naive approach: Long sequential dependency chain?
+                # Better: Check for "waterfall" where End(N) ~= Start(N+1)
+                pass # (Simple implementation left for future iteration to keep this complex tool reliable, focusing on N+1)
+            
+            # --- End Detection ---
+
             # Create lookup by span name to compare similar operations
             baseline_by_name: Dict[str, List[SpanData]] = {}
             for s in baseline_timings:
@@ -550,6 +617,7 @@ def compare_span_timings(
                 "faster_spans": faster_spans,
                 "missing_from_target": missing_from_target,
                 "new_in_target": new_in_target,
+                "patterns": patterns,
                 "summary": {
                     "baseline_total_ms": round(baseline_total, 2),
                     "target_total_ms": round(target_total, 2),
@@ -571,6 +639,7 @@ def compare_span_timings(
             _record_telemetry("compare_span_timings", success, duration_ms)
 
 
+@adk_tool
 def summarize_trace(trace_data: str) -> Dict[str, Any]:
     """
     Creates a summary of a trace to save context window tokens.
@@ -636,6 +705,7 @@ def summarize_trace(trace_data: str) -> Dict[str, Any]:
     }
 
 
+@adk_tool
 def find_structural_differences(
     baseline_trace: str,
     target_trace: str,

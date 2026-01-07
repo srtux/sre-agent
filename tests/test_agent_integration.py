@@ -19,14 +19,9 @@ async def test_agent_initialization(mock_env):
     assert isinstance(root_agent, LlmAgent)
     assert root_agent.name == "trace_analyzer_agent"
 
-    # Check if the squad tool is present
-    squad_tool = next((t for t in root_agent.tools if hasattr(t, 'agent') and t.agent.name == "trace_analysis_squad"), None)
-    assert squad_tool is not None
-
-    squad = squad_tool.agent
-    assert isinstance(squad, ParallelAgent)
-    # Check that it has sub-agents
-    assert len(squad.sub_agents) == 5
+    # Check if the analysis tool is present
+    analysis_tool = next((t for t in root_agent.tools if getattr(t, 'name', getattr(t, '__name__', '')) == "run_two_stage_analysis"), None)
+    assert analysis_tool is not None
 
 @patch("trace_analyzer.tools.trace_client.trace_v1.TraceServiceClient")
 def test_list_traces_mock(mock_client_cls):

@@ -72,6 +72,9 @@ def test_fetch_trace_error(mock_trace_service_client):
     mock_instance = mock_trace_service_client.return_value
     mock_instance.get_trace.side_effect = Exception("API Error")
 
+    from trace_analyzer.tools.trace_cache import get_trace_cache
+    get_trace_cache().clear()
+    
     result_json = fetch_trace("test_project_id", "test_trace_id")
     result = json.loads(result_json)
 
@@ -144,7 +147,10 @@ def test_find_example_traces_success(mock_env_vars, mock_trace_service_client):
     # Mock list_traces indirectly by mocking the client it uses
     # Or we can patch list_traces. Let's patch list_traces to verify integration logic
     with mock.patch("trace_analyzer.tools.trace_client.list_traces") as mock_list:
-        mock_list.return_value = json.dumps([{"trace_id": "example", "duration_ms": 100}])
+        mock_list.return_value = json.dumps([
+            {"trace_id": "example1", "duration_ms": 100},
+            {"trace_id": "example2", "duration_ms": 200}
+        ])
 
         result_json = find_example_traces()
         result = json.loads(result_json)
@@ -152,7 +158,7 @@ def test_find_example_traces_success(mock_env_vars, mock_trace_service_client):
         mock_list.assert_called()
         assert "stats" in result
         assert "baseline" in result
-        assert result["baseline"]["trace_id"] == "example"
+        assert result["baseline"]["trace_id"] == "example1"
 
 def test_find_example_traces_no_project_id():
     with mock.patch.dict(os.environ, {}, clear=True):

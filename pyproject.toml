@@ -2,7 +2,7 @@
 name = "trace-analyzer"
 version = "0.1.0"
 description = "A Google ADK-based Cloud Trace Analyzer Agent for distributed trace diff analysis"
-authors = [{ name = "Trace Team", email = "trace@example.com" }]
+authors = [{ name = "SRT", email = "srtuxx@gmail.com" }]
 license = "Apache-2.0"
 readme = "README.md"
 dependencies = [
@@ -61,6 +61,11 @@ build-backend = "uv_build"
 
 [tool.uv.build-backend]
 module-root = ""
+
+[[tool.uv.index]]
+name = "ah-3p-staging"
+url = "https://us-python.pkg.dev/artifact-foundry-prod/ah-3p-staging-python/simple/"
+explicit = false
 
 [tool.agent-starter-pack]
 example_question = "Compare trace abc123 with trace def456 in project my-gcp-project"

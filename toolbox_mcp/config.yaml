@@ -1,4 +1,4 @@
-databases:
+sources:
   bigquery:
-    type: bigquery
-    project_id: ${GOOGLE_CLOUD_PROJECT}
+    kind: bigquery
+    project: ${GOOGLE_CLOUD_PROJECT}

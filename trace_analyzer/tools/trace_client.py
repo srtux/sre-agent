@@ -9,9 +9,9 @@ import logging
 import statistics
 
 from google.cloud import trace_v1
-from google.cloud import logging_v2
+from google.cloud.logging_v2.services.logging_service_v2 import LoggingServiceV2Client
 from google.cloud import monitoring_v3
-from google.cloud import error_reporting_v1beta1
+from google.cloud import errorreporting_v1beta1
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from ..telemetry import get_tracer, get_meter, log_tool_call
@@ -33,7 +33,7 @@ execution_count = meter.create_counter(
     description="Total number of tool calls",
     unit="1",
 )
-from google.adk.tools import adk_tool
+from ..decorators import adk_tool
 
 @adk_tool
 def list_log_entries(project_id: str, filter_str: str, limit: int = 10) -> str:
@@ -55,11 +55,11 @@ def list_log_entries(project_id: str, filter_str: str, limit: int = 10) -> str:
         span.set_attribute("trace_analyzer.filter", filter_str)
         log_tool_call(logger, "list_log_entries", project_id=project_id, filter_str=filter_str, limit=limit)
         try:
-            client = logging_v2.LoggingServiceV2Client()
+            client = LoggingServiceV2Client()
             resource_names = [f"projects/{project_id}"]
             entries = client.list_log_entries(
                 resource_names=resource_names,
-                filter_=filter_str,
+                filter=filter_str,
                 page_size=limit,
             )
             results = []
@@ -184,11 +184,11 @@ def list_error_events(project_id: str, minutes_ago: int = 60) -> str:
         span.set_attribute("trace_analyzer.project_id", project_id)
         log_tool_call(logger, "list_error_events", project_id=project_id, minutes_ago=minutes_ago)
         try:
-            client = error_reporting_v1beta1.ErrorStatsServiceClient()
+            client = errorreporting_v1beta1.ErrorStatsServiceClient()
             project_name = f"projects/{project_id}"
-            time_range = error_reporting_v1beta1.QueryTimeRange()
-            time_range.period = error_reporting_v1beta1.QueryTimeRange.Period.PERIOD_1_HOUR
-            request = error_reporting_v1beta1.ListEventsRequest(
+            time_range = errorreporting_v1beta1.QueryTimeRange()
+            time_range.period = errorreporting_v1beta1.QueryTimeRange.Period.PERIOD_1_HOUR
+            request = errorreporting_v1beta1.ListEventsRequest(
                 project_name=project_name,
                 group_id=None,
                 time_range=time_range,
@@ -598,6 +598,7 @@ def validate_trace(trace_data: Union[str, Dict]) -> Dict[str, Any]:
 
 
 def find_example_traces(
+    project_id: Optional[str] = None,
     prefer_errors: bool = True,
     min_sample_size: int = 20
 ) -> str:
@@ -625,7 +626,8 @@ def find_example_traces(
         log_tool_call(logger, "find_example_traces", prefer_errors=prefer_errors)
         try:
             try:
-                project_id = _get_project_id()
+                if not project_id:
+                    project_id = _get_project_id()
             except ValueError:
                 return json.dumps({"error": "GOOGLE_CLOUD_PROJECT not set"})
 

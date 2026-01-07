@@ -69,7 +69,39 @@ GOOGLE_GENAI_USE_VERTEXAI=1
 The authenticated user or service account requires:
 - `roles/cloudtrace.user`
 - `roles/bigquery.dataViewer`
-- `roles/bitquery.jobUser`
+- `roles/bigquery.jobUser`
+
+## Deployment
+
+### Deployment (Standard ADK CLI)
+ 
+ If you prefer using the standard `adk` CLI, you can pass environment variables via an env file:
+ 
+ ```bash
+ # 1. Ensure TOOLBOX_MCP_URL is in trace_analyzer/telemetry.env
+ # 2. Deploy using the --env_file flag
+ uv run adk deploy agent_engine \
+   --project=your-project \
+   --region=us-central1 \
+   --staging_bucket=your-bucket \
+   --display_name="Trace Analyzer" \
+   --env_file trace_analyzer/telemetry.env \
+   trace_analyzer
+ ```
+ 
+ ### Deployment (Custom Script)
+ 
+ We also provide a custom deployment script that supports direct flags:
+ 
+ ```bash
+ # Basic deployment (loads TOOLBOX_MCP_URL from .env)
+ uv run python deploy/deploy.py --create
+ 
+ # Explicitly specify the Toolbox MCP URL
+ uv run python deploy/deploy.py --create --toolbox_mcp_url=https://your-toolbox-url
+ ```
+
+The script will create a Reasoning Engine (Agent Engine) resource and output its resource name.
 
 ## Usage
 

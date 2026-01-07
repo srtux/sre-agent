@@ -1,6 +1,7 @@
 from typing import List, Optional, Union, Dict
-from google.adk.tools import adk_tool
 import numpy as np
+
+from ..decorators import adk_tool
 
 class TraceSelector:
     """
@@ -229,7 +230,7 @@ class TraceQueryBuilder:
         """Returns the constructed filter string."""
         return " ".join(self._terms)
 
-    def clear(.py
+    def clear(self):
         self._terms = []
 
 

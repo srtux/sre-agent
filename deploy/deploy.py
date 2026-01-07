@@ -14,6 +14,7 @@ flags.DEFINE_string("project_id", None, "GCP project ID.")
 flags.DEFINE_string("location", None, "GCP location.")
 flags.DEFINE_string("bucket", None, "GCP bucket.")
 flags.DEFINE_string("resource_id", None, "ReasoningEngine resource ID.")
+flags.DEFINE_string("toolbox_mcp_url", None, "URL for the MCP Toolbox server.")
 
 flags.DEFINE_bool("list", False, "List all agents.")
 flags.DEFINE_bool("create", False, "Creates a new agent.")
@@ -21,8 +22,10 @@ flags.DEFINE_bool("delete", False, "Deletes an existing agent.")
 flags.mark_bool_flags_as_mutual_exclusive(["create", "delete"])
 
 
-def create() -> None:
+def create(env_vars: dict[str, str] = None) -> None:
     """Creates an agent engine for Trace Analyzer."""
+    if env_vars is None:
+        env_vars = {}
     adk_app = AdkApp(agent=root_agent, enable_tracing=True)
 
     remote_agent = agent_engines.create(
@@ -40,8 +43,8 @@ def create() -> None:
             "opentelemetry-exporter-otlp-proto-grpc>=1.24.0",
             "google-auth>=2.18.1",
             "grpcio>=1.63.0",
-            "numpy>=1.26.0",
             "toolbox-core>=0.0.1",
+            "numpy>=1.26.0",
             "google-cloud-logging>=3.9.0",
             "google-cloud-monitoring>=2.20.0",
             "google-cloud-error-reporting>=1.14.0",
@@ -50,6 +53,7 @@ def create() -> None:
         env_vars={
             "GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY": "true",
             "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "true",
+            **env_vars,
         },
     )
     print(f"Created remote agent: {remote_agent.resource_name}")
@@ -107,7 +111,20 @@ def main(argv: list[str]) -> None:
     if FLAGS.list:
         list_agents()
     elif FLAGS.create:
-        create()
+        env_vars = {}
+        toolbox_mcp_url = (
+            FLAGS.toolbox_mcp_url
+            if FLAGS.toolbox_mcp_url
+            else os.getenv("TOOLBOX_MCP_URL")
+        )
+        if toolbox_mcp_url:
+            env_vars["TOOLBOX_MCP_URL"] = toolbox_mcp_url
+            print(f"TOOLBOX_MCP_URL: {toolbox_mcp_url}")
+
+        if project_id:
+            env_vars["GOOGLE_CLOUD_PROJECT"] = project_id
+
+        create(env_vars=env_vars)
     elif FLAGS.delete:
         if not FLAGS.resource_id:
             print("resource_id is required for delete")
