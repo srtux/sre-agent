@@ -65,84 +65,45 @@ class TestMCPIntegration(unittest.TestCase):
             ):
                 del sys.modules[mod]
 
-    def test_singleton_created_lazily(self):
-        """Test that the MCP toolset singleton is created LAZILY, not at import time."""
+    def test_factory_creates_new_instance(self):
+        """Test that get_bigquery_mcp_toolset creates a NEW instance each time."""
         # Setup registry mock
         fresh_mock_instance = MagicMock()
-        mock_toolset = MagicMock()
-        fresh_mock_instance.get_toolset.return_value = mock_toolset
+        mock_toolset_1 = MagicMock()
+        mock_toolset_2 = MagicMock()
+        fresh_mock_instance.get_toolset.side_effect = [mock_toolset_1, mock_toolset_2]
         self.mock_registry_cls.return_value = fresh_mock_instance
 
         # Import triggers module load
         import trace_analyzer.agent
 
-        # KEY ASSERTION: Registry should NOT be called at import time anymore
-        self.mock_registry_cls.assert_not_called()
-        fresh_mock_instance.get_toolset.assert_not_called()
-
         # Call the getter
-        result = trace_analyzer.agent.get_bigquery_mcp_toolset()
-
-        # NOW it should be called
-        self.mock_registry_cls.assert_called_once()
-        fresh_mock_instance.get_toolset.assert_called_once()
-
-        # Call it again -> should not be called again (memoized)
+        result1 = trace_analyzer.agent.get_bigquery_mcp_toolset()
+        
+        # Call it again
         result2 = trace_analyzer.agent.get_bigquery_mcp_toolset()
-        self.assertIs(result, result2)
-        fresh_mock_instance.get_toolset.assert_called_once()
 
-    def test_module_level_toolset_singleton(self):
-        """Test that the module-level MCP toolset singleton is created correctly."""
-        mock_toolset = MagicMock()
-        mock_registry_instance = self.mock_registry_cls.return_value
-        mock_registry_instance.get_toolset.return_value = mock_toolset
+        # Should verify multiple calls to create toolsets
+        self.assertEqual(fresh_mock_instance.get_toolset.call_count, 2)
+        
+        # Results should be DIFFERENT instances
+        self.assertIsNot(result1, result2)
+        self.assertEqual(result1, mock_toolset_1)
+        self.assertEqual(result2, mock_toolset_2)
 
-        import trace_analyzer.agent
-
-        # Inspect the module object directly to see the global var update
-        # Initially None
-        self.assertIsNone(trace_analyzer.agent._bigquery_mcp_toolset)
-
-        # Verify get_bigquery_mcp_toolset returns dict or object and updates global
-        result = trace_analyzer.agent.get_bigquery_mcp_toolset()
-        self.assertIsNotNone(result)
-        self.assertIs(result, trace_analyzer.agent._bigquery_mcp_toolset)
-
-    def test_get_bigquery_mcp_toolset_returns_singleton(self):
-        """Test that get_bigquery_mcp_toolset() always returns the same instance."""
-        from trace_analyzer.agent import get_bigquery_mcp_toolset
-
-        # Call multiple times - should always return the same instance
-        result1 = get_bigquery_mcp_toolset()
-        result2 = get_bigquery_mcp_toolset()
-        result3 = get_bigquery_mcp_toolset()
-
-        self.assertIsNotNone(result1)
-        self.assertIs(result1, result2)
-        self.assertIs(result2, result3)
-
-    def test_create_bigquery_mcp_toolset_deprecated_returns_singleton(self):
-        """Test that deprecated create_bigquery_mcp_toolset returns the singleton."""
+    def test_create_bigquery_mcp_toolset_deprecated_function(self):
+        """Test that deprecated create_bigquery_mcp_toolset works but assumes factory behavior."""
         mock_toolset = MagicMock()
         self.mock_registry_cls.return_value.get_toolset.return_value = mock_toolset
 
         from trace_analyzer.agent import (
             create_bigquery_mcp_toolset,
-            get_bigquery_mcp_toolset,
         )
 
-        # Test: deprecated function returns the same singleton
-        # Calling create_... should also trigger lazy loads if not loaded
-        result_deprecated = create_bigquery_mcp_toolset("any-project-id")
-        result_new = get_bigquery_mcp_toolset()
-
-        self.assertIsNotNone(result_deprecated)
-        self.assertIs(result_deprecated, result_new)
-
-        # Verify that the project_id parameter is ignored (uses module-level project)
-        result_different_project = create_bigquery_mcp_toolset("different-project")
-        self.assertIs(result_different_project, result_new)
+        # Test: deprecated function works
+        result = create_bigquery_mcp_toolset("any-project-id")
+        self.assertIsNotNone(result)
+        self.mock_registry_cls.assert_called()
 
     def test_singleton_handles_missing_project_gracefully(self):
         """Test that module-level singleton creation handles missing project ID."""

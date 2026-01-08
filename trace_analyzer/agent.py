@@ -37,6 +37,7 @@ import google.auth
 from google.adk.agents import LlmAgent, ParallelAgent
 from google.adk.tools import AgentTool, ToolContext
 from google.adk.tools.api_registry import ApiRegistry
+from google.adk.tools.base_toolset import BaseToolset
 
 from . import prompt  # Register logging filters
 from .decorators import adk_tool
@@ -76,71 +77,27 @@ from .tools.trace_filter import (
 
 logger = logging.getLogger(__name__)
 
-# =============================================================================
-# Module-level MCP Toolset (Singleton Pattern)
-# =============================================================================
-# Following Google Cloud blog pattern: create toolset ONCE at module level,
-# let ADK framework manage the session lifecycle across the entire app lifetime.
-# This avoids session timeout issues that occur with per-request creation.
-# =============================================================================
 
-
-# Global singleton variable (initially None)
-_bigquery_mcp_toolset = None
-_mcp_toolset_initialized = False
-
-
-
-class SharedToolset:
+def _create_bigquery_mcp_toolset(project_id: str | None = None):
     """
-    Wrapper for a toolset that prevents it from being closed.
-
-    This is used for the singleton MCP toolset to ensure that individual
-    agent executions (which might close their tools) don't terminate
-    the shared session.
+    Creates a new instance of the BigQuery MCP toolset.
     """
-
-    def __init__(self, toolset):
-        self._toolset = toolset
-
-    def __getattr__(self, name):
-        return getattr(self._toolset, name)
-
-    def __iter__(self):
-        return iter(self._toolset)
-
-    def __dir__(self):
-        return dir(self._toolset)
-
-    def close(self):
-        logger.debug("Ignoring close() call on shared MCP toolset")
-        pass
-
-    async def aclose(self):
-        logger.debug("Ignoring aclose() call on shared MCP toolset")
-        pass
-
-
-def _create_module_level_mcp_toolset():
-    """
-    Internal helper to create the BigQuery MCP toolset.
-    """
-    project_id = None
-    try:
-        _, project_id = google.auth.default()
-        project_id = project_id or os.environ.get("GOOGLE_CLOUD_PROJECT")
-    except Exception:
-        pass
+    if not project_id:
+        try:
+            _, project_id = google.auth.default()
+            project_id = project_id or os.environ.get("GOOGLE_CLOUD_PROJECT")
+        except Exception:
+            pass
 
     if not project_id:
         logger.warning(
-            "No Project ID detected at module load; MCP toolset will not be available"
+            "No Project ID detected; MCP toolset will not be available"
         )
         return None
 
     try:
         logger.info(
-            f"Creating module-level BigQuery MCP toolset for project: {project_id}"
+            f"Creating BigQuery MCP toolset for project: {project_id}"
         )
 
         # Pattern: projects/{project}/locations/global/mcpServers/{server_id}
@@ -151,7 +108,7 @@ def _create_module_level_mcp_toolset():
             project_id, header_provider=lambda _: {"x-goog-user-project": project_id}
         )
 
-        # Get the MCP toolset - this creates the session that will persist
+        # Get the MCP toolset - this creates a new session
         mcp_toolset = api_registry.get_toolset(
             mcp_server_name=mcp_server_name,
             tool_filter=[
@@ -162,63 +119,30 @@ def _create_module_level_mcp_toolset():
             ],
         )
 
-        # Wrap it to prevent closing (Session terminated error fix)
-        shared_wrapper = SharedToolset(mcp_toolset)
-
-        logger.info("Successfully created module-level BigQuery MCP toolset")
-        return shared_wrapper
+        return mcp_toolset
 
     except Exception as e:
         logger.error(
-            f"Failed to create module-level BigQuery MCP toolset: {e}", exc_info=True
+            f"Failed to create BigQuery MCP toolset: {e}", exc_info=True
         )
         return None
 
 
 def get_bigquery_mcp_toolset():
     """
-    Returns the module-level BigQuery MCP toolset (singleton), initializing it if necessary.
-
-    This follows the Google Cloud blog pattern where the toolset is created once
-    and reused. We use lazy initialization here to avoid side effects (auth calls)
-    at module import time, which can break tests.
+    Factory function for BigQuery MCP toolset.
 
     Returns:
-        The shared MCP toolset instance, or None if not available
+        A new MCP toolset instance, or None if not available.
     """
-    global _bigquery_mcp_toolset, _mcp_toolset_initialized
-
-    if not _mcp_toolset_initialized:
-        _bigquery_mcp_toolset = _create_module_level_mcp_toolset()
-        _mcp_toolset_initialized = True
-
-    return _bigquery_mcp_toolset
+    return _create_bigquery_mcp_toolset()
 
 
 # Deprecated: Keep for backwards compatibility with tests
 def create_bigquery_mcp_toolset(project_id: str):
     """
     DEPRECATED: Use get_bigquery_mcp_toolset() instead.
-
-    This function now returns the module-level singleton toolset.
-    The project_id parameter is ignored - the toolset uses the project
-    detected at module load time.
-
-    Per-request toolset creation caused MCP session timeout issues because:
-    1. MCP session is created when toolset is created
-    2. LLM calls can take 5-10+ seconds
-    3. MCP session times out during LLM call
-    4. When agent tries to use MCP tool, session is already terminated
-
-    Args:
-        project_id: Ignored (kept for API compatibility)
-
-    Returns:
-        The shared module-level MCP toolset instance
     """
-    logger.debug(
-        "create_bigquery_mcp_toolset() is deprecated; returning module-level singleton"
-    )
     return get_bigquery_mcp_toolset()
 
 
@@ -303,44 +227,80 @@ async def run_aggregate_analysis(
     except Exception:
         pass
 
-    # Get the module-level MCP toolset (singleton pattern)
-    # This avoids session timeout issues that occur with per-request creation
-    mcp_toolset = get_bigquery_mcp_toolset()
+    # Retry loop to handle flaky MCP sessions
+    max_retries = 3
+    last_error = None
 
-    instruction = stage0_aggregate_analyzer.instruction
-    if project_id:
-        instruction += f"\n\nCurrent Project ID: {project_id}\nUse this for 'projectId' arguments in BigQuery tools."
+    for attempt in range(max_retries):
+        mcp_toolset = None
+        try:
+            # Create a fresh MCP toolset for this execution
+            mcp_toolset = get_bigquery_mcp_toolset()
 
-    # Create a fresh agent instance with merged tools
-    # The MCP toolset is the module-level singleton - its session persists
-    original_tools = list(stage0_aggregate_analyzer.tools or [])
+            instruction = stage0_aggregate_analyzer.instruction
+            if project_id:
+                instruction += f"\n\nCurrent Project ID: {project_id}\nUse this for 'projectId' arguments in BigQuery tools."
 
-    # Build tools list: add toolset if available (ADK manages its lifecycle)
-    if mcp_toolset:
-        original_tools.append(mcp_toolset)
+            # Create a fresh agent instance with merged tools
+            original_tools = list(stage0_aggregate_analyzer.tools or [])
 
-    fresh_aggregate_analyzer = LlmAgent(
-        name=stage0_aggregate_analyzer.name,
-        model=stage0_aggregate_analyzer.model,
-        description=stage0_aggregate_analyzer.description,
-        instruction=instruction,
-        # Pass toolset directly - ADK framework handles lifecycle
-        tools=original_tools,
-    )
+            if mcp_toolset:
+                original_tools.append(mcp_toolset)
 
-    aggregate_tool = AgentTool(fresh_aggregate_analyzer)
-
-    # No try/finally needed - ADK framework manages toolset lifecycle
-    return await aggregate_tool.run_async(
-        args={
-            "request": (
-                f"Context: {json.dumps(stage0_input)}\n"
-                "Instruction: Perform aggregate analysis of trace data using BigQuery. "
-                "Identify problem areas, detect trends, and select exemplar traces for investigation."
+            fresh_aggregate_analyzer = LlmAgent(
+                name=stage0_aggregate_analyzer.name,
+                model=stage0_aggregate_analyzer.model,
+                description=stage0_aggregate_analyzer.description,
+                instruction=instruction,
+                tools=original_tools,
             )
-        },
-        tool_context=tool_context,
-    )
+
+            aggregate_tool = AgentTool(fresh_aggregate_analyzer)
+
+            logger.info(f"Starting aggregate analysis (attempt {attempt + 1}/{max_retries})")
+            
+            return await aggregate_tool.run_async(
+                args={
+                    "request": (
+                        f"Context: {json.dumps(stage0_input)}\n"
+                        "Instruction: Perform aggregate analysis of trace data using BigQuery. "
+                        "Identify problem areas, detect trends, and select exemplar traces for investigation."
+                    )
+                },
+                tool_context=tool_context,
+            )
+
+        except Exception as e:
+            # Check for McpError: Session terminated
+            # We check string representation to handle both imported McpError and potential wrapping
+            is_session_error = "Session terminated" in str(e)
+            
+            if is_session_error and attempt < max_retries - 1:
+                logger.warning(
+                    f"MCP Session terminated during attempt {attempt + 1}. Retrying...",
+                    exc_info=True
+                )
+                last_error = e
+                # Proceed to next iteration (which will create new toolset)
+            else:
+                # Not a retryable error or max retries reached
+                raise
+
+        finally:
+            # Ensure we close the MCP toolset for this attempt
+            if mcp_toolset:
+                try:
+                    if hasattr(mcp_toolset, "aclose"):
+                        await mcp_toolset.aclose()
+                    elif hasattr(mcp_toolset, "close"):
+                        import inspect
+                        if inspect.iscoroutinefunction(mcp_toolset.close):
+                            await mcp_toolset.close()
+                        else:
+                            mcp_toolset.close()
+                except Exception as close_err:
+                    logger.warning(f"Error closing MCP toolset: {close_err}")
+
 
 
 @adk_tool
