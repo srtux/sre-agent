@@ -26,24 +26,18 @@ The agent is built using the Google Agent Development Kit (ADK). It uses a hiera
 %%{init: {
   'theme': 'base',
   'themeVariables': {
-    'darkMode': false,
-    'background': '#ffffff',
-    'mainBkg': '#ffffff',
-    'fontFamily': 'arial',
-    'fontSize': '16px',
-    'lineColor': '#000000',
-    'textColor': '#000000',
-    'primaryTextColor': '#000000',
-    'nodeTextColor': '#000000',
-    'clusterBkg': '#ffffff',
-    'clusterBorder': '#333333',
-    'titleColor': '#000000',
-    'edgeLabelBackground': '#ffffff'
+    'primaryColor': '#E8F0FE',
+    'primaryTextColor': '#1967D2',
+    'primaryBorderColor': '#1967D2',
+    'lineColor': '#5F6368',
+    'secondaryColor': '#F1F3F4',
+    'tertiaryColor': '#F3E5F5',
+    'fontFamily': 'inherit',
+    'fontSize': '14px'
   }
 }}%%
 flowchart TB
     %% --- TOP ROW: USER -> AGENT -> GEMINI ---
-    %% We define these in a dedicated horizontal subgraph to ensure the Agent is central
     subgraph ControlRow [ ]
         direction LR
         User([👤 User])
@@ -87,8 +81,7 @@ flowchart TB
         TQB["🛠️ Query Builder"]
     end
 
-    %% --- CONNECTIONS (Explicitly from the Agent node) ---
-    %% Connecting to the subgraph names directly ensures the arrows point to the headers
+    %% --- CONNECTIONS ---
     Agent ==> Triage
     Agent ==> DeepDive
 
@@ -101,11 +94,11 @@ flowchart TB
     style ControlRow fill:none,stroke:none
     style Squads fill:none,stroke:none
     
-    classDef userNode fill:#ffffff,stroke:#000000,stroke-width:2px;
-    classDef agentNode fill:#e3f2fd,stroke:#1565c0,stroke-width:2px;
-    classDef brainNode fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,stroke-dasharray: 5 5;
-    classDef squadNode fill:#fff8e1,stroke:#fbc02d,stroke-width:1px;
-    classDef toolNode fill:#f5f5f5,stroke:#616161,stroke-width:1px;
+    classDef userNode fill:#FFFFFF,stroke:#3C4043,stroke-width:2px,color:#3C4043;
+    classDef agentNode fill:#1A73E8,stroke:#174EA6,stroke-width:2px,color:#FFFFFF;
+    classDef brainNode fill:#F3E8FF,stroke:#9333EA,stroke-width:2px,stroke-dasharray: 5 5,color:#7E22CE;
+    classDef squadNode fill:#E8F0FE,stroke:#1967D2,stroke-width:1px,color:#1967D2;
+    classDef toolNode fill:#F1F3F4,stroke:#5F6368,stroke-width:1px,color:#3C4043;
 
     class User userNode;
     class Agent agentNode;
@@ -120,28 +113,17 @@ flowchart TB
 %%{init: {
   'theme': 'base',
   'themeVariables': {
-    'darkMode': false,
-    'background': '#ffffff',
-    'mainBkg': '#ffffff',
-    'fontFamily': 'arial',
-    'fontSize': '16px',
-    'textColor': '#000000',
-    'primaryTextColor': '#000000',
-    'actorTextColor': '#000000',
-    'actorBorder': '#000000',
-    'actorBkg': '#ffffff',
-    'actorLineColor': '#000000',
-    'signalColor': '#000000',
-    'signalTextColor': '#000000',
-    'labelBoxBkgColor': '#ffffff',
-    'labelBoxBorderColor': '#000000',
-    'labelTextColor': '#000000',
-    'loopTextColor': '#000000',
-    'noteBkgColor': '#fff9c4',
-    'noteBorderColor': '#333333',
-    'noteTextColor': '#000000',
-    'activationBorderColor': '#000000',
-    'activationBkgColor': '#e3f2fd'
+    'primaryColor': '#E8F0FE',
+    'primaryTextColor': '#1967D2',
+    'primaryBorderColor': '#1967D2',
+    'lineColor': '#5F6368',
+    'fontFamily': 'inherit',
+    'fontSize': '14px',
+    'noteBkgColor': '#FEF7E0',
+    'noteBorderColor': '#F9AB00',
+    'noteTextColor': '#3C4043',
+    'activationBkgColor': '#E8F0FE',
+    'activationBorderColor': '#1967D2'
   }
 }}%%
 sequenceDiagram
