@@ -118,73 +118,58 @@ stage2_deep_dive_squad = ParallelAgent(
 )
 
 
-class LazyMcpRegistryToolset(BaseToolset):
-    """Lazily initializes the ApiRegistry and McpToolset to ensure session creation happens in the correct event loop."""
-    
-    # Leaking toolsets intentionally to avoid 'anyio' RuntimeError during GC/cleanup
-    # when accessed across different asyncio Tasks (FastAPI requests).
-    def __init__(self, project_id: str, mcp_server_name: str, tool_filter: list[str]):
-        self.project_id = project_id
-        self.mcp_server_name = mcp_server_name
-        self.tool_filter = tool_filter
-        self.tool_name_prefix = ""
-        self._inner_toolset = None
-        
-    async def get_tools(self, readonly_context=None):
+def create_bigquery_mcp_toolset(project_id: str):
+    """
+    Creates BigQuery MCP toolset following the pattern from Google Cloud blog post:
+    https://cloud.google.com/blog/products/data-analytics/using-the-fully-managed-remote-bigquery-mcp-server-to-build-data-ai-agents/
+
+    SIMPLIFIED APPROACH (following official Google Cloud guidance):
+
+    Key Principles:
+    1. Create toolset ONCE (not per-request)
+    2. Pass toolset directly to agent (not extracted tools)
+    3. Let ADK framework handle lifecycle (no manual cleanup)
+    4. Toolset is stateful and reusable across agent invocations
+
+    This avoids the async task scope errors by:
+    - Not manually calling get_tools() or close()
+    - Letting the agent framework manage the toolset lifecycle
+    - Toolset creation is synchronous (no async context issues)
+
+    Args:
+        project_id: Google Cloud project ID for BigQuery access
+
+    Returns:
+        Toolset instance to pass directly to agent's tools list
+    """
+    if not project_id:
+        logger.warning("No Project ID provided; cannot create BigQuery MCP toolset")
+        return None
+
+    try:
+        logger.info(f"Creating BigQuery MCP toolset for project: {project_id}")
+
+        # Pattern: projects/{project}/locations/global/mcpServers/{server_id}
+        mcp_server_name = f"projects/{project_id}/locations/global/mcpServers/google-bigquery.googleapis.com-mcp"
+
         # Create ApiRegistry with explicit quota project header
         api_registry = ApiRegistry(
-            self.project_id,
-            header_provider=lambda _: {"x-goog-user-project": self.project_id}
+            project_id,
+            header_provider=lambda _: {"x-goog-user-project": project_id}
         )
-        
-        self._inner_toolset = api_registry.get_toolset(
-            mcp_server_name=self.mcp_server_name,
-            tool_filter=self.tool_filter
+
+        # Get the MCP toolset (this is synchronous, returns a toolset object)
+        mcp_toolset = api_registry.get_toolset(
+            mcp_server_name=mcp_server_name,
+            tool_filter=["execute_sql", "list_dataset_ids", "list_table_ids", "get_table_info"]
         )
-        
-        # Resolve the actual tools from the toolset, passing context for auth/quota propagation
-        return await self._inner_toolset.get_tools(readonly_context)
 
-    async def close(self):
-        """Explicitly closes the inner toolset to free resources."""
-        if self._inner_toolset:
-            try:
-                await self._inner_toolset.close()
-            except Exception as e:
-                logger.warning(f"Error closing LazyMcpRegistryToolset: {e}")
-
-def load_mcp_tools():
-    """Loads tools from configured MCP endpoints."""
-    tools = []
-
-    # 1. Google Cloud BigQuery MCP Endpoint via ApiRegistry
-    try:
-        # Get default project if not set, or use env var
-        _, project_id = google.auth.default()
-        # Fallback to env var if default auth doesn't provide project_id (e.g. running locally with user creds sometimes)
-        project_id = project_id or os.environ.get("GOOGLE_CLOUD_PROJECT")
-
-        if project_id:
-            logger.info(f"Setting up BigQuery MCP tools for project: {project_id}")
-            # Pattern: projects/{project}/locations/global/mcpServers/{server_id}
-            mcp_server_name = f"projects/{project_id}/locations/global/mcpServers/google-bigquery.googleapis.com-mcp"
-
-            # Use LazyMcpRegistryToolset to avoid creating aiohttp sessions at module import time
-            # which causes crashes in ASGI/uvicorn environments (especially with forking).
-            bq_lazy_toolset = LazyMcpRegistryToolset(
-                project_id=project_id,
-                mcp_server_name=mcp_server_name,
-                tool_filter=["execute_sql", "list_dataset_ids", "list_table_ids", "get_table_info"]
-            )
-            # Add the toolset directly. LlmAgent will call get_tools() on it.
-            tools.append(bq_lazy_toolset)
-        else:
-            logger.warning("No Project ID detected; skipping BigQuery MCP tools.")
+        logger.info("Successfully created BigQuery MCP toolset")
+        return mcp_toolset
 
     except Exception as e:
-        logger.error(f"Failed to setup BigQuery MCP tools: {e}", exc_info=True)
-
-    return tools
+        logger.error(f"Failed to create BigQuery MCP toolset: {e}", exc_info=True)
+        return None
 
 
 
@@ -228,42 +213,43 @@ async def run_aggregate_analysis(
     except:
         pass
 
-    # Recreate the agent with fresh MCP tools and project context
-    fresh_mcp_tools = load_mcp_tools()
-    
+    # Create MCP toolset (following blog post pattern: create once, pass directly)
+    mcp_toolset = create_bigquery_mcp_toolset(project_id)
+
     instruction = stage0_aggregate_analyzer.instruction
     if project_id:
         instruction += f"\n\nCurrent Project ID: {project_id}\nUse this for 'projectId' arguments in BigQuery tools."
-    
+
     # Create a fresh agent instance with merged tools
     original_tools = stage0_aggregate_analyzer.tools or []
+
+    # Build tools list: add toolset if available (ADK will call get_tools() internally)
+    agent_tools = original_tools.copy()
+    if mcp_toolset:
+        agent_tools.append(mcp_toolset)
+
     fresh_aggregate_analyzer = LlmAgent(
         name=stage0_aggregate_analyzer.name,
         model=stage0_aggregate_analyzer.model,
         description=stage0_aggregate_analyzer.description,
         instruction=instruction,
-        # Merge the original python tools with the fresh MCP toolset
-        tools=original_tools + fresh_mcp_tools
+        # Pass toolset directly - ADK framework handles lifecycle
+        tools=agent_tools
     )
 
     aggregate_tool = AgentTool(fresh_aggregate_analyzer)
-    try:
-        return await aggregate_tool.run_async(
-            args={
-                "request": (
-                    f"Context: {json.dumps(stage0_input)}\n"
-                    "Instruction: Perform aggregate analysis of trace data using BigQuery. "
-                    "Identify problem areas, detect trends, and select exemplar traces for investigation."
-                )
-            },
-            tool_context=tool_context
-        )
-    finally:
-        # Explicitly close the fresh MCP toolsets to prevent 'anyio' TaskGroup errors
-        # This ensures cleanup happens in the same Task that created the session.
-        for toolset in fresh_mcp_tools:
-            if hasattr(toolset, 'close'):
-                await toolset.close()
+
+    # No try/finally needed - ADK framework manages toolset lifecycle
+    return await aggregate_tool.run_async(
+        args={
+            "request": (
+                f"Context: {json.dumps(stage0_input)}\n"
+                "Instruction: Perform aggregate analysis of trace data using BigQuery. "
+                "Identify problem areas, detect trends, and select exemplar traces for investigation."
+            )
+        },
+        tool_context=tool_context
+    )
 
 
 @adk_tool
@@ -369,15 +355,10 @@ base_tools = [
     get_logs_for_trace,
 ]
 
-# Load MCP tools
-mcp_tools = load_mcp_tools()
-
-# Inject MCP tools into the Aggregate Analyzer sub-agent
-# This is necessary because the sub-agent needs access to 'execute_sql'
-# but we can't easily import mcp_tools in the sub-agent module due to circular deps/context.
-# Note: We do NOT load MCP tools globally into an agent instance to avoid stale sessions.
-# Instead, run_aggregate_analysis loads them on-demand.
-
+# Note: MCP toolsets are created per-request in run_aggregate_analysis() and passed
+# directly to the agent (following Google Cloud blog post pattern). The ADK framework
+# handles toolset lifecycle automatically - no manual cleanup needed.
+# This avoids "cancel scope in different task" errors.
 
 # Detect Project ID for instruction
 try:

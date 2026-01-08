@@ -2,8 +2,8 @@
 import os
 import sys
 import unittest
-from unittest.mock import MagicMock, patch
-
+from unittest.mock import MagicMock, AsyncMock, patch
+import asyncio
 
 
 # Mock google.adk components
@@ -12,10 +12,7 @@ sys.modules["google.adk"] = mock_adk
 sys.modules["google.adk.agents"] = mock_adk
 sys.modules["google.adk.tools"] = mock_adk
 sys.modules["google.adk.tools.api_registry"] = MagicMock() # Mock the registry module
-sys.modules["google.adk.tools.base_toolset"] = MagicMock() 
-class MockBaseToolset:
-    pass
-sys.modules["google.adk.tools.base_toolset"].BaseToolset = MockBaseToolset
+sys.modules["google.adk.tools.base_toolset"] = MagicMock()
 
 sys.modules["google.cloud"] = MagicMock()
 sys.modules["google.cloud.trace_v1"] = MagicMock()
@@ -39,7 +36,8 @@ google.auth = mock_auth
 
 class TestMCPIntegration(unittest.TestCase):
 
-    def test_load_mcp_tools_registry(self):
+    def test_create_bigquery_mcp_toolset_simple(self):
+        """Test that create_bigquery_mcp_toolset creates toolset following blog post pattern."""
         # We'll use the mock we injected into sys.modules
         mock_registry_module = sys.modules["google.adk.tools.api_registry"]
         mock_registry_cls = mock_registry_module.ApiRegistry
@@ -50,18 +48,58 @@ class TestMCPIntegration(unittest.TestCase):
         # Reload agent to ensure it picks up the mocks and runs clean
         if "trace_analyzer.agent" in sys.modules:
             del sys.modules["trace_analyzer.agent"]
-        from trace_analyzer.agent import load_mcp_tools
+        from trace_analyzer.agent import create_bigquery_mcp_toolset
 
         # Setup registry mock instance interactions
         mock_registry_instance = mock_registry_cls.return_value
-        mock_registry_instance.get_toolset.return_value = ["bq_tool_1", "bq_tool_2"]
+        mock_toolset = MagicMock()
+        mock_registry_instance.get_toolset.return_value = mock_toolset
 
-        tools = load_mcp_tools()
+        # Test: create toolset (synchronous, no await)
+        toolset = create_bigquery_mcp_toolset("test-project")
 
-        # Check if LazyMcpRegistryToolset is in tools
-        lazy_toolset = next((t for t in tools if type(t).__name__ == 'LazyMcpRegistryToolset'), None)
-        self.assertIsNotNone(lazy_toolset)
+        # Verify toolset was returned (not tools)
+        self.assertIsNotNone(toolset)
+        self.assertEqual(toolset, mock_toolset)
 
+        # Verify get_toolset was called
+        mock_registry_instance.get_toolset.assert_called_once()
+
+        # Verify get_tools() was NOT called (ADK framework will call it)
+        self.assertFalse(hasattr(mock_toolset.get_tools, 'call_count') or mock_toolset.get_tools.call_count == 0)
+
+    def test_create_bigquery_mcp_toolset_no_project(self):
+        """Test that create_bigquery_mcp_toolset handles missing project ID gracefully."""
+        # Reload agent
+        if "trace_analyzer.agent" in sys.modules:
+            del sys.modules["trace_analyzer.agent"]
+        from trace_analyzer.agent import create_bigquery_mcp_toolset
+
+        # Test with None project_id
+        toolset = create_bigquery_mcp_toolset(None)
+        self.assertIsNone(toolset)
+
+        # Test with empty string
+        toolset = create_bigquery_mcp_toolset("")
+        self.assertIsNone(toolset)
+
+    def test_create_bigquery_mcp_toolset_error_handling(self):
+        """Test that create_bigquery_mcp_toolset handles errors gracefully."""
+        mock_registry_module = sys.modules["google.adk.tools.api_registry"]
+        mock_registry_cls = mock_registry_module.ApiRegistry
+
+        # Reload agent
+        if "trace_analyzer.agent" in sys.modules:
+            del sys.modules["trace_analyzer.agent"]
+        from trace_analyzer.agent import create_bigquery_mcp_toolset
+
+        # Setup mock to raise error during get_toolset
+        mock_registry_instance = mock_registry_cls.return_value
+        mock_registry_instance.get_toolset.side_effect = Exception("Connection error")
+
+        # Test: should return None on error (not raise)
+        toolset = create_bigquery_mcp_toolset("test-project")
+        self.assertIsNone(toolset)
 
 
 if __name__ == "__main__":
