@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 @adk_tool
 def analyze_aggregate_metrics(
     dataset_id: str,
-    table_name: str = "_AllSpans",
+    table_name: str,
     time_window_hours: int = 24,
     service_name: str | None = None,
     operation_name: str | None = None,
@@ -137,6 +137,9 @@ ORDER BY error_rate_pct DESC, p99_ms DESC
 LIMIT 50
 """
 
+    # Log generated query
+    logger.info(f"Generated Aggregate Analysis SQL:\n{query.strip()}")
+
     return json.dumps({
         "analysis_type": "aggregate_metrics",
         "sql_query": query.strip(),
@@ -152,7 +155,7 @@ LIMIT 50
 @adk_tool
 def find_exemplar_traces(
     dataset_id: str,
-    table_name: str = "_AllSpans",
+    table_name: str,
     time_window_hours: int = 24,
     service_name: str | None = None,
     operation_name: str | None = None,
@@ -318,6 +321,9 @@ ORDER BY selection_reason, duration_ms
     else:
         return json.dumps({"error": f"Unknown selection_strategy: {selection_strategy}"})
 
+    # Log generated query
+    logger.info(f"Generated Exemplar Selection SQL ({selection_strategy}):\n{query.strip()}")
+
     return json.dumps({
         "analysis_type": "exemplar_selection",
         "selection_strategy": selection_strategy,
@@ -420,6 +426,9 @@ SELECT * FROM direct_logs
 ORDER BY timestamp
 """
 
+    # Log generated query
+    logger.info(f"Generated Log Correlation SQL (trace={trace_id}):\n{query.strip()}")
+
     return json.dumps({
         "analysis_type": "log_correlation",
         "trace_id": trace_id,
@@ -437,7 +446,7 @@ ORDER BY timestamp
 @adk_tool
 def compare_time_periods(
     dataset_id: str,
-    table_name: str = "_AllSpans",
+    table_name: str,
     baseline_hours_ago_start: int = 48,
     baseline_hours_ago_end: int = 24,
     anomaly_hours_ago_start: int = 24,
@@ -530,6 +539,9 @@ FROM combined
 ORDER BY period
 """
 
+    # Log generated query
+    logger.info(f"Generated Time Period Comparison SQL:\n{query.strip()}")
+
     return json.dumps({
         "analysis_type": "time_period_comparison",
         "sql_query": query.strip(),
@@ -548,7 +560,7 @@ ORDER BY period
 @adk_tool
 def detect_trend_changes(
     dataset_id: str,
-    table_name: str = "_AllSpans",
+    table_name: str,
     time_window_hours: int = 72,
     bucket_hours: int = 1,
     service_name: str | None = None,
@@ -635,6 +647,9 @@ SELECT
 FROM with_moving_avg
 ORDER BY time_bucket DESC
 """
+
+    # Log generated query
+    logger.info(f"Generated Trend Detection SQL ({metric}):\n{query.strip()}")
 
     return json.dumps({
         "analysis_type": "trend_detection",
