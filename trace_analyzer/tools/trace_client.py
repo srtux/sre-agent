@@ -8,7 +8,6 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-import google.cloud.errorreporting_v1beta1 as errorreporting_v1beta1
 from google.cloud import monitoring_v3, trace_v1
 from google.cloud.logging_v2.services.logging_service_v2 import LoggingServiceV2Client
 
@@ -143,6 +142,8 @@ def list_error_events(project_id: str, minutes_ago: int = 60) -> str:
         A JSON string representing the list of error events.
     """
     try:
+        import google.cloud.errorreporting_v1beta1 as errorreporting_v1beta1
+
         client = errorreporting_v1beta1.ErrorStatsServiceClient()
         project_name = f"projects/{project_id}"
         time_range = errorreporting_v1beta1.QueryTimeRange()

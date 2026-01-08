@@ -62,9 +62,7 @@ def test_list_time_series(mock_metric_client_cls):
     assert result[0]["points"][0]["value"] == 100.0
 
 
-@mock.patch(
-    "trace_analyzer.tools.trace_client.errorreporting_v1beta1.ErrorStatsServiceClient"
-)
+@mock.patch("google.cloud.errorreporting_v1beta1.ErrorStatsServiceClient")
 def test_list_error_events(mock_error_client_cls):
     """Test list_error_events tool."""
     mock_client = mock.Mock()

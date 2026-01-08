@@ -243,9 +243,7 @@ class TestGetTraceByURL:
 class TestListErrorEvents:
     """Tests for list_error_events function."""
 
-    @patch(
-        "trace_analyzer.tools.trace_client.errorreporting_v1beta1.ErrorStatsServiceClient"
-    )
+    @patch("google.cloud.errorreporting_v1beta1.ErrorStatsServiceClient")
     def test_list_error_events_success(self, mock_client_class):
         """Test successful error event listing."""
         mock_client = MagicMock()
