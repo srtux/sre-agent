@@ -4,20 +4,26 @@ This module provides sophisticated analysis capabilities using BigQuery
 to query trace data at scale. It assumes traces are exported to BigQuery
 using the OpenTelemetry schema.
 
-Standard OpenTelemetry schema in BigQuery:
-- Table: `<dataset>.otel_traces`
+Google Cloud Observability OpenTelemetry schema (_AllSpans table):
+- Table: `<dataset>._AllSpans` (or custom table name)
 - Key fields:
-  - trace_id: Unique trace identifier
-  - span_id: Unique span identifier
-  - parent_span_id: Parent span reference
-  - span_name: Operation name
+  - trace_id: Unique trace identifier (128-bit hex string)
+  - span_id: Unique span identifier (64-bit hex string)
+  - parent_span_id: Parent span reference (NULL for root spans)
+  - name: Span/operation name
   - start_time: Span start timestamp
   - end_time: Span end timestamp
-  - duration: Span duration in nanoseconds
-  - status_code: OK, ERROR, UNSET
-  - attributes: Key-value pairs (STRUCT or JSON)
-  - resource_attributes: Resource metadata
-  - service_name: Extracted from resource.service.name
+  - duration_nano: Span duration in nanoseconds
+  - status: RECORD with code (0=UNSET, 1=OK, 2=ERROR) and message
+  - kind: Span kind (1=INTERNAL, 2=SERVER, 3=CLIENT, 4=PRODUCER, 5=CONSUMER)
+  - attributes: JSON key-value pairs (http.method, http.status_code, etc.)
+  - resource: RECORD with attributes (service.name, host.name, etc.)
+  - events: REPEATED RECORD with name, time, attributes (exceptions, logs)
+  - links: REPEATED RECORD with trace_id, span_id, attributes (causal relationships)
+  - instrumentation_scope: RECORD with name, version, schema_url
+  - trace_state: W3C trace state for vendor-specific data
+
+For schema documentation, see: trace_analyzer/schema/otel_schema.py
 """
 
 import json
@@ -32,7 +38,7 @@ logger = logging.getLogger(__name__)
 @adk_tool
 def analyze_aggregate_metrics(
     dataset_id: str,
-    table_name: str = "otel_traces",
+    table_name: str = "_AllSpans",
     time_window_hours: int = 24,
     service_name: str | None = None,
     operation_name: str | None = None,
@@ -65,14 +71,14 @@ def analyze_aggregate_metrics(
     Example SQL that will be generated for BigQuery MCP:
     ```sql
     SELECT
-      service_name,
+      JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') as service_name,
       COUNT(*) as request_count,
-      COUNTIF(status_code = 'ERROR') as error_count,
-      ROUND(COUNTIF(status_code = 'ERROR') / COUNT(*) * 100, 2) as error_rate_pct,
-      APPROX_QUANTILES(duration / 1000000, 100)[OFFSET(50)] as p50_ms,
-      APPROX_QUANTILES(duration / 1000000, 100)[OFFSET(95)] as p95_ms,
-      APPROX_QUANTILES(duration / 1000000, 100)[OFFSET(99)] as p99_ms,
-      AVG(duration / 1000000) as avg_duration_ms
+      COUNTIF(status.code = 2) as error_count,
+      ROUND(COUNTIF(status.code = 2) / COUNT(*) * 100, 2) as error_rate_pct,
+      APPROX_QUANTILES(duration_nano / 1000000, 100)[OFFSET(50)] as p50_ms,
+      APPROX_QUANTILES(duration_nano / 1000000, 100)[OFFSET(95)] as p95_ms,
+      APPROX_QUANTILES(duration_nano / 1000000, 100)[OFFSET(99)] as p99_ms,
+      AVG(duration_nano / 1000000) as avg_duration_ms
     FROM `{dataset_id}.{table_name}`
     WHERE start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {hours} HOUR)
       AND parent_span_id IS NULL  -- Root spans only
@@ -90,29 +96,38 @@ def analyze_aggregate_metrics(
     ]
 
     if service_name:
-        where_conditions.append(f"service_name = '{service_name}'")
+        where_conditions.append(f"JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = '{service_name}'")
 
     if operation_name:
-        where_conditions.append(f"span_name = '{operation_name}'")
+        where_conditions.append(f"name = '{operation_name}'")
 
     if min_duration_ms:
         # Convert ms to nanoseconds
         min_duration_ns = int(min_duration_ms * 1_000_000)
-        where_conditions.append(f"duration >= {min_duration_ns}")
+        where_conditions.append(f"duration_nano >= {min_duration_ns}")
 
     where_clause = " AND ".join(where_conditions)
+
+    # Map group_by to correct field
+    group_by_field = group_by
+    if group_by == "service_name":
+        group_by_field = "JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name')"
+    elif group_by == "operation_name":
+        group_by_field = "name"
+    elif group_by == "status_code":
+        group_by_field = "status.code"
 
     # Build query
     query = f"""
 SELECT
-  {group_by},
+  {group_by_field} as {group_by},
   COUNT(*) as request_count,
-  COUNTIF(status_code = 'ERROR') as error_count,
-  ROUND(COUNTIF(status_code = 'ERROR') / COUNT(*) * 100, 2) as error_rate_pct,
-  ROUND(APPROX_QUANTILES(duration / 1000000, 100)[OFFSET(50)], 2) as p50_ms,
-  ROUND(APPROX_QUANTILES(duration / 1000000, 100)[OFFSET(95)], 2) as p95_ms,
-  ROUND(APPROX_QUANTILES(duration / 1000000, 100)[OFFSET(99)], 2) as p99_ms,
-  ROUND(AVG(duration / 1000000), 2) as avg_duration_ms,
+  COUNTIF(status.code = 2) as error_count,
+  ROUND(COUNTIF(status.code = 2) / COUNT(*) * 100, 2) as error_rate_pct,
+  ROUND(APPROX_QUANTILES(duration_nano / 1000000, 100)[OFFSET(50)], 2) as p50_ms,
+  ROUND(APPROX_QUANTILES(duration_nano / 1000000, 100)[OFFSET(95)], 2) as p95_ms,
+  ROUND(APPROX_QUANTILES(duration_nano / 1000000, 100)[OFFSET(99)], 2) as p99_ms,
+  ROUND(AVG(duration_nano / 1000000), 2) as avg_duration_ms,
   MIN(start_time) as first_seen,
   MAX(start_time) as last_seen
 FROM `{dataset_id}.{table_name}`
@@ -137,7 +152,7 @@ LIMIT 50
 @adk_tool
 def find_exemplar_traces(
     dataset_id: str,
-    table_name: str = "otel_traces",
+    table_name: str = "_AllSpans",
     time_window_hours: int = 24,
     service_name: str | None = None,
     operation_name: str | None = None,
@@ -175,10 +190,10 @@ def find_exemplar_traces(
     ]
 
     if service_name:
-        where_conditions.append(f"service_name = '{service_name}'")
+        where_conditions.append(f"JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = '{service_name}'")
 
     if operation_name:
-        where_conditions.append(f"span_name = '{operation_name}'")
+        where_conditions.append(f"name = '{operation_name}'")
 
     where_clause = " AND ".join(where_conditions)
 
@@ -188,23 +203,23 @@ def find_exemplar_traces(
         query = f"""
 WITH duration_stats AS (
   SELECT
-    APPROX_QUANTILES(duration / 1000000, 100)[OFFSET(95)] as p95_ms
+    APPROX_QUANTILES(duration_nano / 1000000, 100)[OFFSET(95)] as p95_ms
   FROM `{dataset_id}.{table_name}`
   WHERE {where_clause}
 )
 SELECT
   t.trace_id,
-  t.span_name as operation,
-  t.service_name,
-  ROUND(t.duration / 1000000, 2) as duration_ms,
-  t.status_code,
+  t.name as operation,
+  JSON_EXTRACT_SCALAR(t.resource.attributes, '$.service.name') as service_name,
+  ROUND(t.duration_nano / 1000000, 2) as duration_ms,
+  t.status.code as status_code,
   t.start_time,
-  ROUND((t.duration / 1000000 - s.p95_ms) / s.p95_ms * 100, 2) as pct_above_p95
+  ROUND((t.duration_nano / 1000000 - s.p95_ms) / s.p95_ms * 100, 2) as pct_above_p95
 FROM `{dataset_id}.{table_name}` t
 CROSS JOIN duration_stats s
 WHERE {where_clause}
-  AND t.duration / 1000000 >= s.p95_ms
-ORDER BY t.duration DESC
+  AND t.duration_nano / 1000000 >= s.p95_ms
+ORDER BY t.duration_nano DESC
 LIMIT {limit}
 """
 
@@ -212,15 +227,16 @@ LIMIT {limit}
         query = f"""
 SELECT
   trace_id,
-  span_name as operation,
-  service_name,
-  ROUND(duration / 1000000, 2) as duration_ms,
-  status_code,
+  name as operation,
+  JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') as service_name,
+  ROUND(duration_nano / 1000000, 2) as duration_ms,
+  status.code as status_code,
+  status.message as error_message,
   start_time,
   'error_trace' as selection_reason
 FROM `{dataset_id}.{table_name}`
 WHERE {where_clause}
-  AND status_code = 'ERROR'
+  AND status.code = 2  -- ERROR
 ORDER BY start_time DESC
 LIMIT {limit}
 """
@@ -230,24 +246,24 @@ LIMIT {limit}
         query = f"""
 WITH duration_stats AS (
   SELECT
-    APPROX_QUANTILES(duration / 1000000, 100)[OFFSET(50)] as p50_ms
+    APPROX_QUANTILES(duration_nano / 1000000, 100)[OFFSET(50)] as p50_ms
   FROM `{dataset_id}.{table_name}`
   WHERE {where_clause}
 )
 SELECT
   t.trace_id,
-  t.span_name as operation,
-  t.service_name,
-  ROUND(t.duration / 1000000, 2) as duration_ms,
-  t.status_code,
+  t.name as operation,
+  JSON_EXTRACT_SCALAR(t.resource.attributes, '$.service.name') as service_name,
+  ROUND(t.duration_nano / 1000000, 2) as duration_ms,
+  t.status.code as status_code,
   t.start_time,
   'baseline_p50' as selection_reason
 FROM `{dataset_id}.{table_name}` t
 CROSS JOIN duration_stats s
 WHERE {where_clause}
-  AND t.status_code != 'ERROR'
-  AND ABS(t.duration / 1000000 - s.p50_ms) < s.p50_ms * 0.1  -- Within 10% of P50
-ORDER BY ABS(t.duration / 1000000 - s.p50_ms)
+  AND t.status.code != 2  -- Not ERROR
+  AND ABS(t.duration_nano / 1000000 - s.p50_ms) < s.p50_ms * 0.1  -- Within 10% of P50
+ORDER BY ABS(t.duration_nano / 1000000 - s.p50_ms)
 LIMIT {limit}
 """
 
@@ -256,42 +272,42 @@ LIMIT {limit}
         query = f"""
 WITH duration_stats AS (
   SELECT
-    APPROX_QUANTILES(duration / 1000000, 100)[OFFSET(50)] as p50_ms,
-    APPROX_QUANTILES(duration / 1000000, 100)[OFFSET(95)] as p95_ms
+    APPROX_QUANTILES(duration_nano / 1000000, 100)[OFFSET(50)] as p50_ms,
+    APPROX_QUANTILES(duration_nano / 1000000, 100)[OFFSET(95)] as p95_ms
   FROM `{dataset_id}.{table_name}`
   WHERE {where_clause}
 ),
 baseline_traces AS (
   SELECT
     t.trace_id,
-    t.span_name as operation,
-    t.service_name,
-    ROUND(t.duration / 1000000, 2) as duration_ms,
-    t.status_code,
+    t.name as operation,
+    JSON_EXTRACT_SCALAR(t.resource.attributes, '$.service.name') as service_name,
+    ROUND(t.duration_nano / 1000000, 2) as duration_ms,
+    t.status.code as status_code,
     t.start_time,
     'baseline_p50' as selection_reason
   FROM `{dataset_id}.{table_name}` t
   CROSS JOIN duration_stats s
   WHERE {where_clause}
-    AND t.status_code != 'ERROR'
-    AND ABS(t.duration / 1000000 - s.p50_ms) < s.p50_ms * 0.1
-  ORDER BY ABS(t.duration / 1000000 - s.p50_ms)
+    AND t.status.code != 2  -- Not ERROR
+    AND ABS(t.duration_nano / 1000000 - s.p50_ms) < s.p50_ms * 0.1
+  ORDER BY ABS(t.duration_nano / 1000000 - s.p50_ms)
   LIMIT {limit // 2}
 ),
 outlier_traces AS (
   SELECT
     t.trace_id,
-    t.span_name as operation,
-    t.service_name,
-    ROUND(t.duration / 1000000, 2) as duration_ms,
-    t.status_code,
+    t.name as operation,
+    JSON_EXTRACT_SCALAR(t.resource.attributes, '$.service.name') as service_name,
+    ROUND(t.duration_nano / 1000000, 2) as duration_ms,
+    t.status.code as status_code,
     t.start_time,
     'outlier_p95' as selection_reason
   FROM `{dataset_id}.{table_name}` t
   CROSS JOIN duration_stats s
   WHERE {where_clause}
-    AND t.duration / 1000000 >= s.p95_ms
-  ORDER BY t.duration DESC
+    AND t.duration_nano / 1000000 >= s.p95_ms
+  ORDER BY t.duration_nano DESC
   LIMIT {limit // 2}
 )
 SELECT * FROM baseline_traces
@@ -320,7 +336,8 @@ ORDER BY selection_reason, duration_ms
 def correlate_logs_with_trace(
     dataset_id: str,
     trace_id: str,
-    log_table_name: str = "otel_logs",
+    trace_table_name: str = "_AllSpans",
+    log_table_name: str = "_AllLogs",
     include_nearby_logs: bool = True,
     time_window_seconds: int = 30,
 ) -> str:
@@ -353,18 +370,18 @@ WITH trace_context AS (
   SELECT
     MIN(start_time) as trace_start,
     MAX(end_time) as trace_end,
-    ANY_VALUE(service_name) as service_name
-  FROM `{dataset_id}.otel_traces`
+    ANY_VALUE(JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name')) as service_name
+  FROM `{dataset_id}.{trace_table_name}`
   WHERE trace_id = '{trace_id}'
     AND parent_span_id IS NULL
 ),
 direct_logs AS (
   -- Logs directly correlated via trace_id
   SELECT
-    l.timestamp,
+    l.time_unix_nano as timestamp,
     l.severity_text as severity,
-    l.body as message,
-    l.resource_attributes.service_name as service,
+    l.body.string_value as message,
+    JSON_EXTRACT_SCALAR(l.resource.attributes, '$.service.name') as service,
     'direct_correlation' as correlation_type,
     l.trace_id
   FROM `{dataset_id}.{log_table_name}` l
@@ -377,19 +394,19 @@ direct_logs AS (
 nearby_logs AS (
   -- Logs from same service around the same time (useful for errors not tagged with trace_id)
   SELECT
-    l.timestamp,
+    l.time_unix_nano as timestamp,
     l.severity_text as severity,
-    l.body as message,
-    l.resource_attributes.service_name as service,
+    l.body.string_value as message,
+    JSON_EXTRACT_SCALAR(l.resource.attributes, '$.service.name') as service,
     'temporal_correlation' as correlation_type,
     l.trace_id
   FROM `{dataset_id}.{log_table_name}` l
   CROSS JOIN trace_context t
-  WHERE l.resource_attributes.service_name = t.service_name
-    AND l.timestamp >= TIMESTAMP_SUB(t.trace_start, INTERVAL {time_window_seconds} SECOND)
-    AND l.timestamp <= TIMESTAMP_ADD(t.trace_end, INTERVAL {time_window_seconds} SECOND)
-    AND l.severity_text IN ('ERROR', 'CRITICAL', 'WARN')
-    AND l.trace_id != '{trace_id}'  -- Don't duplicate direct logs
+  WHERE JSON_EXTRACT_SCALAR(l.resource.attributes, '$.service.name') = t.service_name
+    AND TIMESTAMP_MICROS(CAST(l.time_unix_nano / 1000 AS INT64)) >= TIMESTAMP_SUB(t.trace_start, INTERVAL {time_window_seconds} SECOND)
+    AND TIMESTAMP_MICROS(CAST(l.time_unix_nano / 1000 AS INT64)) <= TIMESTAMP_ADD(t.trace_end, INTERVAL {time_window_seconds} SECOND)
+    AND l.severity_text IN ('ERROR', 'ERROR2', 'ERROR3', 'ERROR4', 'FATAL', 'WARN')
+    AND (l.trace_id IS NULL OR l.trace_id != '{trace_id}')  -- Don't duplicate direct logs
   LIMIT 20
 )
 SELECT * FROM direct_logs
@@ -420,7 +437,7 @@ ORDER BY timestamp
 @adk_tool
 def compare_time_periods(
     dataset_id: str,
-    table_name: str = "otel_traces",
+    table_name: str = "_AllSpans",
     baseline_hours_ago_start: int = 48,
     baseline_hours_ago_end: int = 24,
     anomaly_hours_ago_start: int = 24,
@@ -453,21 +470,21 @@ def compare_time_periods(
     """
     where_filter = ""
     if service_name:
-        where_filter += f"AND service_name = '{service_name}'\n  "
+        where_filter += f"AND JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = '{service_name}'\n  "
     if operation_name:
-        where_filter += f"AND span_name = '{operation_name}'\n  "
+        where_filter += f"AND name = '{operation_name}'\n  "
 
     query = f"""
 WITH baseline_period AS (
   SELECT
     'baseline' as period,
     COUNT(*) as request_count,
-    COUNTIF(status_code = 'ERROR') as error_count,
-    ROUND(COUNTIF(status_code = 'ERROR') / COUNT(*) * 100, 2) as error_rate_pct,
-    ROUND(APPROX_QUANTILES(duration / 1000000, 100)[OFFSET(50)], 2) as p50_ms,
-    ROUND(APPROX_QUANTILES(duration / 1000000, 100)[OFFSET(95)], 2) as p95_ms,
-    ROUND(APPROX_QUANTILES(duration / 1000000, 100)[OFFSET(99)], 2) as p99_ms,
-    ROUND(AVG(duration / 1000000), 2) as avg_ms
+    COUNTIF(status.code = 2) as error_count,
+    ROUND(COUNTIF(status.code = 2) / COUNT(*) * 100, 2) as error_rate_pct,
+    ROUND(APPROX_QUANTILES(duration_nano / 1000000, 100)[OFFSET(50)], 2) as p50_ms,
+    ROUND(APPROX_QUANTILES(duration_nano / 1000000, 100)[OFFSET(95)], 2) as p95_ms,
+    ROUND(APPROX_QUANTILES(duration_nano / 1000000, 100)[OFFSET(99)], 2) as p99_ms,
+    ROUND(AVG(duration_nano / 1000000), 2) as avg_ms
   FROM `{dataset_id}.{table_name}`
   WHERE start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {baseline_hours_ago_start} HOUR)
     AND start_time < TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {baseline_hours_ago_end} HOUR)
@@ -478,12 +495,12 @@ anomaly_period AS (
   SELECT
     'anomaly' as period,
     COUNT(*) as request_count,
-    COUNTIF(status_code = 'ERROR') as error_count,
-    ROUND(COUNTIF(status_code = 'ERROR') / COUNT(*) * 100, 2) as error_rate_pct,
-    ROUND(APPROX_QUANTILES(duration / 1000000, 100)[OFFSET(50)], 2) as p50_ms,
-    ROUND(APPROX_QUANTILES(duration / 1000000, 100)[OFFSET(95)], 2) as p95_ms,
-    ROUND(APPROX_QUANTILES(duration / 1000000, 100)[OFFSET(99)], 2) as p99_ms,
-    ROUND(AVG(duration / 1000000), 2) as avg_ms
+    COUNTIF(status.code = 2) as error_count,
+    ROUND(COUNTIF(status.code = 2) / COUNT(*) * 100, 2) as error_rate_pct,
+    ROUND(APPROX_QUANTILES(duration_nano / 1000000, 100)[OFFSET(50)], 2) as p50_ms,
+    ROUND(APPROX_QUANTILES(duration_nano / 1000000, 100)[OFFSET(95)], 2) as p95_ms,
+    ROUND(APPROX_QUANTILES(duration_nano / 1000000, 100)[OFFSET(99)], 2) as p99_ms,
+    ROUND(AVG(duration_nano / 1000000), 2) as avg_ms
   FROM `{dataset_id}.{table_name}`
   WHERE start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {anomaly_hours_ago_start} HOUR)
     AND start_time < TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {anomaly_hours_ago_end} HOUR)
@@ -531,7 +548,7 @@ ORDER BY period
 @adk_tool
 def detect_trend_changes(
     dataset_id: str,
-    table_name: str = "otel_traces",
+    table_name: str = "_AllSpans",
     time_window_hours: int = 72,
     bucket_hours: int = 1,
     service_name: str | None = None,
@@ -556,17 +573,17 @@ def detect_trend_changes(
     """
     where_filter = ""
     if service_name:
-        where_filter = f"AND service_name = '{service_name}'"
+        where_filter = f"AND JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = '{service_name}'"
 
     # Build metric calculation based on requested metric
     if metric == "p95":
-        metric_calc = "ROUND(APPROX_QUANTILES(duration / 1000000, 100)[OFFSET(95)], 2) as metric_value"
+        metric_calc = "ROUND(APPROX_QUANTILES(duration_nano / 1000000, 100)[OFFSET(95)], 2) as metric_value"
         metric_name = "p95_latency_ms"
     elif metric == "p99":
-        metric_calc = "ROUND(APPROX_QUANTILES(duration / 1000000, 100)[OFFSET(99)], 2) as metric_value"
+        metric_calc = "ROUND(APPROX_QUANTILES(duration_nano / 1000000, 100)[OFFSET(99)], 2) as metric_value"
         metric_name = "p99_latency_ms"
     elif metric == "error_rate":
-        metric_calc = "ROUND(COUNTIF(status_code = 'ERROR') / COUNT(*) * 100, 2) as metric_value"
+        metric_calc = "ROUND(COUNTIF(status.code = 2) / COUNT(*) * 100, 2) as metric_value"
         metric_name = "error_rate_pct"
     elif metric == "throughput":
         metric_calc = "COUNT(*) as metric_value"
