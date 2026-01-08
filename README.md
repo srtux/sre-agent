@@ -22,7 +22,7 @@ The agent is built using the Google Agent Development Kit (ADK) and follows a hi
 
 ```mermaid
 sequenceDiagram
-    %%{init: {'theme': 'base', 'themeVariables': {'darkMode': false, 'fontFamily': 'arial', 'fontSize': '14px', 'textColor': '#000000', 'primaryTextColor': '#000000', 'actorTextColor': '#000000', 'actorBorder': '#000000', 'actorBkg': '#FFFFFF', 'actorLineColor': '#333333', 'signalColor': '#333333', 'signalTextColor': '#000000', 'activationBorderColor': '#333333', 'activationBkgColor': '#E8F0FE', 'noteBkgColor': '#FFF8E1', 'noteBorderColor': '#333333', 'noteTextColor': '#000000'}}}%%
+    %%{init: {'theme': 'base', 'themeVariables': {'darkMode': false, 'background': '#ffffff', 'mainBkg': '#ffffff', 'fontFamily': 'arial', 'fontSize': '14px', 'textColor': '#000000', 'primaryTextColor': '#000000', 'actorTextColor': '#000000', 'actorBorder': '#000000', 'actorBkg': '#FFFFFF', 'actorLineColor': '#333333', 'signalColor': '#333333', 'signalTextColor': '#000000', 'activationBorderColor': '#333333', 'activationBkgColor': '#E8F0FE', 'noteBkgColor': '#FFF8E1', 'noteBorderColor': '#333333', 'noteTextColor': '#000000'}}}%%
     
     autonumber
     
