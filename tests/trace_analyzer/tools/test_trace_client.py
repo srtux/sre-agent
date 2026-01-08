@@ -65,8 +65,9 @@ def test_fetch_trace_success(mock_trace_service_client):
     mock_instance.get_trace.return_value = mock_trace
 
     # Execute
-    result_json = fetch_trace("test_project_id", "test_trace_id")
-    result = json.loads(result_json)
+    result = fetch_trace(
+        trace_id_or_json="test_trace_id", project_id="test_project_id"
+    )
 
     # Verify
     mock_instance.get_trace.assert_called_with(
@@ -87,8 +88,7 @@ def test_fetch_trace_error(mock_trace_service_client):
 
     get_trace_cache().clear()
 
-    result_json = fetch_trace("test_project_id", "test_trace_id")
-    result = json.loads(result_json)
+    result = fetch_trace(project_id="test_project_id", trace_id_or_json="test_trace_id")
 
     assert "error" in result
     assert "Failed to fetch trace" in result["error"]
@@ -192,10 +192,9 @@ def test_get_trace_by_url_success(mock_trace_service_client):
     url = "https://console.cloud.google.com/traces/list?project=test-project&tid=test-trace-id"
 
     with mock.patch("trace_analyzer.tools.trace_client.fetch_trace") as mock_fetch:
-        mock_fetch.return_value = json.dumps({"trace_id": "test-trace-id"})
+        mock_fetch.return_value = {"trace_id": "test-trace-id"}
 
-        result_json = get_trace_by_url(url)
-        result = json.loads(result_json)
+        result = get_trace_by_url(url)
 
         mock_fetch.assert_called_with("test-project", "test-trace-id")
         assert result["trace_id"] == "test-trace-id"
@@ -205,7 +204,7 @@ def test_get_trace_by_url_details_format():
     url = "https://console.cloud.google.com/traces/details/test-trace-id?project=test-project"
 
     with mock.patch("trace_analyzer.tools.trace_client.fetch_trace") as mock_fetch:
-        mock_fetch.return_value = json.dumps({"trace_id": "test-trace-id"})
+        mock_fetch.return_value = {"trace_id": "test-trace-id"}
 
         get_trace_by_url(url)
 

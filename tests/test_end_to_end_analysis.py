@@ -36,8 +36,14 @@ def mock_fetch_trace():
         patch("trace_analyzer.tools.statistical_analysis.fetch_trace") as mock_b,
     ):
 
-        def side_effect(project_id, trace_id):
-            return trace_id
+        def side_effect(trace_id, project_id=None):
+            # The tests pass the full JSON string as the trace_id
+            import json
+
+            try:
+                return json.loads(trace_id)
+            except json.JSONDecodeError:
+                return {"error": "Invalid JSON in mock"}
 
         mock_a.side_effect = side_effect
         mock_b.side_effect = side_effect

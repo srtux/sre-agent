@@ -49,13 +49,12 @@ class TestFetchTrace:
         mock_client.get_trace.return_value = mock_trace
 
         # Execute
-        result_json = trace_client.fetch_trace(
-            project_id="test-project", trace_id=trace_id
+        result = trace_client.fetch_trace(
+            project_id="test-project", trace_id_or_json=trace_id
         )
 
         # Verify
-        assert result_json is not None
-        result = json.loads(result_json)
+        assert result is not None
         assert result["trace_id"] == trace_id
         mock_client.get_trace.assert_called_once()
 
@@ -71,12 +70,11 @@ class TestFetchTrace:
         mock_client.get_trace.side_effect = exceptions.NotFound("Trace not found")
 
         # Execute
-        result_json = trace_client.fetch_trace(
-            project_id="test-project", trace_id="invalid-trace-id"
+        result = trace_client.fetch_trace(
+            project_id="test-project", trace_id_or_json="invalid-trace-id"
         )
 
         # Verify error handling (it returns an error JSON, not raises)
-        result = json.loads(result_json)
         assert "error" in result
         assert "404" in result["error"]
 
@@ -345,7 +343,7 @@ class TestIntegration:
 
         # Execute workflow
         trace_result = trace_client.fetch_trace(
-            project_id="test-project", trace_id=trace_id
+            project_id="test-project", trace_id_or_json=trace_id
         )
 
         log_result = trace_client.get_logs_for_trace(

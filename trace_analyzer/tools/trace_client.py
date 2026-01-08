@@ -212,7 +212,8 @@ def _get_project_id() -> str:
     return project_id
 
 
-def fetch_trace_data(  # noqa: C901
+@adk_tool
+def fetch_trace(  # noqa: C901
     trace_id_or_json: str | dict[str, Any], project_id: str | None = None
 ) -> dict[str, Any]:
     """
@@ -247,7 +248,7 @@ def fetch_trace_data(  # noqa: C901
     if not project_id:
         return {"error": "Project ID required to fetch trace."}
 
-    trace_json = fetch_trace(project_id, trace_id_or_json)
+    trace_json = _fetch_trace_from_api(project_id, trace_id_or_json)
     try:
         if isinstance(trace_json, dict):
             return trace_json
@@ -259,8 +260,7 @@ def fetch_trace_data(  # noqa: C901
         return {"error": "Invalid trace JSON"}
 
 
-@adk_tool
-def fetch_trace(project_id: str, trace_id: str) -> str:
+def _fetch_trace_from_api(project_id: str, trace_id: str) -> str:
     """
     Fetches a specific trace by ID.
 

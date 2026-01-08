@@ -9,7 +9,7 @@ from typing import Any
 
 from ..decorators import adk_tool
 from ..telemetry import get_meter, get_tracer
-from .trace_client import fetch_trace_data
+from .trace_client import fetch_trace
 
 # Telemetry setup
 tracer = get_tracer(__name__)
@@ -29,7 +29,7 @@ def _fetch_traces_parallel(
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         # Submit all tasks
         future_to_tid = {
-            executor.submit(fetch_trace_data, tid, project_id): tid
+            executor.submit(fetch_trace, tid, project_id): tid
             for tid in target_ids
         }
 
@@ -177,7 +177,7 @@ def detect_latency_anomalies(  # noqa: C901
         stdev = baseline_stats["stdev"]
 
         # Get target duration
-        target_data = fetch_trace_data(target_trace_id, project_id)
+        target_data = fetch_trace(target_trace_id, project_id)
         if not target_data:
             return {"error": "Target trace not found or invalid"}
 
@@ -277,7 +277,7 @@ def analyze_critical_path(  # noqa: C901
         project_id: The Google Cloud Project ID.
     """
     with tracer.start_as_current_span("analyze_critical_path"):
-        trace_data = fetch_trace_data(trace_id, project_id)
+        trace_data = fetch_trace(trace_id, project_id)
         if not trace_data:
             return {"error": "Trace not found or invalid"}
 
@@ -469,7 +469,7 @@ def perform_causal_analysis(  # noqa: C901
     """
     Enhanced root cause analysis using span-ID-level precision.
     """
-    baseline_data = fetch_trace_data(baseline_trace_id, project_id)
+    baseline_data = fetch_trace(baseline_trace_id, project_id)
     if not baseline_data or "error" in baseline_data:
         msg = (
             "Invalid baseline_trace JSON"
@@ -479,7 +479,7 @@ def perform_causal_analysis(  # noqa: C901
         )
         return json.dumps({"error": msg})
 
-    target_data = fetch_trace_data(target_trace_id, project_id)
+    target_data = fetch_trace(target_trace_id, project_id)
     if not target_data or "error" in target_data:
         msg = (
             "Invalid target_trace JSON"

@@ -7,7 +7,7 @@ from typing import Any
 
 from ..decorators import adk_tool
 from ..telemetry import get_meter, get_tracer, log_tool_call
-from .trace_client import fetch_trace_data
+from .trace_client import fetch_trace
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +77,7 @@ def calculate_span_durations(
         log_tool_call(logger, "calculate_span_durations", trace_id=trace_id)
 
         try:
-            trace = fetch_trace_data(trace_id, project_id)
+            trace = fetch_trace(trace_id, project_id)
             if "error" in trace:
                 span.set_attribute("error", True)
                 span.set_status(trace.get("error"))
@@ -163,7 +163,7 @@ def extract_errors(  # noqa: C901
         log_tool_call(logger, "extract_errors", trace_id=trace_id)
 
         try:
-            trace = fetch_trace_data(trace_id, project_id)
+            trace = fetch_trace(trace_id, project_id)
             if "error" in trace:
                 return [{"error": trace["error"]}]
 
@@ -272,7 +272,7 @@ def validate_trace_quality(  # noqa: C901
     Returns:
         Dictionary with 'valid' boolean, 'issue_count', and list of 'issues'.
     """
-    trace = fetch_trace_data(trace_id, project_id)
+    trace = fetch_trace(trace_id, project_id)
     if "error" in trace:
         return {
             "valid": False,
@@ -379,7 +379,7 @@ def build_call_graph(trace_id: str, project_id: str | None = None) -> dict[str, 
         log_tool_call(logger, "build_call_graph", trace_id=trace_id)
 
         try:
-            trace = fetch_trace_data(trace_id, project_id)
+            trace = fetch_trace(trace_id, project_id)
             if "error" in trace:
                 return {"error": trace["error"]}
 
@@ -772,7 +772,7 @@ def summarize_trace(trace_id: str, project_id: str | None = None) -> dict[str, A
     """
     log_tool_call(logger, "summarize_trace", trace_id=trace_id)
 
-    trace_data = fetch_trace_data(trace_id, project_id)
+    trace_data = fetch_trace(trace_id, project_id)
     if "error" in trace_data:
         return trace_data
 
