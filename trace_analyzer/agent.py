@@ -108,14 +108,18 @@ class LazyMcpRegistryToolset(BaseToolset):
         self._inner_toolset = None
 
     async def get_tools(self, readonly_context=None):
-        if not self._inner_toolset:
-            # Initialize ApiRegistry lazily in the running event loop
-            api_registry = ApiRegistry(self.project_id)
-            self._inner_toolset = api_registry.get_toolset(
-                mcp_server_name=self.mcp_server_name,
-                tool_filter=self.tool_filter
-            )
-        return await self._inner_toolset.get_tools()
+        # Initialize ApiRegistry lazily in the running event loop
+        # We generally do not cache the toolset here because the underlying MCP session
+        # might be terminated (e.g. timeout, network issue). Re-initializing ensures
+        # we get a fresh session if the agent requests tools again.
+        # Note: If the LlmAgent caches the tools internally, this might not help for
+        # long-running agents unless they re-fetch tools.
+        api_registry = ApiRegistry(self.project_id)
+        inner_toolset = api_registry.get_toolset(
+            mcp_server_name=self.mcp_server_name,
+            tool_filter=self.tool_filter
+        )
+        return await inner_toolset.get_tools()
 
 def load_mcp_tools():
     """Loads tools from configured MCP endpoints."""
