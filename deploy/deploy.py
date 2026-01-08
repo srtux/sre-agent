@@ -44,10 +44,9 @@ def create(env_vars: dict[str, str] | None = None) -> None:
             "opentelemetry-exporter-otlp-proto-grpc>=1.24.0",
             "google-auth>=2.18.1",
             "grpcio>=1.63.0",
-
             "numpy>=1.26.0",
-            "google-cloud-logging>=3.9.0",
-            "google-cloud-monitoring>=2.20.0",
+            "google-cloud-logging>=3.10.0",
+            "google-cloud-monitoring>=2.21.0",
             "google-cloud-error-reporting>=1.14.0",
         ],
         extra_packages=["./trace_analyzer"],

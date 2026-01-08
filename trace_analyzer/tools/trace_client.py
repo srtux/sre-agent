@@ -8,7 +8,9 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from google.cloud import errorreporting_v1beta1, monitoring_v3, trace_v1
+import google.cloud.errorreporting_v1beta1 as errorreporting_v1beta1
+from google.cloud import monitoring_v3
+from google.cloud import trace_v1
 from google.cloud.logging_v2.services.logging_service_v2 import LoggingServiceV2Client
 
 from ..decorators import adk_tool
