@@ -36,6 +36,14 @@ The trace analyzer uses a **three-stage analysis pipeline**:
 - When modifying agents, add new tests to `tests/` to verify behavior.
 - Run type checks with `uv run mypy .` (if configured in `optional-dependencies`).
 
+## Code Quality & Linting
+- **Flake8**: Used for style enforcement.
+  - **Config**: `.flake8`
+  - **Max Line Length**: 127
+  - **Max Complexity**: 10
+  - **Ignored**: E203, E501
+  - **Run**: `uv run flake8 .`
+
 ## PR instructions
 - Ensure `uv.lock` is updated if dependencies change.
 - Verify that `uv run pytest` passes cleanly.
