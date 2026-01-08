@@ -1,17 +1,17 @@
 """Comprehensive tests for Cloud Trace client tools."""
 
 import json
-import pytest
 from unittest.mock import MagicMock, patch
-from google.cloud import trace_v1
-from google.cloud import logging_v2
 
-from trace_analyzer.tools import trace_client
+import pytest
+from google.cloud import logging_v2, trace_v1
+
 from tests.fixtures.synthetic_otel_data import (
-    CloudTraceAPIGenerator,
     CloudLoggingAPIGenerator,
-    generate_trace_id
+    CloudTraceAPIGenerator,
+    generate_trace_id,
 )
+from trace_analyzer.tools import trace_client
 
 
 @pytest.fixture
@@ -31,7 +31,7 @@ def mock_logging_client():
 class TestFetchTrace:
     """Tests for fetch_trace function."""
 
-    @patch('trace_analyzer.tools.trace_client.trace_v1.TraceServiceClient')
+    @patch("trace_analyzer.tools.trace_client.trace_v1.TraceServiceClient")
     def test_fetch_trace_success(self, mock_client_class):
         """Test successful trace fetch."""
         # Setup mock
@@ -39,7 +39,7 @@ class TestFetchTrace:
         mock_client_class.return_value = mock_client
 
         trace_id = generate_trace_id()
-        
+
         # Convert to mock Trace object
         mock_trace = MagicMock()
         mock_trace.trace_id = trace_id
@@ -50,8 +50,7 @@ class TestFetchTrace:
 
         # Execute
         result_json = trace_client.fetch_trace(
-            project_id="test-project",
-            trace_id=trace_id
+            project_id="test-project", trace_id=trace_id
         )
 
         # Verify
@@ -60,7 +59,7 @@ class TestFetchTrace:
         assert result["trace_id"] == trace_id
         mock_client.get_trace.assert_called_once()
 
-    @patch('trace_analyzer.tools.trace_client.trace_v1.TraceServiceClient')
+    @patch("trace_analyzer.tools.trace_client.trace_v1.TraceServiceClient")
     def test_fetch_trace_with_invalid_trace_id(self, mock_client_class):
         """Test fetch trace with invalid trace ID."""
         mock_client = MagicMock()
@@ -68,14 +67,14 @@ class TestFetchTrace:
 
         # Setup mock to raise exception
         from google.api_core import exceptions
+
         mock_client.get_trace.side_effect = exceptions.NotFound("Trace not found")
 
         # Execute
         result_json = trace_client.fetch_trace(
-            project_id="test-project",
-            trace_id="invalid-trace-id"
+            project_id="test-project", trace_id="invalid-trace-id"
         )
-        
+
         # Verify error handling (it returns an error JSON, not raises)
         result = json.loads(result_json)
         assert "error" in result
@@ -85,7 +84,7 @@ class TestFetchTrace:
 class TestListTraces:
     """Tests for list_traces function."""
 
-    @patch('trace_analyzer.tools.trace_client.trace_v1.TraceServiceClient')
+    @patch("trace_analyzer.tools.trace_client.trace_v1.TraceServiceClient")
     def test_list_traces_success(self, mock_client_class):
         """Test successful trace listing."""
         mock_client = MagicMock()
@@ -97,16 +96,13 @@ class TestListTraces:
             mock_trace = MagicMock()
             mock_trace.trace_id = generate_trace_id()
             mock_trace.project_id = "test-project"
-            mock_trace.spans = [] # Needed for duration calc
+            mock_trace.spans = []  # Needed for duration calc
             mock_traces.append(mock_trace)
 
         mock_client.list_traces.return_value = mock_traces
 
         # Execute
-        result_json = trace_client.list_traces(
-            project_id="test-project",
-            limit=10
-        )
+        result_json = trace_client.list_traces(project_id="test-project", limit=10)
 
         # Verify
         assert result_json is not None
@@ -114,7 +110,7 @@ class TestListTraces:
         assert len(result) <= 5
         mock_client.list_traces.assert_called_once()
 
-    @patch('trace_analyzer.tools.trace_client.trace_v1.TraceServiceClient')
+    @patch("trace_analyzer.tools.trace_client.trace_v1.TraceServiceClient")
     def test_list_traces_with_time_filter(self, mock_client_class):
         """Test trace listing with time filter."""
         mock_client = MagicMock()
@@ -123,10 +119,10 @@ class TestListTraces:
         mock_client.list_traces.return_value = []
 
         # Execute with time filter
-        result = trace_client.list_traces(
+        trace_client.list_traces(
             project_id="test-project",
             start_time="2024-01-01T00:00:00Z",
-            end_time="2024-01-02T00:00:00Z"
+            end_time="2024-01-02T00:00:00Z",
         )
 
         # Verify filter was applied
@@ -137,7 +133,7 @@ class TestListTraces:
 class TestGetLogsForTrace:
     """Tests for get_logs_for_trace function."""
 
-    @patch('trace_analyzer.tools.trace_client.LoggingServiceV2Client')
+    @patch("trace_analyzer.tools.trace_client.LoggingServiceV2Client")
     def test_get_logs_for_trace_success(self, mock_client_class):
         """Test successful log retrieval for trace."""
         mock_client = MagicMock()
@@ -145,9 +141,7 @@ class TestGetLogsForTrace:
 
         trace_id = generate_trace_id()
         mock_logs = CloudLoggingAPIGenerator.log_entries_response(
-            count=5,
-            trace_id=trace_id,
-            severity="ERROR"
+            count=5, trace_id=trace_id, severity="ERROR"
         )
 
         # Setup mock response
@@ -168,8 +162,7 @@ class TestGetLogsForTrace:
 
         # Execute
         result_json = trace_client.get_logs_for_trace(
-            project_id="test-project",
-            trace_id=trace_id
+            project_id="test-project", trace_id=trace_id
         )
 
         # Verify
@@ -182,7 +175,7 @@ class TestGetLogsForTrace:
 class TestFindExampleTraces:
     """Tests for find_example_traces function."""
 
-    @patch('trace_analyzer.tools.trace_client.trace_v1.TraceServiceClient')
+    @patch("trace_analyzer.tools.trace_client.trace_v1.TraceServiceClient")
     def test_find_example_traces_with_error_filter(self, mock_client_class):
         """Test finding example traces with error filter."""
         mock_client = MagicMock()
@@ -205,8 +198,7 @@ class TestFindExampleTraces:
 
         # Execute
         result_json = trace_client.find_example_traces(
-            project_id="test-project",
-            prefer_errors=True
+            project_id="test-project", prefer_errors=True
         )
 
         # Verify
@@ -222,15 +214,17 @@ class TestGetTraceByURL:
 
     def test_extract_trace_id_from_url(self):
         """Test extracting trace ID from Cloud Console URL."""
-        # Use a long enough hex string to satisfy the fallback parser if needed, 
+        # Use a long enough hex string to satisfy the fallback parser if needed,
         # but here we test the 'trace-details' part.
         url = "https://console.cloud.google.com/traces/trace-details/4fb09ce68979116e0ca143d225695000?project=test-project"
 
         # Mock the actual fetch to focus on URL parsing
-        with patch('trace_analyzer.tools.trace_client.fetch_trace') as mock_fetch:
-            mock_fetch.return_value = json.dumps({"trace_id": "4fb09ce68979116e0ca143d225695000"})
+        with patch("trace_analyzer.tools.trace_client.fetch_trace") as mock_fetch:
+            mock_fetch.return_value = json.dumps(
+                {"trace_id": "4fb09ce68979116e0ca143d225695000"}
+            )
 
-            result = trace_client.get_trace_by_url(url)
+            trace_client.get_trace_by_url(url)
 
             # Verify trace was fetched with correct ID
             mock_fetch.assert_called_once()
@@ -240,7 +234,7 @@ class TestGetTraceByURL:
     def test_get_trace_by_url_invalid_url(self):
         """Test handling of invalid URL."""
         invalid_url = "https://example.com/invalid"
-    
+
         result_json = trace_client.get_trace_by_url(invalid_url)
         result = json.loads(result_json)
         assert "error" in result
@@ -249,7 +243,9 @@ class TestGetTraceByURL:
 class TestListErrorEvents:
     """Tests for list_error_events function."""
 
-    @patch('trace_analyzer.tools.trace_client.errorreporting_v1beta1.ErrorStatsServiceClient')
+    @patch(
+        "trace_analyzer.tools.trace_client.errorreporting_v1beta1.ErrorStatsServiceClient"
+    )
     def test_list_error_events_success(self, mock_client_class):
         """Test successful error event listing."""
         mock_client = MagicMock()
@@ -269,8 +265,7 @@ class TestListErrorEvents:
 
         # Execute
         result_json = trace_client.list_error_events(
-            project_id="test-project",
-            minutes_ago=60
+            project_id="test-project", minutes_ago=60
         )
 
         # Verify
@@ -283,7 +278,7 @@ class TestListErrorEvents:
 class TestListLogEntries:
     """Tests for list_log_entries function."""
 
-    @patch('trace_analyzer.tools.trace_client.LoggingServiceV2Client')
+    @patch("trace_analyzer.tools.trace_client.LoggingServiceV2Client")
     def test_list_log_entries_success(self, mock_client_class):
         """Test successful log entry listing."""
         mock_client = MagicMock()
@@ -291,8 +286,7 @@ class TestListLogEntries:
 
         # Setup mock log entries
         mock_logs = CloudLoggingAPIGenerator.log_entries_response(
-            count=10,
-            severity="ERROR"
+            count=10, severity="ERROR"
         )
 
         mock_entries = []
@@ -309,9 +303,7 @@ class TestListLogEntries:
 
         # Execute
         result_json = trace_client.list_log_entries(
-            project_id="test-project",
-            filter_str='severity="ERROR"',
-            limit=10
+            project_id="test-project", filter_str='severity="ERROR"', limit=10
         )
 
         # Verify
@@ -324,9 +316,11 @@ class TestListLogEntries:
 class TestIntegration:
     """Integration tests for trace client tools."""
 
-    @patch('trace_analyzer.tools.trace_client.trace_v1.TraceServiceClient')
-    @patch('trace_analyzer.tools.trace_client.LoggingServiceV2Client')
-    def test_fetch_trace_and_logs_workflow(self, mock_logging_client, mock_trace_client):
+    @patch("trace_analyzer.tools.trace_client.trace_v1.TraceServiceClient")
+    @patch("trace_analyzer.tools.trace_client.LoggingServiceV2Client")
+    def test_fetch_trace_and_logs_workflow(
+        self, mock_logging_client, mock_trace_client
+    ):
         """Test complete workflow of fetching trace and its logs."""
         # Setup trace mock
         trace_id = generate_trace_id()
@@ -345,17 +339,17 @@ class TestIntegration:
         mock_log_entry.resource.type = "global"
         mock_log_entry.resource.labels = {}
 
-        mock_logging_client.return_value.list_log_entries.return_value = [mock_log_entry]
+        mock_logging_client.return_value.list_log_entries.return_value = [
+            mock_log_entry
+        ]
 
         # Execute workflow
         trace_result = trace_client.fetch_trace(
-            project_id="test-project",
-            trace_id=trace_id
+            project_id="test-project", trace_id=trace_id
         )
 
         log_result = trace_client.get_logs_for_trace(
-            project_id="test-project",
-            trace_id=trace_id
+            project_id="test-project", trace_id=trace_id
         )
 
         # Verify both calls succeeded

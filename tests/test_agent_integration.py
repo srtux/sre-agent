@@ -12,8 +12,12 @@ from trace_analyzer.agent import root_agent
 
 @pytest.fixture
 def mock_env():
-    with patch.dict(os.environ, {"GOOGLE_CLOUD_PROJECT": "test-project", "VERTEX_API_KEY": "test-key"}):
+    with patch.dict(
+        os.environ,
+        {"GOOGLE_CLOUD_PROJECT": "test-project", "VERTEX_API_KEY": "test-key"},
+    ):
         yield
+
 
 @pytest.mark.asyncio
 async def test_agent_initialization(mock_env):
@@ -22,8 +26,16 @@ async def test_agent_initialization(mock_env):
     assert root_agent.name == "trace_analyzer_agent"
 
     # Check if the analysis tool is present
-    analysis_tool = next((t for t in root_agent.tools if getattr(t, 'name', getattr(t, '__name__', '')) == "run_triage_analysis"), None)
+    analysis_tool = next(
+        (
+            t
+            for t in root_agent.tools
+            if getattr(t, "name", getattr(t, "__name__", "")) == "run_triage_analysis"
+        ),
+        None,
+    )
     assert analysis_tool is not None
+
 
 @patch("trace_analyzer.tools.trace_client.trace_v1.TraceServiceClient")
 def test_list_traces_mock(mock_client_cls):
@@ -35,6 +47,7 @@ def test_list_traces_mock(mock_client_cls):
 
     # Setup mock response with datetime objects for timestamps (simulating proto-plus behavior)
     from datetime import datetime
+
     mock_trace = MagicMock()
     mock_trace.trace_id = "123"
     mock_trace.project_id = "p"
@@ -51,7 +64,7 @@ def test_list_traces_mock(mock_client_cls):
 
     # Verify request args
     call_args = mock_client.list_traces.call_args
-    req = call_args.kwargs['request']
+    req = call_args.kwargs["request"]
 
     assert "latency:500ms" in req.filter
     # Ensure view type is ROOTSPAN (value 1) or whatever the enum maps to,

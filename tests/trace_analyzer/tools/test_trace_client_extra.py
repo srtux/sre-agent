@@ -1,4 +1,3 @@
-
 import json
 from unittest import mock
 
@@ -31,12 +30,9 @@ def test_list_log_entries(mock_logging_client_cls):
     assert len(result) == 1
     assert result[0]["payload"] == "log_payload"
     mock_client.list_log_entries.assert_called_with(
-        request={
-            "resource_names": ["projects/p1"],
-            "filter": "filter",
-            "page_size": 1
-        }
+        request={"resource_names": ["projects/p1"], "filter": "filter", "page_size": 1}
     )
+
 
 @mock.patch("trace_analyzer.tools.trace_client.monitoring_v3.MetricServiceClient")
 def test_list_time_series(mock_metric_client_cls):
@@ -65,7 +61,10 @@ def test_list_time_series(mock_metric_client_cls):
     assert result[0]["metric"]["type"] == "metric_type"
     assert result[0]["points"][0]["value"] == 100.0
 
-@mock.patch("trace_analyzer.tools.trace_client.errorreporting_v1beta1.ErrorStatsServiceClient")
+
+@mock.patch(
+    "trace_analyzer.tools.trace_client.errorreporting_v1beta1.ErrorStatsServiceClient"
+)
 def test_list_error_events(mock_error_client_cls):
     """Test list_error_events tool."""
     mock_client = mock.Mock()

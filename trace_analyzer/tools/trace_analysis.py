@@ -1,6 +1,5 @@
 """Trace analysis utilities for comparing and diffing distributed traces."""
 
-import json
 import logging
 import time
 from datetime import datetime
@@ -8,7 +7,7 @@ from typing import Any
 
 from ..decorators import adk_tool
 from ..telemetry import get_meter, get_tracer, log_tool_call
-from .trace_client import fetch_trace, _get_project_id, fetch_trace_data
+from .trace_client import fetch_trace_data
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +32,7 @@ anomalies_detected = meter.create_counter(
     unit="1",
 )
 
+
 def _record_telemetry(func_name: str, success: bool = True, duration_ms: float = 0.0):
     attributes = {
         "code.function": func_name,
@@ -49,11 +49,10 @@ TraceData = dict[str, Any]
 SpanData = dict[str, Any]
 
 
-
-
-
 @adk_tool
-def calculate_span_durations(trace_id: str, project_id: str | None = None) -> list[SpanData]:
+def calculate_span_durations(
+    trace_id: str, project_id: str | None = None
+) -> list[SpanData]:
     """
     Extracts timing information for each span in a trace.
 
@@ -98,22 +97,28 @@ def calculate_span_durations(trace_id: str, project_id: str | None = None) -> li
                     try:
                         # Parse ISO timestamps to calculate duration
                         # Note: Handling potentially different timezone formats
-                        start_dt = datetime.fromisoformat(s_start.replace('Z', '+00:00'))
-                        end_dt = datetime.fromisoformat(s_end.replace('Z', '+00:00'))
+                        start_dt = datetime.fromisoformat(
+                            s_start.replace("Z", "+00:00")
+                        )
+                        end_dt = datetime.fromisoformat(s_end.replace("Z", "+00:00"))
                         duration_ms = (end_dt - start_dt).total_seconds() * 1000
                     except (ValueError, TypeError) as e:
                         # Fallback if timestamp parsing fails
-                        logger.warning(f"Failed to parse timestamps for span {s.get('span_id')}: {e}")
+                        logger.warning(
+                            f"Failed to parse timestamps for span {s.get('span_id')}: {e}"
+                        )
 
-                timing_info.append({
-                    "span_id": s.get("span_id"),
-                    "name": s.get("name"),
-                    "duration_ms": duration_ms,
-                    "start_time": s_start,
-                    "end_time": s_end,
-                    "parent_span_id": s.get("parent_span_id"),
-                    "labels": s.get("labels", {}),
-                })
+                timing_info.append(
+                    {
+                        "span_id": s.get("span_id"),
+                        "name": s.get("name"),
+                        "duration_ms": duration_ms,
+                        "start_time": s_start,
+                        "end_time": s_end,
+                        "parent_span_id": s.get("parent_span_id"),
+                        "labels": s.get("labels", {}),
+                    }
+                )
 
             # Sort by duration (descending) for easy analysis of slowest spans
             timing_info.sort(key=lambda x: x.get("duration_ms") or 0, reverse=True)
@@ -130,7 +135,9 @@ def calculate_span_durations(trace_id: str, project_id: str | None = None) -> li
 
 
 @adk_tool
-def extract_errors(trace_id: str, project_id: str | None = None) -> list[dict[str, Any]]:
+def extract_errors(  # noqa: C901
+    trace_id: str, project_id: str | None = None
+) -> list[dict[str, Any]]:
     """
     Finds all spans that contain errors or error-related information.
 
@@ -186,7 +193,10 @@ def extract_errors(trace_id: str, project_id: str | None = None) -> list[dict[st
                     value_str = str(value).lower() if value else ""
 
                     # CRITICAL: Check HTTP/gRPC status codes FIRST and skip other checks for status fields
-                    if "/http/status_code" in key_lower or "http.status_code" in key_lower:
+                    if (
+                        "/http/status_code" in key_lower
+                        or "http.status_code" in key_lower
+                    ):
                         try:
                             code = int(value)
                             if code >= 400:
@@ -194,7 +204,9 @@ def extract_errors(trace_id: str, project_id: str | None = None) -> list[dict[st
                                 error_info["status_code"] = code
                                 error_info["error_type"] = "http_error"
                         except (ValueError, TypeError) as e:
-                             logger.warning(f"Failed to parse HTTP status code for span {s.get('span_id')}: {e}")
+                            logger.warning(
+                                f"Failed to parse HTTP status code for span {s.get('span_id')}: {e}"
+                            )
                         continue  # Skip other error checks for HTTP status fields
 
                     # Check for general status/code fields (might be HTTP or other)
@@ -206,8 +218,8 @@ def extract_errors(trace_id: str, project_id: str | None = None) -> list[dict[st
                                 error_info["status_code"] = code
                                 error_info["error_type"] = "http_error"
                         except (ValueError, TypeError):
-                             # Don't log here as many fields have "code"/ "status" in name but aren't ints
-                             pass
+                            # Don't log here as many fields have "code"/ "status" in name but aren't ints
+                            pass
                         continue  # Skip other error checks for status fields
 
                     # Check for explicitly named error/exception labels
@@ -241,7 +253,9 @@ def extract_errors(trace_id: str, project_id: str | None = None) -> list[dict[st
 
 
 @adk_tool
-def validate_trace_quality(trace_id: str, project_id: str | None = None) -> dict[str, Any]:
+def validate_trace_quality(  # noqa: C901
+    trace_id: str, project_id: str | None = None
+) -> dict[str, Any]:
     """
     Validate trace data quality and detect issues.
 
@@ -260,7 +274,11 @@ def validate_trace_quality(trace_id: str, project_id: str | None = None) -> dict
     """
     trace = fetch_trace_data(trace_id, project_id)
     if "error" in trace:
-        return {"valid": False, "issue_count": 1, "issues": [{"type": "fetch_error", "message": trace["error"]}]}
+        return {
+            "valid": False,
+            "issue_count": 1,
+            "issues": [{"type": "fetch_error", "message": trace["error"]}],
+        }
 
     spans = trace.get("spans", [])
     issues = []
@@ -277,11 +295,13 @@ def validate_trace_quality(trace_id: str, project_id: str | None = None) -> dict
         # Check for orphaned spans
         parent_id = span.get("parent_span_id")
         if parent_id and parent_id not in span_map:
-            issues.append({
-                "type": "orphaned_span",
-                "span_id": span_id,
-                "message": f"Parent span {parent_id} not found"
-            })
+            issues.append(
+                {
+                    "type": "orphaned_span",
+                    "span_id": span_id,
+                    "message": f"Parent span {parent_id} not found",
+                }
+            )
 
         # Check for negative durations and clock skew
         try:
@@ -289,16 +309,18 @@ def validate_trace_quality(trace_id: str, project_id: str | None = None) -> dict
             end_str = span.get("end_time")
 
             if start_str and end_str:
-                start = datetime.fromisoformat(start_str.replace('Z', '+00:00'))
-                end = datetime.fromisoformat(end_str.replace('Z', '+00:00'))
+                start = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
+                end = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
                 duration = (end - start).total_seconds()
 
                 if duration < 0:
-                    issues.append({
-                        "type": "negative_duration",
-                        "span_id": span_id,
-                        "duration_s": duration
-                    })
+                    issues.append(
+                        {
+                            "type": "negative_duration",
+                            "span_id": span_id,
+                            "duration_s": duration,
+                        }
+                    )
 
                 # Check clock skew (child outside parent timespan)
                 if parent_id and parent_id in span_map:
@@ -307,32 +329,30 @@ def validate_trace_quality(trace_id: str, project_id: str | None = None) -> dict
                     p_end_str = parent.get("end_time")
 
                     if p_start_str and p_end_str:
-                        p_start = datetime.fromisoformat(p_start_str.replace('Z', '+00:00'))
-                        p_end = datetime.fromisoformat(p_end_str.replace('Z', '+00:00'))
+                        p_start = datetime.fromisoformat(
+                            p_start_str.replace("Z", "+00:00")
+                        )
+                        p_end = datetime.fromisoformat(p_end_str.replace("Z", "+00:00"))
 
                         # Allow some small buffer for clock skew? Strict for now.
                         if start < p_start or end > p_end:
-                            issues.append({
-                                "type": "clock_skew",
-                                "span_id": span_id,
-                                "message": "Child span outside parent timespan"
-                            })
+                            issues.append(
+                                {
+                                    "type": "clock_skew",
+                                    "span_id": span_id,
+                                    "message": "Child span outside parent timespan",
+                                }
+                            )
         except (ValueError, TypeError, KeyError) as e:
-            issues.append({
-                "type": "timestamp_error",
-                "span_id": span_id,
-                "error": str(e)
-            })
+            issues.append(
+                {"type": "timestamp_error", "span_id": span_id, "error": str(e)}
+            )
 
-    return {
-        "valid": len(issues) == 0,
-        "issue_count": len(issues),
-        "issues": issues
-    }
+    return {"valid": len(issues) == 0, "issue_count": len(issues), "issues": issues}
 
 
 @adk_tool
-def build_call_graph(trace_id: str, project_id: str | None = None) -> dict[str, Any]:
+def build_call_graph(trace_id: str, project_id: str | None = None) -> dict[str, Any]:  # noqa: C901
     """
     Builds a hierarchical call graph from the trace spans.
 
@@ -397,7 +417,9 @@ def build_call_graph(trace_id: str, project_id: str | None = None) -> dict[str, 
                     "span_id": span_id,
                     "name": s.get("name", "unknown"),
                     "depth": depth,
-                    "children": [build_subtree(child_id, depth + 1) for child_id in children_ids],
+                    "children": [
+                        build_subtree(child_id, depth + 1) for child_id in children_ids
+                    ],
                     "labels": s.get("labels", {}),
                 }
 
@@ -434,7 +456,7 @@ def build_call_graph(trace_id: str, project_id: str | None = None) -> dict[str, 
 
 
 @adk_tool
-def compare_span_timings(
+def compare_span_timings(  # noqa: C901
     baseline_trace_id: str,
     target_trace_id: str,
     project_id: str | None = None,
@@ -462,16 +484,31 @@ def compare_span_timings(
     with tracer.start_as_current_span("compare_span_timings") as span:
         span.set_attribute("code.function", "compare_span_timings")
 
-        log_tool_call(logger, "compare_span_timings", baseline_trace_id=baseline_trace_id, target_trace_id=target_trace_id)
+        log_tool_call(
+            logger,
+            "compare_span_timings",
+            baseline_trace_id=baseline_trace_id,
+            target_trace_id=target_trace_id,
+        )
 
         try:
             # calculate_span_durations handles fetching
             baseline_timings = calculate_span_durations(baseline_trace_id, project_id)
             target_timings = calculate_span_durations(target_trace_id, project_id)
 
-            if baseline_timings and isinstance(baseline_timings[0], dict) and "error" in baseline_timings[0]:
-                return {"error": f"Baseline trace error: {baseline_timings[0]['error']}"}
-            if target_timings and isinstance(target_timings[0], dict) and "error" in target_timings[0]:
+            if (
+                baseline_timings
+                and isinstance(baseline_timings[0], dict)
+                and "error" in baseline_timings[0]
+            ):
+                return {
+                    "error": f"Baseline trace error: {baseline_timings[0]['error']}"
+                }
+            if (
+                target_timings
+                and isinstance(target_timings[0], dict)
+                and "error" in target_timings[0]
+            ):
                 return {"error": f"Target trace error: {target_timings[0]['error']}"}
 
             # --- Anti-Pattern Detection (Target Trace) ---
@@ -483,7 +520,7 @@ def compare_span_timings(
                 # Sort by start time to analyze sequence
                 sorted_spans = sorted(
                     [s for s in target_timings if s.get("start_time")],
-                    key=lambda x: x["start_time"]
+                    key=lambda x: x["start_time"],
                 )
 
                 if sorted_spans:
@@ -498,31 +535,45 @@ def compare_span_timings(
                                 current_run.append(s)
                             else:
                                 # Run ended
-                                if len(current_run) >= 3: # Threshold: at least 3 repeats
-                                    duration_sum = sum(s.get("duration_ms") or 0 for s in current_run)
-                                    if duration_sum > 50: # Threshold: >50ms impact
-                                        patterns.append({
-                                            "type": "n_plus_one",
-                                            "description": f"Potential N+1 Query: '{current_run[0].get('name')}' called {len(current_run)} times sequentially.",
-                                            "span_name": current_run[0].get("name"),
-                                            "count": len(current_run),
-                                            "total_duration_ms": duration_sum,
-                                            "impact": "high" if duration_sum > 200 else "medium"
-                                        })
+                                if (
+                                    len(current_run) >= 3
+                                ):  # Threshold: at least 3 repeats
+                                    duration_sum = sum(
+                                        s.get("duration_ms") or 0 for s in current_run
+                                    )
+                                    if duration_sum > 50:  # Threshold: >50ms impact
+                                        patterns.append(
+                                            {
+                                                "type": "n_plus_one",
+                                                "description": f"Potential N+1 Query: '{current_run[0].get('name')}' called {len(current_run)} times sequentially.",
+                                                "span_name": current_run[0].get("name"),
+                                                "count": len(current_run),
+                                                "total_duration_ms": duration_sum,
+                                                "impact": "high"
+                                                if duration_sum > 200
+                                                else "medium",
+                                            }
+                                        )
                                 current_run = [s]
 
                     # Check last run
                     if len(current_run) >= 3:
-                        duration_sum = sum(s.get("duration_ms") or 0 for s in current_run)
+                        duration_sum = sum(
+                            s.get("duration_ms") or 0 for s in current_run
+                        )
                         if duration_sum > 50:
-                            patterns.append({
-                                "type": "n_plus_one",
-                                "description": f"Potential N+1 Query: '{current_run[0].get('name')}' called {len(current_run)} times sequentially.",
-                                "span_name": current_run[0].get("name"),
-                                "count": len(current_run),
-                                "total_duration_ms": duration_sum,
-                                "impact": "high" if duration_sum > 200 else "medium"
-                            })
+                            patterns.append(
+                                {
+                                    "type": "n_plus_one",
+                                    "description": f"Potential N+1 Query: '{current_run[0].get('name')}' called {len(current_run)} times sequentially.",
+                                    "span_name": current_run[0].get("name"),
+                                    "count": len(current_run),
+                                    "total_duration_ms": duration_sum,
+                                    "impact": "high"
+                                    if duration_sum > 200
+                                    else "medium",
+                                }
+                            )
 
             # 2. Serial Chain Detection
             # Identify waterfall patterns where End(span_N) ≈ Start(span_N+1)
@@ -545,14 +596,23 @@ def compare_span_timings(
                         continue
 
                     try:
-                        curr_end = datetime.fromisoformat(curr_span["end_time"].replace('Z', '+00:00')).timestamp() * 1000
-                        next_start = datetime.fromisoformat(next_span["start_time"].replace('Z', '+00:00')).timestamp() * 1000
+                        curr_end = (
+                            datetime.fromisoformat(
+                                curr_span["end_time"].replace("Z", "+00:00")
+                            ).timestamp()
+                            * 1000
+                        )
+                        next_start = (
+                            datetime.fromisoformat(
+                                next_span["start_time"].replace("Z", "+00:00")
+                            ).timestamp()
+                            * 1000
+                        )
 
                         # Check if they're NOT parent-child (that's expected nesting)
-                        is_parent_child = (
-                            curr_span.get("span_id") == next_span.get("parent_span_id") or
-                            next_span.get("span_id") == curr_span.get("parent_span_id")
-                        )
+                        is_parent_child = curr_span.get("span_id") == next_span.get(
+                            "parent_span_id"
+                        ) or next_span.get("span_id") == curr_span.get("parent_span_id")
 
                         if is_parent_child:
                             # Reset chain if we hit nested spans
@@ -589,15 +649,17 @@ def compare_span_timings(
                     # Only report if significant impact (>100ms total)
                     if chain_duration > 100:
                         span_names = [s.get("name") for s in chain]
-                        patterns.append({
-                            "type": "serial_chain",
-                            "description": f"Serial Chain: {len(chain)} operations running sequentially that could potentially be parallelized.",
-                            "span_names": span_names,
-                            "count": len(chain),
-                            "total_duration_ms": round(chain_duration, 2),
-                            "impact": "high" if chain_duration > 500 else "medium",
-                            "recommendation": "Consider parallelizing these operations using async/await or concurrent execution."
-                        })
+                        patterns.append(
+                            {
+                                "type": "serial_chain",
+                                "description": f"Serial Chain: {len(chain)} operations running sequentially that could potentially be parallelized.",
+                                "span_names": span_names,
+                                "count": len(chain),
+                                "total_duration_ms": round(chain_duration, 2),
+                                "impact": "high" if chain_duration > 500 else "medium",
+                                "recommendation": "Consider parallelizing these operations using async/await or concurrent execution.",
+                            }
+                        )
 
             # --- End Detection ---
 
@@ -629,8 +691,12 @@ def compare_span_timings(
 
                 if baseline_spans and target_spans:
                     # Compare average durations (handling multiple spans of same name)
-                    baseline_avg = sum(s.get("duration_ms") or 0 for s in baseline_spans) / len(baseline_spans)
-                    target_avg = sum(s.get("duration_ms") or 0 for s in target_spans) / len(target_spans)
+                    baseline_avg = sum(
+                        s.get("duration_ms") or 0 for s in baseline_spans
+                    ) / len(baseline_spans)
+                    target_avg = sum(
+                        s.get("duration_ms") or 0 for s in target_spans
+                    ) / len(target_spans)
 
                     diff_ms = target_avg - baseline_avg
                     # Calculate percentage change
@@ -656,8 +722,12 @@ def compare_span_timings(
             slower_spans.sort(key=lambda x: x["diff_ms"], reverse=True)
             faster_spans.sort(key=lambda x: x["diff_ms"])
 
-            missing_from_target = [name for name in baseline_by_name if name not in target_by_name]
-            new_in_target = [name for name in target_by_name if name not in baseline_by_name]
+            missing_from_target = [
+                name for name in baseline_by_name if name not in target_by_name
+            ]
+            new_in_target = [
+                name for name in target_by_name if name not in baseline_by_name
+            ]
 
             # Calculate overall stats
             baseline_total = sum(s.get("duration_ms") or 0 for s in baseline_timings)
@@ -701,7 +771,7 @@ def summarize_trace(trace_id: str, project_id: str | None = None) -> dict[str, A
         project_id: The Google Cloud Project ID.
     """
     log_tool_call(logger, "summarize_trace", trace_id=trace_id)
-    
+
     trace_data = fetch_trace_data(trace_id, project_id)
     if "error" in trace_data:
         return trace_data
@@ -718,11 +788,13 @@ def summarize_trace(trace_id: str, project_id: str | None = None) -> dict[str, A
     if isinstance(trace_data, dict) and "spans" in trace_data:
         # Quick extract to avoid overhead
         for s in trace_data["spans"]:
-             if "error" in str(s.get("labels", {})).lower() or \
-                s.get("labels", {}).get("error") == "true":
-                 errors.append({"span_name": s.get("name"), "error": "Detected"})
+            if (
+                "error" in str(s.get("labels", {})).lower()
+                or s.get("labels", {}).get("error") == "true"
+            ):
+                errors.append({"span_name": s.get("name"), "error": "Detected"})
     else:
-        errors = extract_errors(trace_id, project_id) # Fallback to full tool
+        errors = extract_errors(trace_id, project_id)  # Fallback to full tool
 
     # Extract slow spans
     # Sort spans by duration if available, else calc
@@ -732,12 +804,14 @@ def summarize_trace(trace_id: str, project_id: str | None = None) -> dict[str, A
         if "duration_ms" in s:
             dur = s["duration_ms"]
         elif s.get("start_time") and s.get("end_time"):
-             try:
-                start = datetime.fromisoformat(s["start_time"].replace('Z', '+00:00'))
-                end = datetime.fromisoformat(s["end_time"].replace('Z', '+00:00'))
+            try:
+                start = datetime.fromisoformat(s["start_time"].replace("Z", "+00:00"))
+                end = datetime.fromisoformat(s["end_time"].replace("Z", "+00:00"))
                 dur = (end - start).total_seconds() * 1000
-             except (ValueError, TypeError) as e:
-                logger.warning(f"Failed to parse timestamps for span {s.get('name')} in summarize_trace: {e}")
+            except (ValueError, TypeError) as e:
+                logger.warning(
+                    f"Failed to parse timestamps for span {s.get('name')} in summarize_trace: {e}"
+                )
         spans_with_dur.append({"name": s.get("name"), "duration_ms": dur})
 
     spans_with_dur.sort(key=lambda x: x["duration_ms"], reverse=True)
@@ -748,8 +822,8 @@ def summarize_trace(trace_id: str, project_id: str | None = None) -> dict[str, A
         "total_spans": len(spans),
         "duration_ms": duration_ms,
         "error_count": len(errors),
-        "errors": errors[:5], # Limit errors
-        "slowest_spans": top_slowest
+        "errors": errors[:5],  # Limit errors
+        "slowest_spans": top_slowest,
     }
 
 
@@ -780,7 +854,12 @@ def find_structural_differences(
     with tracer.start_as_current_span("find_structural_differences") as span:
         span.set_attribute("code.function", "find_structural_differences")
 
-        log_tool_call(logger, "find_structural_differences", baseline_trace_id=baseline_trace_id, target_trace_id=target_trace_id)
+        log_tool_call(
+            logger,
+            "find_structural_differences",
+            baseline_trace_id=baseline_trace_id,
+            target_trace_id=target_trace_id,
+        )
 
         try:
             # build_call_graph handles fetching
@@ -799,7 +878,9 @@ def find_structural_differences(
             new_spans = list(target_names - baseline_names)
             common_spans = list(baseline_names & target_names)
 
-            depth_change = target_graph.get("max_depth", 0) - baseline_graph.get("max_depth", 0)
+            depth_change = target_graph.get("max_depth", 0) - baseline_graph.get(
+                "max_depth", 0
+            )
 
             result = {
                 "missing_spans": missing_spans,
@@ -807,14 +888,17 @@ def find_structural_differences(
                 "common_spans": common_spans,
                 "baseline_span_count": baseline_graph.get("total_spans", 0),
                 "target_span_count": target_graph.get("total_spans", 0),
-                "span_count_change": target_graph.get("total_spans", 0) - baseline_graph.get("total_spans", 0),
+                "span_count_change": target_graph.get("total_spans", 0)
+                - baseline_graph.get("total_spans", 0),
                 "baseline_depth": baseline_graph.get("max_depth", 0),
                 "target_depth": target_graph.get("max_depth", 0),
                 "depth_change": depth_change,
                 "summary": {
                     "spans_removed": len(missing_spans),
                     "spans_added": len(new_spans),
-                    "structure_changed": len(missing_spans) > 0 or len(new_spans) > 0 or depth_change != 0,
+                    "structure_changed": len(missing_spans) > 0
+                    or len(new_spans) > 0
+                    or depth_change != 0,
                 },
             }
 

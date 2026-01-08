@@ -38,9 +38,7 @@ class TraceSelector:
         threshold = mean_latency + 2 * std_dev_latency
 
         outlier_trace_ids = [
-            trace["traceId"]
-            for trace in traces
-            if trace.get("latency", 0) > threshold
+            trace["traceId"] for trace in traces if trace.get("latency", 0) > threshold
         ]
         return outlier_trace_ids
 
@@ -49,6 +47,7 @@ class TraceSelector:
         Allows manually specifying a list of trace IDs.
         """
         return trace_ids
+
 
 @adk_tool
 def select_traces_from_error_reports(project_id: str) -> list[str]:
@@ -64,6 +63,7 @@ def select_traces_from_error_reports(project_id: str) -> list[str]:
     selector = TraceSelector()
     return selector.from_error_reports(project_id)
 
+
 @adk_tool
 def select_traces_from_monitoring_alerts(project_id: str) -> list[str]:
     """
@@ -77,6 +77,7 @@ def select_traces_from_monitoring_alerts(project_id: str) -> list[str]:
     """
     selector = TraceSelector()
     return selector.from_monitoring_alerts(project_id)
+
 
 @adk_tool
 def select_traces_from_statistical_outliers(traces: list[dict]) -> list[str]:
@@ -92,6 +93,7 @@ def select_traces_from_statistical_outliers(traces: list[dict]) -> list[str]:
     selector = TraceSelector()
     return selector.from_statistical_outliers(traces)
 
+
 @adk_tool
 def select_traces_manually(trace_ids: list[str]) -> list[str]:
     """
@@ -105,6 +107,7 @@ def select_traces_manually(trace_ids: list[str]) -> list[str]:
     """
     selector = TraceSelector()
     return selector.from_manual_override(trace_ids)
+
 
 class TraceQueryBuilder:
     """
@@ -122,7 +125,9 @@ class TraceQueryBuilder:
         else:
             self._terms.append(term)
 
-    def span_name(self, name: str, match_exact: bool = False, root_only: bool = False) -> 'TraceQueryBuilder':
+    def span_name(
+        self, name: str, match_exact: bool = False, root_only: bool = False
+    ) -> "TraceQueryBuilder":
         """
         Filter by span name.
 
@@ -146,7 +151,9 @@ class TraceQueryBuilder:
         self._terms.append(f"{prefix}{term}")
         return self
 
-    def latency(self, min_latency_ms: int | None = None, max_latency_ms: int | None = None) -> 'TraceQueryBuilder':
+    def latency(
+        self, min_latency_ms: int | None = None, max_latency_ms: int | None = None
+    ) -> "TraceQueryBuilder":
         """
         Filter by latency.
 
@@ -155,14 +162,16 @@ class TraceQueryBuilder:
             max_latency_ms: Maximum latency in milliseconds (<=). (Not directly supported by standard syntax?)
         """
         if min_latency_ms is not None:
-             self._terms.append(f"latency:{min_latency_ms}ms")
+            self._terms.append(f"latency:{min_latency_ms}ms")
 
         if max_latency_ms is not None:
             pass
 
         return self
 
-    def attribute(self, key: str, value: str, match_exact: bool = False, root_only: bool = False) -> 'TraceQueryBuilder':
+    def attribute(
+        self, key: str, value: str, match_exact: bool = False, root_only: bool = False
+    ) -> "TraceQueryBuilder":
         """
         Filter by attribute (label) key/value.
 
@@ -191,7 +200,7 @@ class TraceQueryBuilder:
         self._terms.append(f"{prefix}{term}")
         return self
 
-    def service_name(self, name: str, match_exact: bool = False) -> 'TraceQueryBuilder':
+    def service_name(self, name: str, match_exact: bool = False) -> "TraceQueryBuilder":
         """Helper for service name (usual label 'g.co/gae/app/module' or similar in AppEngine, but OpenTelemetry 'service.name' might map to a custom label)."""
         # Using generic attribute for flexibility.
         # In Google Cloud Trace, service name is often tied to the resource or a specific label.
@@ -201,22 +210,22 @@ class TraceQueryBuilder:
         # Simple label approach:
         return self.attribute("service.name", name, match_exact=match_exact)
 
-    def status(self, code: int, root_only: bool = False) -> 'TraceQueryBuilder':
+    def status(self, code: int, root_only: bool = False) -> "TraceQueryBuilder":
         """Filter by HTTP status code."""
         # /http/status_code
         return self.attribute("/http/status_code", str(code), root_only=root_only)
 
-    def method(self, method: str, root_only: bool = False) -> 'TraceQueryBuilder':
-         """Filter by HTTP method."""
-         # /http/method
-         # Shortcut exists: method:GET
-         term = f"method:{method}"
-         if root_only:
-             term = f"^{term}"
-         self._terms.append(term)
-         return self
+    def method(self, method: str, root_only: bool = False) -> "TraceQueryBuilder":
+        """Filter by HTTP method."""
+        # /http/method
+        # Shortcut exists: method:GET
+        term = f"method:{method}"
+        if root_only:
+            term = f"^{term}"
+        self._terms.append(term)
+        return self
 
-    def url(self, url: str, root_only: bool = False) -> 'TraceQueryBuilder':
+    def url(self, url: str, root_only: bool = False) -> "TraceQueryBuilder":
         """Filter by URL."""
         # /http/url
         # Shortcut: url:VALUE
@@ -241,7 +250,7 @@ def build_trace_filter(
     service_name: str | None = None,
     http_status: int | None = None,
     attributes: dict[str, str] | None = None,
-    custom_filter: str | None = None
+    custom_filter: str | None = None,
 ) -> str:
     """
     Build Cloud Trace filter string using TraceQueryBuilder.

@@ -1,7 +1,6 @@
 """Tests for BigQuery OpenTelemetry analysis tools."""
 
 import json
-import pytest
 
 from trace_analyzer.tools.bigquery_otel import (
     analyze_aggregate_metrics,
@@ -20,7 +19,7 @@ class TestBigQueryOtelTools:
         result = analyze_aggregate_metrics(
             dataset_id="myproject.telemetry",
             table_name="_AllSpans",
-            time_window_hours=24
+            time_window_hours=24,
         )
 
         result_data = json.loads(result)
@@ -37,13 +36,16 @@ class TestBigQueryOtelTools:
             dataset_id="myproject.telemetry",
             table_name="_AllSpans",
             service_name="payment-service",
-            time_window_hours=12
+            time_window_hours=12,
         )
 
         result_data = json.loads(result)
 
         assert "sql_query" in result_data
-        assert "JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = 'payment-service'" in result_data["sql_query"]
+        assert (
+            "JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = 'payment-service'"
+            in result_data["sql_query"]
+        )
         assert "12 HOUR" in result_data["sql_query"]
 
     def test_find_exemplar_traces_outliers(self):
@@ -52,7 +54,7 @@ class TestBigQueryOtelTools:
             dataset_id="myproject.telemetry",
             table_name="_AllSpans",
             selection_strategy="outliers",
-            limit=10
+            limit=10,
         )
 
         result_data = json.loads(result)
@@ -68,7 +70,7 @@ class TestBigQueryOtelTools:
             dataset_id="myproject.telemetry",
             table_name="_AllSpans",
             selection_strategy="errors",
-            limit=5
+            limit=5,
         )
 
         result_data = json.loads(result)
@@ -82,7 +84,7 @@ class TestBigQueryOtelTools:
         result = find_exemplar_traces(
             dataset_id="myproject.telemetry",
             table_name="_AllSpans",
-            selection_strategy="baseline"
+            selection_strategy="baseline",
         )
 
         result_data = json.loads(result)
@@ -97,7 +99,7 @@ class TestBigQueryOtelTools:
             dataset_id="myproject.telemetry",
             table_name="_AllSpans",
             selection_strategy="comparison",
-            limit=20
+            limit=20,
         )
 
         result_data = json.loads(result)
@@ -112,7 +114,7 @@ class TestBigQueryOtelTools:
         result = find_exemplar_traces(
             dataset_id="myproject.telemetry",
             table_name="_AllSpans",
-            selection_strategy="invalid_strategy"
+            selection_strategy="invalid_strategy",
         )
 
         result_data = json.loads(result)
@@ -125,7 +127,7 @@ class TestBigQueryOtelTools:
         result = correlate_logs_with_trace(
             dataset_id="myproject.telemetry",
             trace_id="abc123def456",
-            include_nearby_logs=False
+            include_nearby_logs=False,
         )
 
         result_data = json.loads(result)
@@ -141,7 +143,7 @@ class TestBigQueryOtelTools:
             dataset_id="myproject.telemetry",
             trace_id="abc123def456",
             include_nearby_logs=True,
-            time_window_seconds=60
+            time_window_seconds=60,
         )
 
         result_data = json.loads(result)
@@ -158,7 +160,7 @@ class TestBigQueryOtelTools:
             baseline_hours_ago_start=48,
             baseline_hours_ago_end=24,
             anomaly_hours_ago_start=24,
-            anomaly_hours_ago_end=0
+            anomaly_hours_ago_end=0,
         )
 
         result_data = json.loads(result)
@@ -174,12 +176,15 @@ class TestBigQueryOtelTools:
         result = compare_time_periods(
             dataset_id="myproject.telemetry",
             table_name="_AllSpans",
-            service_name="checkout-service"
+            service_name="checkout-service",
         )
 
         result_data = json.loads(result)
 
-        assert "JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = 'checkout-service'" in result_data["sql_query"]
+        assert (
+            "JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = 'checkout-service'"
+            in result_data["sql_query"]
+        )
 
     def test_detect_trend_changes_p95(self):
         """Test trend detection for P95 latency."""
@@ -188,7 +193,7 @@ class TestBigQueryOtelTools:
             table_name="_AllSpans",
             time_window_hours=72,
             bucket_hours=1,
-            metric="p95"
+            metric="p95",
         )
 
         result_data = json.loads(result)
@@ -204,7 +209,7 @@ class TestBigQueryOtelTools:
         result = detect_trend_changes(
             dataset_id="myproject.telemetry",
             table_name="_AllSpans",
-            metric="error_rate"
+            metric="error_rate",
         )
 
         result_data = json.loads(result)
@@ -218,7 +223,7 @@ class TestBigQueryOtelTools:
         result = detect_trend_changes(
             dataset_id="myproject.telemetry",
             table_name="_AllSpans",
-            metric="throughput"
+            metric="throughput",
         )
 
         result_data = json.loads(result)
@@ -232,7 +237,7 @@ class TestBigQueryOtelTools:
         result = detect_trend_changes(
             dataset_id="myproject.telemetry",
             table_name="_AllSpans",
-            metric="invalid_metric"
+            metric="invalid_metric",
         )
 
         result_data = json.loads(result)
@@ -243,8 +248,7 @@ class TestBigQueryOtelTools:
     def test_query_contains_proper_time_conversion(self):
         """Test that queries properly convert nanoseconds to milliseconds."""
         result = analyze_aggregate_metrics(
-            dataset_id="myproject.telemetry",
-            table_name="_AllSpans"
+            dataset_id="myproject.telemetry", table_name="_AllSpans"
         )
 
         result_data = json.loads(result)
@@ -255,11 +259,26 @@ class TestBigQueryOtelTools:
     def test_all_queries_include_descriptions(self):
         """Test that all tool responses include descriptions and next steps."""
         tools_and_params = [
-            (analyze_aggregate_metrics, {"dataset_id": "test.dataset", "table_name": "_AllSpans"}),
-            (find_exemplar_traces, {"dataset_id": "test.dataset", "table_name": "_AllSpans"}),
-            (correlate_logs_with_trace, {"dataset_id": "test.dataset", "trace_id": "abc123"}),
-            (compare_time_periods, {"dataset_id": "test.dataset", "table_name": "_AllSpans"}),
-            (detect_trend_changes, {"dataset_id": "test.dataset", "table_name": "_AllSpans"}),
+            (
+                analyze_aggregate_metrics,
+                {"dataset_id": "test.dataset", "table_name": "_AllSpans"},
+            ),
+            (
+                find_exemplar_traces,
+                {"dataset_id": "test.dataset", "table_name": "_AllSpans"},
+            ),
+            (
+                correlate_logs_with_trace,
+                {"dataset_id": "test.dataset", "trace_id": "abc123"},
+            ),
+            (
+                compare_time_periods,
+                {"dataset_id": "test.dataset", "table_name": "_AllSpans"},
+            ),
+            (
+                detect_trend_changes,
+                {"dataset_id": "test.dataset", "table_name": "_AllSpans"},
+            ),
         ]
 
         for tool_func, params in tools_and_params:
@@ -270,5 +289,9 @@ class TestBigQueryOtelTools:
             if "error" in result_data:
                 continue
 
-            assert "description" in result_data, f"{tool_func.__name__} missing description"
-            assert "next_steps" in result_data, f"{tool_func.__name__} missing next_steps"
+            assert "description" in result_data, (
+                f"{tool_func.__name__} missing description"
+            )
+            assert "next_steps" in result_data, (
+                f"{tool_func.__name__} missing next_steps"
+            )

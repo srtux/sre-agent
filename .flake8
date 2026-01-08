@@ -1,0 +1,8 @@
+[flake8]
+exclude = .venv,.git,__pycache__,build,dist,site-packages,trace_analyzer_tmp*
+max-line-length = 127
+max-complexity = 10
+count = True
+statistics = True
+show-source = True
+extend-ignore = E203,E501

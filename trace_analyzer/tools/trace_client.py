@@ -9,11 +9,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import google.cloud.errorreporting_v1beta1 as errorreporting_v1beta1
-from google.cloud import monitoring_v3
-from google.cloud import trace_v1
+from google.cloud import monitoring_v3, trace_v1
 from google.cloud.logging_v2.services.logging_service_v2 import LoggingServiceV2Client
-
-from ..decorators import adk_tool
 
 from ..decorators import adk_tool
 
@@ -70,9 +67,7 @@ def list_log_entries(project_id: str, filter_str: str, limit: int = 10) -> str:
 
 
 @adk_tool
-def list_time_series(
-    project_id: str, filter_str: str, minutes_ago: int = 60
-) -> str:
+def list_time_series(project_id: str, filter_str: str, minutes_ago: int = 60) -> str:
     """
     Lists time series data from Google Cloud Monitoring.
 
@@ -179,6 +174,7 @@ def list_error_events(project_id: str, minutes_ago: int = 60) -> str:
         logger.error(error_msg)
         return json.dumps({"error": error_msg})
 
+
 @adk_tool
 def get_logs_for_trace(project_id: str, trace_id: str, limit: int = 100) -> str:
     """
@@ -196,9 +192,6 @@ def get_logs_for_trace(project_id: str, trace_id: str, limit: int = 100) -> str:
     return list_log_entries(project_id, filter_str, limit)
 
 
-
-
-
 def get_current_time() -> str:
     """
     Returns the current UTC time in ISO format.
@@ -209,20 +202,30 @@ def get_current_time() -> str:
 
 def _get_project_id() -> str:
     """Get the GCP project ID from environment."""
-    project_id = os.environ.get("TRACE_PROJECT_ID") or os.environ.get("GOOGLE_CLOUD_PROJECT")
+    project_id = os.environ.get("TRACE_PROJECT_ID") or os.environ.get(
+        "GOOGLE_CLOUD_PROJECT"
+    )
     if not project_id:
-        raise ValueError("GOOGLE_CLOUD_PROJECT or TRACE_PROJECT_ID environment variable must be set")
+        raise ValueError(
+            "GOOGLE_CLOUD_PROJECT or TRACE_PROJECT_ID environment variable must be set"
+        )
     return project_id
 
 
-def fetch_trace_data(trace_id_or_json: str | dict[str, Any], project_id: str | None = None) -> dict[str, Any]:
+def fetch_trace_data(  # noqa: C901
+    trace_id_or_json: str | dict[str, Any], project_id: str | None = None
+) -> dict[str, Any]:
     """
     Helper to fetch trace data by ID or from JSON/dict.
     Commonly used across analysis tools to handle flexible inputs.
     """
     # Check if it's already a dictionary
     if isinstance(trace_id_or_json, dict):
-        if "trace_id" in trace_id_or_json or "spans" in trace_id_or_json or "error" in trace_id_or_json:
+        if (
+            "trace_id" in trace_id_or_json
+            or "spans" in trace_id_or_json
+            or "error" in trace_id_or_json
+        ):
             return trace_id_or_json
         return {"error": "Invalid trace dictionary provided."}
 
@@ -239,10 +242,10 @@ def fetch_trace_data(trace_id_or_json: str | dict[str, Any], project_id: str | N
         try:
             project_id = _get_project_id()
         except ValueError:
-             pass
+            pass
 
     if not project_id:
-         return {"error": "Project ID required to fetch trace."}
+        return {"error": "Project ID required to fetch trace."}
 
     trace_json = fetch_trace(project_id, trace_id_or_json)
     try:
@@ -254,7 +257,6 @@ def fetch_trace_data(trace_id_or_json: str | dict[str, Any], project_id: str | N
         return data
     except json.JSONDecodeError:
         return {"error": "Invalid trace JSON"}
-
 
 
 @adk_tool
@@ -274,6 +276,7 @@ def fetch_trace(project_id: str, trace_id: str) -> str:
     """
     # Check cache first
     from .trace_cache import get_trace_cache
+
     cache = get_trace_cache()
 
     cached = cache.get(trace_id)
@@ -300,23 +303,27 @@ def fetch_trace(project_id: str, trace_id: str) -> str:
             if trace_end is None or s_end > trace_end:
                 trace_end = s_end
 
-            spans.append({
-                "span_id": span_proto.span_id,
-                "name": span_proto.name,
-                "start_time": span_proto.start_time.isoformat(),
-                "end_time": span_proto.end_time.isoformat(),
-                "parent_span_id": span_proto.parent_span_id,
-                "labels": dict(span_proto.labels),
-            })
+            spans.append(
+                {
+                    "span_id": span_proto.span_id,
+                    "name": span_proto.name,
+                    "start_time": span_proto.start_time.isoformat(),
+                    "end_time": span_proto.end_time.isoformat(),
+                    "parent_span_id": span_proto.parent_span_id,
+                    "labels": dict(span_proto.labels),
+                }
+            )
 
-        duration_ms = (trace_end - trace_start) * 1000 if trace_start and trace_end else 0
+        duration_ms = (
+            (trace_end - trace_start) * 1000 if trace_start and trace_end else 0
+        )
 
         result = {
             "trace_id": trace_obj.trace_id,
             "project_id": trace_obj.project_id,
             "spans": spans,
             "span_count": len(spans),
-            "duration_ms": duration_ms
+            "duration_ms": duration_ms,
         }
 
         # Cache the result before returning
@@ -332,7 +339,7 @@ def fetch_trace(project_id: str, trace_id: str) -> str:
 
 
 @adk_tool
-def list_traces(
+def list_traces(  # noqa: C901
     project_id: str,
     start_time: str | None = None,
     end_time: str | None = None,
@@ -340,7 +347,7 @@ def list_traces(
     filter_str: str = "",
     min_latency_ms: int | None = None,
     error_only: bool = False,
-    attributes: dict[str, str] | None = None
+    attributes: dict[str, str] | None = None,
 ) -> str:
     """
     Lists recent traces with advanced filtering capabilities.
@@ -397,13 +404,13 @@ def list_traces(
 
         request = trace_v1.ListTracesRequest(
             project_id=project_id,
-            start_time=start_dt, # Pass datetime directly
-            end_time=end_dt,     # Pass datetime directly
+            start_time=start_dt,  # Pass datetime directly
+            end_time=end_dt,  # Pass datetime directly
             page_size=limit,
             filter=final_filter,
             # Use ROOTSPAN view to get at least the root span for duration calculation.
             # MINIMAL view only returns trace_id and project_id.
-            view=trace_v1.ListTracesRequest.ViewType.ROOTSPAN
+            view=trace_v1.ListTracesRequest.ViewType.ROOTSPAN,
         )
 
         traces = []
@@ -422,20 +429,26 @@ def list_traces(
                 starts = []
                 ends = []
                 for s in trace.spans:
-                        # s.start_time is datetime
-                        starts.append(s.start_time.timestamp())
-                        ends.append(s.end_time.timestamp())
+                    # s.start_time is datetime
+                    starts.append(s.start_time.timestamp())
+                    ends.append(s.end_time.timestamp())
 
                 if starts and ends:
                     start_ts = min(starts)
                     duration_ms = (max(ends) - start_ts) * 1000
 
-            traces.append({
-                "trace_id": trace.trace_id,
-                "timestamp": datetime.fromtimestamp(start_ts, tz=timezone.utc).isoformat() if start_ts else None,
-                "duration_ms": duration_ms,
-                "project_id": trace.project_id
-            })
+            traces.append(
+                {
+                    "trace_id": trace.trace_id,
+                    "timestamp": datetime.fromtimestamp(
+                        start_ts, tz=timezone.utc
+                    ).isoformat()
+                    if start_ts
+                    else None,
+                    "duration_ms": duration_ms,
+                    "project_id": trace.project_id,
+                }
+            )
 
             if len(traces) >= limit:
                 break
@@ -452,7 +465,7 @@ def _calculate_anomaly_score(
     trace: dict[str, Any],
     mean_latency: float,
     stdev_latency: float,
-    has_error: bool = False
+    has_error: bool = False,
 ) -> float:
     """
     Calculate a composite anomaly score for a trace.
@@ -493,7 +506,7 @@ def _calculate_anomaly_score(
     return score
 
 
-def validate_trace(trace_data: str | dict) -> dict[str, Any]:
+def validate_trace(trace_data: str | dict) -> dict[str, Any]:  # noqa: C901
     """
     Validates trace data for completeness and quality.
 
@@ -557,15 +570,13 @@ def validate_trace(trace_data: str | dict) -> dict[str, Any]:
         "valid": len(issues) == 0,
         "issues": issues,
         "span_count": len(spans),
-        "duration_ms": duration
+        "duration_ms": duration,
     }
 
 
 @adk_tool
-def find_example_traces(
-    project_id: str | None = None,
-    prefer_errors: bool = True,
-    min_sample_size: int = 20
+def find_example_traces(  # noqa: C901
+    project_id: str | None = None, prefer_errors: bool = True, min_sample_size: int = 20
 ) -> str:
     """
     Intelligently discovers representative baseline and anomaly traces using
@@ -606,8 +617,12 @@ def find_example_traces(
         if prefer_errors:
             error_traces_json = list_traces(project_id, limit=10, error_only=True)
             error_traces = json.loads(error_traces_json)
-            if error_traces and not (isinstance(error_traces, list) and "error" in error_traces[0]):
-                error_trace_ids = {t.get("trace_id") for t in error_traces if t.get("trace_id")}
+            if error_traces and not (
+                isinstance(error_traces, list) and "error" in error_traces[0]
+            ):
+                error_trace_ids = {
+                    t.get("trace_id") for t in error_traces if t.get("trace_id")
+                }
                 # Merge error traces into main list if not already present
                 existing_ids = {t.get("trace_id") for t in traces}
                 for et in error_traces:
@@ -618,23 +633,33 @@ def find_example_traces(
         # 3. Extract valid traces with latencies
         valid_traces = [t for t in traces if t.get("duration_ms", 0) > 0]
         if len(valid_traces) < 2:
-            return json.dumps({"error": "Insufficient traces with valid duration found."})
+            return json.dumps(
+                {"error": "Insufficient traces with valid duration found."}
+            )
 
         latencies = [t["duration_ms"] for t in valid_traces]
         latencies.sort()
 
         # 4. Calculate statistical metrics
         p50 = statistics.median(latencies)
-        p95 = latencies[int(len(latencies) * 0.95)] if len(latencies) > 1 else latencies[0]
-        p99 = latencies[int(len(latencies) * 0.99)] if len(latencies) > 1 else latencies[0]
+        p95 = (
+            latencies[int(len(latencies) * 0.95)]
+            if len(latencies) > 1
+            else latencies[0]
+        )
+        p99 = (
+            latencies[int(len(latencies) * 0.99)]
+            if len(latencies) > 1
+            else latencies[0]
+        )
         mean = statistics.mean(latencies)
         stdev = statistics.stdev(latencies) if len(latencies) > 1 else 0
 
         # 5. Score all traces for anomaly detection
         for trace in valid_traces:
             has_error = (
-                trace.get("has_error", False) or
-                trace.get("trace_id") in error_trace_ids
+                trace.get("has_error", False)
+                or trace.get("trace_id") in error_trace_ids
             )
             trace["_anomaly_score"] = _calculate_anomaly_score(
                 trace, mean, stdev, has_error
@@ -643,21 +668,16 @@ def find_example_traces(
 
         # 6. Select baseline (closest to P50, prefer no errors)
         baseline_candidates = [
-            t for t in valid_traces
-            if not t.get("_has_error", False)
+            t for t in valid_traces if not t.get("_has_error", False)
         ]
         if not baseline_candidates:
             baseline_candidates = valid_traces
 
-        baseline = min(
-            baseline_candidates,
-            key=lambda x: abs(x["duration_ms"] - p50)
-        )
+        baseline = min(baseline_candidates, key=lambda x: abs(x["duration_ms"] - p50))
 
         # 7. Select anomaly (highest anomaly score, excluding baseline)
         anomaly_candidates = [
-            t for t in valid_traces
-            if t.get("trace_id") != baseline.get("trace_id")
+            t for t in valid_traces if t.get("trace_id") != baseline.get("trace_id")
         ]
         if anomaly_candidates:
             anomaly = max(anomaly_candidates, key=lambda x: x.get("_anomaly_score", 0))
@@ -669,9 +689,13 @@ def find_example_traces(
         baseline["_selection_reason"] = f"Closest to P50 ({p50:.1f}ms)"
         anomaly_score = anomaly.get("_anomaly_score", 0)
         if anomaly.get("_has_error"):
-            anomaly["_selection_reason"] = f"Error trace with anomaly score {anomaly_score:.2f}"
+            anomaly["_selection_reason"] = (
+                f"Error trace with anomaly score {anomaly_score:.2f}"
+            )
         else:
-            anomaly["_selection_reason"] = f"High latency anomaly score {anomaly_score:.2f}"
+            anomaly["_selection_reason"] = (
+                f"High latency anomaly score {anomaly_score:.2f}"
+            )
 
         # 9. Clean up internal fields before returning
         for trace in [baseline, anomaly]:
@@ -683,24 +707,26 @@ def find_example_traces(
             "baseline_valid": baseline.get("trace_id") is not None,
             "anomaly_valid": anomaly.get("trace_id") is not None,
             "sample_adequate": len(valid_traces) >= min_sample_size,
-            "latency_variance_detected": stdev > 0
+            "latency_variance_detected": stdev > 0,
         }
 
-        return json.dumps({
-            "stats": {
-                "count": len(valid_traces),
-                "p50_ms": round(p50, 2),
-                "p95_ms": round(p95, 2),
-                "p99_ms": round(p99, 2),
-                "mean_ms": round(mean, 2),
-                "stdev_ms": round(stdev, 2) if stdev else 0,
-                "error_traces_found": len(error_trace_ids)
-            },
-            "baseline": baseline,
-            "anomaly": anomaly,
-            "validation": validation,
-            "selection_method": "hybrid_multi_signal"
-        })
+        return json.dumps(
+            {
+                "stats": {
+                    "count": len(valid_traces),
+                    "p50_ms": round(p50, 2),
+                    "p95_ms": round(p95, 2),
+                    "p99_ms": round(p99, 2),
+                    "mean_ms": round(mean, 2),
+                    "stdev_ms": round(stdev, 2) if stdev else 0,
+                    "error_traces_found": len(error_trace_ids),
+                },
+                "baseline": baseline,
+                "anomaly": anomaly,
+                "validation": validation,
+                "selection_method": "hybrid_multi_signal",
+            }
+        )
 
     except Exception as e:
         error_msg = f"Failed to find example traces: {e!s}"
@@ -709,7 +735,7 @@ def find_example_traces(
 
 
 @adk_tool
-def get_trace_by_url(url: str) -> str:
+def get_trace_by_url(url: str) -> str:  # noqa: C901
     """
     Parses a Cloud Console URL to extract trace ID and fetch the trace.
 
@@ -729,24 +755,30 @@ def get_trace_by_url(url: str) -> str:
 
         trace_id = None
         if "tid" in params:
-                trace_id = params["tid"][0]
+            trace_id = params["tid"][0]
         elif "details" in parsed.path:
             parts = parsed.path.split("/")
             # Handle both /details/abc123 and /trace-details/abc123
             for i, part in enumerate(parts):
                 if "details" in part and i + 1 < len(parts):
-                    trace_id = parts[i+1]
+                    trace_id = parts[i + 1]
                     break
-        
+
         # Fallback: if we still don't have trace_id, look for last segment that looks like a hex ID
         if not trace_id:
-             for part in reversed(parsed.path.split("/")):
-                  if part and all(c in "0123456789abcdefABCDEF" for c in part) and len(part) >= 32:
-                       trace_id = part
-                       break
+            for part in reversed(parsed.path.split("/")):
+                if (
+                    part
+                    and all(c in "0123456789abcdefABCDEF" for c in part)
+                    and len(part) >= 32
+                ):
+                    trace_id = part
+                    break
 
         if not project_id or not trace_id:
-            return json.dumps({"error": "Could not parse project_id or trace_id from URL"})
+            return json.dumps(
+                {"error": "Could not parse project_id or trace_id from URL"}
+            )
 
         return fetch_trace(project_id, trace_id)
 

@@ -113,7 +113,6 @@ def main(argv: list[str]) -> None:
     elif FLAGS.create:
         env_vars = {}
 
-
         if project_id:
             env_vars["GOOGLE_CLOUD_PROJECT"] = project_id
 

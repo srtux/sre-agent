@@ -4,13 +4,12 @@ This module provides factories for generating realistic OTel trace data
 for testing purposes, following the Google Cloud Observability schema.
 """
 
-import json
 import random
 import string
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
-import uuid
 
 
 def generate_trace_id() -> str:
@@ -23,7 +22,9 @@ def generate_span_id() -> str:
     return uuid.uuid4().hex[:16]
 
 
-def generate_timestamp(base_time: datetime | None = None, offset_seconds: int = 0) -> str:
+def generate_timestamp(
+    base_time: datetime | None = None, offset_seconds: int = 0
+) -> str:
     """Generate a timestamp in ISO format."""
     if base_time is None:
         base_time = datetime.now(timezone.utc)
@@ -33,7 +34,7 @@ def generate_timestamp(base_time: datetime | None = None, offset_seconds: int = 
 
 def generate_random_string(length: int = 10) -> str:
     """Generate a random alphanumeric string."""
-    return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+    return "".join(random.choices(string.ascii_letters + string.digits, k=length))
 
 
 @dataclass
@@ -45,7 +46,7 @@ class SpanEventGenerator:
         exception_type: str = "ValueError",
         exception_message: str = "Invalid input",
         timestamp: str | None = None,
-        include_stacktrace: bool = True
+        include_stacktrace: bool = True,
     ) -> dict[str, Any]:
         """Generate an exception event."""
         if timestamp is None:
@@ -64,17 +65,13 @@ class SpanEventGenerator:
     raise {exception_type}("{exception_message}")
 {exception_type}: {exception_message}"""
 
-        return {
-            "name": "exception",
-            "time": timestamp,
-            "attributes": attributes
-        }
+        return {"name": "exception", "time": timestamp, "attributes": attributes}
 
     @staticmethod
     def log_event(
         message: str = "Processing completed",
         severity: str = "INFO",
-        timestamp: str | None = None
+        timestamp: str | None = None,
     ) -> dict[str, Any]:
         """Generate a log event."""
         if timestamp is None:
@@ -83,10 +80,7 @@ class SpanEventGenerator:
         return {
             "name": "log",
             "time": timestamp,
-            "attributes": {
-                "log.message": message,
-                "log.severity": severity
-            }
+            "attributes": {"log.message": message, "log.severity": severity},
         }
 
 
@@ -99,7 +93,7 @@ class SpanLinkGenerator:
         linked_trace_id: str | None = None,
         linked_span_id: str | None = None,
         link_type: str = "follows_from",
-        reason: str = "async_dependency"
+        reason: str = "async_dependency",
     ) -> dict[str, Any]:
         """Generate a span link."""
         if linked_trace_id is None:
@@ -111,10 +105,7 @@ class SpanLinkGenerator:
             "trace_id": linked_trace_id,
             "span_id": linked_span_id,
             "trace_state": "",
-            "attributes": {
-                "link.type": link_type,
-                "link.reason": reason
-            }
+            "attributes": {"link.type": link_type, "link.reason": reason},
         }
 
     @staticmethod
@@ -122,15 +113,14 @@ class SpanLinkGenerator:
         """Generate a link to a batch processing job."""
         return SpanLinkGenerator.create_link(
             link_type="batch",
-            reason=f"batch_job_{batch_id or generate_random_string(8)}"
+            reason=f"batch_job_{batch_id or generate_random_string(8)}",
         )
 
     @staticmethod
     def async_link() -> dict[str, Any]:
         """Generate a link for async operation."""
         return SpanLinkGenerator.create_link(
-            link_type="async",
-            reason="async_operation"
+            link_type="async", reason="async_operation"
         )
 
 
@@ -165,7 +155,9 @@ class OtelSpanGenerator:
         span_id = generate_span_id()
         start_time = generate_timestamp(self.base_time)
         duration_nano = int(duration_ms * 1_000_000)
-        end_time = generate_timestamp(self.base_time, offset_seconds=int(duration_ms / 1000))
+        end_time = generate_timestamp(
+            self.base_time, offset_seconds=int(duration_ms / 1000)
+        )
 
         # Build attributes
         attributes = custom_attributes or {}
@@ -176,7 +168,9 @@ class OtelSpanGenerator:
             attributes["http.status_code"] = str(http_status_code)
         if http_target:
             attributes["http.target"] = http_target
-            attributes["http.url"] = f"https://{self.service_name}.example.com{http_target}"
+            attributes["http.url"] = (
+                f"https://{self.service_name}.example.com{http_target}"
+            )
 
         if db_system:
             attributes["db.system"] = db_system
@@ -189,7 +183,7 @@ class OtelSpanGenerator:
             "service.version": "1.0.0",
             "host.name": f"host-{generate_random_string(5)}",
             "cloud.provider": "gcp",
-            "cloud.region": "us-central1"
+            "cloud.region": "us-central1",
         }
 
         span = {
@@ -203,20 +197,15 @@ class OtelSpanGenerator:
             "end_time": end_time,
             "duration_nano": duration_nano,
             "attributes": attributes,
-            "status": {
-                "code": status_code,
-                "message": status_message
-            },
+            "status": {"code": status_code, "message": status_message},
             "events": events or [],
             "links": links or [],
-            "resource": {
-                "attributes": resource_attributes
-            },
+            "resource": {"attributes": resource_attributes},
             "instrumentation_scope": {
                 "name": instrumentation_name,
                 "version": instrumentation_version,
-                "schema_url": "https://opentelemetry.io/schemas/1.20.0"
-            }
+                "schema_url": "https://opentelemetry.io/schemas/1.20.0",
+            },
         }
 
         return span
@@ -227,7 +216,7 @@ class OtelSpanGenerator:
         method: str = "GET",
         status_code: int = 200,
         duration_ms: float = 50.0,
-        include_error: bool = False
+        include_error: bool = False,
     ) -> dict[str, Any]:
         """Generate an HTTP server span."""
         span_status_code = 2 if include_error else 1  # ERROR or OK
@@ -235,11 +224,15 @@ class OtelSpanGenerator:
 
         events = []
         if include_error:
-            events.append(SpanEventGenerator.exception_event(
-                exception_type="InternalError",
-                exception_message="Database connection failed",
-                timestamp=generate_timestamp(self.base_time, offset_seconds=int(duration_ms / 2000))
-            ))
+            events.append(
+                SpanEventGenerator.exception_event(
+                    exception_type="InternalError",
+                    exception_message="Database connection failed",
+                    timestamp=generate_timestamp(
+                        self.base_time, offset_seconds=int(duration_ms / 2000)
+                    ),
+                )
+            )
 
         return self.create_span(
             name=f"HTTP {method} {endpoint}",
@@ -250,7 +243,7 @@ class OtelSpanGenerator:
             http_method=method,
             http_status_code=status_code if not include_error else 500,
             http_target=endpoint,
-            events=events
+            events=events,
         )
 
     def create_database_span(
@@ -259,7 +252,7 @@ class OtelSpanGenerator:
         table: str = "users",
         duration_ms: float = 25.0,
         db_system: str = "postgresql",
-        include_error: bool = False
+        include_error: bool = False,
     ) -> dict[str, Any]:
         """Generate a database client span."""
         span_status_code = 2 if include_error else 1
@@ -267,7 +260,7 @@ class OtelSpanGenerator:
 
         attributes = {
             "db.statement": f"{operation} * FROM {table} WHERE id = $1",
-            "db.name": "production_db"
+            "db.name": "production_db",
         }
 
         return self.create_span(
@@ -278,21 +271,17 @@ class OtelSpanGenerator:
             status_message=status_message,
             db_system=db_system,
             db_operation=operation,
-            custom_attributes=attributes
+            custom_attributes=attributes,
         )
 
     def create_linked_span(
-        self,
-        linked_trace_ids: list[str] | None = None,
-        num_links: int = 1
+        self, linked_trace_ids: list[str] | None = None, num_links: int = 1
     ) -> dict[str, Any]:
         """Generate a span with links to other traces."""
         links = []
         if linked_trace_ids:
             for trace_id in linked_trace_ids:
-                links.append(SpanLinkGenerator.create_link(
-                    linked_trace_id=trace_id
-                ))
+                links.append(SpanLinkGenerator.create_link(linked_trace_id=trace_id))
         else:
             for _ in range(num_links):
                 links.append(SpanLinkGenerator.async_link())
@@ -301,7 +290,7 @@ class OtelSpanGenerator:
             name="async-operation",
             kind=1,  # INTERNAL
             duration_ms=75.0,
-            links=links
+            links=links,
         )
 
 
@@ -316,7 +305,7 @@ class TraceGenerator:
         self,
         endpoint: str = "/api/users",
         include_db_call: bool = True,
-        include_error: bool = False
+        include_error: bool = False,
     ) -> list[dict[str, Any]]:
         """Generate a simple HTTP trace with optional database call."""
         trace_id = generate_trace_id()
@@ -324,9 +313,7 @@ class TraceGenerator:
 
         # Create span generator
         generator = OtelSpanGenerator(
-            service_name=self.service_name,
-            trace_id=trace_id,
-            base_time=self.base_time
+            service_name=self.service_name, trace_id=trace_id, base_time=self.base_time
         )
 
         # Root HTTP span
@@ -334,7 +321,7 @@ class TraceGenerator:
             endpoint=endpoint,
             method="GET",
             duration_ms=100.0 if include_db_call else 50.0,
-            include_error=include_error
+            include_error=include_error,
         )
         spans.append(http_span)
 
@@ -344,22 +331,20 @@ class TraceGenerator:
                 service_name=self.service_name,
                 trace_id=trace_id,
                 parent_span_id=http_span["span_id"],
-                base_time=self.base_time + timedelta(milliseconds=10)
+                base_time=self.base_time + timedelta(milliseconds=10),
             )
             db_span = db_generator.create_database_span(
                 operation="SELECT",
                 table="users",
                 duration_ms=25.0,
-                include_error=include_error
+                include_error=include_error,
             )
             spans.append(db_span)
 
         return spans
 
     def create_multi_service_trace(
-        self,
-        services: list[str] | None = None,
-        include_errors: bool = False
+        self, services: list[str] | None = None, include_errors: bool = False
     ) -> list[dict[str, Any]]:
         """Generate a trace spanning multiple services."""
         if services is None:
@@ -375,7 +360,7 @@ class TraceGenerator:
                 service_name=service,
                 trace_id=trace_id,
                 parent_span_id=parent_id,
-                base_time=current_time
+                base_time=current_time,
             )
 
             is_last = i == len(services) - 1
@@ -386,14 +371,14 @@ class TraceGenerator:
                     operation="SELECT",
                     table="users",
                     duration_ms=25.0,
-                    include_error=include_error
+                    include_error=include_error,
                 )
             else:
                 span = generator.create_http_server_span(
                     endpoint="/api/users" if service != "frontend" else "/users",
                     method="GET",
                     duration_ms=50.0 + (i * 10),
-                    include_error=include_error
+                    include_error=include_error,
                 )
 
             spans.append(span)
@@ -408,8 +393,7 @@ class BigQueryResultGenerator:
 
     @staticmethod
     def aggregate_metrics_result(
-        services: list[str] | None = None,
-        with_errors: bool = False
+        services: list[str] | None = None, with_errors: bool = False
     ) -> list[dict[str, Any]]:
         """Generate mock BigQuery aggregate metrics results."""
         if services is None:
@@ -417,26 +401,31 @@ class BigQueryResultGenerator:
 
         results = []
         for service in services:
-            error_rate = random.uniform(0, 5) if not with_errors else random.uniform(10, 25)
-            results.append({
-                "service_name": service,
-                "request_count": random.randint(1000, 10000),
-                "error_count": int(random.randint(1000, 10000) * error_rate / 100),
-                "error_rate_pct": round(error_rate, 2),
-                "p50_ms": round(random.uniform(20, 50), 2),
-                "p95_ms": round(random.uniform(100, 300), 2),
-                "p99_ms": round(random.uniform(300, 800), 2),
-                "avg_duration_ms": round(random.uniform(30, 100), 2),
-                "first_seen": generate_timestamp(datetime.now(timezone.utc) - timedelta(hours=24)),
-                "last_seen": generate_timestamp()
-            })
+            error_rate = (
+                random.uniform(0, 5) if not with_errors else random.uniform(10, 25)
+            )
+            results.append(
+                {
+                    "service_name": service,
+                    "request_count": random.randint(1000, 10000),
+                    "error_count": int(random.randint(1000, 10000) * error_rate / 100),
+                    "error_rate_pct": round(error_rate, 2),
+                    "p50_ms": round(random.uniform(20, 50), 2),
+                    "p95_ms": round(random.uniform(100, 300), 2),
+                    "p99_ms": round(random.uniform(300, 800), 2),
+                    "avg_duration_ms": round(random.uniform(30, 100), 2),
+                    "first_seen": generate_timestamp(
+                        datetime.now(timezone.utc) - timedelta(hours=24)
+                    ),
+                    "last_seen": generate_timestamp(),
+                }
+            )
 
         return results
 
     @staticmethod
     def exemplar_traces_result(
-        count: int = 5,
-        strategy: str = "outliers"
+        count: int = 5, strategy: str = "outliers"
     ) -> list[dict[str, Any]]:
         """Generate mock BigQuery exemplar traces results."""
         results = []
@@ -444,21 +433,29 @@ class BigQueryResultGenerator:
             result = {
                 "trace_id": generate_trace_id(),
                 "operation": f"HTTP GET /api/endpoint{i}",
-                "service_name": random.choice(["frontend", "api-gateway", "user-service"]),
+                "service_name": random.choice(
+                    ["frontend", "api-gateway", "user-service"]
+                ),
                 "duration_ms": round(random.uniform(100, 800), 2),
-                "status_code": 2 if strategy == "errors" else random.choice([1, 1, 1, 2]),
-                "start_time": generate_timestamp(datetime.now(timezone.utc) - timedelta(hours=random.randint(1, 24))),
-                "selection_reason": strategy
+                "status_code": 2
+                if strategy == "errors"
+                else random.choice([1, 1, 1, 2]),
+                "start_time": generate_timestamp(
+                    datetime.now(timezone.utc) - timedelta(hours=random.randint(1, 24))
+                ),
+                "selection_reason": strategy,
             }
 
             if strategy == "outliers":
                 result["pct_above_p95"] = round(random.uniform(50, 200), 2)
             elif strategy == "errors":
-                result["error_message"] = random.choice([
-                    "Connection timeout",
-                    "Internal server error",
-                    "Database unavailable"
-                ])
+                result["error_message"] = random.choice(
+                    [
+                        "Connection timeout",
+                        "Internal server error",
+                        "Database unavailable",
+                    ]
+                )
 
             results.append(result)
 
@@ -472,23 +469,36 @@ class BigQueryResultGenerator:
             "ConnectionError",
             "TimeoutError",
             "DatabaseError",
-            "AuthenticationError"
+            "AuthenticationError",
         ]
 
         results = []
         for _ in range(count):
             exc_type = random.choice(exception_types)
-            results.append({
-                "trace_id": generate_trace_id(),
-                "span_id": generate_span_id(),
-                "span_name": random.choice(["HTTP GET /api/users", "DB SELECT users", "AUTH validate_token"]),
-                "service_name": random.choice(["frontend", "api-gateway", "user-service"]),
-                "event_name": "exception",
-                "event_time": generate_timestamp(datetime.now(timezone.utc) - timedelta(hours=random.randint(1, 24))),
-                "exception_type": exc_type,
-                "exception_message": f"Sample {exc_type} message",
-                "exception_stacktrace": f"Traceback...\n{exc_type}: Sample error"
-            })
+            results.append(
+                {
+                    "trace_id": generate_trace_id(),
+                    "span_id": generate_span_id(),
+                    "span_name": random.choice(
+                        [
+                            "HTTP GET /api/users",
+                            "DB SELECT users",
+                            "AUTH validate_token",
+                        ]
+                    ),
+                    "service_name": random.choice(
+                        ["frontend", "api-gateway", "user-service"]
+                    ),
+                    "event_name": "exception",
+                    "event_time": generate_timestamp(
+                        datetime.now(timezone.utc)
+                        - timedelta(hours=random.randint(1, 24))
+                    ),
+                    "exception_type": exc_type,
+                    "exception_message": f"Sample {exc_type} message",
+                    "exception_stacktrace": f"Traceback...\n{exc_type}: Sample error",
+                }
+            )
 
         return results
 
@@ -497,16 +507,16 @@ class CloudTraceAPIGenerator:
     """Generator for Cloud Trace API response data."""
 
     @staticmethod
-    def trace_response(trace_id: str | None = None, include_error: bool = False) -> dict[str, Any]:
+    def trace_response(
+        trace_id: str | None = None, include_error: bool = False
+    ) -> dict[str, Any]:
         """Generate a mock Cloud Trace API response."""
         if trace_id is None:
             trace_id = generate_trace_id()
 
         generator = TraceGenerator()
         spans = generator.create_simple_http_trace(
-            endpoint="/api/users",
-            include_db_call=True,
-            include_error=include_error
+            endpoint="/api/users", include_db_call=True, include_error=include_error
         )
 
         return {
@@ -520,10 +530,10 @@ class CloudTraceAPIGenerator:
                     "startTime": span["start_time"],
                     "endTime": span["end_time"],
                     "parentSpanId": span.get("parent_span_id"),
-                    "labels": span.get("attributes", {})
+                    "labels": span.get("attributes", {}),
                 }
                 for span in spans
-            ]
+            ],
         }
 
     @staticmethod
@@ -531,18 +541,25 @@ class CloudTraceAPIGenerator:
         """Generate a mock list traces response."""
         traces = []
         for _ in range(count):
-            traces.append({
-                "projectId": "test-project",
-                "traceId": generate_trace_id(),
-                "spans": [
-                    {
-                        "spanId": generate_span_id(),
-                        "name": random.choice(["HTTP GET /api/users", "DB SELECT", "CACHE GET"]),
-                        "startTime": generate_timestamp(datetime.now(timezone.utc) - timedelta(hours=random.randint(1, 24))),
-                        "endTime": generate_timestamp()
-                    }
-                ]
-            })
+            traces.append(
+                {
+                    "projectId": "test-project",
+                    "traceId": generate_trace_id(),
+                    "spans": [
+                        {
+                            "spanId": generate_span_id(),
+                            "name": random.choice(
+                                ["HTTP GET /api/users", "DB SELECT", "CACHE GET"]
+                            ),
+                            "startTime": generate_timestamp(
+                                datetime.now(timezone.utc)
+                                - timedelta(hours=random.randint(1, 24))
+                            ),
+                            "endTime": generate_timestamp(),
+                        }
+                    ],
+                }
+            )
 
         return {"traces": traces}
 
@@ -552,29 +569,34 @@ class CloudLoggingAPIGenerator:
 
     @staticmethod
     def log_entries_response(
-        count: int = 10,
-        trace_id: str | None = None,
-        severity: str = "ERROR"
+        count: int = 10, trace_id: str | None = None, severity: str = "ERROR"
     ) -> dict[str, Any]:
         """Generate mock Cloud Logging API response."""
         entries = []
         for i in range(count):
-            entries.append({
-                "logName": f"projects/test-project/logs/application",
-                "resource": {
-                    "type": "gce_instance",
+            entries.append(
+                {
+                    "logName": "projects/test-project/logs/application",
+                    "resource": {
+                        "type": "gce_instance",
+                        "labels": {
+                            "instance_id": f"instance-{generate_random_string(8)}",
+                            "zone": "us-central1-a",
+                        },
+                    },
+                    "textPayload": f"Sample {severity} log message {i}",
+                    "timestamp": generate_timestamp(
+                        datetime.now(timezone.utc)
+                        - timedelta(minutes=random.randint(1, 60))
+                    ),
+                    "severity": severity,
+                    "trace": f"projects/test-project/traces/{trace_id or generate_trace_id()}",
                     "labels": {
-                        "instance_id": f"instance-{generate_random_string(8)}",
-                        "zone": "us-central1-a"
-                    }
-                },
-                "textPayload": f"Sample {severity} log message {i}",
-                "timestamp": generate_timestamp(datetime.now(timezone.utc) - timedelta(minutes=random.randint(1, 60))),
-                "severity": severity,
-                "trace": f"projects/test-project/traces/{trace_id or generate_trace_id()}",
-                "labels": {
-                    "service": random.choice(["frontend", "api-gateway", "user-service"])
+                        "service": random.choice(
+                            ["frontend", "api-gateway", "user-service"]
+                        )
+                    },
                 }
-            })
+            )
 
         return {"entries": entries}

@@ -84,8 +84,9 @@ class TraceCache:
         with self._lock:
             self._cache[trace_id] = {
                 "data": data,
-                "expires": datetime.now(timezone.utc) + timedelta(seconds=self.ttl_seconds),
-                "cached_at": datetime.now(timezone.utc)
+                "expires": datetime.now(timezone.utc)
+                + timedelta(seconds=self.ttl_seconds),
+                "cached_at": datetime.now(timezone.utc),
             }
             logger.debug(f"Cached trace {trace_id} (TTL={self.ttl_seconds}s)")
 
@@ -122,14 +123,16 @@ class TraceCache:
         with self._lock:
             now = datetime.now(timezone.utc)
             total = len(self._cache)
-            expired = sum(1 for entry in self._cache.values() if now >= entry["expires"])
+            expired = sum(
+                1 for entry in self._cache.values() if now >= entry["expires"]
+            )
             active = total - expired
 
             return {
                 "total_entries": total,
                 "expired_entries": expired,
                 "active_entries": active,
-                "ttl_seconds": self.ttl_seconds
+                "ttl_seconds": self.ttl_seconds,
             }
 
 

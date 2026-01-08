@@ -32,15 +32,13 @@ import json
 import logging
 import os
 
-logger = logging.getLogger(__name__)
 
 import google.auth
 from google.adk.agents import LlmAgent, ParallelAgent
 from google.adk.tools import AgentTool, ToolContext
 from google.adk.tools.api_registry import ApiRegistry
-from google.adk.tools.base_toolset import BaseToolset
 
-from . import prompt, telemetry  # Register logging filters
+from . import prompt  # Register logging filters
 from .decorators import adk_tool
 from .sub_agents.aggregate.agent import aggregate_analyzer
 from .sub_agents.causality.agent import causality_analyzer
@@ -76,6 +74,7 @@ from .tools.trace_filter import (
     select_traces_manually,
 )
 
+logger = logging.getLogger(__name__)
 
 # =============================================================================
 # Module-level MCP Toolset (Singleton Pattern)
@@ -86,11 +85,10 @@ from .tools.trace_filter import (
 # =============================================================================
 
 
-
-
 # Global singleton variable (initially None)
 _bigquery_mcp_toolset = None
 _mcp_toolset_initialized = False
+
 
 def _create_module_level_mcp_toolset():
     """
@@ -104,32 +102,42 @@ def _create_module_level_mcp_toolset():
         pass
 
     if not project_id:
-        logger.warning("No Project ID detected at module load; MCP toolset will not be available")
+        logger.warning(
+            "No Project ID detected at module load; MCP toolset will not be available"
+        )
         return None
 
     try:
-        logger.info(f"Creating module-level BigQuery MCP toolset for project: {project_id}")
+        logger.info(
+            f"Creating module-level BigQuery MCP toolset for project: {project_id}"
+        )
 
         # Pattern: projects/{project}/locations/global/mcpServers/{server_id}
         mcp_server_name = f"projects/{project_id}/locations/global/mcpServers/google-bigquery.googleapis.com-mcp"
 
         # Create ApiRegistry with explicit quota project header
         api_registry = ApiRegistry(
-            project_id,
-            header_provider=lambda _: {"x-goog-user-project": project_id}
+            project_id, header_provider=lambda _: {"x-goog-user-project": project_id}
         )
 
         # Get the MCP toolset - this creates the session that will persist
         mcp_toolset = api_registry.get_toolset(
             mcp_server_name=mcp_server_name,
-            tool_filter=["execute_sql", "list_dataset_ids", "list_table_ids", "get_table_info"]
+            tool_filter=[
+                "execute_sql",
+                "list_dataset_ids",
+                "list_table_ids",
+                "get_table_info",
+            ],
         )
 
         logger.info("Successfully created module-level BigQuery MCP toolset")
         return mcp_toolset
 
     except Exception as e:
-        logger.error(f"Failed to create module-level BigQuery MCP toolset: {e}", exc_info=True)
+        logger.error(
+            f"Failed to create module-level BigQuery MCP toolset: {e}", exc_info=True
+        )
         return None
 
 
@@ -145,11 +153,11 @@ def get_bigquery_mcp_toolset():
         The shared MCP toolset instance, or None if not available
     """
     global _bigquery_mcp_toolset, _mcp_toolset_initialized
-    
+
     if not _mcp_toolset_initialized:
         _bigquery_mcp_toolset = _create_module_level_mcp_toolset()
         _mcp_toolset_initialized = True
-        
+
     return _bigquery_mcp_toolset
 
 
@@ -174,11 +182,10 @@ def create_bigquery_mcp_toolset(project_id: str):
     Returns:
         The shared module-level MCP toolset instance
     """
-    logger.debug("create_bigquery_mcp_toolset() is deprecated; returning module-level singleton")
+    logger.debug(
+        "create_bigquery_mcp_toolset() is deprecated; returning module-level singleton"
+    )
     return get_bigquery_mcp_toolset()
-
-
-
 
 
 # =============================================================================
@@ -298,7 +305,7 @@ async def run_aggregate_analysis(
                 "Identify problem areas, detect trends, and select exemplar traces for investigation."
             )
         },
-        tool_context=tool_context
+        tool_context=tool_context,
     )
 
 
@@ -329,8 +336,10 @@ async def run_triage_analysis(
 
     triage_tool = AgentTool(stage1_triage_squad)
     return await triage_tool.run_async(
-        args={"request": f"Context: {json.dumps(stage1_input)}\nInstruction: Analyze the traces provided."},
-        tool_context=tool_context
+        args={
+            "request": f"Context: {json.dumps(stage1_input)}\nInstruction: Analyze the traces provided."
+        },
+        tool_context=tool_context,
     )
 
 
@@ -371,13 +380,15 @@ async def run_deep_dive_analysis(
                 "to determine root cause and service impact."
             )
         },
-        tool_context=tool_context
+        tool_context=tool_context,
     )
+
+
 # Initialize base tools
 base_tools = [
     # Three-stage analysis architecture
     run_aggregate_analysis,  # Stage 0: BigQuery aggregate analysis
-    run_triage_analysis,     # Stage 1: Trace diff analysis
+    run_triage_analysis,  # Stage 1: Trace diff analysis
     run_deep_dive_analysis,  # Stage 2: Root cause analysis
     # BigQuery-powered OpenTelemetry tools
     analyze_aggregate_metrics,

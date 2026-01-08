@@ -1,9 +1,8 @@
 """Tests for advanced BigQuery OTel analysis tools."""
 
 import json
-import pytest
+
 from trace_analyzer.tools import bigquery_otel_advanced
-from tests.fixtures.synthetic_otel_data import generate_trace_id
 
 
 class TestAnalyzeSpanEvents:
@@ -26,8 +25,7 @@ class TestAnalyzeSpanEvents:
     def test_event_analysis_with_filter(self):
         """Test event analysis with event name filter."""
         result = bigquery_otel_advanced.analyze_span_events(
-            dataset_id="project.dataset",
-            event_name_filter="exception"
+            dataset_id="project.dataset", event_name_filter="exception"
         )
 
         data = json.loads(result)
@@ -53,8 +51,7 @@ class TestAnalyzeExceptionPatterns:
     def test_exception_pattern_by_type(self):
         """Test exception pattern analysis grouped by type."""
         result = bigquery_otel_advanced.analyze_exception_patterns(
-            dataset_id="project.dataset",
-            group_by="exception_type"
+            dataset_id="project.dataset", group_by="exception_type"
         )
 
         data = json.loads(result)
@@ -67,8 +64,7 @@ class TestAnalyzeExceptionPatterns:
     def test_exception_pattern_by_service(self):
         """Test exception pattern analysis grouped by service."""
         result = bigquery_otel_advanced.analyze_exception_patterns(
-            dataset_id="project.dataset",
-            group_by="service_name"
+            dataset_id="project.dataset", group_by="service_name"
         )
 
         data = json.loads(result)
@@ -94,9 +90,7 @@ class TestAnalyzeSpanLinks:
 
     def test_basic_link_analysis(self):
         """Test basic span link analysis query."""
-        result = bigquery_otel_advanced.analyze_span_links(
-            dataset_id="project.dataset"
-        )
+        result = bigquery_otel_advanced.analyze_span_links(dataset_id="project.dataset")
 
         data = json.loads(result)
         assert data["analysis_type"] == "span_links"
@@ -108,9 +102,7 @@ class TestAnalyzeSpanLinks:
 
     def test_link_analysis_extracts_link_attributes(self):
         """Test that query extracts link-specific attributes."""
-        result = bigquery_otel_advanced.analyze_span_links(
-            dataset_id="project.dataset"
-        )
+        result = bigquery_otel_advanced.analyze_span_links(dataset_id="project.dataset")
 
         data = json.loads(result)
         query = data["sql_query"]
@@ -121,13 +113,15 @@ class TestAnalyzeSpanLinks:
     def test_link_analysis_with_service_filter(self):
         """Test link analysis with service filter."""
         result = bigquery_otel_advanced.analyze_span_links(
-            dataset_id="project.dataset",
-            service_name="frontend"
+            dataset_id="project.dataset", service_name="frontend"
         )
 
         data = json.loads(result)
         query = data["sql_query"]
-        assert "JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = 'frontend'" in query
+        assert (
+            "JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = 'frontend'"
+            in query
+        )
 
 
 class TestAnalyzeLinkPatterns:
@@ -221,8 +215,7 @@ class TestAnalyzeHTTPAttributes:
     def test_http_analysis_with_min_requests(self):
         """Test HTTP analysis with minimum request filter."""
         result = bigquery_otel_advanced.analyze_http_attributes(
-            dataset_id="project.dataset",
-            min_request_count=50
+            dataset_id="project.dataset", min_request_count=50
         )
 
         data = json.loads(result)
@@ -250,8 +243,7 @@ class TestAnalyzeDatabaseOperations:
     def test_database_analysis_with_db_system_filter(self):
         """Test database analysis with database system filter."""
         result = bigquery_otel_advanced.analyze_database_operations(
-            dataset_id="project.dataset",
-            db_system="postgresql"
+            dataset_id="project.dataset", db_system="postgresql"
         )
 
         data = json.loads(result)
@@ -282,7 +274,7 @@ class TestAdvancedToolsIntegration:
             bigquery_otel_advanced.analyze_link_patterns,
             bigquery_otel_advanced.analyze_instrumentation_libraries,
             bigquery_otel_advanced.analyze_http_attributes,
-            bigquery_otel_advanced.analyze_database_operations
+            bigquery_otel_advanced.analyze_database_operations,
         ]
 
         for tool in tools:
@@ -301,7 +293,7 @@ class TestAdvancedToolsIntegration:
             bigquery_otel_advanced.analyze_link_patterns,
             bigquery_otel_advanced.analyze_instrumentation_libraries,
             bigquery_otel_advanced.analyze_http_attributes,
-            bigquery_otel_advanced.analyze_database_operations
+            bigquery_otel_advanced.analyze_database_operations,
         ]
 
         for tool in tools:
@@ -319,7 +311,7 @@ class TestAdvancedToolsIntegration:
             bigquery_otel_advanced.analyze_link_patterns,
             bigquery_otel_advanced.analyze_instrumentation_libraries,
             bigquery_otel_advanced.analyze_http_attributes,
-            bigquery_otel_advanced.analyze_database_operations
+            bigquery_otel_advanced.analyze_database_operations,
         ]
 
         for tool in tools:

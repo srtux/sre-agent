@@ -9,7 +9,6 @@ This module provides analysis tools for advanced OpenTelemetry features:
 
 import json
 import logging
-from typing import Any
 
 from ..decorators import adk_tool
 
@@ -51,11 +50,13 @@ def analyze_span_events(
     """
     where_conditions = [
         f"start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {time_window_hours} HOUR)",
-        "ARRAY_LENGTH(events) > 0"
+        "ARRAY_LENGTH(events) > 0",
     ]
 
     if service_name:
-        where_conditions.append(f"JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = '{service_name}'")
+        where_conditions.append(
+            f"JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = '{service_name}'"
+        )
 
     where_clause = " AND ".join(where_conditions)
 
@@ -86,17 +87,19 @@ ORDER BY event.time DESC
 LIMIT {limit}
 """
 
-    return json.dumps({
-        "analysis_type": "span_events",
-        "sql_query": query.strip(),
-        "description": f"Analyze span events for last {time_window_hours}h",
-        "next_steps": [
-            "Execute this query using BigQuery MCP execute_sql tool",
-            "Look for exception events to identify error root causes",
-            "Examine exception_stacktrace for detailed error information",
-            "Correlate event timestamps with span timing issues"
-        ]
-    })
+    return json.dumps(
+        {
+            "analysis_type": "span_events",
+            "sql_query": query.strip(),
+            "description": f"Analyze span events for last {time_window_hours}h",
+            "next_steps": [
+                "Execute this query using BigQuery MCP execute_sql tool",
+                "Look for exception events to identify error root causes",
+                "Examine exception_stacktrace for detailed error information",
+                "Correlate event timestamps with span timing issues",
+            ],
+        }
+    )
 
 
 @adk_tool
@@ -127,11 +130,13 @@ def analyze_exception_patterns(
     """
     where_conditions = [
         f"start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {time_window_hours} HOUR)",
-        "ARRAY_LENGTH(events) > 0"
+        "ARRAY_LENGTH(events) > 0",
     ]
 
     if service_name:
-        where_conditions.append(f"JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = '{service_name}'")
+        where_conditions.append(
+            f"JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = '{service_name}'"
+        )
 
     where_clause = " AND ".join(where_conditions)
 
@@ -174,17 +179,19 @@ ORDER BY exception_count DESC
 LIMIT 50
 """
 
-    return json.dumps({
-        "analysis_type": "exception_patterns",
-        "sql_query": query.strip(),
-        "description": f"Analyze exception patterns grouped by {group_by}",
-        "next_steps": [
-            "Execute this query using BigQuery MCP execute_sql tool",
-            "Identify the most common exceptions",
-            "Use find_exemplar_traces with error strategy for detailed analysis",
-            "Check if exceptions correlate with specific time periods"
-        ]
-    })
+    return json.dumps(
+        {
+            "analysis_type": "exception_patterns",
+            "sql_query": query.strip(),
+            "description": f"Analyze exception patterns grouped by {group_by}",
+            "next_steps": [
+                "Execute this query using BigQuery MCP execute_sql tool",
+                "Identify the most common exceptions",
+                "Use find_exemplar_traces with error strategy for detailed analysis",
+                "Check if exceptions correlate with specific time periods",
+            ],
+        }
+    )
 
 
 @adk_tool
@@ -216,11 +223,13 @@ def analyze_span_links(
     """
     where_conditions = [
         f"start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {time_window_hours} HOUR)",
-        "ARRAY_LENGTH(links) > 0"
+        "ARRAY_LENGTH(links) > 0",
     ]
 
     if service_name:
-        where_conditions.append(f"JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = '{service_name}'")
+        where_conditions.append(
+            f"JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = '{service_name}'"
+        )
 
     where_clause = " AND ".join(where_conditions)
 
@@ -244,17 +253,19 @@ ORDER BY start_time DESC
 LIMIT {limit}
 """
 
-    return json.dumps({
-        "analysis_type": "span_links",
-        "sql_query": query.strip(),
-        "description": f"Analyze span links for last {time_window_hours}h",
-        "next_steps": [
-            "Execute this query using BigQuery MCP execute_sql tool",
-            "Identify patterns in link types (batch, async, fan-out)",
-            "Use fetch_trace to get details of linked traces",
-            "Investigate if linked traces show correlated performance issues"
-        ]
-    })
+    return json.dumps(
+        {
+            "analysis_type": "span_links",
+            "sql_query": query.strip(),
+            "description": f"Analyze span links for last {time_window_hours}h",
+            "next_steps": [
+                "Execute this query using BigQuery MCP execute_sql tool",
+                "Identify patterns in link types (batch, async, fan-out)",
+                "Use fetch_trace to get details of linked traces",
+                "Investigate if linked traces show correlated performance issues",
+            ],
+        }
+    )
 
 
 @adk_tool
@@ -283,11 +294,13 @@ def analyze_link_patterns(
     """
     where_conditions = [
         f"start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {time_window_hours} HOUR)",
-        "ARRAY_LENGTH(links) > 0"
+        "ARRAY_LENGTH(links) > 0",
     ]
 
     if service_name:
-        where_conditions.append(f"JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = '{service_name}'")
+        where_conditions.append(
+            f"JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = '{service_name}'"
+        )
 
     where_clause = " AND ".join(where_conditions)
 
@@ -306,17 +319,19 @@ ORDER BY total_links DESC
 LIMIT 50
 """
 
-    return json.dumps({
-        "analysis_type": "link_patterns",
-        "sql_query": query.strip(),
-        "description": f"Analyze link patterns for last {time_window_hours}h",
-        "next_steps": [
-            "Execute this query using BigQuery MCP execute_sql tool",
-            "Identify services with high link density",
-            "Use analyze_span_links to get detailed link information",
-            "Investigate if link patterns correlate with performance issues"
-        ]
-    })
+    return json.dumps(
+        {
+            "analysis_type": "link_patterns",
+            "sql_query": query.strip(),
+            "description": f"Analyze link patterns for last {time_window_hours}h",
+            "next_steps": [
+                "Execute this query using BigQuery MCP execute_sql tool",
+                "Identify services with high link density",
+                "Use analyze_span_links to get detailed link information",
+                "Investigate if link patterns correlate with performance issues",
+            ],
+        }
+    )
 
 
 @adk_tool
@@ -353,7 +368,9 @@ def analyze_instrumentation_libraries(
     ]
 
     if service_name:
-        where_conditions.append(f"JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = '{service_name}'")
+        where_conditions.append(
+            f"JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = '{service_name}'"
+        )
 
     where_clause = " AND ".join(where_conditions)
 
@@ -376,17 +393,19 @@ ORDER BY span_count DESC
 LIMIT 50
 """
 
-    return json.dumps({
-        "analysis_type": "instrumentation_libraries",
-        "sql_query": query.strip(),
-        "description": f"Analyze instrumentation libraries for last {time_window_hours}h",
-        "next_steps": [
-            "Execute this query using BigQuery MCP execute_sql tool",
-            "Review library versions for consistency",
-            "Identify services missing instrumentation",
-            "Check for outdated library versions that need updates"
-        ]
-    })
+    return json.dumps(
+        {
+            "analysis_type": "instrumentation_libraries",
+            "sql_query": query.strip(),
+            "description": f"Analyze instrumentation libraries for last {time_window_hours}h",
+            "next_steps": [
+                "Execute this query using BigQuery MCP execute_sql tool",
+                "Review library versions for consistency",
+                "Identify services missing instrumentation",
+                "Check for outdated library versions that need updates",
+            ],
+        }
+    )
 
 
 @adk_tool
@@ -420,11 +439,13 @@ def analyze_http_attributes(
     where_conditions = [
         f"start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {time_window_hours} HOUR)",
         "kind = 2",  # SERVER spans
-        "JSON_EXTRACT_SCALAR(attributes, '$.http.method') IS NOT NULL"
+        "JSON_EXTRACT_SCALAR(attributes, '$.http.method') IS NOT NULL",
     ]
 
     if service_name:
-        where_conditions.append(f"JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = '{service_name}'")
+        where_conditions.append(
+            f"JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = '{service_name}'"
+        )
 
     where_clause = " AND ".join(where_conditions)
 
@@ -450,17 +471,19 @@ ORDER BY error_rate_pct DESC, p99_ms DESC
 LIMIT 100
 """
 
-    return json.dumps({
-        "analysis_type": "http_attributes",
-        "sql_query": query.strip(),
-        "description": f"Analyze HTTP attributes for last {time_window_hours}h",
-        "next_steps": [
-            "Execute this query using BigQuery MCP execute_sql tool",
-            "Identify endpoints with high error rates or latency",
-            "Check for unusual request/response sizes",
-            "Use find_exemplar_traces for problematic endpoints"
-        ]
-    })
+    return json.dumps(
+        {
+            "analysis_type": "http_attributes",
+            "sql_query": query.strip(),
+            "description": f"Analyze HTTP attributes for last {time_window_hours}h",
+            "next_steps": [
+                "Execute this query using BigQuery MCP execute_sql tool",
+                "Identify endpoints with high error rates or latency",
+                "Check for unusual request/response sizes",
+                "Use find_exemplar_traces for problematic endpoints",
+            ],
+        }
+    )
 
 
 @adk_tool
@@ -493,14 +516,18 @@ def analyze_database_operations(
     where_conditions = [
         f"start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {time_window_hours} HOUR)",
         "kind = 3",  # CLIENT spans
-        "JSON_EXTRACT_SCALAR(attributes, '$.db.system') IS NOT NULL"
+        "JSON_EXTRACT_SCALAR(attributes, '$.db.system') IS NOT NULL",
     ]
 
     if service_name:
-        where_conditions.append(f"JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = '{service_name}'")
+        where_conditions.append(
+            f"JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = '{service_name}'"
+        )
 
     if db_system:
-        where_conditions.append(f"JSON_EXTRACT_SCALAR(attributes, '$.db.system') = '{db_system}'")
+        where_conditions.append(
+            f"JSON_EXTRACT_SCALAR(attributes, '$.db.system') = '{db_system}'"
+        )
 
     where_clause = " AND ".join(where_conditions)
 
@@ -524,14 +551,16 @@ ORDER BY operation_count DESC
 LIMIT 100
 """
 
-    return json.dumps({
-        "analysis_type": "database_operations",
-        "sql_query": query.strip(),
-        "description": f"Analyze database operations for last {time_window_hours}h",
-        "next_steps": [
-            "Execute this query using BigQuery MCP execute_sql tool",
-            "Identify slow or error-prone database operations",
-            "Review sample statements for query optimization opportunities",
-            "Use find_exemplar_traces for detailed query analysis"
-        ]
-    })
+    return json.dumps(
+        {
+            "analysis_type": "database_operations",
+            "sql_query": query.strip(),
+            "description": f"Analyze database operations for last {time_window_hours}h",
+            "next_steps": [
+                "Execute this query using BigQuery MCP execute_sql tool",
+                "Identify slow or error-prone database operations",
+                "Review sample statements for query optimization opportunities",
+                "Use find_exemplar_traces for detailed query analysis",
+            ],
+        }
+    )

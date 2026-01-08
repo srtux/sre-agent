@@ -1,10 +1,9 @@
-
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from google.adk.tools import ToolContext
 
-from trace_analyzer.agent import run_triage_analysis, run_deep_dive_analysis
+from trace_analyzer.agent import run_deep_dive_analysis, run_triage_analysis
 
 
 @pytest.mark.asyncio
@@ -22,21 +21,19 @@ async def test_run_triage_analysis_flow():
         mock_tool_instance.run_async.return_value = "Stage 1 Report Content"
 
         result = await run_triage_analysis(
-            baseline_trace_id="b1",
-            target_trace_id="t1",
-            tool_context=mock_tool_context
+            baseline_trace_id="b1", target_trace_id="t1", tool_context=mock_tool_context
         )
 
         # Verify AgentTool instantiation
         assert MockAgentTool.call_count == 1
-        
+
         # Verify run_async call
         mock_tool_instance.run_async.assert_called_once()
         call_args = mock_tool_instance.run_async.call_args
-        args = call_args.kwargs['args']
-        assert "Context:" in args['request']
-        assert "b1" in args['request']
-        
+        args = call_args.kwargs["args"]
+        assert "Context:" in args["request"]
+        assert "b1" in args["request"]
+
         assert result == "Stage 1 Report Content"
 
 
@@ -54,14 +51,14 @@ async def test_run_deep_dive_analysis_flow():
             baseline_trace_id="b1",
             target_trace_id="t1",
             stage1_report="Stage 1 Findings",
-            tool_context=mock_tool_context
+            tool_context=mock_tool_context,
         )
 
         assert MockAgentTool.call_count == 1
         mock_tool_instance.run_async.assert_called_once()
-        args = mock_tool_instance.run_async.call_args.kwargs['args']
-        assert "Stage 1 Findings" in args['request']
-        
+        args = mock_tool_instance.run_async.call_args.kwargs["args"]
+        assert "Stage 1 Findings" in args["request"]
+
         assert result == "Stage 2 Report Content"
 
 
@@ -70,6 +67,6 @@ async def test_tools_require_context():
     """Test that missing tool_context raises ValueError."""
     with pytest.raises(ValueError, match="tool_context is required"):
         await run_triage_analysis("b1", "t1", tool_context=None)
-        
+
     with pytest.raises(ValueError, match="tool_context is required"):
         await run_deep_dive_analysis("b1", "t1", stage1_report="foo", tool_context=None)

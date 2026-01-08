@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 
 class Severity(str, Enum):
     """Severity level for trace comparison findings."""
+
     CRITICAL = "critical"
     HIGH = "high"
     MEDIUM = "medium"
@@ -27,6 +28,7 @@ class Severity(str, Enum):
 
 class Confidence(str, Enum):
     """Confidence level for analysis conclusions."""
+
     HIGH = "high"
     MEDIUM = "medium"
     LOW = "low"
@@ -34,16 +36,24 @@ class Confidence(str, Enum):
 
 class SpanInfo(BaseModel):
     """Information about a single span in a trace."""
+
     span_id: str = Field(description="Unique identifier for the span")
     name: str = Field(description="Name/operation of the span")
-    duration_ms: float | None = Field(default=None, description="Duration in milliseconds")
-    parent_span_id: str | None = Field(default=None, description="Parent span ID if nested")
+    duration_ms: float | None = Field(
+        default=None, description="Duration in milliseconds"
+    )
+    parent_span_id: str | None = Field(
+        default=None, description="Parent span ID if nested"
+    )
     has_error: bool = Field(default=False, description="Whether this span has errors")
-    labels: dict[str, str] = Field(default_factory=dict, description="Span labels/attributes")
+    labels: dict[str, str] = Field(
+        default_factory=dict, description="Span labels/attributes"
+    )
 
 
 class LatencyDiff(BaseModel):
     """Latency difference for a specific span type."""
+
     span_name: str = Field(description="Name of the span being compared")
     baseline_ms: float = Field(description="Duration in baseline trace (ms)")
     target_ms: float = Field(description="Duration in target trace (ms)")
@@ -54,15 +64,21 @@ class LatencyDiff(BaseModel):
 
 class ErrorDiff(BaseModel):
     """Error difference between traces."""
+
     span_name: str = Field(description="Span where the error occurred")
     error_type: str = Field(description="Type or category of error")
-    error_message: str | None = Field(default=None, description="Error message if available")
-    status_code: int | str | None = Field(default=None, description="HTTP/gRPC status code")
+    error_message: str | None = Field(
+        default=None, description="Error message if available"
+    )
+    status_code: int | str | None = Field(
+        default=None, description="HTTP/gRPC status code"
+    )
     is_new: bool = Field(description="True if this error is new in target trace")
 
 
 class StructureDiff(BaseModel):
     """Structural difference in the call graph."""
+
     change_type: Literal["added", "removed", "modified"] = Field(
         description="Type of structural change"
     )
@@ -72,6 +88,7 @@ class StructureDiff(BaseModel):
 
 class TraceSummary(BaseModel):
     """Summary information for a single trace."""
+
     trace_id: str = Field(description="Unique trace identifier")
     span_count: int = Field(description="Total number of spans")
     total_duration_ms: float = Field(description="Total trace duration in ms")
@@ -90,18 +107,15 @@ class TraceComparisonReport(BaseModel):
     )
 
     latency_findings: list[LatencyDiff] = Field(
-        default_factory=list,
-        description="List of significant latency differences"
+        default_factory=list, description="List of significant latency differences"
     )
 
     error_findings: list[ErrorDiff] = Field(
-        default_factory=list,
-        description="List of error differences"
+        default_factory=list, description="List of error differences"
     )
 
     structure_findings: list[StructureDiff] = Field(
-        default_factory=list,
-        description="List of structural/behavioral changes"
+        default_factory=list, description="List of structural/behavioral changes"
     )
 
     root_cause_hypothesis: str = Field(
@@ -109,14 +123,14 @@ class TraceComparisonReport(BaseModel):
     )
 
     recommendations: list[str] = Field(
-        default_factory=list,
-        description="Actionable recommendations based on findings"
+        default_factory=list, description="Actionable recommendations based on findings"
     )
 
 
 # =============================================================================
 # Sub-Agent Output Schemas
 # =============================================================================
+
 
 class LatencyAnalysisReport(BaseModel):
     """Output schema for the latency_analyzer sub-agent."""
@@ -128,11 +142,11 @@ class LatencyAnalysisReport(BaseModel):
     )
     top_slowdowns: list[LatencyDiff] = Field(
         default_factory=list,
-        description="Spans with the most significant latency increases"
+        description="Spans with the most significant latency increases",
     )
     improvements: list[LatencyDiff] = Field(
         default_factory=list,
-        description="Spans that improved (got faster) in the target"
+        description="Spans that improved (got faster) in the target",
     )
     root_cause_hypothesis: str = Field(
         description="Hypothesis about the cause of latency differences"
@@ -160,27 +174,26 @@ class ErrorAnalysisReport(BaseModel):
 
     baseline_error_count: int = Field(description="Number of errors in baseline trace")
     target_error_count: int = Field(description="Number of errors in target trace")
-    net_change: int = Field(description="Change in error count (positive = more errors)")
+    net_change: int = Field(
+        description="Change in error count (positive = more errors)"
+    )
 
     new_errors: list[ErrorInfo] = Field(
         default_factory=list,
-        description="Errors that appeared in target but not in baseline"
+        description="Errors that appeared in target but not in baseline",
     )
     resolved_errors: list[ErrorInfo] = Field(
-        default_factory=list,
-        description="Errors in baseline that are absent in target"
+        default_factory=list, description="Errors in baseline that are absent in target"
     )
     common_errors: list[ErrorInfo] = Field(
-        default_factory=list,
-        description="Errors present in both traces"
+        default_factory=list, description="Errors present in both traces"
     )
 
     error_pattern_analysis: str = Field(
         description="Analysis of error patterns (clustering, cascading, etc.)"
     )
     recommendations: list[str] = Field(
-        default_factory=list,
-        description="Actions to address the errors"
+        default_factory=list, description="Actions to address the errors"
     )
 
 
@@ -206,16 +219,13 @@ class StructureAnalysisReport(BaseModel):
     target_depth: int = Field(description="Maximum call depth in target")
 
     missing_operations: list[StructuralChange] = Field(
-        default_factory=list,
-        description="Operations in baseline but not in target"
+        default_factory=list, description="Operations in baseline but not in target"
     )
     new_operations: list[StructuralChange] = Field(
-        default_factory=list,
-        description="Operations in target but not in baseline"
+        default_factory=list, description="Operations in target but not in baseline"
     )
     call_pattern_changes: list[str] = Field(
-        default_factory=list,
-        description="Descriptions of call pattern changes"
+        default_factory=list, description="Descriptions of call pattern changes"
     )
 
     behavioral_impact: str = Field(
@@ -258,7 +268,7 @@ class CriticalPathSegment(BaseModel):
     )
     is_optimization_target: bool = Field(
         default=False,
-        description="Whether optimizing this span would reduce overall latency"
+        description="Whether optimizing this span would reduce overall latency",
     )
 
 
@@ -273,18 +283,16 @@ class StatisticalAnalysisReport(BaseModel):
         description="Z-score threshold used for anomaly detection"
     )
     anomalies: list[AnomalyFinding] = Field(
-        default_factory=list,
-        description="Spans identified as statistical anomalies"
+        default_factory=list, description="Spans identified as statistical anomalies"
     )
 
     critical_path: list[CriticalPathSegment] = Field(
         default_factory=list,
-        description="The critical path determining minimum latency"
+        description="The critical path determining minimum latency",
     )
 
     optimization_opportunities: list[str] = Field(
-        default_factory=list,
-        description="Suggestions for latency optimization"
+        default_factory=list, description="Suggestions for latency optimization"
     )
 
 
@@ -294,7 +302,9 @@ class RootCauseCandidate(BaseModel):
     rank: int = Field(description="Ranking (1 = most likely)")
     span_name: str = Field(description="Name of the suspected root cause span")
     slowdown_ms: float = Field(description="Amount of slowdown attributed")
-    confidence: Confidence = Field(description="Confidence in this being the root cause")
+    confidence: Confidence = Field(
+        description="Confidence in this being the root cause"
+    )
     reasoning: str = Field(description="Explanation of why this is a candidate")
 
 
@@ -315,38 +325,32 @@ class CausalAnalysisReport(BaseModel):
 
     causal_chain: list[CausalChainLink] = Field(
         default_factory=list,
-        description="The identified causal chain from root to effects"
+        description="The identified causal chain from root to effects",
     )
 
     root_cause_candidates: list[RootCauseCandidate] = Field(
-        default_factory=list,
-        description="Ranked list of potential root causes"
+        default_factory=list, description="Ranked list of potential root causes"
     )
 
     propagation_depth: int = Field(
-        default=0,
-        description="Number of levels the issue cascaded through"
+        default=0, description="Number of levels the issue cascaded through"
     )
 
-    primary_root_cause: str = Field(
-        description="The most likely root cause span"
-    )
-    confidence: Confidence = Field(
-        description="Overall confidence in the analysis"
-    )
+    primary_root_cause: str = Field(description="The most likely root cause span")
+    confidence: Confidence = Field(description="Overall confidence in the analysis")
     conclusion: str = Field(
         description="Summary explanation of the root cause determination"
     )
 
     recommended_actions: list[str] = Field(
-        default_factory=list,
-        description="Specific actions to address the root cause"
+        default_factory=list, description="Specific actions to address the root cause"
     )
 
 
 # =============================================================================
 # Service Impact Schema (for Phase 2 service_impact sub-agent)
 # =============================================================================
+
 
 class ServiceImpact(BaseModel):
     """Impact assessment for a single service."""
@@ -360,29 +364,24 @@ class ServiceImpact(BaseModel):
     current_value: float = Field(description="Current/target metric value")
     change_percent: float = Field(description="Percentage change from baseline")
     affected_operations: list[str] = Field(
-        default_factory=list,
-        description="List of operations affected in this service"
+        default_factory=list, description="List of operations affected in this service"
     )
 
 
 class ServiceImpactReport(BaseModel):
     """Output schema for the service_impact sub-agent (Phase 2)."""
 
-    total_services_analyzed: int = Field(
-        description="Number of services analyzed"
-    )
+    total_services_analyzed: int = Field(description="Number of services analyzed")
     impacted_services_count: int = Field(
         description="Number of services with notable impact"
     )
 
     service_impacts: list[ServiceImpact] = Field(
-        default_factory=list,
-        description="Impact details for each affected service"
+        default_factory=list, description="Impact details for each affected service"
     )
 
     cross_service_effects: list[str] = Field(
-        default_factory=list,
-        description="Effects that span multiple services"
+        default_factory=list, description="Effects that span multiple services"
     )
 
     blast_radius_assessment: str = Field(
@@ -394,26 +393,36 @@ class ServiceImpactReport(BaseModel):
 # Data Source Schemas (Logging, Monitoring, Error Reporting)
 # =============================================================================
 
+
 class LogEntry(BaseModel):
     """Represents a single log entry from Cloud Logging."""
+
     timestamp: str = Field(description="The timestamp of the log entry.")
     severity: str = Field(description="The severity of the log entry.")
     payload: str = Field(description="The payload of the log entry.")
     resource: dict = Field(description="The resource associated with the log entry.")
 
+
 class TimeSeriesPoint(BaseModel):
     """Represents a single point in a time series."""
+
     timestamp: str = Field(description="The timestamp of the data point.")
     value: float = Field(description="The value of the data point.")
 
+
 class TimeSeries(BaseModel):
     """Represents a time series from Cloud Monitoring."""
+
     metric: dict = Field(description="The metric descriptor.")
     resource: dict = Field(description="The resource descriptor.")
-    points: list[TimeSeriesPoint] = Field(description="The data points in the time series.")
+    points: list[TimeSeriesPoint] = Field(
+        description="The data points in the time series."
+    )
+
 
 class ErrorEvent(BaseModel):
     """Represents an error event from Cloud Error Reporting."""
+
     event_time: str = Field(description="The timestamp of the error event.")
     message: str = Field(description="The error message.")
     service_context: dict = Field(description="The service context of the error.")

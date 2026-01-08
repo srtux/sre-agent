@@ -2,7 +2,6 @@
 
 from google.adk.agents import LlmAgent
 
-from .prompt import AGGREGATE_ANALYZER_PROMPT
 from ...tools.bigquery_otel import (
     analyze_aggregate_metrics,
     compare_time_periods,
@@ -10,6 +9,7 @@ from ...tools.bigquery_otel import (
     detect_trend_changes,
     find_exemplar_traces,
 )
+from .prompt import AGGREGATE_ANALYZER_PROMPT
 
 aggregate_analyzer = LlmAgent(
     name="aggregate_analyzer",

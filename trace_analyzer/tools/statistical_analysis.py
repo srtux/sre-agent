@@ -1,5 +1,6 @@
 """Statistical analysis and anomaly detection for trace data."""
 
+import concurrent.futures
 import json
 import statistics
 from collections import defaultdict
@@ -8,8 +9,7 @@ from typing import Any
 
 from ..decorators import adk_tool
 from ..telemetry import get_meter, get_tracer
-from .trace_client import fetch_trace, _get_project_id, fetch_trace_data
-import concurrent.futures
+from .trace_client import fetch_trace_data
 
 # Telemetry setup
 tracer = get_tracer(__name__)
@@ -17,35 +17,36 @@ meter = get_meter(__name__)
 
 MAX_WORKERS = 10  # Max concurrent fetches
 
-def _fetch_traces_parallel(trace_ids: list[str], project_id: str | None = None, max_traces: int = 50) -> list[dict[str, Any]]:
+
+def _fetch_traces_parallel(
+    trace_ids: list[str], project_id: str | None = None, max_traces: int = 50
+) -> list[dict[str, Any]]:
     """Fetches multiple traces in parallel."""
     # Cap the number of traces to avoid overwhelming the API
     target_ids = trace_ids[:max_traces]
-    
+
     results = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         # Submit all tasks
         future_to_tid = {
-            executor.submit(fetch_trace_data, tid, project_id): tid 
+            executor.submit(fetch_trace_data, tid, project_id): tid
             for tid in target_ids
         }
-        
+
         for future in concurrent.futures.as_completed(future_to_tid):
-            tid = future_to_tid[future]
             try:
                 data = future.result()
                 if data and "error" not in data:
                     results.append(data)
             except Exception:
                 pass
-                
+
     return results
 
 
-
-
-
-def compute_latency_statistics(trace_ids: list[str], project_id: str | None = None) -> dict[str, Any]:
+def compute_latency_statistics(  # noqa: C901
+    trace_ids: list[str], project_id: str | None = None
+) -> dict[str, Any]:
     """
     Computes aggregate latency statistics for a list of traces.
 
@@ -78,8 +79,12 @@ def compute_latency_statistics(trace_ids: list[str], project_id: str | None = No
                         d = s.get("duration_ms")
                         if d is None and s.get("start_time") and s.get("end_time"):
                             try:
-                                start = datetime.fromisoformat(s["start_time"].replace('Z', '+00:00'))
-                                end = datetime.fromisoformat(s["end_time"].replace('Z', '+00:00'))
+                                start = datetime.fromisoformat(
+                                    s["start_time"].replace("Z", "+00:00")
+                                )
+                                end = datetime.fromisoformat(
+                                    s["end_time"].replace("Z", "+00:00")
+                                )
                                 d = (end - start).total_seconds() * 1000
                             except Exception:
                                 pass
@@ -128,7 +133,7 @@ def compute_latency_statistics(trace_ids: list[str], project_id: str | None = No
                 "mean": span_mean,
                 "min": durs[0],
                 "max": durs[-1],
-                "p95": durs[int(c * 0.95)] if c > 0 else 0
+                "p95": durs[int(c * 0.95)] if c > 0 else 0,
             }
             # Calculate stdev for Z-score anomaly detection (need at least 2 samples)
             if c > 1:
@@ -143,11 +148,11 @@ def compute_latency_statistics(trace_ids: list[str], project_id: str | None = No
         return stats
 
 
-def detect_latency_anomalies(
+def detect_latency_anomalies(  # noqa: C901
     baseline_trace_ids: list[str],
     target_trace_id: str,
     threshold_sigma: float = 2.0,
-    project_id: str | None = None
+    project_id: str | None = None,
 ) -> dict[str, Any]:
     """
     Detects if the target trace is anomalous compared to baseline distribution using Z-score.
@@ -174,12 +179,12 @@ def detect_latency_anomalies(
         # Get target duration
         target_data = fetch_trace_data(target_trace_id, project_id)
         if not target_data:
-             return {"error": "Target trace not found or invalid"}
+            return {"error": "Target trace not found or invalid"}
 
         target_duration = target_data.get("duration_ms")
         if target_duration is None:
-             # Try to calc from spans if needed, or error
-             return {"error": "Target trace has no duration_ms"}
+            # Try to calc from spans if needed, or error
+            return {"error": "Target trace has no duration_ms"}
 
         # Z-score calculation for total trace
         if stdev > 0:
@@ -205,11 +210,15 @@ def detect_latency_anomalies(
                 # Calc duration
                 dur = s.get("duration_ms")
                 if dur is None and s.get("start_time"):
-                     try:
-                        start = datetime.fromisoformat(s["start_time"].replace('Z', '+00:00'))
-                        end = datetime.fromisoformat(s["end_time"].replace('Z', '+00:00'))
+                    try:
+                        start = datetime.fromisoformat(
+                            s["start_time"].replace("Z", "+00:00")
+                        )
+                        end = datetime.fromisoformat(
+                            s["end_time"].replace("Z", "+00:00")
+                        )
                         dur = (end - start).total_seconds() * 1000
-                     except Exception:
+                    except Exception:
                         pass
 
                 if name in span_stats and dur is not None:
@@ -228,16 +237,20 @@ def detect_latency_anomalies(
                             span_z_score = 100.0 if dur > span_mean else -100.0
 
                     # Check if anomalous (using same threshold as trace level)
-                    if abs(span_z_score) > threshold_sigma and dur > 50: # Ignore tiny spans
-                        anomalous_spans.append({
-                            "span_name": name,
-                            "duration_ms": dur,
-                            "baseline_mean": span_mean,
-                            "baseline_stdev": span_stdev,
-                            "baseline_p95": b_span["p95"],
-                            "z_score": round(span_z_score, 2),
-                            "anomaly_type": "slow" if span_z_score > 0 else "fast"
-                        })
+                    if (
+                        abs(span_z_score) > threshold_sigma and dur > 50
+                    ):  # Ignore tiny spans
+                        anomalous_spans.append(
+                            {
+                                "span_name": name,
+                                "duration_ms": dur,
+                                "baseline_mean": span_mean,
+                                "baseline_stdev": span_stdev,
+                                "baseline_p95": b_span["p95"],
+                                "z_score": round(span_z_score, 2),
+                                "anomaly_type": "slow" if span_z_score > 0 else "fast",
+                            }
+                        )
 
         return {
             "is_anomaly": is_anomaly,
@@ -247,11 +260,13 @@ def detect_latency_anomalies(
             "baseline_stdev": stdev,
             "threshold_sigma": threshold_sigma,
             "deviation_ms": target_duration - mean,
-            "anomalous_spans": anomalous_spans
+            "anomalous_spans": anomalous_spans,
         }
 
 
-def analyze_critical_path(trace_id: str, project_id: str | None = None) -> dict[str, Any]:
+def analyze_critical_path(  # noqa: C901
+    trace_id: str, project_id: str | None = None
+) -> dict[str, Any]:
     """
     Identifies the critical path of spans in a trace.
 
@@ -274,8 +289,18 @@ def analyze_critical_path(trace_id: str, project_id: str | None = None) -> dict[
         parsed_spans = {}
         for s in spans:
             try:
-                start = datetime.fromisoformat(s["start_time"].replace('Z', '+00:00')).timestamp() * 1000
-                end = datetime.fromisoformat(s["end_time"].replace('Z', '+00:00')).timestamp() * 1000
+                start = (
+                    datetime.fromisoformat(
+                        s["start_time"].replace("Z", "+00:00")
+                    ).timestamp()
+                    * 1000
+                )
+                end = (
+                    datetime.fromisoformat(
+                        s["end_time"].replace("Z", "+00:00")
+                    ).timestamp()
+                    * 1000
+                )
                 parsed_spans[s["span_id"]] = {
                     "id": s["span_id"],
                     "name": s.get("name"),
@@ -283,7 +308,7 @@ def analyze_critical_path(trace_id: str, project_id: str | None = None) -> dict[
                     "end": end,
                     "duration": end - start,
                     "parent": s.get("parent_span_id"),
-                    "children": []
+                    "children": [],
                 }
             except (ValueError, KeyError):
                 continue
@@ -294,7 +319,9 @@ def analyze_critical_path(trace_id: str, project_id: str | None = None) -> dict[
             if s["parent"] and s["parent"] in parsed_spans:
                 parsed_spans[s["parent"]]["children"].append(sid)
             else:
-                if root_id is None: # Assume first root found is THE root for simplicity
+                if (
+                    root_id is None
+                ):  # Assume first root found is THE root for simplicity
                     root_id = sid
 
         if not root_id:
@@ -320,14 +347,19 @@ def analyze_critical_path(trace_id: str, project_id: str | None = None) -> dict[
 
             if not node["children"]:
                 # Leaf node - its duration is fully critical
-                return ([{
-                    "name": node["name"],
-                    "span_id": node["id"],
-                    "duration_ms": node["duration"],
-                    "start_ms": node["start"],
-                    "end_ms": node["end"],
-                    "self_time_ms": node["duration"],
-                }], node["duration"])
+                return (
+                    [
+                        {
+                            "name": node["name"],
+                            "span_id": node["id"],
+                            "duration_ms": node["duration"],
+                            "start_ms": node["start"],
+                            "end_ms": node["end"],
+                            "self_time_ms": node["duration"],
+                        }
+                    ],
+                    node["duration"],
+                )
 
             # Calculate self time (time not overlapping with any child)
             child_coverage = []
@@ -401,38 +433,60 @@ def analyze_critical_path(trace_id: str, project_id: str | None = None) -> dict[
         # Calculate contribution percentage based on total trace duration
         trace_total_dur = parsed_spans[root_id]["duration"]
         for p in path:
-            p["contribution_pct"] = (p["self_time_ms"] / trace_total_dur * 100) if trace_total_dur > 0 else 0
-            p["blocking_contribution_pct"] = (p["self_time_ms"] / total_critical_duration * 100) if total_critical_duration > 0 else 0
+            p["contribution_pct"] = (
+                (p["self_time_ms"] / trace_total_dur * 100)
+                if trace_total_dur > 0
+                else 0
+            )
+            p["blocking_contribution_pct"] = (
+                (p["self_time_ms"] / total_critical_duration * 100)
+                if total_critical_duration > 0
+                else 0
+            )
 
         # Calculate parallelism metrics
-        parallelism_ratio = trace_total_dur / total_critical_duration if total_critical_duration > 0 else 1.0
+        parallelism_ratio = (
+            trace_total_dur / total_critical_duration
+            if total_critical_duration > 0
+            else 1.0
+        )
 
         return {
             "critical_path": path,
             "total_critical_duration_ms": round(total_critical_duration, 2),
             "trace_duration_ms": round(trace_total_dur, 2),
             "parallelism_ratio": round(parallelism_ratio, 2),
-            "parallelism_pct": round((1 - 1/parallelism_ratio) * 100, 2) if parallelism_ratio > 1 else 0
+            "parallelism_pct": round((1 - 1 / parallelism_ratio) * 100, 2)
+            if parallelism_ratio > 1
+            else 0,
         }
 
 
 @adk_tool
-def perform_causal_analysis(
-    baseline_trace_id: str,
-    target_trace_id: str,
-    project_id: str | None = None
+def perform_causal_analysis(  # noqa: C901
+    baseline_trace_id: str, target_trace_id: str, project_id: str | None = None
 ) -> dict[str, Any] | str:
     """
     Enhanced root cause analysis using span-ID-level precision.
     """
     baseline_data = fetch_trace_data(baseline_trace_id, project_id)
     if not baseline_data or "error" in baseline_data:
-        msg = "Invalid baseline_trace JSON" if isinstance(baseline_trace_id, str) and baseline_trace_id.strip().startswith("{") else "Invalid baseline_trace ID provided."
+        msg = (
+            "Invalid baseline_trace JSON"
+            if isinstance(baseline_trace_id, str)
+            and baseline_trace_id.strip().startswith("{")
+            else "Invalid baseline_trace ID provided."
+        )
         return json.dumps({"error": msg})
 
     target_data = fetch_trace_data(target_trace_id, project_id)
     if not target_data or "error" in target_data:
-        msg = "Invalid target_trace JSON" if isinstance(target_trace_id, str) and target_trace_id.strip().startswith("{") else "Invalid target_trace ID provided."
+        msg = (
+            "Invalid target_trace JSON"
+            if isinstance(target_trace_id, str)
+            and target_trace_id.strip().startswith("{")
+            else "Invalid target_trace ID provided."
+        )
         return json.dumps({"error": msg})
 
     # 1. Build span name mappings for both traces
@@ -455,10 +509,12 @@ def perform_causal_analysis(
 
     # 3. Build call graph to get depth information
     from .trace_analysis import build_call_graph
+
     target_graph = build_call_graph(target_trace_id, project_id)
 
     # Flatten tree to map span_id -> depth
     depth_map = {}
+
     def traverse(node):
         depth_map[node["span_id"]] = node["depth"]
         for child in node["children"]:
@@ -482,8 +538,12 @@ def perform_causal_analysis(
         target_duration = target_span.get("duration_ms")
         if target_duration is None:
             try:
-                start = datetime.fromisoformat(target_span["start_time"].replace('Z', '+00:00'))
-                end = datetime.fromisoformat(target_span["end_time"].replace('Z', '+00:00'))
+                start = datetime.fromisoformat(
+                    target_span["start_time"].replace("Z", "+00:00")
+                )
+                end = datetime.fromisoformat(
+                    target_span["end_time"].replace("Z", "+00:00")
+                )
                 target_duration = (end - start).total_seconds() * 1000
             except Exception:
                 continue
@@ -494,8 +554,12 @@ def perform_causal_analysis(
             b_dur = b_span.get("duration_ms")
             if b_dur is None:
                 try:
-                    start = datetime.fromisoformat(b_span["start_time"].replace('Z', '+00:00'))
-                    end = datetime.fromisoformat(b_span["end_time"].replace('Z', '+00:00'))
+                    start = datetime.fromisoformat(
+                        b_span["start_time"].replace("Z", "+00:00")
+                    )
+                    end = datetime.fromisoformat(
+                        b_span["end_time"].replace("Z", "+00:00")
+                    )
                     b_dur = (end - start).total_seconds() * 1000
                 except Exception:
                     continue
@@ -537,19 +601,24 @@ def perform_causal_analysis(
             if self_time_contribution > diff_ms * 0.3:
                 score *= 1.3
 
-        candidates.append({
-            "span_id": span_id,
-            "span_name": span_name,
-            "diff_ms": round(diff_ms, 2),
-            "diff_percent": round(diff_percent, 1),
-            "baseline_avg_ms": round(baseline_avg, 2),
-            "target_ms": round(target_duration, 2),
-            "on_critical_path": on_critical_path,
-            "self_time_ms": round(self_time_contribution, 2) if on_critical_path else None,
-            "depth": depth,
-            "confidence_score": round(score, 2),
-            "is_likely_root_cause": on_critical_path and self_time_contribution > 50,
-        })
+        candidates.append(
+            {
+                "span_id": span_id,
+                "span_name": span_name,
+                "diff_ms": round(diff_ms, 2),
+                "diff_percent": round(diff_percent, 1),
+                "baseline_avg_ms": round(baseline_avg, 2),
+                "target_ms": round(target_duration, 2),
+                "on_critical_path": on_critical_path,
+                "self_time_ms": round(self_time_contribution, 2)
+                if on_critical_path
+                else None,
+                "depth": depth,
+                "confidence_score": round(score, 2),
+                "is_likely_root_cause": on_critical_path
+                and self_time_contribution > 50,
+            }
+        )
 
     # Sort by confidence score
     candidates.sort(key=lambda x: x["confidence_score"], reverse=True)
@@ -562,11 +631,16 @@ def perform_causal_analysis(
         "root_cause_candidates": candidates[:10],  # Return top 10
         "analysis_method": "span_id_level_critical_path_analysis",
         "total_candidates": len(candidates),
-        "critical_path_spans": len(critical_path)
+        "critical_path_spans": len(critical_path),
     }
 
+
 @adk_tool
-def analyze_trace_patterns(trace_ids: list[str], lookback_window_minutes: int = 60, project_id: str | None = None) -> dict[str, Any]:
+def analyze_trace_patterns(  # noqa: C901
+    trace_ids: list[str],
+    lookback_window_minutes: int = 60,
+    project_id: str | None = None,
+) -> dict[str, Any]:
     """
     Analyzes patterns across multiple traces to detect trends and recurring issues.
 
@@ -595,12 +669,14 @@ def analyze_trace_patterns(trace_ids: list[str], lookback_window_minutes: int = 
             return {"error": "Not enough valid traces for pattern analysis"}
 
         # Track span performance across traces
-        span_performance = defaultdict(lambda: {
-            "occurrences": 0,
-            "durations": [],
-            "error_count": 0,
-            "traces_with_span": []
-        })
+        span_performance = defaultdict(
+            lambda: {
+                "occurrences": 0,
+                "durations": [],
+                "error_count": 0,
+                "traces_with_span": [],
+            }
+        )
 
         trace_durations = []
         trace_timestamps = []
@@ -619,8 +695,12 @@ def analyze_trace_patterns(trace_ids: list[str], lookback_window_minutes: int = 
 
                 if duration is None and span.get("start_time") and span.get("end_time"):
                     try:
-                        start = datetime.fromisoformat(span["start_time"].replace('Z', '+00:00'))
-                        end = datetime.fromisoformat(span["end_time"].replace('Z', '+00:00'))
+                        start = datetime.fromisoformat(
+                            span["start_time"].replace("Z", "+00:00")
+                        )
+                        end = datetime.fromisoformat(
+                            span["end_time"].replace("Z", "+00:00")
+                        )
                         duration = (end - start).total_seconds() * 1000
                     except Exception:
                         continue
@@ -650,57 +730,77 @@ def analyze_trace_patterns(trace_ids: list[str], lookback_window_minutes: int = 
 
             if len(durations) > 1:
                 stdev_dur = statistics.stdev(durations)
-                cv = stdev_dur / mean_dur if mean_dur > 0 else 0  # Coefficient of variation
+                cv = (
+                    stdev_dur / mean_dur if mean_dur > 0 else 0
+                )  # Coefficient of variation
             else:
                 stdev_dur = 0
                 cv = 0
 
             # Recurring slowdown: consistently slow (low variance, high duration)
             if mean_dur > 100 and cv < 0.3:
-                recurring_slowdowns.append({
-                    "span_name": span_name,
-                    "avg_duration_ms": round(mean_dur, 2),
-                    "occurrences": perf["occurrences"],
-                    "consistency": round((1 - cv) * 100, 1),  # How consistent
-                    "pattern_type": "recurring_slowdown"
-                })
+                recurring_slowdowns.append(
+                    {
+                        "span_name": span_name,
+                        "avg_duration_ms": round(mean_dur, 2),
+                        "occurrences": perf["occurrences"],
+                        "consistency": round((1 - cv) * 100, 1),  # How consistent
+                        "pattern_type": "recurring_slowdown",
+                    }
+                )
 
             # Intermittent issue: high variance (sometimes fast, sometimes slow)
             if cv > 0.5 and mean_dur > 50:
-                intermittent_issues.append({
-                    "span_name": span_name,
-                    "avg_duration_ms": round(mean_dur, 2),
-                    "stdev_ms": round(stdev_dur, 2),
-                    "coefficient_of_variation": round(cv, 2),
-                    "min_ms": round(min(durations), 2),
-                    "max_ms": round(max(durations), 2),
-                    "occurrences": perf["occurrences"],
-                    "pattern_type": "intermittent"
-                })
+                intermittent_issues.append(
+                    {
+                        "span_name": span_name,
+                        "avg_duration_ms": round(mean_dur, 2),
+                        "stdev_ms": round(stdev_dur, 2),
+                        "coefficient_of_variation": round(cv, 2),
+                        "min_ms": round(min(durations), 2),
+                        "max_ms": round(max(durations), 2),
+                        "occurrences": perf["occurrences"],
+                        "pattern_type": "intermittent",
+                    }
+                )
 
             # High variance spans (unpredictable performance)
             if cv > 0.7 and perf["occurrences"] >= 3:
-                high_variance_spans.append({
-                    "span_name": span_name,
-                    "coefficient_of_variation": round(cv, 2),
-                    "avg_duration_ms": round(mean_dur, 2),
-                    "occurrences": perf["occurrences"],
-                    "pattern_type": "high_variance"
-                })
+                high_variance_spans.append(
+                    {
+                        "span_name": span_name,
+                        "coefficient_of_variation": round(cv, 2),
+                        "avg_duration_ms": round(mean_dur, 2),
+                        "occurrences": perf["occurrences"],
+                        "pattern_type": "high_variance",
+                    }
+                )
 
         # Sort by impact
-        recurring_slowdowns.sort(key=lambda x: x["avg_duration_ms"] * x["occurrences"], reverse=True)
+        recurring_slowdowns.sort(
+            key=lambda x: x["avg_duration_ms"] * x["occurrences"], reverse=True
+        )
         intermittent_issues.sort(key=lambda x: x["stdev_ms"], reverse=True)
-        high_variance_spans.sort(key=lambda x: x["coefficient_of_variation"], reverse=True)
+        high_variance_spans.sort(
+            key=lambda x: x["coefficient_of_variation"], reverse=True
+        )
 
         # Analyze overall trace trend
         trend = "stable"
         if len(trace_durations) >= 3:
             # Simple linear trend detection
-            first_half_avg = statistics.mean(trace_durations[:len(trace_durations)//2])
-            second_half_avg = statistics.mean(trace_durations[len(trace_durations)//2:])
+            first_half_avg = statistics.mean(
+                trace_durations[: len(trace_durations) // 2]
+            )
+            second_half_avg = statistics.mean(
+                trace_durations[len(trace_durations) // 2 :]
+            )
 
-            change_pct = ((second_half_avg - first_half_avg) / first_half_avg * 100) if first_half_avg > 0 else 0
+            change_pct = (
+                ((second_half_avg - first_half_avg) / first_half_avg * 100)
+                if first_half_avg > 0
+                else 0
+            )
 
             if change_pct > 15:
                 trend = "degrading"
@@ -721,11 +821,13 @@ def analyze_trace_patterns(trace_ids: list[str], lookback_window_minutes: int = 
                 "total_intermittent_issues": len(intermittent_issues),
                 "total_high_variance_spans": len(high_variance_spans),
                 "trace_duration_trend": trend,
-            }
+            },
         }
 
 
-def compute_service_level_stats(trace_ids: list[str], project_id: str | None = None) -> dict[str, Any]:
+def compute_service_level_stats(
+    trace_ids: list[str], project_id: str | None = None
+) -> dict[str, Any]:
     """
     Computes stats aggregated by service name (if available in labels).
 
@@ -743,15 +845,22 @@ def compute_service_level_stats(trace_ids: list[str], project_id: str | None = N
             # Try to find service name in labels, or default to "unknown"
             # Common conventions: service.name, app, component
             labels = s.get("labels", {})
-            svc = labels.get("service.name") or labels.get("service") or labels.get("app") or "unknown"
+            svc = (
+                labels.get("service.name")
+                or labels.get("service")
+                or labels.get("app")
+                or "unknown"
+            )
 
             dur = 0
             if s.get("start_time") and s.get("end_time"):
-                 try:
-                    start = datetime.fromisoformat(s["start_time"].replace('Z', '+00:00'))
-                    end = datetime.fromisoformat(s["end_time"].replace('Z', '+00:00'))
+                try:
+                    start = datetime.fromisoformat(
+                        s["start_time"].replace("Z", "+00:00")
+                    )
+                    end = datetime.fromisoformat(s["end_time"].replace("Z", "+00:00"))
                     dur = (end - start).total_seconds() * 1000
-                 except Exception:
+                except Exception:
                     pass
 
             is_error = "error" in str(labels).lower()
@@ -769,7 +878,7 @@ def compute_service_level_stats(trace_ids: list[str], project_id: str | None = N
             result[svc] = {
                 "request_count": stats["count"],
                 "error_rate": round(stats["errors"] / stats["count"] * 100, 2),
-                "avg_latency": round(stats["total_duration"] / stats["count"], 2)
+                "avg_latency": round(stats["total_duration"] / stats["count"], 2),
             }
 
     return result

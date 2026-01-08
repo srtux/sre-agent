@@ -7,7 +7,7 @@ which follows the OpenTelemetry (OTel) convention for distributed tracing.
 Reference: https://opentelemetry.io/docs/specs/otel/trace/api/
 """
 
-from typing import TypedDict, Literal, Any
+from typing import Any, Literal, TypedDict
 
 
 class SpanStatus(TypedDict):
@@ -17,6 +17,7 @@ class SpanStatus(TypedDict):
         code: Status code (0=UNSET, 1=OK, 2=ERROR)
         message: Optional status message, usually for errors
     """
+
     code: int
     message: str
 
@@ -32,6 +33,7 @@ class SpanEvent(TypedDict):
         time: When the event occurred
         attributes: JSON key-value pairs with event details
     """
+
     name: str
     time: str  # TIMESTAMP as ISO string
     attributes: dict[str, Any]
@@ -49,6 +51,7 @@ class SpanLink(TypedDict):
         trace_state: Trace state at the time of the link
         attributes: JSON key-value pairs describing the link relationship
     """
+
     trace_id: str
     span_id: str
     trace_state: str
@@ -70,6 +73,7 @@ class ResourceAttributes(TypedDict, total=False):
         k8s.pod.name: Kubernetes pod name
         k8s.deployment.name: Kubernetes deployment name
     """
+
     pass
 
 
@@ -79,6 +83,7 @@ class Resource(TypedDict):
     Attributes:
         attributes: Resource-level attributes (service name, host, etc.)
     """
+
     attributes: ResourceAttributes
 
 
@@ -90,6 +95,7 @@ class InstrumentationScope(TypedDict):
         version: Library version
         schema_url: URL to the schema version used
     """
+
     name: str
     version: str
     schema_url: str
@@ -148,6 +154,7 @@ class SpanAttributes(TypedDict, total=False):
     Custom attributes:
         Any application-specific attributes
     """
+
     pass
 
 
@@ -173,6 +180,7 @@ class OtelSpan(TypedDict):
         resource: Information about the service that produced this span
         instrumentation_scope: Information about the instrumentation library
     """
+
     trace_id: str
     span_id: str
     trace_state: str
@@ -180,7 +188,7 @@ class OtelSpan(TypedDict):
     name: str
     kind: SpanKind
     start_time: str  # TIMESTAMP as ISO string
-    end_time: str    # TIMESTAMP as ISO string
+    end_time: str  # TIMESTAMP as ISO string
     duration_nano: int
     attributes: SpanAttributes
     status: SpanStatus
@@ -205,6 +213,7 @@ STATUS_CODE_NAMES = {
     1: "OK",
     2: "ERROR",
 }
+
 
 # Common semantic convention attribute keys
 class SemanticConventions:
@@ -282,7 +291,6 @@ EXAMPLE_QUERIES = {
         ORDER BY error_count DESC
         LIMIT 20
     """,
-
     "analyze_spans_with_exceptions": """
         SELECT
             trace_id,
@@ -298,7 +306,6 @@ EXAMPLE_QUERIES = {
             AND event.name = 'exception'
         LIMIT 100
     """,
-
     "trace_links_analysis": """
         SELECT
             trace_id,
@@ -314,7 +321,6 @@ EXAMPLE_QUERIES = {
             AND ARRAY_LENGTH(links) > 0
         LIMIT 100
     """,
-
     "instrumentation_library_usage": """
         SELECT
             instrumentation_scope.name as library_name,
@@ -326,7 +332,6 @@ EXAMPLE_QUERIES = {
         GROUP BY library_name, library_version
         ORDER BY span_count DESC
     """,
-
     "http_endpoint_latency_with_attributes": """
         SELECT
             JSON_EXTRACT_SCALAR(attributes, '$.http.method') as http_method,

@@ -28,7 +28,6 @@ For schema documentation, see: trace_analyzer/schema/otel_schema.py
 
 import json
 import logging
-from typing import Any
 
 from ..decorators import adk_tool
 
@@ -92,11 +91,13 @@ def analyze_aggregate_metrics(
     # Build WHERE clause
     where_conditions = [
         f"start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {time_window_hours} HOUR)",
-        "parent_span_id IS NULL  -- Root spans only for aggregate metrics"
+        "parent_span_id IS NULL  -- Root spans only for aggregate metrics",
     ]
 
     if service_name:
-        where_conditions.append(f"JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = '{service_name}'")
+        where_conditions.append(
+            f"JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = '{service_name}'"
+        )
 
     if operation_name:
         where_conditions.append(f"name = '{operation_name}'")
@@ -140,16 +141,18 @@ LIMIT 50
     # Log generated query
     logger.info(f"Generated Aggregate Analysis SQL:\n{query.strip()}")
 
-    return json.dumps({
-        "analysis_type": "aggregate_metrics",
-        "sql_query": query.strip(),
-        "description": f"Aggregate metrics grouped by {group_by} for last {time_window_hours}h",
-        "next_steps": [
-            "Execute this query using BigQuery MCP execute_sql tool",
-            "Review services with high error rates or P99 latency",
-            "Use find_exemplar_traces to get specific trace IDs for investigation"
-        ]
-    })
+    return json.dumps(
+        {
+            "analysis_type": "aggregate_metrics",
+            "sql_query": query.strip(),
+            "description": f"Aggregate metrics grouped by {group_by} for last {time_window_hours}h",
+            "next_steps": [
+                "Execute this query using BigQuery MCP execute_sql tool",
+                "Review services with high error rates or P99 latency",
+                "Use find_exemplar_traces to get specific trace IDs for investigation",
+            ],
+        }
+    )
 
 
 @adk_tool
@@ -189,11 +192,13 @@ def find_exemplar_traces(
     """
     where_conditions = [
         f"start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {time_window_hours} HOUR)",
-        "parent_span_id IS NULL"
+        "parent_span_id IS NULL",
     ]
 
     if service_name:
-        where_conditions.append(f"JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = '{service_name}'")
+        where_conditions.append(
+            f"JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = '{service_name}'"
+        )
 
     if operation_name:
         where_conditions.append(f"name = '{operation_name}'")
@@ -319,23 +324,29 @@ SELECT * FROM outlier_traces
 ORDER BY selection_reason, duration_ms
 """
     else:
-        return json.dumps({"error": f"Unknown selection_strategy: {selection_strategy}"})
+        return json.dumps(
+            {"error": f"Unknown selection_strategy: {selection_strategy}"}
+        )
 
     # Log generated query
-    logger.info(f"Generated Exemplar Selection SQL ({selection_strategy}):\n{query.strip()}")
+    logger.info(
+        f"Generated Exemplar Selection SQL ({selection_strategy}):\n{query.strip()}"
+    )
 
-    return json.dumps({
-        "analysis_type": "exemplar_selection",
-        "selection_strategy": selection_strategy,
-        "sql_query": query.strip(),
-        "description": f"Find {limit} exemplar traces using '{selection_strategy}' strategy",
-        "next_steps": [
-            "Execute this query using BigQuery MCP execute_sql tool",
-            "Extract trace_id values from results",
-            "Use fetch_trace to get full trace details",
-            "Use run_triage_analysis to compare baseline vs outlier traces"
-        ]
-    })
+    return json.dumps(
+        {
+            "analysis_type": "exemplar_selection",
+            "selection_strategy": selection_strategy,
+            "sql_query": query.strip(),
+            "description": f"Find {limit} exemplar traces using '{selection_strategy}' strategy",
+            "next_steps": [
+                "Execute this query using BigQuery MCP execute_sql tool",
+                "Extract trace_id values from results",
+                "Use fetch_trace to get full trace details",
+                "Use run_triage_analysis to compare baseline vs outlier traces",
+            ],
+        }
+    )
 
 
 @adk_tool
@@ -429,18 +440,20 @@ ORDER BY timestamp
     # Log generated query
     logger.info(f"Generated Log Correlation SQL (trace={trace_id}):\n{query.strip()}")
 
-    return json.dumps({
-        "analysis_type": "log_correlation",
-        "trace_id": trace_id,
-        "sql_query": query.strip(),
-        "description": f"Find logs correlated with trace {trace_id}",
-        "next_steps": [
-            "Execute this query using BigQuery MCP execute_sql tool",
-            "Look for ERROR or WARN severity logs",
-            "Check log messages for exceptions, timeouts, or error codes",
-            "Correlate log timestamps with slow spans from trace analysis"
-        ]
-    })
+    return json.dumps(
+        {
+            "analysis_type": "log_correlation",
+            "trace_id": trace_id,
+            "sql_query": query.strip(),
+            "description": f"Find logs correlated with trace {trace_id}",
+            "next_steps": [
+                "Execute this query using BigQuery MCP execute_sql tool",
+                "Look for ERROR or WARN severity logs",
+                "Check log messages for exceptions, timeouts, or error codes",
+                "Correlate log timestamps with slow spans from trace analysis",
+            ],
+        }
+    )
 
 
 @adk_tool
@@ -542,19 +555,21 @@ ORDER BY period
     # Log generated query
     logger.info(f"Generated Time Period Comparison SQL:\n{query.strip()}")
 
-    return json.dumps({
-        "analysis_type": "time_period_comparison",
-        "sql_query": query.strip(),
-        "baseline_period": f"{baseline_hours_ago_start}h ago to {baseline_hours_ago_end}h ago",
-        "anomaly_period": f"{anomaly_hours_ago_start}h ago to {anomaly_hours_ago_end}h ago",
-        "description": "Compare metrics between baseline and anomaly time periods",
-        "next_steps": [
-            "Execute this query using BigQuery MCP execute_sql tool",
-            "Look for significant deltas in p95_change_pct or error_rate_delta",
-            "If degradation is confirmed, use find_exemplar_traces for each period",
-            "Use run_triage_analysis to compare exemplars and find root cause"
-        ]
-    })
+    return json.dumps(
+        {
+            "analysis_type": "time_period_comparison",
+            "sql_query": query.strip(),
+            "baseline_period": f"{baseline_hours_ago_start}h ago to {baseline_hours_ago_end}h ago",
+            "anomaly_period": f"{anomaly_hours_ago_start}h ago to {anomaly_hours_ago_end}h ago",
+            "description": "Compare metrics between baseline and anomaly time periods",
+            "next_steps": [
+                "Execute this query using BigQuery MCP execute_sql tool",
+                "Look for significant deltas in p95_change_pct or error_rate_delta",
+                "If degradation is confirmed, use find_exemplar_traces for each period",
+                "Use run_triage_analysis to compare exemplars and find root cause",
+            ],
+        }
+    )
 
 
 @adk_tool
@@ -595,13 +610,19 @@ def detect_trend_changes(
         metric_calc = "ROUND(APPROX_QUANTILES(duration_nano / 1000000, 100)[OFFSET(99)], 2) as metric_value"
         metric_name = "p99_latency_ms"
     elif metric == "error_rate":
-        metric_calc = "ROUND(COUNTIF(status.code = 2) / COUNT(*) * 100, 2) as metric_value"
+        metric_calc = (
+            "ROUND(COUNTIF(status.code = 2) / COUNT(*) * 100, 2) as metric_value"
+        )
         metric_name = "error_rate_pct"
     elif metric == "throughput":
         metric_calc = "COUNT(*) as metric_value"
         metric_name = "request_count"
     else:
-        return json.dumps({"error": f"Unknown metric: {metric}. Use p95, p99, error_rate, or throughput"})
+        return json.dumps(
+            {
+                "error": f"Unknown metric: {metric}. Use p95, p99, error_rate, or throughput"
+            }
+        )
 
     query = f"""
 WITH time_buckets AS (
@@ -651,18 +672,20 @@ ORDER BY time_bucket DESC
     # Log generated query
     logger.info(f"Generated Trend Detection SQL ({metric}):\n{query.strip()}")
 
-    return json.dumps({
-        "analysis_type": "trend_detection",
-        "sql_query": query.strip(),
-        "metric": metric,
-        "time_window_hours": time_window_hours,
-        "bucket_hours": bucket_hours,
-        "description": f"Detect trend changes in {metric} over {time_window_hours}h",
-        "next_steps": [
-            "Execute this query using BigQuery MCP execute_sql tool",
-            "Look for rows with change_magnitude = 'SIGNIFICANT_CHANGE'",
-            "Note the time_bucket when degradation started",
-            "Use compare_time_periods with before/after time ranges",
-            "Use find_exemplar_traces from the degraded time period"
-        ]
-    })
+    return json.dumps(
+        {
+            "analysis_type": "trend_detection",
+            "sql_query": query.strip(),
+            "metric": metric,
+            "time_window_hours": time_window_hours,
+            "bucket_hours": bucket_hours,
+            "description": f"Detect trend changes in {metric} over {time_window_hours}h",
+            "next_steps": [
+                "Execute this query using BigQuery MCP execute_sql tool",
+                "Look for rows with change_magnitude = 'SIGNIFICANT_CHANGE'",
+                "Note the time_bucket when degradation started",
+                "Use compare_time_periods with before/after time ranges",
+                "Use find_exemplar_traces from the degraded time period",
+            ],
+        }
+    )

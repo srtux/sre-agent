@@ -1,4 +1,3 @@
-
 from unittest import mock
 
 from trace_analyzer.telemetry import get_meter, get_tracer
@@ -14,6 +13,7 @@ def test_get_tracer():
         mock_get_tracer.assert_called_with("test_module")
         assert tracer == mock_tracer
 
+
 def test_get_meter():
     with mock.patch("trace_analyzer.telemetry.metrics.get_meter") as mock_get_meter:
         mock_meter = mock.Mock()
@@ -24,6 +24,7 @@ def test_get_meter():
         mock_get_meter.assert_called_with("test_module")
         assert meter == mock_meter
 
+
 def test_logging_filter():
     import logging
 
@@ -33,14 +34,24 @@ def test_logging_filter():
 
     # Record that should be filtered out
     record_filtered = logging.LogRecord(
-        name="test", level=logging.WARNING, pathname="path", lineno=1,
-        msg="Warning: there are non-text parts in the response", args=(), exc_info=None
+        name="test",
+        level=logging.WARNING,
+        pathname="path",
+        lineno=1,
+        msg="Warning: there are non-text parts in the response",
+        args=(),
+        exc_info=None,
     )
     assert not log_filter.filter(record_filtered)
 
     # Record that should NOT be filtered out
     record_allowed = logging.LogRecord(
-        name="test", level=logging.WARNING, pathname="path", lineno=1,
-        msg="Some other warning", args=(), exc_info=None
+        name="test",
+        level=logging.WARNING,
+        pathname="path",
+        lineno=1,
+        msg="Some other warning",
+        args=(),
+        exc_info=None,
     )
     assert log_filter.filter(record_allowed)

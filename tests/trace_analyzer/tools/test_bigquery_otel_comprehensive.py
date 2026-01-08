@@ -1,13 +1,11 @@
 """Comprehensive tests for BigQuery OTel tools."""
 
 import json
-import pytest
-from trace_analyzer.tools import bigquery_otel
+
 from tests.fixtures.synthetic_otel_data import (
-    BigQueryResultGenerator,
-    TraceGenerator,
-    generate_trace_id
+    generate_trace_id,
 )
+from trace_analyzer.tools import bigquery_otel
 
 
 class TestAnalyzeAggregateMetrics:
@@ -16,9 +14,7 @@ class TestAnalyzeAggregateMetrics:
     def test_basic_query_generation(self):
         """Test basic aggregate metrics query generation."""
         result = bigquery_otel.analyze_aggregate_metrics(
-            dataset_id="project.dataset",
-            table_name="_AllSpans",
-            time_window_hours=24
+            dataset_id="project.dataset", table_name="_AllSpans", time_window_hours=24
         )
 
         data = json.loads(result)
@@ -33,19 +29,22 @@ class TestAnalyzeAggregateMetrics:
         result = bigquery_otel.analyze_aggregate_metrics(
             dataset_id="project.dataset",
             table_name="_AllSpans",
-            service_name="frontend"
+            service_name="frontend",
         )
 
         data = json.loads(result)
         query = data["sql_query"]
-        assert "JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = 'frontend'" in query
+        assert (
+            "JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = 'frontend'"
+            in query
+        )
 
     def test_query_with_operation_filter(self):
         """Test query generation with operation name filter."""
         result = bigquery_otel.analyze_aggregate_metrics(
             dataset_id="project.dataset",
             table_name="_AllSpans",
-            operation_name="HTTP GET /api/users"
+            operation_name="HTTP GET /api/users",
         )
 
         data = json.loads(result)
@@ -55,9 +54,7 @@ class TestAnalyzeAggregateMetrics:
     def test_query_with_min_duration(self):
         """Test query generation with minimum duration filter."""
         result = bigquery_otel.analyze_aggregate_metrics(
-            dataset_id="project.dataset",
-            table_name="_AllSpans",
-            min_duration_ms=100.0
+            dataset_id="project.dataset", table_name="_AllSpans", min_duration_ms=100.0
         )
 
         data = json.loads(result)
@@ -67,8 +64,7 @@ class TestAnalyzeAggregateMetrics:
     def test_query_uses_correct_schema_fields(self):
         """Test that query uses correct OTel schema field names."""
         result = bigquery_otel.analyze_aggregate_metrics(
-            dataset_id="project.dataset",
-            table_name="_AllSpans"
+            dataset_id="project.dataset", table_name="_AllSpans"
         )
 
         data = json.loads(result)
@@ -85,7 +81,7 @@ class TestAnalyzeAggregateMetrics:
         result = bigquery_otel.analyze_aggregate_metrics(
             dataset_id="project.dataset",
             table_name="_AllSpans",
-            group_by="service_name"
+            group_by="service_name",
         )
 
         data = json.loads(result)
@@ -97,7 +93,7 @@ class TestAnalyzeAggregateMetrics:
         result = bigquery_otel.analyze_aggregate_metrics(
             dataset_id="project.dataset",
             table_name="_AllSpans",
-            group_by="operation_name"
+            group_by="operation_name",
         )
 
         data = json.loads(result)
@@ -107,8 +103,7 @@ class TestAnalyzeAggregateMetrics:
     def test_query_includes_percentiles(self):
         """Test that query includes latency percentiles."""
         result = bigquery_otel.analyze_aggregate_metrics(
-            dataset_id="project.dataset",
-            table_name="_AllSpans"
+            dataset_id="project.dataset", table_name="_AllSpans"
         )
 
         data = json.loads(result)
@@ -129,7 +124,7 @@ class TestFindExemplarTraces:
             dataset_id="project.dataset",
             table_name="_AllSpans",
             selection_strategy="outliers",
-            limit=10
+            limit=10,
         )
 
         data = json.loads(result)
@@ -144,7 +139,7 @@ class TestFindExemplarTraces:
         result = bigquery_otel.find_exemplar_traces(
             dataset_id="project.dataset",
             table_name="_AllSpans",
-            selection_strategy="errors"
+            selection_strategy="errors",
         )
 
         data = json.loads(result)
@@ -157,7 +152,7 @@ class TestFindExemplarTraces:
         result = bigquery_otel.find_exemplar_traces(
             dataset_id="project.dataset",
             table_name="_AllSpans",
-            selection_strategy="baseline"
+            selection_strategy="baseline",
         )
 
         data = json.loads(result)
@@ -172,7 +167,7 @@ class TestFindExemplarTraces:
             dataset_id="project.dataset",
             table_name="_AllSpans",
             selection_strategy="comparison",
-            limit=10
+            limit=10,
         )
 
         data = json.loads(result)
@@ -187,7 +182,7 @@ class TestFindExemplarTraces:
         result = bigquery_otel.find_exemplar_traces(
             dataset_id="project.dataset",
             table_name="_AllSpans",
-            selection_strategy="unknown"
+            selection_strategy="unknown",
         )
 
         data = json.loads(result)
@@ -201,8 +196,7 @@ class TestCorrelateLogsWithTrace:
         """Test basic log correlation query."""
         trace_id = generate_trace_id()
         result = bigquery_otel.correlate_logs_with_trace(
-            dataset_id="project.dataset",
-            trace_id=trace_id
+            dataset_id="project.dataset", trace_id=trace_id
         )
 
         data = json.loads(result)
@@ -219,7 +213,7 @@ class TestCorrelateLogsWithTrace:
             dataset_id="project.dataset",
             trace_id=trace_id,
             include_nearby_logs=True,
-            time_window_seconds=30
+            time_window_seconds=30,
         )
 
         data = json.loads(result)
@@ -232,9 +226,7 @@ class TestCorrelateLogsWithTrace:
         """Test log correlation without nearby logs."""
         trace_id = generate_trace_id()
         result = bigquery_otel.correlate_logs_with_trace(
-            dataset_id="project.dataset",
-            trace_id=trace_id,
-            include_nearby_logs=False
+            dataset_id="project.dataset", trace_id=trace_id, include_nearby_logs=False
         )
 
         data = json.loads(result)
@@ -246,8 +238,7 @@ class TestCorrelateLogsWithTrace:
         """Test that query uses correct log schema fields."""
         trace_id = generate_trace_id()
         result = bigquery_otel.correlate_logs_with_trace(
-            dataset_id="project.dataset",
-            trace_id=trace_id
+            dataset_id="project.dataset", trace_id=trace_id
         )
 
         data = json.loads(result)
@@ -269,7 +260,7 @@ class TestCompareTimePeriods:
             baseline_hours_ago_start=48,
             baseline_hours_ago_end=24,
             anomaly_hours_ago_start=24,
-            anomaly_hours_ago_end=0
+            anomaly_hours_ago_end=0,
         )
 
         data = json.loads(result)
@@ -285,18 +276,20 @@ class TestCompareTimePeriods:
         result = bigquery_otel.compare_time_periods(
             dataset_id="project.dataset",
             table_name="_AllSpans",
-            service_name="frontend"
+            service_name="frontend",
         )
 
         data = json.loads(result)
         query = data["sql_query"]
-        assert "JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = 'frontend'" in query
+        assert (
+            "JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = 'frontend'"
+            in query
+        )
 
     def test_time_comparison_includes_deltas(self):
         """Test that comparison includes delta calculations."""
         result = bigquery_otel.compare_time_periods(
-            dataset_id="project.dataset",
-            table_name="_AllSpans"
+            dataset_id="project.dataset", table_name="_AllSpans"
         )
 
         data = json.loads(result)
@@ -313,9 +306,7 @@ class TestDetectTrendChanges:
     def test_p95_metric_trending(self):
         """Test trend detection for P95 metric."""
         result = bigquery_otel.detect_trend_changes(
-            dataset_id="project.dataset",
-            table_name="_AllSpans",
-            metric="p95"
+            dataset_id="project.dataset", table_name="_AllSpans", metric="p95"
         )
 
         data = json.loads(result)
@@ -328,9 +319,7 @@ class TestDetectTrendChanges:
     def test_p99_metric_trending(self):
         """Test trend detection for P99 metric."""
         result = bigquery_otel.detect_trend_changes(
-            dataset_id="project.dataset",
-            table_name="_AllSpans",
-            metric="p99"
+            dataset_id="project.dataset", table_name="_AllSpans", metric="p99"
         )
 
         data = json.loads(result)
@@ -341,9 +330,7 @@ class TestDetectTrendChanges:
     def test_error_rate_metric_trending(self):
         """Test trend detection for error rate metric."""
         result = bigquery_otel.detect_trend_changes(
-            dataset_id="project.dataset",
-            table_name="_AllSpans",
-            metric="error_rate"
+            dataset_id="project.dataset", table_name="_AllSpans", metric="error_rate"
         )
 
         data = json.loads(result)
@@ -355,9 +342,7 @@ class TestDetectTrendChanges:
     def test_throughput_metric_trending(self):
         """Test trend detection for throughput metric."""
         result = bigquery_otel.detect_trend_changes(
-            dataset_id="project.dataset",
-            table_name="_AllSpans",
-            metric="throughput"
+            dataset_id="project.dataset", table_name="_AllSpans", metric="throughput"
         )
 
         data = json.loads(result)
@@ -368,9 +353,7 @@ class TestDetectTrendChanges:
     def test_unknown_metric_returns_error(self):
         """Test that unknown metric returns error."""
         result = bigquery_otel.detect_trend_changes(
-            dataset_id="project.dataset",
-            table_name="_AllSpans",
-            metric="unknown"
+            dataset_id="project.dataset", table_name="_AllSpans", metric="unknown"
         )
 
         data = json.loads(result)
@@ -379,8 +362,7 @@ class TestDetectTrendChanges:
     def test_trend_includes_moving_average(self):
         """Test that trend detection includes moving average."""
         result = bigquery_otel.detect_trend_changes(
-            dataset_id="project.dataset",
-            table_name="_AllSpans"
+            dataset_id="project.dataset", table_name="_AllSpans"
         )
 
         data = json.loads(result)
@@ -391,8 +373,7 @@ class TestDetectTrendChanges:
     def test_trend_includes_change_detection(self):
         """Test that trend detection includes change magnitude."""
         result = bigquery_otel.detect_trend_changes(
-            dataset_id="project.dataset",
-            table_name="_AllSpans"
+            dataset_id="project.dataset", table_name="_AllSpans"
         )
 
         data = json.loads(result)
@@ -408,7 +389,7 @@ class TestDetectTrendChanges:
             dataset_id="project.dataset",
             table_name="_AllSpans",
             time_window_hours=48,
-            bucket_hours=2
+            bucket_hours=2,
         )
 
         data = json.loads(result)
@@ -427,12 +408,14 @@ class TestQueryValidation:
             bigquery_otel.find_exemplar_traces,
             bigquery_otel.correlate_logs_with_trace,
             bigquery_otel.compare_time_periods,
-            bigquery_otel.detect_trend_changes
+            bigquery_otel.detect_trend_changes,
         ]
 
         for tool in tools:
             if tool == bigquery_otel.correlate_logs_with_trace:
-                result = tool(dataset_id="project.dataset", trace_id=generate_trace_id())
+                result = tool(
+                    dataset_id="project.dataset", trace_id=generate_trace_id()
+                )
             else:
                 result = tool(dataset_id="project.dataset", table_name="_AllSpans")
 
@@ -445,11 +428,21 @@ class TestQueryValidation:
         dataset_id = "project.dataset"
 
         queries = [
-            bigquery_otel.analyze_aggregate_metrics(dataset_id=dataset_id, table_name="_AllSpans"),
-            bigquery_otel.find_exemplar_traces(dataset_id=dataset_id, table_name="_AllSpans"),
-            bigquery_otel.correlate_logs_with_trace(dataset_id=dataset_id, trace_id=generate_trace_id()),
-            bigquery_otel.compare_time_periods(dataset_id=dataset_id, table_name="_AllSpans"),
-            bigquery_otel.detect_trend_changes(dataset_id=dataset_id, table_name="_AllSpans")
+            bigquery_otel.analyze_aggregate_metrics(
+                dataset_id=dataset_id, table_name="_AllSpans"
+            ),
+            bigquery_otel.find_exemplar_traces(
+                dataset_id=dataset_id, table_name="_AllSpans"
+            ),
+            bigquery_otel.correlate_logs_with_trace(
+                dataset_id=dataset_id, trace_id=generate_trace_id()
+            ),
+            bigquery_otel.compare_time_periods(
+                dataset_id=dataset_id, table_name="_AllSpans"
+            ),
+            bigquery_otel.detect_trend_changes(
+                dataset_id=dataset_id, table_name="_AllSpans"
+            ),
         ]
 
         for query_json in queries:
@@ -462,10 +455,18 @@ class TestQueryValidation:
         dataset_id = "project.dataset"
 
         queries = [
-            bigquery_otel.analyze_aggregate_metrics(dataset_id=dataset_id, table_name="_AllSpans"),
-            bigquery_otel.find_exemplar_traces(dataset_id=dataset_id, table_name="_AllSpans"),
-            bigquery_otel.compare_time_periods(dataset_id=dataset_id, table_name="_AllSpans"),
-            bigquery_otel.detect_trend_changes(dataset_id=dataset_id, table_name="_AllSpans")
+            bigquery_otel.analyze_aggregate_metrics(
+                dataset_id=dataset_id, table_name="_AllSpans"
+            ),
+            bigquery_otel.find_exemplar_traces(
+                dataset_id=dataset_id, table_name="_AllSpans"
+            ),
+            bigquery_otel.compare_time_periods(
+                dataset_id=dataset_id, table_name="_AllSpans"
+            ),
+            bigquery_otel.detect_trend_changes(
+                dataset_id=dataset_id, table_name="_AllSpans"
+            ),
         ]
 
         for query_json in queries:
@@ -481,10 +482,20 @@ class TestQueryValidation:
         dataset_id = "project.dataset"
 
         queries = [
-            bigquery_otel.analyze_aggregate_metrics(dataset_id=dataset_id, table_name="_AllSpans"),
-            bigquery_otel.find_exemplar_traces(dataset_id=dataset_id, table_name="_AllSpans", selection_strategy="errors"),
-            bigquery_otel.compare_time_periods(dataset_id=dataset_id, table_name="_AllSpans"),
-            bigquery_otel.detect_trend_changes(dataset_id=dataset_id, table_name="_AllSpans", metric="error_rate")
+            bigquery_otel.analyze_aggregate_metrics(
+                dataset_id=dataset_id, table_name="_AllSpans"
+            ),
+            bigquery_otel.find_exemplar_traces(
+                dataset_id=dataset_id,
+                table_name="_AllSpans",
+                selection_strategy="errors",
+            ),
+            bigquery_otel.compare_time_periods(
+                dataset_id=dataset_id, table_name="_AllSpans"
+            ),
+            bigquery_otel.detect_trend_changes(
+                dataset_id=dataset_id, table_name="_AllSpans", metric="error_rate"
+            ),
         ]
 
         for query_json in queries:

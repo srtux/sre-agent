@@ -5,16 +5,23 @@ with mocked LLM responses and synthetic test data for all API calls.
 """
 
 import json
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime
+from unittest.mock import MagicMock, patch
 
-from google.adk.agents import LlmAgent as Agent
+import pytest
+from tests.fixtures.synthetic_otel_data import (
+    BigQueryResultGenerator,
+    CloudLoggingAPIGenerator,
+    CloudTraceAPIGenerator,
+    TraceGenerator,
+    generate_trace_id,
+)
+
 
 # Mock classes to replace broken google_adk.messages imports
 class TextContent:
     def __init__(self, text: str):
         self.text = text
+
 
 class ToolCall:
     def __init__(self, id: str, name: str, parameters: dict):
@@ -22,24 +29,18 @@ class ToolCall:
         self.name = name
         self.parameters = parameters
 
+
 class ToolResponse:
     def __init__(self, id: str, name: str, output: str):
         self.id = id
         self.name = name
         self.output = output
 
+
 class Message:
     def __init__(self, role: str, content: list):
         self.role = role
         self.content = content
-
-from tests.fixtures.synthetic_otel_data import (
-    BigQueryResultGenerator,
-    CloudTraceAPIGenerator,
-    CloudLoggingAPIGenerator,
-    TraceGenerator,
-    generate_trace_id
-)
 
 
 class MockLLMResponse:
@@ -58,16 +59,15 @@ class MockLLMResponse:
                     parameters={
                         "dataset_id": "project.test_dataset",
                         "table_name": "_AllSpans",
-                        "time_window_hours": 24
-                    }
-                )
-            ]
+                        "time_window_hours": 24,
+                    },
+                ),
+            ],
         )
 
     @staticmethod
     def bigquery_execute_response(
-        tool_call_id: str = "call_2",
-        query: str = "SELECT * FROM test"
+        tool_call_id: str = "call_2", query: str = "SELECT * FROM test"
     ) -> Message:
         """Mock LLM response for BigQuery execution."""
         return Message(
@@ -77,9 +77,9 @@ class MockLLMResponse:
                 ToolCall(
                     id=tool_call_id,
                     name="mcp__google-bigquery.googleapis.com-mcp__execute_sql",
-                    parameters={"query": query}
-                )
-            ]
+                    parameters={"query": query},
+                ),
+            ],
         )
 
     @staticmethod
@@ -95,16 +95,15 @@ class MockLLMResponse:
                     parameters={
                         "dataset_id": "project.test_dataset",
                         "selection_strategy": "errors",
-                        "limit": 5
-                    }
-                )
-            ]
+                        "limit": 5,
+                    },
+                ),
+            ],
         )
 
     @staticmethod
     def fetch_trace_response(
-        tool_call_id: str = "call_4",
-        trace_id: str = None
+        tool_call_id: str = "call_4", trace_id: str = None
     ) -> Message:
         """Mock LLM response for fetching a trace."""
         if trace_id is None:
@@ -117,12 +116,9 @@ class MockLLMResponse:
                 ToolCall(
                     id=tool_call_id,
                     name="fetch_trace",
-                    parameters={
-                        "project_id": "test-project",
-                        "trace_id": trace_id
-                    }
-                )
-            ]
+                    parameters={"project_id": "test-project", "trace_id": trace_id},
+                ),
+            ],
         )
 
     @staticmethod
@@ -131,7 +127,8 @@ class MockLLMResponse:
         return Message(
             role="model",
             content=[
-                TextContent(text="""## Analysis Summary
+                TextContent(
+                    text="""## Analysis Summary
 
 Based on the aggregate metrics and exemplar trace analysis:
 
@@ -143,8 +140,9 @@ Based on the aggregate metrics and exemplar trace analysis:
 - Scale database connection pool
 - Add retry logic with exponential backoff
 - Monitor database connection metrics
-""")
-            ]
+"""
+                )
+            ],
         )
 
 
@@ -180,16 +178,18 @@ class MockToolExecutor:
   JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') as service_name,
   COUNT(*) as request_count,
   COUNTIF(status.code = 2) as error_count
-FROM `{params['dataset_id']}.{params.get('table_name', '_AllSpans')}`
+FROM `{params["dataset_id"]}.{params.get("table_name", "_AllSpans")}`
 WHERE start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 24 HOUR)
 GROUP BY service_name
 ORDER BY error_count DESC
 """
-        return json.dumps({
-            "analysis_type": "aggregate_metrics",
-            "sql_query": query.strip(),
-            "description": "Aggregate metrics query"
-        })
+        return json.dumps(
+            {
+                "analysis_type": "aggregate_metrics",
+                "sql_query": query.strip(),
+                "description": "Aggregate metrics query",
+            }
+        )
 
     def _mock_bigquery_execute(self, params: dict) -> str:
         """Mock BigQuery execute_sql response."""
@@ -198,44 +198,40 @@ ORDER BY error_count DESC
         # Detect query type and return appropriate synthetic data
         if "aggregate" in query.lower() or "request_count" in query.lower():
             results = BigQueryResultGenerator.aggregate_metrics_result(
-                services=["frontend", "api-gateway", "user-service"],
-                with_errors=True
+                services=["frontend", "api-gateway", "user-service"], with_errors=True
             )
         elif "trace_id" in query.lower() and "error" not in query.lower():
             results = BigQueryResultGenerator.exemplar_traces_result(
-                count=5,
-                strategy="outliers"
+                count=5, strategy="outliers"
             )
         elif "exception" in query.lower():
             results = BigQueryResultGenerator.exception_events_result(count=10)
         else:
             results = BigQueryResultGenerator.exemplar_traces_result(count=5)
 
-        return json.dumps({
-            "rows": results,
-            "total_rows": len(results)
-        })
+        return json.dumps({"rows": results, "total_rows": len(results)})
 
     def _mock_exemplar_traces(self, params: dict) -> str:
         """Mock find_exemplar_traces tool response."""
         strategy = params.get("selection_strategy", "outliers")
         query = f"""SELECT trace_id, name, service_name, duration_ms
-FROM `{params['dataset_id']}._AllSpans`
+FROM `{params["dataset_id"]}._AllSpans`
 WHERE status.code = 2
-LIMIT {params.get('limit', 10)}
+LIMIT {params.get("limit", 10)}
 """
-        return json.dumps({
-            "analysis_type": "exemplar_selection",
-            "selection_strategy": strategy,
-            "sql_query": query.strip()
-        })
+        return json.dumps(
+            {
+                "analysis_type": "exemplar_selection",
+                "selection_strategy": strategy,
+                "sql_query": query.strip(),
+            }
+        )
 
     def _mock_fetch_trace(self, params: dict) -> str:
         """Mock fetch_trace tool response."""
         trace_id = params.get("trace_id")
         trace_data = CloudTraceAPIGenerator.trace_response(
-            trace_id=trace_id,
-            include_error=True
+            trace_id=trace_id, include_error=True
         )
         return json.dumps(trace_data)
 
@@ -243,9 +239,7 @@ LIMIT {params.get('limit', 10)}
         """Mock get_logs_for_trace tool response."""
         trace_id = params.get("trace_id")
         log_data = CloudLoggingAPIGenerator.log_entries_response(
-            count=5,
-            trace_id=trace_id,
-            severity="ERROR"
+            count=5, trace_id=trace_id, severity="ERROR"
         )
         return json.dumps(log_data)
 
@@ -260,11 +254,13 @@ LIMIT {params.get('limit', 10)}
 )
 SELECT * FROM logs WHERE trace_id = '{trace_id}'
 """
-        return json.dumps({
-            "analysis_type": "log_correlation",
-            "trace_id": trace_id,
-            "sql_query": query.strip()
-        })
+        return json.dumps(
+            {
+                "analysis_type": "log_correlation",
+                "trace_id": trace_id,
+                "sql_query": query.strip(),
+            }
+        )
 
 
 @pytest.fixture
@@ -291,7 +287,7 @@ def mock_llm_client():
         # 5. Fetch a specific trace
         MockLLMResponse.fetch_trace_response("call_5"),
         # 6. Final analysis
-        MockLLMResponse.final_analysis_response()
+        MockLLMResponse.final_analysis_response(),
     ]
 
     async def generate_response_stream(*args, **kwargs):
@@ -307,16 +303,17 @@ class TestEndToEndWithMocks:
     """End-to-end tests with comprehensive mocking."""
 
     @pytest.mark.asyncio
-    async def test_complete_analysis_workflow_with_mocks(self, mock_llm_client, mock_tool_executor):
+    async def test_complete_analysis_workflow_with_mocks(
+        self, mock_llm_client, mock_tool_executor
+    ):
         """Test complete analysis workflow with mocked LLM and tool responses."""
 
         # Create a mock agent with our mocked LLM
-        with patch('google.adk.agents.LlmAgent') as MockAgent:
+        with patch("google.adk.agents.LlmAgent") as MockAgent:
             agent_instance = MockAgent.return_value
             agent_instance.generate = mock_llm_client.generate
 
             # Simulate user request
-            user_message = "Analyze traces from the last 24 hours for the frontend service"
 
             # Run analysis workflow
             response_count = 0
@@ -333,8 +330,7 @@ class TestEndToEndWithMocks:
                     if isinstance(content, ToolCall):
                         # Execute tool with mock
                         tool_result = mock_tool_executor.execute_tool(
-                            content.name,
-                            content.parameters
+                            content.name, content.parameters
                         )
 
                         # Verify tool result is valid JSON
@@ -353,7 +349,8 @@ class TestEndToEndWithMocks:
 
             # Verify aggregate analysis was called
             aggregate_calls = [
-                call for call in mock_tool_executor.call_history
+                call
+                for call in mock_tool_executor.call_history
                 if call["tool"] == "analyze_aggregate_metrics"
             ]
             assert len(aggregate_calls) > 0
@@ -365,9 +362,7 @@ class TestEndToEndWithMocks:
         # Generate synthetic error trace
         trace_gen = TraceGenerator(service_name="frontend")
         error_trace = trace_gen.create_simple_http_trace(
-            endpoint="/api/checkout",
-            include_db_call=True,
-            include_error=True
+            endpoint="/api/checkout", include_db_call=True, include_error=True
         )
 
         # Verify error trace has correct structure
@@ -379,8 +374,7 @@ class TestEndToEndWithMocks:
         # Simulate fetching this trace
         trace_id = root_span["trace_id"]
         result = mock_tool_executor.execute_tool(
-            "fetch_trace",
-            {"project_id": "test-project", "trace_id": trace_id}
+            "fetch_trace", {"project_id": "test-project", "trace_id": trace_id}
         )
 
         # Verify result
@@ -398,8 +392,8 @@ class TestEndToEndWithMocks:
             {
                 "dataset_id": "project.test_dataset",
                 "table_name": "_AllSpans",
-                "time_window_hours": 24
-            }
+                "time_window_hours": 24,
+            },
         )
 
         # Verify query generation
@@ -411,7 +405,7 @@ class TestEndToEndWithMocks:
         # Execute the generated query
         query_result = mock_tool_executor.execute_tool(
             "mcp__google-bigquery.googleapis.com-mcp__execute_sql",
-            {"query": data["sql_query"]}
+            {"query": data["sql_query"]},
         )
 
         # Verify results
@@ -436,8 +430,8 @@ class TestEndToEndWithMocks:
             {
                 "dataset_id": "project.test_dataset",
                 "selection_strategy": "errors",
-                "limit": 5
-            }
+                "limit": 5,
+            },
         )
 
         # Verify exemplar query
@@ -448,7 +442,7 @@ class TestEndToEndWithMocks:
         # Execute exemplar query
         trace_list_result = mock_tool_executor.execute_tool(
             "mcp__google-bigquery.googleapis.com-mcp__execute_sql",
-            {"query": "SELECT trace_id FROM traces WHERE status.code = 2"}
+            {"query": "SELECT trace_id FROM traces WHERE status.code = 2"},
         )
 
         # Verify trace list
@@ -459,11 +453,7 @@ class TestEndToEndWithMocks:
         # Fetch first trace
         first_trace_id = trace_list["rows"][0].get("trace_id", generate_trace_id())
         trace_detail_result = mock_tool_executor.execute_tool(
-            "fetch_trace",
-            {
-                "project_id": "test-project",
-                "trace_id": first_trace_id
-            }
+            "fetch_trace", {"project_id": "test-project", "trace_id": first_trace_id}
         )
 
         # Verify trace details
@@ -483,8 +473,8 @@ class TestEndToEndWithMocks:
             {
                 "dataset_id": "project.test_dataset",
                 "trace_id": trace_id,
-                "include_nearby_logs": True
-            }
+                "include_nearby_logs": True,
+            },
         )
 
         # Verify log query
@@ -494,11 +484,7 @@ class TestEndToEndWithMocks:
 
         # Get logs for trace
         logs_result = mock_tool_executor.execute_tool(
-            "get_logs_for_trace",
-            {
-                "project_id": "test-project",
-                "trace_id": trace_id
-            }
+            "get_logs_for_trace", {"project_id": "test-project", "trace_id": trace_id}
         )
 
         # Verify logs
@@ -519,7 +505,7 @@ class TestEndToEndWithMocks:
         # Execute exception query
         exception_result = mock_tool_executor.execute_tool(
             "mcp__google-bigquery.googleapis.com-mcp__execute_sql",
-            {"query": "SELECT * FROM spans WHERE event.name = 'exception'"}
+            {"query": "SELECT * FROM spans WHERE event.name = 'exception'"},
         )
 
         # Verify exception data
@@ -539,8 +525,7 @@ class TestEndToEndWithMocks:
         # Test trace generation
         trace_gen = TraceGenerator()
         traces = trace_gen.create_multi_service_trace(
-            services=["frontend", "api", "database"],
-            include_errors=True
+            services=["frontend", "api", "database"], include_errors=True
         )
 
         assert len(traces) == 3
@@ -550,8 +535,7 @@ class TestEndToEndWithMocks:
 
         # Test BigQuery result generation
         bq_results = BigQueryResultGenerator.aggregate_metrics_result(
-            services=["frontend", "backend"],
-            with_errors=True
+            services=["frontend", "backend"], with_errors=True
         )
 
         assert len(bq_results) == 2
@@ -566,8 +550,7 @@ class TestEndToEndWithMocks:
 
         # Test Cloud Logging API generation
         log_response = CloudLoggingAPIGenerator.log_entries_response(
-            count=5,
-            severity="ERROR"
+            count=5, severity="ERROR"
         )
         assert "entries" in log_response
         assert len(log_response["entries"]) == 5
@@ -598,7 +581,10 @@ class TestMockToolExecutor:
             ("analyze_aggregate_metrics", {"dataset_id": "test"}),
             ("find_exemplar_traces", {"dataset_id": "test"}),
             ("fetch_trace", {"project_id": "test", "trace_id": generate_trace_id()}),
-            ("get_logs_for_trace", {"project_id": "test", "trace_id": generate_trace_id()}),
+            (
+                "get_logs_for_trace",
+                {"project_id": "test", "trace_id": generate_trace_id()},
+            ),
         ]
 
         for tool_name, params in tools_to_test:

@@ -1,4 +1,3 @@
-
 import json
 
 import pytest
@@ -12,49 +11,59 @@ from trace_analyzer.tools.statistical_analysis import (
 
 @pytest.fixture
 def baseline_trace():
-    return json.dumps({
-        "trace_id": "baseline",
-        "duration_ms": 100,  # Add explicit duration
-        "spans": [
-            {
-                "span_id": "root", "name": "root",
-                "start_time": "2020-01-01T00:00:00.000Z",
-                "end_time":   "2020-01-01T00:00:00.100Z", # 100ms
-                "parent_span_id": None,
-                "duration_ms": 100
-            },
-            {
-                "span_id": "child", "name": "child",
-                "start_time": "2020-01-01T00:00:00.010Z",
-                "end_time":   "2020-01-01T00:00:00.060Z", # 50ms
-                "parent_span_id": "root",
-                "duration_ms": 50
-            }
-        ]
-    })
+    return json.dumps(
+        {
+            "trace_id": "baseline",
+            "duration_ms": 100,  # Add explicit duration
+            "spans": [
+                {
+                    "span_id": "root",
+                    "name": "root",
+                    "start_time": "2020-01-01T00:00:00.000Z",
+                    "end_time": "2020-01-01T00:00:00.100Z",  # 100ms
+                    "parent_span_id": None,
+                    "duration_ms": 100,
+                },
+                {
+                    "span_id": "child",
+                    "name": "child",
+                    "start_time": "2020-01-01T00:00:00.010Z",
+                    "end_time": "2020-01-01T00:00:00.060Z",  # 50ms
+                    "parent_span_id": "root",
+                    "duration_ms": 50,
+                },
+            ],
+        }
+    )
+
 
 @pytest.fixture
 def slow_target_trace():
-    return json.dumps({
-        "trace_id": "target",
-        "duration_ms": 200, # Add explicit duration
-        "spans": [
-            {
-                "span_id": "root", "name": "root", # 200ms (100ms slower)
-                "start_time": "2020-01-01T00:00:00.000Z",
-                "end_time":   "2020-01-01T00:00:00.200Z",
-                "parent_span_id": None,
-                "duration_ms": 200
-            },
-            {
-                "span_id": "child", "name": "child", # 150ms (100ms slower) -> Root cause likely here
-                "start_time": "2020-01-01T00:00:00.010Z",
-                "end_time":   "2020-01-01T00:00:00.160Z",
-                "parent_span_id": "root",
-                "duration_ms": 150
-            }
-        ]
-    })
+    return json.dumps(
+        {
+            "trace_id": "target",
+            "duration_ms": 200,  # Add explicit duration
+            "spans": [
+                {
+                    "span_id": "root",
+                    "name": "root",  # 200ms (100ms slower)
+                    "start_time": "2020-01-01T00:00:00.000Z",
+                    "end_time": "2020-01-01T00:00:00.200Z",
+                    "parent_span_id": None,
+                    "duration_ms": 200,
+                },
+                {
+                    "span_id": "child",
+                    "name": "child",  # 150ms (100ms slower) -> Root cause likely here
+                    "start_time": "2020-01-01T00:00:00.010Z",
+                    "end_time": "2020-01-01T00:00:00.160Z",
+                    "parent_span_id": "root",
+                    "duration_ms": 150,
+                },
+            ],
+        }
+    )
+
 
 def test_perform_causal_analysis(baseline_trace, slow_target_trace):
     """Test causal analysis using string inputs (integration checks build_call_graph fix)."""
@@ -75,6 +84,7 @@ def test_perform_causal_analysis(baseline_trace, slow_target_trace):
     child_cand = next((c for c in candidates if c["span_name"] == "child"), None)
     assert child_cand is not None
 
+
 def test_compute_latency_statistics(baseline_trace):
     """Test latency statistics computation."""
     # Pass a list of trace strings
@@ -86,6 +96,7 @@ def test_compute_latency_statistics(baseline_trace):
     assert root_stats["mean"] == 100.0
     assert root_stats["min"] == 100.0
     assert root_stats["max"] == 100.0
+
 
 def test_detect_latency_anomalies(baseline_trace, slow_target_trace):
     """Test anomaly detection logic."""

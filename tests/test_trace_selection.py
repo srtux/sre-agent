@@ -1,4 +1,3 @@
-
 import json
 from unittest.mock import patch
 
@@ -18,13 +17,14 @@ async def test_manual_selection_tool():
     result = select_traces_manually(trace_ids)
     assert result == trace_ids
 
+
 def test_statistical_outlier_tool():
     """Test statistical outlier selection."""
     traces = [
         {"traceId": "t1", "latency": 100},
         {"traceId": "t2", "latency": 105},
         {"traceId": "t3", "latency": 102},
-        {"traceId": "t4", "latency": 500}, # Outlier
+        {"traceId": "t4", "latency": 500},  # Outlier
     ]
     # Mean ~201, StdDev ~172. Threshold ~ 201 + 2*172 = 545?
     # Wait, numpy std is population std by default?
@@ -40,7 +40,7 @@ def test_statistical_outlier_tool():
         {"traceId": "t1", "latency": 100},
         {"traceId": "t2", "latency": 100},
         {"traceId": "t3", "latency": 100},
-        {"traceId": "t4", "latency": 1000}, # Huge outlier
+        {"traceId": "t4", "latency": 1000},  # Huge outlier
     ]
     # Mean = 325. Std ~389. Threshold ~ 325 + 778 = 1103.
     # Still not working with small N and std dev logic?
@@ -54,19 +54,24 @@ def test_statistical_outlier_tool():
     # Let's verify usage of numpy in implementation.
     pass
 
-@patch('trace_analyzer.tools.trace_client.list_traces')
+
+@patch("trace_analyzer.tools.trace_client.list_traces")
 def test_hybrid_selection_includes_stats(mock_list_traces):
     """Test hybrid selection returns statistics."""
     # Mock return values
-    mock_list_traces.return_value = json.dumps([
-        {"trace_id": "t1", "duration_ms": 100, "project_id": "p1"},
-        {"trace_id": "t2", "duration_ms": 110, "project_id": "p1"},
-        {"trace_id": "t3", "duration_ms": 105, "project_id": "p1"}
-    ])
+    mock_list_traces.return_value = json.dumps(
+        [
+            {"trace_id": "t1", "duration_ms": 100, "project_id": "p1"},
+            {"trace_id": "t2", "duration_ms": 110, "project_id": "p1"},
+            {"trace_id": "t3", "duration_ms": 105, "project_id": "p1"},
+        ]
+    )
 
     # Call function
     # Note: We need to mock _get_project_id or set env var
-    with patch('trace_analyzer.tools.trace_client._get_project_id', return_value='test-project'):
+    with patch(
+        "trace_analyzer.tools.trace_client._get_project_id", return_value="test-project"
+    ):
         result_json = find_example_traces(project_id="test-project")
         result = json.loads(result_json)
 
