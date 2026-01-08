@@ -23,7 +23,9 @@ def test_root_agent_has_new_tools():
     tool_names = [t.__name__ if hasattr(t, '__name__') else str(t) for t in root_agent.tools]
 
     # Check for the two-stage runner
-    assert "run_two_stage_analysis" in tool_names
+    # Check for the two-stage runner (Split)
+    assert "run_triage_analysis" in tool_names
+    assert "run_deep_dive_analysis" in tool_names
 
     # Check for external integrations
     assert "query_logs_for_trace" in tool_names or "list_log_entries" in tool_names

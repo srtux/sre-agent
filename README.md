@@ -21,32 +21,57 @@ A Google ADK-based agent that performs deep diff analysis on distributed traces 
 The agent is built using the Google Agent Development Kit (ADK) and follows a hierarchical orchestration pattern:
 
 ```mermaid
-graph TD
-    User[User] --> Root[Trace Detective (Root Agent)]
+flowchart TD
+    %% Styles
+    classDef primary fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#000
+    classDef secondary fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000
+    classDef squad fill:#fff3e0,stroke:#e65100,stroke-width:2px,stroke-dasharray: 5 5,color:#000
+    classDef tool fill:#f1f8e9,stroke:#33691e,stroke-width:1px,color:#000
+
+    User([👤 User]) --> Root[🕵️ Trace Detective]
     
-    subgraph "Stage 1: Triage (Identification)"
-        Root --> |Parallel Exec| S1[Triage Squad]
-        S1 --> L[Latency Analyzer]
-        S1 --> E[Error Analyzer]
-        S1 --> S[Structure Analyzer]
-        S1 --> ST[Statistics Analyzer]
+    subgraph S1_Group [Stage 1: Triage]
+        direction TB
+        S1[🚦 Triage Squad]
+        L[⏱️ Latency]
+        E[💥 Error]
+        S[🏗️ Structure]
+        ST[📊 Statistics]
+        S1 --> L & E & S & ST
     end
-    
-    subgraph "Stage 2: Deep Dive (Root Cause)"
-        Root --> |Sequential Exec| S2[Deep Dive Squad]
-        S2 --> C[Causality Analyzer]
-        S2 --> SI[Service Impact Analyzer]
+
+    subgraph S2_Group [Stage 2: Deep Dive]
+        direction TB
+        S2[🔍 Deep Dive Squad]
+        C[🔗 Causality]
+        SI[🌊 Service Impact]
+        S2 --> C & SI
     end
+
+    subgraph Tools [🛠️ Tool Suite]
+        TraceAPI[Cloud Trace API]
+        BQ[BigQuery MCP]
+        Filter[Trace Query Builder]
+    end
+
+    %% Flow
+    Root ==>|1. Identify| S1
+    Root -.->|2. Investigate| S2
     
-    Root --> Tools[Tool Suite]
-    Tools --> TraceAPI[Cloud Trace API]
-    Tools --> BQ[BigQuery MCP Tools]
-    Tools --> Filter[Trace Query Builder]
+    %% Tool Usage
+    Root -.- Tools
+    S1 -.-> Tools
+    S2 -.-> Tools
+
+    %% Assign Classes
+    class Root primary
+    class S1,S2 squad
+    class L,E,S,ST,C,SI secondary
+    class TraceAPI,BQ,Filter tool
 ```
 
 ### Core Components
-### Core Components
-- **Trace Detective (Root)**: The orchestrator with a "Detective" persona that synthesizes findings into a "Case File".
+- **Trace Detective (Root)**: The orchestrator with a "Detective" persona that synthesizes findings into a "Case File". It uses an interactive workflow, reporting Triage findings first before proceeding to Deep Dive.
 - **Triage Squad (Stage 1)**: Rapidly identifies *what* is wrong (Latency, Errors, Structure, Stats).
 - **Deep Dive Squad (Stage 2)**: Investigates *why* it happened (Causality) and *who* else is affected (Service Impact).
 - **Dynamic MCP Integration**: Uses `ApiRegistry` to lazily load BigQuery tools, ensuring cross-platform stability.

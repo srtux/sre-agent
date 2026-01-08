@@ -1,5 +1,9 @@
 # trace-analyzer
 
+## Agent Rules
+- **Keep Docs Up To Date**: When you make changes to the codebase, you MUST update `README.md` and `AGENTS.md` to reflect those changes. This is a strict rule.
+- **Reference AGENTS.md**: Use this file as the source of truth for developer workflows.
+
 ## Dev environment tips
 - Use `uv sync` to install dependencies and create the virtual environment.
 - Use `uv run adk web` to launch the agent's web interface (Streamlit-based).

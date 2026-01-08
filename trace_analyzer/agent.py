@@ -151,29 +151,22 @@ def load_mcp_tools():
 
 
 @adk_tool
-async def run_two_stage_analysis(
+async def run_triage_analysis(
     baseline_trace_id: str,
     target_trace_id: str,
     project_id: str | None = None,
     tool_context: ToolContext = None,
 ) -> dict:
     """
-    Orchestrates a two-stage analysis (Triage -> Deep Dive) on two traces.
-
+    Stage 1: Runs the Triage Squad (Latency, Error, Structure, Stats) to identify WHAT is different.
+    
     Args:
         baseline_trace_id: The ID of the normal/baseline trace.
         target_trace_id: The ID of the anomalous/target trace.
         project_id: The Google Cloud Project ID.
         tool_context: The tool context provided by the ADK.
-
-    Returns:
-        A dictionary containing the combined analysis reports.
     """
     if tool_context is None:
-        # This handles local testing or direct calls where context might be missing,
-        # but in ADK execution it should be provided.
-        # We can't easily run sub-agents without context via AgentTool,
-        # so we might need to error or mock.
         raise ValueError("tool_context is required for running sub-agents")
 
     stage1_input = {
@@ -182,17 +175,33 @@ async def run_two_stage_analysis(
         "project_id": project_id,
     }
 
-    # Run Stage 1: Triage
-    # We use AgentTool to wrap and run the agent, enabling it to access the current session/context.
     triage_tool = AgentTool(stage1_triage_squad)
-    stage1_response = await triage_tool.run_async(
+    return await triage_tool.run_async(
         args={"request": f"Context: {json.dumps(stage1_input)}\nInstruction: Analyze the traces provided."},
         tool_context=tool_context
     )
 
-    # AgentTool returns the result as string (processed by output schema if valid, or text).
-    # ParallelAgent usually returns text combined from sub-agents.
-    stage1_report = stage1_response
+
+@adk_tool
+async def run_deep_dive_analysis(
+    baseline_trace_id: str,
+    target_trace_id: str,
+    stage1_report: str,
+    project_id: str | None = None,
+    tool_context: ToolContext = None,
+) -> dict:
+    """
+    Stage 2: Runs the Deep Dive Squad (Causality, Service Impact) to determine WHY issues occurred.
+    
+    Args:
+        baseline_trace_id: The ID of the normal/baseline trace.
+        target_trace_id: The ID of the anomalous/target trace.
+        stage1_report: The text report from the Stage 1 Triage analysis.
+        project_id: The Google Cloud Project ID.
+        tool_context: The tool context provided by the ADK.
+    """
+    if tool_context is None:
+        raise ValueError("tool_context is required for running sub-agents")
 
     stage2_input = {
         "baseline_trace_id": baseline_trace_id,
@@ -201,9 +210,8 @@ async def run_two_stage_analysis(
         "project_id": project_id,
     }
 
-    # Run Stage 2: Deep Dive
     deep_dive_tool = AgentTool(stage2_deep_dive_squad)
-    stage2_response = await deep_dive_tool.run_async(
+    return await deep_dive_tool.run_async(
         args={
             "request": (
                 f"Context: {json.dumps(stage2_input)}\n"
@@ -213,16 +221,12 @@ async def run_two_stage_analysis(
         },
         tool_context=tool_context
     )
-    stage2_report = stage2_response
-
-    return {
-        "stage1_triage_report": stage1_report,
-        "stage2_deep_dive_report": stage2_report,
-    }
 # Initialize base tools
 base_tools = [
     # Two-stage analysis architecture
-    run_two_stage_analysis,
+    # Two-stage analysis architecture (Split)
+    run_triage_analysis,
+    run_deep_dive_analysis,
     # Trace selection tools
     select_traces_from_error_reports,
     select_traces_from_monitoring_alerts,
