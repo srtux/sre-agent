@@ -26,13 +26,19 @@ The agent is built using the Google Agent Development Kit (ADK). It uses a hiera
 %%{init: {
   'theme': 'base',
   'themeVariables': {
+    'darkMode': false,
+    'background': '#ffffff',
+    'mainBkg': '#ffffff',
     'fontFamily': 'arial',
     'fontSize': '16px',
-    'lineColor': '#333333',
+    'lineColor': '#000000',
+    'textColor': '#000000',
     'primaryTextColor': '#000000',
-    'tertiaryColor': '#ffffff',
-    'clusterBkg': '#fafafa',
-    'clusterBorder': '#999999'
+    'nodeTextColor': '#000000',
+    'clusterBkg': '#ffffff',
+    'clusterBorder': '#333333',
+    'titleColor': '#000000',
+    'edgeLabelBackground': '#ffffff'
   }
 }}%%
 flowchart TB
@@ -111,7 +117,33 @@ flowchart TB
 ### Interaction Workflow
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'darkMode': false, 'background': '#ffffff', 'mainBkg': '#ffffff', 'fontFamily': 'arial', 'fontSize': '16px', 'textColor': '#000000', 'primaryTextColor': '#000000', 'secondaryColor': '#f1f3f4', 'tertiaryColor': '#ffffff'}}}%%
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'darkMode': false,
+    'background': '#ffffff',
+    'mainBkg': '#ffffff',
+    'fontFamily': 'arial',
+    'fontSize': '16px',
+    'textColor': '#000000',
+    'primaryTextColor': '#000000',
+    'actorTextColor': '#000000',
+    'actorBorder': '#000000',
+    'actorBkg': '#ffffff',
+    'actorLineColor': '#000000',
+    'signalColor': '#000000',
+    'signalTextColor': '#000000',
+    'labelBoxBkgColor': '#ffffff',
+    'labelBoxBorderColor': '#000000',
+    'labelTextColor': '#000000',
+    'loopTextColor': '#000000',
+    'noteBkgColor': '#fff9c4',
+    'noteBorderColor': '#333333',
+    'noteTextColor': '#000000',
+    'activationBorderColor': '#000000',
+    'activationBkgColor': '#e3f2fd'
+  }
+}}%%
 sequenceDiagram
     actor User
     participant Det as 🕵️ Detective
