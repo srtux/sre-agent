@@ -22,20 +22,20 @@ The agent is built using the Google Agent Development Kit (ADK) and follows a hi
 
 ```mermaid
 sequenceDiagram
-    %%{init: {'theme': 'base', 'themeVariables': {'fontFamily': 'arial', 'fontSize': '14px', 'actorBorder': '#1A73E8', 'actorBkg': '#FFFFFF', 'signalColor': '#1A73E8', 'activationBorderColor': '#1A73E8', 'activationBkgColor': '#E8F0FE', 'noteBkgColor': '#FFF8E1', 'noteBorderColor': '#FFC107'}}}%%
+    %%{init: {'theme': 'base', 'themeVariables': {'darkMode': false, 'fontFamily': 'arial', 'fontSize': '14px', 'textColor': '#000000', 'primaryTextColor': '#000000', 'actorTextColor': '#000000', 'actorBorder': '#000000', 'actorBkg': '#FFFFFF', 'actorLineColor': '#333333', 'signalColor': '#333333', 'signalTextColor': '#000000', 'activationBorderColor': '#333333', 'activationBkgColor': '#E8F0FE', 'noteBkgColor': '#FFF8E1', 'noteBorderColor': '#333333', 'noteTextColor': '#000000'}}}%%
     
     autonumber
     
-    box "📢 Request Origin" #E3F2FD
+    box "📢 Request Origin" #FFFFFF
         actor User as 👤 User
         participant Root as 🕵️ Trace Detective
     end
     
-    box "🛠️ The Toolbox" #F1F3F4
+    box "🛠️ The Toolbox" #FFFFFF
         participant Tools as Discovery Tools
     end
     
-    box "🚨 The Squads" #FFF3E0
+    box "🚨 The Squads" #FFFFFF
         participant S1 as Triage Squad
         participant S2 as Deep Dive Squad
     end
