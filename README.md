@@ -22,13 +22,14 @@ The agent is built using the Google Agent Development Kit (ADK) and follows a hi
 
 ```mermaid
 sequenceDiagram
+    %% Use a standard theme or 'neutral' for best compatibility
     %%{init: {'theme': 'base', 'themeVariables': {'darkMode': false, 'background': '#ffffff', 'mainBkg': '#ffffff', 'fontFamily': 'arial', 'fontSize': '14px', 'textColor': '#000000', 'primaryTextColor': '#000000', 'actorTextColor': '#000000', 'actorBorder': '#000000', 'actorBkg': '#FFFFFF', 'actorLineColor': '#333333', 'signalColor': '#333333', 'signalTextColor': '#000000', 'activationBorderColor': '#333333', 'activationBkgColor': '#E8F0FE', 'noteBkgColor': '#FFF8E1', 'noteBorderColor': '#333333', 'noteTextColor': '#000000'}}}%%
     
     autonumber
     
     box "📢 Request Origin" #FFFFFF
         actor User as 👤 User
-        participant Root as 🕵️ Trace Detective
+        participant Agent as 🕵️ Trace Detective
     end
     
     box "🛠️ The Toolbox" #FFFFFF
@@ -40,36 +41,39 @@ sequenceDiagram
         participant S2 as Deep Dive Squad
     end
 
-    User->>Root: "Analyze these traces..."
+    User->>Agent: "Analyze these traces..."
     
     Note over User, S2: ─── PHASE 1: EVIDENCE GATHERING ───
     
-    Root->>Tools: Fetch Trace Data (Baseline vs Target)
+    Agent->>Tools: Fetch Trace Data (Baseline vs Target)
     activate Tools
-    Tools-->>Root: Trace Data
+    Tools-->>Agent: Trace Data
     deactivate Tools
 
     Note over User, S2: ─── PHASE 2: IDENTIFICATION (Interactive) ───
     
-    Root->>S1: run_triage_analysis()
+    Agent->>S1: run_triage_analysis()
     activate S1
     S1->>S1: Parallel Analysis<br/>(Latency, Error, Structure, Stats)
-    S1-->>Root: Triage Report (Suspects Found)
+    S1-->>Agent: Triage Report (Suspects Found)
     deactivate S1
     
-    Root->>User: "I found latency spikes in Service X..."
+    Agent->>User: "I found latency spikes in Service X..."
 
     Note over User, S2: ─── PHASE 3: ROOT CAUSE (On Demand) ───
     
-    Root->>S2: run_deep_dive_analysis()
+    %% ADDED: User interaction to make it actually "On Demand"
+    User->>Agent: "Dig deeper into Service X"
+    
+    Agent->>S2: run_deep_dive_analysis()
     activate S2
     S2->>S2: Causal & Impact Analysis
-    S2-->>Root: Deep Dive Report (Root Cause)
+    S2-->>Agent: Deep Dive Report (Root Cause)
     deactivate S2
 
     Note over User, S2: ─── PHASE 4: VERDICT ───
     
-    Root->>User: 📂 FINAL CASE FILE (Root Cause + Fixes)
+    Agent->>User: 📂 FINAL CASE FILE (Root Cause + Fixes)
 ```
 
 ### Core Components
