@@ -118,73 +118,88 @@ stage2_deep_dive_squad = ParallelAgent(
 )
 
 
-class LazyMcpRegistryToolset(BaseToolset):
-    """Lazily initializes the ApiRegistry and McpToolset to ensure session creation happens in the correct event loop."""
-    
-    # Leaking toolsets intentionally to avoid 'anyio' RuntimeError during GC/cleanup
-    # when accessed across different asyncio Tasks (FastAPI requests).
-    def __init__(self, project_id: str, mcp_server_name: str, tool_filter: list[str]):
-        self.project_id = project_id
-        self.mcp_server_name = mcp_server_name
-        self.tool_filter = tool_filter
-        self.tool_name_prefix = ""
-        self._inner_toolset = None
-        
-    async def get_tools(self, readonly_context=None):
-        # Create ApiRegistry with explicit quota project header
-        api_registry = ApiRegistry(
-            self.project_id,
-            header_provider=lambda _: {"x-goog-user-project": self.project_id}
-        )
-        
-        self._inner_toolset = api_registry.get_toolset(
-            mcp_server_name=self.mcp_server_name,
-            tool_filter=self.tool_filter
-        )
-        
-        # Resolve the actual tools from the toolset, passing context for auth/quota propagation
-        return await self._inner_toolset.get_tools(readonly_context)
+async def create_mcp_tools(project_id: str):
+    """
+    Creates MCP tools directly in the current async context.
 
-    async def close(self):
-        """Explicitly closes the inner toolset to free resources."""
-        if self._inner_toolset:
-            try:
-                await self._inner_toolset.close()
-            except Exception as e:
-                logger.warning(f"Error closing LazyMcpRegistryToolset: {e}")
+    SIMPLIFIED APPROACH (fixes async cancel scope errors):
 
-def load_mcp_tools():
-    """Loads tools from configured MCP endpoints."""
+    Previous Implementation:
+    - Used LazyMcpRegistryToolset wrapper with deferred initialization
+    - Session created in get_tools() (called by ADK in different task)
+    - Cleanup attempted in finally block (different task context)
+    - Result: "Attempted to exit cancel scope in a different task" errors
+
+    Current Implementation:
+    - Creates MCP session immediately when called (no lazy loading)
+    - Returns both tools and cleanup function
+    - Caller ensures creation and cleanup happen in same task
+    - Result: Proper resource management, no task scope errors
+
+    Best Practice (per ADK docs):
+    - MCP sessions must be created and closed in the same asyncio task
+    - Avoid lazy initialization that defers to framework callbacks
+    - Use try/finally pattern with explicit cleanup in same function
+
+    Returns:
+        tuple: (tools_list, cleanup_function)
+            - tools_list: List of tool functions to pass to the agent
+            - cleanup_function: Async function to call for cleanup
+    """
     tools = []
+    toolsets_to_close = []
 
-    # 1. Google Cloud BigQuery MCP Endpoint via ApiRegistry
     try:
-        # Get default project if not set, or use env var
-        _, project_id = google.auth.default()
-        # Fallback to env var if default auth doesn't provide project_id (e.g. running locally with user creds sometimes)
-        project_id = project_id or os.environ.get("GOOGLE_CLOUD_PROJECT")
-
         if project_id:
-            logger.info(f"Setting up BigQuery MCP tools for project: {project_id}")
+            logger.info(f"Creating BigQuery MCP tools for project: {project_id}")
+
             # Pattern: projects/{project}/locations/global/mcpServers/{server_id}
             mcp_server_name = f"projects/{project_id}/locations/global/mcpServers/google-bigquery.googleapis.com-mcp"
 
-            # Use LazyMcpRegistryToolset to avoid creating aiohttp sessions at module import time
-            # which causes crashes in ASGI/uvicorn environments (especially with forking).
-            bq_lazy_toolset = LazyMcpRegistryToolset(
-                project_id=project_id,
+            # Create ApiRegistry with explicit quota project header
+            api_registry = ApiRegistry(
+                project_id,
+                header_provider=lambda _: {"x-goog-user-project": project_id}
+            )
+
+            # Get the MCP toolset
+            mcp_toolset = api_registry.get_toolset(
                 mcp_server_name=mcp_server_name,
                 tool_filter=["execute_sql", "list_dataset_ids", "list_table_ids", "get_table_info"]
             )
-            # Add the toolset directly. LlmAgent will call get_tools() on it.
-            tools.append(bq_lazy_toolset)
+
+            # Store for cleanup
+            toolsets_to_close.append(mcp_toolset)
+
+            # Get tools immediately (not lazily) in the current task context
+            mcp_tools = await mcp_toolset.get_tools()
+            tools.extend(mcp_tools)
+
+            logger.info(f"Successfully created {len(mcp_tools)} MCP tools")
         else:
             logger.warning("No Project ID detected; skipping BigQuery MCP tools.")
 
     except Exception as e:
-        logger.error(f"Failed to setup BigQuery MCP tools: {e}", exc_info=True)
+        logger.error(f"Failed to create BigQuery MCP tools: {e}", exc_info=True)
+        # Clean up any partially created toolsets
+        for toolset in toolsets_to_close:
+            try:
+                await toolset.close()
+            except Exception as cleanup_error:
+                logger.warning(f"Error during emergency cleanup: {cleanup_error}")
+        raise
 
-    return tools
+    # Return tools and a cleanup function
+    async def cleanup():
+        """Cleanup function to close all MCP sessions."""
+        for toolset in toolsets_to_close:
+            try:
+                await toolset.close()
+                logger.debug("Successfully closed MCP toolset")
+            except Exception as e:
+                logger.warning(f"Error closing MCP toolset: {e}")
+
+    return tools, cleanup
 
 
 
@@ -228,13 +243,13 @@ async def run_aggregate_analysis(
     except:
         pass
 
-    # Recreate the agent with fresh MCP tools and project context
-    fresh_mcp_tools = load_mcp_tools()
-    
+    # Create MCP tools in the current task context
+    mcp_tools, mcp_cleanup = await create_mcp_tools(project_id)
+
     instruction = stage0_aggregate_analyzer.instruction
     if project_id:
         instruction += f"\n\nCurrent Project ID: {project_id}\nUse this for 'projectId' arguments in BigQuery tools."
-    
+
     # Create a fresh agent instance with merged tools
     original_tools = stage0_aggregate_analyzer.tools or []
     fresh_aggregate_analyzer = LlmAgent(
@@ -242,8 +257,8 @@ async def run_aggregate_analysis(
         model=stage0_aggregate_analyzer.model,
         description=stage0_aggregate_analyzer.description,
         instruction=instruction,
-        # Merge the original python tools with the fresh MCP toolset
-        tools=original_tools + fresh_mcp_tools
+        # Merge the original python tools with the fresh MCP tools
+        tools=original_tools + mcp_tools
     )
 
     aggregate_tool = AgentTool(fresh_aggregate_analyzer)
@@ -259,11 +274,8 @@ async def run_aggregate_analysis(
             tool_context=tool_context
         )
     finally:
-        # Explicitly close the fresh MCP toolsets to prevent 'anyio' TaskGroup errors
-        # This ensures cleanup happens in the same Task that created the session.
-        for toolset in fresh_mcp_tools:
-            if hasattr(toolset, 'close'):
-                await toolset.close()
+        # Clean up MCP sessions in the same task that created them
+        await mcp_cleanup()
 
 
 @adk_tool
@@ -369,15 +381,9 @@ base_tools = [
     get_logs_for_trace,
 ]
 
-# Load MCP tools
-mcp_tools = load_mcp_tools()
-
-# Inject MCP tools into the Aggregate Analyzer sub-agent
-# This is necessary because the sub-agent needs access to 'execute_sql'
-# but we can't easily import mcp_tools in the sub-agent module due to circular deps/context.
-# Note: We do NOT load MCP tools globally into an agent instance to avoid stale sessions.
-# Instead, run_aggregate_analysis loads them on-demand.
-
+# Note: MCP tools are created on-demand in run_aggregate_analysis() to ensure
+# proper lifecycle management (creation and cleanup in the same asyncio task).
+# This avoids "cancel scope in different task" errors.
 
 # Detect Project ID for instruction
 try:
