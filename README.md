@@ -21,53 +21,47 @@ A Google ADK-based agent that performs deep diff analysis on distributed traces 
 The agent is built using the Google Agent Development Kit (ADK) and follows a hierarchical orchestration pattern:
 
 ```mermaid
-flowchart TD
-    %% Styles
-    classDef primary fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#000
-    classDef secondary fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000
-    classDef squad fill:#fff3e0,stroke:#e65100,stroke-width:2px,stroke-dasharray: 5 5,color:#000
-    classDef tool fill:#f1f8e9,stroke:#33691e,stroke-width:1px,color:#000
+sequenceDiagram
+    autonumber
+    actor User as 👤 User
+    participant Root as 🕵️ Trace Detective
+    participant Tools as 🛠️ Discovery Tools
+    participant S1 as 🚦 Triage Squad
+    participant S2 as 🔍 Deep Dive Squad
 
-    User([👤 User]) --> Root[🕵️ Trace Detective]
+    User->>Root: "Analyze these traces..."
     
-    subgraph S1_Group [Stage 1: Triage]
-        direction TB
-        S1[🚦 Triage Squad]
-        L[⏱️ Latency]
-        E[💥 Error]
-        S[🏗️ Structure]
-        ST[📊 Statistics]
-        S1 --> L & E & S & ST
+    %% Phase 1: Discovery
+    rect rgb(240, 248, 255)
+        Note over Root, Tools: Phase 1: Secure Evidence
+        Root->>Tools: Fetch Trace Data (Baseline vs Target)
+        Tools-->>Root: Trace Data
     end
 
-    subgraph S2_Group [Stage 2: Deep Dive]
-        direction TB
-        S2[🔍 Deep Dive Squad]
-        C[🔗 Causality]
-        SI[🌊 Service Impact]
-        S2 --> C & SI
+    %% Phase 2: Triage
+    rect rgb(255, 243, 224)
+        Note over Root, S1: Phase 2: Identification
+        Root->>S1: run_triage_analysis()
+        activate S1
+        S1->>S1: Parallel Analysis<br/>(Latency, Error, Structure, Stats)
+        S1-->>Root: Triage Report (Suspects Found)
+        deactivate S1
+        
+        Root->>User: "I found latency spikes in Service X..."
     end
 
-    subgraph Tools [🛠️ Tool Suite]
-        TraceAPI[Cloud Trace API]
-        BQ[BigQuery MCP]
-        Filter[Trace Query Builder]
+    %% Phase 3: Deep Dive
+    rect rgb(243, 229, 245)
+        Note over Root, S2: Phase 3: Root Cause
+        Root->>S2: run_deep_dive_analysis()
+        activate S2
+        S2->>S2: Causal & Impact Analysis
+        S2-->>Root: Deep Dive Report (Root Cause)
+        deactivate S2
     end
 
-    %% Flow
-    Root ==>|1. Identify| S1
-    Root -.->|2. Investigate| S2
-    
-    %% Tool Usage
-    Root -.- Tools
-    S1 -.-> Tools
-    S2 -.-> Tools
-
-    %% Assign Classes
-    class Root primary
-    class S1,S2 squad
-    class L,E,S,ST,C,SI secondary
-    class TraceAPI,BQ,Filter tool
+    %% Phase 4: Verdict
+    Root->>User: 📂 FINAL CASE FILE (Root Cause + Fixes)
 ```
 
 ### Core Components
