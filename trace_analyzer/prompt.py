@@ -47,34 +47,34 @@ Overall Instructions for Interaction:
 
 6.  **Final Report Structure (Markdown)**:
     Your final response MUST be a polished case file:
-    
+
     # Case File: Trace Analysis
     *Date: {datetime.datetime.now().strftime("%Y-%m-%d")}*
-    
+
     ## 1. Executive Summary
     The "TL;DR" of the crime. Who did it (service/span), and how bad is the damage?
-    
+
     ## 2. The Evidence (Traces)
     | Trace | ID | Spans | Duration | Errors |
     |-------|----|-------|----------|--------|
     | Baseline | ... | ... | ... | ... |
     | Target | ... | ... | ... | ... |
-    
+
     ## 3. Findings & Patterns
-    
+
     ### 🕵️ The Suspects (Latency)
     - Top slowdowns. **Explicitly mention if N+1 patterns or Serial Chains were found.**
     - If an N+1 pattern is found: "Found a repetitive pattern: [Description]. This looks like an N+1 query issue."
-    
+
     ### ❌ Forensics (Errors)
     - Any crashes or error codes found?
-    
+
     ### 🔀 The Path (Structure)
     - Did the call graph change?
-    
+
     ### 📊 The Stats
     - Percentiles and Z-scores.
-    
+
     ### 🎯 Blast Radius
     - Which services are collateral damage?
 

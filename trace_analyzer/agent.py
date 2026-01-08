@@ -21,31 +21,35 @@ Stage 2 analysis for efficient, targeted investigation.
 """
 
 import json
+import os
+
+import google.auth
 from google.adk.agents import LlmAgent, ParallelAgent
 from google.adk.tools import AgentTool, ToolContext
+from google.adk.tools.api_registry import ApiRegistry
+from google.adk.tools.base_toolset import BaseToolset
 
+from . import prompt, telemetry  # Register logging filters
 from .decorators import adk_tool
-
-from . import prompt
+from .sub_agents.causality.agent import causality_analyzer
+from .sub_agents.error.agent import error_analyzer
+from .sub_agents.latency.agent import latency_analyzer
+from .sub_agents.service_impact.agent import service_impact_analyzer
+from .sub_agents.statistics.agent import statistics_analyzer
+from .sub_agents.structure.agent import structure_analyzer
+from .tools.statistical_analysis import analyze_trace_patterns
+from .tools.trace_analysis import summarize_trace, validate_trace_quality
 from .tools.trace_client import (
-    find_example_traces,
     fetch_trace,
-    list_traces,
-    get_trace_by_url,
+    find_example_traces,
     get_current_time,
+    get_logs_for_trace,
+    get_trace_by_url,
+    list_error_events,
     list_log_entries,
     list_time_series,
-    list_error_events,
-    get_logs_for_trace,
+    list_traces,
 )
-from .tools.trace_analysis import summarize_trace, validate_trace_quality
-from .tools.statistical_analysis import analyze_trace_patterns
-from .sub_agents.latency.agent import latency_analyzer
-from .sub_agents.error.agent import error_analyzer
-from .sub_agents.structure.agent import structure_analyzer
-from .sub_agents.statistics.agent import statistics_analyzer
-from .sub_agents.causality.agent import causality_analyzer
-from .sub_agents.service_impact.agent import service_impact_analyzer
 from .tools.trace_filter import (
     select_traces_from_error_reports,
     select_traces_from_monitoring_alerts,
@@ -91,10 +95,8 @@ stage2_deep_dive_squad = ParallelAgent(
 
 
 
-import os
-import google.auth
-from google.adk.tools.api_registry import ApiRegistry
-from google.adk.tools.base_toolset import BaseToolset
+
+
 
 class LazyMcpRegistryToolset(BaseToolset):
     """Lazily initializes the ApiRegistry and McpToolset to ensure session creation happens in the correct event loop."""
@@ -104,7 +106,7 @@ class LazyMcpRegistryToolset(BaseToolset):
         self.tool_filter = tool_filter
         self.tool_name_prefix = None
         self._inner_toolset = None
-        
+
     async def get_tools(self, readonly_context=None):
         if not self._inner_toolset:
             # Initialize ApiRegistry lazily in the running event loop
@@ -118,18 +120,18 @@ class LazyMcpRegistryToolset(BaseToolset):
 def load_mcp_tools():
     """Loads tools from configured MCP endpoints."""
     tools = []
-    
+
     # 1. Google Cloud BigQuery MCP Endpoint via ApiRegistry
     try:
         # Get default project if not set, or use env var
         _, project_id = google.auth.default()
         # Fallback to env var if default auth doesn't provide project_id (e.g. running locally with user creds sometimes)
         project_id = project_id or os.environ.get("GOOGLE_CLOUD_PROJECT")
-        
+
         if project_id:
             # Pattern: projects/{project}/locations/global/mcpServers/{server_id}
             mcp_server_name = f"projects/{project_id}/locations/global/mcpServers/google-bigquery.googleapis.com-mcp"
-            
+
             # Use LazyMcpRegistryToolset to avoid creating aiohttp sessions at module import time
             # which causes crashes in ASGI/uvicorn environments (especially with forking).
             bq_lazy_toolset = LazyMcpRegistryToolset(
@@ -139,35 +141,10 @@ def load_mcp_tools():
             )
             # Add the toolset directly. LlmAgent will call get_tools() on it.
             tools.append(bq_lazy_toolset)
-            
+
     except Exception as e:
         print(f"Warning: Failed to setup BigQuery MCP tools: {e}")
 
-    # 2. MCP Toolbox for Databases (Local/Self-hosted or Cloud Run)
-    toolbox_url = os.environ.get("TOOLBOX_MCP_URL")
-    if toolbox_url:
-        try:
-            # Use authenticated HTTP client
-            from google.auth import default as google_auth_default
-            from google.auth.transport.requests import Request
-            from toolbox_core import ToolboxSyncClient
-
-            creds, _ = google_auth_default(scopes=['https://www.googleapis.com/auth/cloud-platform'])
-            creds.refresh(Request())
-
-            # Create client with auth headers
-            toolbox_client = ToolboxSyncClient(
-                toolbox_url,
-                headers={'Authorization': f'Bearer {creds.token}'}
-            )
-
-            if hasattr(toolbox_client, 'list_tools'):
-                tools.extend(toolbox_client.list_tools())
-                print(f"Successfully loaded tools from Toolbox MCP at {toolbox_url}")
-
-        except Exception as e:
-            print(f"Warning: Failed to setup Toolbox MCP tools: {e}")
-        
     return tools
 
 
@@ -177,7 +154,7 @@ def load_mcp_tools():
 async def run_two_stage_analysis(
     baseline_trace_id: str,
     target_trace_id: str,
-    project_id: str = None,
+    project_id: str | None = None,
     tool_context: ToolContext = None,
 ) -> dict:
     """
@@ -195,7 +172,7 @@ async def run_two_stage_analysis(
     if tool_context is None:
         # This handles local testing or direct calls where context might be missing,
         # but in ADK execution it should be provided.
-        # We can't easily run sub-agents without context via AgentTool, 
+        # We can't easily run sub-agents without context via AgentTool,
         # so we might need to error or mock.
         raise ValueError("tool_context is required for running sub-agents")
 
@@ -204,7 +181,7 @@ async def run_two_stage_analysis(
         "target_trace_id": target_trace_id,
         "project_id": project_id,
     }
-    
+
     # Run Stage 1: Triage
     # We use AgentTool to wrap and run the agent, enabling it to access the current session/context.
     triage_tool = AgentTool(stage1_triage_squad)
@@ -212,7 +189,7 @@ async def run_two_stage_analysis(
         args={"request": f"Context: {json.dumps(stage1_input)}\nInstruction: Analyze the traces provided."},
         tool_context=tool_context
     )
-    
+
     # AgentTool returns the result as string (processed by output schema if valid, or text).
     # ParallelAgent usually returns text combined from sub-agents.
     stage1_report = stage1_response

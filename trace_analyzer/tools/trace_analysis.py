@@ -1,14 +1,13 @@
 """Trace analysis utilities for comparing and diffing distributed traces."""
 
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
 import json
-from datetime import datetime
-import time
-
 import logging
-from ..telemetry import get_tracer, get_meter, log_tool_call
+import time
+from datetime import datetime
+from typing import Any
 
 from ..decorators import adk_tool
+from ..telemetry import get_meter, get_tracer, log_tool_call
 
 logger = logging.getLogger(__name__)
 
@@ -45,18 +44,18 @@ def _record_telemetry(func_name: str, success: bool = True, duration_ms: float =
 
 
 # Common type aliases
-TraceData = Dict[str, Any]
-SpanData = Dict[str, Any]
+TraceData = dict[str, Any]
+SpanData = dict[str, Any]
 
 
 @adk_tool
-def calculate_span_durations(trace: str) -> List[SpanData]:
+def calculate_span_durations(trace: str) -> list[SpanData]:
     """
     Extracts timing information for each span in a trace.
-    
+
     Args:
         trace: A trace dictionary containing spans (from fetch_trace).
-    
+
     Returns:
         A list of span timing dictionaries with:
         - span_id: Span identifier
@@ -68,18 +67,18 @@ def calculate_span_durations(trace: str) -> List[SpanData]:
     """
     start_time = time.time()
     success = True
-    
+
     with tracer.start_as_current_span("calculate_span_durations") as span:
         span.set_attribute("code.function", "calculate_span_durations")
-        
+
         log_tool_call(logger, "calculate_span_durations", trace="<trace_data_truncated>")
-        
+
         try:
             if isinstance(trace, str):
                 try:
                     trace = json.loads(trace)
                 except json.JSONDecodeError as e:
-                    return [{"error": f"Failed to parse trace JSON: {str(e)}"}]
+                    return [{"error": f"Failed to parse trace JSON: {e!s}"}]
 
             if not isinstance(trace, dict):
                 return [{"error": f"Trace data must be a dictionary, but got {type(trace).__name__}"}]
@@ -88,16 +87,16 @@ def calculate_span_durations(trace: str) -> List[SpanData]:
                 span.set_attribute("error", True)
                 span.set_status(trace.get("error"))
                 return [{"error": trace["error"]}]
-            
+
             spans = trace.get("spans", [])
             span.set_attribute("trace_analyzer.span_count", len(spans))
-            
+
             timing_info = []
-            
+
             for s in spans:
                 s_start = s.get("start_time")
                 s_end = s.get("end_time")
-                
+
                 duration_ms = None
                 if s_start and s_end:
                     try:
@@ -109,7 +108,7 @@ def calculate_span_durations(trace: str) -> List[SpanData]:
                     except (ValueError, TypeError) as e:
                         # Fallback if timestamp parsing fails
                         logger.warning(f"Failed to parse timestamps for span {s.get('span_id')}: {e}")
-                
+
                 timing_info.append({
                     "span_id": s.get("span_id"),
                     "name": s.get("name"),
@@ -119,12 +118,12 @@ def calculate_span_durations(trace: str) -> List[SpanData]:
                     "parent_span_id": s.get("parent_span_id"),
                     "labels": s.get("labels", {}),
                 })
-            
+
             # Sort by duration (descending) for easy analysis of slowest spans
             timing_info.sort(key=lambda x: x.get("duration_ms") or 0, reverse=True)
-            
+
             return timing_info
-            
+
         except Exception as e:
             span.record_exception(e)
             success = False
@@ -135,13 +134,13 @@ def calculate_span_durations(trace: str) -> List[SpanData]:
 
 
 @adk_tool
-def extract_errors(trace: str) -> List[Dict[str, Any]]:
+def extract_errors(trace: str) -> list[dict[str, Any]]:
     """
     Finds all spans that contain errors or error-related information.
-    
+
     Args:
         trace: A trace dictionary containing spans.
-    
+
     Returns:
         A list of error dictionaries with:
         - span_id: Span identifier
@@ -156,25 +155,25 @@ def extract_errors(trace: str) -> List[Dict[str, Any]]:
 
     with tracer.start_as_current_span("extract_errors") as span:
         span.set_attribute("code.function", "extract_errors")
-        
+
         log_tool_call(logger, "extract_errors", trace="<trace_data_truncated>")
-        
+
         try:
             if isinstance(trace, str):
                 try:
                     trace = json.loads(trace)
                 except json.JSONDecodeError as e:
-                    return [{"error": f"Failed to parse trace JSON: {str(e)}"}]
+                    return [{"error": f"Failed to parse trace JSON: {e!s}"}]
 
             if not isinstance(trace, dict):
                 return [{"error": f"Trace data must be a dictionary, but got {type(trace).__name__}"}]
 
             if "error" in trace:
                 return [{"error": trace["error"]}]
-            
+
             spans = trace.get("spans", [])
             errors = []
-            
+
             # Removed "status" from error_indicators to prevent HTTP 200 false positives
             error_indicators = ["error", "exception", "fault", "failure"]
 
@@ -183,7 +182,7 @@ def extract_errors(trace: str) -> List[Dict[str, Any]]:
                 span_name = s.get("name", "")
 
                 is_error = False
-                error_info: Dict[str, Any] = {
+                error_info: dict[str, Any] = {
                     "span_id": s.get("span_id"),
                     "span_name": span_name,
                     "error_type": None,
@@ -217,7 +216,7 @@ def extract_errors(trace: str) -> List[Dict[str, Any]]:
                                 is_error = True
                                 error_info["status_code"] = code
                                 error_info["error_type"] = "http_error"
-                        except (ValueError, TypeError) as e:
+                        except (ValueError, TypeError):
                              # Don't log here as many fields have "code"/ "status" in name but aren't ints
                              pass
                         continue  # Skip other error checks for status fields
@@ -228,20 +227,20 @@ def extract_errors(trace: str) -> List[Dict[str, Any]]:
                             is_error = True
                             error_info["error_type"] = key
                             error_info["error_message"] = str(value)
-                    
+
                     # Check for gRPC error codes (non-zero is usually error)
                     if "grpc" in key_lower and "status" in key_lower:
                         if value_str not in ("ok", "0"):
                             is_error = True
                             error_info["error_type"] = "gRPC Error"
                             error_info["status_code"] = value
-                
+
                 if is_error:
                     errors.append(error_info)
-            
+
             span.set_attribute("trace_analyzer.error_count", len(errors))
             anomalies_detected.add(len(errors), {"type": "error_span"})
-            
+
             return errors
         except Exception as e:
             span.record_exception(e)
@@ -253,19 +252,19 @@ def extract_errors(trace: str) -> List[Dict[str, Any]]:
 
 
 @adk_tool
-def validate_trace_quality(trace_json: str) -> Dict[str, Any]:
+def validate_trace_quality(trace_json: str) -> dict[str, Any]:
     """
     Validate trace data quality and detect issues.
-    
+
     Checks for:
     - Orphaned spans (missing parent)
     - Negative durations
     - Clock skew (child span outside parent timespan)
     - Timestamp parsing errors
-    
+
     Args:
         trace_json: JSON string of the trace data.
-        
+
     Returns:
         Dictionary with 'valid' boolean, 'issue_count', and list of 'issues'.
     """
@@ -299,7 +298,7 @@ def validate_trace_quality(trace_json: str) -> Dict[str, Any]:
         try:
             start_str = span.get("start_time")
             end_str = span.get("end_time")
-            
+
             if start_str and end_str:
                 start = datetime.fromisoformat(start_str.replace('Z', '+00:00'))
                 end = datetime.fromisoformat(end_str.replace('Z', '+00:00'))
@@ -317,7 +316,7 @@ def validate_trace_quality(trace_json: str) -> Dict[str, Any]:
                     parent = span_map[parent_id]
                     p_start_str = parent.get("start_time")
                     p_end_str = parent.get("end_time")
-                    
+
                     if p_start_str and p_end_str:
                         p_start = datetime.fromisoformat(p_start_str.replace('Z', '+00:00'))
                         p_end = datetime.fromisoformat(p_end_str.replace('Z', '+00:00'))
@@ -344,16 +343,16 @@ def validate_trace_quality(trace_json: str) -> Dict[str, Any]:
 
 
 @adk_tool
-def build_call_graph(trace: str) -> Dict[str, Any]:
+def build_call_graph(trace: str) -> dict[str, Any]:
     """
     Builds a hierarchical call graph from the trace spans.
-    
+
     This function reconstructs the parent-child relationships to form a tree
     structure, which is useful for structural analysis and visualization.
-    
+
     Args:
         trace: A trace dictionary containing spans.
-    
+
     Returns:
         A dictionary representing the call graph:
         - root_spans: List of root spans (no parent)
@@ -363,55 +362,55 @@ def build_call_graph(trace: str) -> Dict[str, Any]:
     """
     start_time = time.time()
     success = True
-    
+
     with tracer.start_as_current_span("build_call_graph") as span:
         span.set_attribute("code.function", "build_call_graph")
-        
+
         log_tool_call(logger, "build_call_graph", trace="<trace_data_truncated>")
-        
+
         try:
             if isinstance(trace, str):
                 try:
                     trace = json.loads(trace)
                 except json.JSONDecodeError as e:
-                    return {"error": f"Failed to parse trace JSON: {str(e)}"}
+                    return {"error": f"Failed to parse trace JSON: {e!s}"}
 
             if not isinstance(trace, dict):
                 return {"error": f"Trace data must be a dictionary, but got {type(trace).__name__}"}
 
             if "error" in trace:
                 return {"error": trace["error"]}
-            
+
             spans = trace.get("spans", [])
-            
+
             # Create lookup maps for O(1) access
             span_by_id = {}
-            children_by_parent: Dict[str, List[str]] = {}
+            children_by_parent: dict[str, list[str]] = {}
             root_spans = []
-            span_names: Set[str] = set()
-            
+            span_names: set[str] = set()
+
             for s in spans:
                 span_id = s.get("span_id")
                 parent_id = s.get("parent_span_id")
                 span_name = s.get("name", "unknown")
-                
+
                 if span_id:
                     span_by_id[span_id] = s
-                
+
                 span_names.add(span_name)
-                
+
                 if parent_id:
                     if parent_id not in children_by_parent:
                         children_by_parent[parent_id] = []
                     children_by_parent[parent_id].append(span_id)
                 else:
                     root_spans.append(span_id)
-            
-            def build_subtree(span_id: str, depth: int = 0) -> Dict[str, Any]:
+
+            def build_subtree(span_id: str, depth: int = 0) -> dict[str, Any]:
                 """Recursively builds the tree structure for a given span node."""
                 s = span_by_id.get(span_id, {})
                 children_ids = children_by_parent.get(span_id, [])
-                
+
                 return {
                     "span_id": span_id,
                     "name": s.get("name", "unknown"),
@@ -419,18 +418,18 @@ def build_call_graph(trace: str) -> Dict[str, Any]:
                     "children": [build_subtree(child_id, depth + 1) for child_id in children_ids],
                     "labels": s.get("labels", {}),
                 }
-            
+
             # Build trees starting from all root spans
             span_tree = [build_subtree(root_id) for root_id in root_spans]
-            
+
             # Calculate max depth of the call tree
-            def get_max_depth(node: Dict[str, Any]) -> int:
+            def get_max_depth(node: dict[str, Any]) -> int:
                 if not node.get("children"):
                     return node.get("depth", 0)
                 return max(get_max_depth(child) for child in node["children"])
-            
+
             max_depth = max((get_max_depth(tree) for tree in span_tree), default=0)
-            
+
             result = {
                 "trace_id": trace.get("trace_id"),
                 "root_spans": root_spans,
@@ -442,7 +441,7 @@ def build_call_graph(trace: str) -> Dict[str, Any]:
             span.set_attribute("trace_analyzer.max_depth", max_depth)
             span.set_attribute("trace_analyzer.total_spans", len(spans))
             return result
-            
+
         except Exception as e:
             span.record_exception(e)
             success = False
@@ -456,14 +455,14 @@ def build_call_graph(trace: str) -> Dict[str, Any]:
 def compare_span_timings(
     baseline_trace: str,
     target_trace: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Compares timing between spans in two traces and detects performance anti-patterns.
-    
+
     Args:
         baseline_trace: The reference/normal trace to compare against.
         target_trace: The trace being analyzed (potentially slow/abnormal).
-    
+
     Returns:
         A comparison report with:
         - slower_spans: Spans that got slower in target
@@ -475,25 +474,25 @@ def compare_span_timings(
     """
     start_time = time.time()
     success = True
-    
+
     with tracer.start_as_current_span("compare_span_timings") as span:
         span.set_attribute("code.function", "compare_span_timings")
-        
+
         log_tool_call(logger, "compare_span_timings", baseline_trace="<trace_data_truncated>", target_trace="<trace_data_truncated>")
-        
+
         try:
             # calculate_span_durations handles string parsing
             baseline_timings = calculate_span_durations(baseline_trace)
             target_timings = calculate_span_durations(target_trace)
-            
+
             if baseline_timings and isinstance(baseline_timings[0], dict) and "error" in baseline_timings[0]:
                 return {"error": f"Baseline trace error: {baseline_timings[0]['error']}"}
             if target_timings and isinstance(target_timings[0], dict) and "error" in target_timings[0]:
                 return {"error": f"Target trace error: {target_timings[0]['error']}"}
-            
+
             # --- Anti-Pattern Detection (Target Trace) ---
             patterns = []
-            
+
             # 1. N+1 Query Detection
             # Look for sequential spans with identical names
             if target_timings:
@@ -502,10 +501,10 @@ def compare_span_timings(
                     [s for s in target_timings if s.get("start_time")],
                     key=lambda x: x["start_time"]
                 )
-                
+
                 if sorted_spans:
                     current_run = []
-                    for i, s in enumerate(sorted_spans):
+                    for _i, s in enumerate(sorted_spans):
                         name = s.get("name")
                         # Skip small utility spans if necessary, but finding all repeats is good
                         if not current_run:
@@ -527,7 +526,7 @@ def compare_span_timings(
                                             "impact": "high" if duration_sum > 200 else "medium"
                                         })
                                 current_run = [s]
-                    
+
                     # Check last run
                     if len(current_run) >= 3:
                         duration_sum = sum(s.get("duration_ms") or 0 for s in current_run)
@@ -615,44 +614,44 @@ def compare_span_timings(
                             "impact": "high" if chain_duration > 500 else "medium",
                             "recommendation": "Consider parallelizing these operations using async/await or concurrent execution."
                         })
-            
+
             # --- End Detection ---
 
             # Create lookup by span name to compare similar operations
-            baseline_by_name: Dict[str, List[SpanData]] = {}
+            baseline_by_name: dict[str, list[SpanData]] = {}
             for s in baseline_timings:
                 name = s.get("name")
                 if name:
                     if name not in baseline_by_name:
                         baseline_by_name[name] = []
                     baseline_by_name[name].append(s)
-            
-            target_by_name: Dict[str, List[SpanData]] = {}
+
+            target_by_name: dict[str, list[SpanData]] = {}
             for s in target_timings:
                 name = s.get("name")
                 if name:
                     if name not in target_by_name:
                         target_by_name[name] = []
                     target_by_name[name].append(s)
-            
+
             slower_spans = []
             faster_spans = []
-            
+
             all_names = set(baseline_by_name.keys()) | set(target_by_name.keys())
-            
+
             for name in all_names:
                 baseline_spans = baseline_by_name.get(name, [])
                 target_spans = target_by_name.get(name, [])
-                
+
                 if baseline_spans and target_spans:
                     # Compare average durations (handling multiple spans of same name)
                     baseline_avg = sum(s.get("duration_ms") or 0 for s in baseline_spans) / len(baseline_spans)
                     target_avg = sum(s.get("duration_ms") or 0 for s in target_spans) / len(target_spans)
-                    
+
                     diff_ms = target_avg - baseline_avg
                     # Calculate percentage change
                     diff_pct = (diff_ms / baseline_avg * 100) if baseline_avg > 0 else 0
-                    
+
                     comparison = {
                         "span_name": name,
                         "baseline_duration_ms": round(baseline_avg, 2),
@@ -662,24 +661,24 @@ def compare_span_timings(
                         "baseline_count": len(baseline_spans),
                         "target_count": len(target_spans),
                     }
-                    
+
                     # Thresholds for significance: >10% change OR >50ms absolute difference
                     if diff_pct > 10 or diff_ms > 50:
                         slower_spans.append(comparison)
                     elif diff_pct < -10 or diff_ms < -50:
                         faster_spans.append(comparison)
-            
+
             # Sort by magnitude of change (absolute impact)
             slower_spans.sort(key=lambda x: x["diff_ms"], reverse=True)
             faster_spans.sort(key=lambda x: x["diff_ms"])
-            
+
             missing_from_target = [name for name in baseline_by_name if name not in target_by_name]
             new_in_target = [name for name in target_by_name if name not in baseline_by_name]
-            
+
             # Calculate overall stats
             baseline_total = sum(s.get("duration_ms") or 0 for s in baseline_timings)
             target_total = sum(s.get("duration_ms") or 0 for s in target_timings)
-            
+
             result = {
                 "slower_spans": slower_spans,
                 "faster_spans": faster_spans,
@@ -696,7 +695,7 @@ def compare_span_timings(
             }
             span.set_attribute("trace_analyzer.slower_spans_count", len(slower_spans))
             anomalies_detected.add(len(slower_spans), {"type": "slow_span"})
-            
+
             return result
         except Exception as e:
             span.record_exception(e)
@@ -708,11 +707,11 @@ def compare_span_timings(
 
 
 @adk_tool
-def summarize_trace(trace_data: str) -> Dict[str, Any]:
+def summarize_trace(trace_data: str) -> dict[str, Any]:
     """
     Creates a summary of a trace to save context window tokens.
     Extracts high-level stats, top 5 slowest spans, and error spans.
-    
+
     Args:
         trace_data: The trace data to summarize as a JSON string (from fetch_trace).
     """
@@ -777,14 +776,14 @@ def summarize_trace(trace_data: str) -> Dict[str, Any]:
 def find_structural_differences(
     baseline_trace: str,
     target_trace: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Compares the call graph structure between two traces.
-    
+
     Args:
         baseline_trace: The reference/normal trace.
         target_trace: The trace being analyzed.
-    
+
     Returns:
         A structural comparison with:
         - missing_spans: Span names present in baseline but not target
@@ -794,31 +793,31 @@ def find_structural_differences(
     """
     start_time = time.time()
     success = True
-    
+
     with tracer.start_as_current_span("find_structural_differences") as span:
         span.set_attribute("code.function", "find_structural_differences")
-        
+
         log_tool_call(logger, "find_structural_differences", baseline_trace="<trace_data_truncated>", target_trace="<trace_data_truncated>")
-        
+
         try:
             # build_call_graph handles string parsing
             baseline_graph = build_call_graph(baseline_trace)
             target_graph = build_call_graph(target_trace)
-            
+
             if "error" in baseline_graph:
                 return {"error": f"Baseline trace error: {baseline_graph['error']}"}
             if "error" in target_graph:
                 return {"error": f"Target trace error: {target_graph['error']}"}
-            
+
             baseline_names = set(baseline_graph.get("span_names", []))
             target_names = set(target_graph.get("span_names", []))
-            
+
             missing_spans = list(baseline_names - target_names)
             new_spans = list(target_names - baseline_names)
             common_spans = list(baseline_names & target_names)
-            
+
             depth_change = target_graph.get("max_depth", 0) - baseline_graph.get("max_depth", 0)
-            
+
             result = {
                 "missing_spans": missing_spans,
                 "new_spans": new_spans,
@@ -835,12 +834,12 @@ def find_structural_differences(
                     "structure_changed": len(missing_spans) > 0 or len(new_spans) > 0 or depth_change != 0,
                 },
             }
-            
+
             change_count = len(missing_spans) + len(new_spans)
             anomalies_detected.add(change_count, {"type": "structural_change"})
             if depth_change != 0:
                 anomalies_detected.add(1, {"type": "depth_change"})
-                
+
             return result
         except Exception as e:
             span.record_exception(e)

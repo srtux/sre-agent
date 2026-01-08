@@ -1,12 +1,14 @@
 """Integration tests for the Trace Analyzer Agent."""
 
-import pytest
-from unittest.mock import MagicMock, patch
 import json
 import os
+from unittest.mock import MagicMock, patch
 
-from google.adk.agents import LlmAgent, ParallelAgent
+import pytest
+from google.adk.agents import LlmAgent
+
 from trace_analyzer.agent import root_agent
+
 
 @pytest.fixture
 def mock_env():

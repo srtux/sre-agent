@@ -1,18 +1,18 @@
 
 import json
 import os
-import time
 from unittest import mock
+
 import pytest
-from google.cloud import trace_v1
-from google.protobuf.timestamp_pb2 import Timestamp
+
 from trace_analyzer.tools.trace_client import (
+    _get_project_id,
     fetch_trace,
-    list_traces,
     find_example_traces,
     get_trace_by_url,
-    _get_project_id
+    list_traces,
 )
+
 
 @pytest.fixture
 def mock_trace_service_client():
@@ -74,7 +74,7 @@ def test_fetch_trace_error(mock_trace_service_client):
 
     from trace_analyzer.tools.trace_cache import get_trace_cache
     get_trace_cache().clear()
-    
+
     result_json = fetch_trace("test_project_id", "test_trace_id")
     result = json.loads(result_json)
 

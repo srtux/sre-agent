@@ -1,7 +1,8 @@
 
-import pytest
 from unittest import mock
-from trace_analyzer.telemetry import get_tracer, get_meter
+
+from trace_analyzer.telemetry import get_meter, get_tracer
+
 
 def test_get_tracer():
     with mock.patch("trace_analyzer.telemetry.trace.get_tracer") as mock_get_tracer:
@@ -25,6 +26,7 @@ def test_get_meter():
 
 def test_logging_filter():
     import logging
+
     from trace_analyzer.telemetry import _FunctionCallWarningFilter
 
     log_filter = _FunctionCallWarningFilter()
@@ -34,11 +36,11 @@ def test_logging_filter():
         name="test", level=logging.WARNING, pathname="path", lineno=1,
         msg="Warning: there are non-text parts in the response", args=(), exc_info=None
     )
-    assert log_filter.filter(record_filtered) == False
+    assert not log_filter.filter(record_filtered)
 
     # Record that should NOT be filtered out
     record_allowed = logging.LogRecord(
         name="test", level=logging.WARNING, pathname="path", lineno=1,
         msg="Some other warning", args=(), exc_info=None
     )
-    assert log_filter.filter(record_allowed) == True
+    assert log_filter.filter(record_allowed)

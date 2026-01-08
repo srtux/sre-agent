@@ -1,0 +1,73 @@
+
+import json
+import os
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+from google.adk.tools import ToolContext
+
+from trace_analyzer.tools.trace_analysis import compare_span_timings
+from trace_analyzer.tools.statistical_analysis import analyze_trace_patterns
+
+# Load fake data
+DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+
+def load_trace(filename):
+    with open(os.path.join(DATA_DIR, filename), "r") as f:
+        return f.read()
+
+@pytest.fixture
+def good_trace_json():
+    return load_trace("good_trace.json")
+
+@pytest.fixture
+def bad_trace_json():
+    return load_trace("bad_trace.json")
+
+def test_compare_span_timings_e2e(good_trace_json, bad_trace_json):
+    """
+    Test comparison between a good baseline and a bad target trace.
+    Should detect N+1 pattern and slowness.
+    """
+    result = compare_span_timings(good_trace_json, bad_trace_json)
+
+    # Check N+1 detection
+    patterns = result.get("patterns", [])
+    n_plus_one = next((p for p in patterns if p["type"] == "n_plus_one"), None)
+    assert n_plus_one is not None
+    assert n_plus_one["span_name"] == "FetchItem"
+    assert n_plus_one["count"] >= 4  # We added 4 sequential calls
+
+    # Check timing comparison
+    # Root span should be slower
+    slower_spans = result.get("slower_spans", [])
+    root_diff = next((s for s in slower_spans if s["span_name"] == "ProcessRequest"), None)
+    
+    # Note: fake data names must match for comparison.
+    # good_trace has "ProcessRequest", bad_trace has "ProcessRequest"
+    assert root_diff is not None
+    assert root_diff["diff_ms"] > 1000 # 1500ms vs 150ms
+
+def test_analyze_trace_patterns_e2e(bad_trace_json):
+    """
+    Test pattern analysis on a set of bad traces.
+    """
+    # Simulate multiple bad traces to trigger pattern detection
+    traces = [bad_trace_json, bad_trace_json, bad_trace_json]
+    
+    result = analyze_trace_patterns(traces)
+    
+    summary = result.get("summary", {})
+    patterns = result.get("patterns", {})
+    
+    # improved: analyze_trace_patterns logic requires variances for some patterns, 
+    # but identical traces might trigger "recurring_slowdown" if duration is high and stable.
+    
+    recurring = patterns.get("recurring_slowdowns", [])
+    # root_span_bad is 1500ms > 100ms threshold
+    root_pattern = next((p for p in recurring if p["span_name"] == "ProcessRequest"), None)
+    
+    assert root_pattern is not None
+    assert root_pattern["avg_duration_ms"] == 1500.0
+    assert root_pattern["consistency"] == 100.0 # Identical traces = 100% consistent
+

@@ -1,14 +1,14 @@
-from typing import List, Optional, Union, Dict
 import numpy as np
 
 from ..decorators import adk_tool
+
 
 class TraceSelector:
     """
     Provides different strategies for selecting traces for analysis.
     """
 
-    def from_error_reports(self, project_id: str) -> List[str]:
+    def from_error_reports(self, project_id: str) -> list[str]:
         """
         Selects traces associated with recent error reports.
         (Placeholder - requires Error Reporting API client)
@@ -16,7 +16,7 @@ class TraceSelector:
         print("Warning: Trace selection from error reports is not yet implemented.")
         return []
 
-    def from_monitoring_alerts(self, project_id: str) -> List[str]:
+    def from_monitoring_alerts(self, project_id: str) -> list[str]:
         """
         Selects traces associated with active monitoring alerts.
         (Placeholder - requires Monitoring API client)
@@ -24,7 +24,7 @@ class TraceSelector:
         print("Warning: Trace selection from monitoring alerts is not yet implemented.")
         return []
 
-    def from_statistical_outliers(self, traces: List[Dict]) -> List[str]:
+    def from_statistical_outliers(self, traces: list[dict]) -> list[str]:
         """
         Selects traces that are statistical outliers based on latency.
         An outlier is defined as a trace with a latency greater than 2 standard deviations from the mean.
@@ -44,14 +44,14 @@ class TraceSelector:
         ]
         return outlier_trace_ids
 
-    def from_manual_override(self, trace_ids: List[str]) -> List[str]:
+    def from_manual_override(self, trace_ids: list[str]) -> list[str]:
         """
         Allows manually specifying a list of trace IDs.
         """
         return trace_ids
 
 @adk_tool
-def select_traces_from_error_reports(project_id: str) -> List[str]:
+def select_traces_from_error_reports(project_id: str) -> list[str]:
     """
     Selects traces to analyze based on recent error reports.
 
@@ -65,7 +65,7 @@ def select_traces_from_error_reports(project_id: str) -> List[str]:
     return selector.from_error_reports(project_id)
 
 @adk_tool
-def select_traces_from_monitoring_alerts(project_id: str) -> List[str]:
+def select_traces_from_monitoring_alerts(project_id: str) -> list[str]:
     """
     Selects traces to analyze based on active monitoring alerts.
 
@@ -79,7 +79,7 @@ def select_traces_from_monitoring_alerts(project_id: str) -> List[str]:
     return selector.from_monitoring_alerts(project_id)
 
 @adk_tool
-def select_traces_from_statistical_outliers(traces: List[Dict]) -> List[str]:
+def select_traces_from_statistical_outliers(traces: list[dict]) -> list[str]:
     """
     Selects outlier traces from a given list of traces based on latency.
 
@@ -93,7 +93,7 @@ def select_traces_from_statistical_outliers(traces: List[Dict]) -> List[str]:
     return selector.from_statistical_outliers(traces)
 
 @adk_tool
-def select_traces_manually(trace_ids: List[str]) -> List[str]:
+def select_traces_manually(trace_ids: list[str]) -> list[str]:
     """
     Allows a user to manually provide a list of trace IDs for analysis.
 
@@ -109,12 +109,12 @@ def select_traces_manually(trace_ids: List[str]) -> List[str]:
 class TraceQueryBuilder:
     """
     Builder for Google Cloud Trace filter strings.
-    
+
     See: https://docs.cloud.google.com/trace/docs/trace-filters
     """
-    
+
     def __init__(self):
-        self._terms: List[str] = []
+        self._terms: list[str] = []
 
     def _add_term(self, term: str, root_only: bool = False):
         if root_only:
@@ -125,7 +125,7 @@ class TraceQueryBuilder:
     def span_name(self, name: str, match_exact: bool = False, root_only: bool = False) -> 'TraceQueryBuilder':
         """
         Filter by span name.
-        
+
         Args:
             name: The span name to filter for.
             match_exact: If True, uses `+span:name` (or `+root:name` if root_only).
@@ -134,38 +134,38 @@ class TraceQueryBuilder:
         # "root:[NAME]" is strictly for root span name.
         # "span:[NAME]" is for any span.
         # "^span:[NAME]" is equivalent to "root:[NAME]".
-        
+
         # Let's use the canonical forms if possible.
         prefix = "+" if match_exact else ""
-        
+
         if root_only:
             term = f"root:{name}"
         else:
             term = f"span:{name}"
-            
+
         self._terms.append(f"{prefix}{term}")
         return self
 
-    def latency(self, min_latency_ms: Optional[int] = None, max_latency_ms: Optional[int] = None) -> 'TraceQueryBuilder':
+    def latency(self, min_latency_ms: int | None = None, max_latency_ms: int | None = None) -> 'TraceQueryBuilder':
         """
         Filter by latency.
-        
+
         Args:
             min_latency_ms: Minimum latency in milliseconds (>=).
-            max_latency_ms: Maximum latency in milliseconds (<=). (Not directly supported by standard syntax?)           
+            max_latency_ms: Maximum latency in milliseconds (<=). (Not directly supported by standard syntax?)
         """
         if min_latency_ms is not None:
              self._terms.append(f"latency:{min_latency_ms}ms")
-        
+
         if max_latency_ms is not None:
             pass
-            
+
         return self
 
     def attribute(self, key: str, value: str, match_exact: bool = False, root_only: bool = False) -> 'TraceQueryBuilder':
         """
         Filter by attribute (label) key/value.
-        
+
         Args:
             key: Attribute key (e.g. '/http/status_code').
             value: Attribute value.
@@ -175,9 +175,9 @@ class TraceQueryBuilder:
         # syntax: key:value
         # exact: +key:value
         # root: ^key:value
-        
+
         term = f"{key}:{value}"
-        
+
         prefix = ""
         if match_exact:
             prefix += "+"
@@ -187,7 +187,7 @@ class TraceQueryBuilder:
             # Docs: "^label:[LABEL_KEY]"
             # Docs: "+^url:[VALUE]"
             prefix += "^"
-            
+
         self._terms.append(f"{prefix}{term}")
         return self
 
@@ -205,7 +205,7 @@ class TraceQueryBuilder:
         """Filter by HTTP status code."""
         # /http/status_code
         return self.attribute("/http/status_code", str(code), root_only=root_only)
-    
+
     def method(self, method: str, root_only: bool = False) -> 'TraceQueryBuilder':
          """Filter by HTTP method."""
          # /http/method
@@ -235,13 +235,13 @@ class TraceQueryBuilder:
 
 
 def build_trace_filter(
-    min_latency_ms: Optional[int] = None,
-    max_latency_ms: Optional[int] = None,
+    min_latency_ms: int | None = None,
+    max_latency_ms: int | None = None,
     error_only: bool = False,
-    service_name: Optional[str] = None,
-    http_status: Optional[int] = None,
-    attributes: Optional[Dict[str, str]] = None,
-    custom_filter: Optional[str] = None
+    service_name: str | None = None,
+    http_status: int | None = None,
+    attributes: dict[str, str] | None = None,
+    custom_filter: str | None = None
 ) -> str:
     """
     Build Cloud Trace filter string using TraceQueryBuilder.

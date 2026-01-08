@@ -1,5 +1,7 @@
 import json
+
 import pytest
+
 from trace_analyzer.tools.trace_analysis import (
     build_call_graph,
     calculate_span_durations,
@@ -7,6 +9,7 @@ from trace_analyzer.tools.trace_analysis import (
     extract_errors,
     validate_trace_quality,
 )
+
 
 # Sample trace data
 @pytest.fixture
@@ -72,7 +75,7 @@ def test_calculate_span_durations(sample_trace_str):
     assert len(timings) == 2
     root = next(s for s in timings if s["span_id"] == "root")
     child = next(s for s in timings if s["span_id"] == "child1")
-    
+
     assert root["duration_ms"] == 1000.0
     assert child["duration_ms"] == 100.0
 
@@ -127,7 +130,7 @@ def test_validate_trace_quality_detects_orphans():
         ]
     }
     result = validate_trace_quality(json.dumps(trace))
-    assert result["valid"] == False
+    assert not result["valid"]
     assert result["issue_count"] == 1
     assert result["issues"][0]["type"] == "orphaned_span"
 
@@ -146,9 +149,9 @@ def test_compare_span_timings(sample_trace_dict):
             }
         ]
     }
-    
+
     result = compare_span_timings(json.dumps(baseline), json.dumps(target))
-    
+
     assert len(result["slower_spans"]) == 1
     slower = result["slower_spans"][0]
     assert slower["span_name"] == "root_span"

@@ -1,25 +1,23 @@
 """Statistical analysis and anomaly detection for trace data."""
 
-import math
-from typing import Any, Dict, List, Optional, Tuple, Union
-import statistics
-import time
 import json
+import statistics
 from collections import defaultdict
 from datetime import datetime
+from typing import Any
 
-from ..telemetry import get_tracer, get_meter
 from ..decorators import adk_tool
+from ..telemetry import get_meter, get_tracer
 
 # Telemetry setup
 tracer = get_tracer(__name__)
 meter = get_meter(__name__)
 
 
-def compute_latency_statistics(traces: List[str]) -> Dict[str, Any]:
+def compute_latency_statistics(traces: list[str]) -> dict[str, Any]:
     """
     Computes aggregate latency statistics for a list of traces.
-    
+
     Args:
         traces: List of trace JSON strings.
 
@@ -29,7 +27,7 @@ def compute_latency_statistics(traces: List[str]) -> Dict[str, Any]:
     with tracer.start_as_current_span("compute_latency_statistics"):
         latencies = []
         valid_traces = []
-        
+
         # Track stats per span name
         span_durations = defaultdict(list)
 
@@ -40,11 +38,11 @@ def compute_latency_statistics(traces: List[str]) -> Dict[str, Any]:
                     trace_data = json.loads(t)
                 except json.JSONDecodeError:
                     continue
-            
+
             if isinstance(trace_data, dict):
                 # Calculate total duration if not present
                 duration = trace_data.get("duration_ms")
-                
+
                 # If we have spans, we can also aggregate span-level stats
                 if "spans" in trace_data:
                     for s in trace_data["spans"]:
@@ -55,7 +53,8 @@ def compute_latency_statistics(traces: List[str]) -> Dict[str, Any]:
                                 start = datetime.fromisoformat(s["start_time"].replace('Z', '+00:00'))
                                 end = datetime.fromisoformat(s["end_time"].replace('Z', '+00:00'))
                                 d = (end - start).total_seconds() * 1000
-                            except: pass
+                            except Exception:
+                                pass
 
                         if d is not None:
                             span_durations[s.get("name", "unknown")].append(d)
@@ -87,11 +86,12 @@ def compute_latency_statistics(traces: List[str]) -> Dict[str, Any]:
         else:
             stats["stdev"] = 0
             stats["variance"] = 0
-            
+
         # Calculate per-span stats with Z-score support
         per_span_stats = {}
         for name, durs in span_durations.items():
-            if not durs: continue
+            if not durs:
+                continue
             durs.sort()
             c = len(durs)
             span_mean = statistics.mean(durs)
@@ -111,19 +111,19 @@ def compute_latency_statistics(traces: List[str]) -> Dict[str, Any]:
                 per_span_stats[name]["variance"] = 0
 
         stats["per_span_stats"] = per_span_stats
-            
+
         return stats
 
 
 def detect_latency_anomalies(
-    baseline_traces: List[str],
+    baseline_traces: list[str],
     target_trace: str,
     threshold_sigma: float = 2.0
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Detects if the target trace is anomalous compared to baseline distribution using Z-score.
     Also checks individual spans for anomalies if baseline data allows.
-    
+
     Args:
         baseline_traces: List of normal traces as JSON strings.
         target_trace: The trace to check as a JSON string.
@@ -137,7 +137,7 @@ def detect_latency_anomalies(
         baseline_stats = compute_latency_statistics(baseline_traces)
         if "error" in baseline_stats:
             return baseline_stats
-            
+
         mean = baseline_stats["mean"]
         stdev = baseline_stats["stdev"]
 
@@ -165,7 +165,7 @@ def detect_latency_anomalies(
                 # Fallback: if stdev is 0 (all baselines identical), use mean as scale?
                 # Or just mark high.
                 z_score = 100.0 if target_duration > mean else -100.0
-            
+
         is_anomaly = abs(z_score) > threshold_sigma
 
         anomalous_spans = []
@@ -182,7 +182,8 @@ def detect_latency_anomalies(
                         start = datetime.fromisoformat(s["start_time"].replace('Z', '+00:00'))
                         end = datetime.fromisoformat(s["end_time"].replace('Z', '+00:00'))
                         dur = (end - start).total_seconds() * 1000
-                     except: pass
+                     except Exception:
+                        pass
 
                 if name in span_stats and dur is not None:
                     b_span = span_stats[name]
@@ -223,12 +224,12 @@ def detect_latency_anomalies(
         }
 
 
-def analyze_critical_path(trace: str) -> Dict[str, Any]:
+def analyze_critical_path(trace: str) -> dict[str, Any]:
     """
     Identifies the critical path of spans in a trace.
-    
+
     The critical path is calculated by finding the longest path through the span dependency graph.
-    
+
     Args:
         trace: The trace data to analyze as a JSON string.
     """
@@ -243,7 +244,7 @@ def analyze_critical_path(trace: str) -> Dict[str, Any]:
         spans = trace_data.get("spans", [])
         if not spans:
             return {"critical_path": []}
-            
+
         # Parse all spans into a structured format
         parsed_spans = {}
         for s in spans:
@@ -284,7 +285,7 @@ def analyze_critical_path(trace: str) -> Dict[str, Any]:
         # 2. Use dynamic programming to find the path with maximum blocking time
         # 3. Account for concurrent children by considering overlap
 
-        def calculate_critical_path_recursive(span_id: str) -> Tuple[List[Dict], float]:
+        def calculate_critical_path_recursive(span_id: str) -> tuple[list[dict], float]:
             """
             Returns (path, blocking_time) where:
             - path: list of span info dicts forming the critical path from this node
@@ -364,7 +365,7 @@ def analyze_critical_path(trace: str) -> Dict[str, Any]:
             total_blocking = self_time + max_child_blocking
 
             if max_child_path:
-                full_path = [current_span_info] + max_child_path
+                full_path = [current_span_info, *max_child_path]
             else:
                 full_path = [current_span_info]
 
@@ -393,7 +394,7 @@ def analyze_critical_path(trace: str) -> Dict[str, Any]:
 def perform_causal_analysis(
     baseline_trace: Any,
     target_trace: Any
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Enhanced root cause analysis using span-ID-level precision.
 
@@ -407,8 +408,15 @@ def perform_causal_analysis(
         baseline_trace: The reference trace data.
         target_trace: The abnormal trace data to analyze.
     """
-    baseline_data = baseline_trace if isinstance(baseline_trace, dict) else json.loads(baseline_trace)
-    target_data = target_trace if isinstance(target_trace, dict) else json.loads(target_trace)
+    try:
+        baseline_data = baseline_trace if isinstance(baseline_trace, dict) else json.loads(baseline_trace)
+    except json.JSONDecodeError:
+        return json.dumps({"error": "Invalid baseline_trace JSON provided."})
+
+    try:
+        target_data = target_trace if isinstance(target_trace, dict) else json.loads(target_trace)
+    except json.JSONDecodeError:
+        return json.dumps({"error": "Invalid target_trace JSON provided."})
 
     # 1. Build span name mappings for both traces
     baseline_spans_by_name = defaultdict(list)
@@ -460,7 +468,7 @@ def perform_causal_analysis(
                 start = datetime.fromisoformat(target_span["start_time"].replace('Z', '+00:00'))
                 end = datetime.fromisoformat(target_span["end_time"].replace('Z', '+00:00'))
                 target_duration = (end - start).total_seconds() * 1000
-            except:
+            except Exception:
                 continue
 
         # Get average baseline duration for this span name
@@ -472,7 +480,7 @@ def perform_causal_analysis(
                     start = datetime.fromisoformat(b_span["start_time"].replace('Z', '+00:00'))
                     end = datetime.fromisoformat(b_span["end_time"].replace('Z', '+00:00'))
                     b_dur = (end - start).total_seconds() * 1000
-                except:
+                except Exception:
                     continue
             baseline_durations.append(b_dur)
 
@@ -541,7 +549,7 @@ def perform_causal_analysis(
     }
 
 @adk_tool
-def analyze_trace_patterns(traces: List[str], lookback_window_minutes: int = 60) -> Dict[str, Any]:
+def analyze_trace_patterns(traces: list[str], lookback_window_minutes: int = 60) -> dict[str, Any]:
     """
     Analyzes patterns across multiple traces to detect trends and recurring issues.
 
@@ -600,7 +608,7 @@ def analyze_trace_patterns(traces: List[str], lookback_window_minutes: int = 60)
                         start = datetime.fromisoformat(span["start_time"].replace('Z', '+00:00'))
                         end = datetime.fromisoformat(span["end_time"].replace('Z', '+00:00'))
                         duration = (end - start).total_seconds() * 1000
-                    except:
+                    except Exception:
                         continue
 
                 if duration is not None:
@@ -703,10 +711,10 @@ def analyze_trace_patterns(traces: List[str], lookback_window_minutes: int = 60)
         }
 
 
-def compute_service_level_stats(traces: List[str]) -> Dict[str, Any]:
+def compute_service_level_stats(traces: list[str]) -> dict[str, Any]:
     """
     Computes stats aggregated by service name (if available in labels).
-    
+
     Args:
         traces: List of trace JSON strings.
     """
@@ -715,25 +723,28 @@ def compute_service_level_stats(traces: List[str]) -> Dict[str, Any]:
     for t in traces:
         t_data = t
         if isinstance(t, str):
-            try: t_data = json.loads(t)
-            except: continue
-            
+            try:
+                t_data = json.loads(t)
+            except Exception:
+                continue
+
         for s in t_data.get("spans", []):
             # Try to find service name in labels, or default to "unknown"
             # Common conventions: service.name, app, component
             labels = s.get("labels", {})
             svc = labels.get("service.name") or labels.get("service") or labels.get("app") or "unknown"
-            
+
             dur = 0
             if s.get("start_time") and s.get("end_time"):
                  try:
                     start = datetime.fromisoformat(s["start_time"].replace('Z', '+00:00'))
                     end = datetime.fromisoformat(s["end_time"].replace('Z', '+00:00'))
                     dur = (end - start).total_seconds() * 1000
-                 except: pass
-            
+                 except Exception:
+                    pass
+
             is_error = "error" in str(labels).lower()
-            
+
             stats = service_stats[svc]
             stats["count"] += 1
             stats["total_duration"] += dur

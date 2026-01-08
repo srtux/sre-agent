@@ -58,7 +58,7 @@ def main(argv: list[str]) -> None:  # pylint: disable=unused-argument
             user_input = input("Input: ")
         except EOFError:
             break
-            
+
         if user_input == "quit":
             break
 

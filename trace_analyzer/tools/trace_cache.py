@@ -1,9 +1,9 @@
 """Thread-safe cache to prevent duplicate Cloud Trace API calls."""
 
+import logging
 import threading
 from datetime import datetime, timedelta, timezone
-from typing import Dict, Optional, Any
-import logging
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -41,12 +41,12 @@ class TraceCache:
             ttl_seconds: Time-to-live for cached entries in seconds.
                         Default is 300 seconds (5 minutes).
         """
-        self._cache: Dict[str, Dict[str, Any]] = {}
+        self._cache: dict[str, dict[str, Any]] = {}
         self._lock = threading.Lock()
         self.ttl_seconds = ttl_seconds
         logger.info(f"TraceCache initialized with TTL={ttl_seconds}s")
 
-    def get(self, trace_id: str) -> Optional[str]:
+    def get(self, trace_id: str) -> str | None:
         """
         Get cached trace data if available and not expired.
 
@@ -109,7 +109,7 @@ class TraceCache:
         with self._lock:
             return len(self._cache)
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         """
         Get cache statistics.
 

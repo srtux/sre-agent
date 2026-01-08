@@ -1,9 +1,7 @@
 """Telemetry setup for Trace Analyzer leveraging ADK-provided OpenTelemetry."""
 
+from opentelemetry import metrics, trace
 import logging
-from opentelemetry import trace, metrics
-
-logger = logging.getLogger(__name__)
 
 # Filter out the specific warning from google-generativeai types regarding function calls
 class _FunctionCallWarningFilter(logging.Filter):
@@ -33,6 +31,8 @@ def log_tool_call(logger: logging.Logger, func_name: str, **kwargs):
             safe_args[k] = val_str[:200] + "... (truncated)"
         else:
             safe_args[k] = val_str
-            
+
     logger.debug(f"🔧 Tool Call: {func_name} | Args: {safe_args}")
+
+
 

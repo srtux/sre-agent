@@ -1,4 +1,0 @@
-sources:
-  bigquery:
-    kind: bigquery
-    project: ${GOOGLE_CLOUD_PROJECT}

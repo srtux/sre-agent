@@ -1,42 +1,42 @@
 """Tools for the Cloud Trace Analyzer agent."""
 
-from .trace_client import (
-    fetch_trace,
-    list_traces,
-    find_example_traces,
-    get_trace_by_url,
+from .statistical_analysis import (
+    analyze_critical_path,
+    compute_latency_statistics,
+    compute_service_level_stats,
+    detect_latency_anomalies,
+    perform_causal_analysis,
 )
 from .trace_analysis import (
-    calculate_span_durations,
-    extract_errors,
     build_call_graph,
+    calculate_span_durations,
     compare_span_timings,
+    extract_errors,
     find_structural_differences,
 )
-from .statistical_analysis import (
-    compute_latency_statistics,
-    detect_latency_anomalies,
-    analyze_critical_path,
-    perform_causal_analysis,
-    compute_service_level_stats,
+from .trace_client import (
+    fetch_trace,
+    find_example_traces,
+    get_trace_by_url,
+    list_traces,
 )
 
 __all__ = [
-    # Trace client tools
-    "fetch_trace",
-    "list_traces",
-    "find_example_traces",
-    "get_trace_by_url",
+    "analyze_critical_path",
+    "build_call_graph",
     # Basic analysis tools
     "calculate_span_durations",
-    "extract_errors",
-    "build_call_graph",
     "compare_span_timings",
-    "find_structural_differences",
     # Statistical analysis tools
     "compute_latency_statistics",
-    "detect_latency_anomalies",
-    "analyze_critical_path",
-    "perform_causal_analysis",
     "compute_service_level_stats",
+    "detect_latency_anomalies",
+    "extract_errors",
+    # Trace client tools
+    "fetch_trace",
+    "find_example_traces",
+    "find_structural_differences",
+    "get_trace_by_url",
+    "list_traces",
+    "perform_causal_analysis",
 ]

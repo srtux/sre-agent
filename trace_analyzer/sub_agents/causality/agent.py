@@ -2,9 +2,9 @@
 
 from google.adk.agents import Agent
 
-from ...tools.trace_client import fetch_trace
+from ...tools.statistical_analysis import analyze_critical_path, perform_causal_analysis
 from ...tools.trace_analysis import find_structural_differences
-from ...tools.statistical_analysis import perform_causal_analysis, analyze_critical_path
+from ...tools.trace_client import fetch_trace
 from . import prompt
 
 causality_analyzer = Agent(

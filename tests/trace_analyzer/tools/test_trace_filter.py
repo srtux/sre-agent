@@ -1,6 +1,6 @@
 
-import pytest
 from trace_analyzer.tools.trace_filter import TraceQueryBuilder
+
 
 def test_builder_init():
     builder = TraceQueryBuilder()
@@ -10,11 +10,11 @@ def test_span_name():
     builder = TraceQueryBuilder()
     builder.span_name("my-span")
     assert builder.build() == "span:my-span"
-    
+
     builder.clear()
     builder.span_name("my-span", match_exact=True)
     assert builder.build() == "+span:my-span"
-    
+
     builder.clear()
     builder.span_name("my-span", root_only=True)
     assert builder.build() == "root:my-span"
@@ -28,15 +28,15 @@ def test_attribute():
     builder = TraceQueryBuilder()
     builder.attribute("key", "value")
     assert builder.build() == "key:value"
-    
+
     builder.clear()
     builder.attribute("key", "value", match_exact=True)
     assert builder.build() == "+key:value"
-    
+
     builder.clear()
     builder.attribute("key", "value", root_only=True)
     assert builder.build() == "^key:value"
-    
+
     builder.clear()
     builder.attribute("key", "value", match_exact=True, root_only=True)
     # The implementation produces "+^key:value" because match_exact adds "+" and root_only adds "^".
@@ -50,7 +50,7 @@ def test_complex_query():
         .latency(min_latency_ms=100)
         .status(500)
         .method("GET"))
-    
+
     assert builder.build() == "root:root_op latency:100ms /http/status_code:500 method:GET"
 
 def test_mix_root_and_normal():

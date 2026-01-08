@@ -1,9 +1,15 @@
 
-import pytest
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
+
+import pytest
+
 from trace_analyzer.tools.trace_client import find_example_traces
-from trace_analyzer.tools.trace_filter import select_traces_from_statistical_outliers, select_traces_manually
+from trace_analyzer.tools.trace_filter import (
+    select_traces_from_statistical_outliers,
+    select_traces_manually,
+)
+
 
 @pytest.mark.asyncio
 async def test_manual_selection_tool():
@@ -20,15 +26,15 @@ def test_statistical_outlier_tool():
         {"traceId": "t3", "latency": 102},
         {"traceId": "t4", "latency": 500}, # Outlier
     ]
-    # Mean ~201, StdDev ~172. Threshold ~ 201 + 2*172 = 545? 
+    # Mean ~201, StdDev ~172. Threshold ~ 201 + 2*172 = 545?
     # Wait, numpy std is population std by default?
-    # Mean = 201.75. 
-    # Vars: (100-201.75)^2 + ... 
+    # Mean = 201.75.
+    # Vars: (100-201.75)^2 + ...
     # Let's verify manual calculation or just check if t4 is picked if logic is correct.
     # With 3 low and 1 high, t4 should be > 2 std devs?
-    # mean=201.75. std ~172. 2*std = 344. Threshold = 545. 
+    # mean=201.75. std ~172. 2*std = 344. Threshold = 545.
     # 500 < 545. So it might NOT be an outlier with N=4.
-    
+
     # Let's make it more obvious.
     traces = [
         {"traceId": "t1", "latency": 100},
@@ -36,17 +42,17 @@ def test_statistical_outlier_tool():
         {"traceId": "t3", "latency": 100},
         {"traceId": "t4", "latency": 1000}, # Huge outlier
     ]
-    # Mean = 325. Std ~389. Threshold ~ 325 + 778 = 1103. 
+    # Mean = 325. Std ~389. Threshold ~ 325 + 778 = 1103.
     # Still not working with small N and std dev logic?
     # 2 std dev is for normal distribution.
-    
+
     # Let's mock numpy to ensure test stability or use a massive outlier.
     # Or just test the function mechanics.
-    
-    outliers = select_traces_from_statistical_outliers(traces)
+
+    select_traces_from_statistical_outliers(traces)
     # Depending on exact std dev calculation (sample vs population), this might flake.
     # Let's verify usage of numpy in implementation.
-    pass 
+    pass
 
 @patch('trace_analyzer.tools.trace_client.list_traces')
 def test_hybrid_selection_includes_stats(mock_list_traces):
@@ -57,7 +63,7 @@ def test_hybrid_selection_includes_stats(mock_list_traces):
         {"trace_id": "t2", "duration_ms": 110, "project_id": "p1"},
         {"trace_id": "t3", "duration_ms": 105, "project_id": "p1"}
     ])
-    
+
     # Call function
     # Note: We need to mock _get_project_id or set env var
     with patch('trace_analyzer.tools.trace_client._get_project_id', return_value='test-project'):

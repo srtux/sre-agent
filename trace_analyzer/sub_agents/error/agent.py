@@ -2,8 +2,8 @@
 
 from google.adk.agents import Agent
 
-from ...tools.trace_client import fetch_trace
 from ...tools.trace_analysis import extract_errors
+from ...tools.trace_client import fetch_trace
 from . import prompt
 
 error_analyzer = Agent(

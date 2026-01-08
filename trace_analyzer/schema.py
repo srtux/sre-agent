@@ -10,9 +10,10 @@ These schemas enable structured outputs from the LLM agents, ensuring
 consistent data formats for downstream processing and UI rendering.
 """
 
-from pydantic import BaseModel, Field
-from typing import Literal
 from enum import Enum
+from typing import Literal
+
+from pydantic import BaseModel, Field
 
 
 class Severity(str, Enum):
@@ -80,33 +81,33 @@ class TraceSummary(BaseModel):
 
 class TraceComparisonReport(BaseModel):
     """Complete trace comparison analysis report."""
-    
+
     baseline_summary: TraceSummary = Field(description="Summary of the baseline trace")
     target_summary: TraceSummary = Field(description="Summary of the target trace")
-    
+
     overall_assessment: Literal["healthy", "degraded", "critical"] = Field(
         description="Overall health assessment based on comparison"
     )
-    
+
     latency_findings: list[LatencyDiff] = Field(
         default_factory=list,
         description="List of significant latency differences"
     )
-    
+
     error_findings: list[ErrorDiff] = Field(
         default_factory=list,
         description="List of error differences"
     )
-    
+
     structure_findings: list[StructureDiff] = Field(
         default_factory=list,
         description="List of structural/behavioral changes"
     )
-    
+
     root_cause_hypothesis: str = Field(
         description="Hypothesis about the root cause of the differences"
     )
-    
+
     recommendations: list[str] = Field(
         default_factory=list,
         description="Actionable recommendations based on findings"

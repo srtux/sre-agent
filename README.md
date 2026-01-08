@@ -24,7 +24,7 @@ graph TD
     Squad --> ST[Statistics Analyzer]
     Squad --> C[Causality Analyzer]
     
-    Root --> Tools[Toolbox]
+    Root --> Tools[Tool Suite]
     Tools --> TraceAPI[Cloud Trace API]
     Tools --> BQ[BigQuery MCP Tools]
     Tools --> Filter[Trace Query Builder]
@@ -78,7 +78,7 @@ The authenticated user or service account requires:
  If you prefer using the standard `adk` CLI, you can pass environment variables via an env file:
  
  ```bash
- # 1. Ensure TOOLBOX_MCP_URL is in trace_analyzer/telemetry.env
+ # 1. Ensure env vars are in trace_analyzer/telemetry.env
  # 2. Deploy using the --env_file flag
  uv run adk deploy agent_engine \
    --project=your-project \
@@ -94,11 +94,8 @@ The authenticated user or service account requires:
  We also provide a custom deployment script that supports direct flags:
  
  ```bash
- # Basic deployment (loads TOOLBOX_MCP_URL from .env)
+ # Basic deployment
  uv run python deploy/deploy.py --create
- 
- # Explicitly specify the Toolbox MCP URL
- uv run python deploy/deploy.py --create --toolbox_mcp_url=https://your-toolbox-url
  ```
 
 The script will create a Reasoning Engine (Agent Engine) resource and output its resource name.

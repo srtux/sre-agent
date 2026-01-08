@@ -1,98 +1,130 @@
 
 import functools
+import inspect
 import logging
 import time
-import inspect
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
+
+from opentelemetry import trace, metrics
+from opentelemetry.trace import Status, StatusCode
 
 logger = logging.getLogger(__name__)
 
+# Initialize OTel instruments
+tracer = trace.get_tracer("trace_analyzer.tools")
+meter = metrics.get_meter("trace_analyzer.tools")
+
+tool_execution_duration = meter.create_histogram(
+    name="trace_analyzer.tool.execution_duration",
+    description="Duration of tool executions",
+    unit="ms",
+)
+tool_execution_count = meter.create_counter(
+    name="trace_analyzer.tool.execution_count",
+    description="Total number of tool calls",
+    unit="1",
+)
+
 def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
     """
-    Decorator to mark a function as an ADK tool and provide automatic logging.
-    
-    This decorator logs:
-    - Tool execution start with arguments
-    - Tool execution success/failure with duration
-    - Exceptions raised by the tool
-    
-    It preserves the original function signature and docstring.
-    """
-    @functools.wraps(func)
-    async def wrapper(*args, **kwargs):
-        tool_name = func.__name__
-        
-        # Format arguments for logging (truncate long values if needed)
-        # We bind arguments to valid signature to get parameter names if possible
-        try:
-            sig = inspect.signature(func)
-            bound = sig.bind(*args, **kwargs)
-            bound.apply_defaults()
-            arg_str = ", ".join(f"{k}={repr(v)[:200]}" for k, v in bound.arguments.items())
-        except Exception:
-            # Fallback if signature binding fails or for some reason
-            arg_str = f"args={args}, kwargs={kwargs}"
-            
-        logger.info(f"Tool '{tool_name}' called with: {arg_str}")
-        
-        start_time = time.time()
-        try:
-            # Check if the function is a coroutine
-            if inspect.iscoroutinefunction(func):
-                result = await func(*args, **kwargs)
-            else:
-                result = func(*args, **kwargs)
-                
-            duration_ms = (time.time() - start_time) * 1000
-            logger.info(f"Tool '{tool_name}' completed in {duration_ms:.2f}ms")
-            return result
-            
-        except Exception as e:
-            duration_ms = (time.time() - start_time) * 1000
-            logger.error(f"Tool '{tool_name}' failed after {duration_ms:.2f}ms: {e}", exc_info=True)
-            raise e
+    Decorator to mark a function as an ADK tool and provide automatic logging and instrumentation.
 
-    # If the function is NOT async, we should probably return a sync wrapper 
-    # BUT LlmAgent might expect async? 
-    # Actually, LlmAgent handles sync functions by wrapping them in runs_in_executor usually,
-    # OR if we provide an async wrapper to a sync function, it works fine as long as the agent awaits it.
-    # However, for 'adk_tool' which might be used in other contexts, strictly speaking we should 
-    # match the sync/async nature or force async.
-    # Given the previous context where we just returned 'func' (pass-through), 
-    # the agent likely inspects the underlying function.
-    # If we wrap it, we hide the original sync function behind an async wrapper if we are not careful.
+    This decorator provides:
+    - OTel Spans for every execution
+    - OTel Metrics (count and duration)
+    - Standardized Logging of args and results/errors
+    - Error handling (ensures errors are logged before raising/returning)
+    """
     
-    # ADK's FunctionTool.from_func inspects the function.
-    # If using LlmAgent(tools=[func]), it inspects func.
-    # If we wrap it, it inspects the wrapper.
-    # If we make the wrapper async, LlmAgent sees an async tool.
-    
-    if inspect.iscoroutinefunction(func):
-        return wrapper
-    else:
-        # Sync version for sync functions
-        @functools.wraps(func)
-        def sync_wrapper(*args, **kwargs):
-            tool_name = func.__name__
+    def _record_attributes(span, bound_args):
+        for k, v in bound_args.arguments.items():
+            # Truncate long strings to avoid span attribute limits
+            val_str = str(v)
+            if len(val_str) > 1000:
+                 val_str = val_str[:1000] + "...(truncated)"
+            span.set_attribute(f"arg.{k}", val_str)
+
+    @functools.wraps(func)
+    async def async_wrapper(*args, **kwargs):
+        tool_name = func.__name__
+        start_time = time.time()
+        success = True
+        
+        with tracer.start_as_current_span(tool_name) as span:
+            span.set_attribute("tool.name", tool_name)
+            span.set_attribute("code.function", tool_name)
+            
+            # Log calling
             try:
                 sig = inspect.signature(func)
                 bound = sig.bind(*args, **kwargs)
                 bound.apply_defaults()
                 arg_str = ", ".join(f"{k}={repr(v)[:200]}" for k, v in bound.arguments.items())
+                _record_attributes(span, bound)
             except Exception:
                 arg_str = f"args={args}, kwargs={kwargs}"
             
             logger.info(f"Tool '{tool_name}' called with: {arg_str}")
             
-            start_time = time.time()
+            try:
+                result = await func(*args, **kwargs)
+                duration_ms = (time.time() - start_time) * 1000
+                logger.info(f"Tool '{tool_name}' completed in {duration_ms:.2f}ms")
+                return result
+            except Exception as e:
+                success = False
+                duration_ms = (time.time() - start_time) * 1000
+                logger.error(f"Tool '{tool_name}' failed after {duration_ms:.2f}ms: {e}", exc_info=True)
+                span.record_exception(e)
+                span.set_status(Status(StatusCode.ERROR, str(e)))
+                raise e
+            finally:
+                duration_ms = (time.time() - start_time) * 1000
+                tool_execution_duration.record(duration_ms, {"tool.name": tool_name, "success": str(success)})
+                tool_execution_count.add(1, {"tool.name": tool_name, "success": str(success)})
+
+    @functools.wraps(func)
+    def sync_wrapper(*args, **kwargs):
+        tool_name = func.__name__
+        start_time = time.time()
+        success = True
+        
+        with tracer.start_as_current_span(tool_name) as span:
+            span.set_attribute("tool.name", tool_name)
+            span.set_attribute("code.function", tool_name)
+            
+            # Log calling
+            try:
+                sig = inspect.signature(func)
+                bound = sig.bind(*args, **kwargs)
+                bound.apply_defaults()
+                arg_str = ", ".join(f"{k}={repr(v)[:200]}" for k, v in bound.arguments.items())
+                _record_attributes(span, bound)
+            except Exception:
+                arg_str = f"args={args}, kwargs={kwargs}"
+            
+            logger.info(f"Tool '{tool_name}' called with: {arg_str}")
+            
             try:
                 result = func(*args, **kwargs)
                 duration_ms = (time.time() - start_time) * 1000
                 logger.info(f"Tool '{tool_name}' completed in {duration_ms:.2f}ms")
                 return result
             except Exception as e:
+                success = False
                 duration_ms = (time.time() - start_time) * 1000
                 logger.error(f"Tool '{tool_name}' failed after {duration_ms:.2f}ms: {e}", exc_info=True)
+                span.record_exception(e)
+                span.set_status(Status(StatusCode.ERROR, str(e)))
                 raise e
+            finally:
+                duration_ms = (time.time() - start_time) * 1000
+                tool_execution_duration.record(duration_ms, {"tool.name": tool_name, "success": str(success)})
+                tool_execution_count.add(1, {"tool.name": tool_name, "success": str(success)})
+
+    if inspect.iscoroutinefunction(func):
+        return async_wrapper
+    else:
         return sync_wrapper
 

@@ -2,8 +2,8 @@
 
 from google.adk.agents import Agent
 
-from ...tools.trace_client import fetch_trace
 from ...tools.trace_analysis import calculate_span_durations, compare_span_timings
+from ...tools.trace_client import fetch_trace
 from . import prompt
 
 latency_analyzer = Agent(
