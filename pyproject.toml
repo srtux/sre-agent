@@ -40,6 +40,7 @@ dev = [
     "flake8>=7.1.1",
     "pytest-cov>=5.0.0",
     "absl-py>=2.1.0",
+    "poethepoet>=0.25.0",
 ]
 
 [project.optional-dependencies]
@@ -82,3 +83,15 @@ example_question = "Analyze traces and logs in project my-gcp-project to find pe
 
 [tool.agent-starter-pack.settings]
 agent_directory = "sre_agent"
+
+[tool.poe.tasks]
+sync = { help = "Sync dependencies with uv", cmd = "uv sync" }
+run = { help = "Run agent in terminal", cmd = "adk run sre_agent", envfile = ".env" }
+web = { help = "Run agent web UI", cmd = "adk web sre_agent", envfile = ".env" }
+list = { help = "List deployed agents", cmd = "python deploy/deploy.py --list", envfile = ".env" }
+test = { help = "Run tests", cmd = "pytest tests", envfile = ".env" }
+
+deploy = { help = "Deploy agent to Agent Engine", sequence = ["sync", "_deploy_only"] }
+_deploy_only = { cmd = "python deploy/deploy.py --create", envfile = ".env" }
+
+delete = { help = "Delete agent (usage: uv run poe delete --resource_id ID)", cmd = "python deploy/deploy.py --delete", envfile = ".env" }

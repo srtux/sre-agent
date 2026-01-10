@@ -22,6 +22,8 @@ flags.DEFINE_string("project_id", None, "GCP project ID.")
 flags.DEFINE_string("location", None, "GCP location.")
 flags.DEFINE_string("bucket", None, "GCP bucket.")
 flags.DEFINE_string("resource_id", None, "ReasoningEngine resource ID.")
+flags.DEFINE_string("display_name", None, "Display name for the agent.")
+flags.DEFINE_string("description", None, "Description for the agent.")
 
 
 flags.DEFINE_bool("list", False, "List all agents.")
@@ -56,7 +58,7 @@ def get_requirements() -> list[str]:
     def add_req(req_str: str):
         # Extract package name for comparison (e.g., 'google-adk>=1.0' -> 'google-adk')
         import re
-        name = re.split("[>=<~!\[]", req_str)[0].lower().strip()
+        name = re.split(r"[>=<~!\[]", req_str)[0].lower().strip()
         req_map[name] = req_str
 
     # Process existing dependencies first
@@ -65,7 +67,7 @@ def get_requirements() -> list[str]:
     
     # Merge required deployment packages if not already present
     for r in required_for_deploy:
-        name = re.split("[>=<~!\[]", r)[0].lower().strip()
+        name = re.split(r"[>=<~!\[]", r)[0].lower().strip()
         if name not in req_map:
             req_map[name] = r
 
@@ -99,7 +101,8 @@ def create(env_vars: dict[str, str] | None = None) -> None:
 
     remote_agent = agent_engines.create(
         adk_app,
-        display_name=root_agent.name,
+        display_name=FLAGS.display_name if FLAGS.display_name else root_agent.name,
+        description=FLAGS.description if FLAGS.description else root_agent.description,
         requirements=requirements,
         extra_packages=["./sre_agent"],
         env_vars={
@@ -169,9 +172,6 @@ def main(argv: list[str]) -> None:
         list_agents()
     elif FLAGS.create:
         env_vars = {}
-
-        if project_id:
-            env_vars["GOOGLE_CLOUD_PROJECT"] = project_id
 
         if FLAGS.verify:
             if not verify_local_import():

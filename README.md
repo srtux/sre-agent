@@ -254,11 +254,25 @@ GOOGLE_CLOUD_LOCATION=us-central1
 
 ```bash
 # Interactive terminal
-uv run adk run sre_agent
+uv run poe run
 
 # Web interface
-uv run adk web sre_agent
+uv run poe web
 ```
+
+### Modern Task Management (Recommended)
+
+This project uses **Poe the Poet** for unified task management. All project scripts, deployment tasks, and tests are defined in `pyproject.toml`.
+
+| Task | Command | Description |
+|------|---------|-------------|
+| **Sync** | `uv run poe sync` | Synchronize all dependencies with `uv` |
+| **Deploy** | `uv run poe deploy` | **Safe Deploy**: Syncs docs, verifies imports, and deploys to Agent Engine |
+| **List** | `uv run poe list` | List all deployed agents in Agent Engine |
+| **Test** | `uv run poe test` | Run the full test suite |
+| **Delete** | `uv run poe delete --resource_id ID` | Delete a specific Agent Engine instance |
+
+Before deploying, ensure your `.env` file is configured with `GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_STORAGE_BUCKET`.
 
 ## Usage Examples
 
@@ -399,8 +413,7 @@ An Agentic AI system for analyzing Google Cloud Observability data (Traces, Logs
 ### Running Tests
 
 ```bash
-uv run pytest
-uv run pytest -v
+uv run poe test
 ```
 
 ### Code Quality
