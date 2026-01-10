@@ -22,7 +22,6 @@ dependencies = [
     "google-cloud-logging>=3.10.0",
     "google-cloud-monitoring>=2.21.0",
     "google-cloud-error-reporting>=1.14.0",
-    "numpy>=1.26.0",
     "requests>=2.31.0",
 
     # Log pattern analysis
@@ -40,6 +39,7 @@ dev = [
     "pytest-xdist>=3.8.0",
     "flake8>=7.1.1",
     "pytest-cov>=5.0.0",
+    "absl-py>=2.1.0",
 ]
 
 [project.optional-dependencies]

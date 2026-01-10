@@ -1,6 +1,7 @@
 """Deployment script for SRE Agent"""
 
 import os
+import re
 import sys
 
 if sys.version_info >= (3, 11):
@@ -26,11 +27,12 @@ flags.DEFINE_string("resource_id", None, "ReasoningEngine resource ID.")
 flags.DEFINE_bool("list", False, "List all agents.")
 flags.DEFINE_bool("create", False, "Creates a new agent.")
 flags.DEFINE_bool("delete", False, "Deletes an existing agent.")
+flags.DEFINE_bool("verify", True, "Verify agent import before creation.")
 flags.mark_bool_flags_as_mutual_exclusive(["create", "delete"])
 
 
 def get_requirements() -> list[str]:
-    """Reads requirements from pyproject.toml."""
+    """Reads requirements from pyproject.toml with robust merging."""
     pyproject_path = os.path.join(
         os.path.dirname(os.path.dirname(__file__)), "pyproject.toml"
     )
@@ -41,22 +43,49 @@ def get_requirements() -> list[str]:
     dependencies = pyproject.get("project", {}).get("dependencies", [])
 
     # Ensure crucial deployment dependencies are present
-    # These are often needed even if not explicitly in pyproject.toml
-    # for the Reasoning Engine runtime
+    # These are required by the Reasoning Engine runtime itself
     required_for_deploy = [
         "google-adk>=1.0.0",
         "google-cloud-aiplatform[adk,agent-engines]>=1.93.0",
-        "numpy>=1.26.0",
+        "requests>=2.31.0",
     ]
 
-    for req in required_for_deploy:
-        if req not in dependencies:
-            # Check if a different version of the same package is present
-            package_name = req.split(">=")[0].split("[")[0]
-            if not any(d.startswith(package_name) for d in dependencies):
-                dependencies.append(req)
+    # Map of package name (lowercase) to full requirement string
+    req_map = {}
+    
+    def add_req(req_str: str):
+        # Extract package name for comparison (e.g., 'google-adk>=1.0' -> 'google-adk')
+        import re
+        name = re.split("[>=<~!\[]", req_str)[0].lower().strip()
+        req_map[name] = req_str
 
-    return dependencies
+    # Process existing dependencies first
+    for d in dependencies:
+        add_req(d)
+    
+    # Merge required deployment packages if not already present
+    for r in required_for_deploy:
+        name = re.split("[>=<~!\[]", r)[0].lower().strip()
+        if name not in req_map:
+            req_map[name] = r
+
+    return list(req_map.values())
+
+
+def verify_local_import():
+    """Verify that the agent can be imported locally without error."""
+    print("Checking if agent is importable locally...")
+    try:
+        from sre_agent.agent import root_agent
+        print(f"✅ Successfully imported agent: {root_agent.name}")
+        return True
+    except ImportError as e:
+        print(f"❌ ERROR: Failed to import agent locally: {e}")
+        print("Please ensure all dependencies in pyproject.toml are installed.")
+        return False
+    except Exception as e:
+        print(f"❌ ERROR: Unexpected error during agent import: {e}")
+        return False
 
 
 def create(env_vars: dict[str, str] | None = None) -> None:
@@ -143,6 +172,11 @@ def main(argv: list[str]) -> None:
 
         if project_id:
             env_vars["GOOGLE_CLOUD_PROJECT"] = project_id
+
+        if FLAGS.verify:
+            if not verify_local_import():
+                print("Aborting deployment due to local import failure.")
+                return
 
         create(env_vars=env_vars)
     elif FLAGS.delete:

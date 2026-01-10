@@ -3166,8 +3166,6 @@ dependencies = [
     { name = "google-cloud-trace" },
     { name = "google-genai" },
     { name = "grpcio" },
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "numpy", version = "2.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "opentelemetry-api" },
     { name = "opentelemetry-exporter-otlp-proto-grpc" },
     { name = "opentelemetry-sdk" },
@@ -3184,6 +3182,7 @@ lint = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "absl-py" },
     { name = "flake8" },
     { name = "google-adk", extra = ["eval"] },
     { name = "nest-asyncio" },
@@ -3206,7 +3205,6 @@ requires-dist = [
     { name = "google-genai", specifier = ">=1.9.0" },
     { name = "grpcio", specifier = ">=1.63.0" },
     { name = "mypy", marker = "extra == 'lint'", specifier = ">=1.15.0" },
-    { name = "numpy", specifier = ">=1.26.0" },
     { name = "opentelemetry-api", specifier = ">=1.24.0" },
     { name = "opentelemetry-exporter-otlp-proto-grpc", specifier = ">=1.24.0" },
     { name = "opentelemetry-sdk", specifier = ">=1.24.0" },
@@ -3219,6 +3217,7 @@ provides-extras = ["lint"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "absl-py", specifier = ">=2.1.0" },
     { name = "flake8", specifier = ">=7.1.1" },
     { name = "google-adk", extras = ["eval"], specifier = ">=1.0.0" },
     { name = "nest-asyncio", specifier = ">=1.6.0" },
