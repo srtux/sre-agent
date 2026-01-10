@@ -23,6 +23,7 @@ tests/
     ├── tools/                    # Unit tests for core tools
     │   ├── analysis/             # Analysis logic subdirectories
     │   │   ├── bigquery/         # BigQuery SQL tool tests
+    │   │   ├── correlation/      # Cross-signal correlation tests
     │   │   ├── logs/             # Log pattern analysis tests
     │   │   ├── metrics/          # Metrics statistical tests
     │   │   └── trace/            # Trace comparison & statistical tests

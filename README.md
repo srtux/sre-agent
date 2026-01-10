@@ -46,7 +46,7 @@ flowchart TB
     subgraph Specialists [Specialists]
         direction LR
 
-        subgraph TraceExperts [📊 Trace Specialists]
+        subgraph TraceExperts [Trace Specialists]
             direction TB
             L["⏱️ Latency"]
             E["💥 Error"]
@@ -54,11 +54,17 @@ flowchart TB
             ST["📉 Stats"]
             C["🔗 Causality"]
             SI["🌊 Impact"]
+            CP["🛤️ Critical<br/>Path"]
         end
 
-        subgraph LogExperts [📝 Log Specialists]
+        subgraph LogExperts [Log Specialists]
             direction TB
             LP["🔍 Log Pattern<br/>Extractor"]
+        end
+
+        subgraph MetricsExperts [Metrics Specialists]
+            direction TB
+            MA["📈 Metrics<br/>Analyzer"]
         end
     end
 
@@ -77,22 +83,24 @@ flowchart TB
     Orchestration -.-> ToolLayer
 
     style ControlRow fill:none,stroke:none
-    style Squads fill:none,stroke:none
+    style Specialists fill:none,stroke:none
 
     classDef userNode fill:#ffffff,stroke:#000000,stroke-width:2px;
     classDef agentNode fill:#e3f2fd,stroke:#1565c0,stroke-width:2px;
     classDef brainNode fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,stroke-dasharray: 5 5;
     classDef squadNode fill:#fff8e1,stroke:#fbc02d,stroke-width:1px;
     classDef logNode fill:#e8f5e9,stroke:#43a047,stroke-width:1px;
+    classDef metricsNode fill:#e0f7fa,stroke:#006064,stroke-width:1px;
     classDef toolNode fill:#f5f5f5,stroke:#616161,stroke-width:1px;
 
     class User userNode;
     class Agent agentNode;
     class Gemini brainNode;
-    class AGG,L,E,S,ST,C,SI squadNode;
+    class AGG_TOOL,L,E,S,ST,C,SI squadNode;
     class LP logNode;
+    class MA metricsNode;
     class TraceAPI,LogAPI,MetricsAPI,BQ toolNode;
-```
+``````
 
 ### Interaction Workflow
 
@@ -152,17 +160,24 @@ sequenceDiagram
    - Pattern detection (N+1 queries, serial chains, bottlenecks)
    - Root cause analysis through span-level investigation
 
-2. **Log Analysis** (Enhanced with Drain3!)
+2. **Log Analysis**
    - **Pattern Extraction**: Compress thousands of logs into patterns using Drain3 algorithm
-   - **Anomaly Detection**: Compare time periods to find NEW emergent log patterns
+   - **Anomaly Detection**: Compare time periods to find new emergent log patterns
    - **Smart Extraction**: Automatically find the log message in any payload format
    - Query and analyze logs from Cloud Logging (MCP and direct API)
    - Correlate logs with traces for root cause evidence
 
 3. **Metrics Analysis**
-   - Query time series data from Cloud Monitoring (MCP and direct API)
-   - PromQL queries for complex aggregations
-   - Trend detection and anomaly identification
+   - **Cross-Signal Correlation**: Correlate spikes in metrics with specific traces using exemplars
+   - **PromQL**: Execute complex PromQL queries for aggregations and rates
+   - **Trend Detection**: Identify statistical trends and anomalies in time series
+   - **Service Health**: Monitor CPU, Memory, and custom metric signals
+
+4. **Critical Path & Dependencies**
+   - **Critical Path Analysis**: Identify the chain of spans driving latency
+   - **Bottleneck Detection**: Pinpoint services on the critical path that contribute most to delay
+   - **Dependency Mapping**: Automatically build service dependency graphs from traces
+   - **Circular Dependency Detection**: Find dangerous feedback loops in service calls
 
 ### Multi-Stage Trace Analysis Pipeline
 
@@ -302,13 +317,13 @@ Before deploying, ensure your `.env` file is configured with `GOOGLE_CLOUD_PROJE
 # Correlate with traces
 "Get logs for trace abc123"
 
-# Pattern extraction (NEW!)
+# Pattern extraction
 "Extract log patterns from the last hour and show me the top error patterns"
 
-# Anomaly detection (NEW!)
+# Anomaly detection
 "Compare log patterns from 10am-11am vs 11am-12pm and find new error patterns"
 
-# Incident investigation (NEW!)
+# Incident investigation
 "What new log patterns appeared in the checkout-service after the alert fired?"
 ```
 
@@ -318,7 +333,7 @@ Before deploying, ensure your `.env` file is configured with `GOOGLE_CLOUD_PROJE
 # Query metrics
 "Show CPU utilization for the frontend service"
 
-# PromQL queries (NEW!)
+# PromQL queries
 "Query PromQL: rate(http_requests_total[5m])"
 ```
 
@@ -358,7 +373,7 @@ Before deploying, ensure your `.env` file is configured with `GOOGLE_CLOUD_PROJE
 | `get_logs_for_trace` | Get logs correlated with a trace |
 | `list_error_events` | List events from Error Reporting |
 
-### Log Pattern Analysis Tools (NEW!)
+### Log Pattern Analysis Tools
 | Tool | Description |
 |------|-------------|
 | `extract_log_patterns` | Compress logs into patterns using Drain3 |
@@ -377,7 +392,7 @@ Before deploying, ensure your `.env` file is configured with `GOOGLE_CLOUD_PROJE
 | `calculate_series_stats` | Calculate mean, stddev, and z-score for time series |
 | `get_current_time` | Utility to get current ISO timestamp |
 
-### Trace Selection Tools (NEW!)
+### Trace Selection Tools
 | Tool | Description |
 |------|-------------|
 | `select_traces_from_error_reports` | Discovery: find traces associated with recent Error Reporting events |
@@ -385,13 +400,31 @@ Before deploying, ensure your `.env` file is configured with `GOOGLE_CLOUD_PROJE
 | `select_traces_from_statistical_outliers` | Discovery: find traces that are p99+ outliers for a service |
 | `select_traces_manually` | User-driven: select traces by specific criteria or list of IDs |
 
+### Critical Path & Dependency Tools
+| Tool | Description |
+|------|-------------|
+| `analyze_critical_path`| Identify the sequence of spans determining total duration |
+| `calculate_critical_path_contribution`| Quantify how much each span contributes to latency |
+| `find_bottleneck_services`| Identify services appearing most frequently on critical paths |
+| `build_service_dependency_graph`| Map upstream/downstream relationships between services |
+| `detect_circular_dependencies`| Find cycles in the service call graph |
+| `find_hidden_dependencies`| Detect services that are reached but not explicitly defined |
+
+### Cross-Signal Analysis Tools
+| Tool | Description |
+|------|-------------|
+| `correlate_trace_with_metrics`| Overlay trace span times on metric charts |
+| `correlate_metrics_with_traces_via_exemplars`| Find traces that explain a metric spike |
+| `build_cross_signal_timeline`| Create a unified timeline of traces, logs, and metrics |
+| `analyze_signal_correlation_strength`| Statistically measure how strongly two signals are related |
+
 
 
 ## GCP Observability SRE Agent
 
 An Agentic AI system for analyzing Google Cloud Observability data (Traces, Logs, Metrics) to identify root causes of production issues.
 
-**New Architecture**: Consolidates `sre_agent` and `sre_agent` into a single `sre_agent` library.
+**Architecture**: Refactored to use the modern "Council of Experts" orchestration pattern.
 
 ### Trace Analysis Squad
 | Sub-Agent | Stage | Role |
@@ -408,6 +441,11 @@ An Agentic AI system for analyzing Google Cloud Observability data (Traces, Logs
 | Sub-Agent | Role |
 |-----------|------|
 | `log_pattern_extractor`| **Log Whisperer** - Uses Drain3 to compress thousands of logs into patterns to find "spicy" anomalies. |
+
+### Metrics Analysis Squad
+| Sub-Agent | Role |
+|-----------|------|
+| `metrics_analyzer`| **Metrics Expert** - Analyzes time-series data, detects anomalies, and performs cross-signal correlation. |
 
 ## Development
 
