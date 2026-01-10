@@ -13,7 +13,7 @@ The agent is built using the Google Agent Development Kit (ADK). It uses a **"Co
 ### System Architecture
 
 ```mermaid
-%%{init: {'theme': 'neutral'}}%%
+%%{init: {'theme': 'base', 'themeVariables': {'background': '#ffffff'}}}%%
 flowchart TB
     subgraph ControlRow [ ]
         direction LR
@@ -94,7 +94,7 @@ flowchart TB
 ### Interaction Workflow
 
 ```mermaid
-%%{init: {'theme': 'neutral'}}%%
+%%{init: {'theme': 'base', 'themeVariables': {'background': '#ffffff'}}}%%
 sequenceDiagram
     actor User
     participant SRE as 🔧 SRE Agent
