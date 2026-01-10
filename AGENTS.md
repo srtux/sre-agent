@@ -1,67 +1,75 @@
-# SRE Agent
+# SRE Agent: Developer Guidelines
 
-## Agent Rules
+## 🚀 Core Workflows
 
-### Documentation Requirements
-- **Keep Docs Up To Date**: When you make changes to the codebase, you MUST update `README.md` and `AGENTS.md` to reflect those changes.
-- **Update Architecture Diagrams**: When adding/removing sub-agents, tools, or changing the architecture, update the mermaid diagrams in `README.md`:
-  - System Architecture flowchart (shows agents, tools, GCP services)
-  - Interaction Workflow sequence diagram (shows investigation phases)
-- **Reference AGENTS.md**: Use this file as the source of truth for developer workflows.
+We use **`uv`** for dependency management and **`poethepoet`** for task automation defined in `pyproject.toml`.
 
-### Deployment Script Requirements
-- **Update deploy.py**: When adding new dependencies to `pyproject.toml`, also add them to `deploy/deploy.py` requirements list so Agent Engine deployments work correctly.
-- **Keep imports in sync**: If agent module names change, update the import in `deploy/deploy.py`.
+| Task | Command | Description |
+|------|---------|-------------|
+| **Sync** | `uv run poe sync` | Install dependencies and update `.venv` |
+| **Run** | `uv run poe run` | Launch interactive terminal agent |
+| **Lint** | `uv run poe lint` | Run **Ruff**, **MyPy**, and **Codespell** (CI Guard) |
+| **Test** | `uv run poe test` | Run **Pytest** suite |
+| **Deploy** | `uv run poe deploy` | Validate & Deploy to Agent Engine |
+| **Pre-commit** | `uv run poe pre-commit` | Run quality guards (formatting, trailing whitespace) |
 
-## Architecture Overview
+## 🛠️ Development Rules
 
-The SRE Agent uses a **multi-stage analysis pipeline** with specialized sub-agents. See `README.md` for detailed architecture diagrams.
+### 1. Modern Python Stack
+- **Dependencies**: Managed via `pyproject.toml` (NOT `requirements.txt`).
+- **Lockfile**: Always commit `uv.lock`.
+- **Python Version**: 3.10+ (Testing uses 3.10 & 3.11).
+- **Import Style**: Use absolute imports (e.g., `sre_agent.tools...`) except for relative sibling/parent imports within modules.
 
-### Trace Analysis Pipeline
+### 2. Code Quality & Linting
+- **Linter**: **Ruff** replaces Flake8/Black/Isort. Configuration is in `pyproject.toml`.
+- **Type Checking**: **MyPy** is strict.
+  - **Explicit Optional**: Use `name: str | None = None` instead of `name: str = None`.
+  - **No Implicit Any**: Annotate empty containers: `items: list[dict[str, Any]] = []`.
+  - **Float Initialization**: Use `val: float = 0.0` (not `0`) to satisfy strict typing.
+- **Pre-commit**: You **MUST** run `uv run poe pre-commit` before pushing. It fixes formatting and spacing issues automatically.
 
-1. **Stage 0 (Aggregate)**: BigQuery-powered analysis using `aggregate_analyzer` sub-agent
-   - Tools: `analyze_aggregate_metrics`, `find_exemplar_traces`, `compare_time_periods`, `detect_trend_changes`
-   - Purpose: Analyze thousands of traces to identify patterns
+### 3. Testing Strategy
+- **Framework**: `pytest` + `pytest-asyncio` + `pytest-cov`.
+- **Structure**: Tests mirror source directory (e.g., `tests/sre_agent/tools/...` corresponds to `sre_agent/tools/...`).
+- **Mocks**: Heavy use of `unittest.mock` to avoid hitting real GCP APIs during unit tests.
 
-2. **Stage 1 (Triage)**: Parallel trace comparison using 4 sub-agents
-   - Agents: `latency_analyzer`, `error_analyzer`, `structure_analyzer`, `statistics_analyzer`
-   - Purpose: Compare specific traces to identify WHAT is different
+### 4. Deployment Protocol
+- **Command**: Always use `uv run poe deploy`.
+- **Validation-First**: The deploy script (`deploy/deploy.py`) verifies:
+  1. Local imports work.
+  2. `pyproject.toml` dependencies are extracted accurately.
+  3. `uv` sync is fresh.
+- **Agent Engine**: Used for hosting. `deploy.py` handles the creation and update of the Reasoning Engine resource.
 
-3. **Stage 2 (Deep Dive)**: Root cause analysis using 2 sub-agents
-   - Agents: `causality_analyzer`, `service_impact_analyzer`
-   - Purpose: Determine WHY differences occurred and assess blast radius
+## 📝 Documentation Rules
 
-### Log Analysis Pipeline
+- **Readme Updates**: If you add a feature, update:
+  - `README.md`: Architecture diagrams and Tool tables.
+  - `AGENTS.md`: If workflows change.
+- **Architecture Diagrams**: Maintain Mermaid charts in `README.md`:
+  - **System Architecture**: Sub-agents, tools, and GCP services.
+  - **Interaction Workflow**: Sequence of analysis phases.
 
-- **log_pattern_extractor**: Uses Drain3 algorithm for log template extraction
-  - Tools: `extract_log_patterns`, `compare_log_patterns`, `analyze_log_anomalies`
-  - Purpose: Compress logs into patterns, detect anomalies by comparing time periods
+## 📦 Sub-Agent Architecture
 
-## Dev Environment Tips
+The project follows the "Council of Experts" pattern:
 
-- Use `uv sync` to install dependencies and create the virtual environment.
-- Use `uv run adk web sre_agent` to launch the agent's web interface (with MCP tools).
-- Use `uv run adk run sre_agent` to launch the interactive terminal interface.
-- Environment variables are managed in `.env`. Copy `.env.example` to `.env`.
-- Agent definitions are in `sre_agent/agent.py` and `sub_agents/`.
-- Deployment scripts are in `deploy/` (`uv run python deploy/deploy.py --create`).
+1.  **Orchestrator** (`sre_agent/agent.py`):
+    - Receives user query.
+    - Delegated to specialized sub-agents (`sre_agent/sub_agents/`).
+2.  **Specialists**:
+    - **Trace Squad**: Latency, Error, Structure, Stats.
+    - **Log Squad**: Pattern Extractor.
+    - **Metrics Squad**: Metrics Analyzer.
+3.  **Tools**:
+    - Located in `sre_agent/tools/`.
+    - Divided into `mcp/` (Model Context Protocol) and `clients/` (Direct API).
 
-## Testing Instructions
+## ✅ PR Checklist
 
-- Run tests: `uv run pytest`
-- Run with output: `uv run pytest -s`
-- Tests are in `tests/` directory.
-
-## Code Quality
-
-- **Flake8**: `uv run flake8 .` (config in `.flake8`)
-- **Max line length**: 127
-- **Max complexity**: 10
-
-## PR Instructions
-
-- Ensure `uv.lock` is updated if dependencies change.
-- Verify `uv run pytest` passes.
-- If modifying architecture, update diagrams in `README.md`.
-- If adding dependencies, update `deploy/deploy.py`.
-- Title format: `[sre-agent] <Description>`
+1.  Sync dependencies: `uv run poe sync`
+2.  Run pre-commit: `uv run poe pre-commit`
+3.  Run lint checks: `uv run poe lint` (Must pass clean)
+4.  Run tests: `uv run poe test` (Must pass all tests)
+5.  Update docs: `README.md` if visible behavior changed.
