@@ -91,6 +91,7 @@ web = { help = "Run agent web UI", cmd = "adk web sre_agent", envfile = ".env" }
 list = { help = "List deployed agents", cmd = "python deploy/deploy.py --list", envfile = ".env" }
 lint = { help = "Run linter", cmd = "flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics", envfile = ".env" }
 test = { help = "Run tests", cmd = "pytest tests", envfile = ".env" }
+eval = { help = "Run agent evaluations", cmd = "python deploy/run_eval.py", envfile = ".env" }
 
 deploy = { help = "Deploy agent to Agent Engine", sequence = ["sync", "_deploy_only"] }
 _deploy_only = { cmd = "python deploy/deploy.py --create", envfile = ".env" }

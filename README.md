@@ -270,6 +270,7 @@ This project uses **Poe the Poet** for unified task management. All project scri
 | **Deploy** | `uv run poe deploy` | **Safe Deploy**: Syncs docs, verifies imports, and deploys to Agent Engine |
 | **List** | `uv run poe list` | List all deployed agents in Agent Engine |
 | **Test** | `uv run poe test` | Run the full test suite |
+| **Eval** | `uv run poe eval` | Run agent evaluations using ADK eval sets |
 | **Delete** | `uv run poe delete --resource_id ID` | Delete a specific Agent Engine instance |
 
 Before deploying, ensure your `.env` file is configured with `GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_STORAGE_BUCKET`.
