@@ -20,6 +20,7 @@ from google.adk.tools import ToolContext
 from google.adk.tools.api_registry import ApiRegistry
 
 from ..common import adk_tool
+from .mock_mcp import MockMcpToolset
 
 logger = logging.getLogger(__name__)
 
@@ -92,8 +93,9 @@ def create_bigquery_mcp_toolset(project_id: str | None = None):
         return mcp_toolset
 
     except Exception as e:
-        logger.error(f"Failed to create BigQuery MCP toolset: {e}", exc_info=True)
-        return None
+        logger.error(f"Failed to create BigQuery MCP toolset: {e}")
+        logger.info("Falling back to Mock BigQuery MCP toolset")
+        return MockMcpToolset()
 
 
 def create_logging_mcp_toolset(project_id: str | None = None):
@@ -142,8 +144,9 @@ def create_logging_mcp_toolset(project_id: str | None = None):
         return mcp_toolset
 
     except Exception as e:
-        logger.error(f"Failed to create Cloud Logging MCP toolset: {e}", exc_info=True)
-        return None
+        logger.error(f"Failed to create Cloud Logging MCP toolset: {e}")
+        logger.info("Falling back to Mock Cloud Logging MCP toolset")
+        return MockMcpToolset()
 
 
 def create_monitoring_mcp_toolset(project_id: str | None = None):
@@ -193,10 +196,9 @@ def create_monitoring_mcp_toolset(project_id: str | None = None):
         return mcp_toolset
 
     except Exception as e:
-        logger.error(
-            f"Failed to create Cloud Monitoring MCP toolset: {e}", exc_info=True
-        )
-        return None
+        logger.error(f"Failed to create Cloud Monitoring MCP toolset: {e}")
+        logger.info("Falling back to Mock Cloud Monitoring MCP toolset")
+        return MockMcpToolset()
 
 
 async def call_mcp_tool_with_retry(

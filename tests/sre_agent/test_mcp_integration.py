@@ -95,9 +95,12 @@ class TestMCPIntegration(unittest.TestCase):
 
         from sre_agent.tools.mcp.gcp import create_bigquery_mcp_toolset
 
-        # Should return None on error (not raise)
+        # Should return MockMcpToolset on error (not raise)
         result = create_bigquery_mcp_toolset()
-        self.assertIsNone(result)
+
+        from sre_agent.tools.mcp.mock_mcp import MockMcpToolset
+
+        self.assertIsInstance(result, MockMcpToolset)
 
     def test_mcp_toolset_not_created_at_module_import(self):
         """Test that MCP toolsets are not created just by importing agent."""

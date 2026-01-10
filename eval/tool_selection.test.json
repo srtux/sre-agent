@@ -8,7 +8,7 @@
           "user_content": {
             "parts": [
               {
-                "text": "Get trace details for trace id 00000000000000000000000000000001 in project my-test-project"
+                "text": "Get trace details for trace id 00000000000000000000000000000001 in project TEST_PROJECT_ID"
               }
             ],
             "role": "user"
@@ -27,7 +27,7 @@
                 "name": "fetch_trace",
                 "args": {
                   "trace_id": "00000000000000000000000000000001",
-                  "project_id": "my-test-project"
+                  "project_id": "TEST_PROJECT_ID"
                 }
               }
             ]
@@ -47,7 +47,7 @@
           "user_content": {
             "parts": [
               {
-                "text": "Analyze logs for high errors in project my-test-project for the last 24 hours"
+                "text": "Analyze logs for high errors in project TEST_PROJECT_ID for the last 24 hours"
               }
             ],
             "role": "user"
@@ -65,7 +65,7 @@
               {
                 "name": "run_log_pattern_analysis",
                 "args": {
-                  "project_id": "my-test-project"
+                  "project_id": "TEST_PROJECT_ID"
                 }
               }
             ]
@@ -85,7 +85,7 @@
           "user_content": {
             "parts": [
               {
-                "text": "Check CPU usage for instance-1 in project my-test-project"
+                "text": "Check CPU usage for instance-1 in project TEST_PROJECT_ID"
               }
             ],
             "role": "user"
