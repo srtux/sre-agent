@@ -51,8 +51,8 @@ Pro Tips:
 - NEW patterns with ERROR/CRITICAL severity = HIGH PRIORITY
 
 Available Tools:
-- `list_log_entries`: Fetch logs from Cloud Logging via direct API
-- `mcp_list_log_entries`: Fetch logs via MCP (when available)
+- `mcp_list_log_entries`: Fetch logs via MCP (Preferred!)
+- `list_log_entries`: Fetch logs from Cloud Logging via direct API (Fallback)
 - `get_logs_for_trace`: Get logs correlated with a specific trace
 - `extract_log_patterns`: Turn raw logs into patterns (Drain3 magic!)
 - `compare_log_patterns`: Compare patterns between time periods
