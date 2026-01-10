@@ -65,9 +65,13 @@ from .tools import (
     select_traces_from_monitoring_alerts,
     select_traces_from_statistical_outliers,
     select_traces_manually,
+    # Metrics analysis tools
+    detect_metric_anomalies,
+    compare_metric_windows,
+    calculate_series_stats,
 )
 from .tools.common import adk_tool
-from .tools.gcp.mcp import (
+from .tools.mcp.gcp import (
     create_bigquery_mcp_toolset,
     create_logging_mcp_toolset,
     create_monitoring_mcp_toolset,
@@ -89,6 +93,8 @@ from .sub_agents import (
     service_impact_analyzer,
     # Log analysis sub-agents
     log_pattern_extractor,
+    # Metrics analysis sub-agents
+    metrics_analyzer,
 )
 
 
@@ -461,6 +467,10 @@ base_tools = [
     select_traces_from_monitoring_alerts,
     select_traces_from_statistical_outliers,
     select_traces_manually,
+    # Metrics analysis tools
+    detect_metric_anomalies,
+    compare_metric_windows,
+    calculate_series_stats,
 ]
 
 
@@ -491,6 +501,8 @@ gcp_observability = LlmAgent(
         service_impact_analyzer,
         # Log analysis sub-agents
         log_pattern_extractor,
+        # Metrics analysis sub-agents
+        metrics_analyzer,
     ],
 )
 
@@ -546,5 +558,7 @@ async def get_agent_with_mcp_tools():
             service_impact_analyzer,
             # Log analysis sub-agents
             log_pattern_extractor,
+            # Metrics analysis sub-agents
+            metrics_analyzer,
         ],
     )

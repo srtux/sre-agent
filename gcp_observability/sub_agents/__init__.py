@@ -26,6 +26,7 @@ from .trace import (
 )
 
 from .logs import log_pattern_extractor
+from .metrics import metrics_analyzer
 
 __all__ = [
     # Trace analysis
@@ -38,4 +39,6 @@ __all__ = [
     "service_impact_analyzer",
     # Log analysis
     "log_pattern_extractor",
+    # Metrics analysis
+    "metrics_analyzer",
 ]

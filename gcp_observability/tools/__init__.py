@@ -2,7 +2,7 @@
 
 This module provides a comprehensive set of tools for SRE tasks:
 
-GCP Tools (tools.gcp):
+MCP Tools for GCP (tools.mcp.gcp):
     - BigQuery MCP for SQL-based data analysis
     - Cloud Logging MCP and direct API for log queries
     - Cloud Monitoring MCP and direct API for metrics
@@ -67,7 +67,7 @@ from .clients.trace import (
 )
 
 # MCP Tools
-from .gcp.mcp import (
+from .mcp.gcp import (
     get_project_id_with_fallback,
     create_logging_mcp_toolset,
     mcp_list_log_entries,
@@ -111,6 +111,13 @@ from .analysis.bigquery.otel import (
     compare_time_periods,
     detect_trend_changes,
     correlate_logs_with_trace,
+)
+
+# Metrics Analysis
+from .analysis.metrics import (
+    detect_metric_anomalies,
+    compare_metric_windows,
+    calculate_series_stats,
 )
 
 # Log Analysis
@@ -193,4 +200,8 @@ __all__ = [
     "extract_log_message",
     "extract_messages_from_entries",
     "LogMessageExtractor",
+    # Metrics Analysis
+    "detect_metric_anomalies",
+    "compare_metric_windows",
+    "calculate_series_stats",
 ]

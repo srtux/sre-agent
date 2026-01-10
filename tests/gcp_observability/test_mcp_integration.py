@@ -4,9 +4,9 @@ from unittest.mock import MagicMock, patch
 
 class TestMCPIntegration(unittest.TestCase):
     
-    @patch("gcp_observability.tools.gcp.mcp.ApiRegistry")
-    @patch("gcp_observability.tools.gcp.mcp.google.auth.default")
-    @patch("gcp_observability.tools.gcp.mcp.os.environ")
+    @patch("gcp_observability.tools.mcp.gcp.ApiRegistry")
+    @patch("gcp_observability.tools.mcp.gcp.google.auth.default")
+    @patch("gcp_observability.tools.mcp.gcp.os.environ")
     def test_create_bigquery_mcp_toolset_returns_toolset(self, mock_environ, mock_auth_default, mock_api_registry_cls):
         """Test that create_bigquery_mcp_toolset creates a toolset when project is available."""
         # Setup mocks
@@ -20,7 +20,7 @@ class TestMCPIntegration(unittest.TestCase):
 
         # Import the function (it uses the patched modules since they are in sys.modules)
         # Note: If mcp.py was already loaded, patch updates attributes.
-        from gcp_observability.tools.gcp.mcp import create_bigquery_mcp_toolset
+        from gcp_observability.tools.mcp.gcp import create_bigquery_mcp_toolset
 
         # Call the function
         result = create_bigquery_mcp_toolset()
@@ -31,9 +31,9 @@ class TestMCPIntegration(unittest.TestCase):
         from unittest.mock import ANY
         mock_api_registry_cls.assert_called_with("mock-project-id", header_provider=ANY)
 
-    @patch("gcp_observability.tools.gcp.mcp.ApiRegistry")
-    @patch("gcp_observability.tools.gcp.mcp.google.auth.default")
-    @patch("gcp_observability.tools.gcp.mcp.os.environ")
+    @patch("gcp_observability.tools.mcp.gcp.ApiRegistry")
+    @patch("gcp_observability.tools.mcp.gcp.google.auth.default")
+    @patch("gcp_observability.tools.mcp.gcp.os.environ")
     def test_create_bigquery_mcp_toolset_creates_new_instance_each_call(self, mock_environ, mock_auth_default, mock_api_registry_cls):
         """Test that create_bigquery_mcp_toolset returns fresh toolset each time."""
         mock_auth_default.return_value = (MagicMock(), "mock-project-id")
@@ -45,7 +45,7 @@ class TestMCPIntegration(unittest.TestCase):
         mock_api_registry.get_toolset.side_effect = [mock_toolset1, mock_toolset2]
         mock_api_registry_cls.return_value = mock_api_registry
 
-        from gcp_observability.tools.gcp.mcp import create_bigquery_mcp_toolset
+        from gcp_observability.tools.mcp.gcp import create_bigquery_mcp_toolset
 
         # Call twice
         result1 = create_bigquery_mcp_toolset()
@@ -57,8 +57,8 @@ class TestMCPIntegration(unittest.TestCase):
         # get_toolset should be called twice
         self.assertEqual(mock_api_registry.get_toolset.call_count, 2)
 
-    @patch("gcp_observability.tools.gcp.mcp.google.auth.default")
-    @patch("gcp_observability.tools.gcp.mcp.os.environ")
+    @patch("gcp_observability.tools.mcp.gcp.google.auth.default")
+    @patch("gcp_observability.tools.mcp.gcp.os.environ")
     def test_create_bigquery_mcp_toolset_handles_missing_project_gracefully(self, mock_environ, mock_auth_default):
         """Test that create_bigquery_mcp_toolset handles missing project ID."""
         # Setup: mock auth to return no project
@@ -66,15 +66,15 @@ class TestMCPIntegration(unittest.TestCase):
         # Ensure GOOGLE_CLOUD_PROJECT is not set (mock environ)
         mock_environ.get.return_value = None
 
-        from gcp_observability.tools.gcp.mcp import create_bigquery_mcp_toolset
+        from gcp_observability.tools.mcp.gcp import create_bigquery_mcp_toolset
 
         # Should return None when no project is available
         result = create_bigquery_mcp_toolset()
         self.assertIsNone(result)
 
-    @patch("gcp_observability.tools.gcp.mcp.ApiRegistry")
-    @patch("gcp_observability.tools.gcp.mcp.google.auth.default")
-    @patch("gcp_observability.tools.gcp.mcp.os.environ")
+    @patch("gcp_observability.tools.mcp.gcp.ApiRegistry")
+    @patch("gcp_observability.tools.mcp.gcp.google.auth.default")
+    @patch("gcp_observability.tools.mcp.gcp.os.environ")
     def test_create_bigquery_mcp_toolset_handles_creation_error_gracefully(self, mock_environ, mock_auth_default, mock_api_registry_cls):
         """Test that create_bigquery_mcp_toolset handles errors gracefully."""
         mock_auth_default.return_value = (MagicMock(), "mock-project-id")
@@ -85,7 +85,7 @@ class TestMCPIntegration(unittest.TestCase):
             "Connection error"
         )
 
-        from gcp_observability.tools.gcp.mcp import create_bigquery_mcp_toolset
+        from gcp_observability.tools.mcp.gcp import create_bigquery_mcp_toolset
 
         # Should return None on error (not raise)
         result = create_bigquery_mcp_toolset()
@@ -95,7 +95,7 @@ class TestMCPIntegration(unittest.TestCase):
         """Test that MCP toolsets are not created just by importing agent."""
         # This test ensures no side-effects import
         # We can mock ApiRegistry global to ensure it is NOT called
-        with patch("gcp_observability.tools.gcp.mcp.create_bigquery_mcp_toolset") as mock_create:
+        with patch("gcp_observability.tools.mcp.gcp.create_bigquery_mcp_toolset") as mock_create:
             import gcp_observability.agent
             # agent module load should not call create_bigquery_mcp_toolset
             # agent.py calls it lazily in _get_bigquery_mcp_toolset

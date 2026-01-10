@@ -17,7 +17,7 @@ Direct API Tools:
 - Error Reporting: list_error_events
 """
 
-from .mcp import (
+from .gcp import (
     create_bigquery_mcp_toolset,
     create_logging_mcp_toolset,
     create_monitoring_mcp_toolset,
@@ -27,13 +27,13 @@ from .mcp import (
     mcp_query_range,
     get_project_id_with_fallback,
 )
-from .clients import (
+from ..clients.logging import (
     list_log_entries,
-    list_time_series,
     list_error_events,
     get_logs_for_trace,
-    get_current_time,
 )
+from ..clients.monitoring import list_time_series
+from ..clients.trace import get_current_time
 
 __all__ = [
     # MCP toolset factories

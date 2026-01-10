@@ -86,3 +86,32 @@ def test_list_log_entries_json_payload(mock_client_cls):
     data = json.loads(result)
     
     assert data["entries"][0]["payload"] == {"key": "value"}
+
+
+@patch("google.cloud.errorreporting_v1beta1.ErrorStatsServiceClient")
+def test_list_error_events_success(mock_client_cls):
+    mock_client = mock_client_cls.return_value
+    
+    mock_event = Mock()
+    mock_event.event_time.isoformat.return_value = "2024-01-01T00:00:00Z"
+    mock_event.message = "Error occurred"
+    mock_event.service_context.service = "web"
+    mock_event.service_context.version = "v1"
+    mock_client.list_events.return_value = [mock_event]
+    
+    from gcp_observability.tools.clients.logging import list_error_events
+    result = list_error_events("p")
+    data = json.loads(result)
+    
+    assert len(data) == 1
+    assert data[0]["message"] == "Error occurred"
+
+@patch("google.cloud.errorreporting_v1beta1.ErrorStatsServiceClient")
+def test_list_error_events_error(mock_client_cls):
+    mock_client = mock_client_cls.return_value
+    mock_client.list_events.side_effect = Exception("fail")
+    
+    from gcp_observability.tools.clients.logging import list_error_events
+    result = list_error_events("p")
+    data = json.loads(result)
+    assert "error" in data

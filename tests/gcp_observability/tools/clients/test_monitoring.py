@@ -51,3 +51,15 @@ def test_query_promql(mock_auth_default, mock_session_cls):
     mock_session.get.assert_called_once()
     call_args = mock_session.get.call_args
     assert call_args.kwargs["params"]["query"] == "up"
+
+@mock.patch("gcp_observability.tools.clients.monitoring.monitoring_v3.MetricServiceClient")
+def test_list_time_series_error(mock_metric_client_cls):
+    """Test list_time_series tool error handling."""
+    mock_client = mock_metric_client_cls.return_value
+    mock_client.list_time_series.side_effect = Exception("API error")
+
+    result_json = list_time_series("p1", "filter")
+    result = json.loads(result_json)
+    
+    assert "error" in result
+    assert "API error" in result["error"]
