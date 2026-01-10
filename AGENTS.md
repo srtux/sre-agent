@@ -1,16 +1,27 @@
-# trace-analyzer
+# SRE Agent
 
 ## Agent Rules
-- **Keep Docs Up To Date**: When you make changes to the codebase, you MUST update `README.md` and `AGENTS.md` to reflect those changes. This is a strict rule.
+
+### Documentation Requirements
+- **Keep Docs Up To Date**: When you make changes to the codebase, you MUST update `README.md` and `AGENTS.md` to reflect those changes.
+- **Update Architecture Diagrams**: When adding/removing sub-agents, tools, or changing the architecture, update the mermaid diagrams in `README.md`:
+  - System Architecture flowchart (shows agents, tools, GCP services)
+  - Interaction Workflow sequence diagram (shows investigation phases)
 - **Reference AGENTS.md**: Use this file as the source of truth for developer workflows.
+
+### Deployment Script Requirements
+- **Update deploy.py**: When adding new dependencies to `pyproject.toml`, also add them to `deploy/deploy.py` requirements list so Agent Engine deployments work correctly.
+- **Keep imports in sync**: If agent module names change, update the import in `deploy/deploy.py`.
 
 ## Architecture Overview
 
-The trace analyzer uses a **three-stage analysis pipeline**:
+The SRE Agent uses a **multi-stage analysis pipeline** with specialized sub-agents. See `README.md` for detailed architecture diagrams.
+
+### Trace Analysis Pipeline
 
 1. **Stage 0 (Aggregate)**: BigQuery-powered analysis using `aggregate_analyzer` sub-agent
-   - Tools: `analyze_aggregate_metrics`, `find_exemplar_traces`, `compare_time_periods`, `detect_trend_changes`, `correlate_logs_with_trace`
-   - Purpose: Start broad - analyze thousands of traces to identify patterns
+   - Tools: `analyze_aggregate_metrics`, `find_exemplar_traces`, `compare_time_periods`, `detect_trend_changes`
+   - Purpose: Analyze thousands of traces to identify patterns
 
 2. **Stage 1 (Triage)**: Parallel trace comparison using 4 sub-agents
    - Agents: `latency_analyzer`, `error_analyzer`, `structure_analyzer`, `statistics_analyzer`
@@ -18,34 +29,39 @@ The trace analyzer uses a **three-stage analysis pipeline**:
 
 3. **Stage 2 (Deep Dive)**: Root cause analysis using 2 sub-agents
    - Agents: `causality_analyzer`, `service_impact_analyzer`
-   - Purpose: Determine WHY differences occurred and blast radius
+   - Purpose: Determine WHY differences occurred and assess blast radius
 
-## Dev environment tips
+### Log Analysis Pipeline
+
+- **log_pattern_extractor**: Uses Drain3 algorithm for log template extraction
+  - Tools: `extract_log_patterns`, `compare_log_patterns`, `analyze_log_anomalies`
+  - Purpose: Compress logs into patterns, detect anomalies by comparing time periods
+
+## Dev Environment Tips
+
 - Use `uv sync` to install dependencies and create the virtual environment.
-- Use `uv run adk web` to launch the agent's web interface (Streamlit-based).
-- Use `uv run adk run .` to launch the interactive terminal interface.
-- Environment variables are managed in `.env`. Copy `.env.example` to `.env` and set `GOOGLE_CLOUD_PROJECT`.
-- The agent uses widespread `opentelemetry` instrumentation. Logs are visible in the console and Cloud Logging.
-- Agent definitions are in `trace_analyzer/trace_analyzer/agent.py` and `sub_agents/`.
-- `deployment/` contains scripts for deploying to Vertex AI Agent Engine (`uv run python deploy/deploy.py`).
+- Use `uv run adk web sre_agent` to launch the agent's web interface.
+- Use `uv run adk run sre_agent` to launch the interactive terminal interface.
+- Environment variables are managed in `.env`. Copy `.env.example` to `.env`.
+- Agent definitions are in `sre_agent/agent.py` and `sub_agents/`.
+- Deployment scripts are in `deploy/` (`uv run python deploy/deploy.py --create`).
 
-## Testing instructions
-- Run the full test suite with `uv run pytest`.
-- Tests are located in the `tests/` directory.
-- Use `uv run pytest -s` to see stdout/logging during tests.
-- When modifying agents, add new tests to `tests/` to verify behavior.
-- Run type checks with `uv run mypy .` (if configured in `optional-dependencies`).
+## Testing Instructions
 
-## Code Quality & Linting
-- **Flake8**: Used for style enforcement.
-  - **Config**: `.flake8`
-  - **Max Line Length**: 127
-  - **Max Complexity**: 10
-  - **Ignored**: E203, E501
-  - **Run**: `uv run flake8 .`
+- Run tests: `uv run pytest`
+- Run with output: `uv run pytest -s`
+- Tests are in `tests/` directory.
 
-## PR instructions
+## Code Quality
+
+- **Flake8**: `uv run flake8 .` (config in `.flake8`)
+- **Max line length**: 127
+- **Max complexity**: 10
+
+## PR Instructions
+
 - Ensure `uv.lock` is updated if dependencies change.
-- Verify that `uv run pytest` passes cleanly.
-- If modifying prompts (`prompt.py`), verify agent behavior with `uv run adk run .` using a known trace ID.
-- Title format: `[trace-analyzer] <Description of changes>`
+- Verify `uv run pytest` passes.
+- If modifying architecture, update diagrams in `README.md`.
+- If adding dependencies, update `deploy/deploy.py`.
+- Title format: `[sre-agent] <Description>`
