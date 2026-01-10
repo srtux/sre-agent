@@ -287,6 +287,7 @@ This project uses **Poe the Poet** for unified task management. All project scri
 | **Test** | `uv run poe test` | Run the full test suite |
 | **Eval** | `uv run poe eval` | Run agent evaluations using ADK eval sets |
 | **Delete** | `uv run poe delete --resource_id ID` | Delete a specific Agent Engine instance |
+| **Pre-commit** | `uv run poe pre-commit` | Run all pre-commit hooks (lint, spell, check-added-large-files) |
 
 Before deploying, ensure your `.env` file is configured with `GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_STORAGE_BUCKET`.
 
@@ -457,9 +458,13 @@ uv run poe test
 
 ### Code Quality
 
-```bash
-uv run ruff check sre_agent/
-```
+ ```bash
+ # Run pre-commit checks (ruff, codespell, etc.)
+ uv run poe pre-commit
+
+ # Manual lint and format
+ uv run ruff check sre_agent/
+ ```
 
 ## IAM Permissions
 

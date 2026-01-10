@@ -100,3 +100,5 @@ deploy = { help = "Deploy agent to Agent Engine", sequence = ["sync", "_deploy_o
 _deploy_only = { cmd = "python deploy/deploy.py --create", envfile = ".env" }
 
 delete = { help = "Delete agent (usage: uv run poe delete --resource_id ID)", cmd = "python deploy/deploy.py --delete", envfile = ".env" }
+
+pre-commit = { help = "Run all pre-commit hooks", cmd = "pre-commit run --all-files", envfile = ".env" }
