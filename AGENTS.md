@@ -27,6 +27,9 @@ We use **`uv`** for dependency management and **`poethepoet`** for task automati
   - **Explicit Optional**: Use `name: str | None = None` instead of `name: str = None`.
   - **No Implicit Any**: Annotate empty containers: `items: list[dict[str, Any]] = []`.
   - **Float Initialization**: Use `val: float = 0.0` (not `0`) to satisfy strict typing.
+- **Pydantic Schemas**: Use `model_config = ConfigDict(frozen=True)` for all structured outputs to ensure immutability.
+- **Secret Scanning**: **detect-secrets** scans for leaked keys.
+  - If you encounter a false positive, update the baseline: `uv run detect-secrets scan --baseline .secrets.baseline`.
 - **Pre-commit**: You **MUST** run `uv run poe pre-commit` before pushing. It fixes formatting and spacing issues automatically.
 
 ### 3. Testing Strategy
