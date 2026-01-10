@@ -15,9 +15,9 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-from drain3 import TemplateMiner
-from drain3.masking import MaskingInstruction
-from drain3.template_miner_config import TemplateMinerConfig
+from drain3 import TemplateMiner  # type: ignore
+from drain3.masking import MaskingInstruction  # type: ignore
+from drain3.template_miner_config import TemplateMinerConfig  # type: ignore
 
 from ...common import adk_tool
 from .extraction import extract_log_message

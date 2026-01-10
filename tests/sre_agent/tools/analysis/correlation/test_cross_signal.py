@@ -5,13 +5,12 @@ using exemplars and trace context.
 """
 
 import json
-import pytest
 
 from sre_agent.tools.analysis.correlation.cross_signal import (
-    correlate_trace_with_metrics,
-    correlate_metrics_with_traces_via_exemplars,
-    build_cross_signal_timeline,
     analyze_signal_correlation_strength,
+    build_cross_signal_timeline,
+    correlate_metrics_with_traces_via_exemplars,
+    correlate_trace_with_metrics,
 )
 
 

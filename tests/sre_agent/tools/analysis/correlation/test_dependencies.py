@@ -5,11 +5,10 @@ upstream/downstream impact, and detect architectural issues like circular depend
 """
 
 import json
-import pytest
 
 from sre_agent.tools.analysis.correlation.dependencies import (
-    build_service_dependency_graph,
     analyze_upstream_downstream_impact,
+    build_service_dependency_graph,
     detect_circular_dependencies,
     find_hidden_dependencies,
 )

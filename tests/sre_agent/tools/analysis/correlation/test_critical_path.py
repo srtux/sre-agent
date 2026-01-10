@@ -5,13 +5,12 @@ in distributed traces to identify bottlenecks and optimization opportunities.
 """
 
 import json
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from sre_agent.tools.analysis.correlation.critical_path import (
     analyze_critical_path,
-    find_bottleneck_services,
     calculate_critical_path_contribution,
+    find_bottleneck_services,
 )
 
 

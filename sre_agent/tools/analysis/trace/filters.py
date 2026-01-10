@@ -1,8 +1,11 @@
 """Trace filter utilities for building Cloud Trace query strings."""
 
+import logging
 import statistics
 
 from ...common import adk_tool
+
+logger = logging.getLogger(__name__)
 
 
 class TraceSelector:
@@ -15,7 +18,8 @@ class TraceSelector:
         Selects traces associated with recent error reports.
         (Placeholder - requires Error Reporting API client)
         """
-        print("Warning: Trace selection from error reports is not yet implemented.")
+        # TODO: Implement trace selection from error reports
+        logger.warning("Trace selection from error reports is not yet implemented.")
         return []
 
     def from_monitoring_alerts(self, project_id: str) -> list[str]:
@@ -23,7 +27,8 @@ class TraceSelector:
         Selects traces associated with active monitoring alerts.
         (Placeholder - requires Monitoring API client)
         """
-        print("Warning: Trace selection from monitoring alerts is not yet implemented.")
+        # TODO: Implement trace selection from monitoring alerts
+        logger.warning("Trace selection from monitoring alerts is not yet implemented.")
         return []
 
     def from_statistical_outliers(self, traces: list[dict]) -> list[str]:
