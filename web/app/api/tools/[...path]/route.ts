@@ -32,10 +32,11 @@ async function getAuthHeaders(): Promise<HeadersInit> {
 /**
  * Proxy Handler for /api/tools/...
  */
-async function handler(req: NextRequest, { params }: { params: { path: string[] } }) {
+async function handler(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
   // 1. Reconstruct the target path
   // The path param captures matches after /api/tools/, e.g. ['trace', '123']
-  const pathParts = params.path || [];
+  const { path } = await params;
+  const pathParts = path || [];
   const suffix = pathParts.join("/");
 
   // 2. Determine target URL
