@@ -221,23 +221,26 @@ cp .env.example .env
 # OPENAI_API_KEY=sk-your-key-here
 ```
 
-### Development
+### Development (Unified Stack)
+
+To run the full stack locally (Frontend + Python Backend), matching the production architecture:
 
 ```bash
-# Start development server
-npm run dev
-
-# Open http://localhost:3000
+# From project root
+uv run poe dev
 ```
 
-### Production Build
+This starts:
+- **Frontend** at `http://localhost:3000` (proxies tools to backend)
+- **Backend** at `http://localhost:8000` (serves traces/logs APIs)
+
+### Frontend-Only Development
+
+If you only want to work on React components (and point to a remote or existing backend):
 
 ```bash
-# Create optimized build
-npm run build
-
-# Start production server
-npm start
+cd web
+npm run dev
 ```
 
 ---
@@ -587,25 +590,40 @@ handler: async () => {
 
 ## Deployment
 
-### Docker (Cloud Run)
+### Unified Container (Cloud Run)
 
-The included Dockerfile uses a multi-stage build for minimal image size.
+The SRE Agent uses a **Unified Container** architecture. Both the `Next.js` Frontend and `Python` Backend run in the same Cloud Run service.
+
+- **Frontend (port 8080)**: Serves the Web UI.
+- **Backend (port 8000)**: Serves the Tools API (traces, logs, metrics).
+- **Communication**: Frontend talks to Backend via `localhost:8000`.
+
+### Dockerfile
+
+The `deploy/Dockerfile.unified` handles the multi-stage build:
+1.  **Node.js Builder**: Builds the Next.js app.
+2.  **Python Runtime**: Installs the SRE Agent and Python dependencies.
+3.  **Unified Image**: Copies the built frontend and backend code.
+4.  **Startup Script**: Launches both services (`scripts/start_unified.sh`).
+
+### Deploy Command
+
+From the **project root**:
 
 ```bash
-# Build image
-docker build -t sre-mission-control .
-
-# Run locally
-docker run -p 8080:8080 -e OPENAI_API_KEY=sk-xxx sre-mission-control
-
-# Deploy to Cloud Run
-gcloud run deploy sre-mission-control \
-  --image gcr.io/PROJECT_ID/sre-mission-control \
-  --platform managed \
-  --region us-central1 \
-  --allow-unauthenticated \
-  --set-env-vars OPENAI_API_KEY=sk-xxx
+uv run poe deploy-web
 ```
+
+This automates the build and deployment process to Cloud Run.
+
+### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `SRE_AGENT_URL` | Yes | URL for Vertex Agent Engine (Chat) |
+| `GCP_PROJECT_ID` | Yes | Default GCP project |
+| `GEMINI_API_KEY` | Yes | Mounted via Secret Manager |
+
 
 ### Environment Variables
 

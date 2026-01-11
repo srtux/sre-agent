@@ -4,17 +4,18 @@
  * Provides type-safe access to the Python backend tools.
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_SRE_AGENT_API_URL || "http://localhost:8000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_SRE_AGENT_API_URL || "";
 
 export const sreClient = {
   /**
    * Fetch a trace by ID
    */
   async getTrace(traceId: string, projectId?: string) {
-    const url = new URL(`${API_BASE_URL}/api/tools/trace/${traceId}`);
-    if (projectId) url.searchParams.append("project_id", projectId);
+    const params = new URLSearchParams();
+    if (projectId) params.append("project_id", projectId);
+    const queryString = params.toString() ? `?${params.toString()}` : "";
 
-    const response = await fetch(url.toString());
+    const response = await fetch(`${API_BASE_URL}/api/tools/trace/${traceId}${queryString}`);
     if (!response.ok) {
       throw new Error(`Failed to fetch trace: ${response.statusText}`);
     }

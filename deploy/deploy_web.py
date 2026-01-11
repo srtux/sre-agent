@@ -2,7 +2,6 @@ import argparse
 import os
 import subprocess
 import sys
-from pathlib import Path
 
 
 def main():
@@ -25,9 +24,6 @@ def main():
     )
 
     args, unknown = parser.parse_known_args()
-
-    root_dir = Path(__file__).parent.parent
-    web_dir = root_dir / "web"
 
     # Check if gcloud is installed
     if not subprocess.run(["which", "gcloud"], capture_output=True).returncode == 0:
@@ -63,7 +59,6 @@ def main():
     # Prepare environment variables for Cloud Run
     env_vars = [
         f"GCP_PROJECT_ID={project_id}",
-        f"GEMINI_API_KEY={gemini_key}",
     ]
 
     if agent_url:
@@ -73,33 +68,47 @@ def main():
     if agent_id:
         env_vars.append(f"SRE_AGENT_ID={agent_id}")
 
-    # Construct gcloud command
-    cmd = [
-        "gcloud",
-        "run",
-        "deploy",
-        args.service_name,
-        "--source",
-        str(web_dir),
-        "--region",
-        args.region,
-        "--allow-unauthenticated",
-        f"--set-env-vars={','.join(env_vars)}",
-        f"--project={project_id}",
-    ]
+    # Grant IAM Permissions automatically
+    print("\n🔐 Verifying/Granting IAM Permissions...")
+    subprocess.run(
+        [sys.executable, "deploy/grant_permissions.py", "--project-id", project_id],
+        check=False,  # Don't hard fail if user lacks admin rights, try deployment anyway
+    )
 
-    # Append any unknown arguments (e.g. --cpu, --memory)
-    cmd.extend(unknown)
+    # Temporary: Copy Dockerfile.unified to Dockerfile in root
+    import shutil
 
-    print(f"🚀 Deploying '{args.service_name}' to Cloud Run...")
-    print(f"   Project: {project_id}")
-    print(f"   Region:  {args.region}")
-    if agent_url:
-        print(f"   Agent URL: {agent_url}")
-    if agent_id:
-        print(f"   Agent ID Override: {agent_id}")
+    shutil.copy("deploy/Dockerfile.unified", "Dockerfile")
 
     try:
+        # Construct gcloud command
+        cmd = [
+            "gcloud",
+            "run",
+            "deploy",
+            args.service_name,
+            "--source",
+            ".",  # Deploy from root context
+            "--region",
+            args.region,
+            "--allow-unauthenticated",
+            f"--set-env-vars={','.join(env_vars)}",
+            # Mount the secret as both environment variables to be safe
+            "--set-secrets=GOOGLE_API_KEY=gemini-api-key:latest,GEMINI_API_KEY=gemini-api-key:latest,GOOGLE_GENERATIVE_AI_API_KEY=gemini-api-key:latest",
+            f"--project={project_id}",
+        ]
+
+        # Append any unknown arguments (e.g. --cpu, --memory)
+        cmd.extend(unknown)
+
+        print(f"🚀 Deploying '{args.service_name}' to Cloud Run...")
+        print(f"   Project: {project_id}")
+        print(f"   Region:  {args.region}")
+        if agent_url:
+            print(f"   Agent URL: {agent_url}")
+        if agent_id:
+            print(f"   Agent ID Override: {agent_id}")
+
         subprocess.run(cmd, check=True)
         print("\n✅ Successfully deployed to Cloud Run!")
         print(
@@ -108,6 +117,10 @@ def main():
     except subprocess.CalledProcessError as e:
         print(f"\n❌ Deployment failed with exit code {e.returncode}")
         sys.exit(e.returncode)
+    finally:
+        # Cleanup temporary Dockerfile
+        if os.path.exists("Dockerfile"):
+            os.remove("Dockerfile")
 
 
 if __name__ == "__main__":

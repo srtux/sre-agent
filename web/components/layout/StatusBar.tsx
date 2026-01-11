@@ -187,12 +187,25 @@ export function StatusBar({ agentStatus, className }: StatusBarProps) {
 
           {/* Current time */}
           <div className="font-mono">
-            {format(new Date(), "HH:mm:ss")}
+            <ClockDisplay />
           </div>
         </div>
       </div>
     </TooltipProvider>
   );
+}
+
+// Separate component for client-side only clock to avoid hydration errors
+function ClockDisplay() {
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
+  return <>{format(new Date(), "HH:mm:ss")}</>;
 }
 
 export default StatusBar;

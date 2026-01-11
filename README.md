@@ -366,31 +366,45 @@ This project uses **Poe the Poet** for unified task management. All project scri
 
 The SRE Agent stack consists of a **Python Backend** (running on Vertex AI Agent Engine) and a **Next.js Frontend** (running on Cloud Run).
 
-#### 1. Full Stack Deployment (Recommended)
-The easiest way to deploy the entire system and ensure they are connected:
+#### 0. Prerequisite: API Keys
+
+For security, you must store your Gemini API Key in Google Secret Manager before deploying:
+
+```bash
+# 1. Create the secret
+echo -n "your-api-key" | gcloud secrets create gemini-api-key --data-file=-
+
+# 2. Grant access to your default compute service account
+# (Replace [PROJECT_NUMBER] with your project number, e.g. 123456789)
+gcloud secrets add-iam-policy-binding gemini-api-key \
+    --member="serviceAccount:[PROJECT_NUMBER]-compute@developer.gserviceaccount.com" \
+    --role="roles/secretmanager.secretAccessor" \
+    --project="your-project-id"
+```
+
+#### 1. Unified Full Stack Deployment (Recommended)
+The easiest way to deploy the entire system:
 ```bash
 uv run poe deploy-all
 ```
 This script:
 1. Deploys the **Backend** to Vertex AI Agent Engine.
-2. Deploys an **ADK Gateway Proxy** to Cloud Run. This is required because browsers cannot talk to the `agentengine://` protocol directly; the Gateway acts as an authenticated bridge.
-3. Deploys the **Frontend** to Cloud Run, automatically pointing it to the Gateway URL.
+2. Deploys the **Unified Frontend** (Next.js + Tools API) to Cloud Run, automatically configuring it to talk to the Backend.
 
 #### 2. Individual Component Deployment
 If you only need to update one part of the stack:
 
 *   **Backend Only**: `uv run poe deploy`
-*   **Gateway Only**: `uv run poe deploy-gateway`
-*   **Frontend Only**: `uv run poe deploy-web`
+*   **Web/Unified Only**: `uv run poe deploy-web` (automatically mounts `gemini-api-key`)
 
 #### 3. Configuration & Versioning
 You can override deployment settings without changing your `.env` file:
 ```bash
 # Point a new frontend to an existing specific backend version
-uv run poe deploy-web --agent-url agentengine://projects/my-project/locations/us-central1/reasoningEngines/12345
+uv run poe deploy-web --agent-url https://us-central1-aiplatform.googleapis.com/...
 ```
 
-Before deploying, ensure your `.env` and `web/.env` files are configured with your GCP project settings and API keys.
+Before deploying, ensure your `.env` and `web/.env` files are configured with your GCP project settings.
 
 ## Usage Examples
 

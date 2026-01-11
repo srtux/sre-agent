@@ -75,43 +75,34 @@ def main():
 
         print(f"\n✅ Backend deployed! Resource URI: agentengine://{resource_name}")
 
-        # --- STEP 2: Deploy Gateway Proxy to Cloud Run ---
-        # The frontend cannot talk to agentengine:// directly, so we need a proxy.
-        print("\n🏗️  Step 2: Deploying Gateway Proxy to Cloud Run...")
-        gateway_cmd = [
-            sys.executable,
-            "deploy/deploy_gateway.py",
-            "--agent-id",
-            resource_name,
-        ]
-        # Gateway deployment usually needs re-auth check too, so we'll enable interactive
-        # but we also need the URL. We'll capture it from the tail of the output.
-        gateway_output = run_command(gateway_cmd, cwd=str(root_dir))
+        # --- STEP 2: Deploy Frontend to Cloud Run ---
+        print("\n🏗️  Step 2: Deploying Frontend to Cloud Run...")
 
-        gateway_url = None
-        for line in gateway_output.splitlines():
-            if "EXPORT_GATEWAY_URL=" in line:
-                gateway_url = line.split("=")[1].strip()
-                break
+        # Construct the Agent Engine Query URL
+        # Resource Name: projects/{project}/locations/{location}/reasoningEngines/{id}
+        parts = resource_name.split("/")
+        location = "us-central1"  # Default
+        if "locations" in parts:
+            idx = parts.index("locations")
+            if idx + 1 < len(parts):
+                location = parts[idx + 1]
 
-        if not gateway_url:
-            print("❌ Failed to capture Gateway URL from output.")
-            sys.exit(1)
+        agent_url = (
+            f"https://{location}-aiplatform.googleapis.com/v1/{resource_name}:query"
+        )
+        print(f"Connecting Frontend to Agent URL: {agent_url}")
 
-        # --- STEP 3: Deploy Frontend to Cloud Run ---
-        print("\n🏗️  Step 3: Deploying Frontend to Cloud Run...")
         frontend_cmd = [
             sys.executable,
             "deploy/deploy_web.py",
             "--agent-url",
-            gateway_url,
+            agent_url,
         ]
         # Frontend deployment is primarily the heavy lifting, definitely allow interactivity.
         run_command(frontend_cmd, cwd=str(root_dir), interactive=True)
 
         print("\n🚀 FULL STACK DEPLOYMENT COMPLETE!")
         print(f"Backend (Vertex):  {resource_name}")
-        print(f"Gateway (Proxy):   {gateway_url}")
         print("Frontend (Next.js): Dashboard is ready!")
 
     except Exception as e:
