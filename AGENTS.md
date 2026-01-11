@@ -8,8 +8,8 @@ We use **`uv`** for dependency management and **`poethepoet`** for task automati
 |------|---------|-------------|
 | **Sync** | `uv run poe sync` | Install dependencies and update `.venv` |
 | **Run** | `uv run poe run` | Launch interactive terminal agent |
-| **Lint** | `uv run poe lint` | Run **Ruff**, **MyPy**, and **Codespell** (CI Guard) |
-| **Test** | `uv run poe test` | Run **Pytest** suite |
+| **Lint** | `uv run poe lint` | Run **Ruff**, **MyPy**, **Codespell**, and **Deptry** |
+| **Test** | `uv run poe test` | Run **Pytest** with coverage guards |
 | **Deploy** | `uv run poe deploy` | Validate & Deploy to Agent Engine |
 | **Pre-commit** | `uv run poe pre-commit` | Run quality guards (formatting, trailing whitespace) |
 
@@ -27,13 +27,18 @@ We use **`uv`** for dependency management and **`poethepoet`** for task automati
   - **Explicit Optional**: Use `name: str | None = None` instead of `name: str = None`.
   - **No Implicit Any**: Annotate empty containers: `items: list[dict[str, Any]] = []`.
   - **Float Initialization**: Use `val: float = 0.0` (not `0`) to satisfy strict typing.
-- **Pydantic Schemas**: Use `model_config = ConfigDict(frozen=True)` for all structured outputs to ensure immutability.
+- **Pydantic Schemas**: Use `model_config = ConfigDict(frozen=True, extra="forbid")` for all structured outputs.
+  - **Why**: Ensures LLM hallucinations (extra fields) are caught immediately.
+- **Dependency Freshness**: **Deptry** ensures no unused or missing dependencies are in `pyproject.toml`.
+- **Error Envelopes**: All tools should follow the `BaseToolResponse` structure (status, result, error, metadata) to ensure the Orchestrator can handle failures gracefully.
+- **Structured Logging**: Use `configure_logging()` from `sre_agent.tools.common.telemetry`. Set `LOG_FORMAT=JSON` in production for Cloud Logging compatibility.
 - **Secret Scanning**: **detect-secrets** scans for leaked keys.
   - If you encounter a false positive, update the baseline: `uv run detect-secrets scan --baseline .secrets.baseline`.
 - **Pre-commit**: You **MUST** run `uv run poe pre-commit` before pushing. It fixes formatting and spacing issues automatically.
 
-### 3. Testing Strategy
+### 3. Testing & Coverage
 - **Framework**: `pytest` + `pytest-asyncio` + `pytest-cov`.
+- **Coverage Guard**: A minimum of **80%** test coverage is enforced. `uv run poe test` will fail if coverage drops below this.
 - **Structure**: Tests mirror source directory (e.g., `tests/sre_agent/tools/...` corresponds to `sre_agent/tools/...`).
 - **Mocks**: Heavy use of `unittest.mock` to avoid hitting real GCP APIs during unit tests.
 
@@ -44,6 +49,16 @@ We use **`uv`** for dependency management and **`poethepoet`** for task automati
   2. `pyproject.toml` dependencies are extracted accurately.
   3. `uv` sync is fresh.
 - **Agent Engine**: Used for hosting. `deploy.py` handles the creation and update of the Reasoning Engine resource.
+### 5. Git Standards
+- **Conventional Commits**: Use semantic prefixes to help agents and automation understand changes:
+  - `feat`: New capability
+  - `fix`: Bug fix
+  - `docs`: Documentation only
+  - `style`: Formatting, missing semi colons, etc; no code change
+  - `refactor`: Refactoring production code
+  - `perf`: Code change that improves performance
+  - `test`: Adding missing tests, refactoring tests; no production code change
+  - `chore`: Updating build tasks, package manager configs, etc; no production code change
 
 ## 📝 Documentation Rules
 

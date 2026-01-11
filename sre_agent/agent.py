@@ -126,6 +126,7 @@ from .tools import (
     validate_trace_quality,
 )
 from .tools.common import adk_tool
+from .tools.common.telemetry import configure_logging
 from .tools.mcp.gcp import (
     create_bigquery_mcp_toolset,
     create_logging_mcp_toolset,
@@ -137,6 +138,9 @@ from .tools.mcp.gcp import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Initialize standardized logging
+configure_logging()
 
 # ============================================================================
 # MCP Toolset Management

@@ -21,6 +21,7 @@ import google.auth
 from google.adk.tools import ToolContext  # type: ignore[attr-defined]
 from google.adk.tools.api_registry import ApiRegistry
 
+from ...schema import ToolStatus
 from ..common import adk_tool
 from .mock_mcp import MockMcpToolset
 
@@ -228,7 +229,8 @@ async def call_mcp_tool_with_retry(
 
     if not project_id:
         return {
-            "error": "No project ID available. Set GOOGLE_CLOUD_PROJECT environment variable."
+            "status": ToolStatus.ERROR,
+            "error": "No project ID available. Set GOOGLE_CLOUD_PROJECT environment variable.",
         }
 
     for attempt in range(max_retries):
@@ -236,16 +238,26 @@ async def call_mcp_tool_with_retry(
             mcp_toolset = create_toolset_fn(project_id)
 
             if not mcp_toolset:
-                return {"error": f"MCP toolset unavailable for {tool_name}"}
+                return {
+                    "status": ToolStatus.ERROR,
+                    "error": f"MCP toolset unavailable for {tool_name}",
+                }
 
             tools = await mcp_toolset.get_tools()
 
             for tool in tools:
                 if tool.name == tool_name:
                     result = await tool.run_async(args=args, tool_context=tool_context)
-                    return {"source": "mcp", "result": result}
+                    return {
+                        "status": ToolStatus.SUCCESS,
+                        "result": result,
+                        "metadata": {"source": "mcp"},
+                    }
 
-            return {"error": f"{tool_name} tool not found in MCP toolset"}
+            return {
+                "status": ToolStatus.ERROR,
+                "error": f"{tool_name} tool not found in MCP toolset",
+            }
 
         except Exception as e:
             error_str = str(e)
@@ -265,9 +277,15 @@ async def call_mcp_tool_with_retry(
                     logger.error(
                         f"{tool_name} failed after {max_retries} attempts: {e}"
                     )
-                raise
+                return {
+                    "status": ToolStatus.ERROR,
+                    "error": f"Execution failed: {e!s}",
+                }
 
-    return {"error": f"Failed to execute {tool_name} after {max_retries} attempts"}
+    return {
+        "status": ToolStatus.ERROR,
+        "error": f"Failed to execute {tool_name} after {max_retries} attempts",
+    }
 
 
 # =============================================================================

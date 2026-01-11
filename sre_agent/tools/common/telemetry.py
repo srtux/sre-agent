@@ -47,3 +47,51 @@ def log_tool_call(logger: logging.Logger, func_name: str, **kwargs: Any) -> None
             safe_args[k] = val_str
 
     logger.debug(f"Tool Call: {func_name} | Args: {safe_args}")
+
+
+def configure_logging(level: int = logging.INFO) -> None:
+    """Configures standardized logging for the SRE Agent.
+
+    If LOG_FORMAT=JSON environment variable is set, it will attempt to
+    output logs in a structured JSON format suitable for GCP Cloud Logging.
+
+    Args:
+        level: The logging level to use (default: INFO)
+    """
+    import os
+    import sys
+
+    log_format = os.environ.get("LOG_FORMAT", "TEXT").upper()
+
+    if log_format == "JSON":
+        # Simple JSON formatter if no external library is used
+        class JsonFormatter(logging.Formatter):
+            """Basic JSON log formatter."""
+
+            def format(self, record: logging.LogRecord) -> str:
+                import json
+
+                log_obj = {
+                    "timestamp": self.formatTime(record, self.datefmt),
+                    "severity": record.levelname,
+                    "logger": record.name,
+                    "message": record.getMessage(),
+                    "func": record.funcName,
+                }
+                if record.exc_info:
+                    log_obj["exception"] = self.formatException(record.exc_info)
+                return json.dumps(log_obj)
+
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setFormatter(JsonFormatter())
+        logging.getLogger().handlers = [handler]
+    else:
+        # Modern text format
+        logging.basicConfig(
+            level=level,
+            format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+            force=True,
+        )
+
+    logging.getLogger().setLevel(level)

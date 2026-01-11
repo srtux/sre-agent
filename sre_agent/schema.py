@@ -14,6 +14,29 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class ToolStatus(str, Enum):
+    """Status of a tool execution."""
+
+    SUCCESS = "success"
+    ERROR = "error"
+    PARTIAL = "partial"
+
+
+class BaseToolResponse(BaseModel):
+    """Standardized envelope for all tool responses."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    status: ToolStatus = Field(description="Execution status")
+    result: Any | None = Field(default=None, description="Tool result data on success")
+    error: str | None = Field(
+        default=None, description="Detailed error message on failure"
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict, description="Additional execution metadata"
+    )
+
+
 class Severity(str, Enum):
     """Severity level for findings."""
 
@@ -40,7 +63,7 @@ class Confidence(str, Enum):
 class SpanInfo(BaseModel):
     """Information about a single span in a trace."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     span_id: str = Field(description="Unique identifier for the span")
     name: str = Field(description="Name/operation of the span")
@@ -59,7 +82,7 @@ class SpanInfo(BaseModel):
 class LatencyDiff(BaseModel):
     """Latency difference for a specific span type."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     span_name: str = Field(description="Name of the span being compared")
     baseline_ms: float = Field(description="Duration in baseline trace (ms)")
@@ -72,7 +95,7 @@ class LatencyDiff(BaseModel):
 class ErrorDiff(BaseModel):
     """Error difference between traces."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     span_name: str = Field(description="Span where the error occurred")
     error_type: str = Field(description="Type or category of error")
@@ -84,7 +107,7 @@ class ErrorDiff(BaseModel):
 class StructureDiff(BaseModel):
     """Structural difference in the call graph."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     change_type: Literal["added", "removed", "modified"] = Field(
         description="Type of structural change"
@@ -96,7 +119,7 @@ class StructureDiff(BaseModel):
 class TraceSummary(BaseModel):
     """Summary information for a single trace."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     trace_id: str = Field(description="Unique trace identifier")
     span_count: int = Field(description="Total number of spans")
@@ -108,7 +131,7 @@ class TraceSummary(BaseModel):
 class TraceComparisonReport(BaseModel):
     """Complete trace comparison analysis report."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     baseline_summary: TraceSummary = Field(description="Summary of baseline trace")
     target_summary: TraceSummary = Field(description="Summary of target trace")
@@ -138,7 +161,7 @@ class TraceComparisonReport(BaseModel):
 class LatencyAnalysisReport(BaseModel):
     """Output schema for the latency_analyzer sub-agent."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     baseline_trace_id: str = Field(description="ID of the baseline trace")
     target_trace_id: str = Field(description="ID of the target trace being analyzed")
@@ -155,7 +178,7 @@ class LatencyAnalysisReport(BaseModel):
 class ErrorInfo(BaseModel):
     """Detailed information about an error occurrence."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     span_name: str = Field(description="Name of the span with error")
     error_type: str = Field(description="Category or type of error")
@@ -173,7 +196,7 @@ class ErrorInfo(BaseModel):
 class ErrorAnalysisReport(BaseModel):
     """Output schema for the error_analyzer sub-agent."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     baseline_error_count: int = Field(description="Total errors in baseline trace")
     target_error_count: int = Field(description="Total errors in target trace")
@@ -196,7 +219,7 @@ class ErrorAnalysisReport(BaseModel):
 class StructuralChange(BaseModel):
     """A single structural change in the call graph."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     change_type: Literal["added", "removed", "depth_change", "fanout_change"] = Field(
         description="Type of structural change"
@@ -211,7 +234,7 @@ class StructuralChange(BaseModel):
 class StructureAnalysisReport(BaseModel):
     """Output schema for the structure_analyzer sub-agent."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     baseline_span_count: int = Field(description="Span count in baseline")
     baseline_depth: int = Field(description="Call depth in baseline")
@@ -232,7 +255,7 @@ class StructureAnalysisReport(BaseModel):
 class LatencyDistribution(BaseModel):
     """Statistical distribution of latency values."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     sample_size: int = Field(description="Number of samples")
     mean_ms: float = Field(description="Mean latency (ms)")
@@ -249,7 +272,7 @@ class LatencyDistribution(BaseModel):
 class AnomalyFinding(BaseModel):
     """A span identified as anomalous via statistical analysis."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     span_name: str = Field(description="Name of the anomalous span")
     observed_ms: float = Field(description="Observed duration (ms)")
@@ -261,7 +284,7 @@ class AnomalyFinding(BaseModel):
 class CriticalPathSegment(BaseModel):
     """A segment of the critical path through a trace."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     span_name: str = Field(description="Name of the span")
     duration_ms: float = Field(description="Duration (ms)")
@@ -276,7 +299,7 @@ class CriticalPathSegment(BaseModel):
 class StatisticalAnalysisReport(BaseModel):
     """Output schema for the statistics_analyzer sub-agent."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     latency_distribution: LatencyDistribution = Field(
         description="Latency distribution metrics"
@@ -296,7 +319,7 @@ class StatisticalAnalysisReport(BaseModel):
 class RootCauseCandidate(BaseModel):
     """A candidate root cause identified by causal analysis."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     rank: int = Field(description="Rank of probability (1 = highest)")
     span_name: str = Field(description="Span suspected as root cause")
@@ -308,7 +331,7 @@ class RootCauseCandidate(BaseModel):
 class CausalChainLink(BaseModel):
     """A link in the causal chain showing issue propagation."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     span_name: str = Field(description="Span name")
     effect_type: Literal["root_cause", "direct_effect", "cascaded_effect"] = Field(
@@ -320,7 +343,7 @@ class CausalChainLink(BaseModel):
 class CausalAnalysisReport(BaseModel):
     """Output schema for the causality_analyzer sub-agent."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     causal_chain: list[CausalChainLink] = Field(
         default_factory=list, description="Chain of causality"
@@ -340,7 +363,7 @@ class CausalAnalysisReport(BaseModel):
 class ServiceImpact(BaseModel):
     """Impact assessment for a single service."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     service_name: str = Field(description="Name of the service")
     impact_type: Literal["latency", "error_rate", "throughput", "availability"] = Field(
@@ -358,7 +381,7 @@ class ServiceImpact(BaseModel):
 class ServiceImpactReport(BaseModel):
     """Output schema for the service_impact sub-agent."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     total_services_analyzed: int = Field(description="Total count of services")
     impacted_services_count: int = Field(description="Count of impacted services")
@@ -381,7 +404,7 @@ class ServiceImpactReport(BaseModel):
 class LogEntry(BaseModel):
     """Represents a single log entry from Cloud Logging."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     timestamp: str = Field(description="ISO 8601 timestamp")
     severity: str = Field(description="Log severity (INFO, ERROR, etc.)")
@@ -392,7 +415,7 @@ class LogEntry(BaseModel):
 class TimeSeriesPoint(BaseModel):
     """Represents a single point in a time series."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     timestamp: str = Field(description="ISO 8601 timestamp")
     value: float = Field(description="Metric value")
@@ -401,7 +424,7 @@ class TimeSeriesPoint(BaseModel):
 class TimeSeries(BaseModel):
     """Represents a time series from Cloud Monitoring."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     metric: dict[str, Any] = Field(description="Metric labels and type")
     resource: dict[str, Any] = Field(description="Resource labels and type")
@@ -411,7 +434,7 @@ class TimeSeries(BaseModel):
 class ErrorEvent(BaseModel):
     """Represents an error event from Cloud Error Reporting."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     event_time: str = Field(description="ISO 8601 timestamp of event")
     message: str = Field(description="Error message or stack trace")
