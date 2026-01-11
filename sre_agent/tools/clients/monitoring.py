@@ -10,8 +10,11 @@ from google.auth.transport.requests import AuthorizedSession
 from google.cloud import monitoring_v3
 
 from ..common import adk_tool
+from ..common.telemetry import get_tracer
+from .factory import get_monitoring_client
 
 logger = logging.getLogger(__name__)
+tracer = get_tracer(__name__)
 
 
 @adk_tool
@@ -28,53 +31,62 @@ def list_time_series(project_id: str, filter_str: str, minutes_ago: int = 60) ->
 
     Example filter_str: 'metric.type="compute.googleapis.com/instance/cpu/utilization"'
     """
-    try:
-        client = monitoring_v3.MetricServiceClient()
-        project_name = f"projects/{project_id}"
-        now = time.time()
-        seconds = int(now)
-        nanos = int((now - seconds) * 10**9)
-        interval = monitoring_v3.TimeInterval(
-            {
-                "end_time": {"seconds": seconds, "nanos": nanos},
-                "start_time": {
-                    "seconds": seconds - (minutes_ago * 60),
-                    "nanos": nanos,
-                },
-            }
-        )
-        results = client.list_time_series(
-            name=project_name,
-            filter=filter_str,
-            interval=interval,
-            view=monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,  # type: ignore
-        )
-        time_series_data = []
-        for result in results:
-            time_series_data.append(
+    with tracer.start_as_current_span("list_time_series") as span:
+        span.set_attribute("gcp.project_id", project_id)
+        span.set_attribute("gcp.monitoring.filter", filter_str)
+        span.set_attribute("rpc.system", "google_cloud")
+        span.set_attribute("rpc.service", "cloud_monitoring")
+        span.set_attribute("rpc.method", "list_time_series")
+
+        try:
+            client = get_monitoring_client()
+            project_name = f"projects/{project_id}"
+            now = time.time()
+            seconds = int(now)
+            nanos = int((now - seconds) * 10**9)
+            interval = monitoring_v3.TimeInterval(
                 {
-                    "metric": {
-                        "type": result.metric.type,
-                        "labels": dict(result.metric.labels),
+                    "end_time": {"seconds": seconds, "nanos": nanos},
+                    "start_time": {
+                        "seconds": seconds - (minutes_ago * 60),
+                        "nanos": nanos,
                     },
-                    "resource": {
-                        "type": result.resource.type,
-                        "labels": dict(result.resource.labels),
-                    },
-                    "points": [
-                        {
-                            "timestamp": point.interval.end_time.isoformat(),
-                            "value": point.value.double_value,
-                        }
-                        for point in result.points
-                    ],
                 }
             )
-        return json.dumps(time_series_data)
-    except Exception as e:
-        error_msg = f"Failed to list time series: {e!s}"
-        logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+            results = client.list_time_series(
+                name=project_name,
+                filter=filter_str,
+                interval=interval,
+                view=monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,  # type: ignore
+            )
+            time_series_data = []
+            for result in results:
+                time_series_data.append(
+                    {
+                        "metric": {
+                            "type": result.metric.type,
+                            "labels": dict(result.metric.labels),
+                        },
+                        "resource": {
+                            "type": result.resource.type,
+                            "labels": dict(result.resource.labels),
+                        },
+                        "points": [
+                            {
+                                "timestamp": point.interval.end_time.isoformat(),
+                                "value": point.value.double_value,
+                            }
+                            for point in result.points
+                        ],
+                    }
+                )
+            span.set_attribute("gcp.monitoring.series_count", len(time_series_data))
+            return json.dumps(time_series_data)
+        except Exception as e:
+            span.record_exception(e)
+            error_msg = f"Failed to list time series: {e!s}"
+            logger.error(error_msg, exc_info=True)
+            return json.dumps({"error": error_msg})
 
 
 @adk_tool

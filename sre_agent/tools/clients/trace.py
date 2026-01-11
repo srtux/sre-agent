@@ -11,8 +11,11 @@ from google.cloud import trace_v1
 
 from ..common import adk_tool
 from ..common.cache import get_data_cache
+from ..common.telemetry import get_tracer
+from .factory import get_trace_client
 
 logger = logging.getLogger(__name__)
+tracer = get_tracer(__name__)
 
 
 def _get_project_id() -> str:
@@ -104,57 +107,67 @@ def fetch_trace(project_id: str, trace_id: str) -> str:
         logger.debug(f"Cache hit for trace {trace_id}, skipping API call")
         return cast(str, cached)
 
-    try:
-        client = trace_v1.TraceServiceClient()
+    with tracer.start_as_current_span("fetch_trace") as span:
+        span.set_attribute("gcp.project_id", project_id)
+        span.set_attribute("gcp.trace_id", trace_id)
+        span.set_attribute("rpc.system", "google_cloud")
+        span.set_attribute("rpc.service", "cloud_trace")
+        span.set_attribute("rpc.method", "get_trace")
 
-        trace_obj = client.get_trace(project_id=project_id, trace_id=trace_id)
+        try:
+            client = get_trace_client()
 
-        spans = []
-        trace_start = None
-        trace_end = None
+            trace_obj = client.get_trace(project_id=project_id, trace_id=trace_id)
 
-        for span_proto in trace_obj.spans:
-            s_start = span_proto.start_time.timestamp()
-            s_end = span_proto.end_time.timestamp()
+            spans = []
+            trace_start = None
+            trace_end = None
 
-            if trace_start is None or s_start < trace_start:
-                trace_start = s_start
-            if trace_end is None or s_end > trace_end:
-                trace_end = s_end
+            for span_proto in trace_obj.spans:
+                s_start = span_proto.start_time.timestamp()
+                s_end = span_proto.end_time.timestamp()
 
-            spans.append(
-                {
-                    "span_id": span_proto.span_id,
-                    "name": span_proto.name,
-                    "start_time": span_proto.start_time.isoformat(),
-                    "end_time": span_proto.end_time.isoformat(),
-                    "parent_span_id": span_proto.parent_span_id,
-                    "labels": dict(span_proto.labels),
-                }
+                if trace_start is None or s_start < trace_start:
+                    trace_start = s_start
+                if trace_end is None or s_end > trace_end:
+                    trace_end = s_end
+
+                spans.append(
+                    {
+                        "span_id": span_proto.span_id,
+                        "name": span_proto.name,
+                        "start_time": span_proto.start_time.isoformat(),
+                        "end_time": span_proto.end_time.isoformat(),
+                        "parent_span_id": span_proto.parent_span_id,
+                        "labels": dict(span_proto.labels),
+                    }
+                )
+
+            dur_ms = (
+                (trace_end - trace_start) * 1000 if trace_start and trace_end else 0
             )
+            span.set_attribute("gcp.trace.duration_ms", dur_ms)
+            span.set_attribute("gcp.trace.span_count", len(spans))
 
-        duration_ms = (
-            (trace_end - trace_start) * 1000 if trace_start and trace_end else 0
-        )
+            result = {
+                "trace_id": trace_obj.trace_id,
+                "project_id": trace_obj.project_id,
+                "spans": spans,
+                "span_count": len(spans),
+                "duration_ms": dur_ms,
+            }
 
-        result = {
-            "trace_id": trace_obj.trace_id,
-            "project_id": trace_obj.project_id,
-            "spans": spans,
-            "span_count": len(spans),
-            "duration_ms": duration_ms,
-        }
+            # Cache the result before returning
+            result_json = json.dumps(result)
+            cache.put(f"trace:{trace_id}", result_json)
 
-        # Cache the result before returning
-        result_json = json.dumps(result)
-        cache.put(f"trace:{trace_id}", result_json)
+            return result_json
 
-        return result_json
-
-    except Exception as e:
-        error_msg = f"Failed to fetch trace: {e!s}"
-        logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+        except Exception as e:
+            span.record_exception(e)
+            error_msg = f"Failed to fetch trace: {e!s}"
+            logger.error(error_msg, exc_info=True)
+            return json.dumps({"error": error_msg})
 
 
 @adk_tool
@@ -201,69 +214,78 @@ def list_traces(
 
         final_filter = " ".join(filters)
 
-    try:
-        client = trace_v1.TraceServiceClient()
+    with tracer.start_as_current_span("list_traces") as span:
+        span.set_attribute("gcp.project_id", project_id)
+        span.set_attribute("gcp.trace.filter", final_filter)
+        span.set_attribute("rpc.system", "google_cloud")
+        span.set_attribute("rpc.service", "cloud_trace")
+        span.set_attribute("rpc.method", "list_traces")
 
-        now = datetime.now(timezone.utc)
-        if not end_time:
-            end_dt = now
-        else:
-            end_dt = datetime.fromisoformat(end_time.replace("Z", "+00:00"))
+        try:
+            client = get_trace_client()
 
-        if not start_time:
-            start_dt = now - timedelta(hours=1)
-        else:
-            start_dt = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
+            now = datetime.now(timezone.utc)
+            if not end_time:
+                end_dt = now
+            else:
+                end_dt = datetime.fromisoformat(end_time.replace("Z", "+00:00"))
 
-        request = trace_v1.ListTracesRequest(
-            project_id=project_id,
-            start_time=start_dt,
-            end_time=end_dt,
-            page_size=limit,
-            filter=final_filter,
-            view=trace_v1.ListTracesRequest.ViewType.ROOTSPAN,
-        )
+            if not start_time:
+                start_dt = now - timedelta(hours=1)
+            else:
+                start_dt = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
 
-        traces = []
-        page_result = client.list_traces(request=request)
-
-        for trace in page_result:
-            duration_ms = 0
-            start_ts = None
-
-            if trace.spans:
-                starts = []
-                ends = []
-                for s in trace.spans:
-                    starts.append(s.start_time.timestamp())
-                    ends.append(s.end_time.timestamp())
-
-                if starts and ends:
-                    start_ts = min(starts)
-                    duration_ms = (max(ends) - start_ts) * 1000
-
-            traces.append(
-                {
-                    "trace_id": trace.trace_id,
-                    "timestamp": datetime.fromtimestamp(
-                        start_ts, tz=timezone.utc
-                    ).isoformat()
-                    if start_ts
-                    else None,
-                    "duration_ms": duration_ms,
-                    "project_id": trace.project_id,
-                }
+            request = trace_v1.ListTracesRequest(
+                project_id=project_id,
+                start_time=start_dt,
+                end_time=end_dt,
+                page_size=limit,
+                filter=final_filter,
+                view=trace_v1.ListTracesRequest.ViewType.ROOTSPAN,
             )
 
-            if len(traces) >= limit:
-                break
+            traces = []
+            page_result = client.list_traces(request=request)
 
-        return json.dumps(traces)
+            for trace in page_result:
+                duration_ms = 0
+                start_ts = None
 
-    except Exception as e:
-        error_msg = f"Failed to list traces: {e!s}"
-        logger.error(error_msg)
-        return json.dumps([{"error": error_msg}])
+                if trace.spans:
+                    starts = []
+                    ends = []
+                    for s in trace.spans:
+                        starts.append(s.start_time.timestamp())
+                        ends.append(s.end_time.timestamp())
+
+                    if starts and ends:
+                        start_ts = min(starts)
+                        duration_ms = (max(ends) - start_ts) * 1000
+
+                traces.append(
+                    {
+                        "trace_id": trace.trace_id,
+                        "timestamp": datetime.fromtimestamp(
+                            start_ts, tz=timezone.utc
+                        ).isoformat()
+                        if start_ts
+                        else None,
+                        "duration_ms": duration_ms,
+                        "project_id": trace.project_id,
+                    }
+                )
+
+                if len(traces) >= limit:
+                    break
+
+            span.set_attribute("gcp.trace.count", len(traces))
+            return json.dumps(traces)
+
+        except Exception as e:
+            span.record_exception(e)
+            error_msg = f"Failed to list traces: {e!s}"
+            logger.error(error_msg, exc_info=True)
+            return json.dumps([{"error": error_msg}])
 
 
 def _calculate_anomaly_score(

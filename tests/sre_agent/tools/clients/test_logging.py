@@ -11,9 +11,9 @@ def create_mock_page(entries, next_token=None):
     return page
 
 
-@patch("sre_agent.tools.clients.logging.LoggingServiceV2Client")
-def test_list_log_entries_success_text_payload(mock_client_cls):
-    mock_client = mock_client_cls.return_value
+@patch("sre_agent.tools.clients.logging.get_logging_client")
+def test_list_log_entries_success_text_payload(mock_get_client):
+    mock_client = mock_get_client.return_value
 
     mock_entry = Mock(
         spec=[
@@ -55,9 +55,9 @@ def test_list_log_entries_success_text_payload(mock_client_cls):
     assert kwargs["request"]["page_size"] == 10
 
 
-@patch("sre_agent.tools.clients.logging.LoggingServiceV2Client")
-def test_list_log_entries_pagination(mock_client_cls):
-    mock_client = mock_client_cls.return_value
+@patch("sre_agent.tools.clients.logging.get_logging_client")
+def test_list_log_entries_pagination(mock_get_client):
+    mock_client = mock_get_client.return_value
 
     mock_pager = MagicMock()
     mock_page = create_mock_page([], next_token="token-abc")
@@ -77,9 +77,9 @@ def test_list_log_entries_pagination(mock_client_cls):
     assert last_call.kwargs["request"]["page_token"] == "token-abc"
 
 
-@patch("sre_agent.tools.clients.logging.LoggingServiceV2Client")
-def test_list_log_entries_json_payload(mock_client_cls):
-    mock_client = mock_client_cls.return_value
+@patch("sre_agent.tools.clients.logging.get_logging_client")
+def test_list_log_entries_json_payload(mock_get_client):
+    mock_client = mock_get_client.return_value
 
     mock_entry = Mock(
         spec=[

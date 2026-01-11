@@ -4,11 +4,11 @@ from unittest import mock
 from sre_agent.tools.clients.monitoring import list_time_series, query_promql
 
 
-@mock.patch("sre_agent.tools.clients.monitoring.monitoring_v3.MetricServiceClient")
-def test_list_time_series(mock_metric_client_cls):
+@mock.patch("sre_agent.tools.clients.monitoring.get_monitoring_client")
+def test_list_time_series(mock_get_client):
     """Test list_time_series tool."""
     mock_client = mock.Mock()
-    mock_metric_client_cls.return_value = mock_client
+    mock_get_client.return_value = mock_client
 
     # Mock TimeSeries
     mock_ts = mock.Mock()
@@ -53,10 +53,10 @@ def test_query_promql(mock_auth_default, mock_session_cls):
     assert call_args.kwargs["params"]["query"] == "up"
 
 
-@mock.patch("sre_agent.tools.clients.monitoring.monitoring_v3.MetricServiceClient")
-def test_list_time_series_error(mock_metric_client_cls):
+@mock.patch("sre_agent.tools.clients.monitoring.get_monitoring_client")
+def test_list_time_series_error(mock_get_client):
     """Test list_time_series tool error handling."""
-    mock_client = mock_metric_client_cls.return_value
+    mock_client = mock_get_client.return_value
     mock_client.list_time_series.side_effect = Exception("API error")
 
     result_json = list_time_series("p1", "filter")
