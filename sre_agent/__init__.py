@@ -4,6 +4,13 @@ This library provides the SRE Agent and a suite of observability tools
 for Google Cloud (Traces, Logs, Metrics).
 """
 
-from .agent import root_agent, sre_agent
+import os
+
+# EARLY SANITIZATION: Fix duplicated project IDs (e.g. "proj,proj") before any other libs load
+_p = os.environ.get("GOOGLE_CLOUD_PROJECT")
+if _p and "," in _p:
+    os.environ["GOOGLE_CLOUD_PROJECT"] = _p.split(",")[0].strip()
+
+from .agent import root_agent, sre_agent  # noqa: E402
 
 __all__ = ["root_agent", "sre_agent"]

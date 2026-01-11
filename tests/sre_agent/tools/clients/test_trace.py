@@ -30,12 +30,12 @@ def mock_logging_client():
 class TestFetchTrace:
     """Tests for fetch_trace function."""
 
-    @patch("sre_agent.tools.clients.trace.trace_v1.TraceServiceClient")
-    def test_fetch_trace_success(self, mock_client_class):
+    @patch("sre_agent.tools.clients.trace.get_trace_client")
+    def test_fetch_trace_success(self, mock_get_client):
         """Test successful trace fetch."""
         # Setup mock
         mock_client = MagicMock()
-        mock_client_class.return_value = mock_client
+        mock_get_client.return_value = mock_client
 
         trace_id = generate_trace_id()
 
@@ -58,11 +58,11 @@ class TestFetchTrace:
         assert result["trace_id"] == trace_id
         mock_client.get_trace.assert_called_once()
 
-    @patch("sre_agent.tools.clients.trace.trace_v1.TraceServiceClient")
-    def test_fetch_trace_with_invalid_trace_id(self, mock_client_class):
+    @patch("sre_agent.tools.clients.trace.get_trace_client")
+    def test_fetch_trace_with_invalid_trace_id(self, mock_get_client):
         """Test fetch trace with invalid trace ID."""
         mock_client = MagicMock()
-        mock_client_class.return_value = mock_client
+        mock_get_client.return_value = mock_client
 
         # Setup mock to raise exception
         from google.api_core import exceptions
@@ -83,11 +83,11 @@ class TestFetchTrace:
 class TestListTraces:
     """Tests for list_traces function."""
 
-    @patch("sre_agent.tools.clients.trace.trace_v1.TraceServiceClient")
-    def test_list_traces_success(self, mock_client_class):
+    @patch("sre_agent.tools.clients.trace.get_trace_client")
+    def test_list_traces_success(self, mock_get_client):
         """Test successful trace listing."""
         mock_client = MagicMock()
-        mock_client_class.return_value = mock_client
+        mock_get_client.return_value = mock_client
 
         # Setup mock response
         mock_traces = []
@@ -109,11 +109,11 @@ class TestListTraces:
         assert len(result) <= 5
         mock_client.list_traces.assert_called_once()
 
-    @patch("sre_agent.tools.clients.trace.trace_v1.TraceServiceClient")
-    def test_list_traces_with_time_filter(self, mock_client_class):
+    @patch("sre_agent.tools.clients.trace.get_trace_client")
+    def test_list_traces_with_time_filter(self, mock_get_client):
         """Test trace listing with time filter."""
         mock_client = MagicMock()
-        mock_client_class.return_value = mock_client
+        mock_get_client.return_value = mock_client
 
         mock_client.list_traces.return_value = []
 
@@ -132,11 +132,11 @@ class TestListTraces:
 class TestGetLogsForTrace:
     """Tests for get_logs_for_trace function."""
 
-    @patch("sre_agent.tools.clients.logging.LoggingServiceV2Client")
-    def test_get_logs_for_trace_success(self, mock_client_class):
+    @patch("sre_agent.tools.clients.logging.get_logging_client")
+    def test_get_logs_for_trace_success(self, mock_get_client):
         """Test successful log retrieval for trace."""
         mock_client = MagicMock()
-        mock_client_class.return_value = mock_client
+        mock_get_client.return_value = mock_client
 
         trace_id = generate_trace_id()
         mock_logs = CloudLoggingAPIGenerator.log_entries_response(
@@ -183,11 +183,11 @@ class TestGetLogsForTrace:
 class TestFindExampleTraces:
     """Tests for find_example_traces function."""
 
-    @patch("sre_agent.tools.clients.trace.trace_v1.TraceServiceClient")
-    def test_find_example_traces_with_error_filter(self, mock_client_class):
+    @patch("sre_agent.tools.clients.trace.get_trace_client")
+    def test_find_example_traces_with_error_filter(self, mock_get_client):
         """Test finding example traces with error filter."""
         mock_client = MagicMock()
-        mock_client_class.return_value = mock_client
+        mock_get_client.return_value = mock_client
 
         # Setup mock traces with errors
         mock_traces = []
@@ -282,11 +282,11 @@ class TestListErrorEvents:
 class TestListLogEntries:
     """Tests for list_log_entries function."""
 
-    @patch("sre_agent.tools.clients.logging.LoggingServiceV2Client")
-    def test_list_log_entries_success(self, mock_client_class):
+    @patch("sre_agent.tools.clients.logging.get_logging_client")
+    def test_list_log_entries_success(self, mock_get_client):
         """Test successful log entry listing."""
         mock_client = MagicMock()
-        mock_client_class.return_value = mock_client
+        mock_get_client.return_value = mock_client
 
         # Setup mock log entries
         mock_logs = CloudLoggingAPIGenerator.log_entries_response(
@@ -328,20 +328,19 @@ class TestListLogEntries:
 class TestIntegration:
     """Integration tests for trace client tools."""
 
-    @patch("sre_agent.tools.clients.trace.trace_v1.TraceServiceClient")
-    @patch("sre_agent.tools.clients.logging.LoggingServiceV2Client")
-    def test_fetch_trace_and_logs_workflow(
-        self, mock_logging_client, mock_trace_client
-    ):
+    @patch("sre_agent.tools.clients.trace.get_trace_client")
+    @patch("sre_agent.tools.clients.logging.get_logging_client")
+    def test_fetch_trace_and_logs_workflow(self, mock_get_logging, mock_get_trace):
         """Test complete workflow of fetching trace and its logs."""
         # Setup trace mock
         trace_id = generate_trace_id()
         mock_trace = MagicMock()
         mock_trace.trace_id = trace_id
         mock_trace.project_id = "test-project"
+        mock_trace.project_id = "test-project"
         mock_trace.spans = []
 
-        mock_trace_client.return_value.get_trace.return_value = mock_trace
+        mock_get_trace.return_value.get_trace.return_value = mock_trace
 
         # Setup logging mock
         mock_log_entry = MagicMock()
@@ -359,7 +358,7 @@ class TestIntegration:
         mock_page.__iter__.return_value = iter([mock_log_entry])
         mock_page.next_page_token = None
         mock_pager.pages = iter([mock_page])
-        mock_logging_client.return_value.list_log_entries.return_value = mock_pager
+        mock_get_logging.return_value.list_log_entries.return_value = mock_pager
 
         # Execute workflow
         trace_result = trace_client.fetch_trace(

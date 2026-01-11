@@ -22,6 +22,12 @@ def main():
 
     # Get project ID from env
     project_id = os.environ.get("GOOGLE_CLOUD_PROJECT")
+
+    # Sanitize if it's comma-separated
+    if project_id and "," in project_id:
+        project_id = project_id.split(",")[0].strip()
+        # Update env so subprocess sees clean value
+        os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
     if not project_id:
         print(
             "WARNING: GOOGLE_CLOUD_PROJECT not set in .env. Using 'my-test-project' as fallback."
@@ -62,8 +68,14 @@ def main():
         # adk eval [FLAGS] [AGENT] [FILES]
         cmd = ["adk", "eval", *flags, agent_path, *processed_eval_files]
 
+        # Disable OTel export for local evaluations to avoid noise/errors
+        env = os.environ.copy()
+        env["OTEL_TRACES_EXPORTER"] = "none"
+        env["OTEL_METRICS_EXPORTER"] = "none"
+        env["OTEL_LOGS_EXPORTER"] = "none"
+
         print(f"Running: {' '.join(cmd)}")
-        result = subprocess.run(cmd)
+        result = subprocess.run(cmd, env=env)
         sys.exit(result.returncode)
 
 

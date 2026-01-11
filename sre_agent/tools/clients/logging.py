@@ -3,11 +3,12 @@
 import json
 import logging
 
-from google.cloud.logging_v2.services.logging_service_v2 import LoggingServiceV2Client
-
 from ..common import adk_tool
+from ..common.telemetry import get_tracer
+from .factory import get_logging_client
 
 logger = logging.getLogger(__name__)
+tracer = get_tracer(__name__)
 
 
 @adk_tool
@@ -29,77 +30,88 @@ def list_log_entries(
 
     Example filter_str: 'resource.type="gce_instance" AND severity="ERROR"'
     """
-    try:
-        client = LoggingServiceV2Client()
-        resource_names = [f"projects/{project_id}"]
+    with tracer.start_as_current_span("list_log_entries") as span:
+        span.set_attribute("gcp.project_id", project_id)
+        span.set_attribute("gcp.logging.filter", filter_str)
+        span.set_attribute("rpc.system", "google_cloud")
+        span.set_attribute("rpc.service", "cloud_logging")
+        span.set_attribute("rpc.method", "list_log_entries")
 
-        # Ensure timestamp desc ordering for recent logs
-        order_by = "timestamp desc"
+        try:
+            client = get_logging_client()
+            resource_names = [f"projects/{project_id}"]
 
-        request = {
-            "resource_names": resource_names,
-            "filter": filter_str,
-            "page_size": limit,
-            "order_by": order_by,
-        }
-        if page_token:
-            request["page_token"] = page_token
+            # Ensure timestamp desc ordering for recent logs
+            order_by = "timestamp desc"
 
-        # Get the iterator/pager
-        entries_pager = client.list_log_entries(request=request)
+            request = {
+                "resource_names": resource_names,
+                "filter": filter_str,
+                "page_size": limit,
+                "order_by": order_by,
+            }
+            if page_token:
+                request["page_token"] = page_token
 
-        # Fetch a single page to respect limit and get token
-        # We use .pages iterator to get the first page object
-        results = []
-        next_token = None
+            # Get the iterator/pager
+            entries_pager = client.list_log_entries(request=request)
 
-        # Get the first page of the iterator
-        pages_iterator = entries_pager.pages
-        first_page = next(pages_iterator, None)
+            # Fetch a single page to respect limit and get token
+            # We use .pages iterator to get the first page object
+            results = []
+            next_token = None
 
-        if first_page:
-            for entry in first_page:
-                # Handle payload fields safely
-                payload_data = None
-                # Check for standard payload fields in GAPIC objects
-                if entry.text_payload:
-                    payload_data = entry.text_payload
-                elif hasattr(entry, "json_payload") and entry.json_payload:
-                    # Convert Proto Struct/Map to dict
-                    try:
-                        payload_data = dict(entry.json_payload)
-                    except (ValueError, TypeError):
-                        payload_data = str(entry.json_payload)
-                elif hasattr(entry, "proto_payload") and entry.proto_payload:
-                    payload_data = f"[ProtoPayload] {entry.proto_payload.type_url}"
-                else:
-                    payload_data = ""
+            # Get the first page of the iterator
+            pages_iterator = entries_pager.pages
+            first_page = next(pages_iterator, None)
 
-                # Truncate if string and too long
-                if isinstance(payload_data, str) and len(payload_data) > 2000:
-                    payload_data = payload_data[:2000] + "...(truncated)"
+            if first_page:
+                for entry in first_page:
+                    # Handle payload fields safely
+                    payload_data = None
+                    # Check for standard payload fields in GAPIC objects
+                    if entry.text_payload:
+                        payload_data = entry.text_payload
+                    elif hasattr(entry, "json_payload") and entry.json_payload:
+                        # Convert Proto Struct/Map to dict
+                        try:
+                            payload_data = dict(entry.json_payload)
+                        except (ValueError, TypeError):
+                            payload_data = str(entry.json_payload)
+                    elif hasattr(entry, "proto_payload") and entry.proto_payload:
+                        payload_data = f"[ProtoPayload] {entry.proto_payload.type_url}"
+                    else:
+                        payload_data = ""
 
-                results.append(
-                    {
-                        "timestamp": entry.timestamp.isoformat()
-                        if entry.timestamp
-                        else None,
-                        "severity": entry.severity.name,
-                        "payload": payload_data,
-                        "resource": {
-                            "type": entry.resource.type,
-                            "labels": dict(entry.resource.labels),
-                        },
-                        "insert_id": entry.insert_id,
-                    }
-                )
-            next_token = first_page.next_page_token
+                    # Truncate if string and too long
+                    if isinstance(payload_data, str) and len(payload_data) > 2000:
+                        payload_data = payload_data[:2000] + "...(truncated)"
 
-        return json.dumps({"entries": results, "next_page_token": next_token or None})
-    except Exception as e:
-        error_msg = f"Failed to list log entries: {e!s}"
-        logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+                    results.append(
+                        {
+                            "timestamp": entry.timestamp.isoformat()
+                            if entry.timestamp
+                            else None,
+                            "severity": entry.severity.name,
+                            "payload": payload_data,
+                            "resource": {
+                                "type": entry.resource.type,
+                                "labels": dict(entry.resource.labels),
+                            },
+                            "insert_id": entry.insert_id,
+                        }
+                    )
+                next_token = first_page.next_page_token
+
+            span.set_attribute("gcp.logging.count", len(results))
+            return json.dumps(
+                {"entries": results, "next_page_token": next_token or None}
+            )
+        except Exception as e:
+            span.record_exception(e)
+            error_msg = f"Failed to list log entries: {e!s}"
+            logger.error(error_msg, exc_info=True)
+            return json.dumps({"error": error_msg})
 
 
 @adk_tool

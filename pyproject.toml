@@ -17,15 +17,15 @@ dependencies = [
     "opentelemetry-exporter-otlp-proto-grpc>=1.24.0",
     "google-auth>=2.18.1",
     "grpcio>=1.63.0",
-
     # Phase 4: Extended GCP integrations
     "google-cloud-logging>=3.10.0",
     "google-cloud-monitoring>=2.21.0",
     "google-cloud-error-reporting>=1.14.0",
     "requests>=2.31.0",
-
     # Log pattern analysis
     "drain3>=0.9.11",
+    "opentelemetry-semantic-conventions>=0.58b0",
+    "opentelemetry-instrumentation-logging>=0.58b0",
 ]
 
 requires-python = ">=3.10,<3.13"
@@ -117,7 +117,7 @@ format = { help = "Format code", cmd = "ruff format .", envfile = ".env" }
 typecheck = { help = "Run type checking", cmd = "mypy .", envfile = ".env" }
 spell = { help = "Check spelling", cmd = "codespell", envfile = ".env" }
 deptry = { help = "Check for unused/missing dependencies", cmd = "deptry . --ignore DEP001,DEP004 --per-rule-ignores DEP002=grpcio|requests|opentelemetry-exporter-otlp-proto-grpc", envfile = ".env" }
-test = { help = "Run tests with coverage guard", cmd = "pytest tests --cov=sre_agent --cov-report=term-missing --cov-fail-under=70", envfile = ".env" }
+test = { help = "Run tests with coverage guard", cmd = "pytest tests --cov=sre_agent --cov-report=term-missing --cov-fail-under=70", env = { GOOGLE_CLOUD_PROJECT = "" }, envfile = ".env" }
 eval = { help = "Run agent evaluations", cmd = "python deploy/run_eval.py", envfile = ".env" }
 
 deploy = { help = "Deploy agent to Agent Engine", sequence = ["sync", "_deploy_only"] }
