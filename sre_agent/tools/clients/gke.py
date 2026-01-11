@@ -11,7 +11,7 @@ Kubernetes Wisdom: "Cattle, not pets" - but we still care when the herd is sick!
 
 import json
 import logging
-from typing import Any
+from typing import Any, cast
 
 import google.auth
 from google.auth.transport.requests import AuthorizedSession
@@ -27,7 +27,7 @@ def _get_authorized_session() -> AuthorizedSession:
     credentials, _ = google.auth.default(
         scopes=["https://www.googleapis.com/auth/cloud-platform"]
     )
-    return AuthorizedSession(credentials)
+    return AuthorizedSession(credentials)  # type: ignore[no-untyped-call]
 
 
 @adk_tool
@@ -36,8 +36,7 @@ def get_gke_cluster_health(
     cluster_name: str,
     location: str,
 ) -> str:
-    """
-    Get comprehensive GKE cluster health status.
+    """Get comprehensive GKE cluster health status.
 
     This is your cluster's vital signs - node status, control plane health,
     and any ongoing issues that could affect workloads.
@@ -141,8 +140,7 @@ def analyze_node_conditions(
     location: str,
     node_name: str | None = None,
 ) -> str:
-    """
-    Check for node pressure conditions (CPU, Memory, Disk, PID).
+    """Check for node pressure conditions (CPU, Memory, Disk, PID).
 
     Node pressure conditions are early warnings that your nodes are struggling.
     Catch these before pods start getting evicted!
@@ -322,8 +320,7 @@ def get_pod_restart_events(
     pod_name: str | None = None,
     minutes_ago: int = 60,
 ) -> str:
-    """
-    Find pods with high restart counts or recent restarts.
+    """Find pods with high restart counts or recent restarts.
 
     Pod restarts are often the first sign of trouble - OOMKilled, CrashLoopBackOff,
     liveness probe failures, etc.
@@ -451,8 +448,7 @@ def analyze_hpa_events(
     deployment_name: str,
     minutes_ago: int = 60,
 ) -> str:
-    """
-    Analyze HorizontalPodAutoscaler scaling events and decisions.
+    """Analyze HorizontalPodAutoscaler scaling events and decisions.
 
     HPAs are how Kubernetes handles load, but they can also cause problems
     when misconfigured or when scaling is too slow.
@@ -599,8 +595,7 @@ def get_container_oom_events(
     namespace: str | None = None,
     minutes_ago: int = 60,
 ) -> str:
-    """
-    Find containers that were OOMKilled (Out of Memory).
+    """Find containers that were OOMKilled (Out of Memory).
 
     OOMKilled is one of the most common causes of container restarts.
     This helps identify memory leaks or undersized containers.
@@ -758,8 +753,7 @@ def correlate_trace_with_kubernetes(
     trace_id: str,
     cluster_name: str | None = None,
 ) -> str:
-    """
-    Link a distributed trace to Kubernetes pod and container context.
+    """Link a distributed trace to Kubernetes pod and container context.
 
     This bridges the gap between application traces and infrastructure -
     when a trace is slow, find out WHICH pod handled it and what its state was.
@@ -777,13 +771,13 @@ def correlate_trace_with_kubernetes(
     """
     try:
         # First, get the trace to find the time window and service names
-        from ..trace import fetch_trace  # type: ignore[import-untyped]
+        from .trace import fetch_trace
 
         trace_json = fetch_trace(project_id, trace_id)
         trace_data = json.loads(trace_json)
 
         if "error" in trace_data:
-            return trace_json
+            return cast(str, trace_json)
 
         spans = trace_data.get("spans", [])
         if not spans:
@@ -887,8 +881,7 @@ def get_workload_health_summary(
     namespace: str,
     minutes_ago: int = 30,
 ) -> str:
-    """
-    Get a comprehensive health summary for all workloads in a namespace.
+    """Get a comprehensive health summary for all workloads in a namespace.
 
     This is your "dashboard view" of namespace health - see at a glance
     which workloads are healthy and which need attention.

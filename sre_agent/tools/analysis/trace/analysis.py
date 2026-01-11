@@ -3,7 +3,9 @@
 import logging
 import time
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
+
+from opentelemetry.trace import StatusCode
 
 from ...clients.trace import fetch_trace_data
 from ...common import adk_tool
@@ -33,7 +35,9 @@ anomalies_detected = meter.create_counter(
 )
 
 
-def _record_telemetry(func_name: str, success: bool = True, duration_ms: float = 0.0):
+def _record_telemetry(
+    func_name: str, success: bool = True, duration_ms: float = 0.0
+) -> None:
     attributes = {
         "code.function": func_name,
         "code.namespace": __name__,
@@ -53,8 +57,7 @@ SpanData = dict[str, Any]
 def calculate_span_durations(
     trace_id: str, project_id: str | None = None
 ) -> list[SpanData]:
-    """
-    Extracts timing information for each span in a trace.
+    """Extracts timing information for each span in a trace.
 
     Args:
         trace_id: The unique trace ID.
@@ -81,8 +84,8 @@ def calculate_span_durations(
             trace = fetch_trace_data(trace_id, project_id)
             if "error" in trace:
                 span.set_attribute("error", True)
-                span.set_status(trace.get("error"))
-                return [{"error": trace["error"]}]
+                span.set_status(StatusCode.ERROR, str(trace.get("error")))
+                return [{"error": str(trace["error"])}]
 
             spans = trace.get("spans", [])
             span.set_attribute("sre_agent.span_count", len(spans))
@@ -136,8 +139,7 @@ def calculate_span_durations(
 def extract_errors(
     trace_id: str, project_id: str | None = None
 ) -> list[dict[str, Any]]:
-    """
-    Finds all spans that contain errors or error-related information.
+    """Finds all spans that contain errors or error-related information.
 
     Args:
         trace_id: The unique trace ID.
@@ -249,8 +251,7 @@ def extract_errors(
 def validate_trace_quality(
     trace_id: str, project_id: str | None = None
 ) -> dict[str, Any]:
-    """
-    Validate trace data quality and detect issues.
+    """Validate trace data quality and detect issues.
 
     Checks for:
     - Orphaned spans (missing parent)
@@ -313,7 +314,7 @@ def validate_trace_quality(
                             "span_id": span_id,
                             "duration_s": duration,
                         }
-                    )  # type: ignore
+                    )
 
                 # Check clock skew
                 if parent_id and parent_id in span_map:
@@ -345,8 +346,7 @@ def validate_trace_quality(
 
 @adk_tool
 def build_call_graph(trace_id: str, project_id: str | None = None) -> dict[str, Any]:
-    """
-    Builds a hierarchical call graph from the trace spans.
+    """Builds a hierarchical call graph from the trace spans.
 
     This function reconstructs the parent-child relationships to form a tree
     structure, which is useful for structural analysis and visualization.
@@ -418,7 +418,7 @@ def build_call_graph(trace_id: str, project_id: str | None = None) -> dict[str, 
 
             def get_max_depth(node: dict[str, Any]) -> int:
                 if not node.get("children"):
-                    return node.get("depth", 0)
+                    return cast(int, node.get("depth", 0))
                 return max(get_max_depth(child) for child in node["children"])
 
             max_depth = max((get_max_depth(tree) for tree in span_tree), default=0)
@@ -446,8 +446,8 @@ def build_call_graph(trace_id: str, project_id: str | None = None) -> dict[str, 
 
 @adk_tool
 def summarize_trace(trace_id: str, project_id: str | None = None) -> dict[str, Any]:
-    """
-    Creates a summary of a trace to save context window tokens.
+    """Creates a summary of a trace to save context window tokens.
+
     Extracts high-level stats, top 5 slowest spans, and error spans.
 
     Args:

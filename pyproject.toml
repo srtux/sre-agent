@@ -54,11 +54,32 @@ line-length = 88
 target-version = "py310"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "UP", "RUF"]
-ignore = ["E501", "C901"]
+select = ["E", "F", "W", "I", "B", "UP", "RUF", "D"]
+ignore = ["E501", "C901", "D100", "D104"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["sre_agent"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.extend-per-file-ignores]
+"tests/**" = ["D"]
+"eval/**" = ["D"]
+"deploy/**" = ["D"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+ignore_missing_imports = true
+pretty = true
+show_error_codes = true
+check_untyped_defs = true
+disallow_untyped_defs = true
+warn_unused_ignores = true
+warn_return_any = true
+no_implicit_optional = true
+exclude = ["tests/", "eval/", "deploy/"]
 
 [tool.pytest.ini_options]
 pythonpath = "."

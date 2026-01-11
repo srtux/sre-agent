@@ -15,9 +15,9 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-from drain3 import TemplateMiner  # type: ignore
-from drain3.masking import MaskingInstruction  # type: ignore
-from drain3.template_miner_config import TemplateMinerConfig  # type: ignore
+from drain3 import TemplateMiner
+from drain3.masking import MaskingInstruction
+from drain3.template_miner_config import TemplateMinerConfig
 
 from ...common import adk_tool
 from .extraction import extract_log_message
@@ -39,6 +39,7 @@ class LogPattern:
     resources: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
+        """Convert the pattern to a dictionary representation."""
         return {
             "pattern_id": self.pattern_id,
             "template": self.template,
@@ -62,6 +63,7 @@ class PatternComparison:
     stable_patterns: list[LogPattern]
 
     def to_dict(self) -> dict[str, Any]:
+        """Convert the comparison results to a dictionary representation."""
         return {
             "new_patterns": [p.to_dict() for p in self.new_patterns],
             "disappeared_patterns": [p.to_dict() for p in self.disappeared_patterns],
@@ -78,8 +80,7 @@ class PatternComparison:
 
 
 class LogPatternExtractor:
-    """
-    Extracts log patterns using Drain3 algorithm.
+    """Extracts log patterns using Drain3 algorithm.
 
     Drain3 is a streaming log parser that efficiently extracts templates
     from unstructured log messages. It's designed to handle high volumes
@@ -98,8 +99,7 @@ class LogPatternExtractor:
         max_children: int = 100,
         max_clusters: int = 1000,
     ):
-        """
-        Initialize the pattern extractor.
+        """Initialize the pattern extractor.
 
         Args:
             depth: Depth of the parse tree (higher = more patterns)
@@ -140,8 +140,7 @@ class LogPatternExtractor:
         severity: str | None = None,
         resource: str | None = None,
     ) -> str:
-        """
-        Add a log message and return its pattern ID.
+        """Add a log message and return its pattern ID.
 
         Args:
             message: The log message to process
@@ -212,8 +211,7 @@ class LogPatternExtractor:
         sort_by: str = "count",
         limit: int | None = None,
     ) -> list[LogPattern]:
-        """
-        Get extracted patterns.
+        """Get extracted patterns.
 
         Args:
             min_count: Minimum occurrence count to include
@@ -246,8 +244,7 @@ class LogPatternExtractor:
         return patterns
 
     def get_summary(self, max_patterns: int = 20) -> dict[str, Any]:
-        """
-        Get a compact summary suitable for LLM context.
+        """Get a compact summary suitable for LLM context.
 
         This method is designed to avoid context window overflow by
         providing distilled, actionable information.
@@ -298,8 +295,7 @@ def compare_patterns(
     patterns2: list[LogPattern],
     significance_threshold: float = 0.5,
 ) -> PatternComparison:
-    """
-    Compare patterns between two time periods.
+    """Compare patterns between two time periods.
 
     This function identifies:
     - New patterns (only in period 2) - potential new issues
@@ -380,8 +376,7 @@ def extract_log_patterns(
     max_patterns: int = 30,
     min_count: int = 2,
 ) -> dict[str, Any]:
-    """
-    Extract log patterns from a list of log entries using Drain3.
+    """Extract log patterns from a list of log entries using Drain3.
 
     This tool compresses repetitive logs into patterns, making it easier
     to understand the log landscape without overwhelming context.
@@ -419,8 +414,7 @@ def compare_log_patterns(
     comparison_entries: list[dict[str, Any]],
     significance_threshold: float = 0.5,
 ) -> dict[str, Any]:
-    """
-    Compare log patterns between two time periods to find anomalies.
+    """Compare log patterns between two time periods to find anomalies.
 
     This is the key tool for detecting emergent issues. It identifies:
     - NEW patterns: Logs that didn't exist before (potential new bugs!)
@@ -485,8 +479,7 @@ def analyze_log_anomalies(
     focus_on_errors: bool = True,
     max_results: int = 10,
 ) -> dict[str, Any]:
-    """
-    Analyze logs for anomalous patterns, focusing on errors if specified.
+    """Analyze logs for anomalous patterns, focusing on errors if specified.
 
     This tool extracts patterns and highlights the most concerning ones,
     perfect for quick incident triage.
@@ -536,8 +529,7 @@ def get_pattern_summary(
     patterns: list[LogPattern],
     max_length: int = 2000,
 ) -> str:
-    """
-    Generate a compact text summary of patterns for LLM context.
+    """Generate a compact text summary of patterns for LLM context.
 
     This is carefully designed to provide maximum insight with minimum
     tokens, avoiding context window overflow.

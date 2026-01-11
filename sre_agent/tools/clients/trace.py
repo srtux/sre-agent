@@ -5,7 +5,7 @@ import logging
 import os
 import statistics
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, cast
 
 from google.cloud import trace_v1
 
@@ -28,8 +28,8 @@ def _get_project_id() -> str:
 
 
 def get_current_time() -> str:
-    """
-    Returns the current UTC time in ISO format.
+    """Returns the current UTC time in ISO format.
+
     Use this to calculate relative time ranges for list_traces.
     """
     return datetime.now(timezone.utc).isoformat()
@@ -38,8 +38,8 @@ def get_current_time() -> str:
 def fetch_trace_data(
     trace_id_or_json: str | dict[str, Any], project_id: str | None = None
 ) -> dict[str, Any]:
-    """
-    Helper to fetch trace data by ID or from JSON/dict.
+    """Helper to fetch trace data by ID or from JSON/dict.
+
     Commonly used across analysis tools to handle flexible inputs.
     """
     # Check if it's already a dictionary
@@ -75,17 +75,16 @@ def fetch_trace_data(
         if isinstance(trace_json, dict):
             return trace_json
         data = json.loads(trace_json)
-        if data and "error" in data:
-            return data
-        return data
+        if data and isinstance(data, dict) and "error" in data:
+            return cast(dict[str, Any], data)
+        return cast(dict[str, Any], data)
     except json.JSONDecodeError:
         return {"error": "Invalid trace JSON"}
 
 
 @adk_tool
 def fetch_trace(project_id: str, trace_id: str) -> str:
-    """
-    Fetches a specific trace by ID from Cloud Trace API.
+    """Fetches a specific trace by ID from Cloud Trace API.
 
     Uses caching to avoid redundant API calls when the same trace
     is requested multiple times (e.g., by different sub-agents).
@@ -103,7 +102,7 @@ def fetch_trace(project_id: str, trace_id: str) -> str:
     cached = cache.get(f"trace:{trace_id}")
     if cached:
         logger.debug(f"Cache hit for trace {trace_id}, skipping API call")
-        return cached
+        return cast(str, cached)
 
     try:
         client = trace_v1.TraceServiceClient()
@@ -169,8 +168,7 @@ def list_traces(
     error_only: bool = False,
     attributes: dict[str, str] | None = None,
 ) -> str:
-    """
-    Lists recent traces with advanced filtering capabilities.
+    """Lists recent traces with advanced filtering capabilities.
 
     Args:
         project_id: The GCP project ID.
@@ -274,8 +272,7 @@ def _calculate_anomaly_score(
     stdev_latency: float,
     has_error: bool = False,
 ) -> float:
-    """
-    Calculate a composite anomaly score for a trace.
+    """Calculate a composite anomaly score for a trace.
 
     The score combines multiple signals:
     - Latency z-score (how many std devs from mean)
@@ -303,9 +300,8 @@ def _calculate_anomaly_score(
     return score
 
 
-def validate_trace(trace_data: str | dict) -> dict[str, Any]:
-    """
-    Validates trace data for completeness and quality.
+def validate_trace(trace_data: str | dict[str, Any]) -> dict[str, Any]:
+    """Validates trace data for completeness and quality.
 
     Checks:
     - Has required fields (trace_id, spans)
@@ -370,8 +366,7 @@ def validate_trace(trace_data: str | dict) -> dict[str, Any]:
 def find_example_traces(
     project_id: str | None = None, prefer_errors: bool = True, min_sample_size: int = 20
 ) -> str:
-    """
-    Intelligently discovers representative baseline and anomaly traces.
+    """Intelligently discovers representative baseline and anomaly traces.
 
     The algorithm:
     1. Fetches recent traces to build a statistical model
@@ -398,8 +393,13 @@ def find_example_traces(
         raw_traces = list_traces(project_id, limit=50)
         traces = json.loads(raw_traces)
 
-        if isinstance(traces, list) and len(traces) > 0 and "error" in traces[0]:
-            return raw_traces
+        if (
+            isinstance(traces, list)
+            and len(traces) > 0
+            and isinstance(traces[0], dict)
+            and "error" in traces[0]
+        ):
+            return cast(str, raw_traces)
 
         if not traces:
             return json.dumps({"error": "No traces found in the last hour."})
@@ -525,8 +525,7 @@ def find_example_traces(
 
 @adk_tool
 def get_trace_by_url(url: str) -> str:
-    """
-    Parses a Cloud Console URL to extract trace ID and fetch the trace.
+    """Parses a Cloud Console URL to extract trace ID and fetch the trace.
 
     Args:
         url: The full URL from Google Cloud Console trace view.
@@ -568,7 +567,7 @@ def get_trace_by_url(url: str) -> str:
                 {"error": "Could not parse project_id or trace_id from URL"}
             )
 
-        return fetch_trace(project_id, trace_id)
+        return cast(str, fetch_trace(project_id, trace_id))
 
     except Exception as e:
         error_msg = f"Failed to get trace by URL: {e!s}"

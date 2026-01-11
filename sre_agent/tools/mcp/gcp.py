@@ -13,10 +13,12 @@ different task" errors because anyio cancel scopes cannot cross task boundaries.
 import asyncio
 import logging
 import os
+from collections.abc import Callable
 from datetime import datetime, timezone
+from typing import Any
 
 import google.auth
-from google.adk.tools import ToolContext
+from google.adk.tools import ToolContext  # type: ignore[attr-defined]
 from google.adk.tools.api_registry import ApiRegistry
 
 from ..common import adk_tool
@@ -36,9 +38,8 @@ def get_project_id_with_fallback() -> str | None:
     return project_id
 
 
-def create_bigquery_mcp_toolset(project_id: str | None = None):
-    """
-    Creates a new instance of the BigQuery MCP toolset.
+def create_bigquery_mcp_toolset(project_id: str | None = None) -> Any:
+    """Creates a new instance of the BigQuery MCP toolset.
 
     NOTE: This function should be called in an async context (within an async
     function) to ensure proper MCP session lifecycle management.
@@ -98,9 +99,8 @@ def create_bigquery_mcp_toolset(project_id: str | None = None):
         return MockMcpToolset()
 
 
-def create_logging_mcp_toolset(project_id: str | None = None):
-    """
-    Creates a Cloud Logging MCP toolset with generic logging capabilities.
+def create_logging_mcp_toolset(project_id: str | None = None) -> Any:
+    """Creates a Cloud Logging MCP toolset with generic logging capabilities.
 
     Tools exposed:
         - list_log_entries: Search and retrieve log entries
@@ -149,9 +149,8 @@ def create_logging_mcp_toolset(project_id: str | None = None):
         return MockMcpToolset()
 
 
-def create_monitoring_mcp_toolset(project_id: str | None = None):
-    """
-    Creates a Cloud Monitoring MCP toolset with generic metrics capabilities.
+def create_monitoring_mcp_toolset(project_id: str | None = None) -> Any:
+    """Creates a Cloud Monitoring MCP toolset with generic metrics capabilities.
 
     Tools exposed:
         - list_timeseries: Query time series metrics data
@@ -202,16 +201,15 @@ def create_monitoring_mcp_toolset(project_id: str | None = None):
 
 
 async def call_mcp_tool_with_retry(
-    create_toolset_fn,
+    create_toolset_fn: Callable[[str | None], Any],
     tool_name: str,
-    args: dict,
+    args: dict[str, Any],
     tool_context: ToolContext,
     project_id: str | None = None,
     max_retries: int = 3,
     base_delay: float = 1.0,
-) -> dict:
-    """
-    Generic helper to call an MCP tool with retry logic for session errors.
+) -> dict[str, Any]:
+    """Generic helper to call an MCP tool with retry logic for session errors.
 
     Args:
         create_toolset_fn: Function to create the MCP toolset.
@@ -284,9 +282,8 @@ async def mcp_list_log_entries(
     page_size: int = 100,
     order_by: str | None = None,
     tool_context: ToolContext | None = None,
-) -> dict:
-    """
-    Search and retrieve log entries from Google Cloud Logging via MCP.
+) -> dict[str, Any]:
+    """Search and retrieve log entries from Google Cloud Logging via MCP.
 
     This is the primary tool for querying Cloud Logging. Use it for debugging
     application behavior, finding specific error messages, auditing events,
@@ -344,11 +341,10 @@ async def mcp_list_timeseries(
     interval_start_time: str | None = None,
     interval_end_time: str | None = None,
     minutes_ago: int = 60,
-    aggregation: dict | None = None,
+    aggregation: dict[str, Any] | None = None,
     tool_context: ToolContext | None = None,
-) -> dict:
-    """
-    Query time series metrics data from Google Cloud Monitoring via MCP.
+) -> dict[str, Any]:
+    """Query time series metrics data from Google Cloud Monitoring via MCP.
 
     Use this tool to retrieve metric values over time for monitoring, alerting,
     capacity planning, performance analysis, or any metrics-based task.
@@ -425,9 +421,8 @@ async def mcp_query_range(
     minutes_ago: int = 60,
     step: str = "60s",
     tool_context: ToolContext | None = None,
-) -> dict:
-    """
-    Evaluate a PromQL query over a time range via Cloud Monitoring MCP.
+) -> dict[str, Any]:
+    """Evaluate a PromQL query over a time range via Cloud Monitoring MCP.
 
     Use this for complex metric aggregations, calculations, and analysis using
     PromQL syntax. Ideal for rate calculations, histogram analysis, and

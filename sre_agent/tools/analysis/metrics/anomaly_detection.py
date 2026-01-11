@@ -15,8 +15,7 @@ def detect_metric_anomalies(
     threshold_sigma: float = 3.0,
     value_key: str = "value",
 ) -> dict[str, Any]:
-    """
-    Detects anomalies in a series of data points using Z-score.
+    """Detects anomalies in a series of data points using Z-score.
 
     Args:
         data_points: List of values or dicts containing values.
@@ -82,8 +81,7 @@ def compare_metric_windows(
     baseline_points: list[float],
     target_points: list[float],
 ) -> dict[str, Any]:
-    """
-    Compares two windows of metric data to detect shifts.
+    """Compares two windows of metric data to detect shifts.
 
     Args:
         baseline_points: List of baseline values.

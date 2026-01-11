@@ -14,8 +14,7 @@ logger = logging.getLogger(__name__)
 def list_log_entries(
     project_id: str, filter_str: str, limit: int = 10, page_token: str | None = None
 ) -> str:
-    """
-    Lists log entries from Google Cloud Logging using direct API.
+    """Lists log entries from Google Cloud Logging using direct API.
 
     Args:
         project_id: The Google Cloud Project ID.
@@ -105,8 +104,7 @@ def list_log_entries(
 
 @adk_tool
 def list_error_events(project_id: str, minutes_ago: int = 60) -> str:
-    """
-    Lists error events from Google Cloud Error Reporting using direct API.
+    """Lists error events from Google Cloud Error Reporting using direct API.
 
     Args:
         project_id: The Google Cloud Project ID.
@@ -152,8 +150,7 @@ def list_error_events(project_id: str, minutes_ago: int = 60) -> str:
 
 @adk_tool
 def get_logs_for_trace(project_id: str, trace_id: str, limit: int = 100) -> str:
-    """
-    Fetches log entries correlated with a specific trace ID.
+    """Fetches log entries correlated with a specific trace ID.
 
     Args:
         project_id: The Google Cloud Project ID.
@@ -164,4 +161,6 @@ def get_logs_for_trace(project_id: str, trace_id: str, limit: int = 100) -> str:
         JSON list of log entries.
     """
     filter_str = f'trace="projects/{project_id}/traces/{trace_id}"'
-    return list_log_entries(project_id, filter_str, limit)
+    from typing import cast
+
+    return cast(str, list_log_entries(project_id, filter_str, limit))

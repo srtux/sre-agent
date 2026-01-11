@@ -16,8 +16,7 @@ logger = logging.getLogger(__name__)
 
 @adk_tool
 def list_time_series(project_id: str, filter_str: str, minutes_ago: int = 60) -> str:
-    """
-    Lists time series data from Google Cloud Monitoring using direct API.
+    """Lists time series data from Google Cloud Monitoring using direct API.
 
     Args:
         project_id: The Google Cloud Project ID.
@@ -86,8 +85,7 @@ def query_promql(
     end: str | None = None,
     step: str = "60s",
 ) -> str:
-    """
-    Executes a PromQL query using the Cloud Monitoring Prometheus API.
+    """Executes a PromQL query using the Cloud Monitoring Prometheus API.
 
     Args:
         project_id: The Google Cloud Project ID.
@@ -104,7 +102,7 @@ def query_promql(
         credentials, _ = google.auth.default(
             scopes=["https://www.googleapis.com/auth/cloud-platform"]
         )
-        session = AuthorizedSession(credentials)
+        session = AuthorizedSession(credentials)  # type: ignore[no-untyped-call]
 
         # Default time range if not provided
         if not end:

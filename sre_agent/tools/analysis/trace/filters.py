@@ -2,6 +2,7 @@
 
 import logging
 import statistics
+from typing import Any
 
 from ...common import adk_tool
 
@@ -9,31 +10,29 @@ logger = logging.getLogger(__name__)
 
 
 class TraceSelector:
-    """
-    Provides different strategies for selecting traces for analysis.
-    """
+    """Provides different strategies for selecting traces for analysis."""
 
     def from_error_reports(self, project_id: str) -> list[str]:
-        """
-        Selects traces associated with recent error reports.
-        (Placeholder - requires Error Reporting API client)
+        """Selects traces associated with recent error reports.
+
+        (Placeholder - requires Error Reporting API client).
         """
         # TODO: Implement trace selection from error reports
         logger.warning("Trace selection from error reports is not yet implemented.")
         return []
 
     def from_monitoring_alerts(self, project_id: str) -> list[str]:
-        """
-        Selects traces associated with active monitoring alerts.
-        (Placeholder - requires Monitoring API client)
+        """Selects traces associated with active monitoring alerts.
+
+        (Placeholder - requires Monitoring API client).
         """
         # TODO: Implement trace selection from monitoring alerts
         logger.warning("Trace selection from monitoring alerts is not yet implemented.")
         return []
 
-    def from_statistical_outliers(self, traces: list[dict]) -> list[str]:
-        """
-        Selects traces that are statistical outliers based on latency.
+    def from_statistical_outliers(self, traces: list[dict[str, Any]]) -> list[str]:
+        """Selects traces that are statistical outliers based on latency.
+
         An outlier is defined as a trace with a latency greater than 2 standard
         deviations from the mean.
         """
@@ -52,16 +51,13 @@ class TraceSelector:
         return outlier_trace_ids
 
     def from_manual_override(self, trace_ids: list[str]) -> list[str]:
-        """
-        Allows manually specifying a list of trace IDs.
-        """
+        """Allows manually specifying a list of trace IDs."""
         return trace_ids
 
 
 @adk_tool
 def select_traces_from_error_reports(project_id: str) -> list[str]:
-    """
-    Selects traces to analyze based on recent error reports.
+    """Selects traces to analyze based on recent error reports.
 
     Args:
         project_id: The Google Cloud project ID.
@@ -75,8 +71,7 @@ def select_traces_from_error_reports(project_id: str) -> list[str]:
 
 @adk_tool
 def select_traces_from_monitoring_alerts(project_id: str) -> list[str]:
-    """
-    Selects traces to analyze based on active monitoring alerts.
+    """Selects traces to analyze based on active monitoring alerts.
 
     Args:
         project_id: The Google Cloud project ID.
@@ -89,9 +84,8 @@ def select_traces_from_monitoring_alerts(project_id: str) -> list[str]:
 
 
 @adk_tool
-def select_traces_from_statistical_outliers(traces: list[dict]) -> list[str]:
-    """
-    Selects outlier traces from a given list of traces based on latency.
+def select_traces_from_statistical_outliers(traces: list[dict[str, Any]]) -> list[str]:
+    """Selects outlier traces from a given list of traces based on latency.
 
     Args:
         traces: A list of trace dictionaries, each with a 'latency' and 'traceId'.
@@ -105,8 +99,7 @@ def select_traces_from_statistical_outliers(traces: list[dict]) -> list[str]:
 
 @adk_tool
 def select_traces_manually(trace_ids: list[str]) -> list[str]:
-    """
-    Allows a user to manually provide a list of trace IDs for analysis.
+    """Allows a user to manually provide a list of trace IDs for analysis.
 
     Args:
         trace_ids: A list of trace IDs.
@@ -119,16 +112,16 @@ def select_traces_manually(trace_ids: list[str]) -> list[str]:
 
 
 class TraceQueryBuilder:
-    """
-    Builder for Google Cloud Trace filter strings.
+    """Builder for Google Cloud Trace filter strings.
 
     See: https://docs.cloud.google.com/trace/docs/trace-filters
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
+        """Initialize the query builder with an empty list of terms."""
         self._terms: list[str] = []
 
-    def _add_term(self, term: str, root_only: bool = False):
+    def _add_term(self, term: str, root_only: bool = False) -> None:
         if root_only:
             self._terms.append(f"^{term}")
         else:
@@ -137,8 +130,7 @@ class TraceQueryBuilder:
     def span_name(
         self, name: str, match_exact: bool = False, root_only: bool = False
     ) -> "TraceQueryBuilder":
-        """
-        Filter by span name.
+        """Filter by span name.
 
         Args:
             name: The span name to filter for.
@@ -158,8 +150,7 @@ class TraceQueryBuilder:
     def latency(
         self, min_latency_ms: int | None = None, max_latency_ms: int | None = None
     ) -> "TraceQueryBuilder":
-        """
-        Filter by latency.
+        """Filter by latency.
 
         Args:
             min_latency_ms: Minimum latency in milliseconds.
@@ -173,8 +164,7 @@ class TraceQueryBuilder:
     def attribute(
         self, key: str, value: str, match_exact: bool = False, root_only: bool = False
     ) -> "TraceQueryBuilder":
-        """
-        Filter by attribute (label) key/value.
+        """Filter by attribute (label) key/value.
 
         Args:
             key: Attribute key (e.g. '/http/status_code').
@@ -221,7 +211,8 @@ class TraceQueryBuilder:
         """Returns the constructed filter string."""
         return " ".join(self._terms)
 
-    def clear(self):
+    def clear(self) -> None:
+        """Clear all terms from the current builder."""
         self._terms = []
 
 
@@ -234,8 +225,7 @@ def build_trace_filter(
     attributes: dict[str, str] | None = None,
     custom_filter: str | None = None,
 ) -> str:
-    """
-    Build Cloud Trace filter string using TraceQueryBuilder.
+    """Build Cloud Trace filter string using TraceQueryBuilder.
 
     This is a convenience function that simplifies creating trace filters
     for common use cases.

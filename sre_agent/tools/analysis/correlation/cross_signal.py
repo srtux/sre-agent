@@ -42,8 +42,7 @@ def correlate_trace_with_metrics(
     metrics_to_check: list[str] | None = None,
     time_buffer_seconds: int = 60,
 ) -> str:
-    """
-    Correlates a trace with relevant metrics during its execution window.
+    """Correlates a trace with relevant metrics during its execution window.
 
     This tool finds metrics that were recorded during the trace's execution,
     helping identify resource constraints, rate limits, or capacity issues
@@ -196,8 +195,7 @@ def correlate_metrics_with_traces_via_exemplars(
     time_window_hours: int = 1,
     trace_table_name: str = "_AllSpans",
 ) -> str:
-    """
-    Uses exemplar-style analysis to find traces corresponding to metric outliers.
+    """Uses exemplar-style analysis to find traces corresponding to metric outliers.
 
     Exemplars are trace references attached to histogram bucket data points.
     This tool simulates exemplar lookup by finding traces that match the
@@ -368,8 +366,7 @@ def build_cross_signal_timeline(
     log_table_name: str = "_AllLogs",
     time_buffer_seconds: int = 30,
 ) -> str:
-    """
-    Builds a unified timeline correlating traces, logs, and metrics events.
+    """Builds a unified timeline correlating traces, logs, and metrics events.
 
     This is the "unified view" of observability - aligning all three pillars
     on a single timeline to understand the sequence of events during an incident.
@@ -557,8 +554,7 @@ def analyze_signal_correlation_strength(
     service_name: str | None = None,
     time_window_hours: int = 24,
 ) -> str:
-    """
-    Analyzes how well traces, logs, and metrics are correlated in the system.
+    """Analyzes how well traces, logs, and metrics are correlated in the system.
 
     This diagnostic tool helps identify gaps in observability instrumentation:
     - Are logs properly annotated with trace context?

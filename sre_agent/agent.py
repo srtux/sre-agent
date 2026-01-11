@@ -25,7 +25,8 @@ import logging
 from typing import Any
 
 from google.adk.agents import LlmAgent
-from google.adk.tools import AgentTool, ToolContext
+from google.adk.tools import AgentTool, ToolContext  # type: ignore[attr-defined]
+from google.adk.tools.base_toolset import BaseToolset
 
 from .prompt import SRE_AGENT_PROMPT
 
@@ -142,12 +143,12 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 
 # Lazy-loaded MCP toolsets (created on first use in async context)
-_bigquery_mcp_toolset = None
-_logging_mcp_toolset = None
-_monitoring_mcp_toolset = None
+_bigquery_mcp_toolset: BaseToolset | None = None
+_logging_mcp_toolset: BaseToolset | None = None
+_monitoring_mcp_toolset: BaseToolset | None = None
 
 
-async def _get_bigquery_mcp_toolset():
+async def _get_bigquery_mcp_toolset() -> BaseToolset | None:
     """Lazily create BigQuery MCP toolset in async context."""
     global _bigquery_mcp_toolset
     if _bigquery_mcp_toolset is None:
@@ -155,7 +156,7 @@ async def _get_bigquery_mcp_toolset():
     return _bigquery_mcp_toolset
 
 
-async def _get_logging_mcp_toolset():
+async def _get_logging_mcp_toolset() -> BaseToolset | None:
     """Lazily create Cloud Logging MCP toolset in async context."""
     global _logging_mcp_toolset
     if _logging_mcp_toolset is None:
@@ -163,7 +164,7 @@ async def _get_logging_mcp_toolset():
     return _logging_mcp_toolset
 
 
-async def _get_monitoring_mcp_toolset():
+async def _get_monitoring_mcp_toolset() -> BaseToolset | None:
     """Lazily create Cloud Monitoring MCP toolset in async context."""
     global _monitoring_mcp_toolset
     if _monitoring_mcp_toolset is None:
@@ -184,8 +185,7 @@ async def run_aggregate_analysis(
     service_name: str | None = None,
     tool_context: ToolContext | None = None,
 ) -> dict[str, Any]:
-    """
-    Run Stage 0: Aggregate analysis using BigQuery.
+    """Run Stage 0: Aggregate analysis using BigQuery.
 
     This stage analyzes thousands of traces to identify patterns, trends,
     and select exemplar traces for detailed investigation.
@@ -248,8 +248,7 @@ async def run_triage_analysis(
     project_id: str | None = None,
     tool_context: ToolContext | None = None,
 ) -> dict[str, Any]:
-    """
-    Run Stage 1: Parallel triage analysis with 4 specialized sub-agents.
+    """Run Stage 1: Parallel triage analysis with 4 specialized sub-agents.
 
     This stage compares two traces in parallel using:
     - Latency Analyzer: Timing comparison
@@ -308,7 +307,7 @@ Compare them and report your findings.
             logger.error(f"{name}_analyzer failed: {result}")
             triage_results[name] = {"status": "error", "error": str(result)}
         else:
-            triage_results[name] = {"status": "success", "result": result}  # type: ignore
+            triage_results[name] = {"status": "success", "result": result}
 
     return {
         "stage": "triage",
@@ -328,8 +327,7 @@ async def run_log_pattern_analysis(
     project_id: str | None = None,
     tool_context: ToolContext | None = None,
 ) -> dict[str, Any]:
-    """
-    Run log pattern analysis to find emergent issues.
+    """Run log pattern analysis to find emergent issues.
 
     This function compares log patterns between two time periods using
     the Drain3 algorithm to identify NEW patterns that may indicate issues.
@@ -405,8 +403,7 @@ async def run_deep_dive_analysis(
     project_id: str | None = None,
     tool_context: ToolContext | None = None,
 ) -> dict[str, Any]:
-    """
-    Run Stage 2: Deep dive analysis with causality and impact sub-agents.
+    """Run Stage 2: Deep dive analysis with causality and impact sub-agents.
 
     This stage determines:
     - Causality: What is the root cause of the issue?
@@ -463,7 +460,7 @@ Determine root cause and assess impact.
             logger.error(f"{name}_analyzer failed: {result}")
             deep_dive_results[name] = {"status": "error", "error": str(result)}
         else:
-            deep_dive_results[name] = {"status": "success", "result": result}  # type: ignore
+            deep_dive_results[name] = {"status": "success", "result": result}
 
     return {
         "stage": "deep_dive",
@@ -476,7 +473,7 @@ Determine root cause and assess impact.
 # Base Tools (always available)
 # ============================================================================
 
-base_tools = [
+base_tools: list[Any] = [
     # Trace API tools
     fetch_trace,
     list_traces,
@@ -585,7 +582,7 @@ sre_agent = LlmAgent(
         "Supports Cloud Trace, Cloud Logging, Cloud Monitoring, BigQuery, GKE, and Cloud Run."
     ),
     instruction=SRE_AGENT_PROMPT,
-    tools=base_tools,  # type: ignore
+    tools=base_tools,
     # Sub-agents for specialized analysis (automatically invoked based on task)
     sub_agents=[
         # Trace analysis sub-agents
@@ -611,9 +608,8 @@ root_agent = sre_agent
 # ============================================================================
 
 
-async def get_agent_with_mcp_tools():
-    """
-    Creates an agent instance with MCP toolsets loaded.
+async def get_agent_with_mcp_tools() -> LlmAgent:
+    """Creates an agent instance with MCP toolsets loaded.
 
     This should be called in an async context to properly initialize
     MCP toolsets. Use this for programmatic agent creation.

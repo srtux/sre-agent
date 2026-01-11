@@ -28,7 +28,7 @@ def _get_authorized_session() -> AuthorizedSession:
     credentials, _ = google.auth.default(
         scopes=["https://www.googleapis.com/auth/cloud-platform"]
     )
-    return AuthorizedSession(credentials)
+    return AuthorizedSession(credentials)  # type: ignore[no-untyped-call]
 
 
 @adk_tool
@@ -36,8 +36,7 @@ def list_slos(
     project_id: str,
     service_id: str | None = None,
 ) -> str:
-    """
-    List all Service Level Objectives defined in a project.
+    """List all Service Level Objectives defined in a project.
 
     SLOs are the foundation of SRE - they define what "reliable enough" means
     for your services. Use this to understand what SLOs exist and their targets.
@@ -122,8 +121,7 @@ def get_slo_status(
     service_id: str,
     slo_id: str,
 ) -> str:
-    """
-    Get current SLO compliance status including error budget.
+    """Get current SLO compliance status including error budget.
 
     This is THE critical metric for SRE work - shows if you're meeting
     your reliability targets and how much error budget remains.
@@ -201,8 +199,7 @@ def analyze_error_budget_burn(
     slo_id: str,
     hours: int = 24,
 ) -> str:
-    """
-    Analyze error budget burn rate to predict SLO violations.
+    """Analyze error budget burn rate to predict SLO violations.
 
     This is early warning for reliability issues - if you're burning
     error budget too fast, you need to take action before users notice!
@@ -332,8 +329,7 @@ def get_golden_signals(
     service_name: str,
     minutes_ago: int = 60,
 ) -> str:
-    """
-    Get the four SRE Golden Signals for a service.
+    """Get the four SRE Golden Signals for a service.
 
     The Golden Signals are:
     1. Latency - How long requests take
@@ -603,8 +599,7 @@ def correlate_incident_with_slo_impact(
     incident_start: str,
     incident_end: str,
 ) -> str:
-    """
-    Calculate how much an incident consumed error budget.
+    """Calculate how much an incident consumed error budget.
 
     This is critical for postmortems - quantifies the impact of an incident
     on your reliability targets.
@@ -718,8 +713,7 @@ def predict_slo_violation(
     slo_id: str,
     hours_ahead: int = 24,
 ) -> str:
-    """
-    Predict if current error rate will exhaust error budget.
+    """Predict if current error rate will exhaust error budget.
 
     This is proactive SRE - catch problems before they become outages!
 

@@ -7,8 +7,7 @@ from ...common.decorators import adk_tool
 
 @adk_tool
 def calculate_series_stats(points: list[float]) -> dict[str, float]:
-    """
-    Calculates statistical metrics for a list of data points.
+    """Calculates statistical metrics for a list of data points.
 
     Args:
         points: List of numerical values.

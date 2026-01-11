@@ -47,8 +47,7 @@ def _fetch_traces_parallel(
 def compute_latency_statistics(
     trace_ids: list[str], project_id: str | None = None
 ) -> dict[str, Any]:
-    """
-    Computes aggregate latency statistics for a list of traces.
+    """Computes aggregate latency statistics for a list of traces.
 
     Args:
         trace_ids: List of trace IDs.
@@ -154,8 +153,8 @@ def detect_latency_anomalies(
     threshold_sigma: float = 2.0,
     project_id: str | None = None,
 ) -> dict[str, Any]:
-    """
-    Detects if the target trace is anomalous compared to baseline distribution using Z-score.
+    """Detects if the target trace is anomalous compared to baseline distribution.
+
     Also checks individual spans for anomalies if baseline data allows.
 
     Args:
@@ -267,8 +266,7 @@ def detect_latency_anomalies(
 def analyze_critical_path(
     trace_id: str, project_id: str | None = None
 ) -> dict[str, Any]:
-    """
-    Identifies the critical path of spans in a trace.
+    """Identifies the critical path of spans in a trace.
 
     The critical path is calculated by finding the longest path through the span dependency graph.
 
@@ -337,11 +335,13 @@ def analyze_critical_path(
         # 2. Use dynamic programming to find the path with maximum blocking time
         # 3. Account for concurrent children by considering overlap
 
-        def calculate_critical_path_recursive(span_id: str) -> tuple[list[dict], float]:
-            """
-            Returns (path, blocking_time) where:
+        def calculate_critical_path_recursive(
+            span_id: str,
+        ) -> tuple[list[dict[str, Any]], float]:
+            """Returns (path, blocking_time) where:.
+
             - path: list of span info dicts forming the critical path from this node
-            - blocking_time: the actual blocking/critical duration from this span down
+            - blocking_time: the actual blocking/critical duration from this span down.
             """
             node = parsed_spans[span_id]
 
@@ -466,9 +466,7 @@ def analyze_critical_path(
 def perform_causal_analysis(
     baseline_trace_id: str, target_trace_id: str, project_id: str | None = None
 ) -> dict[str, Any] | str:
-    """
-    Enhanced root cause analysis using span-ID-level precision.
-    """
+    """Enhanced root cause analysis using span-ID-level precision."""
     baseline_data = fetch_trace_data(baseline_trace_id, project_id)
     if not baseline_data or "error" in baseline_data:
         msg = (
@@ -515,7 +513,7 @@ def perform_causal_analysis(
     # Flatten tree to map span_id -> depth
     depth_map = {}
 
-    def traverse(node):
+    def traverse(node: dict[str, Any]) -> None:
         depth_map[node["span_id"]] = node["depth"]
         for child in node["children"]:
             traverse(child)
@@ -641,8 +639,7 @@ def analyze_trace_patterns(
     lookback_window_minutes: int = 60,
     project_id: str | None = None,
 ) -> dict[str, Any]:
-    """
-    Analyzes patterns across multiple traces to detect trends and recurring issues.
+    """Analyzes patterns across multiple traces to detect trends and recurring issues.
 
     This function helps identify:
     - Recurring slowdowns (specific spans consistently slow)
@@ -725,7 +722,7 @@ def analyze_trace_patterns(
             if perf["occurrences"] < 2:
                 continue
 
-            durations: list[float] = perf["durations"]  # type: ignore
+            durations: list[float] = perf["durations"]
             mean_dur = statistics.mean(durations)
 
             if len(durations) > 1:
@@ -829,8 +826,7 @@ def analyze_trace_patterns(
 def compute_service_level_stats(
     trace_ids: list[str], project_id: str | None = None
 ) -> dict[str, Any]:
-    """
-    Computes stats aggregated by service name (if available in labels).
+    """Computes stats aggregated by service name (if available in labels).
 
     Args:
         trace_ids: List of trace IDs.

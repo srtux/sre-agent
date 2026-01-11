@@ -1,13 +1,14 @@
 """Telemetry setup for SRE Agent using OpenTelemetry."""
 
 import logging
+from typing import Any
 
 from opentelemetry import metrics, trace
 
 
 # Filter out the specific warning from google-generativeai types regarding function calls
 class _FunctionCallWarningFilter(logging.Filter):
-    def filter(self, record):
+    def filter(self, record: logging.LogRecord) -> bool:
         return (
             "Warning: there are non-text parts in the response"
             not in record.getMessage()
@@ -19,19 +20,18 @@ logging.getLogger().addFilter(_FunctionCallWarningFilter())
 logging.getLogger("google.generativeai").addFilter(_FunctionCallWarningFilter())
 
 
-def get_tracer(name: str):
+def get_tracer(name: str) -> trace.Tracer:
     """Returns a tracer for the given module name."""
     return trace.get_tracer(name)
 
 
-def get_meter(name: str):
+def get_meter(name: str) -> metrics.Meter:
     """Returns a meter for the given module name."""
     return metrics.get_meter(name)
 
 
-def log_tool_call(logger: logging.Logger, func_name: str, **kwargs):
-    """
-    Logs a tool call with arguments, truncating long values.
+def log_tool_call(logger: logging.Logger, func_name: str, **kwargs: Any) -> None:
+    """Logs a tool call with arguments, truncating long values.
 
     Args:
         logger: The logger instance to use.

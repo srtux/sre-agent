@@ -49,8 +49,7 @@ LOG_MESSAGE_PATTERNS = [
 
 
 class LogMessageExtractor:
-    """
-    Intelligent extractor for log messages from various payload formats.
+    """Intelligent extractor for log messages from various payload formats.
 
     Handles:
     - textPayload: Direct string extraction
@@ -58,13 +57,13 @@ class LogMessageExtractor:
     - protoPayload: Audit log extraction
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
+        """Initialize the extractor with regex patterns and field cache."""
         self._field_cache: dict[str, str] = {}
         self._pattern_re = [re.compile(p, re.IGNORECASE) for p in LOG_MESSAGE_PATTERNS]
 
     def extract(self, log_entry: dict[str, Any]) -> str:
-        """
-        Extract the log message from a Cloud Logging entry.
+        """Extract the log message from a Cloud Logging entry.
 
         Args:
             log_entry: A log entry dict with payload field
@@ -238,8 +237,7 @@ _extractor = LogMessageExtractor()
 
 
 def extract_log_message(log_entry: dict[str, Any]) -> str:
-    """
-    Extract the log message from a Cloud Logging entry.
+    """Extract the log message from a Cloud Logging entry.
 
     This is the main function to use for extracting messages. It handles
     textPayload, jsonPayload, and protoPayload formats automatically.
@@ -266,8 +264,7 @@ def extract_messages_from_entries(
     log_entries: list[dict[str, Any]],
     include_metadata: bool = False,
 ) -> list[dict[str, Any]]:
-    """
-    Extract messages from a list of log entries.
+    """Extract messages from a list of log entries.
 
     Args:
         log_entries: List of log entry dicts from Cloud Logging

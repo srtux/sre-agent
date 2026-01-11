@@ -16,7 +16,7 @@ References:
 
 import json
 import logging
-from typing import Any
+from typing import Any, cast
 
 from ...clients.trace import fetch_trace_data
 from ...common import adk_tool
@@ -39,8 +39,7 @@ def analyze_critical_path(
     trace_id: str,
     project_id: str | None = None,
 ) -> dict[str, Any]:
-    """
-    Analyzes the critical path of a distributed trace.
+    """Analyzes the critical path of a distributed trace.
 
     The critical path is the chain of spans that determines the total latency
     of the request. Operations on the critical path MUST complete for the
@@ -192,17 +191,17 @@ def analyze_critical_path(
         return result
 
 
-def _extract_service_name(span: dict) -> str | None:
+def _extract_service_name(span: dict[str, Any]) -> str | None:
     """Extract service name from span labels/attributes."""
-    labels = span.get("labels", {})
+    labels = cast(dict[str, Any], span.get("labels", {}))
     # Try common attribute names
     for key in ["service.name", "/service.name", "g.co/service.name"]:
         if key in labels:
-            return labels[key]
+            return cast(str, labels[key])
     return None
 
 
-def _is_error_span(span: dict) -> bool:
+def _is_error_span(span: dict[str, Any]) -> bool:
     """Check if span represents an error."""
     labels = span.get("labels", {})
     # Check status code
@@ -224,11 +223,10 @@ def _is_error_span(span: dict) -> bool:
 
 def _calculate_critical_path(
     span_id: str,
-    span_map: dict[str, dict],
+    span_map: dict[str, dict[str, Any]],
     children_map: dict[str, list[str]],
 ) -> dict[str, Any]:
-    """
-    Recursively calculate the critical path from a span.
+    """Recursively calculate the critical path from a span.
 
     The critical path is the path through child spans that has the longest
     total duration. We track both wall-clock duration and self-time.
@@ -294,11 +292,10 @@ def _calculate_critical_path(
 
 
 def _find_parallel_opportunities(
-    span_map: dict[str, dict],
+    span_map: dict[str, dict[str, Any]],
     children_map: dict[str, list[str]],
 ) -> list[dict[str, Any]]:
-    """
-    Find spans that could potentially be parallelized.
+    """Find spans that could potentially be parallelized.
 
     Looks for sequential sibling calls to the same service or similar operations
     that might benefit from batching or concurrent execution.
@@ -310,7 +307,7 @@ def _find_parallel_opportunities(
             continue
 
         # Group children by service
-        service_groups: dict[str, list[dict]] = {}
+        service_groups: dict[str, list[dict[str, Any]]] = {}
         for child_id in children_ids:
             child = span_map.get(child_id)
             if child:
@@ -350,10 +347,10 @@ def _find_parallel_opportunities(
 
 
 def _generate_optimization_recommendations(
-    critical_path: dict,
-    bottleneck: dict | None,
-    parallel_opportunities: list,
-    span_map: dict,
+    critical_path: dict[str, Any],
+    bottleneck: dict[str, Any] | None,
+    parallel_opportunities: list[dict[str, Any]],
+    span_map: dict[str, dict[str, Any]],
 ) -> list[dict[str, Any]]:
     """Generate actionable optimization recommendations."""
     recommendations = []
@@ -459,8 +456,7 @@ def find_bottleneck_services(
     time_window_hours: int = 24,
     min_sample_size: int = 100,
 ) -> str:
-    """
-    Identifies services that frequently appear as bottlenecks on critical paths.
+    """Identifies services that frequently appear as bottlenecks on critical paths.
 
     This aggregates across many traces to find systematic bottlenecks,
     not just one-off slow requests.
@@ -585,8 +581,7 @@ def calculate_critical_path_contribution(
     operation_name: str | None = None,
     time_window_hours: int = 24,
 ) -> str:
-    """
-    Calculates how much a specific service/operation contributes to critical paths.
+    """Calculates how much a specific service/operation contributes to critical paths.
 
     This helps answer: "If I optimize this service, how much will overall
     latency improve?" - the key question for prioritizing optimization work.

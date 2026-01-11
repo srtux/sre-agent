@@ -29,9 +29,7 @@ tool_execution_count = meter.create_counter(
 
 
 def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
-    """
-    Decorator to mark a function as an ADK tool and provide automatic
-    logging and instrumentation.
+    """Decorator to mark a function as an ADK tool.
 
     This decorator provides:
     - OTel Spans for every execution
@@ -45,7 +43,9 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
             ...
     """
 
-    def _record_attributes(span, bound_args):
+    def _record_attributes(
+        span: trace.Span, bound_args: inspect.BoundArguments
+    ) -> None:
         for k, v in bound_args.arguments.items():
             # Truncate long strings to avoid span attribute limits
             val_str = str(v)
@@ -54,7 +54,7 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
             span.set_attribute(f"arg.{k}", val_str)
 
     @functools.wraps(func)
-    async def async_wrapper(*args, **kwargs):
+    async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
         tool_name = func.__name__
         start_time = time.time()
         success = True
@@ -102,7 +102,7 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
                 )
 
     @functools.wraps(func)
-    def sync_wrapper(*args, **kwargs):
+    def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
         tool_name = func.__name__
         start_time = time.time()
         success = True

@@ -366,10 +366,9 @@ REMEDIATION_PATTERNS: dict[str, Any] = {
 @adk_tool
 def generate_remediation_suggestions(
     finding_summary: str,
-    finding_details: dict | None = None,
+    finding_details: dict[str, Any] | None = None,
 ) -> str:
-    """
-    Generate remediation suggestions based on investigation findings.
+    """Generate remediation suggestions based on investigation findings.
 
     Takes the summary of what was found during analysis and returns
     actionable remediation steps ranked by effectiveness and risk.
@@ -483,8 +482,7 @@ def get_gcloud_commands(
     region: str | None = None,
     **kwargs: Any,
 ) -> str:
-    """
-    Generate ready-to-run gcloud commands for common remediations.
+    """Generate ready-to-run gcloud commands for common remediations.
 
     When you know what fix is needed, this generates the exact commands
     to execute. Copy-paste SRE!
@@ -624,8 +622,7 @@ def estimate_remediation_risk(
     service_name: str,
     change_description: str,
 ) -> str:
-    """
-    Estimate the risk level of a proposed remediation action.
+    """Estimate the risk level of a proposed remediation action.
 
     Not all fixes are created equal - some are safe to try immediately,
     others need careful planning. This helps prioritize.
@@ -755,8 +752,7 @@ def find_similar_past_incidents(
     service_name: str | None = None,
     days_back: int = 90,
 ) -> str:
-    """
-    Search for similar past incidents to learn from previous resolutions.
+    """Search for similar past incidents to learn from previous resolutions.
 
     Those who don't learn from history are doomed to repeat it!
     Check if this problem has been solved before.

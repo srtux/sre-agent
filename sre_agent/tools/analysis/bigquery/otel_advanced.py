@@ -20,8 +20,7 @@ def analyze_span_events(
     event_name_filter: str | None = None,
     service_name: str | None = None,
 ) -> str:
-    """
-    Analyzes span events (e.g., logs, exceptions attached to spans).
+    """Analyzes span events (e.g., logs, exceptions attached to spans).
 
     Args:
         dataset_id: BigQuery dataset ID
@@ -83,8 +82,7 @@ def analyze_exception_patterns(
     time_window_hours: int = 24,
     group_by: str = "exception_type",
 ) -> str:
-    """
-    Analyzes patterns in exceptions found in span events.
+    """Analyzes patterns in exceptions found in span events.
 
     Args:
         dataset_id: BigQuery dataset
@@ -130,9 +128,7 @@ def analyze_span_links(
     time_window_hours: int = 24,
     service_name: str | None = None,
 ) -> str:
-    """
-    Analyzes span links which connect causal traces.
-    """
+    """Analyzes span links which connect causal traces."""
     where_conditions = [
         f"start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {time_window_hours} HOUR)",
         "ARRAY_LENGTH(links) > 0",
@@ -174,9 +170,7 @@ def analyze_link_patterns(
     table_name: str = "_AllSpans",
     time_window_hours: int = 24,
 ) -> str:
-    """
-    Analyzes high-level statistics about span links.
-    """
+    """Analyzes high-level statistics about span links."""
     query = f"""
 SELECT
   JSON_EXTRACT_SCALAR(t.resource.attributes, '$.service.name') as service_name,
@@ -203,9 +197,7 @@ def analyze_instrumentation_libraries(
     table_name: str = "_AllSpans",
     time_window_hours: int = 24,
 ) -> str:
-    """
-    Analyzes usage of instrumentation libraries/scopes.
-    """
+    """Analyzes usage of instrumentation libraries/scopes."""
     query = f"""
 SELECT
   instrumentation_scope.name as `instrumentation_scope.name`,
@@ -236,9 +228,7 @@ def analyze_http_attributes(
     time_window_hours: int = 24,
     min_request_count: int = 1,
 ) -> str:
-    """
-    Analyzes HTTP semantic conventions (SERVER spans).
-    """
+    """Analyzes HTTP semantic conventions (SERVER spans)."""
     query = f"""
 SELECT
   JSON_EXTRACT_SCALAR(attributes, '$.http.method') as `http.method`,
@@ -273,9 +263,7 @@ def analyze_database_operations(
     time_window_hours: int = 24,
     db_system: str | None = None,
 ) -> str:
-    """
-    Analyzes Database semantic conventions (CLIENT spans).
-    """
+    """Analyzes Database semantic conventions (CLIENT spans)."""
     where_extra = ""
     if db_system:
         where_extra = (
