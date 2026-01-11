@@ -4,13 +4,14 @@ import signal
 import subprocess
 import sys
 import time
+from typing import Any
 
 # Global process handles for cleanup
-backend_proc: subprocess.Popen | None = None
-frontend_proc: subprocess.Popen | None = None
+backend_proc: subprocess.Popen[Any] | None = None
+frontend_proc: subprocess.Popen[Any] | None = None
 
 
-def cleanup(signum, frame):
+def cleanup(signum: int | None, frame: object) -> None:
     """Handle cleanup on signal."""
     print("\n🛑 Stopping services...")
 
@@ -39,7 +40,7 @@ def check_command(cmd: list[str]) -> bool:
     return shutil.which(cmd[0]) is not None
 
 
-def start_backend():
+def start_backend() -> bool:
     """Start the Python backend."""
     global backend_proc
     print("🚀 Starting Backend (ADK Agent)...")
@@ -59,13 +60,13 @@ def start_backend():
     print("⏳ Waiting for Backend to initialize (5s)...")
     time.sleep(5)
 
-    if backend_proc.poll() is not None:
+    if backend_proc and backend_proc.poll() is not None:
         print("❌ Backend failed to start!")
         return False
     return True
 
 
-def start_frontend():
+def start_frontend() -> bool:
     """Start the Next.js frontend."""
     global frontend_proc
     print("🚀 Starting Frontend (Next.js)...")
@@ -77,13 +78,13 @@ def start_frontend():
         cwd=frontend_dir,
     )
 
-    if frontend_proc.poll() is not None:
+    if frontend_proc and frontend_proc.poll() is not None:
         print("❌ Frontend failed to start!")
         return False
     return True
 
 
-def main():
+def main() -> None:
     """Run the development environment."""
     # Register signal handlers
     signal.signal(signal.SIGINT, cleanup)
@@ -108,11 +109,11 @@ def main():
     try:
         while True:
             # Check if processes are still alive
-            if backend_proc.poll() is not None:
+            if backend_proc and backend_proc.poll() is not None:
                 print("\n❌ Backend crashed unexpectedly!")
                 cleanup(None, None)
 
-            if frontend_proc.poll() is not None:
+            if frontend_proc and frontend_proc.poll() is not None:
                 print("\n❌ Frontend crashed unexpectedly!")
                 cleanup(None, None)
 

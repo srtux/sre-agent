@@ -13,13 +13,17 @@ if _p and "," in _p:
 
 # Fix for MCP ClientSession Pydantic compatibility
 try:
+    from typing import Any
+
     from mcp.client.session import ClientSession
     from pydantic_core import core_schema
 
-    def _get_pydantic_core_schema(cls, source_type, handler):
+    def _get_pydantic_core_schema(
+        cls: type, source_type: Any, handler: Any
+    ) -> core_schema.CoreSchema:
         return core_schema.is_instance_schema(cls)
 
-    ClientSession.__get_pydantic_core_schema__ = classmethod(_get_pydantic_core_schema)
+    ClientSession.__get_pydantic_core_schema__ = classmethod(_get_pydantic_core_schema)  # type: ignore[attr-defined]
 except ImportError:
     pass
 

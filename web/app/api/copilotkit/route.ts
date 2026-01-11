@@ -6,10 +6,15 @@ import {
 import { NextRequest } from "next/server";
 
 // Create the CopilotKit runtime
+const agentUrl = process.env.SRE_AGENT_URL || "http://127.0.0.1:8000";
+const copilotKitEndpoint = agentUrl.includes("/copilotkit")
+  ? agentUrl
+  : `${agentUrl.replace(/\/$/, "")}/copilotkit`;
+
 const runtime = new CopilotRuntime({
   remoteEndpoints: [
     {
-      url: process.env.SRE_AGENT_URL || "http://127.0.0.1:8000/copilotkit",
+      url: copilotKitEndpoint,
     },
   ],
   actions: [

@@ -353,14 +353,43 @@ This project uses **Poe the Poet** for unified task management. All project scri
 | Task | Command | Description |
 |------|---------|-------------|
 | **Sync** | `uv run poe sync` | Synchronize all dependencies with `uv` |
-| **Deploy** | `uv run poe deploy` | **Safe Deploy**: Syncs docs, verifies imports, and deploys to Agent Engine |
+| **Deploy (Backend)** | `uv run poe deploy` | **Safe Deploy**: Syncs docs, verifies imports, and deploys to Vertex Agent Engine |
+| **Deploy (Frontend)** | `uv run poe deploy-web` | Optimized multi-stage build and deployment to Cloud Run |
+| **Deploy (Full Stack)** | `uv run poe deploy-all` | Orchestrated deployment of both Vertex backend and Cloud Run frontend |
 | **List** | `uv run poe list` | List all deployed agents in Agent Engine |
 | **Test** | `uv run poe test` | Run the full test suite |
 | **Eval** | `uv run poe eval` | Run agent evaluations using ADK eval sets |
 | **Delete** | `uv run poe delete --resource_id ID` | Delete a specific Agent Engine instance |
 | **Pre-commit** | `uv run poe pre-commit` | Run all pre-commit hooks (lint, spell, check-added-large-files) |
 
-Before deploying, ensure your `.env` file is configured with `GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_STORAGE_BUCKET`.
+### Deployment
+
+The SRE Agent stack consists of a **Python Backend** (running on Vertex AI Agent Engine) and a **Next.js Frontend** (running on Cloud Run).
+
+#### 1. Full Stack Deployment (Recommended)
+The easiest way to deploy the entire system and ensure they are connected:
+```bash
+uv run poe deploy-all
+```
+This script:
+1. Deploys the backend to Vertex AI.
+2. Captures the new `ReasoningEngine` resource ID.
+3. Deploys the frontend to Cloud Run, automatically pointing it to the new backend version using an `agentengine://` URI.
+
+#### 2. Individual Component Deployment
+If you only need to update one part of the stack:
+
+*   **Backend Only**: `uv run poe deploy`
+*   **Frontend Only**: `uv run poe deploy-web`
+
+#### 3. Configuration & Versioning
+You can override deployment settings without changing your `.env` file:
+```bash
+# Point a new frontend to an existing specific backend version
+uv run poe deploy-web --agent-url agentengine://projects/my-project/locations/us-central1/reasoningEngines/12345
+```
+
+Before deploying, ensure your `.env` and `web/.env` files are configured with your GCP project settings and API keys.
 
 ## Usage Examples
 
