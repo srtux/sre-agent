@@ -221,6 +221,7 @@ sequenceDiagram
    - **PromQL**: Execute complex PromQL queries for aggregations and rates
    - **Trend Detection**: Identify statistical trends and anomalies in time series
    - **Service Health**: Monitor CPU, Memory, and custom metric signals
+   - **GCP Metrics Knowledge Base**: Built-in knowledge of best-practice metrics for GKE, Cloud Run, Vertex AI, BigQuery, and Cloud Logging.
 
 4. **Critical Path & Dependencies**
    - **Critical Path Analysis**: Identify the chain of spans driving latency

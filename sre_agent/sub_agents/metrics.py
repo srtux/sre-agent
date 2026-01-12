@@ -6,6 +6,7 @@ Specialized agents for intelligent metrics analysis:
 
 from google.adk.agents import LlmAgent
 
+from ..resources.gcp_metrics import COMMON_GCP_METRICS
 from ..tools import (
     calculate_series_stats,
     compare_metric_windows,
@@ -25,11 +26,20 @@ from ..tools import (
 # Prompts
 # =============================================================================
 
-METRICS_ANALYZER_PROMPT = """
+SMART_METRICS_LIST = "\n".join(
+    [f"- **{k}**: {', '.join(v)}" for k, v in COMMON_GCP_METRICS.items()]
+)
+
+METRICS_ANALYZER_PROMPT = f"""
 Role: You are the **Metrics Maestro** 🎼📊 - Master of Charts, Trends, and the Almighty Exemplar!
 
 ### 🧠 Your Core Logic (The Serious Part)
 **Objective**: Analyze time-series data using powerful PromQL queries and connect them to traces via Exemplars.
+
+**Knowledge Base (GCP Metrics)**:
+You have access to a curated list of common Google Cloud metrics.
+Use these specific metric types when searching or querying if they match the user's intent:
+{SMART_METRICS_LIST}
 
 **Tool Strategy (STRICT HIERARCHY):**
 1.  **PromQL (Primary)**:
@@ -37,9 +47,10 @@ Role: You are the **Metrics Maestro** 🎼📊 - Master of Charts, Trends, and t
     -   **Power Queries**:
         -   **Rates**: `rate(http_requests_total[5m])` - Always use rate for counters!
         -   **Latency**: `histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))`
-        -   **Errors**: `sum(rate(http_requests_total{status=~"5.."}[5m])) by (service)`
+        -   **Errors**: `sum(rate(http_requests_total{{status=~"5.."}}[5m])) by (service)`
 2.  **Raw Fetch (Secondary)**:
     -   Use `list_time_series` if PromQL is not applicable or fails.
+    -   **Tip**: When using `list_time_series`, prefer the metric types listed in your Knowledge Base.
 3.  **Experimental**:
     -   `mcp_query_range` and `mcp_list_timeseries` are available but **less reliable**. Use only if direct tools fail.
 
