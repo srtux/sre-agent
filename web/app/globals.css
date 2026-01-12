@@ -115,3 +115,59 @@
   top: 80px !important;
   right: 20px !important;
 }
+
+/* --- CopilotKit Overrides --- */
+
+/* 1. Hide User Avatar ("N" icon) */
+.copilotKitUserIcon,
+.copilotKitMessageAvatar,
+[data-component="UserAvatar"],
+.copilotKitInput .copilotKitAvatar,
+[class*="copilotKit"][class*="Avatar"],
+/* Target based on observed Tailwind classes for the N icon */
+.copilotKitInput .w-8.h-8.rounded-full,
+.copilotKitInput .rounded-full.bg-gray-200.text-gray-600 {
+  display: none !important;
+}
+
+/* 2. Hide Dev Console Trigger (Top Right) */
+.copilotKitDevConsoleTrigger,
+[data-component="DevConsoleTrigger"],
+.copilotKitDebugMenuTriggerButton,
+button[aria-label="Open Dev Console"],
+button[title="Open Dev Console"],
+/* Custom element found by browser test */
+cpk-web-inspector,
+.announcement-preview {
+  display: none !important;
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
+
+/* 3. Fix Message Layout (Sequential Ordering) */
+/* Ensure the message list stacks vertically */
+.copilotKitMessages,
+.copilotKitMessagesContainer,
+.copilotKitChat .copilotKitMessages {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-start !important;
+}
+
+/* Ensure individual messages take full width and don't float */
+.copilotKitMessage {
+  display: flex !important;
+  width: 100% !important;
+  order: 0 !important;
+  /* Prevent flex order manipulation */
+}
+
+/* Ensure inner content of messages also behaves */
+.copilotKitMessage.copilotKitUserMessage,
+.copilotKitMessage.copilotKitAssistantMessage {
+  width: 100% !important;
+  max-width: 100% !important;
+}

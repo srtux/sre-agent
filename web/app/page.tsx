@@ -399,7 +399,7 @@ function MissionControlDashboard() {
 // Root page with CopilotKit provider
 export default function Page() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit">
+    <CopilotKit runtimeUrl="/api/copilotkit" showDevConsole={false}>
       <MissionControlDashboard />
     </CopilotKit>
   );
