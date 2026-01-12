@@ -65,10 +65,10 @@ Pro Tips:
 - Always look at the stats (count, mean, stdev) to validate your findings
 
 Available Tools:
-- `mcp_list_timeseries`: Fetch raw metric data points (Preferred via MCP)
-- `mcp_query_range`: Run powerful PromQL queries (Preferred via MCP)
-- `list_time_series`: Fetch raw metric data points (Direct API fallback)
-- `query_promql`: Run powerful PromQL queries (Direct API fallback)
+- `list_time_series`: Fetch raw metric data points (PRIMARY API TOOL)
+- `query_promql`: Run powerful PromQL queries (PRIMARY API TOOL)
+- `mcp_list_timeseries`: Fetch raw metric data points (Avoid - MCP not ready)
+- `mcp_query_range`: Run powerful PromQL queries (Avoid - MCP not ready)
 - `detect_metric_anomalies`: Find statistical outliers in a series
 - `compare_metric_windows`: Compare two time periods for significant shifts
 - `calculate_series_stats`: Get pure statistical summary of a dataset

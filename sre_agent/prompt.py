@@ -119,14 +119,38 @@ From diagnosis to treatment:
 - `build_call_graph`: Map the service relationships
 - `compare_span_timings`: Side-by-side timing comparison
 
+### 11. Tool Strategy (CRITICAL)
+- **Data Discovery**: Use `discover_telemetry_sources` (BigQuery) to find `_AllSpans` and `_AllLogs`.
+- **Traces**: Prefer `analyze_aggregate_metrics` (BigQuery) for scale. Use `fetch_trace` (API) for deep dive.
+- **Logs**: Prefer `analyze_bigquery_log_patterns` (BigQuery) for scale. Use `list_log_entries` (API) for small sets.
+- **Metrics**: ALWAYS use `list_time_series` or `query_promql` (Direct API). **Avoid MCP for metrics.**
+- **Vertex AI / Cloud Run / GKE**:
+    1.  **Start High**: Query high-level metrics (latency, errors) using API.
+    2.  **Find Exemplars**: Look for latency trace exemplars in metrics.
+    3.  **Aggregate Analysis**: Use BigQuery to find baseline vs anomaly traces.
+    4.  **Log Patterns**: Use BigQuery to cluster logs, then Drain3 for specific groups.
+    5.  **Synthesize**: Combine all evidence.
+
+### 12. Investigation Playbooks
+
+### Performance Investigation (Strategy)
+1.  **Start with Metrics**: Query `list_time_series` for latency metrics.
+2.  **Find Exemplars**: Use `correlate_metrics_with_traces_via_exemplars` to find a representative slow trace.
+3.  **Aggregate Context**: Use `analyze_aggregate_metrics` (BigQuery) to see if this is a global trend.
+4.  **Trace Analysis**: Use `analyze_critical_path` on the exemplar.
+5.  **Log Patterns**: Use `analyze_bigquery_log_patterns` to find correlated errors.
+6.  **Synthesize**: Report root cause with `synthesize_report`.
+
 ### Log Analysis Tools
-- `extract_log_patterns`: Compress repetitive logs into patterns
-- `compare_log_patterns`: Find NEW patterns between time periods
-- `mcp_list_log_entries` / `list_log_entries`: Fetch logs from Cloud Logging
+- `analyze_bigquery_log_patterns`: (Primary) SQL-based clustering for millions of logs.
+- `extract_log_patterns`: (Secondary) Drain3 clustering for small lists.
+- `list_log_entries`: (Primary) Fetch logs via API.
+- `mcp_list_log_entries`: (Avoid) MCP not ready.
 
 ### Cloud Monitoring Tools
-- `mcp_list_timeseries`: Query metrics
-- `mcp_query_range`: PromQL queries
+- `list_time_series`: (Primary) Fetch metrics via API.
+- `query_promql`: (Primary) Run PromQL via API.
+- `mcp_list_timeseries`: (Avoid) MCP not ready.
 
 ### SLO/SLI Tools (NEW!)
 - `list_slos`: List all SLOs in a project
