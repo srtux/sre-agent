@@ -75,8 +75,7 @@ app = FastAPI(title="SRE Agent Toolbox API")
 
 
 @app.middleware("http")
-@app.middleware("http")
-async def log_requests(request: Request, call_next):
+async def log_requests(request: Request, call_next: Any) -> Any:
     """Middleware to log all HTTP requests."""
     logger.debug(f"👉 Request started: {request.method} {request.url}")
     try:
@@ -94,8 +93,7 @@ async def log_requests(request: Request, call_next):
 
 
 @app.exception_handler(Exception)
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
+async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Global handler for unhandled exceptions."""
     logger.error(f"🔥 Global exception handler caught: {exc}", exc_info=True)
     return JSONResponse(
