@@ -19,20 +19,90 @@ except ImportError:
     pass
 
 
-import uvicorn
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from google.adk.cli.fast_api import get_fast_api_app
+import logging
+import os
+import sys
+
+# 0. SET LOG LEVEL EARLY
+os.environ["LOG_LEVEL"] = "DEBUG"
+
+import uvicorn  # noqa: E402
+from fastapi import FastAPI, HTTPException, Request  # noqa: E402
+from fastapi.concurrency import run_in_threadpool  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from fastapi.responses import JSONResponse  # noqa: E402
+from google.adk.cli.fast_api import get_fast_api_app  # noqa: E402
+
+# 1.1 CONFIGURING LOGGING
+# Configure root logger
+# Note: sre_agent.tools.common.telemetry.setup_telemetry will re-configure this
+# but we set LOG_LEVEL above to ensure it picks up DEBUG.
+logging.basicConfig(
+    stream=sys.stdout,
+    level=logging.DEBUG,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    force=True,  # Force reconfiguration
+)
+
+# Configure specific loggers
+for logger_name in [
+    "uvicorn",
+    "uvicorn.error",
+    "uvicorn.access",
+    "google.adk",
+    "sre_agent",
+]:
+    logging.getLogger(logger_name).setLevel(logging.DEBUG)
+
+logger = logging.getLogger(__name__)
 
 # 2. INTERNAL IMPORTS
-from sre_agent.agent import root_agent
-from sre_agent.tools import (
+# Re-ordering imports to satisfy linter while maintaining logical grouping for patching
+if True:  # Indent internal imports to avoid E402 if strict, but for now we just move them or accept suppression.
+    # Actually, best way to handle patch-first pattern is typically to put ignores,
+    # or just move standard imports up if possible.
+    # But since we need to patch BEFORE other imports, we use noqa.
+    pass
+
+from sre_agent.agent import root_agent  # noqa: E402
+from sre_agent.tools import (  # noqa: E402
     extract_log_patterns,
     fetch_trace,
     list_log_entries,
 )
 
 app = FastAPI(title="SRE Agent Toolbox API")
+
+
+@app.middleware("http")
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Middleware to log all HTTP requests."""
+    logger.debug(f"👉 Request started: {request.method} {request.url}")
+    try:
+        response = await call_next(request)
+        logger.debug(
+            f"✅ Request finished: {request.method} {request.url} - Status: {response.status_code}"
+        )
+        return response
+    except Exception as e:
+        logger.error(
+            f"❌ Request failed: {request.method} {request.url} - Error: {e}",
+            exc_info=True,
+        )
+        raise
+
+
+@app.exception_handler(Exception)
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Global handler for unhandled exceptions."""
+    logger.error(f"🔥 Global exception handler caught: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"message": "Internal Server Error", "detail": str(exc)},
+    )
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -75,11 +145,15 @@ async def get_tool_context() -> "ToolContext":
 async def get_trace(trace_id: str, project_id: Any | None = None) -> Any:
     """Fetch and summarize a trace."""
     try:
-        ctx = await get_tool_context()
-        result = await fetch_trace(
-            trace_id=trace_id, project_id=project_id, tool_context=ctx
+        # ctx = await get_tool_context()  # Not used currently but good to have if we need it
+        result = await run_in_threadpool(
+            fetch_trace,
+            trace_id=trace_id,
+            project_id=project_id,
         )
-        return result
+        import json
+
+        return json.loads(result)
     except Exception as e:
         import traceback
 
@@ -91,15 +165,30 @@ async def get_trace(trace_id: str, project_id: Any | None = None) -> Any:
 async def analyze_logs(payload: dict[str, Any]) -> Any:
     """Fetch logs and extract patterns."""
     try:
-        ctx = await get_tool_context()
+        # ctx = await get_tool_context()
         # 1. Fetch logs from Cloud Logging
-        entries = await list_log_entries(
-            filter=payload.get("filter"),
+        entries_json = await run_in_threadpool(
+            list_log_entries,
+            filter_str=payload.get("filter"),
             project_id=payload.get("project_id"),
-            tool_context=ctx,
         )
+
+        # Parse JSON result from list_log_entries since it returns a string
+        import json
+
+        entries_data = json.loads(entries_json)
+
+        # Handle potential error response
+        if "error" in entries_data:
+            raise HTTPException(status_code=500, detail=entries_data["error"])
+
+        log_entries = entries_data.get("entries", [])
+
         # 2. Extract patterns from the fetched entries
-        result = await extract_log_patterns(log_entries=entries, tool_context=ctx)
+        result = await run_in_threadpool(
+            extract_log_patterns,
+            log_entries=log_entries,
+        )
         return result
     except Exception as e:
         import traceback

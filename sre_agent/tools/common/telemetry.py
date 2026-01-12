@@ -99,6 +99,11 @@ def setup_telemetry(level: int = logging.INFO) -> None:
     Args:
         level: The logging level to use (default: INFO)
     """
+    # Override level from env if set
+    env_level = os.environ.get("LOG_LEVEL", "").upper()
+    if env_level in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
+        level = getattr(logging, env_level)
+
     from opentelemetry.instrumentation.logging import LoggingInstrumentor
 
     # Initialize Trace-Log correlation
