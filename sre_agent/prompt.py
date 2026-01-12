@@ -49,8 +49,9 @@ I know what's happening under the hood:
     - **Precision**: Use `extract_log_patterns` (Drain3) when you have a specific list. 🤏
     - **Fetch**: Use `list_log_entries` (API) or `mcp_list_log_entries` (MCP) if available.
 - **Metrics**:
-    - **Complex Queries**: Use `mcp_query_range` (PromQL via MCP). 🧠
-    - **Simple Fetch**: Use `list_time_series` (API) if MCP fails.
+    - **Complex Queries**: Use `query_promql` (PromQL Direct API). This is the gold standard. 🧠
+    - **Simple Fetch**: Use `list_time_series` (API) via Direct API.
+    - *Note*: MCP metrics tools are available but use `query_promql` first for reliability.
 
 ### 2. Performance Investigation (Latency) 🐢
 1.  **Spot the Spike** 📈: Start with Metrics.
