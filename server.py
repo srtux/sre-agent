@@ -28,7 +28,6 @@ os.environ["LOG_LEVEL"] = "DEBUG"
 
 import uvicorn  # noqa: E402
 from fastapi import FastAPI, HTTPException, Request  # noqa: E402
-from fastapi.concurrency import run_in_threadpool  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
 from google.adk.cli.fast_api import get_fast_api_app  # noqa: E402
@@ -144,8 +143,7 @@ async def get_trace(trace_id: str, project_id: Any | None = None) -> Any:
     """Fetch and summarize a trace."""
     try:
         # ctx = await get_tool_context()  # Not used currently but good to have if we need it
-        result = await run_in_threadpool(
-            fetch_trace,
+        result = await fetch_trace(
             trace_id=trace_id,
             project_id=project_id,
         )
@@ -165,8 +163,7 @@ async def analyze_logs(payload: dict[str, Any]) -> Any:
     try:
         # ctx = await get_tool_context()
         # 1. Fetch logs from Cloud Logging
-        entries_json = await run_in_threadpool(
-            list_log_entries,
+        entries_json = await list_log_entries(
             filter_str=payload.get("filter"),
             project_id=payload.get("project_id"),
         )
@@ -183,8 +180,7 @@ async def analyze_logs(payload: dict[str, Any]) -> Any:
         log_entries = entries_data.get("entries", [])
 
         # 2. Extract patterns from the fetched entries
-        result = await run_in_threadpool(
-            extract_log_patterns,
+        result = await extract_log_patterns(
             log_entries=log_entries,
         )
         return result

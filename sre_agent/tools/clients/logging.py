@@ -13,7 +13,7 @@ tracer = get_tracer(__name__)
 
 
 @adk_tool
-def list_log_entries(
+async def list_log_entries(
     project_id: str, filter_str: str, limit: int = 10, page_token: str | None = None
 ) -> str:
     """Lists log entries from Google Cloud Logging using direct API.
@@ -31,6 +31,17 @@ def list_log_entries(
 
     Example filter_str: 'resource.type="gce_instance" AND severity="ERROR"'
     """
+    from fastapi.concurrency import run_in_threadpool
+
+    return await run_in_threadpool(
+        _list_log_entries_sync, project_id, filter_str, limit, page_token
+    )
+
+
+def _list_log_entries_sync(
+    project_id: str, filter_str: str, limit: int = 10, page_token: str | None = None
+) -> str:
+    """Synchronous implementation of list_log_entries."""
     with tracer.start_as_current_span("list_log_entries") as span:
         span.set_attribute("gcp.project_id", project_id)
         span.set_attribute("gcp.logging.filter", filter_str)
@@ -116,7 +127,7 @@ def list_log_entries(
 
 
 @adk_tool
-def list_error_events(project_id: str, minutes_ago: int = 60) -> str:
+async def list_error_events(project_id: str, minutes_ago: int = 60) -> str:
     """Lists error events from Google Cloud Error Reporting using direct API.
 
     Args:
@@ -126,6 +137,13 @@ def list_error_events(project_id: str, minutes_ago: int = 60) -> str:
     Returns:
         A JSON string representing the list of error events.
     """
+    from fastapi.concurrency import run_in_threadpool
+
+    return await run_in_threadpool(_list_error_events_sync, project_id, minutes_ago)
+
+
+def _list_error_events_sync(project_id: str, minutes_ago: int = 60) -> str:
+    """Synchronous implementation of list_error_events."""
     try:
         import google.cloud.errorreporting_v1beta1 as errorreporting_v1beta1
 
@@ -174,6 +192,5 @@ def get_logs_for_trace(project_id: str, trace_id: str, limit: int = 100) -> str:
         JSON list of log entries.
     """
     filter_str = f'trace="projects/{project_id}/traces/{trace_id}"'
-    from typing import cast
 
-    return cast(str, list_log_entries(project_id, filter_str, limit))
+    return _list_log_entries_sync(project_id, filter_str, limit)

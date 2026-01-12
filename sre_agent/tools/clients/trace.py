@@ -86,7 +86,7 @@ def fetch_trace_data(
 
 
 @adk_tool
-def fetch_trace(project_id: str, trace_id: str) -> str:
+async def fetch_trace(project_id: str, trace_id: str) -> str:
     """Fetches a specific trace by ID from Cloud Trace API.
 
     Uses caching to avoid redundant API calls when the same trace
@@ -99,6 +99,13 @@ def fetch_trace(project_id: str, trace_id: str) -> str:
     Returns:
         A JSON string representation of the trace, including all spans.
     """
+    from fastapi.concurrency import run_in_threadpool
+
+    return await run_in_threadpool(_fetch_trace_sync, project_id, trace_id)
+
+
+def _fetch_trace_sync(project_id: str, trace_id: str) -> str:
+    """Synchronous implementation of fetch_trace."""
     # Check cache first
     cache = get_data_cache()
 
