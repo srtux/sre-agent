@@ -35,7 +35,8 @@ def mock_alert_policy_client():
         yield client_instance
 
 
-def test_list_alerts_success(mock_auth, mock_authorized_session):
+@pytest.mark.asyncio
+async def test_list_alerts_success(mock_auth, mock_authorized_session):
     """Test listing alerts successfully."""
     # Setup mock response
     mock_response = MagicMock()
@@ -51,7 +52,7 @@ def test_list_alerts_success(mock_auth, mock_authorized_session):
     mock_authorized_session.get.return_value = mock_response
 
     # Execute
-    result = list_alerts(project_id="test-project", filter_str='state="OPEN"')
+    result = await list_alerts(project_id="test-project", filter_str='state="OPEN"')
 
     # Verify
     assert result is not None
@@ -68,18 +69,20 @@ def test_list_alerts_success(mock_auth, mock_authorized_session):
     assert kwargs["params"]["filter"] == 'state="OPEN"'
 
 
-def test_list_alerts_error(mock_auth, mock_authorized_session):
+@pytest.mark.asyncio
+async def test_list_alerts_error(mock_auth, mock_authorized_session):
     """Test handling errors when listing alerts."""
     mock_authorized_session.get.side_effect = Exception("API Error")
 
-    result = list_alerts(project_id="test-project")
+    result = await list_alerts(project_id="test-project")
 
     data = json.loads(result)
     assert "error" in data
     assert "API Error" in data["error"]
 
 
-def test_get_alert_success(mock_auth, mock_authorized_session):
+@pytest.mark.asyncio
+async def test_get_alert_success(mock_auth, mock_authorized_session):
     """Test getting a specific alert."""
     mock_response = MagicMock()
     mock_response.json.return_value = {
@@ -88,7 +91,7 @@ def test_get_alert_success(mock_auth, mock_authorized_session):
     }
     mock_authorized_session.get.return_value = mock_response
 
-    result = get_alert(name="projects/test-project/alerts/123")
+    result = await get_alert(name="projects/test-project/alerts/123")
 
     data = json.loads(result)
     assert data["name"] == "projects/test-project/alerts/123"
@@ -102,7 +105,8 @@ def test_get_alert_success(mock_auth, mock_authorized_session):
     )
 
 
-def test_list_alert_policies_success(mock_alert_policy_client):
+@pytest.mark.asyncio
+async def test_list_alert_policies_success(mock_alert_policy_client):
     """Test listing alert policies."""
     # Setup mock policies
     policy1 = MagicMock()
@@ -121,7 +125,7 @@ def test_list_alert_policies_success(mock_alert_policy_client):
     mock_alert_policy_client.list_alert_policies.return_value = [policy1]
 
     # Execute
-    result = list_alert_policies(project_id="test-project")
+    result = await list_alert_policies(project_id="test-project")
 
     # Verify
     data = json.loads(result)

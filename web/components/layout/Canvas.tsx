@@ -24,37 +24,102 @@ import { Badge } from "@/components/ui/badge";
 interface CanvasProps {
   view: CanvasView;
   onExecuteRemediation?: (action: any) => void;
+  onActionClick?: (prompt: string) => void;
   className?: string;
 }
 
 // Empty state component
-function EmptyState() {
+function EmptyState({ onActionClick }: { onActionClick?: (prompt: string) => void }) {
   return (
-    <div className="flex flex-col items-center justify-center h-full text-center p-8">
-      <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-        <Layers className="h-8 w-8 text-muted-foreground" />
+    <div className="flex flex-col items-center justify-center h-full min-h-[500px] text-center p-8 animate-in fade-in duration-1000">
+      {/* Central Decorative Hub */}
+      <div className="relative mb-12">
+        {/* Animated Glow Rings */}
+        <div className="absolute inset-0 scale-[2.5] bg-primary/5 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute inset-0 scale-[1.5] bg-blue-500/10 rounded-full blur-2xl animate-pulse delay-700" />
+
+        {/* Central Icon container */}
+        <div className="relative w-32 h-32 rounded-3xl bg-gradient-to-br from-card to-background border border-border/50 flex items-center justify-center shadow-2xl shadow-primary/20 backdrop-blur-xl">
+          <Layers className="h-12 w-12 text-primary animate-pulse" />
+
+          {/* Orbiting indicators */}
+          <div className="absolute -top-1 -right-1 flex h-4 w-4">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-4 w-4 bg-blue-500"></span>
+          </div>
+        </div>
       </div>
-      <h3 className="text-lg font-medium mb-2">Situation Room</h3>
-      <p className="text-muted-foreground text-sm max-w-md mb-6">
-        Start an investigation by asking the SRE Agent a question. Analysis
-        results will appear here as interactive visualizations.
-      </p>
-      <div className="grid grid-cols-2 gap-3 text-xs text-muted-foreground">
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
-          <Activity className="h-4 w-4 text-blue-400" />
-          <span>Trace Analysis</span>
+
+      <div className="max-w-2xl space-y-6">
+        <div className="space-y-2">
+          <h2 className="text-4xl font-bold tracking-tighter sm:text-5xl bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/50">
+            SITUATION ROOM
+          </h2>
+          <p className="text-muted-foreground text-lg font-medium tracking-tight">
+            Advanced SRE Observability & Remediation Engine
+          </p>
         </div>
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
-          <FileSearch className="h-4 w-4 text-green-400" />
-          <span>Log Patterns</span>
+
+        <p className="text-muted-foreground/80 leading-relaxed max-w-lg mx-auto">
+          System is on standby. Initiate an investigation by describing an incident
+          or asking for specific analysis metrics.
+        </p>
+
+        <div className="pt-8 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl">
+          {[
+            {
+              icon: Activity,
+              label: "Trace Analysis",
+              color: "text-blue-400",
+              bg: "bg-blue-400/10",
+              prompt: "Let's analyze a trace. Can you find some interesting traces for me or I can provide a trace ID?"
+            },
+            {
+              icon: FileSearch,
+              label: "Log Patterns",
+              color: "text-emerald-400",
+              bg: "bg-emerald-400/10",
+              prompt: "Show me log patterns from the last hour for our services."
+            },
+            {
+              icon: AlertCircle,
+              label: "Anomaly Detection",
+              color: "text-amber-400",
+              bg: "bg-amber-400/10",
+              prompt: "Are there any anomalies in our p99 latency metrics currently?"
+            },
+            {
+              icon: Zap,
+              label: "Root Cause",
+              color: "text-orange-400",
+              bg: "bg-orange-400/10",
+              prompt: "Run a causal analysis to find the root cause of the latest latency spike."
+            }
+          ].map((item, i) => (
+            <button
+              key={i}
+              onClick={() => onActionClick?.(item.prompt)}
+              className={cn(
+                "group flex flex-col items-center gap-3 p-4 rounded-2xl border border-border/40 transition-all duration-300",
+                "bg-card/40 backdrop-blur-sm shadow-lg hover:shadow-primary/10 hover:border-primary/50 hover:bg-primary/5 hover:-translate-y-1 active:scale-95"
+              )}
+            >
+              <div className={cn("p-2.5 rounded-xl transition-all duration-300 group-hover:scale-110", item.bg, "group-hover:bg-primary/20")}>
+                <item.icon className={cn("h-5 w-5", item.color)} />
+              </div>
+              <span className="text-[10px] font-bold tracking-widest uppercase opacity-60 group-hover:opacity-100 transition-opacity">
+                {item.label}
+              </span>
+            </button>
+          ))}
         </div>
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
-          <AlertCircle className="h-4 w-4 text-yellow-400" />
-          <span>Anomaly Detection</span>
-        </div>
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
-          <Zap className="h-4 w-4 text-orange-400" />
-          <span>Remediation Plans</span>
+
+        {/* Status indicator footer */}
+        <div className="flex items-center justify-center gap-2 pt-12 text-[10px] font-mono text-muted-foreground/50 uppercase tracking-[0.2em]">
+          <span className="flex h-1.5 w-1.5 rounded-full bg-green-500/50"></span>
+          All systems operational
+          <span className="mx-2">•</span>
+          Intelligence core active
         </div>
       </div>
     </div>
@@ -247,11 +312,11 @@ function CausalAnalysisView({ data }: { data: any }) {
   );
 }
 
-export function Canvas({ view, onExecuteRemediation, className }: CanvasProps) {
+export function Canvas({ view, onExecuteRemediation, onActionClick, className }: CanvasProps) {
   const renderContent = () => {
     switch (view.type) {
       case "empty":
-        return <EmptyState />;
+        return <EmptyState onActionClick={onActionClick} />;
 
       case "trace":
         return <TraceWaterfall trace={view.data} />;

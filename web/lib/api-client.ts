@@ -43,5 +43,16 @@ export const sreClient = {
       throw new Error(`Failed to analyze logs: ${response.statusText}`);
     }
     return response.json();
+  },
+
+  /**
+   * List accessible GCP projects
+   */
+  async listProjects() {
+    const response = await fetch(`${API_BASE_URL}/api/tools/projects/list`);
+    if (!response.ok) {
+      throw new Error(`Failed to list projects: ${response.statusText}`);
+    }
+    return response.json();
   }
 };

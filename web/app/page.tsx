@@ -45,6 +45,74 @@ function MissionControlDashboard() {
   const [canvasView, setCanvasView] = useState<CanvasView>({ type: "empty" });
   const [currentProject, setCurrentProject] = useState("my-gcp-project");
 
+  // Resizable chat panel - simple version without localStorage
+  const MIN_WIDTH = 280;
+  const MAX_WIDTH = 600;
+  const [chatWidth, setChatWidth] = useState(350);
+  const [isResizing, setIsResizing] = useState(false);
+
+  // Handle resize drag
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      setChatWidth(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, e.clientX)));
+    };
+
+    const handleMouseUp = () => setIsResizing(false);
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isResizing]);
+
+  // Listener for setting chat input from external components (Canvas buttons)
+  useEffect(() => {
+    const handleSetInput = (e: CustomEvent) => {
+      // Try specific class first, then fall back to any textarea in the sidebar
+      let textarea = document.querySelector(".copilotKitInput textarea") as HTMLTextAreaElement;
+
+      if (!textarea) {
+        // Fallback: look for the textarea inside the chat sidebar specific div
+        const sidebar = document.querySelector(".bg-card\\/30");
+        if (sidebar) {
+          textarea = sidebar.querySelector("textarea") as HTMLTextAreaElement;
+        }
+      }
+
+      if (textarea) {
+        // React hack to trigger onChange on controlled components
+        const nativeTextAreaValueSetter = Object.getOwnPropertyDescriptor(
+          window.HTMLTextAreaElement.prototype,
+          "value"
+        )?.set;
+
+        if (nativeTextAreaValueSetter) {
+          nativeTextAreaValueSetter.call(textarea, e.detail);
+        } else {
+          textarea.value = e.detail;
+        }
+
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        textarea.focus();
+      } else {
+        console.warn("SRE Agent: Could not find chat textarea to set input");
+      }
+    };
+
+    window.addEventListener('copilot-set-input', handleSetInput as EventListener);
+    return () => window.removeEventListener('copilot-set-input', handleSetInput as EventListener);
+  }, []);
+
+
   // Make project context readable to CopilotKit
   useCopilotReadable({
     description: "Current GCP project being analyzed",
@@ -365,30 +433,54 @@ function MissionControlDashboard() {
   }, []);
 
   return (
-    <div className="h-screen flex flex-col bg-background">
+    <div className={`h-screen flex flex-col bg-background relative overflow-hidden mesh-background ${isResizing ? "cursor-col-resize select-none" : ""}`}>
+      {/* Decorative Vignette */}
+      <div className="vignette-overlay" />
+
       {/* Status Bar */}
-      <StatusBar agentStatus={agentStatus} />
+      <StatusBar
+        agentStatus={agentStatus}
+        currentProjectId={currentProject}
+        onProjectChange={setCurrentProject}
+      />
 
       {/* Main content area */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Chat Sidebar (25%) */}
-        <div className="w-[25%] min-w-[300px] border-r border-border">
-          <CopilotChat
-            labels={{
-              title: "SRE Agent",
-              initial:
-                "I'm your SRE copilot. I can help you investigate incidents, analyze traces, detect log patterns, and suggest remediations. What would you like to investigate?",
-              placeholder: "Describe the issue or ask for analysis...",
-            }}
-            className="h-full"
-          />
+      <div className="flex-1 flex overflow-hidden relative z-10">
+        {/* Chat Sidebar - Resizable */}
+        <div
+          className="bg-card/30 backdrop-blur-sm flex-shrink-0 flex flex-col h-full"
+          style={{ width: `${chatWidth}px` }}
+        >
+          <div className="flex-1 flex flex-col h-full overflow-hidden" key={currentProject}>
+            <CopilotChat
+              labels={{
+                title: "SRE Agent",
+                initial:
+                  "I'm your SRE copilot. I can help you investigate incidents, analyze traces, detect log patterns, and suggest remediations. What would you like to investigate?",
+                placeholder: "Describe the issue or ask for analysis...",
+              }}
+              className="h-full flex flex-col"
+            />
+          </div>
         </div>
 
-        {/* Main Canvas (75%) */}
-        <div className="flex-1 overflow-hidden">
+        {/* Resize Handle */}
+        <div
+          className="resize-handle flex-shrink-0"
+          onMouseDown={handleMouseDown}
+          title="Drag to resize"
+        />
+
+        {/* Main Canvas */}
+        <div className="flex-1 overflow-hidden bg-background/50 backdrop-blur-[2px]">
           <Canvas
             view={canvasView}
             onExecuteRemediation={handleExecuteRemediation}
+            onActionClick={(prompt) => {
+              // This is a simple way to "simulate" a user typing and sending
+              // In a real app we might use a ref to the chat or a specific hook
+              window.dispatchEvent(new CustomEvent('copilot-set-input', { detail: prompt }));
+            }}
           />
         </div>
       </div>

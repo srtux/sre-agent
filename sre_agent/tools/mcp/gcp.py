@@ -225,6 +225,8 @@ async def call_mcp_tool_with_retry(
     Returns:
         Tool result or error dict.
     """
+    from starlette.concurrency import run_in_threadpool
+
     if not project_id:
         project_id = get_project_id_with_fallback()
 
@@ -236,7 +238,12 @@ async def call_mcp_tool_with_retry(
 
     for attempt in range(max_retries):
         try:
-            mcp_toolset = create_toolset_fn(project_id)
+            logger.debug(
+                f"DEBUG: Calling create_toolset_fn for {tool_name} (project_id={project_id})"
+            )
+            # Offload blocking synchronous toolset creation to threadpool
+            mcp_toolset = await run_in_threadpool(create_toolset_fn, project_id)
+            logger.debug(f"DEBUG: create_toolset_fn returned for {tool_name}")
 
             if not mcp_toolset:
                 return {

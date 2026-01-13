@@ -67,6 +67,7 @@ from sre_agent.agent import root_agent  # noqa: E402
 from sre_agent.tools import (  # noqa: E402
     extract_log_patterns,
     fetch_trace,
+    list_gcp_projects,
     list_log_entries,
 )
 
@@ -150,6 +151,19 @@ async def get_trace(trace_id: str, project_id: Any | None = None) -> Any:
         import json
 
         return json.loads(result)
+    except Exception as e:
+        import traceback
+
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.get("/api/tools/projects/list")
+async def list_projects() -> Any:
+    """List accessible GCP projects."""
+    try:
+        result = await list_gcp_projects()
+        return result
     except Exception as e:
         import traceback
 

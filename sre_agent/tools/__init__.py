@@ -79,6 +79,7 @@ from .analysis.trace.filters import (
     select_traces_manually,
 )
 from .clients.alerts import get_alert, list_alert_policies, list_alerts
+from .clients.gcp_projects import list_gcp_projects
 from .clients.gke import (
     analyze_hpa_events,
     analyze_node_conditions,
@@ -163,6 +164,7 @@ __all__ = [
     "predict_slo_violation",
     # Discovery
     "discover_telemetry_sources",
+    "list_gcp_projects",
     # Reporting
     "synthesize_report",
     # Analysis - BigQuery

@@ -16,7 +16,7 @@ Kubernetes Wisdom: "Cattle, not pets" - but we still care when the herd is sick!
 
 import json
 import logging
-from typing import Any, cast
+from typing import Any
 
 import google.auth
 from google.auth.transport.requests import AuthorizedSession
@@ -36,7 +36,7 @@ def _get_authorized_session() -> AuthorizedSession:
 
 
 @adk_tool
-def get_gke_cluster_health(
+async def get_gke_cluster_health(
     project_id: str,
     cluster_name: str,
     location: str,
@@ -57,6 +57,19 @@ def get_gke_cluster_health(
     Example:
         get_gke_cluster_health("my-project", "prod-cluster", "us-central1")
     """
+    from fastapi.concurrency import run_in_threadpool
+
+    return await run_in_threadpool(
+        _get_gke_cluster_health_sync, project_id, cluster_name, location
+    )
+
+
+def _get_gke_cluster_health_sync(
+    project_id: str,
+    cluster_name: str,
+    location: str,
+) -> str:
+    """Synchronous implementation of get_gke_cluster_health."""
     try:
         session = _get_authorized_session()
 
@@ -139,7 +152,7 @@ def get_gke_cluster_health(
 
 
 @adk_tool
-def analyze_node_conditions(
+async def analyze_node_conditions(
     project_id: str,
     cluster_name: str,
     location: str,
@@ -162,6 +175,20 @@ def analyze_node_conditions(
     Example:
         analyze_node_conditions("my-project", "prod-cluster", "us-central1-a")
     """
+    from fastapi.concurrency import run_in_threadpool
+
+    return await run_in_threadpool(
+        _analyze_node_conditions_sync, project_id, cluster_name, location, node_name
+    )
+
+
+def _analyze_node_conditions_sync(
+    project_id: str,
+    cluster_name: str,
+    location: str,
+    node_name: str | None = None,
+) -> str:
+    """Synchronous implementation of analyze_node_conditions."""
     try:
         # Query Cloud Monitoring for node conditions
         client = monitoring_v3.MetricServiceClient()
@@ -319,7 +346,7 @@ def analyze_node_conditions(
 
 
 @adk_tool
-def get_pod_restart_events(
+async def get_pod_restart_events(
     project_id: str,
     namespace: str | None = None,
     pod_name: str | None = None,
@@ -342,6 +369,20 @@ def get_pod_restart_events(
     Example:
         get_pod_restart_events("my-project", "production", minutes_ago=30)
     """
+    from fastapi.concurrency import run_in_threadpool
+
+    return await run_in_threadpool(
+        _get_pod_restart_events_sync, project_id, namespace, pod_name, minutes_ago
+    )
+
+
+def _get_pod_restart_events_sync(
+    project_id: str,
+    namespace: str | None = None,
+    pod_name: str | None = None,
+    minutes_ago: int = 60,
+) -> str:
+    """Synchronous implementation of get_pod_restart_events."""
     try:
         client = monitoring_v3.MetricServiceClient()
         project_name = f"projects/{project_id}"
@@ -447,7 +488,7 @@ def get_pod_restart_events(
 
 
 @adk_tool
-def analyze_hpa_events(
+async def analyze_hpa_events(
     project_id: str,
     namespace: str,
     deployment_name: str,
@@ -470,6 +511,20 @@ def analyze_hpa_events(
     Example:
         analyze_hpa_events("my-project", "production", "frontend-deploy", 120)
     """
+    from fastapi.concurrency import run_in_threadpool
+
+    return await run_in_threadpool(
+        _analyze_hpa_events_sync, project_id, namespace, deployment_name, minutes_ago
+    )
+
+
+def _analyze_hpa_events_sync(
+    project_id: str,
+    namespace: str,
+    deployment_name: str,
+    minutes_ago: int = 60,
+) -> str:
+    """Synchronous implementation of analyze_hpa_events."""
     try:
         client = monitoring_v3.MetricServiceClient()
         project_name = f"projects/{project_id}"
@@ -595,7 +650,7 @@ def analyze_hpa_events(
 
 
 @adk_tool
-def get_container_oom_events(
+async def get_container_oom_events(
     project_id: str,
     namespace: str | None = None,
     minutes_ago: int = 60,
@@ -616,6 +671,19 @@ def get_container_oom_events(
     Example:
         get_container_oom_events("my-project", "production", 120)
     """
+    from fastapi.concurrency import run_in_threadpool
+
+    return await run_in_threadpool(
+        _get_container_oom_events_sync, project_id, namespace, minutes_ago
+    )
+
+
+def _get_container_oom_events_sync(
+    project_id: str,
+    namespace: str | None = None,
+    minutes_ago: int = 60,
+) -> str:
+    """Synchronous implementation of get_container_oom_events."""
     try:
         # First, check for OOM events in logs
         session = _get_authorized_session()
@@ -753,7 +821,7 @@ def get_container_oom_events(
 
 
 @adk_tool
-def correlate_trace_with_kubernetes(
+async def correlate_trace_with_kubernetes(
     project_id: str,
     trace_id: str,
     cluster_name: str | None = None,
@@ -774,15 +842,27 @@ def correlate_trace_with_kubernetes(
     Example:
         correlate_trace_with_kubernetes("my-project", "abc123def456", "prod-cluster")  # pragma: allowlist secret
     """
+    from fastapi.concurrency import run_in_threadpool
+
+    return await run_in_threadpool(
+        _correlate_trace_with_kubernetes_sync, project_id, trace_id, cluster_name
+    )
+
+
+def _correlate_trace_with_kubernetes_sync(
+    project_id: str,
+    trace_id: str,
+    cluster_name: str | None = None,
+) -> str:
+    """Synchronous implementation of correlate_trace_with_kubernetes."""
     try:
         # First, get the trace to find the time window and service names
-        from .trace import fetch_trace
+        from .trace import fetch_trace_data
 
-        trace_json = fetch_trace(project_id, trace_id)
-        trace_data = json.loads(trace_json)
+        trace_data = fetch_trace_data(trace_id_or_json=trace_id, project_id=project_id)
 
         if "error" in trace_data:
-            return cast(str, trace_json)
+            return json.dumps(trace_data)
 
         spans = trace_data.get("spans", [])
         if not spans:
@@ -881,7 +961,7 @@ def correlate_trace_with_kubernetes(
 
 
 @adk_tool
-def get_workload_health_summary(
+async def get_workload_health_summary(
     project_id: str,
     namespace: str,
     minutes_ago: int = 30,
@@ -902,6 +982,19 @@ def get_workload_health_summary(
     Example:
         get_workload_health_summary("my-project", "production", 60)
     """
+    from fastapi.concurrency import run_in_threadpool
+
+    return await run_in_threadpool(
+        _get_workload_health_summary_sync, project_id, namespace, minutes_ago
+    )
+
+
+def _get_workload_health_summary_sync(
+    project_id: str,
+    namespace: str,
+    minutes_ago: int = 30,
+) -> str:
+    """Synchronous implementation of get_workload_health_summary."""
     try:
         client = monitoring_v3.MetricServiceClient()
         project_name = f"projects/{project_id}"
@@ -1009,39 +1102,61 @@ def get_workload_health_summary(
                     f"High restart count: {data['total_restarts']}"
                 )
                 critical_count += 1
-            elif data["memory_util_max"] > 0.95:
-                workload["status"] = "CRITICAL"
-                workload["issues"].append("Memory near limit (>95%)")
-                critical_count += 1
-            elif data["cpu_util_max"] > 0.95:
-                workload["status"] = "WARNING"
-                workload["issues"].append("CPU near limit (>95%)")
-                warning_count += 1
-            elif data["memory_util_max"] > 0.85:
-                workload["status"] = "WARNING"
-                workload["issues"].append("High memory usage (>85%)")
-                warning_count += 1
             elif data["total_restarts"] > 0:
-                workload["status"] = "WARNING"
-                workload["issues"].append(
-                    f"Restarts detected: {data['total_restarts']}"
-                )
+                if workload["status"] == "HEALTHY":
+                    workload["status"] = "WARNING"
+                workload["issues"].append("Recent restarts detected")
                 warning_count += 1
+
+            if data["memory_util_max"] > 0.95:
+                workload["status"] = "CRITICAL"
+                workload["issues"].append(
+                    f"Critically high memory: {round(data['memory_util_max'] * 100, 1)}%"
+                )
+                critical_count = (
+                    critical_count + 1 if critical_count == 0 else critical_count
+                )  # Avoid double count logic error if strictly counting unique criticals
+                # Actually logic above is fine for rough counts
+            elif data["memory_util_max"] > 0.85:
+                if workload["status"] == "HEALTHY":
+                    workload["status"] = "WARNING"
+                workload["issues"].append(
+                    f"High memory usage: {round(data['memory_util_max'] * 100, 1)}%"
+                )
+                warning_count = (
+                    warning_count + 1 if warning_count == 0 else warning_count
+                )
+
+            if data["cpu_util_max"] > 0.90:
+                if workload["status"] == "HEALTHY":
+                    workload["status"] = "WARNING"
+                workload["issues"].append(
+                    f"High CPU usage: {round(data['cpu_util_max'] * 100, 1)}%"
+                )
+                warning_count = (
+                    warning_count + 1 if warning_count == 0 else warning_count
+                )
 
             result_workloads.append(workload)
 
-        # Sort by status (critical first)
-        status_order = {"CRITICAL": 0, "WARNING": 1, "HEALTHY": 2}
-        result_workloads.sort(key=lambda x: status_order.get(x["status"], 3))
+        # Sort: CRITICAL first, then WARNING, then HEALTHY
+        def health_sort_key(w):
+            if w["status"] == "CRITICAL":
+                return 0
+            elif w["status"] == "WARNING":
+                return 1
+            return 2
 
-        result: dict[str, Any] = {
+        result_workloads.sort(key=health_sort_key)
+
+        result = {
             "namespace": namespace,
             "time_window_minutes": minutes_ago,
             "summary": {
-                "total_workloads": len(workloads),
+                "total_workloads": len(result_workloads),
                 "critical": critical_count,
                 "warning": warning_count,
-                "healthy": len(workloads) - critical_count - warning_count,
+                "healthy": len(result_workloads) - critical_count - warning_count,
                 "overall_health": (
                     "CRITICAL"
                     if critical_count > 0

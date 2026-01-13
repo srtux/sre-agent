@@ -174,7 +174,7 @@ def _list_error_events_sync(project_id: str, minutes_ago: int = 60) -> str:
 
 
 @adk_tool
-def get_logs_for_trace(project_id: str, trace_id: str, limit: int = 100) -> str:
+async def get_logs_for_trace(project_id: str, trace_id: str, limit: int = 100) -> str:
     """Fetches log entries correlated with a specific trace ID.
 
     Args:
@@ -187,7 +187,11 @@ def get_logs_for_trace(project_id: str, trace_id: str, limit: int = 100) -> str:
     """
     filter_str = f'trace="projects/{project_id}/traces/{trace_id}"'
 
-    return _list_log_entries_sync(project_id, filter_str, limit)
+    from fastapi.concurrency import run_in_threadpool
+
+    return await run_in_threadpool(
+        _list_log_entries_sync, project_id, filter_str, limit
+    )
 
 
 def _extract_log_payload(entry: Any) -> str | dict[str, Any]:

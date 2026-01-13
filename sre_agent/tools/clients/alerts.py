@@ -26,7 +26,7 @@ tracer = get_tracer(__name__)
 
 
 @adk_tool
-def list_alerts(
+async def list_alerts(
     project_id: str,
     filter_str: str | None = None,
     order_by: str | None = None,
@@ -43,6 +43,20 @@ def list_alerts(
     Returns:
         A JSON string containing the list of alerts.
     """
+    from fastapi.concurrency import run_in_threadpool
+
+    return await run_in_threadpool(
+        _list_alerts_sync, project_id, filter_str, order_by, page_size
+    )
+
+
+def _list_alerts_sync(
+    project_id: str,
+    filter_str: str | None = None,
+    order_by: str | None = None,
+    page_size: int = 100,
+) -> str:
+    """Synchronous implementation of list_alerts."""
     with tracer.start_as_current_span("list_alerts") as span:
         span.set_attribute("gcp.project_id", project_id)
         if filter_str:
@@ -80,7 +94,7 @@ def list_alerts(
 
 
 @adk_tool
-def get_alert(name: str) -> str:
+async def get_alert(name: str) -> str:
     """Gets a specific alert by its resource name.
 
     Args:
@@ -90,6 +104,13 @@ def get_alert(name: str) -> str:
     Returns:
         A JSON string containing the alert details.
     """
+    from fastapi.concurrency import run_in_threadpool
+
+    return await run_in_threadpool(_get_alert_sync, name)
+
+
+def _get_alert_sync(name: str) -> str:
+    """Synchronous implementation of get_alert."""
     with tracer.start_as_current_span("get_alert") as span:
         span.set_attribute("gcp.monitoring.alert_name", name)
 
@@ -116,7 +137,7 @@ def get_alert(name: str) -> str:
 
 
 @adk_tool
-def list_alert_policies(
+async def list_alert_policies(
     project_id: str,
     filter_str: str | None = None,
     page_size: int = 100,
@@ -131,6 +152,19 @@ def list_alert_policies(
     Returns:
         A JSON string containing the list of alert policies.
     """
+    from fastapi.concurrency import run_in_threadpool
+
+    return await run_in_threadpool(
+        _list_alert_policies_sync, project_id, filter_str, page_size
+    )
+
+
+def _list_alert_policies_sync(
+    project_id: str,
+    filter_str: str | None = None,
+    page_size: int = 100,
+) -> str:
+    """Synchronous implementation of list_alert_policies."""
     with tracer.start_as_current_span("list_alert_policies") as span:
         span.set_attribute("gcp.project_id", project_id)
 

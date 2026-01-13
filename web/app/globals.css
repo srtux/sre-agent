@@ -1,25 +1,26 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: hsl(222 47% 5%);
+  --color-background: hsl(222 47% 3%);
   --color-foreground: hsl(210 40% 98%);
-  --color-card: hsl(222 47% 8%);
+  --color-card: hsl(222 47% 6%);
   --color-card-foreground: hsl(210 40% 98%);
-  --color-popover: hsl(222 47% 8%);
+  --color-popover: hsl(222 47% 6%);
   --color-popover-foreground: hsl(210 40% 98%);
-  --color-primary: hsl(199 89% 48%);
-  --color-primary-foreground: hsl(0 0% 100%);
-  --color-secondary: hsl(217 33% 17%);
+  --color-primary: hsl(180 100% 45%);
+  /* More vibrant cyan */
+  --color-primary-foreground: hsl(222 47% 5%);
+  --color-secondary: hsl(217 33% 15%);
   --color-secondary-foreground: hsl(210 40% 98%);
-  --color-muted: hsl(217 33% 17%);
+  --color-muted: hsl(217 33% 15%);
   --color-muted-foreground: hsl(215 20% 65%);
-  --color-accent: hsl(217 33% 17%);
+  --color-accent: hsl(180 100% 45% / 0.1);
   --color-accent-foreground: hsl(210 40% 98%);
   --color-destructive: hsl(0 84% 60%);
   --color-destructive-foreground: hsl(0 0% 100%);
-  --color-border: hsl(217 33% 17%);
-  --color-input: hsl(217 33% 17%);
-  --color-ring: hsl(199 89% 48%);
+  --color-border: hsl(217 33% 15%);
+  --color-input: hsl(217 33% 15%);
+  --color-ring: hsl(180 100% 45%);
   --radius-radius: 0.5rem;
 }
 
@@ -27,9 +28,10 @@
   * {
     border-color: var(--color-border);
   }
+
   body {
     background-color: var(--color-background);
-      color: var(--color-foreground);
+    color: var(--color-foreground);
   }
 }
 
@@ -57,12 +59,124 @@
   font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
 }
 
+/* =============================================================================
+   GLASSMORPHISM & MODERN EFFECTS
+   ============================================================================= */
+
+.glass-card {
+  background: rgba(30, 41, 59, 0.4);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-panel {
+  background: linear-gradient(135deg,
+      rgba(30, 41, 59, 0.7) 0%,
+      rgba(15, 23, 42, 0.8) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Softer vignette effect */
+.vignette-overlay {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: radial-gradient(circle at center,
+      transparent 0%,
+      rgba(15, 23, 42, 0.2) 70%,
+      rgba(2, 6, 23, 0.5) 100%);
+}
+
+/* =============================================================================
+   MICRO-ANIMATIONS
+   ============================================================================= */
+
+/* Smooth transition for all interactive elements */
+button,
+a,
+[role="button"] {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Hover lift effect */
+.hover-lift {
+  transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.5);
+}
+
+/* Status indicator pulse */
+@keyframes status-pulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.1);
+    opacity: 0.6;
+  }
+}
+
+.status-indicator {
+  animation: status-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Premium Animated Background */
+@keyframes mesh-gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.mesh-background {
+  background: linear-gradient(-45deg, hsl(222 47% 3%), hsl(222 47% 6%), hsl(222 47% 4%), hsl(222 47% 8%));
+  background-size: 400% 400%;
+  animation: mesh-gradient 15s ease infinite;
+}
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: hsl(217 33% 20%);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary);
+}
+
 /* Trace waterfall animations */
 @keyframes span-appear {
   from {
     transform: scaleX(0);
     opacity: 0;
   }
+
   to {
     transform: scaleX(1);
     opacity: 1;
@@ -70,104 +184,257 @@
 }
 
 .trace-span-bar {
-  animation: span-appear 0.3s ease-out forwards;
+  animation: span-appear 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   transform-origin: left;
-}
-
-/* Status indicator animations */
-@keyframes status-pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.4;
-  }
-}
-
-.status-indicator {
-  animation: status-pulse 2s ease-in-out infinite;
 }
 
 /* Agent activity indicator */
 @keyframes agent-activity {
   0% {
-    transform: translateX(0);
+    transform: translateX(-100%);
   }
+
   100% {
     transform: translateX(100%);
   }
 }
 
 .agent-activity-bar {
-  animation: agent-activity 1.5s ease-in-out infinite;
+  animation: agent-activity 2s ease-in-out infinite;
 }
 
-/* CopilotKit customizations for dark theme */
-.copilotKitChat {
-  --copilot-kit-background-color: hsl(222 47% 8%);
+/* Fade in animation */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* =============================================================================
+   COPILOTKIT THEME OVERRIDES
+   ============================================================================= */
+
+/* Root variables for CopilotKit */
+:root {
+  --copilot-kit-background-color: hsl(222 47% 4%);
+  --copilot-kit-secondary-color: hsl(217 33% 10%);
   --copilot-kit-primary-color: hsl(199 89% 48%);
-  --copilot-kit-text-color: hsl(210 40% 98%);
-  --copilot-kit-border-color: hsl(217 33% 17%);
+  --copilot-kit-contrast-color: hsl(210 40% 98%);
+  --copilot-kit-response-button-background-color: hsl(217 33% 14%);
+  --copilot-kit-response-button-color: hsl(210 40% 98%);
 }
 
-/* Fix overlap between announcement toast and Web Inspector button */
-.announcement-preview {
-  top: 80px !important;
-  right: 20px !important;
+/* Chat container styling */
+.copilotKitChat {
+  background: transparent !important;
+  font-family: inherit !important;
+  height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
 }
 
-/* --- CopilotKit Overrides --- */
-
-/* 1. Hide User Avatar ("N" icon) */
-.copilotKitUserIcon,
-.copilotKitMessageAvatar,
-[data-component="UserAvatar"],
-.copilotKitInput .copilotKitAvatar,
-[class*="copilotKit"][class*="Avatar"],
-/* Target based on observed Tailwind classes for the N icon */
-.copilotKitInput .w-8.h-8.rounded-full,
-.copilotKitInput .rounded-full.bg-gray-200.text-gray-600 {
-  display: none !important;
-}
-
-/* 2. Hide Dev Console Trigger (Top Right) */
-.copilotKitDevConsoleTrigger,
-[data-component="DevConsoleTrigger"],
-.copilotKitDebugMenuTriggerButton,
-button[aria-label="Open Dev Console"],
-button[title="Open Dev Console"],
-/* Custom element found by browser test */
-cpk-web-inspector,
-.announcement-preview {
-  display: none !important;
-  opacity: 0 !important;
-  width: 0 !important;
-  height: 0 !important;
-  pointer-events: none !important;
-  visibility: hidden !important;
-}
-
-/* 3. Fix Message Layout (Sequential Ordering) */
-/* Ensure the message list stacks vertically */
-.copilotKitMessages,
-.copilotKitMessagesContainer,
-.copilotKitChat .copilotKitMessages {
+/* Messages container */
+.copilotKitMessages {
   display: flex !important;
   flex-direction: column !important;
   justify-content: flex-start !important;
+  gap: 1.25rem !important;
+  padding: 1.25rem !important;
+  overflow-y: auto !important;
+  flex-grow: 1 !important;
+  height: 0 !important;
+  /* Force flex to manage height */
 }
 
-/* Ensure individual messages take full width and don't float */
+/* Individual message styling */
 .copilotKitMessage {
-  display: flex !important;
-  width: 100% !important;
-  order: 0 !important;
-  /* Prevent flex order manipulation */
+  padding: 1rem 1.25rem !important;
+  border-radius: 1rem !important;
+  max-width: 95% !important;
+  /* Increased from 90% */
+  width: auto !important;
+  animation: fade-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 20px -5px rgba(0, 0, 0, 0.3);
 }
 
-/* Ensure inner content of messages also behaves */
-.copilotKitMessage.copilotKitUserMessage,
-.copilotKitMessage.copilotKitAssistantMessage {
-  width: 100% !important;
-  max-width: 100% !important;
+/* User messages */
+.copilotKitUserMessage {
+  background: linear-gradient(135deg,
+      hsl(199 89% 45%) 0%,
+      hsl(199 89% 35%) 100%) !important;
+  color: white !important;
+  margin-left: auto !important;
+  border-bottom-right-radius: 0.25rem !important;
+}
+
+/* Assistant messages */
+.copilotKitAssistantMessage {
+  background: hsl(217 33% 12%) !important;
+  color: hsl(210 40% 98%) !important;
+  margin-right: auto !important;
+  border: 1px solid hsl(217 33% 18%) !important;
+  border-bottom-left-radius: 0.25rem !important;
+}
+
+/* Input area styling - more professional alignment */
+.copilotKitInput,
+.copilotKitInputArea {
+  background: hsl(222 47% 6%) !important;
+  border-top: 1px solid hsl(217 33% 16%) !important;
+  padding: 1.25rem !important;
+}
+
+.copilotKitInput textarea,
+.copilotKitInputArea textarea {
+  background: hsl(222 47% 3%) !important;
+  border: 1px solid hsl(217 33% 18%) !important;
+  border-radius: 0.75rem !important;
+  color: hsl(210 40% 98%) !important;
+  padding: 0.875rem 1rem !important;
+  line-height: 1.5 !important;
+  min-height: 48px !important;
+  transition: border-color 0.2s, box-shadow 0.2s !important;
+}
+
+.copilotKitInput textarea::placeholder {
+  color: #64748b !important;
+}
+
+.copilotKitInputControls button {
+  color: #3b82f6 !important;
+}
+
+.copilotKitInputControls button:hover {
+  background: rgba(59, 130, 246, 0.1) !important;
+}
+
+/* Hide Copilot branding */
+.copilotKitUserIcon,
+.copilotKitMessageAvatar,
+[data-component="UserAvatar"],
+.copilotKitDebugMenuTriggerButton,
+cpk-web-inspector,
+.announcement-preview,
+.copilotKitPoweredBy {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  height: 0 !important;
+  width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Fix input container spacing when elements are hidden */
+.copilotKitInputArea>div:first-child {
+  margin-bottom: 0 !important;
+}
+
+/* Send button improvements */
+.copilotKitInput button[type="submit"],
+.copilotKitInputArea button[type="submit"] {
+  background: hsl(199 89% 48%) !important;
+  color: white !important;
+  border-radius: 0.5rem !important;
+  width: 36px !important;
+  height: 36px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  opacity: 0.9;
+}
+
+.copilotKitInput button[type="submit"]:hover,
+.copilotKitInputArea button[type="submit"]:hover {
+  opacity: 1;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px hsl(199 89% 48% / 0.4) !important;
+}
+
+.copilotKitInput button[type="submit"] svg,
+.copilotKitInputArea button[type="submit"] svg {
+  width: 20px !important;
+  height: 20px !important;
+  color: white !important;
+  opacity: 1 !important;
+}
+
+/* Improve header area */
+.copilotKitHeader {
+  background: hsl(222 47% 4%) !important;
+  border-bottom: 1px solid hsl(217 33% 15%) !important;
+  padding: 1.25rem !important;
+}
+
+.copilotKitHeaderTitle {
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+  color: hsl(210 40% 98%) !important;
+}
+
+/* Response suggestion buttons */
+.copilotKitResponseButton {
+  background: hsl(217 33% 14%) !important;
+  border: 1px solid hsl(217 33% 20%) !important;
+  border-radius: 0.5rem !important;
+  color: hsl(210 40% 90%) !important;
+  padding: 0.625rem 1rem !important;
+  font-size: 0.875rem !important;
+}
+
+.copilotKitResponseButton:hover {
+  background: hsl(217 33% 18%) !important;
+  border-color: hsl(199 89% 48%) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* =============================================================================
+   RESIZABLE PANEL STYLES
+   ============================================================================= */
+
+.resize-handle {
+  position: relative;
+  width: 2px;
+  cursor: col-resize;
+  background: hsl(217 33% 12%);
+  transition: background 0.2s ease;
+  z-index: 10;
+}
+
+.resize-handle::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 4px;
+  height: 32px;
+  background: hsl(217 33% 30%);
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.resize-handle:hover {
+  background: hsl(199 89% 48% / 0.5);
+}
+
+.resize-handle:hover::after {
+  opacity: 1;
+}
+
+.resize-handle:active {
+  background: hsl(199 89% 48%);
 }

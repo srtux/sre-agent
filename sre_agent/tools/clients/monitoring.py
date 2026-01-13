@@ -27,7 +27,9 @@ tracer = get_tracer(__name__)
 
 
 @adk_tool
-def list_time_series(project_id: str, filter_str: str, minutes_ago: int = 60) -> str:
+async def list_time_series(
+    project_id: str, filter_str: str, minutes_ago: int = 60
+) -> str:
     """Lists time series data from Google Cloud Monitoring using direct API.
 
     Args:
@@ -40,6 +42,17 @@ def list_time_series(project_id: str, filter_str: str, minutes_ago: int = 60) ->
 
     Example filter_str: 'metric.type="compute.googleapis.com/instance/cpu/utilization"'
     """
+    from fastapi.concurrency import run_in_threadpool
+
+    return await run_in_threadpool(
+        _list_time_series_sync, project_id, filter_str, minutes_ago
+    )
+
+
+def _list_time_series_sync(
+    project_id: str, filter_str: str, minutes_ago: int = 60
+) -> str:
+    """Synchronous implementation of list_time_series."""
     with tracer.start_as_current_span("list_time_series") as span:
         span.set_attribute("gcp.project_id", project_id)
         span.set_attribute("gcp.monitoring.filter", filter_str)
@@ -99,7 +112,7 @@ def list_time_series(project_id: str, filter_str: str, minutes_ago: int = 60) ->
 
 
 @adk_tool
-def query_promql(
+async def query_promql(
     project_id: str,
     query: str,
     start: str | None = None,
@@ -118,6 +131,21 @@ def query_promql(
     Returns:
         A JSON string containing the query results.
     """
+    from fastapi.concurrency import run_in_threadpool
+
+    return await run_in_threadpool(
+        _query_promql_sync, project_id, query, start, end, step
+    )
+
+
+def _query_promql_sync(
+    project_id: str,
+    query: str,
+    start: str | None = None,
+    end: str | None = None,
+    step: str = "60s",
+) -> str:
+    """Synchronous implementation of query_promql."""
     try:
         # Get credentials
         credentials, _ = google.auth.default(
