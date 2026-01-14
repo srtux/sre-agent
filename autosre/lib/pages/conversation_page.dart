@@ -502,7 +502,7 @@ class _ConversationPageState extends State<ConversationPage>
             ),
           ),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
                 child: Container(
