@@ -97,6 +97,8 @@ def main():
             "deploy/deploy_web.py",
             "--agent-url",
             agent_url,
+            "--agent-id",
+            resource_name,
         ]
         # Frontend deployment is primarily the heavy lifting, definitely allow interactivity.
         run_command(frontend_cmd, cwd=str(root_dir), interactive=True)

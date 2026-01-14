@@ -217,6 +217,26 @@ class ChatRequest(BaseModel):
     messages: list[dict[str, Any]]
 
 
+# 5. MOUNT ADK AGENT
+
+# Configure Vertex AI if Agent ID is present
+if os.getenv("SRE_AGENT_ID"):
+    try:
+        import vertexai
+
+        project_id = os.getenv("GCP_PROJECT_ID") or os.getenv("GOOGLE_CLOUD_PROJECT")
+        location = (
+            os.getenv("GCP_REGION")
+            or os.getenv("GOOGLE_CLOUD_LOCATION")
+            or "us-central1"
+        )
+        if project_id:
+            vertexai.init(project=project_id, location=location)
+            logger.info(f"Initialized Vertex AI for project {project_id} in {location}")
+    except Exception as e:
+        logger.warning(f"Failed to initialize Vertex AI: {e}")
+
+
 @app.post("/api/genui/chat")
 async def genui_chat(request: ChatRequest) -> StreamingResponse:
     """Experimental GenUI endpoint.
@@ -232,6 +252,41 @@ async def genui_chat(request: ChatRequest) -> StreamingResponse:
         import uuid
 
         from google.genai import types
+
+        # Check for Remote Agent Override
+        remote_agent_id = os.getenv("SRE_AGENT_ID")
+
+        if remote_agent_id:
+            logger.info(f"Using Remote Agent: {remote_agent_id}")
+            try:
+                from vertexai.preview import reasoning_engines
+
+                # Instantiate remote agent
+                remote_agent = reasoning_engines.ReasoningEngine(remote_agent_id)
+
+                # Query the remote agent
+                # Note: This is currently synchronous/blocking in the thread, effectively.
+                # Ideally we offload to threadpool but for simplicity:
+                response = remote_agent.query(input=user_message)
+
+                # The response from AdkApp/ReasoningEngine is typically just the text content if not structured.
+                # If we lose events, we just stream the text.
+                if response:
+                    yield json.dumps({"type": "text", "content": str(response)}) + "\n"
+
+                return
+            except Exception as e:
+                logger.error(f"Remote Agent Error: {e}", exc_info=True)
+                yield (
+                    json.dumps(
+                        {
+                            "type": "text",
+                            "content": f"Error communicating with remote agent: {e}",
+                        }
+                    )
+                    + "\n"
+                )
+                return
 
         # 1. Setup Context
         tool_ctx = await get_tool_context()
