@@ -80,7 +80,7 @@ def create_bigquery_mcp_toolset(project_id: str | None = None) -> Any:
         )
 
         api_registry = ApiRegistry(
-            project_id, header_provider=lambda _: {"x-goog-user-project": project_id}
+            project_id  # , header_provider=lambda _: {"x-goog-user-project": project_id}
         )
 
         mcp_toolset = api_registry.get_toolset(
@@ -242,7 +242,19 @@ async def call_mcp_tool_with_retry(
                 f"DEBUG: Calling create_toolset_fn for {tool_name} (project_id={project_id})"
             )
             # Offload blocking synchronous toolset creation to threadpool
-            mcp_toolset = await run_in_threadpool(create_toolset_fn, project_id)
+            # Wrap in timeout to prevent hanging during initialization
+            try:
+                mcp_toolset = await asyncio.wait_for(
+                    run_in_threadpool(create_toolset_fn, project_id),
+                    timeout=15.0,  # 15s timeout for toolset creation
+                )
+            except asyncio.TimeoutError:
+                logger.error(f"Timeout creating MCP toolset for {tool_name}")
+                return {
+                    "status": ToolStatus.ERROR,
+                    "error": f"Failed to create MCP toolset for {tool_name}: Timed out after 15s",
+                }
+
             logger.debug(f"DEBUG: create_toolset_fn returned for {tool_name}")
 
             if not mcp_toolset:
@@ -255,12 +267,23 @@ async def call_mcp_tool_with_retry(
 
             for tool in tools:
                 if tool.name == tool_name:
-                    result = await tool.run_async(args=args, tool_context=tool_context)
-                    return {
-                        "status": ToolStatus.SUCCESS,
-                        "result": result,
-                        "metadata": {"source": "mcp"},
-                    }
+                    # Enforce timeout on tool execution
+                    try:
+                        result = await asyncio.wait_for(
+                            tool.run_async(args=args, tool_context=tool_context),
+                            timeout=15.0,  # 15s timeout for tool execution
+                        )
+                        return {
+                            "status": ToolStatus.SUCCESS,
+                            "result": result,
+                            "metadata": {"source": "mcp"},
+                        }
+                    except asyncio.TimeoutError:
+                        logger.error(f"Timeout executing MCP tool {tool_name}")
+                        return {
+                            "status": ToolStatus.ERROR,
+                            "error": f"Tool {tool_name} timed out after 15s",
+                        }
 
             return {
                 "status": ToolStatus.ERROR,
@@ -271,6 +294,9 @@ async def call_mcp_tool_with_retry(
             logger.error(
                 f"MCP Tool execution failed: {tool_name} error={e!s}", exc_info=True
             )
+            if hasattr(e, "response") and hasattr(e.response, "text"):
+                logger.error(f"HTTP Response Body: {e.response.text}")
+
             error_str = str(e)
             is_session_error = "Session terminated" in error_str or (
                 "session" in error_str.lower() and "error" in error_str.lower()

@@ -48,6 +48,7 @@ async def discover_telemetry_sources(
             "datasets_scanned": ["dataset1", "dataset2"]
         }
     """
+    logger.info("ENTER discover_telemetry_sources")
     if tool_context is None:
         raise ValueError("tool_context is required for MCP tools")
 
@@ -61,6 +62,7 @@ async def discover_telemetry_sources(
         }
 
     # 1. List Datasets
+    logger.info(f"Calling list_dataset_ids for project {pid}")
     list_datasets_result = await call_mcp_tool_with_retry(
         create_bigquery_mcp_toolset,
         "list_dataset_ids",
@@ -68,6 +70,7 @@ async def discover_telemetry_sources(
         tool_context,
         project_id=pid,
     )
+    logger.info(f"list_dataset_ids result: {list_datasets_result}")
 
     if list_datasets_result.get("status") != "success":
         logger.warning(f"Failed to list datasets: {list_datasets_result.get('error')}")
@@ -97,6 +100,7 @@ async def discover_telemetry_sources(
         if trace_table and log_table:
             break
 
+        logger.info(f"Scanning dataset: {dataset_id}")
         list_tables_result = await call_mcp_tool_with_retry(
             create_bigquery_mcp_toolset,
             "list_table_ids",
@@ -118,16 +122,20 @@ async def discover_telemetry_sources(
         # Check for target tables
         if "_AllSpans" in tables:
             trace_table = f"{pid}.{dataset_id}._AllSpans"
+            logger.info(f"Found trace table: {trace_table}")
 
         if "_AllLogs" in tables:
             log_table = f"{pid}.{dataset_id}._AllLogs"
+            logger.info(f"Found log table: {log_table}")
 
     mode = "bigquery" if (trace_table or log_table) else "api_fallback"
 
-    return {
+    result = {
         "trace_table": trace_table,
         "log_table": log_table,
         "mode": mode,
         "datasets_scanned": scanned_datasets,
         "project_id": pid,
     }
+    logger.info(f"EXIT discover_telemetry_sources with {result}")
+    return result

@@ -1,4 +1,5 @@
 # 1. APPLY PATCHES AS EARLY AS POSSIBLE
+# ruff: noqa: E402
 try:
     from typing import TYPE_CHECKING, Any
 
@@ -24,6 +25,10 @@ import os
 import sys
 from collections.abc import AsyncGenerator
 from typing import Any
+
+import nest_asyncio
+
+nest_asyncio.apply()
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
@@ -337,101 +342,64 @@ async def genui_chat(request: ChatRequest) -> StreamingResponse:
 
         # Track surfaces to avoid duplicate beginRendering
         # Map tool_name -> {'surface_id': str, 'args': dict}
-        active_tools = {}
+        active_tools: dict[str, dict[str, Any]] = {}
 
         # 2. Run Agent
         # Use the agent from the context (which might be the cloned one)
-        agent_to_run = inv_ctx.agent or root_agent
-        async for event in agent_to_run.run_async(inv_ctx):
-            if not event.content or not event.content.parts:
-                continue
+        try:
+            agent_to_run = inv_ctx.agent or root_agent
+            async for event in agent_to_run.run_async(inv_ctx):
+                if not event.content or not event.content.parts:
+                    continue
 
-            for part in event.content.parts:
-                # Handle Text
-                if part.text:
-                    yield json.dumps({"type": "text", "content": part.text}) + "\n"
+                for part in event.content.parts:
+                    # Handle Text
+                    if part.text:
+                        yield json.dumps({"type": "text", "content": part.text}) + "\n"
 
-                # Handle Tool Calls (Begin Rendering Tool Log)
-                if part.function_call:
-                    fc = part.function_call
-                    tool_name = fc.name
-                    args = fc.args
+                    # Handle Tool Calls (Begin Rendering Tool Log)
+                    if part.function_call:
+                        fc = part.function_call
+                        tool_name = fc.name
+                        if not tool_name:
+                            continue
+                        args = fc.args
 
-                    surface_id = str(uuid.uuid4())
-
-                    # Store mapping so response knows where to update
-                    active_tools[tool_name] = {"surface_id": surface_id, "args": args}
-
-                    # Create initial ToolLog data
-                    tool_log_data = {
-                        "tool_name": tool_name,
-                        "args": args,
-                        "status": "running",
-                        "timestamp": str(uuid.uuid1().time),
-                    }
-
-                    yield (
-                        json.dumps(
-                            {
-                                "type": "a2ui",
-                                "message": {
-                                    "beginRendering": {
-                                        "surfaceId": surface_id,
-                                        "root": f"{surface_id}-root",
-                                        "catalogId": "sre-catalog",
-                                    }
-                                },
-                            }
+                        logger.debug(
+                            f"🔧 Tool Call Detected: {tool_name} with args: {args}"
                         )
-                        + "\n"
-                    )
 
-                    yield (
-                        json.dumps(
-                            {
-                                "type": "a2ui",
-                                "message": {
-                                    "surfaceUpdate": {
-                                        "surfaceId": surface_id,
-                                        "components": [
-                                            {
-                                                "id": f"{surface_id}-root",
-                                                "component": {
-                                                    "x-sre-tool-log": tool_log_data
-                                                },
-                                            }
-                                        ],
-                                    }
-                                },
-                            }
-                        )
-                        + "\n"
-                    )
+                        surface_id = str(uuid.uuid4())
 
-                # Handle Tool Responses (Function Responses)
-                if part.function_response:
-                    fp = part.function_response
-                    tool_name = fp.name
-                    # The response is typically a dict in 'response' field
-                    result = fp.response
+                        # Store mapping so response knows where to update
+                        active_tools[tool_name] = {
+                            "surface_id": surface_id,
+                            "args": args,
+                        }
 
-                    # If result is a dict with 'result' key, unwrap it (common pattern)
-                    if isinstance(result, dict) and "result" in result:
-                        result = result["result"]
-
-                    # 1. Update Tool Log Entry
-                    if tool_name in active_tools:
-                        tool_info = active_tools[tool_name]
-                        surface_id = tool_info["surface_id"]
-
-                        # Prepare data for completion
+                        # Create initial ToolLog data
                         tool_log_data = {
                             "tool_name": tool_name,
-                            "args": tool_info["args"],  # Persist args
-                            "status": "completed",
-                            "result": str(result),  # Serialize result for log
+                            "args": args,
+                            "status": "running",
                             "timestamp": str(uuid.uuid1().time),
                         }
+
+                        yield (
+                            json.dumps(
+                                {
+                                    "type": "a2ui",
+                                    "message": {
+                                        "beginRendering": {
+                                            "surfaceId": surface_id,
+                                            "root": f"{surface_id}-root",
+                                            "catalogId": "sre-catalog",
+                                        }
+                                    },
+                                }
+                            )
+                            + "\n"
+                        )
 
                         yield (
                             json.dumps(
@@ -455,64 +423,200 @@ async def genui_chat(request: ChatRequest) -> StreamingResponse:
                             + "\n"
                         )
 
-                    # Mapping Tool Results to A2UI Widgets (Specialized Visualization)
-                    widget_map = {
-                        "fetch_trace": "x-sre-trace-waterfall",
-                        "analyze_critical_path": "x-sre-trace-waterfall",
-                        "query_promql": "x-sre-metric-chart",
-                        "list_time_series": "x-sre-metric-chart",
-                        "extract_log_patterns": "x-sre-log-pattern-viewer",
-                        "analyze_bigquery_log_patterns": "x-sre-log-pattern-viewer",
-                        "generate_remediation_suggestions": "x-sre-remediation-plan",
+                    # Handle Tool Responses (Function Responses)
+                    if part.function_response:
+                        fp = part.function_response
+                        tool_name = fp.name
+                        if not tool_name:
+                            continue
+                        logger.debug(f"🔧 Tool Response Detected: {tool_name}")
+
+                        # The response is typically a dict in 'response' field
+                        result = fp.response
+
+                        # If result is a dict with 'result' key, unwrap it (common pattern)
+                        if isinstance(result, dict) and "result" in result:
+                            result = result["result"]
+
+                        # 1. Update Tool Log Entry
+                        if tool_name in active_tools:
+                            logger.debug(
+                                f"✅ Found active surface for tool: {tool_name}"
+                            )
+                            tool_info = active_tools[tool_name]
+                            surface_id = tool_info["surface_id"]
+
+                            # Prepare data for completion
+                            tool_log_data = {
+                                "tool_name": tool_name,
+                                "args": tool_info["args"],  # Persist args
+                                "status": "completed",
+                                "result": str(result),  # Serialize result for log
+                                "timestamp": str(uuid.uuid1().time),
+                            }
+
+                            yield (
+                                json.dumps(
+                                    {
+                                        "type": "a2ui",
+                                        "message": {
+                                            "surfaceUpdate": {
+                                                "surfaceId": surface_id,
+                                                "components": [
+                                                    {
+                                                        "id": f"{surface_id}-root",
+                                                        "component": {
+                                                            "x-sre-tool-log": tool_log_data
+                                                        },
+                                                    }
+                                                ],
+                                            }
+                                        },
+                                    }
+                                )
+                                + "\n"
+                            )
+                            # Remove from active tools as it is completed
+                            del active_tools[tool_name]
+                        else:
+                            logger.warning(
+                                f"⚠️ No active surface found for tool: {tool_name}. Active tools: {list(active_tools.keys())}"
+                            )
+
+                        # Mapping Tool Results to A2UI Widgets (Specialized Visualization)
+                        widget_map = {
+                            "fetch_trace": "x-sre-trace-waterfall",
+                            "analyze_critical_path": "x-sre-trace-waterfall",
+                            "query_promql": "x-sre-metric-chart",
+                            "list_time_series": "x-sre-metric-chart",
+                            "extract_log_patterns": "x-sre-log-pattern-viewer",
+                            "analyze_bigquery_log_patterns": "x-sre-log-pattern-viewer",
+                            "generate_remediation_suggestions": "x-sre-remediation-plan",
+                        }
+
+                        if tool_name in widget_map:
+                            component_name = widget_map[tool_name]
+
+                            # Ensure we have a surface for this widget type
+                            # For visualized widgets, we generate a NEW surface, separated from the log.
+                            surface_id = str(uuid.uuid4())
+
+                            # Begin Rendering
+                            yield (
+                                json.dumps(
+                                    {
+                                        "type": "a2ui",
+                                        "message": {
+                                            "beginRendering": {
+                                                "surfaceId": surface_id,
+                                                "root": f"{tool_name}-viz-root",
+                                                "catalogId": "sre-catalog",
+                                            }
+                                        },
+                                    }
+                                )
+                                + "\n"
+                            )
+
+                            # Transform data for the specific widget
+                            data = result
+                            if isinstance(result, str):
+                                try:
+                                    data = json.loads(result)
+                                except Exception:
+                                    pass
+
+                            # Ensure data is a dictionary before transformation
+                            if isinstance(data, dict):
+                                # Data Transformation (Adapting tool outputs to Flutter models)
+                                if component_name == "x-sre-trace-waterfall":
+                                    data = genui_adapter.transform_trace(data)
+                                elif component_name == "x-sre-metric-chart":
+                                    data = genui_adapter.transform_metrics(data)
+                                elif component_name == "x-sre-log-pattern-viewer":
+                                    # For Log patterns, we just need the list of patterns
+                                    if "top_patterns" in data:
+                                        data = data["top_patterns"]
+                                elif component_name == "x-sre-remediation-plan":
+                                    data = genui_adapter.transform_remediation(data)
+
+                            # Surface Update
+                            yield (
+                                json.dumps(
+                                    {
+                                        "type": "a2ui",
+                                        "message": {
+                                            "surfaceUpdate": {
+                                                "surfaceId": surface_id,
+                                                "components": [
+                                                    {
+                                                        "id": f"{tool_name}-viz-root",
+                                                        "component": {
+                                                            component_name: data
+                                                        },
+                                                    }
+                                                ],
+                                            }
+                                        },
+                                    }
+                                )
+                                + "\n"
+                            )
+        except Exception as e:
+            logger.error(f"Error during agent execution: {e}", exc_info=True)
+            # Yield error for active tools
+            for tool_name, tool_info in list(active_tools.items()):
+                surface_id = tool_info["surface_id"]
+                tool_log_data = {
+                    "tool_name": tool_name,
+                    "args": tool_info["args"],
+                    "status": "error",
+                    "result": f"Tool execution failed: {e!s}",
+                    "timestamp": str(uuid.uuid1().time),
+                }
+
+                yield (
+                    json.dumps(
+                        {
+                            "type": "a2ui",
+                            "message": {
+                                "surfaceUpdate": {
+                                    "surfaceId": surface_id,
+                                    "components": [
+                                        {
+                                            "id": f"{surface_id}-root",
+                                            "component": {
+                                                "x-sre-tool-log": tool_log_data
+                                            },
+                                        }
+                                    ],
+                                }
+                            },
+                        }
+                    )
+                    + "\n"
+                )
+            yield (
+                json.dumps({"type": "text", "content": f"An error occurred: {e!s}"})
+                + "\n"
+            )
+        finally:
+            # Ensure all tools are marked as completed/error if stream ends
+            if active_tools:
+                logger.warning(
+                    f"Stream ending with active tools: {list(active_tools.keys())}"
+                )
+                for tool_name, tool_info in list(active_tools.items()):
+                    surface_id = tool_info["surface_id"]
+                    tool_log_data = {
+                        "tool_name": tool_name,
+                        "args": tool_info["args"],
+                        "status": "error",
+                        "result": "Stream ended without tool completion response.",
+                        "timestamp": str(uuid.uuid1().time),
                     }
 
-                    if tool_name in widget_map:
-                        component_name = widget_map[tool_name]
-
-                        # Ensure we have a surface for this widget type
-                        # For visualized widgets, we generate a NEW surface, separated from the log.
-                        surface_id = str(uuid.uuid4())
-
-                        # Begin Rendering
-                        yield (
-                            json.dumps(
-                                {
-                                    "type": "a2ui",
-                                    "message": {
-                                        "beginRendering": {
-                                            "surfaceId": surface_id,
-                                            "root": f"{tool_name}-viz-root",
-                                            "catalogId": "sre-catalog",
-                                        }
-                                    },
-                                }
-                            )
-                            + "\n"
-                        )
-
-                        # Transform data for the specific widget
-                        data = result
-                        if isinstance(result, str):
-                            try:
-                                data = json.loads(result)
-                            except Exception:
-                                pass
-
-                        # Ensure data is a dictionary before transformation
-                        if isinstance(data, dict):
-                            # Data Transformation (Adapting tool outputs to Flutter models)
-                            if component_name == "x-sre-trace-waterfall":
-                                data = genui_adapter.transform_trace(data)
-                            elif component_name == "x-sre-metric-chart":
-                                data = genui_adapter.transform_metrics(data)
-                            elif component_name == "x-sre-log-pattern-viewer":
-                                # For Log patterns, we just need the list of patterns
-                                if "top_patterns" in data:
-                                    data = data["top_patterns"]
-                            elif component_name == "x-sre-remediation-plan":
-                                data = genui_adapter.transform_remediation(data)
-
-                        # Surface Update
+                    try:
                         yield (
                             json.dumps(
                                 {
@@ -522,8 +626,10 @@ async def genui_chat(request: ChatRequest) -> StreamingResponse:
                                             "surfaceId": surface_id,
                                             "components": [
                                                 {
-                                                    "id": f"{tool_name}-viz-root",
-                                                    "component": {component_name: data},
+                                                    "id": f"{surface_id}-root",
+                                                    "component": {
+                                                        "x-sre-tool-log": tool_log_data
+                                                    },
                                                 }
                                             ],
                                         }
@@ -532,6 +638,8 @@ async def genui_chat(request: ChatRequest) -> StreamingResponse:
                             )
                             + "\n"
                         )
+                    except Exception:
+                        pass  # Ignore errors during cleanup
 
     return StreamingResponse(event_generator(), media_type="application/x-ndjson")
 
