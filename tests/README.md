@@ -61,14 +61,16 @@ The `conftest.py` file provides shared resources available to all tests:
 To run the full test suite (81% Coverage):
 
 ```bash
-# Run all tests
+# Run backend tests
 uv run pytest
 
-# Run with coverage report
-uv run pytest --cov=sre_agent --cov-report=term-missing
+# Run Flutter frontend tests
+cd autosre
+flutter test
 
-# Run specific E2E tests
-uv run pytest tests/sre_agent/e2e/test_agent_execution.py
+# Run with coverage report
+cd ..
+uv run pytest --cov=sre_agent --cov-report=term-missing
 ```
 
 ## 📝 Best Practices

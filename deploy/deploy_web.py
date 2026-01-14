@@ -53,7 +53,7 @@ def main():
     agent_id = args.agent_id or os.getenv("SRE_AGENT_ID")
 
     if not gemini_key:
-        print("❌ Error: GEMINI_API_KEY not found. Please set it in web/.env")
+        print("❌ Error: GEMINI_API_KEY not found. Please set it in .env")
         sys.exit(1)
 
     # Prepare environment variables for Cloud Run

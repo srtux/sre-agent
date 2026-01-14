@@ -1140,7 +1140,7 @@ def _get_workload_health_summary_sync(
             result_workloads.append(workload)
 
         # Sort: CRITICAL first, then WARNING, then HEALTHY
-        def health_sort_key(w):
+        def health_sort_key(w: dict[str, Any]) -> int:
             if w["status"] == "CRITICAL":
                 return 0
             elif w["status"] == "WARNING":

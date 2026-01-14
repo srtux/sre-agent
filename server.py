@@ -22,15 +22,28 @@ except ImportError:
 import logging
 import os
 import sys
+from collections.abc import AsyncGenerator
+from typing import Any
+
+import uvicorn
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
+from google.adk.cli.fast_api import get_fast_api_app
+from pydantic import BaseModel
+
+from sre_agent.agent import root_agent
+from sre_agent.tools import (
+    extract_log_patterns,
+    fetch_trace,
+    list_gcp_projects,
+    list_log_entries,
+)
+from sre_agent.tools.analysis import genui_adapter
 
 # 0. SET LOG LEVEL EARLY
 os.environ["LOG_LEVEL"] = "DEBUG"
-
-import uvicorn  # noqa: E402
-from fastapi import FastAPI, HTTPException, Request  # noqa: E402
-from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
-from fastapi.responses import JSONResponse  # noqa: E402
-from google.adk.cli.fast_api import get_fast_api_app  # noqa: E402
 
 # 1.1 CONFIGURING LOGGING
 # Configure root logger
@@ -56,20 +69,7 @@ for logger_name in [
 logger = logging.getLogger(__name__)
 
 # 2. INTERNAL IMPORTS
-# Re-ordering imports to satisfy linter while maintaining logical grouping for patching
-if True:  # Indent internal imports to avoid E402 if strict, but for now we just move them or accept suppression.
-    # Actually, best way to handle patch-first pattern is typically to put ignores,
-    # or just move standard imports up if possible.
-    # But since we need to patch BEFORE other imports, we use noqa.
-    pass
-
-from sre_agent.agent import root_agent  # noqa: E402
-from sre_agent.tools import (  # noqa: E402
-    extract_log_patterns,
-    fetch_trace,
-    list_gcp_projects,
-    list_log_entries,
-)
+# (Imports moved to top-level)
 
 app = FastAPI(title="SRE Agent Toolbox API")
 
@@ -122,6 +122,8 @@ async def get_tool_context() -> "ToolContext":
     # Create a minimal session
     session = Session(app_name="sre_agent", user_id="system", id="api-session")
 
+    from google.adk.agents.run_config import RunConfig
+
     # Create session service
     session_service = InMemorySessionService()  # type: ignore
 
@@ -131,6 +133,7 @@ async def get_tool_context() -> "ToolContext":
         agent=root_agent,
         invocation_id="api-inv",
         session_service=session_service,
+        run_config=RunConfig(),
     )
 
     return ToolContext(invocation_context=inv_ctx)
@@ -205,7 +208,149 @@ async def analyze_logs(payload: dict[str, Any]) -> Any:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
-# 4. MOUNT ADK AGENT
+# 4. GENUI ENDPOINT (A2UI Protocol)
+
+
+class ChatRequest(BaseModel):
+    """Request model for GenUI chat."""
+
+    messages: list[dict[str, Any]]
+
+
+@app.post("/api/genui/chat")
+async def genui_chat(request: ChatRequest) -> StreamingResponse:
+    """Experimental GenUI endpoint.
+
+    Receives a user message, runs logic via the SRE Agent,
+    and streams back A2UI events (BeginRendering, SurfaceUpdate) + Text.
+    """
+    logger.info("Received GenUI chat request")
+    user_message = request.messages[-1]["text"] if request.messages else ""
+
+    async def event_generator() -> AsyncGenerator[str, None]:
+        import json
+        import uuid
+
+        from google.genai import types
+
+        # 1. Setup Context
+        tool_ctx = await get_tool_context()
+        # Access protected member as it is not exposed publicly
+        inv_ctx = tool_ctx._invocation_context
+
+        # Set user content
+        inv_ctx.user_content = types.Content(
+            role="user", parts=[types.Part(text=user_message)]
+        )
+
+        # Track surfaces to avoid duplicate beginRendering
+        # Map tool_name -> surface_id
+        active_surfaces = {}
+
+        # 2. Run Agent
+        # root_agent.run_async now expects an InvocationContext
+        async for event in root_agent.run_async(inv_ctx):
+            if not event.content or not event.content.parts:
+                continue
+
+            for part in event.content.parts:
+                # Handle Text
+                if part.text:
+                    yield json.dumps({"type": "text", "content": part.text}) + "\n"
+
+                # Handle Tool Responses (Function Responses)
+                if part.function_response:
+                    tool_name = part.function_response.name
+                    # The response is typically a dict in 'response' field
+                    result = part.function_response.response
+
+                    # If result is a dict with 'result' key, unwrap it (common pattern)
+                    if isinstance(result, dict) and "result" in result:
+                        result = result["result"]
+
+                    # Mapping Tool Results to A2UI Widgets
+                    widget_map = {
+                        "fetch_trace": "x-sre-trace-waterfall",
+                        "analyze_critical_path": "x-sre-trace-waterfall",
+                        "query_promql": "x-sre-metric-chart",
+                        "list_time_series": "x-sre-metric-chart",
+                        "extract_log_patterns": "x-sre-log-pattern-viewer",
+                        "analyze_bigquery_log_patterns": "x-sre-log-pattern-viewer",
+                        "generate_remediation_suggestions": "x-sre-remediation-plan",
+                    }
+
+                    if tool_name in widget_map:
+                        component_name = widget_map[tool_name]
+
+                        # Ensure we have a surface for this widget type
+                        if tool_name not in active_surfaces:
+                            surface_id = str(uuid.uuid4())
+                            active_surfaces[tool_name] = surface_id
+
+                            # Begin Rendering
+                            yield (
+                                json.dumps(
+                                    {
+                                        "type": "a2ui",
+                                        "message": {
+                                            "beginRendering": {
+                                                "surfaceId": surface_id,
+                                                "root": f"{tool_name}-root",
+                                                "catalogId": "sre-catalog",
+                                            }
+                                        },
+                                    }
+                                )
+                                + "\n"
+                            )
+
+                        surface_id = active_surfaces[tool_name]
+
+                        # Transform data for the specific widget
+                        data = result
+                        if isinstance(result, str):
+                            try:
+                                data = json.loads(result)
+                            except Exception:
+                                pass
+
+                        # Data Transformation (Adapting tool outputs to Flutter models)
+                        if component_name == "x-sre-trace-waterfall":
+                            data = genui_adapter.transform_trace(data)
+                        elif component_name == "x-sre-metric-chart":
+                            data = genui_adapter.transform_metrics(data)
+                        elif component_name == "x-sre-log-pattern-viewer":
+                            # For Log patterns, we just need the list of patterns
+                            if isinstance(data, dict) and "top_patterns" in data:
+                                data = data["top_patterns"]
+                        elif component_name == "x-sre-remediation-plan":
+                            data = genui_adapter.transform_remediation(data)
+
+                        # Surface Update
+                        yield (
+                            json.dumps(
+                                {
+                                    "type": "a2ui",
+                                    "message": {
+                                        "surfaceUpdate": {
+                                            "surfaceId": surface_id,
+                                            "components": [
+                                                {
+                                                    "id": f"{tool_name}-root",
+                                                    "component": {component_name: data},
+                                                }
+                                            ],
+                                        }
+                                    },
+                                }
+                            )
+                            + "\n"
+                        )
+
+    return StreamingResponse(event_generator(), media_type="application/x-ndjson")
+
+
+# 5. MOUNT ADK AGENT
 
 # This creates the FastAPI app with /copilotkit and other routes
 adk_app = get_fast_api_app(
@@ -214,9 +359,15 @@ adk_app = get_fast_api_app(
 )
 
 # Mount the ADK app into our main app
-app.mount("/", adk_app)
+app.mount("/adk", adk_app)
+
+# Serve static files from 'web' directory if it exists
+if os.path.exists("web"):
+    logger.info("Mounting static files from 'web' directory")
+    app.mount("/", StaticFiles(directory="web", html=True), name="web")
 
 if __name__ == "__main__":
-    # Run on 8000
-    print("🚀 Starting SRE Agent + Tools API on http://0.0.0.0:8000")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Run on PORT (default 8001)
+    port = int(os.getenv("PORT", 8001))
+    print(f"🚀 Starting SRE Agent + Tools API on http://0.0.0.0:{port}")
+    uvicorn.run(app, host="0.0.0.0", port=port)

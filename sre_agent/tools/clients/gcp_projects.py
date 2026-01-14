@@ -31,7 +31,7 @@ async def list_gcp_projects() -> dict[str, Any]:
 
         # Refresh credentials if needed
         auth_request = google.auth.transport.requests.Request()
-        credentials.refresh(auth_request)
+        credentials.refresh(auth_request)  # type: ignore[no-untyped-call]
 
         async with httpx.AsyncClient() as client:
             headers = {"Authorization": f"Bearer {credentials.token}"}

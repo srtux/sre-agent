@@ -103,7 +103,7 @@ def main():
 
         print("\n🚀 FULL STACK DEPLOYMENT COMPLETE!")
         print(f"Backend (Vertex):  {resource_name}")
-        print("Frontend (Next.js): Dashboard is ready!")
+        print("Frontend (Flutter): Dashboard is ready!")
 
     except Exception as e:
         print(f"\n❌ Deployment failed: {e}")

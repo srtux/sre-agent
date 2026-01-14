@@ -655,7 +655,7 @@ base_tools: list[Any] = [
 # Create the main SRE Agent
 sre_agent = LlmAgent(
     name="sre_agent",
-    model="gemini-2.5-pro",
+    model="gemini-2.0-flash",
     description=(
         "The world's most comprehensive SRE Agent for Google Cloud. "
         "Analyzes traces, logs, and metrics with cross-signal correlation via exemplars. "
@@ -722,7 +722,7 @@ async def get_agent_with_mcp_tools() -> LlmAgent:
     # Create agent with all tools
     return LlmAgent(
         name="sre_agent",
-        model="gemini-2.5-pro",
+        model="gemini-2.0-flash",
         description=sre_agent.description,
         instruction=SRE_AGENT_PROMPT,
         tools=all_tools,

@@ -262,10 +262,10 @@ sequenceDiagram
    - **First Responder**: "Smoking gun" evidence for starting investigations
 
 9. **Web Dashboard (Mission Control)**
-   - **GenAI Interface**: A modern Chat UX powered by Vercel AI SDK & CopilotKit
-   - **Generative UI**: Dynamic React components generated on-the-fly for traces, logs, and metrics
-   - **Interactive Visualizations**: Trace waterfalls, log clusters, and metric charts
-   - **Full Source**: Located in `web/` directory. See [web/README.md](web/README.md) for details.
+   - **GenAI Interface**: A modern Chat UX powered by **Flutter** and **GenUI**.
+   - **Generative UI**: Dynamic Flutter widgets generated on-the-fly for traces, logs, and metrics.
+   - **Interactive Visualizations**: Trace waterfalls, log clusters, and metric charts.
+   - **Full Source**: Located in `autosre/` directory. See [autosre/README.md](autosre/README.md) for details.
 
 ### Multi-Stage Trace Analysis Pipeline
 
@@ -367,8 +367,8 @@ GOOGLE_CLOUD_LOCATION=us-central1
 # Run the full stack (Backend + Frontend) [Recommended]
 uv run poe dev
 # Functionality:
-# - Starts ADK Agent (Backend) on http://localhost:8000
-# - Starts Next.js Dashboard (Frontend) on http://localhost:3000
+# - Starts ADK Agent (Backend) on http://localhost:8001
+# - Starts Flutter Dashboard (Frontend) on macOS Desktop or Web
 
 # Backend only (ADK Agent Server)
 uv run poe web
@@ -385,8 +385,8 @@ This project uses **Poe the Poet** for unified task management. All project scri
 |------|---------|-------------|
 | **Sync** | `uv run poe sync` | Synchronize all dependencies with `uv` |
 | **Deploy (Backend)** | `uv run poe deploy` | **Safe Deploy**: Syncs docs, verifies imports, and deploys to Vertex Agent Engine |
-| **Deploy (Frontend)** | `uv run poe deploy-web` | Optimized multi-stage build and deployment to Cloud Run |
-| **Deploy (Full Stack)** | `uv run poe deploy-all` | Orchestrated deployment of both Vertex backend and Cloud Run frontend |
+| **Deploy (Frontend)** | `uv run poe deploy-web` | Optimized multi-stage build (Flutter Web) and deployment to Cloud Run |
+| **Deploy (Full Stack)** | `uv run poe deploy-all` | One-container deployment of both API and Flutter Web to Cloud Run |
 | **List** | `uv run poe list` | List all deployed agents in Agent Engine |
 | **Test** | `uv run poe test` | Run the full test suite |
 | **Eval** | `uv run poe eval` | Run agent evaluations using ADK eval sets |
@@ -395,11 +395,14 @@ This project uses **Poe the Poet** for unified task management. All project scri
 
 ### Deployment
 
-The SRE Agent stack consists of a **Python Backend** (running on Vertex AI Agent Engine) and a **Next.js Frontend** (running on Cloud Run).
-
-#### 0. Prerequisite: API Keys
-
-For security, you must store your Gemini API Key in Google Secret Manager before deploying:
+#### 1. Unified Full Stack Deployment (Recommended)
+The easiest way to deploy the entire system:
+```bash
+uv run poe deploy-all
+```
+This script:
+1. Deploys the **Backend** to Vertex AI Agent Engine.
+2. Deploys the **Unified Frontend** (Flutter Web + FastAPI Backend) to Cloud Run in a single container.
 
 ```bash
 # 1. Create the secret
@@ -420,7 +423,7 @@ uv run poe deploy-all
 ```
 This script:
 1. Deploys the **Backend** to Vertex AI Agent Engine.
-2. Deploys the **Unified Frontend** (Next.js + Tools API) to Cloud Run, automatically configuring it to talk to the Backend.
+2. Deploys the **Unified Frontend** (Flutter Web + FastAPI Backend) to Cloud Run, automatically configuring it to talk to the Backend.
 
 #### 2. Individual Component Deployment
 If you only need to update one part of the stack:
@@ -435,7 +438,7 @@ You can override deployment settings without changing your `.env` file:
 uv run poe deploy-web --agent-url https://us-central1-aiplatform.googleapis.com/...
 ```
 
-Before deploying, ensure your `.env` and `web/.env` files are configured with your GCP project settings.
+Before deploying, ensure your `.env` file is configured with your GCP project settings.
 
 ## Usage Examples
 

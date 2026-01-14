@@ -240,7 +240,7 @@ Retry storms? Circuit breakers? Cascading failures? I eat them for lunch.
 # Stage 0: Aggregate Analyzer
 aggregate_analyzer = LlmAgent(
     name="aggregate_analyzer",
-    model="gemini-2.5-pro",
+    model="gemini-2.0-flash",
     description=(
         "Analyzes trace data at scale using BigQuery to identify trends, patterns, "
         "and select exemplar traces for investigation. Includes cross-signal correlation."
@@ -262,7 +262,7 @@ aggregate_analyzer = LlmAgent(
 # Stage 1: Triage Analyzers
 latency_analyzer = LlmAgent(
     name="latency_analyzer",
-    model="gemini-2.5-pro",
+    model="gemini-2.0-flash",
     description="Analyzes span latencies, identifies critical path, and finds bottlenecks.",
     instruction=LATENCY_ANALYZER_PROMPT,
     tools=[
@@ -276,7 +276,7 @@ latency_analyzer = LlmAgent(
 
 error_analyzer = LlmAgent(
     name="error_analyzer",
-    model="gemini-2.5-pro",
+    model="gemini-2.0-flash",
     description="Detects and compares errors between traces.",
     instruction=ERROR_ANALYZER_PROMPT,
     tools=[fetch_trace, extract_errors],
@@ -284,7 +284,7 @@ error_analyzer = LlmAgent(
 
 structure_analyzer = LlmAgent(
     name="structure_analyzer",
-    model="gemini-2.5-pro",
+    model="gemini-2.0-flash",
     description="Compares call graph structures between traces.",
     instruction=STRUCTURE_ANALYZER_PROMPT,
     tools=[fetch_trace, build_call_graph, find_structural_differences],
@@ -292,7 +292,7 @@ structure_analyzer = LlmAgent(
 
 statistics_analyzer = LlmAgent(
     name="statistics_analyzer",
-    model="gemini-2.5-pro",
+    model="gemini-2.0-flash",
     description="Performs statistical analysis to detect anomalies.",
     instruction=STATISTICS_ANALYZER_PROMPT,
     tools=[fetch_trace, calculate_span_durations],
@@ -301,7 +301,7 @@ statistics_analyzer = LlmAgent(
 # Stage 2: Deep Dive Analyzers
 causality_analyzer = LlmAgent(
     name="causality_analyzer",
-    model="gemini-2.5-pro",
+    model="gemini-2.0-flash",
     description="Determines root cause using cross-signal correlation of traces, logs, and metrics.",
     instruction=CAUSALITY_ANALYZER_PROMPT,
     tools=[
@@ -316,7 +316,7 @@ causality_analyzer = LlmAgent(
 
 service_impact_analyzer = LlmAgent(
     name="service_impact_analyzer",
-    model="gemini-2.5-pro",
+    model="gemini-2.0-flash",
     description="Assesses blast radius using service dependency analysis.",
     instruction=SERVICE_IMPACT_ANALYZER_PROMPT,
     tools=[
@@ -331,7 +331,7 @@ service_impact_analyzer = LlmAgent(
 # Stage 2: Specialist Experts
 resiliency_architect = LlmAgent(
     name="resiliency_architect",
-    model="gemini-2.5-pro",
+    model="gemini-2.0-flash",
     description="Detects architectural risks like retry storms and cascading failures.",
     instruction=RESILIENCY_ARCHITECT_PROMPT,
     tools=[

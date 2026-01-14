@@ -67,14 +67,24 @@ def start_backend() -> bool:
 
 
 def start_frontend() -> bool:
-    """Start the Next.js frontend."""
+    """Start the Flutter frontend."""
     global frontend_proc
-    print("🚀 Starting Frontend (Next.js)...")
+    print("🚀 Starting Frontend (Flutter)...")
 
-    frontend_dir = os.path.join(os.getcwd(), "web")
+    frontend_dir = os.path.join(os.getcwd(), "autosre")
 
+    # Run flutter for Chrome (web) to avoid Xcode dependency
     frontend_proc = subprocess.Popen(
-        ["npm", "run", "dev"],
+        [
+            "flutter",
+            "run",
+            "-d",
+            "chrome",
+            "--web-hostname",
+            "localhost",
+            "--web-port",
+            "8080",
+        ],
         cwd=frontend_dir,
     )
 
@@ -101,8 +111,8 @@ def main() -> None:
         cleanup(None, None)
         return
 
-    print("\n✅ API running at http://127.0.0.1:8000")
-    print("✅ Web UI running at http://localhost:3000")
+    print("\n✅ API running at http://127.0.0.1:8001")
+    print("✅ Web UI starting in Chrome (Flutter)")
     print("\nPRESS CTRL+C TO STOP ALL SERVICES\n")
 
     # Keep main thread alive
