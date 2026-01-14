@@ -15,6 +15,33 @@ class ADKContentGenerator implements ContentGenerator {
   final ValueNotifier<bool> _isProcessing = ValueNotifier(false);
   final String _baseUrl = 'http://localhost:8001/api/genui/chat';
 
+  final ValueNotifier<bool> _isConnected = ValueNotifier(false);
+  Timer? _healthCheckTimer;
+  final String _healthUrl = 'http://localhost:8001/openapi.json';
+
+  ADKContentGenerator() {
+    _startHealthCheck();
+  }
+
+  void _startHealthCheck() {
+    // Initial check
+    _checkConnection();
+    // Periodic check every 10 seconds
+    _healthCheckTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      _checkConnection();
+    });
+  }
+
+  Future<void> _checkConnection() async {
+    try {
+      await http.get(Uri.parse(_healthUrl));
+      // Any response from the server means we are connected
+      _isConnected.value = true;
+    } catch (e) {
+      _isConnected.value = false;
+    }
+  }
+
   @override
   Stream<A2uiMessage> get a2uiMessageStream => _a2uiController.stream;
 
@@ -26,6 +53,8 @@ class ADKContentGenerator implements ContentGenerator {
 
   @override
   ValueListenable<bool> get isProcessing => _isProcessing;
+
+  ValueListenable<bool> get isConnected => _isConnected; // Expose connection status
 
   @override
   Future<void> sendRequest(
@@ -52,6 +81,8 @@ class ADKContentGenerator implements ContentGenerator {
             throw Exception('Failed to connect to agent: ${response.statusCode}');
         }
 
+        _isConnected.value = true; // Request succeeded, so we are connected
+
         // Parse stream line by line
         await response.stream
             .transform(utf8.decoder)
@@ -75,6 +106,7 @@ class ADKContentGenerator implements ContentGenerator {
             }).asFuture();
 
     } catch (e, st) {
+        _isConnected.value = false; // Connection issue likely
         _errorController.add(ContentGeneratorError(e, st));
     } finally {
         _isProcessing.value = false;
@@ -83,9 +115,11 @@ class ADKContentGenerator implements ContentGenerator {
 
   @override
   void dispose() {
+    _healthCheckTimer?.cancel();
     _a2uiController.close();
     _textController.close();
     _errorController.close();
     _isProcessing.dispose();
+    _isConnected.dispose();
   }
 }

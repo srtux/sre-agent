@@ -4,14 +4,14 @@ import 'package:flutter/material.dart';
 /// Modern color palette for AutoSRE
 class AppColors {
   // Primary gradient colors
-  static const Color primaryTeal = Color(0xFF00D9B5);
-  static const Color primaryCyan = Color(0xFF00B4D8);
-  static const Color primaryBlue = Color(0xFF0077B6);
+  static const Color primaryTeal = Color(0xFF6366F1); // Indigo
+  static const Color primaryCyan = Color(0xFF8B5CF6); // Violet
+  static const Color primaryBlue = Color(0xFF3B82F6); // Blue
 
   // Background colors
-  static const Color backgroundDark = Color(0xFF0A0E14);
-  static const Color backgroundCard = Color(0xFF111820);
-  static const Color backgroundElevated = Color(0xFF1A2230);
+  static const Color backgroundDark = Color(0xFF0F172A); // Slate 900
+  static const Color backgroundCard = Color(0xFF1E293B); // Slate 800
+  static const Color backgroundElevated = Color(0xFF334155); // Slate 700
 
   // Surface colors for glass effect
   static const Color surfaceGlass = Color(0x1AFFFFFF);
@@ -292,7 +292,7 @@ class AppTheme {
       ),
 
       // Cards
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: AppColors.backgroundCard,
         elevation: 0,
         shape: RoundedRectangleBorder(

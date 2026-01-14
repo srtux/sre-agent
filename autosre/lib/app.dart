@@ -10,6 +10,7 @@ class SreNexusApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'AutoSRE',
+      debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       home: const ConversationPage(),
     );

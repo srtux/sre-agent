@@ -450,7 +450,7 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
         getTooltipColor: (_) => AppColors.backgroundElevated,
         tooltipBorder: BorderSide(color: AppColors.surfaceBorder),
         tooltipRoundedRadius: 8,
-        tooltipPadding: const EdgeInsets.all(10),
+        tooltipPadding: const EdgeInsets.all(12),
         getTooltipItems: (touchedSpots) {
           return touchedSpots.map((spot) {
             final index = spot.x.toInt();

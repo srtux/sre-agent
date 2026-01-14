@@ -109,7 +109,7 @@ class _ConversationPageState extends State<ConversationPage>
 
   PreferredSizeWidget _buildAppBar() {
     return PreferredSize(
-      preferredSize: const Size.fromHeight(70),
+      preferredSize: const Size.fromHeight(85), // Increased height to prevent overflow
       child: ClipRRect(
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
@@ -182,9 +182,14 @@ class _ConversationPageState extends State<ConversationPage>
                     const Spacer(),
                     // Status indicator
                     ValueListenableBuilder<bool>(
-                      valueListenable: _contentGenerator.isProcessing,
-                      builder: (context, isProcessing, _) {
-                        return _buildStatusIndicator(isProcessing);
+                      valueListenable: _contentGenerator.isConnected,
+                      builder: (context, isConnected, _) {
+                        return ValueListenableBuilder<bool>(
+                          valueListenable: _contentGenerator.isProcessing,
+                          builder: (context, isProcessing, _) {
+                            return _buildStatusIndicator(isProcessing, isConnected);
+                          },
+                        );
                       },
                     ),
                   ],
@@ -197,19 +202,29 @@ class _ConversationPageState extends State<ConversationPage>
     );
   }
 
-  Widget _buildStatusIndicator(bool isProcessing) {
+  Widget _buildStatusIndicator(bool isProcessing, bool isConnected) {
+    Color statusColor;
+    String statusText;
+
+    if (isProcessing) {
+      statusColor = AppColors.primaryTeal;
+      statusText = 'Analyzing...';
+    } else if (isConnected) {
+      statusColor = AppColors.success;
+      statusText = 'Connected';
+    } else {
+      statusColor = AppColors.error;
+      statusText = 'Disconnected';
+    }
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: isProcessing
-            ? AppColors.primaryTeal.withValues(alpha: 0.15)
-            : AppColors.success.withValues(alpha: 0.15),
+        color: statusColor.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isProcessing
-              ? AppColors.primaryTeal.withValues(alpha: 0.3)
-              : AppColors.success.withValues(alpha: 0.3),
+          color: statusColor.withValues(alpha: 0.3),
         ),
       ),
       child: Row(
@@ -222,7 +237,7 @@ class _ConversationPageState extends State<ConversationPage>
               child: CircularProgressIndicator(
                 strokeWidth: 2,
                 valueColor:
-                    AlwaysStoppedAnimation<Color>(AppColors.primaryTeal),
+                    AlwaysStoppedAnimation<Color>(statusColor),
               ),
             )
           else
@@ -230,11 +245,11 @@ class _ConversationPageState extends State<ConversationPage>
               width: 8,
               height: 8,
               decoration: BoxDecoration(
-                color: AppColors.success,
+                color: statusColor,
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.success.withValues(alpha: 0.5),
+                    color: statusColor.withValues(alpha: 0.5),
                     blurRadius: 6,
                   ),
                 ],
@@ -242,11 +257,11 @@ class _ConversationPageState extends State<ConversationPage>
             ),
           const SizedBox(width: 8),
           Text(
-            isProcessing ? 'Analyzing...' : 'Ready',
+            statusText,
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
-              color: isProcessing ? AppColors.primaryTeal : AppColors.success,
+              color: statusColor,
             ),
           ),
         ],
