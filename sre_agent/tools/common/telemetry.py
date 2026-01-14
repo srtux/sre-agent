@@ -110,9 +110,12 @@ def setup_telemetry(level: int = logging.INFO) -> None:
     LoggingInstrumentor().instrument(set_logging_format=False)
 
     project_id = os.environ.get("GOOGLE_CLOUD_PROJECT")
+
+    # Sanitize project_id if it contains commas (common issue with some env loaders)
     if project_id and "," in project_id:
-        # Handle cases where multiple projects might be listed or header injection issues
+        raw_pid = project_id
         project_id = project_id.split(",")[0].strip()
+        print(f"⚠️  Sanitized GOOGLE_CLOUD_PROJECT from '{raw_pid}' to '{project_id}'")
         # Update env var so dependent libs (like google.auth) also see clean value
         os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
 

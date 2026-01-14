@@ -104,7 +104,7 @@ url = "https://pypi.org/simple"
 default = true
 
 [tool.codespell]
-skip = "*.json,*.test.json,*.js,*.lock,./web/node_modules/*,./web/.next/*,./.venv/*,./.git/*,pyproject.toml"
+skip = "*.json,*.test.json,*.js,*.lock,./web/node_modules/*,./web/.next/*,./.venv/*,./.git/*,pyproject.toml,./autosre/build/*,./autosre/.dart_tool/*"
 ignore-words-list = "allReady,ot"
 
 [tool.deptry]

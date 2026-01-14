@@ -314,17 +314,19 @@ async def genui_chat(request: ChatRequest) -> StreamingResponse:
                             except Exception:
                                 pass
 
-                        # Data Transformation (Adapting tool outputs to Flutter models)
-                        if component_name == "x-sre-trace-waterfall":
-                            data = genui_adapter.transform_trace(data)
-                        elif component_name == "x-sre-metric-chart":
-                            data = genui_adapter.transform_metrics(data)
-                        elif component_name == "x-sre-log-pattern-viewer":
-                            # For Log patterns, we just need the list of patterns
-                            if isinstance(data, dict) and "top_patterns" in data:
-                                data = data["top_patterns"]
-                        elif component_name == "x-sre-remediation-plan":
-                            data = genui_adapter.transform_remediation(data)
+                        # Ensure data is a dictionary before transformation
+                        if isinstance(data, dict):
+                            # Data Transformation (Adapting tool outputs to Flutter models)
+                            if component_name == "x-sre-trace-waterfall":
+                                data = genui_adapter.transform_trace(data)
+                            elif component_name == "x-sre-metric-chart":
+                                data = genui_adapter.transform_metrics(data)
+                            elif component_name == "x-sre-log-pattern-viewer":
+                                # For Log patterns, we just need the list of patterns
+                                if "top_patterns" in data:
+                                    data = data["top_patterns"]
+                            elif component_name == "x-sre-remediation-plan":
+                                data = genui_adapter.transform_remediation(data)
 
                         # Surface Update
                         yield (

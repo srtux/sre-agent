@@ -225,7 +225,7 @@ async def call_mcp_tool_with_retry(
     Returns:
         Tool result or error dict.
     """
-    from starlette.concurrency import run_in_threadpool
+    from fastapi.concurrency import run_in_threadpool
 
     if not project_id:
         project_id = get_project_id_with_fallback()
