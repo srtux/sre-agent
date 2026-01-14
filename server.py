@@ -66,6 +66,14 @@ for logger_name in [
 ]:
     logging.getLogger(logger_name).setLevel(logging.DEBUG)
 
+# Add FileHandler to root logger to capture logs in a file
+file_handler = logging.FileHandler("backend.log")
+file_handler.setLevel(logging.DEBUG)
+file_handler.setFormatter(
+    logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+)
+logging.getLogger().addHandler(file_handler)
+
 logger = logging.getLogger(__name__)
 
 # 2. INTERNAL IMPORTS
