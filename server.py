@@ -327,8 +327,9 @@ async def genui_chat(request: ChatRequest) -> StreamingResponse:
         active_surfaces = {}
 
         # 2. Run Agent
-        # root_agent.run_async now expects an InvocationContext
-        async for event in root_agent.run_async(inv_ctx):
+        # Use the agent from the context (which might be the cloned one)
+        agent_to_run = inv_ctx.agent or root_agent
+        async for event in agent_to_run.run_async(inv_ctx):
             if not event.content or not event.content.parts:
                 continue
 
