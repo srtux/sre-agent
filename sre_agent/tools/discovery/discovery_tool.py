@@ -78,7 +78,7 @@ async def discover_telemetry_sources(
             "trace_table": None,
             "log_table": None,
             "mode": "api_fallback",
-            "error": f"Failed to list datasets: {list_datasets_result.get('error')}",
+            "warning": f"BigQuery discovery failed (using API fallback). Error: {list_datasets_result.get('error')}",
         }
 
     datasets = list_datasets_result.get("result", [])

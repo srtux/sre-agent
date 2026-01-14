@@ -434,9 +434,23 @@ async def genui_chat(request: ChatRequest) -> StreamingResponse:
                         # The response is typically a dict in 'response' field
                         result = fp.response
 
-                        # If result is a dict with 'result' key, unwrap it (common pattern)
-                        if isinstance(result, dict) and "result" in result:
-                            result = result["result"]
+                        # Unwrap result and determine status
+                        status = "completed"
+                        if isinstance(result, dict):
+                            if "error" in result:
+                                status = "error"
+                                result = result["error"]
+                            elif "warning" in result:
+                                # Status remains completed (success) but we highlight the warning
+                                result = f"WARNING: {result['warning']}"
+                            elif "result" in result:
+                                result = result["result"]
+
+                            # Flatten remaining dict if not unwrapped
+                            if isinstance(result, dict):
+                                result = str(result)
+                        else:
+                            result = str(result)
 
                         # 1. Update Tool Log Entry
                         if tool_name in active_tools:
@@ -450,8 +464,8 @@ async def genui_chat(request: ChatRequest) -> StreamingResponse:
                             tool_log_data = {
                                 "tool_name": tool_name,
                                 "args": tool_info["args"],  # Persist args
-                                "status": "completed",
-                                "result": str(result),  # Serialize result for log
+                                "status": status,
+                                "result": result,  # Serialize result for log
                                 "timestamp": str(uuid.uuid1().time),
                             }
 
