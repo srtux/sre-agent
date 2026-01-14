@@ -267,7 +267,7 @@ async def genui_chat(request: ChatRequest) -> StreamingResponse:
                 # Query the remote agent
                 # Note: This is currently synchronous/blocking in the thread, effectively.
                 # Ideally we offload to threadpool but for simplicity:
-                response = remote_agent.query(input=user_message)
+                response = remote_agent.query(input=user_message)  # type: ignore[attr-defined]
 
                 # The response from AdkApp/ReasoningEngine is typically just the text content if not structured.
                 # If we lose events, we just stream the text.
@@ -294,9 +294,25 @@ async def genui_chat(request: ChatRequest) -> StreamingResponse:
         inv_ctx = tool_ctx._invocation_context
 
         # Set user content
+        logger.info(f"Setting user_content with message: '{user_message}'")
         inv_ctx.user_content = types.Content(
             role="user", parts=[types.Part(text=user_message)]
         )
+
+        logger.info(f"inv_ctx.user_content: {inv_ctx.user_content}")
+
+        # WORKAROUND: Inject user message into system instruction
+        # adk-py 0.1.0 LlmAgent seems to ignore user_content in stateless (single-turn) runs.
+        # We clone the agent and append the user message to the instruction to ensure it's seen.
+        if user_message:
+            # properly clone the agent
+            cloned_agent = root_agent.clone()
+            if isinstance(cloned_agent.instruction, str):
+                cloned_agent.instruction += (
+                    f"\n\nIMPORTANT: The user just said: '{user_message}'. "
+                    "Respond to this request immediately. Do not greet the user again."
+                )
+            inv_ctx.agent = cloned_agent
 
         # Track surfaces to avoid duplicate beginRendering
         # Map tool_name -> surface_id
