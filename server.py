@@ -436,21 +436,25 @@ async def genui_chat(request: ChatRequest) -> StreamingResponse:
 
                         # Unwrap result and determine status
                         status = "completed"
+                        formatted_result: Any = ""
+
                         if isinstance(result, dict):
                             if "error" in result:
                                 status = "error"
-                                result = result["error"]
+                                formatted_result = result["error"]
                             elif "warning" in result:
                                 # Status remains completed (success) but we highlight the warning
-                                result = f"WARNING: {result['warning']}"
+                                formatted_result = f"WARNING: {result['warning']}"
                             elif "result" in result:
-                                result = result["result"]
+                                formatted_result = result["result"]
+                            else:
+                                formatted_result = result
 
                             # Flatten remaining dict if not unwrapped
-                            if isinstance(result, dict):
-                                result = str(result)
+                            if isinstance(formatted_result, dict):
+                                formatted_result = str(formatted_result)
                         else:
-                            result = str(result)
+                            formatted_result = str(result)
 
                         # 1. Update Tool Log Entry
                         if tool_name in active_tools:
@@ -465,7 +469,9 @@ async def genui_chat(request: ChatRequest) -> StreamingResponse:
                                 "tool_name": tool_name,
                                 "args": tool_info["args"],  # Persist args
                                 "status": status,
-                                "result": result,  # Serialize result for log
+                                "result": str(
+                                    formatted_result
+                                ),  # Serialize result for log
                                 "timestamp": str(uuid.uuid1().time),
                             }
 

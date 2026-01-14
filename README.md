@@ -24,6 +24,7 @@ The agent is built using the Google Agent Development Kit (ADK). It uses a **"Co
 - **Alert Analyst**: The "First Responder" who triages active alerts and policies.
 - **Resiliency Architect**: Detects architectural patterns like retry storms and cascading failures.
 - **Friendly Expert Persona**: Combines deep technical expertise with a fun, approachable response style. 🕵️‍♂️✨
+- **Tool Call Visualization**: Deep visibility into agent thinking with real-time "Running/Completed/Error" states for every tool call.
 
 ### System Architecture
 
@@ -216,62 +217,63 @@ sequenceDiagram
 
 ### Core Capabilities
 
-1. **Trace Analysis** (Primary Specialization)
-   - Aggregate analysis using BigQuery (thousands of traces at scale)
-   - Individual trace inspection via Cloud Trace API
-   - Trace comparison (diff analysis) to identify what changed
-   - Pattern detection (N+1 queries, serial chains, bottlenecks)
-   - Root cause analysis through span-level investigation
+1.  **Trace Analysis** (Primary Specialization)
+    *   Aggregate analysis using BigQuery (thousands of traces at scale)
+    *   Individual trace inspection via Cloud Trace API
+    *   Trace comparison (diff analysis) to identify what changed
+    *   Pattern detection (N+1 queries, serial chains, bottlenecks)
+    *   Root cause analysis through span-level investigation
 
-2. **Log Analysis**
-   - **Pattern Extraction**: Compress thousands of logs into patterns using Drain3 algorithm
-   - **Anomaly Detection**: Compare time periods to find new emergent log patterns
-   - **Smart Extraction**: Automatically find the log message in any payload format
-   - Query and analyze logs from Cloud Logging (MCP and direct API)
-   - Correlate logs with traces for root cause evidence
+2.  **Log Analysis**
+    *   **Pattern Extraction**: Compress thousands of logs into patterns using Drain3 algorithm
+    *   **Anomaly Detection**: Compare time periods to find new emergent log patterns
+    *   **Smart Extraction**: Automatically find the log message in any payload format
+    *   Query and analyze logs from Cloud Logging (MCP and direct API)
+    *   Correlate logs with traces for root cause evidence
 
-3. **Metrics Analysis**
-   - **Cross-Signal Correlation**: Correlate spikes in metrics with specific traces using exemplars
-   - **PromQL**: Execute complex PromQL queries for aggregations and rates
-   - **Trend Detection**: Identify statistical trends and anomalies in time series
-   - **Service Health**: Monitor CPU, Memory, and custom metric signals
-   - **GCP Metrics Knowledge Base**: Built-in knowledge of best-practice metrics for GKE, Cloud Run, Vertex AI, BigQuery, and Cloud Logging.
+3.  **Metrics Analysis**
+    *   **Cross-Signal Correlation**: Correlate spikes in metrics with specific traces using exemplars
+    *   **PromQL**: Execute complex PromQL queries for aggregations and rates
+    *   **Trend Detection**: Identify statistical trends and anomalies in time series
+    *   **Service Health**: Monitor CPU, Memory, and custom metric signals
+    *   **GCP Metrics Knowledge Base**: Built-in knowledge of best-practice metrics for GKE, Cloud Run, Vertex AI, BigQuery, and Cloud Logging.
 
-4. **Critical Path & Dependencies**
-   - **Critical Path Analysis**: Identify the chain of spans driving latency
-   - **Bottleneck Detection**: Pinpoint services on the critical path that contribute most to delay
-   - **Dependency Mapping**: Automatically build service dependency graphs from traces
-   - **Circular Dependency Detection**: Find dangerous feedback loops in service calls
+4.  **Critical Path & Dependencies**
+    *   **Critical Path Analysis**: Identify the chain of spans driving latency
+    *   **Bottleneck Detection**: Pinpoint services on the critical path that contribute most to delay
+    *   **Dependency Mapping**: Automatically build service dependency graphs from traces
+    *   **Circular Dependency Detection**: Find dangerous feedback loops in service calls
 
-5. **SLO/SLI Framework** (NEW!)
-   - **Golden Signals**: Latency, Traffic, Errors, Saturation for any service
-   - **SLO Status**: Current compliance and error budget remaining
-   - **Error Budget Burn Rate**: Track how fast you're consuming your budget
-   - **SLO Violation Prediction**: Will you breach your SLO in the next 24 hours?
-   - **Incident Impact Analysis**: Quantify how much an incident cost your error budget
+5.  **SLO/SLI Framework** (NEW!)
+    *   **Golden Signals**: Latency, Traffic, Errors, Saturation for any service
+    *   **SLO Status**: Current compliance and error budget remaining
+    *   **Error Budget Burn Rate**: Track how fast you're consuming your budget
+    *   **SLO Violation Prediction**: Will you breach your SLO in the next 24 hours?
+    *   **Incident Impact Analysis**: Quantify how much an incident cost your error budget
 
-6. **GKE/Kubernetes Analysis** (NEW!)
-   - **Cluster Health**: Node pool status, control plane health, active issues
-   - **Node Pressure Detection**: CPU, memory, disk, PID pressure conditions
-   - **Pod Restart Analysis**: Find OOMKilled containers and CrashLoopBackOff
-   - **HPA Scaling Events**: Track autoscaler decisions and detect thrashing
-   - **Trace-to-Pod Correlation**: Link traces to specific Kubernetes workloads
+6.  **GKE/Kubernetes Analysis** (NEW!)
+    *   **Cluster Health**: Node pool status, control plane health, active issues
+    *   **Node Pressure Detection**: CPU, memory, disk, PID pressure conditions
+    *   **Pod Restart Analysis**: Find OOMKilled containers and CrashLoopBackOff
+    *   **HPA Scaling Events**: Track autoscaler decisions and detect thrashing
+    *   **Trace-to-Pod Correlation**: Link traces to specific Kubernetes workloads
 
-7. **Automated Remediation** (NEW!)
-   - **Smart Suggestions**: Pattern-matched remediation recommendations
-   - **Ready-to-Run Commands**: Generate gcloud commands for common fixes
-   - **Risk Assessment**: Understand risk before making changes.
+7.  **Automated Remediation** (NEW!)
+    *   **Smart Suggestions**: Pattern-matched remediation recommendations
+    *   **Ready-to-Run Commands**: Generate gcloud commands for common fixes
+    *   **Risk Assessment**: Understand risk before making changes.
 
-8. **Alerting & Incident Response**
-   - **Active Alert Triage**: List and prioritize active Cloud Monitoring alerts
-   - **Policy Mapping**: Link alerts to their defining policies
-   - **First Responder**: "Smoking gun" evidence for starting investigations
+8.  **Alerting & Incident Response**
+    *   **Active Alert Triage**: List and prioritize active Cloud Monitoring alerts
+    *   **Policy Mapping**: Link alerts to their defining policies
+    *   **First Responder**: "Smoking gun" evidence for starting investigations
 
-9. **Web Dashboard (Mission Control)**
-   - **GenAI Interface**: A modern Chat UX powered by **Flutter** and **GenUI**.
-   - **Generative UI**: Dynamic Flutter widgets generated on-the-fly for traces, logs, and metrics.
-   - **Interactive Visualizations**: Trace waterfalls, log clusters, and metric charts.
-   - **Full Source**: Located in `autosre/` directory. See [autosre/README.md](autosre/README.md) for details.
+9.  **Web Dashboard (Mission Control)**
+    *   **GenAI Interface**: A modern Chat UX powered by **Flutter** and **GenUI**.
+    *   **Generative UI**: Dynamic Flutter widgets generated on-the-fly for traces, logs, and metrics.
+    *   **Tool Execution Logs**: Integrated visual debugger showing the status, arguments, and results of every tool invocation.
+    *   **Interactive Visualizations**: Trace waterfalls, log clusters, and metric charts.
+    *   **Full Source**: Located in `autosre/` directory. See [autosre/README.md](autosre/README.md) for details.
 
 ### Multi-Stage Trace Analysis Pipeline
 
@@ -347,9 +349,9 @@ sre_agent/
 
 ### Prerequisites
 
-- Python 3.10+
-- Google Cloud SDK configured
-- Access to a GCP project with Cloud Trace data
+*   Python 3.10+
+*   Google Cloud SDK configured
+*   Access to a GCP project with Cloud Trace data
 
 ### Installation
 
@@ -432,29 +434,23 @@ The easiest way to deploy the entire system:
 uv run poe deploy-all
 ```
 This script:
-1. Deploys the **Backend** to Vertex AI Agent Engine.
-2. Deploys the **Unified Frontend** (Flutter Web + FastAPI Backend) to Cloud Run in a single container.
+1. Deploys the **Backend** ADK Agent to Vertex AI Agent Engine.
+2. Deploys the **Unified Dashboard** (Flutter Web + FastAPI Proxy) to Cloud Run.
+3. Automatically wires the Frontend to the Backend via the `SRE_AGENT_ID` environment variable.
 
+#### 2. Configuration & Versioning
+Before deploying, ensure you have:
+1. Created a Gemini API key secret:
+   ```bash
+   echo -n "your-api-key" | gcloud secrets create gemini-api-key --data-file=-
+   ```
+2. Granted the Secret Accessor role to your Cloud Run service account.
+
+You can override deployment settings without changing your `.env` file:
 ```bash
-# 1. Create the secret
-echo -n "your-api-key" | gcloud secrets create gemini-api-key --data-file=-
-
-# 2. Grant access to your default compute service account
-# (Replace [PROJECT_NUMBER] with your project number, e.g. 123456789)
-gcloud secrets add-iam-policy-binding gemini-api-key \
-    --member="serviceAccount:[PROJECT_NUMBER]-compute@developer.gserviceaccount.com" \
-    --role="roles/secretmanager.secretAccessor" \
-    --project="your-project-id"
+# Point a new frontend to an existing specific backend version
+uv run poe deploy-web --agent-url https://us-central1-aiplatform.googleapis.com/...
 ```
-
-#### 1. Unified Full Stack Deployment (Recommended)
-The easiest way to deploy the entire system:
-```bash
-uv run poe deploy-all
-```
-This script:
-1. Deploys the **Backend** to Vertex AI Agent Engine.
-2. Deploys the **Unified Frontend** (Flutter Web + FastAPI Backend) to Cloud Run, automatically configuring it to talk to the Backend.
 
 #### 2. Individual Component Deployment
 If you only need to update one part of the stack:

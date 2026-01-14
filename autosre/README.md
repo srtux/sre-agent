@@ -5,9 +5,11 @@ A next-generation operation dashboard for SREs, built with **Flutter** and **Gen
 ## Overview
 AutoSRE connects to the SRE Agent (Python/ADK) and renders dynamic, generative UIs for distributed tracing, metric analysis, and incident remediation.
 
+It is designed to be served by the unified SRE Agent server, but can also be run independently for development.
+
 ## Prerequisites
 - **Flutter SDK**: [Install Flutter](https://docs.flutter.dev/get-started/install/macos)
-- **SRE Agent**: Running locally on port 8001.
+- **SRE Agent Backend**: Can be run via `uv run poe dev` (Unified) or `uv run poe web` (Backend only).
 
 ## Getting Started
 

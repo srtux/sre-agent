@@ -13,11 +13,11 @@ class ADKContentGenerator implements ContentGenerator {
   final StreamController<String> _textController = StreamController<String>.broadcast();
   final StreamController<ContentGeneratorError> _errorController = StreamController<ContentGeneratorError>.broadcast();
   final ValueNotifier<bool> _isProcessing = ValueNotifier(false);
-  final String _baseUrl = 'http://127.0.0.1:8001/api/genui/chat';
+  final String _baseUrl = '/api/genui/chat';
 
   final ValueNotifier<bool> _isConnected = ValueNotifier(false);
   Timer? _healthCheckTimer;
-  final String _healthUrl = 'http://127.0.0.1:8001/openapi.json';
+  final String _healthUrl = '/openapi.json';
 
   /// Currently selected project ID to include in requests.
   String? projectId;
