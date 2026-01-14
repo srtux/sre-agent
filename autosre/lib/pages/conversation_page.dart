@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:genui/genui.dart';
 
@@ -29,6 +30,18 @@ class _ConversationPageState extends State<ConversationPage>
   @override
   void initState() {
     super.initState();
+
+    // Handle Enter key behavior (Enter to send, Shift+Enter for newline)
+    _focusNode.onKeyEvent = (node, event) {
+      if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.enter) {
+        if (HardwareKeyboard.instance.isShiftPressed) {
+          return KeyEventResult.ignored;
+        }
+        _sendMessage();
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    };
 
     // Background animation
     _backgroundController = AnimationController(
