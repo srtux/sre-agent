@@ -98,7 +98,9 @@ def _list_log_entries_sync(
                             "timestamp": entry.timestamp.isoformat()
                             if entry.timestamp
                             else None,
-                            "severity": entry.severity.name,
+                            "severity": entry.severity.name
+                            if hasattr(entry.severity, "name")
+                            else str(entry.severity),
                             "payload": payload_data,
                             "resource": {
                                 "type": entry.resource.type,
