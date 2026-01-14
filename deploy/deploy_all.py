@@ -57,17 +57,25 @@ def main():
         # Parse the resource name from output
         resource_name = None
         for line in output.splitlines():
+            # Most specific match first: "Resource name: projects/.../reasoningEngines/..."
+            if "Resource name:" in line:
+                resource_name = line.split("Resource name:")[1].strip()
+                break
+            # Or "Resource Name: projects/.../reasoningEngines/..."
             if "Resource Name:" in line:
                 resource_name = line.split("Resource Name:")[1].strip()
                 break
-            # Fallback if the print statement is different
-            if (
-                "projects/" in line
-                and "/locations/" in line
-                and "/reasoningEngines/" in line
-            ):
-                resource_name = line.strip()
-                break
+
+        # Fallback: find any line that looks like the resource name but IS NOT an LRO/operation
+        if not resource_name:
+            import re
+
+            pattern = r"projects/[^/]+/locations/[^/]+/reasoningEngines/[^/\s]+"
+            for line in output.splitlines():
+                match = re.search(pattern, line)
+                if match and "/operations/" not in line:
+                    resource_name = match.group(0)
+                    break
 
         if not resource_name:
             print("❌ Failed to find backend resource name in output.")
