@@ -48,16 +48,46 @@ StatsData = Dict[str, Any]
 def compute_latency_statistics(traces: str) -> StatsData:
     """
     Computes comprehensive latency statistics across multiple traces.
-    
+
+    Aggregates timing data from multiple traces to calculate percentile
+    distributions, detect high-variability spans, and identify potential
+    bimodal latency patterns that suggest inconsistent behavior.
+
     Args:
-        traces: List of trace dictionaries (from fetch_trace or list results).
-    
+        traces (str | list): Collection of traces to analyze, either as:
+            - JSON string: '[{"trace_id": "...", "spans": [...]}, ...]'
+            - List of trace dictionaries from fetch_trace
+            Minimum 1 trace required; more traces yield better statistics.
+
     Returns:
-        Statistical summary including:
-        - per_span_stats: Statistics for each unique span name
-        - overall_stats: Aggregate statistics across all spans
-        - percentiles: P50, P90, P95, P99 latencies
-        - anomalies: Spans with unusual latency patterns
+        Statistical summary dictionary:
+        - per_span_stats (dict): Statistics for each unique span name:
+            - count: Number of observations
+            - min, max: Min/max durations in ms
+            - mean, median: Average and median durations
+            - std_dev: Standard deviation
+            - p50, p90, p95, p99: Percentile latencies in ms
+            - coefficient_of_variation: Relative variability (std_dev/mean * 100)
+        - overall_stats (dict): Aggregate stats across all spans (same fields)
+        - total_traces_analyzed (int): Number of traces processed
+        - unique_span_types (int): Number of distinct span names
+        - anomalies (list): Spans with unusual patterns:
+            - span_name: Name of anomalous span
+            - anomaly_type: "high_variability" or "bimodal_distribution"
+            - description: Human-readable explanation
+
+        On error, returns {"error": "error message"}
+
+    Anomaly Detection:
+        - High variability: Coefficient of variation > 50%
+        - Bimodal: Upper half mean > 3x lower half mean (suggests two modes)
+
+    Example:
+        >>> compute_latency_statistics(traces_list)
+        {
+            "per_span_stats": {"db-query": {"p99": 250.5, "mean": 45.2, ...}},
+            "anomalies": [{"span_name": "cache", "anomaly_type": "bimodal_distribution"}]
+        }
     """
     start_time = time.time()
     success = True
@@ -183,21 +213,50 @@ def detect_latency_anomalies(
     threshold_std_devs: float = 2.0,
 ) -> Dict[str, Any]:
     """
-    Detects if spans in the target trace are statistically anomalous compared to baseline.
-    
-    Uses z-score analysis to identify spans that deviate significantly from baseline patterns.
-    Z-score = (Value - Mean) / StdDev
-    
+    Detects statistically anomalous spans using z-score analysis.
+
+    Compares each span in the target trace against baseline statistics to
+    identify spans that deviate significantly from normal behavior.
+    Z-score = (observed_value - mean) / standard_deviation
+
     Args:
-        baseline_traces: List of normal/baseline traces to establish patterns.
-        target_trace: The trace to analyze for anomalies.
-        threshold_std_devs: Number of standard deviations to consider anomalous (default 2.0).
-    
+        baseline_traces (str | list): Collection of normal/baseline traces to
+            establish expected patterns. More traces = more accurate baseline.
+            Can be JSON string or list of trace dictionaries.
+        target_trace (str | dict): Single trace to analyze for anomalies.
+            Can be JSON string or dictionary from fetch_trace.
+        threshold_std_devs (float, optional): Number of standard deviations
+            from mean to consider anomalous.
+            Default: 2.0 (catches ~5% of normal distribution)
+            Common values:
+            - 1.5: More sensitive, more false positives
+            - 2.0: Balanced (default)
+            - 3.0: High confidence, may miss subtle anomalies
+
     Returns:
-        Anomaly detection results with:
-        - anomalous_spans: Spans with z-scores exceeding threshold
-        - normal_spans: Spans within normal range
-        - statistics: Baseline statistics used for comparison
+        Anomaly detection results dictionary:
+        - anomalous_spans (list): Spans exceeding threshold:
+            - span_name: Name of the span
+            - duration_ms: Observed duration
+            - baseline_mean: Expected mean from baseline
+            - baseline_std_dev: Standard deviation from baseline
+            - z_score: How many std devs from mean (positive = slower)
+            - anomaly_type: "slow", "fast", or "new_span"
+            - severity: "high" (>3 std devs) or "medium" (>threshold)
+            - description: Human-readable explanation
+        - normal_spans (list): Spans within normal range (same fields)
+        - threshold_std_devs (float): The threshold used
+        - baseline_trace_count (int): Number of baseline traces
+        - summary (dict):
+            - total_spans_analyzed: Total spans in target
+            - anomalous_count, normal_count: Counts
+            - anomaly_rate: Percentage of anomalous spans
+
+        On error, returns {"error": "error message"}
+
+    Example:
+        >>> detect_latency_anomalies(baseline_traces, slow_trace, threshold_std_devs=2.5)
+        {"anomalous_spans": [{"span_name": "db-query", "z_score": 4.2, "severity": "high"}]}
     """
     start_time = time.time()
     success = True
@@ -296,19 +355,44 @@ def detect_latency_anomalies(
 
 def analyze_critical_path(trace: str) -> Dict[str, Any]:
     """
-    Identifies the critical path in a trace - the sequence of spans that determined total latency.
-    
-    The critical path is the longest path through the trace DAG (Directed Acyclic Graph).
-    Optimizing spans OFF the critical path yields zero benefit to total latency.
-    
+    Identifies the critical path - the sequence of spans determining total latency.
+
+    The critical path is the longest execution path through the trace's call tree.
+    Only optimizing spans ON the critical path will reduce overall latency.
+    Spans off the critical path complete while waiting for critical path operations.
+
     Args:
-        trace: A trace dictionary containing spans.
-    
+        trace (str | dict): Trace data to analyze, either as:
+            - JSON string: '{"trace_id": "...", "spans": [...]}'
+            - Dictionary from fetch_trace
+
     Returns:
-        Critical path analysis with:
-        - critical_path: Ordered list of spans on the critical path
-        - total_critical_duration: Sum of critical path durations
-        - optimization_opportunities: Spans where optimization would reduce total latency
+        Critical path analysis dictionary:
+        - critical_path (list): Ordered list of spans on the critical path:
+            - span_name: Name of the span
+            - duration_ms: Duration of this span
+            - percentage_of_total: What % of total time this span represents
+        - total_critical_duration_ms (float): Sum of critical path durations
+        - path_length (int): Number of spans on the critical path
+        - optimization_opportunities (list): Top 5 spans contributing >10% of
+            total latency (best candidates for optimization):
+            - span_name, duration_ms, percentage_of_total
+        - summary (str): Human-readable summary
+
+        On error, returns {"error": "error message"}
+
+    Use Case:
+        When a request is slow, focus optimization efforts on critical path spans.
+        A 50% improvement to a span taking 10% of critical path time yields only
+        5% overall improvement. Target the biggest contributors first.
+
+    Example:
+        >>> analyze_critical_path(slow_trace)
+        {
+            "critical_path": [{"span_name": "api-handler", ...}, {"span_name": "db-query", ...}],
+            "total_critical_duration_ms": 450.5,
+            "optimization_opportunities": [{"span_name": "db-query", "percentage_of_total": 65}]
+        }
     """
     start_time = time.time()
     success = True
@@ -426,22 +510,56 @@ def perform_causal_analysis(
     target_trace: str,
 ) -> Dict[str, Any]:
     """
-    Performs causal analysis to identify the root cause of trace differences.
-    
-    Uses multiple heuristics to identify what CAUSED the difference:
-    - Temporal analysis: Which span slowed down first?
-    - Dependency analysis: Do slow spans have common parents?
-    - Propagation analysis: Did slowness cascade through the system?
-    
+    Identifies the root cause of performance differences between traces.
+
+    Uses dependency analysis and propagation tracking to distinguish between
+    spans that are the ROOT CAUSE of slowdowns vs. spans that are VICTIMS
+    (slow because their dependencies were slow).
+
     Args:
-        baseline_trace: The reference/normal trace.
-        target_trace: The trace with issues to analyze.
-    
+        baseline_trace (str | dict): The reference/normal trace representing
+            expected behavior. Can be JSON string or dictionary.
+        target_trace (str | dict): The trace with performance issues to analyze.
+            Can be JSON string or dictionary.
+
     Returns:
-        Causal analysis with:
-        - root_cause_candidates: Ranked list of likely root causes
-        - propagation_chain: How the issue spread through the system
-        - confidence_scores: Confidence in each hypothesis
+        Causal analysis dictionary:
+        - root_cause_candidates (list): Top 5 ranked candidates:
+            - span_name: Name of the span
+            - slowdown_ms: How much slower than baseline
+            - slowdown_percent: Percentage increase
+            - is_root_cause (bool): True if this span originated the slowdown
+            - parent_span: Name of parent span (if any)
+            - parent_is_slow (bool): Whether parent also slowed down
+            - confidence: "high", "medium", or "low"
+            - hypothesis: Human-readable explanation of why this might be root cause
+        - propagation_chains (list): How slowdowns cascaded:
+            - origin: The root cause span
+            - affected_spans: List of downstream spans affected
+            - description: Explanation of the propagation
+        - conclusion (str): Overall assessment
+        - overall_confidence: "high", "medium", or "low"
+        - total_slowdown_ms (float): Total latency increase
+
+        On error, returns {"error": "error message"}
+
+    Root Cause Identification:
+        A span is likely a ROOT CAUSE if:
+        - Its parent is NOT slow (slowdown originated here), OR
+        - It accounts for >80% of its parent's slowdown (slowdown passed up)
+
+        A span is likely a VICTIM if:
+        - Its parent is slow AND it accounts for <80% of parent's slowdown
+
+    Example:
+        >>> perform_causal_analysis(normal_trace, slow_trace)
+        {
+            "root_cause_candidates": [
+                {"span_name": "redis-lookup", "is_root_cause": true, "confidence": "high",
+                 "hypothesis": "'redis-lookup' is likely the root cause - 250% slower with no slow parent"}
+            ],
+            "conclusion": "Root cause identified: redis-lookup"
+        }
     """
     start_time = time.time()
     success = True
@@ -587,19 +705,50 @@ def perform_causal_analysis(
 
 def compute_service_level_stats(traces: str) -> Dict[str, Any]:
     """
-    Aggregates statistics at the service level based on span naming patterns.
-    
-    Identifies services from span names (e.g., 'ServiceName/MethodName') and computes
-    per-service latency statistics.
-    
+    Aggregates statistics at the service level from span naming patterns.
+
+    Groups spans by service name (extracted from span names like "ServiceName/Method"
+    or "service.method") and computes per-service latency statistics. Also maps
+    service-to-service dependencies from the call graph.
+
     Args:
-        traces: List of trace dictionaries.
-    
+        traces (str | list): Collection of traces to analyze, either as:
+            - JSON string: '[{"trace_id": "...", "spans": [...]}, ...]'
+            - List of trace dictionaries
+
     Returns:
-        Service-level statistics with:
-        - services: Per-service latency stats
-        - service_dependencies: Which services call which
-        - hotspots: Services contributing most to latency
+        Service-level statistics dictionary:
+        - services (dict): Statistics per service name:
+            - call_count: Total invocations across all traces
+            - total_time_ms: Cumulative time spent in this service
+            - mean_ms: Average latency per call
+            - max_ms, min_ms: Latency range
+        - service_dependencies (list): Service-to-service calls:
+            - from_service: Calling service
+            - to_service: Called service
+            - call_count: Number of calls observed
+        - hotspots (list): Top 5 services by total time:
+            - service: Service name
+            - total_time_ms: Cumulative time
+            - percentage: % of total analyzed time
+        - total_services (int): Number of unique services
+        - total_time_analyzed_ms (float): Sum of all span durations
+
+        On error, returns {"error": "error message"}
+
+    Service Name Extraction:
+        Extracts service name from span name patterns:
+        - "ServiceName/MethodName" → "ServiceName"
+        - "service.method.action" → "service"
+        - "SERVICE_NAME" → "SERVICE_NAME"
+
+    Example:
+        >>> compute_service_level_stats(traces)
+        {
+            "services": {"payment-service": {"mean_ms": 45.2, "call_count": 150}},
+            "hotspots": [{"service": "database", "percentage": 65.2}],
+            "service_dependencies": [{"from_service": "api", "to_service": "database", "call_count": 50}]
+        }
     """
     start_time = time.time()
     success = True

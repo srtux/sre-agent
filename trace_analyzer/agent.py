@@ -14,7 +14,26 @@ from .sub_agents.causality.agent import causality_analyzer
 trace_analyzer_agent = LlmAgent(
     name="trace_analyzer_agent",
     model="gemini-2.5-pro",  # Using 2.5-pro for better reasoning capabilities
-    description="Orchestrates a team of trace analysis specialists to perform diff analysis between distributed traces.",
+    description="""Cloud Trace Analyzer - Orchestrates specialized agents for distributed trace analysis.
+
+Capabilities:
+- Fetch and discover traces from Google Cloud Trace
+- Compare baseline (normal) traces with target (problematic) traces
+- Identify performance regressions, errors, and structural changes
+- Perform root cause analysis to find the origin of issues
+
+Direct Tools:
+- find_example_traces: Auto-discover traces from configured project
+- fetch_trace: Get trace by project ID and trace ID
+- list_traces: Query traces with filters and time ranges
+- get_trace_by_url: Fetch trace from Cloud Console URL
+
+Sub-Agents:
+- latency_analyzer: Compare span timing between traces
+- error_analyzer: Detect and compare errors
+- structure_analyzer: Compare call graph topology
+- statistics_analyzer: Statistical analysis and anomaly detection
+- causality_analyzer: Root cause identification""",
     instruction=prompt.ROOT_AGENT_PROMPT,
     output_key="trace_analysis_report",
     tools=[

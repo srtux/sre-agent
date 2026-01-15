@@ -9,7 +9,17 @@ from . import prompt
 latency_analyzer = Agent(
     name="latency_analyzer",
     model="gemini-2.5-pro",
-    description="Analyzes and compares span latencies between traces to identify slowdowns.",
+    description="""Latency Analysis Specialist - Compares span timing between baseline and target traces.
+
+Capabilities:
+- Calculate duration for each span in a trace
+- Compare timing between two traces to find slower/faster spans
+- Identify spans with >10% or >50ms latency changes
+- Report missing or new operations
+
+Tools: fetch_trace, calculate_span_durations, compare_span_timings
+
+Use when: You need to understand what got slower or faster between two requests.""",
     instruction=prompt.LATENCY_ANALYZER_PROMPT,
     tools=[fetch_trace, calculate_span_durations, compare_span_timings],
 )

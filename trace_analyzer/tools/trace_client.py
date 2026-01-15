@@ -52,14 +52,31 @@ def _get_project_id() -> str:
 
 def fetch_trace(project_id: str, trace_id: str) -> str:
     """
-    Fetches a specific trace by ID.
-    
+    Fetches a specific trace by ID from Google Cloud Trace.
+
+    Retrieves complete trace data including all spans, their timing information,
+    parent-child relationships, and labels/attributes.
+
     Args:
-        project_id: The Google Cloud Project ID.
-        trace_id: The unique hex ID of the trace.
-    
+        project_id (str): The Google Cloud Project ID where the trace is stored.
+            Example: "my-gcp-project", "prod-services-123"
+        trace_id (str): The unique 32-character hexadecimal trace ID.
+            Example: "abc123def456789012345678901234ab"
+            Can be found in Cloud Console URLs or from list_traces output.
+
     Returns:
-        A dictionary representation of the trace, including all spans.
+        JSON string containing:
+        - trace_id: The trace identifier
+        - project_id: The project containing the trace
+        - spans: List of span objects with span_id, name, start_time, end_time,
+          parent_span_id, and labels
+        - span_count: Total number of spans in the trace
+
+        On error, returns {"error": "error message"}
+
+    Example:
+        >>> fetch_trace("my-project", "abc123def456")
+        {"trace_id": "abc123...", "spans": [...], "span_count": 15}
     """
     start_time = time.time()
     success = True
@@ -116,17 +133,40 @@ def list_traces(
     filter_str: str = ""
 ) -> str:
     """
-    Lists recent traces for a project.
-    
+    Lists recent traces for a project within a time window.
+
+    Queries Cloud Trace API to find traces matching the specified criteria.
+    Useful for discovering traces to analyze or finding patterns across requests.
+
     Args:
-        project_id: The GCP project ID.
-        start_time: ISO timestamp for start of window (default: 1 hour ago).
-        end_time: ISO timestamp for end of window (default: now).
-        limit: Max number of traces to return.
-        filter_str: Optional filter string.
-    
+        project_id (str): The Google Cloud Project ID to query.
+            Example: "my-gcp-project"
+        start_time (str, optional): ISO 8601 timestamp for the start of the time window.
+            Default: 1 hour ago.
+            Example: "2024-01-15T10:00:00Z"
+        end_time (str, optional): ISO 8601 timestamp for the end of the time window.
+            Default: current time.
+            Example: "2024-01-15T11:00:00Z"
+        limit (int, optional): Maximum number of traces to return.
+            Default: 5. Range: 1-1000.
+        filter_str (str, optional): Cloud Trace filter expression for advanced queries.
+            Examples:
+            - "+span:payment-service" (traces with spans from payment-service)
+            - "latency:>500ms" (traces taking over 500ms)
+            - "status:500" (traces with HTTP 500 errors)
+
     Returns:
-        List of trace summaries.
+        JSON string containing list of trace summaries, each with:
+        - trace_id: Unique trace identifier
+        - timestamp: When the trace started
+        - duration_ms: Total trace duration in milliseconds
+        - project_id: The project ID
+
+        On error, returns [{"error": "error message"}]
+
+    Example:
+        >>> list_traces("my-project", limit=10, filter_str="+span:api-gateway")
+        [{"trace_id": "abc...", "duration_ms": 250}, ...]
     """
     ts_start = time.time()
     success = True
@@ -208,10 +248,30 @@ def list_traces(
 
 def find_example_traces() -> str:
     """
-    Finds example traces from the current environment/project.
-    
+    Automatically discovers example traces from the configured project.
+
+    Uses the GOOGLE_CLOUD_PROJECT or TRACE_PROJECT_ID environment variable
+    to find recent traces. This is a convenience function for quick exploration
+    without specifying a project ID.
+
+    Args:
+        None - uses environment configuration.
+
     Returns:
-        A list of trace summaries found in the environment.
+        JSON string containing list of up to 3 trace summaries from the last hour.
+        Each summary includes:
+        - trace_id: Unique trace identifier
+        - timestamp: When the trace started
+        - duration_ms: Total trace duration
+
+        On error (e.g., missing env vars), returns [{"error": "error message"}]
+
+    Environment:
+        Requires GOOGLE_CLOUD_PROJECT or TRACE_PROJECT_ID to be set.
+
+    Example:
+        >>> find_example_traces()
+        [{"trace_id": "abc123...", "duration_ms": 150}, ...]
     """
     ts_start = time.time()
     success = True
@@ -239,13 +299,30 @@ def find_example_traces() -> str:
 
 def get_trace_by_url(url: str) -> str:
     """
-    Parses a Cloud Console URL to extract trace ID and fetch the trace.
-    
+    Fetches a trace directly from a Google Cloud Console URL.
+
+    Convenience function that extracts the project ID and trace ID from a
+    Cloud Console trace URL and fetches the complete trace data. Useful when
+    users copy-paste URLs from the Cloud Console.
+
     Args:
-        url: The full URL from Google Cloud Console trace view.
-    
+        url (str): The full URL from Google Cloud Console trace view.
+            Supported formats:
+            - https://console.cloud.google.com/traces/list?project=my-project&tid=abc123
+            - https://console.cloud.google.com/traces/details/abc123?project=my-project
+
     Returns:
-        The fetched trace data.
+        JSON string containing complete trace data (same as fetch_trace):
+        - trace_id: The trace identifier
+        - project_id: The project containing the trace
+        - spans: List of span objects
+        - span_count: Total number of spans
+
+        On error (invalid URL format), returns {"error": "error message"}
+
+    Example:
+        >>> get_trace_by_url("https://console.cloud.google.com/traces/list?project=prod&tid=abc123")
+        {"trace_id": "abc123", "spans": [...], "span_count": 12}
     """
     ts_start = time.time()
     success = True

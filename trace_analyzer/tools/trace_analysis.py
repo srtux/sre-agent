@@ -46,19 +46,32 @@ SpanData = Dict[str, Any]
 
 def calculate_span_durations(trace: str) -> List[SpanData]:
     """
-    Extracts timing information for each span in a trace.
-    
+    Extracts and calculates timing information for each span in a trace.
+
+    Parses trace data and computes duration for each span based on start/end times.
+    Results are sorted by duration (descending) for easy identification of slow spans.
+
     Args:
-        trace: A trace dictionary containing spans (from fetch_trace).
-    
+        trace (str | dict): Trace data from fetch_trace, either as:
+            - JSON string: '{"trace_id": "...", "spans": [...]}'
+            - Dictionary: {"trace_id": "...", "spans": [...]}
+            Must contain a "spans" array with span objects.
+
     Returns:
-        A list of span timing dictionaries with:
-        - span_id: Span identifier
-        - name: Span name/operation
-        - duration_ms: Duration in milliseconds
-        - start_time: ISO format start time
-        - end_time: ISO format end time
-        - parent_span_id: Parent span ID if any
+        List of span timing dictionaries, sorted by duration (slowest first):
+        - span_id (str): Unique span identifier
+        - name (str): Span name/operation (e.g., "HTTP GET /api/users")
+        - duration_ms (float): Duration in milliseconds
+        - start_time (str): ISO 8601 start timestamp
+        - end_time (str): ISO 8601 end timestamp
+        - parent_span_id (str | None): Parent span ID for hierarchy
+        - labels (dict): Span labels/attributes
+
+        On error, returns [{"error": "error message"}]
+
+    Example:
+        >>> calculate_span_durations(trace_data)
+        [{"name": "db-query", "duration_ms": 150.5, ...}, {"name": "cache-lookup", "duration_ms": 5.2, ...}]
     """
     start_time = time.time()
     success = True
@@ -128,19 +141,40 @@ def calculate_span_durations(trace: str) -> List[SpanData]:
 
 def extract_errors(trace: str) -> List[Dict[str, Any]]:
     """
-    Finds all spans that contain errors or error-related information.
-    
+    Detects and extracts all error information from spans in a trace.
+
+    Analyzes span labels to identify errors including HTTP 4xx/5xx status codes,
+    gRPC errors, exceptions, and other failure indicators. HTTP 200 status codes
+    are correctly identified as success (not errors).
+
     Args:
-        trace: A trace dictionary containing spans.
-    
+        trace (str | dict): Trace data from fetch_trace, either as:
+            - JSON string: '{"trace_id": "...", "spans": [...]}'
+            - Dictionary: {"trace_id": "...", "spans": [...]}
+
     Returns:
-        A list of error dictionaries with:
-        - span_id: Span identifier
-        - span_name: Name of the span with error
-        - error_type: Type/category of error
-        - error_message: Error message if available
-        - status_code: HTTP status code if applicable
-        - labels: All labels on the span
+        List of error dictionaries for each span with detected errors:
+        - span_id (str): Unique span identifier
+        - span_name (str): Name of the span with error
+        - error_type (str): Category of error:
+            - "HTTP Error" for HTTP 4xx/5xx status codes
+            - "gRPC Error" for non-OK gRPC status
+            - Label key name for other error indicators
+        - error_message (str | None): Error details if available
+        - status_code (int | str | None): HTTP/gRPC status code
+        - labels (dict): All labels on the span for context
+
+        Returns empty list [] if no errors found.
+        On parse error, returns [{"error": "error message"}]
+
+    Detection Rules:
+        - HTTP status codes >= 400 are flagged as errors
+        - gRPC status != "OK" or "0" are flagged
+        - Labels containing "error", "exception", "fault", "failure" keywords
+
+    Example:
+        >>> extract_errors(trace_data)
+        [{"span_name": "POST /api/order", "error_type": "HTTP Error", "status_code": 500, ...}]
     """
     start_time = time.time()
     success = True
@@ -234,20 +268,41 @@ def extract_errors(trace: str) -> List[Dict[str, Any]]:
 
 def build_call_graph(trace: str) -> Dict[str, Any]:
     """
-    Builds a hierarchical call graph from the trace spans.
-    
-    This function reconstructs the parent-child relationships to form a tree
-    structure, which is useful for structural analysis and visualization.
-    
+    Constructs a hierarchical call graph (tree structure) from trace spans.
+
+    Reconstructs the parent-child relationships between spans to form a tree
+    structure. Essential for understanding request flow, identifying structural
+    changes, and visualizing the trace topology.
+
     Args:
-        trace: A trace dictionary containing spans.
-    
+        trace (str | dict): Trace data from fetch_trace, either as:
+            - JSON string: '{"trace_id": "...", "spans": [...]}'
+            - Dictionary: {"trace_id": "...", "spans": [...]}
+
     Returns:
-        A dictionary representing the call graph:
-        - root_spans: List of root spans (no parent)
-        - span_tree: Nested dictionary of parent-child relationships
-        - span_names: Set of unique span names in the trace
-        - depth: Maximum depth of the call tree
+        Dictionary representing the call graph structure:
+        - trace_id (str): The trace identifier
+        - root_spans (list[str]): Span IDs with no parent (entry points)
+        - span_tree (list[dict]): Nested tree structure where each node has:
+            - span_id: Span identifier
+            - name: Span name/operation
+            - depth: Level in the tree (0 = root)
+            - children: List of child nodes (recursive)
+            - labels: Span labels/attributes
+        - span_names (list[str]): All unique span names in the trace
+        - total_spans (int): Total number of spans
+        - max_depth (int): Maximum depth of the call tree
+
+        On error, returns {"error": "error message"}
+
+    Example:
+        >>> build_call_graph(trace_data)
+        {
+            "root_spans": ["span-001"],
+            "span_tree": [{"name": "HTTP GET", "children": [{"name": "db-query", ...}]}],
+            "max_depth": 3,
+            "total_spans": 15
+        }
     """
     start_time = time.time()
     success = True
@@ -343,19 +398,46 @@ def compare_span_timings(
     target_trace: str,
 ) -> Dict[str, Any]:
     """
-    Compares timing between spans in two traces.
-    
+    Compares span timing between a baseline (normal) trace and a target trace.
+
+    Identifies spans that got slower or faster, and calculates the magnitude
+    of changes. Essential for latency regression analysis and identifying
+    performance bottlenecks.
+
     Args:
-        baseline_trace: The reference/normal trace to compare against.
-        target_trace: The trace being analyzed (potentially slow/abnormal).
-    
+        baseline_trace (str | dict): The reference/normal trace to compare against.
+            This should be a known-good trace representing expected performance.
+            Can be JSON string or dictionary from fetch_trace.
+        target_trace (str | dict): The trace being analyzed (potentially slow/abnormal).
+            This is the trace you want to investigate for issues.
+            Can be JSON string or dictionary from fetch_trace.
+
     Returns:
-        A comparison report with:
-        - slower_spans: Spans that got slower in target
-        - faster_spans: Spans that got faster in target
-        - missing_from_target: Spans in baseline but not in target
-        - new_in_target: Spans in target but not in baseline
-        - summary: Overall timing comparison summary
+        Comparison report dictionary:
+        - slower_spans (list): Spans that got slower in target (>10% or >50ms change):
+            - span_name: Name of the span
+            - baseline_duration_ms: Average duration in baseline
+            - target_duration_ms: Average duration in target
+            - diff_ms: Absolute difference (positive = slower)
+            - diff_percent: Percentage change
+            - baseline_count, target_count: Number of occurrences
+        - faster_spans (list): Spans that got faster (same structure)
+        - missing_from_target (list[str]): Span names in baseline but not target
+        - new_in_target (list[str]): Span names in target but not baseline
+        - summary (dict): Aggregate statistics:
+            - baseline_total_ms, target_total_ms: Total durations
+            - total_diff_ms: Overall latency change
+            - num_slower, num_faster: Count of changed spans
+
+        On error, returns {"error": "error message"}
+
+    Thresholds:
+        - Slowdown: >10% increase OR >50ms absolute increase
+        - Speedup: >10% decrease OR >50ms absolute decrease
+
+    Example:
+        >>> compare_span_timings(good_trace, slow_trace)
+        {"slower_spans": [{"span_name": "db-query", "diff_ms": 200, "diff_percent": 150}], ...}
     """
     start_time = time.time()
     success = True
@@ -466,18 +548,46 @@ def find_structural_differences(
     target_trace: str,
 ) -> Dict[str, Any]:
     """
-    Compares the call graph structure between two traces.
-    
+    Compares the call graph structure between two traces to detect topology changes.
+
+    Identifies structural differences such as missing operations, new operations,
+    and changes in call tree depth. Useful for detecting code path changes,
+    feature flags, and architectural modifications.
+
     Args:
-        baseline_trace: The reference/normal trace.
-        target_trace: The trace being analyzed.
-    
+        baseline_trace (str | dict): The reference/normal trace representing
+            expected call structure. Can be JSON string or dictionary.
+        target_trace (str | dict): The trace being analyzed for structural
+            differences. Can be JSON string or dictionary.
+
     Returns:
-        A structural comparison with:
-        - missing_spans: Span names present in baseline but not target
-        - new_spans: Span names present in target but not baseline
-        - depth_change: Change in call tree depth
-        - fan_out_changes: Changes in number of child calls
+        Structural comparison dictionary:
+        - missing_spans (list[str]): Span names in baseline but NOT in target
+            (operations that stopped being called)
+        - new_spans (list[str]): Span names in target but NOT in baseline
+            (new operations being called)
+        - common_spans (list[str]): Span names present in both traces
+        - baseline_span_count (int): Total spans in baseline
+        - target_span_count (int): Total spans in target
+        - span_count_change (int): Difference in span count
+        - baseline_depth (int): Max call tree depth in baseline
+        - target_depth (int): Max call tree depth in target
+        - depth_change (int): Change in tree depth (positive = deeper)
+        - summary (dict):
+            - spans_removed: Count of missing spans
+            - spans_added: Count of new spans
+            - structure_changed: Boolean indicating any structural change
+
+        On error, returns {"error": "error message"}
+
+    Example:
+        >>> find_structural_differences(normal_trace, weird_trace)
+        {
+            "missing_spans": ["cache-lookup"],
+            "new_spans": ["fallback-db-query"],
+            "depth_change": 1,
+            "summary": {"structure_changed": true}
+        }
     """
     start_time = time.time()
     success = True

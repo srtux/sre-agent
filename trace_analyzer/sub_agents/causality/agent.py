@@ -10,7 +10,18 @@ from . import prompt
 causality_analyzer = Agent(
     name="causality_analyzer",
     model="gemini-2.5-pro",
-    description="Performs root cause analysis to identify the origin of performance issues and trace their propagation.",
+    description="""Root Cause Analysis Specialist - Identifies the origin of performance issues.
+
+Capabilities:
+- Distinguish ROOT CAUSES from VICTIMS (spans slow due to dependencies)
+- Track slowdown propagation through the call tree
+- Analyze parent-child relationships to determine blame
+- Provide confidence scores for each hypothesis
+- Map how issues cascade through the system
+
+Tools: fetch_trace, perform_causal_analysis, analyze_critical_path, find_structural_differences
+
+Use when: You need to find WHY something got slow, not just WHAT got slow.""",
     instruction=prompt.CAUSALITY_ANALYZER_PROMPT,
     tools=[
         fetch_trace,
