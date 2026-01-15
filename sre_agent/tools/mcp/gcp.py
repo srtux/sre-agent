@@ -253,7 +253,14 @@ async def call_mcp_tool_with_retry(
                 logger.error(f"Timeout creating MCP toolset for {tool_name}")
                 return {
                     "status": ToolStatus.ERROR,
-                    "error": f"Failed to create MCP toolset for {tool_name}: Timed out after 15s",
+                    "error": (
+                        f"Failed to create MCP toolset for '{tool_name}': Connection timed out after 15 seconds. "
+                        "The MCP server may be unavailable or overloaded. DO NOT retry this tool. "
+                        "Use direct API alternatives instead: list_log_entries for logs, fetch_trace for traces, "
+                        "query_promql for metrics."
+                    ),
+                    "non_retryable": True,
+                    "error_type": "MCP_CONNECTION_TIMEOUT",
                 }
 
             logger.debug(f"DEBUG: create_toolset_fn returned for {tool_name}")
@@ -261,7 +268,14 @@ async def call_mcp_tool_with_retry(
             if not mcp_toolset:
                 return {
                     "status": ToolStatus.ERROR,
-                    "error": f"MCP toolset unavailable for {tool_name}",
+                    "error": (
+                        f"MCP toolset unavailable for '{tool_name}'. The MCP server could not be initialized. "
+                        "This is typically a configuration or authentication issue. DO NOT retry this tool. "
+                        "Use direct API alternatives instead: list_log_entries for logs, fetch_trace for traces, "
+                        "query_promql or list_time_series for metrics."
+                    ),
+                    "non_retryable": True,
+                    "error_type": "MCP_UNAVAILABLE",
                 }
 
             tools = await mcp_toolset.get_tools()
@@ -283,20 +297,42 @@ async def call_mcp_tool_with_retry(
                         logger.error(f"Timeout executing MCP tool {tool_name}")
                         return {
                             "status": ToolStatus.ERROR,
-                            "error": f"Tool {tool_name} timed out after 30s",
+                            "error": (
+                                f"Tool '{tool_name}' timed out after 30 seconds. This is typically caused by "
+                                "slow network conditions or high server load. DO NOT retry immediately. "
+                                "Consider using direct API alternatives (list_log_entries, fetch_trace, query_promql) "
+                                "which may be more reliable, or wait and try again later."
+                            ),
+                            "non_retryable": True,
+                            "error_type": "TIMEOUT",
                         }
                     except asyncio.CancelledError:
                         logger.warning(f"Tool execution cancelled for {tool_name}")
                         # Return a specific error status for cancellation instead of raising
                         # This prevents the evaluation framework from crashing with a traceback
+                        # IMPORTANT: Include guidance to prevent retry loops
                         return {
                             "status": ToolStatus.ERROR,
-                            "error": "Tool execution cancelled by system.",
+                            "error": (
+                                f"Tool '{tool_name}' execution was cancelled by the system due to "
+                                "resource constraints or timeout. This is a non-retryable system error. "
+                                "DO NOT retry this tool. Instead, try an alternative approach: "
+                                "use direct API tools (like list_log_entries, fetch_trace) instead of MCP-based tools, "
+                                "or ask the user to check their infrastructure."
+                            ),
+                            "non_retryable": True,
+                            "error_type": "SYSTEM_CANCELLATION",
                         }
 
             return {
                 "status": ToolStatus.ERROR,
-                "error": f"{tool_name} tool not found in MCP toolset",
+                "error": (
+                    f"Tool '{tool_name}' not found in MCP toolset. This is a configuration error - "
+                    "the tool may not be available in the current MCP server. DO NOT retry. "
+                    "Use direct API alternatives instead."
+                ),
+                "non_retryable": True,
+                "error_type": "TOOL_NOT_FOUND",
             }
 
         except (httpx.HTTPStatusError, Exception) as e:
@@ -318,14 +354,51 @@ async def call_mcp_tool_with_retry(
                     f"Retrying in {delay}s..."
                 )
                 await asyncio.sleep(delay)
-            else:
-                if attempt >= max_retries - 1:
-                    logger.error(
-                        f"{tool_name} failed after {max_retries} attempts: {e}"
-                    )
+            elif is_session_error and attempt >= max_retries - 1:
+                # Session errors exhausted all retries - mark as non-retryable
+                logger.error(
+                    f"{tool_name} failed after {max_retries} attempts due to session errors: {e}"
+                )
                 return {
                     "status": ToolStatus.ERROR,
-                    "error": f"Execution failed: {e!s}",
+                    "error": (
+                        f"Tool '{tool_name}' failed after {max_retries} retry attempts due to persistent session errors. "
+                        "The MCP connection is unstable. DO NOT retry this tool. "
+                        "Switch to direct API alternatives: list_log_entries, fetch_trace, query_promql, list_time_series."
+                    ),
+                    "non_retryable": True,
+                    "error_type": "MAX_RETRIES_EXHAUSTED",
+                }
+            else:
+                # Non-session error - determine if retryable based on error content
+                error_str_lower = str(e).lower()
+                is_auth_error = any(
+                    kw in error_str_lower
+                    for kw in ["permission", "unauthorized", "forbidden", "403", "401"]
+                )
+                is_not_found = any(
+                    kw in error_str_lower for kw in ["not found", "404", "does not exist"]
+                )
+                is_non_retryable = is_auth_error or is_not_found
+
+                return {
+                    "status": ToolStatus.ERROR,
+                    "error": (
+                        f"Tool '{tool_name}' execution failed: {e!s}. "
+                        + (
+                            "This appears to be a permission or resource issue - DO NOT retry. "
+                            "Check authentication and resource availability."
+                            if is_non_retryable
+                            else "This may be a transient error. If the issue persists after one retry, "
+                            "try using direct API alternatives instead."
+                        )
+                    ),
+                    "non_retryable": is_non_retryable,
+                    "error_type": "AUTH_ERROR"
+                    if is_auth_error
+                    else "NOT_FOUND"
+                    if is_not_found
+                    else "EXECUTION_ERROR",
                 }
         finally:
             if mcp_toolset and hasattr(mcp_toolset, "close"):
@@ -345,7 +418,13 @@ async def call_mcp_tool_with_retry(
 
     return {
         "status": ToolStatus.ERROR,
-        "error": f"Failed to execute {tool_name} after {max_retries} attempts",
+        "error": (
+            f"Tool '{tool_name}' failed after {max_retries} retry attempts due to persistent session errors. "
+            "The MCP connection is unstable. DO NOT retry this tool. "
+            "Switch to direct API alternatives: list_log_entries, fetch_trace, query_promql, list_time_series."
+        ),
+        "non_retryable": True,
+        "error_type": "MAX_RETRIES_EXHAUSTED",
     }
 
 
