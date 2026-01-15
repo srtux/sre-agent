@@ -428,9 +428,20 @@ async def genui_chat(request: ChatRequest) -> StreamingResponse:
                             if "error" in result:
                                 status = "error"
                                 formatted_result = result["error"]
+                                # Include error type for better debugging
+                                if "error_type" in result:
+                                    formatted_result = f"[{result['error_type']}] {formatted_result}"
+                                # Log non-retryable errors for debugging
+                                if result.get("non_retryable"):
+                                    logger.warning(
+                                        f"Non-retryable error for {tool_name}: {result.get('error_type', 'UNKNOWN')}"
+                                    )
                             elif "warning" in result:
                                 # Status remains completed (success) but we highlight the warning
                                 formatted_result = f"WARNING: {result['warning']}"
+                                # Include error type in warning if available
+                                if "error_type" in result:
+                                    formatted_result = f"[{result['error_type']}] {formatted_result}"
                             elif "result" in result:
                                 formatted_result = result["result"]
                             else:

@@ -73,12 +73,28 @@ async def discover_telemetry_sources(
     logger.info(f"list_dataset_ids result: {list_datasets_result}")
 
     if list_datasets_result.get("status") != "success":
-        logger.warning(f"Failed to list datasets: {list_datasets_result.get('error')}")
+        error_msg = list_datasets_result.get("error", "Unknown error")
+        error_type = list_datasets_result.get("error_type", "UNKNOWN")
+        is_non_retryable = list_datasets_result.get("non_retryable", False)
+
+        logger.warning(f"Failed to list datasets: {error_msg} (type={error_type})")
+
+        # Provide actionable guidance based on the fallback
         return {
             "trace_table": None,
             "log_table": None,
             "mode": "api_fallback",
-            "warning": f"BigQuery discovery failed (using API fallback). Error: {list_datasets_result.get('error')}",
+            "warning": (
+                f"BigQuery discovery failed - switching to direct API mode. "
+                f"Error: {error_msg}. "
+                "NEXT STEPS: Use direct API tools instead of BigQuery: "
+                "- For traces: use fetch_trace or list_traces "
+                "- For logs: use list_log_entries "
+                "- For metrics: use query_promql or list_time_series. "
+                "DO NOT call discover_telemetry_sources again."
+            ),
+            "error_type": error_type,
+            "non_retryable": is_non_retryable,
         }
 
     datasets = list_datasets_result.get("result", [])
