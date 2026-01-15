@@ -88,11 +88,24 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
     )
 
 
+# CORS Configuration
+# In production, restrict to specific origins for security
+# For local development, allow localhost origins
+_cors_origins = [
+    "http://localhost:3000",
+    "http://localhost:8080",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:8080",
+]
+# Allow all origins only if explicitly set (e.g., for containerized deployments)
+if os.getenv("CORS_ALLOW_ALL", "").lower() == "true":
+    _cors_origins = ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -516,8 +529,8 @@ async def genui_chat(request: ChatRequest) -> StreamingResponse:
                             if isinstance(result, str):
                                 try:
                                     data = json.loads(result)
-                                except Exception:
-                                    pass
+                                except json.JSONDecodeError as e:
+                                    logger.warning(f"Failed to parse widget result as JSON: {e}")
 
                             # Ensure data is a dictionary before transformation
                             if isinstance(data, dict):
@@ -631,8 +644,11 @@ async def genui_chat(request: ChatRequest) -> StreamingResponse:
                             )
                             + "\n"
                         )
-                    except Exception:
-                        pass  # Ignore errors during cleanup
+                    except (GeneratorExit, StopIteration):
+                        # Expected during generator cleanup
+                        break
+                    except Exception as e:
+                        logger.debug(f"Error during cleanup yield: {e}")
 
     return StreamingResponse(event_generator(), media_type="application/x-ndjson")
 

@@ -14,6 +14,12 @@ class ADKContentGenerator implements ContentGenerator {
   final StreamController<ContentGeneratorError> _errorController = StreamController<ContentGeneratorError>.broadcast();
   final ValueNotifier<bool> _isProcessing = ValueNotifier(false);
   bool _isDisposed = false;
+
+  /// Number of retry attempts for failed requests.
+  static const int _maxRetries = 2;
+
+  /// Delay between retries (exponential backoff base).
+  static const Duration _retryDelay = Duration(seconds: 1);
   String get _baseUrl {
     if (kDebugMode) {
       return 'http://localhost:8001/api/genui/chat';
@@ -85,62 +91,89 @@ class ADKContentGenerator implements ContentGenerator {
 
     _isProcessing.value = true;
 
-    try {
-        final request = http.Request('POST', Uri.parse(_baseUrl));
-        request.headers['Content-Type'] = 'application/json';
+    Exception? lastError;
+    StackTrace? lastStackTrace;
 
-        final requestBody = <String, dynamic>{
-            "messages": [
-                {"role": "user", "text": message.text}
-            ]
-        };
+    for (int attempt = 0; attempt <= _maxRetries; attempt++) {
+      if (_isDisposed) break;
 
-        // Include project_id if set
-        if (projectId != null && projectId!.isNotEmpty) {
-            requestBody["project_id"] = projectId;
-        }
+      try {
+          // Retry delay with exponential backoff
+          if (attempt > 0) {
+            final delay = _retryDelay * (1 << (attempt - 1));
+            debugPrint("Retrying request (attempt ${attempt + 1}/${_maxRetries + 1}) after ${delay.inSeconds}s...");
+            await Future.delayed(delay);
+          }
 
-        request.body = jsonEncode(requestBody);
+          final request = http.Request('POST', Uri.parse(_baseUrl));
+          request.headers['Content-Type'] = 'application/json';
 
-        final response = await request.send();
+          final requestBody = <String, dynamic>{
+              "messages": [
+                  {"role": "user", "text": message.text}
+              ]
+          };
 
-        if (response.statusCode != 200) {
-            throw Exception('Failed to connect to agent: ${response.statusCode}');
-        }
+          // Include project_id if set
+          if (projectId != null && projectId!.isNotEmpty) {
+              requestBody["project_id"] = projectId;
+          }
 
-        _isConnected.value = true; // Request succeeded, so we are connected
+          request.body = jsonEncode(requestBody);
 
-        // Parse stream line by line
-        await response.stream
-            .transform(utf8.decoder)
-            .transform(const LineSplitter())
-            .listen((line) {
-                if (line.trim().isEmpty) return;
-                try {
-                    final data = jsonDecode(line);
-                    final type = data['type'];
+          final response = await request.send();
 
-                    if (type == 'text') {
-                        _textController.add(data['content']);
-                    } else if (type == 'a2ui') {
-                        final msgJson = data['message'] as Map<String, dynamic>;
-                        final msg = A2uiMessage.fromJson(msgJson);
-                        _a2uiController.add(msg);
-                    }
-                } catch (e) {
-                    debugPrint("Error parsing line: $e");
-                }
-            }).asFuture();
+          if (response.statusCode != 200) {
+              throw Exception('Failed to connect to agent: ${response.statusCode}');
+          }
 
-    } catch (e, st) {
-        if (!_isDisposed) {
-          _isConnected.value = false; // Connection issue likely
-          _errorController.add(ContentGeneratorError(e, st));
-        }
-    } finally {
-        if (!_isDisposed) {
-          _isProcessing.value = false;
-        }
+          _isConnected.value = true; // Request succeeded, so we are connected
+
+          // Parse stream line by line
+          // Store subscription to prevent memory leak
+          final subscription = response.stream
+              .transform(utf8.decoder)
+              .transform(const LineSplitter())
+              .listen((line) {
+                  if (line.trim().isEmpty) return;
+                  try {
+                      final data = jsonDecode(line);
+                      final type = data['type'];
+
+                      if (type == 'text') {
+                          _textController.add(data['content']);
+                      } else if (type == 'a2ui') {
+                          final msgJson = data['message'] as Map<String, dynamic>;
+                          final msg = A2uiMessage.fromJson(msgJson);
+                          _a2uiController.add(msg);
+                      }
+                  } catch (e) {
+                      debugPrint("Error parsing line: $e");
+                  }
+              });
+          await subscription.asFuture();
+
+          // Success - exit retry loop
+          return;
+
+      } catch (e, st) {
+          lastError = e is Exception ? e : Exception(e.toString());
+          lastStackTrace = st;
+          debugPrint("Request failed (attempt ${attempt + 1}): $e");
+
+          if (!_isDisposed) {
+            _isConnected.value = false;
+          }
+      }
+    }
+
+    // All retries exhausted - report error
+    if (!_isDisposed && lastError != null) {
+      _errorController.add(ContentGeneratorError(lastError, lastStackTrace));
+    }
+
+    if (!_isDisposed) {
+      _isProcessing.value = false;
     }
   }
 
