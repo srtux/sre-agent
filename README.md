@@ -273,6 +273,12 @@ sequenceDiagram
     *   **Generative UI**: Dynamic Flutter widgets generated on-the-fly for traces, logs, and metrics.
     *   **Tool Execution Logs**: Integrated visual debugger showing the status, arguments, and results of every tool invocation.
     *   **Interactive Visualizations**: Trace waterfalls, log clusters, and metric charts.
+    *   **Canvas Widgets**: Advanced real-time visualizations including:
+        - **Agent Activity Canvas**: Animated workflow visualization showing agent coordination
+        - **Service Topology Canvas**: Interactive dependency graph with health indicators
+        - **Incident Timeline Canvas**: Event correlation and root cause timeline
+        - **Metrics Dashboard Canvas**: Multi-metric grid with sparklines and anomaly alerts
+        - **AI Reasoning Canvas**: Agent thought process with confidence scores
     *   **Full Source**: Located in `autosre/` directory. See [autosre/README.md](autosre/README.md) for details.
 
 ### Multi-Stage Trace Analysis Pipeline
@@ -336,6 +342,7 @@ sre_agent/
 │   │   ├── agent/        # Agent interaction logic
 │   │   ├── models/       # Data models
 │   │   ├── widgets/      # GenUI widgets (Trace Waterfall, Charts)
+│   │   │   └── canvas/   # Canvas-style dynamic visualizations
 │   │   └── main.dart     # Entry point
 │   ├── web/              # Web entrypoint and assets
 │   ├── test/             # Widget tests
