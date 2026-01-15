@@ -20,7 +20,7 @@ def main():
         "--region", default="us-central1", help="GCP Region (default: us-central1)"
     )
     parser.add_argument(
-        "--service-name", default="sre-mission-control", help="Cloud Run service name"
+        "--service-name", default="autosre", help="Cloud Run service name"
     )
 
     args, unknown = parser.parse_known_args()
