@@ -49,6 +49,10 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
     if (widget.log.status == 'running' && !_isExpanded) {
       _toggleExpand();
     }
+    // Auto-collapse when status changes to completed to reduce noise
+    if (widget.log.status == 'completed' && _isExpanded && oldWidget.log.status == 'running') {
+      _toggleExpand();
+    }
   }
 
   void _toggleExpand() {
@@ -209,7 +213,7 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
                               if (widget.log.timestamp != null) ...[
                                 const SizedBox(width: 8),
                                 Text(
-                                  '• ${widget.log.timestamp}',
+                                  '• ${_formatTimestamp(widget.log.timestamp)}',
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: AppColors.textMuted,
@@ -520,5 +524,28 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
     } catch (e) {
       return jsonEncode(json);
     }
+  }
+
+  String _formatTimestamp(String? timestamp) {
+    if (timestamp == null) return '';
+    // Check if it's a long number (likely nanoseconds/microseconds)
+    // 13 digits = millis, 16 digits = micros, 19 digits = nanos
+    if (RegExp(r'^\d{13,}$').hasMatch(timestamp)) {
+      try {
+        int ts = int.parse(timestamp);
+        // Convert to microseconds for DateTime
+        if (timestamp.length > 16) {
+          ts = ts ~/ 1000; // Divide by 1000 to get micros if nanos
+        } else if (timestamp.length == 13) {
+           ts = ts * 1000; // Multiply by 1000 to get micros if millis
+        }
+
+        final dt = DateTime.fromMicrosecondsSinceEpoch(ts);
+        return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}:${dt.second.toString().padLeft(2, '0')}';
+      } catch (e) {
+        return timestamp;
+      }
+    }
+    return timestamp;
   }
 }

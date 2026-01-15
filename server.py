@@ -530,7 +530,9 @@ async def genui_chat(request: ChatRequest) -> StreamingResponse:
                                 try:
                                     data = json.loads(result)
                                 except json.JSONDecodeError as e:
-                                    logger.warning(f"Failed to parse widget result as JSON: {e}")
+                                    logger.warning(
+                                        f"Failed to parse widget result as JSON: {e}"
+                                    )
 
                             # Ensure data is a dictionary before transformation
                             if isinstance(data, dict):

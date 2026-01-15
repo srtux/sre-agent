@@ -269,16 +269,16 @@ class _ConversationPageState extends State<ConversationPage>
   Widget _buildStatusIndicator(bool isProcessing, bool isConnected, {bool compact = false}) {
     Color statusColor;
     String statusText;
+    IconData? statusIcon;
 
-    if (isProcessing) {
-      statusColor = AppColors.primaryTeal;
-      statusText = 'Analyzing...';
-    } else if (isConnected) {
+    if (isConnected) {
       statusColor = AppColors.success;
       statusText = 'Connected';
+      statusIcon = Icons.wifi;
     } else {
       statusColor = AppColors.error;
       statusText = 'Disconnected';
+      statusIcon = Icons.wifi_off;
     }
 
     return AnimatedContainer(
@@ -288,7 +288,7 @@ class _ConversationPageState extends State<ConversationPage>
         vertical: compact ? 4 : 6,
       ),
       decoration: BoxDecoration(
-        color: statusColor.withValues(alpha: 0.15),
+        color: statusColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: statusColor.withValues(alpha: 0.3),
@@ -297,32 +297,27 @@ class _ConversationPageState extends State<ConversationPage>
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (isProcessing)
-            SizedBox(
-              width: compact ? 10 : 12,
-              height: compact ? 10 : 12,
+          // Activity Blinker (Tx/Rx)
+          if (isProcessing) ...[
+             SizedBox(
+              width: compact ? 8 : 10,
+              height: compact ? 8 : 10,
               child: CircularProgressIndicator(
-                strokeWidth: 2,
+                strokeWidth: 1.5,
                 valueColor: AlwaysStoppedAnimation<Color>(statusColor),
               ),
-            )
-          else
-            Container(
-              width: compact ? 6 : 8,
-              height: compact ? 6 : 8,
-              decoration: BoxDecoration(
-                color: statusColor,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: statusColor.withValues(alpha: 0.5),
-                    blurRadius: 6,
-                  ),
-                ],
-              ),
             ),
-          if (!compact) ...[
-            const SizedBox(width: 8),
+             const SizedBox(width: 8),
+          ] else ...[
+             Icon(
+               statusIcon,
+               size: compact ? 12 : 14,
+               color: statusColor,
+             ),
+             const SizedBox(width: 8),
+          ],
+
+          if (!compact)
             Text(
               statusText,
               style: TextStyle(
@@ -331,7 +326,6 @@ class _ConversationPageState extends State<ConversationPage>
                 color: statusColor,
               ),
             ),
-          ],
         ],
       ),
     );
