@@ -3297,6 +3297,7 @@ dependencies = [
     { name = "pydantic-core" },
     { name = "python-dotenv" },
     { name = "requests" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
     { name = "uvicorn" },
 ]
 
@@ -3343,6 +3344,7 @@ requires-dist = [
     { name = "pydantic-core", specifier = ">=2.10.0" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
     { name = "requests", specifier = ">=2.31.0" },
+    { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0.1" },
     { name = "uvicorn", specifier = ">=0.29.0" },
 ]
 
