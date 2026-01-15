@@ -169,7 +169,7 @@ class ADKContentGenerator implements ContentGenerator {
 
     // All retries exhausted - report error
     if (!_isDisposed && lastError != null) {
-      _errorController.add(ContentGeneratorError(lastError, lastStackTrace));
+      _errorController.add(ContentGeneratorError(lastError, lastStackTrace ?? StackTrace.empty));
     }
 
     if (!_isDisposed) {
