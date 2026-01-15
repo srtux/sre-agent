@@ -33,7 +33,14 @@ class ProjectService {
   factory ProjectService() => _instance;
   ProjectService._internal();
 
-  final String _projectsUrl = 'http://127.0.0.1:8001/api/tools/projects/list';
+  /// Returns the projects API URL based on the runtime environment.
+  /// Uses localhost in debug mode, relative URL otherwise (for production).
+  String get _projectsUrl {
+    if (kDebugMode) {
+      return 'http://127.0.0.1:8001/api/tools/projects/list';
+    }
+    return '/api/tools/projects/list';
+  }
 
   final ValueNotifier<List<GcpProject>> _projects = ValueNotifier([]);
   final ValueNotifier<GcpProject?> _selectedProject = ValueNotifier(null);

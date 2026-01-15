@@ -134,7 +134,7 @@ class _ConversationPageState extends State<ConversationPage>
 
   PreferredSizeWidget _buildAppBar() {
     return PreferredSize(
-      preferredSize: const Size.fromHeight(85), // Increased height to prevent overflow
+      preferredSize: const Size.fromHeight(85),
       child: ClipRRect(
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
@@ -149,79 +149,115 @@ class _ConversationPageState extends State<ConversationPage>
               ),
             ),
             child: SafeArea(
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                child: Row(
-                  children: [
-                    // Logo/Icon
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            AppColors.primaryTeal.withValues(alpha: 0.2),
-                            AppColors.primaryCyan.withValues(alpha: 0.2),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: AppColors.primaryTeal.withValues(alpha: 0.3),
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.auto_awesome,
-                        color: AppColors.primaryTeal,
-                        size: 20,
-                      ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isCompact = constraints.maxWidth < 600;
+                  final isMobile = constraints.maxWidth < 400;
+
+                  return Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isCompact ? 12 : 20,
+                      vertical: 12,
                     ),
-                    const SizedBox(width: 14),
-                    // Title
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
+                    child: Row(
                       children: [
-                        ShaderMask(
-                          shaderCallback: (bounds) =>
-                              AppColors.primaryGradient.createShader(bounds),
-                          child: const Text(
-                            'AutoSRE',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                              letterSpacing: 0.5,
+                        // Logo/Icon
+                        Container(
+                          padding: EdgeInsets.all(isMobile ? 8 : 10),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                AppColors.primaryTeal.withValues(alpha: 0.2),
+                                AppColors.primaryCyan.withValues(alpha: 0.2),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: AppColors.primaryTeal.withValues(alpha: 0.3),
                             ),
                           ),
-                        ),
-                        Text(
-                          'AI-Powered SRE Assistant',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textMuted,
-                            fontWeight: FontWeight.w400,
+                          child: Icon(
+                            Icons.auto_awesome,
+                            color: AppColors.primaryTeal,
+                            size: isMobile ? 18 : 20,
                           ),
+                        ),
+                        SizedBox(width: isMobile ? 10 : 14),
+                        // Title - hide subtitle on mobile
+                        if (!isMobile)
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ShaderMask(
+                                shaderCallback: (bounds) =>
+                                    AppColors.primaryGradient.createShader(bounds),
+                                child: Text(
+                                  'AutoSRE',
+                                  style: TextStyle(
+                                    fontSize: isCompact ? 18 : 20,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                              if (!isCompact)
+                                Text(
+                                  'AI-Powered SRE Assistant',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.textMuted,
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                ),
+                            ],
+                          )
+                        else
+                          ShaderMask(
+                            shaderCallback: (bounds) =>
+                                AppColors.primaryGradient.createShader(bounds),
+                            child: const Text(
+                              'AutoSRE',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        SizedBox(width: isCompact ? 12 : 20),
+                        // Project Selector - constrained width on mobile
+                        Flexible(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: isMobile ? 120 : (isCompact ? 180 : 250),
+                            ),
+                            child: _buildProjectSelector(),
+                          ),
+                        ),
+                        const Spacer(),
+                        // Status indicator
+                        ValueListenableBuilder<bool>(
+                          valueListenable: _contentGenerator.isConnected,
+                          builder: (context, isConnected, _) {
+                            return ValueListenableBuilder<bool>(
+                              valueListenable: _contentGenerator.isProcessing,
+                              builder: (context, isProcessing, _) {
+                                return _buildStatusIndicator(
+                                  isProcessing,
+                                  isConnected,
+                                  compact: isMobile,
+                                );
+                              },
+                            );
+                          },
                         ),
                       ],
                     ),
-                    const SizedBox(width: 20),
-                    // Project Selector
-                    Flexible(child: _buildProjectSelector()),
-                    const Spacer(),
-                    // Status indicator
-                    ValueListenableBuilder<bool>(
-                      valueListenable: _contentGenerator.isConnected,
-                      builder: (context, isConnected, _) {
-                        return ValueListenableBuilder<bool>(
-                          valueListenable: _contentGenerator.isProcessing,
-                          builder: (context, isProcessing, _) {
-                            return _buildStatusIndicator(isProcessing, isConnected);
-                          },
-                        );
-                      },
-                    ),
-                  ],
-                ),
+                  );
+                },
               ),
             ),
           ),
@@ -230,7 +266,7 @@ class _ConversationPageState extends State<ConversationPage>
     );
   }
 
-  Widget _buildStatusIndicator(bool isProcessing, bool isConnected) {
+  Widget _buildStatusIndicator(bool isProcessing, bool isConnected, {bool compact = false}) {
     Color statusColor;
     String statusText;
 
@@ -247,7 +283,10 @@ class _ConversationPageState extends State<ConversationPage>
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 8 : 12,
+        vertical: compact ? 4 : 6,
+      ),
       decoration: BoxDecoration(
         color: statusColor.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(20),
@@ -260,18 +299,17 @@ class _ConversationPageState extends State<ConversationPage>
         children: [
           if (isProcessing)
             SizedBox(
-              width: 12,
-              height: 12,
+              width: compact ? 10 : 12,
+              height: compact ? 10 : 12,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                valueColor:
-                    AlwaysStoppedAnimation<Color>(statusColor),
+                valueColor: AlwaysStoppedAnimation<Color>(statusColor),
               ),
             )
           else
             Container(
-              width: 8,
-              height: 8,
+              width: compact ? 6 : 8,
+              height: compact ? 6 : 8,
               decoration: BoxDecoration(
                 color: statusColor,
                 shape: BoxShape.circle,
@@ -283,15 +321,17 @@ class _ConversationPageState extends State<ConversationPage>
                 ],
               ),
             ),
-          const SizedBox(width: 8),
-          Text(
-            statusText,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: statusColor,
+          if (!compact) ...[
+            const SizedBox(width: 8),
+            Text(
+              statusText,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: statusColor,
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -400,56 +440,142 @@ class _ConversationPageState extends State<ConversationPage>
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.primaryTeal.withValues(alpha: 0.15),
-                  AppColors.primaryCyan.withValues(alpha: 0.1),
+    return SingleChildScrollView(
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Animated logo with glow effect
+              Container(
+                padding: const EdgeInsets.all(28),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      AppColors.primaryTeal.withValues(alpha: 0.2),
+                      AppColors.primaryCyan.withValues(alpha: 0.15),
+                      AppColors.primaryBlue.withValues(alpha: 0.1),
+                    ],
+                  ),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppColors.primaryTeal.withValues(alpha: 0.4),
+                    width: 2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primaryTeal.withValues(alpha: 0.2),
+                      blurRadius: 30,
+                      spreadRadius: 5,
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.auto_awesome,
+                  size: 52,
+                  color: AppColors.primaryTeal,
+                ),
+              ),
+              const SizedBox(height: 32),
+              Text(
+                'How can I help you today?',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.5,
+                    ),
+              ),
+              const SizedBox(height: 12),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 400),
+                child: Text(
+                  'I can help you analyze traces, investigate logs, monitor metrics, and troubleshoot SRE issues.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.textMuted,
+                        height: 1.5,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: 48),
+              // Category sections
+              _buildSuggestionSection(
+                'Traces & Performance',
+                Icons.timeline_outlined,
+                [
+                  'Analyze recent traces',
+                  'Find slow requests',
+                  'Identify bottlenecks',
                 ],
               ),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: AppColors.primaryTeal.withValues(alpha: 0.3),
+              const SizedBox(height: 20),
+              _buildSuggestionSection(
+                'Logs & Errors',
+                Icons.article_outlined,
+                [
+                  'Check error logs',
+                  'Find error patterns',
+                  'Investigate exceptions',
+                ],
               ),
-            ),
-            child: const Icon(
-              Icons.auto_awesome_outlined,
-              size: 48,
-              color: AppColors.primaryTeal,
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'How can I help you today?',
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Ask me about traces, logs, metrics, or any SRE investigation.',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textMuted,
-                ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 40),
-          // Quick action suggestions
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            alignment: WrapAlignment.center,
-            children: [
-              _buildSuggestionChip('Analyze recent traces'),
-              _buildSuggestionChip('Check error logs'),
-              _buildSuggestionChip('View metric anomalies'),
+              const SizedBox(height: 20),
+              _buildSuggestionSection(
+                'Metrics & Monitoring',
+                Icons.show_chart_outlined,
+                [
+                  'View metric anomalies',
+                  'Check SLO status',
+                  'Analyze golden signals',
+                ],
+              ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSuggestionSection(String title, IconData icon, List<String> suggestions) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 500),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 12),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryTeal.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 16,
+                    color: AppColors.primaryTeal,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: suggestions.map((s) => _buildSuggestionChip(s)).toList(),
           ),
         ],
       ),

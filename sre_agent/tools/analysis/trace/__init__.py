@@ -19,11 +19,11 @@ from .filters import (
 __all__ = [
     "build_call_graph",
     "calculate_span_durations",
-    "extract_errors",
-    "summarize_trace",
-    "validate_trace_quality",
     "compare_span_timings",
+    "extract_errors",
     "find_structural_differences",
     "select_traces_from_statistical_outliers",
     "select_traces_manually",
+    "summarize_trace",
+    "validate_trace_quality",
 ]

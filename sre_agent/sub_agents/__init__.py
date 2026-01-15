@@ -16,21 +16,16 @@ from .trace import (
 )
 
 __all__ = [
-    # Trace Squad
     "aggregate_analyzer",
-    "latency_analyzer",
-    "error_analyzer",
-    "structure_analyzer",
-    "statistics_analyzer",
-    "causality_analyzer",
-    "service_impact_analyzer",
-    "resiliency_architect",
-    # Change Squad
-    "change_detective",
-    # Log Squad
-    "log_analyst",
-    # Alert Squad
     "alert_analyst",
-    # Metrics Squad
+    "causality_analyzer",
+    "change_detective",
+    "error_analyzer",
+    "latency_analyzer",
+    "log_analyst",
     "metrics_analyzer",
+    "resiliency_architect",
+    "service_impact_analyzer",
+    "statistics_analyzer",
+    "structure_analyzer",
 ]
