@@ -10,6 +10,12 @@ import 'widgets/metric_chart.dart';
 import 'widgets/remediation_plan.dart';
 import 'widgets/tool_log.dart';
 import 'widgets/trace_waterfall.dart';
+// Canvas widgets
+import 'widgets/canvas/agent_activity_canvas.dart';
+import 'widgets/canvas/service_topology_canvas.dart';
+import 'widgets/canvas/incident_timeline_canvas.dart';
+import 'widgets/canvas/metrics_dashboard_canvas.dart';
+import 'widgets/canvas/ai_reasoning_canvas.dart';
 
 /// Registry for all SRE-specific UI components.
 class CatalogRegistry {
@@ -91,6 +97,87 @@ class CatalogRegistry {
               final data = context.data as Map<String, dynamic>;
               final log = ToolLog.fromJson(Map<String, dynamic>.from(data));
               return ToolLogWidget(log: log);
+            } catch (e) {
+              return ErrorPlaceholder(error: e);
+            }
+          },
+        ),
+        // Canvas Widgets
+        CatalogItem(
+          name: "x-sre-agent-activity",
+          dataSchema: S.object(),
+          widgetBuilder: (context) {
+            try {
+              final data = context.data as Map<String, dynamic>;
+              final activityData = AgentActivityData.fromJson(Map<String, dynamic>.from(data));
+              return _buildWidgetContainer(
+                child: AgentActivityCanvas(data: activityData),
+                height: 450,
+              );
+            } catch (e) {
+              return ErrorPlaceholder(error: e);
+            }
+          },
+        ),
+        CatalogItem(
+          name: "x-sre-service-topology",
+          dataSchema: S.object(),
+          widgetBuilder: (context) {
+            try {
+              final data = context.data as Map<String, dynamic>;
+              final topologyData = ServiceTopologyData.fromJson(Map<String, dynamic>.from(data));
+              return _buildWidgetContainer(
+                child: ServiceTopologyCanvas(data: topologyData),
+                height: 500,
+              );
+            } catch (e) {
+              return ErrorPlaceholder(error: e);
+            }
+          },
+        ),
+        CatalogItem(
+          name: "x-sre-incident-timeline",
+          dataSchema: S.object(),
+          widgetBuilder: (context) {
+            try {
+              final data = context.data as Map<String, dynamic>;
+              final timelineData = IncidentTimelineData.fromJson(Map<String, dynamic>.from(data));
+              return _buildWidgetContainer(
+                child: IncidentTimelineCanvas(data: timelineData),
+                height: 420,
+              );
+            } catch (e) {
+              return ErrorPlaceholder(error: e);
+            }
+          },
+        ),
+        CatalogItem(
+          name: "x-sre-metrics-dashboard",
+          dataSchema: S.object(),
+          widgetBuilder: (context) {
+            try {
+              final data = context.data as Map<String, dynamic>;
+              final dashboardData = MetricsDashboardData.fromJson(Map<String, dynamic>.from(data));
+              return _buildWidgetContainer(
+                child: MetricsDashboardCanvas(data: dashboardData),
+                height: 400,
+              );
+            } catch (e) {
+              return ErrorPlaceholder(error: e);
+            }
+          },
+        ),
+        CatalogItem(
+          name: "x-sre-ai-reasoning",
+          dataSchema: S.object(),
+          widgetBuilder: (context) {
+            try {
+              final data = context.data as Map<String, dynamic>;
+              final reasoningData = AIReasoningData.fromJson(Map<String, dynamic>.from(data));
+              return _buildWidgetContainer(
+                child: AIReasoningCanvas(data: reasoningData),
+                height: 480,
+              );
             } catch (e) {
               return ErrorPlaceholder(error: e);
             }
