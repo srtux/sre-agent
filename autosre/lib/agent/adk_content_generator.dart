@@ -13,11 +13,23 @@ class ADKContentGenerator implements ContentGenerator {
   final StreamController<String> _textController = StreamController<String>.broadcast();
   final StreamController<ContentGeneratorError> _errorController = StreamController<ContentGeneratorError>.broadcast();
   final ValueNotifier<bool> _isProcessing = ValueNotifier(false);
-  final String _baseUrl = '/api/genui/chat';
+  bool _isDisposed = false;
+  String get _baseUrl {
+    if (kDebugMode) {
+      return 'http://localhost:8001/api/genui/chat';
+    }
+    return '/api/genui/chat';
+  }
 
   final ValueNotifier<bool> _isConnected = ValueNotifier(false);
   Timer? _healthCheckTimer;
-  final String _healthUrl = '/openapi.json';
+
+  String get _healthUrl {
+    if (kDebugMode) {
+      return 'http://localhost:8001/openapi.json';
+    }
+    return '/openapi.json';
+  }
 
   /// Currently selected project ID to include in requests.
   String? projectId;
@@ -36,12 +48,16 @@ class ADKContentGenerator implements ContentGenerator {
   }
 
   Future<void> _checkConnection() async {
+    if (_isDisposed) return;
     try {
       await http.get(Uri.parse(_healthUrl));
+      if (_isDisposed) return;
       // Any response from the server means we are connected
       _isConnected.value = true;
     } catch (e) {
-      _isConnected.value = false;
+      if (!_isDisposed) {
+        _isConnected.value = false;
+      }
     }
   }
 
@@ -117,15 +133,20 @@ class ADKContentGenerator implements ContentGenerator {
             }).asFuture();
 
     } catch (e, st) {
-        _isConnected.value = false; // Connection issue likely
-        _errorController.add(ContentGeneratorError(e, st));
+        if (!_isDisposed) {
+          _isConnected.value = false; // Connection issue likely
+          _errorController.add(ContentGeneratorError(e, st));
+        }
     } finally {
-        _isProcessing.value = false;
+        if (!_isDisposed) {
+          _isProcessing.value = false;
+        }
     }
   }
 
   @override
   void dispose() {
+    _isDisposed = true;
     _healthCheckTimer?.cancel();
     _a2uiController.close();
     _textController.close();

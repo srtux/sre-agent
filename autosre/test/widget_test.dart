@@ -23,5 +23,8 @@ void main() {
 
     // Verify send button is present
     expect(find.byIcon(Icons.arrow_upward_rounded), findsOneWidget);
+
+    // Trigger disposal to clean up timers
+    await tester.pumpWidget(const SizedBox());
   });
 }

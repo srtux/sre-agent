@@ -47,8 +47,8 @@ class TestLogPatternAnalysisWorkflow:
 
         # Step 3: Compare patterns to find anomalies
         comparison = compare_log_patterns(
-            baseline_entries=baseline_period_logs,
-            comparison_entries=incident_period_logs,
+            baseline_entries_json=baseline_period_logs,
+            comparison_entries_json=incident_period_logs,
         )
 
         # Verify new error patterns detected

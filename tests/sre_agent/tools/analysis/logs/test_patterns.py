@@ -454,8 +454,8 @@ class TestCompareLogPatterns:
     ):
         """Test comparing baseline vs incident period logs."""
         result = compare_log_patterns(
-            baseline_entries=baseline_period_logs,
-            comparison_entries=incident_period_logs,
+            baseline_entries_json=baseline_period_logs,
+            comparison_entries_json=incident_period_logs,
         )
 
         assert "baseline_summary" in result
@@ -470,8 +470,8 @@ class TestCompareLogPatterns:
     def test_compare_identical_periods(self, baseline_period_logs):
         """Test comparing identical log sets."""
         result = compare_log_patterns(
-            baseline_entries=baseline_period_logs,
-            comparison_entries=baseline_period_logs,
+            baseline_entries_json=baseline_period_logs,
+            comparison_entries_json=baseline_period_logs,
         )
 
         anomalies = result["anomalies"]
@@ -486,15 +486,15 @@ class TestCompareLogPatterns:
         """Test significance threshold affects results."""
         # High threshold - fewer significant changes
         result_high = compare_log_patterns(
-            baseline_entries=baseline_period_logs,
-            comparison_entries=incident_period_logs,
+            baseline_entries_json=baseline_period_logs,
+            comparison_entries_json=incident_period_logs,
             significance_threshold=0.9,
         )
 
         # Low threshold - more significant changes
         result_low = compare_log_patterns(
-            baseline_entries=baseline_period_logs,
-            comparison_entries=incident_period_logs,
+            baseline_entries_json=baseline_period_logs,
+            comparison_entries_json=incident_period_logs,
             significance_threshold=0.1,
         )
 

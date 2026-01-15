@@ -38,15 +38,28 @@ class TraceSelector:
 
 
 @adk_tool
-def select_traces_from_statistical_outliers(traces: list[dict[str, Any]]) -> list[str]:
+def select_traces_from_statistical_outliers(traces_json: str) -> list[str]:
     """Selects outlier traces from a given list of traces based on latency.
 
     Args:
-        traces: A list of trace dictionaries, each with a 'latency' and 'traceId'.
+        traces_json: A JSON string list of trace dictionaries, each with a 'latency' and 'traceId'.
 
     Returns:
         A list of outlier trace IDs.
     """
+    import json
+
+    traces = []
+    if isinstance(traces_json, list):
+        traces = traces_json
+    else:
+        try:
+            traces = json.loads(traces_json)
+            if not isinstance(traces, list):
+                return []
+        except (json.JSONDecodeError, TypeError):
+            return []
+
     selector = TraceSelector()
     return selector.from_statistical_outliers(traces)
 

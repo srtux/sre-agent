@@ -199,7 +199,7 @@ async def list_traces(
     filter_str: str = "",
     min_latency_ms: int | None = None,
     error_only: bool = False,
-    attributes: dict[str, str] | None = None,
+    attributes_json: str | None = None,
 ) -> str:
     """Lists recent traces with advanced filtering capabilities.
 
@@ -211,12 +211,7 @@ async def list_traces(
         filter_str: Raw filter string (overrides other filters if provided).
         min_latency_ms: Minimum latency in milliseconds.
         error_only: If True, filters for traces with errors.
-        attributes: Dictionary of attribute key-values to filter by.
-
-        min_latency_ms: Filter for traces slower than this.
-        error_only: Filter for traces with errors.
-        start_time: ISO timestamp for window start.
-        end_time: ISO timestamp for window end.
+        attributes_json: JSON string of attribute key-values to filter by (e.g., '{"/http/status_code": "500"}').
 
     Returns:
         JSON string list of trace summaries.
@@ -231,6 +226,7 @@ async def list_traces(
         error_only,
         start_time,
         end_time,
+        attributes_json,
     )
 
 
@@ -241,6 +237,7 @@ def _list_traces_sync(
     error_only: bool,
     start_time: str | None,
     end_time: str | None,
+    attributes_json: str | None,
 ) -> str:
     """Synchronous implementation of list_traces."""
     with tracer.start_as_current_span("list_traces"):

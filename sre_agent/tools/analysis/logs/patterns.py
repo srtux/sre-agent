@@ -372,7 +372,7 @@ def compare_patterns(
 
 @adk_tool
 def extract_log_patterns(
-    log_entries: list[dict[str, Any]],
+    log_entries_json: str,
     max_patterns: int = 30,
     min_count: int = 2,
 ) -> dict[str, Any]:
@@ -382,16 +382,31 @@ def extract_log_patterns(
     to understand the log landscape without overwhelming context.
 
     Args:
-        log_entries: List of log entry dicts (from list_log_entries)
+        log_entries_json: JSON string of log entry dicts (from list_log_entries)
         max_patterns: Maximum patterns to return
         min_count: Minimum occurrences for a pattern
 
     Returns:
         Summary dict with patterns and statistics
     """
+    import json
+
+    log_entries = []
+    if isinstance(log_entries_json, list):
+        log_entries = log_entries_json
+    else:
+        try:
+            log_entries = json.loads(log_entries_json)
+            if not isinstance(log_entries, list):
+                log_entries = []
+        except (json.JSONDecodeError, TypeError):
+            log_entries = []
+
     extractor = LogPatternExtractor()
 
     for entry in log_entries:
+        if not isinstance(entry, dict):
+            continue
         message = extract_log_message(entry)
         timestamp = entry.get("timestamp", "")
         severity = entry.get("severity", "")
@@ -410,8 +425,8 @@ def extract_log_patterns(
 
 @adk_tool
 def compare_log_patterns(
-    baseline_entries: list[dict[str, Any]],
-    comparison_entries: list[dict[str, Any]],
+    baseline_entries_json: str,
+    comparison_entries_json: str,
     significance_threshold: float = 0.5,
 ) -> dict[str, Any]:
     """Compare log patterns between two time periods to find anomalies.
@@ -423,18 +438,44 @@ def compare_log_patterns(
     - DECREASED patterns: Improvements
 
     Args:
-        baseline_entries: Log entries from the baseline period
-        comparison_entries: Log entries from the period to compare
+        baseline_entries_json: JSON string of log entries from the baseline period
+        comparison_entries_json: JSON string of log entries from the period to compare
         significance_threshold: Minimum % change to be significant (0.5 = 50%)
 
     Returns:
         Comparison results with categorized patterns
     """
+    import json
+
+    baseline_entries = []
+    if isinstance(baseline_entries_json, list):
+        baseline_entries = baseline_entries_json
+    else:
+        try:
+            baseline_entries = json.loads(baseline_entries_json)
+            if not isinstance(baseline_entries, list):
+                baseline_entries = []
+        except (json.JSONDecodeError, TypeError):
+            baseline_entries = []
+
+    comparison_entries = []
+    if isinstance(comparison_entries_json, list):
+        comparison_entries = comparison_entries_json
+    else:
+        try:
+            comparison_entries = json.loads(comparison_entries_json)
+            if not isinstance(comparison_entries, list):
+                comparison_entries = []
+        except (json.JSONDecodeError, TypeError):
+            comparison_entries = []
+
     # Extract patterns from both periods
     baseline_extractor = LogPatternExtractor()
     comparison_extractor = LogPatternExtractor()
 
     for entry in baseline_entries:
+        if not isinstance(entry, dict):
+            continue
         message = extract_log_message(entry)
         baseline_extractor.add_log(
             message=message,
@@ -443,6 +484,8 @@ def compare_log_patterns(
         )
 
     for entry in comparison_entries:
+        if not isinstance(entry, dict):
+            continue
         message = extract_log_message(entry)
         comparison_extractor.add_log(
             message=message,
@@ -475,7 +518,7 @@ def compare_log_patterns(
 
 @adk_tool
 def analyze_log_anomalies(
-    log_entries: list[dict[str, Any]],
+    log_entries_json: str,
     focus_on_errors: bool = True,
     max_results: int = 10,
 ) -> dict[str, Any]:
@@ -485,16 +528,31 @@ def analyze_log_anomalies(
     perfect for quick incident triage.
 
     Args:
-        log_entries: List of log entry dicts
+        log_entries_json: JSON string of list of log entry dicts
         focus_on_errors: If True, prioritize ERROR/CRITICAL patterns
         max_results: Maximum patterns to return
 
     Returns:
         Analysis results with prioritized anomalies
     """
+    import json
+
+    log_entries = []
+    if isinstance(log_entries_json, list):
+        log_entries = log_entries_json
+    else:
+        try:
+            log_entries = json.loads(log_entries_json)
+            if not isinstance(log_entries, list):
+                log_entries = []
+        except (json.JSONDecodeError, TypeError):
+            log_entries = []
+
     extractor = LogPatternExtractor()
 
     for entry in log_entries:
+        if not isinstance(entry, dict):
+            continue
         message = extract_log_message(entry)
         extractor.add_log(
             message=message,

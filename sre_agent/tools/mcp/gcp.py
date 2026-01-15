@@ -80,7 +80,7 @@ def create_bigquery_mcp_toolset(project_id: str | None = None) -> Any:
         )
 
         api_registry = ApiRegistry(
-            project_id  # , header_provider=lambda _: {"x-goog-user-project": project_id}
+            project_id, header_provider=lambda _: {"x-goog-user-project": project_id}
         )
 
         mcp_toolset = api_registry.get_toolset(
@@ -396,7 +396,7 @@ async def mcp_list_timeseries(
     interval_start_time: str | None = None,
     interval_end_time: str | None = None,
     minutes_ago: int = 60,
-    aggregation: dict[str, Any] | None = None,
+    aggregation_json: str | None = None,
     tool_context: ToolContext | None = None,
 ) -> dict[str, Any]:
     """Query time series metrics data from Google Cloud Monitoring via MCP.
@@ -413,7 +413,7 @@ async def mcp_list_timeseries(
             uses current time.
         minutes_ago: Minutes back from now for start time (default 60). Only used
             if interval_start_time is not provided.
-        aggregation: Optional aggregation settings (alignment_period, per_series_aligner, etc.)
+        aggregation_json: Optional aggregation settings as JSON string (e.g., '{"alignmentPeriod": "60s", ...}').
         tool_context: ADK tool context (required).
 
     Returns:
@@ -429,6 +429,7 @@ async def mcp_list_timeseries(
     if tool_context is None:
         raise ValueError("tool_context is required for MCP tools")
 
+    import json
     import time as time_module
 
     pid = project_id or get_project_id_with_fallback()
@@ -455,8 +456,14 @@ async def mcp_list_timeseries(
         },
     }
 
-    if aggregation:
-        args["aggregation"] = aggregation
+    if aggregation_json:
+        try:
+            args["aggregation"] = json.loads(aggregation_json)
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse aggregation_json: {e}")
+            # Do not add to args if invalid, or raise generic error?
+            # Logging is safe fallback.
+            pass
 
     return await call_mcp_tool_with_retry(
         create_monitoring_mcp_toolset,

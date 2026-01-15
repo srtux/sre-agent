@@ -206,7 +206,7 @@ class _ConversationPageState extends State<ConversationPage>
                     ),
                     const SizedBox(width: 20),
                     // Project Selector
-                    _buildProjectSelector(),
+                    Flexible(child: _buildProjectSelector()),
                     const Spacer(),
                     // Status indicator
                     ValueListenableBuilder<bool>(
@@ -609,7 +609,7 @@ class _ConversationPageState extends State<ConversationPage>
                 ),
                 // Input row
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Expanded(
                       child: AnimatedContainer(
@@ -1027,7 +1027,7 @@ class _SendButtonState extends State<_SendButton>
               borderRadius: BorderRadius.circular(18),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(13),
                 decoration: BoxDecoration(
                   gradient: widget.isProcessing
                       ? LinearGradient(
@@ -1649,10 +1649,11 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
 
   @override
   void dispose() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
     _animationController.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
-    _closeDropdown();
     super.dispose();
   }
 
@@ -1698,7 +1699,6 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                   : null,
             ),
             child: Row(
-              mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
                   padding: const EdgeInsets.all(4),
@@ -1715,8 +1715,7 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                   ),
                 ),
                 const SizedBox(width: 10),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 140),
+                Expanded(
                   child: Text(
                     widget.selectedProject?.name ?? 'Select Project',
                     style: TextStyle(
