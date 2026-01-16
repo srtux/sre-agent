@@ -72,3 +72,16 @@ GOOGLE_CLOUD_STORAGE_BUCKET=your-bucket
 2.  Open the dashboard.
 3.  The "Ready" status indicator should be green (verified via `/openapi.json`).
 4.  Ask: "List the GCP projects" to verify the end-to-end tool calling path.
+
+## 📈 Evaluations
+
+You can run agent evaluations to benchmark performance using the `run_eval.py` script.
+
+```bash
+uv run poe eval
+```
+
+This script:
+1.  Loads test cases from `eval/`.
+2.  Runs the agent against these cases.
+3.  Reports success/failure rates and detailed logs.

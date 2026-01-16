@@ -38,6 +38,7 @@ It is designed to be served by the unified SRE Agent server, but can also be run
 - **Catalog Registry**: `lib/catalog.dart`
 - **Screens**: `lib/pages/`
 - **Agent Connection**: `lib/agent/adk_content_generator.dart`
+- **Backend Adapter**: `sre_agent/tools/analysis/genui_adapter.py` (Python schema transformation)
 
 ## Key Widgets
 - `TraceWaterfall`: Gantt chart for distributed traces.

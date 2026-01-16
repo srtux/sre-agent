@@ -49,7 +49,7 @@ graph TD
     %% Main Agent Layer
     subgraph "Orchestration Layer"
         SRE_Agent["SRE Agent<br/>(Manager)"]:::agent
-        LLM["Gemini 2.5 Pro<br/>(LLM)"]:::llm
+        LLM["Gemini 2.5 Flash<br/>(LLM)"]:::llm
         SRE_Agent <--> LLM
     end
 
@@ -332,6 +332,7 @@ sre_agent/
 │   │   │   ├── logs/     # Log pattern extraction & matching
 │   │   │   ├── metrics/  # Metrics statistics & anomalies
 │   │   │   └── bigquery/ # BigQuery OTel analysis
+│   │   ├── genui_adapter.py # Adapter for GenUI/Flutter schema transformation
 │   │   └── common/       # Telemetry & Caching
 │   └── sub_agents/       # Specialist Experts
 │       ├── trace.py      # Latency, Error, Structure experts
@@ -648,7 +649,7 @@ Before deploying, ensure your `.env` file is configured with your GCP project se
 
 An Agentic AI system for analyzing Google Cloud Observability data (Traces, Logs, Metrics) to identify root causes of production issues.
 
-**Architecture**: Refactored to use the modern "Council of Experts" orchestration pattern.
+**Architecture**: Refactored to use the modern "Council of Experts" orchestration pattern. Powered by **Gemini 2.5 Flash** for high-speed, cost-effective analysis.
 
 ### Trace Analysis Squad
 | Sub-Agent | Stage | Role |

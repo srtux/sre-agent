@@ -18,7 +18,7 @@ tests/
     │   ├── test_mocks_e2e.py          # E2E tests with full system mocks
     │   └── test_trace_selection.py    # E2E trace selection logic
     ├── sub_agents/               # Tests for specialized analysts
-    │   ├── test_log_pattern_extractor.py
+    │   ├── test_logs.py               # Log pattern extractor tests
     │   └── test_metrics.py            # Metrics analyzer tests
     ├── tools/                    # Unit tests for core tools
     │   ├── analysis/             # Analysis logic subdirectories
@@ -26,7 +26,9 @@ tests/
     │   │   ├── correlation/      # Cross-signal correlation tests
     │   │   ├── logs/             # Log pattern analysis tests
     │   │   ├── metrics/          # Metrics statistical tests
-    │   │   └── trace/            # Trace comparison & statistical tests
+    │   │   ├── remediation/      # Remediation suggestion tests
+    │   │   ├── trace/            # Trace comparison & statistical tests
+    │   │   └── test_genui_adapter.py # GenUI adapter tests
     │   ├── clients/              # Direct API client tests
     │   ├── common/               # Shared utilities (caching, decorators)
     │   └── logs/                 # Log extraction utility tests
