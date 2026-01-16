@@ -836,6 +836,7 @@ class _ConversationPageState extends State<ConversationPage>
                         return _SendButton(
                           isProcessing: isProcessing,
                           onPressed: _sendMessage,
+                          onCancel: _contentGenerator.cancelRequest,
                         );
                       },
                     ),
@@ -1123,14 +1124,16 @@ class _MessageItemState extends State<_MessageItem>
   }
 }
 
-/// Animated send button with pulse effect
+/// Animated send/stop button with pulse effect
 class _SendButton extends StatefulWidget {
   final bool isProcessing;
   final VoidCallback onPressed;
+  final VoidCallback onCancel;
 
   const _SendButton({
     required this.isProcessing,
     required this.onPressed,
+    required this.onCancel,
   });
 
   @override
@@ -1181,7 +1184,7 @@ class _SendButtonState extends State<_SendButton>
           child: Material(
             color: Colors.transparent,
             child: InkWell(
-              onTap: widget.isProcessing ? null : widget.onPressed,
+              onTap: widget.isProcessing ? widget.onCancel : widget.onPressed,
               borderRadius: BorderRadius.circular(18),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
@@ -1190,8 +1193,8 @@ class _SendButtonState extends State<_SendButton>
                   gradient: widget.isProcessing
                       ? LinearGradient(
                           colors: [
-                            AppColors.primaryBlue.withValues(alpha: 0.6),
-                            AppColors.primaryCyan.withValues(alpha: 0.6),
+                            AppColors.error.withValues(alpha: 0.8),
+                            AppColors.error.withValues(alpha: 0.6),
                           ],
                         )
                       : LinearGradient(
@@ -1204,7 +1207,7 @@ class _SendButtonState extends State<_SendButton>
                   boxShadow: [
                     BoxShadow(
                       color: (widget.isProcessing
-                              ? AppColors.primaryBlue
+                              ? AppColors.error
                               : AppColors.primaryTeal)
                           .withValues(alpha: 0.35),
                       blurRadius: widget.isProcessing ? 16 : 12,
@@ -1214,14 +1217,12 @@ class _SendButtonState extends State<_SendButton>
                   ],
                 ),
                 child: widget.isProcessing
-                    ? SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.white.withValues(alpha: 0.9),
-                          ),
+                    ? Tooltip(
+                        message: 'Stop request',
+                        child: Icon(
+                          Icons.stop_rounded,
+                          color: Colors.white,
+                          size: 22,
                         ),
                       )
                     : Icon(

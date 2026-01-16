@@ -394,6 +394,11 @@ class _ToolConfigPageState extends State<ToolConfigPage>
                     color: AppColors.textSecondary,
                   ),
                 ),
+                // Show arguments if available
+                if (tool.arguments.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _buildArgumentsSection(tool.arguments),
+                ],
                 // Show last test result if available
                 if (tool.lastTestResult != null) ...[
                   const SizedBox(height: 12),
@@ -404,6 +409,139 @@ class _ToolConfigPageState extends State<ToolConfigPage>
           ),
         );
       },
+    );
+  }
+
+  Widget _buildArgumentsSection(List<ToolArgument> arguments) {
+    return ExpansionTile(
+      tilePadding: EdgeInsets.zero,
+      childrenPadding: const EdgeInsets.only(left: 8, right: 8, bottom: 8),
+      title: Row(
+        children: [
+          Icon(
+            Icons.input,
+            size: 16,
+            color: AppColors.primaryTeal,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'Arguments (${arguments.length})',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: AppColors.primaryTeal,
+            ),
+          ),
+        ],
+      ),
+      children: arguments.map((arg) => _buildArgumentItem(arg)).toList(),
+    );
+  }
+
+  Widget _buildArgumentItem(ToolArgument arg) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: AppColors.surfaceBorder,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              // Argument name
+              Text(
+                arg.name,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                  fontFamily: 'monospace',
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Type badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryBlue.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  arg.type,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.primaryBlue,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Required/Optional badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: arg.required
+                      ? AppColors.error.withValues(alpha: 0.15)
+                      : AppColors.textMuted.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  arg.required ? 'required' : 'optional',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: arg.required ? AppColors.error : AppColors.textMuted,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (arg.description.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              arg.description,
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+          if (arg.defaultValue != null || arg.example != null) ...[
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 12,
+              runSpacing: 4,
+              children: [
+                if (arg.defaultValue != null)
+                  Text(
+                    'Default: ${arg.defaultValue}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textMuted,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                if (arg.example != null)
+                  Text(
+                    'Example: ${arg.example}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textMuted,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
     );
   }
 

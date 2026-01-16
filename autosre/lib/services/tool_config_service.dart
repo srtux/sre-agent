@@ -79,6 +79,36 @@ class ToolTestResult {
   }
 }
 
+/// Argument definition for a tool.
+class ToolArgument {
+  final String name;
+  final String type;
+  final String description;
+  final bool required;
+  final String? defaultValue;
+  final String? example;
+
+  const ToolArgument({
+    required this.name,
+    required this.type,
+    required this.description,
+    this.required = true,
+    this.defaultValue,
+    this.example,
+  });
+
+  factory ToolArgument.fromJson(Map<String, dynamic> json) {
+    return ToolArgument(
+      name: json['name'] as String? ?? '',
+      type: json['type'] as String? ?? 'string',
+      description: json['description'] as String? ?? '',
+      required: json['required'] as bool? ?? true,
+      defaultValue: json['default'] as String?,
+      example: json['example'] as String?,
+    );
+  }
+}
+
 /// Configuration for a single tool.
 class ToolConfig {
   final String name;
@@ -88,6 +118,7 @@ class ToolConfig {
   final bool enabled;
   final bool testable;
   final ToolTestResult? lastTestResult;
+  final List<ToolArgument> arguments;
 
   const ToolConfig({
     required this.name,
@@ -97,6 +128,7 @@ class ToolConfig {
     required this.enabled,
     required this.testable,
     this.lastTestResult,
+    this.arguments = const [],
   });
 
   factory ToolConfig.fromJson(Map<String, dynamic> json) {
@@ -107,6 +139,13 @@ class ToolConfig {
       );
     }
 
+    List<ToolArgument> args = [];
+    if (json['arguments'] != null) {
+      args = (json['arguments'] as List<dynamic>)
+          .map((a) => ToolArgument.fromJson(a as Map<String, dynamic>))
+          .toList();
+    }
+
     return ToolConfig(
       name: json['name'] as String,
       displayName: json['display_name'] as String,
@@ -115,6 +154,7 @@ class ToolConfig {
       enabled: json['enabled'] as bool? ?? true,
       testable: json['testable'] as bool? ?? false,
       lastTestResult: lastTest,
+      arguments: args,
     );
   }
 
@@ -126,6 +166,7 @@ class ToolConfig {
     bool? enabled,
     bool? testable,
     ToolTestResult? lastTestResult,
+    List<ToolArgument>? arguments,
   }) {
     return ToolConfig(
       name: name ?? this.name,
@@ -135,6 +176,7 @@ class ToolConfig {
       enabled: enabled ?? this.enabled,
       testable: testable ?? this.testable,
       lastTestResult: lastTestResult ?? this.lastTestResult,
+      arguments: arguments ?? this.arguments,
     );
   }
 }

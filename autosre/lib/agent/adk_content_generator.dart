@@ -15,6 +15,9 @@ class ADKContentGenerator implements ContentGenerator {
   final ValueNotifier<bool> _isProcessing = ValueNotifier(false);
   bool _isDisposed = false;
 
+  /// Current HTTP client for cancellation support.
+  http.Client? _currentClient;
+
   /// Number of retry attempts for failed requests.
   static const int _maxRetries = 2;
 
@@ -81,6 +84,17 @@ class ADKContentGenerator implements ContentGenerator {
 
   ValueListenable<bool> get isConnected => _isConnected; // Expose connection status
 
+  /// Cancels the current request if one is in progress.
+  void cancelRequest() {
+    if (_currentClient != null) {
+      debugPrint("Cancelling current request...");
+      _currentClient!.close();
+      _currentClient = null;
+      _isProcessing.value = false;
+      _textController.add("\n\n*Request cancelled by user.*");
+    }
+  }
+
   @override
   Future<void> sendRequest(
     ChatMessage message, {
@@ -94,8 +108,11 @@ class ADKContentGenerator implements ContentGenerator {
     Exception? lastError;
     StackTrace? lastStackTrace;
 
+    // Create a new client for this request (allows cancellation)
+    _currentClient = http.Client();
+
     for (int attempt = 0; attempt <= _maxRetries; attempt++) {
-      if (_isDisposed) break;
+      if (_isDisposed || _currentClient == null) break;
 
       try {
           // Retry delay with exponential backoff
@@ -104,6 +121,8 @@ class ADKContentGenerator implements ContentGenerator {
             debugPrint("Retrying request (attempt ${attempt + 1}/${_maxRetries + 1}) after ${delay.inSeconds}s...");
             await Future.delayed(delay);
           }
+
+          if (_currentClient == null) break; // Check again after delay
 
           final request = http.Request('POST', Uri.parse(_baseUrl));
           request.headers['Content-Type'] = 'application/json';
@@ -121,7 +140,7 @@ class ADKContentGenerator implements ContentGenerator {
 
           request.body = jsonEncode(requestBody);
 
-          final response = await request.send();
+          final response = await _currentClient!.send(request);
 
           if (response.statusCode != 200) {
               throw Exception('Failed to connect to agent: ${response.statusCode}');
@@ -154,9 +173,19 @@ class ADKContentGenerator implements ContentGenerator {
           await subscription.asFuture();
 
           // Success - exit retry loop
+          _currentClient = null;
+          if (!_isDisposed) {
+            _isProcessing.value = false;
+          }
           return;
 
       } catch (e, st) {
+          // Check if this was a cancellation
+          if (_currentClient == null) {
+            debugPrint("Request was cancelled");
+            break;
+          }
+
           lastError = e is Exception ? e : Exception(e.toString());
           lastStackTrace = st;
           debugPrint("Request failed (attempt ${attempt + 1}): $e");
@@ -166,6 +195,8 @@ class ADKContentGenerator implements ContentGenerator {
           }
       }
     }
+
+    _currentClient = null;
 
     // All retries exhausted - report error
     if (!_isDisposed && lastError != null) {
@@ -180,6 +211,8 @@ class ADKContentGenerator implements ContentGenerator {
   @override
   void dispose() {
     _isDisposed = true;
+    _currentClient?.close();
+    _currentClient = null;
     _healthCheckTimer?.cancel();
     _a2uiController.close();
     _textController.close();
