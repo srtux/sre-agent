@@ -247,14 +247,14 @@ async def call_mcp_tool_with_retry(
             try:
                 mcp_toolset = await asyncio.wait_for(
                     run_in_threadpool(create_toolset_fn, project_id),
-                    timeout=15.0,  # 15s timeout for toolset creation
+                    timeout=60.0,  # 60s timeout for toolset creation
                 )
             except asyncio.TimeoutError:
                 logger.error(f"Timeout creating MCP toolset for {tool_name}")
                 return {
                     "status": ToolStatus.ERROR,
                     "error": (
-                        f"Failed to create MCP toolset for '{tool_name}': Connection timed out after 15 seconds. "
+                        f"Failed to create MCP toolset for '{tool_name}': Connection timed out after 60 seconds. "
                         "The MCP server may be unavailable or overloaded. DO NOT retry this tool. "
                         "Use direct API alternatives instead: list_log_entries for logs, fetch_trace for traces, "
                         "query_promql for metrics."
@@ -286,7 +286,7 @@ async def call_mcp_tool_with_retry(
                     try:
                         result = await asyncio.wait_for(
                             tool.run_async(args=args, tool_context=tool_context),
-                            timeout=30.0,  # 30s timeout for tool execution
+                            timeout=180.0,  # 180s timeout for tool execution
                         )
                         return {
                             "status": ToolStatus.SUCCESS,
@@ -298,7 +298,7 @@ async def call_mcp_tool_with_retry(
                         return {
                             "status": ToolStatus.ERROR,
                             "error": (
-                                f"Tool '{tool_name}' timed out after 30 seconds. This is typically caused by "
+                                f"Tool '{tool_name}' timed out after 180 seconds. This is typically caused by "
                                 "slow network conditions or high server load. DO NOT retry immediately. "
                                 "Consider using direct API alternatives (list_log_entries, fetch_trace, query_promql) "
                                 "which may be more reliable, or wait and try again later."

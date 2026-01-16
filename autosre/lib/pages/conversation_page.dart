@@ -229,6 +229,7 @@ class _ConversationPageState extends State<ConversationPage>
                             ),
                           ),
                         SizedBox(width: isCompact ? 12 : 20),
+                        const Spacer(),
                         // Project Selector - constrained width on mobile
                         Flexible(
                           child: ConstrainedBox(
@@ -238,7 +239,7 @@ class _ConversationPageState extends State<ConversationPage>
                             child: _buildProjectSelector(),
                           ),
                         ),
-                        const Spacer(),
+                        SizedBox(width: isCompact ? 12 : 20),
                         // Status indicator
                         ValueListenableBuilder<bool>(
                           valueListenable: _contentGenerator.isConnected,

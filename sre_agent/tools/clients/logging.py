@@ -208,7 +208,15 @@ def _extract_log_payload(entry: Any) -> str | dict[str, Any]:
         except (ValueError, TypeError):
             payload_data = str(entry.json_payload)
     elif hasattr(entry, "proto_payload") and entry.proto_payload:
-        payload_data = f"[ProtoPayload] {entry.proto_payload.type_url}"
+        try:
+            from google.protobuf.json_format import MessageToDict
+
+            payload_data = MessageToDict(entry.proto_payload)
+        except Exception:
+            try:
+                payload_data = str(entry.proto_payload)
+            except Exception:
+                payload_data = f"[ProtoPayload] {entry.proto_payload.type_url}"
     else:
         payload_data = ""
 
