@@ -21,7 +21,7 @@ except ImportError:
     from sre_agent.tools.clients.logging import list_log_entries
 
 
-async def main():
+async def main() -> None:
     """Run the health analysis script."""
     project_id = os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GCP_PROJECT_ID")
     if not project_id:
