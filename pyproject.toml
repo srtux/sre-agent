@@ -1,8 +1,8 @@
 [project]
-name = "trace-analyzer"
-version = "0.1.0"
-description = "A Google ADK-based Cloud Trace Analyzer Agent for distributed trace diff analysis"
-authors = [{ name = "Trace Team", email = "trace@example.com" }]
+name = "sre-agent"
+version = "0.2.0"
+description = "SRE Agent - Google Cloud Observability analysis agent for traces, logs, and metrics"
+authors = [{ name = "SRT", email = "srtuxx@gmail.com" }]
 license = "Apache-2.0"
 readme = "README.md"
 dependencies = [
@@ -17,6 +17,22 @@ dependencies = [
     "opentelemetry-exporter-otlp-proto-grpc>=1.24.0",
     "google-auth>=2.18.1",
     "grpcio>=1.63.0",
+    # Phase 4: Extended GCP integrations
+    "google-cloud-logging>=3.10.0",
+    "google-cloud-monitoring>=2.21.0",
+    "google-cloud-error-reporting>=1.14.0",
+    "requests>=2.31.0",
+    # Log pattern analysis
+    "drain3>=0.9.11",
+    "opentelemetry-semantic-conventions>=0.58b0",
+    "opentelemetry-instrumentation-logging>=0.58b0",
+    "fastapi>=0.111.0",
+    "uvicorn>=0.29.0",
+    "httpx>=0.28.1",
+    "nest-asyncio>=1.6.0",
+    "mcp>=0.1.0",
+    "pydantic-core>=2.10.0",
+    "tomli>=2.0.1 ; python_version < '3.11'",
 ]
 
 requires-python = ">=3.10,<3.13"
@@ -27,38 +43,111 @@ dev = [
     "pytest-asyncio>=0.23.7",
     "google-adk[eval]>=1.0.0",
     "nest-asyncio>=1.6.0",
+    "pytest-xdist>=3.8.0",
+    "ruff==0.4.6",
+    "mypy>=1.15.0",
+    "pytest-cov>=5.0.0",
+    "absl-py>=2.1.0",
+    "poethepoet>=0.25.0",
+    "pre-commit>=4.5.1",
+    "codespell>=2.4.1",
+    "detect-secrets>=1.5.0",
+    "deptry>=0.23.0",
 ]
 
-[project.optional-dependencies]
-lint = [
-    "ruff>=0.4.6",
-    "mypy>=1.15.0",
-]
+
 
 [tool.ruff]
 line-length = 88
 target-version = "py310"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "UP", "RUF"]
-ignore = ["E501", "C901"]
+select = ["E", "F", "W", "I", "B", "UP", "RUF", "D"]
+ignore = ["E501", "C901", "D100", "D104"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["trace_analyzer"]
+known-first-party = ["sre_agent"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.extend-per-file-ignores]
+"tests/**" = ["D"]
+"eval/**" = ["D"]
+"deploy/**" = ["D"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+ignore_missing_imports = true
+pretty = true
+show_error_codes = true
+check_untyped_defs = true
+disallow_untyped_defs = true
+warn_unused_ignores = true
+warn_return_any = true
+no_implicit_optional = true
+exclude = ["tests/", "eval/", "deploy/"]
 
 [tool.pytest.ini_options]
 pythonpath = "."
 asyncio_default_fixture_loop_scope = "function"
 
 [build-system]
-requires = ["uv_build>=0.8.14,<0.9.0"]
+requires = ["uv_build>=0.8.14,<0.10.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
 module-root = ""
 
+
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+default = true
+
+[tool.codespell]
+skip = "*.json,*.test.json,*.js,*.lock,./web/node_modules/*,./web/.next/*,./.venv/*,./.git/*,pyproject.toml,./autosre/build/*,./autosre/.dart_tool/*"
+ignore-words-list = "allReady,ot"
+
+[tool.deptry]
+ignore = ["DEP001", "DEP004"]
+
+[tool.deptry.per_rule_ignores]
+DEP002 = ["grpcio", "requests", "opentelemetry-exporter-otlp-proto-grpc"]
+DEP003 = ["mcp", "pydantic_core"]
+
 [tool.agent-starter-pack]
-example_question = "Compare trace abc123 with trace def456 in project my-gcp-project"
+example_question = "Analyze traces and logs in project my-gcp-project to find performance issues"
 
 [tool.agent-starter-pack.settings]
-agent_directory = "trace_analyzer"
+agent_directory = "sre_agent"
+
+[tool.poe.tasks]
+dev = { help = "Run the full dev stack (backend + frontend)", cmd = "python scripts/start_dev.py", envfile = ".env" }
+sync = { help = "Sync dependencies with uv", cmd = "uv sync" }
+run = { help = "Run agent in terminal", cmd = "adk run sre_agent", envfile = ".env" }
+web = { help = "Run agent web UI & Tools API", cmd = "python server.py", envfile = ".env" }
+list = { help = "List deployed agents", cmd = "python deploy/deploy.py --list", envfile = ".env" }
+lint = { help = "Run all linters", sequence = ["format", "_lint_only", "typecheck", "spell", "deptry"] }
+_lint_only = { cmd = "ruff check .", envfile = ".env" }
+format = { help = "Format code", cmd = "ruff format .", envfile = ".env" }
+typecheck = { help = "Run type checking", cmd = "mypy .", envfile = ".env" }
+spell = { help = "Check spelling", cmd = "codespell", envfile = ".env" }
+deptry = { help = "Check for unused/missing dependencies", cmd = "deptry .", envfile = ".env" }
+test = { help = "Run tests with coverage guard", cmd = "pytest tests --cov=sre_agent --cov-report=term-missing --cov-fail-under=70", env = { GOOGLE_CLOUD_PROJECT = "" }, envfile = ".env" }
+test-flutter = { help = "Run Flutter frontend tests", cmd = "flutter test", cwd = "autosre" }
+test-all = { help = "Run both backend and frontend tests", sequence = ["test", "test-flutter"] }
+eval = { help = "Run agent evaluations", cmd = "python deploy/run_eval.py", envfile = ".env" }
+
+deploy = { help = "Deploy agent to Agent Engine", sequence = ["sync", "_deploy_only"] }
+_deploy_only = { cmd = "python deploy/deploy.py --create", envfile = ".env" }
+
+deploy-web = { help = "Deploy web frontend to Cloud Run", cmd = "python deploy/deploy_web.py", envfile = ".env" }
+
+deploy-all = { help = "Deploy both backend (Vertex) and frontend (Cloud Run)", cmd = "python deploy/deploy_all.py", envfile = ".env" }
+
+delete = { help = "Delete agent (usage: uv run poe delete --resource_id ID)", cmd = "python deploy/deploy.py --delete", envfile = ".env" }
+
+pre-commit = { help = "Run all pre-commit hooks", cmd = "pre-commit run --all-files", envfile = ".env" }

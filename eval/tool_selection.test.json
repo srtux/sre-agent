@@ -1,0 +1,121 @@
+{
+  "eval_set_id": "sre_agent_tool_selection",
+  "eval_cases": [
+    {
+      "eval_id": "fetch_trace_selection",
+      "conversation": [
+        {
+          "user_content": {
+            "parts": [
+              {
+                "text": "Get trace details for trace id 00000000000000000000000000000001 in project TEST_PROJECT_ID"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "I have fetched the trace details."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "fetch_trace",
+                "args": {
+                  "trace_id": "00000000000000000000000000000001",
+                  "project_id": "TEST_PROJECT_ID"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "session_input": {
+        "app_name": "sre_agent",
+        "user_id": "test_user",
+        "state": {}
+      }
+    },
+    {
+      "eval_id": "log_analysis_selection",
+      "conversation": [
+        {
+          "user_content": {
+            "parts": [
+              {
+                "text": "Analyze logs for high errors in project TEST_PROJECT_ID for the last 24 hours"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "I have started the log pattern analysis."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "run_log_pattern_analysis",
+                "args": {
+                  "project_id": "TEST_PROJECT_ID"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "session_input": {
+        "app_name": "sre_agent",
+        "user_id": "test_user",
+        "state": {}
+      }
+    },
+    {
+      "eval_id": "metric_query_selection",
+      "conversation": [
+        {
+          "user_content": {
+            "parts": [
+              {
+                "text": "Check CPU usage for instance-1 in project TEST_PROJECT_ID"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "I have queried the CPU usage metrics."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "list_time_series",
+                "args": {
+                  "project_id": "my-test-project",
+                  "filter": "metric.type=\"compute.googleapis.com/instance/cpu/utilization\" AND resource.labels.instance_id=\"instance-1\""
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "session_input": {
+        "app_name": "sre_agent",
+        "user_id": "test_user",
+        "state": {}
+      }
+    }
+  ]
+}

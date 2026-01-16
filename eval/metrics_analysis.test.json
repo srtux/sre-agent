@@ -1,0 +1,43 @@
+{
+  "eval_set_id": "sre_agent_metrics",
+  "eval_cases": [
+    {
+      "eval_id": "metrics_analysis_cpu",
+      "conversation": [
+        {
+          "user_content": {
+            "parts": [
+              {
+                "text": "Can you check the CPU usage for calculation-service in project TEST_PROJECT_ID and see if there are any anomalies?"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "I checked the CPU usage and found no anomalies."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "list_time_series"
+              },
+              {
+                "name": "detect_metric_anomalies"
+              }
+            ]
+          }
+        }
+      ],
+      "session_input": {
+        "app_name": "sre_agent",
+        "user_id": "test_user",
+        "state": {}
+      }
+    }
+  ]
+}

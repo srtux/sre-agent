@@ -1,0 +1,33 @@
+{
+  "eval_set_id": "sre_agent_capabilities",
+  "eval_cases": [
+    {
+      "eval_id": "capability_check",
+      "conversation": [
+        {
+          "user_content": {
+            "parts": [
+              {
+                "text": "What can you do?"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Of course! I'm the SRE Agent, your friendly sidekick for digging through telemetry data in Google Cloud Observability. My main goal is to help you get to the root cause of production issues quickly.  Here's a breakdown of my superpowers:  ### 1. Trace Analysis (My Specialty!) I'm like a detective for your distributed systems. I can: - **Analyze thousands of traces** at once to find the needle in the haystack. - **Compare \"good\" vs. \"bad\" traces** to pinpoint exactly what changed. - **Automatically detect performance anti-patterns** like N+1 queries or unnecessary serial calls. - **Follow the breadcrumbs** through complex distributed calls to find the source of latency or errors.  ### 2. Log Analysis Your logs have stories to tell, and I'm fluent in their language. I can: - **Compress thousands of log lines** into a few key patterns to reduce noise. - **Find NEW log patterns** that appeared during an incident—these are often the smoking gun! - **Compare log patterns** from a \"before\" and \"after\" timeframe to see what's changed. - **Correlate logs directly with traces** to give you the full context.  ### 3. Metrics Analysis I keep an eye on the vital signs of your services. I can: - **Analyze key metrics** like CPU, memory, and request rates to understand service health. - **Detect trend changes** to identify exactly when things started to go wrong. - **Query your metrics** using PromQL for more advanced analysis.  ### How I Work I typically follow a structured investigation process: 1. **Big Picture First**: I start by analyzing aggregate data to understand the overall health of your services. 2.  **Find Suspects**: I identify services with high error rates or latency. 3.  **Triage & Compare**: I grab example \"healthy\" and \"unhealthy\" traces and run a detailed comparison to find differences in timing, structure, and errors. 4.  **Deep Dive & Correlate**: I zoom in on problematic spans and pull in related logs to get the full story. 5.  **Report Findings**: I present a clear summary of the likely root cause, backed by data.  In short, just tell me what's going on—a performance slowdown, an error spike, or just a service you want to understand better, and I'll use my toolkit to investigate and report back with data-driven findings.  How can I help you today?"
+              }
+            ],
+            "role": "model"
+          }
+        }
+      ],
+      "session_input": {
+        "app_name": "sre_agent",
+        "user_id": "test_user",
+        "state": {}
+      }
+    }
+  ]
+}

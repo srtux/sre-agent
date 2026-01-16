@@ -1,4 +1,4 @@
-"""Test deployment of Trace Analyzer Agent to Agent Engine."""
+"""Test deployment of SRE Agent to Agent Engine."""
 
 import os
 
@@ -22,8 +22,7 @@ flags.mark_flag_as_required("resource_id")
 flags.mark_flag_as_required("user_id")
 
 
-def main(argv: list[str]) -> None:  # pylint: disable=unused-argument
-
+def main(argv: list[str]) -> None:
     load_dotenv()
 
     project_id = (
@@ -50,7 +49,7 @@ def main(argv: list[str]) -> None:  # pylint: disable=unused-argument
 
     agent = agent_engines.get(FLAGS.resource_id)
     print(f"Found agent with resource ID: {FLAGS.resource_id}")
-    session = agent.create_session(user_id=FLAGS.user_id)
+    session = agent.create_session(user_id=FLAGS.user_id)  # type: ignore
     print(f"Created session for user ID: {FLAGS.user_id}")
     print("Type 'quit' to exit.")
     while True:
@@ -58,11 +57,11 @@ def main(argv: list[str]) -> None:  # pylint: disable=unused-argument
             user_input = input("Input: ")
         except EOFError:
             break
-            
+
         if user_input == "quit":
             break
 
-        for event in agent.stream_query(
+        for event in agent.stream_query(  # type: ignore
             user_id=FLAGS.user_id, session_id=session["id"], message=user_input
         ):
             if "content" in event:
@@ -73,7 +72,7 @@ def main(argv: list[str]) -> None:  # pylint: disable=unused-argument
                             text_part = part["text"]
                             print(f"Response: {text_part}")
 
-    agent.delete_session(user_id=FLAGS.user_id, session_id=session["id"])
+    agent.delete_session(user_id=FLAGS.user_id, session_id=session["id"])  # type: ignore
     print(f"\nDeleted session for user ID: {FLAGS.user_id}")
 
 
