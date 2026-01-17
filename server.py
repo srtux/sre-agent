@@ -75,16 +75,16 @@ app = FastAPI(title="SRE Agent Toolbox API")
 @app.middleware("http")
 async def log_requests(request: Request, call_next: Any) -> Any:
     """Middleware to log all HTTP requests."""
-    logger.debug(f"👉 Request started: {request.method} {request.url}")
+    logger.info(f"🌐 API Call: {request.method} {request.url.path}")
     try:
         response = await call_next(request)
-        logger.debug(
-            f"✅ Request finished: {request.method} {request.url} - Status: {response.status_code}"
+        logger.info(
+            f"✅ API Success: {request.method} {request.url.path} - Status: {response.status_code}"
         )
         return response
     except Exception as e:
         logger.error(
-            f"❌ Request failed: {request.method} {request.url} - Error: {e}",
+            f"❌ API Failure: {request.method} {request.url.path} - Error: {e}",
             exc_info=True,
         )
         raise
@@ -764,11 +764,11 @@ async def genui_chat(request: ChatRequest) -> StreamingResponse:
 
     Uses ADK sessions for conversation history persistence.
     """
-    logger.info("Received GenUI chat request")
     user_message = request.messages[-1]["text"] if request.messages else ""
+    logger.info(f"💬 User Prompt: '{user_message}'")
     project_id = request.project_id  # Extract project_id from request
     session_id = request.session_id  # Optional session ID
-    logger.info(f"Project ID from request: {project_id}, Session ID: {session_id}")
+    logger.info(f"📍 Context: Project={project_id}, Session={session_id}")
 
     # Get or create ADK session for tracking conversation history
     session_manager = get_session_service()
@@ -873,6 +873,7 @@ async def genui_chat(request: ChatRequest) -> StreamingResponse:
         # Use the agent from the context (which might be the cloned one)
         try:
             agent_to_run = inv_ctx.agent or root_agent
+            logger.info(f"🧠 LLM Call Starting: Using agent '{agent_to_run.name}'")
             async for event in agent_to_run.run_async(inv_ctx):
                 if not event.content or not event.content.parts:
                     continue
@@ -1125,6 +1126,15 @@ async def genui_chat(request: ChatRequest) -> StreamingResponse:
                                 )
                                 + "\n"
                             )
+
+            # Final output log
+            final_response = "".join(assistant_response_parts)
+            logger.info(
+                f"🏁 Final Response to User: '{final_response[:500]}...'"
+                if len(final_response) > 500
+                else f"🏁 Final Response to User: '{final_response}'"
+            )
+            logger.info("🧠 LLM Call Completed")
         except Exception as e:
             logger.error(f"Error during agent execution: {e}", exc_info=True)
             # Yield error for active tools

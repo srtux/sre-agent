@@ -81,19 +81,21 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
             except Exception:
                 arg_str = f"args={args}, kwargs={kwargs}"
 
-            logger.info(f"Tool '{tool_name}' called with: {arg_str}")
+            logger.info(f"🛠️  Tool Call: '{tool_name}' | Args: {arg_str}")
 
             try:
                 result = await func(*args, **kwargs)
                 duration_ms = (time.time() - start_time) * 1000
-                logger.info(f"Tool '{tool_name}' completed in {duration_ms:.2f}ms")
+                logger.info(
+                    f"✅ Tool Success: '{tool_name}' | Duration: {duration_ms:.2f}ms"
+                )
                 logger.debug(f"Tool '{tool_name}' RESULT: {result!r}")
                 return result
             except Exception as e:
                 success = False
                 duration_ms = (time.time() - start_time) * 1000
                 logger.error(
-                    f"Tool '{tool_name}' failed after {duration_ms:.2f}ms: {e}",
+                    f"❌ Tool Failed: '{tool_name}' | Duration: {duration_ms:.2f}ms | Error: {e}",
                     exc_info=True,
                 )
                 span.record_exception(e)
@@ -136,19 +138,21 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
             except Exception:
                 arg_str = f"args={args}, kwargs={kwargs}"
 
-            logger.info(f"Tool '{tool_name}' called with: {arg_str}")
+            logger.info(f"🛠️  Tool Call: '{tool_name}' | Args: {arg_str}")
 
             try:
                 result = func(*args, **kwargs)
                 duration_ms = (time.time() - start_time) * 1000
-                logger.info(f"Tool '{tool_name}' completed in {duration_ms:.2f}ms")
+                logger.info(
+                    f"✅ Tool Success: '{tool_name}' | Duration: {duration_ms:.2f}ms"
+                )
                 logger.debug(f"Tool '{tool_name}' RESULT: {result!r}")
                 return result
             except Exception as e:
                 success = False
                 duration_ms = (time.time() - start_time) * 1000
                 logger.error(
-                    f"Tool '{tool_name}' failed after {duration_ms:.2f}ms: {e}",
+                    f"❌ Tool Failed: '{tool_name}' | Duration: {duration_ms:.2f}ms | Error: {e}",
                     exc_info=True,
                 )
                 span.record_exception(e)

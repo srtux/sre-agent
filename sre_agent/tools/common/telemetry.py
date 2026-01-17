@@ -212,6 +212,23 @@ def setup_telemetry(level: int = logging.INFO) -> None:
 
 def _configure_logging_handlers(level: int, project_id: str | None) -> None:
     """Internal helper to configure logging handlers."""
+    # Silence chatty loggers that produce high-volume debug noise
+    for logger_name in [
+        "aiosqlite",
+        "google.auth.transport.requests",
+        "google.auth.transport.grpc",
+        "google.auth._default",
+        "urllib3.connectionpool",
+        "grpc._common",
+        "grpc._cython.cygrpc",
+        "mcp",
+        "asyncio",
+        "google.cloud.aiplatform",
+        "httpx",
+        "httpcore",
+    ]:
+        logging.getLogger(logger_name).setLevel(logging.INFO)
+
     log_format = os.environ.get("LOG_FORMAT", "TEXT").upper()
 
     if log_format == "JSON":

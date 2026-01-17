@@ -275,10 +275,14 @@ async def call_mcp_tool_with_retry(
                 if tool.name == tool_name:
                     # Enforce timeout on tool execution
                     try:
+                        logger.info(
+                            f"🔗 MCP Call: '{tool_name}' (Project: {project_id}) | Args: {args}"
+                        )
                         result = await asyncio.wait_for(
                             tool.run_async(args=args, tool_context=tool_context),
                             timeout=180.0,  # 180s timeout for tool execution
                         )
+                        logger.info(f"✨ MCP Success: '{tool_name}'")
                         return {
                             "status": ToolStatus.SUCCESS,
                             "result": result,
