@@ -118,7 +118,7 @@ ignore-words-list = "allReady,ot"
 ignore = ["DEP001", "DEP004"]
 
 [tool.deptry.per_rule_ignores]
-DEP002 = ["grpcio", "requests", "opentelemetry-exporter-otlp-proto-grpc"]
+DEP002 = ["grpcio", "requests", "opentelemetry-exporter-otlp-proto-grpc", "aiosqlite", "greenlet"]
 DEP003 = ["mcp", "pydantic_core"]
 
 [tool.agent-starter-pack]

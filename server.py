@@ -571,11 +571,13 @@ async def get_session(session_id: str, user_id: str = "default") -> Any:
             if event.content and event.content.parts:
                 for part in event.content.parts:
                     if hasattr(part, "text") and part.text:
-                        messages.append({
-                            "role": event.author,
-                            "content": part.text,
-                            "timestamp": event.timestamp,
-                        })
+                        messages.append(
+                            {
+                                "role": event.author,
+                                "content": part.text,
+                                "timestamp": event.timestamp,
+                            }
+                        )
 
         return {
             "id": session.id,
@@ -623,11 +625,13 @@ async def get_session_history(session_id: str, user_id: str = "default") -> Any:
             if event.content and event.content.parts:
                 for part in event.content.parts:
                     if hasattr(part, "text") and part.text:
-                        messages.append({
-                            "role": event.author,
-                            "content": part.text,
-                            "timestamp": event.timestamp,
-                        })
+                        messages.append(
+                            {
+                                "role": event.author,
+                                "content": part.text,
+                                "timestamp": event.timestamp,
+                            }
+                        )
 
         return {"session_id": session_id, "messages": messages}
     except HTTPException:
@@ -772,10 +776,15 @@ async def genui_chat(request: ChatRequest) -> StreamingResponse:
         from google.genai import types
 
         # Emit session info first so frontend can track session ID
-        yield json.dumps({
-            "type": "session",
-            "session_id": active_session_id,
-        }) + "\n"
+        yield (
+            json.dumps(
+                {
+                    "type": "session",
+                    "session_id": active_session_id,
+                }
+            )
+            + "\n"
+        )
 
         # Collect assistant response for tracking
         assistant_response_parts: list[str] = []
@@ -793,10 +802,10 @@ async def genui_chat(request: ChatRequest) -> StreamingResponse:
 
                 # Query the remote agent with session context
                 # Agent Engine handles session persistence automatically
-                response = remote_agent.query(
+                response = remote_agent.query(  # type: ignore[attr-defined]
                     input=user_message,
                     session_id=active_session_id,
-                )  # type: ignore[attr-defined]
+                )
 
                 # The response from AdkApp/ReasoningEngine is typically just the text content
                 if response:

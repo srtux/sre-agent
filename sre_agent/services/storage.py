@@ -8,7 +8,6 @@ For Agent Engine: Uses VertexAiSessionService
 """
 
 import logging
-from typing import Any
 
 from sre_agent.services.session import get_session_service
 
@@ -36,9 +35,7 @@ class StorageService:
         """Set the selected project for a user."""
         await self._session_manager.set_selected_project(project_id, user_id)
 
-    async def get_tool_config(
-        self, user_id: str = "default"
-    ) -> dict[str, bool] | None:
+    async def get_tool_config(self, user_id: str = "default") -> dict[str, bool] | None:
         """Get tool configuration for a user."""
         return await self._session_manager.get_tool_config(user_id)
 

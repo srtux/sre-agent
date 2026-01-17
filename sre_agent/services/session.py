@@ -11,7 +11,7 @@ import logging
 import os
 import time
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from google.adk.events import Event, EventActions
 from google.adk.sessions import (
@@ -120,7 +120,7 @@ class ADKSessionManager:
 
         # Fallback to in-memory
         logger.info("Using InMemorySessionService (no persistence)")
-        return InMemorySessionService()
+        return InMemorySessionService()  # type: ignore[no-untyped-call]
 
     @property
     def session_service(self) -> Any:
@@ -150,7 +150,7 @@ class ADKSessionManager:
             state=state,
         )
         logger.info(f"Created session {session.id} for user {user_id}")
-        return session
+        return cast(Session, session)
 
     async def get_session(
         self,
@@ -172,7 +172,7 @@ class ADKSessionManager:
                 user_id=user_id,
                 session_id=session_id,
             )
-            return session
+            return cast(Session | None, session)
         except Exception as e:
             logger.warning(f"Failed to get session {session_id}: {e}")
             return None
@@ -346,7 +346,9 @@ class ADKSessionManager:
             # Look for the most recent session with project_id in state
             for session in sessions.sessions:
                 if session.state and STATE_KEY_SELECTED_PROJECT in session.state:
-                    return session.state.get(STATE_KEY_SELECTED_PROJECT)
+                    return cast(
+                        str | None, session.state.get(STATE_KEY_SELECTED_PROJECT)
+                    )
             return None
         except Exception as e:
             logger.error(f"Failed to get selected project: {e}")
@@ -368,9 +370,7 @@ class ADKSessionManager:
         except Exception as e:
             logger.error(f"Failed to set selected project: {e}")
 
-    async def get_tool_config(
-        self, user_id: str = "default"
-    ) -> dict[str, bool] | None:
+    async def get_tool_config(self, user_id: str = "default") -> dict[str, bool] | None:
         """Get tool configuration from state."""
         try:
             sessions = await self._session_service.list_sessions(
@@ -379,7 +379,9 @@ class ADKSessionManager:
             )
             for session in sessions.sessions:
                 if session.state and STATE_KEY_TOOL_CONFIG in session.state:
-                    return session.state.get(STATE_KEY_TOOL_CONFIG)
+                    return cast(
+                        dict[str, bool] | None, session.state.get(STATE_KEY_TOOL_CONFIG)
+                    )
             return None
         except Exception as e:
             logger.error(f"Failed to get tool config: {e}")
