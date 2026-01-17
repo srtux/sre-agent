@@ -12,6 +12,7 @@ class ADKContentGenerator implements ContentGenerator {
   final StreamController<A2uiMessage> _a2uiController = StreamController<A2uiMessage>.broadcast();
   final StreamController<String> _textController = StreamController<String>.broadcast();
   final StreamController<ContentGeneratorError> _errorController = StreamController<ContentGeneratorError>.broadcast();
+  final StreamController<String> _sessionController = StreamController<String>.broadcast();
   final ValueNotifier<bool> _isProcessing = ValueNotifier(false);
   bool _isDisposed = false;
 
@@ -50,7 +51,13 @@ class ADKContentGenerator implements ContentGenerator {
   /// Currently selected project ID to include in requests.
   String? projectId;
 
-  ADKContentGenerator({this.projectId}) {
+  /// Current session ID for conversation tracking.
+  String? sessionId;
+
+  /// Stream of session ID updates (emitted when backend assigns/creates session).
+  Stream<String> get sessionStream => _sessionController.stream;
+
+  ADKContentGenerator({this.projectId, this.sessionId}) {
     _startHealthCheck();
   }
 
@@ -145,6 +152,11 @@ class ADKContentGenerator implements ContentGenerator {
               requestBody["project_id"] = projectId;
           }
 
+          // Include session_id if set
+          if (sessionId != null && sessionId!.isNotEmpty) {
+              requestBody["session_id"] = sessionId;
+          }
+
           request.body = jsonEncode(requestBody);
 
           final response = await _currentClient!.send(request).timeout(_requestTimeout);
@@ -172,6 +184,14 @@ class ADKContentGenerator implements ContentGenerator {
                           final msgJson = data['message'] as Map<String, dynamic>;
                           final msg = A2uiMessage.fromJson(msgJson);
                           _a2uiController.add(msg);
+                      } else if (type == 'session') {
+                          // Update session ID from server
+                          final newSessionId = data['session_id'] as String?;
+                          if (newSessionId != null) {
+                              sessionId = newSessionId;
+                              _sessionController.add(newSessionId);
+                              debugPrint("Session ID updated: $newSessionId");
+                          }
                       }
                   } catch (e) {
                       debugPrint("Error parsing line: $e");
@@ -215,6 +235,11 @@ class ADKContentGenerator implements ContentGenerator {
     }
   }
 
+  /// Clears the current session (for starting a new conversation).
+  void clearSession() {
+    sessionId = null;
+  }
+
   @override
   void dispose() {
     _isDisposed = true;
@@ -224,6 +249,7 @@ class ADKContentGenerator implements ContentGenerator {
     _a2uiController.close();
     _textController.close();
     _errorController.close();
+    _sessionController.close();
     _isProcessing.dispose();
     _isConnected.dispose();
   }

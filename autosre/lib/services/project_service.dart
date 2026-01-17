@@ -23,6 +23,12 @@ class GcpProject {
     );
   }
 
+  Map<String, dynamic> toJson() => {
+    'project_id': projectId,
+    if (displayName != null) 'display_name': displayName,
+    if (projectNumber != null) 'project_number': projectNumber,
+  };
+
   /// Returns display name if available, otherwise project ID.
   String get name => displayName ?? projectId;
 }
@@ -36,14 +42,19 @@ class ProjectService {
   /// HTTP request timeout duration.
   static const Duration _requestTimeout = Duration(seconds: 30);
 
-  /// Returns the projects API URL based on the runtime environment.
-  /// Uses localhost in debug mode, relative URL otherwise (for production).
-  String get _projectsUrl {
+  /// Returns the base API URL based on the runtime environment.
+  String get _baseUrl {
     if (kDebugMode) {
-      return 'http://127.0.0.1:8001/api/tools/projects/list';
+      return 'http://127.0.0.1:8001';
     }
-    return '/api/tools/projects/list';
+    return '';
   }
+
+  /// Returns the projects API URL based on the runtime environment.
+  String get _projectsUrl => '$_baseUrl/api/tools/projects/list';
+
+  /// Returns the preferences API URL.
+  String get _preferencesUrl => '$_baseUrl/api/preferences/project';
 
   final ValueNotifier<List<GcpProject>> _projects = ValueNotifier([]);
   final ValueNotifier<GcpProject?> _selectedProject = ValueNotifier(null);
@@ -64,6 +75,46 @@ class ProjectService {
 
   /// The selected project ID, or null if none selected.
   String? get selectedProjectId => _selectedProject.value?.projectId;
+
+  /// Loads the previously selected project from backend storage.
+  Future<void> loadSavedProject() async {
+    try {
+      final response = await http.get(
+        Uri.parse(_preferencesUrl),
+      ).timeout(_requestTimeout);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final savedProjectId = data['project_id'] as String?;
+
+        if (savedProjectId != null && savedProjectId.isNotEmpty) {
+          // Find in projects list or create new
+          final project = _projects.value.firstWhere(
+            (p) => p.projectId == savedProjectId,
+            orElse: () => GcpProject(projectId: savedProjectId),
+          );
+          _selectedProject.value = project;
+          debugPrint('Loaded saved project: $savedProjectId');
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading saved project: $e');
+    }
+  }
+
+  /// Saves the selected project to backend storage.
+  Future<void> _saveSelectedProject(String projectId) async {
+    try {
+      await http.post(
+        Uri.parse(_preferencesUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'project_id': projectId}),
+      ).timeout(_requestTimeout);
+      debugPrint('Saved project selection: $projectId');
+    } catch (e) {
+      debugPrint('Error saving project selection: $e');
+    }
+  }
 
   /// Fetches the list of available GCP projects from the backend.
   Future<void> fetchProjects() async {
@@ -94,9 +145,12 @@ class ProjectService {
 
         _projects.value = projects;
 
-        // Auto-select first project if none selected
+        // Load saved project preference first
+        await loadSavedProject();
+
+        // Auto-select first project if still none selected
         if (_selectedProject.value == null && projects.isNotEmpty) {
-          _selectedProject.value = projects.first;
+          selectProjectInstance(projects.first);
         }
       } else {
         _error.value = 'Failed to fetch projects: ${response.statusCode}';
@@ -115,12 +169,16 @@ class ProjectService {
       (p) => p.projectId == projectId,
       orElse: () => GcpProject(projectId: projectId),
     );
-    _selectedProject.value = project;
+    selectProjectInstance(project);
   }
 
   /// Selects a project directly.
   void selectProjectInstance(GcpProject? project) {
     _selectedProject.value = project;
+    // Persist selection
+    if (project != null) {
+      _saveSelectedProject(project.projectId);
+    }
   }
 
   /// Clears the current selection.

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,7 +8,9 @@ import 'package:genui/genui.dart';
 import '../agent/adk_content_generator.dart';
 import '../catalog.dart';
 import '../services/project_service.dart';
+import '../services/session_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/session_panel.dart';
 import 'tool_config_page.dart';
 
 class ConversationPage extends StatefulWidget {
@@ -26,9 +29,13 @@ class _ConversationPageState extends State<ConversationPage>
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
   final ProjectService _projectService = ProjectService();
+  final SessionService _sessionService = SessionService();
 
   late AnimationController _backgroundController;
   late AnimationController _typingController;
+
+  bool _showSessionPanel = true;
+  StreamSubscription<String>? _sessionSubscription;
 
   @override
   void initState() {
@@ -77,8 +84,16 @@ class _ConversationPageState extends State<ConversationPage>
       onTextResponse: (text) => _scrollToBottom(),
     );
 
-    // Fetch projects on startup
+    // Listen to session updates from the content generator
+    _sessionSubscription = _contentGenerator.sessionStream.listen((sessionId) {
+      _sessionService.setCurrentSession(sessionId);
+      // Refresh sessions list after a message is sent
+      _sessionService.fetchSessions();
+    });
+
+    // Fetch projects and sessions on startup
     _projectService.fetchProjects();
+    _sessionService.fetchSessions();
 
     // Update content generator when project selection changes
     _projectService.selectedProject.addListener(_onProjectChanged);
@@ -86,6 +101,41 @@ class _ConversationPageState extends State<ConversationPage>
 
   void _onProjectChanged() {
     _contentGenerator.projectId = _projectService.selectedProjectId;
+  }
+
+  void _startNewSession() {
+    // Clear session in content generator (new messages will start a new backend session)
+    _contentGenerator.clearSession();
+    // Clear current session in service
+    _sessionService.startNewSession();
+    // Show confirmation
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Starting new investigation'),
+        backgroundColor: AppColors.primaryTeal,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Future<void> _loadSession(String sessionId) async {
+    // Load session from backend
+    final session = await _sessionService.getSession(sessionId);
+    if (session == null) return;
+
+    // Set session ID in content generator - backend will use session history for context
+    _contentGenerator.sessionId = sessionId;
+    _sessionService.setCurrentSession(sessionId);
+
+    // Show a message indicating the session is loaded
+    // The backend will maintain the conversation context
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Loaded session: ${session.displayTitle}'),
+        backgroundColor: AppColors.primaryTeal,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   void _scrollToBottom() {
@@ -119,12 +169,32 @@ class _ConversationPageState extends State<ConversationPage>
           // Animated gradient background
           _buildAnimatedBackground(),
 
-          // Main content
+          // Main content with session panel
           SafeArea(
-            child: Column(
+            child: Row(
               children: [
-                Expanded(child: _buildMessageList()),
-                _buildInputArea(),
+                // Session panel (collapsible)
+                if (_showSessionPanel)
+                  ValueListenableBuilder<String?>(
+                    valueListenable: _sessionService.currentSessionId,
+                    builder: (context, currentSessionId, _) {
+                      return SessionPanel(
+                        sessionService: _sessionService,
+                        onNewSession: _startNewSession,
+                        onSessionSelected: _loadSession,
+                        currentSessionId: currentSessionId,
+                      );
+                    },
+                  ),
+                // Main conversation area
+                Expanded(
+                  child: Column(
+                    children: [
+                      Expanded(child: _buildMessageList()),
+                      _buildInputArea(),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -232,6 +302,9 @@ class _ConversationPageState extends State<ConversationPage>
                                 ),
                               ),
                             const Spacer(),
+                            // Session panel toggle
+                            _buildSessionToggle(compact: isMobile),
+                            SizedBox(width: isCompact ? 8 : 16),
                             // Project Selector - constrained width on mobile
                             Flexible(
                               child: ConstrainedBox(
@@ -269,6 +342,61 @@ class _ConversationPageState extends State<ConversationPage>
                 },
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSessionToggle({bool compact = false}) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            _showSessionPanel = !_showSessionPanel;
+          });
+        },
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: EdgeInsets.all(compact ? 6 : 8),
+          decoration: BoxDecoration(
+            color: _showSessionPanel
+                ? AppColors.primaryTeal.withValues(alpha: 0.15)
+                : Colors.white.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: _showSessionPanel
+                  ? AppColors.primaryTeal.withValues(alpha: 0.3)
+                  : Colors.white.withValues(alpha: 0.1),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                _showSessionPanel
+                    ? Icons.menu_open
+                    : Icons.history,
+                color: _showSessionPanel
+                    ? AppColors.primaryTeal
+                    : AppColors.textMuted,
+                size: compact ? 16 : 18,
+              ),
+              if (!compact) ...[
+                const SizedBox(width: 8),
+                Text(
+                  'History',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: _showSessionPanel
+                        ? AppColors.primaryTeal
+                        : AppColors.textMuted,
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ),
@@ -933,6 +1061,7 @@ class _ConversationPageState extends State<ConversationPage>
 
   @override
   void dispose() {
+    _sessionSubscription?.cancel();
     _projectService.selectedProject.removeListener(_onProjectChanged);
     _backgroundController.dispose();
     _typingController.dispose();

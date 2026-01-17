@@ -39,6 +39,7 @@ from google.adk.cli.fast_api import get_fast_api_app
 from pydantic import BaseModel
 
 from sre_agent.agent import root_agent
+from sre_agent.services import get_session_service, get_storage_service
 from sre_agent.tools import (
     extract_log_patterns,
     fetch_trace,
@@ -505,6 +506,194 @@ async def test_all_tools(category: str | None = None) -> Any:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+# ============================================================================
+# SESSION MANAGEMENT ENDPOINTS
+# ============================================================================
+
+
+class CreateSessionRequest(BaseModel):
+    """Request model for creating a session."""
+
+    user_id: str = "default"
+    title: str | None = None
+    project_id: str | None = None
+
+
+class AddMessageRequest(BaseModel):
+    """Request model for adding a message to a session."""
+
+    role: str  # "user" or "assistant"
+    content: str
+    metadata: dict[str, Any] | None = None
+
+
+@app.post("/api/sessions")
+async def create_session(request: CreateSessionRequest) -> Any:
+    """Create a new session."""
+    try:
+        session_service = get_session_service()
+        session = await session_service.create_session(
+            user_id=request.user_id,
+            title=request.title,
+            project_id=request.project_id,
+        )
+        return session.to_dict()
+    except Exception as e:
+        logger.error(f"Error creating session: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.get("/api/sessions")
+async def list_sessions(user_id: str = "default", limit: int = 50) -> Any:
+    """List sessions for a user."""
+    try:
+        session_service = get_session_service()
+        sessions = await session_service.list_sessions(user_id=user_id, limit=limit)
+        return {"sessions": sessions}
+    except Exception as e:
+        logger.error(f"Error listing sessions: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.get("/api/sessions/{session_id}")
+async def get_session(session_id: str) -> Any:
+    """Get a session by ID."""
+    try:
+        session_service = get_session_service()
+        session = await session_service.get_session(session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        return session.to_dict()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting session: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.delete("/api/sessions/{session_id}")
+async def delete_session(session_id: str) -> Any:
+    """Delete a session."""
+    try:
+        session_service = get_session_service()
+        result = await session_service.delete_session(session_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="Session not found")
+        return {"message": "Session deleted", "session_id": session_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting session: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.post("/api/sessions/{session_id}/messages")
+async def add_session_message(session_id: str, request: AddMessageRequest) -> Any:
+    """Add a message to a session."""
+    try:
+        session_service = get_session_service()
+        session = await session_service.add_message(
+            session_id=session_id,
+            role=request.role,
+            content=request.content,
+            metadata=request.metadata,
+        )
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        return session.to_dict()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error adding message: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.get("/api/sessions/{session_id}/history")
+async def get_session_history(session_id: str) -> Any:
+    """Get message history for a session."""
+    try:
+        session_service = get_session_service()
+        history = await session_service.get_session_history(session_id)
+        return {"session_id": session_id, "messages": history}
+    except Exception as e:
+        logger.error(f"Error getting session history: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+# ============================================================================
+# USER PREFERENCES ENDPOINTS
+# ============================================================================
+
+
+class SetProjectRequest(BaseModel):
+    """Request model for setting selected project."""
+
+    project_id: str
+    user_id: str = "default"
+
+
+class SetToolConfigRequest(BaseModel):
+    """Request model for setting tool configuration."""
+
+    enabled_tools: dict[str, bool]
+    user_id: str = "default"
+
+
+@app.get("/api/preferences/project")
+async def get_selected_project(user_id: str = "default") -> Any:
+    """Get the selected project for a user."""
+    try:
+        storage = get_storage_service()
+        project_id = await storage.get_selected_project(user_id)
+        return {"project_id": project_id, "user_id": user_id}
+    except Exception as e:
+        logger.error(f"Error getting selected project: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.post("/api/preferences/project")
+async def set_selected_project(request: SetProjectRequest) -> Any:
+    """Set the selected project for a user."""
+    try:
+        storage = get_storage_service()
+        await storage.set_selected_project(request.project_id, request.user_id)
+        return {
+            "message": "Project selection saved",
+            "project_id": request.project_id,
+            "user_id": request.user_id,
+        }
+    except Exception as e:
+        logger.error(f"Error setting selected project: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.get("/api/preferences/tools")
+async def get_tool_preferences(user_id: str = "default") -> Any:
+    """Get tool configuration preferences for a user."""
+    try:
+        storage = get_storage_service()
+        tool_config = await storage.get_tool_config(user_id)
+        return {"enabled_tools": tool_config, "user_id": user_id}
+    except Exception as e:
+        logger.error(f"Error getting tool preferences: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.post("/api/preferences/tools")
+async def set_tool_preferences(request: SetToolConfigRequest) -> Any:
+    """Set tool configuration preferences for a user."""
+    try:
+        storage = get_storage_service()
+        await storage.set_tool_config(request.enabled_tools, request.user_id)
+        return {
+            "message": "Tool configuration saved",
+            "user_id": request.user_id,
+        }
+    except Exception as e:
+        logger.error(f"Error setting tool preferences: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
 # 4. GENUI ENDPOINT (A2UI Protocol)
 
 
@@ -513,6 +702,7 @@ class ChatRequest(BaseModel):
 
     messages: list[dict[str, Any]]
     project_id: str | None = None  # Optional project ID for context
+    session_id: str | None = None  # Optional session ID for conversation history
 
 
 # 5. MOUNT ADK AGENT
@@ -545,13 +735,39 @@ async def genui_chat(request: ChatRequest) -> StreamingResponse:
     logger.info("Received GenUI chat request")
     user_message = request.messages[-1]["text"] if request.messages else ""
     project_id = request.project_id  # Extract project_id from request
-    logger.info(f"Project ID from request: {project_id}")
+    session_id = request.session_id  # Optional session ID
+    logger.info(f"Project ID from request: {project_id}, Session ID: {session_id}")
+
+    # Get or create session for tracking conversation history
+    session_service = get_session_service()
+    current_session = await session_service.get_or_create_session(
+        session_id=session_id,
+        project_id=project_id,
+    )
+    active_session_id = current_session.id
+
+    # Save user message to session
+    if user_message:
+        await session_service.add_message(
+            session_id=active_session_id,
+            role="user",
+            content=user_message,
+        )
 
     async def event_generator() -> AsyncGenerator[str, None]:
         import json
         import uuid
 
         from google.genai import types
+
+        # Emit session info first
+        yield json.dumps({
+            "type": "session",
+            "session_id": active_session_id,
+        }) + "\n"
+
+        # Collect assistant response for saving
+        assistant_response_parts: list[str] = []
 
         # Check for Remote Agent Override
         remote_agent_id = os.getenv("SRE_AGENT_ID")
@@ -572,19 +788,27 @@ async def genui_chat(request: ChatRequest) -> StreamingResponse:
                 # The response from AdkApp/ReasoningEngine is typically just the text content if not structured.
                 # If we lose events, we just stream the text.
                 if response:
-                    yield json.dumps({"type": "text", "content": str(response)}) + "\n"
+                    response_text = str(response)
+                    assistant_response_parts.append(response_text)
+                    yield json.dumps({"type": "text", "content": response_text}) + "\n"
 
+                # Save assistant response to session
+                if assistant_response_parts:
+                    await session_service.add_message(
+                        session_id=active_session_id,
+                        role="assistant",
+                        content="".join(assistant_response_parts),
+                    )
                 return
             except Exception as e:
                 logger.error(f"Remote Agent Error: {e}", exc_info=True)
-                yield (
-                    json.dumps(
-                        {
-                            "type": "text",
-                            "content": f"Error communicating with remote agent: {e}",
-                        }
-                    )
-                    + "\n"
+                error_msg = f"Error communicating with remote agent: {e}"
+                yield json.dumps({"type": "text", "content": error_msg}) + "\n"
+                # Save error response to session
+                await session_service.add_message(
+                    session_id=active_session_id,
+                    role="assistant",
+                    content=error_msg,
                 )
                 return
 
@@ -639,6 +863,7 @@ async def genui_chat(request: ChatRequest) -> StreamingResponse:
                 for part in event.content.parts:
                     # Handle Text
                     if part.text:
+                        assistant_response_parts.append(part.text)
                         yield json.dumps({"type": "text", "content": part.text}) + "\n"
 
                     # Handle Tool Calls (Begin Rendering Tool Log)
@@ -917,11 +1142,21 @@ async def genui_chat(request: ChatRequest) -> StreamingResponse:
                     )
                     + "\n"
                 )
-            yield (
-                json.dumps({"type": "text", "content": f"An error occurred: {e!s}"})
-                + "\n"
-            )
+            error_msg = f"An error occurred: {e!s}"
+            assistant_response_parts.append(error_msg)
+            yield json.dumps({"type": "text", "content": error_msg}) + "\n"
         finally:
+            # Save assistant response to session
+            if assistant_response_parts:
+                try:
+                    await session_service.add_message(
+                        session_id=active_session_id,
+                        role="assistant",
+                        content="".join(assistant_response_parts),
+                    )
+                except Exception as save_error:
+                    logger.warning(f"Failed to save assistant response to session: {save_error}")
+
             # Ensure all tools are marked as completed/error if stream ends
             if active_tools:
                 logger.warning(
