@@ -517,6 +517,7 @@ class CreateSessionRequest(BaseModel):
 
     user_id: str = "default"
     project_id: str | None = None
+    title: str | None = None
 
 
 @app.post("/api/sessions")
@@ -533,6 +534,8 @@ async def create_session(request: CreateSessionRequest) -> Any:
         initial_state = {}
         if request.project_id:
             initial_state["project_id"] = request.project_id
+        if request.title:
+            initial_state["title"] = request.title
 
         session = await session_manager.create_session(
             user_id=request.user_id,
