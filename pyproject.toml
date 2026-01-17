@@ -35,6 +35,7 @@ dependencies = [
     "mcp>=0.1.0",
     "pydantic-core>=2.10.0",
     "tomli>=2.0.1 ; python_version < '3.11'",
+    "greenlet>=3.0.3",
 ]
 
 requires-python = ">=3.10,<3.13"
