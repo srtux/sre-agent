@@ -281,6 +281,13 @@ sequenceDiagram
         - **AI Reasoning Canvas**: Agent thought process with confidence scores
     *   **Full Source**: Located in `autosre/` directory. See [autosre/README.md](autosre/README.md) for details.
 
+10. **Session Management & Persistence**
+    *   **ADK Sessions**: Conversation history managed by ADK SessionService
+    *   **Session History Panel**: View and switch between previous investigations
+    *   **Auto-Backend Selection**: Uses `DatabaseSessionService` (SQLite) locally, `VertexAiSessionService` on Agent Engine
+    *   **User Preferences**: Persistent project selection and tool configuration
+    *   **Multi-Backend Storage**: File-based JSON locally, Firestore on Cloud Run
+
 ### Multi-Stage Trace Analysis Pipeline
 
 ```
@@ -324,6 +331,9 @@ sre_agent/
 │   ├── agent.py          # SRE Agent & Orchestrator Tools
 │   ├── prompt.py         # Agent instructions
 │   ├── schema.py         # Pydantic structured output schemas
+│   ├── services/         # Backend services
+│   │   ├── session.py    # ADK Session management
+│   │   └── storage.py    # User preferences storage
 │   ├── tools/            # Modular tools for GCP & Analysis
 │   │   ├── clients/      # Direct API Clients (Logging, Trace, Monitoring)
 │   │   ├── mcp/          # MCP Integration (BigQuery, Logging, etc.)
