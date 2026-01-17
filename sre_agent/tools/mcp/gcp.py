@@ -634,3 +634,38 @@ async def mcp_query_range(
         tool_context,
         project_id=project_id,
     )
+
+
+@adk_tool
+async def mcp_execute_sql(
+    sql_query: str,
+    project_id: str | None = None,
+    tool_context: ToolContext | None = None,
+) -> dict[str, Any]:
+    """Execute a SQL query against BigQuery via MCP.
+
+    Use this tool to run analytical queries against trace and log data
+    exported to BigQuery. This is essential for Stage 0 (Aggregate Analysis).
+
+    Args:
+        sql_query: The SQL query to execute.
+        project_id: GCP project ID. If not provided, uses default credentials.
+        tool_context: ADK tool context (required).
+
+    Returns:
+        Query results or error.
+    """
+    if tool_context is None:
+        raise ValueError("tool_context is required for MCP tools")
+
+    args = {
+        "sql_query": sql_query,
+    }
+
+    return await call_mcp_tool_with_retry(
+        create_bigquery_mcp_toolset,
+        "execute_sql",
+        args,
+        tool_context,
+        project_id=project_id,
+    )
