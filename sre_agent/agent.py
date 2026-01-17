@@ -51,7 +51,10 @@ The agent employs a hybrid tooling strategy:
 """
 
 import asyncio
+import functools
 import logging
+import os
+from collections.abc import AsyncGenerator
 from typing import Any
 
 from google.adk.agents import LlmAgent
@@ -164,7 +167,6 @@ from .tools import (
     list_traces,
     perform_causal_analysis,
     # SLO prediction
-    # SLO prediction
     predict_slo_violation,
     query_promql,
     summarize_trace,
@@ -185,10 +187,67 @@ from .tools.mcp.gcp import (
 )
 from .tools.reporting import synthesize_report
 
+# Initialize logger for this module
 logger = logging.getLogger(__name__)
 
 # Initialize standardized logging and telemetry
 setup_telemetry()
+
+
+def emojify_agent(agent: LlmAgent) -> LlmAgent:
+    """Wraps an LlmAgent to add emojis to prompts and responses in logs.
+
+    This ensures that regardless of how the agent is run (ADK CLI, custom server, etc.),
+    the critical user-facing events are clearly visible in the logs.
+    """
+    original_run_async = agent.run_async
+
+    @functools.wraps(original_run_async)
+    async def wrapped_run_async(context: Any) -> AsyncGenerator[Any, None]:
+        # 1. Log Prompt
+        user_msg = "Unknown"
+        if (
+            hasattr(context, "user_content")
+            and context.user_content
+            and context.user_content.parts
+        ):
+            user_msg = context.user_content.parts[0].text
+
+        # Determine project and session
+        project_id = os.environ.get(
+            "GOOGLE_CLOUD_PROJECT", os.environ.get("GCP_PROJECT_ID", "unknown")
+        )
+        session_id = (
+            getattr(context.session, "id", "unknown")
+            if hasattr(context, "session")
+            else "unknown"
+        )
+
+        logging.info(f"💬 User Prompt: '{user_msg}'")
+        logging.info(f"📍 Context: Project={project_id}, Session={session_id}")
+
+        # 2. Run Original
+        full_response_parts = []
+        async for event in original_run_async(context):
+            if hasattr(event, "content") and event.content and event.content.parts:
+                for part in event.content.parts:
+                    if hasattr(part, "text") and part.text:
+                        full_response_parts.append(part.text)
+            yield event
+
+        # 3. Log Response
+        final_response = "".join(full_response_parts)
+        if final_response:
+            preview = (
+                final_response[:500] + "..."
+                if len(final_response) > 500
+                else final_response
+            )
+            logging.info(f"🏁 Final Response to User: '{preview}'")
+
+    object.__setattr__(agent, "run_async", wrapped_run_async)
+    return agent
+
 
 # ============================================================================
 # MCP Toolset Management
@@ -258,7 +317,7 @@ async def run_aggregate_analysis(
             - Trend analysis (did latency jump at a specific time?).
             - Selected "Exemplar Traces" (trace IDs) for further investigation.
     """
-    logger.info(f"Running aggregate analysis on {dataset_id}.{table_name}")
+    logger.info(f"🎺 Running aggregate analysis on {dataset_id}.{table_name}")
 
     if tool_context is None:
         raise ValueError("tool_context is required")
@@ -404,6 +463,79 @@ Compare them and report your findings.
 
 
 @adk_tool
+async def run_deep_dive_analysis(
+    baseline_trace_id: str,
+    target_trace_id: str,
+    triage_findings: dict[str, Any],
+    project_id: str | None = None,
+    tool_context: ToolContext | None = None,
+) -> dict[str, Any]:
+    """Run Stage 2: Deep Dive analysis.
+
+    Synthesizes Stage 1 findings to determine causality, impact, and root cause.
+
+    Active Sub-Agents:
+    - **Causality Analyzer**: Correlates across signals to find the 'smoking gun'.
+    - **Service Impact Analyzer**: Assesses upstream/downstream blast radius.
+    - **Change Detective**: Correlates with deployments and config changes.
+
+    Args:
+        baseline_trace_id: Good trace ID.
+        target_trace_id: Bad trace ID.
+        triage_findings: Findings from Stage 1 (Triage).
+        project_id: GCP project ID.
+        tool_context: ADK tool context.
+
+    Returns:
+        Deep dive results.
+    """
+    if tool_context is None:
+        raise ValueError("tool_context is required")
+
+    if not project_id:
+        project_id = get_project_id_with_fallback()
+
+    logger.info(f"Running deep dive analysis for {target_trace_id}")
+
+    prompt = f"""
+Deep dive into the issue with target trace {target_trace_id}.
+Baseline trace: {baseline_trace_id}
+Triage findings: {triage_findings}
+Project: {project_id}
+
+Determine the root cause and impact.
+"""
+
+    results = await asyncio.gather(
+        AgentTool(causality_analyzer).run_async(
+            args={"request": prompt}, tool_context=tool_context
+        ),
+        AgentTool(service_impact_analyzer).run_async(
+            args={"request": prompt}, tool_context=tool_context
+        ),
+        AgentTool(change_detective).run_async(
+            args={"request": prompt}, tool_context=tool_context
+        ),
+        return_exceptions=True,
+    )
+
+    agent_names = ["causality", "impact", "change"]
+    deep_dive_results: dict[str, dict[str, Any]] = {}
+
+    for name, result in zip(agent_names, results, strict=False):
+        if isinstance(result, Exception):
+            logger.error(f"{name}_analyzer failed: {result}")
+            deep_dive_results[name] = {"status": "error", "error": str(result)}
+        else:
+            deep_dive_results[name] = {"status": "success", "result": result}
+
+    return {
+        "stage": "deep_dive",
+        "results": deep_dive_results,
+    }
+
+
+@adk_tool
 async def run_log_pattern_analysis(
     log_filter: str,
     baseline_start: str,
@@ -416,7 +548,7 @@ async def run_log_pattern_analysis(
     """Run log pattern analysis to find emergent issues.
 
     This function compares log patterns between two time periods using
-    the Drain3 algorithm to identify NEW patterns that may indicate issues.
+    the Drain3 algorithm to identify NEW patterns that may identify issues.
 
     Args:
         log_filter: Cloud Logging filter (e.g., 'resource.type="k8s_container"')
@@ -467,7 +599,7 @@ Please:
         )
 
         return {
-            "stage": "log_pattern_analysis",
+            "stage": "log_pattern",
             "status": "success",
             "result": result,
         }
@@ -475,296 +607,133 @@ Please:
     except Exception as e:
         logger.error(f"Log pattern analysis failed: {e}", exc_info=True)
         return {
-            "stage": "log_pattern_analysis",
+            "stage": "log_pattern",
             "status": "error",
             "error": str(e),
         }
 
 
-@adk_tool
-async def run_deep_dive_analysis(
-    baseline_trace_id: str,
-    target_trace_id: str,
-    triage_findings: dict[str, Any],
-    project_id: str | None = None,
-    tool_context: ToolContext | None = None,
-) -> dict[str, Any]:
-    """Run Stage 2: Deep dive analysis with causality and impact sub-agents.
-
-    This stage determines:
-    - Causality: What is the root cause of the issue?
-    - Service Impact: What is the blast radius?
-
-    Args:
-        baseline_trace_id: ID of the baseline trace
-        target_trace_id: ID of the target trace
-        triage_findings: Results from Stage 1 triage
-        project_id: GCP project ID
-        tool_context: ADK tool context
-
-    Returns:
-        Root cause analysis and service impact assessment.
-    """
-    if tool_context is None:
-        raise ValueError("tool_context is required")
-
-    if not project_id:
-        project_id = get_project_id_with_fallback()
-
-    logger.info(f"Running deep dive analysis for trace {target_trace_id}")
-
-    prompt = f"""
-Based on the triage findings, perform deep analysis:
-
-Traces:
-- Baseline: {baseline_trace_id}
-- Target: {target_trace_id}
-- Project: {project_id}
-
-Triage Summary:
-{triage_findings}
-
-Determine root cause and assess impact.
-"""
-
-    # Run deep dive analyzers in parallel
-    results = await asyncio.gather(
-        AgentTool(causality_analyzer).run_async(
-            args={"request": prompt}, tool_context=tool_context
-        ),
-        AgentTool(service_impact_analyzer).run_async(
-            args={"request": prompt}, tool_context=tool_context
-        ),
-        AgentTool(change_detective).run_async(
-            args={"request": prompt}, tool_context=tool_context
-        ),
-        return_exceptions=True,
-    )
-
-    agent_names = ["causality", "service_impact", "change_detective"]
-    deep_dive_results: dict[str, dict[str, Any]] = {}
-
-    for name, result in zip(agent_names, results, strict=False):
-        if isinstance(result, Exception):
-            logger.error(f"{name}_analyzer failed: {result}")
-            deep_dive_results[name] = {"status": "error", "error": str(result)}
-        else:
-            deep_dive_results[name] = {"status": "success", "result": result}
-
-    return {
-        "stage": "deep_dive",
-        "results": deep_dive_results,
-    }
-
-
 # ============================================================================
-# ============================================================================
-# Base Tools (always available)
+# Tool Registry for Configuration
 # ============================================================================
 
-base_tools: list[Any] = [
-    # Trace API tools
-    fetch_trace,
-    list_traces,
-    find_example_traces,
-    get_trace_by_url,
-    # Trace analysis tools
-    calculate_span_durations,
-    extract_errors,
-    build_call_graph,
-    summarize_trace,
-    validate_trace_quality,
-    # Trace comparison tools
-    compare_span_timings,
-    find_structural_differences,
-    # SRE Pattern Detection tools
-    detect_retry_storm,
-    detect_cascading_timeout,
-    detect_connection_pool_issues,
-    detect_all_sre_patterns,
-    # GCP direct API tools
-    list_log_entries,
-    list_time_series,
-    query_promql,
-    list_alerts,
-    get_alert,
-    list_alert_policies,
-    list_error_events,
-    get_logs_for_trace,
-    get_current_time,
-    # BigQuery OTel tools
-    analyze_aggregate_metrics,
-    find_exemplar_traces,
-    compare_time_periods,
-    detect_trend_changes,
-    correlate_logs_with_trace,
-    analyze_trace_patterns,
-    compute_latency_statistics,
-    detect_latency_anomalies,
-    perform_causal_analysis,
-    # Log pattern analysis tools (Drain3)
-    extract_log_patterns,
-    compare_log_patterns,
-    analyze_log_anomalies,
-    # MCP tools (wrapper functions)
-    mcp_list_log_entries,
-    mcp_list_timeseries,
-    mcp_query_range,
-    mcp_execute_sql,
-    # Orchestrator tools
-    run_aggregate_analysis,
-    run_triage_analysis,
-    run_log_pattern_analysis,
-    run_deep_dive_analysis,
-    # Trace Selection tools
-    # Metrics analysis tools
-    detect_metric_anomalies,
-    compare_metric_windows,
-    calculate_series_stats,
-    # Cross-signal correlation tools
-    correlate_trace_with_metrics,
-    correlate_metrics_with_traces_via_exemplars,
-    build_cross_signal_timeline,
-    analyze_signal_correlation_strength,
-    # Critical path analysis tools
-    analyze_critical_path,
-    find_bottleneck_services,
-    calculate_critical_path_contribution,
-    # Service dependency tools
-    build_service_dependency_graph,
-    analyze_upstream_downstream_impact,
-    detect_circular_dependencies,
-    find_hidden_dependencies,
-    # =================================================================
-    # NEW: SLO/SLI Tools - The SRE Golden Signals Framework
-    # =================================================================
-    list_slos,
-    get_slo_status,
-    analyze_error_budget_burn,
-    get_golden_signals,
-    correlate_incident_with_slo_impact,
-    predict_slo_violation,
-    # =================================================================
-    # NEW: GKE/Kubernetes Tools - Container Orchestration Debugging
-    # =================================================================
-    get_gke_cluster_health,
-    analyze_node_conditions,
-    get_pod_restart_events,
-    analyze_hpa_events,
-    get_container_oom_events,
-    correlate_trace_with_kubernetes,
-    get_workload_health_summary,
-    # =================================================================
-    # NEW: Automated Remediation Tools - From Diagnosis to Treatment
-    # =================================================================
-    generate_remediation_suggestions,
-    get_gcloud_commands,
-    estimate_remediation_risk,
-    find_similar_past_incidents,
-    # Discovery
-    discover_telemetry_sources,
-    # Reporting
-    synthesize_report,
-]
-
-# Tool name mapping for filtering
-TOOL_NAME_MAP: dict[str, Any] = {
-    # Trace API tools
+TOOL_NAME_MAP = {
+    # Observability
     "fetch_trace": fetch_trace,
-    "list_traces": list_traces,
-    "find_example_traces": find_example_traces,
-    "get_trace_by_url": get_trace_by_url,
-    # Trace analysis tools
-    "calculate_span_durations": calculate_span_durations,
-    "extract_errors": extract_errors,
-    "build_call_graph": build_call_graph,
-    "summarize_trace": summarize_trace,
-    "validate_trace_quality": validate_trace_quality,
-    # Trace comparison tools
-    "compare_span_timings": compare_span_timings,
-    "find_structural_differences": find_structural_differences,
-    # SRE Pattern Detection tools
-    "detect_retry_storm": detect_retry_storm,
-    "detect_cascading_timeout": detect_cascading_timeout,
-    "detect_connection_pool_issues": detect_connection_pool_issues,
-    "detect_all_sre_patterns": detect_all_sre_patterns,
-    # GCP direct API tools
     "list_log_entries": list_log_entries,
-    "list_time_series": list_time_series,
     "query_promql": query_promql,
-    "list_alerts": list_alerts,
-    "get_alert": get_alert,
-    "list_alert_policies": list_alert_policies,
-    "list_error_events": list_error_events,
+    "list_slos": list_slos,
+    "list_traces": list_traces,
     "get_logs_for_trace": get_logs_for_trace,
-    "get_current_time": get_current_time,
-    # BigQuery OTel tools
-    "analyze_aggregate_metrics": analyze_aggregate_metrics,
-    "find_exemplar_traces": find_exemplar_traces,
-    "compare_time_periods": compare_time_periods,
-    "detect_trend_changes": detect_trend_changes,
+    "get_trace_by_url": get_trace_by_url,
+    "summarize_trace": summarize_trace,
+    "get_golden_signals": get_golden_signals,
+    # Analysis
+    "calculate_span_durations": calculate_span_durations,
+    "find_bottleneck_services": find_bottleneck_services,
     "correlate_logs_with_trace": correlate_logs_with_trace,
+    "analyze_critical_path": analyze_critical_path,
+    "build_call_graph": build_call_graph,
+    "build_service_dependency_graph": build_service_dependency_graph,
+    "build_cross_signal_timeline": build_cross_signal_timeline,
     "analyze_trace_patterns": analyze_trace_patterns,
-    "compute_latency_statistics": compute_latency_statistics,
-    "detect_latency_anomalies": detect_latency_anomalies,
+    "find_structural_differences": find_structural_differences,
+    "find_hidden_dependencies": find_hidden_dependencies,
+    # Metrics
+    "detect_metric_anomalies": detect_metric_anomalies,
+    "list_time_series": list_time_series,
+    "compare_metric_windows": compare_metric_windows,
+    "analyze_signal_correlation_strength": analyze_signal_correlation_strength,
+    "analyze_error_budget_burn": analyze_error_budget_burn,
+    "predict_slo_violation": predict_slo_violation,
+    # GKE / Infrastructure
+    "get_gke_cluster_health": get_gke_cluster_health,
+    "analyze_node_conditions": analyze_node_conditions,
+    "analyze_hpa_events": analyze_hpa_events,
+    "get_pod_restart_events": get_pod_restart_events,
+    "get_container_oom_events": get_container_oom_events,
+    "get_workload_health_summary": get_workload_health_summary,
+    # Alerts
+    "list_alerts": list_alerts,
+    "list_alert_policies": list_alert_policies,
+    "get_alert": get_alert,
+    # Advanced Diagnostics
     "perform_causal_analysis": perform_causal_analysis,
-    # Log pattern analysis tools
+    "analyze_upstream_downstream_impact": analyze_upstream_downstream_impact,
+    "correlate_trace_with_kubernetes": correlate_trace_with_kubernetes,
+    "correlate_trace_with_metrics": correlate_trace_with_metrics,
+    "calculate_series_stats": calculate_series_stats,
+    "detect_trend_changes": detect_trend_changes,
+    # Pattern Analysis
     "extract_log_patterns": extract_log_patterns,
     "compare_log_patterns": compare_log_patterns,
+    "detect_all_sre_patterns": detect_all_sre_patterns,
     "analyze_log_anomalies": analyze_log_anomalies,
-    # MCP tools
+    # Root Cause
+    "detect_cascading_timeout": detect_cascading_timeout,
+    "detect_retry_storm": detect_retry_storm,
+    "detect_connection_pool_issues": detect_connection_pool_issues,
+    "detect_circular_dependencies": detect_circular_dependencies,
+    "find_similar_past_incidents": find_similar_past_incidents,
+    # Remediation
+    "generate_remediation_suggestions": generate_remediation_suggestions,
+    "estimate_remediation_risk": estimate_remediation_risk,
+    "get_gcloud_commands": get_gcloud_commands,
+    # Specialized Analysis
+    "analyze_aggregate_metrics": analyze_aggregate_metrics,
+    "calculate_critical_path_contribution": calculate_critical_path_contribution,
+    "compare_span_timings": compare_span_timings,
+    "compare_time_periods": compare_time_periods,
+    "compute_latency_statistics": compute_latency_statistics,
+    "correlate_incident_with_slo_impact": correlate_incident_with_slo_impact,
+    "correlate_metrics_with_traces_via_exemplars": correlate_metrics_with_traces_via_exemplars,
+    "detect_latency_anomalies": detect_latency_anomalies,
+    "extract_errors": extract_errors,
+    "find_example_traces": find_example_traces,
+    "find_exemplar_traces": find_exemplar_traces,
+    "get_current_time": get_current_time,
+    "get_slo_status": get_slo_status,
+    "list_error_events": list_error_events,
+    "validate_trace_quality": validate_trace_quality,
+    # MCP Tools
+    "mcp_execute_sql": mcp_execute_sql,
     "mcp_list_log_entries": mcp_list_log_entries,
     "mcp_list_timeseries": mcp_list_timeseries,
     "mcp_query_range": mcp_query_range,
-    "mcp_execute_sql": mcp_execute_sql,
-    # Orchestrator tools
-    "run_aggregate_analysis": run_aggregate_analysis,
-    "run_triage_analysis": run_triage_analysis,
-    "run_log_pattern_analysis": run_log_pattern_analysis,
-    "run_deep_dive_analysis": run_deep_dive_analysis,
-    # Metrics analysis tools
-    "detect_metric_anomalies": detect_metric_anomalies,
-    "compare_metric_windows": compare_metric_windows,
-    "calculate_series_stats": calculate_series_stats,
-    # Cross-signal correlation tools
-    "correlate_trace_with_metrics": correlate_trace_with_metrics,
-    "correlate_metrics_with_traces_via_exemplars": correlate_metrics_with_traces_via_exemplars,
-    "build_cross_signal_timeline": build_cross_signal_timeline,
-    "analyze_signal_correlation_strength": analyze_signal_correlation_strength,
-    # Critical path analysis tools
-    "analyze_critical_path": analyze_critical_path,
-    "find_bottleneck_services": find_bottleneck_services,
-    "calculate_critical_path_contribution": calculate_critical_path_contribution,
-    # Service dependency tools
-    "build_service_dependency_graph": build_service_dependency_graph,
-    "analyze_upstream_downstream_impact": analyze_upstream_downstream_impact,
-    "detect_circular_dependencies": detect_circular_dependencies,
-    "find_hidden_dependencies": find_hidden_dependencies,
-    # SLO/SLI Tools
-    "list_slos": list_slos,
-    "get_slo_status": get_slo_status,
-    "analyze_error_budget_burn": analyze_error_budget_burn,
-    "get_golden_signals": get_golden_signals,
-    "correlate_incident_with_slo_impact": correlate_incident_with_slo_impact,
-    "predict_slo_violation": predict_slo_violation,
-    # GKE/Kubernetes Tools
-    "get_gke_cluster_health": get_gke_cluster_health,
-    "analyze_node_conditions": analyze_node_conditions,
-    "get_pod_restart_events": get_pod_restart_events,
-    "analyze_hpa_events": analyze_hpa_events,
-    "get_container_oom_events": get_container_oom_events,
-    "correlate_trace_with_kubernetes": correlate_trace_with_kubernetes,
-    "get_workload_health_summary": get_workload_health_summary,
-    # Automated Remediation Tools
-    "generate_remediation_suggestions": generate_remediation_suggestions,
-    "get_gcloud_commands": get_gcloud_commands,
-    "estimate_remediation_risk": estimate_remediation_risk,
-    "find_similar_past_incidents": find_similar_past_incidents,
     # Discovery
     "discover_telemetry_sources": discover_telemetry_sources,
     # Reporting
     "synthesize_report": synthesize_report,
+    # Orchestration
+    "run_aggregate_analysis": run_aggregate_analysis,
+    "run_triage_analysis": run_triage_analysis,
+    "run_deep_dive_analysis": run_deep_dive_analysis,
+    "run_log_pattern_analysis": run_log_pattern_analysis,
 }
+
+# Common tools for all agents
+base_tools: list[Any] = [
+    fetch_trace,
+    list_log_entries,
+    query_promql,
+    list_slos,
+    calculate_span_durations,
+    find_bottleneck_services,
+    correlate_logs_with_trace,
+    get_gke_cluster_health,
+    list_alerts,
+    detect_metric_anomalies,
+    analyze_signal_correlation_strength,
+    # Log pattern tools
+    extract_log_patterns,
+    compare_log_patterns,
+    analyze_log_anomalies,
+    # Orchestration tools
+    run_aggregate_analysis,
+    run_triage_analysis,
+    run_deep_dive_analysis,
+    run_log_pattern_analysis,
+]
 
 
 def get_enabled_tools() -> list[Any]:
@@ -837,7 +806,21 @@ Direct Tools:
 )
 
 # Export as root_agent for ADK CLI compatibility
-root_agent = sre_agent
+root_agent = emojify_agent(sre_agent)
+
+# Emojify all sub-agents as well
+aggregate_analyzer = emojify_agent(aggregate_analyzer)
+latency_analyzer = emojify_agent(latency_analyzer)
+error_analyzer = emojify_agent(error_analyzer)
+structure_analyzer = emojify_agent(structure_analyzer)
+statistics_analyzer = emojify_agent(statistics_analyzer)
+causality_analyzer = emojify_agent(causality_analyzer)
+service_impact_analyzer = emojify_agent(service_impact_analyzer)
+log_analyst = emojify_agent(log_analyst)
+metrics_analyzer = emojify_agent(metrics_analyzer)
+alert_analyst = emojify_agent(alert_analyst)
+change_detective = emojify_agent(change_detective)
+resiliency_architect = emojify_agent(resiliency_architect)
 
 # ============================================================================
 # Dynamic Tool Loading
@@ -877,7 +860,7 @@ async def get_agent_with_mcp_tools(use_enabled_tools: bool = True) -> LlmAgent:
         all_tools.append(monitoring_toolset)
 
     # Create agent with all tools
-    return LlmAgent(
+    agent = LlmAgent(
         name="sre_agent",
         model="gemini-2.5-flash",
         description=sre_agent.description,
@@ -901,3 +884,4 @@ async def get_agent_with_mcp_tools(use_enabled_tools: bool = True) -> LlmAgent:
             resiliency_architect,
         ],
     )
+    return emojify_agent(agent)

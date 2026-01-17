@@ -36,6 +36,41 @@ logging.getLogger("google_genai.types").addFilter(_FunctionCallWarningFilter())
 logging.getLogger("google_genai._api_client").addFilter(_FunctionCallWarningFilter())
 
 
+class EmojiLoggingFilter(logging.Filter):
+    """Filter to add emojis to logs from specific libraries for better visibility."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        """Filter log records to add emojis."""
+        msg = record.getMessage()
+
+        # LLM Call Starting/Completed (ADK messages)
+        if "google_adk" in record.name or "google.adk" in record.name:
+            if "Sending out request" in msg:
+                record.msg = f"🧠 LLM Call Starting | {record.msg}"
+            elif "Response received" in msg:
+                record.msg = f"🧠 LLM Call Completed | {record.msg}"
+
+        # API Call Distinctions (Uvicorn access logs)
+        elif "uvicorn.access" in record.name:
+            if not record.msg.startswith("🌐"):
+                record.msg = f"🌐 API Call | {record.msg}"
+
+        # Tool calls from decorators or MCP
+        elif "sre_agent.tools" in record.name:
+            if "Tool Call" in msg and "🛠️" not in msg:
+                record.msg = f"🛠️  {record.msg}"
+            elif "Tool Success" in msg and "✅" not in msg:
+                record.msg = f"✅ {record.msg}"
+            elif "Tool Failed" in msg and "❌" not in msg:
+                record.msg = f"❌ {record.msg}"
+            elif "MCP Call" in msg and "🔗" not in msg:
+                record.msg = f"🔗 {record.msg}"
+            elif "MCP Success" in msg and "✨" not in msg:
+                record.msg = f"✨ {record.msg}"
+
+        return True
+
+
 class GenAiAttributes:
     """GenAI Semantic Conventions (based on GenAI SIG)."""
 
@@ -271,6 +306,7 @@ def _configure_logging_handlers(level: int, project_id: str | None) -> None:
 
         handler = logging.StreamHandler(sys.stdout)
         handler.setFormatter(JsonFormatter())
+        handler.addFilter(EmojiLoggingFilter())
         logging.getLogger().handlers = [handler]
         logging.getLogger().setLevel(level)
 
@@ -282,6 +318,33 @@ def _configure_logging_handlers(level: int, project_id: str | None) -> None:
             datefmt="%Y-%m-%d %H:%M:%S",
             force=True,
         )
+        # Add emoji filter to all project loggers and uvicorn
+        emoji_filter = EmojiLoggingFilter()
+
+        # Add to root logger handlers
+        for h in logging.getLogger().handlers:
+            h.addFilter(emoji_filter)
+
+        # Add to specific loggers that might have their own handlers (like uvicorn)
+        for logger_name in [
+            "uvicorn",
+            "uvicorn.access",
+            "uvicorn.error",
+            "google_adk",
+            "google.adk",
+        ]:
+            logger_obj = logging.getLogger(logger_name)
+            logger_obj.addFilter(emoji_filter)
+            for h in logger_obj.handlers:
+                h.addFilter(emoji_filter)
+
+        # Suppress OTLP export errors if they are too noisy and failing
+        # These are often due to quota or project ID mismatches in local dev
+        if os.environ.get("SUPPRESS_OTEL_ERRORS", "true").lower() == "true":
+            logging.getLogger(
+                "opentelemetry.exporter.otlp.proto.grpc.exporter"
+            ).setLevel(logging.CRITICAL)
+
         logging.getLogger().setLevel(level)
 
 
