@@ -127,7 +127,8 @@ def setup_telemetry(level: int = logging.INFO) -> None:
             {
                 ResourceAttributes.SERVICE_NAME: "sre-agent",
                 "service.namespace": "sre",
-                "cloud.platform": "gcp_compute_engine",  # Generic fallback
+                "service.instance.id": os.environ.get("HOSTNAME", "localhost"),
+                "cloud.region": os.environ.get("GCP_REGION", "global"),
                 "gcp.project_id": project_id,
             }
         )

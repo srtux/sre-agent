@@ -72,6 +72,12 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
                     f"{k}={repr(v)[:200]}" for k, v in bound.arguments.items()
                 )
                 _record_attributes(span, bound)
+
+                # Full args for debug
+                full_arg_str = ", ".join(
+                    f"{k}={v!r}" for k, v in bound.arguments.items()
+                )
+                logger.debug(f"Tool '{tool_name}' FULL ARGS: {full_arg_str}")
             except Exception:
                 arg_str = f"args={args}, kwargs={kwargs}"
 
@@ -81,6 +87,7 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
                 result = await func(*args, **kwargs)
                 duration_ms = (time.time() - start_time) * 1000
                 logger.info(f"Tool '{tool_name}' completed in {duration_ms:.2f}ms")
+                logger.debug(f"Tool '{tool_name}' RESULT: {result!r}")
                 return result
             except Exception as e:
                 success = False
@@ -120,6 +127,12 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
                     f"{k}={repr(v)[:200]}" for k, v in bound.arguments.items()
                 )
                 _record_attributes(span, bound)
+
+                # Full args for debug
+                full_arg_str = ", ".join(
+                    f"{k}={v!r}" for k, v in bound.arguments.items()
+                )
+                logger.debug(f"Tool '{tool_name}' FULL ARGS: {full_arg_str}")
             except Exception:
                 arg_str = f"args={args}, kwargs={kwargs}"
 
@@ -129,6 +142,7 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
                 result = func(*args, **kwargs)
                 duration_ms = (time.time() - start_time) * 1000
                 logger.info(f"Tool '{tool_name}' completed in {duration_ms:.2f}ms")
+                logger.debug(f"Tool '{tool_name}' RESULT: {result!r}")
                 return result
             except Exception as e:
                 success = False

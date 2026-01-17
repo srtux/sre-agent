@@ -45,3 +45,4 @@ Thumbs.db
 
 # Artifacts
 health_report*.txt
+.dmypy.json
