@@ -4,7 +4,8 @@ Uses ADK's built-in session service implementations:
 - DatabaseSessionService: For local development (SQLite)
 - VertexAiSessionService: For Agent Engine deployment
 
-Provides persistent session management and state storage.
+Provides persistent session management for conversation history.
+User preferences are handled separately by StorageService.
 """
 
 import logging
@@ -21,16 +22,6 @@ from google.adk.sessions import (
 )
 
 logger = logging.getLogger(__name__)
-
-# State key prefixes for proper scoping
-# See: https://google.github.io/adk-docs/sessions/state/
-STATE_PREFIX_USER = "user:"  # Persists across all sessions for a user
-STATE_PREFIX_APP = "app:"  # Persists across all users/sessions for the app
-STATE_PREFIX_TEMP = "temp:"  # Only for current invocation
-
-# State keys for user preferences
-STATE_KEY_SELECTED_PROJECT = f"{STATE_PREFIX_USER}selected_project"
-STATE_KEY_TOOL_CONFIG = f"{STATE_PREFIX_USER}tool_config"
 
 
 @dataclass
@@ -312,95 +303,6 @@ class ADKSessionManager:
             initial_state["project_id"] = project_id
 
         return await self.create_session(user_id=user_id, initial_state=initial_state)
-
-    # =========================================================================
-    # User Preferences via Session State
-    # =========================================================================
-
-    async def get_user_preferences_session(
-        self,
-        user_id: str = "default",
-    ) -> Session:
-        """Get or create the preferences session for a user.
-
-        Uses a special session ID for storing user preferences.
-        """
-        prefs_session_id = f"preferences-{user_id}"
-        session = await self.get_session(prefs_session_id, user_id)
-        if not session:
-            session = await self._session_service.create_session(
-                app_name=self.APP_NAME,
-                user_id=user_id,
-                state={"is_preferences_session": True},
-            )
-            # Note: We can't set the session ID directly, but we track it
-        return session
-
-    async def get_selected_project(self, user_id: str = "default") -> str | None:
-        """Get the selected project for a user from state."""
-        try:
-            sessions = await self._session_service.list_sessions(
-                app_name=self.APP_NAME,
-                user_id=user_id,
-            )
-            # Look for the most recent session with project_id in state
-            for session in sessions.sessions:
-                if session.state and STATE_KEY_SELECTED_PROJECT in session.state:
-                    return cast(
-                        str | None, session.state.get(STATE_KEY_SELECTED_PROJECT)
-                    )
-            return None
-        except Exception as e:
-            logger.error(f"Failed to get selected project: {e}")
-            return None
-
-    async def set_selected_project(
-        self,
-        project_id: str,
-        user_id: str = "default",
-    ) -> None:
-        """Set the selected project for a user in state."""
-        try:
-            # Get or create a preferences session
-            session = await self.get_or_create_session(user_id=user_id)
-            await self.update_session_state(
-                session,
-                {STATE_KEY_SELECTED_PROJECT: project_id},
-            )
-        except Exception as e:
-            logger.error(f"Failed to set selected project: {e}")
-
-    async def get_tool_config(self, user_id: str = "default") -> dict[str, bool] | None:
-        """Get tool configuration from state."""
-        try:
-            sessions = await self._session_service.list_sessions(
-                app_name=self.APP_NAME,
-                user_id=user_id,
-            )
-            for session in sessions.sessions:
-                if session.state and STATE_KEY_TOOL_CONFIG in session.state:
-                    return cast(
-                        dict[str, bool] | None, session.state.get(STATE_KEY_TOOL_CONFIG)
-                    )
-            return None
-        except Exception as e:
-            logger.error(f"Failed to get tool config: {e}")
-            return None
-
-    async def set_tool_config(
-        self,
-        enabled_tools: dict[str, bool],
-        user_id: str = "default",
-    ) -> None:
-        """Set tool configuration in state."""
-        try:
-            session = await self.get_or_create_session(user_id=user_id)
-            await self.update_session_state(
-                session,
-                {STATE_KEY_TOOL_CONFIG: enabled_tools},
-            )
-        except Exception as e:
-            logger.error(f"Failed to set tool config: {e}")
 
 
 # ============================================================================
