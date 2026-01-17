@@ -164,9 +164,6 @@ class _ConversationPageState extends State<ConversationPage>
       appBar: _buildAppBar(),
       body: Column(
         children: [
-          // Animated gradient background
-          _buildAnimatedBackground(),
-
           // Main content with session panel
           Expanded(
             child: Row(
