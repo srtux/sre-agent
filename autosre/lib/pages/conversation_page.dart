@@ -16,6 +16,8 @@ import 'tool_config_page.dart';
 class ConversationPage extends StatefulWidget {
   const ConversationPage({super.key});
 
+  static const double kMaxContentWidth = 1000.0;
+
   @override
   State<ConversationPage> createState() => _ConversationPageState();
 }
@@ -541,8 +543,11 @@ class _ConversationPageState extends State<ConversationPage>
           return _buildEmptyState();
         }
 
-        return ListView.builder(
-          controller: _scrollController,
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: ConversationPage.kMaxContentWidth),
+            child: ListView.builder(
+              controller: _scrollController,
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
           itemCount: messages.length + 1, // +1 for typing indicator
           itemBuilder: (context, index) {
@@ -563,7 +568,9 @@ class _ConversationPageState extends State<ConversationPage>
               animation: _typingController,
             );
           },
-        );
+        ),
+      ),
+    );
       },
     );
   }
@@ -794,7 +801,7 @@ class _ConversationPageState extends State<ConversationPage>
         top: false,
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 900),
+            constraints: const BoxConstraints(maxWidth: ConversationPage.kMaxContentWidth),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -953,8 +960,8 @@ class _MessageItemState extends State<_MessageItem>
         child: Container(
           margin: const EdgeInsets.symmetric(vertical: 4),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * 0.75,
+          constraints: const BoxConstraints(
+            maxWidth: 800,
           ),
           decoration: BoxDecoration(
             color: AppColors.primaryTeal.withValues(alpha: 0.15),
@@ -984,8 +991,8 @@ class _MessageItemState extends State<_MessageItem>
         child: Container(
           margin: const EdgeInsets.symmetric(vertical: 4),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * 0.85,
+          constraints: const BoxConstraints(
+            maxWidth: 800,
           ),
           decoration: BoxDecoration(
             color: AppColors.backgroundCard.withValues(alpha: 0.6),
@@ -1037,8 +1044,8 @@ class _MessageItemState extends State<_MessageItem>
         alignment: Alignment.centerLeft,
         child: Container(
           margin: const EdgeInsets.symmetric(vertical: 4),
-          constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * 0.95,
+          constraints: const BoxConstraints(
+            maxWidth: 950,
           ),
           decoration: BoxDecoration(
             color: AppColors.backgroundCard.withValues(alpha: 0.4),
