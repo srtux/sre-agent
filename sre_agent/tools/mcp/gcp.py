@@ -14,7 +14,7 @@ import asyncio
 import logging
 import os
 from collections.abc import Callable
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import google.auth
@@ -525,29 +525,28 @@ async def mcp_list_timeseries(
         raise ValueError("tool_context is required for MCP tools")
 
     import json
-    import time as time_module
 
     pid = project_id or get_project_id_with_fallback()
 
     # Build time interval
     if interval_end_time:
-        end_dt = datetime.fromisoformat(interval_end_time.replace("Z", "+00:00"))
-        end_seconds = int(end_dt.timestamp())
+        end_str = interval_end_time
     else:
-        end_seconds = int(time_module.time())
+        end_str = datetime.now(timezone.utc).isoformat()
 
     if interval_start_time:
-        start_dt = datetime.fromisoformat(interval_start_time.replace("Z", "+00:00"))
-        start_seconds = int(start_dt.timestamp())
+        start_str = interval_start_time
     else:
-        start_seconds = end_seconds - (minutes_ago * 60)
+        end_dt = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
+        start_dt = end_dt - timedelta(minutes=minutes_ago)
+        start_str = start_dt.isoformat()
 
     args = {
         "name": f"projects/{pid}" if pid else "",
         "filter": filter,
         "interval": {
-            "end_time": {"seconds": end_seconds},
-            "start_time": {"seconds": start_seconds},
+            "end_time": end_str,
+            "start_time": start_str,
         },
     }
 
@@ -659,7 +658,8 @@ async def mcp_execute_sql(
         raise ValueError("tool_context is required for MCP tools")
 
     args = {
-        "sql_query": sql_query,
+        "sql": sql_query,
+        "project_id": project_id or get_project_id_with_fallback(),
     }
 
     return await call_mcp_tool_with_retry(

@@ -59,7 +59,7 @@ class BigQueryClient:
         result = await call_mcp_tool_with_retry(
             create_bigquery_mcp_toolset,
             "execute_sql",
-            {"sql": query},
+            {"sql": query, "project_id": self.project_id},
             self.tool_context,
             project_id=self.project_id,
         )
@@ -106,7 +106,11 @@ class BigQueryClient:
         result = await call_mcp_tool_with_retry(
             create_bigquery_mcp_toolset,
             "get_table_info",
-            {"dataset_id": dataset_id, "table_id": table_id},
+            {
+                "dataset_id": dataset_id,
+                "table_id": table_id,
+                "project_id": self.project_id,
+            },
             self.tool_context,
             project_id=self.project_id,
         )

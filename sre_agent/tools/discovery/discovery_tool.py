@@ -66,7 +66,7 @@ async def discover_telemetry_sources(
     list_datasets_result = await call_mcp_tool_with_retry(
         create_bigquery_mcp_toolset,
         "list_dataset_ids",
-        {},
+        {"project_id": pid},
         tool_context,
         project_id=pid,
     )
@@ -121,7 +121,7 @@ async def discover_telemetry_sources(
         list_tables_result = await call_mcp_tool_with_retry(
             create_bigquery_mcp_toolset,
             "list_table_ids",
-            {"dataset_id": dataset_id},
+            {"dataset_id": dataset_id, "project_id": pid},
             tool_context,
             project_id=pid,
         )
