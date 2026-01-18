@@ -27,6 +27,8 @@ htmlcov/
 *.log
 sre_agent_tmp*/
 session.db
+.sre_agent_sessions.db
+.sre_agent_preferences.json
 
 # IDEs
 .vscode/
@@ -40,4 +42,7 @@ Thumbs.db
 
 # Package Managers
 # uv.lock
-uv.lock
+
+# Artifacts
+health_report*.txt
+.dmypy.json

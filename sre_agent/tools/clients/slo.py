@@ -11,24 +11,23 @@ SRE Philosophy: "Hope is not a strategy" - measure everything with SLOs!
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
-import google.auth
 from google.auth.transport.requests import AuthorizedSession
 from google.cloud import monitoring_v3
 
+from ...auth import get_current_credentials
 from ..common import adk_tool
+from .factory import get_monitoring_client
 
 logger = logging.getLogger(__name__)
 
 
 def _get_authorized_session() -> AuthorizedSession:
     """Get an authorized session for REST API calls."""
-    credentials, _ = google.auth.default(
-        scopes=["https://www.googleapis.com/auth/cloud-platform"]
-    )
-    return AuthorizedSession(credentials)
+    credentials, _ = get_current_credentials()
+    return AuthorizedSession(credentials)  # type: ignore[no-untyped-call]
 
 
 @adk_tool
@@ -36,8 +35,7 @@ def list_slos(
     project_id: str,
     service_id: str | None = None,
 ) -> str:
-    """
-    List all Service Level Objectives defined in a project.
+    """List all Service Level Objectives defined in a project.
 
     SLOs are the foundation of SRE - they define what "reliable enough" means
     for your services. Use this to understand what SLOs exist and their targets.
@@ -54,7 +52,8 @@ def list_slos(
         list_slos("my-project", "checkout-service")
     """
     try:
-        client = monitoring_v3.ServiceMonitoringServiceClient()
+        credentials, _ = get_current_credentials()
+        client = monitoring_v3.ServiceMonitoringServiceClient(credentials=credentials)
 
         if service_id:
             # List SLOs for a specific service
@@ -64,9 +63,7 @@ def list_slos(
         else:
             # First, list all services
             services_parent = f"projects/{project_id}"
-            services_request = monitoring_v3.ListServicesRequest(
-                parent=services_parent
-            )
+            services_request = monitoring_v3.ListServicesRequest(parent=services_parent)
             services = list(client.list_services(request=services_request))
 
             # Then list SLOs for each service
@@ -124,8 +121,7 @@ def get_slo_status(
     service_id: str,
     slo_id: str,
 ) -> str:
-    """
-    Get current SLO compliance status including error budget.
+    """Get current SLO compliance status including error budget.
 
     This is THE critical metric for SRE work - shows if you're meeting
     your reliability targets and how much error budget remains.
@@ -154,18 +150,10 @@ def get_slo_status(
 
         # Calculate time series for error budget
         # Query the SLO's compliance ratio using Cloud Monitoring API
-        client = monitoring_v3.MetricServiceClient()
 
         # Get the error budget metric
-        now = datetime.now(timezone.utc)
-        end_time = now
-        start_time = now.replace(hour=0, minute=0, second=0, microsecond=0)
-
         # The SLO generates metrics automatically
-        filter_str = f'select_slo_budget("{slo_name}")'
-
         # Alternative: Use REST API for error budget
-        budget_url = f"https://monitoring.googleapis.com/v3/{slo_name}/errorBudget"
 
         result = {
             "slo_name": slo_name,
@@ -211,8 +199,7 @@ def analyze_error_budget_burn(
     slo_id: str,
     hours: int = 24,
 ) -> str:
-    """
-    Analyze error budget burn rate to predict SLO violations.
+    """Analyze error budget burn rate to predict SLO violations.
 
     This is early warning for reliability issues - if you're burning
     error budget too fast, you need to take action before users notice!
@@ -230,12 +217,11 @@ def analyze_error_budget_burn(
         analyze_error_budget_burn("my-project", "api-service", "availability-slo", 24)
     """
     try:
-        session = _get_authorized_session()
         slo_name = f"projects/{project_id}/services/{service_id}/serviceLevelObjectives/{slo_id}"
 
         # Get time series data for the SLO
         # Cloud Monitoring provides built-in SLO metrics
-        client = monitoring_v3.MetricServiceClient()
+        client = get_monitoring_client()
 
         import time
 
@@ -260,7 +246,7 @@ def analyze_error_budget_burn(
                 name=project_name,
                 filter=filter_str,
                 interval=interval,
-                view=monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,
+                view=monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,  # type: ignore
             )
 
             compliance_points = []
@@ -317,7 +303,9 @@ def analyze_error_budget_burn(
                         )
                     else:
                         result["risk_level"] = "LOW"
-                        result["recommendation"] = "Error budget consumption within normal range."
+                        result["recommendation"] = (
+                            "Error budget consumption within normal range."
+                        )
                 else:
                     result["risk_level"] = "HEALTHY"
                     result["recommendation"] = "Error budget is stable or recovering."
@@ -341,8 +329,7 @@ def get_golden_signals(
     service_name: str,
     minutes_ago: int = 60,
 ) -> str:
-    """
-    Get the four SRE Golden Signals for a service.
+    """Get the four SRE Golden Signals for a service.
 
     The Golden Signals are:
     1. Latency - How long requests take
@@ -364,7 +351,7 @@ def get_golden_signals(
         get_golden_signals("my-project", "frontend-service", 30)
     """
     try:
-        client = monitoring_v3.MetricServiceClient()
+        client = get_monitoring_client()
         project_name = f"projects/{project_id}"
 
         import time
@@ -402,7 +389,7 @@ def get_golden_signals(
                         name=project_name,
                         filter=filter_str,
                         interval=interval,
-                        view=monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,
+                        view=monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,  # type: ignore
                     )
                 )
                 if results:
@@ -423,7 +410,9 @@ def get_golden_signals(
                             "status": (
                                 "GOOD"
                                 if avg_latency < 200
-                                else "WARNING" if avg_latency < 500 else "CRITICAL"
+                                else "WARNING"
+                                if avg_latency < 500
+                                else "CRITICAL"
                             ),
                         }
                         break
@@ -441,7 +430,7 @@ def get_golden_signals(
         traffic_filters = [
             f'metric.type="run.googleapis.com/request_count" AND resource.labels.service_name="{service_name}"',
             f'metric.type="istio.io/service/server/request_count" AND metric.labels.destination_service_name="{service_name}"',
-            f'metric.type="loadbalancing.googleapis.com/https/request_count"',
+            'metric.type="loadbalancing.googleapis.com/https/request_count"',
         ]
 
         for filter_str in traffic_filters:
@@ -451,7 +440,7 @@ def get_golden_signals(
                         name=project_name,
                         filter=filter_str,
                         interval=interval,
-                        view=monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,
+                        view=monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,  # type: ignore
                     )
                 )
                 if results:
@@ -490,7 +479,7 @@ def get_golden_signals(
                         name=project_name,
                         filter=filter_str,
                         interval=interval,
-                        view=monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,
+                        view=monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,  # type: ignore
                     )
                 )
                 if results:
@@ -513,7 +502,9 @@ def get_golden_signals(
                         "status": (
                             "GOOD"
                             if error_rate < 0.1
-                            else "WARNING" if error_rate < 1 else "CRITICAL"
+                            else "WARNING"
+                            if error_rate < 1
+                            else "CRITICAL"
                         ),
                     }
                     break
@@ -530,8 +521,8 @@ def get_golden_signals(
         # 4. SATURATION - Resource utilization
         saturation_filters = [
             f'metric.type="run.googleapis.com/container/cpu/utilizations" AND resource.labels.service_name="{service_name}"',
-            f'metric.type="kubernetes.io/container/cpu/limit_utilization"',
-            f'metric.type="compute.googleapis.com/instance/cpu/utilization"',
+            'metric.type="kubernetes.io/container/cpu/limit_utilization"',
+            'metric.type="compute.googleapis.com/instance/cpu/utilization"',
         ]
 
         for filter_str in saturation_filters:
@@ -541,7 +532,7 @@ def get_golden_signals(
                         name=project_name,
                         filter=filter_str,
                         interval=interval,
-                        view=monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,
+                        view=monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,  # type: ignore
                     )
                 )
                 if results:
@@ -564,7 +555,9 @@ def get_golden_signals(
                             "status": (
                                 "GOOD"
                                 if avg_cpu < 70
-                                else "WARNING" if avg_cpu < 85 else "CRITICAL"
+                                else "WARNING"
+                                if avg_cpu < 85
+                                else "CRITICAL"
                             ),
                         }
                         break
@@ -578,7 +571,9 @@ def get_golden_signals(
             }
 
         # Overall health assessment
-        statuses = [s.get("status", "NO_DATA") for s in golden_signals["signals"].values()]
+        statuses = [
+            s.get("status", "NO_DATA") for s in golden_signals["signals"].values()
+        ]
         if "CRITICAL" in statuses:
             golden_signals["overall_health"] = "CRITICAL"
         elif "WARNING" in statuses:
@@ -604,8 +599,7 @@ def correlate_incident_with_slo_impact(
     incident_start: str,
     incident_end: str,
 ) -> str:
-    """
-    Calculate how much an incident consumed error budget.
+    """Calculate how much an incident consumed error budget.
 
     This is critical for postmortems - quantifies the impact of an incident
     on your reliability targets.
@@ -719,8 +713,7 @@ def predict_slo_violation(
     slo_id: str,
     hours_ahead: int = 24,
 ) -> str:
-    """
-    Predict if current error rate will exhaust error budget.
+    """Predict if current error rate will exhaust error budget.
 
     This is proactive SRE - catch problems before they become outages!
 

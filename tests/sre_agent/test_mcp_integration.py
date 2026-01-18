@@ -4,14 +4,14 @@ from unittest.mock import MagicMock, patch
 
 class TestMCPIntegration(unittest.TestCase):
     @patch("sre_agent.tools.mcp.gcp.ApiRegistry")
-    @patch("sre_agent.tools.mcp.gcp.google.auth.default")
+    @patch("sre_agent.tools.mcp.gcp.get_current_credentials")
     @patch("sre_agent.tools.mcp.gcp.os.environ")
     def test_create_bigquery_mcp_toolset_returns_toolset(
-        self, mock_environ, mock_auth_default, mock_api_registry_cls
+        self, mock_environ, mock_get_credentials, mock_api_registry_cls
     ):
         """Test that create_bigquery_mcp_toolset creates a toolset when project is available."""
         # Setup mocks
-        mock_auth_default.return_value = (MagicMock(), "mock-project-id")
+        mock_get_credentials.return_value = (MagicMock(), "mock-project-id")
         mock_environ.get.return_value = "mock-project-id"
 
         mock_api_registry = MagicMock()
@@ -34,13 +34,13 @@ class TestMCPIntegration(unittest.TestCase):
         mock_api_registry_cls.assert_called_with("mock-project-id", header_provider=ANY)
 
     @patch("sre_agent.tools.mcp.gcp.ApiRegistry")
-    @patch("sre_agent.tools.mcp.gcp.google.auth.default")
+    @patch("sre_agent.tools.mcp.gcp.get_current_credentials")
     @patch("sre_agent.tools.mcp.gcp.os.environ")
     def test_create_bigquery_mcp_toolset_creates_new_instance_each_call(
-        self, mock_environ, mock_auth_default, mock_api_registry_cls
+        self, mock_environ, mock_get_credentials, mock_api_registry_cls
     ):
         """Test that create_bigquery_mcp_toolset returns fresh toolset each time."""
-        mock_auth_default.return_value = (MagicMock(), "mock-project-id")
+        mock_get_credentials.return_value = (MagicMock(), "mock-project-id")
         mock_environ.get.return_value = "mock-project-id"
 
         mock_api_registry = MagicMock()
@@ -61,14 +61,14 @@ class TestMCPIntegration(unittest.TestCase):
         # get_toolset should be called twice
         self.assertEqual(mock_api_registry.get_toolset.call_count, 2)
 
-    @patch("sre_agent.tools.mcp.gcp.google.auth.default")
+    @patch("sre_agent.tools.mcp.gcp.get_current_credentials")
     @patch("sre_agent.tools.mcp.gcp.os.environ")
     def test_create_bigquery_mcp_toolset_handles_missing_project_gracefully(
-        self, mock_environ, mock_auth_default
+        self, mock_environ, mock_get_credentials
     ):
         """Test that create_bigquery_mcp_toolset handles missing project ID."""
         # Setup: mock auth to return no project
-        mock_auth_default.return_value = (MagicMock(), None)
+        mock_get_credentials.return_value = (MagicMock(), None)
         # Ensure GOOGLE_CLOUD_PROJECT is not set (mock environ)
         mock_environ.get.return_value = None
 
@@ -79,25 +79,25 @@ class TestMCPIntegration(unittest.TestCase):
         self.assertIsNone(result)
 
     @patch("sre_agent.tools.mcp.gcp.ApiRegistry")
-    @patch("sre_agent.tools.mcp.gcp.google.auth.default")
+    @patch("sre_agent.tools.mcp.gcp.get_current_credentials")
     @patch("sre_agent.tools.mcp.gcp.os.environ")
-    def test_create_bigquery_mcp_toolset_handles_creation_error_gracefully(
-        self, mock_environ, mock_auth_default, mock_api_registry_cls
+    def test_create_bigquery_mcp_toolset_raises_on_creation_error(
+        self, mock_environ, mock_get_credentials, mock_api_registry_cls
     ):
-        """Test that create_bigquery_mcp_toolset handles errors gracefully."""
-        mock_auth_default.return_value = (MagicMock(), "mock-project-id")
+        """Test that create_bigquery_mcp_toolset raises errors."""
+        mock_get_credentials.return_value = (MagicMock(), "mock-project-id")
         mock_environ.get.return_value = "mock-project-id"
 
         # Setup mock to raise error during get_toolset
-        mock_api_registry_cls.return_value.get_toolset.side_effect = Exception(
+        mock_api_registry_cls.return_value.get_toolset.side_effect = RuntimeError(
             "Connection error"
         )
 
         from sre_agent.tools.mcp.gcp import create_bigquery_mcp_toolset
 
-        # Should return None on error (not raise)
-        result = create_bigquery_mcp_toolset()
-        self.assertIsNone(result)
+        # Should raise RuntimeError
+        with self.assertRaises(RuntimeError):
+            create_bigquery_mcp_toolset()
 
     def test_mcp_toolset_not_created_at_module_import(self):
         """Test that MCP toolsets are not created just by importing agent."""

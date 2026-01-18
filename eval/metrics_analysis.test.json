@@ -8,7 +8,7 @@
           "user_content": {
             "parts": [
               {
-                "text": "Can you check the CPU usage for calculation-service and see if there are any anomalies?"
+                "text": "Can you check the CPU usage for calculation-service in project TEST_PROJECT_ID and see if there are any anomalies?"
               }
             ],
             "role": "user"

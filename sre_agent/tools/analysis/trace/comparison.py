@@ -32,7 +32,9 @@ anomalies_detected = meter.create_counter(
 )
 
 
-def _record_telemetry(func_name: str, success: bool = True, duration_ms: float = 0.0):
+def _record_telemetry(
+    func_name: str, success: bool = True, duration_ms: float = 0.0
+) -> None:
     attributes = {
         "code.function": func_name,
         "success": str(success).lower(),
@@ -50,8 +52,7 @@ def compare_span_timings(
     target_trace_id: str,
     project_id: str | None = None,
 ) -> dict[str, Any]:
-    """
-    Compares timing between spans in two traces and detects performance anti-patterns.
+    """Compares timing between spans in two traces and detects performance anti-patterns.
 
     Args:
         baseline_trace_id: The ID of the reference/normal trace.
@@ -325,8 +326,7 @@ def find_structural_differences(
     target_trace_id: str,
     project_id: str | None = None,
 ) -> dict[str, Any]:
-    """
-    Compares the call graph structure between two traces.
+    """Compares the call graph structure between two traces.
 
     Args:
         baseline_trace_id: The ID of the reference/normal trace.

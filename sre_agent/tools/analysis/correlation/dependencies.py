@@ -41,8 +41,7 @@ def build_service_dependency_graph(
     min_call_count: int = 10,
     include_external: bool = True,
 ) -> str:
-    """
-    Builds a service dependency graph from trace data.
+    """Builds a service dependency graph from trace data.
 
     Analyzes CLIENT spans (outgoing calls) to determine which services
     depend on which other services. This is the actual runtime topology,
@@ -233,8 +232,7 @@ def analyze_upstream_downstream_impact(
     time_window_hours: int = 24,
     depth: int = 3,
 ) -> str:
-    """
-    Analyzes the upstream and downstream impact of a service.
+    """Analyzes the upstream and downstream impact of a service.
 
     Upstream: Services that call this service (who would be affected if it fails)
     Downstream: Services this service calls (whose failures would affect it)
@@ -416,8 +414,7 @@ def detect_circular_dependencies(
     time_window_hours: int = 24,
     max_cycle_length: int = 5,
 ) -> str:
-    """
-    Detects circular dependencies in the service graph.
+    """Detects circular dependencies in the service graph.
 
     Circular dependencies (A -> B -> C -> A) can cause:
     - Deadlocks under load
@@ -552,8 +549,7 @@ def find_hidden_dependencies(
     time_window_hours: int = 24,
     min_call_count: int = 5,
 ) -> str:
-    """
-    Finds dependencies that may not be in official architecture documentation.
+    """Finds dependencies that may not be in official architecture documentation.
 
     Hidden dependencies are discovered by analyzing trace data for:
     - Calls to external services

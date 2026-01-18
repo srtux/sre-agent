@@ -13,13 +13,18 @@ different task" errors because anyio cancel scopes cannot cross task boundaries.
 import asyncio
 import logging
 import os
-from datetime import datetime, timezone
+from collections.abc import Callable
+from datetime import datetime, timedelta, timezone
+from typing import Any
 
-import google.auth
-from google.adk.tools import ToolContext
+import httpx
+from google.adk.tools import ToolContext  # type: ignore[attr-defined]
 from google.adk.tools.api_registry import ApiRegistry
 
+from ...auth import get_current_credentials
+from ...schema import ToolStatus
 from ..common import adk_tool
+from .mock_mcp import MockMcpToolset
 
 logger = logging.getLogger(__name__)
 
@@ -28,16 +33,15 @@ def get_project_id_with_fallback() -> str | None:
     """Get project ID from environment or default credentials."""
     project_id = None
     try:
-        _, project_id = google.auth.default()
+        _, project_id = get_current_credentials()
         project_id = project_id or os.environ.get("GOOGLE_CLOUD_PROJECT")
     except Exception:
         pass
     return project_id
 
 
-def create_bigquery_mcp_toolset(project_id: str | None = None):
-    """
-    Creates a new instance of the BigQuery MCP toolset.
+def create_bigquery_mcp_toolset(project_id: str | None = None) -> Any:
+    """Creates a new instance of the BigQuery MCP toolset.
 
     NOTE: This function should be called in an async context (within an async
     function) to ensure proper MCP session lifecycle management.
@@ -66,39 +70,36 @@ def create_bigquery_mcp_toolset(project_id: str | None = None):
         )
         return None
 
-    try:
-        logger.info(f"Creating BigQuery MCP toolset for project: {project_id}")
+    # Check for test environment
+    if os.environ.get("USE_MOCK_MCP") == "true" or os.environ.get("ADK_ENV") == "test":
+        logger.info("Using Mock BigQuery MCP toolset (Test Environment)")
+        return MockMcpToolset()
 
-        default_server = "google-bigquery.googleapis.com-mcp"
-        mcp_server = os.environ.get("BIGQUERY_MCP_SERVER", default_server)
-        mcp_server_name = (
-            f"projects/{project_id}/locations/global/mcpServers/{mcp_server}"
-        )
+    logger.info(f"Creating BigQuery MCP toolset for project: {project_id}")
 
-        api_registry = ApiRegistry(
-            project_id, header_provider=lambda _: {"x-goog-user-project": project_id}
-        )
+    default_server = "google-bigquery.googleapis.com-mcp"
+    mcp_server = os.environ.get("BIGQUERY_MCP_SERVER", default_server)
+    mcp_server_name = f"projects/{project_id}/locations/global/mcpServers/{mcp_server}"
 
-        mcp_toolset = api_registry.get_toolset(
-            mcp_server_name=mcp_server_name,
-            tool_filter=[
-                "execute_sql",
-                "list_dataset_ids",
-                "list_table_ids",
-                "get_table_info",
-            ],
-        )
+    api_registry = ApiRegistry(
+        project_id, header_provider=lambda _: {"x-goog-user-project": project_id}
+    )
 
-        return mcp_toolset
+    mcp_toolset = api_registry.get_toolset(
+        mcp_server_name=mcp_server_name,
+        tool_filter=[
+            "execute_sql",
+            "list_dataset_ids",
+            "list_table_ids",
+            "get_table_info",
+        ],
+    )
 
-    except Exception as e:
-        logger.error(f"Failed to create BigQuery MCP toolset: {e}", exc_info=True)
-        return None
+    return mcp_toolset
 
 
-def create_logging_mcp_toolset(project_id: str | None = None):
-    """
-    Creates a Cloud Logging MCP toolset with generic logging capabilities.
+def create_logging_mcp_toolset(project_id: str | None = None) -> Any:
+    """Creates a Cloud Logging MCP toolset with generic logging capabilities.
 
     Tools exposed:
         - list_log_entries: Search and retrieve log entries
@@ -121,34 +122,31 @@ def create_logging_mcp_toolset(project_id: str | None = None):
         )
         return None
 
-    try:
-        logger.info(f"Creating Cloud Logging MCP toolset for project: {project_id}")
+    # Check for test environment
+    if os.environ.get("USE_MOCK_MCP") == "true" or os.environ.get("ADK_ENV") == "test":
+        logger.info("Using Mock Cloud Logging MCP toolset (Test Environment)")
+        return MockMcpToolset()
 
-        default_server = "logging.googleapis.com-mcp"
-        mcp_server = os.environ.get("LOGGING_MCP_SERVER", default_server)
-        mcp_server_name = (
-            f"projects/{project_id}/locations/global/mcpServers/{mcp_server}"
-        )
+    logger.info(f"Creating Cloud Logging MCP toolset for project: {project_id}")
 
-        api_registry = ApiRegistry(
-            project_id, header_provider=lambda _: {"x-goog-user-project": project_id}
-        )
+    default_server = "logging.googleapis.com-mcp"
+    mcp_server = os.environ.get("LOGGING_MCP_SERVER", default_server)
+    mcp_server_name = f"projects/{project_id}/locations/global/mcpServers/{mcp_server}"
 
-        mcp_toolset = api_registry.get_toolset(
-            mcp_server_name=mcp_server_name,
-            tool_filter=["list_log_entries"],
-        )
+    api_registry = ApiRegistry(
+        project_id, header_provider=lambda _: {"x-goog-user-project": project_id}
+    )
 
-        return mcp_toolset
+    mcp_toolset = api_registry.get_toolset(
+        mcp_server_name=mcp_server_name,
+        tool_filter=["list_log_entries"],
+    )
 
-    except Exception as e:
-        logger.error(f"Failed to create Cloud Logging MCP toolset: {e}", exc_info=True)
-        return None
+    return mcp_toolset
 
 
-def create_monitoring_mcp_toolset(project_id: str | None = None):
-    """
-    Creates a Cloud Monitoring MCP toolset with generic metrics capabilities.
+def create_monitoring_mcp_toolset(project_id: str | None = None) -> Any:
+    """Creates a Cloud Monitoring MCP toolset with generic metrics capabilities.
 
     Tools exposed:
         - list_timeseries: Query time series metrics data
@@ -172,44 +170,39 @@ def create_monitoring_mcp_toolset(project_id: str | None = None):
         )
         return None
 
-    try:
-        logger.info(f"Creating Cloud Monitoring MCP toolset for project: {project_id}")
+    # Check for test environment
+    if os.environ.get("USE_MOCK_MCP") == "true" or os.environ.get("ADK_ENV") == "test":
+        logger.info("Using Mock Cloud Monitoring MCP toolset (Test Environment)")
+        return MockMcpToolset()
 
-        default_server = "monitoring.googleapis.com-mcp"
-        mcp_server = os.environ.get("MONITORING_MCP_SERVER", default_server)
-        mcp_server_name = (
-            f"projects/{project_id}/locations/global/mcpServers/{mcp_server}"
-        )
+    logger.info(f"Creating Cloud Monitoring MCP toolset for project: {project_id}")
 
-        api_registry = ApiRegistry(
-            project_id, header_provider=lambda _: {"x-goog-user-project": project_id}
-        )
+    default_server = "monitoring.googleapis.com-mcp"
+    mcp_server = os.environ.get("MONITORING_MCP_SERVER", default_server)
+    mcp_server_name = f"projects/{project_id}/locations/global/mcpServers/{mcp_server}"
 
-        mcp_toolset = api_registry.get_toolset(
-            mcp_server_name=mcp_server_name,
-            tool_filter=["list_timeseries", "query_range"],
-        )
+    api_registry = ApiRegistry(
+        project_id, header_provider=lambda _: {"x-goog-user-project": project_id}
+    )
 
-        return mcp_toolset
+    mcp_toolset = api_registry.get_toolset(
+        mcp_server_name=mcp_server_name,
+        tool_filter=["list_timeseries", "query_range"],
+    )
 
-    except Exception as e:
-        logger.error(
-            f"Failed to create Cloud Monitoring MCP toolset: {e}", exc_info=True
-        )
-        return None
+    return mcp_toolset
 
 
 async def call_mcp_tool_with_retry(
-    create_toolset_fn,
+    create_toolset_fn: Callable[[str | None], Any],
     tool_name: str,
-    args: dict,
+    args: dict[str, Any],
     tool_context: ToolContext,
     project_id: str | None = None,
     max_retries: int = 3,
     base_delay: float = 1.0,
-) -> dict:
-    """
-    Generic helper to call an MCP tool with retry logic for session errors.
+) -> dict[str, Any]:
+    """Generic helper to call an MCP tool with retry logic for session errors.
 
     Args:
         create_toolset_fn: Function to create the MCP toolset.
@@ -223,31 +216,123 @@ async def call_mcp_tool_with_retry(
     Returns:
         Tool result or error dict.
     """
+    from fastapi.concurrency import run_in_threadpool
+
     if not project_id:
         project_id = get_project_id_with_fallback()
 
     if not project_id:
         return {
-            "error": "No project ID available. Set GOOGLE_CLOUD_PROJECT environment variable."
+            "status": ToolStatus.ERROR,
+            "error": "No project ID available. Set GOOGLE_CLOUD_PROJECT environment variable.",
         }
 
     for attempt in range(max_retries):
+        mcp_toolset = None
         try:
-            mcp_toolset = create_toolset_fn(project_id)
+            logger.debug(
+                f"DEBUG: Calling create_toolset_fn for {tool_name} (project_id={project_id})"
+            )
+            # Offload blocking synchronous toolset creation to threadpool
+            # Wrap in timeout to prevent hanging during initialization
+            try:
+                mcp_toolset = await asyncio.wait_for(
+                    run_in_threadpool(create_toolset_fn, project_id),
+                    timeout=60.0,  # 60s timeout for toolset creation
+                )
+            except asyncio.TimeoutError:
+                logger.error(f"Timeout creating MCP toolset for {tool_name}")
+                return {
+                    "status": ToolStatus.ERROR,
+                    "error": (
+                        f"Failed to create MCP toolset for '{tool_name}': Connection timed out after 60 seconds. "
+                        "The MCP server may be unavailable or overloaded. DO NOT retry this tool. "
+                        "Use direct API alternatives instead: list_log_entries for logs, fetch_trace for traces, "
+                        "query_promql for metrics."
+                    ),
+                    "non_retryable": True,
+                    "error_type": "MCP_CONNECTION_TIMEOUT",
+                }
+
+            logger.debug(f"DEBUG: create_toolset_fn returned for {tool_name}")
 
             if not mcp_toolset:
-                return {"error": f"MCP toolset unavailable for {tool_name}"}
+                return {
+                    "status": ToolStatus.ERROR,
+                    "error": (
+                        f"MCP toolset unavailable for '{tool_name}'. The MCP server could not be initialized. "
+                        "This is typically a configuration or authentication issue. DO NOT retry this tool. "
+                        "Use direct API alternatives instead: list_log_entries for logs, fetch_trace for traces, "
+                        "query_promql or list_time_series for metrics."
+                    ),
+                    "non_retryable": True,
+                    "error_type": "MCP_UNAVAILABLE",
+                }
 
             tools = await mcp_toolset.get_tools()
 
             for tool in tools:
                 if tool.name == tool_name:
-                    result = await tool.run_async(args=args, tool_context=tool_context)
-                    return {"source": "mcp", "result": result}
+                    # Enforce timeout on tool execution
+                    try:
+                        logger.info(
+                            f"🔗 MCP Call: '{tool_name}' (Project: {project_id}) | Args: {args}"
+                        )
+                        result = await asyncio.wait_for(
+                            tool.run_async(args=args, tool_context=tool_context),
+                            timeout=180.0,  # 180s timeout for tool execution
+                        )
+                        logger.info(f"✨ MCP Success: '{tool_name}'")
+                        return {
+                            "status": ToolStatus.SUCCESS,
+                            "result": result,
+                            "metadata": {"source": "mcp"},
+                        }
+                    except asyncio.TimeoutError:
+                        logger.error(f"Timeout executing MCP tool {tool_name}")
+                        return {
+                            "status": ToolStatus.ERROR,
+                            "error": (
+                                f"Tool '{tool_name}' timed out after 180 seconds. This is typically caused by "
+                                "slow network conditions or high server load. DO NOT retry immediately. "
+                                "Consider using direct API alternatives (list_log_entries, fetch_trace, query_promql) "
+                                "which may be more reliable, or wait and try again later."
+                            ),
+                            "non_retryable": True,
+                            "error_type": "TIMEOUT",
+                        }
 
-            return {"error": f"{tool_name} tool not found in MCP toolset"}
+            return {
+                "status": ToolStatus.ERROR,
+                "error": (
+                    f"Tool '{tool_name}' not found in MCP toolset. This is a configuration error - "
+                    "the tool may not be available in the current MCP server. DO NOT retry. "
+                    "Use direct API alternatives instead."
+                ),
+                "non_retryable": True,
+                "error_type": "TOOL_NOT_FOUND",
+            }
 
-        except Exception as e:
+        except asyncio.CancelledError:
+            logger.warning(f"MCP Tool execution cancelled: {tool_name}")
+            return {
+                "status": ToolStatus.ERROR,
+                "error": (
+                    f"Tool '{tool_name}' execution was cancelled by the system. "
+                    "DO NOT retry this operation immediately. "
+                    "Use an alternative approach or smaller data scope if this was due to a timeout."
+                ),
+                "non_retryable": True,
+                "error_type": "SYSTEM_CANCELLATION",
+            }
+
+        except (httpx.HTTPStatusError, Exception) as e:
+            logger.error(
+                f"MCP Tool execution failed: {tool_name} error={e!s}", exc_info=True
+            )
+            if hasattr(e, "response") and hasattr(e.response, "text"):
+                logger.error(f"HTTP Response Body: {e.response.text}")
+
             error_str = str(e)
             is_session_error = "Session terminated" in error_str or (
                 "session" in error_str.lower() and "error" in error_str.lower()
@@ -260,14 +345,79 @@ async def call_mcp_tool_with_retry(
                     f"Retrying in {delay}s..."
                 )
                 await asyncio.sleep(delay)
+            elif is_session_error and attempt >= max_retries - 1:
+                # Session errors exhausted all retries - mark as non-retryable
+                logger.error(
+                    f"{tool_name} failed after {max_retries} attempts due to session errors: {e}"
+                )
+                return {
+                    "status": ToolStatus.ERROR,
+                    "error": (
+                        f"Tool '{tool_name}' failed after {max_retries} retry attempts due to persistent session errors. "
+                        "The MCP connection is unstable. DO NOT retry this tool. "
+                        "Switch to direct API alternatives: list_log_entries, fetch_trace, query_promql, list_time_series."
+                    ),
+                    "non_retryable": True,
+                    "error_type": "MAX_RETRIES_EXHAUSTED",
+                }
             else:
-                if attempt >= max_retries - 1:
-                    logger.error(
-                        f"{tool_name} failed after {max_retries} attempts: {e}"
-                    )
-                raise
+                # Non-session error - determine if retryable based on error content
+                error_str_lower = str(e).lower()
+                is_auth_error = any(
+                    kw in error_str_lower
+                    for kw in ["permission", "unauthorized", "forbidden", "403", "401"]
+                )
+                is_not_found = any(
+                    kw in error_str_lower
+                    for kw in ["not found", "404", "does not exist"]
+                )
+                is_non_retryable = is_auth_error or is_not_found
 
-    return {"error": f"Failed to execute {tool_name} after {max_retries} attempts"}
+                return {
+                    "status": ToolStatus.ERROR,
+                    "error": (
+                        f"Tool '{tool_name}' execution failed: {e!s}. "
+                        + (
+                            "This appears to be a permission or resource issue - DO NOT retry. "
+                            "Check authentication and resource availability."
+                            if is_non_retryable
+                            else "This may be a transient error. If the issue persists after one retry, "
+                            "try using direct API alternatives instead."
+                        )
+                    ),
+                    "non_retryable": is_non_retryable,
+                    "error_type": "AUTH_ERROR"
+                    if is_auth_error
+                    else "NOT_FOUND"
+                    if is_not_found
+                    else "EXECUTION_ERROR",
+                }
+        finally:
+            if mcp_toolset and hasattr(mcp_toolset, "close"):
+                try:
+                    await mcp_toolset.close()
+                except asyncio.CancelledError:
+                    # Ignore cancellation errors during cleanup to ensure result is returned
+                    logger.debug(
+                        "MCP toolset close interrupted by cancellation (ignored)"
+                    )
+                except RuntimeError as e:
+                    # Ignore "Attempted to exit cancel scope..." errors from anyio/mcp cleanup
+                    # These occur due to task scoping issues in the underlying library during forced cleanup
+                    logger.debug(f"RuntimeError during MCP cleanup (ignored): {e}")
+                except Exception as e:
+                    logger.warning(f"Error closing MCP toolset: {e}")
+
+    return {
+        "status": ToolStatus.ERROR,
+        "error": (
+            f"Tool '{tool_name}' failed after {max_retries} retry attempts due to persistent session errors. "
+            "The MCP connection is unstable. DO NOT retry this tool. "
+            "Switch to direct API alternatives: list_log_entries, fetch_trace, query_promql, list_time_series."
+        ),
+        "non_retryable": True,
+        "error_type": "MAX_RETRIES_EXHAUSTED",
+    }
 
 
 # =============================================================================
@@ -282,9 +432,8 @@ async def mcp_list_log_entries(
     page_size: int = 100,
     order_by: str | None = None,
     tool_context: ToolContext | None = None,
-) -> dict:
-    """
-    Search and retrieve log entries from Google Cloud Logging via MCP.
+) -> dict[str, Any]:
+    """Search and retrieve log entries from Google Cloud Logging via MCP.
 
     This is the primary tool for querying Cloud Logging. Use it for debugging
     application behavior, finding specific error messages, auditing events,
@@ -342,11 +491,10 @@ async def mcp_list_timeseries(
     interval_start_time: str | None = None,
     interval_end_time: str | None = None,
     minutes_ago: int = 60,
-    aggregation: dict | None = None,
+    aggregation_json: str | None = None,
     tool_context: ToolContext | None = None,
-) -> dict:
-    """
-    Query time series metrics data from Google Cloud Monitoring via MCP.
+) -> dict[str, Any]:
+    """Query time series metrics data from Google Cloud Monitoring via MCP.
 
     Use this tool to retrieve metric values over time for monitoring, alerting,
     capacity planning, performance analysis, or any metrics-based task.
@@ -360,7 +508,7 @@ async def mcp_list_timeseries(
             uses current time.
         minutes_ago: Minutes back from now for start time (default 60). Only used
             if interval_start_time is not provided.
-        aggregation: Optional aggregation settings (alignment_period, per_series_aligner, etc.)
+        aggregation_json: Optional aggregation settings as JSON string (e.g., '{"alignmentPeriod": "60s", ...}').
         tool_context: ADK tool context (required).
 
     Returns:
@@ -376,34 +524,40 @@ async def mcp_list_timeseries(
     if tool_context is None:
         raise ValueError("tool_context is required for MCP tools")
 
-    import time as time_module
+    import json
 
     pid = project_id or get_project_id_with_fallback()
 
     # Build time interval
     if interval_end_time:
-        end_dt = datetime.fromisoformat(interval_end_time.replace("Z", "+00:00"))
-        end_seconds = int(end_dt.timestamp())
+        end_str = interval_end_time
     else:
-        end_seconds = int(time_module.time())
+        end_str = datetime.now(timezone.utc).isoformat()
 
     if interval_start_time:
-        start_dt = datetime.fromisoformat(interval_start_time.replace("Z", "+00:00"))
-        start_seconds = int(start_dt.timestamp())
+        start_str = interval_start_time
     else:
-        start_seconds = end_seconds - (minutes_ago * 60)
+        end_dt = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
+        start_dt = end_dt - timedelta(minutes=minutes_ago)
+        start_str = start_dt.isoformat()
 
     args = {
         "name": f"projects/{pid}" if pid else "",
         "filter": filter,
         "interval": {
-            "end_time": {"seconds": end_seconds},
-            "start_time": {"seconds": start_seconds},
+            "end_time": end_str,
+            "start_time": start_str,
         },
     }
 
-    if aggregation:
-        args["aggregation"] = aggregation
+    if aggregation_json:
+        try:
+            args["aggregation"] = json.loads(aggregation_json)
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse aggregation_json: {e}")
+            # Do not add to args if invalid, or raise generic error?
+            # Logging is safe fallback.
+            pass
 
     return await call_mcp_tool_with_retry(
         create_monitoring_mcp_toolset,
@@ -423,9 +577,8 @@ async def mcp_query_range(
     minutes_ago: int = 60,
     step: str = "60s",
     tool_context: ToolContext | None = None,
-) -> dict:
-    """
-    Evaluate a PromQL query over a time range via Cloud Monitoring MCP.
+) -> dict[str, Any]:
+    """Evaluate a PromQL query over a time range via Cloud Monitoring MCP.
 
     Use this for complex metric aggregations, calculations, and analysis using
     PromQL syntax. Ideal for rate calculations, histogram analysis, and
@@ -476,6 +629,42 @@ async def mcp_query_range(
     return await call_mcp_tool_with_retry(
         create_monitoring_mcp_toolset,
         "query_range",
+        args,
+        tool_context,
+        project_id=project_id,
+    )
+
+
+@adk_tool
+async def mcp_execute_sql(
+    sql_query: str,
+    project_id: str | None = None,
+    tool_context: ToolContext | None = None,
+) -> dict[str, Any]:
+    """Execute a SQL query against BigQuery via MCP.
+
+    Use this tool to run analytical queries against trace and log data
+    exported to BigQuery. This is essential for Stage 0 (Aggregate Analysis).
+
+    Args:
+        sql_query: The SQL query to execute.
+        project_id: GCP project ID. If not provided, uses default credentials.
+        tool_context: ADK tool context (required).
+
+    Returns:
+        Query results or error.
+    """
+    if tool_context is None:
+        raise ValueError("tool_context is required for MCP tools")
+
+    args = {
+        "sql": sql_query,
+        "project_id": project_id or get_project_id_with_fallback(),
+    }
+
+    return await call_mcp_tool_with_retry(
+        create_bigquery_mcp_toolset,
+        "execute_sql",
         args,
         tool_context,
         project_id=project_id,

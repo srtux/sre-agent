@@ -1,218 +1,334 @@
-# SRE Agent
+# Auto SRE
 
-[![Status](https://img.shields.io/badge/Status-Active-success)]()
+[![Status](https://img.shields.io/badge/Status-Experimental-orange)]()
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue)]()
 [![Framework](https://img.shields.io/badge/Framework-Google%20ADK-red)]()
+[![Frontend](https://img.shields.io/badge/Frontend-Flutter-02569B)]()
 [![GCP](https://img.shields.io/badge/Google%20Cloud-Native-4285F4)]()
+[![Code Style: Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![Pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
+[![Checked with mypy](https://www.mypy-lang.org/static/mypy_badge.svg)](https://mypy-lang.org/)
+[![Tests](https://img.shields.io/badge/Tests-Passing-success)](tests/sre_agent/test_cancellation.py)
 
-**The world's most comprehensive SRE Agent for Google Cloud.** An ADK-based agent for analyzing telemetry data from Google Cloud Observability: **traces**, **logs**, **metrics**, **SLOs**, and **Kubernetes workloads**. Features include SLO/SLI framework integration, GKE debugging, and automated remediation suggestions.
+**Auto SRE is an experimental SRE Agent for Google Cloud.** It analyzes telemetry data from Google Cloud Observability: **traces**, **logs**, **metrics**.
 
 ## Architecture
 
-The agent is built using the Google Agent Development Kit (ADK). It uses a **"Council of Experts"** orchestration pattern where the main **SRE Agent** coordinates specialized analysis through high-level orchestration tools.
+The agent is built using the Google Agent Development Kit (ADK). It uses a **"Council of Experts"** orchestration pattern where the main **SRE Agent** coordinates specialized analysis.
+
+**Key Features:**
+- **Trace-Centric Root Cause Analysis**: Prioritizes BigQuery for fleet-wide analysis.
+- **Autonomous Investigation Pipeline**: Sequential workflow from signal detection to root cause synthesis.
+- **Change Detective**: Correlates anomalies with deployments and config changes.
+- **Alert Analyst**: The "First Responder" who triages active alerts and policies.
+- **Resiliency Architect**: Detects architectural patterns like retry storms and cascading failures.
+- **Friendly Expert Persona**: Combines deep technical expertise with a fun, approachable response style. 🕵️‍♂️✨
+- **Tool Call Visualization**: Deep visibility into agent thinking with real-time "Running/Completed/Error" states for every tool call.
+- **Investigation Persistence**: Automatic sync and storage of investigation sessions with Firestore support.
+- **Multi-Session History**: View, load, and manage previous investigations through the Mission Control history panel.
 
 ### System Architecture
 
+![System Architecture](architecture.jpg)
+
+<details>
+<summary>Mermaid Diagram Source</summary>
+
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'background': '#ffffff'}}}%%
-flowchart TB
-    subgraph ControlRow [ ]
-        direction LR
-        User([👤 User])
-        Agent["🔧 <b>SRE Agent</b><br/>(Orchestrator)"]
-        Gemini{{"🧠 <b>Gemini 2.5 Pro</b>"}}
+graph TD
+    %% Styling
+    classDef agent fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
+    classDef subagent fill:#e0f2f1,stroke:#00695c,stroke-width:2px;
+    classDef llm fill:#f3e5f5,stroke:#4a148c,stroke-width:2px;
+    classDef tool fill:#fff3e0,stroke:#e65100,stroke-width:1px;
+    classDef user fill:#fff,stroke:#333,stroke-width:2px;
+    classDef orchestration fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,stroke-dasharray: 5 5;
 
-        User <==> Agent
-        Agent <==> Gemini
+    %% User Layer
+    User((User)) --> SRE_Agent
+
+    %% Main Agent Layer
+    subgraph "Orchestration Layer"
+        SRE_Agent["SRE Agent<br/>(Manager)"]:::agent
+        LLM["Gemini 2.5 Flash<br/>(LLM)"]:::llm
+        SRE_Agent <--> LLM
     end
 
-    subgraph Orchestration [Orchestrator Tools]
-        direction LR
-        TRIAGE["🛡️ Triage<br/>Analysis"]
-        DEEP["🕵️ Deep Dive<br/>Analysis"]
-        AGG_TOOL["📊 Aggregate<br/>Analysis"]
+    %% Orchestration Tools (The bridge to sub-agents)
+    subgraph "Orchestration Tools"
+        RunAgg[run_aggregate_analysis]:::orchestration
+        RunTriage[run_triage_analysis]:::orchestration
+        RunDeep[run_deep_dive_analysis]:::orchestration
+        RunLog[run_log_pattern_analysis]:::orchestration
     end
 
-    subgraph Specialists [Specialists]
-        direction LR
+    SRE_Agent --> RunAgg
+    SRE_Agent --> RunTriage
+    SRE_Agent --> RunDeep
+    SRE_Agent --> RunLog
 
-        subgraph TraceExperts [Trace Specialists]
-            direction TB
-            L["⏱️ Latency"]
-            E["💥 Error"]
-            S["🏗️ Structure"]
-            ST["📉 Stats"]
-            C["🔗 Causality"]
-            SI["🌊 Impact"]
-            CP["🛤️ Critical<br/>Path"]
+    %% Sub-Agents (Council of Experts)
+    subgraph "Council of Experts (Sub-Agents)"
+        direction TB
+
+        subgraph "Stage 0: Analysis"
+            Aggregate["Aggregate Analyzer<br/>(Data Analyst)"]:::subagent
+            Alert["Alert Analyst<br/>(First Responder)"]:::subagent
         end
 
-        subgraph LogExperts [Log Specialists]
-            direction TB
-            LP["🔍 Log Pattern<br/>Extractor"]
+        subgraph "Stage 1: Triage (Parallel)"
+            Latency[Latency Specialist]:::subagent
+            Error[Error Detective]:::subagent
+            Structure[Structure Mapper]:::subagent
+            Statistics[Statistics Analyst]:::subagent
+            Resiliency[Resiliency Architect]:::subagent
         end
 
-        subgraph MetricsExperts [Metrics Specialists]
-            direction TB
-            MA["📈 Metrics<br/>Analyzer"]
+        subgraph "Stage 2: Deep Dive"
+            Causality[Causality Expert]:::subagent
+            Impact[Impact Assessor]:::subagent
+            Change[Change Detective]:::subagent
+        end
+
+        subgraph "Specialists"
+            LogPattern[Log Pattern Extractor]:::subagent
+            Metrics[Metrics Analyzer]:::subagent
         end
     end
 
-    subgraph ToolLayer [Integrated Tools]
-        direction LR
-        TraceAPI["☁️ Cloud Trace API"]
-        LogAPI["📋 Cloud Logging"]
-        MetricsAPI["📊 Cloud Monitoring"]
-        BQ["🗄️ BigQuery"]
+    %% Orchestration Flow
+    RunAgg --> Aggregate
+    SRE_Agent --> Alert
+    RunTriage --> Latency & Error & Structure & Statistics & Resiliency
+    RunDeep --> Causality & Impact & Change
+    RunLog --> LogPattern
+    SRE_Agent -- "Direct Delegation" --> Metrics
+
+    %% Tools Layer
+    subgraph "Tooling Ecosystem"
+        direction TB
+
+        subgraph "GCP Observability APIs"
+            TraceAPI[Cloud Trace API]:::tool
+            LogAPI[Cloud Logging API]:::tool
+            MonitorAPI[Cloud Monitoring API]:::tool
+            AlertAPI[Cloud Alerts API]:::tool
+        end
+
+        subgraph "Analysis Engines"
+            BigQuery[BigQuery Engine]:::tool
+            Drain3[Drain3 Pattern Engine]:::tool
+            StatsEngine[Statistical Engine]:::tool
+            GraphEngine["Graph/Topology Engine"]:::tool
+        end
+
+        subgraph "Model Context Protocol (MCP)"
+            MCP_BQ[MCP BigQuery]:::tool
+            MCP_Logs[MCP Logging]:::tool
+            MCP_Metrics[MCP Monitoring]:::tool
+        end
+
+        subgraph "Domain Capabilities"
+            SLO_Tools["SLO/SLI Tools"]:::tool
+            K8s_Tools["GKE/Kubernetes Tools"]:::tool
+            Remediation[Remediation Tools]:::tool
+            Depend_Tools[Dependency Tools]:::tool
+        end
     end
 
-    Agent ==> Orchestration
-    Orchestration ==> Specialists
-    Agent -.-> ToolLayer
-    Specialists -.-> ToolLayer
-    Orchestration -.-> ToolLayer
+    %% Tool Usage Connections
+    Aggregate --> BigQuery & TraceAPI & Depend_Tools
+    Alert --> AlertAPI & MonitorAPI
+    Latency --> TraceAPI & StatsEngine & Depend_Tools
+    Error --> TraceAPI
+    Structure --> GraphEngine & TraceAPI
+    Statistics --> StatsEngine & TraceAPI
+    Resiliency --> GraphEngine & TraceAPI
+    Causality --> TraceAPI & LogAPI & MonitorAPI & GraphEngine & Depend_Tools
+    Impact --> GraphEngine & TraceAPI & Depend_Tools
+    Change --> LogAPI & MonitorAPI & StatsEngine
+    LogPattern --> Drain3 & LogAPI
+    Metrics --> MonitorAPI & MCP_Metrics & StatsEngine
 
-    style ControlRow fill:none,stroke:none
-    style Specialists fill:none,stroke:none
+    %% Main Agent Direct Tool Access
+    SRE_Agent --> TraceAPI & LogAPI & MonitorAPI & AlertAPI
+    SRE_Agent --> MCP_BQ & MCP_Logs & MCP_Metrics
+    SRE_Agent --> SLO_Tools & K8s_Tools & Remediation
+```
 
-    classDef userNode fill:#ffffff,stroke:#333,stroke-width:2px;
-    classDef agentNode fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
-    classDef brainNode fill:#f3e5f5,stroke:#4a148c,stroke-width:2px,stroke-dasharray: 5 5;
-    classDef squadNode fill:#fff8e1,stroke:#fbc02d,stroke-width:1px;
-    classDef logNode fill:#e8f5e9,stroke:#2e7d32,stroke-width:1px;
-    classDef metricsNode fill:#e0f7fa,stroke:#006064,stroke-width:1px;
-    classDef toolNode fill:#f5f5f5,stroke:#616161,stroke-width:1px;
-
-    class User userNode;
-    class Agent agentNode;
-    class Gemini brainNode;
-    class AGG_TOOL,L,E,S,ST,C,SI squadNode;
-    class LP logNode;
-    class MA metricsNode;
-    class TraceAPI,LogAPI,MetricsAPI,BQ toolNode;
-``````
+</details>
 
 ### Interaction Workflow
 
+![Interaction Workflow](flow.jpg)
+
+<details>
+<summary>Mermaid Diagram Source</summary>
+
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'background': '#ffffff'}}}%%
 sequenceDiagram
+    autonumber
     actor User
     participant SRE as 🔧 SRE Agent
-    participant Orch as 🛡️ Orchestrator Tools
-    participant Expert as 📊 Specialist Experts
-    participant Tools as 🛠️ GCP Infrastructure
+    participant Orch as 🛡️ Orchestrator
+    participant Squad as 📊 Specialist Squad
+    participant Cloud as ☁️ GCP Infra
 
-    Note over User, Tools: 🔎 PHASE 1: EVIDENCE GATHERING
-
-    User->>SRE: 1. "Investigate high latency..."
-    SRE->>Orch: 2. run_aggregate_analysis()
-    Orch->>Tools: 3. Query BigQuery / Trace API
-    Tools-->>Orch: 4. Health metrics + exemplar traces
-    Orch-->>SRE: 5. Aggregate Findings
-
-    Note over User, Tools: ⚡ PHASE 2: PARALLEL TRIAGE
-
-    SRE->>Orch: 6. run_triage_analysis()
-    activate Orch
-    par Parallel Investigation
-        Orch->>Expert: 7a. Latency Expert
-        Orch->>Expert: 7b. Error Expert
-        Orch->>Expert: 7c. Structure Expert
+    rect rgba(0, 0, 0, 0.1)
+        Note over User, Cloud: 🔎 PHASE 1: GATHERING
+        User->>SRE: "Why is latency high?"
+        SRE->>Orch: Aggregate Analysis
+        Orch->>Squad: Delegate to Data Analyst
+        Squad->>Cloud: Fetch Health Metrics
+        Cloud-->>Squad: Metrics + Exemplars
+        Squad-->>Orch: Analysis Report
     end
-    Expert-->>Orch: 8. Specialist insights
-    Orch-->>SRE: 9. Unified Triage Report
-    deactivate Orch
 
-    SRE->>User: 10. "Found 3 new error patterns..."
+    rect rgba(0, 0, 0, 0.1)
+        Note over User, Cloud: ⚡ PHASE 2: TRIAGE
+        SRE->>Orch: Start Triage
+        par Parallel Analysis
+            Orch->>Squad: Analyze Latency
+            Squad->>Cloud: Fetch Trace Data
+            Cloud-->>Squad: Traces
+            Orch->>Squad: Analyze Errors
+            Squad->>Cloud: Fetch Logs
+            Cloud-->>Squad: Logs
+            Orch->>Squad: Analyze Structure
+        end
+        Squad-->>Orch: Anomalies Detected
+        Orch-->>SRE: Unified Report
+    end
 
-    Note over User, Tools: 🕵️ PHASE 3: ROOT CAUSE
-
-    User->>SRE: 11. "What's the root cause?"
-    SRE->>Orch: 12. run_deep_dive_analysis()
-    Orch->>Expert: 13. Causality + Impact Experts
-    Expert-->>Orch: 14. Root cause identified
-    Orch-->>SRE: 15. Deep Dive Findings
-
-    Note over User, Tools: 📝 PHASE 4: REPORT
-
-    SRE->>User: 16. 📂 Investigation Summary
+    rect rgba(0, 0, 0, 0.1)
+        Note over User, Cloud: 🕵️ PHASE 3: ROOT CAUSE (Autonomous)
+        Note over SRE: SRE Agent decides to investigate anomalies
+        SRE->>Orch: Deep Dive
+        Orch->>Squad: Causality Analysis
+        Squad->>Cloud: Correlate Signals
+        Cloud-->>Squad: Correlation Data
+        Squad-->>Orch: Root Cause Identified
+        SRE->>User: 📂 Full Investigation Summary
+    end
 ```
+
+</details>
 
 ## Features
 
 ### Core Capabilities
 
-1. **Trace Analysis** (Primary Specialization)
-   - Aggregate analysis using BigQuery (thousands of traces at scale)
-   - Individual trace inspection via Cloud Trace API
-   - Trace comparison (diff analysis) to identify what changed
-   - Pattern detection (N+1 queries, serial chains, bottlenecks)
-   - Root cause analysis through span-level investigation
+1.  **Trace Analysis** (Primary Specialization)
+    *   Aggregate analysis using BigQuery (thousands of traces at scale)
+    *   Individual trace inspection via Cloud Trace API
+    *   Trace comparison (diff analysis) to identify what changed
+    *   Pattern detection (N+1 queries, serial chains, bottlenecks)
+    *   Root cause analysis through span-level investigation
 
-2. **Log Analysis**
-   - **Pattern Extraction**: Compress thousands of logs into patterns using Drain3 algorithm
-   - **Anomaly Detection**: Compare time periods to find new emergent log patterns
-   - **Smart Extraction**: Automatically find the log message in any payload format
-   - Query and analyze logs from Cloud Logging (MCP and direct API)
-   - Correlate logs with traces for root cause evidence
+2.  **Log Analysis**
+    *   **Pattern Extraction**: Compress thousands of logs into patterns using Drain3 algorithm
+    *   **Anomaly Detection**: Compare time periods to find new emergent log patterns
+    *   **Smart Extraction**: Automatically find the log message in any payload format
+    *   Query and analyze logs from Cloud Logging (MCP and direct API)
+    *   Correlate logs with traces for root cause evidence
 
-3. **Metrics Analysis**
-   - **Cross-Signal Correlation**: Correlate spikes in metrics with specific traces using exemplars
-   - **PromQL**: Execute complex PromQL queries for aggregations and rates
-   - **Trend Detection**: Identify statistical trends and anomalies in time series
-   - **Service Health**: Monitor CPU, Memory, and custom metric signals
+3.  **Metrics Analysis**
+    *   **Cross-Signal Correlation**: Correlate spikes in metrics with specific traces using exemplars
+    *   **PromQL**: Execute complex PromQL queries for aggregations and rates
+    *   **Trend Detection**: Identify statistical trends and anomalies in time series
+    *   **Service Health**: Monitor CPU, Memory, and custom metric signals
+    *   **GCP Metrics Knowledge Base**: Built-in knowledge of best-practice metrics for GKE, Cloud Run, Vertex AI, BigQuery, and Cloud Logging.
 
-4. **Critical Path & Dependencies**
-   - **Critical Path Analysis**: Identify the chain of spans driving latency
-   - **Bottleneck Detection**: Pinpoint services on the critical path that contribute most to delay
-   - **Dependency Mapping**: Automatically build service dependency graphs from traces
-   - **Circular Dependency Detection**: Find dangerous feedback loops in service calls
+4.  **Critical Path & Dependencies**
+    *   **Critical Path Analysis**: Identify the chain of spans driving latency
+    *   **Bottleneck Detection**: Pinpoint services on the critical path that contribute most to delay
+    *   **Dependency Mapping**: Automatically build service dependency graphs from traces
+    *   **Circular Dependency Detection**: Find dangerous feedback loops in service calls
 
-5. **SLO/SLI Framework** (NEW!)
-   - **Golden Signals**: Latency, Traffic, Errors, Saturation for any service
-   - **SLO Status**: Current compliance and error budget remaining
-   - **Error Budget Burn Rate**: Track how fast you're consuming your budget
-   - **SLO Violation Prediction**: Will you breach your SLO in the next 24 hours?
-   - **Incident Impact Analysis**: Quantify how much an incident cost your error budget
+5.  **SLO/SLI Framework** (NEW!)
+    *   **Golden Signals**: Latency, Traffic, Errors, Saturation for any service
+    *   **SLO Status**: Current compliance and error budget remaining
+    *   **Error Budget Burn Rate**: Track how fast you're consuming your budget
+    *   **SLO Violation Prediction**: Will you breach your SLO in the next 24 hours?
+    *   **Incident Impact Analysis**: Quantify how much an incident cost your error budget
 
-6. **GKE/Kubernetes Analysis** (NEW!)
-   - **Cluster Health**: Node pool status, control plane health, active issues
-   - **Node Pressure Detection**: CPU, memory, disk, PID pressure conditions
-   - **Pod Restart Analysis**: Find OOMKilled containers and CrashLoopBackOff
-   - **HPA Scaling Events**: Track autoscaler decisions and detect thrashing
-   - **Trace-to-Pod Correlation**: Link traces to specific Kubernetes workloads
+6.  **GKE/Kubernetes Analysis** (NEW!)
+    *   **Cluster Health**: Node pool status, control plane health, active issues
+    *   **Node Pressure Detection**: CPU, memory, disk, PID pressure conditions
+    *   **Pod Restart Analysis**: Find OOMKilled containers and CrashLoopBackOff
+    *   **HPA Scaling Events**: Track autoscaler decisions and detect thrashing
+    *   **Trace-to-Pod Correlation**: Link traces to specific Kubernetes workloads
 
-7. **Automated Remediation** (NEW!)
-   - **Smart Suggestions**: Pattern-matched remediation recommendations
-   - **Ready-to-Run Commands**: Generate gcloud commands for common fixes
-   - **Risk Assessment**: Understand risk before making changes
-   - **Similar Incident Lookup**: Learn from past incidents with similar patterns
+7.  **Automated Remediation** (NEW!)
+    *   **Smart Suggestions**: Pattern-matched remediation recommendations
+    *   **Ready-to-Run Commands**: Generate gcloud commands for common fixes
+    *   **Risk Assessment**: Understand risk before making changes.
+
+8.  **Alerting & Incident Response**
+    *   **Active Alert Triage**: List and prioritize active Cloud Monitoring alerts
+    *   **Policy Mapping**: Link alerts to their defining policies
+    *   **First Responder**: "Smoking gun" evidence for starting investigations
+
+9.  **Session Management & History** (NEW!)
+    *   **Investigation History**: Automatic background syncing of conversations to persistent storage.
+    *   **Firestore Integration**: Scalable session storage for Cloud Run deployments.
+    *   **Local Persistence**: Automated local filesystem storage for development environments.
+    *   **Stateful Context**: Backend maintains full conversation context across session reloads.
+    *   **User Preferences**: Persistent storage of project selections and tool configurations.
+
+10. **Web Dashboard (Mission Control)**
+    *   **GenAI Interface**: A modern Chat UX powered by **Flutter** and **GenUI**.
+    *   **Generative UI**: Dynamic Flutter widgets generated on-the-fly for traces, logs, and metrics.
+    *   **Tool Execution Logs**: Integrated visual debugger showing the status, arguments, and results of every tool invocation.
+    *   **Interactive Visualizations**: Trace waterfalls, log clusters, and metric charts.
+    *   **Canvas Widgets**: Advanced real-time visualizations including:
+        - **Agent Activity Canvas**: Animated workflow visualization showing agent coordination
+        - **Service Topology Canvas**: Interactive dependency graph with health indicators
+        - **Incident Timeline Canvas**: Event correlation and root cause timeline
+        - **Metrics Dashboard Canvas**: Multi-metric grid with sparklines and anomaly alerts
+        - **AI Reasoning Canvas**: Agent thought process with confidence scores
+    *   **Full Source**: Located in `autosre/` directory. See [autosre/README.md](autosre/README.md) for details.
+
+10. **Session Management & Persistence**
+    *   **ADK Sessions**: Conversation history managed by ADK SessionService
+    *   **Session History Panel**: View and switch between previous investigations
+    *   **Auto-Backend Selection**: Uses `DatabaseSessionService` (SQLite) locally, `VertexAiSessionService` on Agent Engine
+    *   **User Preferences**: Persistent project selection and tool configuration
+    *   **Multi-Backend Storage**: File-based JSON locally, Firestore on Cloud Run
 
 ### Multi-Stage Trace Analysis Pipeline
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  Stage 0: Aggregate Analysis (BigQuery)                         │
+│  Stage 0: Analysis (BigQuery)                                   │
 │  • Analyze thousands of traces                                  │
 │  • Identify patterns, trends, problem services                  │
 │  • Select exemplar traces (baseline + outliers)                 │
 └─────────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│  Stage 1: Triage (4 Parallel Analyzers)                         │
+│  Stage 1: Triage (5 Parallel Analyzers)                         │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐│
 │  │  Latency    │ │   Error     │ │  Structure  │ │ Statistics  ││
 │  │  Analyzer   │ │  Analyzer   │ │  Analyzer   │ │  Analyzer   ││
 │  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘│
+│                  ┌─────────────┐                                │
+│                  │ Resiliency  │                                │
+│                  │ Architect   │                                │
+│                  └─────────────┘                                │
 └─────────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│  Stage 2: Deep Dive (2 Parallel Analyzers)                      │
+│  Stage 2: Deep Dive (3 Parallel Analyzers)                      │
 │  ┌───────────────────────────┐ ┌───────────────────────────────┐│
 │  │    Causality Analyzer     │ │  Service Impact Analyzer      ││
 │  │    (Root Cause)           │ │  (Blast Radius)               ││
 │  └───────────────────────────┘ └───────────────────────────────┘│
+│  ┌───────────────────────────┐                                  │
+│  │    Change Detective       │                                  │
+│  │    (Deploy Correlation)   │                                  │
+│  └───────────────────────────┘                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -224,6 +340,9 @@ sre_agent/
 │   ├── agent.py          # SRE Agent & Orchestrator Tools
 │   ├── prompt.py         # Agent instructions
 │   ├── schema.py         # Pydantic structured output schemas
+│   ├── services/         # Backend services
+│   │   ├── session.py    # ADK Session management
+│   │   └── storage.py    # User preferences storage
 │   ├── tools/            # Modular tools for GCP & Analysis
 │   │   ├── clients/      # Direct API Clients (Logging, Trace, Monitoring)
 │   │   ├── mcp/          # MCP Integration (BigQuery, Logging, etc.)
@@ -232,11 +351,22 @@ sre_agent/
 │   │   │   ├── logs/     # Log pattern extraction & matching
 │   │   │   ├── metrics/  # Metrics statistics & anomalies
 │   │   │   └── bigquery/ # BigQuery OTel analysis
+│   │   ├── genui_adapter.py # Adapter for GenUI/Flutter schema transformation
 │   │   └── common/       # Telemetry & Caching
 │   └── sub_agents/       # Specialist Experts
 │       ├── trace.py      # Latency, Error, Structure experts
 │       ├── logs.py       # Log pattern extractor
 │       └── metrics.py    # Metrics analyzer
+├── autosre/              # Flutter Web Frontend (Mission Control)
+│   ├── lib/              # Flutter application code
+│   │   ├── agent/        # Agent interaction logic
+│   │   ├── models/       # Data models
+│   │   ├── widgets/      # GenUI widgets (Trace Waterfall, Charts)
+│   │   │   └── canvas/   # Canvas-style dynamic visualizations
+│   │   └── main.dart     # Entry point
+│   ├── web/              # Web entrypoint and assets
+│   ├── test/             # Widget tests
+│   └── pubspec.yaml      # Flutter dependencies
 ├── tests/                # Comprehensive test suite
 ├── deploy/               # Deployment scripts for Agent Engine
 └── pyproject.toml        # Project dependencies and ADK config
@@ -246,9 +376,9 @@ sre_agent/
 
 ### Prerequisites
 
-- Python 3.10+
-- Google Cloud SDK configured
-- Access to a GCP project with Cloud Trace data
+*   Python 3.10+
+*   Google Cloud SDK configured
+*   Access to a GCP project with Cloud Trace data
 
 ### Installation
 
@@ -278,12 +408,34 @@ GOOGLE_CLOUD_LOCATION=us-central1
 ### Running the Agent
 
 ```bash
-# Interactive terminal
-uv run poe run
+# Run the full stack (Backend + Frontend) [Recommended]
+uv run poe dev
+```
 
-# Web interface
+#### Manual Startup (Separate Processes)
+
+If you need to run the components independently (e.g., for faster frontend hot-reloads):
+
+**1. Backend (SRE Agent API)**
+```bash
+# From the project root
 uv run poe web
 ```
+*Starts the FastAPI/ADK backend on `http://127.0.0.1:8001`.*
+
+**2. Frontend (Flutter Dashboard)**
+```bash
+# From the project root (via project script)
+cd autosre
+flutter run -d chrome --web-port 8080
+```
+*Starts the Flutter web UI on `http://localhost:8080`.*
+
+#### Interactive Terminal Mode
+```bash
+uv run poe run
+```
+
 
 ### Modern Task Management (Recommended)
 
@@ -292,14 +444,58 @@ This project uses **Poe the Poet** for unified task management. All project scri
 | Task | Command | Description |
 |------|---------|-------------|
 | **Sync** | `uv run poe sync` | Synchronize all dependencies with `uv` |
-| **Deploy** | `uv run poe deploy` | **Safe Deploy**: Syncs docs, verifies imports, and deploys to Agent Engine |
+| **Deploy (Backend)** | `uv run poe deploy` | **Safe Deploy**: Syncs docs, verifies imports, and deploys to Vertex Agent Engine |
+| **Deploy (Frontend)** | `uv run poe deploy-web` | Optimized multi-stage build (Flutter Web) and deployment to Cloud Run |
+| **Deploy (Full Stack)** | `uv run poe deploy-all` | One-container deployment of both API and Flutter Web to Cloud Run |
 | **List** | `uv run poe list` | List all deployed agents in Agent Engine |
 | **Test** | `uv run poe test` | Run the full test suite |
 | **Eval** | `uv run poe eval` | Run agent evaluations using ADK eval sets |
 | **Delete** | `uv run poe delete --resource_id ID` | Delete a specific Agent Engine instance |
 | **Pre-commit** | `uv run poe pre-commit` | Run all pre-commit hooks (lint, spell, check-added-large-files) |
 
-Before deploying, ensure your `.env` file is configured with `GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_STORAGE_BUCKET`.
+### Deployment
+
+#### 1. Unified Full Stack Deployment (Recommended)
+The easiest way to deploy the entire system:
+```bash
+uv run poe deploy-all
+```
+
+For detailed instructions on architecture, IAM roles, and individual script usage, see the **[Detailed Deployment Guide (deploy/README.md)](deploy/README.md)**.
+
+### Deployment Summary:
+1. Deploys the **Backend** ADK Agent to Vertex AI Agent Engine.
+2. Deploys the **Unified Dashboard** (Flutter Web + FastAPI Proxy) to Cloud Run.
+3. Automatically wires the Frontend to the Backend via the `SRE_AGENT_ID` environment variable.
+
+#### 2. Configuration & Versioning
+Before deploying, ensure you have:
+1. Created a Gemini API key secret:
+   ```bash
+   echo -n "your-api-key" | gcloud secrets create gemini-api-key --data-file=-
+   ```
+2. Granted the Secret Accessor role to your Cloud Run service account.
+
+You can override deployment settings without changing your `.env` file:
+```bash
+# Point a new frontend to an existing specific backend version
+uv run poe deploy-web --agent-url https://us-central1-aiplatform.googleapis.com/...
+```
+
+#### 2. Individual Component Deployment
+If you only need to update one part of the stack:
+
+*   **Backend Only**: `uv run poe deploy`
+*   **Web/Unified Only**: `uv run poe deploy-web` (automatically mounts `gemini-api-key`)
+
+#### 3. Configuration & Versioning
+You can override deployment settings without changing your `.env` file:
+```bash
+# Point a new frontend to an existing specific backend version
+uv run poe deploy-web --agent-url https://us-central1-aiplatform.googleapis.com/...
+```
+
+Before deploying, ensure your `.env` file is configured with your GCP project settings.
 
 ## Usage Examples
 
@@ -317,6 +513,16 @@ Before deploying, ensure your `.env` file is configured with `GOOGLE_CLOUD_PROJE
 
 # BigQuery aggregate analysis
 "Analyze traces in BigQuery dataset my_project.telemetry"
+```
+
+### Alert Analysis
+
+```
+# List active alerts
+"Are there any active alerts?"
+
+# List alert policies
+"List all alert policies"
 ```
 
 ### Log Analysis
@@ -403,13 +609,13 @@ Before deploying, ensure your `.env` file is configured with `GOOGLE_CLOUD_PROJE
 | `calculate_series_stats` | Calculate mean, stddev, and z-score for time series |
 | `get_current_time` | Utility to get current ISO timestamp |
 
-### Trace Selection Tools
+### Alerting Tools
 | Tool | Description |
 |------|-------------|
-| `select_traces_from_error_reports` | Discovery: find traces associated with recent Error Reporting events |
-| `select_traces_from_monitoring_alerts` | Discovery: find traces linked to Cloud Monitoring incidents |
-| `select_traces_from_statistical_outliers` | Discovery: find traces that are p99+ outliers for a service |
-| `select_traces_manually` | User-driven: select traces by specific criteria or list of IDs |
+| `list_alerts` | List active alerts from Cloud Monitoring |
+| `get_alert` | Get details of a specific alert |
+| `list_alert_policies` | List alert policies |
+
 
 ### Critical Path & Dependency Tools
 | Tool | Description |
@@ -462,7 +668,7 @@ Before deploying, ensure your `.env` file is configured with `GOOGLE_CLOUD_PROJE
 
 An Agentic AI system for analyzing Google Cloud Observability data (Traces, Logs, Metrics) to identify root causes of production issues.
 
-**Architecture**: Refactored to use the modern "Council of Experts" orchestration pattern.
+**Architecture**: Refactored to use the modern "Council of Experts" orchestration pattern. Powered by **Gemini 2.5 Flash** for high-speed, cost-effective analysis.
 
 ### Trace Analysis Squad
 | Sub-Agent | Stage | Role |
@@ -474,11 +680,22 @@ An Agentic AI system for analyzing Google Cloud Observability data (Traces, Logs
 | `statistics_analyzer` | 1 | **Quant Expert** - Determines statistical significance and percentile ranking. |
 | `causality_analyzer` | 2 | **Root Cause Analyst** - Identifies the primary cause using evidence from traces/logs. |
 | `service_impact_analyzer` | 2 | **Impact Assessor** - Determines blast radius and user impact. |
+| `change_detective` | 2 | **Change Detective** - Correlates anomalies with deployments and config changes. |
+
+### Triage Extensions
+| Sub-Agent | Role |
+|-----------|------|
+| `resiliency_architect` | **Resiliency Architect** - Detects retry storms and cascading failures. |
 
 ### Log Analysis Squad
 | Sub-Agent | Role |
 |-----------|------|
-| `log_pattern_extractor`| **Log Whisperer** - Uses Drain3 to compress thousands of logs into patterns to find "spicy" anomalies. |
+| `log_analyst`| **Log Analyst** - Uses BigQuery SQL Regex (for scale) and Drain3 (for precision) to cluster logs. |
+
+### Alert Analysis Squad
+| Sub-Agent | Role |
+|-----------|------|
+| `alert_analyst`| **Alert Analyst** - The "First Responder" who triages active alerts and policies. |
 
 ### Metrics Analysis Squad
 | Sub-Agent | Role |

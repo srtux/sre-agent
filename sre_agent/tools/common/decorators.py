@@ -29,9 +29,7 @@ tool_execution_count = meter.create_counter(
 
 
 def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
-    """
-    Decorator to mark a function as an ADK tool and provide automatic
-    logging and instrumentation.
+    """Decorator to mark a function as an ADK tool.
 
     This decorator provides:
     - OTel Spans for every execution
@@ -45,7 +43,9 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
             ...
     """
 
-    def _record_attributes(span, bound_args):
+    def _record_attributes(
+        span: trace.Span, bound_args: inspect.BoundArguments
+    ) -> None:
         for k, v in bound_args.arguments.items():
             # Truncate long strings to avoid span attribute limits
             val_str = str(v)
@@ -54,7 +54,7 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
             span.set_attribute(f"arg.{k}", val_str)
 
     @functools.wraps(func)
-    async def async_wrapper(*args, **kwargs):
+    async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
         tool_name = func.__name__
         start_time = time.time()
         success = True
@@ -72,21 +72,35 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
                     f"{k}={repr(v)[:200]}" for k, v in bound.arguments.items()
                 )
                 _record_attributes(span, bound)
+
+                # Full args for debug
+                full_arg_str = ", ".join(
+                    f"{k}={v!r}" for k, v in bound.arguments.items()
+                )
+                logger.debug(f"Tool '{tool_name}' FULL ARGS: {full_arg_str}")
             except Exception:
                 arg_str = f"args={args}, kwargs={kwargs}"
 
-            logger.info(f"Tool '{tool_name}' called with: {arg_str}")
+            logger.info(f"🛠️  Tool Call: '{tool_name}' | Args: {arg_str}")
 
             try:
                 result = await func(*args, **kwargs)
                 duration_ms = (time.time() - start_time) * 1000
-                logger.info(f"Tool '{tool_name}' completed in {duration_ms:.2f}ms")
+                logger.info(
+                    f"✅ Tool Success: '{tool_name}' | Duration: {duration_ms:.2f}ms"
+                )
+
+                # Truncate result logging
+                result_str = repr(result)
+                if len(result_str) > 1000:
+                    result_str = result_str[:1000] + "... (truncated)"
+                logger.debug(f"Tool '{tool_name}' RESULT: {result_str}")
                 return result
             except Exception as e:
                 success = False
                 duration_ms = (time.time() - start_time) * 1000
                 logger.error(
-                    f"Tool '{tool_name}' failed after {duration_ms:.2f}ms: {e}",
+                    f"❌ Tool Failed: '{tool_name}' | Duration: {duration_ms:.2f}ms | Error: {e}",
                     exc_info=True,
                 )
                 span.record_exception(e)
@@ -102,7 +116,7 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
                 )
 
     @functools.wraps(func)
-    def sync_wrapper(*args, **kwargs):
+    def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
         tool_name = func.__name__
         start_time = time.time()
         success = True
@@ -120,21 +134,34 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
                     f"{k}={repr(v)[:200]}" for k, v in bound.arguments.items()
                 )
                 _record_attributes(span, bound)
+
+                # Full args for debug
+                full_arg_str = ", ".join(
+                    f"{k}={v!r}" for k, v in bound.arguments.items()
+                )
+                logger.debug(f"Tool '{tool_name}' FULL ARGS: {full_arg_str}")
             except Exception:
                 arg_str = f"args={args}, kwargs={kwargs}"
 
-            logger.info(f"Tool '{tool_name}' called with: {arg_str}")
+            logger.info(f"🛠️  Tool Call: '{tool_name}' | Args: {arg_str}")
 
             try:
                 result = func(*args, **kwargs)
                 duration_ms = (time.time() - start_time) * 1000
-                logger.info(f"Tool '{tool_name}' completed in {duration_ms:.2f}ms")
+                logger.info(
+                    f"✅ Tool Success: '{tool_name}' | Duration: {duration_ms:.2f}ms"
+                )
+                # Truncate result logging
+                result_str = repr(result)
+                if len(result_str) > 1000:
+                    result_str = result_str[:1000] + "... (truncated)"
+                logger.debug(f"Tool '{tool_name}' RESULT: {result_str}")
                 return result
             except Exception as e:
                 success = False
                 duration_ms = (time.time() - start_time) * 1000
                 logger.error(
-                    f"Tool '{tool_name}' failed after {duration_ms:.2f}ms: {e}",
+                    f"❌ Tool Failed: '{tool_name}' | Duration: {duration_ms:.2f}ms | Error: {e}",
                     exc_info=True,
                 )
                 span.record_exception(e)

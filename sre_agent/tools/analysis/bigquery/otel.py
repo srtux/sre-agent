@@ -38,8 +38,7 @@ def analyze_aggregate_metrics(
     min_duration_ms: float | None = None,
     group_by: str = "service_name",
 ) -> str:
-    """
-    Performs broad aggregate analysis of trace data using BigQuery.
+    """Performs broad aggregate analysis of trace data using BigQuery.
 
     This is the first step in SRE analysis: get the big picture before drilling down.
     Analyzes metrics like request rate, error rate, latency percentiles across services.
@@ -128,8 +127,7 @@ def find_exemplar_traces(
     selection_strategy: str = "outliers",
     limit: int = 10,
 ) -> str:
-    """
-    Finds exemplar traces using BigQuery for detailed investigation.
+    """Finds exemplar traces using BigQuery for detailed investigation.
 
     Args:
         dataset_id: BigQuery dataset ID
@@ -310,8 +308,7 @@ def correlate_logs_with_trace(
     include_nearby_logs: bool = True,
     time_window_seconds: int = 30,
 ) -> str:
-    """
-    Finds logs correlated with a specific trace for root cause analysis.
+    """Finds logs correlated with a specific trace for root cause analysis.
 
     Args:
         dataset_id: BigQuery dataset ID
@@ -405,8 +402,7 @@ def compare_time_periods(
     service_name: str | None = None,
     operation_name: str | None = None,
 ) -> str:
-    """
-    Compares trace metrics between two time periods to detect degradations.
+    """Compares trace metrics between two time periods to detect degradations.
 
     Args:
         dataset_id: BigQuery dataset ID
@@ -509,8 +505,7 @@ def detect_trend_changes(
     service_name: str | None = None,
     metric: str = "p95",
 ) -> str:
-    """
-    Detects when performance trends changed using time-series analysis.
+    """Detects when performance trends changed using time-series analysis.
 
     Args:
         dataset_id: BigQuery dataset ID

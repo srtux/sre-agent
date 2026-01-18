@@ -3,8 +3,6 @@
 import json
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 
 class TestSLOTools:
     """Test suite for SLO/SLI tools."""
@@ -48,9 +46,7 @@ class TestSLOTools:
             "displayName": "Test SLO",
             "goal": 0.999,
             "rollingPeriod": {"days": 30},
-            "serviceLevelIndicator": {
-                "basicSli": {"availability": {}}
-            },
+            "serviceLevelIndicator": {"basicSli": {"availability": {}}},
         }
         mock_response.raise_for_status = MagicMock()
         mock_session.get.return_value = mock_response
@@ -88,10 +84,12 @@ class TestSLOTools:
         from sre_agent.tools.clients.slo import correlate_incident_with_slo_impact
 
         with patch("sre_agent.tools.clients.slo.get_slo_status") as mock_status:
-            mock_status.return_value = json.dumps({
-                "goal": 0.999,
-                "rolling_period_days": 30,
-            })
+            mock_status.return_value = json.dumps(
+                {
+                    "goal": 0.999,
+                    "rolling_period_days": 30,
+                }
+            )
 
             result = correlate_incident_with_slo_impact(
                 "test-project",
@@ -111,13 +109,19 @@ class TestSLOTools:
         """Test SLO violation prediction returns expected structure."""
         from sre_agent.tools.clients.slo import predict_slo_violation
 
-        with patch("sre_agent.tools.clients.slo.analyze_error_budget_burn") as mock_burn:
-            mock_burn.return_value = json.dumps({
-                "burn_rate_per_hour": 0.001,
-                "hours_to_budget_exhaustion": 100,
-            })
+        with patch(
+            "sre_agent.tools.clients.slo.analyze_error_budget_burn"
+        ) as mock_burn:
+            mock_burn.return_value = json.dumps(
+                {
+                    "burn_rate_per_hour": 0.001,
+                    "hours_to_budget_exhaustion": 100,
+                }
+            )
 
-            result = predict_slo_violation("test-project", "test-service", "test-slo", 24)
+            result = predict_slo_violation(
+                "test-project", "test-service", "test-slo", 24
+            )
             result_data = json.loads(result)
 
             assert "prediction_window_hours" in result_data

@@ -1,0 +1,1797 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:genui/genui.dart';
+import 'package:provider/provider.dart';
+
+import '../services/auth_service.dart';
+
+import '../agent/adk_content_generator.dart';
+import '../catalog.dart';
+import '../services/project_service.dart';
+import '../services/session_service.dart';
+import '../theme/app_theme.dart';
+import '../widgets/session_panel.dart';
+import 'tool_config_page.dart';
+
+class ConversationPage extends StatefulWidget {
+  const ConversationPage({super.key});
+
+  static const double kMaxContentWidth = 1000.0;
+
+  @override
+  State<ConversationPage> createState() => _ConversationPageState();
+}
+
+class _ConversationPageState extends State<ConversationPage>
+    with TickerProviderStateMixin {
+  late A2uiMessageProcessor _messageProcessor;
+  late GenUiConversation _conversation;
+  late ADKContentGenerator _contentGenerator;
+  final TextEditingController _textController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  final FocusNode _focusNode = FocusNode();
+  final ProjectService _projectService = ProjectService();
+  final SessionService _sessionService = SessionService();
+
+
+  late AnimationController _typingController;
+
+  StreamSubscription<String>? _sessionSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Handle Enter key behavior (Enter to send, Shift+Enter for newline)
+    _focusNode.onKeyEvent = (node, event) {
+      if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.enter) {
+        if (HardwareKeyboard.instance.isShiftPressed) {
+          return KeyEventResult.ignored;
+        }
+        _sendMessage();
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    };
+
+    // Typing indicator animation
+    _typingController = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    )..repeat();
+
+    _initializeConversation();
+
+    // Listen to session updates from the content generator
+    _sessionSubscription = _contentGenerator.sessionStream.listen((sessionId) {
+      _sessionService.setCurrentSession(sessionId);
+      // Refresh sessions list after a message is sent
+      _sessionService.fetchSessions();
+    });
+
+    // Fetch projects and sessions on startup
+    _projectService.fetchProjects();
+    _sessionService.fetchSessions();
+
+    // Update content generator when project selection changes
+    _projectService.selectedProject.addListener(_onProjectChanged);
+  }
+
+  void _initializeConversation() {
+    final sreCatalog = CatalogRegistry.createSreCatalog();
+
+    _messageProcessor = A2uiMessageProcessor(
+      catalogs: [
+        sreCatalog,
+        CoreCatalogItems.asCatalog(),
+      ],
+    );
+
+    _contentGenerator = ADKContentGenerator();
+    _contentGenerator.projectId = _projectService.selectedProjectId;
+
+    _conversation = GenUiConversation(
+      a2uiMessageProcessor: _messageProcessor,
+      contentGenerator: _contentGenerator,
+      onSurfaceAdded: (update) => _scrollToBottom(),
+      onSurfaceUpdated: (update) {},
+      onTextResponse: (text) => _scrollToBottom(),
+    );
+  }
+
+  void _onProjectChanged() {
+    _contentGenerator.projectId = _projectService.selectedProjectId;
+  }
+
+  void _startNewSession() {
+    // Clear session in content generator (new messages will start a new backend session)
+    _contentGenerator.clearSession();
+    // Clear current session in service
+    _sessionService.startNewSession();
+
+    // Reset conversation state
+    setState(() {
+      _conversation.dispose();
+      _initializeConversation();
+    });
+
+    // Show confirmation
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Starting new investigation'),
+        backgroundColor: AppColors.primaryTeal,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Future<void> _loadSession(String sessionId) async {
+    // Load session from backend
+    final session = await _sessionService.getSession(sessionId);
+    if (session == null) return;
+
+    // Set session ID in content generator
+    _contentGenerator.sessionId = sessionId;
+    _sessionService.setCurrentSession(sessionId);
+
+    // Reset and hydrate conversation
+    setState(() {
+      _conversation.dispose();
+      _initializeConversation();
+    });
+
+    // Hydrate history if available
+    if (session.messages.isNotEmpty) {
+      final history = <ChatMessage>[];
+      for (final msg in session.messages) {
+        if (msg.role == 'user' || msg.role == 'human') {
+          history.add(UserMessage.text(msg.content));
+        } else {
+          // Default to AiTextMessage for model responses in history
+          // (Original UI events are not preserved in text-only history yet)
+          history.add(AiTextMessage([TextPart(msg.content)]));
+        }
+      }
+
+      // Inject history into conversation state
+      // Note: Cast to ValueNotifier to update state directly
+      try {
+        if (_conversation.conversation is ValueNotifier) {
+          (_conversation.conversation as ValueNotifier<List<ChatMessage>>).value = history;
+          // Scroll to bottom after frame
+          WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+        }
+      } catch (e) {
+        debugPrint("Could not hydrate session history: $e");
+      }
+    }
+
+    // Show a message indicating the session is loaded
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Loaded session: ${session.displayTitle}'),
+        backgroundColor: AppColors.primaryTeal,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _scrollToBottom() {
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    });
+  }
+
+  void _sendMessage() {
+    if (_textController.text.trim().isEmpty) return;
+    final text = _textController.text;
+    _textController.clear();
+    _focusNode.requestFocus();
+
+    _conversation.sendRequest(UserMessage.text(text));
+  }
+
+  bool _isSidebarOpen = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 900;
+        final showDrawer = isMobile;
+        final showSidebar = !isMobile && _isSidebarOpen;
+
+        return Scaffold(
+          backgroundColor: AppColors.backgroundDark,
+          drawer: showDrawer
+              ? Drawer(
+                  width: 280,
+                  backgroundColor: AppColors.backgroundCard,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.zero,
+                  ),
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: ValueListenableBuilder<String?>(
+                          valueListenable: _sessionService.currentSessionId,
+                          builder: (context, currentSessionId, _) {
+                            return SessionPanel(
+                              sessionService: _sessionService,
+                              onNewSession: _startNewSession,
+                              onSessionSelected: (id) {
+                                _loadSession(id);
+                                Navigator.pop(context); // Close drawer
+                              },
+                              currentSessionId: currentSessionId,
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : null,
+          appBar: _buildAppBar(isMobile: isMobile),
+          body: Row(
+            children: [
+              // Sidebar for desktop
+              if (showSidebar)
+                SizedBox(
+                  width: 280,
+                  child: ValueListenableBuilder<String?>(
+                    valueListenable: _sessionService.currentSessionId,
+                    builder: (context, currentSessionId, _) {
+                      return SessionPanel(
+                        sessionService: _sessionService,
+                        onNewSession: _startNewSession,
+                        onSessionSelected: (id) {
+                          _loadSession(id);
+                        },
+                        currentSessionId: currentSessionId,
+                      );
+                    },
+                  ),
+                ),
+              // Divider
+              if (showSidebar)
+                VerticalDivider(
+                  width: 1,
+                  thickness: 1,
+                  color: AppColors.surfaceBorder,
+                ),
+              // Main conversation area
+              Expanded(
+                child: Column(
+                  children: [
+                    Expanded(child: _buildMessageList()),
+                    _buildInputArea(),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar({required bool isMobile}) {
+    return AppBar(
+      backgroundColor: AppColors.backgroundCard,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      shape: Border(
+        bottom: BorderSide(
+          color: AppColors.surfaceBorder.withValues(alpha: 0.5),
+          width: 1,
+        ),
+      ),
+      leading: Builder(
+        builder: (context) {
+          return IconButton(
+            icon: Icon(
+              isMobile ? Icons.menu : (_isSidebarOpen ? Icons.menu_open : Icons.menu),
+              color: AppColors.textSecondary,
+            ),
+            onPressed: () {
+              if (isMobile) {
+                Scaffold.of(context).openDrawer();
+              } else {
+                setState(() {
+                  _isSidebarOpen = !_isSidebarOpen;
+                });
+              }
+            },
+          );
+        },
+      ),
+      titleSpacing: 0,
+      title: LayoutBuilder(
+        builder: (context, constraints) {
+           final isCompact = constraints.maxWidth < 600;
+           return Row(
+            children: [
+              // Logo/Icon - clickable to return to home
+              _buildLogoButton(),
+              const SizedBox(width: 8),
+              // Title
+              if (!isCompact)
+                InkWell(
+                  onTap: _startNewSession,
+                  child: Text(
+                    'AutoSRE',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ),
+              const SizedBox(width: 24),
+              // Project Selector (Left aligned now)
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 250),
+                 child: _buildProjectSelector(),
+              ),
+            ],
+          );
+        }
+      ),
+      actions: [
+         // Status indicator
+        ValueListenableBuilder<bool>(
+          valueListenable: _contentGenerator.isConnected,
+          builder: (context, isConnected, _) {
+            return ValueListenableBuilder<bool>(
+              valueListenable: _contentGenerator.isProcessing,
+              builder: (context, isProcessing, _) {
+                return _buildStatusIndicator(
+                  isProcessing,
+                  isConnected,
+                );
+              },
+            );
+          },
+        ),
+        const SizedBox(width: 12),
+        // Settings / Tool Config
+        _buildSettingsButton(),
+        const SizedBox(width: 8),
+        // User Profile
+        _buildUserProfileButton(),
+        const SizedBox(width: 16),
+      ],
+    );
+  }
+
+  Widget _buildLogoButton({bool isMobile = false}) {
+    return Tooltip(
+      message: 'New Session',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _startNewSession,
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            padding: EdgeInsets.all(isMobile ? 6 : 8),
+            decoration: BoxDecoration(
+              color: AppColors.primaryTeal.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              Icons.smart_toy,
+              color: AppColors.primaryTeal,
+              size: isMobile ? 18 : 20,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+
+
+  Widget _buildSettingsButton() {
+    return Tooltip(
+      message: 'Settings',
+      child: IconButton(
+        icon: const Icon(Icons.settings_outlined, color: AppColors.textSecondary),
+        onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => const ToolConfigPage(),
+              ),
+            );
+        },
+      ),
+    );
+  }
+
+  Widget _buildUserProfileButton() {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final user = authService.currentUser;
+    final photoUrl = user?.photoUrl;
+
+    return Tooltip(
+      message: user?.displayName ?? 'User Profile',
+      child: Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () {
+            // TODO: Show profile dialog or sign out option
+             showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: Text(user?.displayName ?? 'Profile'),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(user?.email ?? ''),
+                    const SizedBox(height: 20),
+                    ElevatedButton(
+                      onPressed: () async {
+                        final navigator = Navigator.of(context);
+                        await authService.signOut();
+                        navigator.pop();
+                      },
+                      child: const Text('Sign Out'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+          child: CircleAvatar(
+            backgroundColor: AppColors.primaryTeal,
+            radius: 16,
+            backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
+            child: photoUrl == null
+                ? Text(
+                    user?.displayName?.substring(0, 1).toUpperCase() ?? 'U',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  )
+                : null,
+          ),
+        ),
+      ),
+    );
+  }
+
+
+  Widget _buildStatusIndicator(bool isProcessing, bool isConnected, {bool compact = false}) {
+    Color statusColor;
+    String statusText;
+
+    if (isConnected) {
+      statusColor = AppColors.success;
+      statusText = 'Connected';
+    } else {
+      statusColor = AppColors.error;
+      statusText = 'Offline';
+    }
+
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 6 : 8,
+        vertical: compact ? 3 : 4,
+      ),
+      decoration: BoxDecoration(
+        color: statusColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isProcessing)
+            SizedBox(
+              width: 10,
+              height: 10,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.5,
+                valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+              ),
+            )
+          else
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: statusColor,
+                shape: BoxShape.circle,
+              ),
+            ),
+          if (!compact) ...[
+            const SizedBox(width: 6),
+            Text(
+              statusText,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: statusColor,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProjectSelector() {
+    return ValueListenableBuilder<bool>(
+      valueListenable: _projectService.isLoading,
+      builder: (context, isLoading, _) {
+        return ValueListenableBuilder<List<GcpProject>>(
+          valueListenable: _projectService.projects,
+          builder: (context, projects, _) {
+            return ValueListenableBuilder<GcpProject?>(
+              valueListenable: _projectService.selectedProject,
+              builder: (context, selectedProject, _) {
+                return _ProjectSelectorDropdown(
+                  projects: projects,
+                  selectedProject: selectedProject,
+                  isLoading: isLoading,
+                  onProjectSelected: (project) {
+                    _projectService.selectProjectInstance(project);
+                  },
+                  onRefresh: () {
+                    _projectService.fetchProjects();
+                  },
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildMessageList() {
+    return ValueListenableBuilder<List<ChatMessage>>(
+      valueListenable: _conversation.conversation,
+      builder: (context, messages, _) {
+        if (messages.isEmpty) {
+          return _buildEmptyState();
+        }
+
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: ConversationPage.kMaxContentWidth),
+            child: ListView.builder(
+              controller: _scrollController,
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          itemCount: messages.length + 1, // +1 for typing indicator
+          itemBuilder: (context, index) {
+            if (index == messages.length) {
+              // Typing indicator at the end
+              return ValueListenableBuilder<bool>(
+                valueListenable: _contentGenerator.isProcessing,
+                builder: (context, isProcessing, _) {
+                  if (!isProcessing) return const SizedBox.shrink();
+                  return _buildTypingIndicator();
+                },
+              );
+            }
+            final msg = messages[index];
+            return _MessageItem(
+              message: msg,
+              host: _conversation.host,
+              animation: _typingController,
+            );
+          },
+        ),
+      ),
+    );
+      },
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return SingleChildScrollView(
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Simple icon
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryTeal.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.terminal,
+                  size: 32,
+                  color: AppColors.primaryTeal,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'SRE Assistant',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 380),
+                child: Text(
+                  'Analyze traces, investigate logs, monitor metrics, and debug production issues.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.textMuted,
+                        height: 1.4,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: 32),
+              // Compact category sections
+              Wrap(
+                spacing: 16,
+                runSpacing: 16,
+                alignment: WrapAlignment.center,
+                children: [
+                  _buildSuggestionSection(
+                    'Traces',
+                    Icons.timeline_outlined,
+                    [
+                      'Analyze recent traces',
+                      'Find slow requests',
+                      'Identify bottlenecks',
+                    ],
+                  ),
+                  _buildSuggestionSection(
+                    'Logs',
+                    Icons.article_outlined,
+                    [
+                      'Check error logs',
+                      'Find error patterns',
+                      'Investigate exceptions',
+                    ],
+                  ),
+                  _buildSuggestionSection(
+                    'Metrics',
+                    Icons.show_chart_outlined,
+                    [
+                      'View anomalies',
+                      'Check SLO status',
+                      'Golden signals',
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSuggestionSection(String title, IconData icon, List<String> suggestions) {
+    return Container(
+      width: 220,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.backgroundCard.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: AppColors.surfaceBorder.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                icon,
+                size: 14,
+                color: AppColors.textMuted,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: suggestions.map((s) => _buildSuggestionChip(s)).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSuggestionChip(String text) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          _textController.text = text;
+          _sendMessage();
+        },
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.04),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: AppColors.surfaceBorder.withValues(alpha: 0.3),
+            ),
+          ),
+          child: Text(
+            text,
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTypingIndicator() {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(top: 4, bottom: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.backgroundCard.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(3, (index) {
+            return AnimatedBuilder(
+              animation: _typingController,
+              builder: (context, child) {
+                final delay = index * 0.2;
+                final animValue =
+                    ((_typingController.value + delay) % 1.0 * 2.0)
+                        .clamp(0.0, 1.0);
+                final bounce = (animValue < 0.5
+                        ? animValue * 2
+                        : 2 - animValue * 2) *
+                    0.4;
+
+                return Container(
+                  margin: EdgeInsets.only(right: index < 2 ? 4 : 0),
+                  child: Transform.translate(
+                    offset: Offset(0, -bounce * 4),
+                    child: Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: AppColors.textMuted.withValues(
+                          alpha: 0.4 + bounce,
+                        ),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            );
+          }),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInputArea() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      decoration: BoxDecoration(
+        color: AppColors.backgroundCard,
+        border: Border(
+          top: BorderSide(
+            color: AppColors.surfaceBorder.withValues(alpha: 0.5),
+            width: 1,
+          ),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: ConversationPage.kMaxContentWidth),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Unified Input Container
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.backgroundDark,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: AppColors.primaryTeal.withValues(alpha: 0.3),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.2),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _textController,
+                          focusNode: _focusNode,
+                          onSubmitted: (_) {
+                            // Only submit on enter if shift is not pressed (handled by focusNode mostly, but good backup)
+                             if (!HardwareKeyboard.instance.isShiftPressed) {
+                               _sendMessage();
+                             }
+                          },
+                          maxLines: 8,
+                          minLines: 1,
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 15,
+                            height: 1.5,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: "Ask a question...",
+                            hintStyle: TextStyle(
+                              color: AppColors.textMuted,
+                              fontSize: 15,
+                            ),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6, bottom: 6),
+                        child: ValueListenableBuilder<bool>(
+                          valueListenable: _contentGenerator.isProcessing,
+                          builder: (context, isProcessing, _) {
+                            return _SendButton(
+                              isProcessing: isProcessing,
+                              onPressed: _sendMessage,
+                              onCancel: _contentGenerator.cancelRequest,
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Compact keyboard hint
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    'Enter to send • Shift+Enter for new line',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textMuted.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _sessionSubscription?.cancel();
+    _projectService.selectedProject.removeListener(_onProjectChanged);
+    _typingController.dispose();
+    _conversation.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+}
+
+/// Animated message item widget
+class _MessageItem extends StatefulWidget {
+  final ChatMessage message;
+  final GenUiHost host;
+  final AnimationController animation;
+
+  const _MessageItem({
+    required this.message,
+    required this.host,
+    required this.animation,
+  });
+
+  @override
+  State<_MessageItem> createState() => _MessageItemState();
+}
+
+class _MessageItemState extends State<_MessageItem>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _entryController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _entryController = AnimationController(
+      duration: const Duration(milliseconds: 400),
+      vsync: this,
+    );
+
+    _fadeAnimation = CurvedAnimation(
+      parent: _entryController,
+      curve: Curves.easeOut,
+    );
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.15),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _entryController,
+      curve: Curves.easeOutCubic,
+    ));
+
+    _entryController.forward();
+  }
+
+  @override
+  void dispose() {
+    _entryController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: SlideTransition(
+        position: _slideAnimation,
+        child: _buildMessageContent(),
+      ),
+    );
+  }
+
+  Widget _buildMessageContent() {
+    final msg = widget.message;
+
+    if (msg is UserMessage) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          constraints: const BoxConstraints(
+            maxWidth: 800,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.primaryTeal.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: MarkdownBody(
+            data: msg.text,
+            styleSheet: MarkdownStyleSheet(
+              p: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 14,
+                height: 1.4,
+              ),
+              code: TextStyle(
+                backgroundColor: Colors.black.withValues(alpha: 0.2),
+                color: AppColors.primaryTeal,
+                fontSize: 12,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ),
+        ),
+      );
+    } else if (msg is AiTextMessage) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          constraints: const BoxConstraints(
+            maxWidth: 800,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.backgroundCard.withValues(alpha: 0.6),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: MarkdownBody(
+            data: msg.text,
+            styleSheet: MarkdownStyleSheet(
+              p: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 14,
+                height: 1.5,
+              ),
+              h1: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+              h2: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+              code: TextStyle(
+                backgroundColor: Colors.black.withValues(alpha: 0.3),
+                color: AppColors.primaryTeal,
+                fontSize: 12,
+                fontFamily: 'monospace',
+              ),
+              codeblockDecoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              blockquoteDecoration: BoxDecoration(
+                color: AppColors.primaryTeal.withValues(alpha: 0.08),
+                border: Border(
+                  left: BorderSide(
+                    color: AppColors.primaryTeal.withValues(alpha: 0.5),
+                    width: 2,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    } else if (msg is AiUiMessage) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          constraints: const BoxConstraints(
+            maxWidth: 950,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.backgroundCard.withValues(alpha: 0.4),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: AppColors.surfaceBorder.withValues(alpha: 0.3),
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: GenUiSurface(
+              host: widget.host,
+              surfaceId: msg.surfaceId,
+            ),
+          ),
+        ),
+      );
+    }
+    return const SizedBox.shrink();
+  }
+}
+
+/// Compact send/stop button
+class _SendButton extends StatelessWidget {
+  final bool isProcessing;
+  final VoidCallback onPressed;
+  final VoidCallback onCancel;
+
+  const _SendButton({
+    required this.isProcessing,
+    required this.onPressed,
+    required this.onCancel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: isProcessing ? 'Stop' : 'Send',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: isProcessing ? onCancel : onPressed,
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: isProcessing
+                  ? AppColors.error
+                  : AppColors.primaryTeal,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              isProcessing ? Icons.stop_rounded : Icons.arrow_upward_rounded,
+              color: isProcessing ? Colors.white : AppColors.backgroundDark,
+              size: 22,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Modern searchable project selector with combobox functionality
+class _ProjectSelectorDropdown extends StatefulWidget {
+  final List<GcpProject> projects;
+  final GcpProject? selectedProject;
+  final bool isLoading;
+  final ValueChanged<GcpProject?> onProjectSelected;
+  final VoidCallback onRefresh;
+
+  const _ProjectSelectorDropdown({
+    required this.projects,
+    required this.selectedProject,
+    required this.isLoading,
+    required this.onProjectSelected,
+    required this.onRefresh,
+  });
+
+  @override
+  State<_ProjectSelectorDropdown> createState() => _ProjectSelectorDropdownState();
+}
+
+class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
+    with SingleTickerProviderStateMixin {
+  final LayerLink _layerLink = LayerLink();
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+  OverlayEntry? _overlayEntry;
+  bool _isOpen = false;
+  String _searchQuery = '';
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 200),
+      vsync: this,
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOut,
+    );
+    _scaleAnimation = Tween<double>(begin: 0.95, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
+    );
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+    super.dispose();
+  }
+
+  List<GcpProject> get _filteredProjects {
+    if (_searchQuery.isEmpty) return widget.projects;
+    final query = _searchQuery.toLowerCase();
+    return widget.projects.where((p) {
+      return p.projectId.toLowerCase().contains(query) ||
+          (p.displayName?.toLowerCase().contains(query) ?? false);
+    }).toList();
+  }
+
+  void _toggleDropdown() {
+    if (_isOpen) {
+      _closeDropdown();
+    } else {
+      _openDropdown();
+    }
+  }
+
+  void _openDropdown() {
+    _overlayEntry = _createOverlayEntry();
+    Overlay.of(context).insert(_overlayEntry!);
+    _animationController.forward();
+    setState(() {
+      _isOpen = true;
+    });
+    // Focus the search field after a short delay
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) {
+        _searchFocusNode.requestFocus();
+      }
+    });
+  }
+
+  void _closeDropdown() {
+    _animationController.reverse().then((_) {
+      if (mounted) {
+        _overlayEntry?.remove();
+        _overlayEntry = null;
+      }
+    });
+    if (mounted) {
+      setState(() {
+        _isOpen = false;
+        _searchQuery = '';
+        _searchController.clear();
+      });
+    }
+  }
+
+  void _selectCustomProject(String projectId) {
+    if (projectId.trim().isEmpty) return;
+    final customProject = GcpProject(projectId: projectId.trim());
+    widget.onProjectSelected(customProject);
+    _closeDropdown();
+  }
+
+  OverlayEntry _createOverlayEntry() {
+    final renderBox = context.findRenderObject() as RenderBox;
+    final size = renderBox.size;
+    final offset = renderBox.localToGlobal(Offset.zero);
+
+    return OverlayEntry(
+      builder: (context) => GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: _closeDropdown,
+        child: Material(
+          color: Colors.transparent,
+          child: Stack(
+            children: [
+              Positioned(
+                left: offset.dx,
+                top: offset.dy + size.height + 8,
+                width: 320,
+                child: GestureDetector(
+                  onTap: () {}, // Prevent tap from closing
+                  child: FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: ScaleTransition(
+                      scale: _scaleAnimation,
+                      alignment: Alignment.topLeft,
+                      child: _buildDropdownContent(),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDropdownContent() {
+    return StatefulBuilder(
+      builder: (context, setDropdownState) {
+        return Container(
+          constraints: const BoxConstraints(maxHeight: 400),
+          decoration: BoxDecoration(
+            color: AppColors.backgroundCard,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: AppColors.primaryTeal.withValues(alpha: 0.3),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.4),
+                blurRadius: 24,
+                offset: const Offset(0, 12),
+              ),
+              BoxShadow(
+                color: AppColors.primaryTeal.withValues(alpha: 0.1),
+                blurRadius: 40,
+                spreadRadius: -10,
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Search input
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.03),
+                    border: Border(
+                      bottom: BorderSide(
+                        color: AppColors.surfaceBorder,
+                      ),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.1),
+                          ),
+                        ),
+                        child: TextField(
+                          controller: _searchController,
+                          focusNode: _searchFocusNode,
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 14,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'Search or enter project ID...',
+                            hintStyle: TextStyle(
+                              color: AppColors.textMuted,
+                              fontSize: 14,
+                            ),
+                            prefixIcon: Icon(
+                              Icons.search,
+                              size: 18,
+                              color: AppColors.textMuted,
+                            ),
+                            suffixIcon: _searchController.text.isNotEmpty
+                                ? IconButton(
+                                    icon: Icon(
+                                      Icons.clear,
+                                      size: 16,
+                                      color: AppColors.textMuted,
+                                    ),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      setDropdownState(() {
+                                        _searchQuery = '';
+                                      });
+                                    },
+                                  )
+                                : null,
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 12,
+                            ),
+                          ),
+                          onChanged: (value) {
+                            setDropdownState(() {
+                              _searchQuery = value;
+                            });
+                          },
+                          onSubmitted: (value) {
+                            if (_filteredProjects.isEmpty && value.isNotEmpty) {
+                              _selectCustomProject(value);
+                            } else if (_filteredProjects.length == 1) {
+                              widget.onProjectSelected(_filteredProjects.first);
+                              _closeDropdown();
+                            }
+                          },
+                        ),
+                      ),
+                      // Quick tip
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8, left: 4),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.lightbulb_outline,
+                              size: 12,
+                              color: AppColors.textMuted,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Type to search or enter a custom project ID',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Header with refresh button
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.02),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryTeal.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Icon(
+                          Icons.cloud_outlined,
+                          size: 14,
+                          color: AppColors.primaryTeal,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'GCP Projects',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textMuted,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '${_filteredProjects.length} projects',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: widget.onRefresh,
+                          borderRadius: BorderRadius.circular(6),
+                          child: Padding(
+                            padding: const EdgeInsets.all(6),
+                            child: widget.isLoading
+                                ? SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        AppColors.primaryTeal,
+                                      ),
+                                    ),
+                                  )
+                                : Icon(
+                                    Icons.refresh,
+                                    size: 14,
+                                    color: AppColors.textMuted,
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Custom project option when search doesn't match
+                if (_searchQuery.isNotEmpty && _filteredProjects.isEmpty)
+                  _buildUseCustomProjectOption(_searchQuery, setDropdownState),
+                // Project list
+                if (_filteredProjects.isEmpty && _searchQuery.isEmpty && !widget.isLoading)
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.cloud_off_outlined,
+                          size: 32,
+                          color: AppColors.textMuted,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'No projects available',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Type a project ID above to use it',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (_filteredProjects.isNotEmpty)
+                  Flexible(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      itemCount: _filteredProjects.length,
+                      itemBuilder: (context, index) {
+                        final project = _filteredProjects[index];
+                        final isSelected = widget.selectedProject?.projectId == project.projectId;
+
+                        return _buildProjectItem(project, isSelected);
+                      },
+                    ),
+                  ),
+                // Use custom project when there's a search with some results
+                if (_searchQuery.isNotEmpty && _filteredProjects.isNotEmpty)
+                  _buildUseCustomProjectOption(_searchQuery, setDropdownState),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildUseCustomProjectOption(String projectId, StateSetter setDropdownState) {
+    // Don't show if exact match exists
+    final exactMatch = widget.projects.any((p) => p.projectId == projectId);
+    if (exactMatch) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+      decoration: BoxDecoration(
+        color: AppColors.primaryTeal.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: AppColors.primaryTeal.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _selectCustomProject(projectId),
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryTeal.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Icon(
+                    Icons.add,
+                    size: 14,
+                    color: AppColors.primaryTeal,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Use "$projectId"',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.primaryTeal,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        'Press Enter or click to use this project ID',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.keyboard_return,
+                  size: 14,
+                  color: AppColors.primaryTeal,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProjectItem(GcpProject project, bool isSelected) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            widget.onProjectSelected(project);
+            _closeDropdown();
+          },
+          borderRadius: BorderRadius.circular(10),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 10,
+            ),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? AppColors.primaryTeal.withValues(alpha: 0.15)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isSelected
+                    ? AppColors.primaryTeal.withValues(alpha: 0.3)
+                    : Colors.transparent,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    gradient: isSelected
+                        ? LinearGradient(
+                            colors: [
+                              AppColors.primaryTeal.withValues(alpha: 0.3),
+                              AppColors.primaryCyan.withValues(alpha: 0.2),
+                            ],
+                          )
+                        : null,
+                    color: isSelected
+                        ? null
+                        : Colors.white.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    isSelected ? Icons.folder : Icons.folder_outlined,
+                    size: 16,
+                    color: isSelected
+                        ? AppColors.primaryTeal
+                        : AppColors.textMuted,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        project.name,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: isSelected
+                              ? FontWeight.w600
+                              : FontWeight.w500,
+                          color: isSelected
+                              ? AppColors.primaryTeal
+                              : AppColors.textPrimary,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (project.displayName != null &&
+                          project.displayName != project.projectId)
+                        Text(
+                          project.projectId,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textMuted,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                    ],
+                  ),
+                ),
+                if (isSelected)
+                  Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryTeal,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.check,
+                      size: 12,
+                      color: AppColors.backgroundDark,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+
+
+  @override
+  Widget build(BuildContext context) {
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _toggleDropdown,
+          borderRadius: BorderRadius.circular(6),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              color: _isOpen
+                  ? AppColors.primaryTeal.withValues(alpha: 0.1)
+                  : Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: _isOpen
+                    ? AppColors.primaryTeal.withValues(alpha: 0.3)
+                    : AppColors.surfaceBorder.withValues(alpha: 0.5),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.folder_outlined,
+                  size: 14,
+                  color: _isOpen ? AppColors.primaryTeal : AppColors.textMuted,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    widget.selectedProject?.name ?? 'Project',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: widget.selectedProject != null
+                          ? AppColors.textPrimary
+                          : AppColors.textMuted,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 2),
+                AnimatedRotation(
+                  turns: _isOpen ? 0.5 : 0,
+                  duration: const Duration(milliseconds: 150),
+                  child: Icon(
+                    Icons.keyboard_arrow_down,
+                    size: 16,
+                    color: _isOpen ? AppColors.primaryTeal : AppColors.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

@@ -86,8 +86,8 @@ class TestCUJ_IncidentInvestigation:
 
         # Compare baseline vs incident logs
         result = compare_log_patterns(
-            baseline_entries=baseline_period_logs,
-            comparison_entries=incident_period_logs,
+            baseline_entries_json=baseline_period_logs,
+            comparison_entries_json=incident_period_logs,
         )
 
         # Should detect new error patterns
@@ -260,8 +260,8 @@ class TestCUJ_ProactiveMonitoring:
 
         # Step 2: Compare with baseline
         comparison = compare_log_patterns(
-            baseline_entries=baseline_period_logs,
-            comparison_entries=incident_period_logs,
+            baseline_entries_json=baseline_period_logs,
+            comparison_entries_json=incident_period_logs,
         )
 
         # Should have quick alert level determination
@@ -387,8 +387,8 @@ class TestCUJ_HistoricalComparison:
 
         # Compare periods
         result = compare_log_patterns(
-            baseline_entries=baseline_logs,
-            comparison_entries=current_logs,
+            baseline_entries_json=baseline_logs,
+            comparison_entries_json=current_logs,
         )
 
         # Identical patterns should result in LOW alert

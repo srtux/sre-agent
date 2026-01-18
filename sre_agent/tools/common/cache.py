@@ -9,8 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 class DataCache:
-    """
-    Thread-safe cache to prevent duplicate API calls.
+    """Thread-safe cache to prevent duplicate API calls.
 
     This cache stores data with TTL (time-to-live) expiration.
     It's designed to eliminate redundant API calls when multiple sub-agents
@@ -32,9 +31,8 @@ class DataCache:
         >>> data = cache.get("trace999")  # Returns None (not found)
     """
 
-    def __init__(self, ttl_seconds: int = 300):
-        """
-        Initialize the data cache.
+    def __init__(self, ttl_seconds: int = 300) -> None:
+        """Initialize the data cache.
 
         Args:
             ttl_seconds: Time-to-live for cached entries in seconds.
@@ -46,8 +44,7 @@ class DataCache:
         logger.info(f"DataCache initialized with TTL={ttl_seconds}s")
 
     def get(self, key: str) -> Any | None:
-        """
-        Get cached data if available and not expired.
+        """Get cached data if available and not expired.
 
         This method automatically removes expired entries during lookup.
 
@@ -72,9 +69,8 @@ class DataCache:
                 logger.debug(f"Cache MISS for key {key}")
                 return None
 
-    def put(self, key: str, data: Any):
-        """
-        Cache data with expiration.
+    def put(self, key: str, data: Any) -> None:
+        """Cache data with expiration.
 
         Args:
             key: The cache key.
@@ -89,7 +85,7 @@ class DataCache:
             }
             logger.debug(f"Cached key {key} (TTL={self.ttl_seconds}s)")
 
-    def clear(self):
+    def clear(self) -> None:
         """Clear all cached entries."""
         with self._lock:
             count = len(self._cache)
@@ -97,8 +93,7 @@ class DataCache:
             logger.info(f"Cache cleared ({count} entries removed)")
 
     def size(self) -> int:
-        """
-        Get the number of cached entries.
+        """Get the number of cached entries.
 
         Note: This includes both valid and expired entries.
         Expired entries are only removed during get() operations.
@@ -110,8 +105,7 @@ class DataCache:
             return len(self._cache)
 
     def stats(self) -> dict[str, Any]:
-        """
-        Get cache statistics.
+        """Get cache statistics.
 
         Returns:
             Dictionary with cache statistics including:
@@ -140,8 +134,7 @@ _data_cache = DataCache()
 
 
 def get_data_cache() -> DataCache:
-    """
-    Get the global data cache instance.
+    """Get the global data cache instance.
 
     This function provides access to the singleton DataCache instance
     used throughout the application.

@@ -9,8 +9,9 @@ import pytest
 class TestGKETools:
     """Test suite for GKE/Kubernetes tools."""
 
+    @pytest.mark.asyncio
     @patch("sre_agent.tools.clients.gke._get_authorized_session")
-    def test_get_gke_cluster_health_returns_cluster_info(self, mock_session_fn):
+    async def test_get_gke_cluster_health_returns_cluster_info(self, mock_session_fn):
         """Test that get_gke_cluster_health returns cluster information."""
         from sre_agent.tools.clients.gke import get_gke_cluster_health
 
@@ -30,14 +31,20 @@ class TestGKETools:
                     "status": "RUNNING",
                     "config": {"machineType": "e2-medium"},
                     "initialNodeCount": 3,
-                    "autoscaling": {"enabled": True, "minNodeCount": 1, "maxNodeCount": 5},
+                    "autoscaling": {
+                        "enabled": True,
+                        "minNodeCount": 1,
+                        "maxNodeCount": 5,
+                    },
                 }
             ],
         }
         mock_response.raise_for_status = MagicMock()
         mock_session.get.return_value = mock_response
 
-        result = get_gke_cluster_health("test-project", "test-cluster", "us-central1")
+        result = await get_gke_cluster_health(
+            "test-project", "test-cluster", "us-central1"
+        )
         result_data = json.loads(result)
 
         assert result_data["cluster_name"] == "test-cluster"
@@ -45,8 +52,9 @@ class TestGKETools:
         assert result_data["health"] == "HEALTHY"
         assert len(result_data["node_pools"]) == 1
 
+    @pytest.mark.asyncio
     @patch("sre_agent.tools.clients.gke.monitoring_v3.MetricServiceClient")
-    def test_analyze_node_conditions_structure(self, mock_client_class):
+    async def test_analyze_node_conditions_structure(self, mock_client_class):
         """Test that analyze_node_conditions returns correct structure."""
         from sre_agent.tools.clients.gke import analyze_node_conditions
 
@@ -54,7 +62,9 @@ class TestGKETools:
         mock_client_class.return_value = mock_client
         mock_client.list_time_series.return_value = []
 
-        result = analyze_node_conditions("test-project", "test-cluster", "us-central1")
+        result = await analyze_node_conditions(
+            "test-project", "test-cluster", "us-central1"
+        )
         result_data = json.loads(result)
 
         assert "cluster" in result_data
@@ -62,8 +72,9 @@ class TestGKETools:
         assert "pressure_warnings" in result_data
         assert "summary" in result_data
 
+    @pytest.mark.asyncio
     @patch("sre_agent.tools.clients.gke.monitoring_v3.MetricServiceClient")
-    def test_get_pod_restart_events_returns_pods(self, mock_client_class):
+    async def test_get_pod_restart_events_returns_pods(self, mock_client_class):
         """Test that get_pod_restart_events returns pod restart information."""
         from sre_agent.tools.clients.gke import get_pod_restart_events
 
@@ -71,7 +82,9 @@ class TestGKETools:
         mock_client_class.return_value = mock_client
         mock_client.list_time_series.return_value = []
 
-        result = get_pod_restart_events("test-project", "production", minutes_ago=60)
+        result = await get_pod_restart_events(
+            "test-project", "production", minutes_ago=60
+        )
         result_data = json.loads(result)
 
         assert "time_window_minutes" in result_data
@@ -79,8 +92,9 @@ class TestGKETools:
         assert "summary" in result_data
         assert "severity" in result_data
 
+    @pytest.mark.asyncio
     @patch("sre_agent.tools.clients.gke.monitoring_v3.MetricServiceClient")
-    def test_analyze_hpa_events_structure(self, mock_client_class):
+    async def test_analyze_hpa_events_structure(self, mock_client_class):
         """Test that analyze_hpa_events returns HPA information."""
         from sre_agent.tools.clients.gke import analyze_hpa_events
 
@@ -88,7 +102,9 @@ class TestGKETools:
         mock_client_class.return_value = mock_client
         mock_client.list_time_series.return_value = []
 
-        result = analyze_hpa_events("test-project", "production", "frontend-deploy", 60)
+        result = await analyze_hpa_events(
+            "test-project", "production", "frontend-deploy", 60
+        )
         result_data = json.loads(result)
 
         assert "namespace" in result_data
@@ -96,9 +112,12 @@ class TestGKETools:
         assert "scaling_activity" in result_data
         assert "summary" in result_data
 
+    @pytest.mark.asyncio
     @patch("sre_agent.tools.clients.gke._get_authorized_session")
     @patch("sre_agent.tools.clients.gke.monitoring_v3.MetricServiceClient")
-    def test_get_container_oom_events_structure(self, mock_client_class, mock_session_fn):
+    async def test_get_container_oom_events_structure(
+        self, mock_client_class, mock_session_fn
+    ):
         """Test that get_container_oom_events returns OOM information."""
         from sre_agent.tools.clients.gke import get_container_oom_events
 
@@ -113,7 +132,7 @@ class TestGKETools:
         mock_client_class.return_value = mock_client
         mock_client.list_time_series.return_value = []
 
-        result = get_container_oom_events("test-project", "production", 60)
+        result = await get_container_oom_events("test-project", "production", 60)
         result_data = json.loads(result)
 
         assert "time_window_minutes" in result_data
@@ -121,8 +140,11 @@ class TestGKETools:
         assert "containers_at_risk" in result_data
         assert "severity" in result_data
 
+    @pytest.mark.asyncio
     @patch("sre_agent.tools.clients.gke.monitoring_v3.MetricServiceClient")
-    def test_get_workload_health_summary_returns_workloads(self, mock_client_class):
+    async def test_get_workload_health_summary_returns_workloads(
+        self, mock_client_class
+    ):
         """Test that get_workload_health_summary returns workload info."""
         from sre_agent.tools.clients.gke import get_workload_health_summary
 
@@ -130,7 +152,7 @@ class TestGKETools:
         mock_client_class.return_value = mock_client
         mock_client.list_time_series.return_value = []
 
-        result = get_workload_health_summary("test-project", "production", 30)
+        result = await get_workload_health_summary("test-project", "production", 30)
         result_data = json.loads(result)
 
         assert "namespace" in result_data

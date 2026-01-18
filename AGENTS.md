@@ -8,8 +8,8 @@ We use **`uv`** for dependency management and **`poethepoet`** for task automati
 |------|---------|-------------|
 | **Sync** | `uv run poe sync` | Install dependencies and update `.venv` |
 | **Run** | `uv run poe run` | Launch interactive terminal agent |
-| **Lint** | `uv run poe lint` | Run **Ruff**, **MyPy**, and **Codespell** (CI Guard) |
-| **Test** | `uv run poe test` | Run **Pytest** suite |
+| **Lint** | `uv run poe lint` | Run **Ruff**, **MyPy**, **Codespell**, and **Deptry** |
+| **Test** | `uv run poe test` | Run **Pytest** with coverage guards |
 | **Deploy** | `uv run poe deploy` | Validate & Deploy to Agent Engine |
 | **Pre-commit** | `uv run poe pre-commit` | Run quality guards (formatting, trailing whitespace) |
 
@@ -27,13 +27,18 @@ We use **`uv`** for dependency management and **`poethepoet`** for task automati
   - **Explicit Optional**: Use `name: str | None = None` instead of `name: str = None`.
   - **No Implicit Any**: Annotate empty containers: `items: list[dict[str, Any]] = []`.
   - **Float Initialization**: Use `val: float = 0.0` (not `0`) to satisfy strict typing.
-- **Pydantic Schemas**: Use `model_config = ConfigDict(frozen=True)` for all structured outputs to ensure immutability.
+- **Pydantic Schemas**: Use `model_config = ConfigDict(frozen=True, extra="forbid")` for all structured outputs.
+  - **Why**: Ensures LLM hallucinations (extra fields) are caught immediately.
+- **Dependency Freshness**: **Deptry** ensures no unused or missing dependencies are in `pyproject.toml`.
+- **Error Envelopes**: All tools should follow the `BaseToolResponse` structure (status, result, error, metadata) to ensure the Orchestrator can handle failures gracefully.
+- **Structured Logging**: Use `configure_logging()` from `sre_agent.tools.common.telemetry`. Set `LOG_FORMAT=JSON` in production for Cloud Logging compatibility.
 - **Secret Scanning**: **detect-secrets** scans for leaked keys.
   - If you encounter a false positive, update the baseline: `uv run detect-secrets scan --baseline .secrets.baseline`.
 - **Pre-commit**: You **MUST** run `uv run poe pre-commit` before pushing. It fixes formatting and spacing issues automatically.
 
-### 3. Testing Strategy
+### 3. Testing & Coverage
 - **Framework**: `pytest` + `pytest-asyncio` + `pytest-cov`.
+- **Coverage Guard**: A minimum of **70%** test coverage is enforced. `uv run poe test` will fail if coverage drops below this.
 - **Structure**: Tests mirror source directory (e.g., `tests/sre_agent/tools/...` corresponds to `sre_agent/tools/...`).
 - **Mocks**: Heavy use of `unittest.mock` to avoid hitting real GCP APIs during unit tests.
 
@@ -44,6 +49,16 @@ We use **`uv`** for dependency management and **`poethepoet`** for task automati
   2. `pyproject.toml` dependencies are extracted accurately.
   3. `uv` sync is fresh.
 - **Agent Engine**: Used for hosting. `deploy.py` handles the creation and update of the Reasoning Engine resource.
+### 5. Git Standards
+- **Conventional Commits**: Use semantic prefixes to help agents and automation understand changes:
+  - `feat`: New capability
+  - `fix`: Bug fix
+  - `docs`: Documentation only
+  - `style`: Formatting, missing semi colons, etc; no code change
+  - `refactor`: Refactoring production code
+  - `perf`: Code change that improves performance
+  - `test`: Adding missing tests, refactoring tests; no production code change
+  - `chore`: Updating build tasks, package manager configs, etc; no production code change
 
 ## 📝 Documentation Rules
 
@@ -76,41 +91,3 @@ The project follows the "Council of Experts" pattern:
 3.  Run lint checks: `uv run poe lint` (Must pass clean)
 4.  Run tests: `uv run poe test` (Must pass all tests)
 5.  Update docs: `README.md` if visible behavior changed.
-
-# AI Code Reviewer Configuration
-
-## Role & Identity
-You are a Senior Principal Software Engineer and Security Specialist. Your job is to review Pull Requests (PRs) with extreme attention to detail, focusing on logic errors, security vulnerabilities, and performance bottlenecks.
-
-## Review Guidelines (Priority Order)
-
-### 1. 🚨 Critical Issues (Must Fix)
-Prioritize these above all else. If found, mark the review as "REQUEST CHANGES".
-* **Security Vulnerabilities:** SQL injection, XSS, exposed secrets/API keys, broken access control, unvalidated inputs.
-* **Logic Bugs:** Off-by-one errors, null pointer exceptions, infinite loops, race conditions, incorrect business logic.
-* **Data Integrity:** Potential for data loss, incorrect transaction handling, or schema violations.
-
-### 2. ⚠️ Improvements (Strongly Suggested)
-* **Performance:** Identify N+1 queries, expensive loops, unnecessary memory allocations, or inefficient algorithms.
-* **Error Handling:** Ensure exceptions are caught, logged, and handled gracefully (no silent failures).
-* **Edge Cases:** Identify missing tests for boundary conditions (empty lists, negative numbers, massive inputs).
-
-### 3. 🧹 Code Quality (Advice)
-* **Readability:** Variable/function naming clarity.
-* **Maintainability:** DRY (Don't Repeat Yourself) violations, functions that are too long (Cyclomatic Complexity), and SOLID principle violations.
-* **Modern Practices:** Suggest modern language features (e.g., using `map/filter` instead of `for` loops where appropriate) if they improve clarity.
-
-## Response Format Rules
-1.  **Be Concise:** Do not summarize the code unless the summary reveals a misunderstanding of the intent. Get straight to the feedback.
-2.  **No Fluff:** Do not use phrases like "Great start!" or "Nice code." Be professional and objective.
-3.  **Code Snippets:** When suggesting a fix, **always** provide a code block showing the corrected version.
-4.  **Categorize:** Prefix your comments with tags:
-    * `[SECURITY]`
-    * `[BUG]`
-    * `[PERFORMANCE]`
-    * `[REFACTOR]`
-
-## "Do Not" List
-* **Do not** comment on whitespace, indentation, or missing semicolons (assume a linter handles this).
-* **Do not** hallucinate libraries or functions that do not exist.
-* **Do not** suggest rewriting the entire codebase; focus on the *diff* in the PR.

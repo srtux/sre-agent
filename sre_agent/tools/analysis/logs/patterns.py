@@ -15,9 +15,9 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-from drain3 import TemplateMiner  # type: ignore
-from drain3.masking import MaskingInstruction  # type: ignore
-from drain3.template_miner_config import TemplateMinerConfig  # type: ignore
+from drain3 import TemplateMiner
+from drain3.masking import MaskingInstruction
+from drain3.template_miner_config import TemplateMinerConfig
 
 from ...common import adk_tool
 from .extraction import extract_log_message
@@ -39,6 +39,7 @@ class LogPattern:
     resources: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
+        """Convert the pattern to a dictionary representation."""
         return {
             "pattern_id": self.pattern_id,
             "template": self.template,
@@ -62,6 +63,7 @@ class PatternComparison:
     stable_patterns: list[LogPattern]
 
     def to_dict(self) -> dict[str, Any]:
+        """Convert the comparison results to a dictionary representation."""
         return {
             "new_patterns": [p.to_dict() for p in self.new_patterns],
             "disappeared_patterns": [p.to_dict() for p in self.disappeared_patterns],
@@ -78,8 +80,7 @@ class PatternComparison:
 
 
 class LogPatternExtractor:
-    """
-    Extracts log patterns using Drain3 algorithm.
+    """Extracts log patterns using Drain3 algorithm.
 
     Drain3 is a streaming log parser that efficiently extracts templates
     from unstructured log messages. It's designed to handle high volumes
@@ -98,8 +99,7 @@ class LogPatternExtractor:
         max_children: int = 100,
         max_clusters: int = 1000,
     ):
-        """
-        Initialize the pattern extractor.
+        """Initialize the pattern extractor.
 
         Args:
             depth: Depth of the parse tree (higher = more patterns)
@@ -140,8 +140,7 @@ class LogPatternExtractor:
         severity: str | None = None,
         resource: str | None = None,
     ) -> str:
-        """
-        Add a log message and return its pattern ID.
+        """Add a log message and return its pattern ID.
 
         Args:
             message: The log message to process
@@ -212,8 +211,7 @@ class LogPatternExtractor:
         sort_by: str = "count",
         limit: int | None = None,
     ) -> list[LogPattern]:
-        """
-        Get extracted patterns.
+        """Get extracted patterns.
 
         Args:
             min_count: Minimum occurrence count to include
@@ -246,8 +244,7 @@ class LogPatternExtractor:
         return patterns
 
     def get_summary(self, max_patterns: int = 20) -> dict[str, Any]:
-        """
-        Get a compact summary suitable for LLM context.
+        """Get a compact summary suitable for LLM context.
 
         This method is designed to avoid context window overflow by
         providing distilled, actionable information.
@@ -298,8 +295,7 @@ def compare_patterns(
     patterns2: list[LogPattern],
     significance_threshold: float = 0.5,
 ) -> PatternComparison:
-    """
-    Compare patterns between two time periods.
+    """Compare patterns between two time periods.
 
     This function identifies:
     - New patterns (only in period 2) - potential new issues
@@ -376,27 +372,41 @@ def compare_patterns(
 
 @adk_tool
 def extract_log_patterns(
-    log_entries: list[dict[str, Any]],
+    log_entries_json: str,
     max_patterns: int = 30,
     min_count: int = 2,
 ) -> dict[str, Any]:
-    """
-    Extract log patterns from a list of log entries using Drain3.
+    """Extract log patterns from a list of log entries using Drain3.
 
     This tool compresses repetitive logs into patterns, making it easier
     to understand the log landscape without overwhelming context.
 
     Args:
-        log_entries: List of log entry dicts (from list_log_entries)
+        log_entries_json: JSON string of log entry dicts (from list_log_entries)
         max_patterns: Maximum patterns to return
         min_count: Minimum occurrences for a pattern
 
     Returns:
         Summary dict with patterns and statistics
     """
+    import json
+
+    log_entries = []
+    if isinstance(log_entries_json, list):
+        log_entries = log_entries_json
+    else:
+        try:
+            log_entries = json.loads(log_entries_json)
+            if not isinstance(log_entries, list):
+                log_entries = []
+        except (json.JSONDecodeError, TypeError):
+            log_entries = []
+
     extractor = LogPatternExtractor()
 
     for entry in log_entries:
+        if not isinstance(entry, dict):
+            continue
         message = extract_log_message(entry)
         timestamp = entry.get("timestamp", "")
         severity = entry.get("severity", "")
@@ -415,12 +425,11 @@ def extract_log_patterns(
 
 @adk_tool
 def compare_log_patterns(
-    baseline_entries: list[dict[str, Any]],
-    comparison_entries: list[dict[str, Any]],
+    baseline_entries_json: str,
+    comparison_entries_json: str,
     significance_threshold: float = 0.5,
 ) -> dict[str, Any]:
-    """
-    Compare log patterns between two time periods to find anomalies.
+    """Compare log patterns between two time periods to find anomalies.
 
     This is the key tool for detecting emergent issues. It identifies:
     - NEW patterns: Logs that didn't exist before (potential new bugs!)
@@ -429,18 +438,44 @@ def compare_log_patterns(
     - DECREASED patterns: Improvements
 
     Args:
-        baseline_entries: Log entries from the baseline period
-        comparison_entries: Log entries from the period to compare
+        baseline_entries_json: JSON string of log entries from the baseline period
+        comparison_entries_json: JSON string of log entries from the period to compare
         significance_threshold: Minimum % change to be significant (0.5 = 50%)
 
     Returns:
         Comparison results with categorized patterns
     """
+    import json
+
+    baseline_entries = []
+    if isinstance(baseline_entries_json, list):
+        baseline_entries = baseline_entries_json
+    else:
+        try:
+            baseline_entries = json.loads(baseline_entries_json)
+            if not isinstance(baseline_entries, list):
+                baseline_entries = []
+        except (json.JSONDecodeError, TypeError):
+            baseline_entries = []
+
+    comparison_entries = []
+    if isinstance(comparison_entries_json, list):
+        comparison_entries = comparison_entries_json
+    else:
+        try:
+            comparison_entries = json.loads(comparison_entries_json)
+            if not isinstance(comparison_entries, list):
+                comparison_entries = []
+        except (json.JSONDecodeError, TypeError):
+            comparison_entries = []
+
     # Extract patterns from both periods
     baseline_extractor = LogPatternExtractor()
     comparison_extractor = LogPatternExtractor()
 
     for entry in baseline_entries:
+        if not isinstance(entry, dict):
+            continue
         message = extract_log_message(entry)
         baseline_extractor.add_log(
             message=message,
@@ -449,6 +484,8 @@ def compare_log_patterns(
         )
 
     for entry in comparison_entries:
+        if not isinstance(entry, dict):
+            continue
         message = extract_log_message(entry)
         comparison_extractor.add_log(
             message=message,
@@ -481,27 +518,41 @@ def compare_log_patterns(
 
 @adk_tool
 def analyze_log_anomalies(
-    log_entries: list[dict[str, Any]],
+    log_entries_json: str,
     focus_on_errors: bool = True,
     max_results: int = 10,
 ) -> dict[str, Any]:
-    """
-    Analyze logs for anomalous patterns, focusing on errors if specified.
+    """Analyze logs for anomalous patterns, focusing on errors if specified.
 
     This tool extracts patterns and highlights the most concerning ones,
     perfect for quick incident triage.
 
     Args:
-        log_entries: List of log entry dicts
+        log_entries_json: JSON string of list of log entry dicts
         focus_on_errors: If True, prioritize ERROR/CRITICAL patterns
         max_results: Maximum patterns to return
 
     Returns:
         Analysis results with prioritized anomalies
     """
+    import json
+
+    log_entries = []
+    if isinstance(log_entries_json, list):
+        log_entries = log_entries_json
+    else:
+        try:
+            log_entries = json.loads(log_entries_json)
+            if not isinstance(log_entries, list):
+                log_entries = []
+        except (json.JSONDecodeError, TypeError):
+            log_entries = []
+
     extractor = LogPatternExtractor()
 
     for entry in log_entries:
+        if not isinstance(entry, dict):
+            continue
         message = extract_log_message(entry)
         extractor.add_log(
             message=message,
@@ -536,8 +587,7 @@ def get_pattern_summary(
     patterns: list[LogPattern],
     max_length: int = 2000,
 ) -> str:
-    """
-    Generate a compact text summary of patterns for LLM context.
+    """Generate a compact text summary of patterns for LLM context.
 
     This is carefully designed to provide maximum insight with minimum
     tokens, avoiding context window overflow.
