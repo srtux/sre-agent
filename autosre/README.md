@@ -45,6 +45,7 @@ AutoSRE uses the backend's `SessionService` to persist conversation history.
 - **API**: Connects to `/api/sessions` for listing and managing sessions.
 - **Context**: Maintains `session_id` to allow the backend to restore conversation history from ADK storage (SQLite/Firestore).
 - **History**: Chat history is rehydrated from backend events, ensuring state consistency across reloads.
+- **State Reset**: `clearSession()` is used to reset the frontend state and backend `session_id` when starting a new investigation, ensuring no leaked context from previous sessions.
 
 ## Key Widgets
 - `SessionPanel`: Sidebar for viewing and managing investigation history sessions.
