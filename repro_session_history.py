@@ -23,7 +23,7 @@ class SessionInfo:
 class AgentMessage:
     """Class representing a message in the agent conversation."""
 
-    def __init__(self, role, text):
+    def __init__(self, role: str, text: str) -> None:
         """Initialize the agent message."""
         self.role = role
         self.text = text
@@ -32,14 +32,19 @@ class AgentMessage:
 class AgentRequest:
     """Class representing a request to the agent."""
 
-    def __init__(self, messages, session_id=None, project_id=None):
+    def __init__(
+        self,
+        messages: list[AgentMessage],
+        session_id: str | None = None,
+        project_id: str | None = None,
+    ) -> None:
         """Initialize the agent request."""
         self.messages = messages
         self.session_id = session_id
         self.project_id = project_id
 
 
-async def run_chat_turn(session_id, text):
+async def run_chat_turn(session_id: str, text: str) -> str | None:
     """Run a single chat turn with the agent."""
     session_manager = get_session_service()
     session = await session_manager.get_session(session_id)
@@ -88,13 +93,16 @@ async def run_chat_turn(session_id, text):
 
     # Reload session from DB to check persistence
     reloaded_session = await session_manager.get_session(session_id)
-    event_count_after = len(reloaded_session.events) if reloaded_session.events else 0
+    if reloaded_session and reloaded_session.events:
+        event_count_after = len(reloaded_session.events)
+    else:
+        event_count_after = 0
     print(f"Events after from DB: {event_count_after}")
 
     return response_text
 
 
-async def main():
+async def main() -> None:
     """Run the main reproduction script."""
     # Setup environment
     os.environ["USE_DATABASE_SESSIONS"] = "true"
@@ -123,21 +131,27 @@ async def main():
 
     # Check immediate persistence
     s2 = await session_manager.get_session(session_id)
-    print(f"Events after manual append: {len(s2.events) if s2.events else 0}")
+    if s2 and s2.events:
+        events_len = len(s2.events)
+    else:
+        events_len = 0
+    print(f"Events after manual append: {events_len}")
 
     # 2. Turn 1
     response1 = await run_chat_turn(session_id, "Hello, my name is James Bond.")
-    print(f"Response 1: {response1[:50]}...")
+    if response1:
+        print(f"Response 1: {response1[:50]}...")
 
     # 3. Turn 2
     response2 = await run_chat_turn(session_id, "What is my name?")
-    print(f"Response 2: {response2}")
+    if response2:
+        print(f"Response 2: {response2}")
 
-    # Check if context was preserved
-    if "Bond" in response2 or "James" in response2:
-        print("✅ SUCCESS: Context preserved.")
-    else:
-        print("❌ FAILURE: Context lost.")
+        # Check if context was preserved
+        if "Bond" in response2 or "James" in response2:
+            print("✅ SUCCESS: Context preserved.")
+        else:
+            print("❌ FAILURE: Context lost.")
 
 
 if __name__ == "__main__":

@@ -165,6 +165,9 @@ class TestGetLogsForTrace:
             mock_entry.resource = MagicMock()
             mock_entry.resource.type = "global"
             mock_entry.resource.labels = {}
+            mock_entry.trace = f"projects/test-project/traces/{trace_id}"
+            mock_entry.span_id = "span-id"
+            mock_entry.http_request = None
             mock_entries.append(mock_entry)
 
         mock_pager = MagicMock()
@@ -320,6 +323,9 @@ class TestListLogEntries:
             mock_entry.timestamp.isoformat.return_value = log_entry["timestamp"]
             mock_entry.resource.type = "global"
             mock_entry.resource.labels = {}
+            mock_entry.trace = None
+            mock_entry.span_id = None
+            mock_entry.http_request = None
             mock_entries.append(mock_entry)
 
         mock_pager = MagicMock()
@@ -372,6 +378,9 @@ class TestIntegration:
         mock_log_entry.timestamp.isoformat.return_value = "2024-01-01T00:00:00Z"
         mock_log_entry.resource.type = "global"
         mock_log_entry.resource.labels = {}
+        mock_log_entry.trace = f"projects/test-project/traces/{trace_id}"
+        mock_log_entry.span_id = "span-id"
+        mock_log_entry.http_request = None
 
         mock_pager = MagicMock()
         mock_page = MagicMock()

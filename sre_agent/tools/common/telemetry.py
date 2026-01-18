@@ -49,6 +49,10 @@ class EmojiLoggingFilter(logging.Filter):
                 record.msg = f"🧠 LLM Call Starting | {record.msg}"
             elif "Response received" in msg:
                 record.msg = f"🧠 LLM Call Completed | {record.msg}"
+            elif "LLM Request:" in msg or "LLM Response:" in msg:
+                if len(msg) > 1000:
+                    record.msg = f"{msg[:1000]}... (truncated, original len={len(msg)})"
+                    record.args = ()
 
         # API Call Distinctions (Uvicorn access logs)
         elif "uvicorn.access" in record.name:

@@ -38,6 +38,9 @@ async def test_list_log_entries_success_text_payload(mock_get_client):
     mock_entry.resource.type = "gce_instance"
     mock_entry.resource.labels = {"instance_id": "123"}
     mock_entry.insert_id = "abc-123"
+    mock_entry.trace = "projects/my-project/traces/12345"
+    mock_entry.span_id = "span-123"
+    mock_entry.http_request = None
 
     mock_pager = MagicMock()
     mock_page = create_mock_page([mock_entry], next_token=None)
@@ -106,6 +109,9 @@ async def test_list_log_entries_json_payload(mock_get_client):
     mock_entry.resource.type = "global"
     mock_entry.resource.labels = {}
     mock_entry.insert_id = "1"
+    mock_entry.trace = None
+    mock_entry.span_id = None
+    mock_entry.http_request = None
 
     mock_pager = MagicMock()
     mock_page = create_mock_page([mock_entry])

@@ -107,6 +107,18 @@ def _list_log_entries_sync(
                                 "labels": dict(entry.resource.labels),
                             },
                             "insert_id": entry.insert_id,
+                            "trace": entry.trace,
+                            "span_id": entry.span_id,
+                            "http_request": {
+                                "requestMethod": entry.http_request.get(
+                                    "requestMethod"
+                                ),
+                                "requestUrl": entry.http_request.get("requestUrl"),
+                                "status": entry.http_request.get("status"),
+                                "latency": entry.http_request.get("latency"),
+                            }
+                            if entry.http_request
+                            else None,
                         }
                     )
                 next_token = first_page.next_page_token
@@ -198,7 +210,7 @@ async def get_logs_for_trace(project_id: str, trace_id: str, limit: int = 100) -
 
 def _extract_log_payload(entry: Any) -> str | dict[str, Any]:
     """Extracts and normalizes payload from a log entry."""
-    payload_data: str | dict[str, Any] | None = None
+    payload_data: str | dict[str, Any] = ""
 
     if entry.text_payload:
         payload_data = entry.text_payload
@@ -207,18 +219,22 @@ def _extract_log_payload(entry: Any) -> str | dict[str, Any]:
             payload_data = dict(entry.json_payload)
         except (ValueError, TypeError):
             payload_data = str(entry.json_payload)
-    elif hasattr(entry, "proto_payload") and entry.proto_payload:
+    elif hasattr(entry, "proto_payload"):
         try:
-            from google.protobuf.json_format import MessageToDict
+            proto = entry.proto_payload
+            if proto:
+                try:
+                    from google.protobuf.json_format import MessageToDict
 
-            payload_data = MessageToDict(entry.proto_payload)
-        except Exception:
-            try:
-                payload_data = str(entry.proto_payload)
-            except Exception:
-                payload_data = f"[ProtoPayload] {entry.proto_payload.type_url}"
-    else:
-        payload_data = ""
+                    payload_data = MessageToDict(proto)
+                except Exception:
+                    try:
+                        payload_data = str(proto)
+                    except Exception:
+                        payload_data = f"[ProtoPayload] {proto.type_url}"
+        except Exception as e:
+            # Fallback if accessing proto_payload fails (e.g. missing descriptor)
+            payload_data = f"[ProtoPayload unavailable] {e!s}"
 
     # Truncate if string and too long
     if isinstance(payload_data, str) and len(payload_data) > 2000:

@@ -1007,19 +1007,21 @@ class _MessageItemState extends State<_MessageItem>
             color: AppColors.primaryTeal.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: MarkdownBody(
-            data: msg.text,
-            styleSheet: MarkdownStyleSheet(
-              p: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 14,
-                height: 1.4,
-              ),
-              code: TextStyle(
-                backgroundColor: Colors.black.withValues(alpha: 0.2),
-                color: AppColors.primaryTeal,
-                fontSize: 12,
-                fontFamily: 'monospace',
+          child: SelectionArea(
+            child: MarkdownBody(
+              data: msg.text,
+              styleSheet: MarkdownStyleSheet(
+                p: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 14,
+                  height: 1.4,
+                ),
+                code: TextStyle(
+                  backgroundColor: Colors.black.withValues(alpha: 0.2),
+                  color: AppColors.primaryTeal,
+                  fontSize: 12,
+                  fontFamily: 'monospace',
+                ),
               ),
             ),
           ),
@@ -1038,40 +1040,42 @@ class _MessageItemState extends State<_MessageItem>
             color: AppColors.backgroundCard.withValues(alpha: 0.6),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: MarkdownBody(
-            data: msg.text,
-            styleSheet: MarkdownStyleSheet(
-              p: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 14,
-                height: 1.5,
-              ),
-              h1: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-              h2: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-              code: TextStyle(
-                backgroundColor: Colors.black.withValues(alpha: 0.3),
-                color: AppColors.primaryTeal,
-                fontSize: 12,
-                fontFamily: 'monospace',
-              ),
-              codeblockDecoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              blockquoteDecoration: BoxDecoration(
-                color: AppColors.primaryTeal.withValues(alpha: 0.08),
-                border: Border(
-                  left: BorderSide(
-                    color: AppColors.primaryTeal.withValues(alpha: 0.5),
-                    width: 2,
+          child: SelectionArea(
+            child: MarkdownBody(
+              data: msg.text,
+              styleSheet: MarkdownStyleSheet(
+                p: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 14,
+                  height: 1.5,
+                ),
+                h1: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+                h2: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+                code: TextStyle(
+                  backgroundColor: Colors.black.withValues(alpha: 0.3),
+                  color: AppColors.primaryTeal,
+                  fontSize: 12,
+                  fontFamily: 'monospace',
+                ),
+                codeblockDecoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                blockquoteDecoration: BoxDecoration(
+                  color: AppColors.primaryTeal.withValues(alpha: 0.08),
+                  border: Border(
+                    left: BorderSide(
+                      color: AppColors.primaryTeal.withValues(alpha: 0.5),
+                      width: 2,
+                    ),
                   ),
                 ),
               ),

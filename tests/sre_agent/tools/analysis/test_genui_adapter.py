@@ -1,4 +1,5 @@
 from sre_agent.tools.analysis.genui_adapter import (
+    transform_log_entries,
     transform_metrics,
     transform_remediation,
     transform_trace,
@@ -74,3 +75,46 @@ def test_transform_remediation():
         == "gcloud compute instance-groups managed resize ..."
     )
     assert transformed["steps"][0]["command"] == "Scale Up"
+
+
+def test_transform_log_entries():
+    raw_logs = {
+        "entries": [
+            {
+                "insertId": "log-1",
+                "timestamp": "2023-01-01T00:00:00Z",
+                "severity": "ERROR",
+                "jsonPayload": {"message": "Something went wrong"},
+                "resource": {
+                    "type": "k8s_container",
+                    "labels": {"pod_name": "pod-1", "namespace_name": "default"},
+                },
+                "trace": "projects/p1/traces/trace-123",
+            }
+        ],
+        "filter": 'severity="ERROR"',
+        "project_id": "test-project",
+    }
+
+    transformed = transform_log_entries(raw_logs)
+
+    assert len(transformed["entries"]) == 1
+    entry = transformed["entries"][0]
+
+    # Check flattening and mapping
+    assert entry["insert_id"] == "log-1"
+    assert entry["timestamp"] == "2023-01-01T00:00:00Z"
+    assert entry["severity"] == "ERROR"
+    assert entry["payload"] == {"message": "Something went wrong"}
+
+    # Check resource flattening (Critical for Frontend)
+    assert entry["resource_type"] == "k8s_container"
+    assert entry["resource_labels"]["pod_name"] == "pod-1"
+    assert entry["resource_labels"]["namespace_name"] == "default"
+
+    # Check trace extraction
+    assert entry["trace_id"] == "trace-123"
+
+    # Check metadata
+    assert transformed["filter"] == 'severity="ERROR"'
+    assert transformed["project_id"] == "test-project"
