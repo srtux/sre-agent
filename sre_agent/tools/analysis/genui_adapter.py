@@ -52,6 +52,48 @@ def transform_metrics(metric_data: Any) -> dict[str, Any]:
         }
     # If it's a dictionary (like from query_promql), handle it accordingly
     if isinstance(metric_data, dict):
+        # Check for PromQL response format
+        # {"status": "success", "data": {"resultType": "matrix", "result": [...]}}
+        if (
+            "status" in metric_data
+            and "data" in metric_data
+            and isinstance(metric_data["data"], dict)
+            and "result" in metric_data["data"]
+        ):
+            results = metric_data["data"]["result"]
+            if not results or not isinstance(results, list):
+                return {"metric_name": "No Data", "points": [], "labels": {}}
+
+            # Take the first series
+            series = results[0]
+            metric_info = series.get("metric", {})
+            values = series.get("values", [])
+            points = []
+
+            for val in values:
+                # PromQL values are [timestamp(float), value(string)]
+                if isinstance(val, list) and len(val) >= 2:
+                    try:
+                        ts = float(val[0])
+                        v = float(val[1])
+                        dt = datetime.fromtimestamp(ts, tz=timezone.utc)
+                        points.append(
+                            {
+                                "timestamp": dt.isoformat(),
+                                "value": v,
+                                "is_anomaly": False,
+                            }
+                        )
+                    except (ValueError, TypeError):
+                        continue
+
+            return {
+                "metric_name": metric_info.get("__name__", "Metric"),
+                "points": points,
+                "labels": metric_info,
+            }
+
+        # Standard ADK format
         return {
             "metric_name": metric_data.get("metric_name", "Metric"),
             "points": metric_data.get("points", []),
