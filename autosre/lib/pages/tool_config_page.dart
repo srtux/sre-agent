@@ -379,7 +379,7 @@ class _ToolConfigPageState extends State<ToolConfigPage>
                       value: tool.enabled,
                       onChanged: (value) =>
                           _service.setToolEnabled(tool.name, value),
-                      activeColor: AppColors.success,
+                      activeThumbColor: AppColors.success,
                       inactiveThumbColor: AppColors.textMuted,
                       inactiveTrackColor:
                           AppColors.textMuted.withValues(alpha: 0.3),

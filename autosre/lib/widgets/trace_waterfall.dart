@@ -15,9 +15,8 @@ class _SpanNode {
     required this.span,
     this.children = const [],
     this.depth = 0,
-    this.isExpanded = true,
-    this.isOnCriticalPath = false,
-  });
+  })  : isExpanded = true,
+        isOnCriticalPath = false;
 }
 
 class TraceWaterfall extends StatefulWidget {

@@ -114,7 +114,6 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
     final minValue = sortedValues.first;
     final avgValue = values.reduce((a, b) => a + b) / values.length;
     final p95Value = _calculatePercentile(sortedValues, 95);
-    final p50Value = _calculatePercentile(sortedValues, 50);
 
     final movingAvg = _calculateMovingAverage(sortedPoints, 5);
     final anomalyRegions = _findAnomalyRegions(sortedPoints);

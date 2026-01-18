@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
@@ -129,6 +129,7 @@ class _ConversationPageState extends State<ConversationPage>
 
     // Show a message indicating the session is loaded
     // The backend will maintain the conversation context
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Loaded session: ${session.displayTitle}'),
@@ -312,52 +313,7 @@ class _ConversationPageState extends State<ConversationPage>
     );
   }
 
-  Widget _buildNewSessionButton({bool compact = false}) {
-    return Tooltip(
-      message: 'Start New Session',
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: _startNewSession,
-          borderRadius: BorderRadius.circular(6),
-          child: Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: compact ? 8 : 10,
-              vertical: compact ? 4 : 6,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                color: AppColors.surfaceBorder.withValues(alpha: 0.5),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.add,
-                  size: compact ? 14 : 16,
-                  color: AppColors.textSecondary,
-                ),
-                if (!compact) ...[
-                  const SizedBox(width: 4),
-                  Text(
-                    'New',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+
 
   Widget _buildSessionToggle({bool compact = false}) {
     return Material(

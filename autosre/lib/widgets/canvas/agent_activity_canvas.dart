@@ -1,8 +1,7 @@
 import 'dart:math' as math;
-import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
-import '../../models/adk_schema.dart';
 
 /// Model for an agent activity node
 class AgentNode {
@@ -83,8 +82,7 @@ class _AgentActivityCanvasState extends State<AgentActivityCanvas>
   late Animation<double> _flowAnimation;
   late Animation<double> _entranceAnimation;
 
-  Map<String, Offset> _nodePositions = {};
-  String? _hoveredNodeId;
+  final Map<String, Offset> _nodePositions = {};
 
   @override
   void initState() {
@@ -379,8 +377,8 @@ class _AgentActivityCanvasState extends State<AgentActivityCanvas>
       child: Opacity(
         opacity: opacity,
         child: MouseRegion(
-          onEnter: (_) => setState(() => _hoveredNodeId = node.id),
-          onExit: (_) => setState(() => _hoveredNodeId = null),
+          onEnter: (_) => setState(() {}),
+          onExit: (_) => setState(() {}),
           child: Transform.scale(
             scale: scale,
             child: GestureDetector(

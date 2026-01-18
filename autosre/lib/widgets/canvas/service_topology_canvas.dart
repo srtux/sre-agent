@@ -1,5 +1,5 @@
 import 'dart:math' as math;
-import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 
@@ -108,7 +108,7 @@ class _ServiceTopologyCanvasState extends State<ServiceTopologyCanvas>
   late Animation<double> _pulseAnimation;
   late Animation<double> _entranceAnimation;
 
-  Map<String, Offset> _nodePositions = {};
+  final Map<String, Offset> _nodePositions = {};
   String? _selectedServiceId;
   String? _hoveredServiceId;
   double _scale = 1.0;
@@ -287,8 +287,8 @@ class _ServiceTopologyCanvasState extends State<ServiceTopologyCanvas>
                       builder: (context, constraints) {
                         return Transform(
                           transform: Matrix4.identity()
-                            ..translate(_offset.dx, _offset.dy)
-                            ..scale(_scale),
+                            ..translateByDouble(_offset.dx, _offset.dy, 0.0, 1.0)
+                            ..scaleByDouble(_scale, _scale, 1.0, 1.0),
                           child: Stack(
                             children: [
                               // Background pattern
@@ -770,10 +770,6 @@ class _ServiceTopologyCanvasState extends State<ServiceTopologyCanvas>
 class _TopologyBackgroundPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = AppColors.surfaceBorder.withValues(alpha: 0.2)
-      ..strokeWidth = 0.5;
-
     // Draw dots grid
     const spacing = 25.0;
     final dotPaint = Paint()
