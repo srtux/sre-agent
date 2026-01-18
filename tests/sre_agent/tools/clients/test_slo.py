@@ -7,19 +7,15 @@ from unittest.mock import MagicMock, patch
 class TestSLOTools:
     """Test suite for SLO/SLI tools."""
 
-    @patch("sre_agent.tools.clients.slo.monitoring_v3.ServiceMonitoringServiceClient")
-    @patch("sre_agent.auth.get_current_credentials")
-    def test_list_slos_returns_slo_data(self, mock_get_credentials, mock_client_class):
+    def test_list_slos_returns_slo_data(self):
         """Test that list_slos returns properly formatted SLO data."""
         from sre_agent.tools.clients.slo import list_slos
 
         # Mock credentials
         mock_credentials = MagicMock()
-        mock_get_credentials.return_value = (mock_credentials, "test-project")
 
         # Mock the client and response
         mock_client = MagicMock()
-        mock_client_class.return_value = mock_client
 
         # Mock SLO
         mock_slo = MagicMock()
@@ -31,13 +27,18 @@ class TestSLOTools:
 
         mock_client.list_service_level_objectives.return_value = [mock_slo]
 
-        result = list_slos("test-project", "test-service")
-        result_data = json.loads(result)
+        with (
+            patch("sre_agent.tools.clients.slo.get_current_credentials", return_value=(mock_credentials, "test-project")),
+            patch("sre_agent.tools.clients.slo.monitoring_v3.ServiceMonitoringServiceClient") as mock_client_class,
+        ):
+            mock_client_class.return_value = mock_client
+            result = list_slos("test-project", "test-service")
+            result_data = json.loads(result)
 
-        # Verify we got a list
-        assert isinstance(result_data, list)
-        assert len(result_data) == 1
-        assert result_data[0]["name"] == "projects/test-project/services/test-service/serviceLevelObjectives/test-slo"
+            # Verify we got a list
+            assert isinstance(result_data, list)
+            assert len(result_data) == 1
+            assert result_data[0]["name"] == "projects/test-project/services/test-service/serviceLevelObjectives/test-slo"
 
     @patch("sre_agent.tools.clients.slo._get_authorized_session")
     def test_get_slo_status_returns_status(self, mock_session_fn):

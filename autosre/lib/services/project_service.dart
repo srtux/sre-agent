@@ -36,7 +36,17 @@ class GcpProject {
 /// Service for managing GCP project selection and fetching.
 class ProjectService {
   static final ProjectService _instance = ProjectService._internal();
+
+  /// Default factory returns the shared singleton.
   factory ProjectService() => _instance;
+
+  /// Creates a new, non-singleton instance.
+  ///
+  /// Use this in tests or short-lived contexts where you want an
+  /// isolated instance that can be safely disposed without affecting
+  /// the global singleton.
+  ProjectService.newInstance() : this._internal();
+
   ProjectService._internal();
 
   /// HTTP request timeout duration.
@@ -80,9 +90,9 @@ class ProjectService {
   Future<void> loadSavedProject() async {
     try {
       final client = await AuthService().getAuthenticatedClient();
-      final response = await client.get(
-        Uri.parse(_preferencesUrl),
-      ).timeout(_requestTimeout);
+      final response = await client
+          .get(Uri.parse(_preferencesUrl))
+          .timeout(_requestTimeout);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -107,11 +117,13 @@ class ProjectService {
   Future<void> _saveSelectedProject(String projectId) async {
     try {
       final client = await AuthService().getAuthenticatedClient();
-      await client.post(
-        Uri.parse(_preferencesUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'project_id': projectId}),
-      ).timeout(_requestTimeout);
+      await client
+          .post(
+            Uri.parse(_preferencesUrl),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'project_id': projectId}),
+          )
+          .timeout(_requestTimeout);
       debugPrint('Saved project selection: $projectId');
     } catch (e) {
       debugPrint('Error saving project selection: $e');
@@ -127,7 +139,9 @@ class ProjectService {
 
     try {
       final client = await AuthService().getAuthenticatedClient();
-      final response = await client.get(Uri.parse(_projectsUrl)).timeout(_requestTimeout);
+      final response = await client
+          .get(Uri.parse(_projectsUrl))
+          .timeout(_requestTimeout);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -190,6 +204,13 @@ class ProjectService {
   }
 
   void dispose() {
+    // Only allow disposal for non-singleton instances to avoid disposing
+    // global notifiers that may still be in use elsewhere.
+    if (identical(this, _instance)) {
+      debugPrint('ProjectService.dispose() called on singleton; ignoring.');
+      return;
+    }
+
     _projects.dispose();
     _selectedProject.dispose();
     _isLoading.dispose();

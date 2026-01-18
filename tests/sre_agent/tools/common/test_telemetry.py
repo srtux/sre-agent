@@ -1,61 +1,75 @@
-from unittest import mock
+"""Tests for telemetry utilities."""
 
-from sre_agent.tools.common.telemetry import get_meter, get_tracer
+import logging
+from unittest.mock import MagicMock, patch
 
-
-def test_get_tracer():
-    with mock.patch(
-        "sre_agent.tools.common.telemetry.trace.get_tracer_provider"
-    ) as mock_get_provider:
-        mock_tracer = mock.Mock()
-        mock_get_provider.return_value = mock_tracer
-
-        tracer = get_tracer("test_module")
-
-        mock_get_provider.assert_called_once()
-        assert tracer == mock_tracer.get_tracer.return_value
+from sre_agent.tools.common.telemetry import (
+    GenAiAttributes,
+    _FunctionCallWarningFilter,
+    log_tool_call,
+    set_span_attribute,
+)
 
 
-def test_get_meter():
-    with mock.patch(
-        "sre_agent.tools.common.telemetry.metrics.get_meter"
-    ) as mock_get_meter:
-        mock_meter = mock.Mock()
-        mock_get_meter.return_value = mock_meter
+def test_function_call_warning_filter():
+    """Test the function call warning filter."""
+    filter_obj = _FunctionCallWarningFilter()
 
-        meter = get_meter("test_module")
+    # Should allow normal messages
+    record = MagicMock()
+    record.getMessage.return_value = "Normal message"
+    assert filter_obj.filter(record) is True
 
-        mock_get_meter.assert_called_with("test_module")
-        assert meter == mock_meter
+    # Should filter out specific warning
+    record.getMessage.return_value = "Warning: there are non-text parts in the response"
+    assert filter_obj.filter(record) is False
 
 
-def test_logging_filter():
-    import logging
+def test_gen_ai_attributes_constants():
+    """Test that GenAI attributes constants are defined."""
+    assert GenAiAttributes.SYSTEM == "gen_ai.system"
+    assert GenAiAttributes.REQUEST_MODEL == "gen_ai.request.model"
+    assert GenAiAttributes.RESPONSE_ID == "gen_ai.response.id"
+    assert GenAiAttributes.USAGE_TOTAL_TOKENS == "gen_ai.usage.total_tokens"
 
-    from sre_agent.tools.common.telemetry import _FunctionCallWarningFilter
 
-    log_filter = _FunctionCallWarningFilter()
+def test_log_tool_call_basic():
+    """Test log_tool_call with basic arguments."""
+    logger = MagicMock(spec=logging.Logger)
 
-    # Record that should be filtered out
-    record_filtered = logging.LogRecord(
-        name="test",
-        level=logging.WARNING,
-        pathname="path",
-        lineno=1,
-        msg="Warning: there are non-text parts in the response",
-        args=(),
-        exc_info=None,
-    )
-    assert not log_filter.filter(record_filtered)
+    log_tool_call(logger, "test_func", arg1="value1", arg2=123)
 
-    # Record that should NOT be filtered out
-    record_allowed = logging.LogRecord(
-        name="test",
-        level=logging.WARNING,
-        pathname="path",
-        lineno=1,
-        msg="Some other warning",
-        args=(),
-        exc_info=None,
-    )
-    assert log_filter.filter(record_allowed)
+    logger.debug.assert_called_once_with("Tool Call: test_func | Args: {'arg1': 'value1', 'arg2': '123'}")
+
+
+def test_log_tool_call_truncation():
+    """Test log_tool_call truncates long values."""
+    logger = MagicMock(spec=logging.Logger)
+
+    long_value = "x" * 250
+    log_tool_call(logger, "test_func", long_arg=long_value)
+
+    expected_truncated = long_value[:200] + "... (truncated)"
+    logger.debug.assert_called_once_with(f"Tool Call: test_func | Args: {{'long_arg': '{expected_truncated}'}}")
+
+
+def test_set_span_attribute_with_active_span():
+    """Test set_span_attribute with an active span."""
+    mock_span = MagicMock()
+    mock_span.is_recording.return_value = True
+
+    with patch("sre_agent.tools.common.telemetry.trace.get_current_span", return_value=mock_span):
+        set_span_attribute("test.key", "test.value")
+
+        mock_span.set_attribute.assert_called_once_with("test.key", "test.value")
+
+
+def test_set_span_attribute_no_active_span():
+    """Test set_span_attribute with no active span."""
+    mock_span = MagicMock()
+    mock_span.is_recording.return_value = False
+
+    with patch("sre_agent.tools.common.telemetry.trace.get_current_span", return_value=mock_span):
+        set_span_attribute("test.key", "test.value")
+
+        mock_span.set_attribute.assert_not_called()
