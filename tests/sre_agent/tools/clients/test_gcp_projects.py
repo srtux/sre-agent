@@ -1,7 +1,8 @@
 """Tests for GCP projects client."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from sre_agent.tools.clients.gcp_projects import list_gcp_projects
 
@@ -22,7 +23,10 @@ async def test_list_gcp_projects_success():
     }
 
     with (
-        patch("sre_agent.tools.clients.gcp_projects.get_current_credentials", return_value=(mock_credentials, "test-project")),
+        patch(
+            "sre_agent.tools.clients.gcp_projects.get_current_credentials",
+            return_value=(mock_credentials, "test-project"),
+        ),
         patch("httpx.AsyncClient") as mock_client_class,
     ):
         mock_client = AsyncMock()
@@ -55,7 +59,10 @@ async def test_list_gcp_projects_no_token_refresh():
     mock_response.json.return_value = {"projects": []}
 
     with (
-        patch("sre_agent.tools.clients.gcp_projects.get_current_credentials", return_value=(mock_credentials, "test-project")),
+        patch(
+            "sre_agent.tools.clients.gcp_projects.get_current_credentials",
+            return_value=(mock_credentials, "test-project"),
+        ),
         patch("httpx.AsyncClient") as mock_client_class,
     ):
         mock_client = AsyncMock()
@@ -81,7 +88,10 @@ async def test_list_gcp_projects_refresh_token():
     mock_response.json.return_value = {"projects": []}
 
     with (
-        patch("sre_agent.tools.clients.gcp_projects.get_current_credentials", return_value=(mock_credentials, "test-project")),
+        patch(
+            "sre_agent.tools.clients.gcp_projects.get_current_credentials",
+            return_value=(mock_credentials, "test-project"),
+        ),
         patch("httpx.AsyncClient") as mock_client_class,
         patch("google.auth.transport.requests.Request"),
     ):
@@ -108,7 +118,10 @@ async def test_list_gcp_projects_api_error():
     mock_response.text = "Forbidden"
 
     with (
-        patch("sre_agent.tools.clients.gcp_projects.get_current_credentials", return_value=(mock_credentials, "test-project")),
+        patch(
+            "sre_agent.tools.clients.gcp_projects.get_current_credentials",
+            return_value=(mock_credentials, "test-project"),
+        ),
         patch("httpx.AsyncClient") as mock_client_class,
     ):
         mock_client = AsyncMock()
@@ -123,7 +136,10 @@ async def test_list_gcp_projects_api_error():
 @pytest.mark.asyncio
 async def test_list_gcp_projects_exception():
     """Test handling of exceptions."""
-    with patch("sre_agent.tools.clients.gcp_projects.get_current_credentials", side_effect=Exception("Auth failed")):
+    with patch(
+        "sre_agent.tools.clients.gcp_projects.get_current_credentials",
+        side_effect=Exception("Auth failed"),
+    ):
         result = await list_gcp_projects()
 
         assert result == {"projects": [], "error": "Auth failed"}

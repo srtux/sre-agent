@@ -39,7 +39,9 @@ def test_log_tool_call_basic():
 
     log_tool_call(logger, "test_func", arg1="value1", arg2=123)
 
-    logger.debug.assert_called_once_with("Tool Call: test_func | Args: {'arg1': 'value1', 'arg2': '123'}")
+    logger.debug.assert_called_once_with(
+        "Tool Call: test_func | Args: {'arg1': 'value1', 'arg2': '123'}"
+    )
 
 
 def test_log_tool_call_truncation():
@@ -50,7 +52,9 @@ def test_log_tool_call_truncation():
     log_tool_call(logger, "test_func", long_arg=long_value)
 
     expected_truncated = long_value[:200] + "... (truncated)"
-    logger.debug.assert_called_once_with(f"Tool Call: test_func | Args: {{'long_arg': '{expected_truncated}'}}")
+    logger.debug.assert_called_once_with(
+        f"Tool Call: test_func | Args: {{'long_arg': '{expected_truncated}'}}"
+    )
 
 
 def test_set_span_attribute_with_active_span():
@@ -58,7 +62,10 @@ def test_set_span_attribute_with_active_span():
     mock_span = MagicMock()
     mock_span.is_recording.return_value = True
 
-    with patch("sre_agent.tools.common.telemetry.trace.get_current_span", return_value=mock_span):
+    with patch(
+        "sre_agent.tools.common.telemetry.trace.get_current_span",
+        return_value=mock_span,
+    ):
         set_span_attribute("test.key", "test.value")
 
         mock_span.set_attribute.assert_called_once_with("test.key", "test.value")
@@ -69,7 +76,10 @@ def test_set_span_attribute_no_active_span():
     mock_span = MagicMock()
     mock_span.is_recording.return_value = False
 
-    with patch("sre_agent.tools.common.telemetry.trace.get_current_span", return_value=mock_span):
+    with patch(
+        "sre_agent.tools.common.telemetry.trace.get_current_span",
+        return_value=mock_span,
+    ):
         set_span_attribute("test.key", "test.value")
 
         mock_span.set_attribute.assert_not_called()

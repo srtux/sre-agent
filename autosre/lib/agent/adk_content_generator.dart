@@ -1,4 +1,3 @@
-
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
@@ -6,57 +5,46 @@ import 'package:genui/genui.dart';
 import 'package:http/http.dart' as http;
 import '../services/auth_service.dart';
 
-
-
 /// A ContentGenerator that connects to the Python SRE Agent.
 class ADKContentGenerator implements ContentGenerator {
-  final StreamController<A2uiMessage> _a2uiController = StreamController<A2uiMessage>.broadcast();
-  final StreamController<String> _textController = StreamController<String>.broadcast();
-  final StreamController<ContentGeneratorError> _errorController = StreamController<ContentGeneratorError>.broadcast();
-  final StreamController<String> _sessionController = StreamController<String>.broadcast();
+  final StreamController<A2uiMessage> _a2uiController =
+      StreamController<A2uiMessage>.broadcast();
+  final StreamController<String> _textController =
+      StreamController<String>.broadcast();
+  final StreamController<ContentGeneratorError> _errorController =
+      StreamController<ContentGeneratorError>.broadcast();
+  final StreamController<String> _sessionController =
+      StreamController<String>.broadcast();
   final ValueNotifier<bool> _isProcessing = ValueNotifier(false);
+  final ValueNotifier<bool> _isConnected = ValueNotifier(false);
+  final ValueNotifier<String> _error = ValueNotifier('');
   bool _isDisposed = false;
 
   /// Current HTTP client for cancellation support.
   http.Client? _currentClient;
-
-  /// Number of retry attempts for failed requests.
-  static const int _maxRetries = 2;
-
-  /// Delay between retries (exponential backoff base).
-  static const Duration _retryDelay = Duration(seconds: 1);
-
-  /// HTTP request timeout duration.
-  static const Duration _requestTimeout = Duration(seconds: 60);
-
-  /// Health check timeout duration.
-  static const Duration _healthCheckTimeout = Duration(seconds: 5);
-
-  String get _baseUrl {
-    if (kDebugMode) {
-      return 'http://localhost:8001/api/genui/chat';
-    }
-    return '/api/genui/chat';
-  }
-
-  final ValueNotifier<bool> _isConnected = ValueNotifier(false);
+  StreamSubscription<String>? _streamSubscription;
   Timer? _healthCheckTimer;
 
-  String get _healthUrl {
-    if (kDebugMode) {
-      return 'http://localhost:8001/openapi.json';
-    }
-    return '/openapi.json';
-  }
+  static const Duration _requestTimeout = Duration(seconds: 30);
+  static const Duration _healthCheckTimeout = Duration(seconds: 5);
+  static const int _maxRetries = 2;
+  static const Duration _retryDelay = Duration(seconds: 2);
 
-  /// Currently selected project ID to include in requests.
   String? projectId;
-
-  /// Current session ID for conversation tracking.
   String? sessionId;
 
   /// Stream of session ID updates (emitted when backend assigns/creates session).
   Stream<String> get sessionStream => _sessionController.stream;
+
+  /// Returns the base API URL based on the runtime environment.
+  String get _baseUrl {
+    if (kDebugMode) {
+      return 'http://127.0.0.1:8001';
+    }
+    return '';
+  }
+
+  String get _healthUrl => '$_baseUrl/health';
 
   ADKContentGenerator({this.projectId, this.sessionId}) {
     _startHealthCheck();
@@ -97,15 +85,26 @@ class ADKContentGenerator implements ContentGenerator {
   @override
   ValueListenable<bool> get isProcessing => _isProcessing;
 
-  ValueListenable<bool> get isConnected => _isConnected; // Expose connection status
+  ValueListenable<bool> get isConnected =>
+      _isConnected; // Expose connection status
 
   /// Cancels the current request if one is in progress.
   void cancelRequest() {
     if (_currentClient != null) {
       debugPrint("Cancelling current request...");
+
+      // Cancel the stream subscription first
+      _streamSubscription?.cancel();
+      _streamSubscription = null;
+
+      // Close the HTTP client
       _currentClient!.close();
       _currentClient = null;
+
+      // Update processing state
       _isProcessing.value = false;
+
+      // Add cancellation message
       _textController.add("\n\n*Request cancelled by user.*");
     }
   }
@@ -135,97 +134,107 @@ class ADKContentGenerator implements ContentGenerator {
       if (_isDisposed || _currentClient == null) break;
 
       try {
-          // Retry delay with exponential backoff
-          if (attempt > 0) {
-            final delay = _retryDelay * (1 << (attempt - 1));
-            debugPrint("Retrying request (attempt ${attempt + 1}/${_maxRetries + 1}) after ${delay.inSeconds}s...");
-            await Future.delayed(delay);
-          }
+        // Retry delay with exponential backoff
+        if (attempt > 0) {
+          final delay = _retryDelay * (1 << (attempt - 1));
+          debugPrint(
+            "Retrying request (attempt ${attempt + 1}/${_maxRetries + 1}) after ${delay.inSeconds}s...",
+          );
+          await Future.delayed(delay);
+        }
 
-          if (_currentClient == null) break; // Check again after delay
+        if (_currentClient == null) break; // Check again after delay
 
-          final request = http.Request('POST', Uri.parse(_baseUrl));
-          request.headers['Content-Type'] = 'application/json';
+        final request = http.Request('POST', Uri.parse(_baseUrl));
+        request.headers['Content-Type'] = 'application/json';
 
-          final requestBody = <String, dynamic>{
-              "messages": [
-                  {"role": "user", "text": message.text}
-              ]
-          };
+        final requestBody = <String, dynamic>{
+          "messages": [
+            {"role": "user", "text": message.text},
+          ],
+        };
 
-          // Include project_id if set
-          if (projectId != null && projectId!.isNotEmpty) {
-              requestBody["project_id"] = projectId;
-          }
+        // Include project_id if set
+        if (projectId != null && projectId!.isNotEmpty) {
+          requestBody["project_id"] = projectId;
+        }
 
-          // Include session_id if set
-          if (sessionId != null && sessionId!.isNotEmpty) {
-              requestBody["session_id"] = sessionId;
-          }
+        // Include session_id if set
+        if (sessionId != null && sessionId!.isNotEmpty) {
+          requestBody["session_id"] = sessionId;
+        }
 
-          request.body = jsonEncode(requestBody);
+        request.body = jsonEncode(requestBody);
 
-          final response = await _currentClient!.send(request).timeout(_requestTimeout);
+        final response = await _currentClient!
+            .send(request)
+            .timeout(_requestTimeout);
 
-          if (response.statusCode != 200) {
-              throw Exception('Failed to connect to agent: ${response.statusCode}');
-          }
+        if (response.statusCode != 200) {
+          throw Exception('Failed to connect to agent: ${response.statusCode}');
+        }
 
-          _isConnected.value = true; // Request succeeded, so we are connected
+        _isConnected.value = true; // Request succeeded, so we are connected
 
-          // Parse stream line by line
-          // Store subscription to prevent memory leak
-          final subscription = response.stream
-              .transform(utf8.decoder)
-              .transform(const LineSplitter())
-              .listen((line) {
-                  if (line.trim().isEmpty) return;
-                  try {
-                      final data = jsonDecode(line);
-                      final type = data['type'];
+        // Parse stream line by line
+        // Store subscription to allow cancellation
+        _streamSubscription = response.stream
+            .transform(utf8.decoder)
+            .transform(const LineSplitter())
+            .listen((line) {
+              if (line.trim().isEmpty) return;
+              try {
+                final data = jsonDecode(line);
+                final type = data['type'];
 
-                      if (type == 'text') {
-                          _textController.add(data['content']);
-                      } else if (type == 'a2ui') {
-                          final msgJson = data['message'] as Map<String, dynamic>;
-                          final msg = A2uiMessage.fromJson(msgJson);
-                          _a2uiController.add(msg);
-                      } else if (type == 'session') {
-                          // Update session ID from server
-                          final newSessionId = data['session_id'] as String?;
-                          if (newSessionId != null) {
-                              sessionId = newSessionId;
-                              _sessionController.add(newSessionId);
-                              debugPrint("Session ID updated: $newSessionId");
-                          }
-                      }
-                  } catch (e) {
-                      debugPrint("Error parsing line: $e");
+                if (type == 'text') {
+                  _textController.add(data['content']);
+                } else if (type == 'a2ui') {
+                  final msgJson = data['message'] as Map<String, dynamic>;
+                  final msg = A2uiMessage.fromJson(msgJson);
+                  _a2uiController.add(msg);
+                } else if (type == 'session') {
+                  // Update session ID from server
+                  final newSessionId = data['session_id'] as String?;
+                  if (newSessionId != null) {
+                    sessionId = newSessionId;
+                    _sessionController.add(newSessionId);
+                    debugPrint("Session ID updated: $newSessionId");
                   }
-              });
-          await subscription.asFuture();
+                }
+              } catch (e) {
+                debugPrint("Error parsing line: $e");
+              }
+            });
+        await _streamSubscription!.asFuture();
 
-          // Success - exit retry loop
-          _currentClient = null;
-          if (!_isDisposed) {
-            _isProcessing.value = false;
-          }
-          return;
-
+        // Success - exit retry loop
+        _currentClient = null;
+        _streamSubscription = null;
+        if (!_isDisposed) {
+          _isProcessing.value = false;
+        }
+        return;
       } catch (e, st) {
-          // Check if this was a cancellation
-          if (_currentClient == null) {
-            debugPrint("Request was cancelled");
-            break;
-          }
+        // Check if this was a cancellation
+        if (_currentClient == null) {
+          debugPrint("Request was cancelled");
+          break;
+        }
 
-          lastError = e is Exception ? e : Exception(e.toString());
-          lastStackTrace = st;
-          debugPrint("Request failed (attempt ${attempt + 1}): $e");
+        // Check if stream subscription was cancelled
+        if (_streamSubscription == null) {
+          debugPrint("Stream was cancelled");
+          break;
+        }
 
-          if (!_isDisposed) {
-            _isConnected.value = false;
-          }
+        lastError = e is Exception ? e : Exception(e.toString());
+        lastStackTrace = st;
+        debugPrint("Request failed (attempt ${attempt + 1}): $e");
+
+        if (!_isDisposed) {
+          _isConnected.value = false;
+        }
       }
     }
 
@@ -233,7 +242,9 @@ class ADKContentGenerator implements ContentGenerator {
 
     // All retries exhausted - report error
     if (!_isDisposed && lastError != null) {
-      _errorController.add(ContentGeneratorError(lastError, lastStackTrace ?? StackTrace.empty));
+      _errorController.add(
+        ContentGeneratorError(lastError, lastStackTrace ?? StackTrace.empty),
+      );
     }
 
     if (!_isDisposed) {
@@ -249,6 +260,8 @@ class ADKContentGenerator implements ContentGenerator {
   @override
   void dispose() {
     _isDisposed = true;
+    _streamSubscription?.cancel();
+    _streamSubscription = null;
     _currentClient?.close();
     _currentClient = null;
     _healthCheckTimer?.cancel();

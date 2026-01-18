@@ -28,8 +28,13 @@ class TestSLOTools:
         mock_client.list_service_level_objectives.return_value = [mock_slo]
 
         with (
-            patch("sre_agent.tools.clients.slo.get_current_credentials", return_value=(mock_credentials, "test-project")),
-            patch("sre_agent.tools.clients.slo.monitoring_v3.ServiceMonitoringServiceClient") as mock_client_class,
+            patch(
+                "sre_agent.tools.clients.slo.get_current_credentials",
+                return_value=(mock_credentials, "test-project"),
+            ),
+            patch(
+                "sre_agent.tools.clients.slo.monitoring_v3.ServiceMonitoringServiceClient"
+            ) as mock_client_class,
         ):
             mock_client_class.return_value = mock_client
             result = list_slos("test-project", "test-service")
@@ -38,7 +43,10 @@ class TestSLOTools:
             # Verify we got a list
             assert isinstance(result_data, list)
             assert len(result_data) == 1
-            assert result_data[0]["name"] == "projects/test-project/services/test-service/serviceLevelObjectives/test-slo"
+            assert (
+                result_data[0]["name"]
+                == "projects/test-project/services/test-service/serviceLevelObjectives/test-slo"
+            )
 
     @patch("sre_agent.tools.clients.slo._get_authorized_session")
     def test_get_slo_status_returns_status(self, mock_session_fn):

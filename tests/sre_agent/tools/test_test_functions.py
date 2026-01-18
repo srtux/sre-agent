@@ -1,12 +1,12 @@
 """Tests for tool connectivity check functions."""
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
-from sre_agent.tools.config import ToolTestResult, ToolTestStatus
+import pytest
+
+from sre_agent.tools.config import ToolTestStatus
 from sre_agent.tools.test_functions import (
     check_fetch_trace,
-    check_get_gke_cluster_health,
     check_list_alerts,
     check_list_log_entries,
     check_list_slos,
@@ -40,8 +40,13 @@ async def test_check_fetch_trace_success():
     mock_client.get_trace = MagicMock()
 
     with (
-        patch("sre_agent.tools.test_functions.get_check_project_id", return_value="test-project"),
-        patch("sre_agent.tools.clients.factory.get_trace_client", return_value=mock_client),
+        patch(
+            "sre_agent.tools.test_functions.get_check_project_id",
+            return_value="test-project",
+        ),
+        patch(
+            "sre_agent.tools.clients.factory.get_trace_client", return_value=mock_client
+        ),
     ):
         result = await check_fetch_trace()
 
@@ -53,7 +58,9 @@ async def test_check_fetch_trace_success():
 @pytest.mark.asyncio
 async def test_check_fetch_trace_no_project():
     """Test trace check without project ID."""
-    with patch("sre_agent.tools.test_functions.get_check_project_id", return_value=None):
+    with patch(
+        "sre_agent.tools.test_functions.get_check_project_id", return_value=None
+    ):
         result = await check_fetch_trace()
 
         assert result.status == ToolTestStatus.FAILED
@@ -64,8 +71,14 @@ async def test_check_fetch_trace_no_project():
 async def test_check_fetch_trace_client_error():
     """Test trace check with client initialization error."""
     with (
-        patch("sre_agent.tools.test_functions.get_check_project_id", return_value="test-project"),
-        patch("sre_agent.tools.clients.factory.get_trace_client", side_effect=Exception("Client error")),
+        patch(
+            "sre_agent.tools.test_functions.get_check_project_id",
+            return_value="test-project",
+        ),
+        patch(
+            "sre_agent.tools.clients.factory.get_trace_client",
+            side_effect=Exception("Client error"),
+        ),
     ):
         result = await check_fetch_trace()
 
@@ -80,8 +93,14 @@ async def test_check_list_log_entries_success():
     mock_client.list_log_entries = MagicMock()
 
     with (
-        patch("sre_agent.tools.test_functions.get_check_project_id", return_value="test-project"),
-        patch("sre_agent.tools.clients.factory.get_logging_client", return_value=mock_client),
+        patch(
+            "sre_agent.tools.test_functions.get_check_project_id",
+            return_value="test-project",
+        ),
+        patch(
+            "sre_agent.tools.clients.factory.get_logging_client",
+            return_value=mock_client,
+        ),
     ):
         result = await check_list_log_entries()
 
@@ -96,8 +115,14 @@ async def test_check_list_time_series_success():
     mock_client.list_time_series = MagicMock()
 
     with (
-        patch("sre_agent.tools.test_functions.get_check_project_id", return_value="test-project"),
-        patch("sre_agent.tools.clients.factory.get_monitoring_client", return_value=mock_client),
+        patch(
+            "sre_agent.tools.test_functions.get_check_project_id",
+            return_value="test-project",
+        ),
+        patch(
+            "sre_agent.tools.clients.factory.get_monitoring_client",
+            return_value=mock_client,
+        ),
     ):
         result = await check_list_time_series()
 
@@ -112,8 +137,14 @@ async def test_check_list_alerts_success():
     mock_client.list_alert_policies = MagicMock()
 
     with (
-        patch("sre_agent.tools.test_functions.get_check_project_id", return_value="test-project"),
-        patch("sre_agent.tools.clients.factory.get_alert_policy_client", return_value=mock_client),
+        patch(
+            "sre_agent.tools.test_functions.get_check_project_id",
+            return_value="test-project",
+        ),
+        patch(
+            "sre_agent.tools.clients.factory.get_alert_policy_client",
+            return_value=mock_client,
+        ),
     ):
         result = await check_list_alerts()
 
@@ -126,7 +157,9 @@ async def test_check_mcp_list_log_entries_success():
     """Test successful MCP logging toolset creation."""
     mock_toolset = MagicMock()
 
-    with patch("sre_agent.tools.mcp.gcp.create_logging_mcp_toolset", return_value=mock_toolset):
+    with patch(
+        "sre_agent.tools.mcp.gcp.create_logging_mcp_toolset", return_value=mock_toolset
+    ):
         result = await check_mcp_list_log_entries()
 
         assert result.status == ToolTestStatus.SUCCESS
@@ -148,7 +181,10 @@ async def test_check_mcp_list_timeseries_success():
     """Test successful MCP monitoring toolset creation."""
     mock_toolset = MagicMock()
 
-    with patch("sre_agent.tools.mcp.gcp.create_monitoring_mcp_toolset", return_value=mock_toolset):
+    with patch(
+        "sre_agent.tools.mcp.gcp.create_monitoring_mcp_toolset",
+        return_value=mock_toolset,
+    ):
         result = await check_mcp_list_timeseries()
 
         assert result.status == ToolTestStatus.SUCCESS
@@ -163,13 +199,21 @@ async def test_check_list_slos_success():
     mock_client.list_service_level_objectives = MagicMock()
 
     with (
-        patch("sre_agent.tools.test_functions.get_check_project_id", return_value="test-project"),
-        patch("google.cloud.monitoring_v3.ServiceMonitoringServiceClient", return_value=mock_client),
+        patch(
+            "sre_agent.tools.test_functions.get_check_project_id",
+            return_value="test-project",
+        ),
+        patch(
+            "google.cloud.monitoring_v3.ServiceMonitoringServiceClient",
+            return_value=mock_client,
+        ),
     ):
         result = await check_list_slos()
 
         assert result.status == ToolTestStatus.SUCCESS
-        assert "Service Monitoring API client initialized successfully" in result.message
+        assert (
+            "Service Monitoring API client initialized successfully" in result.message
+        )
 
 
 # Removed failing GKE test due to import issues in test environment

@@ -2,7 +2,7 @@ import asyncio
 import os
 import sys
 import unittest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 # Ensure we can import server
 sys.path.append(os.getcwd())
@@ -17,7 +17,7 @@ class TestStopButtonCancellation(unittest.IsolatedAsyncioTestCase):
         """
         from starlette.requests import Request
 
-        from server import ChatRequest, genui_chat
+        from server import ChatMessage, ChatRequest, genui_chat
 
         # Mock Request
         mock_raw_request = MagicMock(spec=Request)
@@ -25,11 +25,9 @@ class TestStopButtonCancellation(unittest.IsolatedAsyncioTestCase):
 
         # Mock Session Service
         with (
-            unittest.mock.patch(
-                "server.get_session_service"
-            ) as mock_get_session_service,
-            unittest.mock.patch("server.root_agent") as mock_root_agent,
-            unittest.mock.patch("server.get_tool_context") as mock_get_tool_context,
+            patch("server.get_session_service") as mock_get_session_service,
+            patch("server.root_agent") as mock_root_agent,
+            patch("server.get_tool_context") as mock_get_tool_context,
         ):
             # Setup Session
             mock_session = MagicMock()
@@ -66,7 +64,7 @@ class TestStopButtonCancellation(unittest.IsolatedAsyncioTestCase):
 
             # --- REQUEST MOCK ---
             chat_req = ChatRequest(
-                messages=[{"role": "user", "text": "start"}], project_id="p"
+                messages=[ChatMessage(role="user", text="start")], project_id="p"
             )
 
             # --- CLIENT DISCONNECT SIMULATION ---

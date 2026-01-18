@@ -1,6 +1,5 @@
 """Tests for BigQuery schema models."""
 
-import pytest
 from datetime import datetime
 
 from sre_agent.tools.bigquery.schemas import BigQueryLogEntry, BigQuerySpan
