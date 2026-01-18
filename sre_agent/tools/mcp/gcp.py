@@ -21,12 +21,35 @@ import httpx
 from google.adk.tools import ToolContext  # type: ignore[attr-defined]
 from google.adk.tools.api_registry import ApiRegistry
 
-from ...auth import get_current_credentials
+from ...auth import get_current_credentials, get_current_credentials_or_none
 from ...schema import ToolStatus
 from ..common import adk_tool
 from .mock_mcp import MockMcpToolset
 
 logger = logging.getLogger(__name__)
+
+
+def _create_header_provider(project_id: str) -> Callable[[Any], dict[str, str]]:
+    """Creates a header provider that injects the user token if available."""
+
+    def header_provider(_: Any) -> dict[str, str]:
+        headers = {"x-goog-user-project": project_id}
+
+        # Check for explicit user credentials (set by auth middleware)
+        user_creds = get_current_credentials_or_none()
+        if user_creds:
+            # Check if it has a token (google.oauth2.credentials.Credentials usually does)
+            if hasattr(user_creds, "token") and user_creds.token:
+                # logger.debug("Injecting user credential token into MCP headers")
+                headers["Authorization"] = f"Bearer {user_creds.token}"
+            elif hasattr(user_creds, "refresh") and not user_creds.token:
+                # Attempt refresh if needed? Usually middleware validates it.
+                # For now, safe skip if no token string.
+                pass
+
+        return headers
+
+    return header_provider
 
 
 def get_project_id_with_fallback() -> str | None:
@@ -82,7 +105,7 @@ def create_bigquery_mcp_toolset(project_id: str | None = None) -> Any:
     mcp_server_name = f"projects/{project_id}/locations/global/mcpServers/{mcp_server}"
 
     api_registry = ApiRegistry(
-        project_id, header_provider=lambda _: {"x-goog-user-project": project_id}
+        project_id, header_provider=_create_header_provider(project_id)
     )
 
     mcp_toolset = api_registry.get_toolset(
@@ -134,7 +157,7 @@ def create_logging_mcp_toolset(project_id: str | None = None) -> Any:
     mcp_server_name = f"projects/{project_id}/locations/global/mcpServers/{mcp_server}"
 
     api_registry = ApiRegistry(
-        project_id, header_provider=lambda _: {"x-goog-user-project": project_id}
+        project_id, header_provider=_create_header_provider(project_id)
     )
 
     mcp_toolset = api_registry.get_toolset(
@@ -182,7 +205,7 @@ def create_monitoring_mcp_toolset(project_id: str | None = None) -> Any:
     mcp_server_name = f"projects/{project_id}/locations/global/mcpServers/{mcp_server}"
 
     api_registry = ApiRegistry(
-        project_id, header_provider=lambda _: {"x-goog-user-project": project_id}
+        project_id, header_provider=_create_header_provider(project_id)
     )
 
     mcp_toolset = api_registry.get_toolset(

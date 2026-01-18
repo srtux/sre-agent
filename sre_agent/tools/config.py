@@ -10,7 +10,7 @@ import logging
 import os
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -55,7 +55,9 @@ class ToolTestResult:
     status: ToolTestStatus
     message: str
     latency_ms: float | None = None
-    timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    timestamp: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
     details: dict[str, Any] = field(default_factory=dict)
 
 
@@ -752,7 +754,7 @@ class ToolConfigManager:
             data = {
                 "tools": [config.to_dict() for config in self._configs.values()],
                 "version": "1.0",
-                "updated_at": datetime.utcnow().isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
             }
 
             with open(CONFIG_FILE_PATH, "w") as f:

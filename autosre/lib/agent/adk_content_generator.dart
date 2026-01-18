@@ -145,7 +145,8 @@ class ADKContentGenerator implements ContentGenerator {
 
         if (_currentClient == null) break; // Check again after delay
 
-        final request = http.Request('POST', Uri.parse(_baseUrl));
+        // Use the /agent endpoint where the ADK app is mounted
+        final request = http.Request('POST', Uri.parse('$_baseUrl/agent'));
         request.headers['Content-Type'] = 'application/json';
 
         final requestBody = <String, dynamic>{

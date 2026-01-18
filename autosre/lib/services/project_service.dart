@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'auth_service.dart';
 
 /// Model representing a GCP project.
@@ -33,6 +34,9 @@ class GcpProject {
   String get name => displayName ?? projectId;
 }
 
+/// Factory for creating authenticated HTTP clients.
+typedef ClientFactory = Future<http.Client> Function();
+
 /// Service for managing GCP project selection and fetching.
 class ProjectService {
   static final ProjectService _instance = ProjectService._internal();
@@ -45,9 +49,14 @@ class ProjectService {
   /// Use this in tests or short-lived contexts where you want an
   /// isolated instance that can be safely disposed without affecting
   /// the global singleton.
-  ProjectService.newInstance() : this._internal();
+  ProjectService.newInstance({ClientFactory? clientFactory})
+      : this._internal(clientFactory: clientFactory);
 
-  ProjectService._internal();
+  ProjectService._internal({ClientFactory? clientFactory})
+      : _clientFactory = clientFactory ??
+            (() => AuthService().getAuthenticatedClient());
+
+  final ClientFactory _clientFactory;
 
   /// HTTP request timeout duration.
   static const Duration _requestTimeout = Duration(seconds: 30);
@@ -89,7 +98,7 @@ class ProjectService {
   /// Loads the previously selected project from backend storage.
   Future<void> loadSavedProject() async {
     try {
-      final client = await AuthService().getAuthenticatedClient();
+      final client = await _clientFactory();
       final response = await client
           .get(Uri.parse(_preferencesUrl))
           .timeout(_requestTimeout);
@@ -120,7 +129,7 @@ class ProjectService {
   /// Saves the selected project to backend storage.
   Future<void> _saveSelectedProject(String projectId) async {
     try {
-      final client = await AuthService().getAuthenticatedClient();
+      final client = await _clientFactory();
       await client
           .post(
             Uri.parse(_preferencesUrl),
@@ -142,7 +151,7 @@ class ProjectService {
     _error.value = null;
 
     try {
-      final client = await AuthService().getAuthenticatedClient();
+      final client = await _clientFactory();
       final response = await client
           .get(Uri.parse(_projectsUrl))
           .timeout(_requestTimeout);

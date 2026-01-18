@@ -10,6 +10,7 @@ It is designed to be served by the unified SRE Agent server, but can also be run
 ## Prerequisites
 - **Flutter SDK**: [Install Flutter](https://docs.flutter.dev/get-started/install/macos)
 - **SRE Agent Backend**: Can be run via `uv run poe dev` (Unified) or `uv run poe web` (Backend only).
+- **Troubleshooting**: See [docs/debugging_connectivity.md](../docs/debugging_connectivity.md) if you have connection issues.
 
 ## Getting Started
 

@@ -228,12 +228,16 @@ def emojify_agent(agent: LlmAgent) -> LlmAgent:
 
         # 2. Run Original
         full_response_parts = []
-        async for event in original_run_async(context):
-            if hasattr(event, "content") and event.content and event.content.parts:
-                for part in event.content.parts:
-                    if hasattr(part, "text") and part.text:
-                        full_response_parts.append(part.text)
-            yield event
+        try:
+            async for event in original_run_async(context):
+                if hasattr(event, "content") and event.content and event.content.parts:
+                    for part in event.content.parts:
+                        if hasattr(part, "text") and part.text:
+                            full_response_parts.append(part.text)
+                yield event
+        except Exception as e:
+            logging.error(f"🔥 Agent Execution Failed: {e}", exc_info=True)
+            raise e
 
         # 3. Log Response
         final_response = "".join(full_response_parts)
@@ -748,6 +752,7 @@ TOOL_NAME_MAP = {
 base_tools: list[Any] = [
     fetch_trace,
     list_log_entries,
+    get_current_time,
     query_promql,
     list_slos,
     calculate_span_durations,

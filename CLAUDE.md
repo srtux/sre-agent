@@ -810,6 +810,17 @@ uv run pytest --log-cli-level=DEBUG
 uv run pytest --pdb
 ```
 
+
+### Issue: Client Connectivity
+
+**Symptom**: Frontend stuck on "Connecting..." or 404/Connection Refused.
+
+**Solution**:
+1. Verify backend running on port 8001.
+2. Check `/health` endpoint: `curl http://localhost:8001/health`.
+3. Check CORS settings in `server.py`.
+4. See `docs/debugging_connectivity.md` for full guide.
+
 ### Issue: Linter Failing
 
 **Common Fixes**:

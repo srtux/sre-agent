@@ -25,10 +25,17 @@ def test_get_check_project_id():
     with patch.dict("os.environ", {"TEST_PROJECT_ID": "test-project"}):
         assert get_check_project_id() == "test-project"
 
-    with patch.dict("os.environ", {"GCP_PROJECT_ID": "test-project"}):
+    with patch.dict(
+        "os.environ",
+        {
+            "GCP_PROJECT_ID": "test-project",
+            "TEST_PROJECT_ID": "",
+            "GOOGLE_CLOUD_PROJECT": "",
+        },
+    ):
         assert get_check_project_id() == "test-project"
 
-    with patch.dict("os.environ", {}):
+    with patch.dict("os.environ", {}, clear=True):
         assert get_check_project_id() is None
 
 

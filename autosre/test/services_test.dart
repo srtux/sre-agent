@@ -1,24 +1,36 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:autosre/services/project_service.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 void main() {
   group('ProjectService', () {
+    // Mock client that returns success for everything
+    final mockClient = MockClient((request) async {
+      if (request.url.path.contains('preferences')) {
+        return http.Response('{}', 200);
+      }
+      return http.Response('[]', 200);
+    });
+
+    final clientFactory = () async => mockClient;
+
     test('should initialize with empty projects', () {
-      final service = ProjectService.newInstance();
+      final service = ProjectService.newInstance(clientFactory: clientFactory);
       expect(service.projects.value, isEmpty);
       expect(service.selectedProjectId, isNull);
       service.dispose();
     });
 
     test('should select project not in list', () {
-      final service = ProjectService.newInstance();
+      final service = ProjectService.newInstance(clientFactory: clientFactory);
       service.selectProject('test-project-123');
       expect(service.selectedProjectId, 'test-project-123');
       service.dispose();
     });
 
     test('should clear project selection', () {
-      final service = ProjectService.newInstance();
+      final service = ProjectService.newInstance(clientFactory: clientFactory);
       final testProject = GcpProject(
         projectId: 'test-project-123',
         displayName: 'Test Project',

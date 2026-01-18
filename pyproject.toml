@@ -157,3 +157,6 @@ deploy-all = { help = "Deploy both backend (Vertex) and frontend (Cloud Run)", c
 delete = { help = "Delete agent (usage: uv run poe delete --resource_id ID)", cmd = "python deploy/deploy.py --delete", envfile = ".env" }
 
 pre-commit = { help = "Run all pre-commit hooks", cmd = "pre-commit run --all-files", envfile = ".env" }
+
+[tool.deptry.package_module_name_map]
+tomli = "tomli"

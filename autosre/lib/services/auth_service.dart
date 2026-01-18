@@ -33,17 +33,26 @@ class AuthService extends ChangeNotifier {
   /// Initialize auth state
   Future<void> init() async {
     // Listen to auth events
-    _googleSignIn.authenticationEvents.listen((event) async {
-      if (event is gsi.GoogleSignInAuthenticationEventSignIn) {
-        _currentUser = event.user;
-        await _refreshTokens();
-      } else if (event is gsi.GoogleSignInAuthenticationEventSignOut) {
-        _currentUser = null;
-        _idToken = null;
-        _accessToken = null;
-      }
-      notifyListeners();
-    });
+    _googleSignIn.authenticationEvents.listen(
+      (event) async {
+        try {
+          if (event is gsi.GoogleSignInAuthenticationEventSignIn) {
+            _currentUser = event.user;
+            await _refreshTokens();
+          } else if (event is gsi.GoogleSignInAuthenticationEventSignOut) {
+            _currentUser = null;
+            _idToken = null;
+            _accessToken = null;
+          }
+          notifyListeners();
+        } catch (e) {
+          debugPrint('Error handling auth event: $e');
+        }
+      },
+      onError: (e) {
+        debugPrint('Stream error in authenticationEvents: $e');
+      },
+    );
 
     try {
       // Initialize configuration (REQUIRED for Web to setup Client ID)
@@ -55,10 +64,13 @@ class AuthService extends ChangeNotifier {
       await _googleSignIn.attemptLightweightAuthentication();
     } catch (e) {
       // Ignore cancellation errors during silent sign-in
-      if (e.toString().contains('canceled')) {
-        debugPrint('Silent sign-in canceled (normal behavior if not logged in)');
+      // GoogleSignInExceptionCode.canceled is common when not logged in or FedCM is dismissed
+      final message = e.toString();
+      if (message.contains('canceled') || message.contains('cancelled')) {
+        debugPrint('Silent sign-in canceled/skipped: $message');
       } else {
-        debugPrint('Error initializing auth: $e');
+        // Log but don't rethrow to avoid crashing the app
+        debugPrint('⚠️ Error initializing auth (silent sign-in): $e');
       }
     } finally {
       _isLoading = false;
@@ -87,7 +99,7 @@ class AuthService extends ChangeNotifier {
   Future<void> _refreshTokens() async {
     if (_currentUser == null) return;
     try {
-      final auth = _currentUser!.authentication;
+      final auth = await _currentUser!.authentication;
       _idToken = auth.idToken;
       // We need to request proper scopes if not granted?
       // For now assume basic token is enough or we use authorizeScopes if needed.
@@ -111,55 +123,31 @@ class AuthService extends ChangeNotifier {
       throw Exception('User not authenticated');
     }
 
-    // In v7, we should check if we have authorization for scopes.
-    // We can use the authorizationClient from the user.
-    final authClient = _currentUser!.authorizationClient;
-    final headers = await authClient.authorizationHeaders(_scopes);
+    try {
+      // Get authentication credentials (token)
+      final auth = await _currentUser!.authentication;
+      // dynamic cast to bypass analyzer error "getter not defined"
+      final token = (auth as dynamic).accessToken as String?;
 
-    if (headers == null) {
-       // Need to authorize
-       try {
-         await authClient.authorizeScopes(_scopes);
-         // Try getting headers again
-         final headers2 = await authClient.authorizationHeaders(_scopes);
-         if (headers2 == null) throw Exception('Failed to authorize scopes');
+      if (token == null) {
+        throw Exception('Failed to obtain access token');
+      }
 
-           // Extract token from header 'Authorization': 'Bearer <token>'
-         final authHeader = headers2['Authorization']!;
-         final token = authHeader.split(' ').last;
-
-         return authenticatedClient(
-          http.Client(),
-          AccessCredentials(
-            AccessToken(
-              'Bearer',
-              token,
-              DateTime.now().add(const Duration(hours: 1)).toUtc(),
-            ),
-            null, // refreshToken
-            _scopes,
+      return authenticatedClient(
+        http.Client(),
+        AccessCredentials(
+          AccessToken(
+            'Bearer',
+            token,
+            DateTime.now().add(const Duration(hours: 1)).toUtc(),
           ),
-        );
-       } catch (e) {
-         throw Exception('Authorization failed: $e');
-       }
-    }
-
-     // Use existing token
-     final authHeader = headers['Authorization']!;
-     final token = authHeader.split(' ').last;
-
-    return authenticatedClient(
-      http.Client(),
-      AccessCredentials(
-        AccessToken(
-          'Bearer',
-          token,
-          DateTime.now().add(const Duration(hours: 1)).toUtc(),
+          null, // refreshToken
+          _scopes,
         ),
-        null, // refreshToken
-        _scopes,
-      ),
-    );
+      );
+    } catch (e) {
+       debugPrint('Error getting authenticated client: $e');
+       rethrow;
+    }
   }
 }

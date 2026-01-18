@@ -155,7 +155,246 @@ async def get_tool_context() -> "ToolContext":
     return ToolContext(invocation_context=inv_ctx)
 
 
-# 3. TOOL ENDPOINTS
+# 2.1 AGENT ENDPOINT
+import time
+from typing import Any
+
+from google.adk.agents.invocation_context import InvocationContext
+from google.adk.agents.run_config import RunConfig
+from google.adk.events import Event
+from google.adk.sessions.session import Session as AdkSession
+from google.genai.types import Content, Part
+
+
+class AgentMessage(BaseModel):
+    """A chat message from the agent."""
+
+    role: str
+    text: str
+
+
+class AgentRequest(BaseModel):
+    """Request model for the chat agent endpoint."""
+
+    messages: list[AgentMessage]
+    session_id: str | None = None
+    project_id: str | None = None
+
+
+@app.post("/agent")
+async def chat_agent(request: AgentRequest) -> StreamingResponse:
+    """Handle chat requests for the SRE Agent."""
+    try:
+        session_manager = get_session_service()
+        session: AdkSession | None = None
+
+        # 1. Get or Create Session
+        if request.session_id:
+            session = await session_manager.get_session(request.session_id)
+
+        if not session:
+            initial_state = {}
+            if request.project_id:
+                initial_state["project_id"] = request.project_id
+
+            session = await session_manager.create_session(
+                user_id="default", initial_state=initial_state
+            )
+
+        # 2. Prepare Context
+        last_msg_text = request.messages[-1].text if request.messages else ""
+        user_content = Content(parts=[Part(text=last_msg_text)], role="user")
+
+        # Create InvocationContext
+        # Note: We need to check if user_content is accepted in constructor or needs setattr
+        inv_ctx = InvocationContext(
+            session=session,
+            agent=root_agent,
+            invocation_id=uuid.uuid4().hex,
+            session_service=session_manager.session_service,
+            run_config=RunConfig(),
+        )
+        inv_ctx.user_content = user_content
+
+        # Persist User Message
+        user_event = Event(
+            invocation_id=inv_ctx.invocation_id,
+            author="user",
+            content=user_content,
+            timestamp=time.time(),
+        )
+        await session_manager.session_service.append_event(session, user_event)
+
+        # 3. Stream Response
+        async def event_generator() -> AsyncGenerator[str, None]:
+            # Send session ID first
+            yield json.dumps({"type": "session", "session_id": session.id}) + "\n"
+
+            # Track pending tool calls for FIFO matching
+            pending_tool_calls: list[dict[str, Any]] = []
+
+            # Refresh session to ensure we have the latest state (including the user message we just persisted)
+            # This handles cases where the local session object might be stale compared to the DB
+            active_session = session
+            refreshed_session = await session_manager.get_session(session.id)
+            if refreshed_session:
+                active_session = refreshed_session
+                # Update invocation context with fresh session reference
+                inv_ctx.session = active_session
+
+            try:
+                async for event in root_agent.run_async(inv_ctx):
+                    # Persist generated event
+                    await session_manager.session_service.append_event(
+                        active_session, event
+                    )
+
+                    if not event.content or not event.content.parts:
+                        continue
+
+                    for part in event.content.parts:
+                        # Handle Text
+                        if hasattr(part, "text") and part.text:
+                            yield (
+                                json.dumps({"type": "text", "content": part.text})
+                                + "\n"
+                            )
+
+                        # Handle Tool Calls
+                        if hasattr(part, "function_call") and part.function_call:
+                            fc = part.function_call
+                            tool_name = fc.name
+                            if not tool_name:
+                                continue
+
+                            tool_args = _normalize_tool_args(fc.args)
+                            _, events = _create_tool_call_events(
+                                tool_name, tool_args, pending_tool_calls
+                            )
+                            for e in events:
+                                yield e + "\n"
+
+                        # Handle Tool Responses
+                        if (
+                            hasattr(part, "function_response")
+                            and part.function_response
+                        ):
+                            fp = part.function_response
+                            tool_name = fp.name
+                            if not tool_name:
+                                continue
+
+                            result = fp.response
+
+                            # 1. Update tool log (generic)
+                            _, events = _create_tool_response_events(
+                                tool_name, result, pending_tool_calls
+                            )
+                            for e in events:
+                                yield e + "\n"
+
+                            # 2. Widget visualization
+                            if tool_name in TOOL_WIDGET_MAP:
+                                component_name = TOOL_WIDGET_MAP[tool_name]
+                                surface_id = str(uuid.uuid4())
+
+                                # Begin Rendering
+                                yield (
+                                    json.dumps(
+                                        {
+                                            "type": "a2ui",
+                                            "message": {
+                                                "beginRendering": {
+                                                    "surfaceId": surface_id,
+                                                    "root": f"{tool_name}-viz-root",
+                                                    "catalogId": "sre-catalog",
+                                                }
+                                            },
+                                        }
+                                    )
+                                    + "\n"
+                                )
+
+                                # Transform data
+                                data = result
+                                if isinstance(result, str):
+                                    try:
+                                        data = json.loads(result)
+                                    except json.JSONDecodeError:
+                                        pass
+
+                                if isinstance(data, dict):
+                                    if component_name == "x-sre-trace-waterfall":
+                                        data = genui_adapter.transform_trace(data)
+                                    elif component_name == "x-sre-metric-chart":
+                                        data = genui_adapter.transform_metrics(data)
+                                    elif component_name == "x-sre-log-pattern-viewer":
+                                        if "top_patterns" in data:
+                                            data = data["top_patterns"]
+                                    elif component_name == "x-sre-log-entries-viewer":
+                                        data = genui_adapter.transform_log_entries(data)
+                                    elif component_name == "x-sre-remediation-plan":
+                                        data = genui_adapter.transform_remediation(data)
+
+                                # Update Surface
+                                yield (
+                                    json.dumps(
+                                        {
+                                            "type": "a2ui",
+                                            "message": {
+                                                "surfaceUpdate": {
+                                                    "surfaceId": surface_id,
+                                                    "components": [
+                                                        {
+                                                            "id": f"{tool_name}-viz-root",
+                                                            "component": {
+                                                                component_name: data
+                                                            },
+                                                        }
+                                                    ],
+                                                }
+                                            },
+                                        }
+                                    )
+                                    + "\n"
+                                )
+
+            except Exception as e:
+                logger.error(f"Error in agent run: {e}", exc_info=True)
+                yield (
+                    json.dumps(
+                        {
+                            "type": "text",
+                            "content": f"\n\n**Error executing agent:** {e!s}",
+                        }
+                    )
+                    + "\n"
+                )
+
+        return StreamingResponse(event_generator(), media_type="application/x-ndjson")
+
+    except Exception as e:
+        logger.error(f"Error in chat endpoint: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+# 3. ROOT & HEALTH ENDPOINTS
+
+
+@app.get("/")
+async def root() -> dict[str, str]:
+    """Root endpoint to verify server is running."""
+    return {"message": "SRE Agent Toolbox API is running", "docs": "/docs"}
+
+
+@app.get("/health")
+async def health_check() -> dict[str, str]:
+    """Health check endpoint for connectivity testing."""
+    logger.debug("Health check received")
+    return {"status": "ok"}
+
+
+# 4. TOOL ENDPOINTS
 
 
 @app.get("/api/tools/trace/{trace_id}")
