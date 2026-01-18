@@ -22,11 +22,11 @@ jobs:
           # Your Gemini API Key from AI Studio
           GOOGLE_AI_STUDIO.GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
+
           # Configuration for Gemini 3 Flash
-          CONFIG.MODEL: "gemini/gemini-3-flash-preview" 
+          CONFIG.MODEL: "gemini/gemini-3-flash-preview"
           CONFIG.ADD_REPO_METADATA: "true" # This pulls in your AGENTS.md
-          
+
           # Review Settings
           PR_REVIEWER.REQUIRE_SCORE_REVIEW: "true"
           PR_REVIEWER.ENABLE_REVIEW_LABELS_SECURITY: "true"
