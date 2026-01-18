@@ -108,7 +108,11 @@ class ProjectService {
           debugPrint('Loaded saved project: $savedProjectId');
         }
       }
+    } on TimeoutException catch (_) {
+      _error.value = 'Request timed out while loading project preferences';
+      debugPrint('Timeout loading saved project');
     } catch (e) {
+      _error.value = 'Error loading saved project: $e';
       debugPrint('Error loading saved project: $e');
     }
   }

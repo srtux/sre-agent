@@ -1,7 +1,5 @@
 """Tests for BigQuery query functions."""
 
-import pytest
-
 from sre_agent.tools.bigquery.queries import (
     get_aggregate_metrics_query,
     get_anomaly_traces_query,
