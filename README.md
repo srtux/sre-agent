@@ -13,6 +13,11 @@
 
 **Auto SRE is an experimental SRE Agent for Google Cloud.** It analyzes telemetry data from Google Cloud Observability: **traces**, **logs**, **metrics**.
 
+## 🚀 Recent Improvements (Jan 2026)
+*   **Session Persistence**: Fixed race conditions in chat history by implementing active session refreshing from the database.
+*   **Tool Call Streaming**: Restored rich UI visualizations for tool calls (waterfalls, charts) using the `a2ui` protocol.
+*   **Stability**: Enhanced connection handling and error recovery for long-running agent tasks.
+
 ## Architecture
 
 The agent is built using the Google Agent Development Kit (ADK). It uses a **"Council of Experts"** orchestration pattern where the main **SRE Agent** coordinates specialized analysis.

@@ -35,6 +35,7 @@ We use **`uv`** for dependency management and **`poethepoet`** for task automati
 - **Secret Scanning**: **detect-secrets** scans for leaked keys.
   - If you encounter a false positive, update the baseline: `uv run detect-secrets scan --baseline .secrets.baseline`.
 - **Pre-commit**: You **MUST** run `uv run poe pre-commit` before pushing. It fixes formatting and spacing issues automatically.
+- **Session Stability**: When working with long-running async tasks (like the Agent event loop), **ALWAYS** refresh the `Session` object from the database to avoid Optimistic Locking errors (`StaleSessionError`).
 
 ### 3. Testing & Coverage
 - **Framework**: `pytest` + `pytest-asyncio` + `pytest-cov`.

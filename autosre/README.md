@@ -5,6 +5,10 @@ A next-generation operation dashboard for SREs, built with **Flutter** and **Gen
 ## Overview
 AutoSRE connects to the SRE Agent (Python/ADK) and renders dynamic, generative UIs for distributed tracing, metric analysis, and incident remediation.
 
+### 🚀 Recent Updates
+*   **Restored Visualizations**: Fixed `a2ui` protocol parsing to correctly render Trace Waterfalls and Metric Charts.
+*   **Session Sync**: Real-time session history synchronization with backend.
+
 It is designed to be served by the unified SRE Agent server, but can also be run independently for development.
 
 ## Prerequisites

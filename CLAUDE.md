@@ -117,7 +117,14 @@ def my_function():
     # Use client
 ```
 
-### 5. Caching Pattern
+### 5. Session Persistence Pattern (CRITICAL)
+
+**When modifying `server.py` or event loops:**
+- **Refresh Sessions**: The `session` object passed to an async generator creates a stale closure.
+- **Pattern**: ALWAYS refresh the session from the DB inside the loop or before use if `await` calls have occurred.
+- **Anti-Pattern**: Using the initial `session` object after `await session_service.append_event(...)` without refreshing.
+
+### 6. Caching Pattern
 
 **Use data cache for expensive operations:**
 ```python
