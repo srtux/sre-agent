@@ -9,7 +9,7 @@ from sre_agent.tools.clients.gcp_projects import list_gcp_projects
 
 @pytest.mark.asyncio
 async def test_list_gcp_projects_success():
-    """Test successful listing of GCP projects."""
+    """Test successful listing of GCP projects (V3 Search)."""
     mock_credentials = MagicMock()
     mock_credentials.token = "test-token"
 
@@ -17,8 +17,8 @@ async def test_list_gcp_projects_success():
     mock_response.status_code = 200
     mock_response.json.return_value = {
         "projects": [
-            {"projectId": "project-1", "name": "Project One"},
-            {"projectId": "project-2", "name": "Project Two"},
+            {"projectId": "project-1", "displayName": "Project One"},
+            {"projectId": "project-2", "displayName": "Project Two"},
         ]
     }
 
@@ -43,9 +43,76 @@ async def test_list_gcp_projects_success():
         }
 
         mock_client.get.assert_called_once_with(
-            "https://cloudresourcemanager.googleapis.com/v1/projects",
+            "https://cloudresourcemanager.googleapis.com/v3/projects:search",
             headers={"Authorization": "Bearer test-token"},
+            params={"pageSize": 50},
         )
+
+
+@pytest.mark.asyncio
+async def test_list_gcp_projects_with_query():
+    """Test searching projects with a query."""
+    mock_credentials = MagicMock()
+    mock_credentials.token = "test-token"
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "projects": [
+            {"projectId": "test-project", "displayName": "Test Project"},
+        ]
+    }
+
+    with (
+        patch(
+            "sre_agent.tools.clients.gcp_projects.get_current_credentials",
+            return_value=(mock_credentials, "test-project"),
+        ),
+        patch("httpx.AsyncClient") as mock_client_class,
+    ):
+        mock_client = AsyncMock()
+        mock_client_class.return_value.__aenter__.return_value = mock_client
+        mock_client.get.return_value = mock_response
+
+        # Call with query
+        result = await list_gcp_projects(query="test")
+
+        assert result["projects"][0]["project_id"] == "test-project"
+
+        # Verify query parameter construction
+        call_args = mock_client.get.call_args
+        assert call_args is not None
+        _, kwargs = call_args
+
+        assert kwargs["params"]["pageSize"] == 50
+        assert 'projectId:test* OR displayName:"test*"' in kwargs["params"]["query"]
+
+
+@pytest.mark.asyncio
+async def test_list_gcp_projects_json_error():
+    """Test handling of invalid JSON response."""
+    mock_credentials = MagicMock()
+    mock_credentials.token = "test-token"
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.text = "Invalid JSON"
+    mock_response.json.side_effect = Exception("JSON Decode Error")
+
+    with (
+        patch(
+            "sre_agent.tools.clients.gcp_projects.get_current_credentials",
+            return_value=(mock_credentials, "test-project"),
+        ),
+        patch("httpx.AsyncClient") as mock_client_class,
+    ):
+        mock_client = AsyncMock()
+        mock_client_class.return_value.__aenter__.return_value = mock_client
+        mock_client.get.return_value = mock_response
+
+        result = await list_gcp_projects()
+
+        assert result == {"projects": [], "error": "Invalid API response"}
 
 
 @pytest.mark.asyncio

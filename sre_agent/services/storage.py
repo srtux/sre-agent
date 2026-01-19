@@ -151,6 +151,7 @@ class StorageService:
     # Preference keys
     KEY_SELECTED_PROJECT = "selected_project"
     KEY_TOOL_CONFIG = "tool_config"
+    KEY_RECENT_PROJECTS = "recent_projects"
 
     def __init__(self) -> None:
         """Initialize the storage service with appropriate backend."""
@@ -198,6 +199,29 @@ class StorageService:
         """Set tool configuration for a user."""
         key = self._user_key(self.KEY_TOOL_CONFIG, user_id)
         await self._backend.set(key, enabled_tools)
+
+    async def get_recent_projects(
+        self, user_id: str = "default"
+    ) -> list[dict[str, str]] | None:
+        """Get the list of recent projects for a user."""
+        key = self._user_key(self.KEY_RECENT_PROJECTS, user_id)
+        result = await self._backend.get(key)
+        # Ensure result is a list of dicts if it exists
+        if isinstance(result, list):
+            return result
+        return None
+
+    async def set_recent_projects(
+        self, projects: list[dict[str, str]], user_id: str = "default"
+    ) -> None:
+        """Set the list of recent projects for a user.
+
+        Args:
+            projects: List of project dicts, e.g. [{"projectId": "p1", "name": "n1"}, ...]
+            user_id: The user ID
+        """
+        key = self._user_key(self.KEY_RECENT_PROJECTS, user_id)
+        await self._backend.set(key, projects)
 
 
 # ============================================================================

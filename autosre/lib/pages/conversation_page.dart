@@ -604,15 +604,30 @@ class _ConversationPageState extends State<ConversationPage>
             return ValueListenableBuilder<GcpProject?>(
               valueListenable: _projectService.selectedProject,
               builder: (context, selectedProject, _) {
-                return _ProjectSelectorDropdown(
-                  projects: projects,
-                  selectedProject: selectedProject,
-                  isLoading: isLoading,
-                  onProjectSelected: (project) {
-                    _projectService.selectProjectInstance(project);
-                  },
-                  onRefresh: () {
-                    _projectService.fetchProjects();
+                return ValueListenableBuilder<String?>(
+                  valueListenable: _projectService.error,
+                  builder: (context, error, _) {
+                    return ValueListenableBuilder<List<GcpProject>>(
+                      valueListenable: _projectService.recentProjects,
+                      builder: (context, recentProjects, _) {
+                        return _ProjectSelectorDropdown(
+                          projects: projects,
+                          recentProjects: recentProjects,
+                          selectedProject: selectedProject,
+                          isLoading: isLoading,
+                          error: error,
+                          onProjectSelected: (project) {
+                            _projectService.selectProjectInstance(project);
+                          },
+                          onRefresh: () {
+                            _projectService.fetchProjects();
+                          },
+                          onSearch: (query) {
+                            _projectService.fetchProjects(query: query);
+                          },
+                        );
+                      },
+                    );
                   },
                 );
               },
@@ -1310,17 +1325,23 @@ class _MessageItemState extends State<_MessageItem>
 /// Modern searchable project selector with combobox functionality
 class _ProjectSelectorDropdown extends StatefulWidget {
   final List<GcpProject> projects;
+  final List<GcpProject> recentProjects;
   final GcpProject? selectedProject;
   final bool isLoading;
+  final String? error;
   final ValueChanged<GcpProject?> onProjectSelected;
   final VoidCallback onRefresh;
+  final ValueChanged<String> onSearch;
 
   const _ProjectSelectorDropdown({
     required this.projects,
+    required this.recentProjects,
     required this.selectedProject,
     required this.isLoading,
+    this.error,
     required this.onProjectSelected,
     required this.onRefresh,
+    required this.onSearch,
   });
 
   @override
@@ -1338,6 +1359,8 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
+
+  Timer? _debounceTimer;
 
   @override
   void initState() {
@@ -1358,21 +1381,37 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _animationController.dispose();
+    if (_isOpen) {
+      _overlayEntry?.remove();
+      _overlayEntry = null;
+    }
     _searchController.dispose();
     _searchFocusNode.dispose();
-    _overlayEntry?.remove();
-    _overlayEntry = null;
     super.dispose();
   }
 
+  void _onSearchChanged(String query) {
+    setState(() {
+      _searchQuery = query;
+    });
+
+    // Debounce server search
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      widget.onSearch(query);
+    });
+  }
+
+  // The projects list is already filtered by backend if query matches,
+  // effectively we just show 'widget.projects'.
+  // But for better UX during 'isLoading' or empty/cleared search, we might want local logic too?
+  // Current logic: If backend returns list, that's the list.
   List<GcpProject> get _filteredProjects {
-    if (_searchQuery.isEmpty) return widget.projects;
-    final query = _searchQuery.toLowerCase();
-    return widget.projects.where((p) {
-      return p.projectId.toLowerCase().contains(query) ||
-          (p.displayName?.toLowerCase().contains(query) ?? false);
-    }).toList();
+     // If we are searching and waiting, maybe keep showing old results or show loading?
+     // For now, trust the state.
+     return widget.projects;
   }
 
   void _toggleDropdown() {
@@ -1495,7 +1534,7 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                       hintText: 'Search or enter project ID...',
                       hintStyle: TextStyle(
                         color: AppColors.textMuted,
-                        fontSize: 14,
+                        fontSize: 13,
                       ),
                       prefixIcon: Icon(
                         Icons.search,
@@ -1615,36 +1654,132 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                 if (_searchQuery.isNotEmpty && _filteredProjects.isEmpty)
                   _buildUseCustomProjectOption(_searchQuery, setDropdownState),
                 // Project list
-                if (_filteredProjects.isEmpty && _searchQuery.isEmpty && !widget.isLoading)
-                  Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      children: [
-                        Icon(
-                          Icons.cloud_off_outlined,
-                          size: 32,
-                          color: AppColors.textMuted,
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'No projects available',
-                          style: TextStyle(
-                            fontSize: 13,
+                // Project list
+                if (_searchQuery.isEmpty && !widget.isLoading) ...[
+                  if (widget.error != null)
+                    Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            size: 32,
+                            color: Colors.redAccent,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Error loading projects',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.redAccent,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            widget.error!,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: AppColors.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else if (widget.projects.isEmpty)
+                     Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.cloud_off_outlined,
+                            size: 32,
                             color: AppColors.textMuted,
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Type a project ID above to use it',
+                          const SizedBox(height: 12),
+                          Text(
+                            'No projects available',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else ...[
+                    // Recent Projects
+                    if (widget.recentProjects.isNotEmpty) ...[
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                        child: Text(
+                          'RECENT',
                           style: TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textMuted,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textMuted.withValues(alpha: 0.7),
+                            letterSpacing: 0.5,
                           ),
                         ),
-                      ],
+                      ),
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        itemCount: widget.recentProjects.length,
+                        itemBuilder: (context, index) {
+                          final project = widget.recentProjects[index];
+                          final isSelected = widget.selectedProject?.projectId == project.projectId;
+                          return _buildProjectItem(project, isSelected);
+                        },
+                      ),
+                      const Divider(height: 1, color: Colors.white10),
+                    ],
+                    // All Projects (Limited)
+                     Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                        child: Row(
+                          children: [
+                            Text(
+                              'ALL PROJECTS',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textMuted.withValues(alpha: 0.7),
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            if (widget.projects.length > 10)
+                              Padding(
+                                padding: const EdgeInsets.only(left: 8),
+                                child: Text(
+                                  '(Showing top 10)',
+                                   style: TextStyle(
+                                    fontSize: 10,
+                                    color: AppColors.textMuted.withValues(alpha: 0.5),
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    Flexible(
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        // Limit to 10 entries when not searching
+                        itemCount: widget.projects.length > 10 ? 10 : widget.projects.length,
+                        itemBuilder: (context, index) {
+                          final project = widget.projects[index];
+                          final isSelected = widget.selectedProject?.projectId == project.projectId;
+                          return _buildProjectItem(project, isSelected);
+                        },
+                      ),
                     ),
-                  )
-                else if (_filteredProjects.isNotEmpty)
+                  ],
+                ] else if (_filteredProjects.isNotEmpty)
                   Flexible(
                     child: ListView.builder(
                       shrinkWrap: true,
@@ -1656,6 +1791,27 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
 
                         return _buildProjectItem(project, isSelected);
                       },
+                    ),
+                  )
+                else if (_searchQuery.isNotEmpty && _filteredProjects.isEmpty)
+                   Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.search_off,
+                          size: 32,
+                          color: AppColors.textMuted,
+                        ),
+                        const SizedBox(height: 12),
+                         Text(
+                          'No matching projects',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 // Use custom project when there's a search with some results

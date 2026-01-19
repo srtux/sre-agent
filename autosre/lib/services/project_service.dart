@@ -32,7 +32,17 @@ class GcpProject {
   };
 
   /// Returns display name if available, otherwise project ID.
+  /// Returns display name if available, otherwise project ID.
   String get name => displayName ?? projectId;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is GcpProject && other.projectId == projectId;
+  }
+
+  @override
+  int get hashCode => projectId.hashCode;
 }
 
 /// Factory for creating authenticated HTTP clients.
@@ -55,7 +65,17 @@ class ProjectService {
 
   ProjectService._internal({ClientFactory? clientFactory})
       : _clientFactory = clientFactory ??
-            (() => AuthService().getAuthenticatedClient());
+            (() async {
+              try {
+                return await AuthService().getAuthenticatedClient();
+              } catch (e) {
+                if (kDebugMode) {
+                  debugPrint('Auth failed in debug mode, falling back to unauthenticated client: $e');
+                  return http.Client();
+                }
+                rethrow;
+              }
+            });
 
   final ClientFactory _clientFactory;
 
@@ -76,13 +96,21 @@ class ProjectService {
   /// Returns the preferences API URL.
   String get _preferencesUrl => '$_baseUrl/api/preferences/project';
 
+  /// Returns the recent projects API URL.
+  String get _recentProjectsUrl => '$_baseUrl/api/preferences/projects/recent';
+
   final ValueNotifier<List<GcpProject>> _projects = ValueNotifier([]);
+  final ValueNotifier<List<GcpProject>> _recentProjects = ValueNotifier([]);
+
   final ValueNotifier<GcpProject?> _selectedProject = ValueNotifier(null);
   final ValueNotifier<bool> _isLoading = ValueNotifier(false);
   final ValueNotifier<String?> _error = ValueNotifier(null);
 
   /// List of available projects.
   ValueListenable<List<GcpProject>> get projects => _projects;
+
+  /// List of recent projects.
+  ValueListenable<List<GcpProject>> get recentProjects => _recentProjects;
 
   /// Currently selected project.
   ValueListenable<GcpProject?> get selectedProject => _selectedProject;
@@ -160,21 +188,82 @@ class ProjectService {
     }
   }
 
+  /// Loads recent projects from backend storage.
+  Future<void> _loadRecentProjects() async {
+    try {
+      final client = await _clientFactory();
+      final response = await client
+          .get(Uri.parse(_recentProjectsUrl))
+          .timeout(_requestTimeout);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is Map && data['projects'] != null) {
+          final list = (data['projects'] as List)
+              .map((p) => GcpProject.fromJson(p as Map<String, dynamic>))
+              .toList();
+          _recentProjects.value = list;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading recent projects: $e');
+      // Non-critical, just log
+    }
+  }
+
+  /// Saves recent projects list to backend storage.
+  Future<void> _saveRecentProjects() async {
+    try {
+      final client = await _clientFactory();
+      await client
+          .post(
+            Uri.parse(_recentProjectsUrl),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'projects': _recentProjects.value.map((p) => p.toJson()).toList(),
+            }),
+          )
+          .timeout(_requestTimeout);
+    } catch (e) {
+      debugPrint('Error saving recent projects: $e');
+    }
+  }
+
   /// Fetches the list of available GCP projects from the backend.
-  Future<void> fetchProjects() async {
-    if (_isLoading.value) return;
+  Future<void> fetchProjects({String? query}) async {
+    print('🔄 ProjectService: Fetching projects... query=$query');
+    // If we are searching (query != null), we shouldn't block on existing loading state
+    // because user might be typing fast. But for initial load we might want to debounce.
+    // Actually, simple way: cancel previous request? Dart http doesn't easily support cancellation tokens.
+    // For now we just let it race, but we update URL.
+
+    // Note: If you want to cancel, you'd need a new client per request or use a package like dio.
+    // For simplicity, we just set loading true.
 
     _isLoading.value = true;
     _error.value = null;
 
     try {
+      print('🔑 ProjectService: Getting authenticated client...');
       final client = await _clientFactory();
+
+      final uri = query != null && query.isNotEmpty
+          ? Uri.parse('$_projectsUrl?query=${Uri.encodeComponent(query)}')
+          : Uri.parse(_projectsUrl);
+
+      print('📡 ProjectService: Sending request to $uri');
       final response = await client
-          .get(Uri.parse(_projectsUrl))
+          .get(uri)
           .timeout(_requestTimeout);
+
+      print('📥 ProjectService: Response status ${response.statusCode}');
+      if (response.statusCode != 200) {
+        print('❌ ProjectService: Error body: ${response.body}');
+      }
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        print('📦 ProjectService: Parsed data: $data');
 
         // Handle different response formats
         List<dynamic> projectList;
@@ -191,9 +280,13 @@ class ProjectService {
             .toList();
 
         _projects.value = projects;
+        print('✅ ProjectService: Loaded ${projects.length} projects');
 
         // Load saved project preference first
         await loadSavedProject();
+
+        // Load recent projects
+        await _loadRecentProjects();
 
         // Auto-select first project if still none selected
         if (_selectedProject.value == null && projects.isNotEmpty) {
@@ -205,6 +298,7 @@ class ProjectService {
     } catch (e) {
       _error.value = 'Error fetching projects: $e';
       debugPrint('ProjectService error: $e');
+      print('🔥 ProjectService Exception: $e');
     } finally {
       _isLoading.value = false;
     }
@@ -225,6 +319,19 @@ class ProjectService {
     // Persist selection
     if (project != null) {
       _saveSelectedProject(project.projectId);
+
+      // Update recent projects
+      final currentRecent = List<GcpProject>.from(_recentProjects.value);
+      // Remove if exists to move to top
+      currentRecent.removeWhere((p) => p.projectId == project.projectId);
+      // Insert at top
+      currentRecent.insert(0, project);
+      // Limit to 10
+      if (currentRecent.length > 10) {
+        currentRecent.removeRange(10, currentRecent.length);
+      }
+      _recentProjects.value = currentRecent;
+      _saveRecentProjects();
     }
   }
 
@@ -242,6 +349,7 @@ class ProjectService {
     }
 
     _projects.dispose();
+    _recentProjects.dispose();
     _selectedProject.dispose();
     _isLoading.dispose();
     _error.dispose();

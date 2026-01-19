@@ -523,10 +523,10 @@ async def get_trace(trace_id: str, project_id: Any | None = None) -> Any:
 
 
 @app.get("/api/tools/projects/list")
-async def list_projects() -> Any:
+async def list_projects(query: str | None = None) -> Any:
     """List accessible GCP projects."""
     try:
-        result = await list_gcp_projects()
+        result = await list_gcp_projects(query=query)
         return result
     except Exception as e:
         import traceback
@@ -1053,6 +1053,13 @@ class SetToolConfigRequest(BaseModel):
     user_id: str = "default"
 
 
+class SetRecentProjectsRequest(BaseModel):
+    """Request model for setting recent projects."""
+
+    projects: list[dict[str, str]]
+    user_id: str = "default"
+
+
 @app.get("/api/preferences/project")
 async def get_selected_project(user_id: str = "default") -> Any:
     """Get the selected project for a user."""
@@ -1105,6 +1112,35 @@ async def set_tool_preferences(request: SetToolConfigRequest) -> Any:
         }
     except Exception as e:
         logger.error(f"Error setting tool preferences: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.get("/api/preferences/projects/recent")
+async def get_recent_projects(user_id: str = "default") -> Any:
+    """Get recent projects for a user."""
+    try:
+        storage = get_storage_service()
+        projects = await storage.get_recent_projects(user_id)
+        # Return empty list if None
+        return {"projects": projects or [], "user_id": user_id}
+    except Exception as e:
+        logger.error(f"Error getting recent projects: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.post("/api/preferences/projects/recent")
+async def set_recent_projects(request: SetRecentProjectsRequest) -> Any:
+    """Set recent projects for a user."""
+    try:
+        storage = get_storage_service()
+        await storage.set_recent_projects(request.projects, request.user_id)
+        return {
+            "message": "Recent projects saved",
+            "count": len(request.projects),
+            "user_id": request.user_id,
+        }
+    except Exception as e:
+        logger.error(f"Error setting recent projects: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
