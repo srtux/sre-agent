@@ -209,6 +209,7 @@ class _ConversationPageState extends State<ConversationPage>
     _focusNode.requestFocus();
 
     _conversation.sendRequest(UserMessage.text(text));
+    _scrollToBottom();
   }
 
   bool _isSidebarOpen = false;
