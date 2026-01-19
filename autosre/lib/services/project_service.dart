@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'auth_service.dart';
 
 /// Model representing a GCP project.
@@ -98,6 +99,21 @@ class ProjectService {
   /// Loads the previously selected project from backend storage.
   Future<void> loadSavedProject() async {
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedProjectId = prefs.getString('selected_project_id');
+
+      if (savedProjectId != null && savedProjectId.isNotEmpty) {
+          // Find in projects list or create new
+          final project = _projects.value.firstWhere(
+            (p) => p.projectId == savedProjectId,
+            orElse: () => GcpProject(projectId: savedProjectId),
+          );
+          _selectedProject.value = project;
+          debugPrint('Loaded saved project from local storage: $savedProjectId');
+          return;
+      }
+
+      // Fallback to backend preference if local not found (optional, depending on migration)
       final client = await _clientFactory();
       final response = await client
           .get(Uri.parse(_preferencesUrl))
@@ -105,16 +121,16 @@ class ProjectService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final savedProjectId = data['project_id'] as String?;
+        final backendProjectId = data['project_id'] as String?;
 
-        if (savedProjectId != null && savedProjectId.isNotEmpty) {
+        if (backendProjectId != null && backendProjectId.isNotEmpty) {
           // Find in projects list or create new
           final project = _projects.value.firstWhere(
-            (p) => p.projectId == savedProjectId,
-            orElse: () => GcpProject(projectId: savedProjectId),
+            (p) => p.projectId == backendProjectId,
+            orElse: () => GcpProject(projectId: backendProjectId),
           );
           _selectedProject.value = project;
-          debugPrint('Loaded saved project: $savedProjectId');
+          debugPrint('Loaded saved project from backend: $backendProjectId');
         }
       }
     } on TimeoutException catch (_) {
@@ -129,6 +145,10 @@ class ProjectService {
   /// Saves the selected project to backend storage.
   Future<void> _saveSelectedProject(String projectId) async {
     try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('selected_project_id', projectId);
+
+      // Also try to save to backend
       final client = await _clientFactory();
       await client
           .post(

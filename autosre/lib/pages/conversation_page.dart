@@ -1492,9 +1492,6 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.05),
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.1),
-                          ),
                         ),
                         child: TextField(
                           controller: _searchController,

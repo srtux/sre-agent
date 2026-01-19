@@ -46,6 +46,7 @@ dependencies:
   google_sign_in_web: ^1.1.0
   googleapis_auth: ^2.0.0
   google_fonts: ^7.0.2
+  shared_preferences: ^2.2.0
 
 dev_dependencies:
   flutter_test:
