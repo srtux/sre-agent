@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/tool_config_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/status_toast.dart';
 
 /// A page for configuring which tools the agent can use.
 class ToolConfigPage extends StatefulWidget {
@@ -653,14 +654,10 @@ class _ToolConfigPageState extends State<ToolConfigPage>
           ? 'Tool $toolName is working'
           : 'Tool $toolName test failed: ${result.message}';
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: result.status == ToolTestStatus.success
-              ? AppColors.success
-              : AppColors.error,
-          behavior: SnackBarBehavior.floating,
-        ),
+      StatusToast.show(
+        context,
+        message,
+        isError: result.status != ToolTestStatus.success,
       );
     }
   }
@@ -677,15 +674,10 @@ class _ToolConfigPageState extends State<ToolConfigPage>
         final failedCount =
             results.values.where((r) => r.status == ToolTestStatus.failed).length;
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Test completed: $successCount passed, $failedCount failed',
-            ),
-            backgroundColor:
-                failedCount == 0 ? AppColors.success : AppColors.warning,
-            behavior: SnackBarBehavior.floating,
-          ),
+        StatusToast.show(
+          context,
+          'Test completed: $successCount passed, $failedCount failed',
+          isError: failedCount > 0,
         );
       }
     } finally {

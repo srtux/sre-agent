@@ -157,28 +157,14 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
       constraints: const BoxConstraints(minHeight: 56.0),
       decoration: BoxDecoration(
         color: isError
-           ? AppColors.error.withValues(alpha: 0.05)
-           : const Color(0xFF1E293B),
+           ? AppColors.error.withValues(alpha: 0.1)
+           : AppColors.backgroundElevated.withValues(alpha: 0.8), // Premium Gray
         borderRadius: BorderRadius.circular(10),
-        border: Border(
-           left: BorderSide(
-            color: isError
-                ? AppColors.error
-                : (isRunning ? AppColors.warning : AppColors.success),
-            width: 4, // Left stripe
-           ),
-           top: BorderSide(
-             color: isError ? AppColors.error.withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.1),
-             width: 1,
-           ),
-           bottom: BorderSide(
-             color: isError ? AppColors.error.withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.1),
-             width: 1,
-           ),
-           right: BorderSide(
-             color: isError ? AppColors.error.withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.1),
-             width: 1,
-           ),
+        border: Border.all(
+           color: isError
+               ? AppColors.error.withValues(alpha: 0.3)
+               : Colors.white.withValues(alpha: 0.08),
+           width: 1,
         ),
       ),
       child: Column(
@@ -343,13 +329,20 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
 
   String _getSmartTitle() {
       final name = widget.log.toolName;
-      if (name == 'run_log_pattern_analysis') return 'Analyzing Logs';
-      if (name == 'list_traces') return 'Scanning Traces';
-      if (name == 'query_promql') return 'Querying Metrics';
-      if (name == 'mcp_execute_sql') return 'Running SQL Query';
+      if (name == 'run_log_pattern_analysis') return 'Analyzing Log Patterns';
+      if (name == 'list_traces') return 'Scanning System Traces';
+      if (name == 'query_promql') return 'Querying Performance Metrics';
+      if (name == 'mcp_execute_sql') return 'Executing SQL Query';
+      if (name == 'list_active_incidents') return 'Fetching Active Incidents';
+      if (name == 'run_query') return 'Executing Data Query';
+      if (name == 'list_log_entries') return 'Scanning Cloud Logs';
+      if (name == 'get_service_health') return 'Checking Service Health';
+      if (name == 'list_time_series') return 'Fetching Time Series Data';
+      if (name == 'extract_log_patterns') return 'Extracting Log Patterns';
+      if (name == 'fetch_trace') return 'Fetching Trace Details';
 
-      // Fallback: sentence case
-      return name.split('_').map((word) => word[0].toUpperCase() + word.substring(1)).join(' ');
+      // Fallback: sentence case with replacements
+      return name.replaceAll('_', ' ').split(' ').map((word) => word.isEmpty ? '' : word[0].toUpperCase() + word.substring(1)).join(' ');
   }
 
   Widget _buildStatusIcon(bool isRunning, bool isError, bool isCompleted) {

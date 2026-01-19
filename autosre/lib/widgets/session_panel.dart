@@ -154,27 +154,81 @@ class _SessionPanelState extends State<SessionPanel> {
   }
 
   Widget _buildSessionList() {
-    return ValueListenableBuilder<List<SessionSummary>>(
-      valueListenable: widget.sessionService.sessions,
-      builder: (context, sessions, _) {
-        if (sessions.isEmpty) {
-          return _buildEmptyState();
-        }
+    return ValueListenableBuilder<bool>(
+      valueListenable: widget.sessionService.isLoading,
+      builder: (context, isLoading, _) {
+        return Column(
+          children: [
+            if (isLoading)
+              LinearProgressIndicator(
+                minHeight: 2,
+                backgroundColor: AppColors.backgroundCard,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  AppColors.primaryTeal.withValues(alpha: 0.5),
+                ),
+              ),
 
-        return ListView.builder(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          itemCount: sessions.length,
-          itemBuilder: (context, index) {
-            final session = sessions[index];
-            final isSelected = session.id == widget.currentSessionId;
+            Expanded(
+              child: ValueListenableBuilder<String?>(
+                valueListenable: widget.sessionService.error,
+                builder: (context, error, _) {
+                  if (error != null && !isLoading) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.error_outline, color: AppColors.error, size: 32),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Failed to load history',
+                              style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w500),
+                            ),
+                            const SizedBox(height: 8),
+                            TextButton(
+                                onPressed: () => widget.sessionService.fetchSessions(),
+                                child: Text('Retry', style: TextStyle(color: AppColors.primaryTeal)),
+                            )
+                          ],
+                        ),
+                      ),
+                    );
+                  }
 
-            return _SessionItem(
-              session: session,
-              isSelected: isSelected,
-              onTap: () => widget.onSessionSelected(session.id),
-              onDelete: () => _deleteSession(session.id),
-            );
-          },
+                  return ValueListenableBuilder<List<SessionSummary>>(
+                    valueListenable: widget.sessionService.sessions,
+                    builder: (context, sessions, _) {
+                      if (sessions.isEmpty && !isLoading) {
+                        return _buildEmptyState();
+                      }
+
+                      if (sessions.isEmpty && isLoading) {
+                        // Show nothing or a skeleton while initial load happens
+                        return const SizedBox.shrink();
+                      }
+
+                      return ListView.builder(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        itemCount: sessions.length,
+                        itemBuilder: (context, index) {
+                          final session = sessions[index];
+                          final isSelected = session.id == widget.currentSessionId;
+
+                          return _SessionItem(
+                            session: session,
+                            isSelected: isSelected,
+                            onTap: () => widget.onSessionSelected(session.id),
+                            onDelete: () => _deleteSession(session.id),
+                          );
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
         );
       },
     );

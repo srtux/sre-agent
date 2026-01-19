@@ -18,6 +18,7 @@ import '../widgets/tech_grid_painter.dart';
 import '../widgets/unified_prompt_input.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'tool_config_page.dart';
+import '../widgets/status_toast.dart';
 
 class ConversationPage extends StatefulWidget {
   const ConversationPage({super.key});
@@ -127,13 +128,7 @@ class _ConversationPageState extends State<ConversationPage>
     });
 
     // Show confirmation
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Starting new investigation'),
-        backgroundColor: AppColors.primaryTeal,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    StatusToast.show(context, 'Starting new investigation...', isLoading: true);
   }
 
   Future<void> _loadSession(String sessionId) async {
@@ -178,14 +173,7 @@ class _ConversationPageState extends State<ConversationPage>
     }
 
     // Show a message indicating the session is loaded
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Loaded session: ${session.displayTitle}'),
-        backgroundColor: AppColors.primaryTeal,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    StatusToast.show(context, 'Loaded session: ${session.displayTitle}');
   }
 
   void _scrollToBottom() {
@@ -1262,11 +1250,24 @@ class _MessageItemState extends State<_MessageItem>
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Spacer to align with Agent Text Icon (width 32 + margin 8)
+              // Agent Icon for Tool Calls (Visual Consistency)
               Container(
                 margin: const EdgeInsets.only(top: 4, right: 8),
                 width: 32,
                 height: 32,
+                decoration: BoxDecoration(
+                  color: AppColors.secondaryPurple.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                       color: AppColors.secondaryPurple.withValues(alpha: 0.2),
+                       width: 1,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.smart_toy,
+                  size: 16,
+                  color: AppColors.secondaryPurple,
+                ),
               ),
               // Message Bubble / Tool Surface
               Flexible(
@@ -1451,10 +1452,10 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
         return Container(
           constraints: const BoxConstraints(maxHeight: 400),
           decoration: BoxDecoration(
-            color: AppColors.backgroundCard,
-            borderRadius: BorderRadius.circular(16),
+            color: const Color(0xFF1E293B),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: AppColors.primaryTeal.withValues(alpha: 0.3),
+              color: Colors.white.withValues(alpha: 0.1),
             ),
             boxShadow: [
               BoxShadow(
@@ -1462,115 +1463,75 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                 blurRadius: 24,
                 offset: const Offset(0, 12),
               ),
-              BoxShadow(
-                color: AppColors.primaryTeal.withValues(alpha: 0.1),
-                blurRadius: 40,
-                spreadRadius: -10,
-              ),
             ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Search input
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.03),
-                    border: Border(
-                      bottom: BorderSide(
-                        color: AppColors.surfaceBorder,
-                      ),
+                // Search input as Header
+                SizedBox(
+                  height: 50,
+                  child: TextField(
+                    controller: _searchController,
+                    focusNode: _searchFocusNode,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 14,
                     ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.05),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: TextField(
-                          controller: _searchController,
-                          focusNode: _searchFocusNode,
-                          style: const TextStyle(
-                            color: AppColors.textPrimary,
-                            fontSize: 14,
-                          ),
-                          decoration: InputDecoration(
-                            hintText: 'Search or enter project ID...',
-                            hintStyle: TextStyle(
-                              color: AppColors.textMuted,
-                              fontSize: 14,
-                            ),
-                            prefixIcon: Icon(
-                              Icons.search,
-                              size: 18,
-                              color: AppColors.textMuted,
-                            ),
-                            suffixIcon: _searchController.text.isNotEmpty
-                                ? IconButton(
-                                    icon: Icon(
-                                      Icons.clear,
-                                      size: 16,
-                                      color: AppColors.textMuted,
-                                    ),
-                                    onPressed: () {
-                                      _searchController.clear();
-                                      setDropdownState(() {
-                                        _searchQuery = '';
-                                      });
-                                    },
-                                  )
-                                : null,
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 12,
-                            ),
-                          ),
-                          onChanged: (value) {
-                            setDropdownState(() {
-                              _searchQuery = value;
-                            });
-                          },
-                          onSubmitted: (value) {
-                            if (_filteredProjects.isEmpty && value.isNotEmpty) {
-                              _selectCustomProject(value);
-                            } else if (_filteredProjects.length == 1) {
-                              widget.onProjectSelected(_filteredProjects.first);
-                              _closeDropdown();
-                            }
-                          },
-                        ),
+                    decoration: InputDecoration(
+                      hintText: 'Search or enter project ID...',
+                      hintStyle: TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 14,
                       ),
-                      // Quick tip
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8, left: 4),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.lightbulb_outline,
-                              size: 12,
-                              color: AppColors.textMuted,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Type to search or enter a custom project ID',
-                              style: TextStyle(
-                                fontSize: 11,
+                      prefixIcon: Icon(
+                        Icons.search,
+                        size: 18,
+                        color: AppColors.textMuted,
+                      ),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: Icon(
+                                Icons.clear,
+                                size: 16,
                                 color: AppColors.textMuted,
                               ),
-                            ),
-                          ],
-                        ),
+                              onPressed: () {
+                                _searchController.clear();
+                                setDropdownState(() {
+                                  _searchQuery = '';
+                                });
+                              },
+                            )
+                          : null,
+                      border: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      errorBorder: InputBorder.none,
+                      disabledBorder: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 15,
                       ),
-                    ],
+                    ),
+                    onChanged: (value) {
+                      setDropdownState(() {
+                        _searchQuery = value;
+                      });
+                    },
+                    onSubmitted: (value) {
+                      if (_filteredProjects.isEmpty && value.isNotEmpty) {
+                        _selectCustomProject(value);
+                      } else if (_filteredProjects.length == 1) {
+                        widget.onProjectSelected(_filteredProjects.first);
+                        _closeDropdown();
+                      }
+                    },
                   ),
                 ),
+                const Divider(height: 1, color: Colors.white10),
                 // Header with refresh button
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

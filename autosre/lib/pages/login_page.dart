@@ -6,6 +6,7 @@ import '../widgets/auth/google_sign_in_button.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/tech_grid_painter.dart';
+import '../widgets/status_toast.dart';
 
 class LoginPage extends StatelessWidget {
   const LoginPage({super.key});
@@ -196,11 +197,10 @@ class LoginPage extends StatelessWidget {
                                   await auth.signIn();
                                 } catch (e) {
                                   if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('Login failed: $e'),
-                                        backgroundColor: AppColors.error,
-                                      ),
+                                    StatusToast.show(
+                                      context,
+                                      'Login failed: $e',
+                                      isError: true,
                                     );
                                   }
                                 }
