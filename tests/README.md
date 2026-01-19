@@ -7,47 +7,42 @@ This directory contains the test suite for the SRE Agent (GCP Observability Anal
 ```text
 tests/
 ├── conftest.py                   # Global fixtures (Mocks, Sample Logs, Synthetic Traces)
-├── data/                         # Static JSON data files for trace analysis tests
 ├── fixtures/                     # Dynamic synthetic data generators
 │   └── synthetic_otel_data.py    # OTel trace data generation utilities
-└── sre_agent/                    # Main test package (Mirrors source code)
-    ├── e2e/                      # End-to-End and Integration tests
-    │   ├── test_agent_execution.py    # Orchestration tests
-    │   ├── test_agent_integration.py  # Root agent initialization
-    │   ├── test_analysis_e2e.py       # E2E analysis workflows
-    │   ├── test_mocks_e2e.py          # E2E tests with full system mocks
-    │   └── test_trace_selection.py    # E2E trace selection logic
-    ├── sub_agents/               # Tests for specialized analysts
-    │   ├── test_logs.py               # Log pattern extractor tests
-    │   └── test_metrics.py            # Metrics analyzer tests
-    ├── tools/                    # Unit tests for core tools
-    │   ├── analysis/             # Analysis logic subdirectories
-    │   │   ├── bigquery/         # BigQuery SQL tool tests
-    │   │   ├── correlation/      # Cross-signal correlation tests
-    │   │   ├── logs/             # Log pattern analysis tests
-    │   │   ├── metrics/          # Metrics statistical tests
-    │   │   ├── remediation/      # Remediation suggestion tests
-    │   │   ├── trace/            # Trace comparison & statistical tests
-    │   │   └── test_genui_adapter.py # GenUI adapter tests
-    │   ├── clients/              # Direct API client tests
-    │   ├── common/               # Shared utilities (caching, decorators)
-    │   └── logs/                 # Log extraction utility tests
-    ├── test_agent_project_id.py  # Config verification
-    ├── test_e2e_cujs.py          # End-to-end Critical User Journeys
-    ├── test_mcp_integration.py   # MCP session & toolset tests
-    ├── test_orchestration.py     # Agent orchestration logic
-    └── test_schema.py            # Pydantic model validation
+├── unit/                         # FAST: Isolated logic tests (Mirrors source code)
+│   └── sre_agent/                # Unit tests for tools, sub-agents, and schemas
+│       ├── sub_agents/           # Tests for specialized analysts
+│       ├── tools/                # Unit tests for core tools
+│       └── ...
+├── server/                       # API: Application layer tests
+│   ├── test_server.py            # FastAPI endpoint tests
+│   ├── test_genui_chat_events.py  # GenUI event streaming tests
+│   └── test_cancellation.py      # Request cancellation logic
+├── integration/                  # STATE: Database and side-effect tests
+│   ├── test_chat_persistence.py  # Session history persistence
+│   └── test_session.py           # Session management tests
+└── e2e/                          # SLOW: Full end-to-end flows
+    ├── test_e2e_cujs.py          # Critical User Journeys
+    ├── test_api_flow.py          # API-to-Agent flow tests
+    └── ...
 ```
 
 ## 🧪 Test Categories
 
-### 1. End-to-End Tests (`sre_agent/e2e/`)
-These tests verify the integrated behavior of the system, including the "Council of Experts" orchestration and agent lifecycle.
-*   **`test_agent_execution.py`**: Validates the full analysis workflow.
-*   **`test_agent_integration.py`**: Smoke tests for agent initialization and tool registration.
+### 1. Unit Tests (`tests/unit/`)
+Isolated logic tests. Fast and comprehensive.
+*   **Analysis Logic** (`tools/analysis/`): Tests for statistical analysis, comparison logic, and log pattern extraction.
+*   **Infrastructure** (`test_schema.py`, etc.): Tests for schemas, telemetry, and caching.
 
-### 2. Unit Tests
-*   **Analysis Logic** (`tools/analysis/`): Tests for statistical analysis, comparison logic, and log pattern extraction. Organized by signal type (Trace, Logs, Metrics, BigQuery).
+### 2. Server & API Tests (`tests/server/`)
+Tests the application layer and `server.py` integration.
+*   **`test_genui_chat_events.py`**: Verifies streaming output and A2UI event injection.
+
+### 3. Integration Tests (`tests/integration/`)
+Tests focusing on side effects like session persistence and database state.
+
+### 4. End-to-End Tests (`tests/e2e/`)
+Full user journeys and complex orchestration flows.
 *   **Clients** (`tools/clients/`): Tests for API interaction, ensuring mocks are used correctly to avoid real network calls.
 *   **Infrastructure** (`tools/common/`, `test_schema.py`): Tests for schemas, telemetry, and caching.
 

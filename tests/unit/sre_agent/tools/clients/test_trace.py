@@ -240,12 +240,14 @@ class TestGetTraceByURL:
         """Test extracting trace ID from Cloud Console URL."""
         # Use a long enough hex string to satisfy the fallback parser if needed,
         # but here we test the 'trace-details' part.
-        url = "https://console.cloud.google.com/traces/trace-details/4fb09ce68979116e0ca143d225695000?project=test-project"
+        url = "https://console.cloud.google.com/traces/trace-details/4fb09ce68979116e0ca143d225695000?project=test-project"  # pragma: allowlist secret
 
         # Mock the actual fetch to focus on URL parsing
         with patch("sre_agent.tools.clients.trace.fetch_trace") as mock_fetch:
             mock_fetch.return_value = json.dumps(
-                {"trace_id": "4fb09ce68979116e0ca143d225695000"}
+                {
+                    "trace_id": "4fb09ce68979116e0ca143d225695000"
+                }  # pragma: allowlist secret
             )
 
             await trace_client.get_trace_by_url(url)
@@ -253,7 +255,10 @@ class TestGetTraceByURL:
             # Verify trace was fetched with correct ID
             mock_fetch.assert_called_once()
             args, _kwargs = mock_fetch.call_args
-            assert args[1] == "4fb09ce68979116e0ca143d225695000"
+            assert (
+                args[1]
+                == "4fb09ce68979116e0ca143d225695000"  # pragma: allowlist secret
+            )
 
     @pytest.mark.asyncio
     async def test_get_trace_by_url_invalid_url(self):

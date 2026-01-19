@@ -39,26 +39,33 @@ async def test_find_example_traces_hybrid(mock_pid, mock_list_traces):
 @pytest.mark.asyncio
 @patch("sre_agent.tools.clients.trace.fetch_trace")
 async def test_get_trace_by_url_success(mock_fetch_trace):
-    url = "https://console.cloud.google.com/traces/list?project=my-project&tid=1234567890abcdef"
-    mock_fetch_trace.return_value = json.dumps({"trace_id": "1234567890abcdef"})
+    url = "https://console.cloud.google.com/traces/list?project=my-project&tid=1234567890abcdef"  # pragma: allowlist secret
+    mock_fetch_trace.return_value = json.dumps(
+        {"trace_id": "1234567890abcdef"}
+    )  # pragma: allowlist secret
 
     result = await get_trace_by_url(url)
     data = json.loads(result)
 
-    assert data["trace_id"] == "1234567890abcdef"
-    mock_fetch_trace.assert_called_with("my-project", "1234567890abcdef")
+    assert data["trace_id"] == "1234567890abcdef"  # pragma: allowlist secret
+    mock_fetch_trace.assert_called_with(
+        "my-project",
+        "1234567890abcdef",  # pragma: allowlist secret
+    )  # pragma: allowlist secret
 
 
 @pytest.mark.asyncio
 @patch("sre_agent.tools.clients.trace.fetch_trace")
 async def test_get_trace_by_url_details_path(mock_fetch_trace):
-    url = "https://console.cloud.google.com/traces/list/details/1234567890abcdef?project=my-project"
-    mock_fetch_trace.return_value = json.dumps({"trace_id": "1234567890abcdef"})
+    url = "https://console.cloud.google.com/traces/list/details/1234567890abcdef?project=my-project"  # pragma: allowlist secret
+    mock_fetch_trace.return_value = json.dumps(
+        {"trace_id": "1234567890abcdef"}
+    )  # pragma: allowlist secret
 
     result = await get_trace_by_url(url)
     data = json.loads(result)
 
-    assert data["trace_id"] == "1234567890abcdef"
+    assert data["trace_id"] == "1234567890abcdef"  # pragma: allowlist secret
 
 
 @pytest.mark.asyncio

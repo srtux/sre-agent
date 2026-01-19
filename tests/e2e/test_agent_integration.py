@@ -14,7 +14,10 @@ from sre_agent.agent import root_agent
 def mock_env():
     with patch.dict(
         os.environ,
-        {"GOOGLE_CLOUD_PROJECT": "test-project", "VERTEX_API_KEY": "test-key"},
+        {
+            "GOOGLE_CLOUD_PROJECT": "test-project",
+            "VERTEX_API_KEY": "test-key",  # pragma: allowlist secret
+        },
     ):
         yield
 

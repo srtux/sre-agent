@@ -292,13 +292,10 @@ latency_analyzer = LlmAgent(
 
 ```
 tests/
-├── sre_agent/
-│   ├── e2e/                    # End-to-end tests
-│   ├── sub_agents/             # Sub-agent tests
-│   └── tools/                  # Tool tests
-│       ├── clients/            # API client tests
-│       ├── analysis/           # Analysis logic tests
-│       └── mcp/                # MCP integration tests
+├── unit/                       # Unit tests (Isolated logic)
+├── server/                     # API tests (server.py)
+├── integration/                # State/DB tests (persistence)
+└── e2e/                        # End-to-end tests
 ```
 
 ### Writing Tests

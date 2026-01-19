@@ -134,7 +134,7 @@ class TestBigQueryOtelTools:
 
         assert result_data["trace_id"] == "abc123def456"
         assert "sql_query" in result_data
-        assert "abc123def456" in result_data["sql_query"]
+        assert "abc123def456" in result_data["sql_query"]  # pragma: allowlist secret
         assert "direct_logs" in result_data["sql_query"]
 
     def test_correlate_logs_with_trace_nearby(self):
@@ -289,9 +289,9 @@ class TestBigQueryOtelTools:
             if "error" in result_data:
                 continue
 
-            assert "description" in result_data, (
-                f"{tool_func.__name__} missing description"
-            )
-            assert "next_steps" in result_data, (
-                f"{tool_func.__name__} missing next_steps"
-            )
+            assert (
+                "description" in result_data
+            ), f"{tool_func.__name__} missing description"
+            assert (
+                "next_steps" in result_data
+            ), f"{tool_func.__name__} missing next_steps"
