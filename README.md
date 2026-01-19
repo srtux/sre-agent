@@ -178,45 +178,44 @@ sequenceDiagram
     autonumber
     actor User
     participant SRE as 🔧 SRE Agent
-    participant Orch as 🛡️ Orchestrator
-    participant Squad as 📊 Specialist Squad
+    participant Stage0 as 🥷 Stage 0<br/>(Aggregate Analysis)
+    participant Stage1 as 📊 Stage 1<br/>(Parallel Triage)
+    participant Stage2 as 🕵️ Stage 2<br/>(Deep Dive)
     participant Cloud as ☁️ GCP Infra
 
-    rect rgba(0, 0, 0, 0.1)
-        Note over User, Cloud: 🔎 PHASE 1: GATHERING
-        User->>SRE: "Why is latency high?"
-        SRE->>Orch: Aggregate Analysis
-        Orch->>Squad: Delegate to Data Analyst
-        Squad->>Cloud: Fetch Health Metrics
-        Cloud-->>Squad: Metrics + Exemplars
-        Squad-->>Orch: Analysis Report
+    rect rgba(0, 0, 0, 0.05)
+        Note over User, Cloud: 🔎 STAGE 0: FLEET-WIDE DISCOVERY
+        User->>SRE: "Why is latency high in production?"
+        SRE->>Stage0: run_aggregate_analysis
+        Stage0->>Cloud: Query BigQuery (thousands of traces)
+        Cloud-->>Stage0: Fleet Trends + Exemplars
+        Stage0-->>SRE: "Matched anomaly patterns in service-alpha"
     end
 
-    rect rgba(0, 0, 0, 0.1)
-        Note over User, Cloud: ⚡ PHASE 2: TRIAGE
-        SRE->>Orch: Start Triage
-        par Parallel Analysis
-            Orch->>Squad: Analyze Latency
-            Squad->>Cloud: Fetch Trace Data
-            Cloud-->>Squad: Traces
-            Orch->>Squad: Analyze Errors
-            Squad->>Cloud: Fetch Logs
-            Cloud-->>Squad: Logs
-            Orch->>Squad: Analyze Structure
+    rect rgba(0, 0, 0, 0.05)
+        Note over User, Cloud: ⚡ STAGE 1: PARALLEL SQUAD TRIAGE
+        SRE->>Stage1: run_triage_analysis (Baseline vs Anomaly)
+        par Parallel Squad Execution
+            Stage1->>Stage1: Latency Specialist: Critical Path
+            Stage1->>Stage1: Error Detective: Forensics
+            Stage1->>Stage1: Log Whisperer: Pattern Mining
+            Stage1->>Stage1: Resiliency Architect: Anti-patterns
         end
-        Squad-->>Orch: Anomalies Detected
-        Orch-->>SRE: Unified Report
+        Stage1->>Cloud: Fetch Traces, Logs, & Metrics
+        Cloud-->>Stage1: Telemetry Data
+        Stage1-->>SRE: Structural/Timing diffs detected
     end
 
-    rect rgba(0, 0, 0, 0.1)
-        Note over User, Cloud: 🕵️ PHASE 3: ROOT CAUSE (Autonomous)
-        Note over SRE: SRE Agent decides to investigate anomalies
-        SRE->>Orch: Deep Dive
-        Orch->>Squad: Causality Analysis
-        Squad->>Cloud: Correlate Signals
-        Cloud-->>Squad: Correlation Data
-        Squad-->>Orch: Root Cause Identified
-        SRE->>User: 📂 Full Investigation Summary
+    rect rgba(0, 0, 0, 0.05)
+        Note over User, Cloud: 🕵️ STAGE 2: ROOT CAUSE SYNTHESIS
+        SRE->>Stage2: run_deep_dive_analysis
+        Stage2->>Stage2: Causality Analysis: "Smoking Gun"
+        Stage2->>Stage2: Impact Assessor: Blast Radius
+        Stage2->>Stage2: Change Detective: Correlate Deploys
+        Stage2->>Cloud: Check Admin Logs & Topo
+        Cloud-->>Stage2: Deployment timestamps
+        Stage2-->>SRE: Root Cause: "Deploy v2.1 caused retry storm"
+        SRE->>User: 📂 Investigation Complete: Rollback recommended! 🚀
     end
 ```
 
