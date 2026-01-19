@@ -97,6 +97,7 @@ pythonpath = "."
 asyncio_default_fixture_loop_scope = "function"
 filterwarnings = [
     "ignore:\\[EXPERIMENTAL\\].*:UserWarning",
+    "ignore:Inheritance class AiohttpClientSession from ClientSession is discouraged:DeprecationWarning",
 ]
 
 [build-system]

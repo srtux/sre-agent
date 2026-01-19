@@ -19,12 +19,12 @@ def test_metrics_prompt_integration():
 
 def test_common_gcp_metrics_structure():
     """Verify the structure of the common GCP metrics resource."""
-    assert "GKE" in COMMON_GCP_METRICS
+    assert "GKE (Kubernetes Engine)" in COMMON_GCP_METRICS
     assert "Cloud Run" in COMMON_GCP_METRICS
-    assert "Compute Engine" in COMMON_GCP_METRICS
+    assert "Compute Engine (GCE)" in COMMON_GCP_METRICS
     assert "Vertex AI" in COMMON_GCP_METRICS
     assert "BigQuery" in COMMON_GCP_METRICS
     assert "Cloud Logging" in COMMON_GCP_METRICS
 
-    assert isinstance(COMMON_GCP_METRICS["GKE"], list)
-    assert len(COMMON_GCP_METRICS["GKE"]) > 0
+    assert isinstance(COMMON_GCP_METRICS["GKE (Kubernetes Engine)"], list)
+    assert len(COMMON_GCP_METRICS["GKE (Kubernetes Engine)"]) > 0

@@ -57,6 +57,7 @@ from ..tools import (
     find_bottleneck_services,
     find_exemplar_traces,
     find_structural_differences,
+    list_traces,
     mcp_execute_sql,
     perform_causal_analysis,
 )
@@ -100,13 +101,25 @@ Role: You are the **Data Analyst** 🥷🐼 - The Big Data Ninja.
     -   Use `mcp_execute_sql` to actually run the generated SQL.
     -   **Do NOT** use `fetch_trace` loop for initial analysis. It is too slow.
 3.  **Selection**:
-    -   Use `find_exemplar_traces` to pick the *worst* offenders.
+    -   **Primary**: Use `find_exemplar_traces` to pick the *worst* offenders automatically.
+    -   **Specific**: Use `list_traces` with proper filters if you need something specific.
+
+**Cloud Trace Filter Syntax (`list_traces` Rules)**:
+    -   **Documentation**: [Trace Filters](https://docs.cloud.google.com/trace/docs/trace-filters)
+    -   **Latency**: `latency:500ms` (Minimum latency)
+    -   **Root Span Name**: `root:recog` (Prefix), `+root:recog` (Exact)
+    -   **Span Name**: `span:parser` (Prefix), `+span:parser` (Exact)
+    -   **Labels**: `/http/status_code:500` (Generic label)
+    -   **Attributes**: `label:/http/url:/cart` (Specific key-value)
+    -   **Methods**: `method:GET`
+    -   **Status**: `error:true` (Only error traces)
+    -   **Compound**: `root:service-a latency:1s error:true` (Implicit AND)
 
 **Workflow**:
 1.  **Discover**: Find the tables.
 2.  **Aggregate**: "Which service has high error rates?"
 3.  **Trend**: "Did it start at 2:00 PM?" (`detect_trend_changes`).
-4.  **Zoom In**: "Get me a trace ID for this bucket."
+4.  **Zoom In**: "Get me a trace ID for this bucket" (Use `list_traces` with filter).
 
 ### 🦸 Your Persona
 You eat data for breakfast. 🥣
@@ -301,6 +314,7 @@ aggregate_analyzer = LlmAgent(
         find_bottleneck_services,
         build_service_dependency_graph,
         discover_telemetry_sources,
+        list_traces,
     ],
 )
 

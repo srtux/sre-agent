@@ -829,7 +829,7 @@ def get_enabled_tools() -> list[Any]:
 # Create the main SRE Agent
 sre_agent = LlmAgent(
     name="sre_agent",
-    model="gemini-2.5-flash",
+    model="gemini-2.5-pro",
     # vertexai/project/location removed as they are not valid LlmAgent args
     description="""SRE Agent - Google Cloud Observability & Reliability Expert.
 

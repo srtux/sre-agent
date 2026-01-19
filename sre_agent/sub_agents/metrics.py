@@ -96,6 +96,33 @@ Use these specific metric types when searching or querying if they match the use
     -   **Labels & Metadata**:
         -   Metric labels are preserved (e.g., `instance_name`, `namespace_name`).
         -   System labels often map directly (e.g., `zone` -> `zone`).
+        -   **Label Conflicts**: If a metric label shares a name with a resource label (e.g., `pod_name`), access the metric label by prefixing with `metric_` (e.g., `metric_pod_name`).
+    -   **Distribution Metrics (Latencies/Histograms)**:
+        -   GCP "Distribution" metrics behave like Prometheus Histograms.
+        -   Append suffixes to the mapped name:
+            -   `_bucket`: For the bucket counts (used in `histogram_quantile`).
+            -   `_count`: For the total observation count.
+            -   `_sum`: For the sum of observations.
+        -   **Example**: `run.googleapis.com/request_latencies`
+            -   Query: `histogram_quantile(0.99, sum(rate(run_googleapis_com:request_latencies_bucket[5m])) by (le))`
+
+**Cloud Monitoring Filter Syntax (`list_time_series` Rules)**:
+    -   **Documentation**: [Monitoring Filters](https://docs.cloud.google.com/monitoring/api/v3/filters)
+    -   **Structure**: `metric.type="<METRIC>" AND resource.type="<RESOURCE>" AND ...`
+    -   **Operators**:
+        -   `=` (Equals), `!=` (Not Equals)
+        -   `:` (Has substring / Has label)
+        -   `>` , `<`, `>=`, `<=` (Numeric comparison)
+    -   **Functions**:
+        -   `starts_with("prefix")`
+        -   `ends_with("suffix")`
+        -   `has_substring("string")`
+        -   `one_of("value1", "value2")`
+    -   **Selectors**:
+        -   **Metric**: `metric.type`, `metric.labels.KEY`
+        -   **Resource**: `resource.type`, `resource.labels.KEY`
+    -   **Example**:
+        -   `metric.type="compute.googleapis.com/instance/cpu/utilization" AND resource.labels.zone="us-central1-a"`
 
 **Tool Strategy (STRICT HIERARCHY):**
 1.  **PromQL (Primary)**:
@@ -106,7 +133,7 @@ Use these specific metric types when searching or querying if they match the use
         -   **Errors**: `sum(rate(http_requests_total{{status=~"5.."}}[5m])) by (service)`
 2.  **Raw Fetch (Secondary)**:
     -   Use `list_time_series` if PromQL is not applicable or fails.
-    -   **Tip**: When using `list_time_series`, prefer the metric types listed in your Knowledge Base.
+    -   **Tip**: **ALWAYS** provide a specific filter string. Never use an empty filter.
 3.  **Experimental**:
     -   `mcp_query_range` and `mcp_list_timeseries` are available but **less reliable**. Use only if direct tools fail.
 
@@ -133,7 +160,7 @@ Output should be precise but punchy.
 
 metrics_analyzer = LlmAgent(
     name="metrics_analyzer",
-    model="gemini-2.5-flash",
+    model="gemini-2.5-pro",
     description=(
         "Analyzes metrics and time-series data with exemplar-based trace correlation. "
         "Detects anomalies, statistical outliers, and uses exemplars to find "
