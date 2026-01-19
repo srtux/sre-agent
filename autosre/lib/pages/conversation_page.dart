@@ -1247,18 +1247,29 @@ class _MessageItemState extends State<_MessageItem>
                         p: const TextStyle(
                           color: AppColors.textPrimary,
                           fontSize: 14,
-                          height: 1.5,
+                          height: 1.6, // Increased line height for better readability
                         ),
+                        pPadding: const EdgeInsets.only(bottom: 12),
                         h1: const TextStyle(
-                          color: AppColors.textPrimary,
+                          color: AppColors.primaryTeal,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.5,
+                        ),
+                        h1Padding: const EdgeInsets.only(top: 16, bottom: 8),
+                        h2: const TextStyle(
+                          color: AppColors.primaryCyan,
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
+                          letterSpacing: -0.3,
                         ),
-                        h2: const TextStyle(
-                          color: AppColors.textPrimary,
+                        h2Padding: const EdgeInsets.only(top: 14, bottom: 6),
+                        h3: const TextStyle(
+                          color: Colors.white,
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),
+                        h3Padding: const EdgeInsets.only(top: 12, bottom: 4),
                         code: TextStyle(
                           backgroundColor: const Color(0xFF0F172A), // Dark "code pill" bg
                           color: AppColors.primaryCyan, // Cyan text
@@ -1268,22 +1279,50 @@ class _MessageItemState extends State<_MessageItem>
                         ),
                         codeblockDecoration: BoxDecoration(
                           color: const Color(0xFF0F172A),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: Colors.white.withValues(alpha: 0.1),
                           ),
                         ),
                         blockquoteDecoration: BoxDecoration(
                           color: AppColors.primaryTeal.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(8),
                           border: Border(
                             left: BorderSide(
                               color: AppColors.primaryTeal.withValues(alpha: 0.5),
-                              width: 2,
+                              width: 3,
                             ),
                           ),
                         ),
+                        blockquotePadding: const EdgeInsets.all(12),
+                        // Premium Table Styling
+                        tableHead: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
+                        tableBody: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
+                        ),
+                        tableBorder: TableBorder.all(
+                          color: Colors.white.withValues(alpha: 0.1),
+                          width: 1,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        tableCellsPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        tableCellsDecoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.02),
+                        ),
+                        listBullet: const TextStyle(
+                          color: AppColors.primaryTeal,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        listIndent: 20,
+                        listBulletPadding: const EdgeInsets.only(right: 8),
                       ),
                     ),
+
                   ),
                 ),
               ),

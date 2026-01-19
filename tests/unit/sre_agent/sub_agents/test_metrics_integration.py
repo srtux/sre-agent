@@ -13,7 +13,7 @@ def test_metrics_prompt_integration():
     assert "logging.googleapis.com/log_entry_count" in METRICS_ANALYZER_PROMPT
 
     # Verify strict hierarchy is preserved
-    assert "Tool Strategy (STRICT HIERARCHY):" in METRICS_ANALYZER_PROMPT
+    assert "**Tool Strategy (STRICT HIERARCHY) 🛠️**:" in METRICS_ANALYZER_PROMPT
     assert "PromQL (Primary)" in METRICS_ANALYZER_PROMPT
 
 
