@@ -74,12 +74,7 @@ class _ConversationPageState extends State<ConversationPage>
 
     _initializeConversation();
 
-    // Listen to session updates from the content generator
-    _sessionSubscription = _contentGenerator.sessionStream.listen((sessionId) {
-      _sessionService.setCurrentSession(sessionId);
-      // Refresh sessions list after a message is sent
-      _sessionService.fetchSessions();
-    });
+    // Session subscription is now handled in _initializeConversation to ensure it persists across resets
 
     // Fetch projects and sessions on startup
     _projectService.fetchProjects();
@@ -99,8 +94,19 @@ class _ConversationPageState extends State<ConversationPage>
       ],
     );
 
+    // Dispose previous content generator if it exists (though effectively we just replace it)
+    // We need to cancel the old subscription before creating a new one to avoid leaks/stale listeners
+    _sessionSubscription?.cancel();
+
     _contentGenerator = ADKContentGenerator();
     _contentGenerator.projectId = _projectService.selectedProjectId;
+
+    // Subscribe to the NEW session stream immediately
+    _sessionSubscription = _contentGenerator.sessionStream.listen((sessionId) {
+      _sessionService.setCurrentSession(sessionId);
+      // Refresh sessions list after a message is sent creates a new session
+      _sessionService.fetchSessions();
+    });
 
     _conversation = GenUiConversation(
       a2uiMessageProcessor: _messageProcessor,
@@ -128,13 +134,19 @@ class _ConversationPageState extends State<ConversationPage>
     });
 
     // Show confirmation
-    StatusToast.show(context, 'Starting new investigation...', isLoading: true);
+    StatusToast.show(context, 'Starting new investigation...');
   }
 
   Future<void> _loadSession(String sessionId) async {
     // Load session from backend
     final session = await _sessionService.getSession(sessionId);
-    if (session == null) return;
+    if (session == null) {
+      // ignore: use_build_context_synchronously
+      if (mounted) {
+        StatusToast.show(context, 'Failed to load session history');
+      }
+      return;
+    }
 
     // Set session ID in content generator
     _contentGenerator.sessionId = sessionId;

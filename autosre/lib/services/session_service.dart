@@ -22,7 +22,8 @@ class SessionMessage {
     return SessionMessage(
       role: json['role'] as String,
       content: json['content'] as String,
-      timestamp: json['timestamp'] as String,
+      // Robustly handle timestamp (can be double from python or string)
+      timestamp: json['timestamp']?.toString() ?? '',
       metadata: json['metadata'] as Map<String, dynamic>?,
     );
   }
@@ -318,8 +319,7 @@ class SessionService {
         return null;
       }
     } catch (e) {
-      _error.value = 'Error getting session: $e';
-      debugPrint('SessionService error: $e');
+      debugPrint('Error getting session details: $e');
       return null;
     }
   }
