@@ -154,10 +154,11 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
     return AnimatedContainer(
       duration: const Duration(milliseconds: 150),
       margin: EdgeInsets.symmetric(vertical: _isExpanded ? 4 : 2),
+      constraints: const BoxConstraints(minHeight: 56.0),
       decoration: BoxDecoration(
         color: isError
-           ? AppColors.error.withValues(alpha: 0.05) // Faint red tint
-           : Colors.black.withValues(alpha: 0.3),
+           ? AppColors.error.withValues(alpha: 0.05)
+           : const Color(0xFF1E293B),
         borderRadius: BorderRadius.circular(10),
         border: Border(
            left: BorderSide(
@@ -167,16 +168,16 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
             width: 4, // Left stripe
            ),
            top: BorderSide(
-             color: isError ? AppColors.error.withValues(alpha: 0.3) : Colors.transparent,
-             width: isError ? 1 : 0,
+             color: isError ? AppColors.error.withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.1),
+             width: 1,
            ),
            bottom: BorderSide(
-             color: isError ? AppColors.error.withValues(alpha: 0.3) : Colors.transparent,
-             width: isError ? 1 : 0,
+             color: isError ? AppColors.error.withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.1),
+             width: 1,
            ),
            right: BorderSide(
-             color: isError ? AppColors.error.withValues(alpha: 0.3) : Colors.transparent,
-             width: isError ? 1 : 0,
+             color: isError ? AppColors.error.withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.1),
+             width: 1,
            ),
         ),
       ),

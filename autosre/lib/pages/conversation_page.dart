@@ -14,6 +14,9 @@ import '../services/project_service.dart';
 import '../services/session_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/session_panel.dart';
+import '../widgets/tech_grid_painter.dart';
+import '../widgets/unified_prompt_input.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'tool_config_page.dart';
 
 class ConversationPage extends StatefulWidget {
@@ -277,11 +280,19 @@ class _ConversationPageState extends State<ConversationPage>
                 ),
               // Main conversation area
               Expanded(
-                child: Column(
-                  children: [
-                    Expanded(child: _buildMessageList()),
-                    _buildInputArea(),
-                  ],
+                child: ValueListenableBuilder<List<ChatMessage>>(
+                  valueListenable: _conversation.conversation,
+                  builder: (context, messages, _) {
+                    if (messages.isEmpty) {
+                      return _buildHeroEmptyState();
+                    }
+                    return Column(
+                      children: [
+                        Expanded(child: _buildMessageList(messages)),
+                        _buildInputArea(),
+                      ],
+                    );
+                  },
                 ),
               ),
             ],
@@ -326,6 +337,7 @@ class _ConversationPageState extends State<ConversationPage>
         builder: (context, constraints) {
            final isCompact = constraints.maxWidth < 600;
            return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // Logo/Icon - clickable to return to home
               _buildLogoButton(),
@@ -334,15 +346,44 @@ class _ConversationPageState extends State<ConversationPage>
               if (!isCompact)
                 InkWell(
                   onTap: _startNewSession,
-                  child: Text(
-                    'AutoSRE',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white, // Bright White
-                    letterSpacing: 0.5,
+                  child: Stack(
+                    children: [
+                      // Shadow Layer
+                      Text(
+                        'AutoSRE',
+                        style: GoogleFonts.inter(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.transparent,
+                          letterSpacing: 0.5,
+                          shadows: [
+                            const Shadow(
+                              color: Colors.blueAccent,
+                              blurRadius: 10,
+                              offset: Offset(0, 0),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Gradient Layer
+                      ShaderMask(
+                        shaderCallback: (bounds) => const LinearGradient(
+                          colors: [Colors.white, AppColors.primaryCyan],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        ).createShader(bounds),
+                        child: Text(
+                          'AutoSRE',
+                          style: GoogleFonts.inter(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
                 ),
               const SizedBox(width: 24),
               // Project Selector (Left aligned now)
@@ -392,9 +433,9 @@ class _ConversationPageState extends State<ConversationPage>
           child: Padding(
             padding: EdgeInsets.all(isMobile ? 6 : 8),
             child: Icon(
-              Icons.auto_awesome, // Magic Icon
+              Icons.smart_toy,
               color: AppColors.primaryTeal,
-              size: isMobile ? 18 : 22,
+              size: isMobile ? 24 : 32,
             ),
           ),
         ),
@@ -565,238 +606,186 @@ class _ConversationPageState extends State<ConversationPage>
     );
   }
 
-  Widget _buildMessageList() {
-    return ValueListenableBuilder<List<ChatMessage>>(
-      valueListenable: _conversation.conversation,
-      builder: (context, messages, _) {
-        if (messages.isEmpty) {
-          return Stack(
-            children: [
-               Positioned.fill(
-                child: CustomPaint(
-                  painter: const _TechGridPainter(),
-                ),
-              ),
-              _buildEmptyState(),
-            ],
-          );
-        }
-
-        return Stack(
-          children: [
-            // 1. Tech Grid Background
-            Positioned.fill(
-              child: CustomPaint(
-                painter: const _TechGridPainter(),
-              ),
-            ),
-             // Gradient Overlay for Fade Effect
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    stops: const [0.5, 1.0],
-                    colors: [
-                      Colors.transparent,
-                      AppColors.backgroundDark,
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            // 2. Centered Chat Stream
-            Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 900),
-                child: ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.fromLTRB(8, 12, 8, 12),
-                  itemCount: messages.length + 1, // +1 for typing indicator
-                  itemBuilder: (context, index) {
-                    if (index == messages.length) {
-                      // Typing indicator at the end
-                      return ValueListenableBuilder<bool>(
-                        valueListenable: _contentGenerator.isProcessing,
-                        builder: (context, isProcessing, _) {
-                          if (!isProcessing) return const SizedBox.shrink();
-                          return _buildTypingIndicator();
-                        },
-                      );
-                    }
-                    final msg = messages[index];
-                    return _MessageItem(
-                      message: msg,
-                      host: _conversation.host,
-                      animation: _typingController,
-                    );
-                  },
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return SingleChildScrollView(
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Simple icon
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryTeal.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  Icons.terminal,
-                  size: 32,
-                  color: AppColors.primaryTeal,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'SRE Assistant',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-              ),
-              const SizedBox(height: 8),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 380),
-                child: Text(
-                  'Analyze traces, investigate logs, monitor metrics, and debug production issues.',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textMuted,
-                        height: 1.4,
-                      ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-              const SizedBox(height: 32),
-              // Compact category sections
-              Wrap(
-                spacing: 16,
-                runSpacing: 16,
-                alignment: WrapAlignment.center,
-                children: [
-                  _buildSuggestionSection(
-                    'Traces',
-                    Icons.timeline_outlined,
-                    [
-                      'Analyze recent traces',
-                      'Find slow requests',
-                      'Identify bottlenecks',
-                    ],
-                  ),
-                  _buildSuggestionSection(
-                    'Logs',
-                    Icons.article_outlined,
-                    [
-                      'Check error logs',
-                      'Find error patterns',
-                      'Investigate exceptions',
-                    ],
-                  ),
-                  _buildSuggestionSection(
-                    'Metrics',
-                    Icons.show_chart_outlined,
-                    [
-                      'View anomalies',
-                      'Check SLO status',
-                      'Golden signals',
-                    ],
-                  ),
+  Widget _buildMessageList(List<ChatMessage> messages) {
+    return Stack(
+      children: [
+        // 1. Tech Grid Background
+        Positioned.fill(
+          child: CustomPaint(
+            painter: const TechGridPainter(),
+          ),
+        ),
+        // Gradient Overlay for Fade Effect
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                stops: const [0.5, 1.0],
+                colors: [
+                  Colors.transparent,
+                  AppColors.backgroundDark,
                 ],
               ),
-            ],
+            ),
           ),
         ),
-      ),
+
+        // 2. Centered Chat Stream
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 900),
+            child: ListView.builder(
+              controller: _scrollController,
+              padding: const EdgeInsets.fromLTRB(8, 12, 8, 12),
+              itemCount: messages.length + 1, // +1 for typing indicator
+              itemBuilder: (context, index) {
+                if (index == messages.length) {
+                  // Typing indicator at the end
+                  return ValueListenableBuilder<bool>(
+                    valueListenable: _contentGenerator.isProcessing,
+                    builder: (context, isProcessing, _) {
+                      if (!isProcessing) return const SizedBox.shrink();
+                      return _buildTypingIndicator();
+                    },
+                  );
+                }
+                final msg = messages[index];
+                return _MessageItem(
+                  message: msg,
+                  host: _conversation.host,
+                  animation: _typingController,
+                );
+              },
+            ),
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildSuggestionSection(String title, IconData icon, List<String> suggestions) {
-    return Container(
-      width: 220,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.backgroundCard.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: AppColors.surfaceBorder.withValues(alpha: 0.5),
+  Widget _buildHeroEmptyState() {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final user = authService.currentUser;
+    // Get first name for "Hi [Name]"
+    String name = 'there';
+    if (user?.displayName != null && user!.displayName!.isNotEmpty) {
+      name = user.displayName!.split(' ').first;
+    }
+
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: CustomPaint(
+            painter: const TechGridPainter(),
+          ),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                icon,
-                size: 14,
-                color: AppColors.textMuted,
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
-                  ),
-                  overflow: TextOverflow.ellipsis,
+        Center(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1000),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Greeting
+                    ShaderMask(
+                      shaderCallback: (bounds) => const LinearGradient(
+                        colors: [AppColors.primaryBlue, AppColors.secondaryPurple],
+                      ).createShader(bounds),
+                      child: Text(
+                        'Hi $name',
+                        style: const TextStyle(
+                          fontSize: 48,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Where should we start debugging?',
+                      style: TextStyle(
+                        fontSize: 24,
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w400,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 48),
+
+                    // Hero Input Field
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 700),
+                      child: _buildHeroInput(),
+                    ),
+
+                    const SizedBox(height: 32),
+
+                    // Action Chips
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _buildHeroActionChip('Analyze recent errors'),
+                          const SizedBox(width: 12),
+                          _buildHeroActionChip('Check Cloud Run latency'),
+                          const SizedBox(width: 12),
+                          _buildHeroActionChip('Summarize logs'),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: suggestions.map((s) => _buildSuggestionChip(s)).toList(),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  Widget _buildSuggestionChip(String text) {
+  Widget _buildHeroInput() {
+    return ValueListenableBuilder<bool>(
+      valueListenable: _contentGenerator.isProcessing,
+      builder: (context, isProcessing, _) {
+          return UnifiedPromptInput(
+            controller: _textController,
+            focusNode: _focusNode,
+            isProcessing: isProcessing,
+            onSend: _sendMessage,
+            onCancel: _contentGenerator.cancelRequest,
+          );
+      }
+    );
+  }
+
+  Widget _buildHeroActionChip(String label) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: () {
-          _textController.text = text;
+          _textController.text = label;
           _sendMessage();
         },
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(20),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.04),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(
-              color: AppColors.surfaceBorder.withValues(alpha: 0.3),
-            ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.surfaceBorder.withValues(alpha: 0.5)),
+            color: AppColors.backgroundCard.withValues(alpha: 0.5),
           ),
           child: Text(
-            text,
+            label,
             style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 12,
+              color: AppColors.textPrimary,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
             ),
-            overflow: TextOverflow.ellipsis,
           ),
         ),
       ),
@@ -813,15 +802,20 @@ class _ConversationPageState extends State<ConversationPage>
             children: [
               // Agent Icon
               Container(
-                margin: const EdgeInsets.only(top: 2, right: 8),
-                padding: const EdgeInsets.all(6),
+                margin: const EdgeInsets.only(top: 4, right: 8),
+                width: 32,
+                height: 32,
                 decoration: BoxDecoration(
                   color: AppColors.secondaryPurple.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppColors.secondaryPurple.withValues(alpha: 0.3),
+                    width: 1,
+                  ),
                 ),
                 child: const Icon(
-                  Icons.auto_awesome,
-                  size: 14,
+                  Icons.smart_toy,
+                  size: 18,
                   color: AppColors.secondaryPurple,
                 ),
               ),
@@ -899,105 +893,14 @@ class _ConversationPageState extends State<ConversationPage>
               ValueListenableBuilder<bool>(
                 valueListenable: _contentGenerator.isProcessing,
                 builder: (context, isProcessing, child) {
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 600),
-                    curve: Curves.easeInOut,
-                    decoration: BoxDecoration(
-                      color: AppColors.backgroundDark, // Slate 900 (Blackish)
-                      borderRadius: BorderRadius.circular(32),
-                      border: Border.all(
-                        color: isProcessing
-                            ? AppColors.secondaryPurple.withValues(alpha: 0.6)
-                            : AppColors.surfaceBorder.withValues(alpha: 0.3),
-                        width: isProcessing ? 1.5 : 1,
-                      ),
-                      boxShadow: [
-                        // Deep shadow for "floating" lift
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.5),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
-                        ),
-                        // Processing Glow or Ambient Light
-                        if (isProcessing)
-                          BoxShadow(
-                            color: AppColors.secondaryPurple.withValues(alpha: 0.2),
-                            blurRadius: 16,
-                            spreadRadius: 2,
-                          )
-                        else
-                          BoxShadow(
-                            color: Colors.white.withValues(alpha: 0.05),
-                            blurRadius: 10,
-                            offset: const Offset(0, -1),
-                          ),
-                      ],
-                    ),
-                    child: child,
+                  return UnifiedPromptInput(
+                    controller: _textController,
+                    focusNode: _focusNode,
+                    isProcessing: isProcessing,
+                    onSend: _sendMessage,
+                    onCancel: _contentGenerator.cancelRequest,
                   );
                 },
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // Magic Icon
-                    Padding(
-                      padding: const EdgeInsets.only(left: 16, right: 8),
-                      child: Icon(
-                        Icons.auto_awesome,
-                        color: AppColors.primaryTeal,
-                        size: 20,
-                      ),
-                    ),
-                    // Text Field
-                    Expanded(
-                      child: TextField(
-                        controller: _textController,
-                        focusNode: _focusNode,
-                        onSubmitted: (_) {
-                           if (!HardwareKeyboard.instance.isShiftPressed) {
-                             _sendMessage();
-                           }
-                        },
-                        maxLines: 8,
-                        minLines: 1,
-                        style: const TextStyle(
-                          color: Colors.white, // Bright White
-                          fontSize: 15,
-                          height: 1.5,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: "Ask a question...",
-                          hintStyle: TextStyle(
-                            color: AppColors.textMuted.withValues(alpha: 0.7),
-                            fontSize: 15,
-                          ),
-                          filled: false,
-                          isDense: true,
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                          errorBorder: InputBorder.none,
-                          disabledBorder: InputBorder.none,
-                          contentPadding: const EdgeInsets.fromLTRB(12, 14, 12, 14),
-                        ),
-                      ),
-                    ),
-                    // Send/Stop Button
-                    Padding(
-                      padding: const EdgeInsets.only(right: 12), // Equal spacing
-                      child: ValueListenableBuilder<bool>(
-                        valueListenable: _contentGenerator.isProcessing,
-                        builder: (context, isProcessing, _) {
-                          return _SendButton(
-                            isProcessing: isProcessing,
-                            onPressed: _sendMessage,
-                            onCancel: _contentGenerator.cancelRequest,
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
               ),
               // Compact keyboard hint
               Align(
@@ -1217,18 +1120,36 @@ class _MessageItemState extends State<_MessageItem>
                 ),
               ),
               const SizedBox(width: 8),
-              // User Icon
+              // User Avatar
               Container(
-                margin: const EdgeInsets.only(top: 2),
-                padding: const EdgeInsets.all(6),
+                margin: const EdgeInsets.only(top: 4),
+                width: 32,
+                height: 32,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF6366F1).withValues(alpha: 0.2),
                   shape: BoxShape.circle,
+                  color: AppColors.primaryTeal,
                 ),
-                child: const Icon(
-                  Icons.person_outline,
-                  size: 14,
-                  color: Color(0xFF6366F1),
+                clipBehavior: Clip.antiAlias,
+                child: Consumer<AuthService>(
+                  builder: (context, auth, _) {
+                    final user = auth.currentUser;
+                    if (user?.photoUrl != null) {
+                      return Image.network(
+                        user!.photoUrl!,
+                        fit: BoxFit.cover,
+                      );
+                    }
+                    return Center(
+                      child: Text(
+                        (user?.displayName ?? 'U').substring(0, 1).toUpperCase(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
             ],
@@ -1245,15 +1166,20 @@ class _MessageItemState extends State<_MessageItem>
             children: [
               // Agent Icon
               Container(
-                margin: const EdgeInsets.only(top: 2, right: 8),
-                padding: const EdgeInsets.all(6),
+                margin: const EdgeInsets.only(top: 4, right: 8),
+                width: 32,
+                height: 32,
                 decoration: BoxDecoration(
                   color: AppColors.secondaryPurple.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
+                  border: Border.all(
+                       color: AppColors.secondaryPurple.withValues(alpha: 0.3),
+                       width: 1,
+                  ),
                 ),
                 child: const Icon(
                   Icons.smart_toy,
-                  size: 14,
+                  size: 18,
                   color: AppColors.secondaryPurple,
                 ),
               ),
@@ -1336,12 +1262,11 @@ class _MessageItemState extends State<_MessageItem>
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Spacer to align with Agent Text Icon (width 28 + margin 8 = 36)
-              // We use a transparent container of same size to perfectly align
+              // Spacer to align with Agent Text Icon (width 32 + margin 8)
               Container(
-                margin: const EdgeInsets.only(top: 2, right: 8),
-                width: 34, // 14 icon + 12 padding + 8 margin = 34
-                height: 28,
+                margin: const EdgeInsets.only(top: 4, right: 8),
+                width: 32,
+                height: 32,
               ),
               // Message Bubble / Tool Surface
               Flexible(
@@ -1368,46 +1293,7 @@ class _MessageItemState extends State<_MessageItem>
   }
 }
 
-/// Compact send/stop button
-class _SendButton extends StatelessWidget {
-  final bool isProcessing;
-  final VoidCallback onPressed;
-  final VoidCallback onCancel;
 
-  const _SendButton({
-    required this.isProcessing,
-    required this.onPressed,
-    required this.onCancel,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: isProcessing ? 'Stop' : 'Send',
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: isProcessing ? onCancel : onPressed,
-          borderRadius: BorderRadius.circular(20),
-          child: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: isProcessing
-                  ? AppColors.error
-                  : AppColors.primaryTeal,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              isProcessing ? Icons.stop_rounded : Icons.arrow_upward_rounded,
-              color: isProcessing ? Colors.white : AppColors.backgroundDark,
-              size: 20,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 /// Modern searchable project selector with combobox functionality
 class _ProjectSelectorDropdown extends StatefulWidget {
@@ -2055,30 +1941,4 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
       ),
     );
   }
-}
-
-class _TechGridPainter extends CustomPainter {
-  const _TechGridPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.03) // Extremely subtle
-      ..strokeWidth = 1;
-
-    const spacing = 40.0;
-
-    // Draw vertical lines
-    for (double x = 0; x < size.width; x += spacing) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
-    }
-
-    // Draw horizontal lines
-    for (double y = 0; y < size.height; y += spacing) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

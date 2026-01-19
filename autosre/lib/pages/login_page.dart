@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../widgets/auth/google_sign_in_button.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/tech_grid_painter.dart';
 
 class LoginPage extends StatelessWidget {
   const LoginPage({super.key});
@@ -26,6 +27,9 @@ class LoginPage extends StatelessWidget {
                     Color(0xFF1E1B4B), // Darker Indigo
                   ],
                 ),
+              ),
+              child: CustomPaint(
+                painter: const TechGridPainter(),
               ),
             ),
           ),
@@ -106,18 +110,45 @@ class LoginPage extends StatelessWidget {
                         ),
                         const SizedBox(height: 16),
 
-                        // Eyebrow Label
-                        Text(
-                          'AUTOSRE',
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.blueAccent, // Vibrant accent
-                            letterSpacing: 2.0, // Wide letter spacing
-                          ),
+                        // Master Logo Text (Gradient + Glow)
+                        Stack(
+                          children: [
+                            // 1. Blue Glow Shadow
+                            Text(
+                              'AutoSRE',
+                              style: GoogleFonts.inter(
+                                fontSize: 32,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.transparent, // Invisible, just for shadow
+                                shadows: [
+                                  const Shadow(
+                                    color: Colors.blueAccent,
+                                    blurRadius: 20,
+                                    offset: Offset(0, 0),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            // 2. Gradient Text Mask
+                            ShaderMask(
+                              shaderCallback: (bounds) => const LinearGradient(
+                                colors: [Colors.white, AppColors.primaryCyan],
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                              ).createShader(bounds),
+                              child: Text(
+                                'AutoSRE',
+                                style: GoogleFonts.inter(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
 
-                        const SizedBox(height: 12), // Reduced spacing
+                        const SizedBox(height: 32), // Increased spacing to headline
 
                         // Element B: The Headline
                         Text(
