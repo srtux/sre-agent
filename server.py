@@ -206,12 +206,71 @@ class AgentRequest(BaseModel):
     user_id: str = "default"
 
 
+def _generate_session_title(user_message: str) -> str:
+    """Generate a concise session title from the first user message.
+
+    Creates a 3-5 word title suitable for the sidebar display.
+
+    Args:
+        user_message: The first user message in the session
+
+    Returns:
+        A concise title string
+    """
+    import re
+
+    # Clean up the message
+    text = user_message.strip()
+
+    # Remove common prefixes
+    prefixes = ["can you", "please", "help me", "i want to", "i need to", "could you"]
+    lower_text = text.lower()
+    for prefix in prefixes:
+        if lower_text.startswith(prefix):
+            text = text[len(prefix) :].strip()
+            break
+
+    # Remove context tags like [Context: ...]
+    text = re.sub(r"\[Context:.*?\]", "", text).strip()
+
+    # Take first sentence or first N words
+    sentences = re.split(r"[.?!\n]", text)
+    first_sentence = sentences[0].strip() if sentences else text
+
+    # Split into words and take first 5 meaningful words
+    words = first_sentence.split()
+    title_words: list[str] = []
+    for word in words:
+        # Skip very short words at the start
+        if len(title_words) == 0 and len(word) <= 2:
+            continue
+        title_words.append(word)
+        if len(title_words) >= 5:
+            break
+
+    if not title_words:
+        return "New Investigation"
+
+    title = " ".join(title_words)
+
+    # Capitalize first letter
+    if title:
+        title = title[0].upper() + title[1:]
+
+    # Truncate if still too long
+    if len(title) > 50:
+        title = title[:47] + "..."
+
+    return title
+
+
 @app.post("/agent")
 async def chat_agent(request: AgentRequest) -> StreamingResponse:
     """Handle chat requests for the SRE Agent."""
     try:
         session_manager = get_session_service()
         session: AdkSession | None = None
+        is_new_session = False
 
         # 1. Get or Create Session
         from sre_agent.auth import get_current_project_id
@@ -220,7 +279,10 @@ async def chat_agent(request: AgentRequest) -> StreamingResponse:
         effective_project_id = get_current_project_id() or request.project_id
 
         if request.session_id:
-            session = await session_manager.get_session(request.session_id)
+            # Pass user_id to ensure we find the correct session
+            session = await session_manager.get_session(
+                request.session_id, user_id=request.user_id
+            )
 
         if not session:
             initial_state = {}
@@ -230,6 +292,7 @@ async def chat_agent(request: AgentRequest) -> StreamingResponse:
             session = await session_manager.create_session(
                 user_id=request.user_id, initial_state=initial_state
             )
+            is_new_session = True
 
         # 2. Prepare Context
         last_msg_text = request.messages[-1].text if request.messages else ""
@@ -266,11 +329,24 @@ async def chat_agent(request: AgentRequest) -> StreamingResponse:
             # Refresh session to ensure we have the latest state (including the user message we just persisted)
             # This handles cases where the local session object might be stale compared to the DB
             active_session = session
-            refreshed_session = await session_manager.get_session(session.id)
+            refreshed_session = await session_manager.get_session(
+                session.id, user_id=request.user_id
+            )
             if refreshed_session:
                 active_session = refreshed_session
                 # Update invocation context with fresh session reference
                 inv_ctx.session = active_session
+
+            # Auto-generate title for new sessions
+            if is_new_session and last_msg_text:
+                title = _generate_session_title(last_msg_text)
+                try:
+                    await session_manager.update_session_state(
+                        active_session, {"title": title}
+                    )
+                    logger.info(f"Auto-named session {session.id}: {title}")
+                except Exception as e:
+                    logger.warning(f"Failed to auto-name session: {e}")
 
             try:
                 async for event in root_agent.run_async(inv_ctx):
@@ -301,8 +377,8 @@ async def chat_agent(request: AgentRequest) -> StreamingResponse:
                             _, events = _create_tool_call_events(
                                 tool_name, tool_args, pending_tool_calls
                             )
-                            for e in events:
-                                yield e + "\n"
+                            for evt_str in events:
+                                yield evt_str + "\n"
 
                         # Handle Tool Responses
                         if (
@@ -320,8 +396,8 @@ async def chat_agent(request: AgentRequest) -> StreamingResponse:
                             _, events = _create_tool_response_events(
                                 tool_name, result, pending_tool_calls
                             )
-                            for e in events:
-                                yield e + "\n"
+                            for evt_str in events:
+                                yield evt_str + "\n"
 
                             # 2. Widget visualization
                             if tool_name in TOOL_WIDGET_MAP:
