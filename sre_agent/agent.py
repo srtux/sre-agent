@@ -57,6 +57,9 @@ import os
 from collections.abc import AsyncGenerator
 from typing import Any
 
+# Determine environment settings for Agent initialization
+import google.auth
+import vertexai
 from google.adk.agents import LlmAgent
 from google.adk.tools import AgentTool, ToolContext  # type: ignore[attr-defined]
 from google.adk.tools.base_toolset import BaseToolset
@@ -189,9 +192,32 @@ from .tools.reporting import synthesize_report
 # Initialize logger for this module
 logger = logging.getLogger(__name__)
 
-# Initialize standardized logging and telemetry
-# Initialize standardized logging (telemetry setup is now explicit in entry points)
-# setup_telemetry()  <-- Removed side-effect; must be called explicitly by entry points (server.py, cli.py)
+# Determine environment settings for Agent initialization
+project_id = os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("GCP_PROJECT_ID")
+
+# Fallback: Try to get project from Application Default Credentials
+if not project_id:
+    try:
+        _, project_id = google.auth.default()
+        if project_id:
+            print(f"🚀 Discovered project ID from credentials: {project_id}")
+    except Exception as e:
+        print(f"⚠️ Could not discover project ID from credentials: {e}")
+
+location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
+use_vertex = os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", "true").lower() == "true"
+
+# Ensure Environment is configured for SDKs
+if project_id:
+    os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
+    os.environ["GCP_PROJECT_ID"] = project_id
+
+if use_vertex and project_id:
+    try:
+        vertexai.init(project=project_id, location=location)
+        print(f"✅ Initialized Vertex AI: {project_id} @ {location}")
+    except Exception as e:
+        print(f"⚠️ Failed to initialize Vertex AI: {e}")
 
 
 def emojify_agent(agent: LlmAgent) -> LlmAgent:
@@ -798,10 +824,12 @@ def get_enabled_tools() -> list[Any]:
 # Main Agent Definition
 # ============================================================================
 
+
 # Create the main SRE Agent
 sre_agent = LlmAgent(
     name="sre_agent",
     model="gemini-2.5-flash",
+    # vertexai/project/location removed as they are not valid LlmAgent args
     description="""SRE Agent - Google Cloud Observability & Reliability Expert.
 
 Capabilities:
@@ -901,6 +929,7 @@ async def get_agent_with_mcp_tools(use_enabled_tools: bool = True) -> LlmAgent:
     agent = LlmAgent(
         name="sre_agent",
         model="gemini-2.5-flash",
+        # vertexai/project/location removed as they are not valid LlmAgent args
         description=sre_agent.description,
         instruction=SRE_AGENT_PROMPT,
         tools=all_tools,

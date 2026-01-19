@@ -7,10 +7,37 @@ Its goal is NOT to solve the problem, but to classify it rapidly:
 3.  **Routing**: Who should investigate? (Latency -> Latency Analyzer, OOM -> GKE Tool).
 """
 
+import os
+
+# Determine environment settings for Agent initialization
+import google.auth
+import vertexai
 from google.adk.agents import LlmAgent
 
 from ..tools.clients.alerts import get_alert, list_alert_policies, list_alerts
 from ..tools.discovery.discovery_tool import discover_telemetry_sources
+
+project_id = os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("GCP_PROJECT_ID")
+
+# Fallback: Try to get project from Application Default Credentials
+if not project_id:
+    try:
+        _, project_id = google.auth.default()
+        if project_id:
+            # Set env vars for downstream tools
+            os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
+            os.environ["GCP_PROJECT_ID"] = project_id
+    except Exception:
+        pass
+
+location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
+use_vertex = os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", "true").lower() == "true"
+
+if use_vertex and project_id:
+    try:
+        vertexai.init(project=project_id, location=location)
+    except Exception:
+        pass
 
 ALERT_ANALYST_PROMPT = """
 You are the **Alert Analyst** 🚨 - "The First Responder".

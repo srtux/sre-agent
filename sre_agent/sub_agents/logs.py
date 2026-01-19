@@ -9,12 +9,43 @@ of analysis tools:
 3.  **Cross-Signal Correlation**: Maps log clusters to Trace IDs.
 """
 
+import os
+
+# Determine environment settings for Agent initialization
+import google.auth
+import vertexai
 from google.adk.agents import LlmAgent
 
-from ..tools.analysis.bigquery.logs import analyze_bigquery_log_patterns
+from ..tools import (
+    # BigQuery tools
+    analyze_bigquery_log_patterns,
+    # Log tools
+    extract_log_patterns,
+)
 from ..tools.analysis.bigquery.otel import compare_time_periods
-from ..tools.analysis.logs.patterns import extract_log_patterns
 from ..tools.discovery.discovery_tool import discover_telemetry_sources
+
+project_id = os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("GCP_PROJECT_ID")
+
+# Fallback: Try to get project from Application Default Credentials
+if not project_id:
+    try:
+        _, project_id = google.auth.default()
+        if project_id:
+            # Set env vars for downstream tools
+            os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
+            os.environ["GCP_PROJECT_ID"] = project_id
+    except Exception:
+        pass
+
+location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
+use_vertex = os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", "true").lower() == "true"
+
+if use_vertex and project_id:
+    try:
+        vertexai.init(project=project_id, location=location)
+    except Exception:
+        pass
 
 LOG_ANALYST_PROMPT = """
 You are the **Log Analyst** 📜🕵️‍♂️ - The "Log Whisperer".
