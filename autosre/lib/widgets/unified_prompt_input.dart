@@ -31,7 +31,7 @@ class _UnifiedPromptInputState extends State<UnifiedPromptInput>
   void initState() {
     super.initState();
     _glowController = AnimationController(
-      duration: const Duration(seconds: 3),
+      duration: const Duration(seconds: 2), // Faster spin
       vsync: this,
     );
     if (widget.isProcessing) {
@@ -64,62 +64,24 @@ class _UnifiedPromptInputState extends State<UnifiedPromptInput>
       height: 60,
       child: Stack(
         children: [
-          // 1. Spinning Gradient Glow (Behind)
-          if (widget.isProcessing)
-            Positioned.fill(
-              child: AnimatedBuilder(
-                animation: _glowController,
-                builder: (context, child) {
-                  return Transform.rotate(
-                    angle: _glowController.value * 2 * math.pi,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(50),
-                        gradient: SweepGradient(
-                          colors: [
-                            Colors.transparent,
-                            AppColors.primaryTeal.withValues(alpha: 0.1),
-                            AppColors.secondaryPurple.withValues(alpha: 0.5),
-                            AppColors.primaryTeal.withValues(alpha: 0.1),
-                            Colors.transparent,
-                          ],
-                          stops: const [0.0, 0.25, 0.5, 0.75, 1.0],
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-
-          // 2. Main Input Container
+          // 1. Main Input Container (Background & Static Border)
           AnimatedContainer(
-            duration: const Duration(milliseconds: 600),
+            duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
             height: 60,
             decoration: BoxDecoration(
-              color: const Color(0xFF0F172A), // Dark Navy/Black
-              borderRadius: BorderRadius.circular(50), // Full rounded pill
+              color: const Color(0xFF0F172A), // Solid Dark Navy
+              borderRadius: BorderRadius.circular(50),
               border: Border.all(
-                color: widget.isProcessing
-                    ? AppColors.secondaryPurple.withValues(alpha: 0.6)
-                    : Colors.white.withValues(alpha: 0.15),
-                width: widget.isProcessing ? 1.5 : 1,
+                color: Colors.white.withValues(alpha: 0.1),
+                width: 1,
               ),
               boxShadow: [
-                // Deep shadow for "floating" lift
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.5),
-                  blurRadius: 24,
-                  offset: const Offset(0, 8),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
                 ),
-                // Additional static glow if processing
-                if (widget.isProcessing)
-                  BoxShadow(
-                    color: AppColors.secondaryPurple.withValues(alpha: 0.1),
-                    blurRadius: 12,
-                    spreadRadius: 1,
-                  ),
               ],
             ),
             child: Row(
@@ -147,7 +109,7 @@ class _UnifiedPromptInputState extends State<UnifiedPromptInput>
                     maxLines: 1,
                     minLines: 1,
                     style: const TextStyle(
-                      color: Colors.white, // Bright White
+                      color: Colors.white,
                       fontSize: 16,
                       height: 1.5,
                     ),
@@ -181,6 +143,23 @@ class _UnifiedPromptInputState extends State<UnifiedPromptInput>
               ],
             ),
           ),
+
+          // 2. Glowing Border Overlay (When Processing)
+          if (widget.isProcessing)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: AnimatedBuilder(
+                  animation: _glowController,
+                  builder: (context, child) {
+                    return CustomPaint(
+                      painter: _SpinningBorderPainter(
+                        progress: _glowController.value,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -210,9 +189,7 @@ class _UnifiedSendButton extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: isProcessing
-                  ? AppColors.error
-                  : AppColors.primaryTeal,
+              color: isProcessing ? AppColors.error : AppColors.primaryTeal,
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -224,5 +201,59 @@ class _UnifiedSendButton extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Paints a spinning gradient border glow
+class _SpinningBorderPainter extends CustomPainter {
+  final double progress;
+
+  _SpinningBorderPainter({required this.progress});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(50));
+
+    // 1. The thin sharp border
+    final borderPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..shader = SweepGradient(
+        colors: [
+          Colors.transparent,
+          AppColors.primaryCyan,
+          AppColors.secondaryPurple,
+          AppColors.primaryCyan,
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.25, 0.5, 0.75, 1.0],
+        transform: GradientRotation(progress * 2 * math.pi),
+      ).createShader(rect);
+
+    // 2. The outer glow (blurred)
+    final glowPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4.0
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6.0)
+      ..shader = SweepGradient(
+        colors: [
+          Colors.transparent,
+          AppColors.primaryCyan.withValues(alpha: 0.6),
+          AppColors.secondaryPurple.withValues(alpha: 0.8),
+          AppColors.primaryCyan.withValues(alpha: 0.6),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.25, 0.5, 0.75, 1.0],
+        transform: GradientRotation(progress * 2 * math.pi),
+      ).createShader(rect);
+
+    canvas.drawRRect(rrect, glowPaint);
+    canvas.drawRRect(rrect, borderPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _SpinningBorderPainter oldDelegate) {
+    return oldDelegate.progress != progress;
   }
 }

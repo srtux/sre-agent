@@ -824,7 +824,7 @@ class _ConversationPageState extends State<ConversationPage>
             crossAxisAlignment: CrossAxisAlignment.center, // Center aligned for dots
             children: [
               // Agent Icon
-              _buildAgentAvatar(),
+              const AgentAvatar(),
               // Typing Dots Bubble
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1001,7 +1001,23 @@ class _ConversationPageState extends State<ConversationPage>
     );
   }
 
-  Widget _buildAgentAvatar() {
+  @override
+  void dispose() {
+    _sessionSubscription?.cancel();
+    _projectService.selectedProject.removeListener(_onProjectChanged);
+    _typingController.dispose();
+    _conversation.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+}
+
+/// Standalone Agent Avatar widget for reuse
+class AgentAvatar extends StatelessWidget {
+  const AgentAvatar({super.key});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(right: 8),
       width: 32,
@@ -1020,16 +1036,6 @@ class _ConversationPageState extends State<ConversationPage>
         color: AppColors.secondaryPurple,
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _sessionSubscription?.cancel();
-    _projectService.selectedProject.removeListener(_onProjectChanged);
-    _typingController.dispose();
-    _conversation.dispose();
-    _focusNode.dispose();
-    super.dispose();
   }
 }
 
@@ -1191,28 +1197,7 @@ class _MessageItemState extends State<_MessageItem>
             crossAxisAlignment: isShort ? CrossAxisAlignment.center : CrossAxisAlignment.start,
             children: [
               // Agent Icon
-              (widget.host as dynamic)._buildAgentAvatar(), // Access parent method via host if possible, or just duplicate for now?
-              // Wait, _MessageItem is inner class but separate widget class. Can't access parent private methods easily without passing callback.
-              // Better to just replicate specific widget since it's small, OR make it static/public.
-              // Let's replicate for safety and speed, but using the NEW consistent code.
-              Container(
-                margin: const EdgeInsets.only(right: 8),
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: AppColors.secondaryPurple.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                       color: AppColors.secondaryPurple.withValues(alpha: 0.3),
-                       width: 1,
-                  ),
-                ),
-                child: const Icon(
-                  Icons.smart_toy,
-                  size: 18, // UNIFIED 18px
-                  color: AppColors.secondaryPurple,
-                ),
-              ),
+              const AgentAvatar(),
               // Message Bubble
               Flexible(
                 child: Container(
@@ -1282,25 +1267,7 @@ class _MessageItemState extends State<_MessageItem>
         child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Agent Icon for Tool Calls (Visual Consistency)
-              Container(
-                 margin: const EdgeInsets.only(right: 8),
-                 width: 32,
-                 height: 32,
-                 decoration: BoxDecoration(
-                   color: AppColors.secondaryPurple.withValues(alpha: 0.1),
-                   shape: BoxShape.circle,
-                   border: Border.all(
-                        color: AppColors.secondaryPurple.withValues(alpha: 0.2),
-                        width: 1,
-                   ),
-                 ),
-                 child: const Icon(
-                   Icons.smart_toy,
-                   size: 18, // FIXED: Was 16, now 18 to match
-                   color: AppColors.secondaryPurple,
-                 ),
-               ),
+              const AgentAvatar(),
               // Message Bubble / Tool Surface
               Flexible(
                 child: Container(
