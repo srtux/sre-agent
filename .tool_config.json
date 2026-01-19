@@ -10,8 +10,8 @@
       "last_test_result": {
         "status": "success",
         "message": "Cloud Trace API client initialized successfully",
-        "latency_ms": 3447.224792002089,
-        "timestamp": "2026-01-18T01:22:09.703765",
+        "latency_ms": 441.30737498926464,
+        "timestamp": "2026-01-19T08:47:08.815958+00:00",
         "details": {
           "project_id": "summitt-gcp"
         }
@@ -27,8 +27,8 @@
       "last_test_result": {
         "status": "success",
         "message": "Cloud Trace API client initialized successfully",
-        "latency_ms": 0.03024999750778079,
-        "timestamp": "2026-01-18T01:22:09.704420",
+        "latency_ms": 0.05212500400375575,
+        "timestamp": "2026-01-19T08:47:08.817122+00:00",
         "details": {
           "project_id": "summitt-gcp"
         }
@@ -44,8 +44,8 @@
       "last_test_result": {
         "status": "success",
         "message": "Cloud Trace API client initialized successfully",
-        "latency_ms": 0.03949999882024713,
-        "timestamp": "2026-01-18T01:22:09.705072",
+        "latency_ms": 0.01274999522138387,
+        "timestamp": "2026-01-19T08:47:08.817726+00:00",
         "details": {
           "project_id": "summitt-gcp"
         }
@@ -70,8 +70,8 @@
       "last_test_result": {
         "status": "success",
         "message": "Cloud Logging API client initialized successfully",
-        "latency_ms": 432.77999999918393,
-        "timestamp": "2026-01-18T01:22:10.138299",
+        "latency_ms": 439.729541001725,
+        "timestamp": "2026-01-19T08:47:09.257956+00:00",
         "details": {
           "project_id": "summitt-gcp"
         }
@@ -87,8 +87,8 @@
       "last_test_result": {
         "status": "success",
         "message": "Cloud Logging API client initialized successfully",
-        "latency_ms": 0.06337499871733598,
-        "timestamp": "2026-01-18T01:22:10.139286",
+        "latency_ms": 0.047958994400687516,
+        "timestamp": "2026-01-19T08:47:09.259090+00:00",
         "details": {
           "project_id": "summitt-gcp"
         }
@@ -104,8 +104,8 @@
       "last_test_result": {
         "status": "success",
         "message": "Cloud Logging API client initialized successfully",
-        "latency_ms": 0.01779100057319738,
-        "timestamp": "2026-01-18T01:22:10.139885",
+        "latency_ms": 0.012916993000544608,
+        "timestamp": "2026-01-19T08:47:09.259664+00:00",
         "details": {
           "project_id": "summitt-gcp"
         }
@@ -121,8 +121,8 @@
       "last_test_result": {
         "status": "success",
         "message": "Cloud Monitoring API client initialized successfully",
-        "latency_ms": 403.4005409994279,
-        "timestamp": "2026-01-18T01:22:10.543692",
+        "latency_ms": 580.7762499898672,
+        "timestamp": "2026-01-19T08:47:09.840858+00:00",
         "details": {
           "project_id": "summitt-gcp"
         }
@@ -138,8 +138,8 @@
       "last_test_result": {
         "status": "success",
         "message": "Cloud Monitoring API client initialized successfully",
-        "latency_ms": 0.03724999987753108,
-        "timestamp": "2026-01-18T01:22:10.544615",
+        "latency_ms": 0.03966700751334429,
+        "timestamp": "2026-01-19T08:47:09.841935+00:00",
         "details": {
           "project_id": "summitt-gcp"
         }
@@ -155,8 +155,8 @@
       "last_test_result": {
         "status": "success",
         "message": "Alert Policy API client initialized successfully",
-        "latency_ms": 409.2963749972114,
-        "timestamp": "2026-01-18T01:22:10.954479",
+        "latency_ms": 414.41158299858216,
+        "timestamp": "2026-01-19T08:47:10.256770+00:00",
         "details": {
           "project_id": "summitt-gcp"
         }
@@ -172,8 +172,8 @@
       "last_test_result": {
         "status": "success",
         "message": "Alert Policy API client initialized successfully",
-        "latency_ms": 0.0413330017181579,
-        "timestamp": "2026-01-18T01:22:10.955414",
+        "latency_ms": 0.034415992558933794,
+        "timestamp": "2026-01-19T08:47:10.257781+00:00",
         "details": {
           "project_id": "summitt-gcp"
         }
@@ -189,8 +189,8 @@
       "last_test_result": {
         "status": "success",
         "message": "Alert Policy API client initialized successfully",
-        "latency_ms": 0.027917001716559753,
-        "timestamp": "2026-01-18T01:22:10.956189",
+        "latency_ms": 0.01116600469686091,
+        "timestamp": "2026-01-19T08:47:10.258318+00:00",
         "details": {
           "project_id": "summitt-gcp"
         }
@@ -215,8 +215,8 @@
       "last_test_result": {
         "status": "failed",
         "message": "Failed to create MCP Logging toolset: MCP server projects/summitt-gcp/locations/global/mcpServers/logging.googleapis.com-mcp not found in API Registry.",
-        "latency_ms": 2479.5876670032158,
-        "timestamp": "2026-01-18T01:22:13.436088",
+        "latency_ms": 1956.1458749958547,
+        "timestamp": "2026-01-19T08:47:12.214866+00:00",
         "details": {}
       }
     },
@@ -230,8 +230,8 @@
       "last_test_result": {
         "status": "failed",
         "message": "Failed to create MCP Monitoring toolset: MCP server projects/summitt-gcp/locations/global/mcpServers/monitoring.googleapis.com-mcp not found in API Registry.",
-        "latency_ms": 1916.3514579995535,
-        "timestamp": "2026-01-18T01:22:15.354146",
+        "latency_ms": 1880.3753340034746,
+        "timestamp": "2026-01-19T08:47:14.096112+00:00",
         "details": {}
       }
     },
@@ -245,8 +245,8 @@
       "last_test_result": {
         "status": "failed",
         "message": "Failed to create MCP Monitoring toolset: MCP server projects/summitt-gcp/locations/global/mcpServers/monitoring.googleapis.com-mcp not found in API Registry.",
-        "latency_ms": 1615.7407909995527,
-        "timestamp": "2026-01-18T01:22:16.972725",
+        "latency_ms": 1928.5285830119392,
+        "timestamp": "2026-01-19T08:47:16.025364+00:00",
         "details": {}
       }
     },
@@ -557,8 +557,8 @@
       "last_test_result": {
         "status": "success",
         "message": "Service Monitoring API client initialized successfully",
-        "latency_ms": 442.2536249985569,
-        "timestamp": "2026-01-18T01:22:17.418430",
+        "latency_ms": 433.164250003756,
+        "timestamp": "2026-01-19T08:47:16.459207+00:00",
         "details": {
           "project_id": "summitt-gcp"
         }
@@ -574,8 +574,8 @@
       "last_test_result": {
         "status": "success",
         "message": "Service Monitoring API client initialized successfully",
-        "latency_ms": 411.3383750009234,
-        "timestamp": "2026-01-18T01:22:17.830532",
+        "latency_ms": 439.3264160025865,
+        "timestamp": "2026-01-19T08:47:16.899375+00:00",
         "details": {
           "project_id": "summitt-gcp"
         }
@@ -627,8 +627,8 @@
       "last_test_result": {
         "status": "failed",
         "message": "Failed to initialize GKE Cluster Manager client: cannot import name 'container_v1' from 'google.cloud' (unknown location)",
-        "latency_ms": 0.26391600113129243,
-        "timestamp": "2026-01-18T01:22:17.831606",
+        "latency_ms": 0.618582998868078,
+        "timestamp": "2026-01-19T08:47:16.901061+00:00",
         "details": {}
       }
     },
@@ -642,8 +642,8 @@
       "last_test_result": {
         "status": "failed",
         "message": "Failed to initialize GKE Cluster Manager client: cannot import name 'container_v1' from 'google.cloud' (unknown location)",
-        "latency_ms": 0.0429579995397944,
-        "timestamp": "2026-01-18T01:22:17.832106",
+        "latency_ms": 0.05379199865274131,
+        "timestamp": "2026-01-19T08:47:16.901846+00:00",
         "details": {}
       }
     },
@@ -657,8 +657,8 @@
       "last_test_result": {
         "status": "success",
         "message": "Cloud Logging API client initialized successfully",
-        "latency_ms": 0.049375001253793016,
-        "timestamp": "2026-01-18T01:22:17.832944",
+        "latency_ms": 0.04549999721348286,
+        "timestamp": "2026-01-19T08:47:16.902441+00:00",
         "details": {
           "project_id": "summitt-gcp"
         }
@@ -674,8 +674,8 @@
       "last_test_result": {
         "status": "success",
         "message": "Cloud Logging API client initialized successfully",
-        "latency_ms": 0.026458998036105186,
-        "timestamp": "2026-01-18T01:22:17.833618",
+        "latency_ms": 0.013459008187055588,
+        "timestamp": "2026-01-19T08:47:16.902985+00:00",
         "details": {
           "project_id": "summitt-gcp"
         }
@@ -691,8 +691,8 @@
       "last_test_result": {
         "status": "success",
         "message": "Cloud Logging API client initialized successfully",
-        "latency_ms": 0.025291999918408692,
-        "timestamp": "2026-01-18T01:22:17.834284",
+        "latency_ms": 0.011915995855815709,
+        "timestamp": "2026-01-19T08:47:16.903485+00:00",
         "details": {
           "project_id": "summitt-gcp"
         }
@@ -717,8 +717,8 @@
       "last_test_result": {
         "status": "failed",
         "message": "Failed to initialize GKE Cluster Manager client: cannot import name 'container_v1' from 'google.cloud' (unknown location)",
-        "latency_ms": 0.08483299825456925,
-        "timestamp": "2026-01-18T01:22:17.835025",
+        "latency_ms": 0.043791005737148225,
+        "timestamp": "2026-01-19T08:47:16.904051+00:00",
         "details": {}
       }
     },
@@ -814,5 +814,5 @@
     }
   ],
   "version": "1.0",
-  "updated_at": "2026-01-19T08:39:23.723690+00:00"
+  "updated_at": "2026-01-19T08:48:42.856053+00:00"
 }

@@ -21,7 +21,7 @@ from typing import Any
 from google.auth.transport.requests import AuthorizedSession
 from google.cloud import monitoring_v3
 
-from ...auth import get_current_credentials
+from ...auth import get_current_credentials, get_current_project_id
 from ..common import adk_tool
 from .factory import get_monitoring_client
 
@@ -36,9 +36,9 @@ def _get_authorized_session() -> AuthorizedSession:
 
 @adk_tool
 async def get_gke_cluster_health(
-    project_id: str,
     cluster_name: str,
     location: str,
+    project_id: str | None = None,
 ) -> str:
     """Get comprehensive GKE cluster health status.
 
@@ -46,9 +46,9 @@ async def get_gke_cluster_health(
     and any ongoing issues that could affect workloads.
 
     Args:
-        project_id: The Google Cloud Project ID.
         cluster_name: Name of the GKE cluster.
         location: Cluster location (zone or region, e.g., 'us-central1-a' or 'us-central1').
+        project_id: The Google Cloud Project ID. Defaults to current context.
 
     Returns:
         JSON with cluster status, node pool health, and any active issues.
@@ -57,6 +57,15 @@ async def get_gke_cluster_health(
         get_gke_cluster_health("my-project", "prod-cluster", "us-central1")
     """
     from fastapi.concurrency import run_in_threadpool
+
+    if not project_id:
+        project_id = get_current_project_id()
+        if not project_id:
+            return json.dumps(
+                {
+                    "error": "Project ID is required but not provided or found in context."
+                }
+            )
 
     return await run_in_threadpool(
         _get_gke_cluster_health_sync, project_id, cluster_name, location
@@ -152,10 +161,10 @@ def _get_gke_cluster_health_sync(
 
 @adk_tool
 async def analyze_node_conditions(
-    project_id: str,
     cluster_name: str,
     location: str,
     node_name: str | None = None,
+    project_id: str | None = None,
 ) -> str:
     """Check for node pressure conditions (CPU, Memory, Disk, PID).
 
@@ -163,10 +172,10 @@ async def analyze_node_conditions(
     Catch these before pods start getting evicted!
 
     Args:
-        project_id: The Google Cloud Project ID.
         cluster_name: Name of the GKE cluster.
         location: Cluster location.
         node_name: Specific node to check (optional, checks all if not provided).
+        project_id: The Google Cloud Project ID. Defaults to current context.
 
     Returns:
         JSON with node conditions and any pressure warnings.
@@ -175,6 +184,15 @@ async def analyze_node_conditions(
         analyze_node_conditions("my-project", "prod-cluster", "us-central1-a")
     """
     from fastapi.concurrency import run_in_threadpool
+
+    if not project_id:
+        project_id = get_current_project_id()
+        if not project_id:
+            return json.dumps(
+                {
+                    "error": "Project ID is required but not provided or found in context."
+                }
+            )
 
     return await run_in_threadpool(
         _analyze_node_conditions_sync, project_id, cluster_name, location, node_name
@@ -346,10 +364,10 @@ def _analyze_node_conditions_sync(
 
 @adk_tool
 async def get_pod_restart_events(
-    project_id: str,
     namespace: str | None = None,
     pod_name: str | None = None,
     minutes_ago: int = 60,
+    project_id: str | None = None,
 ) -> str:
     """Find pods with high restart counts or recent restarts.
 
@@ -357,10 +375,10 @@ async def get_pod_restart_events(
     liveness probe failures, etc.
 
     Args:
-        project_id: The Google Cloud Project ID.
         namespace: Kubernetes namespace to filter (optional).
         pod_name: Specific pod name to check (optional).
         minutes_ago: Time window to check (default 60 minutes).
+        project_id: The Google Cloud Project ID. Defaults to current context.
 
     Returns:
         JSON with pods that have restarted and their restart reasons.
@@ -369,6 +387,15 @@ async def get_pod_restart_events(
         get_pod_restart_events("my-project", "production", minutes_ago=30)
     """
     from fastapi.concurrency import run_in_threadpool
+
+    if not project_id:
+        project_id = get_current_project_id()
+        if not project_id:
+            return json.dumps(
+                {
+                    "error": "Project ID is required but not provided or found in context."
+                }
+            )
 
     return await run_in_threadpool(
         _get_pod_restart_events_sync, project_id, namespace, pod_name, minutes_ago
@@ -488,10 +515,10 @@ def _get_pod_restart_events_sync(
 
 @adk_tool
 async def analyze_hpa_events(
-    project_id: str,
     namespace: str,
     deployment_name: str,
     minutes_ago: int = 60,
+    project_id: str | None = None,
 ) -> str:
     """Analyze HorizontalPodAutoscaler scaling events and decisions.
 
@@ -499,10 +526,10 @@ async def analyze_hpa_events(
     when misconfigured or when scaling is too slow.
 
     Args:
-        project_id: The Google Cloud Project ID.
         namespace: Kubernetes namespace.
         deployment_name: Name of the deployment with HPA.
         minutes_ago: Time window to analyze (default 60 minutes).
+        project_id: The Google Cloud Project ID. Defaults to current context.
 
     Returns:
         JSON with scaling events, current/desired replicas, and recommendations.
@@ -511,6 +538,15 @@ async def analyze_hpa_events(
         analyze_hpa_events("my-project", "production", "frontend-deploy", 120)
     """
     from fastapi.concurrency import run_in_threadpool
+
+    if not project_id:
+        project_id = get_current_project_id()
+        if not project_id:
+            return json.dumps(
+                {
+                    "error": "Project ID is required but not provided or found in context."
+                }
+            )
 
     return await run_in_threadpool(
         _analyze_hpa_events_sync, project_id, namespace, deployment_name, minutes_ago
@@ -650,9 +686,9 @@ def _analyze_hpa_events_sync(
 
 @adk_tool
 async def get_container_oom_events(
-    project_id: str,
     namespace: str | None = None,
     minutes_ago: int = 60,
+    project_id: str | None = None,
 ) -> str:
     """Find containers that were OOMKilled (Out of Memory).
 
@@ -660,9 +696,9 @@ async def get_container_oom_events(
     This helps identify memory leaks or undersized containers.
 
     Args:
-        project_id: The Google Cloud Project ID.
         namespace: Kubernetes namespace to filter (optional).
         minutes_ago: Time window to check (default 60 minutes).
+        project_id: The Google Cloud Project ID. Defaults to current context.
 
     Returns:
         JSON with containers that experienced OOM events and memory usage patterns.
@@ -671,6 +707,15 @@ async def get_container_oom_events(
         get_container_oom_events("my-project", "production", 120)
     """
     from fastapi.concurrency import run_in_threadpool
+
+    if not project_id:
+        project_id = get_current_project_id()
+        if not project_id:
+            return json.dumps(
+                {
+                    "error": "Project ID is required but not provided or found in context."
+                }
+            )
 
     return await run_in_threadpool(
         _get_container_oom_events_sync, project_id, namespace, minutes_ago
@@ -961,9 +1006,9 @@ def _correlate_trace_with_kubernetes_sync(
 
 @adk_tool
 async def get_workload_health_summary(
-    project_id: str,
     namespace: str,
     minutes_ago: int = 30,
+    project_id: str | None = None,
 ) -> str:
     """Get a comprehensive health summary for all workloads in a namespace.
 
@@ -971,17 +1016,26 @@ async def get_workload_health_summary(
     which workloads are healthy and which need attention.
 
     Args:
-        project_id: The Google Cloud Project ID.
         namespace: Kubernetes namespace to analyze.
         minutes_ago: Time window for analysis (default 30 minutes).
+        project_id: The Google Cloud Project ID. Defaults to current context.
 
     Returns:
         JSON with workload health status, resource usage, and issues.
 
     Example:
-        get_workload_health_summary("my-project", "production", 60)
+        get_workload_health_summary("production", 60)
     """
     from fastapi.concurrency import run_in_threadpool
+
+    if not project_id:
+        project_id = get_current_project_id()
+        if not project_id:
+            return json.dumps(
+                {
+                    "error": "Project ID is required but not provided or found in context."
+                }
+            )
 
     return await run_in_threadpool(
         _get_workload_health_summary_sync, project_id, namespace, minutes_ago

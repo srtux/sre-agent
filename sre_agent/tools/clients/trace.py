@@ -24,6 +24,7 @@ from fastapi.concurrency import run_in_threadpool
 from google.cloud import trace_v1
 from google.protobuf.timestamp_pb2 import Timestamp
 
+from ...auth import get_current_project_id
 from ..common import adk_tool
 from ..common.cache import get_data_cache
 from ..common.telemetry import get_meter, get_tracer
@@ -99,13 +100,15 @@ class TraceFilterBuilder:
 
 
 def _get_project_id() -> str:
-    """Get the GCP project ID from environment."""
-    project_id = os.environ.get("TRACE_PROJECT_ID") or os.environ.get(
-        "GOOGLE_CLOUD_PROJECT"
+    """Get the GCP project ID from context or environment."""
+    project_id = (
+        get_current_project_id()
+        or os.environ.get("TRACE_PROJECT_ID")
+        or os.environ.get("GOOGLE_CLOUD_PROJECT")
     )
     if not project_id:
         raise ValueError(
-            "GOOGLE_CLOUD_PROJECT or TRACE_PROJECT_ID environment variable must be set"
+            "Project ID not found in context or environment variables (TRACE_PROJECT_ID, GOOGLE_CLOUD_PROJECT)"
         )
     return project_id
 
@@ -166,20 +169,26 @@ def fetch_trace_data(
 
 
 @adk_tool
-async def fetch_trace(project_id: str, trace_id: str) -> str:
+async def fetch_trace(trace_id: str, project_id: str | None = None) -> str:
     """Fetches a specific trace by ID from Cloud Trace API.
 
     Uses caching to avoid redundant API calls when the same trace
     is requested multiple times (e.g., by different sub-agents).
 
     Args:
-        project_id: The Google Cloud Project ID.
         trace_id: The unique hex ID of the trace.
+        project_id: The Google Cloud Project ID. Defaults to current context.
 
     Returns:
         A JSON string representation of the trace, including all spans.
     """
     from fastapi.concurrency import run_in_threadpool
+
+    if not project_id:
+        try:
+            project_id = _get_project_id()
+        except ValueError as e:
+            return json.dumps({"error": str(e)})
 
     return await run_in_threadpool(_fetch_trace_sync, project_id, trace_id)
 
@@ -259,7 +268,7 @@ def _fetch_trace_sync(project_id: str, trace_id: str) -> str:
 
 @adk_tool
 async def list_traces(
-    project_id: str,
+    project_id: str | None = None,
     start_time: str | None = None,
     end_time: str | None = None,
     limit: int = 10,
@@ -271,7 +280,7 @@ async def list_traces(
     """Lists recent traces with advanced filtering capabilities.
 
     Args:
-        project_id: The GCP project ID.
+        project_id: The GCP project ID. Defaults to current context.
         start_time: ISO timestamp for start of window.
         end_time: ISO timestamp for end of window.
         limit: Max number of traces to return.
@@ -284,6 +293,12 @@ async def list_traces(
         JSON string list of trace summaries.
     """
     from fastapi.concurrency import run_in_threadpool
+
+    if not project_id:
+        try:
+            project_id = _get_project_id()
+        except ValueError as e:
+            return json.dumps({"error": str(e)})
 
     return await run_in_threadpool(
         _list_traces_sync,

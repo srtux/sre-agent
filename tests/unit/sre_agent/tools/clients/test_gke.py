@@ -43,7 +43,7 @@ class TestGKETools:
         mock_session.get.return_value = mock_response
 
         result = await get_gke_cluster_health(
-            "test-project", "test-cluster", "us-central1"
+            "test-cluster", "us-central1", project_id="test-project"
         )
         result_data = json.loads(result)
 
@@ -63,7 +63,7 @@ class TestGKETools:
         mock_client.list_time_series.return_value = []
 
         result = await analyze_node_conditions(
-            "test-project", "test-cluster", "us-central1"
+            "test-cluster", "us-central1", project_id="test-project"
         )
         result_data = json.loads(result)
 
@@ -83,7 +83,7 @@ class TestGKETools:
         mock_client.list_time_series.return_value = []
 
         result = await get_pod_restart_events(
-            "test-project", "production", minutes_ago=60
+            namespace="production", minutes_ago=60, project_id="test-project"
         )
         result_data = json.loads(result)
 
@@ -103,7 +103,7 @@ class TestGKETools:
         mock_client.list_time_series.return_value = []
 
         result = await analyze_hpa_events(
-            "test-project", "production", "frontend-deploy", 60
+            "production", "frontend-deploy", 60, project_id="test-project"
         )
         result_data = json.loads(result)
 
@@ -132,7 +132,9 @@ class TestGKETools:
         mock_client_class.return_value = mock_client
         mock_client.list_time_series.return_value = []
 
-        result = await get_container_oom_events("test-project", "production", 60)
+        result = await get_container_oom_events(
+            namespace="production", minutes_ago=60, project_id="test-project"
+        )
         result_data = json.loads(result)
 
         assert "time_window_minutes" in result_data
@@ -152,7 +154,9 @@ class TestGKETools:
         mock_client_class.return_value = mock_client
         mock_client.list_time_series.return_value = []
 
-        result = await get_workload_health_summary("test-project", "production", 30)
+        result = await get_workload_health_summary(
+            "production", 30, project_id="test-project"
+        )
         result_data = json.loads(result)
 
         assert "namespace" in result_data

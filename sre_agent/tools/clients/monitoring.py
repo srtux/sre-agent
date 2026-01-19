@@ -18,7 +18,7 @@ from google.auth.transport.requests import AuthorizedSession
 from google.cloud import monitoring_v3
 from opentelemetry.trace import Status, StatusCode
 
-from ...auth import get_current_credentials
+from ...auth import get_current_credentials, get_current_project_id
 from ..common import adk_tool
 from ..common.telemetry import get_tracer
 from .factory import get_monitoring_client
@@ -29,7 +29,7 @@ tracer = get_tracer(__name__)
 
 @adk_tool
 async def list_time_series(
-    project_id: str, filter_str: str, minutes_ago: int = 60
+    filter_str: str, minutes_ago: int = 60, project_id: str | None = None
 ) -> str:
     """Lists time series data from Google Cloud Monitoring using direct API.
 
@@ -40,7 +40,9 @@ async def list_time_series(
     - To filter by service, use `query_promql` instead with a PromQL query like `metric{service="service-name"}`.
 
     Args:
-        project_id: The Google Cloud Project ID.
+        filter_str: The filter string to use.
+        minutes_ago: The number of minutes in the past to query.
+        project_id: The Google Cloud Project ID. Defaults to current context.
         filter_str: The filter string to use.
         minutes_ago: The number of minutes in the past to query.
 
@@ -50,6 +52,15 @@ async def list_time_series(
     Example filter_str: 'metric.type="compute.googleapis.com/instance/cpu/utilization" AND resource.labels.instance_id="123456789"'
     """
     from fastapi.concurrency import run_in_threadpool
+
+    if not project_id:
+        project_id = get_current_project_id()
+        if not project_id:
+            return json.dumps(
+                {
+                    "error": "Project ID is required but not provided or found in context."
+                }
+            )
 
     return await run_in_threadpool(
         _list_time_series_sync, project_id, filter_str, minutes_ago
@@ -135,17 +146,20 @@ def _list_time_series_sync(
 
 @adk_tool
 async def query_promql(
-    project_id: str,
     query: str,
     start: str | None = None,
     end: str | None = None,
     step: str = "60s",
+    project_id: str | None = None,
 ) -> str:
     """Executes a PromQL query using the Cloud Monitoring Prometheus API.
 
     Args:
-        project_id: The Google Cloud Project ID.
         query: The PromQL query string.
+        start: Start time in RFC3339 format (default: 1 hour ago).
+        end: End time in RFC3339 format (default: now).
+        step: Query resolution step (default: "60s").
+        project_id: The Google Cloud Project ID. Defaults to current context.
         start: Start time in RFC3339 format (default: 1 hour ago).
         end: End time in RFC3339 format (default: now).
         step: Query resolution step (default: "60s").
@@ -154,6 +168,15 @@ async def query_promql(
         A JSON string containing the query results.
     """
     from fastapi.concurrency import run_in_threadpool
+
+    if not project_id:
+        project_id = get_current_project_id()
+        if not project_id:
+            return json.dumps(
+                {
+                    "error": "Project ID is required but not provided or found in context."
+                }
+            )
 
     return await run_in_threadpool(
         _query_promql_sync, project_id, query, start, end, step

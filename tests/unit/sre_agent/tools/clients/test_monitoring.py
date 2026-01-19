@@ -28,7 +28,7 @@ async def test_list_time_series(mock_get_client):
 
     mock_client.list_time_series.return_value = [mock_ts]
 
-    result_json = await list_time_series("p1", "filter", 60)
+    result_json = await list_time_series("filter", 60, project_id="p1")
     result = json.loads(result_json)
 
     assert len(result) == 1
@@ -49,7 +49,7 @@ async def test_query_promql(mock_auth_default, mock_session_cls):
     mock_response.json.return_value = {"status": "success", "data": {"result": []}}
     mock_session.get.return_value = mock_response
 
-    result_json = await query_promql("p1", "up")
+    result_json = await query_promql("up", project_id="p1")
     result = json.loads(result_json)
 
     assert result["status"] == "success"
@@ -65,7 +65,7 @@ async def test_list_time_series_error(mock_get_client):
     mock_client = mock_get_client.return_value
     mock_client.list_time_series.side_effect = Exception("API error")
 
-    result_json = await list_time_series("p1", "filter")
+    result_json = await list_time_series("filter", project_id="p1")
     result = json.loads(result_json)
 
     assert "API error" in result["error"]
@@ -92,7 +92,7 @@ async def test_query_promql_otel_error_status(
     mock_session.get.side_effect = Exception("Prometheus API Failed")
 
     # Execute tool
-    result_json = await query_promql("p1", "up")
+    result_json = await query_promql("up", project_id="p1")
     result = json.loads(result_json)
 
     # Verify tool behavior
@@ -124,7 +124,7 @@ async def test_list_time_series_otel_error_status(mock_get_client, mock_tracer):
     mock_client.list_time_series.side_effect = Exception("Monitoring API Failed")
 
     # Execute tool
-    result_json = await list_time_series("p1", "filter")
+    result_json = await list_time_series("filter", project_id="p1")
     result = json.loads(result_json)
 
     # Verify tool behavior
