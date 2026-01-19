@@ -75,8 +75,13 @@ Automates the IAM policy bindings for the service account.
 ## 🧪 Verification after Deployment
 
 1.  Visit the Cloud Run URL provided by the deployment script.
-2.  Open the dashboard.
-3.  The "Ready" status indicator should be green (verified via `/openapi.json`).
+2.  **CRITICAL**: If you see an OAuth error ("Access blocked: Authorization Error"):
+    *   Go to **Google Cloud Console > Credentials**
+    *   Find your OAuth 2.0 Client ID (AutoSRE Web)
+    *   Add your Cloud Run URL (e.g., `https://sre-agent-git-....run.app`) to **Authorized JavaScript Origins**.
+    *   Save and wait up to 5 minutes.
+3.  Open the dashboard.
+4.  The "Ready" status indicator should be green (verified via `/openapi.json`).
 4.  Ask: "List the GCP projects" to verify the end-to-end tool calling path.
 
 ## 📈 Evaluations

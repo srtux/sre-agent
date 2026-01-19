@@ -92,7 +92,7 @@ Look for:
 ### 4. Google Sign-In Issues
 If the app crashes on startup with `GoogleSignInException`:
 - Check `web/index.html` has the correct `google-signin-client_id` meta tag.
-- Ensure `http://localhost:8080` (or your port) is added to "Authorized JavaScript origins" in Google Cloud Console.
+- Ensure `http://localhost:8080` (or your port) AND your production Cloud Run URL are added to "Authorized JavaScript origins" in Google Cloud Console.
 - **FedCM**: Chrome's new FedCM might block silent sign-in. The app should catch this and log a warning instead of crashing.
 
 ### 5. CORS Configuration
