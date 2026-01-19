@@ -149,17 +149,17 @@ class _AnimatedToastState extends State<_AnimatedToast> with TickerProviderState
               color: Colors.transparent,
               child: Container(
                 constraints: const BoxConstraints(maxWidth: 350),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B).withOpacity(0.95),
+                  color: AppColors.backgroundCard.withValues(alpha: 0.9), // High opacity for readability
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.1),
+                    color: AppColors.surfaceBorder.withValues(alpha: 0.5),
                     width: 1,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.4),
+                      color: Colors.black.withValues(alpha: 0.3),
                       blurRadius: 20,
                       offset: const Offset(0, 10),
                     ),

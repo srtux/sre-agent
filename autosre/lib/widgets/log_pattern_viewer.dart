@@ -405,9 +405,9 @@ class _LogPatternViewerState extends State<LogPatternViewer>
       ),
       child: Row(
         children: [
-          _buildHeaderCell('Trend', null, 50),
-          _buildHeaderCell('Count', 'count', 60),
-          _buildHeaderCell('Severity', 'severity', 80),
+          _buildHeaderCell('Trend', null, 100),
+          _buildHeaderCell('Count', 'count', 100),
+          _buildHeaderCell('Severity', 'severity', 140),
           const SizedBox(width: 8),
           Expanded(child: _buildHeaderCell('Pattern', 'template', null)),
           SizedBox(width: 80, child: Text('Frequency', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.textMuted))),
@@ -492,13 +492,13 @@ class _LogPatternViewerState extends State<LogPatternViewer>
               children: [
                 // Trend indicator
                 SizedBox(
-                  width: 50,
+                  width: 100,
                   child: _buildTrendIndicator(trend),
                 ),
 
                 // Count
                 SizedBox(
-                  width: 60,
+                  width: 100,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
@@ -515,7 +515,7 @@ class _LogPatternViewerState extends State<LogPatternViewer>
 
                 // Severity badge
                 SizedBox(
-                  width: 80,
+                  width: 140,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                     decoration: BoxDecoration(

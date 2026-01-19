@@ -28,8 +28,8 @@ class CatalogRegistry {
           dataSchema: S.object(),
           widgetBuilder: (context) {
             try {
-              final data = context.data as Map<String, dynamic>;
-              final trace = Trace.fromJson(Map<String, dynamic>.from(data));
+              final data = _ensureMap(context.data);
+              final trace = Trace.fromJson(data);
               return _buildWidgetContainer(
                 child: TraceWaterfall(trace: trace),
                 height: 380,
@@ -44,8 +44,8 @@ class CatalogRegistry {
           dataSchema: S.object(),
           widgetBuilder: (context) {
             try {
-              final data = context.data as Map<String, dynamic>;
-              final series = MetricSeries.fromJson(Map<String, dynamic>.from(data));
+              final data = _ensureMap(context.data);
+              final series = MetricSeries.fromJson(data);
               return _buildWidgetContainer(
                 child: MetricCorrelationChart(series: series),
                 height: 380,
@@ -60,8 +60,8 @@ class CatalogRegistry {
           dataSchema: S.object(),
           widgetBuilder: (context) {
             try {
-              final data = context.data as Map<String, dynamic>;
-              final plan = RemediationPlan.fromJson(Map<String, dynamic>.from(data));
+              final data = _ensureMap(context.data);
+              final plan = RemediationPlan.fromJson(data);
               return _buildWidgetContainer(
                 child: RemediationPlanWidget(plan: plan),
                 height: null, // Auto height based on content
@@ -77,8 +77,19 @@ class CatalogRegistry {
           dataSchema: S.object(),
           widgetBuilder: (context) {
             try {
-              final data = context.data as List<dynamic>;
-              final patterns = data
+              List<dynamic> rawList;
+              final data = context.data;
+
+              if (data is List) {
+                rawList = data;
+              } else if (data is Map) {
+                // Handle case where list is wrapped in a map
+                rawList = data['patterns'] ?? data['data'] ?? data['items'] ?? [];
+              } else {
+                throw Exception("Expected List or Map with patterns, got ${data.runtimeType}");
+              }
+
+              final patterns = rawList
                   .map((item) => LogPattern.fromJson(Map<String, dynamic>.from(item)))
                   .toList();
               return _buildWidgetContainer(
@@ -95,8 +106,8 @@ class CatalogRegistry {
           dataSchema: S.object(),
           widgetBuilder: (context) {
             try {
-              final data = context.data as Map<String, dynamic>;
-              final logData = LogEntriesData.fromJson(Map<String, dynamic>.from(data));
+              final data = _ensureMap(context.data);
+              final logData = LogEntriesData.fromJson(data);
               return _buildWidgetContainer(
                 child: LogEntriesViewer(data: logData),
                 height: 500,
@@ -111,8 +122,8 @@ class CatalogRegistry {
           dataSchema: S.object(),
           widgetBuilder: (context) {
             try {
-              final data = context.data as Map<String, dynamic>;
-              final log = ToolLog.fromJson(Map<String, dynamic>.from(data));
+              final data = _ensureMap(context.data);
+              final log = ToolLog.fromJson(data);
               return ToolLogWidget(log: log);
             } catch (e) {
               return ErrorPlaceholder(error: e);
@@ -125,8 +136,8 @@ class CatalogRegistry {
           dataSchema: S.object(),
           widgetBuilder: (context) {
             try {
-              final data = context.data as Map<String, dynamic>;
-              final activityData = AgentActivityData.fromJson(Map<String, dynamic>.from(data));
+              final data = _ensureMap(context.data);
+              final activityData = AgentActivityData.fromJson(data);
               return _buildWidgetContainer(
                 child: AgentActivityCanvas(data: activityData),
                 height: 450,
@@ -141,8 +152,8 @@ class CatalogRegistry {
           dataSchema: S.object(),
           widgetBuilder: (context) {
             try {
-              final data = context.data as Map<String, dynamic>;
-              final topologyData = ServiceTopologyData.fromJson(Map<String, dynamic>.from(data));
+              final data = _ensureMap(context.data);
+              final topologyData = ServiceTopologyData.fromJson(data);
               return _buildWidgetContainer(
                 child: ServiceTopologyCanvas(data: topologyData),
                 height: 500,
@@ -157,8 +168,8 @@ class CatalogRegistry {
           dataSchema: S.object(),
           widgetBuilder: (context) {
             try {
-              final data = context.data as Map<String, dynamic>;
-              final timelineData = IncidentTimelineData.fromJson(Map<String, dynamic>.from(data));
+              final data = _ensureMap(context.data);
+              final timelineData = IncidentTimelineData.fromJson(data);
               return _buildWidgetContainer(
                 child: IncidentTimelineCanvas(data: timelineData),
                 height: 420,
@@ -173,8 +184,8 @@ class CatalogRegistry {
           dataSchema: S.object(),
           widgetBuilder: (context) {
             try {
-              final data = context.data as Map<String, dynamic>;
-              final dashboardData = MetricsDashboardData.fromJson(Map<String, dynamic>.from(data));
+              final data = _ensureMap(context.data);
+              final dashboardData = MetricsDashboardData.fromJson(data);
               return _buildWidgetContainer(
                 child: MetricsDashboardCanvas(data: dashboardData),
                 height: 400,
@@ -189,8 +200,8 @@ class CatalogRegistry {
           dataSchema: S.object(),
           widgetBuilder: (context) {
             try {
-              final data = context.data as Map<String, dynamic>;
-              final reasoningData = AIReasoningData.fromJson(Map<String, dynamic>.from(data));
+              final data = _ensureMap(context.data);
+              final reasoningData = AIReasoningData.fromJson(data);
               return _buildWidgetContainer(
                 child: AIReasoningCanvas(data: reasoningData),
                 height: 480,
@@ -203,6 +214,15 @@ class CatalogRegistry {
       ],
       catalogId: "sre-catalog",
     );
+  }
+
+  /// Helper to safely cast dynamic data to a Map, throwing a clear error if mismatch
+  static Map<String, dynamic> _ensureMap(dynamic data) {
+    if (data == null) return {};
+    if (data is Map) {
+      return Map<String, dynamic>.from(data);
+    }
+    throw Exception("Expected Map<String, dynamic>, got ${data.runtimeType}: $data");
   }
 
   /// Builds a styled container for widgets with consistent theming

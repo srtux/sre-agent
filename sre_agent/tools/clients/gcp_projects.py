@@ -49,7 +49,7 @@ async def list_gcp_projects(query: str | None = None) -> dict[str, Any]:
             # Use CRM v3 SearchProjects API
             url = "https://cloudresourcemanager.googleapis.com/v3/projects:search"
 
-            params = {
+            params: dict[str, Any] = {
                 "pageSize": 50  # Limit to 50 for performance
             }
 

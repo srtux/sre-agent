@@ -231,7 +231,7 @@ class ProjectService {
 
   /// Fetches the list of available GCP projects from the backend.
   Future<void> fetchProjects({String? query}) async {
-    print('🔄 ProjectService: Fetching projects... query=$query');
+    debugPrint('🔄 ProjectService: Fetching projects... query=$query');
     // If we are searching (query != null), we shouldn't block on existing loading state
     // because user might be typing fast. But for initial load we might want to debounce.
     // Actually, simple way: cancel previous request? Dart http doesn't easily support cancellation tokens.
@@ -244,26 +244,26 @@ class ProjectService {
     _error.value = null;
 
     try {
-      print('🔑 ProjectService: Getting authenticated client...');
+      debugPrint('🔑 ProjectService: Getting authenticated client...');
       final client = await _clientFactory();
 
       final uri = query != null && query.isNotEmpty
           ? Uri.parse('$_projectsUrl?query=${Uri.encodeComponent(query)}')
           : Uri.parse(_projectsUrl);
 
-      print('📡 ProjectService: Sending request to $uri');
+      debugPrint('📡 ProjectService: Sending request to $uri');
       final response = await client
           .get(uri)
           .timeout(_requestTimeout);
 
-      print('📥 ProjectService: Response status ${response.statusCode}');
+      debugPrint('📥 ProjectService: Response status ${response.statusCode}');
       if (response.statusCode != 200) {
-        print('❌ ProjectService: Error body: ${response.body}');
+        debugPrint('❌ ProjectService: Error body: ${response.body}');
       }
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        print('📦 ProjectService: Parsed data: $data');
+        debugPrint('📦 ProjectService: Parsed data: $data');
 
         // Handle different response formats
         List<dynamic> projectList;
@@ -280,7 +280,7 @@ class ProjectService {
             .toList();
 
         _projects.value = projects;
-        print('✅ ProjectService: Loaded ${projects.length} projects');
+        debugPrint('✅ ProjectService: Loaded ${projects.length} projects');
 
         // Load saved project preference first
         await loadSavedProject();
@@ -298,7 +298,7 @@ class ProjectService {
     } catch (e) {
       _error.value = 'Error fetching projects: $e';
       debugPrint('ProjectService error: $e');
-      print('🔥 ProjectService Exception: $e');
+      debugPrint('🔥 ProjectService Exception: $e');
     } finally {
       _isLoading.value = false;
     }

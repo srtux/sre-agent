@@ -1392,17 +1392,7 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
     super.dispose();
   }
 
-  void _onSearchChanged(String query) {
-    setState(() {
-      _searchQuery = query;
-    });
 
-    // Debounce server search
-    _debounceTimer?.cancel();
-    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
-      widget.onSearch(query);
-    });
-  }
 
   // The projects list is already filtered by backend if query matches,
   // effectively we just show 'widget.projects'.
