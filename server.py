@@ -1432,13 +1432,18 @@ async def genui_chat(
                                                 f"Failed to parse widget result as JSON: {e}"
                                             )
 
-                                    if isinstance(data, dict):
-                                        if component_name == "x-sre-trace-waterfall":
+                                    if isinstance(data, dict | list):
+                                        if (
+                                            isinstance(data, dict)
+                                            and component_name
+                                            == "x-sre-trace-waterfall"
+                                        ):
                                             data = genui_adapter.transform_trace(data)
                                         elif component_name == "x-sre-metric-chart":
                                             data = genui_adapter.transform_metrics(data)
                                         elif (
                                             component_name == "x-sre-log-pattern-viewer"
+                                            and isinstance(data, dict)
                                         ):
                                             if "top_patterns" in data:
                                                 data = data["top_patterns"]
@@ -1448,7 +1453,11 @@ async def genui_chat(
                                             data = genui_adapter.transform_log_entries(
                                                 data
                                             )
-                                        elif component_name == "x-sre-remediation-plan":
+                                        elif (
+                                            isinstance(data, dict)
+                                            and component_name
+                                            == "x-sre-remediation-plan"
+                                        ):
                                             data = genui_adapter.transform_remediation(
                                                 data
                                             )

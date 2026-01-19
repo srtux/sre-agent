@@ -598,7 +598,9 @@ def create_demo_incident_timeline() -> dict[str, Any]:
     )
 
 
-def transform_log_entries(log_data: dict[str, Any]) -> dict[str, Any]:
+def transform_log_entries(
+    log_data: dict[str, Any] | list[dict[str, Any]],
+) -> dict[str, Any]:
     """Transform log entries data for LogEntriesViewer widget.
 
     Args:
@@ -612,11 +614,11 @@ def transform_log_entries(log_data: dict[str, Any]) -> dict[str, Any]:
         Dictionary formatted for the LogEntriesViewer widget.
     """
     entries = []
-    raw_entries = log_data.get("entries", [])
-
     # Handle case where log_data is the raw entries list
     if isinstance(log_data, list):
         raw_entries = log_data
+    else:
+        raw_entries = log_data.get("entries", [])
 
     for entry in raw_entries:
         # Extract payload (can be text, JSON, or proto)
