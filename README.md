@@ -55,9 +55,11 @@ graph TD
 
     %% Main Agent Layer
     subgraph "Orchestration Layer"
-        SRE_Agent["SRE Agent<br/>(Manager)"]:::agent
-        LLM["Gemini 2.5 Flash<br/>(LLM)"]:::llm
-        SRE_Agent <--> LLM
+        SRE_Agent[SRE Agent]:::main
+        subgraph "Reasoning Core"
+            LLM["Gemini 2.5 Flash"]:::external
+            SRE_Agent <--> LLM
+        end
     end
 
     %% Orchestration Tools (The bridge to sub-agents)
@@ -74,40 +76,40 @@ graph TD
     SRE_Agent --> RunLog
 
     %% Sub-Agents (Council of Experts)
-    subgraph "Council of Experts (Sub-Agents)"
+    subgraph "Council of Experts (The Squad)"
         direction TB
 
         subgraph "Stage 0: Analysis"
-            Aggregate["Aggregate Analyzer<br/>(Data Analyst)"]:::subagent
+            Aggregate["Aggregate Analyzer<br/>(BigQuery Ninja)"]:::subagent
             Alert["Alert Analyst<br/>(First Responder)"]:::subagent
         end
 
         subgraph "Stage 1: Triage (Parallel)"
-            Latency[Latency Specialist]:::subagent
-            Error[Error Detective]:::subagent
-            Structure[Structure Mapper]:::subagent
-            Statistics[Statistics Analyst]:::subagent
-            Resiliency[Resiliency Architect]:::subagent
+            Latency["Latency Specialist<br/>(Speed Demon)"]:::subagent
+            Error["Error Detective<br/>(Dr. Crash)"]:::subagent
+            Structure["Structure Mapper<br/>(Architect)"]:::subagent
+            Statistics["Statistics Analyst<br/>(Number Cruncher)"]:::subagent
+            Resiliency["Resiliency Architect<br/>(Chaos Tamer)"]:::subagent
+            LogAnalyst["Log Analyst<br/>(Log Whisperer)"]:::subagent
         end
 
         subgraph "Stage 2: Deep Dive"
-            Causality[Causality Expert]:::subagent
-            Impact[Impact Assessor]:::subagent
-            Change[Change Detective]:::subagent
+            Causality["Causality Expert<br/>(Consulting Detective)"]:::subagent
+            Impact["Impact Assessor<br/>(Blast Radius)"]:::subagent
+            Change["Change Detective<br/>(Blame Champion)"]:::subagent
         end
 
         subgraph "Specialists"
-            LogPattern[Log Pattern Extractor]:::subagent
-            Metrics[Metrics Analyzer]:::subagent
+            Metrics["Metrics Analyzer<br/>(Metrics Maestro)"]:::subagent
         end
     end
 
     %% Orchestration Flow
     RunAgg --> Aggregate
-    SRE_Agent --> Alert
-    RunTriage --> Latency & Error & Structure & Statistics & Resiliency
+    RunTriage --> Latency & Error & Structure & Statistics & Resiliency & LogAnalyst
     RunDeep --> Causality & Impact & Change
-    RunLog --> LogPattern
+    RunLog --> LogAnalyst
+    SRE_Agent --> Alert
     SRE_Agent -- "Direct Delegation" --> Metrics
 
     %% Tools Layer
@@ -122,7 +124,7 @@ graph TD
         end
 
         subgraph "Analysis Engines"
-            BigQuery[BigQuery Engine]:::tool
+            BQEngine[BigQuery Analysis]:::tool
             Drain3[Drain3 Pattern Engine]:::tool
             StatsEngine[Statistical Engine]:::tool
             GraphEngine["Graph/Topology Engine"]:::tool
@@ -143,17 +145,17 @@ graph TD
     end
 
     %% Tool Usage Connections
-    Aggregate --> BigQuery & TraceAPI & Depend_Tools
+    Aggregate --> BQEngine & TraceAPI & Depend_Tools
     Alert --> AlertAPI & MonitorAPI
-    Latency --> TraceAPI & StatsEngine & Depend_Tools
-    Error --> TraceAPI
+    Latency --> TraceAPI & StatsEngine & BQEngine
+    Error --> TraceAPI & LogAPI
     Structure --> GraphEngine & TraceAPI
     Statistics --> StatsEngine & TraceAPI
-    Resiliency --> GraphEngine & TraceAPI
+    Resiliency --> GraphEngine & TraceAPI & Depend_Tools
     Causality --> TraceAPI & LogAPI & MonitorAPI & GraphEngine & Depend_Tools
     Impact --> GraphEngine & TraceAPI & Depend_Tools
     Change --> LogAPI & MonitorAPI & StatsEngine
-    LogPattern --> Drain3 & LogAPI
+    LogAnalyst --> Drain3 & LogAPI & BQEngine
     Metrics --> MonitorAPI & MCP_Metrics & StatsEngine
 
     %% Main Agent Direct Tool Access
