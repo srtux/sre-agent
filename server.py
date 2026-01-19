@@ -383,10 +383,10 @@ async def chat_agent(request: AgentRequest) -> StreamingResponse:
 # 3. ROOT & HEALTH ENDPOINTS
 
 
-@app.get("/")
-async def root() -> dict[str, str]:
-    """Root endpoint to verify server is running."""
-    return {"message": "SRE Agent Toolbox API is running", "docs": "/docs"}
+# @app.get("/")
+# async def root() -> dict[str, str]:
+#     """Root endpoint to verify server is running."""
+#     return {"message": "SRE Agent Toolbox API is running", "docs": "/docs"}
 
 
 @app.get("/health")
