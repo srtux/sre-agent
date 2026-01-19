@@ -11,6 +11,24 @@ AutoSRE connects to the SRE Agent (Python/ADK) and renders dynamic, generative U
 
 It is designed to be served by the unified SRE Agent server, but can also be run independently for development.
 
+## 🎨 Design Aesthetics: "Mission Control"
+
+**Theme**: Deep Space Command Center
+- **Core Colors**: Deep Navy Backgrounds (`#0B0E14`), Electric Indigo (`#6366f1`), Signal Cyan (`#06b6d4`).
+- **Glassmorphism**: High-opacity frosted glass for containers (bg-opacity-90 + blur-10).
+- **Typography**:
+  - **Headings**: `Inter` or `Outfit` (Wide, Geometric).
+  - **Code**: `JetBrains Mono` or `Fira Code`.
+
+## Key Widgets
+- `UnifiedPromptInput`: Centered, pill-shaped input with floating shadow.
+- `StatusToast`: Floating glassmorphic notification for system status.
+- `SessionPanel`: Sidebar for viewing and managing investigation history sessions.
+- `TraceWaterfall`: Gantt chart for distributed traces.
+- `MetricCorrelationChart`: Timeline of metrics with anomaly detection.
+- `LogPatternViewer`: Visualizes aggregated log patterns.
+- `RemediationPlan`: Interactive checklist for fix actions.
+
 ## Prerequisites
 - **Flutter SDK**: [Install Flutter](https://docs.flutter.dev/get-started/install/macos)
 - **SRE Agent Backend**: Can be run via `uv run poe dev` (Unified) or `uv run poe web` (Backend only).
@@ -52,12 +70,7 @@ AutoSRE uses the backend's `SessionService` to persist conversation history.
 - **History**: Chat history is rehydrated from backend events, ensuring state consistency across reloads.
 - **State Reset**: `clearSession()` is used to reset the frontend state and backend `session_id` when starting a new investigation, ensuring no leaked context from previous sessions.
 
-## Key Widgets
-- `SessionPanel`: Sidebar for viewing and managing investigation history sessions.
-- `TraceWaterfall`: Gantt chart for distributed traces.
-- `MetricCorrelationChart`: Timeline of metrics with anomaly detection.
-- `LogPatternViewer`: Visualizes aggregated log patterns.
-- `RemediationPlan`: Interactive checklist for fix actions.
+
 
 ## Canvas Widgets (GenUI Dynamic Visualization)
 

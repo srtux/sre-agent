@@ -36,21 +36,30 @@ We use **`uv`** for dependency management and **`poethepoet`** for task automati
   - If you encounter a false positive, update the baseline: `uv run detect-secrets scan --baseline .secrets.baseline`.
 - **Pre-commit**: You **MUST** run `uv run poe pre-commit` before pushing. It fixes formatting and spacing issues automatically.
 - **Session Stability**: When working with long-running async tasks (like the Agent event loop), **ALWAYS** refresh the `Session` object from the database to avoid Optimistic Locking errors (`StaleSessionError`).
+- **Project Context Enforcement**:
+  - **Interceptor**: Never manually pass `project_id` in API calls if the `ProjectContextInterceptor` can handle it.
+  - **Global Context**: Use `get_current_project_id()` to retrieve the context-aware project ID.
+  - **No Hardcoding**: Hardcoded project IDs are strictly prohibited.
 
-### 3. Testing & Coverage
-- **Framework**: `pytest` + `pytest-asyncio` + `pytest-cov`.
-- **Coverage Guard**: A minimum of **70%** test coverage is enforced. `uv run poe test` will fail if coverage drops below this.
-- **Structure**: Tests mirror source directory (e.g., `tests/sre_agent/tools/...` corresponds to `sre_agent/tools/...`).
-- **Mocks**: Heavy use of `unittest.mock` to avoid hitting real GCP APIs during unit tests.
+### 4. Frontend Development (Flutter)
+- **Framework**: Flutter Web (GenUI).
+- **Formatting**: Run `dart format .` before every commit.
+- **Analysis**: Run `flutter analyze .` to catch type errors and lints.
+- **Widgets**:
+  - Use `UnifiedPromptInput` for all chat inputs.
+  - Use `StatusToast` for notifications.
+  - Adhere to the "Deep Space" theme (Glassmorphism, Dark Mode).
+- **Testing**: `flutter test` for unit and widget tests.
 
-### 4. Deployment Protocol
+### 5. Deployment Protocol
 - **Command**: Always use `uv run poe deploy`.
 - **Validation-First**: The deploy script (`deploy/deploy.py`) verifies:
   1. Local imports work.
   2. `pyproject.toml` dependencies are extracted accurately.
   3. `uv` sync is fresh.
 - **Agent Engine**: Used for hosting. `deploy.py` handles the creation and update of the Reasoning Engine resource.
-### 5. Git Standards
+
+### 6. Git Standards
 - **Conventional Commits**: Use semantic prefixes to help agents and automation understand changes:
   - `feat`: New capability
   - `fix`: Bug fix

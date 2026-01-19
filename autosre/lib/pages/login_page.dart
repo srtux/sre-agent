@@ -169,7 +169,7 @@ class LoginPage extends StatelessWidget {
                         ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: 600), // Allow wider text
                           child: Text(
-                            'Your AI co-pilot for logs, traces, and metrics. Automate investigation and resolve GCP infrastructure issues faster.',
+                            'Your AI co-pilot for logs, traces, and metrics. Automate investigation and resolve GCP issues faster.',
                             style: GoogleFonts.inter(
                               fontSize: 18, // Slightly larger for readability
                               fontWeight: FontWeight.w400,

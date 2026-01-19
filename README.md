@@ -11,12 +11,12 @@
 [![Checked with mypy](https://www.mypy-lang.org/static/mypy_badge.svg)](https://mypy-lang.org/)
 [![Tests](https://img.shields.io/badge/Tests-Passing-success)](tests/README.md)
 
-**Auto SRE is an experimental SRE Agent for Google Cloud.** It analyzes telemetry data from Google Cloud Observability: **traces**, **logs**, **metrics**.
+<div align="center">
+  <img src="docs/login.png" alt="Auto SRE Login" width="400">
+</div>
 
-## 🚀 Recent Improvements (Jan 2026)
-*   **Session Persistence**: Fixed race conditions in chat history by implementing active session refreshing from the database.
-*   **Tool Call Streaming**: Restored rich UI visualizations for tool calls (waterfalls, charts) using the `a2ui` protocol.
-*   **Stability**: Enhanced connection handling and error recovery for long-running agent tasks.
+
+**Auto SRE is an experimental SRE Agent for Google Cloud.** It analyzes telemetry data from Google Cloud Observability: **traces**, **logs**, **metrics**.
 
 ## Architecture
 
@@ -29,7 +29,8 @@ The agent is built using the Google Agent Development Kit (ADK). It uses a **"Co
 - **Alert Analyst**: The "First Responder" who triages active alerts and policies.
 - **Resiliency Architect**: Detects architectural patterns like retry storms and cascading failures.
 - **Friendly Expert Persona**: Combines deep technical expertise with a fun, approachable response style. 🕵️‍♂️✨
-- **Tool Call Visualization**: Deep visibility into agent thinking with real-time "Running/Completed/Error" states for every tool call.
+- **Mission Control Dashboard**: A "Deep Space" themed Flutter GenUI with glassmorphic visuals and real-time canvas visualizations.
+- **Project ID Enforcement**: Global context awareness ensuring the correct GCP project is always targeted.
 - **Investigation Persistence**: Automatic sync and storage of investigation sessions with Firestore support.
 - **Multi-Session History**: View, load, and manage previous investigations through the Mission Control history panel.
 
@@ -284,7 +285,7 @@ sequenceDiagram
     *   **User Preferences**: Persistent storage of project selections and tool configurations.
 
 10. **Web Dashboard (Mission Control)**
-    *   **GenAI Interface**: A modern Chat UX powered by **Flutter** and **GenUI**.
+    *   **GenAI Interface**: A modern Chat UX powered by **Flutter** and **GenUI** with a "Deep Space Command Center" aesthetic.
     *   **Generative UI**: Dynamic Flutter widgets generated on-the-fly for traces, logs, and metrics.
     *   **Tool Execution Logs**: Integrated visual debugger showing the status, arguments, and results of every tool invocation.
     *   **Interactive Visualizations**: Trace waterfalls, log clusters, and metric charts.
@@ -504,6 +505,10 @@ uv run poe deploy-web --agent-url https://us-central1-aiplatform.googleapis.com/
 Before deploying, ensure your `.env` file is configured with your GCP project settings.
 
 ## Usage Examples
+
+<div align="center">
+  <img src="docs/sam.png" alt="Auto SRE Initial" width="600">
+</div>
 
 ### Trace Analysis
 

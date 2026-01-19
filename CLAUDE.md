@@ -17,7 +17,7 @@
 # Read the relevant source files first
 # Make changes
 uv run poe lint      # Must pass clean
-uv run poe test      # Must pass with 70%+ coverage
+uv run poe test-all  # Must pass with 70%+ coverage
 ```
 
 ---
@@ -29,12 +29,13 @@ uv run poe test      # Must pass with 70%+ coverage
 **Pattern**: "Council of Experts" - A main orchestrator delegates to specialized sub-agents.
 
 **Technology Stack**:
-- **Language**: Python 3.10+ with strict MyPy type checking
+- **Language**: Python 3.10+ (Backend), Dart/Flutter (Frontend)
 - **Agent Framework**: Google Agent Development Kit (ADK)
 - **LLM**: Gemini 2.5 Flash
+- **Frontend**: Flutter Web + GenUI Protocol (Deep Space Theme)
 - **API Strategy**: Hybrid (MCP for heavy-lifting, Direct API for speed)
-- **Testing**: pytest + pytest-asyncio + pytest-cov (70% coverage minimum)
-- **Linting**: Ruff + MyPy + Codespell + Deptry
+- **Testing**: pytest (Backend), flutter test (Frontend)
+- **Linting**: Ruff + MyPy (Python), flutter analyze (Dart)
 
 ### Core Components
 
@@ -146,7 +147,24 @@ return result
 
 **TTL**: 300 seconds (5 minutes)
 
-### 6. MCP vs Direct API Strategy
+### 6. Project ID Enforcement Pattern (CRITICAL)
+
+**ALL API tools and clients MUST enforce Project ID:**
+- **Interceptor Pattern**: The `ProjectContextInterceptor` automatically injects the active `X-GCP-Project-ID` header.
+- **No Hardcoding**: NEVER hardcode project IDs. Use `get_current_project_id()` if absolutely necessary in backend logic.
+- **Frontend**: The generic `ProjectService` ensures the selected project is propagated.
+
+### 7. Mission Control UI Standards (Flutter)
+
+**Aesthetic**: "Deep Space Command Center"
+- **Theme**: Dark mode, Glassmorphism (frosted glass), "Electric Indigo" & "Signal Cyan" accents.
+- **Typography**: `Inter` or `Outfit` for headers, `JetBrains Mono` for code.
+- **Components**:
+  - `StatusToast`: Floating glassmorphic notification.
+  - `UnifiedPromptInput`: Centered pill-shaped input.
+  - **Canvas Widgets**: Dynamic visualization (e.g., `AgentActivityCanvas`).
+
+### 8. MCP vs Direct API Strategy
 
 **Use MCP (`mcp/`) for**:
 - BigQuery SQL execution (fleet-wide analysis)
@@ -160,6 +178,24 @@ return result
 - Alert policy queries
 
 **Fallback Rule**: If MCP fails, tools MUST fall back to Direct API and document this in error messages.
+
+---
+
+## 💻 Frontend Architecture (Flutter/GenUI)
+
+**Path**: `autosre/`
+
+**Key Components**:
+- **Framework**: Flutter Web
+- **Protocol**: GenUI (Generative UI) + A2UI
+- **State**: Provider + ValueNotifier
+- **Agent Integration**: `AdkContentGenerator` connects to Vertex AI Agent
+
+**Development Rules**:
+1. **Visual Excellence**: "WOW" the user. No flat, boring UIs.
+2. **Components**: Use `lib/widgets/` reusable components (e.g., `GlassContainer`).
+3. **Format**: Run `dart format .` before committing.
+
 
 ---
 
@@ -925,7 +961,7 @@ Before committing code, verify:
 - [ ] Made minimal, focused changes
 - [ ] Added/updated tests for changes
 - [ ] Ran `uv run poe lint` (passed clean)
-- [ ] Ran `uv run poe test` (passed with 70%+ coverage)
+- [ ] Ran `uv run poe test-all` (passed with 70%+ coverage)
 - [ ] Updated docstrings if adding new functions
 - [ ] Updated README.md if adding user-facing features
 - [ ] Used conventional commit message format
