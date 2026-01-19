@@ -1,5 +1,6 @@
 import argparse
 import os
+import shutil
 import subprocess
 import sys
 
@@ -81,10 +82,12 @@ def main():
         check=False,  # Don't hard fail if user lacks admin rights, try deployment anyway
     )
 
-    # Temporary: Copy Dockerfile.unified to Dockerfile in root
-    import shutil
-
-    shutil.copy("deploy/Dockerfile.unified", "Dockerfile")
+    # Dockerfile is now permanent in the root directory.
+    if not os.path.exists("Dockerfile"):
+        print(
+            "⚠️ Warning: 'Dockerfile' not found in root. Copying from deploy/Dockerfile.unified..."
+        )
+        shutil.copy("deploy/Dockerfile.unified", "Dockerfile")
 
     try:
         # Construct gcloud command
@@ -125,10 +128,6 @@ def main():
     except subprocess.CalledProcessError as e:
         print(f"\n❌ Deployment failed with exit code {e.returncode}")
         sys.exit(e.returncode)
-    finally:
-        # Cleanup temporary Dockerfile
-        if os.path.exists("Dockerfile"):
-            os.remove("Dockerfile")
 
 
 if __name__ == "__main__":
