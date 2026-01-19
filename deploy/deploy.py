@@ -10,6 +10,15 @@ if sys.version_info >= (3, 11):
 else:
     import tomli as tomllib
 
+# ruff: noqa: E402
+# Enable JSON Schema for function declarations to fix Vertex AI API compatibility
+# This ensures tool schemas use camelCase (additionalProperties) instead of snake_case
+# Must be done BEFORE importing the agent to ensure tools are registered correctly
+from google.adk.features import FeatureName, override_feature_enabled
+
+override_feature_enabled(FeatureName.JSON_SCHEMA_FOR_FUNC_DECL, True)
+print("✅ Enabled JSON_SCHEMA_FOR_FUNC_DECL feature for Vertex AI compatibility")
+
 import vertexai
 from absl import app, flags
 from dotenv import load_dotenv
