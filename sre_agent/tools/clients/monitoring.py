@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 
 from google.auth.transport.requests import AuthorizedSession
 from google.cloud import monitoring_v3
+from opentelemetry.trace import Status, StatusCode
 
 from ...auth import get_current_credentials
 from ..common import adk_tool
@@ -128,6 +129,7 @@ def _list_time_series_sync(
 
             error_msg = f"Failed to list time series: {error_str}{suggestion}"
             logger.error(error_msg, exc_info=True)
+            span.set_status(Status(StatusCode.ERROR, error_msg))
             return json.dumps({"error": error_msg})
 
 
@@ -166,37 +168,42 @@ def _query_promql_sync(
     step: str = "60s",
 ) -> str:
     """Synchronous implementation of query_promql."""
-    try:
-        # Get credentials
-        # Get credentials
-        credentials, _ = get_current_credentials()
-        # Ensure allowed scopes if not already present (Credentials from token might not allow arbitrary scope injection but AuthorizedSession handles it)
-        # Note: AccessToken credentials don't usually require scopes arg if already scoped.
-        session = AuthorizedSession(credentials)  # type: ignore[no-untyped-call]
+    with tracer.start_as_current_span("query_promql") as span:
+        span.set_attribute("gcp.project_id", project_id)
+        span.set_attribute("promql.query", query)
 
-        # Default time range if not provided
-        if not end:
-            end = datetime.now(timezone.utc).isoformat()
-        if not start:
-            # Default 1 hour ago
-            end_dt = datetime.fromisoformat(end.replace("Z", "+00:00"))
-            start_dt = datetime.fromtimestamp(
-                end_dt.timestamp() - 3600, tz=timezone.utc
-            )
-            start = start_dt.isoformat()
+        try:
+            # Get credentials
+            credentials, _ = get_current_credentials()
+            # Ensure allowed scopes if not already present (Credentials from token might not allow arbitrary scope injection but AuthorizedSession handles it)
+            # Note: AccessToken credentials don't usually require scopes arg if already scoped.
+            session = AuthorizedSession(credentials)  # type: ignore[no-untyped-call]
 
-        # Cloud Monitoring Prometheus API endpoint
-        # https://cloud.google.com/stackdriver/docs/managed-prometheus/query
-        url = f"https://monitoring.googleapis.com/v1/projects/{project_id}/location/global/prometheus/api/v1/query_range"
+            # Default time range if not provided
+            if not end:
+                end = datetime.now(timezone.utc).isoformat()
+            if not start:
+                # Default 1 hour ago
+                end_dt = datetime.fromisoformat(end.replace("Z", "+00:00"))
+                start_dt = datetime.fromtimestamp(
+                    end_dt.timestamp() - 3600, tz=timezone.utc
+                )
+                start = start_dt.isoformat()
 
-        params = {"query": query, "start": start, "end": end, "step": step}
+            # Cloud Monitoring Prometheus API endpoint
+            # https://cloud.google.com/stackdriver/docs/managed-prometheus/query
+            url = f"https://monitoring.googleapis.com/v1/projects/{project_id}/location/global/prometheus/api/v1/query_range"
 
-        response = session.get(url, params=params)
-        response.raise_for_status()
+            params = {"query": query, "start": start, "end": end, "step": step}
 
-        return json.dumps(response.json())
+            response = session.get(url, params=params)
+            response.raise_for_status()
 
-    except Exception as e:
-        error_msg = f"Failed to execute PromQL query: {e!s}"
-        logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+            return json.dumps(response.json())
+
+        except Exception as e:
+            error_msg = f"Failed to execute PromQL query: {e!s}"
+            logger.error(error_msg)
+            span.record_exception(e)
+            span.set_status(Status(StatusCode.ERROR, error_msg))
+            return json.dumps({"error": error_msg})
