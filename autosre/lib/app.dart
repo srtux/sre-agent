@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'pages/conversation_page.dart';
 import 'pages/login_page.dart';
 import 'services/auth_service.dart';
+import 'services/connectivity_service.dart';
 import 'theme/app_theme.dart';
 
 class SreNexusApp extends StatelessWidget {
@@ -13,6 +14,7 @@ class SreNexusApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthService()..init()),
+        ChangeNotifierProvider(create: (_) => ConnectivityService()),
       ],
       child: MaterialApp(
         title: 'AutoSRE',

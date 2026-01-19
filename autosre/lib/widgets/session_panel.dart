@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../services/connectivity_service.dart';
 import '../services/session_service.dart';
 import '../theme/app_theme.dart';
 
@@ -26,7 +28,27 @@ class _SessionPanelState extends State<SessionPanel> {
   void initState() {
     super.initState();
     // Fetch sessions on mount
-    widget.sessionService.fetchSessions();
+    print("Sidebar: fetching history..."); // Debugging initial load
+    widget.sessionService.fetchHistory();
+
+    // Listen for connectivity changes to auto-refetch
+    final connectivityService = Provider.of<ConnectivityService>(context, listen: false);
+    connectivityService.status.addListener(_onConnectivityChanged);
+  }
+
+  @override
+  void dispose() {
+    final connectivityService = Provider.of<ConnectivityService>(context, listen: false);
+    connectivityService.status.removeListener(_onConnectivityChanged);
+    super.dispose();
+  }
+
+  void _onConnectivityChanged() {
+    final connectivityStatus = Provider.of<ConnectivityService>(context, listen: false).status.value;
+    if (connectivityStatus == ConnectivityStatus.Connected && widget.sessionService.sessions.value.isEmpty) {
+      print("Sidebar: connection restored, fetching history...");
+      widget.sessionService.fetchHistory();
+    }
   }
 
 
@@ -187,14 +209,43 @@ class _SessionPanelState extends State<SessionPanel> {
                             ),
                             const SizedBox(height: 8),
                             TextButton(
-                                onPressed: () => widget.sessionService.fetchSessions(),
-                                child: Text('Retry', style: TextStyle(color: AppColors.primaryTeal)),
-                            )
-                          ],
+                                  onPressed: () async {
+                                    // Set loading to true immediately for better UX
+                                    await widget.sessionService.fetchHistory(force: true);
+                                  },
+                                  child: Text('Retry', style: TextStyle(color: AppColors.primaryTeal)),
+                              )
+                            ],
+                          ),
                         ),
-                      ),
-                    );
-                  }
+                      );
+                    }
+
+                    final connectivityStatus = Provider.of<ConnectivityService>(context).status.value;
+                    if (connectivityStatus == ConnectivityStatus.Offline) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.wifi_off, color: AppColors.textMuted, size: 32),
+                              const SizedBox(height: 12),
+                              Text(
+                                'You are offline',
+                                style: TextStyle(color: AppColors.textMuted, fontWeight: FontWeight.w500),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'History unavailable',
+                                style: TextStyle(color: AppColors.textMuted.withOpacity(0.7)),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
 
                   return ValueListenableBuilder<List<SessionSummary>>(
                     valueListenable: widget.sessionService.sessions,

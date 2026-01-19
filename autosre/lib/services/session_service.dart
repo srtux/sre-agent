@@ -173,8 +173,14 @@ class SessionService {
   ValueListenable<String?> get error => _error;
 
   /// Fetches the list of sessions from the backend.
+  Future<void> fetchHistory({bool force = false, String userId = 'default'}) async {
+    if (_isLoading.value && !force) return;
+    await fetchSessions(userId: userId);
+  }
+
+  /// Fetches the list of sessions from the backend.
   Future<void> fetchSessions({String userId = 'default'}) async {
-    if (_isLoading.value) return;
+
 
     _isLoading.value = true;
     _error.value = null;
@@ -217,7 +223,6 @@ class SessionService {
         body: jsonEncode({
           'user_id': userId,
           if (title != null) 'title': title,
-          if (projectId != null) 'project_id': projectId,
         }),
       ).timeout(_requestTimeout);
 
@@ -229,7 +234,7 @@ class SessionService {
         _currentSessionId.value = session.id;
 
         // Refresh sessions list
-        await fetchSessions(userId: userId);
+        await fetchHistory(userId: userId, force: true);
 
         return session;
       } else {

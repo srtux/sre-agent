@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:genui/genui.dart';
 import 'package:http/http.dart' as http;
 import '../services/auth_service.dart';
+import '../services/connectivity_service.dart';
 
 /// A ContentGenerator that connects to the Python SRE Agent.
 class ADKContentGenerator implements ContentGenerator {
@@ -66,9 +67,11 @@ class ADKContentGenerator implements ContentGenerator {
       if (_isDisposed) return;
       // Any response from the server means we are connected
       _isConnected.value = true;
+      ConnectivityService().updateStatus(true);
     } catch (e) {
       if (!_isDisposed) {
         _isConnected.value = false;
+        ConnectivityService().updateStatus(false);
       }
     }
   }
@@ -155,11 +158,6 @@ class ADKContentGenerator implements ContentGenerator {
           ],
         };
 
-        // Include project_id if set
-        if (projectId != null && projectId!.isNotEmpty) {
-          requestBody["project_id"] = projectId;
-        }
-
         // Include session_id if set
         if (sessionId != null && sessionId!.isNotEmpty) {
           requestBody["session_id"] = sessionId;
@@ -175,7 +173,9 @@ class ADKContentGenerator implements ContentGenerator {
           throw Exception('Failed to connect to agent: ${response.statusCode}');
         }
 
+
         _isConnected.value = true; // Request succeeded, so we are connected
+        ConnectivityService().updateStatus(true);
 
         // Parse stream line by line
         // Store subscription to allow cancellation
@@ -235,6 +235,7 @@ class ADKContentGenerator implements ContentGenerator {
 
         if (!_isDisposed) {
           _isConnected.value = false;
+          ConnectivityService().updateStatus(false);
         }
       }
     }

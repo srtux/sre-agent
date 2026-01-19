@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart' as gsi;
 import 'package:googleapis_auth/auth_io.dart';
 import 'package:http/http.dart' as http;
+import 'api_client.dart';
+import 'project_service.dart';
 
 /// Service to handle authentication with Google Sign-In
 class AuthService extends ChangeNotifier {
@@ -133,17 +135,20 @@ class AuthService extends ChangeNotifier {
         throw Exception('Failed to obtain access token');
       }
 
-      return authenticatedClient(
-        http.Client(),
-        AccessCredentials(
-          AccessToken(
-            'Bearer',
-            token,
-            DateTime.now().add(const Duration(hours: 1)).toUtc(),
+      return ProjectInterceptorClient(
+        authenticatedClient(
+          http.Client(),
+          AccessCredentials(
+            AccessToken(
+              'Bearer',
+              token,
+              DateTime.now().add(const Duration(hours: 1)).toUtc(),
+            ),
+            null, // refreshToken
+            _scopes,
           ),
-          null, // refreshToken
-          _scopes,
         ),
+        projectService: ProjectService(),
       );
     } catch (e) {
        debugPrint('Error getting authenticated client: $e');
