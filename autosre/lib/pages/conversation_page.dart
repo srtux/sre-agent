@@ -40,6 +40,11 @@ class _ConversationPageState extends State<ConversationPage>
   late AnimationController _typingController;
 
   StreamSubscription<String>? _sessionSubscription;
+  final ValueNotifier<List<String>> _suggestedActions = ValueNotifier([
+    "Analyze last hour's logs",
+    "List active incidents",
+    "Check for high latency",
+  ]);
 
   @override
   void initState() {
@@ -565,37 +570,74 @@ class _ConversationPageState extends State<ConversationPage>
       valueListenable: _conversation.conversation,
       builder: (context, messages, _) {
         if (messages.isEmpty) {
-          return _buildEmptyState();
+          return Stack(
+            children: [
+               Positioned.fill(
+                child: CustomPaint(
+                  painter: const _TechGridPainter(),
+                ),
+              ),
+              _buildEmptyState(),
+            ],
+          );
         }
 
-        return Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: ConversationPage.kMaxContentWidth),
-            child: ListView.builder(
-              controller: _scrollController,
-          padding: const EdgeInsets.fromLTRB(8, 12, 8, 12),
-          itemCount: messages.length + 1, // +1 for typing indicator
-          itemBuilder: (context, index) {
-            if (index == messages.length) {
-              // Typing indicator at the end
-              return ValueListenableBuilder<bool>(
-                valueListenable: _contentGenerator.isProcessing,
-                builder: (context, isProcessing, _) {
-                  if (!isProcessing) return const SizedBox.shrink();
-                  return _buildTypingIndicator();
-                },
-              );
-            }
-            final msg = messages[index];
-            return _MessageItem(
-              message: msg,
-              host: _conversation.host,
-              animation: _typingController,
-            );
-          },
-        ),
-      ),
-    );
+        return Stack(
+          children: [
+            // 1. Tech Grid Background
+            Positioned.fill(
+              child: CustomPaint(
+                painter: const _TechGridPainter(),
+              ),
+            ),
+             // Gradient Overlay for Fade Effect
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    stops: const [0.5, 1.0],
+                    colors: [
+                      Colors.transparent,
+                      AppColors.backgroundDark,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // 2. Centered Chat Stream
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 900),
+                child: ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.fromLTRB(8, 12, 8, 12),
+                  itemCount: messages.length + 1, // +1 for typing indicator
+                  itemBuilder: (context, index) {
+                    if (index == messages.length) {
+                      // Typing indicator at the end
+                      return ValueListenableBuilder<bool>(
+                        valueListenable: _contentGenerator.isProcessing,
+                        builder: (context, isProcessing, _) {
+                          if (!isProcessing) return const SizedBox.shrink();
+                          return _buildTypingIndicator();
+                        },
+                      );
+                    }
+                    final msg = messages[index];
+                    return _MessageItem(
+                      message: msg,
+                      host: _conversation.host,
+                      animation: _typingController,
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        );
       },
     );
   }
@@ -840,23 +882,20 @@ class _ConversationPageState extends State<ConversationPage>
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       decoration: BoxDecoration(
-        color: AppColors.backgroundCard,
-        border: Border(
-          top: BorderSide(
-            color: AppColors.surfaceBorder.withValues(alpha: 0.5),
-            width: 1,
-          ),
-        ),
+        color: Colors.transparent, // Floating effect: Transparent background wrapper
       ),
       child: SafeArea(
         top: false,
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: ConversationPage.kMaxContentWidth),
+            constraints: const BoxConstraints(maxWidth: 900), // Max width 900px
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                  // Unified Input Container
+                // Suggested Actions
+                _buildSuggestedActions(),
+                const SizedBox(height: 12),
+                // Unified Input Container
               ValueListenableBuilder<bool>(
                 valueListenable: _contentGenerator.isProcessing,
                 builder: (context, isProcessing, child) {
@@ -864,7 +903,7 @@ class _ConversationPageState extends State<ConversationPage>
                     duration: const Duration(milliseconds: 600),
                     curve: Curves.easeInOut,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0F172A), // Slate 900 (Blackish)
+                      color: AppColors.backgroundDark, // Slate 900 (Blackish)
                       borderRadius: BorderRadius.circular(32),
                       border: Border.all(
                         color: isProcessing
@@ -981,6 +1020,79 @@ class _ConversationPageState extends State<ConversationPage>
     );
   }
 
+  Widget _buildSuggestedActions() {
+    return ValueListenableBuilder<List<String>>(
+      valueListenable: _suggestedActions,
+      builder: (context, suggestions, _) {
+        if (suggestions.isEmpty) return const SizedBox.shrink();
+
+        return SizedBox(
+          height: 32,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: suggestions.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 4), // Align with input
+            itemBuilder: (context, index) {
+              final action = suggestions[index];
+              return _buildActionChip(action);
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildActionChip(String text) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          _textController.text = text;
+          _sendMessage();
+        },
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppColors.backgroundCard.withValues(alpha: 0.7), // Glassy background
+            borderRadius: BorderRadius.circular(20),
+             border: Border.all(
+              color: AppColors.primaryTeal.withValues(alpha: 0.3),
+              width: 1,
+            ),
+             boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.bolt_rounded,
+                size: 14,
+                color: AppColors.primaryTeal,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                text,
+                style: const TextStyle(
+                  color: AppColors.primaryTeal, // Cyan text
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _sessionSubscription?.cancel();
@@ -1038,6 +1150,8 @@ class _MessageItemState extends State<_MessageItem>
     _entryController.forward();
   }
 
+
+
   @override
   void dispose() {
     _entryController.dispose();
@@ -1060,64 +1174,61 @@ class _MessageItemState extends State<_MessageItem>
 
     if (msg is UserMessage) {
       return Align(
-        alignment: Alignment.centerLeft,
+        alignment: Alignment.centerRight,
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Message Bubble
+              Flexible(
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 900),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryBlue.withValues(alpha: 0.15), // Blue Accent
+                      borderRadius: BorderRadius.circular(12), // Modern Radius
+                      border: Border.all(
+                        color: AppColors.primaryBlue.withValues(alpha: 0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: SelectionArea(
+                      child: MarkdownBody(
+                        data: msg.text,
+                        styleSheet: MarkdownStyleSheet(
+                          p: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            height: 1.4,
+                          ),
+                          code: TextStyle(
+                            backgroundColor: Colors.black.withValues(alpha: 0.2),
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontFamily: AppTheme.codeStyle.fontFamily,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
               // User Icon
               Container(
-                margin: const EdgeInsets.only(top: 2, right: 8),
+                margin: const EdgeInsets.only(top: 2),
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: AppColors.primaryBlue.withValues(alpha: 0.2),
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.2),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
                   Icons.person_outline,
                   size: 14,
-                  color: AppColors.primaryBlue,
-                ),
-              ),
-              // Message Bubble
-              Flexible(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  constraints: const BoxConstraints(
-                    maxWidth: 950,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryBlue.withValues(alpha: 0.15),
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(4),
-                      topRight: Radius.circular(16),
-                      bottomLeft: Radius.circular(16),
-                      bottomRight: Radius.circular(16),
-                    ),
-                    border: Border.all(
-                      color: AppColors.primaryBlue.withValues(alpha: 0.2),
-                      width: 1,
-                    ),
-                  ),
-                  child: SelectionArea(
-                    child: MarkdownBody(
-                      data: msg.text,
-                      styleSheet: MarkdownStyleSheet(
-                        p: const TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 14,
-                          height: 1.4,
-                        ),
-                        code: TextStyle(
-                          backgroundColor: Colors.black.withValues(alpha: 0.2),
-                          color: AppColors.primaryBlue,
-                          fontSize: 12,
-                          fontFamily: 'monospace',
-                        ),
-                      ),
-                    ),
-                  ),
+                  color: Color(0xFF6366F1),
                 ),
               ),
             ],
@@ -1147,24 +1258,24 @@ class _MessageItemState extends State<_MessageItem>
                 ),
               ),
               // Message Bubble
-              Flexible(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  constraints: const BoxConstraints(
-                    maxWidth: 950,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.secondaryPurple.withValues(alpha: 0.08),
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(4),
-                      topRight: Radius.circular(16),
-                      bottomLeft: Radius.circular(16),
-                      bottomRight: Radius.circular(16),
+                  Flexible(
+                    child: Container(
+                    constraints: const BoxConstraints(maxWidth: 900),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E293B), // Dark Background for AI
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.1),
+                        width: 1,
+                      ),
                     ),
-                    border: Border.all(
-                      color: AppColors.secondaryPurple.withValues(alpha: 0.15),
-                    ),
-                  ),
+                    // We can remove FrostedGlass here if we want purely transparent,
+                    // or keep it for very subtle effect.
+                    // User said: "Transparent or very dark grey background".
+                    // Let's stick to simple transparency with maybe a subtle border or just text.
+                    // But to keep it readable, maybe a very very subtle dark bg.
+                    child: SelectionArea(
                   child: SelectionArea(
                     child: MarkdownBody(
                       data: msg.text,
@@ -1185,14 +1296,18 @@ class _MessageItemState extends State<_MessageItem>
                           fontWeight: FontWeight.w600,
                         ),
                         code: TextStyle(
-                          backgroundColor: Colors.black.withValues(alpha: 0.3),
-                          color: AppColors.primaryTeal,
-                          fontSize: 12,
-                          fontFamily: 'monospace',
+                          backgroundColor: const Color(0xFF0F172A), // Dark "code pill" bg
+                          color: AppColors.primaryCyan, // Cyan text
+                          fontSize: 13,
+                          fontFamily: AppTheme.codeStyle.fontFamily,
+                          fontWeight: FontWeight.w500,
                         ),
                         codeblockDecoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(6),
+                          color: const Color(0xFF0F172A),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.1),
+                          ),
                         ),
                         blockquoteDecoration: BoxDecoration(
                           color: AppColors.primaryTeal.withValues(alpha: 0.08),
@@ -1207,6 +1322,7 @@ class _MessageItemState extends State<_MessageItem>
                     ),
                   ),
                 ),
+              ),
               ),
             ],
           ),
@@ -1340,6 +1456,7 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
       CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
     );
   }
+
 
   @override
   void dispose() {
@@ -1938,4 +2055,30 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
       ),
     );
   }
+}
+
+class _TechGridPainter extends CustomPainter {
+  const _TechGridPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.03) // Extremely subtle
+      ..strokeWidth = 1;
+
+    const spacing = 40.0;
+
+    // Draw vertical lines
+    for (double x = 0; x < size.width; x += spacing) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+
+    // Draw horizontal lines
+    for (double y = 0; y < size.height; y += spacing) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

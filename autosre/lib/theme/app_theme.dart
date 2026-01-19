@@ -1,11 +1,12 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 /// Modern color palette for AutoSRE
 class AppColors {
   // Primary gradient colors
   static const Color primaryTeal = Color(0xFF6366F1); // Indigo
-  static const Color primaryCyan = Color(0xFF8B5CF6); // Violet
+  static const Color primaryCyan = Color(0xFF06B6D4); // Signal Cyan
   static const Color primaryBlue = Color(0xFF3B82F6); // Blue
   static const Color secondaryPurple = Color(0xFFA855F7); // Purple 500
 
@@ -160,7 +161,7 @@ class GlassDecoration {
 /// Frosted glass widget wrapper
 class FrostedGlass extends StatelessWidget {
   final Widget child;
-  final double borderRadius;
+  final BorderRadius borderRadius;
   final double blur;
   final Color? tint;
   final EdgeInsetsGeometry? padding;
@@ -168,7 +169,7 @@ class FrostedGlass extends StatelessWidget {
   const FrostedGlass({
     super.key,
     required this.child,
-    this.borderRadius = 16,
+    this.borderRadius = const BorderRadius.all(Radius.circular(16)),
     this.blur = 10,
     this.tint,
     this.padding,
@@ -177,13 +178,13 @@ class FrostedGlass extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(borderRadius),
+      borderRadius: borderRadius,
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
         child: Container(
           decoration: BoxDecoration(
             color: tint ?? Colors.white.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(borderRadius),
+            borderRadius: borderRadius,
             border: Border.all(
               color: Colors.white.withValues(alpha: 0.15),
               width: 1,
@@ -256,11 +257,16 @@ class _AnimatedGradientBackgroundState extends State<AnimatedGradientBackground>
 }
 
 class AppTheme {
+  static TextStyle get codeStyle => GoogleFonts.jetBrainsMono(
+      fontSize: 12,
+      color: AppColors.textPrimary,
+  );
+
   static ThemeData get darkTheme {
     return ThemeData(
       brightness: Brightness.dark,
       useMaterial3: true,
-      fontFamily: 'Inter',
+      fontFamily: GoogleFonts.outfit().fontFamily,
 
       // Color scheme
       colorScheme: ColorScheme.fromSeed(
@@ -272,6 +278,74 @@ class AppTheme {
         error: AppColors.error,
         onSurface: AppColors.textPrimary,
         onPrimary: AppColors.backgroundDark,
+      ),
+
+      // Text Theme
+      textTheme: GoogleFonts.outfitTextTheme(ThemeData.dark().textTheme).copyWith(
+        displayLarge: TextStyle(
+          fontSize: 32,
+          fontWeight: FontWeight.w700,
+          color: AppColors.textPrimary,
+          letterSpacing: -0.5,
+        ),
+        headlineLarge: TextStyle(
+          fontSize: 24,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textPrimary,
+          letterSpacing: -0.3,
+        ),
+        headlineMedium: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textPrimary,
+        ),
+        titleLarge: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textPrimary,
+        ),
+        titleMedium: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+          color: AppColors.textPrimary,
+        ),
+        bodyLarge: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w400,
+          color: AppColors.textPrimary,
+          height: 1.5,
+        ),
+        bodyMedium: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+          color: AppColors.textSecondary,
+          height: 1.5,
+        ),
+        bodySmall: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w400,
+          color: AppColors.textMuted,
+        ),
+        labelLarge: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textPrimary,
+          letterSpacing: 0.5,
+        ),
+        labelMedium: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: AppColors.textSecondary,
+        ),
+        labelSmall: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
+          color: AppColors.textMuted,
+          letterSpacing: 0.5,
+        ),
+      ).apply(
+        bodyColor: AppColors.textPrimary,
+        displayColor: AppColors.textPrimary,
       ),
 
       // Scaffold
@@ -368,70 +442,7 @@ class AppTheme {
         ),
       ),
 
-      // Text Theme
-      textTheme: const TextTheme(
-        displayLarge: TextStyle(
-          fontSize: 32,
-          fontWeight: FontWeight.w700,
-          color: AppColors.textPrimary,
-          letterSpacing: -0.5,
-        ),
-        headlineLarge: TextStyle(
-          fontSize: 24,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textPrimary,
-          letterSpacing: -0.3,
-        ),
-        headlineMedium: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textPrimary,
-        ),
-        titleLarge: TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textPrimary,
-        ),
-        titleMedium: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
-          color: AppColors.textPrimary,
-        ),
-        bodyLarge: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w400,
-          color: AppColors.textPrimary,
-          height: 1.5,
-        ),
-        bodyMedium: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w400,
-          color: AppColors.textSecondary,
-          height: 1.5,
-        ),
-        bodySmall: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w400,
-          color: AppColors.textMuted,
-        ),
-        labelLarge: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textPrimary,
-          letterSpacing: 0.5,
-        ),
-        labelMedium: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-          color: AppColors.textSecondary,
-        ),
-        labelSmall: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w500,
-          color: AppColors.textMuted,
-          letterSpacing: 0.5,
-        ),
-      ),
+
 
       // Divider
       dividerTheme: const DividerThemeData(

@@ -35,24 +35,25 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
       CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
     );
 
-    // Auto-expand if running
-    if (widget.log.status == 'running') {
-      _isExpanded = true;
-      _animationController.value = 1.0;
-    }
+    // Auto-expand if running? User requested collapsed by default.
+    // So we keep it false.
+    // if (widget.log.status == 'running') {
+    //   _isExpanded = true;
+    //   _animationController.value = 1.0;
+    // }
   }
 
   @override
   void didUpdateWidget(ToolLogWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Auto-expand when status changes to running
-    if (widget.log.status == 'running' && !_isExpanded) {
-      _toggleExpand();
-    }
-    // Auto-collapse when status changes to completed to reduce noise
-    if (widget.log.status == 'completed' && _isExpanded && oldWidget.log.status == 'running') {
-      _toggleExpand();
-    }
+    // Auto-expand when status changes to running? No, user wants compact default.
+    // if (widget.log.status == 'running' && !_isExpanded) {
+    //   _toggleExpand();
+    // }
+    // Auto-collapse when status changes to completed to reduce noise?
+    // It's already collapsed by default, so we might not need this,
+    // but if user expanded it, we might want to keep it expanded or collapse it.
+    // Let's leave user control.
   }
 
   void _toggleExpand() {
@@ -94,7 +95,7 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
   @override
   Widget build(BuildContext context) {
     final isRunning = widget.log.status == 'running';
-    final isError = widget.log.status == 'error';
+    bool isError = widget.log.status == 'error'; // Mutable to upgrade to error on inspection
     final completed = widget.log.status == 'completed';
 
     Color statusColor;
@@ -115,6 +116,38 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
       statusLabel = 'Completed';
     }
 
+    // Strict Error Handling: Check content for "error" key
+    String? errorMessage;
+    if (completed && widget.log.result != null) {
+      final result = widget.log.result!;
+      // Simple check for error key in JSON string
+      if (result.contains('"error"')) {
+         // Try to parse to confirm or extract
+         try {
+           final decoded = jsonDecode(result);
+           if (decoded is Map && decoded.containsKey('error')) {
+             isError = true;
+             // Extract error message
+             final errorVal = decoded['error'];
+             errorMessage = errorVal.toString();
+           }
+         } catch (_) {
+           // Fallback regex or simple check
+           if (result.contains('"error":')) {
+             isError = true;
+             errorMessage = "Output contains error"; // Fallback
+           }
+         }
+      }
+    }
+
+    // Re-evaluate styles if error detected
+    if (isError) {
+      statusColor = AppColors.error;
+      statusIcon = Icons.error_outline;
+      statusLabel = 'Error';
+    }
+
     final toolIcon = _getToolIcon(widget.log.toolName);
 
     // Compact collapsed view vs expanded view
@@ -122,20 +155,36 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
       duration: const Duration(milliseconds: 150),
       margin: EdgeInsets.symmetric(vertical: _isExpanded ? 4 : 2),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.3), // Darker "Terminal" feel
+        color: isError
+           ? AppColors.error.withValues(alpha: 0.05) // Faint red tint
+           : Colors.black.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: isRunning
-              ? statusColor.withValues(alpha: 0.3)
-              : AppColors.surfaceBorder.withValues(alpha: 0.1),
-          width: 1,
+        border: Border(
+           left: BorderSide(
+            color: isError
+                ? AppColors.error
+                : (isRunning ? AppColors.warning : AppColors.success),
+            width: 4, // Left stripe
+           ),
+           top: BorderSide(
+             color: isError ? AppColors.error.withValues(alpha: 0.3) : Colors.transparent,
+             width: isError ? 1 : 0,
+           ),
+           bottom: BorderSide(
+             color: isError ? AppColors.error.withValues(alpha: 0.3) : Colors.transparent,
+             width: isError ? 1 : 0,
+           ),
+           right: BorderSide(
+             color: isError ? AppColors.error.withValues(alpha: 0.3) : Colors.transparent,
+             width: isError ? 1 : 0,
+           ),
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Compact Header
+          // Status Card Header
           Material(
             color: Colors.transparent,
             child: InkWell(
@@ -143,89 +192,85 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
               borderRadius: BorderRadius.circular(_isExpanded ? 10 : 8),
               child: Padding(
                 padding: EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: _isExpanded ? 10 : 6,
+                  horizontal: 14,
+                  vertical: 12, // More padding for "Card" feel
                 ),
                 child: Row(
                   children: [
-                    // Compact status indicator
-                    _buildCompactStatusIndicator(isRunning, statusColor, toolIcon),
-                    const SizedBox(width: 10),
-                    // Tool name and status inline
+                    // Status Badge
+                    _buildStatusIcon(isRunning, isError, completed),
+                    const SizedBox(width: 12),
+
+                    // Title, Error Preview, and Time
                     Expanded(
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            widget.log.toolName,
-                            style: TextStyle(
-                              fontFamily: 'monospace',
-                              fontWeight: FontWeight.w500,
-                              fontSize: 13,
-                              color: AppColors.textPrimary,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: statusColor.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              statusLabel,
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w500,
-                                color: statusColor,
-                              ),
-                            ),
-                          ),
-                          if (widget.log.duration != null) ...[
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: AppColors.textMuted.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.timer_outlined, size: 10, color: AppColors.textMuted),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    widget.log.duration!,
+                          Row(
+                            children: [
+                                Flexible(
+                                  child: Text(
+                                    _getSmartTitle(),
                                     style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w500,
-                                      color: AppColors.textMuted,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                      color: AppColors.textPrimary,
                                     ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                ],
-                              ),
-                            ),
-                          ],
-                          if (widget.log.timestamp != null) ...[
-                            const SizedBox(width: 6),
-                            Text(
-                              _formatTimestamp(widget.log.timestamp),
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: AppColors.textMuted,
-                                fontFamily: 'monospace',
-                              ),
-                            ),
-                          ],
+                                ),
+                                if (isRunning) ...[
+                                   const SizedBox(width: 8),
+                                   _buildPulsingRunningBadge(),
+                                ]
+                            ],
+                          ),
+                          // Error Preview or Duration
+                          if (isError && errorMessage != null)
+                             Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(
+                                  errorMessage,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.error.withValues(alpha: 0.8),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                             )
+                          else if (widget.log.duration != null || isRunning)
+                             Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Row(
+                                  children: [
+                                    if (!isRunning) ...[
+                                      Icon(Icons.timer_outlined, size: 12, color: AppColors.textSecondary),
+                                      const SizedBox(width: 4),
+                                    ],
+                                    Text(
+                                      isRunning ? 'Processing...' : widget.log.duration ?? '',
+                                      style: TextStyle(
+                                        fontSize: 12, // Slightly larger for readability
+                                        color: AppColors.textSecondary,
+                                        fontFamily: 'monospace', // Monospace for numbers
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                             ),
                         ],
                       ),
                     ),
+
                     // Expand icon
                     RotationTransition(
                       turns: _rotateAnimation,
                       child: Icon(
                         Icons.keyboard_arrow_down,
                         color: AppColors.textMuted,
-                        size: 16,
+                        size: 20,
                       ),
                     ),
                   ],
@@ -277,8 +322,13 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
                       // Error section
                       if (isError && widget.log.result != null) ...[
                         const SizedBox(height: 10),
-                        _buildErrorSection(widget.log.result!),
+                        _buildErrorSection(errorMessage ?? widget.log.result!),
                       ],
+                      // If strict error detection triggered but not original error status, show output as error
+                      if (isError && !widget.log.status.contains('error') && widget.log.result != null) ...[
+                         const SizedBox(height: 10),
+                         _buildErrorSection(widget.log.result!),
+                      ]
                     ],
                   ),
                 ),
@@ -290,17 +340,67 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
     );
   }
 
-  Widget _buildCompactStatusIndicator(bool isRunning, Color statusColor, IconData statusIcon) {
-    return SizedBox(
-      width: 18,
-      height: 18,
-      child: isRunning
-          ? CircularProgressIndicator(
-              strokeWidth: 2,
-              valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+  String _getSmartTitle() {
+      final name = widget.log.toolName;
+      if (name == 'run_log_pattern_analysis') return 'Analyzing Logs';
+      if (name == 'list_traces') return 'Scanning Traces';
+      if (name == 'query_promql') return 'Querying Metrics';
+      if (name == 'mcp_execute_sql') return 'Running SQL Query';
+
+      // Fallback: sentence case
+      return name.split('_').map((word) => word[0].toUpperCase() + word.substring(1)).join(' ');
+  }
+
+  Widget _buildStatusIcon(bool isRunning, bool isError, bool isCompleted) {
+       if (isRunning) {
+         return Container(
+           padding: const EdgeInsets.all(8),
+           decoration: BoxDecoration(
+             color: AppColors.warning.withValues(alpha: 0.1), // Amber background like prompt
+             borderRadius: BorderRadius.circular(8),
+           ),
+           child: const Icon(Icons.bolt, size: 18, color: AppColors.warning), // Spark/Bolt icon
+         );
+       }
+       if (isError) {
+          return Container(
+           padding: const EdgeInsets.all(8),
+           decoration: BoxDecoration(
+             color: AppColors.error.withValues(alpha: 0.1),
+             borderRadius: BorderRadius.circular(8),
+           ),
+           child: const Icon(Icons.error_outline, size: 18, color: AppColors.error),
+         );
+       }
+       // Completed
+       return Container(
+           padding: const EdgeInsets.all(8),
+           decoration: BoxDecoration(
+             color: AppColors.success.withValues(alpha: 0.1),
+             borderRadius: BorderRadius.circular(8),
+           ),
+           child: const Icon(Icons.check, size: 18, color: AppColors.success),
+       );
+  }
+
+  Widget _buildPulsingRunningBadge() {
+      return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: AppColors.warning.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: AppColors.warning.withValues(alpha: 0.5)),
+          ),
+          child: Text(
+            'Running',
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.bold,
+              color: AppColors.warning,
+              letterSpacing: 0.5,
             )
-          : Icon(statusIcon, color: statusColor, size: 16),
-    );
+          )
+      );
   }
 
   Widget _buildSection({

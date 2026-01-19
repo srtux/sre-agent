@@ -26,7 +26,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify Login Page is shown
-    expect(find.text('Welcome to AutoSRE'), findsOneWidget);
+    expect(find.text('Logs. Traces. Metrics. Solved.'), findsOneWidget);
 
     // Verify logo icon
     expect(find.byIcon(Icons.smart_toy), findsOneWidget);
