@@ -115,19 +115,19 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
       statusLabel = 'Completed';
     }
 
+    final toolIcon = _getToolIcon(widget.log.toolName);
+
     // Compact collapsed view vs expanded view
     return AnimatedContainer(
       duration: const Duration(milliseconds: 150),
       margin: EdgeInsets.symmetric(vertical: _isExpanded ? 4 : 2),
       decoration: BoxDecoration(
-        color: _isExpanded
-            ? AppColors.backgroundCard.withValues(alpha: 0.6)
-            : AppColors.backgroundCard.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(_isExpanded ? 10 : 8),
+        color: Colors.black.withValues(alpha: 0.3), // Darker "Terminal" feel
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: isRunning
-              ? statusColor.withValues(alpha: 0.4)
-              : AppColors.surfaceBorder.withValues(alpha: 0.5),
+              ? statusColor.withValues(alpha: 0.3)
+              : AppColors.surfaceBorder.withValues(alpha: 0.1),
           width: 1,
         ),
       ),
@@ -149,7 +149,7 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
                 child: Row(
                   children: [
                     // Compact status indicator
-                    _buildCompactStatusIndicator(isRunning, statusColor, statusIcon),
+                    _buildCompactStatusIndicator(isRunning, statusColor, toolIcon),
                     const SizedBox(width: 10),
                     // Tool name and status inline
                     Expanded(
@@ -181,6 +181,30 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
                               ),
                             ),
                           ),
+                          if (widget.log.duration != null) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppColors.textMuted.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.timer_outlined, size: 10, color: AppColors.textMuted),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    widget.log.duration!,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w500,
+                                      color: AppColors.textMuted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                           if (widget.log.timestamp != null) ...[
                             const SizedBox(width: 6),
                             Text(
@@ -464,26 +488,32 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
     }
   }
 
+  IconData _getToolIcon(String toolName) {
+    if (toolName.contains('trace') || toolName.contains('span')) return Icons.timeline;
+    if (toolName.contains('metric') || toolName.contains('promql') || toolName.contains('time_series')) return Icons.show_chart;
+    if (toolName.contains('log')) return Icons.article_outlined;
+    if (toolName.contains('remediation')) return Icons.medical_services_outlined;
+    if (toolName.contains('project')) return Icons.cloud_outlined;
+    if (toolName.contains('deploy')) return Icons.rocket_launch_outlined;
+    return Icons.construction; // Default
+  }
+
   String _formatTimestamp(String? timestamp) {
     if (timestamp == null) return '';
-    // Check if it's a long number (likely nanoseconds/microseconds)
-    // 13 digits = millis, 16 digits = micros, 19 digits = nanos
-    if (RegExp(r'^\d{13,}$').hasMatch(timestamp)) {
-      try {
-        int ts = int.parse(timestamp);
-        // Convert to microseconds for DateTime
-        if (timestamp.length > 16) {
-          ts = ts ~/ 1000; // Divide by 1000 to get micros if nanos
-        } else if (timestamp.length == 13) {
-           ts = ts * 1000; // Multiply by 1000 to get micros if millis
-        }
-
-        final dt = DateTime.fromMicrosecondsSinceEpoch(ts);
-        return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}:${dt.second.toString().padLeft(2, '0')}';
-      } catch (e) {
-        return timestamp;
+    try {
+      // Handle standard float timestamp (seconds since epoch)
+      final double ts = double.parse(timestamp);
+      final dt = DateTime.fromMillisecondsSinceEpoch((ts * 1000).toInt());
+      return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}:${dt.second.toString().padLeft(2, '0')}';
+    } catch (e) {
+      // Fallback for legacy generic timestamps or UUID-time
+      if (RegExp(r'^\d{13,}$').hasMatch(timestamp)) {
+         try {
+           // ... (legacy logic if needed, but likely fine to just return raw if parse fails)
+           return timestamp;
+         } catch (_) {}
       }
+      return timestamp;
     }
-    return timestamp;
   }
 }

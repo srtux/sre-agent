@@ -137,6 +137,7 @@ class ToolLog {
     final String status; // 'running', 'completed', 'error'
     final String? result;
     final String? timestamp;
+    final String? duration;
 
     ToolLog({
         required this.toolName,
@@ -144,6 +145,7 @@ class ToolLog {
         required this.status,
         this.result,
         this.timestamp,
+        this.duration,
     });
 
     factory ToolLog.fromJson(Map<String, dynamic> json) {
@@ -153,6 +155,7 @@ class ToolLog {
             status: json['status'] ?? 'unknown',
             result: json['result']?.toString(), // Handle both string and complex object results by stringifying for now
             timestamp: json['timestamp'],
+            duration: json['duration'],
         );
     }
 }

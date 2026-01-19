@@ -7,6 +7,7 @@ class AppColors {
   static const Color primaryTeal = Color(0xFF6366F1); // Indigo
   static const Color primaryCyan = Color(0xFF8B5CF6); // Violet
   static const Color primaryBlue = Color(0xFF3B82F6); // Blue
+  static const Color secondaryPurple = Color(0xFFA855F7); // Purple 500
 
   // Background colors
   static const Color backgroundDark = Color(0xFF0F172A); // Slate 900

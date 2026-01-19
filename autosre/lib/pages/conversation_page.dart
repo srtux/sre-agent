@@ -201,7 +201,7 @@ class _ConversationPageState extends State<ConversationPage>
     _conversation.sendRequest(UserMessage.text(text));
   }
 
-  bool _isSidebarOpen = true;
+  bool _isSidebarOpen = false;
 
   @override
   Widget build(BuildContext context) {
@@ -331,13 +331,13 @@ class _ConversationPageState extends State<ConversationPage>
                   onTap: _startNewSession,
                   child: Text(
                     'AutoSRE',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                      letterSpacing: 0.3,
-                    ),
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white, // Bright White
+                    letterSpacing: 0.5,
                   ),
+                ),
                 ),
               const SizedBox(width: 24),
               // Project Selector (Left aligned now)
@@ -384,16 +384,12 @@ class _ConversationPageState extends State<ConversationPage>
         child: InkWell(
           onTap: _startNewSession,
           borderRadius: BorderRadius.circular(8),
-          child: Container(
+          child: Padding(
             padding: EdgeInsets.all(isMobile ? 6 : 8),
-            decoration: BoxDecoration(
-              color: AppColors.primaryTeal.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
             child: Icon(
-              Icons.smart_toy,
+              Icons.auto_awesome, // Magic Icon
               color: AppColors.primaryTeal,
-              size: isMobile ? 18 : 20,
+              size: isMobile ? 18 : 22,
             ),
           ),
         ),
@@ -577,7 +573,7 @@ class _ConversationPageState extends State<ConversationPage>
             constraints: const BoxConstraints(maxWidth: ConversationPage.kMaxContentWidth),
             child: ListView.builder(
               controller: _scrollController,
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          padding: const EdgeInsets.fromLTRB(8, 12, 8, 12),
           itemCount: messages.length + 1, // +1 for typing indicator
           itemBuilder: (context, index) {
             if (index == messages.length) {
@@ -767,51 +763,77 @@ class _ConversationPageState extends State<ConversationPage>
 
   Widget _buildTypingIndicator() {
     return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(top: 4, bottom: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: AppColors.backgroundCard.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: List.generate(3, (index) {
-            return AnimatedBuilder(
-              animation: _typingController,
-              builder: (context, child) {
-                final delay = index * 0.2;
-                final animValue =
-                    ((_typingController.value + delay) % 1.0 * 2.0)
-                        .clamp(0.0, 1.0);
-                final bounce = (animValue < 0.5
-                        ? animValue * 2
-                        : 2 - animValue * 2) *
-                    0.4;
-
-                return Container(
-                  margin: EdgeInsets.only(right: index < 2 ? 4 : 0),
-                  child: Transform.translate(
-                    offset: Offset(0, -bounce * 4),
-                    child: Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: AppColors.textMuted.withValues(
-                          alpha: 0.4 + bounce,
-                        ),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
+        alignment: Alignment.centerLeft,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Agent Icon
+              Container(
+                margin: const EdgeInsets.only(top: 2, right: 8),
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.secondaryPurple.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.auto_awesome,
+                  size: 14,
+                  color: AppColors.secondaryPurple,
+                ),
+              ),
+              // Typing Dots Bubble
+              Container(
+                margin: const EdgeInsets.only(top: 0),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.secondaryPurple.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: AppColors.secondaryPurple.withValues(alpha: 0.1),
+                    width: 1,
                   ),
-                );
-              },
-            );
-          }),
-        ),
-      ),
-    );
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List.generate(3, (index) {
+                    return AnimatedBuilder(
+                      animation: _typingController,
+                      builder: (context, child) {
+                        final delay = index * 0.2;
+                        final animValue =
+                            ((_typingController.value + delay) % 1.0 * 2.0)
+                                .clamp(0.0, 1.0);
+                        final bounce = (animValue < 0.5
+                                ? animValue * 2
+                                : 2 - animValue * 2) *
+                            0.4;
+
+                        return Container(
+                          margin: EdgeInsets.only(right: index < 2 ? 4 : 0),
+                          child: Transform.translate(
+                            offset: Offset(0, -bounce * 4),
+                            child: Container(
+                              width: 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: AppColors.secondaryPurple.withValues(
+                                  alpha: 0.4 + bounce,
+                                ),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  }),
+                ),
+              ),
+            ],
+          ),
+        ));
   }
 
   Widget _buildInputArea() {
@@ -834,73 +856,115 @@ class _ConversationPageState extends State<ConversationPage>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Unified Input Container
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.backgroundDark,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: AppColors.primaryTeal.withValues(alpha: 0.3),
-                      width: 1,
+                  // Unified Input Container
+              ValueListenableBuilder<bool>(
+                valueListenable: _contentGenerator.isProcessing,
+                builder: (context, isProcessing, child) {
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 600),
+                    curve: Curves.easeInOut,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0F172A), // Slate 900 (Blackish)
+                      borderRadius: BorderRadius.circular(32),
+                      border: Border.all(
+                        color: isProcessing
+                            ? AppColors.secondaryPurple.withValues(alpha: 0.6)
+                            : AppColors.surfaceBorder.withValues(alpha: 0.3),
+                        width: isProcessing ? 1.5 : 1,
+                      ),
+                      boxShadow: [
+                        // Deep shadow for "floating" lift
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          blurRadius: 20,
+                          offset: const Offset(0, 8),
+                        ),
+                        // Processing Glow or Ambient Light
+                        if (isProcessing)
+                          BoxShadow(
+                            color: AppColors.secondaryPurple.withValues(alpha: 0.2),
+                            blurRadius: 16,
+                            spreadRadius: 2,
+                          )
+                        else
+                          BoxShadow(
+                            color: Colors.white.withValues(alpha: 0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, -1),
+                          ),
+                      ],
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.2),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
+                    child: child,
+                  );
+                },
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // Magic Icon
+                    Padding(
+                      padding: const EdgeInsets.only(left: 16, right: 8),
+                      child: Icon(
+                        Icons.auto_awesome,
+                        color: AppColors.primaryTeal,
+                        size: 20,
                       ),
-                    ],
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _textController,
-                          focusNode: _focusNode,
-                          onSubmitted: (_) {
-                            // Only submit on enter if shift is not pressed (handled by focusNode mostly, but good backup)
-                             if (!HardwareKeyboard.instance.isShiftPressed) {
-                               _sendMessage();
-                             }
-                          },
-                          maxLines: 8,
-                          minLines: 1,
-                          style: const TextStyle(
-                            color: AppColors.textPrimary,
+                    ),
+                    // Text Field
+                    Expanded(
+                      child: TextField(
+                        controller: _textController,
+                        focusNode: _focusNode,
+                        onSubmitted: (_) {
+                           if (!HardwareKeyboard.instance.isShiftPressed) {
+                             _sendMessage();
+                           }
+                        },
+                        maxLines: 8,
+                        minLines: 1,
+                        style: const TextStyle(
+                          color: Colors.white, // Bright White
+                          fontSize: 15,
+                          height: 1.5,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: "Ask a question...",
+                          hintStyle: TextStyle(
+                            color: AppColors.textMuted.withValues(alpha: 0.7),
                             fontSize: 15,
-                            height: 1.5,
                           ),
-                          decoration: InputDecoration(
-                            hintText: "Ask a question...",
-                            hintStyle: TextStyle(
-                              color: AppColors.textMuted,
-                              fontSize: 15,
-                            ),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-                          ),
+                          filled: false,
+                          isDense: true,
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          errorBorder: InputBorder.none,
+                          disabledBorder: InputBorder.none,
+                          contentPadding: const EdgeInsets.fromLTRB(12, 14, 12, 14),
                         ),
                       ),
-                      Padding(
-                        padding: const EdgeInsets.only(right: 6, bottom: 6),
-                        child: ValueListenableBuilder<bool>(
-                          valueListenable: _contentGenerator.isProcessing,
-                          builder: (context, isProcessing, _) {
-                            return _SendButton(
-                              isProcessing: isProcessing,
-                              onPressed: _sendMessage,
-                              onCancel: _contentGenerator.cancelRequest,
-                            );
-                          },
-                        ),
+                    ),
+                    // Send/Stop Button
+                    Padding(
+                      padding: const EdgeInsets.only(right: 12), // Equal spacing
+                      child: ValueListenableBuilder<bool>(
+                        valueListenable: _contentGenerator.isProcessing,
+                        builder: (context, isProcessing, _) {
+                          return _SendButton(
+                            isProcessing: isProcessing,
+                            onPressed: _sendMessage,
+                            onCancel: _contentGenerator.cancelRequest,
+                          );
+                        },
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                // Compact keyboard hint
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
+              ),
+              // Compact keyboard hint
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 8, left: 16),
                   child: Text(
                     'Enter to send • Shift+Enter for new line',
                     style: TextStyle(
@@ -909,7 +973,7 @@ class _ConversationPageState extends State<ConversationPage>
                     ),
                   ),
                 ),
-              ],
+              ),  ],
             ),
           ),
         ),
@@ -997,113 +1061,189 @@ class _MessageItemState extends State<_MessageItem>
     if (msg is UserMessage) {
       return Align(
         alignment: Alignment.centerLeft,
-        child: Container(
-          margin: const EdgeInsets.symmetric(vertical: 4),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          constraints: const BoxConstraints(
-            maxWidth: 800,
-          ),
-          decoration: BoxDecoration(
-            color: AppColors.primaryTeal.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: SelectionArea(
-            child: MarkdownBody(
-              data: msg.text,
-              styleSheet: MarkdownStyleSheet(
-                p: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 14,
-                  height: 1.4,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // User Icon
+              Container(
+                margin: const EdgeInsets.only(top: 2, right: 8),
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryBlue.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
                 ),
-                code: TextStyle(
-                  backgroundColor: Colors.black.withValues(alpha: 0.2),
-                  color: AppColors.primaryTeal,
-                  fontSize: 12,
-                  fontFamily: 'monospace',
+                child: const Icon(
+                  Icons.person_outline,
+                  size: 14,
+                  color: AppColors.primaryBlue,
                 ),
               ),
-            ),
+              // Message Bubble
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  constraints: const BoxConstraints(
+                    maxWidth: 950,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryBlue.withValues(alpha: 0.15),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(4),
+                      topRight: Radius.circular(16),
+                      bottomLeft: Radius.circular(16),
+                      bottomRight: Radius.circular(16),
+                    ),
+                    border: Border.all(
+                      color: AppColors.primaryBlue.withValues(alpha: 0.2),
+                      width: 1,
+                    ),
+                  ),
+                  child: SelectionArea(
+                    child: MarkdownBody(
+                      data: msg.text,
+                      styleSheet: MarkdownStyleSheet(
+                        p: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 14,
+                          height: 1.4,
+                        ),
+                        code: TextStyle(
+                          backgroundColor: Colors.black.withValues(alpha: 0.2),
+                          color: AppColors.primaryBlue,
+                          fontSize: 12,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       );
     } else if (msg is AiTextMessage) {
       return Align(
         alignment: Alignment.centerLeft,
-        child: Container(
-          margin: const EdgeInsets.symmetric(vertical: 4),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          constraints: const BoxConstraints(
-            maxWidth: 800,
-          ),
-          decoration: BoxDecoration(
-            color: AppColors.backgroundCard.withValues(alpha: 0.6),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: SelectionArea(
-            child: MarkdownBody(
-              data: msg.text,
-              styleSheet: MarkdownStyleSheet(
-                p: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 14,
-                  height: 1.5,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Agent Icon
+              Container(
+                margin: const EdgeInsets.only(top: 2, right: 8),
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.secondaryPurple.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
                 ),
-                h1: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
+                child: const Icon(
+                  Icons.smart_toy,
+                  size: 14,
+                  color: AppColors.secondaryPurple,
                 ),
-                h2: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-                code: TextStyle(
-                  backgroundColor: Colors.black.withValues(alpha: 0.3),
-                  color: AppColors.primaryTeal,
-                  fontSize: 12,
-                  fontFamily: 'monospace',
-                ),
-                codeblockDecoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                blockquoteDecoration: BoxDecoration(
-                  color: AppColors.primaryTeal.withValues(alpha: 0.08),
-                  border: Border(
-                    left: BorderSide(
-                      color: AppColors.primaryTeal.withValues(alpha: 0.5),
-                      width: 2,
+              ),
+              // Message Bubble
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  constraints: const BoxConstraints(
+                    maxWidth: 950,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondaryPurple.withValues(alpha: 0.08),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(4),
+                      topRight: Radius.circular(16),
+                      bottomLeft: Radius.circular(16),
+                      bottomRight: Radius.circular(16),
+                    ),
+                    border: Border.all(
+                      color: AppColors.secondaryPurple.withValues(alpha: 0.15),
+                    ),
+                  ),
+                  child: SelectionArea(
+                    child: MarkdownBody(
+                      data: msg.text,
+                      styleSheet: MarkdownStyleSheet(
+                        p: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 14,
+                          height: 1.5,
+                        ),
+                        h1: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        h2: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        code: TextStyle(
+                          backgroundColor: Colors.black.withValues(alpha: 0.3),
+                          color: AppColors.primaryTeal,
+                          fontSize: 12,
+                          fontFamily: 'monospace',
+                        ),
+                        codeblockDecoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        blockquoteDecoration: BoxDecoration(
+                          color: AppColors.primaryTeal.withValues(alpha: 0.08),
+                          border: Border(
+                            left: BorderSide(
+                              color: AppColors.primaryTeal.withValues(alpha: 0.5),
+                              width: 2,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
         ),
       );
     } else if (msg is AiUiMessage) {
       return Align(
         alignment: Alignment.centerLeft,
-        child: Container(
-          margin: const EdgeInsets.symmetric(vertical: 4),
-          constraints: const BoxConstraints(
-            maxWidth: 950,
-          ),
-          decoration: BoxDecoration(
-            color: AppColors.backgroundCard.withValues(alpha: 0.4),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: AppColors.surfaceBorder.withValues(alpha: 0.3),
-            ),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: GenUiSurface(
-              host: widget.host,
-              surfaceId: msg.surfaceId,
-            ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Spacer to align with Agent Text Icon (width 28 + margin 8 = 36)
+              // We use a transparent container of same size to perfectly align
+              Container(
+                margin: const EdgeInsets.only(top: 2, right: 8),
+                width: 34, // 14 icon + 12 padding + 8 margin = 34
+                height: 28,
+              ),
+              // Message Bubble / Tool Surface
+              Flexible(
+                child: Container(
+                  constraints: const BoxConstraints(
+                    maxWidth: 950,
+                  ),
+                  // No decoration here to avoid double border - inner widgets (ToolLog) handle their own borders
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: GenUiSurface(
+                      host: widget.host,
+                      surfaceId: msg.surfaceId,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       );
@@ -1144,7 +1284,7 @@ class _SendButton extends StatelessWidget {
             child: Icon(
               isProcessing ? Icons.stop_rounded : Icons.arrow_upward_rounded,
               color: isProcessing ? Colors.white : AppColors.backgroundDark,
-              size: 22,
+              size: 20,
             ),
           ),
         ),

@@ -1028,6 +1028,7 @@ def _create_tool_call_events(
             "tool_name": tool_name,
             "surface_id": surface_id,
             "args": args,
+            "start_time": time.time(),
         }
     )
 
@@ -1036,7 +1037,7 @@ def _create_tool_call_events(
         "tool_name": tool_name,
         "args": args,
         "status": "running",
-        "timestamp": str(uuid.uuid1().time),
+        "timestamp": str(time.time()),
     }
 
     events = [
@@ -1093,11 +1094,28 @@ def _create_tool_response_events(
     formatted_result: Any = ""
 
     if isinstance(result, dict):
+        # Already a dict, process as before
+        pass
+    elif isinstance(result, str):
+        # Try to parse stringified JSON to check for errors
+        try:
+            parsed = json.loads(result)
+            if isinstance(parsed, dict):
+                result = parsed
+        except json.JSONDecodeError:
+            pass
+
+    if isinstance(result, dict):
         if "error" in result:
             status = "error"
             formatted_result = result["error"]
             if "error_type" in result:
                 formatted_result = f"[{result['error_type']}] {formatted_result}"
+
+            # If the error message is complex (dict/list), stringify it
+            if isinstance(formatted_result, dict | list):
+                formatted_result = json.dumps(formatted_result, indent=2)
+
             if result.get("non_retryable"):
                 logger.warning(
                     f"Non-retryable error for {tool_name}: {result.get('error_type', 'UNKNOWN')}"
@@ -1133,6 +1151,17 @@ def _create_tool_response_events(
     surface_id = tool_info["surface_id"]
     call_id = tool_info["call_id"]
 
+    # Calculate duration
+    start_time = tool_info.get("start_time")
+    duration_str = None
+    if start_time:
+        duration_ms = (time.time() - start_time) * 1000
+        duration_str = (
+            f"{duration_ms:.0f}ms"
+            if duration_ms < 1000
+            else f"{duration_ms / 1000:.2f}s"
+        )
+
     logger.debug(f"✅ Found pending call for tool: {tool_name} (call_id={call_id})")
 
     tool_log_data = {
@@ -1140,7 +1169,8 @@ def _create_tool_response_events(
         "args": tool_info["args"],
         "status": status,
         "result": str(formatted_result),
-        "timestamp": str(uuid.uuid1().time),
+        "timestamp": str(time.time()),
+        "duration": duration_str,
     }
 
     events = [
