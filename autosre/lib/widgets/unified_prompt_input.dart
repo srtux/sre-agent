@@ -68,96 +68,100 @@ class _UnifiedPromptInputState extends State<UnifiedPromptInput>
       child: Stack(
         children: [
           // 1. Main Input Container (Background & Static Border)
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOut,
-            decoration: BoxDecoration(
-              color: const Color(0xFF0F172A), // Solid Dark Navy
-              borderRadius: BorderRadius.circular(30),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.1),
-                width: 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
+          GestureDetector(
+            onTap: () => widget.focusNode.requestFocus(),
+            behavior: HitTestBehavior.opaque,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F172A), // Solid Dark Navy
+                borderRadius: BorderRadius.circular(30),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.1),
+                  width: 1,
                 ),
-              ],
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end, // Align to bottom for multi-line
-              children: [
-                // Magic Icon
-                Padding(
-                  // Icon is 22px. Center is 11px.
-                  // Target center is 30px (60/2).
-                  // Bottom padding needed: 30 - 11 = 19px.
-                  padding: const EdgeInsets.only(left: 20, right: 12, bottom: 19),
-                  child: Icon(
-                    Icons.auto_awesome,
-                    color: AppColors.primaryTeal,
-                    size: 22,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
                   ),
-                ),
-                // Text Field
-                Expanded(
-                  child: Padding(
-                    // Font size 16 * 1.5 = 24px height.
-                    // Target center is 30px.
-                    // Bottom/Top padding needed: (60 - 24) / 2 = 18px.
-                    padding: const EdgeInsets.symmetric(vertical: 18),
-                    child: TextField(
-                      controller: widget.controller,
-                      focusNode: widget.focusNode,
-                      onSubmitted: (_) {
-                        if (!HardwareKeyboard.instance.isShiftPressed) {
-                          widget.onSend();
-                        }
-                      },
-                      maxLines: 6,
-                      minLines: 1,
-                      keyboardType: TextInputType.multiline,
-                      textInputAction: TextInputAction.newline, // Explicitly allow newlines
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        height: 1.5,
-                      ),
-                      cursorColor: AppColors.primaryTeal,
-                      decoration: InputDecoration(
-                        hintText: "Ask anything...",
-                        hintStyle: TextStyle(
-                          color: AppColors.textMuted.withValues(alpha: 0.7),
+                ],
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end, // Align to bottom for multi-line
+                children: [
+                  // Magic Icon
+                  Padding(
+                    // Icon is 22px. Center is 11px.
+                    // Target center is 30px (60/2).
+                    // Bottom padding needed: 30 - 11 = 19px.
+                    padding: const EdgeInsets.only(left: 20, right: 12, bottom: 19),
+                    child: Icon(
+                      Icons.auto_awesome,
+                      color: AppColors.primaryTeal,
+                      size: 22,
+                    ),
+                  ),
+                  // Text Field
+                  Expanded(
+                    child: Padding(
+                      // Font size 16 * 1.5 = 24px height.
+                      // Target center is 30px.
+                      // Bottom/Top padding needed: (60 - 24) / 2 = 18px.
+                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      child: TextField(
+                        controller: widget.controller,
+                        focusNode: widget.focusNode,
+                        onSubmitted: (_) {
+                          if (!HardwareKeyboard.instance.isShiftPressed) {
+                            widget.onSend();
+                          }
+                        },
+                        maxLines: 6,
+                        minLines: 1,
+                        keyboardType: TextInputType.multiline,
+                        textInputAction: TextInputAction.newline, // Explicitly allow newlines
+                        style: const TextStyle(
+                          color: Colors.white,
                           fontSize: 16,
+                          height: 1.5,
                         ),
-                        filled: false,
-                        isDense: true,
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        errorBorder: InputBorder.none,
-                        disabledBorder: InputBorder.none,
-                        contentPadding: EdgeInsets.zero,
+                        cursorColor: AppColors.primaryTeal,
+                        decoration: InputDecoration(
+                          hintText: "Ask anything...",
+                          hintStyle: TextStyle(
+                            color: AppColors.textMuted.withValues(alpha: 0.7),
+                            fontSize: 16,
+                          ),
+                          filled: false,
+                          isDense: true,
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          errorBorder: InputBorder.none,
+                          disabledBorder: InputBorder.none,
+                          contentPadding: EdgeInsets.zero,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                // Send/Stop Button
-                Padding(
-                  // Button wrapper is approx 36px (20px icon + 8px*2 padding).
-                  // Center is 18px.
-                  // Target center is 30px.
-                  // Bottom padding needed: 30 - 18 = 12px.
-                  padding: const EdgeInsets.only(right: 12, bottom: 12),
-                  child: _UnifiedSendButton(
-                    isProcessing: widget.isProcessing,
-                    onPressed: widget.onSend,
-                    onCancel: widget.onCancel,
+                  // Send/Stop Button
+                  Padding(
+                    // Button wrapper is approx 36px (20px icon + 8px*2 padding).
+                    // Center is 18px.
+                    // Target center is 30px.
+                    // Bottom padding needed: 30 - 18 = 12px.
+                    padding: const EdgeInsets.only(right: 12, bottom: 12),
+                    child: _UnifiedSendButton(
+                      isProcessing: widget.isProcessing,
+                      onPressed: widget.onSend,
+                      onCancel: widget.onCancel,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
 
