@@ -66,9 +66,10 @@ class ADKSessionManager:
 
     def __init__(self) -> None:
         """Initialize the session manager with appropriate backend."""
+        self.app_name = self.APP_NAME
         self._session_service = self._create_session_service()
         logger.info(
-            f"ADKSessionManager initialized with {type(self._session_service).__name__}"
+            f"ADKSessionManager initialized with {type(self._session_service).__name__} (app_name={self.app_name})"
         )
 
     def _create_session_service(self) -> Any:
@@ -83,6 +84,8 @@ class ADKSessionManager:
         agent_engine_id = os.getenv("SRE_AGENT_ID")
         if agent_engine_id:
             try:
+                # Use the Agent Engine ID as the app_name for Vertex AI sessions
+                self.app_name = agent_engine_id
                 from google.adk.sessions import VertexAiSessionService
 
                 project = os.getenv("GOOGLE_CLOUD_PROJECT")
@@ -136,7 +139,7 @@ class ADKSessionManager:
         state["created_at"] = time.time()
 
         session = await self._session_service.create_session(
-            app_name=self.APP_NAME,
+            app_name=self.app_name,
             user_id=user_id,
             state=state,
         )
@@ -159,7 +162,7 @@ class ADKSessionManager:
         """
         try:
             session = await self._session_service.get_session(
-                app_name=self.APP_NAME,
+                app_name=self.app_name,
                 user_id=user_id,
                 session_id=session_id,
             )
@@ -182,7 +185,7 @@ class ADKSessionManager:
         """
         try:
             sessions = await self._session_service.list_sessions(
-                app_name=self.APP_NAME,
+                app_name=self.app_name,
                 user_id=user_id,
             )
 
@@ -211,7 +214,7 @@ class ADKSessionManager:
                 info = SessionInfo(
                     id=session.id,
                     user_id=user_id,
-                    app_name=self.APP_NAME,
+                    app_name=self.app_name,
                     title=state.get("title"),
                     project_id=state.get("project_id"),
                     created_at=state.get("created_at"),
@@ -245,7 +248,7 @@ class ADKSessionManager:
         """
         try:
             await self._session_service.delete_session(
-                app_name=self.APP_NAME,
+                app_name=self.app_name,
                 user_id=user_id,
                 session_id=session_id,
             )
