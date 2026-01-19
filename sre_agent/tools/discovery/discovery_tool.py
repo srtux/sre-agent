@@ -13,8 +13,6 @@ Trace/Logging APIs (which are slower for aggregate analysis but always available
 import logging
 from typing import Any
 
-from google.adk.tools import ToolContext  # type: ignore[attr-defined]
-
 from ..common import adk_tool
 from ..mcp.gcp import (
     call_mcp_tool_with_retry,
@@ -28,7 +26,7 @@ logger = logging.getLogger(__name__)
 @adk_tool
 async def discover_telemetry_sources(
     project_id: str | None = None,
-    tool_context: ToolContext | None = None,
+    tool_context: Any | None = None,
 ) -> dict[str, Any]:
     """Discover BigQuery datasets containing observability data.
 

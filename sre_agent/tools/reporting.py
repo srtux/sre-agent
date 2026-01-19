@@ -2,8 +2,6 @@
 
 from typing import Any
 
-from google.adk.tools import ToolContext  # type: ignore[attr-defined]
-
 from .common import adk_tool
 
 
@@ -13,7 +11,7 @@ async def synthesize_report(
     triage_results: dict[str, Any],
     aggregate_results: dict[str, Any] | None = None,
     log_analysis: dict[str, Any] | None = None,
-    tool_context: ToolContext | None = None,
+    tool_context: Any | None = None,
 ) -> str:
     """Synthesize a structured Root Cause Hypothesis report.
 

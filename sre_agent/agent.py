@@ -61,7 +61,7 @@ from typing import Any
 import google.auth
 import vertexai
 from google.adk.agents import LlmAgent
-from google.adk.tools import AgentTool, ToolContext  # type: ignore[attr-defined]
+from google.adk.tools import AgentTool  # type: ignore[attr-defined]
 from google.adk.tools.base_toolset import BaseToolset
 
 from .prompt import SRE_AGENT_PROMPT
@@ -324,7 +324,7 @@ async def run_aggregate_analysis(
     table_name: str | None = None,
     time_window_hours: int = 24,
     service_name: str | None = None,
-    tool_context: ToolContext | None = None,
+    tool_context: Any | None = None,
 ) -> dict[str, Any]:
     """Run Stage 0: Aggregate analysis using BigQuery.
 
@@ -426,7 +426,7 @@ async def run_triage_analysis(
     baseline_trace_id: str,
     target_trace_id: str,
     project_id: str | None = None,
-    tool_context: ToolContext | None = None,
+    tool_context: Any | None = None,
 ) -> dict[str, Any]:
     """Run Stage 1: Parallel triage analysis with the "Squad".
 
@@ -531,7 +531,7 @@ async def run_deep_dive_analysis(
     target_trace_id: str,
     triage_findings: dict[str, Any],
     project_id: str | None = None,
-    tool_context: ToolContext | None = None,
+    tool_context: Any | None = None,
 ) -> dict[str, Any]:
     """Run Stage 2: Deep Dive analysis.
 
@@ -606,7 +606,7 @@ async def run_log_pattern_analysis(
     comparison_start: str,
     comparison_end: str,
     project_id: str | None = None,
-    tool_context: ToolContext | None = None,
+    tool_context: Any | None = None,
 ) -> dict[str, Any]:
     """Run log pattern analysis to find emergent issues.
 
@@ -797,6 +797,7 @@ base_tools: list[Any] = [
     run_triage_analysis,
     run_deep_dive_analysis,
     run_log_pattern_analysis,
+    list_time_series,
 ]
 
 
@@ -845,7 +846,7 @@ Structure:
 - Stage 2 (Deep Dive): Causality, Impact Analysis, and Change Detection
 
 Direct Tools:
-- Observability: fetch_trace, list_log_entries, query_promql, list_slos
+- Observability: fetch_trace, list_log_entries, query_promql, list_time_series, list_slos
 - Analysis: calculate_span_durations, find_bottleneck_services, correlate_logs_with_trace
 - Platform: get_gke_cluster_health, list_alerts, detect_metric_anomalies""",
     instruction=SRE_AGENT_PROMPT,

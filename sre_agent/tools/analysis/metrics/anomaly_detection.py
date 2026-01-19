@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 @adk_tool
 def detect_metric_anomalies(
-    data_points: list[float] | list[dict[str, Any]],
+    data_points: list[float],
     threshold_sigma: float = 3.0,
     value_key: str = "value",
 ) -> dict[str, Any]:

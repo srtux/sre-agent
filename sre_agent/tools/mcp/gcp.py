@@ -454,7 +454,7 @@ async def mcp_list_log_entries(
     project_id: str | None = None,
     page_size: int = 100,
     order_by: str | None = None,
-    tool_context: ToolContext | None = None,
+    tool_context: Any | None = None,
 ) -> dict[str, Any]:
     """Search and retrieve log entries from Google Cloud Logging via MCP.
 
@@ -515,7 +515,7 @@ async def mcp_list_timeseries(
     interval_end_time: str | None = None,
     minutes_ago: int = 60,
     aggregation_json: str | None = None,
-    tool_context: ToolContext | None = None,
+    tool_context: Any | None = None,
 ) -> dict[str, Any]:
     """Query time series metrics data from Google Cloud Monitoring via MCP.
 
@@ -599,7 +599,7 @@ async def mcp_query_range(
     end_time: str | None = None,
     minutes_ago: int = 60,
     step: str = "60s",
-    tool_context: ToolContext | None = None,
+    tool_context: Any | None = None,
 ) -> dict[str, Any]:
     """Evaluate a PromQL query over a time range via Cloud Monitoring MCP.
 
@@ -662,7 +662,7 @@ async def mcp_query_range(
 async def mcp_execute_sql(
     sql_query: str,
     project_id: str | None = None,
-    tool_context: ToolContext | None = None,
+    tool_context: Any | None = None,
 ) -> dict[str, Any]:
     """Execute a SQL query against BigQuery via MCP.
 
