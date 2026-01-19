@@ -101,7 +101,7 @@ class AuthService extends ChangeNotifier {
   Future<void> _refreshTokens() async {
     if (_currentUser == null) return;
     try {
-      final auth = await _currentUser!.authentication;
+      final auth = _currentUser!.authentication;
       _idToken = auth.idToken;
       // We need to request proper scopes if not granted?
       // For now assume basic token is enough or we use authorizeScopes if needed.
@@ -127,7 +127,7 @@ class AuthService extends ChangeNotifier {
 
     try {
       // Get authentication credentials (token)
-      final auth = await _currentUser!.authentication;
+      final auth = _currentUser!.authentication;
       // dynamic cast to bypass analyzer error "getter not defined"
       final token = (auth as dynamic).accessToken as String?;
 

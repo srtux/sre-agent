@@ -18,7 +18,7 @@ Widget buildGoogleSignInButton({required VoidCallback onMobileSignIn}) {
           borderRadius: BorderRadius.circular(50),
           boxShadow: [
             BoxShadow(
-              color: Colors.indigoAccent.withOpacity(0.4),
+              color: Colors.indigoAccent.withValues(alpha: 0.4),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),

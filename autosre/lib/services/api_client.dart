@@ -33,12 +33,8 @@ class ProjectInterceptorClient extends http.BaseClient {
     request.headers['X-GCP-Project-ID'] = projectId;
 
     // 2. Append as Query Parameter for GET requests or as fallback
-    final newUri = request.url.replace(
-      queryParameters: {
-        ...request.url.queryParameters,
-        'project_id': projectId,
-      },
-    );
+    // 2. Append as Query Parameter for GET requests or as fallback
+    // (Logic removed as we primarily use headers and modifying BaseRequest URL is complex)
 
     // Note: We can't easily change the URL of a BaseRequest once created if it's already "frozen"
     // but we can create a new request if needed. However, since we are using headers as preferred,

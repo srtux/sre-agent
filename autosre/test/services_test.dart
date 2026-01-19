@@ -17,7 +17,7 @@ void main() {
       return http.Response('[]', 200);
     });
 
-    final clientFactory = () async => mockClient;
+    Future<http.Client> clientFactory() async => mockClient;
 
     test('should initialize with empty projects', () {
       final service = ProjectService.newInstance(clientFactory: clientFactory);

@@ -203,6 +203,7 @@ class AgentRequest(BaseModel):
     messages: list[AgentMessage]
     session_id: str | None = None
     project_id: str | None = None
+    user_id: str = "default"
 
 
 @app.post("/agent")
@@ -227,7 +228,7 @@ async def chat_agent(request: AgentRequest) -> StreamingResponse:
                 initial_state["project_id"] = effective_project_id
 
             session = await session_manager.create_session(
-                user_id="default", initial_state=initial_state
+                user_id=request.user_id, initial_state=initial_state
             )
 
         # 2. Prepare Context
@@ -793,6 +794,12 @@ class CreateSessionRequest(BaseModel):
     title: str | None = None
 
 
+class UpdateSessionRequest(BaseModel):
+    """Request model for updating a session."""
+
+    title: str | None = None
+
+
 @app.post("/api/sessions")
 async def create_session(request: CreateSessionRequest) -> Any:
     """Create a new session using ADK session service.
@@ -888,6 +895,34 @@ async def delete_session(session_id: str, user_id: str = "default") -> Any:
         raise
     except Exception as e:
         logger.error(f"Error deleting session: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.patch("/api/sessions/{session_id}")
+async def update_session(
+    session_id: str,
+    request: UpdateSessionRequest,
+    user_id: str = "default",
+) -> Any:
+    """Update a session's state (e.g. title)."""
+    try:
+        session_manager = get_session_service()
+        session = await session_manager.get_session(session_id, user_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        updates = {}
+        if request.title is not None:
+            updates["title"] = request.title
+
+        if updates:
+            await session_manager.update_session_state(session, updates)
+
+        return {"message": "Session updated", "id": session_id, "updates": updates}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating session: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 

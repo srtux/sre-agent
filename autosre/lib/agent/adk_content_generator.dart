@@ -18,7 +18,7 @@ class ADKContentGenerator implements ContentGenerator {
       StreamController<String>.broadcast();
   final ValueNotifier<bool> _isProcessing = ValueNotifier(false);
   final ValueNotifier<bool> _isConnected = ValueNotifier(false);
-  final ValueNotifier<String> _error = ValueNotifier('');
+
   bool _isDisposed = false;
 
   /// Current HTTP client for cancellation support.
@@ -165,6 +165,13 @@ class ADKContentGenerator implements ContentGenerator {
         if (sessionId != null && sessionId!.isNotEmpty) {
           requestBody["session_id"] = sessionId;
         }
+
+        // Include user_id from auth service
+        final userId = AuthService().currentUser?.email;
+        if (userId != null) {
+          requestBody["user_id"] = userId;
+        }
+
 
         request.body = jsonEncode(requestBody);
 

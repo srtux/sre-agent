@@ -44,7 +44,7 @@ class LoginPage extends StatelessWidget {
               height: 300,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.indigoAccent.withOpacity(0.15),
+                color: Colors.indigoAccent.withValues(alpha: 0.15),
               ),
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
@@ -60,7 +60,7 @@ class LoginPage extends StatelessWidget {
               height: 400,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.cyan.withOpacity(0.1),
+                color: Colors.cyan.withValues(alpha: 0.1),
               ),
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 100, sigmaY: 100),
@@ -80,10 +80,10 @@ class LoginPage extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.all(48),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
+                      color: Colors.white.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(24),
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.1),
+                        color: Colors.white.withValues(alpha: 0.1),
                         width: 1,
                       ),
                     ),
@@ -97,7 +97,7 @@ class LoginPage extends StatelessWidget {
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.indigoAccent.withOpacity(0.5),
+                                color: Colors.indigoAccent.withValues(alpha: 0.5),
                                 blurRadius: 40, // Increased blur for "glow"
                                 spreadRadius: -5,
                               ),
@@ -226,7 +226,7 @@ class LoginPage extends StatelessWidget {
                 'By continuing, you verify that you are an authorized user.',
                 style: GoogleFonts.inter(
                   fontSize: 12,
-                  color: Colors.white.withOpacity(0.3),
+                  color: Colors.white.withValues(alpha: 0.3),
                 ),
               ),
             ),

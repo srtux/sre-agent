@@ -140,6 +140,8 @@ class _ConversationPageState extends State<ConversationPage>
     _contentGenerator.sessionId = sessionId;
     _sessionService.setCurrentSession(sessionId);
 
+    if (!mounted) return;
+
     // Reset and hydrate conversation
     setState(() {
       _conversation.dispose();
@@ -520,9 +522,8 @@ class _ConversationPageState extends State<ConversationPage>
     }
 
     // Get Agent URL if available
-    final agentUrl = _contentGenerator is ADKContentGenerator
-        ? (_contentGenerator as ADKContentGenerator).baseUrl
-        : 'Unknown';
+    final agentUrl = _contentGenerator.baseUrl;
+
 
     return Tooltip(
       message: 'Agent URL: ${agentUrl.isEmpty ? "Internal" : agentUrl}\nStatus: $statusText',

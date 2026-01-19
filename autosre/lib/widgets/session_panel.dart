@@ -28,7 +28,6 @@ class _SessionPanelState extends State<SessionPanel> {
   void initState() {
     super.initState();
     // Fetch sessions on mount
-    print("Sidebar: fetching history..."); // Debugging initial load
     widget.sessionService.fetchHistory();
 
     // Listen for connectivity changes to auto-refetch
@@ -45,8 +44,7 @@ class _SessionPanelState extends State<SessionPanel> {
 
   void _onConnectivityChanged() {
     final connectivityStatus = Provider.of<ConnectivityService>(context, listen: false).status.value;
-    if (connectivityStatus == ConnectivityStatus.Connected && widget.sessionService.sessions.value.isEmpty) {
-      print("Sidebar: connection restored, fetching history...");
+    if (connectivityStatus == ConnectivityStatus.connected && widget.sessionService.sessions.value.isEmpty) {
       widget.sessionService.fetchHistory();
     }
   }
@@ -80,80 +78,17 @@ class _SessionPanelState extends State<SessionPanel> {
 
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
       decoration: BoxDecoration(
-        color: AppColors.backgroundDark.withValues(alpha: 0.5),
+        color: AppColors.backgroundCard,
         border: Border(
-          bottom: BorderSide(
-            color: AppColors.surfaceBorder,
-            width: 1,
-          ),
+           // Removed bottom border for cleaner look, visual separation via spacing
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryTeal.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.history,
-                  size: 18,
-                  color: AppColors.primaryTeal,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Investigations',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-              ),
-              // Refresh button
-              ValueListenableBuilder<bool>(
-                valueListenable: widget.sessionService.isLoading,
-                builder: (context, isLoading, _) {
-                  return IconButton(
-                    onPressed: isLoading ? null : () {
-                      widget.sessionService.fetchSessions();
-                    },
-                    icon: isLoading
-                        ? SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                AppColors.primaryTeal,
-                              ),
-                            ),
-                          )
-                        : Icon(
-                            Icons.refresh,
-                            size: 18,
-                            color: AppColors.textMuted,
-                          ),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          // New Session button
+          // "New Investigation" button as primary action
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
@@ -163,12 +98,50 @@ class _SessionPanelState extends State<SessionPanel> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primaryTeal,
                 foregroundColor: AppColors.backgroundDark,
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
                 ),
               ),
             ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Text(
+                'Recent Investigations',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textMuted,
+                  letterSpacing: 1.0,
+                ),
+              ),
+              const Spacer(),
+              // Loading indicator (replacing refresh button)
+              ValueListenableBuilder<bool>(
+                valueListenable: widget.sessionService.isLoading,
+                builder: (context, isLoading, _) {
+                   if (!isLoading) return const SizedBox.shrink();
+                   return SizedBox(
+                     width: 12,
+                     height: 12,
+                     child: CircularProgressIndicator(
+                       strokeWidth: 2,
+                       valueColor: AlwaysStoppedAnimation<Color>(
+                         AppColors.textMuted.withValues(alpha: 0.5),
+                       ),
+                     ),
+                   );
+                },
+              ),
+            ],
           ),
         ],
       ),
@@ -181,15 +154,6 @@ class _SessionPanelState extends State<SessionPanel> {
       builder: (context, isLoading, _) {
         return Column(
           children: [
-            if (isLoading)
-              LinearProgressIndicator(
-                minHeight: 2,
-                backgroundColor: AppColors.backgroundCard,
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  AppColors.primaryTeal.withValues(alpha: 0.5),
-                ),
-              ),
-
             Expanded(
               child: ValueListenableBuilder<String?>(
                 valueListenable: widget.sessionService.error,
@@ -222,7 +186,7 @@ class _SessionPanelState extends State<SessionPanel> {
                     }
 
                     final connectivityStatus = Provider.of<ConnectivityService>(context).status.value;
-                    if (connectivityStatus == ConnectivityStatus.Offline) {
+                    if (connectivityStatus == ConnectivityStatus.offline) {
                       return Center(
                         child: Padding(
                           padding: const EdgeInsets.all(24),
@@ -238,7 +202,7 @@ class _SessionPanelState extends State<SessionPanel> {
                               const SizedBox(height: 8),
                               Text(
                                 'History unavailable',
-                                style: TextStyle(color: AppColors.textMuted.withOpacity(0.7)),
+                                style: TextStyle(color: AppColors.textMuted.withValues(alpha: 0.7)),
                                 textAlign: TextAlign.center,
                               ),
                             ],
@@ -260,17 +224,19 @@ class _SessionPanelState extends State<SessionPanel> {
                       }
 
                       return ListView.builder(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
                         itemCount: sessions.length,
                         itemBuilder: (context, index) {
                           final session = sessions[index];
                           final isSelected = session.id == widget.currentSessionId;
 
                           return _SessionItem(
+                            key: ValueKey(session.id),
                             session: session,
                             isSelected: isSelected,
                             onTap: () => widget.onSessionSelected(session.id),
                             onDelete: () => _deleteSession(session.id),
+                            onRename: () => _renameSession(session.id, session.displayTitle),
                           );
                         },
                       );
@@ -295,7 +261,7 @@ class _SessionPanelState extends State<SessionPanel> {
             Icon(
               Icons.explore_outlined,
               size: 48,
-              color: AppColors.textMuted.withValues(alpha: 0.5),
+              color: AppColors.textMuted.withValues(alpha: 0.3),
             ),
             const SizedBox(height: 16),
             Text(
@@ -357,6 +323,58 @@ class _SessionPanelState extends State<SessionPanel> {
       await widget.sessionService.deleteSession(sessionId);
     }
   }
+
+  Future<void> _renameSession(String sessionId, String currentTitle) async {
+    final controller = TextEditingController(text: currentTitle);
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.backgroundCard,
+        title: Text(
+          'Rename Investigation',
+          style: TextStyle(color: AppColors.textPrimary),
+        ),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: TextStyle(color: AppColors.textPrimary),
+          decoration: InputDecoration(
+            hintText: 'Enter new name',
+            hintStyle: TextStyle(color: AppColors.textMuted),
+            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.surfaceBorder)),
+            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.primaryTeal)),
+          ),
+          onSubmitted: (_) {
+             if (controller.text.trim().isNotEmpty) {
+                 widget.sessionService.renameSession(sessionId, controller.text.trim());
+                 Navigator.of(context).pop();
+             }
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.textMuted),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+               if (controller.text.trim().isNotEmpty) {
+                   widget.sessionService.renameSession(sessionId, controller.text.trim());
+                   Navigator.of(context).pop();
+               }
+            },
+            child: Text(
+              'Rename',
+              style: TextStyle(color: AppColors.primaryTeal),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _SessionItem extends StatefulWidget {
@@ -364,12 +382,15 @@ class _SessionItem extends StatefulWidget {
   final bool isSelected;
   final VoidCallback onTap;
   final VoidCallback onDelete;
+  final VoidCallback onRename;
 
   const _SessionItem({
+    super.key,
     required this.session,
     required this.isSelected,
     required this.onTap,
     required this.onDelete,
+    required this.onRename,
   });
 
   @override
@@ -385,12 +406,12 @@ class _SessionItemState extends State<_SessionItem> {
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        padding: const EdgeInsets.symmetric(vertical: 2),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
             onTap: widget.onTap,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(8),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
               padding: const EdgeInsets.all(12),
@@ -400,33 +421,18 @@ class _SessionItemState extends State<_SessionItem> {
                     : _isHovered
                         ? Colors.white.withValues(alpha: 0.03)
                         : Colors.transparent,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: widget.isSelected
-                      ? AppColors.primaryTeal.withValues(alpha: 0.3)
-                      : Colors.transparent,
-                ),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
                   // Icon
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: widget.isSelected
-                          ? AppColors.primaryTeal.withValues(alpha: 0.2)
-                          : Colors.white.withValues(alpha: 0.05),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
+                  Icon(
                       Icons.chat_bubble_outline,
                       size: 16,
                       color: widget.isSelected
                           ? AppColors.primaryTeal
                           : AppColors.textMuted,
                     ),
-                  ),
                   const SizedBox(width: 12),
                   // Content
                   Expanded(
@@ -457,43 +463,43 @@ class _SessionItemState extends State<_SessionItem> {
                                 color: AppColors.textMuted,
                               ),
                             ),
-                            if (widget.session.messageCount > 0) ...[
-                              Text(
-                                ' • ',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: AppColors.textMuted,
-                                ),
-                              ),
-                              Text(
-                                '${widget.session.messageCount} msgs',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: AppColors.textMuted,
-                                ),
-                              ),
-                            ],
                           ],
                         ),
                       ],
                     ),
                   ),
-                  // Delete button (show on hover)
-                  if (_isHovered)
-                    IconButton(
-                      onPressed: widget.onDelete,
+                  // Actions (Edit/Delete) on hover
+                  if (_isHovered) ...[
+                      IconButton(
+                      onPressed: widget.onRename,
                       icon: Icon(
-                        Icons.delete_outline,
-                        size: 16,
+                        Icons.edit_outlined,
+                        size: 14,
                         color: AppColors.textMuted,
                       ),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(
-                        minWidth: 28,
-                        minHeight: 28,
+                        minWidth: 24,
+                        minHeight: 24,
+                      ),
+                      tooltip: 'Rename',
+                    ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      onPressed: widget.onDelete,
+                      icon: Icon(
+                        Icons.delete_outline,
+                        size: 14,
+                        color: AppColors.textMuted,
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 24,
+                        minHeight: 24,
                       ),
                       tooltip: 'Delete',
                     ),
+                  ]
                 ],
               ),
             ),

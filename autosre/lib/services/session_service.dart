@@ -174,19 +174,18 @@ class SessionService {
   ValueListenable<String?> get error => _error;
 
   /// Fetches the list of sessions from the backend.
-  Future<void> fetchHistory({bool force = false, String userId = 'default'}) async {
+  Future<void> fetchHistory({bool force = false, String? userId}) async {
     if (_isLoading.value && !force) return;
     await fetchSessions(userId: userId);
   }
 
   /// Fetches the list of sessions from the backend.
-  Future<void> fetchSessions({String userId = 'default'}) async {
-
-
+  Future<void> fetchSessions({String? userId}) async {
     _isLoading.value = true;
     _error.value = null;
 
     try {
+      final effectiveUserId = userId ?? AuthService().currentUser?.email ?? 'default';
 
       http.Client client;
       try {
@@ -201,7 +200,7 @@ class SessionService {
       }
 
       final response = await client.get(
-        Uri.parse('$_baseUrl/api/sessions?user_id=$userId'),
+        Uri.parse('$_baseUrl/api/sessions?user_id=$effectiveUserId'),
       ).timeout(_requestTimeout);
 
       if (response.statusCode == 200) {
@@ -224,11 +223,12 @@ class SessionService {
 
   /// Creates a new session.
   Future<Session?> createSession({
-    String userId = 'default',
+    String? userId,
     String? title,
     String? projectId,
   }) async {
     try {
+      final effectiveUserId = userId ?? AuthService().currentUser?.email ?? 'default';
 
       http.Client client;
       try {
@@ -246,8 +246,9 @@ class SessionService {
         Uri.parse('$_baseUrl/api/sessions'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'user_id': userId,
+          'user_id': effectiveUserId,
           if (title != null) 'title': title,
+          if (projectId != null) 'project_id': projectId,
         }),
       ).timeout(_requestTimeout);
 
@@ -259,7 +260,7 @@ class SessionService {
         _currentSessionId.value = session.id;
 
         // Refresh sessions list
-        await fetchHistory(userId: userId, force: true);
+        await fetchHistory(userId: effectiveUserId, force: true);
 
         return session;
       } else {
@@ -276,6 +277,11 @@ class SessionService {
   /// Gets a session by ID.
   Future<Session?> getSession(String sessionId) async {
     try {
+      // Note: getSession typically doesn't strictly require userId for retrieval if ID is known,
+      // but ADK might enforce ownership. We'll pass it if we have it, or let backend handle it.
+      // The current backend implementation of get_session takes user_id but might not enforce it strictly
+      // depending on implementation.
+      // Let's safe-guard by just getting the client.
 
       http.Client client;
       try {
@@ -289,8 +295,19 @@ class SessionService {
         }
       }
 
+      // Check current user for the request usage if needed, but get calls usually are by ID.
+      // API signature: get_session(session_id, user_id="default")
+      // We should probably pass the user_id to be safe/consistent.
+      final effectiveUserId = AuthService().currentUser?.email ?? 'default';
+
+      // Typically GET params? No, the backend `get_session` is just path param `session_id`.
+      // The `user_id` query param is optional in the backend definition `async def get_session(session_id: str, user_id: str = "default")`
+      // Wait, let's check server.py:
+      // @app.get("/api/sessions/{session_id}")
+      // async def get_session(session_id: str, user_id: str = "default")
+
       final response = await client.get(
-        Uri.parse('$_baseUrl/api/sessions/$sessionId'),
+        Uri.parse('$_baseUrl/api/sessions/$sessionId?user_id=$effectiveUserId'),
       ).timeout(_requestTimeout);
 
       if (response.statusCode == 200) {
@@ -310,6 +327,7 @@ class SessionService {
   /// Deletes a session.
   Future<bool> deleteSession(String sessionId) async {
     try {
+      final effectiveUserId = AuthService().currentUser?.email ?? 'default';
 
       http.Client client;
       try {
@@ -324,7 +342,7 @@ class SessionService {
       }
 
       final response = await client.delete(
-        Uri.parse('$_baseUrl/api/sessions/$sessionId'),
+        Uri.parse('$_baseUrl/api/sessions/$sessionId?user_id=$effectiveUserId'),
       ).timeout(_requestTimeout);
 
       if (response.statusCode == 200) {
@@ -345,6 +363,63 @@ class SessionService {
       }
     } catch (e) {
       _error.value = 'Error deleting session: $e';
+      debugPrint('SessionService error: $e');
+      return false;
+    }
+  }
+
+  /// Renames a session.
+  Future<bool> renameSession(String sessionId, String newTitle) async {
+    try {
+      // final effectiveUserId = AuthService().currentUser?.email ?? 'default'; // Patch might use it?
+
+      http.Client client;
+      try {
+        client = await AuthService().getAuthenticatedClient();
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('Auth failed in debug mode, falling back to unauthenticated client: $e');
+          client = http.Client();
+        } else {
+          rethrow;
+        }
+      }
+
+      final response = await client.patch(
+        Uri.parse('$_baseUrl/api/sessions/$sessionId'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'title': newTitle,
+        }),
+      ).timeout(_requestTimeout);
+
+      if (response.statusCode == 200) {
+        // Update list locally
+        final updatedSessions = _sessions.value.map((s) {
+          if (s.id == sessionId) {
+            return SessionSummary(
+              id: s.id,
+              userId: s.userId,
+              appName: s.appName,
+              title: newTitle, // Update title
+              projectId: s.projectId,
+              createdAt: s.createdAt,
+              updatedAt: s.updatedAt,
+              messageCount: s.messageCount,
+              preview: s.preview,
+            );
+          }
+          return s;
+        }).toList();
+
+        _sessions.value = updatedSessions;
+        return true;
+      } else {
+        _error.value = 'Failed to rename session: ${response.statusCode}';
+        return false;
+      }
+    } catch (e) {
+      _error.value = 'Error renaming session: $e';
       debugPrint('SessionService error: $e');
       return false;
     }
