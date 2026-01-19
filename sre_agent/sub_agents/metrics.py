@@ -73,6 +73,9 @@ Use these specific metric types when searching or querying if they match the use
 {SMART_METRICS_LIST}
 
 **PromQL for Cloud Monitoring (THE RULES)**:
+    -   **Metric Verification (MANDATORY)**:
+        -   Before executing ANY `query_promql` or `list_time_series` call, you **MUST** verify the metric actually exists by researching the GCP metrics public documentation.
+        -   Do not hallucinate metric names. If you are unsure, check the documentation or the Knowledge Base first.
     -   **Metric Name Mapping (CRITICAL)**:
         -   **Documentation**: [PromQL for Cloud Monitoring](https://cloud.google.com/monitoring/promql)
         -   Cloud Monitoring metric names (e.g., `compute.googleapis.com/instance/cpu/utilization`) must be converted to PromQL names.
