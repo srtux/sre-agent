@@ -20,6 +20,18 @@ try:
 except ImportError:
     pass
 
+# Enable JSON Schema for function declarations to fix Vertex AI API compatibility
+# This ensures tool schemas use camelCase (additionalProperties) instead of snake_case
+# See: https://github.com/google/adk-python/issues/3685
+try:
+    from google.adk.features import FeatureName, override_feature_enabled
+
+    override_feature_enabled(FeatureName.JSON_SCHEMA_FOR_FUNC_DECL, True)
+    print("✅ Enabled JSON_SCHEMA_FOR_FUNC_DECL feature for Vertex AI compatibility")
+except ImportError:
+    print(
+        "⚠️ Could not enable JSON_SCHEMA_FOR_FUNC_DECL - google.adk.features not available"
+    )
 
 import asyncio
 import json

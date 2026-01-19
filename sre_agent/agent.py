@@ -50,6 +50,14 @@ The agent employs a hybrid tooling strategy:
 -   **Analysis Engines**: Python-based logic for statistical analysis, graph traversal, and pattern matching.
 """
 
+# ruff: noqa: E402
+# Enable JSON Schema for function declarations to fix Vertex AI API compatibility
+# This ensures tool schemas use camelCase (additionalProperties) instead of snake_case
+# Must be done BEFORE importing any ADK tools to ensure tools are registered correctly
+from google.adk.features import FeatureName, override_feature_enabled
+
+override_feature_enabled(FeatureName.JSON_SCHEMA_FOR_FUNC_DECL, True)
+
 import asyncio
 import functools
 import logging
