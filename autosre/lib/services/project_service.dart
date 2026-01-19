@@ -109,7 +109,6 @@ class ProjectService {
             orElse: () => GcpProject(projectId: savedProjectId),
           );
           _selectedProject.value = project;
-          debugPrint('Loaded saved project from local storage: $savedProjectId');
           return;
       }
 
@@ -130,7 +129,6 @@ class ProjectService {
             orElse: () => GcpProject(projectId: backendProjectId),
           );
           _selectedProject.value = project;
-          debugPrint('Loaded saved project from backend: $backendProjectId');
         }
       }
     } on TimeoutException catch (_) {
@@ -157,7 +155,6 @@ class ProjectService {
             body: jsonEncode({'project_id': projectId}),
           )
           .timeout(_requestTimeout);
-      debugPrint('Saved project selection: $projectId');
     } catch (e) {
       debugPrint('Error saving project selection: $e');
     }

@@ -20,6 +20,8 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
   late Animation<double> _expandAnimation;
   late Animation<double> _rotateAnimation;
 
+  bool _isError = false;
+
   @override
   void initState() {
     super.initState();
@@ -35,25 +37,40 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
       CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
     );
 
-    // Auto-expand if running? User requested collapsed by default.
-    // So we keep it false.
-    // if (widget.log.status == 'running') {
-    //   _isExpanded = true;
-    //   _animationController.value = 1.0;
-    // }
+    // Initial State Logic:
+    // RUNNING or ERROR -> EXPANDED
+    // SUCCESS -> COLLAPSED
+    _isError = _checkForError();
+    final isRunning = widget.log.status == 'running';
+
+    if (isRunning || _isError) {
+      _isExpanded = true;
+      _animationController.value = 1.0;
+    } else {
+      _isExpanded = false;
+      _animationController.value = 0.0;
+    }
   }
 
   @override
   void didUpdateWidget(ToolLogWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Auto-expand when status changes to running? No, user wants compact default.
-    // if (widget.log.status == 'running' && !_isExpanded) {
-    //   _toggleExpand();
-    // }
-    // Auto-collapse when status changes to completed to reduce noise?
-    // It's already collapsed by default, so we might not need this,
-    // but if user expanded it, we might want to keep it expanded or collapse it.
-    // Let's leave user control.
+
+    final newIsError = _checkForError();
+    final newIsCompleted = widget.log.status == 'completed';
+    final wasCompleted = oldWidget.log.status == 'completed';
+
+    // Check transitions
+    if (newIsError && !_isError) {
+       // Became error -> Expand
+       if (!_isExpanded) _toggleExpand();
+    } else if (newIsCompleted && !wasCompleted && !newIsError) {
+       // Became completed (success) -> Collapse
+       // User requested: "Auto-Collapse after success"
+       if (_isExpanded) _toggleExpand();
+    }
+
+    _isError = newIsError;
   }
 
   void _toggleExpand() {
@@ -95,75 +112,39 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
   @override
   Widget build(BuildContext context) {
     final isRunning = widget.log.status == 'running';
-    bool isError = widget.log.status == 'error'; // Mutable to upgrade to error on inspection
+    bool isError = _checkForError();
     final completed = widget.log.status == 'completed';
 
-    Color statusColor;
-    IconData statusIcon;
-    String statusLabel;
-
-    if (isRunning) {
-      statusColor = AppColors.info;
-      statusIcon = Icons.sync;
-      statusLabel = 'Running';
-    } else if (isError) {
-      statusColor = AppColors.error;
-      statusIcon = Icons.error_outline;
-      statusLabel = 'Error';
-    } else {
-      statusColor = AppColors.success;
-      statusIcon = Icons.check_circle_outline;
-      statusLabel = 'Completed';
-    }
-
-    // Strict Error Handling: Check content for "error" key
+    // Extract error message for preview if needed
     String? errorMessage;
-    if (completed && widget.log.result != null) {
-      final result = widget.log.result!;
-      // Simple check for error key in JSON string
-      if (result.contains('"error"')) {
-         // Try to parse to confirm or extract
-         try {
-           final decoded = jsonDecode(result);
-           if (decoded is Map && decoded.containsKey('error')) {
-             isError = true;
-             // Extract error message
-             final errorVal = decoded['error'];
-             errorMessage = errorVal.toString();
-           }
-         } catch (_) {
-           // Fallback regex or simple check
-           if (result.contains('"error":')) {
-             isError = true;
-             errorMessage = "Output contains error"; // Fallback
-           }
-         }
-      }
+    if (isError && widget.log.result != null) {
+        if (widget.log.result!.contains('"error"')) {
+           try {
+             final decoded = jsonDecode(widget.log.result!);
+             if (decoded is Map && decoded.containsKey('error')) {
+               errorMessage = decoded['error'].toString();
+             }
+           } catch (_) {}
+        }
+        errorMessage ??= "Output contains error"; // Fallback
     }
-
-    // Re-evaluate styles if error detected
-    if (isError) {
-      statusColor = AppColors.error;
-      statusIcon = Icons.error_outline;
-      statusLabel = 'Error';
-    }
-
-    final toolIcon = _getToolIcon(widget.log.toolName);
 
     // Compact collapsed view vs expanded view
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 150),
-      margin: EdgeInsets.symmetric(vertical: _isExpanded ? 4 : 2),
-      constraints: const BoxConstraints(minHeight: 56.0),
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+      margin: EdgeInsets.symmetric(vertical: _isExpanded ? 4 : 0), // Tighter margin when collapsed
+      constraints: BoxConstraints(minHeight: _isExpanded ? 56.0 : 36.0), // STRICT 36px when collapsed
+
       decoration: BoxDecoration(
         color: isError
            ? AppColors.error.withValues(alpha: 0.1)
-           : AppColors.backgroundElevated.withValues(alpha: 0.8), // Premium Gray
-        borderRadius: BorderRadius.circular(10),
+           : AppColors.backgroundElevated.withValues(alpha: _isExpanded ? 0.8 : 0.4), // Less opaque when collapsed
+        borderRadius: BorderRadius.circular(_isExpanded ? 10 : 6),
         border: Border.all(
            color: isError
                ? AppColors.error.withValues(alpha: 0.3)
-               : Colors.white.withValues(alpha: 0.08),
+               : Colors.white.withValues(alpha: _isExpanded ? 0.08 : 0.04),
            width: 1,
         ),
       ),
@@ -176,96 +157,18 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
             color: Colors.transparent,
             child: InkWell(
               onTap: _toggleExpand,
-              borderRadius: BorderRadius.circular(_isExpanded ? 10 : 8),
+              borderRadius: BorderRadius.circular(_isExpanded ? 10 : 6),
               child: Padding(
                 padding: EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12, // More padding for "Card" feel
+                  horizontal: 12, // Slightly reduced horizontal padding
+                  vertical: _isExpanded ? 12 : 0, // NO vertical padding when collapsed to enforce 36px
                 ),
-                child: Row(
-                  children: [
-                    // Status Badge
-                    _buildStatusIcon(isRunning, isError, completed),
-                    const SizedBox(width: 12),
-
-                    // Title, Error Preview, and Time
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                                Flexible(
-                                  child: Text(
-                                    _getSmartTitle(),
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 14,
-                                      color: AppColors.textPrimary,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                if (isRunning) ...[
-                                   const SizedBox(width: 8),
-                                   _buildPulsingRunningBadge(),
-                                ]
-                            ],
-                          ),
-                          // Error Preview or Duration
-                          if (isError && errorMessage != null)
-                             Padding(
-                                padding: const EdgeInsets.only(top: 2),
-                                child: Text(
-                                  errorMessage,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.error.withValues(alpha: 0.8),
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                             )
-                          else if (widget.log.duration != null || isRunning)
-                             Padding(
-                                padding: const EdgeInsets.only(top: 2),
-                                child: Row(
-                                  children: [
-                                    if (!isRunning) ...[
-                                      Icon(Icons.timer_outlined, size: 12, color: AppColors.textSecondary),
-                                      const SizedBox(width: 4),
-                                    ],
-                                    Text(
-                                      isRunning ? 'Processing...' : widget.log.duration ?? '',
-                                      style: TextStyle(
-                                        fontSize: 12, // Slightly larger for readability
-                                        color: AppColors.textSecondary,
-                                        fontFamily: 'monospace', // Monospace for numbers
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                             ),
-                        ],
-                      ),
-                    ),
-
-                    // Expand icon
-                    RotationTransition(
-                      turns: _rotateAnimation,
-                      child: Icon(
-                        Icons.keyboard_arrow_down,
-                        color: AppColors.textMuted,
-                        size: 20,
-                      ),
-                    ),
-                  ],
-                ),
+                child: _isExpanded
+                  ? _buildExpandedHeader(isRunning, isError, completed, errorMessage)
+                  : _buildCollapsedHeader(isRunning, isError, completed),
               ),
             ),
           ),
-
           // Expanded Content
           SizeTransition(
             sizeFactor: _expandAnimation,
@@ -327,6 +230,172 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
     );
   }
 
+  bool _checkForError() {
+    // 1. Check status
+    if (widget.log.status == 'error') return true;
+
+    // 2. Check result for error keys (Strict Mode)
+    if (widget.log.status == 'completed' && widget.log.result != null) {
+      final result = widget.log.result!;
+      if (result.contains('"error"')) {
+         try {
+           final decoded = jsonDecode(result);
+           if (decoded is Map && decoded.containsKey('error')) return true;
+         } catch (_) {
+           if (result.contains('"error":')) return true;
+         }
+      }
+    }
+    return false;
+  }
+
+  Widget _buildCollapsedHeader(bool isRunning, bool isError, bool isCompleted) {
+    final toolIcon = _getToolIcon(widget.log.toolName);
+
+    Color iconColor = AppColors.textPrimary;
+    if (isCompleted) iconColor = AppColors.success;
+    if (isError) iconColor = AppColors.error;
+    if (isRunning) iconColor = AppColors.warning;
+
+    return SizedBox(
+      height: 36.0, // STRICT 36px height
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center, // Vertically centered
+        children: [
+          // 1. Dynamic Icon
+          Icon(toolIcon, size: 16, color: iconColor),
+          const SizedBox(width: 8),
+
+          // 2. Step Title
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 160), // Prevent taking too much space
+            child: Text(
+              _getSmartTitle(),
+              style: TextStyle(
+                fontWeight: FontWeight.w500,
+                fontSize: 12, // 12px
+                color: AppColors.textPrimary.withValues(alpha: 0.9),
+                height: 1.0,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+
+          // Spacer pushes everything else to the right
+          const Spacer(),
+
+          // 3. Stopwatch + Duration (Far right)
+          if (widget.log.duration != null || isRunning) ...[
+             const SizedBox(width: 8), // Gap before time
+             Icon(Icons.timer_outlined, size: 12, color: AppColors.textSecondary.withValues(alpha: 0.5)),
+             const SizedBox(width: 4),
+             Text(
+               isRunning ? 'Running' : widget.log.duration ?? '',
+               style: TextStyle(
+                 fontSize: 11,
+                 color: AppColors.textSecondary,
+                 fontFamily: 'monospace',
+                 fontWeight: FontWeight.w500,
+               ),
+             ),
+          ],
+
+          const SizedBox(width: 8),
+
+          // 4. Chevron
+           Icon(
+            _isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+            size: 16,
+            color: AppColors.textMuted,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExpandedHeader(bool isRunning, bool isError, bool isCompleted, String? errorMessage) {
+    return Row(
+      children: [
+        // Status Badge
+        _buildStatusIcon(isRunning, isError, isCompleted),
+        const SizedBox(width: 12),
+
+        // Title, Error Preview, and Time
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                    Flexible(
+                      child: Text(
+                        _getSmartTitle(),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          color: AppColors.textPrimary,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (isRunning) ...[
+                       const SizedBox(width: 8),
+                       _buildPulsingRunningBadge(),
+                    ]
+                ],
+              ),
+              // Error Preview or Duration
+              if (isError && errorMessage != null)
+                 Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      errorMessage,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.error.withValues(alpha: 0.8),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                 )
+              else if (widget.log.duration != null || isRunning)
+                 Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Row(
+                      children: [
+                        if (!isRunning) ...[
+                          Icon(Icons.timer_outlined, size: 12, color: AppColors.textSecondary),
+                          const SizedBox(width: 4),
+                        ],
+                        Text(
+                          isRunning ? 'Processing...' : widget.log.duration ?? '',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ],
+                    ),
+                 ),
+            ],
+          ),
+        ),
+
+        // Expand icon
+        RotationTransition(
+          turns: _rotateAnimation,
+          child: Icon(
+            Icons.keyboard_arrow_down,
+            color: AppColors.textMuted,
+            size: 20,
+          ),
+        ),
+      ],
+    );
+  }
+
   String _getSmartTitle() {
       final name = widget.log.toolName;
       if (name == 'run_log_pattern_analysis') return 'Analyzing Log Patterns';
@@ -345,35 +414,40 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
       return name.replaceAll('_', ' ').split(' ').map((word) => word.isEmpty ? '' : word[0].toUpperCase() + word.substring(1)).join(' ');
   }
 
-  Widget _buildStatusIcon(bool isRunning, bool isError, bool isCompleted) {
+  Widget _buildStatusIcon(bool isRunning, bool isError, bool isCompleted, {bool compact = false}) {
+       // Reduce size for compact mode if needed, effectively already small enough
+       // but we can adjust padding.
+       final padding = compact ? const EdgeInsets.all(6) : const EdgeInsets.all(8);
+       final size = compact ? 16.0 : 18.0;
+
        if (isRunning) {
          return Container(
-           padding: const EdgeInsets.all(8),
+           padding: padding,
            decoration: BoxDecoration(
              color: AppColors.warning.withValues(alpha: 0.1), // Amber background like prompt
              borderRadius: BorderRadius.circular(8),
            ),
-           child: const Icon(Icons.bolt, size: 18, color: AppColors.warning), // Spark/Bolt icon
+           child: Icon(Icons.bolt, size: size, color: AppColors.warning), // Spark/Bolt icon
          );
        }
        if (isError) {
           return Container(
-           padding: const EdgeInsets.all(8),
+           padding: padding,
            decoration: BoxDecoration(
              color: AppColors.error.withValues(alpha: 0.1),
              borderRadius: BorderRadius.circular(8),
            ),
-           child: const Icon(Icons.error_outline, size: 18, color: AppColors.error),
-         );
+           child: Icon(Icons.error_outline, size: size, color: AppColors.error),
+          );
        }
        // Completed
        return Container(
-           padding: const EdgeInsets.all(8),
+           padding: padding,
            decoration: BoxDecoration(
              color: AppColors.success.withValues(alpha: 0.1),
              borderRadius: BorderRadius.circular(8),
            ),
-           child: const Icon(Icons.check, size: 18, color: AppColors.success),
+           child: Icon(Icons.check, size: size, color: AppColors.success),
        );
   }
 
@@ -583,31 +657,48 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
   }
 
   IconData _getToolIcon(String toolName) {
-    if (toolName.contains('trace') || toolName.contains('span')) return Icons.timeline;
-    if (toolName.contains('metric') || toolName.contains('promql') || toolName.contains('time_series')) return Icons.show_chart;
-    if (toolName.contains('log')) return Icons.article_outlined;
-    if (toolName.contains('remediation')) return Icons.medical_services_outlined;
-    if (toolName.contains('project')) return Icons.cloud_outlined;
-    if (toolName.contains('deploy')) return Icons.rocket_launch_outlined;
-    return Icons.construction; // Default
+    final lower = toolName.toLowerCase();
+
+    // Analysis / Brain
+    if (lower.contains('analysis') || lower.contains('reasoning') || lower.contains('incident') || lower.contains('diagnose')) {
+      return Icons.psychology; // Brain icon or similar
+    }
+
+    // Radar / Search
+    if (lower.contains('promql') || lower.contains('time_series') || lower.contains('log_entries') || lower.contains('sql') || lower.contains('scan') || lower.contains('search')) {
+      return Icons.radar;
+    }
+
+    // Data / Metrics
+    if (lower.contains('metric') || lower.contains('chart')) {
+      return Icons.show_chart;
+    }
+
+    // Logs
+    if (lower.contains('log')) {
+      return Icons.article_outlined;
+    }
+
+    // Trace
+    if (lower.contains('trace') || lower.contains('span')) {
+       return Icons.timeline;
+    }
+
+    // Cloud / Project
+    if (lower.contains('project') || lower.contains('gcp') || lower.contains('cloud')) {
+      return Icons.cloud_outlined;
+    }
+
+    // Action / Deploy
+    if (lower.contains('deploy') || lower.contains('run') || lower.contains('execute')) {
+       return Icons.rocket_launch_outlined;
+    }
+
+    // Default
+    return Icons.construction;
   }
 
-  String _formatTimestamp(String? timestamp) {
-    if (timestamp == null) return '';
-    try {
-      // Handle standard float timestamp (seconds since epoch)
-      final double ts = double.parse(timestamp);
-      final dt = DateTime.fromMillisecondsSinceEpoch((ts * 1000).toInt());
-      return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}:${dt.second.toString().padLeft(2, '0')}';
-    } catch (e) {
-      // Fallback for legacy generic timestamps or UUID-time
-      if (RegExp(r'^\d{13,}$').hasMatch(timestamp)) {
-         try {
-           // ... (legacy logic if needed, but likely fine to just return raw if parse fails)
-           return timestamp;
-         } catch (_) {}
-      }
-      return timestamp;
-    }
-  }
+
+
+
 }

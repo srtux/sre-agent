@@ -37,6 +37,9 @@ class ADKContentGenerator implements ContentGenerator {
   /// Stream of session ID updates (emitted when backend assigns/creates session).
   Stream<String> get sessionStream => _sessionController.stream;
 
+  /// The base URL of the connected agent.
+  String get baseUrl => _baseUrl;
+
   /// Returns the base API URL based on the runtime environment.
   String get _baseUrl {
     if (kDebugMode) {

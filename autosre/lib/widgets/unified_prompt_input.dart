@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:math' as math;
 import '../theme/app_theme.dart';
 
-class UnifiedPromptInput extends StatelessWidget {
+class UnifiedPromptInput extends StatefulWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final VoidCallback onSend;
@@ -19,90 +20,165 @@ class UnifiedPromptInput extends StatelessWidget {
   });
 
   @override
+  State<UnifiedPromptInput> createState() => _UnifiedPromptInputState();
+}
+
+class _UnifiedPromptInputState extends State<UnifiedPromptInput>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _glowController;
+
+  @override
+  void initState() {
+    super.initState();
+    _glowController = AnimationController(
+      duration: const Duration(seconds: 3),
+      vsync: this,
+    );
+    if (widget.isProcessing) {
+      _glowController.repeat();
+    }
+  }
+
+  @override
+  void didUpdateWidget(UnifiedPromptInput oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isProcessing != oldWidget.isProcessing) {
+      if (widget.isProcessing) {
+        _glowController.repeat();
+      } else {
+        _glowController.stop();
+        _glowController.reset();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _glowController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 600),
-      curve: Curves.easeInOut,
+    return SizedBox(
       height: 60,
-      decoration: BoxDecoration(
-        color: const Color(0xFF0F172A), // Dark Navy/Black
-        borderRadius: BorderRadius.circular(50), // Full rounded pill
-        border: Border.all(
-          color: isProcessing
-              ? AppColors.secondaryPurple.withValues(alpha: 0.6)
-              : Colors.white.withValues(alpha: 0.15),
-          width: isProcessing ? 1.5 : 1,
-        ),
-        boxShadow: [
-          // Deep shadow for "floating" lift
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-          ),
-          // Processing Glow or Ambient Light
-          if (isProcessing)
-            BoxShadow(
-              color: AppColors.secondaryPurple.withValues(alpha: 0.2),
-              blurRadius: 16,
-              spreadRadius: 2,
-            ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Stack(
         children: [
-          // Magic Icon
-          Padding(
-            padding: const EdgeInsets.only(left: 20, right: 12),
-            child: Icon(
-              Icons.auto_awesome,
-              color: AppColors.primaryTeal,
-              size: 22,
-            ),
-          ),
-          // Text Field
-          Expanded(
-            child: TextField(
-              controller: controller,
-              focusNode: focusNode,
-              onSubmitted: (_) {
-                if (!HardwareKeyboard.instance.isShiftPressed) {
-                  onSend();
-                }
-              },
-              maxLines: 1, // Fixed height implies single line or restricted
-              minLines: 1,
-              style: const TextStyle(
-                color: Colors.white, // Bright White
-                fontSize: 16,
-                height: 1.5,
+          // 1. Spinning Gradient Glow (Behind)
+          if (widget.isProcessing)
+            Positioned.fill(
+              child: AnimatedBuilder(
+                animation: _glowController,
+                builder: (context, child) {
+                  return Transform.rotate(
+                    angle: _glowController.value * 2 * math.pi,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(50),
+                        gradient: SweepGradient(
+                          colors: [
+                            Colors.transparent,
+                            AppColors.primaryTeal.withValues(alpha: 0.1),
+                            AppColors.secondaryPurple.withValues(alpha: 0.5),
+                            AppColors.primaryTeal.withValues(alpha: 0.1),
+                            Colors.transparent,
+                          ],
+                          stops: const [0.0, 0.25, 0.5, 0.75, 1.0],
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
-              cursorColor: AppColors.primaryTeal,
-              decoration: InputDecoration(
-                hintText: "Ask anything...",
-                hintStyle: TextStyle(
-                  color: AppColors.textMuted.withValues(alpha: 0.7),
-                  fontSize: 16,
+            ),
+
+          // 2. Main Input Container
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 600),
+            curve: Curves.easeInOut,
+            height: 60,
+            decoration: BoxDecoration(
+              color: const Color(0xFF0F172A), // Dark Navy/Black
+              borderRadius: BorderRadius.circular(50), // Full rounded pill
+              border: Border.all(
+                color: widget.isProcessing
+                    ? AppColors.secondaryPurple.withValues(alpha: 0.6)
+                    : Colors.white.withValues(alpha: 0.15),
+                width: widget.isProcessing ? 1.5 : 1,
+              ),
+              boxShadow: [
+                // Deep shadow for "floating" lift
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
                 ),
-                filled: false,
-                isDense: true,
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                errorBorder: InputBorder.none,
-                disabledBorder: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
-              ),
+                // Additional static glow if processing
+                if (widget.isProcessing)
+                  BoxShadow(
+                    color: AppColors.secondaryPurple.withValues(alpha: 0.1),
+                    blurRadius: 12,
+                    spreadRadius: 1,
+                  ),
+              ],
             ),
-          ),
-          // Send/Stop Button
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: _UnifiedSendButton(
-              isProcessing: isProcessing,
-              onPressed: onSend,
-              onCancel: onCancel,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Magic Icon
+                Padding(
+                  padding: const EdgeInsets.only(left: 20, right: 12),
+                  child: Icon(
+                    Icons.auto_awesome,
+                    color: AppColors.primaryTeal,
+                    size: 22,
+                  ),
+                ),
+                // Text Field
+                Expanded(
+                  child: TextField(
+                    controller: widget.controller,
+                    focusNode: widget.focusNode,
+                    onSubmitted: (_) {
+                      if (!HardwareKeyboard.instance.isShiftPressed) {
+                        widget.onSend();
+                      }
+                    },
+                    maxLines: 1,
+                    minLines: 1,
+                    style: const TextStyle(
+                      color: Colors.white, // Bright White
+                      fontSize: 16,
+                      height: 1.5,
+                    ),
+                    cursorColor: AppColors.primaryTeal,
+                    decoration: InputDecoration(
+                      hintText: "Ask anything...",
+                      hintStyle: TextStyle(
+                        color: AppColors.textMuted.withValues(alpha: 0.7),
+                        fontSize: 16,
+                      ),
+                      filled: false,
+                      isDense: true,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      errorBorder: InputBorder.none,
+                      disabledBorder: InputBorder.none,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                ),
+                // Send/Stop Button
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: _UnifiedSendButton(
+                    isProcessing: widget.isProcessing,
+                    onPressed: widget.onSend,
+                    onCancel: widget.onCancel,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

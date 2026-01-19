@@ -519,28 +519,43 @@ class _ConversationPageState extends State<ConversationPage>
       statusText = 'Offline';
     }
 
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: compact ? 6 : 8,
-        vertical: compact ? 3 : 4,
-      ),
+    // Get Agent URL if available
+    final agentUrl = _contentGenerator is ADKContentGenerator
+        ? (_contentGenerator as ADKContentGenerator).baseUrl
+        : 'Unknown';
+
+    return Tooltip(
+      message: 'Agent URL: ${agentUrl.isEmpty ? "Internal" : agentUrl}\nStatus: $statusText',
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: statusColor.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(4),
+        color: AppColors.backgroundDark,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.surfaceBorder, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (isProcessing)
-            SizedBox(
-              width: 10,
-              height: 10,
-              child: CircularProgressIndicator(
-                strokeWidth: 1.5,
-                valueColor: AlwaysStoppedAnimation<Color>(statusColor),
-              ),
-            )
-          else
+      textStyle: const TextStyle(
+        color: AppColors.textPrimary,
+        fontSize: 12,
+      ),
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 6 : 8,
+          vertical: compact ? 3 : 4,
+        ),
+        decoration: BoxDecoration(
+          color: statusColor.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Static Dot Only (User requested removal of spinner)
             Container(
               width: 6,
               height: 6,
@@ -549,18 +564,19 @@ class _ConversationPageState extends State<ConversationPage>
                 shape: BoxShape.circle,
               ),
             ),
-          if (!compact) ...[
-            const SizedBox(width: 6),
-            Text(
-              statusText,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                color: statusColor,
+            if (!compact) ...[
+              const SizedBox(width: 6),
+              Text(
+                statusText,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: statusColor,
+                ),
               ),
-            ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -640,10 +656,29 @@ class _ConversationPageState extends State<ConversationPage>
                   );
                 }
                 final msg = messages[index];
-                return _MessageItem(
-                  message: msg,
-                  host: _conversation.host,
-                  animation: _typingController,
+
+                // Determine vertical spacing
+                double topSpacing = 4.0;
+                if (index > 0) {
+                  final prevMsg = messages[index - 1];
+                  final isSameSender = (msg is UserMessage && prevMsg is UserMessage) ||
+                                     ((msg is AiTextMessage || msg is AiUiMessage) &&
+                                      (prevMsg is AiTextMessage || prevMsg is AiUiMessage));
+                  if (!isSameSender) {
+                    topSpacing = 24.0;
+                  }
+                } else {
+                   // First message
+                   topSpacing = 16.0;
+                }
+
+                return Padding(
+                  padding: EdgeInsets.only(top: topSpacing),
+                  child: _MessageItem(
+                    message: msg,
+                    host: _conversation.host,
+                    animation: _typingController,
+                  ),
                 );
               },
             ),
@@ -786,30 +821,12 @@ class _ConversationPageState extends State<ConversationPage>
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center, // Center aligned for dots
             children: [
               // Agent Icon
-              Container(
-                margin: const EdgeInsets.only(top: 4, right: 8),
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: AppColors.secondaryPurple.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: AppColors.secondaryPurple.withValues(alpha: 0.3),
-                    width: 1,
-                  ),
-                ),
-                child: const Icon(
-                  Icons.smart_toy,
-                  size: 18,
-                  color: AppColors.secondaryPurple,
-                ),
-              ),
+              _buildAgentAvatar(),
               // Typing Dots Bubble
               Container(
-                margin: const EdgeInsets.only(top: 0),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: AppColors.secondaryPurple.withValues(alpha: 0.08),
@@ -984,6 +1001,27 @@ class _ConversationPageState extends State<ConversationPage>
     );
   }
 
+  Widget _buildAgentAvatar() {
+    return Container(
+      margin: const EdgeInsets.only(right: 8),
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        color: AppColors.secondaryPurple.withValues(alpha: 0.2),
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: AppColors.secondaryPurple.withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: const Icon(
+        Icons.smart_toy,
+        size: 18, // UNIFIED SIZE: 18px
+        color: AppColors.secondaryPurple,
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _sessionSubscription?.cancel();
@@ -1064,16 +1102,19 @@ class _MessageItemState extends State<_MessageItem>
     final msg = widget.message;
 
     if (msg is UserMessage) {
+      final isShort = !msg.text.contains('\n') && msg.text.length < 80;
       return Align(
         alignment: Alignment.centerRight,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Row(
+        child: Row(
             mainAxisAlignment: MainAxisAlignment.end,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: isShort ? CrossAxisAlignment.center : CrossAxisAlignment.start,
             children: [
+              // Spacer to push content
+              const Spacer(),
+
               // Message Bubble
               Flexible(
+                flex: 0,
                 child: Container(
                   constraints: const BoxConstraints(maxWidth: 900),
                   child: Container(
@@ -1107,10 +1148,9 @@ class _MessageItemState extends State<_MessageItem>
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 8), // Gap 8px
               // User Avatar
               Container(
-                margin: const EdgeInsets.only(top: 4),
                 width: 32,
                 height: 32,
                 decoration: BoxDecoration(
@@ -1142,19 +1182,21 @@ class _MessageItemState extends State<_MessageItem>
               ),
             ],
           ),
-        ),
       );
     } else if (msg is AiTextMessage) {
+      final isShort = !msg.text.contains('\n') && msg.text.length < 80;
       return Align(
         alignment: Alignment.centerLeft,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
+            crossAxisAlignment: isShort ? CrossAxisAlignment.center : CrossAxisAlignment.start,
             children: [
               // Agent Icon
+              (widget.host as dynamic)._buildAgentAvatar(), // Access parent method via host if possible, or just duplicate for now?
+              // Wait, _MessageItem is inner class but separate widget class. Can't access parent private methods easily without passing callback.
+              // Better to just replicate specific widget since it's small, OR make it static/public.
+              // Let's replicate for safety and speed, but using the NEW consistent code.
               Container(
-                margin: const EdgeInsets.only(top: 4, right: 8),
+                margin: const EdgeInsets.only(right: 8),
                 width: 32,
                 height: 32,
                 decoration: BoxDecoration(
@@ -1167,29 +1209,23 @@ class _MessageItemState extends State<_MessageItem>
                 ),
                 child: const Icon(
                   Icons.smart_toy,
-                  size: 18,
+                  size: 18, // UNIFIED 18px
                   color: AppColors.secondaryPurple,
                 ),
               ),
               // Message Bubble
-                  Flexible(
-                    child: Container(
-                    constraints: const BoxConstraints(maxWidth: 900),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1E293B), // Dark Background for AI
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.1),
-                        width: 1,
-                      ),
+              Flexible(
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 900),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B), // Dark Background for AI
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      width: 1,
                     ),
-                    // We can remove FrostedGlass here if we want purely transparent,
-                    // or keep it for very subtle effect.
-                    // User said: "Transparent or very dark grey background".
-                    // Let's stick to simple transparency with maybe a subtle border or just text.
-                    // But to keep it readable, maybe a very very subtle dark bg.
-                    child: SelectionArea(
+                  ),
                   child: SelectionArea(
                     child: MarkdownBody(
                       data: msg.text,
@@ -1237,38 +1273,34 @@ class _MessageItemState extends State<_MessageItem>
                   ),
                 ),
               ),
-              ),
             ],
           ),
-        ),
       );
     } else if (msg is AiUiMessage) {
       return Align(
         alignment: Alignment.centerLeft,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Row(
+        child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Agent Icon for Tool Calls (Visual Consistency)
               Container(
-                margin: const EdgeInsets.only(top: 4, right: 8),
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: AppColors.secondaryPurple.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                       color: AppColors.secondaryPurple.withValues(alpha: 0.2),
-                       width: 1,
-                  ),
-                ),
-                child: const Icon(
-                  Icons.smart_toy,
-                  size: 16,
-                  color: AppColors.secondaryPurple,
-                ),
-              ),
+                 margin: const EdgeInsets.only(right: 8),
+                 width: 32,
+                 height: 32,
+                 decoration: BoxDecoration(
+                   color: AppColors.secondaryPurple.withValues(alpha: 0.1),
+                   shape: BoxShape.circle,
+                   border: Border.all(
+                        color: AppColors.secondaryPurple.withValues(alpha: 0.2),
+                        width: 1,
+                   ),
+                 ),
+                 child: const Icon(
+                   Icons.smart_toy,
+                   size: 18, // FIXED: Was 16, now 18 to match
+                   color: AppColors.secondaryPurple,
+                 ),
+               ),
               // Message Bubble / Tool Surface
               Flexible(
                 child: Container(
@@ -1287,7 +1319,6 @@ class _MessageItemState extends State<_MessageItem>
               ),
             ],
           ),
-        ),
       );
     }
     return const SizedBox.shrink();
