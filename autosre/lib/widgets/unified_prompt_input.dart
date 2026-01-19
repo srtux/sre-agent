@@ -26,6 +26,7 @@ class UnifiedPromptInput extends StatefulWidget {
 class _UnifiedPromptInputState extends State<UnifiedPromptInput>
     with SingleTickerProviderStateMixin {
   late AnimationController _glowController;
+  bool _isHovered = false;
 
   @override
   void initState() {
@@ -68,27 +69,37 @@ class _UnifiedPromptInputState extends State<UnifiedPromptInput>
       child: Stack(
         children: [
           // 1. Main Input Container (Background & Static Border)
-          GestureDetector(
-            onTap: () => widget.focusNode.requestFocus(),
-            behavior: HitTestBehavior.opaque,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOut,
-              decoration: BoxDecoration(
-                color: const Color(0xFF0F172A), // Solid Dark Navy
-                borderRadius: BorderRadius.circular(30),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.1),
-                  width: 1,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.5),
-                    blurRadius: 16,
-                    offset: const Offset(0, 4),
+          MouseRegion(
+            cursor: SystemMouseCursors.text,
+            onEnter: (_) => setState(() => _isHovered = true),
+            onExit: (_) => setState(() => _isHovered = false),
+            child: GestureDetector(
+              onTap: () => widget.focusNode.requestFocus(),
+              behavior: HitTestBehavior.opaque,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
+                decoration: BoxDecoration(
+                  color: _isHovered
+                    ? const Color(0xFF1E293B) // Slightly lighter on hover
+                    : const Color(0xFF0F172A), // Solid Dark Navy
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(
+                    color: _isHovered
+                      ? AppColors.primaryTeal.withValues(alpha: 0.4) // Teal glow on hover
+                      : Colors.white.withValues(alpha: 0.1),
+                    width: 1,
                   ),
-                ],
-              ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _isHovered
+                        ? AppColors.primaryTeal.withValues(alpha: 0.15)
+                        : Colors.black.withValues(alpha: 0.5),
+                      blurRadius: _isHovered ? 20 : 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end, // Align to bottom for multi-line
                 children: [
@@ -163,7 +174,7 @@ class _UnifiedPromptInputState extends State<UnifiedPromptInput>
                 ],
               ),
             ),
-          ),
+          ),),
 
           // 2. Glowing Border Overlay (When Processing)
           if (widget.isProcessing)
