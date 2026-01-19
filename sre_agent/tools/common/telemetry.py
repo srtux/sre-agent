@@ -161,6 +161,13 @@ def setup_telemetry(level: int = logging.INFO) -> None:
         os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
 
     # 1. Configure OpenTelemetry SDK
+    # Check for DISABLE_TELEMETRY environment variable
+    if os.environ.get("DISABLE_TELEMETRY", "").lower() == "true":
+        logging.getLogger(__name__).info(
+            "Telemetry setup disabled via DISABLE_TELEMETRY env var"
+        )
+        return
+
     if project_id:
         resource = Resource.create(
             {
@@ -202,14 +209,33 @@ def setup_telemetry(level: int = logging.INFO) -> None:
 
             # distinct: Check if a TracerProvider is already configured
             current_tracer_provider = trace.get_tracer_provider()
-            if hasattr(current_tracer_provider, "add_span_processor"):
-                # Provider exists (e.g. from ADK or Agent Engine), just add our exporter
-                current_tracer_provider.add_span_processor(span_processor)
-            else:
+
+            # If ProxyTracerProvider (default) matches "ProxyTracerProvider" in repr or type name
+            is_proxy = "ProxyTracerProvider" in type(current_tracer_provider).__name__
+
+            if not is_proxy and hasattr(current_tracer_provider, "add_span_processor"):
+                # Provider exists (e.g. from ADK or Agent Engine)
+                # We should be careful about adding duplicate processors if they are already sending to GCP
+                # For now, we add it to ensure OUR traces go to OUR project,
+                # but we log it.
+                logging.getLogger(__name__).info(
+                    "Existing TracerProvider found. Attaching SRE Agent OTLP exporter."
+                )
+                try:
+                    current_tracer_provider.add_span_processor(span_processor)
+                except Exception as e:
+                    logging.getLogger(__name__).warning(
+                        f"Failed to attach span processor to existing provider: {e}"
+                    )
+            elif is_proxy:
                 # No provider yet (or it's a proxy), set ours
                 tracer_provider = TracerProvider(resource=resource)
                 tracer_provider.add_span_processor(span_processor)
                 trace.set_tracer_provider(tracer_provider)
+            else:
+                logging.getLogger(__name__).warning(
+                    "Unknown TracerProvider type; skipping OTLP span exporter attachment."
+                )
 
         # -- METRICS --
         if os.environ.get("OTEL_METRICS_EXPORTER", "").lower() != "none":
@@ -222,28 +248,40 @@ def setup_telemetry(level: int = logging.INFO) -> None:
                 metric_exporter, export_interval_millis=60000
             )
 
-            # The MeterProvider API is less mutable than TracerProvider in some versions,
-            # but typically we just set it if we can.
-            # There isn't a standard 'add_metric_reader' on the public API of the global getter
-            # as reliably as span processor, but we can check.
-            # However, typically default is strict.
-            # We will try to set it. If it fails/warns, we might lose metrics if we can't attach.
-            # SDK MeterProvider has `add_metric_reader`? It's not always exposed publicly on the instance.
-            # We'll try to set strict.
+            # For metrics, modifying the global provider is harder if it's already set.
+            # We try to set it only if it's not already a strict provider.
+            try:
+                # If we can't easily check for proxy, we just try to set it.
+                # If set_meter_provider throws or warns, so be it.
+                # However, cleaner check:
+                current_meter_provider = metrics.get_meter_provider()
+                is_proxy_meter = (
+                    "ProxyMeterProvider" in type(current_meter_provider).__name__
+                )
 
-            # Actually, opentelemetry.sdk.metrics.MeterProvider DOES NOT support adding readers after init easily
-            # in some versions.
-            # So we try to initialize a new one and set it.
-            meter_provider = MeterProvider(resource=resource, metric_readers=[reader])
-            metrics.set_meter_provider(meter_provider)
+                if is_proxy_meter:
+                    meter_provider = MeterProvider(
+                        resource=resource, metric_readers=[reader]
+                    )
+                    metrics.set_meter_provider(meter_provider)
+                else:
+                    logging.getLogger(__name__).info(
+                        "Existing MeterProvider found. Skipping SRE Agent metrics setup (cannot easily attach reader)."
+                    )
+            except Exception as e:
+                logging.getLogger(__name__).warning(f"Error setting up metrics: {e}")
 
     else:
         # Fallback for local/testing without Project ID
         # Just set up default providers (No-op or simple) if not already set
         if not isinstance(trace.get_tracer_provider(), TracerProvider):
-            trace.set_tracer_provider(TracerProvider())
+            # Check for Proxy
+            if "ProxyTracerProvider" in type(trace.get_tracer_provider()).__name__:
+                trace.set_tracer_provider(TracerProvider())
+
         if not isinstance(metrics.get_meter_provider(), MeterProvider):
-            metrics.set_meter_provider(MeterProvider())
+            if "ProxyMeterProvider" in type(metrics.get_meter_provider()).__name__:
+                metrics.set_meter_provider(MeterProvider())
 
     # 2. Configure Logging
     _configure_logging_handlers(level, project_id)

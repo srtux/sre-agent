@@ -61,7 +61,9 @@ from sre_agent.tools.test_functions import register_all_test_functions
 os.environ["LOG_LEVEL"] = "DEBUG"
 
 # 1.1 CONFIGURING LOGGING
-# Rely on setup_telemetry() which is called inside sre_agent.agent
+from sre_agent.tools.common.telemetry import setup_telemetry
+
+setup_telemetry()  # Explicit initialization
 logger = logging.getLogger(__name__)
 
 # 1.2 INITIALIZE TOOL CONFIGURATION

@@ -173,7 +173,6 @@ from .tools import (
     validate_trace_quality,
 )
 from .tools.common import adk_tool
-from .tools.common.telemetry import setup_telemetry
 from .tools.config import get_tool_config_manager
 from .tools.mcp.gcp import (
     create_bigquery_mcp_toolset,
@@ -191,7 +190,8 @@ from .tools.reporting import synthesize_report
 logger = logging.getLogger(__name__)
 
 # Initialize standardized logging and telemetry
-setup_telemetry()
+# Initialize standardized logging (telemetry setup is now explicit in entry points)
+# setup_telemetry()  <-- Removed side-effect; must be called explicitly by entry points (server.py, cli.py)
 
 
 def emojify_agent(agent: LlmAgent) -> LlmAgent:
