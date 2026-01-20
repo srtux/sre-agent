@@ -43,9 +43,36 @@ class Trace {
   Trace({required this.traceId, required this.spans});
 
   factory Trace.fromJson(Map<String, dynamic> json) {
-    var list = json['spans'] as List;
-    List<SpanInfo> spansList = list.map((i) => SpanInfo.fromJson(i)).toList();
-    return Trace(traceId: json['trace_id'], spans: spansList);
+    // Safely handle null or missing spans with default empty list
+    final rawSpans = json['spans'];
+    final List spansList;
+
+    if (rawSpans == null) {
+      spansList = [];
+    } else if (rawSpans is List) {
+      spansList = rawSpans;
+    } else {
+      // If spans is neither null nor a List, use empty list
+      spansList = [];
+    }
+
+    // Parse each span, filtering out any that fail to parse
+    final List<SpanInfo> parsedSpans = [];
+    for (final item in spansList) {
+      try {
+        if (item is Map) {
+          parsedSpans.add(SpanInfo.fromJson(Map<String, dynamic>.from(item)));
+        }
+      } catch (e) {
+        // Skip malformed spans rather than failing the entire trace
+        continue;
+      }
+    }
+
+    return Trace(
+      traceId: json['trace_id'] ?? 'unknown',
+      spans: parsedSpans,
+    );
   }
 }
 

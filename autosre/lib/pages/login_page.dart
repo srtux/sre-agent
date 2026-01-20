@@ -283,24 +283,46 @@ class _AnimatedPhysicsRobotState extends State<_AnimatedPhysicsRobot> with Ticke
   }
 
   void _onTick(Duration elapsed) {
+    if (_lastElapsed == Duration.zero) {
+      _lastElapsed = elapsed;
+      return;
+    }
     final double dt = (elapsed - _lastElapsed).inMicroseconds / 1000000.0;
     _lastElapsed = elapsed;
 
     if (dt <= 0) return;
     if (dt > 0.1) return; // Prevent huge jumps on lag spikes
 
+    // F_spring = -k * x
+    final Offset springForce = -_position * _k;
+
+    // F_damping = -d * v
+    final Offset dampingForce = -_velocity * _d;
+
+    final Offset totalForce = springForce + dampingForce;
+    final Offset acceleration = totalForce / _mass;
+
+    final Offset nextVelocity = _velocity + acceleration * dt;
+    final Offset nextPosition = _position + nextVelocity * dt;
+
+    // Only update state if there's meaningful movement
+    // and use an epsilon to allow settling
+    const double epsilon = 0.05;
+    if (nextPosition.distance < epsilon && nextVelocity.distance < epsilon) {
+      if (_position != Offset.zero || _velocity != Offset.zero) {
+        setState(() {
+          _position = Offset.zero;
+          _velocity = Offset.zero;
+        });
+      }
+      _ticker.stop();
+      _lastElapsed = Duration.zero;
+      return;
+    }
+
     setState(() {
-      // F_spring = -k * x
-      final Offset springForce = -_position * _k;
-
-      // F_damping = -d * v
-      final Offset dampingForce = -_velocity * _d;
-
-      final Offset totalForce = springForce + dampingForce;
-      final Offset acceleration = totalForce / _mass;
-
-      _velocity += acceleration * dt;
-      _position += _velocity * dt;
+      _velocity = nextVelocity;
+      _position = nextPosition;
     });
   }
 
@@ -310,6 +332,10 @@ class _AnimatedPhysicsRobotState extends State<_AnimatedPhysicsRobot> with Ticke
       setState(() {
         _velocity += event.delta.scale(_sensitivity, _sensitivity);
       });
+      // Restart ticker if it's not running
+      if (!_ticker.isActive) {
+        _ticker.start();
+      }
     }
   }
 
