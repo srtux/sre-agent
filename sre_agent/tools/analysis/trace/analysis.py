@@ -106,9 +106,14 @@ def calculate_span_durations(
             for s in spans:
                 s_start = s.get("start_time")
                 s_end = s.get("end_time")
+                s_start_unix = s.get("start_time_unix")
+                s_end_unix = s.get("end_time_unix")
 
                 duration_ms = None
-                if s_start and s_end:
+                if s_start_unix is not None and s_end_unix is not None:
+                    # Optimized path: Use pre-calculated unix timestamps to avoid datetime parsing overhead
+                    duration_ms = (s_end_unix - s_start_unix) * 1000
+                elif s_start and s_end:
                     try:
                         start_dt = datetime.fromisoformat(
                             s_start.replace("Z", "+00:00")
@@ -492,6 +497,10 @@ def summarize_trace(trace_id: str, project_id: str | None = None) -> dict[str, A
         dur: float = 0.0
         if "duration_ms" in s:
             dur = s["duration_ms"]
+        elif (
+            s.get("start_time_unix") is not None and s.get("end_time_unix") is not None
+        ):
+            dur = (s["end_time_unix"] - s["start_time_unix"]) * 1000
         elif s.get("start_time") and s.get("end_time"):
             try:
                 start = datetime.fromisoformat(s["start_time"].replace("Z", "+00:00"))
