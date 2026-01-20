@@ -23,28 +23,27 @@ async def generate_contextual_suggestions(
         try:
             session_service = get_session_service()
             session = await session_service.get_session(session_id, user_id=user_id)
-            if session and session.messages:
-                # Use the last few messages as context
-                # recent_history = session.messages[-5:]  # Last 5 messages
-                # history_text = "\n".join(
-                #     [f"{m.role}: {m.content}" for m in recent_history]
-                # )
+            if session and session.events:
+                # Extract the last user message text for context
+                last_user_msg = ""
+                for event in reversed(session.events):
+                    if event.author == "user" and event.content and event.content.parts:
+                        for part in event.content.parts:
+                            if hasattr(part, "text") and part.text:
+                                last_user_msg = part.text
+                                break
+                    if last_user_msg:
+                        break
 
-                # prompt = f"""Based on the following SRE investigation history, suggest 3 short, actionable next steps or queries the user might want to run.
-                # The suggestions should be concise (3-5 words) and formatted as a JSON list of strings.
-                #
-                # History:
-                # {history_text}
-                #
-                # Suggestions:
-                # """
+                if not last_user_msg:
+                    return DEFAULT_SUGGESTIONS
 
                 # TODO: Integrate with model for dynamic suggestions
                 # For now, fallback to pattern matching below
 
                 # Alternatively, just return some smart defaults based on common patterns
                 # if the last message was about logs, suggest pattern analysis
-                last_msg = session.messages[-1].content.lower()
+                last_msg = last_user_msg.lower()
                 if "log" in last_msg:
                     return [
                         "Analyze log patterns",
