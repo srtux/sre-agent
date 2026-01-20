@@ -6,6 +6,8 @@ import '../widgets/auth/google_sign_in_button.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/tech_grid_painter.dart';
+import 'package:flutter/scheduler.dart'; // For Ticker
+import 'package:flutter/services.dart';  // For PointerHoverEvent
 import '../widgets/status_toast.dart';
 
 class LoginPage extends StatelessWidget {
@@ -92,23 +94,7 @@ class LoginPage extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         // Element A: The Brand Hero
-                        Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.indigoAccent.withValues(alpha: 0.5),
-                                blurRadius: 40, // Increased blur for "glow"
-                                spreadRadius: -5,
-                              ),
-                            ],
-                          ),
-                          child: const Icon(
-                            Icons.smart_toy, // Robot Icon
-                            size: 96,
-                            color: Colors.white,
-                          ),
-                        ),
+const _AnimatedPhysicsRobot(),
                         const SizedBox(height: 16),
 
                         // Master Logo Text (Gradient + Glow)
@@ -232,6 +218,130 @@ class LoginPage extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _AnimatedPhysicsRobot extends StatefulWidget {
+  const _AnimatedPhysicsRobot();
+
+  @override
+  State<_AnimatedPhysicsRobot> createState() => _AnimatedPhysicsRobotState();
+}
+
+class _AnimatedPhysicsRobotState extends State<_AnimatedPhysicsRobot> with TickerProviderStateMixin {
+  late final Ticker _ticker;
+  late final AnimationController _entranceController;
+  late final Animation<double> _scaleAnimation;
+  late final Animation<double> _rotationAnimation;
+
+  // Physics State
+  Offset _position = Offset.zero;
+  Offset _velocity = Offset.zero; // Pixels per second
+
+  // Constants
+  static const double _k = 120.0; // Spring stiffness
+  static const double _d = 12.0;  // Damping
+  static const double _mass = 1.0;
+  static const double _sensitivity = 15.0; // How much mouse delta pushes the robot
+
+  Duration _lastElapsed = Duration.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    // Physics Ticker
+    _ticker = createTicker(_onTick)..start();
+
+    // Entrance Animation
+    _entranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+
+    _scaleAnimation = CurvedAnimation(
+      parent: _entranceController,
+      curve: Curves.elasticOut, // Overshoot and vibrate
+    );
+
+    _rotationAnimation = Tween<double>(begin: 4.0, end: 0.0).animate(
+      CurvedAnimation(
+        parent: _entranceController,
+        curve: Curves.easeOutExpo, // Fast spiral in, then slow down
+      ),
+    );
+
+    _entranceController.forward();
+  }
+
+  @override
+  void dispose() {
+    _ticker.dispose();
+    _entranceController.dispose();
+    super.dispose();
+  }
+
+  void _onTick(Duration elapsed) {
+    final double dt = (elapsed - _lastElapsed).inMicroseconds / 1000000.0;
+    _lastElapsed = elapsed;
+
+    if (dt <= 0) return;
+    if (dt > 0.1) return; // Prevent huge jumps on lag spikes
+
+    setState(() {
+      // F_spring = -k * x
+      final Offset springForce = -_position * _k;
+
+      // F_damping = -d * v
+      final Offset dampingForce = -_velocity * _d;
+
+      final Offset totalForce = springForce + dampingForce;
+      final Offset acceleration = totalForce / _mass;
+
+      _velocity += acceleration * dt;
+      _position += _velocity * dt;
+    });
+  }
+
+  void _onHover(PointerEvent event) {
+    if (event is PointerHoverEvent) {
+      // Add 'kick' from mouse delta
+      setState(() {
+        _velocity += event.delta.scale(_sensitivity, _sensitivity);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onHover: _onHover,
+      child: ScaleTransition(
+        scale: _scaleAnimation,
+        child: RotationTransition(
+          turns: _rotationAnimation,
+          child: Transform.translate(
+            offset: _position,
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.indigoAccent.withValues(alpha: 0.5),
+                    blurRadius: 40,
+                    spreadRadius: -5,
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.smart_toy, // Original Robot Icon
+                size: 96,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
