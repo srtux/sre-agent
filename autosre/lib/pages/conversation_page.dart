@@ -19,6 +19,7 @@ import '../widgets/unified_prompt_input.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'tool_config_page.dart';
 import '../widgets/status_toast.dart';
+import '../widgets/glow_action_chip.dart';
 
 class ConversationPage extends StatefulWidget {
   const ConversationPage({super.key});
@@ -40,7 +41,6 @@ class _ConversationPageState extends State<ConversationPage>
   final ProjectService _projectService = ProjectService();
   final SessionService _sessionService = SessionService();
 
-
   late AnimationController _typingController;
 
   StreamSubscription<String>? _sessionSubscription;
@@ -49,6 +49,7 @@ class _ConversationPageState extends State<ConversationPage>
     "List active incidents",
     "Check for high latency",
   ]);
+  StreamSubscription<List<String>>? _suggestionsSubscription;
 
   @override
   void initState() {
@@ -56,7 +57,8 @@ class _ConversationPageState extends State<ConversationPage>
 
     // Handle Enter key behavior (Enter to send, Shift+Enter for newline)
     _focusNode.onKeyEvent = (node, event) {
-      if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.enter) {
+      if (event is KeyDownEvent &&
+          event.logicalKey == LogicalKeyboardKey.enter) {
         if (HardwareKeyboard.instance.isShiftPressed) {
           return KeyEventResult.ignored;
         }
@@ -88,10 +90,7 @@ class _ConversationPageState extends State<ConversationPage>
     final sreCatalog = CatalogRegistry.createSreCatalog();
 
     _messageProcessor = A2uiMessageProcessor(
-      catalogs: [
-        sreCatalog,
-        CoreCatalogItems.asCatalog(),
-      ],
+      catalogs: [sreCatalog, CoreCatalogItems.asCatalog()],
     );
 
     // Dispose previous content generator if it exists (though effectively we just replace it)
@@ -115,10 +114,23 @@ class _ConversationPageState extends State<ConversationPage>
       onSurfaceUpdated: (update) {},
       onTextResponse: (text) => _scrollToBottom(),
     );
+
+    // Subscribe to suggestions
+    _suggestionsSubscription = _contentGenerator.suggestionsStream.listen((
+      suggestions,
+    ) {
+      if (mounted) {
+        _suggestedActions.value = suggestions;
+      }
+    });
+
+    // Initial fetch of suggestions
+    _contentGenerator.fetchSuggestions();
   }
 
   void _onProjectChanged() {
     _contentGenerator.projectId = _projectService.selectedProjectId;
+    _contentGenerator.fetchSuggestions();
   }
 
   void _startNewSession() {
@@ -177,9 +189,13 @@ class _ConversationPageState extends State<ConversationPage>
       // Note: Cast to ValueNotifier to update state directly
       try {
         if (_conversation.conversation is ValueNotifier) {
-          (_conversation.conversation as ValueNotifier<List<ChatMessage>>).value = history;
+          (_conversation.conversation as ValueNotifier<List<ChatMessage>>)
+                  .value =
+              history;
           // Scroll to bottom after frame
-          WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+          WidgetsBinding.instance.addPostFrameCallback(
+            (_) => _scrollToBottom(),
+          );
         }
       } catch (e) {
         debugPrint("Could not hydrate session history: $e");
@@ -320,7 +336,9 @@ class _ConversationPageState extends State<ConversationPage>
         builder: (context) {
           return IconButton(
             icon: Icon(
-              isMobile ? Icons.menu : (_isSidebarOpen ? Icons.menu_open : Icons.menu),
+              isMobile
+                  ? Icons.menu
+                  : (_isSidebarOpen ? Icons.menu_open : Icons.menu),
               color: AppColors.textSecondary,
             ),
             onPressed: () {
@@ -338,8 +356,8 @@ class _ConversationPageState extends State<ConversationPage>
       titleSpacing: 0,
       title: LayoutBuilder(
         builder: (context, constraints) {
-           final isCompact = constraints.maxWidth < 600;
-           return Row(
+          final isCompact = constraints.maxWidth < 600;
+          return Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // Logo/Icon - clickable to return to home
@@ -392,24 +410,21 @@ class _ConversationPageState extends State<ConversationPage>
               // Project Selector (Left aligned now)
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 250),
-                 child: _buildProjectSelector(),
+                child: _buildProjectSelector(),
               ),
             ],
           );
-        }
+        },
       ),
       actions: [
-         // Status indicator
+        // Status indicator
         ValueListenableBuilder<bool>(
           valueListenable: _contentGenerator.isConnected,
           builder: (context, isConnected, _) {
             return ValueListenableBuilder<bool>(
               valueListenable: _contentGenerator.isProcessing,
               builder: (context, isProcessing, _) {
-                return _buildStatusIndicator(
-                  isProcessing,
-                  isConnected,
-                );
+                return _buildStatusIndicator(isProcessing, isConnected);
               },
             );
           },
@@ -446,19 +461,18 @@ class _ConversationPageState extends State<ConversationPage>
     );
   }
 
-
-
   Widget _buildSettingsButton() {
     return Tooltip(
       message: 'Settings',
       child: IconButton(
-        icon: const Icon(Icons.settings_outlined, color: AppColors.textSecondary),
+        icon: const Icon(
+          Icons.settings_outlined,
+          color: AppColors.textSecondary,
+        ),
         onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => const ToolConfigPage(),
-              ),
-            );
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (context) => const ToolConfigPage()),
+          );
         },
       ),
     );
@@ -478,7 +492,7 @@ class _ConversationPageState extends State<ConversationPage>
         child: InkWell(
           onTap: () {
             // TODO: Show profile dialog or sign out option
-             showDialog(
+            showDialog(
               context: context,
               builder: (context) => AlertDialog(
                 title: Text(user?.displayName ?? 'Profile'),
@@ -521,8 +535,11 @@ class _ConversationPageState extends State<ConversationPage>
     );
   }
 
-
-  Widget _buildStatusIndicator(bool isProcessing, bool isConnected, {bool compact = false}) {
+  Widget _buildStatusIndicator(
+    bool isProcessing,
+    bool isConnected, {
+    bool compact = false,
+  }) {
     Color statusColor;
     String statusText;
 
@@ -537,9 +554,9 @@ class _ConversationPageState extends State<ConversationPage>
     // Get Agent URL if available
     final agentUrl = _contentGenerator.baseUrl;
 
-
     return Tooltip(
-      message: 'Agent URL: ${agentUrl.isEmpty ? "Internal" : agentUrl}\nStatus: $statusText',
+      message:
+          'Agent URL: ${agentUrl.isEmpty ? "Internal" : agentUrl}\nStatus: $statusText',
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: AppColors.backgroundDark,
@@ -553,10 +570,7 @@ class _ConversationPageState extends State<ConversationPage>
           ),
         ],
       ),
-      textStyle: const TextStyle(
-        color: AppColors.textPrimary,
-        fontSize: 12,
-      ),
+      textStyle: const TextStyle(color: AppColors.textPrimary, fontSize: 12),
       child: Container(
         padding: EdgeInsets.symmetric(
           horizontal: compact ? 6 : 8,
@@ -643,11 +657,7 @@ class _ConversationPageState extends State<ConversationPage>
     return Stack(
       children: [
         // 1. Tech Grid Background
-        Positioned.fill(
-          child: CustomPaint(
-            painter: const TechGridPainter(),
-          ),
-        ),
+        Positioned.fill(child: CustomPaint(painter: const TechGridPainter())),
         // Gradient Overlay for Fade Effect
         Positioned.fill(
           child: DecoratedBox(
@@ -656,10 +666,7 @@ class _ConversationPageState extends State<ConversationPage>
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 stops: const [0.5, 1.0],
-                colors: [
-                  Colors.transparent,
-                  AppColors.backgroundDark,
-                ],
+                colors: [Colors.transparent, AppColors.backgroundDark],
               ),
             ),
           ),
@@ -690,15 +697,16 @@ class _ConversationPageState extends State<ConversationPage>
                 double topSpacing = 4.0;
                 if (index > 0) {
                   final prevMsg = messages[index - 1];
-                  final isSameSender = (msg is UserMessage && prevMsg is UserMessage) ||
-                                     ((msg is AiTextMessage || msg is AiUiMessage) &&
-                                      (prevMsg is AiTextMessage || prevMsg is AiUiMessage));
+                  final isSameSender =
+                      (msg is UserMessage && prevMsg is UserMessage) ||
+                      ((msg is AiTextMessage || msg is AiUiMessage) &&
+                          (prevMsg is AiTextMessage || prevMsg is AiUiMessage));
                   if (!isSameSender) {
                     topSpacing = 24.0;
                   }
                 } else {
-                   // First message
-                   topSpacing = 16.0;
+                  // First message
+                  topSpacing = 16.0;
                 }
 
                 return Padding(
@@ -728,11 +736,7 @@ class _ConversationPageState extends State<ConversationPage>
 
     return Stack(
       children: [
-        Positioned.fill(
-          child: CustomPaint(
-            painter: const TechGridPainter(),
-          ),
-        ),
+        Positioned.fill(child: CustomPaint(painter: const TechGridPainter())),
         Center(
           child: SingleChildScrollView(
             child: Padding(
@@ -745,7 +749,10 @@ class _ConversationPageState extends State<ConversationPage>
                     // Greeting
                     ShaderMask(
                       shaderCallback: (bounds) => const LinearGradient(
-                        colors: [AppColors.primaryBlue, AppColors.secondaryPurple],
+                        colors: [
+                          AppColors.primaryBlue,
+                          AppColors.secondaryPurple,
+                        ],
                       ).createShader(bounds),
                       child: Text(
                         'Hi $name',
@@ -777,18 +784,30 @@ class _ConversationPageState extends State<ConversationPage>
                     const SizedBox(height: 32),
 
                     // Action Chips
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _buildHeroActionChip('Analyze recent errors'),
-                          const SizedBox(width: 12),
-                          _buildHeroActionChip('Check Cloud Run latency'),
-                          const SizedBox(width: 12),
-                          _buildHeroActionChip('Summarize logs'),
-                        ],
-                      ),
+                    ValueListenableBuilder<List<String>>(
+                      valueListenable: _suggestedActions,
+                      builder: (context, suggestions, _) {
+                        if (suggestions.isEmpty) return const SizedBox.shrink();
+
+                        return SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: suggestions.asMap().entries.map((entry) {
+                              final index = entry.key;
+                              final suggestion = entry.value;
+                              return Padding(
+                                padding: EdgeInsets.only(
+                                  right: index < suggestions.length - 1
+                                      ? 12
+                                      : 0,
+                                ),
+                                child: _buildHeroActionChip(suggestion),
+                              );
+                            }).toList(),
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -804,113 +823,101 @@ class _ConversationPageState extends State<ConversationPage>
     return ValueListenableBuilder<bool>(
       valueListenable: _contentGenerator.isProcessing,
       builder: (context, isProcessing, _) {
-          return UnifiedPromptInput(
-            controller: _textController,
-            focusNode: _focusNode,
-            isProcessing: isProcessing,
-            onSend: _sendMessage,
-            onCancel: _contentGenerator.cancelRequest,
-          );
-      }
+        return UnifiedPromptInput(
+          controller: _textController,
+          focusNode: _focusNode,
+          isProcessing: isProcessing,
+          onSend: _sendMessage,
+          onCancel: _contentGenerator.cancelRequest,
+        );
+      },
     );
   }
 
   Widget _buildHeroActionChip(String label) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () {
-          _textController.text = label;
-          _sendMessage();
-        },
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppColors.surfaceBorder.withValues(alpha: 0.5)),
-            color: AppColors.backgroundCard.withValues(alpha: 0.5),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      ),
+    return GlowActionChip(
+      label: label,
+      icon: Icons.bolt_rounded,
+      onTap: () {
+        _textController.text = label;
+        _sendMessage();
+      },
     );
   }
 
   Widget _buildTypingIndicator() {
     return Align(
-        alignment: Alignment.centerLeft,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center, // Center aligned for dots
-            children: [
-              // Agent Icon
-              const AgentAvatar(),
-              // Typing Dots Bubble
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: AppColors.secondaryPurple.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: AppColors.secondaryPurple.withValues(alpha: 0.1),
-                    width: 1,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: List.generate(3, (index) {
-                    return AnimatedBuilder(
-                      animation: _typingController,
-                      builder: (context, child) {
-                        final delay = index * 0.2;
-                        final animValue =
-                            ((_typingController.value + delay) % 1.0 * 2.0)
-                                .clamp(0.0, 1.0);
-                        final bounce = (animValue < 0.5
-                                ? animValue * 2
-                                : 2 - animValue * 2) *
-                            0.4;
-
-                        return Container(
-                          margin: EdgeInsets.only(right: index < 2 ? 4 : 0),
-                          child: Transform.translate(
-                            offset: Offset(0, -bounce * 4),
-                            child: Container(
-                              width: 6,
-                              height: 6,
-                              decoration: BoxDecoration(
-                                color: AppColors.secondaryPurple.withValues(
-                                  alpha: 0.4 + bounce,
-                                ),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    );
-                  }),
+      alignment: Alignment.centerLeft,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          crossAxisAlignment:
+              CrossAxisAlignment.center, // Center aligned for dots
+          children: [
+            // Agent Icon
+            const AgentAvatar(),
+            // Typing Dots Bubble
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.secondaryPurple.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: AppColors.secondaryPurple.withValues(alpha: 0.1),
+                  width: 1,
                 ),
               ),
-            ],
-          ),
-        ));
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: List.generate(3, (index) {
+                  return AnimatedBuilder(
+                    animation: _typingController,
+                    builder: (context, child) {
+                      final delay = index * 0.2;
+                      final animValue =
+                          ((_typingController.value + delay) % 1.0 * 2.0).clamp(
+                            0.0,
+                            1.0,
+                          );
+                      final bounce =
+                          (animValue < 0.5
+                              ? animValue * 2
+                              : 2 - animValue * 2) *
+                          0.4;
+
+                      return Container(
+                        margin: EdgeInsets.only(right: index < 2 ? 4 : 0),
+                        child: Transform.translate(
+                          offset: Offset(0, -bounce * 4),
+                          child: Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: AppColors.secondaryPurple.withValues(
+                                alpha: 0.4 + bounce,
+                              ),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                }),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildInputArea() {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       decoration: BoxDecoration(
-        color: Colors.transparent, // Floating effect: Transparent background wrapper
+        color: Colors
+            .transparent, // Floating effect: Transparent background wrapper
       ),
       child: SafeArea(
         top: false,
@@ -924,32 +931,33 @@ class _ConversationPageState extends State<ConversationPage>
                 _buildSuggestedActions(),
                 const SizedBox(height: 12),
                 // Unified Input Container
-              ValueListenableBuilder<bool>(
-                valueListenable: _contentGenerator.isProcessing,
-                builder: (context, isProcessing, child) {
-                  return UnifiedPromptInput(
-                    controller: _textController,
-                    focusNode: _focusNode,
-                    isProcessing: isProcessing,
-                    onSend: _sendMessage,
-                    onCancel: _contentGenerator.cancelRequest,
-                  );
-                },
-              ),
-              // Compact keyboard hint
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 8, left: 16),
-                  child: Text(
-                    'Enter to send • Shift+Enter for new line',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: AppColors.textMuted.withValues(alpha: 0.6),
+                ValueListenableBuilder<bool>(
+                  valueListenable: _contentGenerator.isProcessing,
+                  builder: (context, isProcessing, child) {
+                    return UnifiedPromptInput(
+                      controller: _textController,
+                      focusNode: _focusNode,
+                      isProcessing: isProcessing,
+                      onSend: _sendMessage,
+                      onCancel: _contentGenerator.cancelRequest,
+                    );
+                  },
+                ),
+                // Compact keyboard hint
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 8, left: 16),
+                    child: Text(
+                      'Enter to send • Shift+Enter for new line',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textMuted.withValues(alpha: 0.6),
+                      ),
                     ),
                   ),
                 ),
-              ),  ],
+              ],
             ),
           ),
         ),
@@ -969,7 +977,9 @@ class _ConversationPageState extends State<ConversationPage>
             scrollDirection: Axis.horizontal,
             itemCount: suggestions.length,
             separatorBuilder: (context, index) => const SizedBox(width: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 4), // Align with input
+            padding: const EdgeInsets.symmetric(
+              horizontal: 4,
+            ), // Align with input
             itemBuilder: (context, index) {
               final action = suggestions[index];
               return _buildActionChip(action);
@@ -981,58 +991,21 @@ class _ConversationPageState extends State<ConversationPage>
   }
 
   Widget _buildActionChip(String text) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () {
-          _textController.text = text;
-          _sendMessage();
-        },
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          decoration: BoxDecoration(
-            color: AppColors.backgroundCard.withValues(alpha: 0.7), // Glassy background
-            borderRadius: BorderRadius.circular(20),
-             border: Border.all(
-              color: AppColors.primaryTeal.withValues(alpha: 0.3),
-              width: 1,
-            ),
-             boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.bolt_rounded,
-                size: 14,
-                color: AppColors.primaryTeal,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                text,
-                style: const TextStyle(
-                  color: AppColors.primaryTeal, // Cyan text
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    return GlowActionChip(
+      label: text,
+      icon: Icons.bolt_rounded,
+      compact: true,
+      onTap: () {
+        _textController.text = text;
+        _sendMessage();
+      },
     );
   }
 
   @override
   void dispose() {
     _sessionSubscription?.cancel();
+    _suggestionsSubscription?.cancel();
     _projectService.selectedProject.removeListener(_onProjectChanged);
     _typingController.dispose();
     _conversation.dispose();
@@ -1103,18 +1076,13 @@ class _MessageItemState extends State<_MessageItem>
       curve: Curves.easeOut,
     );
 
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.15),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _entryController,
-      curve: Curves.easeOutCubic,
-    ));
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.15), end: Offset.zero).animate(
+          CurvedAnimation(parent: _entryController, curve: Curves.easeOutCubic),
+        );
 
     _entryController.forward();
   }
-
-
 
   @override
   void dispose() {
@@ -1141,102 +1109,31 @@ class _MessageItemState extends State<_MessageItem>
       return Align(
         alignment: Alignment.centerRight,
         child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            crossAxisAlignment: isShort ? CrossAxisAlignment.center : CrossAxisAlignment.start,
-            children: [
-              // Spacer to push content
-              const Spacer(),
+          mainAxisAlignment: MainAxisAlignment.end,
+          crossAxisAlignment: isShort
+              ? CrossAxisAlignment.center
+              : CrossAxisAlignment.start,
+          children: [
+            // Spacer to push content
+            const Spacer(),
 
-              // Message Bubble
-              Flexible(
-                flex: 0,
+            // Message Bubble
+            Flexible(
+              flex: 0,
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 900),
                 child: Container(
-                  constraints: const BoxConstraints(maxWidth: 900),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryBlue.withValues(alpha: 0.15), // Blue Accent
-                      borderRadius: BorderRadius.circular(12), // Modern Radius
-                      border: Border.all(
-                        color: AppColors.primaryBlue.withValues(alpha: 0.3),
-                        width: 1,
-                      ),
-                    ),
-                    child: SelectionArea(
-                      child: MarkdownBody(
-                        data: msg.text,
-                        styleSheet: MarkdownStyleSheet(
-                          p: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            height: 1.4,
-                          ),
-                          code: TextStyle(
-                            backgroundColor: Colors.black.withValues(alpha: 0.2),
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontFamily: AppTheme.codeStyle.fontFamily,
-                          ),
-                        ),
-                      ),
-                    ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
                   ),
-                ),
-              ),
-              const SizedBox(width: 8), // Gap 8px
-              // User Avatar
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.primaryTeal,
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: Consumer<AuthService>(
-                  builder: (context, auth, _) {
-                    final user = auth.currentUser;
-                    if (user?.photoUrl != null) {
-                      return Image.network(
-                        user!.photoUrl!,
-                        fit: BoxFit.cover,
-                      );
-                    }
-                    return Center(
-                      child: Text(
-                        (user?.displayName ?? 'U').substring(0, 1).toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-      );
-    } else if (msg is AiTextMessage) {
-      final isShort = !msg.text.contains('\n') && msg.text.length < 80;
-      return Align(
-        alignment: Alignment.centerLeft,
-        child: Row(
-            crossAxisAlignment: isShort ? CrossAxisAlignment.center : CrossAxisAlignment.start,
-            children: [
-              // Agent Icon
-              const AgentAvatar(),
-              // Message Bubble
-              Flexible(
-                child: Container(
-                  constraints: const BoxConstraints(maxWidth: 900),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B), // Dark Background for AI
-                    borderRadius: BorderRadius.circular(12),
+                    color: AppColors.primaryBlue.withValues(
+                      alpha: 0.15,
+                    ), // Blue Accent
+                    borderRadius: BorderRadius.circular(12), // Modern Radius
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.1),
+                      color: AppColors.primaryBlue.withValues(alpha: 0.3),
                       width: 1,
                     ),
                   ),
@@ -1245,122 +1142,203 @@ class _MessageItemState extends State<_MessageItem>
                       data: msg.text,
                       styleSheet: MarkdownStyleSheet(
                         p: const TextStyle(
-                          color: AppColors.textPrimary,
+                          color: Colors.white,
                           fontSize: 14,
-                          height: 1.6, // Increased line height for better readability
+                          height: 1.4,
                         ),
-                        pPadding: const EdgeInsets.only(bottom: 12),
-                        h1: const TextStyle(
-                          color: AppColors.primaryTeal,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.5,
-                        ),
-                        h1Padding: const EdgeInsets.only(top: 16, bottom: 8),
-                        h2: const TextStyle(
-                          color: AppColors.primaryCyan,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: -0.3,
-                        ),
-                        h2Padding: const EdgeInsets.only(top: 14, bottom: 6),
-                        h3: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        h3Padding: const EdgeInsets.only(top: 12, bottom: 4),
                         code: TextStyle(
-                          backgroundColor: const Color(0xFF0F172A), // Dark "code pill" bg
-                          color: AppColors.primaryCyan, // Cyan text
-                          fontSize: 13,
-                          fontFamily: AppTheme.codeStyle.fontFamily,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        codeblockDecoration: BoxDecoration(
-                          color: const Color(0xFF0F172A),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.1),
-                          ),
-                        ),
-                        blockquoteDecoration: BoxDecoration(
-                          color: AppColors.primaryTeal.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border(
-                            left: BorderSide(
-                              color: AppColors.primaryTeal.withValues(alpha: 0.5),
-                              width: 3,
-                            ),
-                          ),
-                        ),
-                        blockquotePadding: const EdgeInsets.all(12),
-                        // Premium Table Styling
-                        tableHead: const TextStyle(
-                          fontWeight: FontWeight.w700,
+                          backgroundColor: Colors.black.withValues(alpha: 0.2),
                           color: Colors.white,
                           fontSize: 12,
+                          fontFamily: AppTheme.codeStyle.fontFamily,
                         ),
-                        tableBody: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 12,
-                        ),
-                        tableBorder: TableBorder.all(
-                          color: Colors.white.withValues(alpha: 0.1),
-                          width: 1,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        tableCellsPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        tableCellsDecoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.02),
-                        ),
-                        listBullet: const TextStyle(
-                          color: AppColors.primaryTeal,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        listIndent: 20,
-                        listBulletPadding: const EdgeInsets.only(right: 8),
                       ),
                     ),
-
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+            const SizedBox(width: 8), // Gap 8px
+            // User Avatar
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.primaryTeal,
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Consumer<AuthService>(
+                builder: (context, auth, _) {
+                  final user = auth.currentUser;
+                  if (user?.photoUrl != null) {
+                    return Image.network(user!.photoUrl!, fit: BoxFit.cover);
+                  }
+                  return Center(
+                    child: Text(
+                      (user?.displayName ?? 'U').substring(0, 1).toUpperCase(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      );
+    } else if (msg is AiTextMessage) {
+      final isShort = !msg.text.contains('\n') && msg.text.length < 80;
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: Row(
+          crossAxisAlignment: isShort
+              ? CrossAxisAlignment.center
+              : CrossAxisAlignment.start,
+          children: [
+            // Agent Icon
+            const AgentAvatar(),
+            // Message Bubble
+            Flexible(
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 900),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E293B), // Dark Background for AI
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.1),
+                    width: 1,
+                  ),
+                ),
+                child: SelectionArea(
+                  child: MarkdownBody(
+                    data: msg.text,
+                    styleSheet: MarkdownStyleSheet(
+                      p: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 14,
+                        height:
+                            1.6, // Increased line height for better readability
+                      ),
+                      pPadding: const EdgeInsets.only(bottom: 12),
+                      h1: const TextStyle(
+                        color: AppColors.primaryTeal,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.5,
+                      ),
+                      h1Padding: const EdgeInsets.only(top: 16, bottom: 8),
+                      h2: const TextStyle(
+                        color: AppColors.primaryCyan,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.3,
+                      ),
+                      h2Padding: const EdgeInsets.only(top: 14, bottom: 6),
+                      h3: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      h3Padding: const EdgeInsets.only(top: 12, bottom: 4),
+                      code: TextStyle(
+                        backgroundColor: const Color(
+                          0xFF0F172A,
+                        ), // Dark "code pill" bg
+                        color: AppColors.primaryCyan, // Cyan text
+                        fontSize: 13,
+                        fontFamily: AppTheme.codeStyle.fontFamily,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      codeblockDecoration: BoxDecoration(
+                        color: const Color(0xFF0F172A),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.1),
+                        ),
+                      ),
+                      blockquoteDecoration: BoxDecoration(
+                        color: AppColors.primaryTeal.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border(
+                          left: BorderSide(
+                            color: AppColors.primaryTeal.withValues(alpha: 0.5),
+                            width: 3,
+                          ),
+                        ),
+                      ),
+                      blockquotePadding: const EdgeInsets.all(12),
+                      // Premium Table Styling
+                      tableHead: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        fontSize: 12,
+                      ),
+                      tableBody: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                      ),
+                      tableBorder: TableBorder.all(
+                        color: Colors.white.withValues(alpha: 0.1),
+                        width: 1,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      tableCellsPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      tableCellsDecoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.02),
+                      ),
+                      listBullet: const TextStyle(
+                        color: AppColors.primaryTeal,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      listIndent: 20,
+                      listBulletPadding: const EdgeInsets.only(right: 8),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       );
     } else if (msg is AiUiMessage) {
       return Align(
         alignment: Alignment.centerLeft,
         child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const AgentAvatar(),
-              // Message Bubble / Tool Surface
-              Flexible(
-                child: Container(
-                  constraints: const BoxConstraints(
-                    maxWidth: 950,
-                  ),
-                  // No decoration here to avoid double border - inner widgets (ToolLog) handle their own borders
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: GenUiSurface(
-                      host: widget.host,
-                      surfaceId: msg.surfaceId,
-                    ),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const AgentAvatar(),
+            // Message Bubble / Tool Surface
+            Flexible(
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 950),
+                // No decoration here to avoid double border - inner widgets (ToolLog) handle their own borders
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: GenUiSurface(
+                    host: widget.host,
+                    surfaceId: msg.surfaceId,
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
+        ),
       );
     }
     return const SizedBox.shrink();
   }
 }
-
-
 
 /// Modern searchable project selector with combobox functionality
 class _ProjectSelectorDropdown extends StatefulWidget {
@@ -1385,7 +1363,8 @@ class _ProjectSelectorDropdown extends StatefulWidget {
   });
 
   @override
-  State<_ProjectSelectorDropdown> createState() => _ProjectSelectorDropdownState();
+  State<_ProjectSelectorDropdown> createState() =>
+      _ProjectSelectorDropdownState();
 }
 
 class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
@@ -1418,7 +1397,6 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
     );
   }
 
-
   @override
   void dispose() {
     _debounceTimer?.cancel();
@@ -1432,16 +1410,14 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
     super.dispose();
   }
 
-
-
   // The projects list is already filtered by backend if query matches,
   // effectively we just show 'widget.projects'.
   // But for better UX during 'isLoading' or empty/cleared search, we might want local logic too?
   // Current logic: If backend returns list, that's the list.
   List<GcpProject> get _filteredProjects {
-     // If we are searching and waiting, maybe keep showing old results or show loading?
-     // For now, trust the state.
-     return widget.projects;
+    // If we are searching and waiting, maybe keep showing old results or show loading?
+    // For now, trust the state.
+    return widget.projects;
   }
 
   void _toggleDropdown() {
@@ -1534,9 +1510,7 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
           decoration: BoxDecoration(
             color: const Color(0xFF1E293B),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.1),
-            ),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.4),
@@ -1614,7 +1588,10 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                 const Divider(height: 1, color: Colors.white10),
                 // Header with refresh button
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.02),
                   ),
@@ -1718,7 +1695,7 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                       ),
                     )
                   else if (widget.projects.isEmpty)
-                     Padding(
+                    Padding(
                       padding: const EdgeInsets.all(24),
                       child: Column(
                         children: [
@@ -1760,50 +1737,58 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                         itemCount: widget.recentProjects.length,
                         itemBuilder: (context, index) {
                           final project = widget.recentProjects[index];
-                          final isSelected = widget.selectedProject?.projectId == project.projectId;
+                          final isSelected =
+                              widget.selectedProject?.projectId ==
+                              project.projectId;
                           return _buildProjectItem(project, isSelected);
                         },
                       ),
                       const Divider(height: 1, color: Colors.white10),
                     ],
                     // All Projects (Limited)
-                     Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-                        child: Row(
-                          children: [
-                            Text(
-                              'ALL PROJECTS',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textMuted.withValues(alpha: 0.7),
-                                letterSpacing: 0.5,
-                              ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                      child: Row(
+                        children: [
+                          Text(
+                            'ALL PROJECTS',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textMuted.withValues(alpha: 0.7),
+                              letterSpacing: 0.5,
                             ),
-                            if (widget.projects.length > 10)
-                              Padding(
-                                padding: const EdgeInsets.only(left: 8),
-                                child: Text(
-                                  '(Showing top 10)',
-                                   style: TextStyle(
-                                    fontSize: 10,
-                                    color: AppColors.textMuted.withValues(alpha: 0.5),
-                                    fontStyle: FontStyle.italic,
+                          ),
+                          if (widget.projects.length > 10)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 8),
+                              child: Text(
+                                '(Showing top 10)',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: AppColors.textMuted.withValues(
+                                    alpha: 0.5,
                                   ),
+                                  fontStyle: FontStyle.italic,
                                 ),
                               ),
-                          ],
-                        ),
+                            ),
+                        ],
                       ),
+                    ),
                     Flexible(
                       child: ListView.builder(
                         shrinkWrap: true,
                         padding: const EdgeInsets.symmetric(vertical: 4),
                         // Limit to 10 entries when not searching
-                        itemCount: widget.projects.length > 10 ? 10 : widget.projects.length,
+                        itemCount: widget.projects.length > 10
+                            ? 10
+                            : widget.projects.length,
                         itemBuilder: (context, index) {
                           final project = widget.projects[index];
-                          final isSelected = widget.selectedProject?.projectId == project.projectId;
+                          final isSelected =
+                              widget.selectedProject?.projectId ==
+                              project.projectId;
                           return _buildProjectItem(project, isSelected);
                         },
                       ),
@@ -1817,14 +1802,16 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                       itemCount: _filteredProjects.length,
                       itemBuilder: (context, index) {
                         final project = _filteredProjects[index];
-                        final isSelected = widget.selectedProject?.projectId == project.projectId;
+                        final isSelected =
+                            widget.selectedProject?.projectId ==
+                            project.projectId;
 
                         return _buildProjectItem(project, isSelected);
                       },
                     ),
                   )
                 else if (_searchQuery.isNotEmpty && _filteredProjects.isEmpty)
-                   Padding(
+                  Padding(
                     padding: const EdgeInsets.all(24),
                     child: Column(
                       children: [
@@ -1834,7 +1821,7 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                           color: AppColors.textMuted,
                         ),
                         const SizedBox(height: 12),
-                         Text(
+                        Text(
                           'No matching projects',
                           style: TextStyle(
                             fontSize: 13,
@@ -1855,7 +1842,10 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
     );
   }
 
-  Widget _buildUseCustomProjectOption(String projectId, StateSetter setDropdownState) {
+  Widget _buildUseCustomProjectOption(
+    String projectId,
+    StateSetter setDropdownState,
+  ) {
     // Don't show if exact match exists
     final exactMatch = widget.projects.any((p) => p.projectId == projectId);
     if (exactMatch) return const SizedBox.shrink();
@@ -1865,9 +1855,7 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
       decoration: BoxDecoration(
         color: AppColors.primaryTeal.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: AppColors.primaryTeal.withValues(alpha: 0.3),
-        ),
+        border: Border.all(color: AppColors.primaryTeal.withValues(alpha: 0.3)),
       ),
       child: Material(
         color: Colors.transparent,
@@ -1940,10 +1928,7 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
           borderRadius: BorderRadius.circular(10),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
-            padding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 10,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: isSelected
                   ? AppColors.primaryTeal.withValues(alpha: 0.15)
@@ -2034,8 +2019,6 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
     );
   }
 
-
-
   @override
   Widget build(BuildContext context) {
     return CompositedTransformTarget(
@@ -2086,7 +2069,9 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                   child: Icon(
                     Icons.keyboard_arrow_down,
                     size: 16,
-                    color: _isOpen ? AppColors.primaryTeal : AppColors.textMuted,
+                    color: _isOpen
+                        ? AppColors.primaryTeal
+                        : AppColors.textMuted,
                   ),
                 ),
               ],

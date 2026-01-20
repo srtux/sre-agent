@@ -55,6 +55,7 @@ from pydantic import BaseModel
 
 from sre_agent.agent import root_agent
 from sre_agent.services import get_session_service, get_storage_service
+from sre_agent.suggestions import generate_contextual_suggestions
 from sre_agent.tools import (
     extract_log_patterns,
     fetch_trace,
@@ -179,7 +180,33 @@ async def get_tool_context() -> "ToolContext":
     return ToolContext(invocation_context=inv_ctx)
 
 
-# 2.1 AGENT ENDPOINT
+# 2.1 SUGGESTIONS ENDPOINT
+@app.get("/api/suggestions")
+async def get_suggestions(
+    project_id: str | None = None,
+    session_id: str | None = None,
+    user_id: str = "default",
+) -> Any:
+    """Get contextual suggestions for the user."""
+    try:
+        suggestions = await generate_contextual_suggestions(
+            project_id=project_id,
+            session_id=session_id,
+            user_id=user_id,
+        )
+        return {"suggestions": suggestions}
+    except Exception as e:
+        logger.error(f"Error getting suggestions: {e}")
+        return {
+            "suggestions": [
+                "Analyze last hour's logs",
+                "List active incidents",
+                "Check for high latency",
+            ]
+        }
+
+
+# 2.2 AGENT ENDPOINT
 import time
 from typing import Any
 

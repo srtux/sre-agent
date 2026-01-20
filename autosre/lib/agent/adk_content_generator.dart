@@ -16,6 +16,8 @@ class ADKContentGenerator implements ContentGenerator {
       StreamController<ContentGeneratorError>.broadcast();
   final StreamController<String> _sessionController =
       StreamController<String>.broadcast();
+  final StreamController<List<String>> _suggestionsController =
+      StreamController<List<String>>.broadcast();
   final ValueNotifier<bool> _isProcessing = ValueNotifier(false);
   final ValueNotifier<bool> _isConnected = ValueNotifier(false);
 
@@ -36,6 +38,9 @@ class ADKContentGenerator implements ContentGenerator {
 
   /// Stream of session ID updates (emitted when backend assigns/creates session).
   Stream<String> get sessionStream => _sessionController.stream;
+
+  /// Stream of suggested actions.
+  Stream<List<String>> get suggestionsStream => _suggestionsController.stream;
 
   /// The base URL of the connected agent.
   String get baseUrl => _baseUrl;
@@ -172,7 +177,6 @@ class ADKContentGenerator implements ContentGenerator {
           requestBody["user_id"] = userId;
         }
 
-
         request.body = jsonEncode(requestBody);
 
         final response = await _currentClient!
@@ -182,7 +186,6 @@ class ADKContentGenerator implements ContentGenerator {
         if (response.statusCode != 200) {
           throw Exception('Failed to connect to agent: ${response.statusCode}');
         }
-
 
         _isConnected.value = true; // Request succeeded, so we are connected
         ConnectivityService().updateStatus(true);
@@ -262,6 +265,37 @@ class ADKContentGenerator implements ContentGenerator {
     if (!_isDisposed) {
       _isProcessing.value = false;
     }
+
+    // Fetch new contextual suggestions after request is complete
+    fetchSuggestions();
+  }
+
+  /// Fetches contextual suggestions from the backend.
+  Future<void> fetchSuggestions() async {
+    if (_isDisposed) return;
+    try {
+      final queryParams = <String, String>{};
+      if (projectId != null) queryParams['project_id'] = projectId!;
+      if (sessionId != null) queryParams['session_id'] = sessionId!;
+
+      final uri = Uri.parse(
+        '$_baseUrl/api/suggestions',
+      ).replace(queryParameters: queryParams);
+      final client = await AuthService().getAuthenticatedClient();
+      final response = await client
+          .get(uri)
+          .timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final suggestions = List<String>.from(data['suggestions'] ?? []);
+        if (suggestions.isNotEmpty && !_isDisposed) {
+          _suggestionsController.add(suggestions);
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching suggestions: $e");
+    }
   }
 
   /// Clears the current session (for starting a new conversation).
@@ -281,6 +315,7 @@ class ADKContentGenerator implements ContentGenerator {
     _textController.close();
     _errorController.close();
     _sessionController.close();
+    _suggestionsController.close();
     _isProcessing.dispose();
     _isConnected.dispose();
   }
