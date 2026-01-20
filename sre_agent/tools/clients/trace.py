@@ -234,6 +234,9 @@ def _fetch_trace_sync(project_id: str, trace_id: str) -> str:
                         "name": span_proto.name,
                         "start_time": span_proto.start_time.isoformat(),
                         "end_time": span_proto.end_time.isoformat(),
+                        # Optimization: Store unix timestamps to avoid expensive ISO parsing in analysis tools
+                        "start_time_unix": s_start,
+                        "end_time_unix": s_end,
                         "parent_span_id": span_proto.parent_span_id,
                         "labels": dict(span_proto.labels),
                     }
