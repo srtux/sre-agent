@@ -28,7 +28,14 @@ class CatalogRegistry {
           dataSchema: S.object(),
           widgetBuilder: (context) {
             try {
-              final data = _ensureMap(context.data);
+              var data = _ensureMap(context.data);
+
+              // Handle case where data might be wrapped in component name
+              // (e.g., {"x-sre-trace-waterfall": {...actual data...}})
+              if (data.containsKey('x-sre-trace-waterfall') && data['x-sre-trace-waterfall'] is Map) {
+                data = Map<String, dynamic>.from(data['x-sre-trace-waterfall'] as Map);
+              }
+
               final trace = Trace.fromJson(data);
               return _buildWidgetContainer(
                 child: TraceWaterfall(trace: trace),

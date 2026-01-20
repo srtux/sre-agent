@@ -1436,6 +1436,21 @@ def _create_widget_events(tool_name: str, result: Any) -> list[str]:
             logger.warning(f"Failed to parse widget result as JSON: {e}")
             return []
 
+    # Apply data transformations to match Flutter widget expectations
+    if isinstance(data, dict):
+        if component_name == "x-sre-trace-waterfall":
+            data = genui_adapter.transform_trace(data)
+            logger.debug(f"Transformed trace data: {len(data.get('spans', []))} spans")
+        elif component_name == "x-sre-metric-chart":
+            data = genui_adapter.transform_metrics(data)
+        elif component_name == "x-sre-log-pattern-viewer":
+            if "top_patterns" in data:
+                data = data["top_patterns"]
+        elif component_name == "x-sre-log-entries-viewer":
+            data = genui_adapter.transform_log_entries(data)
+        elif component_name == "x-sre-remediation-plan":
+            data = genui_adapter.transform_remediation(data)
+
     events = [
         json.dumps(
             {
