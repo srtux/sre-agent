@@ -68,6 +68,7 @@ from .analysis.trace.analysis import (
     summarize_trace,
     validate_trace_quality,
 )
+from .analysis.trace_comprehensive import analyze_trace_comprehensive
 from .analysis.trace.comparison import (
     compare_span_timings,
     find_structural_differences,
@@ -169,6 +170,7 @@ __all__ = [
     "analyze_log_anomalies",
     "analyze_node_conditions",
     "analyze_signal_correlation_strength",
+    "analyze_trace_comprehensive",
     "analyze_trace_patterns",
     "analyze_upstream_downstream_impact",
     "build_call_graph",

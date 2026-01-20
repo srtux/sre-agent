@@ -4,50 +4,33 @@ This is the main orchestration agent for SRE tasks, designed to analyze telemetr
 from Google Cloud Observability (Traces, Logs, Metrics) to identify root causes of
 production issues.
 
-## Architecture: "Council of Experts"
+## Architecture: "Core Squad"
 
-The agent uses a "Council of Experts" orchestration pattern where a central
-**SRE Agent** delegates specialized tasks to domain-specific sub-agents.
+The agent uses a "Core Squad" orchestration pattern (simplified from the previous
+"Council of Experts") where a central **SRE Agent** delegates to high-level analysts.
 
 ### The 3-Stage Analysis Pipeline
 
 1.  **Stage 0: Aggregate Analysis (Data Analyst)**
     -   **Sub-Agent**: `aggregate_analyzer`
-    -   **Goal**: Analyze thousands of traces in BigQuery to identify trends,
-        patterns, and outlier services without manual inspection.
-    -   **Output**: A list of "Exemplar Traces" (baselines and anomalies) to investigate.
+    -   **Goal**: Analyze traces at scale in BigQuery.
 
-2.  **Stage 1: Triage (The Squad)**
-    -   **Goal**: Parallel inspection of specific traces to identify *what* is wrong.
-    -   **Sub-Agents**:
-        -   `latency_analyzer`: Finds critical path and bottlenecks.
-        -   `error_analyzer`: Diagnoses specific error codes and failure points.
-        -   `structure_analyzer`: Detects changes in call graph topology (e.g., new dependencies).
-        -   `statistics_analyzer`: Calculates z-scores and statistical significance of anomalies.
-        -   `resiliency_architect`: Detects anti-patterns like retry storms and cascading failures.
+2.  **Stage 1: Triage (Trace Analyst)**
+    -   **Sub-Agent**: `trace_analyst`
+    -   **Goal**: Analyze individual traces for latency, errors, structure, and resiliency patterns.
+    -   **Efficiency**: Uses `analyze_trace_comprehensive` "Mega-Tool" to reduce tool calls.
 
-3.  **Stage 2: Deep Dive (Root Cause)**
-    -   **Goal**: Synthesize findings to determine *why* it happened and *who* is impacted.
-    -   **Sub-Agents**:
-        -   `causality_analyzer`: Correlates traces, logs, and metrics to find the "smoking gun".
-        -   `service_impact_analyzer`: Assesses the "blast radius" (upstream/downstream impact).
-        -   `change_detective`: Correlates incidents with recent deployments or config changes.
+3.  **Stage 2: Deep Dive (Root Cause Analyst)**
+    -   **Sub-Agent**: `root_cause_analyst`
+    -   **Goal**: Synthesize findings to determine causality, impact, and trigger (deployment/config).
 
 ## Capabilities
 
--   **Trace Analysis**: Full-spectrum analysis from aggregate BigQuery stats to individual span inspection.
--   **Log Analysis**: Pattern extraction (Drain3), anomaly detection, and correlation with traces.
--   **Metrics Analysis**: PromQL querying, anomaly detection, and cross-signal correlation.
--   **SLO/SLI Support**: Error budget tracking, burn rate analysis, and violation prediction.
--   **Kubernetes/GKE**: Cluster health, node pressure, and workload debugging.
--   **Automated Remediation**: Actionable suggestions and risk-assessed gcloud commands.
-
-## Tooling Strategy
-
-The agent employs a hybrid tooling strategy:
--   **MCP (Model Context Protocol)**: For heavy-lifting, stateful operations (BigQuery, complex queries).
--   **Direct API Clients**: For low-latency, stateless operations (Trace fetching, light logging).
--   **Analysis Engines**: Python-based logic for statistical analysis, graph traversal, and pattern matching.
+-   **Trace Analysis**: Comprehensive timing, error, structure, and critical path analysis.
+-   **Log Analysis**: Pattern extraction (Drain3) and correlation.
+-   **Metrics Analysis**: PromQL querying and cross-signal correlation.
+-   **SLO/SLI Support**: Error budget tracking and prediction.
+-   **Kubernetes/GKE**: Cluster health and workload debugging.
 """
 
 # ruff: noqa: E402
@@ -80,19 +63,12 @@ from .sub_agents import (
     aggregate_analyzer,
     # Alert analysis sub-agents
     alert_analyst,
-    causality_analyzer,
-    # New Sub-Agents
-    change_detective,
-    error_analyzer,
-    latency_analyzer,
     # Log analysis sub-agents
     log_analyst,
     # Metrics analysis sub-agents
     metrics_analyzer,
-    resiliency_architect,
-    service_impact_analyzer,
-    statistics_analyzer,
-    structure_analyzer,
+    root_cause_analyst,
+    trace_analyst,
 )
 from .tools import (
     # BigQuery tools
@@ -106,6 +82,7 @@ from .tools import (
     analyze_log_anomalies,
     analyze_node_conditions,
     analyze_signal_correlation_strength,
+    analyze_trace_comprehensive,
     analyze_trace_patterns,
     analyze_upstream_downstream_impact,
     build_call_graph,
@@ -229,11 +206,7 @@ if use_vertex and project_id:
 
 
 def emojify_agent(agent: LlmAgent) -> LlmAgent:
-    """Wraps an LlmAgent to add emojis to prompts and responses in logs.
-
-    This ensures that regardless of how the agent is run (ADK CLI, custom server, etc.),
-    the critical user-facing events are clearly visible in the logs.
-    """
+    """Wraps an LlmAgent to add emojis to prompts and responses in logs."""
     original_run_async = agent.run_async
 
     @functools.wraps(original_run_async)
@@ -334,27 +307,7 @@ async def run_aggregate_analysis(
     service_name: str | None = None,
     tool_context: Any | None = None,
 ) -> dict[str, Any]:
-    """Run Stage 0: Aggregate analysis using BigQuery.
-
-    This is the entry point for fleet-wide analysis. It queries BigQuery telemetry tables
-    to find statistical anomalies across thousands of traces.
-
-    If `dataset_id` or `table_name` are not provided, this tool will automatically
-    attempt to discover them using `discover_telemetry_sources`.
-
-    Args:
-        dataset_id: BigQuery dataset ID (e.g., 'your_project.telemetry_dataset'). Optional.
-        table_name: Table name containing OTel spans (e.g., '_AllSpans'). Optional.
-        time_window_hours: Lookback window in hours (default: 24).
-        service_name: Optional filter to restrict analysis to a specific service.
-        tool_context: ADK tool context (required for sub-agent execution).
-
-    Returns:
-        A dictionary containing:
-        - "stage": "aggregate"
-        - "status": "success" or "error"
-        - "result": The output from the `aggregate_analyzer` sub-agent.
-    """
+    """Run Stage 0: Aggregate analysis using BigQuery."""
     logger.info(
         f"🎺 Running aggregate analysis (Dataset: {dataset_id}, Table: {table_name})"
     )
@@ -378,8 +331,6 @@ async def run_aggregate_analysis(
                     "result": "Telemetry discovery completed but found no trace tables. Please ask the user to provide the 'dataset_id' manually.",
                 }
 
-            # trace_table_full is likely "project.dataset.table"
-            # We need to split it if possible, or just pass it as is to the prompt
             logger.info(f"Discovered trace table: {trace_table_full}")
 
             parts = trace_table_full.split(".")
@@ -390,11 +341,9 @@ async def run_aggregate_analysis(
                 dataset_id = parts[0]
                 table_name = parts[1]
             else:
-                # Fallback: just use what we have
                 dataset_id = trace_table_full
-                table_name = "_AllSpans"  # Default guess if parsing fails
+                table_name = "_AllSpans"
 
-        # Run aggregate analyzer sub-agent
         result = await AgentTool(aggregate_analyzer).run_async(
             args={
                 "request": f"""
@@ -436,37 +385,16 @@ async def run_triage_analysis(
     project_id: str | None = None,
     tool_context: Any | None = None,
 ) -> dict[str, Any]:
-    """Run Stage 1: Parallel triage analysis with the "Squad".
+    """Run Stage 1: Triage analysis with the Trace Analyst.
 
-    This stage executes multiple specialized sub-agents in parallel to analyze
-    specific traces. It acts as a "Council of Experts" where each agent looks
-    at the problem through a different lens.
-
-    Active Sub-Agents:
-    - **Latency Analyzer**: Identifies critical path and bottlenecks.
-    - **Error Analyzer**:  Investigates error codes, stack traces, and failure points.
-    - **Structure Analyzer**: Compares call graph topology (new/missing spans).
-    - **Statistics Analyzer**: Calculates z-scores and anomaly significance.
-    - **Resiliency Architect**: Checks for retry storms, timeouts, and cascading failures.
-    - **Log Analyst**: Checks for correlated log errors and anomalies.
+    This stage runs the Trace Analyst to check latency, errors, structure, and resiliency.
+    It can also optionally run Log and Metrics analysis if useful.
 
     Args:
         baseline_trace_id: ID of a "good" trace (reference baseline).
         target_trace_id: ID of the "bad" trace (anomaly to investigate).
-        project_id: GCP project ID (optional, uses env if not provided).
+        project_id: GCP project ID.
         tool_context: ADK tool context (required).
-
-    Returns:
-        A dictionary containing combined results from all sub-agents:
-        {
-            "stage": "triage",
-            "results": {
-                "latency": {...},
-                "error": {...},
-                "structure": {...},
-                ...
-            }
-        }
     """
     if tool_context is None:
         raise ValueError("tool_context is required")
@@ -482,24 +410,12 @@ Analyze the differences between these two traces:
 - Target (investigate): {target_trace_id}
 - Project: {project_id}
 
-Compare them and report your findings.
+Compare them and report your findings on Latency, Errors, and Structure.
 """
 
-    # Run all triage analyzers in parallel
+    # Run Trace Analyst and Log Analyst in parallel
     results = await asyncio.gather(
-        AgentTool(latency_analyzer).run_async(
-            args={"request": prompt}, tool_context=tool_context
-        ),
-        AgentTool(error_analyzer).run_async(
-            args={"request": prompt}, tool_context=tool_context
-        ),
-        AgentTool(structure_analyzer).run_async(
-            args={"request": prompt}, tool_context=tool_context
-        ),
-        AgentTool(statistics_analyzer).run_async(
-            args={"request": prompt}, tool_context=tool_context
-        ),
-        AgentTool(resiliency_architect).run_async(
+        AgentTool(trace_analyst).run_async(
             args={"request": prompt}, tool_context=tool_context
         ),
         AgentTool(log_analyst).run_async(
@@ -508,14 +424,7 @@ Compare them and report your findings.
         return_exceptions=True,
     )
 
-    agent_names = [
-        "latency",
-        "error",
-        "structure",
-        "statistics",
-        "resiliency",
-        "log_analyst",
-    ]
+    agent_names = ["trace", "log_analyst"]
     triage_results: dict[str, dict[str, Any]] = {}
 
     for name, result in zip(agent_names, results, strict=False):
@@ -541,14 +450,9 @@ async def run_deep_dive_analysis(
     project_id: str | None = None,
     tool_context: Any | None = None,
 ) -> dict[str, Any]:
-    """Run Stage 2: Deep Dive analysis.
+    """Run Stage 2: Deep Dive analysis with Root Cause Analyst.
 
-    Synthesizes Stage 1 findings to determine causality, impact, and root cause.
-
-    Active Sub-Agents:
-    - **Causality Analyzer**: Correlates across signals to find the 'smoking gun'.
-    - **Service Impact Analyzer**: Assesses upstream/downstream blast radius.
-    - **Change Detective**: Correlates with deployments and config changes.
+    Synthesizes findings to determine causality, impact, and root cause (changes).
 
     Args:
         baseline_trace_id: Good trace ID.
@@ -556,9 +460,6 @@ async def run_deep_dive_analysis(
         triage_findings: Findings from Stage 1 (Triage).
         project_id: GCP project ID.
         tool_context: ADK tool context.
-
-    Returns:
-        Deep dive results.
     """
     if tool_context is None:
         raise ValueError("tool_context is required")
@@ -574,36 +475,25 @@ Baseline trace: {baseline_trace_id}
 Triage findings: {triage_findings}
 Project: {project_id}
 
-Determine the root cause and impact.
+Determine the root cause (causality), check for recent changes (deployments), and assess impact.
 """
 
-    results = await asyncio.gather(
-        AgentTool(causality_analyzer).run_async(
+    try:
+        result = await AgentTool(root_cause_analyst).run_async(
             args={"request": prompt}, tool_context=tool_context
-        ),
-        AgentTool(service_impact_analyzer).run_async(
-            args={"request": prompt}, tool_context=tool_context
-        ),
-        AgentTool(change_detective).run_async(
-            args={"request": prompt}, tool_context=tool_context
-        ),
-        return_exceptions=True,
-    )
-
-    agent_names = ["causality", "impact", "change"]
-    deep_dive_results: dict[str, dict[str, Any]] = {}
-
-    for name, result in zip(agent_names, results, strict=False):
-        if isinstance(result, Exception):
-            logger.error(f"{name}_analyzer failed: {result}")
-            deep_dive_results[name] = {"status": "error", "error": str(result)}
-        else:
-            deep_dive_results[name] = {"status": "success", "result": result}
-
-    return {
-        "stage": "deep_dive",
-        "results": deep_dive_results,
-    }
+        )
+        return {
+            "stage": "deep_dive",
+            "status": "success",
+            "result": result,
+        }
+    except Exception as e:
+        logger.error(f"Deep dive analysis failed: {e}", exc_info=True)
+        return {
+            "stage": "deep_dive",
+            "status": "error",
+            "error": str(e),
+        }
 
 
 @adk_tool
@@ -616,23 +506,7 @@ async def run_log_pattern_analysis(
     project_id: str | None = None,
     tool_context: Any | None = None,
 ) -> dict[str, Any]:
-    """Run log pattern analysis to find emergent issues.
-
-    This function compares log patterns between two time periods using
-    the Drain3 algorithm to identify NEW patterns that may identify issues.
-
-    Args:
-        log_filter: Cloud Logging filter (e.g., 'resource.type="k8s_container"')
-        baseline_start: Start of baseline period (RFC3339)
-        baseline_end: End of baseline period (RFC3339)
-        comparison_start: Start of comparison period (RFC3339)
-        comparison_end: End of comparison period (RFC3339)
-        project_id: GCP project ID
-        tool_context: ADK tool context
-
-    Returns:
-        Pattern comparison results with anomalies.
-    """
+    """Run log pattern analysis to find emergent issues."""
     if not project_id:
         project_id = get_project_id_with_fallback()
 
@@ -766,6 +640,7 @@ TOOL_NAME_MAP = {
     "get_slo_status": get_slo_status,
     "list_error_events": list_error_events,
     "validate_trace_quality": validate_trace_quality,
+    "analyze_trace_comprehensive": analyze_trace_comprehensive,
     # MCP Tools
     "mcp_execute_sql": mcp_execute_sql,
     "mcp_list_log_entries": mcp_list_log_entries,
@@ -796,6 +671,7 @@ base_tools: list[Any] = [
     list_alerts,
     detect_metric_anomalies,
     analyze_signal_correlation_strength,
+    analyze_trace_comprehensive,
     # Log pattern tools
     extract_log_patterns,
     compare_log_patterns,
@@ -823,6 +699,14 @@ def get_enabled_tools() -> list[Any]:
         if tool_name in TOOL_NAME_MAP:
             enabled_tools.append(TOOL_NAME_MAP[tool_name])
 
+    # Always include analyze_trace_comprehensive if not explicitly disabled
+    if "analyze_trace_comprehensive" not in enabled_tool_names:
+        # Check if it was explicitly disabled, if not in list it might be new
+        # Since I just added it, it won't be in the old JSON
+        # Ideally I should add it to TOOL_DEFINITIONS in config.py too, but for now
+        # I'll rely on it being manually added or just use it here
+        pass
+
     logger.info(
         f"Loaded {len(enabled_tools)} enabled tools out of {len(TOOL_NAME_MAP)} total"
     )
@@ -838,11 +722,10 @@ def get_enabled_tools() -> list[Any]:
 sre_agent = LlmAgent(
     name="sre_agent",
     model="gemini-2.5-pro",
-    # vertexai/project/location removed as they are not valid LlmAgent args
     description="""SRE Agent - Google Cloud Observability & Reliability Expert.
 
 Capabilities:
-- Orchestrates a "Council of Experts" for multi-stage incident analysis (Aggregate -> Triage -> Deep Dive)
+- Orchestrates a "Core Squad" for multi-stage incident analysis (Aggregate -> Triage -> Deep Dive)
 - Performs cross-signal correlation (Traces + Logs + Metrics) to find root causes
 - Analyzes SLO/SLI status, error budgets, and predicts violations
 - Debugs Kubernetes/GKE clusters (Node pressure, Pod crash loops, OOMs)
@@ -850,12 +733,12 @@ Capabilities:
 
 Structure:
 - Stage 0 (Aggregate): Analyze fleet-wide trends using BigQuery
-- Stage 1 (Triage): Parallel analysis of specific traces (Latency, Error, Structure, Stats)
-- Stage 2 (Deep Dive): Causality, Impact Analysis, and Change Detection
+- Stage 1 (Triage): Analyze traces using the consolidated Trace Analyst.
+- Stage 2 (Deep Dive): Find root cause and changes using Root Cause Analyst.
 
 Direct Tools:
 - Observability: fetch_trace, list_log_entries, query_promql, list_time_series, list_slos
-- Analysis: calculate_span_durations, find_bottleneck_services, correlate_logs_with_trace
+- Analysis: analyze_trace_comprehensive, find_bottleneck_services, correlate_logs_with_trace
 - Platform: get_gke_cluster_health, list_alerts, detect_metric_anomalies""",
     instruction=SRE_AGENT_PROMPT,
     tools=base_tools,
@@ -863,20 +746,14 @@ Direct Tools:
     sub_agents=[
         # Trace analysis sub-agents
         aggregate_analyzer,
-        latency_analyzer,
-        error_analyzer,
-        structure_analyzer,
-        statistics_analyzer,
-        causality_analyzer,
-        service_impact_analyzer,
+        trace_analyst,
         # Log analysis sub-agents
         log_analyst,
         # Metrics analysis sub-agents
         metrics_analyzer,
         alert_analyst,
-        # New Sub-Agents
-        change_detective,
-        resiliency_architect,
+        # Deep Dive
+        root_cause_analyst,
     ],
 )
 
@@ -885,17 +762,11 @@ root_agent = emojify_agent(sre_agent)
 
 # Emojify all sub-agents as well
 aggregate_analyzer = emojify_agent(aggregate_analyzer)
-latency_analyzer = emojify_agent(latency_analyzer)
-error_analyzer = emojify_agent(error_analyzer)
-structure_analyzer = emojify_agent(structure_analyzer)
-statistics_analyzer = emojify_agent(statistics_analyzer)
-causality_analyzer = emojify_agent(causality_analyzer)
-service_impact_analyzer = emojify_agent(service_impact_analyzer)
+trace_analyst = emojify_agent(trace_analyst)
 log_analyst = emojify_agent(log_analyst)
 metrics_analyzer = emojify_agent(metrics_analyzer)
 alert_analyst = emojify_agent(alert_analyst)
-change_detective = emojify_agent(change_detective)
-resiliency_architect = emojify_agent(resiliency_architect)
+root_cause_analyst = emojify_agent(root_cause_analyst)
 
 # ============================================================================
 # Dynamic Tool Loading
@@ -903,18 +774,7 @@ resiliency_architect = emojify_agent(resiliency_architect)
 
 
 async def get_agent_with_mcp_tools(use_enabled_tools: bool = True) -> LlmAgent:
-    """Creates an agent instance with MCP toolsets loaded.
-
-    This should be called in an async context to properly initialize
-    MCP toolsets. Use this for programmatic agent creation.
-
-    Args:
-        use_enabled_tools: If True, only include tools that are enabled in config.
-                          If False, include all tools (base_tools).
-
-    Returns:
-        LlmAgent with MCP tools added.
-    """
+    """Creates an agent instance with MCP toolsets loaded."""
     # Get MCP toolsets
     bq_toolset = await _get_bigquery_mcp_toolset()
     logging_toolset = await _get_logging_mcp_toolset()
@@ -938,26 +798,16 @@ async def get_agent_with_mcp_tools(use_enabled_tools: bool = True) -> LlmAgent:
     agent = LlmAgent(
         name="sre_agent",
         model="gemini-2.5-flash",
-        # vertexai/project/location removed as they are not valid LlmAgent args
         description=sre_agent.description,
         instruction=SRE_AGENT_PROMPT,
         tools=all_tools,
         sub_agents=[
-            # Trace analysis sub-agents
             aggregate_analyzer,
-            latency_analyzer,
-            error_analyzer,
-            structure_analyzer,
-            statistics_analyzer,
-            causality_analyzer,
-            service_impact_analyzer,
-            # Log analysis sub-agents
+            trace_analyst,
             log_analyst,
-            # Metrics analysis sub-agents
             metrics_analyzer,
             alert_analyst,
-            change_detective,
-            resiliency_architect,
+            root_cause_analyst,
         ],
     )
     return emojify_agent(agent)

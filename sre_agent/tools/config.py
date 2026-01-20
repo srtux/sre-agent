@@ -227,6 +227,7 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         description="List log entries via MCP Cloud Logging server",
         category=ToolCategory.MCP,
         testable=True,
+        enabled=False,  # Disabled by default
     ),
     ToolConfig(
         name="mcp_list_timeseries",
@@ -234,6 +235,7 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         description="List metrics via MCP Cloud Monitoring server",
         category=ToolCategory.MCP,
         testable=True,
+        enabled=False,  # Disabled by default
     ),
     ToolConfig(
         name="mcp_query_range",
@@ -241,6 +243,7 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         description="Execute PromQL queries via MCP Cloud Monitoring server",
         category=ToolCategory.MCP,
         testable=True,
+        enabled=False,  # Disabled by default
     ),
     # -------------------------------------------------------------------------
     # BigQuery/OTel Tools
