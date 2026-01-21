@@ -12,6 +12,7 @@ These tools are primarily used by the "Squad" (Stage 1 sub-agents) to fetch
 and inspect individual traces during triage.
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -533,15 +534,29 @@ async def find_example_traces(
         except ValueError:
             return json.dumps({"error": "GOOGLE_CLOUD_PROJECT not set"})
 
+        # Prepare parallel tasks for trace fetching
+        tasks = []
+
         # Strategy 1: Look for slow traces directly (latency > 1s)
         slow_filter = TraceFilterBuilder().add_latency(1000).build()
-        slow_traces_json = await list_traces(
-            project_id, limit=20, filter_str=slow_filter
-        )
-        slow_traces = json.loads(slow_traces_json)
+        tasks.append(list_traces(project_id, limit=20, filter_str=slow_filter))
 
         # Strategy 2: Fetch recent traces for statistical baseline
-        raw_traces = await list_traces(project_id, limit=50)
+        tasks.append(list_traces(project_id, limit=50))
+
+        # Strategy 3: Fetch error traces if requested
+        if prefer_errors:
+            tasks.append(list_traces(project_id, limit=10, error_only=True))
+
+        # Execute all fetches concurrently
+        results = await asyncio.gather(*tasks)
+
+        slow_traces_json = results[0]
+        raw_traces = results[1]
+        error_traces_json = results[2] if prefer_errors else "[]"
+
+        # Process results
+        slow_traces = json.loads(slow_traces_json)
         traces = json.loads(raw_traces)
 
         if (
@@ -566,10 +581,9 @@ async def find_example_traces(
                 if st["trace_id"] not in existing_ids:
                     traces.append(st)
 
-        # Fetch error traces separately for hybrid selection
+        # Process error traces
         error_trace_ids = set()
         if prefer_errors:
-            error_traces_json = await list_traces(project_id, limit=10, error_only=True)
             error_traces = json.loads(error_traces_json)
             if error_traces and not (
                 isinstance(error_traces, list) and "error" in error_traces[0]
