@@ -1465,6 +1465,10 @@ def _create_widget_events(tool_name: str, result: Any) -> list[str]:
         ),
     ]
 
+    logger.info(
+        f"🎨 Visualization Outcome: {component_name} (Surface: {surface_id}) | "
+        f"{'Contains Error' if isinstance(data, dict) and 'error' in data else 'Success'}"
+    )
     return events
 
 

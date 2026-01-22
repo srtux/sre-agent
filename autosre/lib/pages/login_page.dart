@@ -239,6 +239,7 @@ class _AnimatedPhysicsRobotState extends State<_AnimatedPhysicsRobot>
   late final AnimationController _entranceController;
   late final Animation<double> _scaleAnimation;
   late final Animation<double> _rotationAnimation;
+  late final Animation<Offset> _slideAnimation;
 
   // Physics State
   Offset _position = Offset.zero;
@@ -262,18 +263,26 @@ class _AnimatedPhysicsRobotState extends State<_AnimatedPhysicsRobot>
     // Entrance Animation
     _entranceController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: 1000),
     );
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(-5.0, 0.0), // Fly in from the left
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _entranceController,
+      curve: Curves.easeOutBack, // Gives a nice settle/overshoot
+    ));
 
     _scaleAnimation = CurvedAnimation(
       parent: _entranceController,
       curve: Curves.elasticOut, // Overshoot and vibrate
     );
 
-    _rotationAnimation = Tween<double>(begin: 4.0, end: 0.0).animate(
+    _rotationAnimation = Tween<double>(begin: 3.0, end: 0.0).animate(
       CurvedAnimation(
         parent: _entranceController,
-        curve: Curves.easeOutExpo, // Fast spiral in, then slow down
+        curve: Curves.easeOutCubic, // Fast spiral in, then slow down
       ),
     );
 
@@ -348,11 +357,13 @@ class _AnimatedPhysicsRobotState extends State<_AnimatedPhysicsRobot>
   Widget build(BuildContext context) {
     return MouseRegion(
       onHover: _onHover,
-      child: ScaleTransition(
-        scale: _scaleAnimation,
-        child: RotationTransition(
-          turns: _rotationAnimation,
-          child: Transform.translate(
+      child: SlideTransition(
+        position: _slideAnimation,
+        child: ScaleTransition(
+          scale: _scaleAnimation,
+          child: RotationTransition(
+            turns: _rotationAnimation,
+            child: Transform.translate(
             offset: _position,
             child: Container(
               decoration: BoxDecoration(

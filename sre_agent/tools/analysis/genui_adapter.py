@@ -31,12 +31,14 @@ def transform_trace(trace_data: dict[str, Any]) -> dict[str, Any]:
     if isinstance(trace_data, dict) and (
         "error" in trace_data or trace_data.get("status") == "error"
     ):
+        err_msg = (
+            trace_data.get("error") or trace_data.get("message") or "Unknown error"
+        )
+        logger.warning(f"❌ Trace transformation error: {err_msg}")
         return {
             "trace_id": trace_data.get("trace_id", "unknown"),
             "spans": [],
-            "error": trace_data.get("error")
-            or trace_data.get("message")
-            or "Unknown error",
+            "error": err_msg,
         }
 
     trace_id = trace_data.get("trace_id", "unknown")
@@ -74,13 +76,15 @@ def transform_metrics(metric_data: Any) -> dict[str, Any]:
     if isinstance(metric_data, dict) and (
         "error" in metric_data or metric_data.get("status") == "error"
     ):
+        err_msg = (
+            metric_data.get("error") or metric_data.get("message") or "Unknown error"
+        )
+        logger.warning(f"❌ Metric transformation error: {err_msg}")
         return {
             "metric_name": "Error",
             "points": [],
             "labels": {},
-            "error": metric_data.get("error")
-            or metric_data.get("message")
-            or "Unknown error",
+            "error": err_msg,
         }
 
     # If it's a list from list_time_series, take the first one
@@ -790,11 +794,11 @@ def transform_log_entries(
     if isinstance(log_data, dict) and (
         "error" in log_data or log_data.get("status") == "error"
     ):
+        err_msg = log_data.get("error") or log_data.get("message") or "Unknown error"
+        logger.warning(f"❌ Log transformation error: {err_msg}")
         return {
             "entries": [],
-            "error": log_data.get("error")
-            or log_data.get("message")
-            or "Unknown error",
+            "error": err_msg,
             "filter": log_data.get("filter"),
         }
 

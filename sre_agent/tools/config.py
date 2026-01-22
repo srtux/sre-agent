@@ -810,6 +810,14 @@ class ToolConfigManager:
 
     def _save_config(self) -> None:
         """Save configuration to file."""
+        # Don't save to the default config file during tests to avoid workspace pollution
+        if (
+            os.getenv("PYTEST_CURRENT_TEST")
+            and str(CONFIG_FILE_PATH) == ".tool_config.json"
+        ):
+            logger.debug(f"Skipping save to {CONFIG_FILE_PATH} during test run")
+            return
+
         try:
             data = {
                 "tools": [config.to_dict() for config in self._configs.values()],
