@@ -41,6 +41,7 @@ class _ConversationPageState extends State<ConversationPage>
   final FocusNode _focusNode = FocusNode();
   final ProjectService _projectService = ProjectService();
   final SessionService _sessionService = SessionService();
+  final GlobalKey _inputKey = GlobalKey(debugLabel: 'prompt_input');
 
   late AnimationController _typingController;
 
@@ -254,9 +255,16 @@ class _ConversationPageState extends State<ConversationPage>
     if (_textController.text.trim().isEmpty) return;
     final text = _textController.text;
     _textController.clear();
-    _focusNode.requestFocus();
-
     _conversation.sendRequest(UserMessage.text(text));
+
+    // Request focus after the frame to ensure that if the layout transitioned
+    // from Hero to Conversation state, the new TextField is ready to receive focus.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _focusNode.requestFocus();
+      }
+    });
+
     _scrollToBottom(force: true);
   }
 
@@ -856,6 +864,7 @@ class _ConversationPageState extends State<ConversationPage>
       valueListenable: _contentGenerator.isProcessing,
       builder: (context, isProcessing, _) {
         return UnifiedPromptInput(
+          key: _inputKey,
           controller: _textController,
           focusNode: _focusNode,
           isProcessing: isProcessing,
@@ -967,6 +976,7 @@ class _ConversationPageState extends State<ConversationPage>
                   valueListenable: _contentGenerator.isProcessing,
                   builder: (context, isProcessing, child) {
                     return UnifiedPromptInput(
+                      key: _inputKey,
                       controller: _textController,
                       focusNode: _focusNode,
                       isProcessing: isProcessing,
