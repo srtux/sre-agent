@@ -73,6 +73,8 @@ from .sub_agents import (
 from .tools import (
     # BigQuery tools
     analyze_aggregate_metrics,
+    # Additional BQ tools
+    analyze_bigquery_log_patterns,
     # Critical path analysis tools
     analyze_critical_path,
     # SLO/SLI tools
@@ -624,6 +626,7 @@ TOOL_NAME_MAP = {
     "compare_log_patterns": compare_log_patterns,
     "detect_all_sre_patterns": detect_all_sre_patterns,
     "analyze_log_anomalies": analyze_log_anomalies,
+    "analyze_bigquery_log_patterns": analyze_bigquery_log_patterns,
     # Root Cause
     "detect_cascading_timeout": detect_cascading_timeout,
     "detect_retry_storm": detect_retry_storm,
@@ -669,29 +672,53 @@ TOOL_NAME_MAP = {
 
 # Common tools for all agents
 base_tools: list[Any] = [
+    # Observability
     fetch_trace,
+    list_traces,
     list_log_entries,
+    get_logs_for_trace,
     get_current_time,
     query_promql,
     list_slos,
+    get_golden_signals,
+    # Analysis
     calculate_span_durations,
     find_bottleneck_services,
     correlate_logs_with_trace,
-    get_gke_cluster_health,
-    list_alerts,
-    detect_metric_anomalies,
+    analyze_critical_path,
     analyze_signal_correlation_strength,
     analyze_trace_comprehensive,
+    summarize_trace,
+    # GKE / Infrastructure
+    get_gke_cluster_health,
+    # Alerts
+    list_alerts,
+    get_alert,
+    # Metrics
+    detect_metric_anomalies,
+    detect_trend_changes,
+    list_time_series,
     # Log pattern tools
     extract_log_patterns,
     compare_log_patterns,
     analyze_log_anomalies,
+    # Discovery
+    discover_telemetry_sources,
+    # MCP Tools
+    mcp_execute_sql,
+    mcp_list_log_entries,
+    mcp_list_timeseries,
+    mcp_query_range,
+    # BigQuery Analysis Tools
+    analyze_aggregate_metrics,
+    find_exemplar_traces,
+    analyze_bigquery_log_patterns,
     # Orchestration tools
     run_aggregate_analysis,
     run_triage_analysis,
     run_deep_dive_analysis,
     run_log_pattern_analysis,
-    list_time_series,
+    synthesize_report,
 ]
 
 

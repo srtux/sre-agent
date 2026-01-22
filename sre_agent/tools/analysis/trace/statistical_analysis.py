@@ -19,9 +19,29 @@ MAX_WORKERS = 10  # Max concurrent fetches
 
 
 def _fetch_traces_parallel(
-    trace_ids: list[str], project_id: str | None = None, max_traces: int = 50
+    trace_ids: list[str],
+    project_id: str | None = None,
+    max_traces: int = 50,
+    tool_context: Any = None,
 ) -> list[dict[str, Any]]:
     """Fetches multiple traces in parallel."""
+    from ...clients.trace import (
+        _clear_thread_credentials,
+        _set_thread_credentials,
+        get_credentials_from_tool_context,
+    )
+
+    user_creds = get_credentials_from_tool_context(tool_context)
+
+    def fetch_with_creds(tid: str) -> dict[str, Any]:
+        try:
+            if user_creds:
+                _set_thread_credentials(user_creds)
+            return fetch_trace_data(tid, project_id)
+        finally:
+            if user_creds:
+                _clear_thread_credentials()
+
     # Cap the number of traces to avoid overwhelming the API
     target_ids = trace_ids[:max_traces]
 
@@ -29,8 +49,7 @@ def _fetch_traces_parallel(
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         # Submit all tasks
         future_to_tid = {
-            executor.submit(fetch_trace_data, tid, project_id): tid
-            for tid in target_ids
+            executor.submit(fetch_with_creds, tid): tid for tid in target_ids
         }
 
         for future in concurrent.futures.as_completed(future_to_tid):
@@ -45,13 +64,14 @@ def _fetch_traces_parallel(
 
 
 def compute_latency_statistics(
-    trace_ids: list[str], project_id: str | None = None
+    trace_ids: list[str], project_id: str | None = None, tool_context: Any = None
 ) -> dict[str, Any]:
     """Computes aggregate latency statistics for a list of traces.
 
     Args:
         trace_ids: List of trace IDs.
         project_id: The Google Cloud Project ID.
+        tool_context: Context object for tool execution.
 
     Returns:
         Dictionary containing statistical metrics.
@@ -64,7 +84,9 @@ def compute_latency_statistics(
         span_durations = defaultdict(list)
 
         # Fetch traces in parallel
-        valid_trace_data = _fetch_traces_parallel(trace_ids, project_id)
+        valid_trace_data = _fetch_traces_parallel(
+            trace_ids, project_id, tool_context=tool_context
+        )
 
         for trace_data in valid_trace_data:
             if isinstance(trace_data, dict):
@@ -152,6 +174,7 @@ def detect_latency_anomalies(
     target_trace_id: str,
     threshold_sigma: float = 2.0,
     project_id: str | None = None,
+    tool_context: Any = None,
 ) -> dict[str, Any]:
     """Detects if the target trace is anomalous compared to baseline distribution.
 
@@ -162,21 +185,36 @@ def detect_latency_anomalies(
         target_trace_id: The trace ID to check.
         threshold_sigma: Number of standard deviations to consider anomalous.
         project_id: The Google Cloud Project ID.
+        tool_context: Context object for tool execution.
 
     Returns:
         Anomaly report.
     """
     with tracer.start_as_current_span("detect_latency_anomalies"):
         # Compute baseline stats
-        baseline_stats = compute_latency_statistics(baseline_trace_ids, project_id)
+        baseline_stats = compute_latency_statistics(
+            baseline_trace_ids, project_id, tool_context=tool_context
+        )
         if "error" in baseline_stats:
             return baseline_stats
 
         mean = baseline_stats["mean"]
         stdev = baseline_stats["stdev"]
 
-        # Get target duration
-        target_data = fetch_trace_data(target_trace_id, project_id)
+        from ...clients.trace import (
+            _clear_thread_credentials,
+            _set_thread_credentials,
+            get_credentials_from_tool_context,
+        )
+
+        user_creds = get_credentials_from_tool_context(tool_context)
+        try:
+            if user_creds:
+                _set_thread_credentials(user_creds)
+            # Get target duration
+            target_data = fetch_trace_data(target_trace_id, project_id)
+        finally:
+            _clear_thread_credentials()
         if not target_data:
             return {"error": "Target trace not found or invalid"}
 
@@ -264,7 +302,7 @@ def detect_latency_anomalies(
 
 
 def analyze_critical_path(
-    trace_id: str, project_id: str | None = None
+    trace_id: str, project_id: str | None = None, tool_context: Any = None
 ) -> dict[str, Any]:
     """Identifies the critical path of spans in a trace.
 
@@ -273,9 +311,22 @@ def analyze_critical_path(
     Args:
         trace_id: The trace ID to analyze.
         project_id: The Google Cloud Project ID.
+        tool_context: Context object for tool execution.
     """
     with tracer.start_as_current_span("analyze_critical_path"):
-        trace_data = fetch_trace_data(trace_id, project_id)
+        from ...clients.trace import (
+            _clear_thread_credentials,
+            _set_thread_credentials,
+            get_credentials_from_tool_context,
+        )
+
+        user_creds = get_credentials_from_tool_context(tool_context)
+        try:
+            if user_creds:
+                _set_thread_credentials(user_creds)
+            trace_data = fetch_trace_data(trace_id, project_id)
+        finally:
+            _clear_thread_credentials()
         if not trace_data:
             return {"error": "Trace not found or invalid"}
 
@@ -464,10 +515,25 @@ def analyze_critical_path(
 
 @adk_tool
 def perform_causal_analysis(
-    baseline_trace_id: str, target_trace_id: str, project_id: str | None = None
+    baseline_trace_id: str,
+    target_trace_id: str,
+    project_id: str | None = None,
+    tool_context: Any = None,
 ) -> dict[str, Any] | str:
     """Enhanced root cause analysis using span-ID-level precision."""
-    baseline_data = fetch_trace_data(baseline_trace_id, project_id)
+    from ...clients.trace import (
+        _clear_thread_credentials,
+        _set_thread_credentials,
+        get_credentials_from_tool_context,
+    )
+
+    user_creds = get_credentials_from_tool_context(tool_context)
+    try:
+        if user_creds:
+            _set_thread_credentials(user_creds)
+        baseline_data = fetch_trace_data(baseline_trace_id, project_id)
+    finally:
+        _clear_thread_credentials()
     if not baseline_data or "error" in baseline_data:
         msg = (
             "Invalid baseline_trace JSON"
@@ -477,7 +543,12 @@ def perform_causal_analysis(
         )
         return json.dumps({"error": msg})
 
-    target_data = fetch_trace_data(target_trace_id, project_id)
+    try:
+        if user_creds:
+            _set_thread_credentials(user_creds)
+        target_data = fetch_trace_data(target_trace_id, project_id)
+    finally:
+        _clear_thread_credentials()
     if not target_data or "error" in target_data:
         msg = (
             "Invalid target_trace JSON"
@@ -498,7 +569,9 @@ def perform_causal_analysis(
         target_spans_by_name[s.get("name")].append(s)
 
     # 2. Analyze Critical Path of target trace to get actual span IDs
-    cp_report = analyze_critical_path(target_trace_id, project_id)
+    cp_report = analyze_critical_path(
+        target_trace_id, project_id, tool_context=tool_context
+    )
     critical_path = cp_report.get("critical_path", [])
     critical_path_ids = {s["span_id"] for s in critical_path}
 
@@ -508,7 +581,9 @@ def perform_causal_analysis(
     # 3. Build call graph to get depth information
     from .analysis import build_call_graph
 
-    target_graph = build_call_graph(target_trace_id, project_id)
+    target_graph = build_call_graph(
+        target_trace_id, project_id, tool_context=tool_context
+    )
 
     # Flatten tree to map span_id -> depth
     depth_map = {}
@@ -638,6 +713,7 @@ def analyze_trace_patterns(
     trace_ids: list[str],
     lookback_window_minutes: int = 60,
     project_id: str | None = None,
+    tool_context: Any = None,
 ) -> dict[str, Any]:
     """Analyzes patterns across multiple traces to detect trends and recurring issues.
 
@@ -651,6 +727,7 @@ def analyze_trace_patterns(
         trace_ids: List of trace IDs to analyze.
         lookback_window_minutes: Time window to consider for trend analysis.
         project_id: The Google Cloud Project ID.
+        tool_context: Context object for tool execution.
 
     Returns:
         Dictionary containing pattern analysis results.
@@ -660,7 +737,9 @@ def analyze_trace_patterns(
             return {"error": "Need at least 3 traces for pattern analysis"}
 
         # Fetch traces in parallel
-        parsed_traces = _fetch_traces_parallel(trace_ids, project_id)
+        parsed_traces = _fetch_traces_parallel(
+            trace_ids, project_id, tool_context=tool_context
+        )
 
         if len(parsed_traces) < 3:
             return {"error": "Not enough valid traces for pattern analysis"}

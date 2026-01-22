@@ -39,6 +39,8 @@ class CatalogRegistry {
             }
 
             final trace = Trace.fromJson(data);
+            if (trace.spans.isEmpty) return const SizedBox.shrink();
+
             return _buildWidgetContainer(
               child: TraceWaterfall(trace: trace),
               height: 380,
@@ -55,6 +57,8 @@ class CatalogRegistry {
           try {
             final data = _ensureMap(context.data);
             final series = MetricSeries.fromJson(data);
+            if (series.points.isEmpty) return const SizedBox.shrink();
+
             return _buildWidgetContainer(
               child: MetricCorrelationChart(series: series),
               height: 380,
@@ -71,6 +75,8 @@ class CatalogRegistry {
           try {
             final data = _ensureMap(context.data);
             final plan = RemediationPlan.fromJson(data);
+            if (plan.steps.isEmpty) return const SizedBox.shrink();
+
             return _buildWidgetContainer(
               child: RemediationPlanWidget(plan: plan),
               height: null, // Auto height based on content
@@ -106,6 +112,9 @@ class CatalogRegistry {
                       LogPattern.fromJson(Map<String, dynamic>.from(item)),
                 )
                 .toList();
+
+            if (patterns.isEmpty) return const SizedBox.shrink();
+
             return _buildWidgetContainer(
               child: LogPatternViewer(patterns: patterns),
               height: 450,
@@ -122,6 +131,8 @@ class CatalogRegistry {
           try {
             final data = _ensureMap(context.data);
             final logData = LogEntriesData.fromJson(data);
+            if (logData.entries.isEmpty) return const SizedBox.shrink();
+
             return _buildWidgetContainer(
               child: LogEntriesViewer(data: logData),
               height: 500,
@@ -138,6 +149,7 @@ class CatalogRegistry {
           try {
             final data = _ensureMap(context.data);
             final log = ToolLog.fromJson(data);
+            if (log.toolName.isEmpty && log.status == 'unknown') return const SizedBox.shrink();
             return ToolLogWidget(log: log);
           } catch (e) {
             return ErrorPlaceholder(error: e);
@@ -152,6 +164,8 @@ class CatalogRegistry {
           try {
             final data = _ensureMap(context.data);
             final activityData = AgentActivityData.fromJson(data);
+            if (activityData.nodes.isEmpty) return const SizedBox.shrink();
+
             return _buildWidgetContainer(
               child: AgentActivityCanvas(data: activityData),
               height: 450,
@@ -168,6 +182,8 @@ class CatalogRegistry {
           try {
             final data = _ensureMap(context.data);
             final topologyData = ServiceTopologyData.fromJson(data);
+            if (topologyData.services.isEmpty) return const SizedBox.shrink();
+
             return _buildWidgetContainer(
               child: ServiceTopologyCanvas(data: topologyData),
               height: 500,
@@ -184,6 +200,8 @@ class CatalogRegistry {
           try {
             final data = _ensureMap(context.data);
             final timelineData = IncidentTimelineData.fromJson(data);
+            if (timelineData.events.isEmpty) return const SizedBox.shrink();
+
             return _buildWidgetContainer(
               child: IncidentTimelineCanvas(data: timelineData),
               height: 420,
@@ -200,6 +218,8 @@ class CatalogRegistry {
           try {
             final data = _ensureMap(context.data);
             final dashboardData = MetricsDashboardData.fromJson(data);
+            if (dashboardData.metrics.isEmpty) return const SizedBox.shrink();
+
             return _buildWidgetContainer(
               child: MetricsDashboardCanvas(data: dashboardData),
               height: 400,
@@ -216,6 +236,10 @@ class CatalogRegistry {
           try {
             final data = _ensureMap(context.data);
             final reasoningData = AIReasoningData.fromJson(data);
+            if (reasoningData.steps.isEmpty && (reasoningData.conclusion == null || reasoningData.conclusion!.isEmpty)) {
+              return const SizedBox.shrink();
+            }
+
             return _buildWidgetContainer(
               child: AIReasoningCanvas(data: reasoningData),
               height: 480,

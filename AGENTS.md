@@ -87,10 +87,12 @@ The project follows the "Core Squad" pattern:
     - Receives user query.
     - Delegated to specialized sub-agents (`sre_agent/sub_agents/`).
 2.  **Specialists**:
-    - **Trace Analyst**: Consolidated Latency, Error, Structure, Stats, and Resiliency analysis.
-    - **Root Cause Analyst**: Causality, Impact, and Change Detection.
-    - **Log Analyst**: Pattern Extractor.
-    - **Metrics Analyst**: Metrics Analyzer.
+    - **Aggregate Analyzer**: "Big Picture" view, statistical baselines, and cross-service correlation.
+    - **Alert Analyst**: Triage and classification of incoming alerts and incident scope.
+    - **Trace Analyst**: Deep-dive latency, error structure, and distributed tracing analysis.
+    - **Metrics Analyzer**: Time-series anomaly detection and Golden Signal analysis.
+    - **Log Analyst**: SQL-based pattern clustering and anomaly extraction.
+    - **Root Cause Analyst**: Causality, dependency mapping, and final diagnosis.
 3.  **Tools**:
     - Located in `sre_agent/tools/`.
     - Divided into `mcp/` (Model Context Protocol) and `clients/` (Direct API).

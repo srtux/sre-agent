@@ -13,6 +13,7 @@ import json
 import logging
 import time
 from datetime import datetime, timezone
+from typing import Any
 
 from google.auth.transport.requests import AuthorizedSession
 from google.cloud import monitoring_v3
@@ -29,7 +30,10 @@ tracer = get_tracer(__name__)
 
 @adk_tool
 async def list_time_series(
-    filter_str: str, minutes_ago: int = 60, project_id: str | None = None
+    filter_str: str,
+    minutes_ago: int = 60,
+    project_id: str | None = None,
+    tool_context: Any = None,
 ) -> str:
     """Lists time series data from Google Cloud Monitoring using direct API.
 
@@ -43,8 +47,7 @@ async def list_time_series(
         filter_str: The filter string to use.
         minutes_ago: The number of minutes in the past to query.
         project_id: The Google Cloud Project ID. Defaults to current context.
-        filter_str: The filter string to use.
-        minutes_ago: The number of minutes in the past to query.
+        tool_context: Context object for tool execution.
 
     Returns:
         A JSON string representing the list of time series.
@@ -63,12 +66,15 @@ async def list_time_series(
             )
 
     return await run_in_threadpool(
-        _list_time_series_sync, project_id, filter_str, minutes_ago
+        _list_time_series_sync, project_id, filter_str, minutes_ago, tool_context
     )
 
 
 def _list_time_series_sync(
-    project_id: str, filter_str: str, minutes_ago: int = 60
+    project_id: str,
+    filter_str: str,
+    minutes_ago: int = 60,
+    tool_context: Any = None,
 ) -> str:
     """Synchronous implementation of list_time_series."""
     with tracer.start_as_current_span("list_time_series") as span:
@@ -79,7 +85,7 @@ def _list_time_series_sync(
         span.set_attribute("rpc.method", "list_time_series")
 
         try:
-            client = get_monitoring_client()
+            client = get_monitoring_client(tool_context=tool_context)
             project_name = f"projects/{project_id}"
             now = time.time()
             seconds = int(now)
@@ -190,6 +196,7 @@ async def query_promql(
     end: str | None = None,
     step: str = "60s",
     project_id: str | None = None,
+    tool_context: Any = None,
 ) -> str:
     """Executes a PromQL query using the Cloud Monitoring Prometheus API.
 
@@ -199,9 +206,7 @@ async def query_promql(
         end: End time in RFC3339 format (default: now).
         step: Query resolution step (default: "60s").
         project_id: The Google Cloud Project ID. Defaults to current context.
-        start: Start time in RFC3339 format (default: 1 hour ago).
-        end: End time in RFC3339 format (default: now).
-        step: Query resolution step (default: "60s").
+        tool_context: Context object for tool execution.
 
     Returns:
         A JSON string containing the query results.
@@ -218,7 +223,7 @@ async def query_promql(
             )
 
     return await run_in_threadpool(
-        _query_promql_sync, project_id, query, start, end, step
+        _query_promql_sync, project_id, query, start, end, step, tool_context
     )
 
 
@@ -228,6 +233,7 @@ def _query_promql_sync(
     start: str | None = None,
     end: str | None = None,
     step: str = "60s",
+    tool_context: Any = None,
 ) -> str:
     """Synchronous implementation of query_promql."""
     with tracer.start_as_current_span("query_promql") as span:
@@ -235,10 +241,15 @@ def _query_promql_sync(
         span.set_attribute("promql.query", query)
 
         try:
-            # Get credentials
-            credentials, _ = get_current_credentials()
-            # Ensure allowed scopes if not already present (Credentials from token might not allow arbitrary scope injection but AuthorizedSession handles it)
-            # Note: AccessToken credentials don't usually require scopes arg if already scoped.
+            # First, try to get user credentials from tool_context
+            from ...auth import get_credentials_from_tool_context
+
+            credentials = get_credentials_from_tool_context(tool_context)
+
+            # Fallback to current context (ContextVar or Default)
+            if not credentials:
+                credentials, _ = get_current_credentials()
+
             session = AuthorizedSession(credentials)  # type: ignore[no-untyped-call]
 
             # Default time range if not provided

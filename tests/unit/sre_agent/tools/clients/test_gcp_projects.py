@@ -24,8 +24,8 @@ async def test_list_gcp_projects_success():
 
     with (
         patch(
-            "sre_agent.tools.clients.gcp_projects.get_current_credentials",
-            return_value=(mock_credentials, "test-project"),
+            "sre_agent.tools.clients.gcp_projects.get_credentials_from_tool_context",
+            return_value=mock_credentials,
         ),
         patch("httpx.AsyncClient") as mock_client_class,
     ):
@@ -65,8 +65,8 @@ async def test_list_gcp_projects_with_query():
 
     with (
         patch(
-            "sre_agent.tools.clients.gcp_projects.get_current_credentials",
-            return_value=(mock_credentials, "test-project"),
+            "sre_agent.tools.clients.gcp_projects.get_credentials_from_tool_context",
+            return_value=mock_credentials,
         ),
         patch("httpx.AsyncClient") as mock_client_class,
     ):
@@ -101,8 +101,8 @@ async def test_list_gcp_projects_json_error():
 
     with (
         patch(
-            "sre_agent.tools.clients.gcp_projects.get_current_credentials",
-            return_value=(mock_credentials, "test-project"),
+            "sre_agent.tools.clients.gcp_projects.get_credentials_from_tool_context",
+            return_value=mock_credentials,
         ),
         patch("httpx.AsyncClient") as mock_client_class,
     ):
@@ -127,8 +127,8 @@ async def test_list_gcp_projects_no_token_refresh():
 
     with (
         patch(
-            "sre_agent.tools.clients.gcp_projects.get_current_credentials",
-            return_value=(mock_credentials, "test-project"),
+            "sre_agent.tools.clients.gcp_projects.get_credentials_from_tool_context",
+            return_value=mock_credentials,
         ),
         patch("httpx.AsyncClient") as mock_client_class,
     ):
@@ -156,8 +156,8 @@ async def test_list_gcp_projects_refresh_token():
 
     with (
         patch(
-            "sre_agent.tools.clients.gcp_projects.get_current_credentials",
-            return_value=(mock_credentials, "test-project"),
+            "sre_agent.tools.clients.gcp_projects.get_credentials_from_tool_context",
+            return_value=mock_credentials,
         ),
         patch("httpx.AsyncClient") as mock_client_class,
         patch("google.auth.transport.requests.Request"),
@@ -186,8 +186,8 @@ async def test_list_gcp_projects_api_error():
 
     with (
         patch(
-            "sre_agent.tools.clients.gcp_projects.get_current_credentials",
-            return_value=(mock_credentials, "test-project"),
+            "sre_agent.tools.clients.gcp_projects.get_credentials_from_tool_context",
+            return_value=mock_credentials,
         ),
         patch("httpx.AsyncClient") as mock_client_class,
     ):
@@ -204,7 +204,7 @@ async def test_list_gcp_projects_api_error():
 async def test_list_gcp_projects_exception():
     """Test handling of exceptions."""
     with patch(
-        "sre_agent.tools.clients.gcp_projects.get_current_credentials",
+        "sre_agent.tools.clients.gcp_projects.get_credentials_from_tool_context",
         side_effect=Exception("Auth failed"),
     ):
         result = await list_gcp_projects()

@@ -21,16 +21,22 @@ from typing import Any
 from google.auth.transport.requests import AuthorizedSession
 from google.cloud import monitoring_v3
 
-from ...auth import get_current_credentials, get_current_project_id
+from ...auth import (
+    get_credentials_from_tool_context,
+    get_current_credentials,
+    get_current_project_id,
+)
 from ..common import adk_tool
 from .factory import get_monitoring_client
 
 logger = logging.getLogger(__name__)
 
 
-def _get_authorized_session() -> AuthorizedSession:
+def _get_authorized_session(tool_context: Any = None) -> AuthorizedSession:
     """Get an authorized session for REST API calls."""
-    credentials, _ = get_current_credentials()
+    credentials = get_credentials_from_tool_context(tool_context)
+    if not credentials:
+        credentials, _ = get_current_credentials()
     return AuthorizedSession(credentials)  # type: ignore[no-untyped-call]
 
 
@@ -39,6 +45,7 @@ async def get_gke_cluster_health(
     cluster_name: str,
     location: str,
     project_id: str | None = None,
+    tool_context: Any = None,
 ) -> str:
     """Get comprehensive GKE cluster health status.
 
@@ -49,6 +56,7 @@ async def get_gke_cluster_health(
         cluster_name: Name of the GKE cluster.
         location: Cluster location (zone or region, e.g., 'us-central1-a' or 'us-central1').
         project_id: The Google Cloud Project ID. Defaults to current context.
+        tool_context: ADK ToolContext for credential propagation.
 
     Returns:
         JSON with cluster status, node pool health, and any active issues.
@@ -68,7 +76,7 @@ async def get_gke_cluster_health(
             )
 
     return await run_in_threadpool(
-        _get_gke_cluster_health_sync, project_id, cluster_name, location
+        _get_gke_cluster_health_sync, project_id, cluster_name, location, tool_context
     )
 
 
@@ -76,10 +84,11 @@ def _get_gke_cluster_health_sync(
     project_id: str,
     cluster_name: str,
     location: str,
+    tool_context: Any = None,
 ) -> str:
     """Synchronous implementation of get_gke_cluster_health."""
     try:
-        session = _get_authorized_session()
+        session = _get_authorized_session(tool_context)
 
         # GKE Container API endpoint
         url = f"https://container.googleapis.com/v1/projects/{project_id}/locations/{location}/clusters/{cluster_name}"
@@ -165,6 +174,7 @@ async def analyze_node_conditions(
     location: str,
     node_name: str | None = None,
     project_id: str | None = None,
+    tool_context: Any = None,
 ) -> str:
     """Check for node pressure conditions (CPU, Memory, Disk, PID).
 
@@ -176,6 +186,7 @@ async def analyze_node_conditions(
         location: Cluster location.
         node_name: Specific node to check (optional, checks all if not provided).
         project_id: The Google Cloud Project ID. Defaults to current context.
+        tool_context: ADK ToolContext for credential propagation.
 
     Returns:
         JSON with node conditions and any pressure warnings.
@@ -195,7 +206,12 @@ async def analyze_node_conditions(
             )
 
     return await run_in_threadpool(
-        _analyze_node_conditions_sync, project_id, cluster_name, location, node_name
+        _analyze_node_conditions_sync,
+        project_id,
+        cluster_name,
+        location,
+        node_name,
+        tool_context,
     )
 
 
@@ -204,11 +220,12 @@ def _analyze_node_conditions_sync(
     cluster_name: str,
     location: str,
     node_name: str | None = None,
+    tool_context: Any = None,
 ) -> str:
     """Synchronous implementation of analyze_node_conditions."""
     try:
         # Query Cloud Monitoring for node conditions
-        client = get_monitoring_client()
+        client = get_monitoring_client(tool_context)
         project_name = f"projects/{project_id}"
 
         import time
@@ -381,6 +398,7 @@ async def get_pod_restart_events(
     pod_name: str | None = None,
     minutes_ago: int = 60,
     project_id: str | None = None,
+    tool_context: Any = None,
 ) -> str:
     """Find pods with high restart counts or recent restarts.
 
@@ -392,6 +410,7 @@ async def get_pod_restart_events(
         pod_name: Specific pod name to check (optional).
         minutes_ago: Time window to check (default 60 minutes).
         project_id: The Google Cloud Project ID. Defaults to current context.
+        tool_context: Context object for tool execution.
 
     Returns:
         JSON with pods that have restarted and their restart reasons.
@@ -411,7 +430,12 @@ async def get_pod_restart_events(
             )
 
     return await run_in_threadpool(
-        _get_pod_restart_events_sync, project_id, namespace, pod_name, minutes_ago
+        _get_pod_restart_events_sync,
+        project_id,
+        namespace,
+        pod_name,
+        minutes_ago,
+        tool_context,
     )
 
 
@@ -420,10 +444,11 @@ def _get_pod_restart_events_sync(
     namespace: str | None = None,
     pod_name: str | None = None,
     minutes_ago: int = 60,
+    tool_context: Any = None,
 ) -> str:
     """Synchronous implementation of get_pod_restart_events."""
     try:
-        client = get_monitoring_client()
+        client = get_monitoring_client(tool_context)
         project_name = f"projects/{project_id}"
 
         import time
@@ -536,6 +561,7 @@ async def analyze_hpa_events(
     deployment_name: str,
     minutes_ago: int = 60,
     project_id: str | None = None,
+    tool_context: Any = None,
 ) -> str:
     """Analyze HorizontalPodAutoscaler scaling events and decisions.
 
@@ -547,6 +573,7 @@ async def analyze_hpa_events(
         deployment_name: Name of the deployment with HPA.
         minutes_ago: Time window to analyze (default 60 minutes).
         project_id: The Google Cloud Project ID. Defaults to current context.
+        tool_context: Context object for tool execution.
 
     Returns:
         JSON with scaling events, current/desired replicas, and recommendations.
@@ -566,7 +593,12 @@ async def analyze_hpa_events(
             )
 
     return await run_in_threadpool(
-        _analyze_hpa_events_sync, project_id, namespace, deployment_name, minutes_ago
+        _analyze_hpa_events_sync,
+        project_id,
+        namespace,
+        deployment_name,
+        minutes_ago,
+        tool_context,
     )
 
 
@@ -575,10 +607,11 @@ def _analyze_hpa_events_sync(
     namespace: str,
     deployment_name: str,
     minutes_ago: int = 60,
+    tool_context: Any = None,
 ) -> str:
     """Synchronous implementation of analyze_hpa_events."""
     try:
-        client = get_monitoring_client()
+        client = get_monitoring_client(tool_context)
         project_name = f"projects/{project_id}"
 
         import time
@@ -706,6 +739,7 @@ async def get_container_oom_events(
     namespace: str | None = None,
     minutes_ago: int = 60,
     project_id: str | None = None,
+    tool_context: Any = None,
 ) -> str:
     """Find containers that were OOMKilled (Out of Memory).
 
@@ -716,6 +750,7 @@ async def get_container_oom_events(
         namespace: Kubernetes namespace to filter (optional).
         minutes_ago: Time window to check (default 60 minutes).
         project_id: The Google Cloud Project ID. Defaults to current context.
+        tool_context: Context object for tool execution.
 
     Returns:
         JSON with containers that experienced OOM events and memory usage patterns.
@@ -735,7 +770,7 @@ async def get_container_oom_events(
             )
 
     return await run_in_threadpool(
-        _get_container_oom_events_sync, project_id, namespace, minutes_ago
+        _get_container_oom_events_sync, project_id, namespace, minutes_ago, tool_context
     )
 
 
@@ -743,11 +778,12 @@ def _get_container_oom_events_sync(
     project_id: str,
     namespace: str | None = None,
     minutes_ago: int = 60,
+    tool_context: Any = None,
 ) -> str:
     """Synchronous implementation of get_container_oom_events."""
     try:
         # First, check for OOM events in logs
-        session = _get_authorized_session()
+        session = _get_authorized_session(tool_context)
 
         # Build log filter for OOM events
         log_filter = 'resource.type="k8s_container" AND textPayload:"OOMKilled"'
@@ -772,7 +808,7 @@ def _get_container_oom_events_sync(
             oom_logs = []
 
         # Also query memory usage to find containers near limit
-        client = get_monitoring_client()
+        client = get_monitoring_client(tool_context)
         project_name = f"projects/{project_id}"
 
         import time
@@ -886,6 +922,7 @@ async def correlate_trace_with_kubernetes(
     project_id: str,
     trace_id: str,
     cluster_name: str | None = None,
+    tool_context: Any = None,
 ) -> str:
     """Link a distributed trace to Kubernetes pod and container context.
 
@@ -896,6 +933,7 @@ async def correlate_trace_with_kubernetes(
         project_id: The Google Cloud Project ID.
         trace_id: The trace ID to correlate.
         cluster_name: Optional cluster name to filter.
+        tool_context: Context object for tool execution.
 
     Returns:
         JSON with pod info, container status, and resource usage during the trace.
@@ -906,7 +944,11 @@ async def correlate_trace_with_kubernetes(
     from fastapi.concurrency import run_in_threadpool
 
     return await run_in_threadpool(
-        _correlate_trace_with_kubernetes_sync, project_id, trace_id, cluster_name
+        _correlate_trace_with_kubernetes_sync,
+        project_id,
+        trace_id,
+        cluster_name,
+        tool_context,
     )
 
 
@@ -914,13 +956,16 @@ def _correlate_trace_with_kubernetes_sync(
     project_id: str,
     trace_id: str,
     cluster_name: str | None = None,
+    tool_context: Any = None,
 ) -> str:
     """Synchronous implementation of correlate_trace_with_kubernetes."""
     try:
         # First, get the trace to find the time window and service names
         from .trace import fetch_trace_data
 
-        trace_data = fetch_trace_data(trace_id_or_json=trace_id, project_id=project_id)
+        trace_data = fetch_trace_data(
+            trace_id_or_json=trace_id, project_id=project_id, tool_context=tool_context
+        )
 
         if "error" in trace_data:
             return json.dumps(trace_data)
@@ -962,7 +1007,7 @@ def _correlate_trace_with_kubernetes_sync(
         }
 
         # Query Cloud Logging for pod info during trace window
-        session = _get_authorized_session()
+        session = _get_authorized_session(tool_context)
 
         # Look for logs with this trace ID
         log_filter = f'trace="projects/{project_id}/traces/{trace_id}"'
@@ -1026,6 +1071,7 @@ async def get_workload_health_summary(
     namespace: str,
     minutes_ago: int = 30,
     project_id: str | None = None,
+    tool_context: Any = None,
 ) -> str:
     """Get a comprehensive health summary for all workloads in a namespace.
 
@@ -1036,6 +1082,7 @@ async def get_workload_health_summary(
         namespace: Kubernetes namespace to analyze.
         minutes_ago: Time window for analysis (default 30 minutes).
         project_id: The Google Cloud Project ID. Defaults to current context.
+        tool_context: Context object for tool execution.
 
     Returns:
         JSON with workload health status, resource usage, and issues.
@@ -1055,7 +1102,11 @@ async def get_workload_health_summary(
             )
 
     return await run_in_threadpool(
-        _get_workload_health_summary_sync, project_id, namespace, minutes_ago
+        _get_workload_health_summary_sync,
+        project_id,
+        namespace,
+        minutes_ago,
+        tool_context,
     )
 
 
@@ -1063,10 +1114,11 @@ def _get_workload_health_summary_sync(
     project_id: str,
     namespace: str,
     minutes_ago: int = 30,
+    tool_context: Any = None,
 ) -> str:
     """Synchronous implementation of get_workload_health_summary."""
     try:
-        client = monitoring_v3.MetricServiceClient()
+        client = get_monitoring_client(tool_context)
         project_name = f"projects/{project_id}"
 
         import time

@@ -16,7 +16,7 @@ from typing import Any
 from google.auth.transport.requests import AuthorizedSession
 from google.cloud import monitoring_v3
 
-from ...auth import get_current_credentials
+from ...auth import get_credentials_from_tool_context, get_current_credentials
 from ..common import adk_tool
 from ..common.telemetry import get_tracer
 from .factory import get_alert_policy_client
@@ -25,12 +25,21 @@ logger = logging.getLogger(__name__)
 tracer = get_tracer(__name__)
 
 
+def _get_authorized_session(tool_context: Any = None) -> AuthorizedSession:
+    """Get an authorized session for REST API calls."""
+    credentials = get_credentials_from_tool_context(tool_context)
+    if not credentials:
+        credentials, _ = get_current_credentials()
+    return AuthorizedSession(credentials)  # type: ignore[no-untyped-call]
+
+
 @adk_tool
 async def list_alerts(
     project_id: str,
     filter_str: str | None = None,
     order_by: str | None = None,
     page_size: int = 100,
+    tool_context: Any = None,
 ) -> str:
     """Lists alerts (incidents) using the Google Cloud Monitoring API.
 
@@ -39,6 +48,7 @@ async def list_alerts(
         filter_str: Optional filter string (e.g., 'state="OPEN"').
         order_by: Optional sort order field.
         page_size: Number of results to return (default 100).
+        tool_context: Context object for tool execution.
 
     Returns:
         A JSON string containing the list of alerts.
@@ -46,7 +56,7 @@ async def list_alerts(
     from fastapi.concurrency import run_in_threadpool
 
     return await run_in_threadpool(
-        _list_alerts_sync, project_id, filter_str, order_by, page_size
+        _list_alerts_sync, project_id, filter_str, order_by, page_size, tool_context
     )
 
 
@@ -55,6 +65,7 @@ def _list_alerts_sync(
     filter_str: str | None = None,
     order_by: str | None = None,
     page_size: int = 100,
+    tool_context: Any = None,
 ) -> str:
     """Synchronous implementation of list_alerts."""
     with tracer.start_as_current_span("list_alerts") as span:
@@ -64,8 +75,7 @@ def _list_alerts_sync(
 
         try:
             # Get credentials
-            credentials, _ = get_current_credentials()
-            session = AuthorizedSession(credentials)  # type: ignore[no-untyped-call]
+            session = _get_authorized_session(tool_context)
 
             # API Endpoint: projects.alerts.list
             # https://cloud.google.com/monitoring/api/ref_v3/rest/v3/projects.alerts/list
@@ -92,30 +102,30 @@ def _list_alerts_sync(
 
 
 @adk_tool
-async def get_alert(name: str) -> str:
+async def get_alert(name: str, tool_context: Any = None) -> str:
     """Gets a specific alert by its resource name.
 
     Args:
         name: The resource name of the alert
               (e.g., projects/{project_id}/alerts/{alert_id}).
+        tool_context: Context object for tool execution.
 
     Returns:
         A JSON string containing the alert details.
     """
     from fastapi.concurrency import run_in_threadpool
 
-    return await run_in_threadpool(_get_alert_sync, name)
+    return await run_in_threadpool(_get_alert_sync, name, tool_context)
 
 
-def _get_alert_sync(name: str) -> str:
+def _get_alert_sync(name: str, tool_context: Any = None) -> str:
     """Synchronous implementation of get_alert."""
     with tracer.start_as_current_span("get_alert") as span:
         span.set_attribute("gcp.monitoring.alert_name", name)
 
         try:
             # Get credentials
-            credentials, _ = get_current_credentials()
-            session = AuthorizedSession(credentials)  # type: ignore[no-untyped-call]
+            session = _get_authorized_session(tool_context)
 
             # API Endpoint: projects.alerts.get
             url = f"https://monitoring.googleapis.com/v3/{name}"
@@ -137,6 +147,7 @@ async def list_alert_policies(
     project_id: str,
     filter_str: str | None = None,
     page_size: int = 100,
+    tool_context: Any = None,
 ) -> str:
     """Lists alert policies from Google Cloud Monitoring.
 
@@ -144,6 +155,7 @@ async def list_alert_policies(
         project_id: The Google Cloud Project ID.
         filter_str: Optional filter string.
         page_size: Number of results to return.
+        tool_context: Context object for tool execution.
 
     Returns:
         A JSON string containing the list of alert policies.
@@ -151,7 +163,7 @@ async def list_alert_policies(
     from fastapi.concurrency import run_in_threadpool
 
     return await run_in_threadpool(
-        _list_alert_policies_sync, project_id, filter_str, page_size
+        _list_alert_policies_sync, project_id, filter_str, page_size, tool_context
     )
 
 
@@ -159,13 +171,14 @@ def _list_alert_policies_sync(
     project_id: str,
     filter_str: str | None = None,
     page_size: int = 100,
+    tool_context: Any = None,
 ) -> str:
     """Synchronous implementation of list_alert_policies."""
     with tracer.start_as_current_span("list_alert_policies") as span:
         span.set_attribute("gcp.project_id", project_id)
 
         try:
-            client = get_alert_policy_client()
+            client = get_alert_policy_client(tool_context)
             project_name = f"projects/{project_id}"
 
             request = monitoring_v3.ListAlertPoliciesRequest(

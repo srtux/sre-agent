@@ -349,6 +349,7 @@ async def list_traces(
     min_latency_ms: int | None = None,
     error_only: bool = False,
     attributes_json: str | None = None,
+    tool_context: Any = None,
 ) -> str:
     """Lists recent traces with advanced filtering capabilities.
 
@@ -360,7 +361,8 @@ async def list_traces(
         filter_str: Raw filter string (overrides other filters if provided).
         min_latency_ms: Minimum latency in milliseconds.
         error_only: If True, filters for traces with errors.
-        attributes_json: JSON string of attribute key-values to filter by (e.g., '{"/http/status_code": "500"}').
+        attributes_json: JSON string of additional span attributes to filter by (e.g., '{"/http/status_code": "500"}').
+        tool_context: Context object for tool execution.
 
     Returns:
         JSON string list of trace summaries.
@@ -373,16 +375,23 @@ async def list_traces(
         except ValueError as e:
             return json.dumps({"error": str(e)})
 
-    return await run_in_threadpool(
-        _list_traces_sync,
-        project_id,
-        limit,
-        min_latency_ms,
-        error_only,
-        start_time,
-        end_time,
-        attributes_json,
-    )
+    # Extract user credentials from tool_context for EIC propagation
+    user_creds = get_credentials_from_tool_context(tool_context)
+    try:
+        if user_creds:
+            _set_thread_credentials(user_creds)
+        return await run_in_threadpool(
+            _list_traces_sync,
+            project_id,
+            limit,
+            min_latency_ms,
+            error_only,
+            start_time,
+            end_time,
+            attributes_json,
+        )
+    finally:
+        _clear_thread_credentials()
 
 
 def _list_traces_sync(
@@ -396,8 +405,13 @@ def _list_traces_sync(
 ) -> str:
     """Synchronous implementation of list_traces."""
     with tracer.start_as_current_span("list_traces"):
+        # Check for thread-local user credentials
+        thread_creds = _get_thread_credentials()
         try:
-            client = get_trace_client()
+            if thread_creds:
+                client = trace_v1.TraceServiceClient(credentials=thread_creds)
+            else:
+                client = get_trace_client()
 
             # Construct complex filter string
             # Placeholder for build_trace_filter, assuming it's defined elsewhere or will be added.
@@ -589,7 +603,10 @@ def validate_trace(trace_data: str | dict[str, Any]) -> dict[str, Any]:
 
 @adk_tool
 async def find_example_traces(
-    project_id: str | None = None, prefer_errors: bool = True, min_sample_size: int = 20
+    project_id: str | None = None,
+    prefer_errors: bool = True,
+    min_sample_size: int = 20,
+    tool_context: Any = None,
 ) -> str:
     """Intelligently discovers representative baseline and anomaly traces.
 
@@ -600,9 +617,10 @@ async def find_example_traces(
     4. Validates selected traces before returning
 
     Args:
-        project_id: GCP project ID. If not provided, uses environment.
-        prefer_errors: If True, error traces get higher anomaly scores.
-        min_sample_size: Minimum traces needed for statistical analysis.
+        project_id: The GCP project ID.
+        prefer_errors: If true, favors traces that contains error spans.
+        min_sample_size: Minimum number of traces to sample.
+        tool_context: Context object for tool execution.
 
     Returns:
         JSON string with 'baseline' and 'anomaly' keys.
@@ -619,14 +637,22 @@ async def find_example_traces(
 
         # Strategy 1: Look for slow traces directly (latency > 1s)
         slow_filter = TraceFilterBuilder().add_latency(1000).build()
-        tasks.append(list_traces(project_id, limit=20, filter_str=slow_filter))
+        tasks.append(
+            list_traces(
+                project_id, limit=20, filter_str=slow_filter, tool_context=tool_context
+            )
+        )
 
         # Strategy 2: Fetch recent traces for statistical baseline
-        tasks.append(list_traces(project_id, limit=50))
+        tasks.append(list_traces(project_id, limit=50, tool_context=tool_context))
 
         # Strategy 3: Fetch error traces if requested
         if prefer_errors:
-            tasks.append(list_traces(project_id, limit=10, error_only=True))
+            tasks.append(
+                list_traces(
+                    project_id, limit=10, error_only=True, tool_context=tool_context
+                )
+            )
 
         # Execute all fetches concurrently
         results = await asyncio.gather(*tasks)
@@ -665,8 +691,12 @@ async def find_example_traces(
         error_trace_ids = set()
         if prefer_errors:
             error_traces = json.loads(error_traces_json)
-            if error_traces and not (
-                isinstance(error_traces, list) and "error" in error_traces[0]
+            if (
+                isinstance(error_traces, list)
+                and error_traces
+                and not (
+                    isinstance(error_traces[0], dict) and "error" in error_traces[0]
+                )
             ):
                 error_trace_ids = {
                     t.get("trace_id") for t in error_traces if t.get("trace_id")
@@ -772,7 +802,7 @@ async def find_example_traces(
             # Search for traces with same root name that are "healthy" (shorter)
             fb = TraceFilterBuilder().add_root_span_name(root_name, exact=True)
             candidates_json = await list_traces(
-                project_id, limit=20, filter_str=fb.build()
+                project_id, limit=20, filter_str=fb.build(), tool_context=tool_context
             )
             candidates = json.loads(candidates_json)
 

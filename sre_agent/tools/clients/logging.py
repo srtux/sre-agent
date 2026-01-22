@@ -26,7 +26,11 @@ tracer = get_tracer(__name__)
 
 @adk_tool
 async def list_log_entries(
-    project_id: str, filter_str: str, limit: int = 10, page_token: str | None = None
+    project_id: str,
+    filter_str: str,
+    limit: int = 10,
+    page_token: str | None = None,
+    tool_context: Any = None,
 ) -> str:
     """Lists log entries from Google Cloud Logging using direct API.
 
@@ -35,6 +39,7 @@ async def list_log_entries(
         filter_str: The filter string to use.
         limit: The maximum number of log entries to return.
         page_token: Token for the next page of results.
+        tool_context: Context object for tool execution.
 
     Returns:
         A JSON string containing:
@@ -46,12 +51,16 @@ async def list_log_entries(
     from fastapi.concurrency import run_in_threadpool
 
     return await run_in_threadpool(
-        _list_log_entries_sync, project_id, filter_str, limit, page_token
+        _list_log_entries_sync, project_id, filter_str, limit, page_token, tool_context
     )
 
 
 def _list_log_entries_sync(
-    project_id: str, filter_str: str, limit: int = 10, page_token: str | None = None
+    project_id: str,
+    filter_str: str,
+    limit: int = 10,
+    page_token: str | None = None,
+    tool_context: Any = None,
 ) -> str:
     """Synchronous implementation of list_log_entries."""
     with tracer.start_as_current_span("list_log_entries") as span:
@@ -62,7 +71,7 @@ def _list_log_entries_sync(
         span.set_attribute("rpc.method", "list_log_entries")
 
         try:
-            client = get_logging_client()
+            client = get_logging_client(tool_context=tool_context)
             resource_names = [f"projects/{project_id}"]
 
             # Ensure timestamp desc ordering for recent logs
@@ -156,27 +165,36 @@ def _list_log_entries_sync(
 
 
 @adk_tool
-async def list_error_events(project_id: str, minutes_ago: int = 60) -> str:
+async def list_error_events(
+    project_id: str, minutes_ago: int = 60, tool_context: Any = None
+) -> str:
     """Lists error events from Google Cloud Error Reporting using direct API.
 
     Args:
         project_id: The Google Cloud Project ID.
         minutes_ago: The number of minutes in the past to query.
+        tool_context: Context object for tool execution.
 
     Returns:
         A JSON string representing the list of error events.
     """
     from fastapi.concurrency import run_in_threadpool
 
-    return await run_in_threadpool(_list_error_events_sync, project_id, minutes_ago)
+    return await run_in_threadpool(
+        _list_error_events_sync, project_id, minutes_ago, tool_context
+    )
 
 
-def _list_error_events_sync(project_id: str, minutes_ago: int = 60) -> str:
+def _list_error_events_sync(
+    project_id: str, minutes_ago: int = 60, tool_context: Any = None
+) -> str:
     """Synchronous implementation of list_error_events."""
     try:
         import google.cloud.errorreporting_v1beta1 as errorreporting_v1beta1
 
         client = errorreporting_v1beta1.ErrorStatsServiceClient()
+        # Note: errorreporting client instantiation doesn't currently support easy credential injection in this factory pattern
+        # but the logging client below DOES. Fallback to default for now for ErrorStats, but fix core logging.
         project_name = f"projects/{project_id}"
         time_range = errorreporting_v1beta1.QueryTimeRange()
         time_range.period = errorreporting_v1beta1.QueryTimeRange.Period.PERIOD_1_HOUR  # type: ignore
@@ -209,13 +227,16 @@ def _list_error_events_sync(project_id: str, minutes_ago: int = 60) -> str:
 
 
 @adk_tool
-async def get_logs_for_trace(project_id: str, trace_id: str, limit: int = 100) -> str:
+async def get_logs_for_trace(
+    project_id: str, trace_id: str, limit: int = 100, tool_context: Any = None
+) -> str:
     """Fetches log entries correlated with a specific trace ID.
 
     Args:
         project_id: The Google Cloud Project ID.
         trace_id: The unique trace ID.
         limit: Max logs to return.
+        tool_context: Context object for tool execution.
 
     Returns:
         JSON list of log entries.
@@ -225,7 +246,7 @@ async def get_logs_for_trace(project_id: str, trace_id: str, limit: int = 100) -
     from fastapi.concurrency import run_in_threadpool
 
     return await run_in_threadpool(
-        _list_log_entries_sync, project_id, filter_str, limit
+        _list_log_entries_sync, project_id, filter_str, limit, None, tool_context
     )
 
 

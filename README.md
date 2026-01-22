@@ -246,6 +246,7 @@ uv run poe deploy-all
 | `compare_time_periods` | Detect performance regressions between two windows |
 | `detect_trend_changes` | Identify exact time when metrics started degrading |
 | `correlate_logs_with_trace` | SQL-based correlation between spans and logs |
+| `mcp_execute_sql` | **MCP**: Execute raw SQL against BigQuery |
 
 ### Trace Analysis Tools
 | Tool | Description |
@@ -264,6 +265,7 @@ uv run poe deploy-all
 | `list_log_entries` | Query logs via direct API |
 | `get_logs_for_trace` | Get logs correlated with a trace |
 | `extract_log_patterns` | Compress logs into patterns using Drain3 |
+| `mcp_list_log_entries` | **MCP**: High-performance log retrieval |
 
 ### Cloud Monitoring Tools
 | Tool | Description |
@@ -271,6 +273,15 @@ uv run poe deploy-all
 | `list_time_series` | Query metrics via direct API |
 | `query_promql` | Execute PromQL queries via direct API |
 | `detect_metric_anomalies` | Identify sudden spikes or drops in metrics |
+| `mcp_list_timeseries` | **MCP**: Flexible multi-project metrics retrieval |
+| `mcp_query_range` | **MCP**: PromQL-compatible range queries |
+
+### Discovery & Reporting Tools
+| Tool | Description |
+|------|-------------|
+| `discover_telemetry_sources`| Auto-discover OTEL tables in BigQuery |
+| `synthesize_report` | Generate professional SRE incident summaries |
+| `get_current_time` | Reference for temporal investigation |
 
 ## GCP Observability SRE Agent
 

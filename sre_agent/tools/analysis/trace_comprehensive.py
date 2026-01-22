@@ -31,6 +31,7 @@ def analyze_trace_comprehensive(
     project_id: str | None = None,
     include_call_graph: bool = True,
     baseline_trace_id: str | None = None,
+    tool_context: Any = None,
 ) -> dict[str, Any]:
     """Performs a comprehensive analysis of a single trace.
 
@@ -47,6 +48,7 @@ def analyze_trace_comprehensive(
         project_id: GCP Project ID.
         include_call_graph: Whether to include the full call graph tree (can be large).
         baseline_trace_id: Optional ID of a baseline trace to compare against.
+        tool_context: ADK ToolContext for credential propagation.
 
     Returns:
         A dictionary containing all analysis results.
@@ -60,40 +62,43 @@ def analyze_trace_comprehensive(
 
     try:
         # 1. Validation
-        validation = validate_trace_quality(trace_id, project_id)
+        validation = validate_trace_quality(
+            trace_id, project_id, tool_context=tool_context
+        )
         result["quality_check"] = validation
         if not validation.get("valid", False):
             result["status"] = "invalid_trace"
             return result
 
-        # 2. Timing & Errors (Parallel execution not strictly needed as underlying calls often fetch trace)
-        # Note: Optimization opportunity - Underlying tools fetches trace individually.
-        # Ideally, we should fetch once and pass data, but the current tool signatures take ID.
-        # For now, we rely on caching in the underlying client if it exists, or accept the overhead.
-
+        # 2. Timing & Errors
         # Durations
-        durations = calculate_span_durations(trace_id, project_id)
+        durations = calculate_span_durations(
+            trace_id, project_id, tool_context=tool_context
+        )
         if isinstance(durations, list):
             result["span_count"] = len(durations)
             if durations:
-                result["total_duration_ms"] = durations[0].get(
-                    "duration_ms"
-                )  # Root span usually first or longest
+                # Find root or longest span
+                result["total_duration_ms"] = durations[0].get("duration_ms")
 
-        result["spans"] = durations  # Raw spans with durations
+        result["spans"] = durations
 
         # Errors
-        errors = extract_errors(trace_id, project_id)
+        errors = extract_errors(trace_id, project_id, tool_context=tool_context)
         result["errors"] = errors
         result["error_count"] = len(errors)
 
         # 3. Critical Path
-        critical_path = analyze_critical_path(trace_id, project_id)
+        critical_path = analyze_critical_path(
+            trace_id, project_id, tool_context=tool_context
+        )
         result["critical_path_analysis"] = critical_path
 
         # 4. Structure (Call Graph)
         if include_call_graph:
-            call_graph = build_call_graph(trace_id, project_id)
+            call_graph = build_call_graph(
+                trace_id, project_id, tool_context=tool_context
+            )
             result["structure"] = call_graph
 
         # 5. Anomaly Detection (if baseline provided)
@@ -102,6 +107,7 @@ def analyze_trace_comprehensive(
                 baseline_trace_ids=[baseline_trace_id],
                 target_trace_id=trace_id,
                 project_id=project_id,
+                tool_context=tool_context,
             )
             result["anomaly_analysis"] = anomaly
 
@@ -114,5 +120,4 @@ def analyze_trace_comprehensive(
         result["error"] = str(e)
         return result
     finally:
-        # Telemetry recording could go here
         pass
