@@ -68,7 +68,6 @@ from .analysis.trace.analysis import (
     summarize_trace,
     validate_trace_quality,
 )
-from .analysis.trace_comprehensive import analyze_trace_comprehensive
 from .analysis.trace.comparison import (
     compare_span_timings,
     find_structural_differences,
@@ -93,6 +92,7 @@ from .analysis.trace.statistical_analysis import (
     detect_latency_anomalies,
     perform_causal_analysis,
 )
+from .analysis.trace_comprehensive import analyze_trace_comprehensive
 from .clients.alerts import get_alert, list_alert_policies, list_alerts
 from .clients.gcp_projects import list_gcp_projects
 from .clients.gke import (
