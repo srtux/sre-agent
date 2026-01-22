@@ -4,10 +4,9 @@ This module provides specialized analysis queries for span events, links,
 exceptions, and specific diagnostic scenarios (HTTP, DB, etc.).
 """
 
-import json
 import logging
 
-from ...common import adk_tool
+from ...common import adk_tool, json_dumps
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +65,7 @@ WHERE {where_clause}
 ORDER BY event.time DESC
 LIMIT 100
 """
-    return json.dumps(
+    return json_dumps(
         {
             "analysis_type": "span_events",
             "sql_query": query.strip(),
@@ -112,7 +111,7 @@ GROUP BY 1
 ORDER BY exception_count DESC
 LIMIT 50
 """
-    return json.dumps(
+    return json_dumps(
         {
             "analysis_type": "exception_patterns",
             "sql_query": query.strip(),
@@ -155,7 +154,7 @@ UNNEST(links) as link
 WHERE {where_clause}
 LIMIT 100
 """
-    return json.dumps(
+    return json_dumps(
         {
             "analysis_type": "span_links",
             "sql_query": query.strip(),
@@ -182,7 +181,7 @@ WHERE t.start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {time_window_h
 GROUP BY 1
 ORDER BY total_links DESC
 """
-    return json.dumps(
+    return json_dumps(
         {
             "analysis_type": "link_patterns",
             "sql_query": query.strip(),
@@ -212,7 +211,7 @@ WHERE start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {time_window_hou
 GROUP BY 1, 2, 3
 ORDER BY span_count DESC
 """
-    return json.dumps(
+    return json_dumps(
         {
             "analysis_type": "instrumentation_libraries",
             "sql_query": query.strip(),
@@ -247,7 +246,7 @@ GROUP BY 1, 2, 3
 HAVING request_count >= {min_request_count}
 ORDER BY request_count DESC
 """
-    return json.dumps(
+    return json_dumps(
         {
             "analysis_type": "http_attributes",
             "sql_query": query.strip(),
@@ -287,7 +286,7 @@ WHERE start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {time_window_hou
 GROUP BY 1, 2, 3
 ORDER BY call_count DESC
 """
-    return json.dumps(
+    return json_dumps(
         {
             "analysis_type": "database_operations",
             "sql_query": query.strip(),

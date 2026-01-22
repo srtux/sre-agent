@@ -18,7 +18,7 @@ from google.auth.transport.requests import AuthorizedSession
 from google.cloud import monitoring_v3
 
 from ...auth import get_credentials_from_tool_context, get_current_credentials
-from ..common import adk_tool
+from ..common import adk_tool, json_dumps
 from .factory import get_monitoring_client
 
 logger = logging.getLogger(__name__)
@@ -115,12 +115,12 @@ def list_slos(
 
             result.append(slo_info)
 
-        return json.dumps(result, indent=2)
+        return json_dumps(result, indent=2)
 
     except Exception as e:
         error_msg = f"Failed to list SLOs: {e!s}"
         logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})
 
 
 @adk_tool
@@ -194,12 +194,12 @@ def get_slo_status(
             f"Error budget allows {error_budget_percentage:.3f}% failures over the rolling period."
         )
 
-        return json.dumps(result, indent=2)
+        return json_dumps(result, indent=2)
 
     except Exception as e:
         error_msg = f"Failed to get SLO status: {e!s}"
         logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})
 
 
 @adk_tool
@@ -327,12 +327,12 @@ def analyze_error_budget_burn(
                 "Ensure the SLO has been active long enough to generate metrics."
             )
 
-        return json.dumps(result, indent=2)
+        return json_dumps(result, indent=2)
 
     except Exception as e:
         error_msg = f"Failed to analyze error budget burn: {e!s}"
         logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})
 
 
 @adk_tool
@@ -597,12 +597,12 @@ def get_golden_signals(
         else:
             golden_signals["overall_health"] = "UNKNOWN"
 
-        return json.dumps(golden_signals, indent=2)
+        return json_dumps(golden_signals, indent=2)
 
     except Exception as e:
         error_msg = f"Failed to get golden signals: {e!s}"
         logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})
 
 
 @adk_tool
@@ -650,7 +650,7 @@ def correlate_incident_with_slo_impact(
         slo_status = json.loads(slo_status_json)
 
         if "error" in slo_status:
-            return json.dumps(slo_status)
+            return json_dumps(slo_status)
 
         slo_goal = slo_status.get("goal", 0.999)
         rolling_period_days = slo_status.get("rolling_period_days", 30)
@@ -716,12 +716,12 @@ def correlate_incident_with_slo_impact(
                 "error budget remains healthy."
             )
 
-        return json.dumps(result, indent=2)
+        return json_dumps(result, indent=2)
 
     except Exception as e:
         error_msg = f"Failed to correlate incident with SLO impact: {e!s}"
         logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})
 
 
 @adk_tool
@@ -757,7 +757,7 @@ def predict_slo_violation(
         burn_analysis = json.loads(burn_analysis_json)
 
         if "error" in burn_analysis:
-            return json.dumps(burn_analysis)
+            return json_dumps(burn_analysis)
 
         result = {
             "prediction_window_hours": hours_ahead,
@@ -808,9 +808,9 @@ def predict_slo_violation(
                     "Continue monitoring for the next few hours."
                 )
 
-        return json.dumps(result, indent=2)
+        return json_dumps(result, indent=2)
 
     except Exception as e:
         error_msg = f"Failed to predict SLO violation: {e!s}"
         logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})

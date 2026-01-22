@@ -30,7 +30,7 @@ from ...auth import (
     get_credentials_from_tool_context,
     get_current_project_id,
 )
-from ..common import adk_tool
+from ..common import adk_tool, json_dumps
 from ..common.cache import get_data_cache
 from ..common.telemetry import get_meter, get_tracer
 from .factory import get_trace_client
@@ -234,7 +234,7 @@ async def fetch_trace(
         try:
             project_id = _get_project_id()
         except ValueError as e:
-            return json.dumps({"error": str(e)})
+            return json_dumps({"error": str(e)})
 
     # Extract user credentials from tool_context for EIC propagation
     # This allows the tool to use the user's credentials when running in Agent Engine
@@ -338,7 +338,7 @@ def _fetch_trace_sync(project_id: str, trace_id: str) -> str:
             }
 
             # Cache the result before returning
-            result_json = json.dumps(result)
+            result_json = json_dumps(result)
             cache.put(f"trace:{trace_id}", result_json)
 
             return result_json
@@ -347,7 +347,7 @@ def _fetch_trace_sync(project_id: str, trace_id: str) -> str:
             span.record_exception(e)
             error_msg = f"Failed to fetch trace: {e!s}"
             logger.error(error_msg, exc_info=True)
-            return json.dumps({"error": error_msg})
+            return json_dumps({"error": error_msg})
 
 
 @adk_tool
@@ -384,7 +384,7 @@ async def list_traces(
         try:
             project_id = _get_project_id()
         except ValueError as e:
-            return json.dumps({"error": str(e)})
+            return json_dumps({"error": str(e)})
 
     # Extract user credentials from tool_context for EIC propagation
     user_creds = get_credentials_from_tool_context(tool_context)
@@ -512,12 +512,12 @@ def _list_traces_sync(
                 if len(traces) >= limit:
                     break
 
-            return json.dumps(traces)
+            return json_dumps(traces)
 
         except Exception as e:
             error_msg = f"Failed to list traces: {e!s}"
             logger.error(error_msg, exc_info=True)
-            return json.dumps({"error": error_msg})
+            return json_dumps({"error": error_msg})
 
 
 def _calculate_anomaly_score(
@@ -645,7 +645,7 @@ async def find_example_traces(
             if not project_id:
                 project_id = _get_project_id()
         except ValueError:
-            return json.dumps({"error": "GOOGLE_CLOUD_PROJECT not set"})
+            return json_dumps({"error": "GOOGLE_CLOUD_PROJECT not set"})
 
         # Prepare parallel tasks for trace fetching
         tasks = []
@@ -689,7 +689,7 @@ async def find_example_traces(
             return cast(str, raw_traces)
 
         if not traces:
-            return json.dumps({"error": "No traces found in the last hour."})
+            return json_dumps({"error": "No traces found in the last hour."})
 
         # Inject slow traces into our pool
         if (
@@ -729,7 +729,7 @@ async def find_example_traces(
                 t for t in traces if isinstance(t, dict) and t.get("duration_ms", 0) > 0
             ]
             if not valid_traces:
-                return json.dumps({"error": "No traces with valid duration found."})
+                return json_dumps({"error": "No traces with valid duration found."})
 
             latencies = [t["duration_ms"] for t in valid_traces]
             latencies.sort()
@@ -793,7 +793,7 @@ async def find_example_traces(
                 "latency_variance_detected": stdev > 0,
             }
 
-            return json.dumps(
+            return json_dumps(
                 {
                     "stats": stats,
                     "baseline": baseline,
@@ -843,12 +843,12 @@ async def find_example_traces(
                     results["baseline"] = best_baseline
                     results["selection_method"] += "+root_name_match"
 
-        return json.dumps(results)
+        return json_dumps(results)
 
     except Exception as e:
         error_msg = f"Failed to find example traces: {e!s}"
         logger.error(error_msg, exc_info=True)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})
 
 
 @adk_tool
@@ -891,7 +891,7 @@ async def get_trace_by_url(url: str) -> str:
                     break
 
         if not project_id or not trace_id:
-            return json.dumps(
+            return json_dumps(
                 {"error": "Could not parse project_id or trace_id from URL"}
             )
 
@@ -900,4 +900,4 @@ async def get_trace_by_url(url: str) -> str:
     except Exception as e:
         error_msg = f"Failed to get trace by URL: {e!s}"
         logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})

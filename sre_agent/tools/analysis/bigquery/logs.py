@@ -4,10 +4,9 @@ This module provides tools to analyze log patterns using BigQuery's regex functi
 enabling efficient clustering of millions of logs without client-side processing.
 """
 
-import json
 import logging
 
-from ...common import adk_tool
+from ...common import adk_tool, json_dumps
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +95,7 @@ LIMIT {limit}
 
     logger.info(f"Generated BigQuery Log Pattern SQL:\n{query.strip()}")
 
-    return json.dumps(
+    return json_dumps(
         {
             "analysis_type": "bigquery_log_patterns",
             "sql_query": query.strip(),

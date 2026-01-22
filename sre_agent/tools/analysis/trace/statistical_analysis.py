@@ -1,13 +1,13 @@
 """Statistical analysis and anomaly detection for trace data."""
 
 import concurrent.futures
-import json
 import statistics
 from collections import defaultdict
 from datetime import datetime
 from typing import Any
 
 from ...clients.trace import fetch_trace_data
+from ...common import json_dumps
 from ...common.decorators import adk_tool
 from ...common.telemetry import get_meter, get_tracer
 
@@ -541,7 +541,7 @@ def perform_causal_analysis(
             and baseline_trace_id.strip().startswith("{")
             else "Invalid baseline_trace ID provided."
         )
-        return json.dumps({"error": msg})
+        return json_dumps({"error": msg})
 
     try:
         if user_creds:
@@ -556,7 +556,7 @@ def perform_causal_analysis(
             and target_trace_id.strip().startswith("{")
             else "Invalid target_trace ID provided."
         )
-        return json.dumps({"error": msg})
+        return json_dumps({"error": msg})
 
     # 1. Build span name mappings for both traces
     baseline_spans_by_name = defaultdict(list)

@@ -12,11 +12,10 @@ Note: These functions are wrapped with `@adk_tool` for agent exposure, but they
 execute locally within the agent's process (via threadpool for async compatibility).
 """
 
-import json
 import logging
 from typing import Any
 
-from ..common import adk_tool
+from ..common import adk_tool, json_dumps
 from ..common.telemetry import get_tracer
 from .factory import get_logging_client
 
@@ -154,14 +153,14 @@ def _list_log_entries_sync(
                 next_token = first_page.next_page_token
 
             span.set_attribute("gcp.logging.count", len(results))
-            return json.dumps(
+            return json_dumps(
                 {"entries": results, "next_page_token": next_token or None}
             )
         except Exception as e:
             span.record_exception(e)
             error_msg = f"Failed to list log entries: {e!s}"
             logger.error(error_msg, exc_info=True)
-            return json.dumps({"error": error_msg})
+            return json_dumps({"error": error_msg})
 
 
 @adk_tool
@@ -219,11 +218,11 @@ def _list_error_events_sync(
                     },
                 }
             )
-        return json.dumps(results)
+        return json_dumps(results)
     except Exception as e:
         error_msg = f"Failed to list error events: {e!s}"
         logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})
 
 
 @adk_tool

@@ -9,7 +9,6 @@ It is used primarily by the `metrics_analyzer` sub-agent to correlate metric spi
 with trace data using Exemplars.
 """
 
-import json
 import logging
 import time
 from datetime import datetime, timezone
@@ -20,7 +19,7 @@ from google.cloud import monitoring_v3
 from opentelemetry.trace import Status, StatusCode
 
 from ...auth import get_current_credentials, get_current_project_id
-from ..common import adk_tool
+from ..common import adk_tool, json_dumps
 from ..common.telemetry import get_tracer
 from .factory import get_monitoring_client
 
@@ -59,7 +58,7 @@ async def list_time_series(
     if not project_id:
         project_id = get_current_project_id()
         if not project_id:
-            return json.dumps(
+            return json_dumps(
                 {
                     "error": "Project ID is required but not provided or found in context."
                 }
@@ -167,7 +166,7 @@ def _list_time_series_sync(
                     }
                 )
             span.set_attribute("gcp.monitoring.series_count", len(time_series_data))
-            return json.dumps(time_series_data)
+            return json_dumps(time_series_data)
         except Exception as e:
             span.record_exception(e)
             error_str = str(e)
@@ -187,7 +186,7 @@ def _list_time_series_sync(
             error_msg = f"Failed to list time series: {error_str}{suggestion}"
             logger.error(error_msg, exc_info=True)
             span.set_status(Status(StatusCode.ERROR, error_msg))
-            return json.dumps({"error": error_msg})
+            return json_dumps({"error": error_msg})
 
 
 @adk_tool
@@ -217,7 +216,7 @@ async def query_promql(
     if not project_id:
         project_id = get_current_project_id()
         if not project_id:
-            return json.dumps(
+            return json_dumps(
                 {
                     "error": "Project ID is required but not provided or found in context."
                 }
@@ -275,11 +274,11 @@ def _query_promql_sync(
             response = session.get(url, params=params)
             response.raise_for_status()
 
-            return json.dumps(response.json())
+            return json_dumps(response.json())
 
         except Exception as e:
             error_msg = f"Failed to execute PromQL query: {e!s}"
             logger.error(error_msg)
             span.record_exception(e)
             span.set_status(Status(StatusCode.ERROR, error_msg))
-            return json.dumps({"error": error_msg})
+            return json_dumps({"error": error_msg})

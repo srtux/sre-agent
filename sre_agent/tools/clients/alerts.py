@@ -9,7 +9,6 @@ It allows the agent to:
 This is the primary toolset for the `alert_analyst` sub-agent.
 """
 
-import json
 import logging
 from typing import Any
 
@@ -17,7 +16,7 @@ from google.auth.transport.requests import AuthorizedSession
 from google.cloud import monitoring_v3
 
 from ...auth import get_credentials_from_tool_context, get_current_credentials
-from ..common import adk_tool
+from ..common import adk_tool, json_dumps
 from ..common.telemetry import get_tracer
 from .factory import get_alert_policy_client
 
@@ -93,13 +92,13 @@ def _list_alerts_sync(
 
             alerts = response.json().get("alerts", [])
             span.set_attribute("gcp.monitoring.alerts_count", len(alerts))
-            return json.dumps(alerts)
+            return json_dumps(alerts)
 
         except Exception as e:
             span.record_exception(e)
             error_msg = f"Failed to list alerts: {e!s}"
             logger.error(error_msg, exc_info=True)
-            return json.dumps({"error": error_msg})
+            return json_dumps({"error": error_msg})
 
 
 @adk_tool
@@ -134,13 +133,13 @@ def _get_alert_sync(name: str, tool_context: Any = None) -> str:
             response = session.get(url)
             response.raise_for_status()
 
-            return json.dumps(response.json())
+            return json_dumps(response.json())
 
         except Exception as e:
             span.record_exception(e)
             error_msg = f"Failed to get alert: {e!s}"
             logger.error(error_msg, exc_info=True)
-            return json.dumps({"error": error_msg})
+            return json_dumps({"error": error_msg})
 
 
 @adk_tool
@@ -218,10 +217,10 @@ def _list_alert_policies_sync(
                 policies_data.append(policy_dict)
 
             span.set_attribute("gcp.monitoring.policies_count", len(policies_data))
-            return json.dumps(policies_data)
+            return json_dumps(policies_data)
 
         except Exception as e:
             span.record_exception(e)
             error_msg = f"Failed to list alert policies: {e!s}"
             logger.error(error_msg, exc_info=True)
-            return json.dumps({"error": error_msg})
+            return json_dumps({"error": error_msg})

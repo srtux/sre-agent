@@ -14,10 +14,9 @@ References:
 - https://opentelemetry.io/docs/concepts/signals/
 """
 
-import json
 import logging
 
-from ...common import adk_tool
+from ...common import adk_tool, json_dumps
 from ...common.telemetry import get_meter, get_tracer
 
 logger = logging.getLogger(__name__)
@@ -183,7 +182,7 @@ FROM trace_spans
         }
 
         logger.info(f"Generated trace-metrics correlation for trace {trace_id}")
-        return json.dumps(result)
+        return json_dumps(result)
 
 
 @adk_tool
@@ -355,7 +354,7 @@ ORDER BY duration_ms DESC
         logger.info(
             f"Generated exemplar correlation for {metric_name} on {service_name}"
         )
-        return json.dumps(result)
+        return json_dumps(result)
 
 
 @adk_tool
@@ -543,7 +542,7 @@ ORDER BY event_time
         }
 
         logger.info(f"Generated cross-signal timeline for trace {trace_id}")
-        return json.dumps(result)
+        return json_dumps(result)
 
 
 @adk_tool
@@ -709,4 +708,4 @@ ORDER BY overall_correlation_score
         }
 
         logger.info("Generated signal correlation strength analysis")
-        return json.dumps(result)
+        return json_dumps(result)

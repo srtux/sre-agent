@@ -16,6 +16,8 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
+from ..tools.common import json_dumps
+
 try:
     import google.cloud.firestore as firestore
 except ImportError:
@@ -64,7 +66,7 @@ class FilePreferencesBackend(PreferencesBackend):
     def _save(self) -> None:
         """Save preferences to file."""
         try:
-            self._file_path.write_text(json.dumps(self._cache, indent=2))
+            self._file_path.write_text(json_dumps(self._cache, indent=2))
         except OSError as e:
             logger.error(f"Failed to save preferences: {e}")
 

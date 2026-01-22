@@ -14,7 +14,6 @@ Capabilities:
 Kubernetes Wisdom: "Cattle, not pets" - but we still care when the herd is sick!
 """
 
-import json
 import logging
 from typing import Any
 
@@ -26,7 +25,7 @@ from ...auth import (
     get_current_credentials,
     get_current_project_id,
 )
-from ..common import adk_tool
+from ..common import adk_tool, json_dumps
 from .factory import get_monitoring_client
 
 logger = logging.getLogger(__name__)
@@ -70,7 +69,7 @@ async def get_gke_cluster_health(
     if not project_id:
         project_id = get_current_project_id()
         if not project_id:
-            return json.dumps(
+            return json_dumps(
                 {
                     "error": "Project ID is required but not provided or found in context."
                 }
@@ -161,12 +160,12 @@ def _get_gke_cluster_health_sync(
         if maintenance:
             result["maintenance_window"] = maintenance.get("window", {})
 
-        return json.dumps(result, indent=2)
+        return json_dumps(result, indent=2)
 
     except Exception as e:
         error_msg = f"Failed to get GKE cluster health: {e!s}"
         logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})
 
 
 @adk_tool
@@ -200,7 +199,7 @@ async def analyze_node_conditions(
     if not project_id:
         project_id = get_current_project_id()
         if not project_id:
-            return json.dumps(
+            return json_dumps(
                 {
                     "error": "Project ID is required but not provided or found in context."
                 }
@@ -385,12 +384,12 @@ def _analyze_node_conditions_sync(
             ),
         }
 
-        return json.dumps(result, indent=2)
+        return json_dumps(result, indent=2)
 
     except Exception as e:
         error_msg = f"Failed to analyze node conditions: {e!s}"
         logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})
 
 
 @adk_tool
@@ -424,7 +423,7 @@ async def get_pod_restart_events(
     if not project_id:
         project_id = get_current_project_id()
         if not project_id:
-            return json.dumps(
+            return json_dumps(
                 {
                     "error": "Project ID is required but not provided or found in context."
                 }
@@ -548,12 +547,12 @@ def _get_pod_restart_events_sync(
             result["severity"] = "NORMAL"
             result["message"] = "Pod restart activity within normal range."
 
-        return json.dumps(result, indent=2)
+        return json_dumps(result, indent=2)
 
     except Exception as e:
         error_msg = f"Failed to get pod restart events: {e!s}"
         logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})
 
 
 @adk_tool
@@ -587,7 +586,7 @@ async def analyze_hpa_events(
     if not project_id:
         project_id = get_current_project_id()
         if not project_id:
-            return json.dumps(
+            return json_dumps(
                 {
                     "error": "Project ID is required but not provided or found in context."
                 }
@@ -727,12 +726,12 @@ def _analyze_hpa_events_sync(
         else:
             result["recommendation"] = "HPA activity appears normal."
 
-        return json.dumps(result, indent=2)
+        return json_dumps(result, indent=2)
 
     except Exception as e:
         error_msg = f"Failed to analyze HPA events: {e!s}"
         logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})
 
 
 @adk_tool
@@ -764,7 +763,7 @@ async def get_container_oom_events(
     if not project_id:
         project_id = get_current_project_id()
         if not project_id:
-            return json.dumps(
+            return json_dumps(
                 {
                     "error": "Project ID is required but not provided or found in context."
                 }
@@ -910,12 +909,12 @@ def _get_container_oom_events_sync(
                 "No OOM events or high memory utilization detected."
             )
 
-        return json.dumps(result, indent=2)
+        return json_dumps(result, indent=2)
 
     except Exception as e:
         error_msg = f"Failed to get OOM events: {e!s}"
         logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})
 
 
 @adk_tool
@@ -979,11 +978,11 @@ def _correlate_trace_with_kubernetes_sync(
             _clear_thread_credentials()
 
         if "error" in trace_data:
-            return json.dumps(trace_data)
+            return json_dumps(trace_data)
 
         spans = trace_data.get("spans", [])
         if not spans:
-            return json.dumps({"error": "No spans found in trace"})
+            return json_dumps({"error": "No spans found in trace"})
 
         # Find time window
         start_times = []
@@ -1005,7 +1004,7 @@ def _correlate_trace_with_kubernetes_sync(
             trace_start = min(start_times)
             trace_end = max(end_times)
         else:
-            return json.dumps({"error": "Could not determine trace time window"})
+            return json_dumps({"error": "Could not determine trace time window"})
 
         result: dict[str, Any] = {
             "trace_id": trace_id,
@@ -1069,12 +1068,12 @@ def _correlate_trace_with_kubernetes_sync(
                 "Ensure your application logs include trace context."
             )
 
-        return json.dumps(result, indent=2)
+        return json_dumps(result, indent=2)
 
     except Exception as e:
         error_msg = f"Failed to correlate trace with Kubernetes: {e!s}"
         logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})
 
 
 @adk_tool
@@ -1106,7 +1105,7 @@ async def get_workload_health_summary(
     if not project_id:
         project_id = get_current_project_id()
         if not project_id:
-            return json.dumps(
+            return json_dumps(
                 {
                     "error": "Project ID is required but not provided or found in context."
                 }
@@ -1317,9 +1316,9 @@ def _get_workload_health_summary_sync(
             "workloads": result_workloads,
         }
 
-        return json.dumps(result, indent=2)
+        return json_dumps(result, indent=2)
 
     except Exception as e:
         error_msg = f"Failed to get workload health summary: {e!s}"
         logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})
