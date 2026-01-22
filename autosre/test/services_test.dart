@@ -46,6 +46,22 @@ void main() {
       expect(service.selectedProjectId, isNull);
       service.dispose();
     });
+
+    test('should fetch projects with query parameter', () async {
+      final capturedUrls = <String>[];
+      final mockClient = MockClient((request) async {
+        capturedUrls.add(request.url.toString());
+        return http.Response('{"projects": []}', 200);
+      });
+
+      Future<http.Client> clientFactory() async => mockClient;
+      final service = ProjectService.newInstance(clientFactory: clientFactory);
+
+      await service.fetchProjects(query: 'my-project');
+
+      expect(capturedUrls.any((url) => url.contains('query=my-project')), isTrue);
+      service.dispose();
+    });
   });
 
   group('GcpProject', () {

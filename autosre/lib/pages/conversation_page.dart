@@ -1468,6 +1468,7 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
         _searchQuery = '';
         _searchController.clear();
       });
+      widget.onSearch('');
     }
   }
 
@@ -1569,6 +1570,7 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                                 setDropdownState(() {
                                   _searchQuery = '';
                                 });
+                                widget.onSearch('');
                               },
                             )
                           : null,
@@ -1585,6 +1587,13 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                     onChanged: (value) {
                       setDropdownState(() {
                         _searchQuery = value;
+                      });
+
+                      // Debounce search to avoid too many API calls
+                      _debounceTimer?.cancel();
+                      _debounceTimer =
+                          Timer(const Duration(milliseconds: 500), () {
+                        widget.onSearch(value);
                       });
                     },
                     onSubmitted: (value) {
@@ -1672,7 +1681,23 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                 // Custom project option when search doesn't match
                 if (_searchQuery.isNotEmpty && _filteredProjects.isEmpty)
                   _buildUseCustomProjectOption(_searchQuery, setDropdownState),
-                // Project list
+                // Loading indicator for search
+                if (widget.isLoading && _searchQuery.isNotEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 32),
+                    child: Center(
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            AppColors.primaryTeal,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 // Project list
                 if (_searchQuery.isEmpty && !widget.isLoading) ...[
                   if (widget.error != null)
