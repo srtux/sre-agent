@@ -13,6 +13,7 @@ and inspect individual traces during triage.
 """
 
 import asyncio
+import contextvars
 import json
 import logging
 import os
@@ -34,26 +35,26 @@ from ..common.cache import get_data_cache
 from ..common.telemetry import get_meter, get_tracer
 from .factory import get_trace_client
 
-# Thread-safe storage for credentials to pass to sync functions running in threadpool
+# Context variable for credentials to pass to sync functions running in threadpool
 # This enables EIC propagation for Direct API tools in Agent Engine
-_thread_credentials: Any = None
+_thread_credentials: contextvars.ContextVar[Any | None] = contextvars.ContextVar(
+    "thread_credentials", default=None
+)
 
 
 def _set_thread_credentials(creds: Any) -> None:
     """Set credentials for use in threadpool sync functions."""
-    global _thread_credentials
-    _thread_credentials = creds
+    _thread_credentials.set(creds)
 
 
 def _get_thread_credentials() -> Any:
     """Get credentials from thread storage."""
-    return _thread_credentials
+    return _thread_credentials.get()
 
 
 def _clear_thread_credentials() -> None:
     """Clear thread credentials after use."""
-    global _thread_credentials
-    _thread_credentials = None
+    _thread_credentials.set(None)
 
 
 logger = logging.getLogger(__name__)

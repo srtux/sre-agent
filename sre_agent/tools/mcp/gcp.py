@@ -11,6 +11,7 @@ different task" errors because anyio cancel scopes cannot cross task boundaries.
 """
 
 import asyncio
+import contextvars
 import logging
 import os
 from collections.abc import Callable
@@ -32,21 +33,21 @@ from .mock_mcp import MockMcpToolset
 
 logger = logging.getLogger(__name__)
 
-# Thread-local storage for tool context during MCP calls
+# Context variable for tool context during MCP calls
 # This allows the header provider to access tool_context for session state
-_mcp_tool_context: Any = None
+_mcp_tool_context: contextvars.ContextVar[Any | None] = contextvars.ContextVar(
+    "mcp_tool_context", default=None
+)
 
 
 def set_mcp_tool_context(tool_context: Any) -> None:
     """Set the tool context for MCP header provider to access session state."""
-    global _mcp_tool_context
-    _mcp_tool_context = tool_context
+    _mcp_tool_context.set(tool_context)
 
 
 def clear_mcp_tool_context() -> None:
     """Clear the tool context after MCP call."""
-    global _mcp_tool_context
-    _mcp_tool_context = None
+    _mcp_tool_context.set(None)
 
 
 def _create_header_provider(project_id: str) -> Callable[[Any], dict[str, str]]:
@@ -71,10 +72,11 @@ def _create_header_provider(project_id: str) -> Callable[[Any], dict[str, str]]:
 
         # Second, check session state (for Agent Engine execution)
         # This is the EIC (End User Identity Credential) propagation path
-        if _mcp_tool_context is not None:
+        ctx = _mcp_tool_context.get()
+        if ctx is not None:
             try:
                 session = getattr(
-                    getattr(_mcp_tool_context, "invocation_context", None),
+                    getattr(ctx, "invocation_context", None),
                     "session",
                     None,
                 )
