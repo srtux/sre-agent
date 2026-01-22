@@ -166,6 +166,12 @@ async def test_list_gcp_projects_refresh_token():
         mock_client_class.return_value.__aenter__.return_value = mock_client
         mock_client.get.return_value = mock_response
 
+        # Mock refresh to set a token
+        def mock_refresh(request):
+            mock_credentials.token = "refreshed-token"
+
+        mock_credentials.refresh.side_effect = mock_refresh
+
         result = await list_gcp_projects()
 
         assert result == {"projects": []}

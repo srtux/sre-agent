@@ -36,14 +36,14 @@ from ..common.telemetry import get_meter, get_tracer
 from .factory import get_trace_client
 
 __all__ = [
-    "fetch_trace",
-    "list_traces",
-    "find_example_traces",
-    "validate_trace",
-    "fetch_trace_data",
-    "get_credentials_from_tool_context",
-    "_set_thread_credentials",
     "_clear_thread_credentials",
+    "_set_thread_credentials",
+    "fetch_trace",
+    "fetch_trace_data",
+    "find_example_traces",
+    "get_credentials_from_tool_context",
+    "list_traces",
+    "validate_trace",
 ]
 
 # Context variable for credentials to pass to sync functions running in threadpool
