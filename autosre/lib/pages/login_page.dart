@@ -364,22 +364,23 @@ class _AnimatedPhysicsRobotState extends State<_AnimatedPhysicsRobot>
           child: RotationTransition(
             turns: _rotationAnimation,
             child: Transform.translate(
-            offset: _position,
-            child: Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.indigoAccent.withValues(alpha: 0.5),
-                    blurRadius: 40,
-                    spreadRadius: -5,
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.smart_toy, // Original Robot Icon
-                size: 96,
-                color: Colors.white,
+              offset: _position,
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.indigoAccent.withValues(alpha: 0.5),
+                      blurRadius: 40,
+                      spreadRadius: -5,
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.smart_toy, // Original Robot Icon
+                  size: 96,
+                  color: Colors.white,
+                ),
               ),
             ),
           ),
