@@ -34,23 +34,28 @@ async def list_gcp_projects(
     """
     try:
         logger.info(f"list_gcp_projects called with query='{query}'")
-        credentials = get_credentials_from_tool_context(tool_context)
+        # Use Any to avoid type mismatch between oauth2.credentials and google.auth.credentials
+        auth_creds: Any = get_credentials_from_tool_context(tool_context)
 
         # Fallback to default credentials if no user credentials found in tool_context/ContextVar
-        if not credentials:
-            credentials, _ = google.auth.default()
+        if not auth_creds:
+            auth_creds, _ = google.auth.default()
 
-        if not credentials.token:
+        if auth_creds and not getattr(auth_creds, "token", None):
             # Refresh credentials if needed
             try:
                 auth_request = google.auth.transport.requests.Request()
-                credentials.refresh(auth_request)  # type: ignore[no-untyped-call]
+                auth_creds.refresh(auth_request)
             except Exception as e:
                 logger.warning(f"Credential refresh failed: {e}")
                 pass
 
         async with httpx.AsyncClient() as client:
-            headers = {"Authorization": f"Bearer {credentials.token}"}
+            token = getattr(auth_creds, "token", None)
+            if not token:
+                return {"projects": [], "error": "No valid authentication token found"}
+
+            headers = {"Authorization": f"Bearer {token}"}
 
             # Use CRM v3 SearchProjects API
             url = "https://cloudresourcemanager.googleapis.com/v3/projects:search"

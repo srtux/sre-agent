@@ -29,7 +29,8 @@ def _get_authorized_session(tool_context: Any = None) -> AuthorizedSession:
     """Get an authorized session for REST API calls."""
     credentials = get_credentials_from_tool_context(tool_context)
     if not credentials:
-        credentials, _ = get_current_credentials()
+        auth_obj: Any = get_current_credentials()
+        credentials, _ = auth_obj
     return AuthorizedSession(credentials)  # type: ignore[no-untyped-call]
 
 

@@ -36,7 +36,8 @@ def _get_authorized_session(tool_context: Any = None) -> AuthorizedSession:
     """Get an authorized session for REST API calls."""
     credentials = get_credentials_from_tool_context(tool_context)
     if not credentials:
-        credentials, _ = get_current_credentials()
+        auth_obj: Any = get_current_credentials()
+        credentials, _ = auth_obj
     return AuthorizedSession(credentials)  # type: ignore[no-untyped-call]
 
 
@@ -960,12 +961,22 @@ def _correlate_trace_with_kubernetes_sync(
 ) -> str:
     """Synchronous implementation of correlate_trace_with_kubernetes."""
     try:
-        # First, get the trace to find the time window and service names
-        from .trace import fetch_trace_data
-
-        trace_data = fetch_trace_data(
-            trace_id_or_json=trace_id, project_id=project_id, tool_context=tool_context
+        from .trace import (
+            _clear_thread_credentials,
+            _set_thread_credentials,
+            fetch_trace_data,
+            get_credentials_from_tool_context,
         )
+
+        user_creds = get_credentials_from_tool_context(tool_context)
+        try:
+            if user_creds:
+                _set_thread_credentials(user_creds)
+            trace_data = fetch_trace_data(
+                trace_id_or_json=trace_id, project_id=project_id
+            )
+        finally:
+            _clear_thread_credentials()
 
         if "error" in trace_data:
             return json.dumps(trace_data)

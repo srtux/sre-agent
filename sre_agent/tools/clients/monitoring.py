@@ -132,6 +132,7 @@ def _list_time_series_sync(
                     # Robust value extraction (TypedValue is a oneof)
                     # We check which field is actually set
                     val_proto = point.value
+                    value: Any = None
                     if hasattr(val_proto, "double_value") and "double_value" in str(
                         val_proto
                     ):
@@ -248,7 +249,9 @@ def _query_promql_sync(
 
             # Fallback to current context (ContextVar or Default)
             if not credentials:
-                credentials, _ = get_current_credentials()
+                # Use Any to avoid type mismatch
+                auth_obj: Any = get_current_credentials()
+                credentials, _ = auth_obj
 
             session = AuthorizedSession(credentials)  # type: ignore[no-untyped-call]
 

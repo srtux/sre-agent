@@ -35,6 +35,17 @@ from ..common.cache import get_data_cache
 from ..common.telemetry import get_meter, get_tracer
 from .factory import get_trace_client
 
+__all__ = [
+    "fetch_trace",
+    "list_traces",
+    "find_example_traces",
+    "validate_trace",
+    "fetch_trace_data",
+    "get_credentials_from_tool_context",
+    "_set_thread_credentials",
+    "_clear_thread_credentials",
+]
+
 # Context variable for credentials to pass to sync functions running in threadpool
 # This enables EIC propagation for Direct API tools in Agent Engine
 _thread_credentials: contextvars.ContextVar[Any | None] = contextvars.ContextVar(
@@ -279,12 +290,12 @@ def _fetch_trace_sync(project_id: str, trace_id: str) -> str:
                 # Helper for robust timestamp extraction
                 def get_ts_val(ts_proto: Any) -> float:
                     if hasattr(ts_proto, "timestamp"):
-                        return ts_proto.timestamp()
-                    return ts_proto.seconds + ts_proto.nanos / 1e9
+                        return cast(float, ts_proto.timestamp())
+                    return cast(float, ts_proto.seconds + ts_proto.nanos / 1e9)
 
                 def get_ts_str(ts_proto: Any) -> str:
                     if hasattr(ts_proto, "isoformat"):
-                        return ts_proto.isoformat()
+                        return cast(str, ts_proto.isoformat())
 
                     return datetime.fromtimestamp(
                         get_ts_val(ts_proto), tz=timezone.utc
@@ -462,7 +473,10 @@ def _list_traces_sync(
 
             traces = []
             for trace in response:
-                summary = {"trace_id": trace.trace_id, "project_id": trace.project_id}
+                summary: dict[str, Any] = {
+                    "trace_id": trace.trace_id,
+                    "project_id": trace.project_id,
+                }
 
                 # Extract root span details if available
                 if trace.spans:
@@ -472,8 +486,8 @@ def _list_traces_sync(
                     # Helper for robust timestamp extraction
                     def get_ts_val(ts_proto: Any) -> float:
                         if hasattr(ts_proto, "timestamp"):
-                            return ts_proto.timestamp()
-                        return ts_proto.seconds + ts_proto.nanos / 1e9
+                            return cast(float, ts_proto.timestamp())
+                        return cast(float, ts_proto.seconds + ts_proto.nanos / 1e9)
 
                     start_ts = get_ts_val(root_span.start_time)
                     end_ts = get_ts_val(root_span.end_time)
@@ -485,6 +499,7 @@ def _list_traces_sync(
                         summary["start_time"] = datetime.fromtimestamp(
                             start_ts, tz=timezone.utc
                         ).isoformat()
+                    summary["duration_ms_str"] = str(round(duration_ms, 2))
                     summary["duration_ms"] = round(duration_ms, 2)
 
                     # Labels/Attributes
