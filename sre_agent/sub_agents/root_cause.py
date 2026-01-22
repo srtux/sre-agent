@@ -7,6 +7,7 @@ synthesis of why an incident occurred.
 
 from google.adk.agents import LlmAgent
 
+from ..prompt import STRICT_ENGLISH_INSTRUCTION
 from ..tools import (
     analyze_upstream_downstream_impact,
     build_cross_signal_timeline,
@@ -29,7 +30,8 @@ init_sub_agent_env()
 # Prompts
 # =============================================================================
 
-ROOT_CAUSE_ANALYST_PROMPT = """
+ROOT_CAUSE_ANALYST_PROMPT = f"""
+{STRICT_ENGLISH_INSTRUCTION}
 Role: You are the **Root Cause Analyst** 🕵️‍♂️🧩 - The Investigator.
 
 You combine the skills of a Causality Expert, Impact Assessor, and Change Detective.

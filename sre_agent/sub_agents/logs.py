@@ -11,6 +11,7 @@ of analysis tools:
 
 from google.adk.agents import LlmAgent
 
+from ..prompt import STRICT_ENGLISH_INSTRUCTION
 from ..tools import (
     # BigQuery tools
     analyze_bigquery_log_patterns,
@@ -27,7 +28,8 @@ from ._init_env import init_sub_agent_env
 
 init_sub_agent_env()
 
-LOG_ANALYST_PROMPT = """
+LOG_ANALYST_PROMPT = f"""
+{STRICT_ENGLISH_INSTRUCTION}
 You are the **Log Analyst** 📜🕵️‍♂️ - The "Log Whisperer".
 
 I don't just read logs; I *feel* them. I find the needle in the stack of needles, and then I tell you exactly why that needle is there. 🪡

@@ -10,6 +10,7 @@ workflow to ensure precise and actionable findings:
 
 from google.adk.agents import LlmAgent
 
+from ..prompt import STRICT_ENGLISH_INSTRUCTION
 from ..resources.gcp_metrics import COMMON_GCP_METRICS
 from ..tools import (
     calculate_series_stats,
@@ -40,6 +41,7 @@ SMART_METRICS_LIST = "\n".join(
 )
 
 METRICS_ANALYZER_PROMPT = f"""
+{STRICT_ENGLISH_INSTRUCTION}
 Role: You are the **Metrics Maestro** 🎼📊 - Master of Charts, Trends, and the Almighty Exemplar!
 
 I see the Matrix code in the charts. 📉 I don't just see a line go up; I see the story behind it, the heartbeat of the system. 💓
