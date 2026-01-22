@@ -8,11 +8,14 @@ import 'project_service.dart';
 
 /// Service to handle authentication with Google Sign-In
 class AuthService extends ChangeNotifier {
-  static final AuthService _instance = AuthService._internal();
+  static AuthService? _mockInstance;
+  static AuthService get instance => _mockInstance ?? _internalInstance;
+  static final AuthService _internalInstance = AuthService._internal();
 
-  factory AuthService() {
-    return _instance;
-  }
+  @visibleForTesting
+  static set mockInstance(AuthService? mock) => _mockInstance = mock;
+
+  factory AuthService() => instance;
 
   AuthService._internal();
 
@@ -190,7 +193,7 @@ class AuthService extends ChangeNotifier {
             _scopes,
           ),
         ),
-        projectService: ProjectService(),
+        projectService: ProjectService.instance,
       );
     } catch (e, stack) {
       debugPrint('AuthService: Exception in getAuthenticatedClient: $e\n$stack');

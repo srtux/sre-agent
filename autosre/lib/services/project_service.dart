@@ -50,10 +50,15 @@ typedef ClientFactory = Future<http.Client> Function();
 
 /// Service for managing GCP project selection and fetching.
 class ProjectService {
-  static final ProjectService _instance = ProjectService._internal();
+  static ProjectService? _mockInstance;
+  static ProjectService get instance => _mockInstance ?? _internalInstance;
+  static final ProjectService _internalInstance = ProjectService._internal();
+
+  @visibleForTesting
+  static set mockInstance(ProjectService? mock) => _mockInstance = mock;
 
   /// Default factory returns the shared singleton.
-  factory ProjectService() => _instance;
+  factory ProjectService() => instance;
 
   /// Creates a new, non-singleton instance.
   ///
@@ -68,7 +73,7 @@ class ProjectService {
           clientFactory ??
           (() async {
             try {
-              return await AuthService().getAuthenticatedClient();
+              return await AuthService.instance.getAuthenticatedClient();
             } catch (e) {
               if (kDebugMode) {
                 debugPrint(
@@ -344,7 +349,7 @@ class ProjectService {
   void dispose() {
     // Only allow disposal for non-singleton instances to avoid disposing
     // global notifiers that may still be in use elsewhere.
-    if (identical(this, _instance)) {
+    if (identical(this, _internalInstance)) {
       debugPrint('ProjectService.dispose() called on singleton; ignoring.');
       return;
     }
