@@ -54,6 +54,12 @@ from google.adk.cli.fast_api import get_fast_api_app
 from pydantic import BaseModel
 
 from sre_agent.agent import root_agent
+from sre_agent.auth import (
+    SESSION_STATE_ACCESS_TOKEN_KEY,
+    SESSION_STATE_PROJECT_ID_KEY,
+    get_current_credentials_or_none,
+    get_current_project_id,
+)
 from sre_agent.services import get_session_service, get_storage_service
 from sre_agent.suggestions import generate_contextual_suggestions
 from sre_agent.tools import (
@@ -1596,15 +1602,57 @@ async def genui_chat(
                 # Instantiate remote agent
                 remote_agent = reasoning_engines.ReasoningEngine(remote_agent_id)
 
+                # Extract user credentials from context to pass to Agent Engine
+                # This enables End User Identity Credential (EIC) propagation
+                user_access_token: str | None = None
+                user_creds = get_current_credentials_or_none()
+                if user_creds and hasattr(user_creds, "token") and user_creds.token:
+                    user_access_token = user_creds.token
+                    logger.info("Passing user credentials to Agent Engine via session")
+
+                # Get project ID from context
+                effective_project_id = get_current_project_id() or project_id
+
+                # Build config with user credentials for session state
+                # ADK tools can read these from session.state
+                stream_config: dict[str, Any] = {}
+                if user_access_token or effective_project_id:
+                    # Include credentials in session state via configurable
+                    session_state_delta: dict[str, Any] = {}
+                    if user_access_token:
+                        session_state_delta[SESSION_STATE_ACCESS_TOKEN_KEY] = (
+                            user_access_token
+                        )
+                    if effective_project_id:
+                        session_state_delta[SESSION_STATE_PROJECT_ID_KEY] = (
+                            effective_project_id
+                        )
+
+                    # Note: ADK agents receive state via session
+                    # The state_delta approach updates the session before the agent runs
+                    stream_config = {
+                        "configurable": {
+                            "session_id": active_session_id,
+                            "state_delta": session_state_delta,
+                        }
+                    }
+
                 # Use streaming API if available, otherwise fall back to query
                 # The stream() method provides event-by-event streaming for tool calls
                 if hasattr(remote_agent, "stream"):
-                    logger.info("Using Remote Agent streaming API")
-                    # Stream events from remote agent
-                    async for event in remote_agent.stream(
-                        input=user_message,
-                        session_id=active_session_id,
-                    ):
+                    logger.info(
+                        f"Using Remote Agent streaming API (user_creds={user_access_token is not None})"
+                    )
+                    # Stream events from remote agent with user context
+                    # Pass config to propagate user credentials to session state
+                    stream_kwargs: dict[str, Any] = {
+                        "input": user_message,
+                        "session_id": active_session_id,
+                    }
+                    if stream_config:
+                        stream_kwargs["config"] = stream_config
+
+                    async for event in remote_agent.stream(**stream_kwargs):
                         # Process events the same way as local agent
                         if not event.content or not event.content.parts:
                             continue
@@ -1735,10 +1783,15 @@ async def genui_chat(
                     logger.warning(
                         "Remote Agent streaming not available, using blocking query"
                     )
-                    response = remote_agent.query(  # type: ignore[attr-defined]
-                        input=user_message,
-                        session_id=active_session_id,
-                    )
+                    # Build query kwargs with credentials config
+                    query_kwargs: dict[str, Any] = {
+                        "input": user_message,
+                        "session_id": active_session_id,
+                    }
+                    if stream_config:
+                        query_kwargs["config"] = stream_config
+
+                    response = remote_agent.query(**query_kwargs)  # type: ignore[attr-defined]
 
                     if response:
                         response_text = str(response)

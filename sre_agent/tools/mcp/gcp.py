@@ -21,31 +21,75 @@ import httpx
 from google.adk.tools import ToolContext  # type: ignore[attr-defined]
 from google.adk.tools.api_registry import ApiRegistry
 
-from ...auth import get_current_credentials, get_current_credentials_or_none
+from ...auth import (
+    SESSION_STATE_ACCESS_TOKEN_KEY,
+    get_current_credentials,
+    get_current_credentials_or_none,
+)
 from ...schema import ToolStatus
 from ..common import adk_tool
 from .mock_mcp import MockMcpToolset
 
 logger = logging.getLogger(__name__)
 
+# Thread-local storage for tool context during MCP calls
+# This allows the header provider to access tool_context for session state
+_mcp_tool_context: Any = None
+
+
+def set_mcp_tool_context(tool_context: Any) -> None:
+    """Set the tool context for MCP header provider to access session state."""
+    global _mcp_tool_context
+    _mcp_tool_context = tool_context
+
+
+def clear_mcp_tool_context() -> None:
+    """Clear the tool context after MCP call."""
+    global _mcp_tool_context
+    _mcp_tool_context = None
+
 
 def _create_header_provider(project_id: str) -> Callable[[Any], dict[str, str]]:
-    """Creates a header provider that injects the user token if available."""
+    """Creates a header provider that injects the user token if available.
+
+    The provider checks multiple sources for credentials:
+    1. ContextVar (for local execution via middleware)
+    2. Session state (for Agent Engine execution via session state propagation)
+    """
 
     def header_provider(_: Any) -> dict[str, str]:
         headers = {"x-goog-user-project": project_id}
 
-        # Check for explicit user credentials (set by auth middleware)
+        # First, check for explicit user credentials (set by auth middleware)
         user_creds = get_current_credentials_or_none()
         if user_creds:
             # Check if it has a token (google.oauth2.credentials.Credentials usually does)
             if hasattr(user_creds, "token") and user_creds.token:
-                # logger.debug("Injecting user credential token into MCP headers")
+                logger.debug("MCP: Using user credentials from ContextVar")
                 headers["Authorization"] = f"Bearer {user_creds.token}"
-            elif hasattr(user_creds, "refresh") and not user_creds.token:
-                # Attempt refresh if needed? Usually middleware validates it.
-                # For now, safe skip if no token string.
-                pass
+                return headers
+
+        # Second, check session state (for Agent Engine execution)
+        # This is the EIC (End User Identity Credential) propagation path
+        if _mcp_tool_context is not None:
+            try:
+                session = getattr(
+                    getattr(_mcp_tool_context, "invocation_context", None),
+                    "session",
+                    None,
+                )
+                if session is not None:
+                    state = getattr(session, "state", None)
+                    if state and SESSION_STATE_ACCESS_TOKEN_KEY in state:
+                        token = state[SESSION_STATE_ACCESS_TOKEN_KEY]
+                        if token:
+                            logger.debug(
+                                "MCP: Using user credentials from session state"
+                            )
+                            headers["Authorization"] = f"Bearer {token}"
+                            return headers
+            except Exception as e:
+                logger.debug(f"MCP: Error getting credentials from session: {e}")
 
         return headers
 
@@ -250,6 +294,10 @@ async def call_mcp_tool_with_retry(
             "error": "No project ID available. Set GOOGLE_CLOUD_PROJECT environment variable.",
         }
 
+    # Set tool context for header provider to access session state
+    # This enables EIC (End User Identity Credential) propagation in Agent Engine
+    set_mcp_tool_context(tool_context)
+
     for attempt in range(max_retries):
         mcp_toolset = None
         try:
@@ -265,6 +313,7 @@ async def call_mcp_tool_with_retry(
                 )
             except asyncio.TimeoutError:
                 logger.error(f"Timeout creating MCP toolset for {tool_name}")
+                clear_mcp_tool_context()
                 return {
                     "status": ToolStatus.ERROR,
                     "error": (
@@ -280,6 +329,7 @@ async def call_mcp_tool_with_retry(
             logger.debug(f"DEBUG: create_toolset_fn returned for {tool_name}")
 
             if not mcp_toolset:
+                clear_mcp_tool_context()
                 return {
                     "status": ToolStatus.ERROR,
                     "error": (
@@ -306,6 +356,7 @@ async def call_mcp_tool_with_retry(
                             timeout=180.0,  # 180s timeout for tool execution
                         )
                         logger.info(f"✨ MCP Success: '{tool_name}'")
+                        clear_mcp_tool_context()
                         return {
                             "status": ToolStatus.SUCCESS,
                             "result": result,
@@ -313,6 +364,7 @@ async def call_mcp_tool_with_retry(
                         }
                     except asyncio.TimeoutError:
                         logger.error(f"Timeout executing MCP tool {tool_name}")
+                        clear_mcp_tool_context()
                         return {
                             "status": ToolStatus.ERROR,
                             "error": (
@@ -325,6 +377,7 @@ async def call_mcp_tool_with_retry(
                             "error_type": "TIMEOUT",
                         }
 
+            clear_mcp_tool_context()
             return {
                 "status": ToolStatus.ERROR,
                 "error": (
@@ -338,6 +391,7 @@ async def call_mcp_tool_with_retry(
 
         except asyncio.CancelledError:
             logger.warning(f"MCP Tool execution cancelled: {tool_name}")
+            clear_mcp_tool_context()
             return {
                 "status": ToolStatus.ERROR,
                 "error": (
@@ -373,6 +427,7 @@ async def call_mcp_tool_with_retry(
                 logger.error(
                     f"{tool_name} failed after {max_retries} attempts due to session errors: {e}"
                 )
+                clear_mcp_tool_context()
                 return {
                     "status": ToolStatus.ERROR,
                     "error": (
@@ -396,6 +451,7 @@ async def call_mcp_tool_with_retry(
                 )
                 is_non_retryable = is_auth_error or is_not_found
 
+                clear_mcp_tool_context()
                 return {
                     "status": ToolStatus.ERROR,
                     "error": (
@@ -430,6 +486,9 @@ async def call_mcp_tool_with_retry(
                     logger.debug(f"RuntimeError during MCP cleanup (ignored): {e}")
                 except Exception as e:
                     logger.warning(f"Error closing MCP toolset: {e}")
+
+    # Clear tool context on function exit (all retry attempts exhausted)
+    clear_mcp_tool_context()
 
     return {
         "status": ToolStatus.ERROR,
