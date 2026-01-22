@@ -51,7 +51,6 @@ def analyze_trace_comprehensive(
     Returns:
         A dictionary containing all analysis results.
     """
-    start_time = time.time()
     log_tool_call(logger, "analyze_trace_comprehensive", trace_id=trace_id)
 
     result: dict[str, Any] = {
@@ -77,9 +76,11 @@ def analyze_trace_comprehensive(
         if isinstance(durations, list):
             result["span_count"] = len(durations)
             if durations:
-                result["total_duration_ms"] = durations[0].get("duration_ms") # Root span usually first or longest
+                result["total_duration_ms"] = durations[0].get(
+                    "duration_ms"
+                )  # Root span usually first or longest
 
-        result["spans"] = durations # Raw spans with durations
+        result["spans"] = durations  # Raw spans with durations
 
         # Errors
         errors = extract_errors(trace_id, project_id)
@@ -100,7 +101,7 @@ def analyze_trace_comprehensive(
             anomaly = detect_latency_anomalies(
                 baseline_trace_ids=[baseline_trace_id],
                 target_trace_id=trace_id,
-                project_id=project_id
+                project_id=project_id,
             )
             result["anomaly_analysis"] = anomaly
 

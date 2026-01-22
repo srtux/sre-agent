@@ -8,11 +8,6 @@ workflow to ensure precise and actionable findings:
 3.  **Contextualize**: Compare current metrics with historical baselines.
 """
 
-import os
-
-# Determine environment settings for Agent initialization
-import google.auth
-import vertexai
 from google.adk.agents import LlmAgent
 
 from ..resources.gcp_metrics import COMMON_GCP_METRICS
@@ -31,27 +26,10 @@ from ..tools import (
     query_promql,
 )
 
-project_id = os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("GCP_PROJECT_ID")
+# Initialize environment (shared across sub-agents)
+from ._init_env import init_sub_agent_env
 
-# Fallback: Try to get project from Application Default Credentials
-if not project_id:
-    try:
-        _, project_id = google.auth.default()
-        if project_id:
-            # Set env vars for downstream tools
-            os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
-            os.environ["GCP_PROJECT_ID"] = project_id
-    except Exception:
-        pass
-
-location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
-use_vertex = os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", "true").lower() == "true"
-
-if use_vertex and project_id:
-    try:
-        vertexai.init(project=project_id, location=location)
-    except Exception:
-        pass
+init_sub_agent_env()
 
 # =============================================================================
 # Prompts

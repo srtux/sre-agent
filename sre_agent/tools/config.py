@@ -245,6 +245,14 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         testable=True,
         enabled=False,  # Disabled by default
     ),
+    ToolConfig(
+        name="mcp_execute_sql",
+        display_name="MCP Execute SQL",
+        description="Execute SQL queries via MCP BigQuery server",
+        category=ToolCategory.MCP,
+        testable=True,
+        enabled=True,  # Enabled by default for aggregate analysis
+    ),
     # -------------------------------------------------------------------------
     # BigQuery/OTel Tools
     # -------------------------------------------------------------------------
@@ -335,6 +343,41 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         category=ToolCategory.ANALYSIS,
         testable=False,
     ),
+    ToolConfig(
+        name="analyze_trace_comprehensive",
+        display_name="Analyze Trace Comprehensive",
+        description="Comprehensive trace analysis (mega-tool) combining validation, durations, errors, critical path, and structure",
+        category=ToolCategory.ANALYSIS,
+        testable=False,
+    ),
+    ToolConfig(
+        name="analyze_trace_patterns",
+        display_name="Analyze Trace Patterns",
+        description="Analyze trace patterns for statistical anomalies",
+        category=ToolCategory.ANALYSIS,
+        testable=False,
+    ),
+    ToolConfig(
+        name="compute_latency_statistics",
+        display_name="Compute Latency Statistics",
+        description="Compute latency statistics for traces",
+        category=ToolCategory.ANALYSIS,
+        testable=False,
+    ),
+    ToolConfig(
+        name="select_traces_from_statistical_outliers",
+        display_name="Select Statistical Outliers",
+        description="Select traces that are statistical outliers",
+        category=ToolCategory.ANALYSIS,
+        testable=False,
+    ),
+    ToolConfig(
+        name="select_traces_manually",
+        display_name="Select Traces Manually",
+        description="Manually select traces for analysis",
+        category=ToolCategory.ANALYSIS,
+        testable=False,
+    ),
     # -------------------------------------------------------------------------
     # SRE Pattern Detection Tools
     # -------------------------------------------------------------------------
@@ -387,6 +430,13 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         name="analyze_log_anomalies",
         display_name="Analyze Log Anomalies",
         description="Analyze log anomalies and detect issues",
+        category=ToolCategory.ANALYSIS,
+        testable=False,
+    ),
+    ToolConfig(
+        name="analyze_bigquery_log_patterns",
+        display_name="Analyze BigQuery Log Patterns",
+        description="Analyze log patterns using BigQuery for large-scale analysis",
         category=ToolCategory.ANALYSIS,
         testable=False,
     ),
@@ -634,6 +684,13 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         description="Discover available telemetry sources",
         category=ToolCategory.DISCOVERY,
         testable=False,
+    ),
+    ToolConfig(
+        name="list_gcp_projects",
+        display_name="List GCP Projects",
+        description="List accessible GCP projects",
+        category=ToolCategory.DISCOVERY,
+        testable=True,
     ),
     # -------------------------------------------------------------------------
     # Orchestration Tools
