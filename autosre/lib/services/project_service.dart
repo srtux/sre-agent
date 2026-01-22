@@ -61,21 +61,24 @@ class ProjectService {
   /// isolated instance that can be safely disposed without affecting
   /// the global singleton.
   ProjectService.newInstance({ClientFactory? clientFactory})
-      : this._internal(clientFactory: clientFactory);
+    : this._internal(clientFactory: clientFactory);
 
   ProjectService._internal({ClientFactory? clientFactory})
-      : _clientFactory = clientFactory ??
-            (() async {
-              try {
-                return await AuthService().getAuthenticatedClient();
-              } catch (e) {
-                if (kDebugMode) {
-                  debugPrint('Auth failed in debug mode, falling back to unauthenticated client: $e');
-                  return http.Client();
-                }
-                rethrow;
+    : _clientFactory =
+          clientFactory ??
+          (() async {
+            try {
+              return await AuthService().getAuthenticatedClient();
+            } catch (e) {
+              if (kDebugMode) {
+                debugPrint(
+                  'Auth failed in debug mode, falling back to unauthenticated client: $e',
+                );
+                return http.Client();
               }
-            });
+              rethrow;
+            }
+          });
 
   final ClientFactory _clientFactory;
 
@@ -131,13 +134,13 @@ class ProjectService {
       final savedProjectId = prefs.getString('selected_project_id');
 
       if (savedProjectId != null && savedProjectId.isNotEmpty) {
-          // Find in projects list or create new
-          final project = _projects.value.firstWhere(
-            (p) => p.projectId == savedProjectId,
-            orElse: () => GcpProject(projectId: savedProjectId),
-          );
-          _selectedProject.value = project;
-          return;
+        // Find in projects list or create new
+        final project = _projects.value.firstWhere(
+          (p) => p.projectId == savedProjectId,
+          orElse: () => GcpProject(projectId: savedProjectId),
+        );
+        _selectedProject.value = project;
+        return;
       }
 
       // Fallback to backend preference if local not found (optional, depending on migration)
@@ -252,9 +255,7 @@ class ProjectService {
           : Uri.parse(_projectsUrl);
 
       debugPrint('📡 ProjectService: Sending request to $uri');
-      final response = await client
-          .get(uri)
-          .timeout(_requestTimeout);
+      final response = await client.get(uri).timeout(_requestTimeout);
 
       debugPrint('📥 ProjectService: Response status ${response.statusCode}');
       if (response.statusCode != 200) {

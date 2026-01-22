@@ -4,7 +4,10 @@ import 'project_service.dart';
 /// Exception thrown when an API request is made without a selected project.
 class ProjectNotSelectedException implements Exception {
   final String message;
-  ProjectNotSelectedException([this.message = 'No GCP Project selected. Please select a project to continue.']);
+  ProjectNotSelectedException([
+    this.message =
+        'No GCP Project selected. Please select a project to continue.',
+  ]);
   @override
   String toString() => 'ProjectNotSelectedException: $message';
 }
@@ -15,7 +18,7 @@ class ProjectInterceptorClient extends http.BaseClient {
   final ProjectService _projectService;
 
   ProjectInterceptorClient(this._inner, {ProjectService? projectService})
-      : _projectService = projectService ?? ProjectService();
+    : _projectService = projectService ?? ProjectService();
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
@@ -23,7 +26,8 @@ class ProjectInterceptorClient extends http.BaseClient {
 
     if (projectId == null || projectId.isEmpty) {
       // Don't intercept health checks or project list requests
-      if (request.url.path.contains('/health') || request.url.path.contains('/api/tools/projects/list')) {
+      if (request.url.path.contains('/health') ||
+          request.url.path.contains('/api/tools/projects/list')) {
         return _inner.send(request);
       }
       throw ProjectNotSelectedException();

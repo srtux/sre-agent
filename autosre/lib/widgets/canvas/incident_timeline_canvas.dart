@@ -8,7 +8,8 @@ import '../../theme/app_theme.dart';
 class TimelineEvent {
   final String id;
   final DateTime timestamp;
-  final String type; // 'alert', 'deployment', 'config_change', 'scaling', 'incident', 'recovery', 'agent_action'
+  final String
+  type; // 'alert', 'deployment', 'config_change', 'scaling', 'incident', 'recovery', 'agent_action'
   final String title;
   final String? description;
   final String severity; // 'critical', 'high', 'medium', 'low', 'info'
@@ -69,7 +70,9 @@ class IncidentTimelineData {
       incidentId: json['incident_id'] ?? '',
       title: json['title'] ?? 'Incident',
       startTime: DateTime.parse(json['start_time']),
-      endTime: json['end_time'] != null ? DateTime.parse(json['end_time']) : null,
+      endTime: json['end_time'] != null
+          ? DateTime.parse(json['end_time'])
+          : null,
       status: json['status'] ?? 'ongoing',
       events: (json['events'] as List? ?? [])
           .map((e) => TimelineEvent.fromJson(Map<String, dynamic>.from(e)))
@@ -302,8 +305,8 @@ class _IncidentTimelineCanvasState extends State<IncidentTimelineCanvas>
               widget.data.status == 'resolved'
                   ? Icons.check_circle
                   : widget.data.status == 'mitigated'
-                      ? Icons.warning_amber
-                      : Icons.error,
+                  ? Icons.warning_amber
+                  : Icons.error,
               size: 18,
               color: _getStatusColor(widget.data.status),
             ),
@@ -358,19 +361,13 @@ class _IncidentTimelineCanvasState extends State<IncidentTimelineCanvas>
             SizedBox(
               width: 8,
               height: 8,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: color,
-              ),
+              child: CircularProgressIndicator(strokeWidth: 2, color: color),
             )
           else
             Container(
               width: 8,
               height: 8,
-              decoration: BoxDecoration(
-                color: color,
-                shape: BoxShape.circle,
-              ),
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
             ),
           const SizedBox(width: 6),
           Text(
@@ -387,8 +384,9 @@ class _IncidentTimelineCanvasState extends State<IncidentTimelineCanvas>
   }
 
   Widget _buildIncidentStats() {
-    final duration = (widget.data.endTime ?? DateTime.now())
-        .difference(widget.data.startTime);
+    final duration = (widget.data.endTime ?? DateTime.now()).difference(
+      widget.data.startTime,
+    );
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -405,11 +403,7 @@ class _IncidentTimelineCanvasState extends State<IncidentTimelineCanvas>
             DateFormat('MMM d, HH:mm').format(widget.data.startTime),
             Icons.play_arrow,
           ),
-          _buildStatItem(
-            'Duration',
-            _formatDuration(duration),
-            Icons.timer,
-          ),
+          _buildStatItem('Duration', _formatDuration(duration), Icons.timer),
           if (widget.data.timeToDetect != null)
             _buildStatItem(
               'TTD',
@@ -443,10 +437,7 @@ class _IncidentTimelineCanvasState extends State<IncidentTimelineCanvas>
             children: [
               Text(
                 label,
-                style: const TextStyle(
-                  fontSize: 9,
-                  color: AppColors.textMuted,
-                ),
+                style: const TextStyle(fontSize: 9, color: AppColors.textMuted),
               ),
               Text(
                 value,
@@ -499,13 +490,21 @@ class _IncidentTimelineCanvasState extends State<IncidentTimelineCanvas>
       child: Opacity(
         opacity: _entranceAnimation.value,
         child: Transform.translate(
-          offset: Offset(0, isAbove ? 30 * (1 - _entranceAnimation.value) : -30 * (1 - _entranceAnimation.value)),
+          offset: Offset(
+            0,
+            isAbove
+                ? 30 * (1 - _entranceAnimation.value)
+                : -30 * (1 - _entranceAnimation.value),
+          ),
           child: MouseRegion(
             onEnter: (_) => setState(() => _hoveredEventId = event.id),
             onExit: (_) => setState(() => _hoveredEventId = null),
             child: GestureDetector(
-              onTap: () => setState(() =>
-                  _selectedEventId = _selectedEventId == event.id ? null : event.id),
+              onTap: () => setState(
+                () => _selectedEventId = _selectedEventId == event.id
+                    ? null
+                    : event.id,
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -655,7 +654,9 @@ class _IncidentTimelineCanvasState extends State<IncidentTimelineCanvas>
       decoration: BoxDecoration(
         color: _getTypeColor(event.type).withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _getTypeColor(event.type).withValues(alpha: 0.3)),
+        border: Border.all(
+          color: _getTypeColor(event.type).withValues(alpha: 0.3),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -681,7 +682,9 @@ class _IncidentTimelineCanvasState extends State<IncidentTimelineCanvas>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: _getSeverityColor(event.severity).withValues(alpha: 0.15),
+                  color: _getSeverityColor(
+                    event.severity,
+                  ).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -712,7 +715,10 @@ class _IncidentTimelineCanvasState extends State<IncidentTimelineCanvas>
               runSpacing: 4,
               children: event.metadata!.entries.take(4).map((e) {
                 return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(4),
@@ -797,7 +803,9 @@ class _TimelineBackgroundPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     // Draw subtle grid pattern
     final paint = Paint()
-      ..color = AppColors.surfaceBorder.withValues(alpha: 0.15 * entranceProgress)
+      ..color = AppColors.surfaceBorder.withValues(
+        alpha: 0.15 * entranceProgress,
+      )
       ..strokeWidth = 0.5;
 
     const spacing = 30.0;
@@ -841,11 +849,7 @@ class _TimelineLinePainter extends CustomPainter {
       ..strokeWidth = 3
       ..strokeCap = StrokeCap.round;
 
-    canvas.drawLine(
-      const Offset(0, 2),
-      Offset(lineWidth, 2),
-      linePaint,
-    );
+    canvas.drawLine(const Offset(0, 2), Offset(lineWidth, 2), linePaint);
 
     // Draw glow effect for ongoing incidents
     if (isOngoing) {
@@ -853,19 +857,11 @@ class _TimelineLinePainter extends CustomPainter {
         ..color = AppColors.error.withValues(alpha: 0.3 * pulseProgress)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
 
-      canvas.drawCircle(
-        Offset(lineWidth, 2),
-        8 + 4 * pulseProgress,
-        glowPaint,
-      );
+      canvas.drawCircle(Offset(lineWidth, 2), 8 + 4 * pulseProgress, glowPaint);
 
       // Draw pulsing dot at the end
       final dotPaint = Paint()..color = AppColors.error;
-      canvas.drawCircle(
-        Offset(lineWidth, 2),
-        4 + 2 * pulseProgress,
-        dotPaint,
-      );
+      canvas.drawCircle(Offset(lineWidth, 2), 4 + 2 * pulseProgress, dotPaint);
     }
   }
 

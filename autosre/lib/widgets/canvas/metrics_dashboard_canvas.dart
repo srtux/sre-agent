@@ -166,8 +166,12 @@ class _MetricsDashboardCanvasState extends State<MetricsDashboardCanvas>
 
   @override
   Widget build(BuildContext context) {
-    final criticalCount = widget.data.metrics.where((m) => m.status == 'critical').length;
-    final warningCount = widget.data.metrics.where((m) => m.status == 'warning').length;
+    final criticalCount = widget.data.metrics
+        .where((m) => m.status == 'critical')
+        .length;
+    final warningCount = widget.data.metrics
+        .where((m) => m.status == 'warning')
+        .length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -205,7 +209,11 @@ class _MetricsDashboardCanvasState extends State<MetricsDashboardCanvas>
               ),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.dashboard, size: 18, color: AppColors.primaryCyan),
+            child: const Icon(
+              Icons.dashboard,
+              size: 18,
+              color: AppColors.primaryCyan,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -242,10 +250,7 @@ class _MetricsDashboardCanvasState extends State<MetricsDashboardCanvas>
           if (widget.data.lastUpdated != null)
             Text(
               'Updated ${DateFormat('HH:mm:ss').format(widget.data.lastUpdated!)}',
-              style: const TextStyle(
-                fontSize: 9,
-                color: AppColors.textMuted,
-              ),
+              style: const TextStyle(fontSize: 9, color: AppColors.textMuted),
             ),
         ],
       ),
@@ -294,7 +299,8 @@ class _MetricsDashboardCanvasState extends State<MetricsDashboardCanvas>
       itemBuilder: (context, index) {
         final metric = metrics[index];
         final delay = index * 0.1;
-        final animProgress = (_entranceAnimation.value - delay).clamp(0.0, 1.0) / (1.0 - delay);
+        final animProgress =
+            (_entranceAnimation.value - delay).clamp(0.0, 1.0) / (1.0 - delay);
 
         return Opacity(
           opacity: animProgress,
@@ -313,8 +319,11 @@ class _MetricsDashboardCanvasState extends State<MetricsDashboardCanvas>
     final isAnomalous = metric.status != 'normal';
 
     return GestureDetector(
-      onTap: () => setState(() =>
-          _selectedMetricId = _selectedMetricId == metric.id ? null : metric.id),
+      onTap: () => setState(
+        () => _selectedMetricId = _selectedMetricId == metric.id
+            ? null
+            : metric.id,
+      ),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
@@ -329,7 +338,9 @@ class _MetricsDashboardCanvasState extends State<MetricsDashboardCanvas>
           boxShadow: [
             if (isAnomalous)
               BoxShadow(
-                color: statusColor.withValues(alpha: 0.2 + 0.1 * _pulseAnimation.value),
+                color: statusColor.withValues(
+                  alpha: 0.2 + 0.1 * _pulseAnimation.value,
+                ),
                 blurRadius: 8 + 4 * _pulseAnimation.value,
                 spreadRadius: 0,
               ),
@@ -433,8 +444,8 @@ class _MetricsDashboardCanvasState extends State<MetricsDashboardCanvas>
     final changeColor = isPositive
         ? AppColors.error
         : isNegative
-            ? AppColors.success
-            : AppColors.textMuted;
+        ? AppColors.success
+        : AppColors.textMuted;
 
     return Row(
       children: [
@@ -457,10 +468,7 @@ class _MetricsDashboardCanvasState extends State<MetricsDashboardCanvas>
           const SizedBox(width: 8),
           Text(
             'Threshold: ${_formatValue(metric.threshold!)}',
-            style: const TextStyle(
-              fontSize: 9,
-              color: AppColors.textMuted,
-            ),
+            style: const TextStyle(fontSize: 9, color: AppColors.textMuted),
           ),
         ],
       ],
@@ -546,12 +554,24 @@ class _MetricsDashboardCanvasState extends State<MetricsDashboardCanvas>
           // Stats row
           Row(
             children: [
-              _buildDetailStat('Current', '${_formatValue(metric.currentValue)} ${metric.unit}'),
+              _buildDetailStat(
+                'Current',
+                '${_formatValue(metric.currentValue)} ${metric.unit}',
+              ),
               if (metric.previousValue != null)
-                _buildDetailStat('Previous', '${_formatValue(metric.previousValue!)} ${metric.unit}'),
-              _buildDetailStat('Change', '${metric.changePercent >= 0 ? '+' : ''}${metric.changePercent.toStringAsFixed(1)}%'),
+                _buildDetailStat(
+                  'Previous',
+                  '${_formatValue(metric.previousValue!)} ${metric.unit}',
+                ),
+              _buildDetailStat(
+                'Change',
+                '${metric.changePercent >= 0 ? '+' : ''}${metric.changePercent.toStringAsFixed(1)}%',
+              ),
               if (metric.threshold != null)
-                _buildDetailStat('Threshold', '${_formatValue(metric.threshold!)} ${metric.unit}'),
+                _buildDetailStat(
+                  'Threshold',
+                  '${_formatValue(metric.threshold!)} ${metric.unit}',
+                ),
             ],
           ),
         ],
@@ -566,10 +586,7 @@ class _MetricsDashboardCanvasState extends State<MetricsDashboardCanvas>
         children: [
           Text(
             label,
-            style: const TextStyle(
-              fontSize: 9,
-              color: AppColors.textMuted,
-            ),
+            style: const TextStyle(fontSize: 9, color: AppColors.textMuted),
           ),
           Text(
             value,
@@ -611,7 +628,8 @@ class _SparklinePainter extends CustomPainter {
 
     // Draw threshold line if exists
     if (threshold != null && range > 0) {
-      final thresholdY = size.height - ((threshold! - minVal) / range) * size.height;
+      final thresholdY =
+          size.height - ((threshold! - minVal) / range) * size.height;
       if (thresholdY >= 0 && thresholdY <= size.height) {
         final thresholdPaint = Paint()
           ..color = AppColors.warning.withValues(alpha: 0.4 * animProgress)
@@ -633,7 +651,8 @@ class _SparklinePainter extends CustomPainter {
     for (int i = 0; i < points.length; i++) {
       final x = (i / (points.length - 1)) * size.width * animProgress;
       final normalizedY = range > 0 ? (points[i].value - minVal) / range : 0.5;
-      final y = size.height - (normalizedY * size.height * 0.9 + size.height * 0.05);
+      final y =
+          size.height - (normalizedY * size.height * 0.9 + size.height * 0.05);
 
       if (i == 0) {
         linePath.moveTo(x, y);
@@ -676,18 +695,16 @@ class _SparklinePainter extends CustomPainter {
     if (points.isNotEmpty && animProgress > 0.9) {
       final lastValue = values.last;
       final lastY = range > 0
-          ? size.height - ((lastValue - minVal) / range * size.height * 0.9 + size.height * 0.05)
+          ? size.height -
+                ((lastValue - minVal) / range * size.height * 0.9 +
+                    size.height * 0.05)
           : size.height / 2;
 
       final dotPaint = Paint()
         ..color = color
         ..style = PaintingStyle.fill;
 
-      canvas.drawCircle(
-        Offset(size.width * animProgress, lastY),
-        3,
-        dotPaint,
-      );
+      canvas.drawCircle(Offset(size.width * animProgress, lastY), 3, dotPaint);
     }
   }
 

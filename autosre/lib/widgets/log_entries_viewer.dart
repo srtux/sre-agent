@@ -167,7 +167,11 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
               ),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.article_outlined, size: 18, color: AppColors.primaryBlue),
+            child: const Icon(
+              Icons.article_outlined,
+              size: 18,
+              color: AppColors.primaryBlue,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -186,7 +190,10 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.primaryTeal.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(4),
@@ -206,7 +213,11 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
                   const SizedBox(height: 2),
                   Text(
                     widget.data.filter!,
-                    style: TextStyle(fontSize: 10, color: AppColors.textMuted, fontFamily: 'monospace'),
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: AppColors.textMuted,
+                      fontFamily: 'monospace',
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -214,15 +225,27 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
             ),
           ),
           if (criticalCount > 0) ...[
-            _buildStatChip('$criticalCount critical', Icons.crisis_alert, const Color(0xFFFF1744)),
+            _buildStatChip(
+              '$criticalCount critical',
+              Icons.crisis_alert,
+              const Color(0xFFFF1744),
+            ),
             const SizedBox(width: 6),
           ],
           if (errorCount > 0) ...[
-            _buildStatChip('$errorCount errors', Icons.error_outline, AppColors.error),
+            _buildStatChip(
+              '$errorCount errors',
+              Icons.error_outline,
+              AppColors.error,
+            ),
             const SizedBox(width: 6),
           ],
           if (warningCount > 0)
-            _buildStatChip('$warningCount warnings', Icons.warning_amber, AppColors.warning),
+            _buildStatChip(
+              '$warningCount warnings',
+              Icons.warning_amber,
+              AppColors.warning,
+            ),
         ],
       ),
     );
@@ -241,7 +264,14 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
         children: [
           Icon(icon, size: 12, color: color),
           const SizedBox(width: 4),
-          Text(text, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: color)),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+              color: color,
+            ),
+          ),
         ],
       ),
     );
@@ -269,7 +299,10 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
                 style: TextStyle(fontSize: 13, color: AppColors.textPrimary),
                 decoration: InputDecoration(
                   hintText: 'Search logs...',
-                  hintStyle: TextStyle(color: AppColors.textMuted, fontSize: 13),
+                  hintStyle: TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 13,
+                  ),
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.zero,
                   isDense: true,
@@ -301,13 +334,18 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            Text('Filter:', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+            Text(
+              'Filter:',
+              style: TextStyle(fontSize: 10, color: AppColors.textMuted),
+            ),
             const SizedBox(width: 8),
             _buildFilterChip('All', null, widget.data.entries.length),
-            ...severities.map((s) => Padding(
-                  padding: const EdgeInsets.only(left: 6),
-                  child: _buildFilterChip(s, s, _severityCounts[s] ?? 0),
-                )),
+            ...severities.map(
+              (s) => Padding(
+                padding: const EdgeInsets.only(left: 6),
+                child: _buildFilterChip(s, s, _severityCounts[s] ?? 0),
+              ),
+            ),
           ],
         ),
       ),
@@ -316,7 +354,9 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
 
   Widget _buildFilterChip(String label, String? severity, int count) {
     final isSelected = _filterSeverity == severity;
-    final color = severity != null ? _getSeverityColor(severity) : AppColors.primaryTeal;
+    final color = severity != null
+        ? _getSeverityColor(severity)
+        : AppColors.primaryTeal;
 
     return GestureDetector(
       onTap: () => setState(() => _filterSeverity = severity),
@@ -325,7 +365,9 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
         decoration: BoxDecoration(
           color: isSelected ? color.withValues(alpha: 0.2) : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: isSelected ? color : AppColors.surfaceBorder),
+          border: Border.all(
+            color: isSelected ? color : AppColors.surfaceBorder,
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -342,7 +384,9 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
               decoration: BoxDecoration(
-                color: (isSelected ? color : AppColors.textMuted).withValues(alpha: 0.2),
+                color: (isSelected ? color : AppColors.textMuted).withValues(
+                  alpha: 0.2,
+                ),
                 borderRadius: BorderRadius.circular(3),
               ),
               child: Text(
@@ -371,7 +415,11 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
               color: AppColors.textMuted.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.search_off_outlined, size: 40, color: AppColors.textMuted),
+            child: Icon(
+              Icons.search_off_outlined,
+              size: 40,
+              color: AppColors.textMuted,
+            ),
           ),
           const SizedBox(height: 16),
           Text(
@@ -389,7 +437,10 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
     final isExpanded = _expandedIds.contains(entry.insertId);
     final severityColor = _getSeverityColor(entry.severity);
     final staggerDelay = index / widget.data.entries.length;
-    final animValue = ((_animation.value - staggerDelay * 0.3) / 0.7).clamp(0.0, 1.0);
+    final animValue = ((_animation.value - staggerDelay * 0.3) / 0.7).clamp(
+      0.0,
+      1.0,
+    );
 
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 200),
@@ -400,7 +451,9 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
           color: Colors.white.withValues(alpha: 0.02),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isExpanded ? severityColor.withValues(alpha: 0.3) : AppColors.surfaceBorder,
+            color: isExpanded
+                ? severityColor.withValues(alpha: 0.3)
+                : AppColors.surfaceBorder,
           ),
         ),
         clipBehavior: Clip.antiAlias,
@@ -440,7 +493,11 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
                         color: severityColor.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: Icon(_getSeverityIcon(entry.severity), size: 14, color: severityColor),
+                      child: Icon(
+                        _getSeverityIcon(entry.severity),
+                        size: 14,
+                        color: severityColor,
+                      ),
                     ),
                     const SizedBox(width: 10),
                     // Content
@@ -461,7 +518,10 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
                               ),
                               const SizedBox(width: 8),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 5,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
                                   color: severityColor.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(3),
@@ -477,9 +537,14 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
                               ),
                               const SizedBox(width: 8),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 5,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: AppColors.primaryTeal.withValues(alpha: 0.1),
+                                  color: AppColors.primaryTeal.withValues(
+                                    alpha: 0.1,
+                                  ),
                                   borderRadius: BorderRadius.circular(3),
                                 ),
                                 child: Text(
@@ -542,9 +607,7 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
     return Container(
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.2),
-        border: Border(
-          top: BorderSide(color: AppColors.surfaceBorder),
-        ),
+        border: Border(top: BorderSide(color: AppColors.surfaceBorder)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -554,34 +617,39 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
             _buildDetailSection(
               'Resource Labels',
               Icons.label_outline,
-              entry.resourceLabels.entries.map((e) => _buildLabelChip(e.key, e.value)).toList(),
+              entry.resourceLabels.entries
+                  .map((e) => _buildLabelChip(e.key, e.value))
+                  .toList(),
             ),
           ],
           // Trace info
           if (entry.traceId != null || entry.spanId != null) ...[
-            _buildDetailSection(
-              'Trace Info',
-              Icons.account_tree_outlined,
-              [
-                if (entry.traceId != null) _buildLabelChip('trace_id', entry.traceId!),
-                if (entry.spanId != null) _buildLabelChip('span_id', entry.spanId!),
-              ],
-            ),
+            _buildDetailSection('Trace Info', Icons.account_tree_outlined, [
+              if (entry.traceId != null)
+                _buildLabelChip('trace_id', entry.traceId!),
+              if (entry.spanId != null)
+                _buildLabelChip('span_id', entry.spanId!),
+            ]),
           ],
           // HTTP Request
           if (entry.httpRequest != null) ...[
-            _buildDetailSection(
-              'HTTP Request',
-              Icons.http,
-              [
-                if (entry.httpRequest!['requestMethod'] != null)
-                  _buildLabelChip('method', entry.httpRequest!['requestMethod'].toString()),
-                if (entry.httpRequest!['status'] != null)
-                  _buildLabelChip('status', entry.httpRequest!['status'].toString()),
-                if (entry.httpRequest!['latency'] != null)
-                  _buildLabelChip('latency', entry.httpRequest!['latency'].toString()),
-              ],
-            ),
+            _buildDetailSection('HTTP Request', Icons.http, [
+              if (entry.httpRequest!['requestMethod'] != null)
+                _buildLabelChip(
+                  'method',
+                  entry.httpRequest!['requestMethod'].toString(),
+                ),
+              if (entry.httpRequest!['status'] != null)
+                _buildLabelChip(
+                  'status',
+                  entry.httpRequest!['status'].toString(),
+                ),
+              if (entry.httpRequest!['latency'] != null)
+                _buildLabelChip(
+                  'latency',
+                  entry.httpRequest!['latency'].toString(),
+                ),
+            ]),
           ],
           // Full JSON payload
           if (entry.isJsonPayload)
@@ -610,7 +678,11 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
     );
   }
 
-  Widget _buildDetailSection(String title, IconData icon, List<Widget> children) {
+  Widget _buildDetailSection(
+    String title,
+    IconData icon,
+    List<Widget> children,
+  ) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
       child: Column(
@@ -643,7 +715,9 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
       decoration: BoxDecoration(
         color: AppColors.primaryTeal.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: AppColors.primaryTeal.withValues(alpha: 0.15)),
+        border: Border.all(
+          color: AppColors.primaryTeal.withValues(alpha: 0.15),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -701,7 +775,9 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
             decoration: BoxDecoration(
               color: Colors.black.withValues(alpha: 0.4),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.surfaceBorder.withValues(alpha: 0.5)),
+              border: Border.all(
+                color: AppColors.surfaceBorder.withValues(alpha: 0.5),
+              ),
             ),
             child: SelectableText(
               const JsonEncoder.withIndent('  ').convert(payload),
@@ -727,7 +803,9 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
         decoration: BoxDecoration(
           color: AppColors.primaryTeal.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: AppColors.primaryTeal.withValues(alpha: 0.2)),
+          border: Border.all(
+            color: AppColors.primaryTeal.withValues(alpha: 0.2),
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -754,9 +832,11 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
 
     String timeStr;
     if (diff.inDays > 0) {
-      timeStr = '${timestamp.month}/${timestamp.day} ${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}:${timestamp.second.toString().padLeft(2, '0')}';
+      timeStr =
+          '${timestamp.month}/${timestamp.day} ${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}:${timestamp.second.toString().padLeft(2, '0')}';
     } else {
-      timeStr = '${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}:${timestamp.second.toString().padLeft(2, '0')}.${timestamp.millisecond.toString().padLeft(3, '0')}';
+      timeStr =
+          '${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}:${timestamp.second.toString().padLeft(2, '0')}.${timestamp.millisecond.toString().padLeft(3, '0')}';
     }
     return timeStr;
   }

@@ -70,7 +70,9 @@ class ToolTestResult {
 
   factory ToolTestResult.fromJson(Map<String, dynamic> json) {
     return ToolTestResult(
-      status: ToolTestStatus.fromValue(json['status'] as String? ?? 'not_tested'),
+      status: ToolTestStatus.fromValue(
+        json['status'] as String? ?? 'not_tested',
+      ),
       message: json['message'] as String? ?? '',
       latencyMs: (json['latency_ms'] as num?)?.toDouble(),
       timestamp: json['timestamp'] as String?,
@@ -150,7 +152,9 @@ class ToolConfig {
       name: json['name'] as String,
       displayName: json['display_name'] as String,
       description: json['description'] as String,
-      category: ToolCategory.fromValue(json['category'] as String) ?? ToolCategory.analysis,
+      category:
+          ToolCategory.fromValue(json['category'] as String) ??
+          ToolCategory.analysis,
       enabled: json['enabled'] as bool? ?? true,
       testable: json['testable'] as bool? ?? false,
       lastTestResult: lastTest,
@@ -250,9 +254,7 @@ class ToolConfigService {
     _error.value = null;
 
     try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/api/tools/config'),
-      );
+      final response = await http.get(Uri.parse('$_baseUrl/api/tools/config'));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;

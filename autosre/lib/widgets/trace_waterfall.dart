@@ -11,12 +11,9 @@ class _SpanNode {
   bool isExpanded;
   bool isOnCriticalPath;
 
-  _SpanNode({
-    required this.span,
-    this.children = const [],
-    this.depth = 0,
-  })  : isExpanded = true,
-        isOnCriticalPath = false;
+  _SpanNode({required this.span, this.children = const [], this.depth = 0})
+    : isExpanded = true,
+      isOnCriticalPath = false;
 }
 
 class TraceWaterfall extends StatefulWidget {
@@ -80,8 +77,9 @@ class _TraceWaterfallState extends State<TraceWaterfall>
       ..sort((a, b) => a.startTime.compareTo(b.startTime));
 
     _traceStart = sortedSpans.first.startTime;
-    final traceEnd = sortedSpans.map((s) => s.endTime).reduce(
-        (a, b) => a.isAfter(b) ? a : b);
+    final traceEnd = sortedSpans
+        .map((s) => s.endTime)
+        .reduce((a, b) => a.isAfter(b) ? a : b);
     _totalDuration = traceEnd.difference(_traceStart).inMicroseconds;
 
     // Build parent-child map
@@ -93,7 +91,8 @@ class _TraceWaterfallState extends State<TraceWaterfall>
     // Find root spans (no parent or parent not in trace)
     final allSpanIds = sortedSpans.map((s) => s.spanId).toSet();
     final rootSpans = sortedSpans.where(
-        (s) => s.parentSpanId == null || !allSpanIds.contains(s.parentSpanId));
+      (s) => s.parentSpanId == null || !allSpanIds.contains(s.parentSpanId),
+    );
 
     // Build tree recursively
     _SpanNode buildNode(SpanInfo span, int depth) {
@@ -115,6 +114,7 @@ class _TraceWaterfallState extends State<TraceWaterfall>
         markCriticalPath(child);
       }
     }
+
     for (final root in rootNodes) {
       markCriticalPath(root);
     }
@@ -129,6 +129,7 @@ class _TraceWaterfallState extends State<TraceWaterfall>
         }
       }
     }
+
     for (final root in rootNodes) {
       flatten(root);
     }
@@ -142,7 +143,11 @@ class _TraceWaterfallState extends State<TraceWaterfall>
     Set<String> criticalPath = {};
     int maxDuration = 0;
 
-    void findPath(_SpanNode node, Set<String> currentPath, int currentDuration) {
+    void findPath(
+      _SpanNode node,
+      Set<String> currentPath,
+      int currentDuration,
+    ) {
       currentPath.add(node.span.spanId);
       final newDuration = currentDuration + node.span.duration.inMicroseconds;
 
@@ -170,7 +175,8 @@ class _TraceWaterfallState extends State<TraceWaterfall>
     for (final node in _flattenedNodes) {
       final service = _extractServiceName(node.span.name);
       if (!_serviceColors.containsKey(service)) {
-        _serviceColors[service] = _colorPalette[colorIndex % _colorPalette.length];
+        _serviceColors[service] =
+            _colorPalette[colorIndex % _colorPalette.length];
         colorIndex++;
       }
     }
@@ -210,6 +216,7 @@ class _TraceWaterfallState extends State<TraceWaterfall>
         }
       }
     }
+
     for (final root in oldNodes) {
       flatten(root);
     }
@@ -228,7 +235,9 @@ class _TraceWaterfallState extends State<TraceWaterfall>
       return _buildEmptyState();
     }
 
-    final errorCount = widget.trace.spans.where((s) => s.status == 'ERROR').length;
+    final errorCount = widget.trace.spans
+        .where((s) => s.status == 'ERROR')
+        .length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -269,10 +278,17 @@ class _TraceWaterfallState extends State<TraceWaterfall>
               color: AppColors.textMuted.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.timeline_outlined, size: 40, color: AppColors.textMuted),
+            child: Icon(
+              Icons.timeline_outlined,
+              size: 40,
+              color: AppColors.textMuted,
+            ),
           ),
           const SizedBox(height: 16),
-          Text('No spans in trace', style: TextStyle(color: AppColors.textMuted, fontSize: 14)),
+          Text(
+            'No spans in trace',
+            style: TextStyle(color: AppColors.textMuted, fontSize: 14),
+          ),
         ],
       ),
     );
@@ -287,11 +303,18 @@ class _TraceWaterfallState extends State<TraceWaterfall>
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [AppColors.primaryTeal.withValues(alpha: 0.2), AppColors.primaryCyan.withValues(alpha: 0.15)],
+                colors: [
+                  AppColors.primaryTeal.withValues(alpha: 0.2),
+                  AppColors.primaryCyan.withValues(alpha: 0.15),
+                ],
               ),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.account_tree, size: 18, color: AppColors.primaryTeal),
+            child: const Icon(
+              Icons.account_tree,
+              size: 18,
+              color: AppColors.primaryTeal,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -300,27 +323,52 @@ class _TraceWaterfallState extends State<TraceWaterfall>
               children: [
                 Row(
                   children: [
-                    Text('Trace Waterfall', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                    Text(
+                      'Trace Waterfall',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.primaryTeal.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: Text('${_flattenedNodes.length} spans', style: TextStyle(fontSize: 10, color: AppColors.primaryTeal, fontWeight: FontWeight.w500)),
+                      child: Text(
+                        '${_flattenedNodes.length} spans',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: AppColors.primaryTeal,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 2),
                 Row(
                   children: [
-                    Icon(Icons.fingerprint, size: 10, color: AppColors.textMuted),
+                    Icon(
+                      Icons.fingerprint,
+                      size: 10,
+                      color: AppColors.textMuted,
+                    ),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
                         widget.trace.traceId,
-                        style: TextStyle(fontSize: 10, fontFamily: 'monospace', color: AppColors.textMuted),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontFamily: 'monospace',
+                          color: AppColors.textMuted,
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -329,14 +377,26 @@ class _TraceWaterfallState extends State<TraceWaterfall>
               ],
             ),
           ),
-          _buildStatChip('${(_totalDuration / 1000).toStringAsFixed(1)}ms', Icons.timer_outlined, AppColors.primaryCyan),
+          _buildStatChip(
+            '${(_totalDuration / 1000).toStringAsFixed(1)}ms',
+            Icons.timer_outlined,
+            AppColors.primaryCyan,
+          ),
           if (errorCount > 0) ...[
             const SizedBox(width: 8),
-            _buildStatChip('$errorCount errors', Icons.error_outline, AppColors.error),
+            _buildStatChip(
+              '$errorCount errors',
+              Icons.error_outline,
+              AppColors.error,
+            ),
           ],
           if (_criticalPathSpanIds.isNotEmpty) ...[
             const SizedBox(width: 8),
-            _buildStatChip('Critical path', Icons.trending_up, AppColors.warning),
+            _buildStatChip(
+              'Critical path',
+              Icons.trending_up,
+              AppColors.warning,
+            ),
           ],
         ],
       ),
@@ -356,7 +416,14 @@ class _TraceWaterfallState extends State<TraceWaterfall>
         children: [
           Icon(icon, size: 12, color: color),
           const SizedBox(width: 4),
-          Text(text, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: color)),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+              color: color,
+            ),
+          ),
         ],
       ),
     );
@@ -380,9 +447,23 @@ class _TraceWaterfallState extends State<TraceWaterfall>
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(width: 8, height: 8, decoration: BoxDecoration(color: e.value, borderRadius: BorderRadius.circular(2))),
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: e.value,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
                 const SizedBox(width: 6),
-                Text(e.key, style: TextStyle(fontSize: 10, color: e.value, fontWeight: FontWeight.w500)),
+                Text(
+                  e.key,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: e.value,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ],
             ),
           );
@@ -428,7 +509,10 @@ class _TraceWaterfallState extends State<TraceWaterfall>
     final serviceColor = _serviceColors[service] ?? AppColors.primaryTeal;
 
     final staggerDelay = index / _flattenedNodes.length;
-    final animValue = ((_animation.value - staggerDelay * 0.5) / 0.5).clamp(0.0, 1.0);
+    final animValue = ((_animation.value - staggerDelay * 0.5) / 0.5).clamp(
+      0.0,
+      1.0,
+    );
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hoveredIndex = index),
@@ -446,12 +530,14 @@ class _TraceWaterfallState extends State<TraceWaterfall>
               color: isSelected
                   ? serviceColor.withValues(alpha: 0.12)
                   : isHovered
-                      ? Colors.white.withValues(alpha: 0.04)
-                      : node.isOnCriticalPath
-                          ? AppColors.warning.withValues(alpha: 0.05)
-                          : Colors.transparent,
+                  ? Colors.white.withValues(alpha: 0.04)
+                  : node.isOnCriticalPath
+                  ? AppColors.warning.withValues(alpha: 0.05)
+                  : Colors.transparent,
               borderRadius: BorderRadius.circular(6),
-              border: isSelected ? Border.all(color: serviceColor.withValues(alpha: 0.3)) : null,
+              border: isSelected
+                  ? Border.all(color: serviceColor.withValues(alpha: 0.3))
+                  : null,
             ),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
@@ -469,7 +555,11 @@ class _TraceWaterfallState extends State<TraceWaterfall>
                             child: AnimatedRotation(
                               duration: const Duration(milliseconds: 200),
                               turns: node.isExpanded ? 0.25 : 0,
-                              child: Icon(Icons.chevron_right, size: 16, color: AppColors.textMuted),
+                              child: Icon(
+                                Icons.chevron_right,
+                                size: 16,
+                                color: AppColors.textMuted,
+                              ),
                             ),
                           )
                         else
@@ -508,8 +598,12 @@ class _TraceWaterfallState extends State<TraceWaterfall>
                               span.name,
                               style: TextStyle(
                                 fontSize: 11,
-                                color: isError ? AppColors.error : AppColors.textSecondary,
-                                fontWeight: isSelected || node.isOnCriticalPath ? FontWeight.w500 : null,
+                                color: isError
+                                    ? AppColors.error
+                                    : AppColors.textSecondary,
+                                fontWeight: isSelected || node.isOnCriticalPath
+                                    ? FontWeight.w500
+                                    : null,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -523,7 +617,8 @@ class _TraceWaterfallState extends State<TraceWaterfall>
                   Expanded(
                     child: LayoutBuilder(
                       builder: (context, constraints) {
-                        final barWidth = constraints.maxWidth * widthPercent * animValue;
+                        final barWidth =
+                            constraints.maxWidth * widthPercent * animValue;
                         final barOffset = constraints.maxWidth * startPercent;
 
                         return Stack(
@@ -540,29 +635,63 @@ class _TraceWaterfallState extends State<TraceWaterfall>
                             Positioned(
                               left: barOffset,
                               child: Tooltip(
-                                message: '${span.name}\nDuration: ${span.duration.inMilliseconds}ms\nStatus: ${span.status}',
+                                message:
+                                    '${span.name}\nDuration: ${span.duration.inMilliseconds}ms\nStatus: ${span.status}',
                                 child: AnimatedContainer(
                                   duration: const Duration(milliseconds: 150),
                                   height: 20,
-                                  width: barWidth.clamp(6.0, constraints.maxWidth - barOffset),
+                                  width: barWidth.clamp(
+                                    6.0,
+                                    constraints.maxWidth - barOffset,
+                                  ),
                                   decoration: BoxDecoration(
                                     gradient: LinearGradient(
                                       colors: isError
-                                          ? [AppColors.error, AppColors.error.withValues(alpha: 0.7)]
+                                          ? [
+                                              AppColors.error,
+                                              AppColors.error.withValues(
+                                                alpha: 0.7,
+                                              ),
+                                            ]
                                           : node.isOnCriticalPath
-                                              ? [AppColors.warning, AppColors.warning.withValues(alpha: 0.8)]
-                                              : [serviceColor, serviceColor.withValues(alpha: 0.7)],
+                                          ? [
+                                              AppColors.warning,
+                                              AppColors.warning.withValues(
+                                                alpha: 0.8,
+                                              ),
+                                            ]
+                                          : [
+                                              serviceColor,
+                                              serviceColor.withValues(
+                                                alpha: 0.7,
+                                              ),
+                                            ],
                                     ),
                                     borderRadius: BorderRadius.circular(3),
                                     boxShadow: (isHovered || isSelected)
-                                        ? [BoxShadow(color: (isError ? AppColors.error : serviceColor).withValues(alpha: 0.4), blurRadius: 8)]
+                                        ? [
+                                            BoxShadow(
+                                              color:
+                                                  (isError
+                                                          ? AppColors.error
+                                                          : serviceColor)
+                                                      .withValues(alpha: 0.4),
+                                              blurRadius: 8,
+                                            ),
+                                          ]
                                         : null,
                                   ),
                                   child: barWidth > 40
                                       ? Center(
                                           child: Text(
                                             '${span.duration.inMilliseconds}ms',
-                                            style: TextStyle(fontSize: 9, color: Colors.white.withValues(alpha: 0.9), fontWeight: FontWeight.w500),
+                                            style: TextStyle(
+                                              fontSize: 9,
+                                              color: Colors.white.withValues(
+                                                alpha: 0.9,
+                                              ),
+                                              fontWeight: FontWeight.w500,
+                                            ),
                                           ),
                                         )
                                       : null,
@@ -583,7 +712,11 @@ class _TraceWaterfallState extends State<TraceWaterfall>
                       style: TextStyle(
                         fontSize: 10,
                         fontFamily: 'monospace',
-                        color: isError ? AppColors.error : node.isOnCriticalPath ? AppColors.warning : AppColors.textMuted,
+                        color: isError
+                            ? AppColors.error
+                            : node.isOnCriticalPath
+                            ? AppColors.warning
+                            : AppColors.textMuted,
                         fontWeight: FontWeight.w500,
                       ),
                       textAlign: TextAlign.right,
@@ -626,7 +759,9 @@ class _TraceWaterfallState extends State<TraceWaterfall>
                 child: Icon(
                   span.status == 'ERROR' ? Icons.error : Icons.check_circle,
                   size: 16,
-                  color: span.status == 'ERROR' ? AppColors.error : serviceColor,
+                  color: span.status == 'ERROR'
+                      ? AppColors.error
+                      : serviceColor,
                 ),
               ),
               const SizedBox(width: 10),
@@ -634,14 +769,27 @@ class _TraceWaterfallState extends State<TraceWaterfall>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(span.name, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-                    Text(service, style: TextStyle(fontSize: 10, color: serviceColor)),
+                    Text(
+                      span.name,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      service,
+                      style: TextStyle(fontSize: 10, color: serviceColor),
+                    ),
                   ],
                 ),
               ),
               if (isOnCriticalPath)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.warning.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(4),
@@ -649,9 +797,20 @@ class _TraceWaterfallState extends State<TraceWaterfall>
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.trending_up, size: 12, color: AppColors.warning),
+                      Icon(
+                        Icons.trending_up,
+                        size: 12,
+                        color: AppColors.warning,
+                      ),
                       const SizedBox(width: 4),
-                      Text('Critical Path', style: TextStyle(fontSize: 10, color: AppColors.warning, fontWeight: FontWeight.w500)),
+                      Text(
+                        'Critical Path',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: AppColors.warning,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -670,10 +829,30 @@ class _TraceWaterfallState extends State<TraceWaterfall>
             spacing: 12,
             runSpacing: 6,
             children: [
-              _buildDetailChip('Span ID', span.spanId.substring(0, math.min(8, span.spanId.length)), serviceColor),
-              _buildDetailChip('Duration', '${span.duration.inMilliseconds}ms', AppColors.primaryCyan),
-              _buildDetailChip('Status', span.status, span.status == 'ERROR' ? AppColors.error : AppColors.success),
-              if (span.parentSpanId != null) _buildDetailChip('Parent', span.parentSpanId!.substring(0, math.min(8, span.parentSpanId!.length)), AppColors.textMuted),
+              _buildDetailChip(
+                'Span ID',
+                span.spanId.substring(0, math.min(8, span.spanId.length)),
+                serviceColor,
+              ),
+              _buildDetailChip(
+                'Duration',
+                '${span.duration.inMilliseconds}ms',
+                AppColors.primaryCyan,
+              ),
+              _buildDetailChip(
+                'Status',
+                span.status,
+                span.status == 'ERROR' ? AppColors.error : AppColors.success,
+              ),
+              if (span.parentSpanId != null)
+                _buildDetailChip(
+                  'Parent',
+                  span.parentSpanId!.substring(
+                    0,
+                    math.min(8, span.parentSpanId!.length),
+                  ),
+                  AppColors.textMuted,
+                ),
             ],
           ),
           if (span.attributes.isNotEmpty) ...[
@@ -687,23 +866,48 @@ class _TraceWaterfallState extends State<TraceWaterfall>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Attributes', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.textMuted)),
+                  Text(
+                    'Attributes',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
                   const SizedBox(height: 6),
-                  ...span.attributes.entries.take(6).map((e) => Padding(
-                        padding: const EdgeInsets.only(bottom: 3),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SizedBox(
-                              width: 100,
-                              child: Text('${e.key}:', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
-                            ),
-                            Expanded(
-                              child: Text('${e.value}', style: TextStyle(fontSize: 10, color: AppColors.textSecondary, fontFamily: 'monospace'), overflow: TextOverflow.ellipsis),
-                            ),
-                          ],
+                  ...span.attributes.entries
+                      .take(6)
+                      .map(
+                        (e) => Padding(
+                          padding: const EdgeInsets.only(bottom: 3),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(
+                                width: 100,
+                                child: Text(
+                                  '${e.key}:',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: AppColors.textMuted,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  '${e.value}',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: AppColors.textSecondary,
+                                    fontFamily: 'monospace',
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      )),
+                      ),
                 ],
               ),
             ),
@@ -724,8 +928,19 @@ class _TraceWaterfallState extends State<TraceWaterfall>
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('$label: ', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
-          Text(value, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w500, fontFamily: 'monospace')),
+          Text(
+            '$label: ',
+            style: TextStyle(fontSize: 10, color: AppColors.textMuted),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 10,
+              color: color,
+              fontWeight: FontWeight.w500,
+              fontFamily: 'monospace',
+            ),
+          ),
         ],
       ),
     );
@@ -751,7 +966,11 @@ class _TimeRulerPainter extends CustomPainter {
       ..strokeWidth = 1;
 
     // Draw baseline
-    canvas.drawLine(Offset(0, size.height - 1), Offset(size.width, size.height - 1), paint);
+    canvas.drawLine(
+      Offset(0, size.height - 1),
+      Offset(size.width, size.height - 1),
+      paint,
+    );
 
     // Draw ticks and labels
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
@@ -760,7 +979,11 @@ class _TimeRulerPainter extends CustomPainter {
       final timeMs = (tickInterval * i) / 1000;
 
       // Tick mark
-      canvas.drawLine(Offset(x, size.height - 6), Offset(x, size.height), paint);
+      canvas.drawLine(
+        Offset(x, size.height - 6),
+        Offset(x, size.height),
+        paint,
+      );
 
       // Label
       textPainter.text = TextSpan(
@@ -769,7 +992,10 @@ class _TimeRulerPainter extends CustomPainter {
       );
       textPainter.layout();
       final labelX = x - textPainter.width / 2;
-      textPainter.paint(canvas, Offset(labelX.clamp(0, size.width - textPainter.width), 0));
+      textPainter.paint(
+        canvas,
+        Offset(labelX.clamp(0, size.width - textPainter.width), 0),
+      );
     }
   }
 

@@ -6,7 +6,8 @@ import '../../theme/app_theme.dart';
 /// Model for a reasoning step
 class ReasoningStep {
   final String id;
-  final String type; // 'observation', 'analysis', 'hypothesis', 'conclusion', 'action'
+  final String
+  type; // 'observation', 'analysis', 'hypothesis', 'conclusion', 'action'
   final String content;
   final double confidence;
   final List<String> evidenceIds;
@@ -97,7 +98,8 @@ class AIReasoningData {
           .map((e) => Evidence.fromJson(Map<String, dynamic>.from(e)))
           .toList(),
       conclusion: json['conclusion'],
-      overallConfidence: (json['overall_confidence'] as num?)?.toDouble() ?? 0.0,
+      overallConfidence:
+          (json['overall_confidence'] as num?)?.toDouble() ?? 0.0,
       status: json['status'] ?? 'analyzing',
     );
   }
@@ -283,10 +285,7 @@ class _AIReasoningCanvasState extends State<AIReasoningCanvas>
                       Row(
                         children: [
                           // Reasoning steps
-                          Expanded(
-                            flex: 3,
-                            child: _buildReasoningFlow(),
-                          ),
+                          Expanded(flex: 3, child: _buildReasoningFlow()),
                           // Evidence panel
                           if (_showEvidence && widget.data.evidence.isNotEmpty)
                             Container(
@@ -337,11 +336,17 @@ class _AIReasoningCanvasState extends State<AIReasoningCanvas>
                       AppColors.primaryTeal.withValues(alpha: 0.1),
                       AppColors.primaryTeal.withValues(alpha: 0.3),
                     ],
-                    transform: GradientRotation(_thinkingAnimation.value * math.pi * 2),
+                    transform: GradientRotation(
+                      _thinkingAnimation.value * math.pi * 2,
+                    ),
                   ),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.psychology, size: 18, color: AppColors.primaryTeal),
+                child: const Icon(
+                  Icons.psychology,
+                  size: 18,
+                  color: AppColors.primaryTeal,
+                ),
               );
             },
           ),
@@ -409,10 +414,7 @@ class _AIReasoningCanvasState extends State<AIReasoningCanvas>
             SizedBox(
               width: 10,
               height: 10,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: color,
-              ),
+              child: CircularProgressIndicator(strokeWidth: 2, color: color),
             )
           else
             Icon(Icons.check, size: 12, color: color),
@@ -492,7 +494,11 @@ class _AIReasoningCanvasState extends State<AIReasoningCanvas>
       itemBuilder: (context, index) {
         final step = widget.data.steps[index];
         final delay = index * 0.1;
-        final animProgress = ((_entranceAnimation.value - delay) / (1.0 - delay)).clamp(0.0, 1.0);
+        final animProgress =
+            ((_entranceAnimation.value - delay) / (1.0 - delay)).clamp(
+              0.0,
+              1.0,
+            );
 
         return Opacity(
           opacity: animProgress,
@@ -540,11 +546,7 @@ class _AIReasoningCanvasState extends State<AIReasoningCanvas>
                       ]
                     : null,
               ),
-              child: Icon(
-                _getStepTypeIcon(step.type),
-                size: 16,
-                color: color,
-              ),
+              child: Icon(_getStepTypeIcon(step.type), size: 16, color: color),
             ),
             // Connector line
             if (!isLast)
@@ -557,8 +559,9 @@ class _AIReasoningCanvasState extends State<AIReasoningCanvas>
                     end: Alignment.bottomCenter,
                     colors: [
                       color.withValues(alpha: 0.5),
-                      _getStepTypeColor(widget.data.steps[index + 1].type)
-                          .withValues(alpha: 0.5),
+                      _getStepTypeColor(
+                        widget.data.steps[index + 1].type,
+                      ).withValues(alpha: 0.5),
                     ],
                   ),
                 ),
@@ -572,8 +575,11 @@ class _AIReasoningCanvasState extends State<AIReasoningCanvas>
             onEnter: (_) => setState(() => _hoveredStepId = step.id),
             onExit: (_) => setState(() => _hoveredStepId = null),
             child: GestureDetector(
-              onTap: () => setState(() =>
-                  _selectedStepId = _selectedStepId == step.id ? null : step.id),
+              onTap: () => setState(
+                () => _selectedStepId = _selectedStepId == step.id
+                    ? null
+                    : step.id,
+              ),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 margin: EdgeInsets.only(bottom: isLast ? 0 : 16),
@@ -649,8 +655,9 @@ class _AIReasoningCanvasState extends State<AIReasoningCanvas>
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: _getEvidenceTypeColor(evidence.type)
-                                  .withValues(alpha: 0.15),
+                              color: _getEvidenceTypeColor(
+                                evidence.type,
+                              ).withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Row(
@@ -762,13 +769,15 @@ class _AIReasoningCanvasState extends State<AIReasoningCanvas>
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.03),
-            border: Border(
-              bottom: BorderSide(color: AppColors.surfaceBorder),
-            ),
+            border: Border(bottom: BorderSide(color: AppColors.surfaceBorder)),
           ),
           child: Row(
             children: [
-              const Icon(Icons.inventory_2, size: 14, color: AppColors.textMuted),
+              const Icon(
+                Icons.inventory_2,
+                size: 14,
+                color: AppColors.textMuted,
+              ),
               const SizedBox(width: 8),
               const Text(
                 'Evidence',
@@ -850,10 +859,7 @@ class _AIReasoningCanvasState extends State<AIReasoningCanvas>
           const SizedBox(height: 4),
           Text(
             evidence.summary,
-            style: const TextStyle(
-              fontSize: 9,
-              color: AppColors.textMuted,
-            ),
+            style: const TextStyle(fontSize: 9, color: AppColors.textMuted),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
@@ -863,10 +869,7 @@ class _AIReasoningCanvasState extends State<AIReasoningCanvas>
             children: [
               Text(
                 'Relevance',
-                style: const TextStyle(
-                  fontSize: 8,
-                  color: AppColors.textMuted,
-                ),
+                style: const TextStyle(fontSize: 8, color: AppColors.textMuted),
               ),
               const SizedBox(width: 4),
               Expanded(
@@ -987,10 +990,12 @@ class _NeuralNetworkPainter extends CustomPainter {
 
     // Generate node positions
     for (int i = 0; i < nodeCount; i++) {
-      nodes.add(Offset(
-        random.nextDouble() * size.width,
-        random.nextDouble() * size.height,
-      ));
+      nodes.add(
+        Offset(
+          random.nextDouble() * size.width,
+          random.nextDouble() * size.height,
+        ),
+      );
     }
 
     // Draw connections
@@ -1003,7 +1008,9 @@ class _NeuralNetworkPainter extends CustomPainter {
         final distance = (nodes[i] - nodes[j]).distance;
         if (distance < 150) {
           final alpha = (1 - distance / 150) * 0.1 * entranceProgress;
-          connectionPaint.color = AppColors.primaryTeal.withValues(alpha: alpha);
+          connectionPaint.color = AppColors.primaryTeal.withValues(
+            alpha: alpha,
+          );
           canvas.drawLine(nodes[i], nodes[j], connectionPaint);
         }
       }
@@ -1015,7 +1022,9 @@ class _NeuralNetworkPainter extends CustomPainter {
       final pulseScale = 0.5 + 0.5 * math.sin(nodeProgress * math.pi * 2);
 
       final nodePaint = Paint()
-        ..color = AppColors.primaryTeal.withValues(alpha: 0.2 * entranceProgress * pulseScale)
+        ..color = AppColors.primaryTeal.withValues(
+          alpha: 0.2 * entranceProgress * pulseScale,
+        )
         ..style = PaintingStyle.fill;
 
       canvas.drawCircle(nodes[i], 2 + 2 * pulseScale, nodePaint);

@@ -51,8 +51,9 @@ class _ToolConfigPageState extends State<ToolConfigPage>
                     height: 24,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor:
-                          AlwaysStoppedAnimation<Color>(AppColors.primaryTeal),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        AppColors.primaryTeal,
+                      ),
                     ),
                   )
                 : IconButton(
@@ -76,9 +77,7 @@ class _ToolConfigPageState extends State<ToolConfigPage>
       body: Column(
         children: [
           _buildSummaryBar(),
-          Expanded(
-            child: _buildTabContent(),
-          ),
+          Expanded(child: _buildTabContent()),
         ],
       ),
     );
@@ -120,10 +119,7 @@ class _ToolConfigPageState extends State<ToolConfigPage>
           decoration: BoxDecoration(
             color: AppColors.backgroundCard,
             border: Border(
-              bottom: BorderSide(
-                color: AppColors.surfaceBorder,
-                width: 1,
-              ),
+              bottom: BorderSide(color: AppColors.surfaceBorder, width: 1),
             ),
           ),
           child: Row(
@@ -168,13 +164,7 @@ class _ToolConfigPageState extends State<ToolConfigPage>
             color: color,
           ),
         ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: AppColors.textMuted,
-          ),
-        ),
+        Text(label, style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
       ],
     );
   }
@@ -199,11 +189,7 @@ class _ToolConfigPageState extends State<ToolConfigPage>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      Icons.error_outline,
-                      size: 48,
-                      color: AppColors.error,
-                    ),
+                    Icon(Icons.error_outline, size: 48, color: AppColors.error),
                     const SizedBox(height: 16),
                     Text(
                       error,
@@ -270,35 +256,26 @@ class _ToolConfigPageState extends State<ToolConfigPage>
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.03),
-      ),
+      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.03)),
       child: Row(
         children: [
           Text(
             '${tools.length} tools ($enabledCount enabled, $testableCount testable)',
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 13,
-            ),
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
           ),
           const Spacer(),
           TextButton.icon(
             onPressed: () => _service.enableCategory(category),
             icon: const Icon(Icons.check_circle_outline, size: 18),
             label: const Text('Enable All'),
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.success,
-            ),
+            style: TextButton.styleFrom(foregroundColor: AppColors.success),
           ),
           const SizedBox(width: 8),
           TextButton.icon(
             onPressed: () => _service.disableCategory(category),
             icon: const Icon(Icons.cancel_outlined, size: 18),
             label: const Text('Disable All'),
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.error,
-            ),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
           ),
         ],
       ),
@@ -369,8 +346,9 @@ class _ToolConfigPageState extends State<ToolConfigPage>
                               onPressed: () => _testTool(tool.name),
                               style: IconButton.styleFrom(
                                 foregroundColor: AppColors.info,
-                                backgroundColor:
-                                    AppColors.info.withValues(alpha: 0.1),
+                                backgroundColor: AppColors.info.withValues(
+                                  alpha: 0.1,
+                                ),
                               ),
                             ),
                       const SizedBox(width: 8),
@@ -382,8 +360,9 @@ class _ToolConfigPageState extends State<ToolConfigPage>
                           _service.setToolEnabled(tool.name, value),
                       activeThumbColor: AppColors.success,
                       inactiveThumbColor: AppColors.textMuted,
-                      inactiveTrackColor:
-                          AppColors.textMuted.withValues(alpha: 0.3),
+                      inactiveTrackColor: AppColors.textMuted.withValues(
+                        alpha: 0.3,
+                      ),
                     ),
                   ],
                 ),
@@ -419,11 +398,7 @@ class _ToolConfigPageState extends State<ToolConfigPage>
       childrenPadding: const EdgeInsets.only(left: 8, right: 8, bottom: 8),
       title: Row(
         children: [
-          Icon(
-            Icons.input,
-            size: 16,
-            color: AppColors.primaryTeal,
-          ),
+          Icon(Icons.input, size: 16, color: AppColors.primaryTeal),
           const SizedBox(width: 8),
           Text(
             'Arguments (${arguments.length})',
@@ -446,10 +421,7 @@ class _ToolConfigPageState extends State<ToolConfigPage>
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.03),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: AppColors.surfaceBorder,
-          width: 1,
-        ),
+        border: Border.all(color: AppColors.surfaceBorder, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -508,10 +480,7 @@ class _ToolConfigPageState extends State<ToolConfigPage>
             const SizedBox(height: 6),
             Text(
               arg.description,
-              style: TextStyle(
-                fontSize: 12,
-                color: AppColors.textSecondary,
-              ),
+              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
           ],
           if (arg.defaultValue != null || arg.example != null) ...[
@@ -579,10 +548,7 @@ class _ToolConfigPageState extends State<ToolConfigPage>
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: color.withValues(alpha: 0.3),
-          width: 1,
-        ),
+        border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -601,10 +567,7 @@ class _ToolConfigPageState extends State<ToolConfigPage>
             const SizedBox(width: 8),
             Text(
               '${result.latencyMs!.toStringAsFixed(0)}ms',
-              style: TextStyle(
-                fontSize: 11,
-                color: AppColors.textMuted,
-              ),
+              style: TextStyle(fontSize: 11, color: AppColors.textMuted),
             ),
           ],
           if (result.message.isNotEmpty &&
@@ -613,10 +576,7 @@ class _ToolConfigPageState extends State<ToolConfigPage>
             Flexible(
               child: Text(
                 result.message,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: AppColors.textMuted,
-                ),
+                style: TextStyle(fontSize: 11, color: AppColors.textMuted),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -669,10 +629,12 @@ class _ToolConfigPageState extends State<ToolConfigPage>
       final results = await _service.testAllTools();
 
       if (mounted) {
-        final successCount =
-            results.values.where((r) => r.status == ToolTestStatus.success).length;
-        final failedCount =
-            results.values.where((r) => r.status == ToolTestStatus.failed).length;
+        final successCount = results.values
+            .where((r) => r.status == ToolTestStatus.success)
+            .length;
+        final failedCount = results.values
+            .where((r) => r.status == ToolTestStatus.failed)
+            .length;
 
         StatusToast.show(
           context,

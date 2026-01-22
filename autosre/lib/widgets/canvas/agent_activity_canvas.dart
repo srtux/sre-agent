@@ -106,9 +106,10 @@ class _AgentActivityCanvasState extends State<AgentActivityCanvas>
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
-    _flowAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _flowController, curve: Curves.linear),
-    );
+    _flowAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _flowController, curve: Curves.linear));
 
     _entranceAnimation = CurvedAnimation(
       parent: _entranceController,
@@ -226,7 +227,11 @@ class _AgentActivityCanvasState extends State<AgentActivityCanvas>
         _buildHeader(),
         Expanded(
           child: AnimatedBuilder(
-            animation: Listenable.merge([_pulseAnimation, _flowAnimation, _entranceAnimation]),
+            animation: Listenable.merge([
+              _pulseAnimation,
+              _flowAnimation,
+              _entranceAnimation,
+            ]),
             builder: (context, child) {
               return LayoutBuilder(
                 builder: (context, constraints) {
@@ -236,12 +241,18 @@ class _AgentActivityCanvasState extends State<AgentActivityCanvas>
                       children: [
                         // Background grid
                         CustomPaint(
-                          size: Size(constraints.maxWidth, constraints.maxHeight),
+                          size: Size(
+                            constraints.maxWidth,
+                            constraints.maxHeight,
+                          ),
                           painter: _GridPainter(),
                         ),
                         // Connections
                         CustomPaint(
-                          size: Size(constraints.maxWidth, constraints.maxHeight),
+                          size: Size(
+                            constraints.maxWidth,
+                            constraints.maxHeight,
+                          ),
                           painter: _ConnectionsPainter(
                             nodes: widget.data.nodes,
                             positions: _nodePositions,
@@ -251,7 +262,9 @@ class _AgentActivityCanvasState extends State<AgentActivityCanvas>
                           ),
                         ),
                         // Nodes
-                        ...widget.data.nodes.map((node) => _buildNode(node, constraints)),
+                        ...widget.data.nodes.map(
+                          (node) => _buildNode(node, constraints),
+                        ),
                       ],
                     ),
                   );
@@ -282,7 +295,11 @@ class _AgentActivityCanvasState extends State<AgentActivityCanvas>
               ),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.account_tree, size: 18, color: AppColors.primaryTeal),
+            child: const Icon(
+              Icons.account_tree,
+              size: 18,
+              color: AppColors.primaryTeal,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -319,10 +336,13 @@ class _AgentActivityCanvasState extends State<AgentActivityCanvas>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: (isActive ? AppColors.success : AppColors.textMuted).withValues(alpha: 0.15),
+        color: (isActive ? AppColors.success : AppColors.textMuted).withValues(
+          alpha: 0.15,
+        ),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: (isActive ? AppColors.success : AppColors.textMuted).withValues(alpha: 0.3),
+          color: (isActive ? AppColors.success : AppColors.textMuted)
+              .withValues(alpha: 0.3),
         ),
       ),
       child: Row(
@@ -396,7 +416,9 @@ class _AgentActivityCanvasState extends State<AgentActivityCanvas>
                   ),
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: isActive ? AppColors.success : color.withValues(alpha: 0.5),
+                    color: isActive
+                        ? AppColors.success
+                        : color.withValues(alpha: 0.5),
                     width: isActive ? 3 : 2,
                   ),
                   boxShadow: [
@@ -416,11 +438,7 @@ class _AgentActivityCanvasState extends State<AgentActivityCanvas>
                 child: Stack(
                   children: [
                     Center(
-                      child: Icon(
-                        _getNodeIcon(node),
-                        size: 24,
-                        color: color,
-                      ),
+                      child: Icon(_getNodeIcon(node), size: 24, color: color),
                     ),
                     // Status indicator
                     Positioned(
@@ -496,13 +514,7 @@ class _AgentActivityCanvasState extends State<AgentActivityCanvas>
       children: [
         Icon(icon, size: 14, color: color),
         const SizedBox(width: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            color: AppColors.textMuted,
-          ),
-        ),
+        Text(label, style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
       ],
     );
   }
@@ -523,10 +535,7 @@ class _AgentActivityCanvasState extends State<AgentActivityCanvas>
           Expanded(
             child: Text(
               widget.data.message!,
-              style: const TextStyle(
-                fontSize: 11,
-                color: AppColors.info,
-              ),
+              style: const TextStyle(fontSize: 11, color: AppColors.info),
             ),
           ),
         ],
@@ -544,7 +553,10 @@ class _AgentActivityCanvasState extends State<AgentActivityCanvas>
           children: [
             Icon(_getNodeIcon(node), color: _getNodeColor(node)),
             const SizedBox(width: 12),
-            Text(node.name, style: const TextStyle(color: AppColors.textPrimary)),
+            Text(
+              node.name,
+              style: const TextStyle(color: AppColors.textPrimary),
+            ),
           ],
         ),
         content: Column(
@@ -579,10 +591,7 @@ class _AgentActivityCanvasState extends State<AgentActivityCanvas>
         children: [
           Text(
             '$label: ',
-            style: const TextStyle(
-              color: AppColors.textMuted,
-              fontSize: 12,
-            ),
+            style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
           ),
           Text(
             value,
@@ -649,7 +658,8 @@ class _ConnectionsPainter extends CustomPainter {
         final toPos = positions[connectionId];
         if (toPos == null) continue;
 
-        final isActive = node.id == activeNodeId || connectionId == activeNodeId;
+        final isActive =
+            node.id == activeNodeId || connectionId == activeNodeId;
         final baseColor = isActive ? AppColors.success : AppColors.primaryTeal;
 
         // Draw the connection line
@@ -671,7 +681,12 @@ class _ConnectionsPainter extends CustomPainter {
         }
 
         // Draw arrow
-        _drawArrow(canvas, fromPos, toPos, baseColor.withValues(alpha: entranceProgress));
+        _drawArrow(
+          canvas,
+          fromPos,
+          toPos,
+          baseColor.withValues(alpha: entranceProgress),
+        );
       }
     }
   }

@@ -76,10 +76,7 @@ class GlassDecoration {
     return BoxDecoration(
       color: AppColors.backgroundElevated,
       borderRadius: BorderRadius.circular(borderRadius),
-      border: Border.all(
-        color: AppColors.surfaceBorder,
-        width: 1,
-      ),
+      border: Border.all(color: AppColors.surfaceBorder, width: 1),
       boxShadow: [
         BoxShadow(
           color: Colors.black.withValues(alpha: 0.3),
@@ -100,10 +97,7 @@ class GlassDecoration {
     return BoxDecoration(
       color: Colors.white.withValues(alpha: 0.05),
       borderRadius: BorderRadius.circular(borderRadius),
-      border: Border.all(
-        color: Colors.white.withValues(alpha: 0.1),
-        width: 1,
-      ),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
     );
   }
 
@@ -139,10 +133,7 @@ class GlassDecoration {
         bottomLeft: Radius.circular(6),
         bottomRight: Radius.circular(20),
       ),
-      border: Border.all(
-        color: Colors.white.withValues(alpha: 0.1),
-        width: 1,
-      ),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
     );
   }
 
@@ -150,10 +141,7 @@ class GlassDecoration {
     return BoxDecoration(
       color: color.withValues(alpha: 0.15),
       borderRadius: BorderRadius.circular(8),
-      border: Border.all(
-        color: color.withValues(alpha: 0.4),
-        width: 1,
-      ),
+      border: Border.all(color: color.withValues(alpha: 0.4), width: 1),
     );
   }
 }
@@ -257,10 +245,8 @@ class _AnimatedGradientBackgroundState extends State<AnimatedGradientBackground>
 }
 
 class AppTheme {
-  static TextStyle get codeStyle => GoogleFonts.jetBrainsMono(
-      fontSize: 12,
-      color: AppColors.textPrimary,
-  );
+  static TextStyle get codeStyle =>
+      GoogleFonts.jetBrainsMono(fontSize: 12, color: AppColors.textPrimary);
 
   static ThemeData get darkTheme {
     return ThemeData(
@@ -281,72 +267,74 @@ class AppTheme {
       ),
 
       // Text Theme
-      textTheme: GoogleFonts.outfitTextTheme(ThemeData.dark().textTheme).copyWith(
-        displayLarge: TextStyle(
-          fontSize: 32,
-          fontWeight: FontWeight.w700,
-          color: AppColors.textPrimary,
-          letterSpacing: -0.5,
-        ),
-        headlineLarge: TextStyle(
-          fontSize: 24,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textPrimary,
-          letterSpacing: -0.3,
-        ),
-        headlineMedium: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textPrimary,
-        ),
-        titleLarge: TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textPrimary,
-        ),
-        titleMedium: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
-          color: AppColors.textPrimary,
-        ),
-        bodyLarge: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w400,
-          color: AppColors.textPrimary,
-          height: 1.5,
-        ),
-        bodyMedium: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w400,
-          color: AppColors.textSecondary,
-          height: 1.5,
-        ),
-        bodySmall: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w400,
-          color: AppColors.textMuted,
-        ),
-        labelLarge: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textPrimary,
-          letterSpacing: 0.5,
-        ),
-        labelMedium: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-          color: AppColors.textSecondary,
-        ),
-        labelSmall: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w500,
-          color: AppColors.textMuted,
-          letterSpacing: 0.5,
-        ),
-      ).apply(
-        bodyColor: AppColors.textPrimary,
-        displayColor: AppColors.textPrimary,
-      ),
+      textTheme: GoogleFonts.outfitTextTheme(ThemeData.dark().textTheme)
+          .copyWith(
+            displayLarge: TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+              letterSpacing: -0.5,
+            ),
+            headlineLarge: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+              letterSpacing: -0.3,
+            ),
+            headlineMedium: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+            titleLarge: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+            titleMedium: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textPrimary,
+            ),
+            bodyLarge: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w400,
+              color: AppColors.textPrimary,
+              height: 1.5,
+            ),
+            bodyMedium: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+              color: AppColors.textSecondary,
+              height: 1.5,
+            ),
+            bodySmall: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              color: AppColors.textMuted,
+            ),
+            labelLarge: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+              letterSpacing: 0.5,
+            ),
+            labelMedium: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textSecondary,
+            ),
+            labelSmall: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textMuted,
+              letterSpacing: 0.5,
+            ),
+          )
+          .apply(
+            bodyColor: AppColors.textPrimary,
+            displayColor: AppColors.textPrimary,
+          ),
 
       // Scaffold
       scaffoldBackgroundColor: AppColors.backgroundDark,
@@ -385,8 +373,10 @@ class AppTheme {
           color: AppColors.textMuted,
           fontWeight: FontWeight.w400,
         ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 16,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(24),
           borderSide: BorderSide.none,
@@ -400,10 +390,7 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(24),
-          borderSide: const BorderSide(
-            color: AppColors.primaryTeal,
-            width: 2,
-          ),
+          borderSide: const BorderSide(color: AppColors.primaryTeal, width: 2),
         ),
       ),
 
@@ -442,8 +429,6 @@ class AppTheme {
         ),
       ),
 
-
-
       // Divider
       dividerTheme: const DividerThemeData(
         color: AppColors.surfaceBorder,
@@ -481,24 +466,23 @@ class AppTheme {
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: AppColors.surfaceBorder),
         ),
-        textStyle: const TextStyle(
-          color: AppColors.textPrimary,
-          fontSize: 12,
-        ),
+        textStyle: const TextStyle(color: AppColors.textPrimary, fontSize: 12),
       ),
 
       // Scrollbar
       scrollbarTheme: ScrollbarThemeData(
-        thumbColor:
-            WidgetStateProperty.all(AppColors.textMuted.withValues(alpha: 0.3)),
+        thumbColor: WidgetStateProperty.all(
+          AppColors.textMuted.withValues(alpha: 0.3),
+        ),
         radius: const Radius.circular(4),
         thickness: WidgetStateProperty.all(6),
       ),
 
       // Data Table
       dataTableTheme: DataTableThemeData(
-        headingRowColor:
-            WidgetStateProperty.all(Colors.white.withValues(alpha: 0.05)),
+        headingRowColor: WidgetStateProperty.all(
+          Colors.white.withValues(alpha: 0.05),
+        ),
         dataRowColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.hovered)) {
             return Colors.white.withValues(alpha: 0.05);

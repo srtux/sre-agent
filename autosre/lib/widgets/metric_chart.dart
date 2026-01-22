@@ -43,7 +43,10 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
   }
 
   // Calculate moving average for trend line
-  List<double> _calculateMovingAverage(List<MetricPoint> points, int windowSize) {
+  List<double> _calculateMovingAverage(
+    List<MetricPoint> points,
+    int windowSize,
+  ) {
     if (points.length < windowSize) return points.map((p) => p.value).toList();
 
     List<double> result = [];
@@ -119,8 +122,12 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
     final anomalyRegions = _findAnomalyRegions(sortedPoints);
 
     // Determine trend
-    final firstHalfAvg = values.sublist(0, values.length ~/ 2).reduce((a, b) => a + b) / (values.length ~/ 2);
-    final secondHalfAvg = values.sublist(values.length ~/ 2).reduce((a, b) => a + b) / (values.length - values.length ~/ 2);
+    final firstHalfAvg =
+        values.sublist(0, values.length ~/ 2).reduce((a, b) => a + b) /
+        (values.length ~/ 2);
+    final secondHalfAvg =
+        values.sublist(values.length ~/ 2).reduce((a, b) => a + b) /
+        (values.length - values.length ~/ 2);
     final trendPercent = ((secondHalfAvg - firstHalfAvg) / firstHalfAvg * 100);
 
     return Column(
@@ -145,10 +152,16 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
                     borderData: FlBorderData(show: false),
                     lineTouchData: _buildTouchData(sortedPoints),
                     extraLinesData: _buildExtraLines(avgValue, p95Value),
-                    rangeAnnotations: _buildAnomalyAnnotations(anomalyRegions, sortedPoints.length, minValue, maxValue),
+                    rangeAnnotations: _buildAnomalyAnnotations(
+                      anomalyRegions,
+                      sortedPoints.length,
+                      minValue,
+                      maxValue,
+                    ),
                     lineBarsData: [
                       _buildMainLineData(sortedPoints),
-                      if (_showTrendLine) _buildTrendLineData(sortedPoints, movingAvg),
+                      if (_showTrendLine)
+                        _buildTrendLineData(sortedPoints, movingAvg),
                     ],
                     minY: minValue - (maxValue - minValue) * 0.1,
                     maxY: maxValue + (maxValue - minValue) * 0.1,
@@ -176,18 +189,33 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
               color: AppColors.textMuted.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.show_chart_outlined, size: 40, color: AppColors.textMuted),
+            child: Icon(
+              Icons.show_chart_outlined,
+              size: 40,
+              color: AppColors.textMuted,
+            ),
           ),
           const SizedBox(height: 16),
-          Text('No metric data available', style: TextStyle(color: AppColors.textMuted, fontSize: 14)),
+          Text(
+            'No metric data available',
+            style: TextStyle(color: AppColors.textMuted, fontSize: 14),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildHeader(int anomalyCount, double trendPercent) {
-    final trendColor = trendPercent > 5 ? AppColors.error : trendPercent < -5 ? AppColors.success : AppColors.textMuted;
-    final trendIcon = trendPercent > 5 ? Icons.trending_up : trendPercent < -5 ? Icons.trending_down : Icons.trending_flat;
+    final trendColor = trendPercent > 5
+        ? AppColors.error
+        : trendPercent < -5
+        ? AppColors.success
+        : AppColors.textMuted;
+    final trendIcon = trendPercent > 5
+        ? Icons.trending_up
+        : trendPercent < -5
+        ? Icons.trending_down
+        : Icons.trending_flat;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -197,22 +225,40 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [AppColors.primaryCyan.withValues(alpha: 0.2), AppColors.primaryBlue.withValues(alpha: 0.15)],
+                colors: [
+                  AppColors.primaryCyan.withValues(alpha: 0.2),
+                  AppColors.primaryBlue.withValues(alpha: 0.15),
+                ],
               ),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.insights, size: 18, color: AppColors.primaryCyan),
+            child: const Icon(
+              Icons.insights,
+              size: 18,
+              color: AppColors.primaryCyan,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Metric Analysis', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                Text(
+                  'Metric Analysis',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
                 const SizedBox(height: 2),
                 Text(
                   widget.series.metricName,
-                  style: TextStyle(fontSize: 10, color: AppColors.textMuted, fontFamily: 'monospace'),
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: AppColors.textMuted,
+                    fontFamily: 'monospace',
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
@@ -233,7 +279,11 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
                 const SizedBox(width: 4),
                 Text(
                   '${trendPercent >= 0 ? '+' : ''}${trendPercent.toStringAsFixed(1)}%',
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: trendColor),
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: trendColor,
+                  ),
                 ),
               ],
             ),
@@ -245,14 +295,27 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
               decoration: BoxDecoration(
                 color: AppColors.error.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: AppColors.error.withValues(alpha: 0.25)),
+                border: Border.all(
+                  color: AppColors.error.withValues(alpha: 0.25),
+                ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.warning_amber, size: 12, color: AppColors.error),
+                  const Icon(
+                    Icons.warning_amber,
+                    size: 12,
+                    color: AppColors.error,
+                  ),
                   const SizedBox(width: 4),
-                  Text('$anomalyCount anomalies', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: AppColors.error)),
+                  Text(
+                    '$anomalyCount anomalies',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.error,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -267,19 +330,44 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          _buildStatCard('Min', _formatValue(min), AppColors.info, Icons.arrow_downward),
+          _buildStatCard(
+            'Min',
+            _formatValue(min),
+            AppColors.info,
+            Icons.arrow_downward,
+          ),
           const SizedBox(width: 8),
-          _buildStatCard('Max', _formatValue(max), AppColors.warning, Icons.arrow_upward),
+          _buildStatCard(
+            'Max',
+            _formatValue(max),
+            AppColors.warning,
+            Icons.arrow_upward,
+          ),
           const SizedBox(width: 8),
-          _buildStatCard('Avg', _formatValue(avg), AppColors.primaryTeal, Icons.remove),
+          _buildStatCard(
+            'Avg',
+            _formatValue(avg),
+            AppColors.primaryTeal,
+            Icons.remove,
+          ),
           const SizedBox(width: 8),
-          _buildStatCard('P95', _formatValue(p95), AppColors.primaryCyan, Icons.show_chart),
+          _buildStatCard(
+            'P95',
+            _formatValue(p95),
+            AppColors.primaryCyan,
+            Icons.show_chart,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildStatCard(String label, String value, Color color, IconData icon) {
+  Widget _buildStatCard(
+    String label,
+    String value,
+    Color color,
+    IconData icon,
+  ) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -295,11 +383,26 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
               children: [
                 Icon(icon, size: 10, color: color),
                 const SizedBox(width: 4),
-                Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w500, color: AppColors.textMuted)),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textMuted,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 2),
-            Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color, fontFamily: 'monospace')),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: color,
+                fontFamily: 'monospace',
+              ),
+            ),
           ],
         ),
       ),
@@ -311,30 +414,62 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          _buildToggle('Trend Line', _showTrendLine, (v) => setState(() => _showTrendLine = v), AppColors.warning),
+          _buildToggle(
+            'Trend Line',
+            _showTrendLine,
+            (v) => setState(() => _showTrendLine = v),
+            AppColors.warning,
+          ),
           const SizedBox(width: 12),
-          _buildToggle('Threshold', _showThreshold, (v) => setState(() => _showThreshold = v), AppColors.primaryCyan),
+          _buildToggle(
+            'Threshold',
+            _showThreshold,
+            (v) => setState(() => _showThreshold = v),
+            AppColors.primaryCyan,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildToggle(String label, bool value, Function(bool) onChanged, Color color) {
+  Widget _buildToggle(
+    String label,
+    bool value,
+    Function(bool) onChanged,
+    Color color,
+  ) {
     return GestureDetector(
       onTap: () => onChanged(!value),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: value ? color.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.05),
+          color: value
+              ? color.withValues(alpha: 0.15)
+              : Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: value ? color.withValues(alpha: 0.3) : AppColors.surfaceBorder),
+          border: Border.all(
+            color: value
+                ? color.withValues(alpha: 0.3)
+                : AppColors.surfaceBorder,
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(value ? Icons.check_box : Icons.check_box_outline_blank, size: 14, color: value ? color : AppColors.textMuted),
+            Icon(
+              value ? Icons.check_box : Icons.check_box_outline_blank,
+              size: 14,
+              color: value ? color : AppColors.textMuted,
+            ),
             const SizedBox(width: 6),
-            Text(label, style: TextStyle(fontSize: 11, color: value ? color : AppColors.textMuted, fontWeight: FontWeight.w500)),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                color: value ? color : AppColors.textMuted,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ],
         ),
       ),
@@ -347,7 +482,11 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
       drawVerticalLine: false,
       horizontalInterval: null,
       getDrawingHorizontalLine: (value) {
-        return FlLine(color: AppColors.surfaceBorder, strokeWidth: 0.5, dashArray: [4, 4]);
+        return FlLine(
+          color: AppColors.surfaceBorder,
+          strokeWidth: 0.5,
+          dashArray: [4, 4],
+        );
       },
     );
   }
@@ -363,7 +502,9 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
           interval: interval.toDouble(),
           getTitlesWidget: (value, meta) {
             int index = value.toInt();
-            if (index >= 0 && index < sortedPoints.length && index % interval == 0) {
+            if (index >= 0 &&
+                index < sortedPoints.length &&
+                index % interval == 0) {
               return Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: Text(
@@ -410,7 +551,11 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
           label: HorizontalLineLabel(
             show: true,
             alignment: Alignment.topRight,
-            style: TextStyle(fontSize: 9, color: AppColors.primaryTeal, fontWeight: FontWeight.w500),
+            style: TextStyle(
+              fontSize: 9,
+              color: AppColors.primaryTeal,
+              fontWeight: FontWeight.w500,
+            ),
             labelResolver: (line) => 'avg: ${_formatValue(avg)}',
           ),
         ),
@@ -422,7 +567,11 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
           label: HorizontalLineLabel(
             show: true,
             alignment: Alignment.topRight,
-            style: TextStyle(fontSize: 9, color: AppColors.warning, fontWeight: FontWeight.w500),
+            style: TextStyle(
+              fontSize: 9,
+              color: AppColors.warning,
+              fontWeight: FontWeight.w500,
+            ),
             labelResolver: (line) => 'P95: ${_formatValue(p95)}',
           ),
         ),
@@ -430,7 +579,12 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
     );
   }
 
-  RangeAnnotations _buildAnomalyAnnotations(List<_AnomalyRegion> regions, int totalPoints, double minY, double maxY) {
+  RangeAnnotations _buildAnomalyAnnotations(
+    List<_AnomalyRegion> regions,
+    int totalPoints,
+    double minY,
+    double maxY,
+  ) {
     return RangeAnnotations(
       verticalRangeAnnotations: regions.map((region) {
         return VerticalRangeAnnotation(
@@ -458,7 +612,9 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
             return LineTooltipItem(
               '${DateFormat('MMM d, HH:mm:ss').format(point.timestamp)}\n${_formatValue(point.value)}${point.isAnomaly ? ' (Anomaly)' : ''}',
               TextStyle(
-                color: point.isAnomaly ? AppColors.error : AppColors.textPrimary,
+                color: point.isAnomaly
+                    ? AppColors.error
+                    : AppColors.textPrimary,
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
               ),
@@ -468,8 +624,11 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
       ),
       handleBuiltInTouches: true,
       touchCallback: (event, response) {
-        if (response?.lineBarSpots != null && response!.lineBarSpots!.isNotEmpty) {
-          setState(() => _touchedIndex = response.lineBarSpots!.first.x.toInt());
+        if (response?.lineBarSpots != null &&
+            response!.lineBarSpots!.isNotEmpty) {
+          setState(
+            () => _touchedIndex = response.lineBarSpots!.first.x.toInt(),
+          );
         } else {
           setState(() => _touchedIndex = null);
         }
@@ -485,7 +644,9 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
       }).toList(),
       isCurved: true,
       curveSmoothness: 0.2,
-      gradient: const LinearGradient(colors: [AppColors.primaryTeal, AppColors.primaryCyan]),
+      gradient: const LinearGradient(
+        colors: [AppColors.primaryTeal, AppColors.primaryCyan],
+      ),
       barWidth: 2,
       isStrokeCapRound: true,
       belowBarData: BarAreaData(
@@ -493,13 +654,23 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [AppColors.primaryTeal.withValues(alpha: 0.15), AppColors.primaryCyan.withValues(alpha: 0.02)],
+          colors: [
+            AppColors.primaryTeal.withValues(alpha: 0.15),
+            AppColors.primaryCyan.withValues(alpha: 0.02),
+          ],
         ),
       ),
       dotData: FlDotData(
         show: true,
         getDotPainter: (spot, percent, barData, index) {
-          if (index >= sortedPoints.length) return FlDotCirclePainter(radius: 0, color: Colors.transparent, strokeWidth: 0, strokeColor: Colors.transparent);
+          if (index >= sortedPoints.length) {
+            return FlDotCirclePainter(
+              radius: 0,
+              color: Colors.transparent,
+              strokeWidth: 0,
+              strokeColor: Colors.transparent,
+            );
+          }
 
           final point = sortedPoints[index];
           final isTouched = index == _touchedIndex;
@@ -514,16 +685,29 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
           }
 
           if (isTouched) {
-            return FlDotCirclePainter(radius: 5, color: AppColors.primaryTeal, strokeWidth: 2, strokeColor: Colors.white);
+            return FlDotCirclePainter(
+              radius: 5,
+              color: AppColors.primaryTeal,
+              strokeWidth: 2,
+              strokeColor: Colors.white,
+            );
           }
 
-          return FlDotCirclePainter(radius: 0, color: Colors.transparent, strokeWidth: 0, strokeColor: Colors.transparent);
+          return FlDotCirclePainter(
+            radius: 0,
+            color: Colors.transparent,
+            strokeWidth: 0,
+            strokeColor: Colors.transparent,
+          );
         },
       ),
     );
   }
 
-  LineChartBarData _buildTrendLineData(List<MetricPoint> sortedPoints, List<double> movingAvg) {
+  LineChartBarData _buildTrendLineData(
+    List<MetricPoint> sortedPoints,
+    List<double> movingAvg,
+  ) {
     return LineChartBarData(
       spots: movingAvg.asMap().entries.map((e) {
         final animatedValue = e.value * _animation.value;
@@ -539,7 +723,10 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
     );
   }
 
-  Widget _buildSparklineOverview(List<MetricPoint> points, List<_AnomalyRegion> anomalyRegions) {
+  Widget _buildSparklineOverview(
+    List<MetricPoint> points,
+    List<_AnomalyRegion> anomalyRegions,
+  ) {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       height: 32,
@@ -566,7 +753,14 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Resource Labels', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: AppColors.textMuted)),
+          Text(
+            'Resource Labels',
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textMuted,
+            ),
+          ),
           const SizedBox(height: 6),
           Wrap(
             spacing: 6,
@@ -578,7 +772,14 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
                   color: AppColors.primaryTeal.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: Text('${e.key}: ${e.value}', style: TextStyle(fontSize: 9, color: AppColors.textSecondary, fontFamily: 'monospace')),
+                child: Text(
+                  '${e.key}: ${e.value}',
+                  style: TextStyle(
+                    fontSize: 9,
+                    color: AppColors.textSecondary,
+                    fontFamily: 'monospace',
+                  ),
+                ),
               );
             }).toList(),
           ),
@@ -599,7 +800,11 @@ class _SparklinePainter extends CustomPainter {
   final List<_AnomalyRegion> anomalyRegions;
   final double animation;
 
-  _SparklinePainter({required this.points, required this.anomalyRegions, required this.animation});
+  _SparklinePainter({
+    required this.points,
+    required this.anomalyRegions,
+    required this.animation,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -612,13 +817,20 @@ class _SparklinePainter extends CustomPainter {
 
     // Draw background
     final bgPaint = Paint()..color = Colors.white.withValues(alpha: 0.03);
-    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, size.width, size.height), const Radius.circular(4)), bgPaint);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(0, 0, size.width, size.height),
+        const Radius.circular(4),
+      ),
+      bgPaint,
+    );
 
     // Draw anomaly regions
     for (final region in anomalyRegions) {
       final x1 = (region.startIndex / (points.length - 1)) * size.width;
       final x2 = ((region.endIndex + 1) / (points.length - 1)) * size.width;
-      final regionPaint = Paint()..color = AppColors.error.withValues(alpha: 0.15);
+      final regionPaint = Paint()
+        ..color = AppColors.error.withValues(alpha: 0.15);
       canvas.drawRect(Rect.fromLTRB(x1, 0, x2, size.height), regionPaint);
     }
 
@@ -627,7 +839,9 @@ class _SparklinePainter extends CustomPainter {
     for (int i = 0; i < points.length; i++) {
       final x = (i / (points.length - 1)) * size.width;
       final normalizedY = range > 0 ? (points[i].value - minVal) / range : 0.5;
-      final y = size.height - (normalizedY * size.height * 0.8 + size.height * 0.1) * animation;
+      final y =
+          size.height -
+          (normalizedY * size.height * 0.8 + size.height * 0.1) * animation;
 
       if (i == 0) {
         linePath.moveTo(x, y);
@@ -649,8 +863,12 @@ class _SparklinePainter extends CustomPainter {
     for (int i = 0; i < points.length; i++) {
       if (points[i].isAnomaly) {
         final x = (i / (points.length - 1)) * size.width;
-        final normalizedY = range > 0 ? (points[i].value - minVal) / range : 0.5;
-        final y = size.height - (normalizedY * size.height * 0.8 + size.height * 0.1) * animation;
+        final normalizedY = range > 0
+            ? (points[i].value - minVal) / range
+            : 0.5;
+        final y =
+            size.height -
+            (normalizedY * size.height * 0.8 + size.height * 0.1) * animation;
         canvas.drawCircle(Offset(x, y), 3, dotPaint);
       }
     }

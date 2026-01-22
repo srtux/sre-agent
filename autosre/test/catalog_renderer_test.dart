@@ -24,26 +24,26 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: SizedBox(
-              width: 800,
-              height: 600,
-              child: widget,
-            ),
+            body: SizedBox(width: 800, height: 600, child: widget),
           ),
         ),
       );
       await tester.pumpAndSettle();
     }
 
-    testWidgets('LogPatternViewer accepts List input', (WidgetTester tester) async {
-      final item = catalog.items.firstWhere((i) => i.name == 'x-sre-log-pattern-viewer');
+    testWidgets('LogPatternViewer accepts List input', (
+      WidgetTester tester,
+    ) async {
+      final item = catalog.items.firstWhere(
+        (i) => i.name == 'x-sre-log-pattern-viewer',
+      );
 
       final validList = [
         {
           "template": "Error connecting to database",
           "count": 5,
-          "severity_counts": {"ERROR": 5}
-        }
+          "severity_counts": {"ERROR": 5},
+        },
       ];
 
       final widget = item.widgetBuilder(FakeCatalogItemContext(validList));
@@ -53,17 +53,21 @@ void main() {
       expect(find.text('Error connecting to database'), findsOneWidget);
     });
 
-    testWidgets('LogPatternViewer accepts Map input (patterns key)', (WidgetTester tester) async {
-      final item = catalog.items.firstWhere((i) => i.name == 'x-sre-log-pattern-viewer');
+    testWidgets('LogPatternViewer accepts Map input (patterns key)', (
+      WidgetTester tester,
+    ) async {
+      final item = catalog.items.firstWhere(
+        (i) => i.name == 'x-sre-log-pattern-viewer',
+      );
 
       final validMap = {
         "patterns": [
           {
             "template": "Timeout waiting for service",
             "count": 3,
-            "severity_counts": {"WARNING": 3}
-          }
-        ]
+            "severity_counts": {"WARNING": 3},
+          },
+        ],
       };
 
       final widget = item.widgetBuilder(FakeCatalogItemContext(validMap));
@@ -73,17 +77,21 @@ void main() {
       expect(find.text('Timeout waiting for service'), findsOneWidget);
     });
 
-    testWidgets('LogPatternViewer accepts Map input (data key fallback)', (WidgetTester tester) async {
-      final item = catalog.items.firstWhere((i) => i.name == 'x-sre-log-pattern-viewer');
+    testWidgets('LogPatternViewer accepts Map input (data key fallback)', (
+      WidgetTester tester,
+    ) async {
+      final item = catalog.items.firstWhere(
+        (i) => i.name == 'x-sre-log-pattern-viewer',
+      );
 
       final validMap = {
         "data": [
           {
             "template": "Data key fallback",
             "count": 1,
-            "severity_counts": {"INFO": 1}
-          }
-        ]
+            "severity_counts": {"INFO": 1},
+          },
+        ],
       };
 
       final widget = item.widgetBuilder(FakeCatalogItemContext(validMap));
@@ -93,11 +101,17 @@ void main() {
       expect(find.text('Data key fallback'), findsOneWidget);
     });
 
-    testWidgets('LogPatternViewer handles invalid input gracefully', (WidgetTester tester) async {
-      final item = catalog.items.firstWhere((i) => i.name == 'x-sre-log-pattern-viewer');
+    testWidgets('LogPatternViewer handles invalid input gracefully', (
+      WidgetTester tester,
+    ) async {
+      final item = catalog.items.firstWhere(
+        (i) => i.name == 'x-sre-log-pattern-viewer',
+      );
 
       // Invalid: String instead of List/Map
-      final widget = item.widgetBuilder(FakeCatalogItemContext("Invalid String Data"));
+      final widget = item.widgetBuilder(
+        FakeCatalogItemContext("Invalid String Data"),
+      );
       await pumpTestWidget(tester, widget);
 
       // Should show ErrorPlaceholder, not crash
@@ -105,7 +119,9 @@ void main() {
       expect(find.textContaining('Expected List or Map'), findsOneWidget);
     });
 
-    testWidgets('All widgets handle invalid types gracefully', (WidgetTester tester) async {
+    testWidgets('All widgets handle invalid types gracefully', (
+      WidgetTester tester,
+    ) async {
       final widgetsToTest = [
         'x-sre-trace-waterfall',
         'x-sre-metric-chart',
@@ -130,14 +146,14 @@ void main() {
         expect(
           find.byType(ErrorPlaceholder),
           findsOneWidget,
-          reason: '$name should return ErrorPlaceholder on invalid input'
+          reason: '$name should return ErrorPlaceholder on invalid input',
         );
 
         // Verify the error message contains the type mismatch info
         expect(
           find.textContaining('Expected Map<String, dynamic>'),
           findsOneWidget,
-          reason: '$name should report type mismatch'
+          reason: '$name should report type mismatch',
         );
       }
     });
