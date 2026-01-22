@@ -110,9 +110,9 @@ class _ConversationPageState extends State<ConversationPage>
     _conversation = GenUiConversation(
       a2uiMessageProcessor: _messageProcessor,
       contentGenerator: _contentGenerator,
-      onSurfaceAdded: (update) => _scrollToBottom(),
-      onSurfaceUpdated: (update) {},
-      onTextResponse: (text) => _scrollToBottom(),
+      onSurfaceAdded: (update) => _scrollToBottom(force: true),
+      onSurfaceUpdated: (update) => _scrollToBottom(),
+      onTextResponse: (text) => _scrollToBottom(force: true),
     );
 
     // Subscribe to suggestions
@@ -194,7 +194,7 @@ class _ConversationPageState extends State<ConversationPage>
               history;
           // Scroll to bottom after frame
           WidgetsBinding.instance.addPostFrameCallback(
-            (_) => _scrollToBottom(),
+            (_) => _scrollToBottom(force: true),
           );
         }
       } catch (e) {
@@ -206,16 +206,28 @@ class _ConversationPageState extends State<ConversationPage>
     StatusToast.show(context, 'Loaded session: ${session.displayTitle}');
   }
 
-  void _scrollToBottom() {
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 400),
-          curve: Curves.easeOutCubic,
-        );
-      }
-    });
+  void _scrollToBottom({bool force = false}) {
+    if (!mounted || !_scrollController.hasClients) return;
+
+    // Check if we are already near the bottom (within a reasonable threshold)
+    // If so, we should continue to "stick" to the bottom as new content arrives.
+    final bool isNearBottom = _scrollController.position.maxScrollExtent -
+            _scrollController.offset <
+        150.0;
+
+    if (force || isNearBottom || _scrollController.position.maxScrollExtent == 0) {
+      // Use addPostFrameCallback to ensure the ListView has updated its layout
+      // and maxScrollExtent reflects the new content.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
+          );
+        }
+      });
+    }
   }
 
   void _sendMessage() {
@@ -225,7 +237,7 @@ class _ConversationPageState extends State<ConversationPage>
     _focusNode.requestFocus();
 
     _conversation.sendRequest(UserMessage.text(text));
-    _scrollToBottom();
+    _scrollToBottom(force: true);
   }
 
   bool _isSidebarOpen = false;
@@ -1077,7 +1089,7 @@ class _MessageItemState extends State<_MessageItem>
     );
 
     _slideAnimation =
-        Tween<Offset>(begin: const Offset(0, 0.15), end: Offset.zero).animate(
+        Tween<Offset>(begin: const Offset(0, 0.05), end: Offset.zero).animate(
           CurvedAnimation(parent: _entryController, curve: Curves.easeOutCubic),
         );
 
