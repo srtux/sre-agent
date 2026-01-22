@@ -23,15 +23,38 @@ COMPONENT_AI_REASONING = "x-sre-ai-reasoning"
 
 def transform_trace(trace_data: dict[str, Any]) -> dict[str, Any]:
     """Transform Trace data for TraceWaterfall widget."""
+    # Unwrap if wrapped in status/result (MCP format)
+    if "status" in trace_data and "result" in trace_data:
+        trace_data = trace_data["result"]
+
+    # Handle error state
+    if isinstance(trace_data, dict) and (
+        "error" in trace_data or trace_data.get("status") == "error"
+    ):
+        return {
+            "trace_id": trace_data.get("trace_id", "unknown"),
+            "spans": [],
+            "error": trace_data.get("error")
+            or trace_data.get("message")
+            or "Unknown error",
+        }
+
     trace_id = trace_data.get("trace_id", "unknown")
     spans = []
     for span in trace_data.get("spans", []):
+        # Ensure it's a dict
+        if not isinstance(span, dict):
+            continue
         # Ensure trace_id is present in each span for Flutter SpanInfo model
         span["trace_id"] = trace_id
-        # Map labels to attributes
-        span["attributes"] = span.pop("labels", {})
+        # Map labels to attributes (Flutter model expects 'attributes')
+        if "labels" in span:
+            span["attributes"] = span.pop("labels", {})
+        elif "attributes" not in span:
+            span["attributes"] = {}
+
         # Derive status (Flutter model expects 'OK' or 'ERROR')
-        status_code = span["attributes"].get("/http/status_code", "200")
+        status_code = span.get("attributes", {}).get("/http/status_code", "200")
         span["status"] = "ERROR" if str(status_code).startswith(("4", "5")) else "OK"
         spans.append(span)
     return {"trace_id": trace_id, "spans": spans}
@@ -39,9 +62,32 @@ def transform_trace(trace_data: dict[str, Any]) -> dict[str, Any]:
 
 def transform_metrics(metric_data: Any) -> dict[str, Any]:
     """Transform Metric data for MetricCorrelationChart widget."""
+    # Unwrap if wrapped in status/result (MCP format)
+    if (
+        isinstance(metric_data, dict)
+        and "status" in metric_data
+        and "result" in metric_data
+    ):
+        metric_data = metric_data["result"]
+
+    # Handle error state
+    if isinstance(metric_data, dict) and (
+        "error" in metric_data or metric_data.get("status") == "error"
+    ):
+        return {
+            "metric_name": "Error",
+            "points": [],
+            "labels": {},
+            "error": metric_data.get("error")
+            or metric_data.get("message")
+            or "Unknown error",
+        }
+
     # If it's a list from list_time_series, take the first one
     if isinstance(metric_data, list) and metric_data:
         series = metric_data[0]
+        if not isinstance(series, dict):
+            return {"metric_name": "Metric", "points": [], "labels": {}}
         return {
             "metric_name": series.get("metric", {}).get("type", "Metric"),
             "points": series.get("points", []),
@@ -104,6 +150,27 @@ def transform_metrics(metric_data: Any) -> dict[str, Any]:
 
 def transform_remediation(remediation_data: dict[str, Any]) -> dict[str, Any]:
     """Transform Remediation data for RemediationPlanWidget."""
+    # Unwrap if wrapped in status/result (MCP format)
+    if (
+        isinstance(remediation_data, dict)
+        and "status" in remediation_data
+        and "result" in remediation_data
+    ):
+        remediation_data = remediation_data["result"]
+
+    # Handle error state
+    if isinstance(remediation_data, dict) and (
+        "error" in remediation_data or remediation_data.get("status") == "error"
+    ):
+        return {
+            "issue": "Error generating remediation plan",
+            "risk": "unknown",
+            "steps": [],
+            "error": remediation_data.get("error")
+            or remediation_data.get("message")
+            or "Unknown error",
+        }
+
     suggestions = remediation_data.get("suggestions", [])
     steps = []
     for s in suggestions:
@@ -151,6 +218,14 @@ def transform_agent_activity(activity_data: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Dictionary formatted for the AgentActivityCanvas widget.
     """
+    # Unwrap if wrapped in status/result (MCP format)
+    if (
+        isinstance(activity_data, dict)
+        and "status" in activity_data
+        and "result" in activity_data
+    ):
+        activity_data = activity_data["result"]
+
     nodes = []
     for node in activity_data.get("nodes", []):
         nodes.append(
@@ -188,6 +263,14 @@ def transform_service_topology(topology_data: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Dictionary formatted for the ServiceTopologyCanvas widget.
     """
+    # Unwrap if wrapped in status/result (MCP format)
+    if (
+        isinstance(topology_data, dict)
+        and "status" in topology_data
+        and "result" in topology_data
+    ):
+        topology_data = topology_data["result"]
+
     services = []
     for svc in topology_data.get("services", []):
         connections = []
@@ -244,6 +327,14 @@ def transform_incident_timeline(incident_data: dict[str, Any]) -> dict[str, Any]
     Returns:
         Dictionary formatted for the IncidentTimelineCanvas widget.
     """
+    # Unwrap if wrapped in status/result (MCP format)
+    if (
+        isinstance(incident_data, dict)
+        and "status" in incident_data
+        and "result" in incident_data
+    ):
+        incident_data = incident_data["result"]
+
     events = []
     for event in incident_data.get("events", []):
         events.append(
@@ -293,6 +384,14 @@ def transform_metrics_dashboard(dashboard_data: dict[str, Any]) -> dict[str, Any
     Returns:
         Dictionary formatted for the MetricsDashboardCanvas widget.
     """
+    # Unwrap if wrapped in status/result (MCP format)
+    if (
+        isinstance(dashboard_data, dict)
+        and "status" in dashboard_data
+        and "result" in dashboard_data
+    ):
+        dashboard_data = dashboard_data["result"]
+
     metrics = []
     for metric in dashboard_data.get("metrics", []):
         history = []
@@ -683,6 +782,22 @@ def transform_log_entries(
     Returns:
         Dictionary formatted for the LogEntriesViewer widget.
     """
+    # Unwrap if wrapped in status/result (MCP format)
+    if isinstance(log_data, dict) and "status" in log_data and "result" in log_data:
+        log_data = log_data["result"]
+
+    # Handle error state
+    if isinstance(log_data, dict) and (
+        "error" in log_data or log_data.get("status") == "error"
+    ):
+        return {
+            "entries": [],
+            "error": log_data.get("error")
+            or log_data.get("message")
+            or "Unknown error",
+            "filter": log_data.get("filter"),
+        }
+
     entries = []
     # Handle case where log_data is the raw entries list
     if isinstance(log_data, list):

@@ -1391,11 +1391,8 @@ def _create_widget_events(tool_name: str, result: Any) -> list[str]:
             logger.warning(f"Failed to parse widget result as JSON: {e}")
             return []
 
-    # Robustness: Skip widget visualization if there was a logical error
-    if isinstance(data, dict):
-        if "error" in data or data.get("status") == "error":
-            logger.debug(f"Skipping widget visualization for {tool_name} due to error")
-            return []
+    # Note: We no longer skip on error here because we want specialized widgets
+    # to show their own high-fidelity error states via genui_adapter transformations.
 
     # Apply data transformations to match Flutter widget expectations
     if isinstance(data, dict | list):
