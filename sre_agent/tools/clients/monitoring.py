@@ -9,17 +9,17 @@ It is used primarily by the `metrics_analyzer` sub-agent to correlate metric spi
 with trace data using Exemplars.
 """
 
-import json
 import logging
 import time
 from datetime import datetime, timezone
+from typing import Any
 
 from google.auth.transport.requests import AuthorizedSession
 from google.cloud import monitoring_v3
 from opentelemetry.trace import Status, StatusCode
 
 from ...auth import get_current_credentials, get_current_project_id
-from ..common import adk_tool
+from ..common import adk_tool, json_dumps
 from ..common.telemetry import get_tracer
 from .factory import get_monitoring_client
 
@@ -29,7 +29,10 @@ tracer = get_tracer(__name__)
 
 @adk_tool
 async def list_time_series(
-    filter_str: str, minutes_ago: int = 60, project_id: str | None = None
+    filter_str: str,
+    minutes_ago: int = 60,
+    project_id: str | None = None,
+    tool_context: Any = None,
 ) -> str:
     """Lists time series data from Google Cloud Monitoring using direct API.
 
@@ -43,8 +46,7 @@ async def list_time_series(
         filter_str: The filter string to use.
         minutes_ago: The number of minutes in the past to query.
         project_id: The Google Cloud Project ID. Defaults to current context.
-        filter_str: The filter string to use.
-        minutes_ago: The number of minutes in the past to query.
+        tool_context: Context object for tool execution.
 
     Returns:
         A JSON string representing the list of time series.
@@ -56,19 +58,22 @@ async def list_time_series(
     if not project_id:
         project_id = get_current_project_id()
         if not project_id:
-            return json.dumps(
+            return json_dumps(
                 {
                     "error": "Project ID is required but not provided or found in context."
                 }
             )
 
     return await run_in_threadpool(
-        _list_time_series_sync, project_id, filter_str, minutes_ago
+        _list_time_series_sync, project_id, filter_str, minutes_ago, tool_context
     )
 
 
 def _list_time_series_sync(
-    project_id: str, filter_str: str, minutes_ago: int = 60
+    project_id: str,
+    filter_str: str,
+    minutes_ago: int = 60,
+    tool_context: Any = None,
 ) -> str:
     """Synchronous implementation of list_time_series."""
     with tracer.start_as_current_span("list_time_series") as span:
@@ -79,7 +84,7 @@ def _list_time_series_sync(
         span.set_attribute("rpc.method", "list_time_series")
 
         try:
-            client = get_monitoring_client()
+            client = get_monitoring_client(tool_context=tool_context)
             project_name = f"projects/{project_id}"
             now = time.time()
             seconds = int(now)
@@ -101,27 +106,67 @@ def _list_time_series_sync(
             )
             time_series_data = []
             for result in results:
+                metric_type = getattr(result.metric, "type", "unknown")
+                metric_labels = dict(getattr(result.metric, "labels", {}))
+                resource_type = getattr(result.resource, "type", "unknown")
+                resource_labels = dict(getattr(result.resource, "labels", {}))
+
+                points = []
+                for point in result.points:
+                    # Robust timestamp extraction
+                    try:
+                        ts = point.interval.end_time
+                        if hasattr(ts, "isoformat"):
+                            ts_str = ts.isoformat()
+                        else:
+                            # Fallback for native protobuf Timestamp
+                            from datetime import datetime
+
+                            ts_str = datetime.fromtimestamp(
+                                ts.seconds + ts.nanos / 1e9, tz=timezone.utc
+                            ).isoformat()
+                    except Exception:
+                        ts_str = str(point.interval.end_time)
+
+                    # Robust value extraction (TypedValue is a oneof)
+                    # We check which field is actually set
+                    val_proto = point.value
+                    value: Any = None
+                    if hasattr(val_proto, "double_value") and "double_value" in str(
+                        val_proto
+                    ):
+                        value = val_proto.double_value
+                    elif hasattr(val_proto, "int64_value") and "int64_value" in str(
+                        val_proto
+                    ):
+                        value = val_proto.int64_value
+                    elif hasattr(val_proto, "bool_value") and "bool_value" in str(
+                        val_proto
+                    ):
+                        value = val_proto.bool_value
+                    elif hasattr(val_proto, "string_value") and "string_value" in str(
+                        val_proto
+                    ):
+                        value = val_proto.string_value
+                    else:
+                        # Fallback try-all
+                        value = (
+                            getattr(val_proto, "double_value", None)
+                            or getattr(val_proto, "int64_value", None)
+                            or 0.0
+                        )
+
+                    points.append({"timestamp": ts_str, "value": value})
+
                 time_series_data.append(
                     {
-                        "metric": {
-                            "type": result.metric.type,
-                            "labels": dict(result.metric.labels),
-                        },
-                        "resource": {
-                            "type": result.resource.type,
-                            "labels": dict(result.resource.labels),
-                        },
-                        "points": [
-                            {
-                                "timestamp": point.interval.end_time.isoformat(),
-                                "value": point.value.double_value,
-                            }
-                            for point in result.points
-                        ],
+                        "metric": {"type": metric_type, "labels": metric_labels},
+                        "resource": {"type": resource_type, "labels": resource_labels},
+                        "points": points,
                     }
                 )
             span.set_attribute("gcp.monitoring.series_count", len(time_series_data))
-            return json.dumps(time_series_data)
+            return json_dumps(time_series_data)
         except Exception as e:
             span.record_exception(e)
             error_str = str(e)
@@ -141,7 +186,7 @@ def _list_time_series_sync(
             error_msg = f"Failed to list time series: {error_str}{suggestion}"
             logger.error(error_msg, exc_info=True)
             span.set_status(Status(StatusCode.ERROR, error_msg))
-            return json.dumps({"error": error_msg})
+            return json_dumps({"error": error_msg})
 
 
 @adk_tool
@@ -151,6 +196,7 @@ async def query_promql(
     end: str | None = None,
     step: str = "60s",
     project_id: str | None = None,
+    tool_context: Any = None,
 ) -> str:
     """Executes a PromQL query using the Cloud Monitoring Prometheus API.
 
@@ -160,9 +206,7 @@ async def query_promql(
         end: End time in RFC3339 format (default: now).
         step: Query resolution step (default: "60s").
         project_id: The Google Cloud Project ID. Defaults to current context.
-        start: Start time in RFC3339 format (default: 1 hour ago).
-        end: End time in RFC3339 format (default: now).
-        step: Query resolution step (default: "60s").
+        tool_context: Context object for tool execution.
 
     Returns:
         A JSON string containing the query results.
@@ -172,14 +216,14 @@ async def query_promql(
     if not project_id:
         project_id = get_current_project_id()
         if not project_id:
-            return json.dumps(
+            return json_dumps(
                 {
                     "error": "Project ID is required but not provided or found in context."
                 }
             )
 
     return await run_in_threadpool(
-        _query_promql_sync, project_id, query, start, end, step
+        _query_promql_sync, project_id, query, start, end, step, tool_context
     )
 
 
@@ -189,6 +233,7 @@ def _query_promql_sync(
     start: str | None = None,
     end: str | None = None,
     step: str = "60s",
+    tool_context: Any = None,
 ) -> str:
     """Synchronous implementation of query_promql."""
     with tracer.start_as_current_span("query_promql") as span:
@@ -196,10 +241,17 @@ def _query_promql_sync(
         span.set_attribute("promql.query", query)
 
         try:
-            # Get credentials
-            credentials, _ = get_current_credentials()
-            # Ensure allowed scopes if not already present (Credentials from token might not allow arbitrary scope injection but AuthorizedSession handles it)
-            # Note: AccessToken credentials don't usually require scopes arg if already scoped.
+            # First, try to get user credentials from tool_context
+            from ...auth import get_credentials_from_tool_context
+
+            credentials = get_credentials_from_tool_context(tool_context)
+
+            # Fallback to current context (ContextVar or Default)
+            if not credentials:
+                # Use Any to avoid type mismatch
+                auth_obj: Any = get_current_credentials()
+                credentials, _ = auth_obj
+
             session = AuthorizedSession(credentials)  # type: ignore[no-untyped-call]
 
             # Default time range if not provided
@@ -222,11 +274,11 @@ def _query_promql_sync(
             response = session.get(url, params=params)
             response.raise_for_status()
 
-            return json.dumps(response.json())
+            return json_dumps(response.json())
 
         except Exception as e:
             error_msg = f"Failed to execute PromQL query: {e!s}"
             logger.error(error_msg)
             span.record_exception(e)
             span.set_status(Status(StatusCode.ERROR, error_msg))
-            return json.dumps({"error": error_msg})
+            return json_dumps({"error": error_msg})

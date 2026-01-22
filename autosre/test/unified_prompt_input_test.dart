@@ -3,7 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:autosre/widgets/unified_prompt_input.dart';
 
 void main() {
-  testWidgets('UnifiedPromptInput supports multi-line input', (WidgetTester tester) async {
+  testWidgets('UnifiedPromptInput supports multi-line input', (
+    WidgetTester tester,
+  ) async {
     final controller = TextEditingController();
     final focusNode = FocusNode();
 

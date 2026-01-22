@@ -49,7 +49,8 @@ class _AnimatedToast extends StatefulWidget {
   State<_AnimatedToast> createState() => _AnimatedToastState();
 }
 
-class _AnimatedToastState extends State<_AnimatedToast> with TickerProviderStateMixin {
+class _AnimatedToastState extends State<_AnimatedToast>
+    with TickerProviderStateMixin {
   late AnimationController _entranceController;
   late AnimationController _shakeController;
   late AnimationController _exitController;
@@ -77,13 +78,13 @@ class _AnimatedToastState extends State<_AnimatedToast> with TickerProviderState
       duration: const Duration(milliseconds: 500),
     );
 
-    _entranceAnimation = Tween<Offset>(
-      begin: const Offset(0, 2.0),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _entranceController,
-      curve: Curves.elasticOut,
-    ));
+    _entranceAnimation =
+        Tween<Offset>(begin: const Offset(0, 2.0), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _entranceController,
+            curve: Curves.elasticOut,
+          ),
+        );
 
     _shakeAnimation = TweenSequence<double>([
       TweenSequenceItem(tween: Tween<double>(begin: 0, end: 8), weight: 1),
@@ -92,18 +93,12 @@ class _AnimatedToastState extends State<_AnimatedToast> with TickerProviderState
       TweenSequenceItem(tween: Tween<double>(begin: 8, end: -8), weight: 1),
       TweenSequenceItem(tween: Tween<double>(begin: -8, end: 5), weight: 1),
       TweenSequenceItem(tween: Tween<double>(begin: 5, end: 0), weight: 1),
-    ]).animate(CurvedAnimation(
-      parent: _shakeController,
-      curve: Curves.linear,
-    ));
+    ]).animate(CurvedAnimation(parent: _shakeController, curve: Curves.linear));
 
-    _exitAnimation = Tween<Offset>(
-      begin: Offset.zero,
-      end: const Offset(2.0, 0),
-    ).animate(CurvedAnimation(
-      parent: _exitController,
-      curve: Curves.easeInBack,
-    ));
+    _exitAnimation =
+        Tween<Offset>(begin: Offset.zero, end: const Offset(2.0, 0)).animate(
+          CurvedAnimation(parent: _exitController, curve: Curves.easeInBack),
+        );
 
     _runSequence();
   }
@@ -149,9 +144,14 @@ class _AnimatedToastState extends State<_AnimatedToast> with TickerProviderState
               color: Colors.transparent,
               child: Container(
                 constraints: const BoxConstraints(maxWidth: 350),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
-                  color: AppColors.backgroundCard.withValues(alpha: 0.9), // High opacity for readability
+                  color: AppColors.backgroundCard.withValues(
+                    alpha: 0.9,
+                  ), // High opacity for readability
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: AppColors.surfaceBorder.withValues(alpha: 0.5),
@@ -169,8 +169,12 @@ class _AnimatedToastState extends State<_AnimatedToast> with TickerProviderState
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      widget.isError ? Icons.error_outline : Icons.check_circle_outline,
-                      color: widget.isError ? AppColors.error : AppColors.primaryCyan,
+                      widget.isError
+                          ? Icons.error_outline
+                          : Icons.check_circle_outline,
+                      color: widget.isError
+                          ? AppColors.error
+                          : AppColors.primaryCyan,
                       size: 18,
                     ),
                     const SizedBox(width: 12),
@@ -191,7 +195,9 @@ class _AnimatedToastState extends State<_AnimatedToast> with TickerProviderState
                       color: Colors.transparent,
                       child: InkWell(
                         onTap: () {
-                           _exitController.forward().then((_) => widget.onDismissed());
+                          _exitController.forward().then(
+                            (_) => widget.onDismissed(),
+                          );
                         },
                         borderRadius: BorderRadius.circular(4),
                         child: const Padding(

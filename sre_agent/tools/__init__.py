@@ -92,6 +92,7 @@ from .analysis.trace.statistical_analysis import (
     detect_latency_anomalies,
     perform_causal_analysis,
 )
+from .analysis.trace_comprehensive import analyze_trace_comprehensive
 from .clients.alerts import get_alert, list_alert_policies, list_alerts
 from .clients.gcp_projects import list_gcp_projects
 from .clients.gke import (
@@ -169,6 +170,7 @@ __all__ = [
     "analyze_log_anomalies",
     "analyze_node_conditions",
     "analyze_signal_correlation_strength",
+    "analyze_trace_comprehensive",
     "analyze_trace_patterns",
     "analyze_upstream_downstream_impact",
     "build_call_graph",

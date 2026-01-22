@@ -12,6 +12,8 @@ These tools are primarily used by the "Squad" (Stage 1 sub-agents) to fetch
 and inspect individual traces during triage.
 """
 
+import asyncio
+import contextvars
 import json
 import logging
 import os
@@ -24,11 +26,47 @@ from fastapi.concurrency import run_in_threadpool
 from google.cloud import trace_v1
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from ...auth import get_current_project_id
-from ..common import adk_tool
+from ...auth import (
+    get_credentials_from_tool_context,
+    get_current_project_id,
+)
+from ..common import adk_tool, json_dumps
 from ..common.cache import get_data_cache
 from ..common.telemetry import get_meter, get_tracer
 from .factory import get_trace_client
+
+__all__ = [
+    "_clear_thread_credentials",
+    "_set_thread_credentials",
+    "fetch_trace",
+    "fetch_trace_data",
+    "find_example_traces",
+    "get_credentials_from_tool_context",
+    "list_traces",
+    "validate_trace",
+]
+
+# Context variable for credentials to pass to sync functions running in threadpool
+# This enables EIC propagation for Direct API tools in Agent Engine
+_thread_credentials: contextvars.ContextVar[Any | None] = contextvars.ContextVar(
+    "thread_credentials", default=None
+)
+
+
+def _set_thread_credentials(creds: Any) -> None:
+    """Set credentials for use in threadpool sync functions."""
+    _thread_credentials.set(creds)
+
+
+def _get_thread_credentials() -> Any:
+    """Get credentials from thread storage."""
+    return _thread_credentials.get()
+
+
+def _clear_thread_credentials() -> None:
+    """Clear thread credentials after use."""
+    _thread_credentials.set(None)
+
 
 logger = logging.getLogger(__name__)
 tracer = get_tracer(__name__)
@@ -169,15 +207,23 @@ def fetch_trace_data(
 
 
 @adk_tool
-async def fetch_trace(trace_id: str, project_id: str | None = None) -> str:
+async def fetch_trace(
+    trace_id: str,
+    project_id: str | None = None,
+    tool_context: Any = None,
+) -> str:
     """Fetches a specific trace by ID from Cloud Trace API.
 
     Uses caching to avoid redundant API calls when the same trace
     is requested multiple times (e.g., by different sub-agents).
 
+    Supports End User Identity Credentials (EIC) when running in Agent Engine
+    by extracting user credentials from tool_context session state.
+
     Args:
         trace_id: The unique hex ID of the trace.
         project_id: The Google Cloud Project ID. Defaults to current context.
+        tool_context: ADK ToolContext for credential propagation (optional).
 
     Returns:
         A JSON string representation of the trace, including all spans.
@@ -188,13 +234,27 @@ async def fetch_trace(trace_id: str, project_id: str | None = None) -> str:
         try:
             project_id = _get_project_id()
         except ValueError as e:
-            return json.dumps({"error": str(e)})
+            return json_dumps({"error": str(e)})
 
-    return await run_in_threadpool(_fetch_trace_sync, project_id, trace_id)
+    # Extract user credentials from tool_context for EIC propagation
+    # This allows the tool to use the user's credentials when running in Agent Engine
+    user_creds = get_credentials_from_tool_context(tool_context)
+    try:
+        if user_creds:
+            _set_thread_credentials(user_creds)
+        return await run_in_threadpool(_fetch_trace_sync, project_id, trace_id)
+    finally:
+        _clear_thread_credentials()
 
 
 def _fetch_trace_sync(project_id: str, trace_id: str) -> str:
-    """Synchronous implementation of fetch_trace."""
+    """Synchronous implementation of fetch_trace.
+
+    Uses thread-local credentials if available for EIC propagation.
+    """
+    # Check for thread-local user credentials (set by async wrapper for EIC)
+    thread_creds = _get_thread_credentials()
+
     # Check cache first
     cache = get_data_cache()
 
@@ -211,7 +271,14 @@ def _fetch_trace_sync(project_id: str, trace_id: str) -> str:
         span.set_attribute("rpc.method", "get_trace")
 
         try:
-            client = get_trace_client()
+            # Use user credentials from thread storage if available (EIC propagation)
+            if thread_creds:
+                from google.cloud import trace_v1
+
+                client = trace_v1.TraceServiceClient(credentials=thread_creds)
+                logger.debug("Using user credentials for trace client")
+            else:
+                client = get_trace_client()
 
             trace_obj = client.get_trace(project_id=project_id, trace_id=trace_id)
 
@@ -220,8 +287,22 @@ def _fetch_trace_sync(project_id: str, trace_id: str) -> str:
             trace_end = None
 
             for span_proto in trace_obj.spans:
-                s_start = span_proto.start_time.timestamp()
-                s_end = span_proto.end_time.timestamp()
+                # Helper for robust timestamp extraction
+                def get_ts_val(ts_proto: Any) -> float:
+                    if hasattr(ts_proto, "timestamp"):
+                        return cast(float, ts_proto.timestamp())
+                    return cast(float, ts_proto.seconds + ts_proto.nanos / 1e9)
+
+                def get_ts_str(ts_proto: Any) -> str:
+                    if hasattr(ts_proto, "isoformat"):
+                        return cast(str, ts_proto.isoformat())
+
+                    return datetime.fromtimestamp(
+                        get_ts_val(ts_proto), tz=timezone.utc
+                    ).isoformat()
+
+                s_start = get_ts_val(span_proto.start_time)
+                s_end = get_ts_val(span_proto.end_time)
 
                 if trace_start is None or s_start < trace_start:
                     trace_start = s_start
@@ -232,8 +313,8 @@ def _fetch_trace_sync(project_id: str, trace_id: str) -> str:
                     {
                         "span_id": span_proto.span_id,
                         "name": span_proto.name,
-                        "start_time": span_proto.start_time.isoformat(),
-                        "end_time": span_proto.end_time.isoformat(),
+                        "start_time": get_ts_str(span_proto.start_time),
+                        "end_time": get_ts_str(span_proto.end_time),
                         # Optimization: Store unix timestamps to avoid expensive ISO parsing in analysis tools
                         "start_time_unix": s_start,
                         "end_time_unix": s_end,
@@ -257,7 +338,7 @@ def _fetch_trace_sync(project_id: str, trace_id: str) -> str:
             }
 
             # Cache the result before returning
-            result_json = json.dumps(result)
+            result_json = json_dumps(result)
             cache.put(f"trace:{trace_id}", result_json)
 
             return result_json
@@ -266,7 +347,7 @@ def _fetch_trace_sync(project_id: str, trace_id: str) -> str:
             span.record_exception(e)
             error_msg = f"Failed to fetch trace: {e!s}"
             logger.error(error_msg, exc_info=True)
-            return json.dumps({"error": error_msg})
+            return json_dumps({"error": error_msg})
 
 
 @adk_tool
@@ -279,6 +360,7 @@ async def list_traces(
     min_latency_ms: int | None = None,
     error_only: bool = False,
     attributes_json: str | None = None,
+    tool_context: Any = None,
 ) -> str:
     """Lists recent traces with advanced filtering capabilities.
 
@@ -290,7 +372,8 @@ async def list_traces(
         filter_str: Raw filter string (overrides other filters if provided).
         min_latency_ms: Minimum latency in milliseconds.
         error_only: If True, filters for traces with errors.
-        attributes_json: JSON string of attribute key-values to filter by (e.g., '{"/http/status_code": "500"}').
+        attributes_json: JSON string of additional span attributes to filter by (e.g., '{"/http/status_code": "500"}').
+        tool_context: Context object for tool execution.
 
     Returns:
         JSON string list of trace summaries.
@@ -301,18 +384,25 @@ async def list_traces(
         try:
             project_id = _get_project_id()
         except ValueError as e:
-            return json.dumps({"error": str(e)})
+            return json_dumps({"error": str(e)})
 
-    return await run_in_threadpool(
-        _list_traces_sync,
-        project_id,
-        limit,
-        min_latency_ms,
-        error_only,
-        start_time,
-        end_time,
-        attributes_json,
-    )
+    # Extract user credentials from tool_context for EIC propagation
+    user_creds = get_credentials_from_tool_context(tool_context)
+    try:
+        if user_creds:
+            _set_thread_credentials(user_creds)
+        return await run_in_threadpool(
+            _list_traces_sync,
+            project_id,
+            limit,
+            min_latency_ms,
+            error_only,
+            start_time,
+            end_time,
+            attributes_json,
+        )
+    finally:
+        _clear_thread_credentials()
 
 
 def _list_traces_sync(
@@ -326,8 +416,13 @@ def _list_traces_sync(
 ) -> str:
     """Synchronous implementation of list_traces."""
     with tracer.start_as_current_span("list_traces"):
+        # Check for thread-local user credentials
+        thread_creds = _get_thread_credentials()
         try:
-            client = get_trace_client()
+            if thread_creds:
+                client = trace_v1.TraceServiceClient(credentials=thread_creds)
+            else:
+                client = get_trace_client()
 
             # Construct complex filter string
             # Placeholder for build_trace_filter, assuming it's defined elsewhere or will be added.
@@ -378,18 +473,33 @@ def _list_traces_sync(
 
             traces = []
             for trace in response:
-                summary = {"trace_id": trace.trace_id, "project_id": trace.project_id}
+                summary: dict[str, Any] = {
+                    "trace_id": trace.trace_id,
+                    "project_id": trace.project_id,
+                }
 
                 # Extract root span details if available
                 if trace.spans:
                     root_span = trace.spans[0]
                     summary["name"] = root_span.name
 
-                    start_ts = root_span.start_time.timestamp()
-                    end_ts = root_span.end_time.timestamp()
+                    # Helper for robust timestamp extraction
+                    def get_ts_val(ts_proto: Any) -> float:
+                        if hasattr(ts_proto, "timestamp"):
+                            return cast(float, ts_proto.timestamp())
+                        return cast(float, ts_proto.seconds + ts_proto.nanos / 1e9)
+
+                    start_ts = get_ts_val(root_span.start_time)
+                    end_ts = get_ts_val(root_span.end_time)
                     duration_ms = (end_ts - start_ts) * 1000
 
-                    summary["start_time"] = root_span.start_time.isoformat()
+                    if hasattr(root_span.start_time, "isoformat"):
+                        summary["start_time"] = root_span.start_time.isoformat()
+                    else:
+                        summary["start_time"] = datetime.fromtimestamp(
+                            start_ts, tz=timezone.utc
+                        ).isoformat()
+                    summary["duration_ms_str"] = str(round(duration_ms, 2))
                     summary["duration_ms"] = round(duration_ms, 2)
 
                     # Labels/Attributes
@@ -402,12 +512,12 @@ def _list_traces_sync(
                 if len(traces) >= limit:
                     break
 
-            return json.dumps(traces)
+            return json_dumps(traces)
 
         except Exception as e:
             error_msg = f"Failed to list traces: {e!s}"
             logger.error(error_msg, exc_info=True)
-            return json.dumps({"error": error_msg})
+            return json_dumps({"error": error_msg})
 
 
 def _calculate_anomaly_score(
@@ -508,7 +618,10 @@ def validate_trace(trace_data: str | dict[str, Any]) -> dict[str, Any]:
 
 @adk_tool
 async def find_example_traces(
-    project_id: str | None = None, prefer_errors: bool = True, min_sample_size: int = 20
+    project_id: str | None = None,
+    prefer_errors: bool = True,
+    min_sample_size: int = 20,
+    tool_context: Any = None,
 ) -> str:
     """Intelligently discovers representative baseline and anomaly traces.
 
@@ -519,9 +632,10 @@ async def find_example_traces(
     4. Validates selected traces before returning
 
     Args:
-        project_id: GCP project ID. If not provided, uses environment.
-        prefer_errors: If True, error traces get higher anomaly scores.
-        min_sample_size: Minimum traces needed for statistical analysis.
+        project_id: The GCP project ID.
+        prefer_errors: If true, favors traces that contains error spans.
+        min_sample_size: Minimum number of traces to sample.
+        tool_context: Context object for tool execution.
 
     Returns:
         JSON string with 'baseline' and 'anomaly' keys.
@@ -531,17 +645,39 @@ async def find_example_traces(
             if not project_id:
                 project_id = _get_project_id()
         except ValueError:
-            return json.dumps({"error": "GOOGLE_CLOUD_PROJECT not set"})
+            return json_dumps({"error": "GOOGLE_CLOUD_PROJECT not set"})
+
+        # Prepare parallel tasks for trace fetching
+        tasks = []
 
         # Strategy 1: Look for slow traces directly (latency > 1s)
         slow_filter = TraceFilterBuilder().add_latency(1000).build()
-        slow_traces_json = await list_traces(
-            project_id, limit=20, filter_str=slow_filter
+        tasks.append(
+            list_traces(
+                project_id, limit=20, filter_str=slow_filter, tool_context=tool_context
+            )
         )
-        slow_traces = json.loads(slow_traces_json)
 
         # Strategy 2: Fetch recent traces for statistical baseline
-        raw_traces = await list_traces(project_id, limit=50)
+        tasks.append(list_traces(project_id, limit=50, tool_context=tool_context))
+
+        # Strategy 3: Fetch error traces if requested
+        if prefer_errors:
+            tasks.append(
+                list_traces(
+                    project_id, limit=10, error_only=True, tool_context=tool_context
+                )
+            )
+
+        # Execute all fetches concurrently
+        results = await asyncio.gather(*tasks)
+
+        slow_traces_json = results[0]
+        raw_traces = results[1]
+        error_traces_json = results[2] if prefer_errors else "[]"
+
+        # Process results
+        slow_traces = json.loads(slow_traces_json)
         traces = json.loads(raw_traces)
 
         if (
@@ -553,7 +689,7 @@ async def find_example_traces(
             return cast(str, raw_traces)
 
         if not traces:
-            return json.dumps({"error": "No traces found in the last hour."})
+            return json_dumps({"error": "No traces found in the last hour."})
 
         # Inject slow traces into our pool
         if (
@@ -566,13 +702,16 @@ async def find_example_traces(
                 if st["trace_id"] not in existing_ids:
                     traces.append(st)
 
-        # Fetch error traces separately for hybrid selection
+        # Process error traces
         error_trace_ids = set()
         if prefer_errors:
-            error_traces_json = await list_traces(project_id, limit=10, error_only=True)
             error_traces = json.loads(error_traces_json)
-            if error_traces and not (
-                isinstance(error_traces, list) and "error" in error_traces[0]
+            if (
+                isinstance(error_traces, list)
+                and error_traces
+                and not (
+                    isinstance(error_traces[0], dict) and "error" in error_traces[0]
+                )
             ):
                 error_trace_ids = {
                     t.get("trace_id") for t in error_traces if t.get("trace_id")
@@ -590,7 +729,7 @@ async def find_example_traces(
                 t for t in traces if isinstance(t, dict) and t.get("duration_ms", 0) > 0
             ]
             if not valid_traces:
-                return json.dumps({"error": "No traces with valid duration found."})
+                return json_dumps({"error": "No traces with valid duration found."})
 
             latencies = [t["duration_ms"] for t in valid_traces]
             latencies.sort()
@@ -654,7 +793,7 @@ async def find_example_traces(
                 "latency_variance_detected": stdev > 0,
             }
 
-            return json.dumps(
+            return json_dumps(
                 {
                     "stats": stats,
                     "baseline": baseline,
@@ -678,7 +817,7 @@ async def find_example_traces(
             # Search for traces with same root name that are "healthy" (shorter)
             fb = TraceFilterBuilder().add_root_span_name(root_name, exact=True)
             candidates_json = await list_traces(
-                project_id, limit=20, filter_str=fb.build()
+                project_id, limit=20, filter_str=fb.build(), tool_context=tool_context
             )
             candidates = json.loads(candidates_json)
 
@@ -704,12 +843,12 @@ async def find_example_traces(
                     results["baseline"] = best_baseline
                     results["selection_method"] += "+root_name_match"
 
-        return json.dumps(results)
+        return json_dumps(results)
 
     except Exception as e:
         error_msg = f"Failed to find example traces: {e!s}"
         logger.error(error_msg, exc_info=True)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})
 
 
 @adk_tool
@@ -752,7 +891,7 @@ async def get_trace_by_url(url: str) -> str:
                     break
 
         if not project_id or not trace_id:
-            return json.dumps(
+            return json_dumps(
                 {"error": "Could not parse project_id or trace_id from URL"}
             )
 
@@ -761,4 +900,4 @@ async def get_trace_by_url(url: str) -> str:
     except Exception as e:
         error_msg = f"Failed to get trace by URL: {e!s}"
         logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})

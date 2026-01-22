@@ -53,7 +53,8 @@ class _LogPatternViewerState extends State<LogPatternViewer>
         return false;
       }
       // Filter by severity
-      if (_filterSeverity != null && _getDominantSeverity(p) != _filterSeverity) {
+      if (_filterSeverity != null &&
+          _getDominantSeverity(p) != _filterSeverity) {
         return false;
       }
       return true;
@@ -66,8 +67,9 @@ class _LogPatternViewerState extends State<LogPatternViewer>
           comparison = a.count.compareTo(b.count);
           break;
         case 'severity':
-          comparison = _getSeverityPriority(_getDominantSeverity(a))
-              .compareTo(_getSeverityPriority(_getDominantSeverity(b)));
+          comparison = _getSeverityPriority(
+            _getDominantSeverity(a),
+          ).compareTo(_getSeverityPriority(_getDominantSeverity(b)));
           break;
         default:
           comparison = a.template.compareTo(b.template);
@@ -150,8 +152,12 @@ class _LogPatternViewerState extends State<LogPatternViewer>
   // Calculate trend indicator based on frequency distribution
   String _getTrend(List<double> distribution) {
     if (distribution.length < 4) return 'stable';
-    double firstHalf = distribution.sublist(0, distribution.length ~/ 2).reduce((a, b) => a + b);
-    double secondHalf = distribution.sublist(distribution.length ~/ 2).reduce((a, b) => a + b);
+    double firstHalf = distribution
+        .sublist(0, distribution.length ~/ 2)
+        .reduce((a, b) => a + b);
+    double secondHalf = distribution
+        .sublist(distribution.length ~/ 2)
+        .reduce((a, b) => a + b);
     double changePercent = ((secondHalf - firstHalf) / firstHalf) * 100;
     if (changePercent > 15) return 'up';
     if (changePercent < -15) return 'down';
@@ -164,7 +170,9 @@ class _LogPatternViewerState extends State<LogPatternViewer>
       return _buildEmptyState();
     }
 
-    final totalLogs = widget.patterns.map((p) => p.count).reduce((a, b) => a + b);
+    final totalLogs = widget.patterns
+        .map((p) => p.count)
+        .reduce((a, b) => a + b);
     final errorCount = widget.patterns
         .where((p) => _getDominantSeverity(p) == 'ERROR')
         .length;
@@ -199,17 +207,23 @@ class _LogPatternViewerState extends State<LogPatternViewer>
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 itemCount: patterns.length,
                 itemBuilder: (context, index) {
-                  return _buildPatternRow(patterns[index], index, patterns.length);
+                  return _buildPatternRow(
+                    patterns[index],
+                    index,
+                    patterns.length,
+                  );
                 },
               );
             },
           ),
         ),
         if (_selectedPattern != null)
-          _buildSelectedPatternDetail(_filteredAndSortedPatterns.firstWhere(
-            (p) => p.template == _selectedPattern,
-            orElse: () => widget.patterns.first,
-          )),
+          _buildSelectedPatternDetail(
+            _filteredAndSortedPatterns.firstWhere(
+              (p) => p.template == _selectedPattern,
+              orElse: () => widget.patterns.first,
+            ),
+          ),
       ],
     );
   }
@@ -225,10 +239,17 @@ class _LogPatternViewerState extends State<LogPatternViewer>
               color: AppColors.textMuted.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.article_outlined, size: 40, color: AppColors.textMuted),
+            child: Icon(
+              Icons.article_outlined,
+              size: 40,
+              color: AppColors.textMuted,
+            ),
           ),
           const SizedBox(height: 16),
-          Text('No log patterns detected', style: TextStyle(color: AppColors.textMuted, fontSize: 14)),
+          Text(
+            'No log patterns detected',
+            style: TextStyle(color: AppColors.textMuted, fontSize: 14),
+          ),
         ],
       ),
     );
@@ -243,11 +264,18 @@ class _LogPatternViewerState extends State<LogPatternViewer>
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [AppColors.primaryBlue.withValues(alpha: 0.2), AppColors.primaryCyan.withValues(alpha: 0.15)],
+                colors: [
+                  AppColors.primaryBlue.withValues(alpha: 0.2),
+                  AppColors.primaryCyan.withValues(alpha: 0.15),
+                ],
               ),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.analytics, size: 18, color: AppColors.primaryBlue),
+            child: const Icon(
+              Icons.analytics,
+              size: 18,
+              color: AppColors.primaryBlue,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -256,27 +284,56 @@ class _LogPatternViewerState extends State<LogPatternViewer>
               children: [
                 Row(
                   children: [
-                    Text('Log Pattern Analysis', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                    Text(
+                      'Log Pattern Analysis',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.primaryTeal.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: Text('${widget.patterns.length} patterns', style: TextStyle(fontSize: 10, color: AppColors.primaryTeal, fontWeight: FontWeight.w500)),
+                      child: Text(
+                        '${widget.patterns.length} patterns',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: AppColors.primaryTeal,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 2),
-                Text('$totalLogs total log entries analyzed', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                Text(
+                  '$totalLogs total log entries analyzed',
+                  style: TextStyle(fontSize: 10, color: AppColors.textMuted),
+                ),
               ],
             ),
           ),
-          if (errorCount > 0) _buildStatChip('$errorCount errors', Icons.error_outline, AppColors.error),
+          if (errorCount > 0)
+            _buildStatChip(
+              '$errorCount errors',
+              Icons.error_outline,
+              AppColors.error,
+            ),
           if (warningCount > 0) ...[
             const SizedBox(width: 6),
-            _buildStatChip('$warningCount warnings', Icons.warning_amber, AppColors.warning),
+            _buildStatChip(
+              '$warningCount warnings',
+              Icons.warning_amber,
+              AppColors.warning,
+            ),
           ],
         ],
       ),
@@ -296,7 +353,14 @@ class _LogPatternViewerState extends State<LogPatternViewer>
         children: [
           Icon(icon, size: 12, color: color),
           const SizedBox(width: 4),
-          Text(text, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: color)),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+              color: color,
+            ),
+          ),
         ],
       ),
     );
@@ -324,7 +388,10 @@ class _LogPatternViewerState extends State<LogPatternViewer>
                 style: TextStyle(fontSize: 13, color: AppColors.textPrimary),
                 decoration: InputDecoration(
                   hintText: 'Search patterns...',
-                  hintStyle: TextStyle(color: AppColors.textMuted, fontSize: 13),
+                  hintStyle: TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 13,
+                  ),
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.zero,
                   isDense: true,
@@ -354,13 +421,18 @@ class _LogPatternViewerState extends State<LogPatternViewer>
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          Text('Filter:', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+          Text(
+            'Filter:',
+            style: TextStyle(fontSize: 10, color: AppColors.textMuted),
+          ),
           const SizedBox(width: 8),
           _buildFilterChip('All', null),
-          ...severities.map((s) => Padding(
-                padding: const EdgeInsets.only(left: 6),
-                child: _buildFilterChip(s, s),
-              )),
+          ...severities.map(
+            (s) => Padding(
+              padding: const EdgeInsets.only(left: 6),
+              child: _buildFilterChip(s, s),
+            ),
+          ),
         ],
       ),
     );
@@ -368,7 +440,9 @@ class _LogPatternViewerState extends State<LogPatternViewer>
 
   Widget _buildFilterChip(String label, String? severity) {
     final isSelected = _filterSeverity == severity;
-    final color = severity != null ? _getSeverityColor(severity) : AppColors.primaryTeal;
+    final color = severity != null
+        ? _getSeverityColor(severity)
+        : AppColors.primaryTeal;
 
     return GestureDetector(
       onTap: () => setState(() => _filterSeverity = severity),
@@ -377,7 +451,9 @@ class _LogPatternViewerState extends State<LogPatternViewer>
         decoration: BoxDecoration(
           color: isSelected ? color.withValues(alpha: 0.2) : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: isSelected ? color : AppColors.surfaceBorder),
+          border: Border.all(
+            color: isSelected ? color : AppColors.surfaceBorder,
+          ),
         ),
         child: Text(
           label,
@@ -410,7 +486,17 @@ class _LogPatternViewerState extends State<LogPatternViewer>
           _buildHeaderCell('Severity', 'severity', 140),
           const SizedBox(width: 8),
           Expanded(child: _buildHeaderCell('Pattern', 'template', null)),
-          SizedBox(width: 80, child: Text('Frequency', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.textMuted))),
+          SizedBox(
+            width: 80,
+            child: Text(
+              'Frequency',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textMuted,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -434,17 +520,35 @@ class _LogPatternViewerState extends State<LogPatternViewer>
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isActive ? AppColors.primaryTeal : AppColors.textMuted)),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: isActive
+                        ? AppColors.primaryTeal
+                        : AppColors.textMuted,
+                  ),
+                ),
                 const SizedBox(width: 2),
                 Icon(
-                  isActive ? (_sortAsc ? Icons.arrow_upward : Icons.arrow_downward) : Icons.unfold_more,
+                  isActive
+                      ? (_sortAsc ? Icons.arrow_upward : Icons.arrow_downward)
+                      : Icons.unfold_more,
                   size: 12,
                   color: isActive ? AppColors.primaryTeal : AppColors.textMuted,
                 ),
               ],
             ),
           )
-        : Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.textMuted));
+        : Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textMuted,
+            ),
+          );
 
     if (width != null) {
       return SizedBox(width: width, child: content);
@@ -461,14 +565,19 @@ class _LogPatternViewerState extends State<LogPatternViewer>
     final trend = _getTrend(distribution);
 
     final staggerDelay = index / total;
-    final animValue = ((_animation.value - staggerDelay * 0.3) / 0.7).clamp(0.0, 1.0);
+    final animValue = ((_animation.value - staggerDelay * 0.3) / 0.7).clamp(
+      0.0,
+      1.0,
+    );
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hoveredIndex = index),
       onExit: (_) => setState(() => _hoveredIndex = null),
       child: GestureDetector(
         onTap: () => setState(() {
-          _selectedPattern = _selectedPattern == pattern.template ? null : pattern.template;
+          _selectedPattern = _selectedPattern == pattern.template
+              ? null
+              : pattern.template;
         }),
         child: AnimatedOpacity(
           duration: const Duration(milliseconds: 200),
@@ -480,10 +589,13 @@ class _LogPatternViewerState extends State<LogPatternViewer>
               color: isSelected
                   ? severityColor.withValues(alpha: 0.1)
                   : isHovered
-                      ? Colors.white.withValues(alpha: 0.04)
-                      : Colors.white.withValues(alpha: 0.015),
+                  ? Colors.white.withValues(alpha: 0.04)
+                  : Colors.white.withValues(alpha: 0.015),
               border: Border(
-                left: BorderSide(color: isSelected ? severityColor : Colors.transparent, width: 3),
+                left: BorderSide(
+                  color: isSelected ? severityColor : Colors.transparent,
+                  width: 3,
+                ),
                 right: BorderSide(color: AppColors.surfaceBorder),
                 bottom: BorderSide(color: AppColors.surfaceBorder),
               ),
@@ -491,23 +603,28 @@ class _LogPatternViewerState extends State<LogPatternViewer>
             child: Row(
               children: [
                 // Trend indicator
-                SizedBox(
-                  width: 100,
-                  child: _buildTrendIndicator(trend),
-                ),
+                SizedBox(width: 100, child: _buildTrendIndicator(trend)),
 
                 // Count
                 SizedBox(
                   width: 100,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.primaryTeal.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       _formatCount(pattern.count),
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primaryTeal, fontFamily: 'monospace'),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primaryTeal,
+                        fontFamily: 'monospace',
+                      ),
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -517,18 +634,34 @@ class _LogPatternViewerState extends State<LogPatternViewer>
                 SizedBox(
                   width: 140,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: severityColor.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: severityColor.withValues(alpha: 0.3)),
+                      border: Border.all(
+                        color: severityColor.withValues(alpha: 0.3),
+                      ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(_getSeverityIcon(severity), size: 10, color: severityColor),
+                        Icon(
+                          _getSeverityIcon(severity),
+                          size: 10,
+                          color: severityColor,
+                        ),
                         const SizedBox(width: 3),
-                        Text(severity, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: severityColor)),
+                        Text(
+                          severity,
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                            color: severityColor,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -537,9 +670,7 @@ class _LogPatternViewerState extends State<LogPatternViewer>
                 const SizedBox(width: 8),
 
                 // Pattern template with syntax highlighting
-                Expanded(
-                  child: _buildHighlightedTemplate(pattern.template),
-                ),
+                Expanded(child: _buildHighlightedTemplate(pattern.template)),
 
                 // Mini sparkline
                 SizedBox(
@@ -588,7 +719,14 @@ class _LogPatternViewerState extends State<LogPatternViewer>
       children: [
         Icon(icon, size: 14, color: color),
         const SizedBox(width: 2),
-        Text(label, style: TextStyle(fontSize: 9, color: color, fontWeight: FontWeight.w500)),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 9,
+            color: color,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
       ],
     );
   }
@@ -607,7 +745,11 @@ class _LogPatternViewerState extends State<LogPatternViewer>
     if (matches.isEmpty) {
       return Text(
         template,
-        style: TextStyle(fontSize: 11, color: AppColors.textSecondary, fontFamily: 'monospace'),
+        style: TextStyle(
+          fontSize: 11,
+          color: AppColors.textSecondary,
+          fontFamily: 'monospace',
+        ),
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
       );
@@ -618,23 +760,42 @@ class _LogPatternViewerState extends State<LogPatternViewer>
 
     for (final match in matches) {
       if (match.start > lastEnd) {
-        spans.add(TextSpan(
-          text: template.substring(lastEnd, match.start),
-          style: TextStyle(fontSize: 11, color: AppColors.textSecondary, fontFamily: 'monospace'),
-        ));
+        spans.add(
+          TextSpan(
+            text: template.substring(lastEnd, match.start),
+            style: TextStyle(
+              fontSize: 11,
+              color: AppColors.textSecondary,
+              fontFamily: 'monospace',
+            ),
+          ),
+        );
       }
-      spans.add(TextSpan(
-        text: match.group(0),
-        style: TextStyle(fontSize: 11, color: AppColors.primaryCyan, fontFamily: 'monospace', fontWeight: FontWeight.w500),
-      ));
+      spans.add(
+        TextSpan(
+          text: match.group(0),
+          style: TextStyle(
+            fontSize: 11,
+            color: AppColors.primaryCyan,
+            fontFamily: 'monospace',
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      );
       lastEnd = match.end;
     }
 
     if (lastEnd < template.length) {
-      spans.add(TextSpan(
-        text: template.substring(lastEnd),
-        style: TextStyle(fontSize: 11, color: AppColors.textSecondary, fontFamily: 'monospace'),
-      ));
+      spans.add(
+        TextSpan(
+          text: template.substring(lastEnd),
+          style: TextStyle(
+            fontSize: 11,
+            color: AppColors.textSecondary,
+            fontFamily: 'monospace',
+          ),
+        ),
+      );
     }
 
     return RichText(
@@ -669,15 +830,32 @@ class _LogPatternViewerState extends State<LogPatternViewer>
                   color: severityColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: Icon(_getSeverityIcon(severity), size: 16, color: severityColor),
+                child: Icon(
+                  _getSeverityIcon(severity),
+                  size: 16,
+                  color: severityColor,
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Pattern Details', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-                    Text('${pattern.count} occurrences', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                    Text(
+                      'Pattern Details',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      '${pattern.count} occurrences',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -701,21 +879,29 @@ class _LogPatternViewerState extends State<LogPatternViewer>
               borderRadius: BorderRadius.circular(8),
             ),
             child: SelectableText.rich(
-              TextSpan(
-                children: _buildHighlightedSpans(pattern.template),
-              ),
+              TextSpan(children: _buildHighlightedSpans(pattern.template)),
             ),
           ),
 
           const SizedBox(height: 12),
 
           // Frequency distribution chart
-          Text('Frequency Distribution', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.textMuted)),
+          Text(
+            'Frequency Distribution',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textMuted,
+            ),
+          ),
           const SizedBox(height: 6),
           SizedBox(
             height: 40,
             child: CustomPaint(
-              painter: _FrequencyBarPainter(values: distribution, color: severityColor),
+              painter: _FrequencyBarPainter(
+                values: distribution,
+                color: severityColor,
+              ),
               child: Container(),
             ),
           ),
@@ -723,7 +909,14 @@ class _LogPatternViewerState extends State<LogPatternViewer>
           const SizedBox(height: 12),
 
           // Severity breakdown
-          Text('Severity Breakdown', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.textMuted)),
+          Text(
+            'Severity Breakdown',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textMuted,
+            ),
+          ),
           const SizedBox(height: 6),
           _buildSeverityBreakdownBar(pattern),
         ],
@@ -739,23 +932,46 @@ class _LogPatternViewerState extends State<LogPatternViewer>
 
     for (final match in matches) {
       if (match.start > lastEnd) {
-        spans.add(TextSpan(
-          text: template.substring(lastEnd, match.start),
-          style: TextStyle(fontSize: 12, color: AppColors.textSecondary, fontFamily: 'monospace', height: 1.5),
-        ));
+        spans.add(
+          TextSpan(
+            text: template.substring(lastEnd, match.start),
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+              fontFamily: 'monospace',
+              height: 1.5,
+            ),
+          ),
+        );
       }
-      spans.add(TextSpan(
-        text: match.group(0),
-        style: TextStyle(fontSize: 12, color: AppColors.primaryCyan, fontFamily: 'monospace', fontWeight: FontWeight.w600, backgroundColor: AppColors.primaryCyan.withValues(alpha: 0.1), height: 1.5),
-      ));
+      spans.add(
+        TextSpan(
+          text: match.group(0),
+          style: TextStyle(
+            fontSize: 12,
+            color: AppColors.primaryCyan,
+            fontFamily: 'monospace',
+            fontWeight: FontWeight.w600,
+            backgroundColor: AppColors.primaryCyan.withValues(alpha: 0.1),
+            height: 1.5,
+          ),
+        ),
+      );
       lastEnd = match.end;
     }
 
     if (lastEnd < template.length) {
-      spans.add(TextSpan(
-        text: template.substring(lastEnd),
-        style: TextStyle(fontSize: 12, color: AppColors.textSecondary, fontFamily: 'monospace', height: 1.5),
-      ));
+      spans.add(
+        TextSpan(
+          text: template.substring(lastEnd),
+          style: TextStyle(
+            fontSize: 12,
+            color: AppColors.textSecondary,
+            fontFamily: 'monospace',
+            height: 1.5,
+          ),
+        ),
+      );
     }
 
     return spans;
@@ -770,9 +986,7 @@ class _LogPatternViewerState extends State<LogPatternViewer>
         // Stacked bar
         Container(
           height: 8,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(4),
-          ),
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(4)),
           clipBehavior: Clip.antiAlias,
           child: Row(
             children: pattern.severityCounts.entries.map((e) {
@@ -795,9 +1009,22 @@ class _LogPatternViewerState extends State<LogPatternViewer>
             return Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(width: 8, height: 8, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
                 const SizedBox(width: 4),
-                Text('${e.key}: ${e.value} ($percent%)', style: TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+                Text(
+                  '${e.key}: ${e.value} ($percent%)',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
               ],
             );
           }).toList(),
@@ -812,7 +1039,11 @@ class _FrequencySparklinePainter extends CustomPainter {
   final Color color;
   final double animation;
 
-  _FrequencySparklinePainter({required this.values, required this.color, required this.animation});
+  _FrequencySparklinePainter({
+    required this.values,
+    required this.color,
+    required this.animation,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -832,7 +1063,10 @@ class _FrequencySparklinePainter extends CustomPainter {
         barWidth,
         normalizedHeight,
       );
-      canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(1)), paint);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(rect, const Radius.circular(1)),
+        paint,
+      );
     }
   }
 
@@ -873,7 +1107,10 @@ class _FrequencyBarPainter extends CustomPainter {
       );
 
       final paint = Paint()..shader = gradient.createShader(rect);
-      canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(2)), paint);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(rect, const Radius.circular(2)),
+        paint,
+      );
     }
   }
 

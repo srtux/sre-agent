@@ -62,12 +62,12 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
 
     // Check transitions
     if (newIsError && !_isError) {
-       // Became error -> Expand
-       if (!_isExpanded) _toggleExpand();
+      // Became error -> Expand
+      if (!_isExpanded) _toggleExpand();
     } else if (newIsCompleted && !wasCompleted && !newIsError) {
-       // Became completed (success) -> Collapse
-       // User requested: "Auto-Collapse after success"
-       if (_isExpanded) _toggleExpand();
+      // Became completed (success) -> Collapse
+      // User requested: "Auto-Collapse after success"
+      if (_isExpanded) _toggleExpand();
     }
 
     _isError = newIsError;
@@ -118,34 +118,40 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
     // Extract error message for preview if needed
     String? errorMessage;
     if (isError && widget.log.result != null) {
-        if (widget.log.result!.contains('"error"')) {
-           try {
-             final decoded = jsonDecode(widget.log.result!);
-             if (decoded is Map && decoded.containsKey('error')) {
-               errorMessage = decoded['error'].toString();
-             }
-           } catch (_) {}
-        }
-        errorMessage ??= "Output contains error"; // Fallback
+      if (widget.log.result!.contains('"error"')) {
+        try {
+          final decoded = jsonDecode(widget.log.result!);
+          if (decoded is Map && decoded.containsKey('error')) {
+            errorMessage = decoded['error'].toString();
+          }
+        } catch (_) {}
+      }
+      errorMessage ??= "Output contains error"; // Fallback
     }
 
     // Compact collapsed view vs expanded view
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeInOut,
-      margin: EdgeInsets.symmetric(vertical: _isExpanded ? 4 : 0), // Tighter margin when collapsed
-      constraints: BoxConstraints(minHeight: _isExpanded ? 56.0 : 36.0), // STRICT 36px when collapsed
+      margin: EdgeInsets.symmetric(
+        vertical: _isExpanded ? 4 : 0,
+      ), // Tighter margin when collapsed
+      constraints: BoxConstraints(
+        minHeight: _isExpanded ? 56.0 : 36.0,
+      ), // STRICT 36px when collapsed
 
       decoration: BoxDecoration(
         color: isError
-           ? AppColors.error.withValues(alpha: 0.1)
-           : AppColors.backgroundElevated.withValues(alpha: _isExpanded ? 0.8 : 0.4), // Less opaque when collapsed
+            ? AppColors.error.withValues(alpha: 0.1)
+            : AppColors.backgroundElevated.withValues(
+                alpha: _isExpanded ? 0.8 : 0.4,
+              ), // Less opaque when collapsed
         borderRadius: BorderRadius.circular(_isExpanded ? 10 : 6),
         border: Border.all(
-           color: isError
-               ? AppColors.error.withValues(alpha: 0.3)
-               : Colors.white.withValues(alpha: _isExpanded ? 0.08 : 0.04),
-           width: 1,
+          color: isError
+              ? AppColors.error.withValues(alpha: 0.3)
+              : Colors.white.withValues(alpha: _isExpanded ? 0.08 : 0.04),
+          width: 1,
         ),
       ),
       child: Column(
@@ -161,11 +167,18 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
               child: Padding(
                 padding: EdgeInsets.symmetric(
                   horizontal: 12, // Slightly reduced horizontal padding
-                  vertical: _isExpanded ? 12 : 0, // NO vertical padding when collapsed to enforce 36px
+                  vertical: _isExpanded
+                      ? 12
+                      : 0, // NO vertical padding when collapsed to enforce 36px
                 ),
                 child: _isExpanded
-                  ? _buildExpandedHeader(isRunning, isError, completed, errorMessage)
-                  : _buildCollapsedHeader(isRunning, isError, completed),
+                    ? _buildExpandedHeader(
+                        isRunning,
+                        isError,
+                        completed,
+                        errorMessage,
+                      )
+                    : _buildCollapsedHeader(isRunning, isError, completed),
               ),
             ),
           ),
@@ -202,10 +215,8 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
                           title: 'Output',
                           icon: Icons.output,
                           content: widget.log.result!,
-                          onCopy: () => _copyToClipboard(
-                            widget.log.result!,
-                            'Output',
-                          ),
+                          onCopy: () =>
+                              _copyToClipboard(widget.log.result!, 'Output'),
                           isSuccess: true,
                         ),
                       ],
@@ -215,10 +226,12 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
                         _buildErrorSection(errorMessage ?? widget.log.result!),
                       ],
                       // If strict error detection triggered but not original error status, show output as error
-                      if (isError && !widget.log.status.contains('error') && widget.log.result != null) ...[
-                         const SizedBox(height: 10),
-                         _buildErrorSection(widget.log.result!),
-                      ]
+                      if (isError &&
+                          !widget.log.status.contains('error') &&
+                          widget.log.result != null) ...[
+                        const SizedBox(height: 10),
+                        _buildErrorSection(widget.log.result!),
+                      ],
                     ],
                   ),
                 ),
@@ -238,12 +251,12 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
     if (widget.log.status == 'completed' && widget.log.result != null) {
       final result = widget.log.result!;
       if (result.contains('"error"')) {
-         try {
-           final decoded = jsonDecode(result);
-           if (decoded is Map && decoded.containsKey('error')) return true;
-         } catch (_) {
-           if (result.contains('"error":')) return true;
-         }
+        try {
+          final decoded = jsonDecode(result);
+          if (decoded is Map && decoded.containsKey('error')) return true;
+        } catch (_) {
+          if (result.contains('"error":')) return true;
+        }
       }
     }
     return false;
@@ -268,7 +281,9 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
 
           // 2. Step Title
           ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 160), // Prevent taking too much space
+            constraints: const BoxConstraints(
+              maxWidth: 160,
+            ), // Prevent taking too much space
             child: Text(
               _getSmartTitle(),
               style: TextStyle(
@@ -286,24 +301,28 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
 
           // 3. Stopwatch + Duration (Far right)
           if (widget.log.duration != null || isRunning) ...[
-             const SizedBox(width: 8), // Gap before time
-             Icon(Icons.timer_outlined, size: 12, color: AppColors.textSecondary.withValues(alpha: 0.5)),
-             const SizedBox(width: 4),
-             Text(
-               isRunning ? 'Running' : widget.log.duration ?? '',
-               style: TextStyle(
-                 fontSize: 11,
-                 color: AppColors.textSecondary,
-                 fontFamily: 'monospace',
-                 fontWeight: FontWeight.w500,
-               ),
-             ),
+            const SizedBox(width: 8), // Gap before time
+            Icon(
+              Icons.timer_outlined,
+              size: 12,
+              color: AppColors.textSecondary.withValues(alpha: 0.5),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              isRunning ? 'Running' : widget.log.duration ?? '',
+              style: TextStyle(
+                fontSize: 11,
+                color: AppColors.textSecondary,
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ],
 
           const SizedBox(width: 8),
 
           // 4. Chevron
-           Icon(
+          Icon(
             _isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
             size: 16,
             color: AppColors.textMuted,
@@ -313,7 +332,12 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
     );
   }
 
-  Widget _buildExpandedHeader(bool isRunning, bool isError, bool isCompleted, String? errorMessage) {
+  Widget _buildExpandedHeader(
+    bool isRunning,
+    bool isError,
+    bool isCompleted,
+    String? errorMessage,
+  ) {
     return Row(
       children: [
         // Status Badge
@@ -327,58 +351,62 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
             children: [
               Row(
                 children: [
-                    Flexible(
-                      child: Text(
-                        _getSmartTitle(),
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                          color: AppColors.textPrimary,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+                  Flexible(
+                    child: Text(
+                      _getSmartTitle(),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        color: AppColors.textPrimary,
                       ),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    if (isRunning) ...[
-                       const SizedBox(width: 8),
-                       _buildPulsingRunningBadge(),
-                    ]
+                  ),
+                  if (isRunning) ...[
+                    const SizedBox(width: 8),
+                    _buildPulsingRunningBadge(),
+                  ],
                 ],
               ),
               // Error Preview or Duration
               if (isError && errorMessage != null)
-                 Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      errorMessage,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.error.withValues(alpha: 0.8),
-                        fontWeight: FontWeight.w500,
-                      ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    errorMessage,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.error.withValues(alpha: 0.8),
+                      fontWeight: FontWeight.w500,
                     ),
-                 )
+                  ),
+                )
               else if (widget.log.duration != null || isRunning)
-                 Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Row(
-                      children: [
-                        if (!isRunning) ...[
-                          Icon(Icons.timer_outlined, size: 12, color: AppColors.textSecondary),
-                          const SizedBox(width: 4),
-                        ],
-                        Text(
-                          isRunning ? 'Processing...' : widget.log.duration ?? '',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
-                            fontFamily: 'monospace',
-                          ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Row(
+                    children: [
+                      if (!isRunning) ...[
+                        Icon(
+                          Icons.timer_outlined,
+                          size: 12,
+                          color: AppColors.textSecondary,
                         ),
+                        const SizedBox(width: 4),
                       ],
-                    ),
-                 ),
+                      Text(
+                        isRunning ? 'Processing...' : widget.log.duration ?? '',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ),
         ),
@@ -397,78 +425,96 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
   }
 
   String _getSmartTitle() {
-      final name = widget.log.toolName;
-      if (name == 'run_log_pattern_analysis') return 'Analyzing Log Patterns';
-      if (name == 'list_traces') return 'Scanning System Traces';
-      if (name == 'query_promql') return 'Querying Performance Metrics';
-      if (name == 'mcp_execute_sql') return 'Executing SQL Query';
-      if (name == 'list_active_incidents') return 'Fetching Active Incidents';
-      if (name == 'run_query') return 'Executing Data Query';
-      if (name == 'list_log_entries') return 'Scanning Cloud Logs';
-      if (name == 'get_service_health') return 'Checking Service Health';
-      if (name == 'list_time_series') return 'Fetching Time Series Data';
-      if (name == 'extract_log_patterns') return 'Extracting Log Patterns';
-      if (name == 'fetch_trace') return 'Fetching Trace Details';
+    final name = widget.log.toolName;
+    if (name == 'run_log_pattern_analysis') return 'Analyzing Log Patterns';
+    if (name == 'list_traces') return 'Scanning System Traces';
+    if (name == 'query_promql') return 'Querying Performance Metrics';
+    if (name == 'mcp_execute_sql') return 'Executing SQL Query';
+    if (name == 'list_active_incidents') return 'Fetching Active Incidents';
+    if (name == 'run_query') return 'Executing Data Query';
+    if (name == 'list_log_entries') return 'Scanning Cloud Logs';
+    if (name == 'get_service_health') return 'Checking Service Health';
+    if (name == 'list_time_series') return 'Fetching Time Series Data';
+    if (name == 'extract_log_patterns') return 'Extracting Log Patterns';
+    if (name == 'fetch_trace') return 'Fetching Trace Details';
 
-      // Fallback: sentence case with replacements
-      return name.replaceAll('_', ' ').split(' ').map((word) => word.isEmpty ? '' : word[0].toUpperCase() + word.substring(1)).join(' ');
+    // Fallback: sentence case with replacements
+    return name
+        .replaceAll('_', ' ')
+        .split(' ')
+        .map(
+          (word) =>
+              word.isEmpty ? '' : word[0].toUpperCase() + word.substring(1),
+        )
+        .join(' ');
   }
 
-  Widget _buildStatusIcon(bool isRunning, bool isError, bool isCompleted, {bool compact = false}) {
-       // Reduce size for compact mode if needed, effectively already small enough
-       // but we can adjust padding.
-       final padding = compact ? const EdgeInsets.all(6) : const EdgeInsets.all(8);
-       final size = compact ? 16.0 : 18.0;
+  Widget _buildStatusIcon(
+    bool isRunning,
+    bool isError,
+    bool isCompleted, {
+    bool compact = false,
+  }) {
+    // Reduce size for compact mode if needed, effectively already small enough
+    // but we can adjust padding.
+    final padding = compact ? const EdgeInsets.all(6) : const EdgeInsets.all(8);
+    final size = compact ? 16.0 : 18.0;
 
-       if (isRunning) {
-         return Container(
-           padding: padding,
-           decoration: BoxDecoration(
-             color: AppColors.warning.withValues(alpha: 0.1), // Amber background like prompt
-             borderRadius: BorderRadius.circular(8),
-           ),
-           child: Icon(Icons.bolt, size: size, color: AppColors.warning), // Spark/Bolt icon
-         );
-       }
-       if (isError) {
-          return Container(
-           padding: padding,
-           decoration: BoxDecoration(
-             color: AppColors.error.withValues(alpha: 0.1),
-             borderRadius: BorderRadius.circular(8),
-           ),
-           child: Icon(Icons.error_outline, size: size, color: AppColors.error),
-          );
-       }
-       // Completed
-       return Container(
-           padding: padding,
-           decoration: BoxDecoration(
-             color: AppColors.success.withValues(alpha: 0.1),
-             borderRadius: BorderRadius.circular(8),
-           ),
-           child: Icon(Icons.check, size: size, color: AppColors.success),
-       );
+    if (isRunning) {
+      return Container(
+        padding: padding,
+        decoration: BoxDecoration(
+          color: AppColors.warning.withValues(
+            alpha: 0.1,
+          ), // Amber background like prompt
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(
+          Icons.bolt,
+          size: size,
+          color: AppColors.warning,
+        ), // Spark/Bolt icon
+      );
+    }
+    if (isError) {
+      return Container(
+        padding: padding,
+        decoration: BoxDecoration(
+          color: AppColors.error.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(Icons.error_outline, size: size, color: AppColors.error),
+      );
+    }
+    // Completed
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: AppColors.success.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(Icons.check, size: size, color: AppColors.success),
+    );
   }
 
   Widget _buildPulsingRunningBadge() {
-      return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(
-            color: AppColors.warning.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: AppColors.warning.withValues(alpha: 0.5)),
-          ),
-          child: Text(
-            'Running',
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
-              color: AppColors.warning,
-              letterSpacing: 0.5,
-            )
-          )
-      );
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.5)),
+      ),
+      child: Text(
+        'Running',
+        style: TextStyle(
+          fontSize: 9,
+          fontWeight: FontWeight.bold,
+          color: AppColors.warning,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
   }
 
   Widget _buildSection({
@@ -504,15 +550,14 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
                 onTap: onCopy,
                 borderRadius: BorderRadius.circular(4),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        Icons.copy,
-                        size: 11,
-                        color: AppColors.textMuted,
-                      ),
+                      Icon(Icons.copy, size: 11, color: AppColors.textMuted),
                       const SizedBox(width: 3),
                       Text(
                         'Copy',
@@ -539,9 +584,7 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
       decoration: BoxDecoration(
         color: AppColors.error.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: AppColors.error.withValues(alpha: 0.2),
-        ),
+        border: Border.all(color: AppColors.error.withValues(alpha: 0.2)),
       ),
       padding: const EdgeInsets.all(8),
       child: Column(
@@ -570,7 +613,10 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
                   onTap: () => _copyToClipboard(errorMessage, 'Error'),
                   borderRadius: BorderRadius.circular(4),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -660,12 +706,20 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
     final lower = toolName.toLowerCase();
 
     // Analysis / Brain
-    if (lower.contains('analysis') || lower.contains('reasoning') || lower.contains('incident') || lower.contains('diagnose')) {
+    if (lower.contains('analysis') ||
+        lower.contains('reasoning') ||
+        lower.contains('incident') ||
+        lower.contains('diagnose')) {
       return Icons.psychology; // Brain icon or similar
     }
 
     // Radar / Search
-    if (lower.contains('promql') || lower.contains('time_series') || lower.contains('log_entries') || lower.contains('sql') || lower.contains('scan') || lower.contains('search')) {
+    if (lower.contains('promql') ||
+        lower.contains('time_series') ||
+        lower.contains('log_entries') ||
+        lower.contains('sql') ||
+        lower.contains('scan') ||
+        lower.contains('search')) {
       return Icons.radar;
     }
 
@@ -681,24 +735,24 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
 
     // Trace
     if (lower.contains('trace') || lower.contains('span')) {
-       return Icons.timeline;
+      return Icons.timeline;
     }
 
     // Cloud / Project
-    if (lower.contains('project') || lower.contains('gcp') || lower.contains('cloud')) {
+    if (lower.contains('project') ||
+        lower.contains('gcp') ||
+        lower.contains('cloud')) {
       return Icons.cloud_outlined;
     }
 
     // Action / Deploy
-    if (lower.contains('deploy') || lower.contains('run') || lower.contains('execute')) {
-       return Icons.rocket_launch_outlined;
+    if (lower.contains('deploy') ||
+        lower.contains('run') ||
+        lower.contains('execute')) {
+      return Icons.rocket_launch_outlined;
     }
 
     // Default
     return Icons.construction;
   }
-
-
-
-
 }

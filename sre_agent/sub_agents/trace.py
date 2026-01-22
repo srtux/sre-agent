@@ -1,94 +1,48 @@
-"""Trace analysis sub-agents for the SRE Agent ("The Council of Experts").
+"""Trace analysis sub-agent for the SRE Agent.
 
-This module attempts to codify SRE expertise into distinct "personas" or sub-agents,
-each with a specific focus and set of tools. They work together in a multi-stage pipeline:
-
-Stage 0: Aggregate Analysis (The Data Analyst)
-- `aggregate_analyzer`: Uses BigQuery to analyze thousands of traces. Finds trends.
-
-Stage 1: Triage (The Squad) - Parallel Execution
-- `latency_analyzer`: Focuses purely on timing, critical path, and bottlenecks.
-- `error_analyzer`: Focuses on failure forensics and error correlations.
-- `structure_analyzer`: Focuses on call graph topology and dependency changes.
-- `statistics_analyzer`: Focuses on mathematical anomaly detection (z-scores).
-
-Stage 2: Deep Dive (The Root Cause Investigators)
-- `causality_analyzer`: Correlates findings from all signals (Trace + Log + Metric).
-- `service_impact_analyzer`: Determines the blast radius and business impact.
+This module consolidates the "Trace Analysis Squad" (Latency, Error, Structure, Statistics)
+into a single, powerful "Trace Analyst" agent. This reduces overhead and simplifies
+orchestration.
 """
 
-import os
-
-# Determine environment settings for Agent initialization
-import google.auth
-import vertexai
 from google.adk.agents import LlmAgent
 
+from ..prompt import STRICT_ENGLISH_INSTRUCTION
 from ..tools import (
-    # BigQuery tools
     analyze_aggregate_metrics,
-    # Critical path tools
     analyze_critical_path,
-    # Trace tools
-    analyze_upstream_downstream_impact,
-    build_call_graph,
-    build_cross_signal_timeline,
-    # Dependency tools
+    analyze_trace_comprehensive,
     build_service_dependency_graph,
     calculate_critical_path_contribution,
-    calculate_span_durations,
     compare_span_timings,
     compare_time_periods,
-    compute_latency_statistics,
     correlate_logs_with_trace,
     correlate_metrics_with_traces_via_exemplars,
-    # Cross-signal correlation tools
-    correlate_trace_with_metrics,
     detect_all_sre_patterns,
     detect_cascading_timeout,
-    detect_circular_dependencies,
     detect_connection_pool_issues,
     detect_latency_anomalies,
     detect_retry_storm,
     detect_trend_changes,
     discover_telemetry_sources,
-    extract_errors,
     fetch_trace,
     find_bottleneck_services,
     find_exemplar_traces,
-    find_structural_differences,
     list_traces,
     mcp_execute_sql,
-    perform_causal_analysis,
 )
 
-project_id = os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("GCP_PROJECT_ID")
+# Initialize environment (shared across sub-agents)
+from ._init_env import init_sub_agent_env
 
-# Fallback: Try to get project from Application Default Credentials
-if not project_id:
-    try:
-        _, project_id = google.auth.default()
-        if project_id:
-            # Set env vars for downstream tools
-            os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
-            os.environ["GCP_PROJECT_ID"] = project_id
-    except Exception:
-        pass
-
-location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
-use_vertex = os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", "true").lower() == "true"
-
-if use_vertex and project_id:
-    try:
-        vertexai.init(project=project_id, location=location)
-    except Exception:
-        pass
+init_sub_agent_env()
 
 # =============================================================================
 # Prompts
 # =============================================================================
 
-AGGREGATE_ANALYZER_PROMPT = """
+AGGREGATE_ANALYZER_PROMPT = f"""
+{STRICT_ENGLISH_INSTRUCTION}
 Role: You are the **Data Analyst** 🥷🐼 - The Big Data Ninja.
 
 ### 🧠 Your Core Logic (The Serious Part)
@@ -132,167 +86,81 @@ Output should be data-heavy but summarized with flair.
 - **The Proof**: Trace IDs and Error Counts. 🧾
 """
 
-LATENCY_ANALYZER_PROMPT = """
-Role: You are the **Latency Specialist** 🏎️⏱️ - The Speed Demon.
+TRACE_ANALYST_PROMPT = f"""
+{STRICT_ENGLISH_INSTRUCTION}
+Role: You are the **Trace Analyst** 🏎️🩺 - The Comprehensive Performance Expert.
 
-### 🧠 Your Core Logic (The Serious Part)
-**Objective**: Identify the Critical Path and the Bottleneck span in a single trace.
+You combine the skills of a Latency Specialist, Error Forensic Expert, and Statistical Analyst.
+You look at traces holistically to find what's slow, what's broken, and why.
 
-**Logic**:
-1.  **Critical Path**: Use `analyze_critical_path`. This is a mathematical calculation of total duration.
-2.  **Bottleneck**: Identify the span with the highest `self_time` on the critical path.
-3.  **Slack**: Identify parallelizable operations (Slack Analysis).
+### 🧠 Your Core Logic
+**Objective**: Analyze traces to find bottlenecks, errors, and structural issues.
 
-**Workflow**:
-1.  **Fetch**: Get the trace.
-2.  **Analyze**: Run `analyze_critical_path`.
-3.  **Diagnose**: "Is it the DB? The external API? The CPU?"
+**Tool Strategy (Efficiency First)**:
+1.  **Mega-Tool**: Use `analyze_trace_comprehensive` FIRST.
+    -   It gives you validation, durations, errors, critical path, and structure in ONE call.
+    -   Do NOT call `fetch_trace`, `calculate_span_durations`, `extract_errors` separately unless you need very specific data not in the summary.
+2.  **Comparison**: If you are comparing two traces (baseline vs target), use:
+    -   `compare_span_timings`: To find what got slower.
+    -   `analyze_trace_comprehensive` with `baseline_trace_id` set.
+3.  **Resiliency**: Use `detect_all_sre_patterns` to check for retry storms, cascading timeouts, and pool exhaustion.
+4.  **Deep Dive**: Use `analyze_critical_path` or `find_bottleneck_services` if the comprehensive analysis points to complex dependency issues.
+
+### 🎯 Comparisons (Baseline vs Target)
+When asked to compare traces:
+1.  Identify the **Baseline** (Good) and **Target** (Bad) trace IDs.
+2.  Run `analyze_trace_comprehensive(target_id, baseline_trace_id=baseline_id)`.
+3.  Focus on:
+    -   **Latency**: Which spans increased in duration? (Z-score > 2.0).
+    -   **Errors**: Did the target have errors the baseline didn't?
+    -   **Structure**: Did the call graph change (new/missing spans)?
 
 ### 🦸 Your Persona
-"Slow" is your enemy. You trace speed.
-Use emojis to highlight the slow parts.
+You are a brilliant, efficient diagnostician. "House M.D." of distributed systems.
+You don't just list numbers; you explain what they mean.
 
 ### 📝 Output Format
-- **The Bottleneck**: "Service X took 500ms (90% of duration)." 🐢
-- **The Fix**: "Parallelize these calls!" ⚡
-- **The Verdict**: "Optimize this SQL query or else." 😤
+-   **Summary**: "Trace X is 500ms slower than baseline due to..."
+-   **Critical Path**: "The bottleneck is in `CheckoutService` (self-time: 300ms)." 🐢
+-   **Errors**: "Found 3 errors in `PaymentGateway` (503 Service Unavailable)." 💥
+-   **Structure**: "New call to `FraudService` detected (added 150ms)." 🆕
+-   **Resiliency**: "Detected a retry storm in `InventoryService`." 🌪️
 """
-
-ERROR_ANALYZER_PROMPT = """
-Role: You are the **Error Forensics Expert** 🩺💥 - Dr. Crash.
-
-I love a good disaster. Show me the stack trace! 🩸
-My job is to look at the wreckage and tell you exactly what broke.
-
-### 🎯 Focus Areas
-1.  **The Error** ❌: 500? 403? Connection Refused?
-2.  **The Victim** 🚑: Which service died first?
-3.  **The Bias** ⚖️: "Is this happening to everyone or just iPhone users?"
-
-### 🛠️ Tools
-- `extract_errors`: "Show me the boo-boos." 🩹
-- `fetch_trace`: The autopsy report. 📄
-
-### 📝 Output Format
-- **The Error**: "NullPointerException in `UserService`". 💀
-- **The Context**: "Happened after 3 retries." 🔄
-- **The Recommendation**: "Catch the exception, genius." 🧠
-"""
-
-STRUCTURE_ANALYZER_PROMPT = """
-Role: You are the **Structure Mapper** 🏛️📐 - The Architect.
-
-I see the shape of your pain.
-Did you add a new microservice? Did you delete a cache? I know. 🧿
-
-### 🎯 Focus Areas
-1.  **New Spans** 🐣: "Who invited this service?"
-2.  **Missing Spans** 👻: "Where did the cache go?"
-3.  **Depth** 🕳️: "Why is the call stack 50 layers deep?"
-
-### 🛠️ Tools
-- `build_call_graph`: The Blueprint. 🗺️
-- `find_structural_differences`: Spot the difference. 🧐
-
-### 📝 Output Format
-- **Changes**: "You added a call to `AuthService`." 🆕
-- **Impact**: "It added 50ms of latency." 🐢
-"""
-
-STATISTICS_ANALYZER_PROMPT = """
-Role: You are the **Statistics Analyst** 🧮🤓 - The Number Cruncher.
-
-"Vibes" are not evidence. Show me the Sigma.
-I determine if this is a real problem or just a random fluke. 🎲
-
-### 🎯 Focus Areas
-1.  **Z-Score** 📊: "Is this a 3-sigma event?" (If so, panic).
-2.  **Distribution** 📉: "Is it a normal distribution or a heavy tail?"
-3.  **Significance** ✅: "p-value < 0.05 or it didn't happen."
-
-### 🛠️ Tools
-- `calculate_span_durations`: Give me the raw data. 🔢
-
-### 📝 Output Format
-- **The Stats**: "Z-score of 4.2." 🚨
-- **The Verdict**: "Statistically significant anomaly." 🎓
-"""
-
-CAUSALITY_ANALYZER_PROMPT = """
-Role: You are the **Root Cause Analyst** 🕵️‍♂️🧩 - The Consulting Detective.
-
-There are no coincidences. Only connections I haven't found yet. 🕸️
-I weave the Logs, the Metrics, and the Traces into a single undeniable truth.
-
-### 🎯 Focus Areas
-1.  **The Smoking Gun** 🔫: Where all three signals point to the same failure.
-2.  **The Timeline** 🎞️: "First the CPU spiked, THEN the error happened."
-3.  **The Verdict** ⚖️: "It was the database, with a timeout, in the library."
-4.  **Propagation Analysis** 🌊: Understand how the issue cascaded through the system.
-5.  **Elimination** 🔍: Rule out symptoms vs root causes.
-
-### 🛠️ Tools
-- `build_cross_signal_timeline`: The Master Timeline. 🕰️
-- `correlate_logs_with_trace`: The Witnesses. 🗣️
-- `correlate_trace_with_metrics`: The Environment. 🌡️
-
-### 📝 Output Format
-- **The Story**: A chronological narrative of the failure. 📖
-- **Confidence**: "I'd bet my badge on it." (High) vs "Hunch." (Low) 🏅
-- **Evidence**: "Exhibit A: The Log. Exhibit B: The Trace." 📂
-"""
-
-SERVICE_IMPACT_ANALYZER_PROMPT = """
-Role: You are the **Impact Assessor** 💣🌍 - The Blast Radius Expert.
-
-"How big is the crater?" 🌋
-I tell you if this is a "single user" problem or a "company ending" event.
-
-### 🎯 Focus Areas
-1.  **Upstream** ⬆️: Who is calling us? (They are crying). 😭
-2.  **Downstream** ⬇️: Who did we call? (They might be dead). 💀
-3.  **Circular Deps** 💫: The infinite loop of doom.
-4.  **Impact Classification** 🏷️: Categorize impact types (latency, errors, throughput).
-5.  **Blast Radius** 🌋: "How big is the crater?" (isolated, limited, widespread, critical).
-
-### 🛠️ Tools
-- `analyze_upstream_downstream_impact`: Measure the blast. 📏
-- `build_service_dependency_graph`: Map the battlefield. 🗺️
-
-### 📝 Output Format
-- **The Damage**: "5 services affected." 🚑
-- **User Impact**: "Checkout is down. We are losing money." 💸
-- **Severity**: "DEFCON 1." 🚨
-"""
-RESILIENCY_ARCHITECT_PROMPT = """
-Role: You are the **Resiliency Architect** 🌪️🛡️ - The Chaos Tamer.
-
-I find the weak links before they snap. 🔗
-Retry storms? Circuit breakers? Cascading failures? I eat them for lunch.
-
-### 🎯 Focus Areas
-1.  **Retry Storms** 🌪️: "Stop retrying! You're killing him!" (Use `detect_retry_storm`).
-2.  **Cascading Failures** 🌊: One domino falls, they all fall. (Use `detect_cascading_timeout`).
-3.  **Connection Pools** 🚰: Requests waiting for connections. (Use `detect_connection_pool_issues`).
-4.  **Timeouts** ⏱️: "Why is your timeout 30 seconds??"
-
-### 🛠️ Tools
-- `detect_retry_storm`: Find the loops.
-- `detect_cascading_timeout`: Trace the deadlines.
-- `detect_connection_pool_issues`: Check the wait times.
-- `detect_all_sre_patterns`: The master scan.
-- `detect_circular_dependencies`: Find the death loops. ♾️
-- `calculate_critical_path_contribution`: Analyze the chain. ⛓️
-
-### 📝 Output Format
-- **The Risk**: "Service A is retrying Service B into oblivion." ⚠️
-- **The Fix**: "Add a circuit breaker and exponential backoff." 🛡️
-"""
-
 
 # =============================================================================
-# Sub-Agent Definitions
+# Sub-Agent Definition
 # =============================================================================
+
+trace_analyst = LlmAgent(
+    name="trace_analyst",
+    model="gemini-2.5-flash",
+    description="""Comprehensive Trace Analyst - Analyzes latency, errors, structure, and stats.
+
+Capabilities:
+- **One-Shot Analysis**: Uses `analyze_trace_comprehensive` to get full trace details.
+- **Comparison**: Compares baseline vs target traces for regressions.
+- **Diagnostics**: Identifies critical path, bottlenecks, and error causes.
+- **Statistics**: Detects anomalies using Z-scores.
+
+Tools: analyze_trace_comprehensive, compare_span_timings, analyze_critical_path
+
+Use when: You need detailed analysis of one or more traces, or need to compare them.""",
+    instruction=TRACE_ANALYST_PROMPT,
+    tools=[
+        analyze_trace_comprehensive,
+        compare_span_timings,
+        analyze_critical_path,
+        calculate_critical_path_contribution,
+        find_bottleneck_services,
+        fetch_trace,  # Kept as fallback
+        compare_time_periods,  # For context
+        detect_latency_anomalies,
+        detect_all_sre_patterns,
+        detect_retry_storm,
+        detect_cascading_timeout,
+        detect_connection_pool_issues,
+    ],
+)
 
 # Stage 0: Aggregate Analyzer
 aggregate_analyzer = LlmAgent(
@@ -315,162 +183,5 @@ aggregate_analyzer = LlmAgent(
         build_service_dependency_graph,
         discover_telemetry_sources,
         list_traces,
-    ],
-)
-
-# Stage 1: Triage Analyzers
-latency_analyzer = LlmAgent(
-    name="latency_analyzer",
-    model="gemini-2.5-flash",
-    description="""Latency Analysis Specialist - Compares span timing between baseline and target traces.
-
-Capabilities:
-- Calculate duration for each span in a trace
-- Compare timing between two traces to find slower/faster spans
-- Identify spans with >10% or >50ms latency changes
-- Identify critical path and bottlenecks
-- Report missing or new operations
-
-Tools: fetch_trace, calculate_span_durations, compare_span_timings, analyze_critical_path
-
-Use when: You need to understand what got slower or faster between two requests.""",
-    instruction=LATENCY_ANALYZER_PROMPT,
-    tools=[
-        fetch_trace,
-        calculate_span_durations,
-        compare_span_timings,
-        analyze_critical_path,
-        calculate_critical_path_contribution,
-    ],
-)
-
-error_analyzer = LlmAgent(
-    name="error_analyzer",
-    model="gemini-2.5-flash",
-    description="""Error Detection Specialist - Identifies errors and failures in traces.
-
-Capabilities:
-- Detect HTTP 4xx/5xx status codes in span labels
-- Identify gRPC errors (non-OK status)
-- Find exception and fault indicators in span attributes
-- Compare error patterns between baseline and target traces
-
-Tools: fetch_trace, extract_errors
-
-Use when: You need to find what errors occurred in a trace or compare error patterns.""",
-    instruction=ERROR_ANALYZER_PROMPT,
-    tools=[fetch_trace, extract_errors],
-)
-
-structure_analyzer = LlmAgent(
-    name="structure_analyzer",
-    model="gemini-2.5-flash",
-    description="""Structure Analysis Specialist - Compares call graph topology between traces.
-
-Capabilities:
-- Build hierarchical call tree from parent-child span relationships
-- Identify missing operations (spans in baseline but not target)
-- Detect new operations (spans in target but not baseline)
-- Track changes in call tree depth and fan-out
-
-Tools: fetch_trace, build_call_graph, find_structural_differences
-
-Use when: You need to understand if the code path or service topology changed.""",
-    instruction=STRUCTURE_ANALYZER_PROMPT,
-    tools=[fetch_trace, build_call_graph, find_structural_differences],
-)
-
-statistics_analyzer = LlmAgent(
-    name="statistics_analyzer",
-    model="gemini-2.5-flash",
-    description="""Statistical Analysis Specialist - Computes distributions, percentiles, and detects anomalies.
-
-Capabilities:
-- Calculate P50/P90/P95/P99 latency percentiles across multiple traces
-- Detect anomalies using z-score analysis (configurable threshold)
-- Identify critical path (sequence determining total latency)
-- Aggregate statistics by service name
-- Detect high-variability and bimodal latency patterns
-
-Tools: fetch_trace, calculate_span_durations
-
-Use when: You need statistical analysis, percentile distributions, or anomaly detection.""",
-    instruction=STATISTICS_ANALYZER_PROMPT,
-    tools=[
-        fetch_trace,
-        calculate_span_durations,
-        compute_latency_statistics,
-        detect_latency_anomalies,
-    ],
-)
-
-# Stage 2: Deep Dive Analyzers
-causality_analyzer = LlmAgent(
-    name="causality_analyzer",
-    model="gemini-2.5-flash",
-    description="""Root Cause Analysis Specialist - Identifies the origin of performance issues.
-
-Capabilities:
-- Distinguish ROOT CAUSES from VICTIMS (spans slow due to dependencies)
-- Track slowdown propagation through the call tree
-- Analyze parent-child relationships to determine blame
-- Provide confidence scores for each hypothesis
-- Map how issues cascade through the system
-- Correlate traces with logs and metrics
-
-Tools: fetch_trace, perform_causal_analysis, analyze_critical_path, find_structural_differences
-
-Use when: You need to find WHY something got slow, not just WHAT got slow.""",
-    instruction=CAUSALITY_ANALYZER_PROMPT,
-    tools=[
-        fetch_trace,
-        perform_causal_analysis,
-        build_call_graph,
-        correlate_logs_with_trace,
-        build_cross_signal_timeline,
-        correlate_trace_with_metrics,
-        analyze_upstream_downstream_impact,
-    ],
-)
-
-service_impact_analyzer = LlmAgent(
-    name="service_impact_analyzer",
-    model="gemini-2.5-flash",
-    description="""Impact Assessor - Assesses blast radius and service dependencies.
-
-Capabilities:
-- Map upstream (calling) and downstream (called) dependencies
-- Identify "Blast Radius" of a failure
-- Detect circular dependencies
-- Assess business impact based on affected services
-
-Tools: build_service_dependency_graph, analyze_upstream_downstream_impact
-
-Use when: You need to know 'Who else is broken?' or 'How bad is this?'.""",
-    instruction=SERVICE_IMPACT_ANALYZER_PROMPT,
-    tools=[
-        fetch_trace,
-        build_call_graph,
-        build_service_dependency_graph,
-        analyze_upstream_downstream_impact,
-        detect_circular_dependencies,
-    ],
-)
-
-# Stage 2: Specialist Experts
-resiliency_architect = LlmAgent(
-    name="resiliency_architect",
-    model="gemini-2.5-flash",
-    description="Detects architectural risks like retry storms and cascading failures.",
-    instruction=RESILIENCY_ARCHITECT_PROMPT,
-    tools=[
-        fetch_trace,
-        build_call_graph,
-        detect_circular_dependencies,
-        calculate_critical_path_contribution,
-        detect_retry_storm,
-        detect_cascading_timeout,
-        detect_connection_pool_issues,
-        detect_all_sre_patterns,
     ],
 )

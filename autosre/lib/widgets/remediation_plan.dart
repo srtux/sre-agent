@@ -154,15 +154,9 @@ class _RemediationPlanWidgetState extends State<RemediationPlanWidget>
                 ],
               ),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: riskColor.withValues(alpha: 0.3),
-              ),
+              border: Border.all(color: riskColor.withValues(alpha: 0.3)),
             ),
-            child: Icon(
-              Icons.build_circle,
-              size: 24,
-              color: riskColor,
-            ),
+            child: Icon(Icons.build_circle, size: 24, color: riskColor),
           ),
 
           const SizedBox(width: 14),
@@ -201,9 +195,7 @@ class _RemediationPlanWidgetState extends State<RemediationPlanWidget>
             decoration: BoxDecoration(
               color: riskColor.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: riskColor.withValues(alpha: 0.3),
-              ),
+              border: Border.all(color: riskColor.withValues(alpha: 0.3)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -276,10 +268,7 @@ class _RemediationPlanWidgetState extends State<RemediationPlanWidget>
                 width: (MediaQuery.of(context).size.width - 32) * progress,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [
-                      AppColors.primaryTeal,
-                      AppColors.primaryCyan,
-                    ],
+                    colors: [AppColors.primaryTeal, AppColors.primaryCyan],
                   ),
                   borderRadius: BorderRadius.circular(3),
                   boxShadow: [
@@ -305,8 +294,10 @@ class _RemediationPlanWidgetState extends State<RemediationPlanWidget>
 
     // Stagger animation
     final staggerDelay = index / widget.plan.steps.length;
-    final animValue =
-        ((_animation.value - staggerDelay * 0.3) / 0.7).clamp(0.0, 1.0);
+    final animValue = ((_animation.value - staggerDelay * 0.3) / 0.7).clamp(
+      0.0,
+      1.0,
+    );
 
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 200),
@@ -321,8 +312,8 @@ class _RemediationPlanWidgetState extends State<RemediationPlanWidget>
             borderColor: isCompleted
                 ? AppColors.success.withValues(alpha: 0.3)
                 : isExpanded
-                    ? AppColors.primaryTeal.withValues(alpha: 0.3)
-                    : null,
+                ? AppColors.primaryTeal.withValues(alpha: 0.3)
+                : null,
           ),
           child: Column(
             children: [
@@ -373,7 +364,9 @@ class _RemediationPlanWidgetState extends State<RemediationPlanWidget>
                             border: Border.all(
                               color: isCompleted
                                   ? AppColors.success
-                                  : AppColors.primaryTeal.withValues(alpha: 0.3),
+                                  : AppColors.primaryTeal.withValues(
+                                      alpha: 0.3,
+                                    ),
                             ),
                           ),
                           child: Center(
@@ -488,7 +481,9 @@ class _RemediationPlanWidgetState extends State<RemediationPlanWidget>
                                   ),
                                   decoration: BoxDecoration(
                                     color: isCopied
-                                        ? AppColors.success.withValues(alpha: 0.2)
+                                        ? AppColors.success.withValues(
+                                            alpha: 0.2,
+                                          )
                                         : Colors.white.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(6),
                                   ),

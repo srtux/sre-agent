@@ -81,7 +81,9 @@ class SessionSummary {
   String get formattedDate {
     if (updatedAt == null) return '';
     try {
-      final date = DateTime.fromMillisecondsSinceEpoch((updatedAt! * 1000).toInt());
+      final date = DateTime.fromMillisecondsSinceEpoch(
+        (updatedAt! * 1000).toInt(),
+      );
       final now = DateTime.now();
       final diff = now.difference(date);
       if (diff.inDays == 0) {
@@ -121,9 +123,11 @@ class Session {
       userId: json['user_id'] as String? ?? 'default',
       state: json['state'] as Map<String, dynamic>?,
       lastUpdateTime: (json['last_update_time'] as num?)?.toDouble(),
-      messages: (json['messages'] as List<dynamic>?)
-          ?.map((m) => SessionMessage.fromJson(m as Map<String, dynamic>))
-          .toList() ?? [],
+      messages:
+          (json['messages'] as List<dynamic>?)
+              ?.map((m) => SessionMessage.fromJson(m as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
   }
 
@@ -134,7 +138,9 @@ class Session {
     if (title != null && title!.isNotEmpty) return title!;
     if (messages.isNotEmpty) {
       final firstMsg = messages.first.content;
-      return firstMsg.length > 50 ? '${firstMsg.substring(0, 50)}...' : firstMsg;
+      return firstMsg.length > 50
+          ? '${firstMsg.substring(0, 50)}...'
+          : firstMsg;
     }
     return 'New Investigation';
   }
@@ -186,23 +192,26 @@ class SessionService {
     _error.value = null;
 
     try {
-      final effectiveUserId = userId ?? AuthService().currentUser?.email ?? 'default';
+      final effectiveUserId =
+          userId ?? AuthService().currentUser?.email ?? 'default';
 
       http.Client client;
       try {
         client = await AuthService().getAuthenticatedClient();
       } catch (e) {
         if (kDebugMode) {
-          debugPrint('Auth failed in debug mode, falling back to unauthenticated client: $e');
+          debugPrint(
+            'Auth failed in debug mode, falling back to unauthenticated client: $e',
+          );
           client = http.Client();
         } else {
           rethrow;
         }
       }
 
-      final response = await client.get(
-        Uri.parse('$_baseUrl/api/sessions?user_id=$effectiveUserId'),
-      ).timeout(_requestTimeout);
+      final response = await client
+          .get(Uri.parse('$_baseUrl/api/sessions?user_id=$effectiveUserId'))
+          .timeout(_requestTimeout);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -214,9 +223,9 @@ class SessionService {
       } else {
         _error.value = 'Failed to fetch sessions: ${response.statusCode}';
       }
-    } catch (e) {
+    } catch (e, stack) {
       _error.value = 'Error fetching sessions: $e';
-      debugPrint('SessionService error: $e');
+      debugPrint('SessionService error: $e\n$stack');
     } finally {
       _isLoading.value = false;
     }
@@ -229,29 +238,34 @@ class SessionService {
     String? projectId,
   }) async {
     try {
-      final effectiveUserId = userId ?? AuthService().currentUser?.email ?? 'default';
+      final effectiveUserId =
+          userId ?? AuthService().currentUser?.email ?? 'default';
 
       http.Client client;
       try {
         client = await AuthService().getAuthenticatedClient();
       } catch (e) {
         if (kDebugMode) {
-           debugPrint('Auth failed in debug mode, falling back to unauthenticated client: $e');
-           client = http.Client();
+          debugPrint(
+            'Auth failed in debug mode, falling back to unauthenticated client: $e',
+          );
+          client = http.Client();
         } else {
-           rethrow;
+          rethrow;
         }
       }
 
-      final response = await client.post(
-        Uri.parse('$_baseUrl/api/sessions'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'user_id': effectiveUserId,
-          if (title != null) 'title': title,
-          if (projectId != null) 'project_id': projectId,
-        }),
-      ).timeout(_requestTimeout);
+      final response = await client
+          .post(
+            Uri.parse('$_baseUrl/api/sessions'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'user_id': effectiveUserId,
+              if (title != null) 'title': title,
+              if (projectId != null) 'project_id': projectId,
+            }),
+          )
+          .timeout(_requestTimeout);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -286,10 +300,12 @@ class SessionService {
 
       http.Client client;
       try {
-       client = await AuthService().getAuthenticatedClient();
+        client = await AuthService().getAuthenticatedClient();
       } catch (e) {
         if (kDebugMode) {
-          debugPrint('Auth failed in debug mode, falling back to unauthenticated client: $e');
+          debugPrint(
+            'Auth failed in debug mode, falling back to unauthenticated client: $e',
+          );
           client = http.Client();
         } else {
           rethrow;
@@ -307,9 +323,13 @@ class SessionService {
       // @app.get("/api/sessions/{session_id}")
       // async def get_session(session_id: str, user_id: str = "default")
 
-      final response = await client.get(
-        Uri.parse('$_baseUrl/api/sessions/$sessionId?user_id=$effectiveUserId'),
-      ).timeout(_requestTimeout);
+      final response = await client
+          .get(
+            Uri.parse(
+              '$_baseUrl/api/sessions/$sessionId?user_id=$effectiveUserId',
+            ),
+          )
+          .timeout(_requestTimeout);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -334,16 +354,22 @@ class SessionService {
         client = await AuthService().getAuthenticatedClient();
       } catch (e) {
         if (kDebugMode) {
-          debugPrint('Auth failed in debug mode, falling back to unauthenticated client: $e');
+          debugPrint(
+            'Auth failed in debug mode, falling back to unauthenticated client: $e',
+          );
           client = http.Client();
         } else {
           rethrow;
         }
       }
 
-      final response = await client.delete(
-        Uri.parse('$_baseUrl/api/sessions/$sessionId?user_id=$effectiveUserId'),
-      ).timeout(_requestTimeout);
+      final response = await client
+          .delete(
+            Uri.parse(
+              '$_baseUrl/api/sessions/$sessionId?user_id=$effectiveUserId',
+            ),
+          )
+          .timeout(_requestTimeout);
 
       if (response.statusCode == 200) {
         // Remove from list
@@ -378,20 +404,22 @@ class SessionService {
         client = await AuthService().getAuthenticatedClient();
       } catch (e) {
         if (kDebugMode) {
-          debugPrint('Auth failed in debug mode, falling back to unauthenticated client: $e');
+          debugPrint(
+            'Auth failed in debug mode, falling back to unauthenticated client: $e',
+          );
           client = http.Client();
         } else {
           rethrow;
         }
       }
 
-      final response = await client.patch(
-        Uri.parse('$_baseUrl/api/sessions/$sessionId'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'title': newTitle,
-        }),
-      ).timeout(_requestTimeout);
+      final response = await client
+          .patch(
+            Uri.parse('$_baseUrl/api/sessions/$sessionId'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'title': newTitle}),
+          )
+          .timeout(_requestTimeout);
 
       if (response.statusCode == 200) {
         // Update list locally

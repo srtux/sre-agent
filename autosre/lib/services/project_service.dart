@@ -50,10 +50,15 @@ typedef ClientFactory = Future<http.Client> Function();
 
 /// Service for managing GCP project selection and fetching.
 class ProjectService {
-  static final ProjectService _instance = ProjectService._internal();
+  static ProjectService? _mockInstance;
+  static ProjectService get instance => _mockInstance ?? _internalInstance;
+  static final ProjectService _internalInstance = ProjectService._internal();
+
+  @visibleForTesting
+  static set mockInstance(ProjectService? mock) => _mockInstance = mock;
 
   /// Default factory returns the shared singleton.
-  factory ProjectService() => _instance;
+  factory ProjectService() => instance;
 
   /// Creates a new, non-singleton instance.
   ///
@@ -61,21 +66,24 @@ class ProjectService {
   /// isolated instance that can be safely disposed without affecting
   /// the global singleton.
   ProjectService.newInstance({ClientFactory? clientFactory})
-      : this._internal(clientFactory: clientFactory);
+    : this._internal(clientFactory: clientFactory);
 
   ProjectService._internal({ClientFactory? clientFactory})
-      : _clientFactory = clientFactory ??
-            (() async {
-              try {
-                return await AuthService().getAuthenticatedClient();
-              } catch (e) {
-                if (kDebugMode) {
-                  debugPrint('Auth failed in debug mode, falling back to unauthenticated client: $e');
-                  return http.Client();
-                }
-                rethrow;
+    : _clientFactory =
+          clientFactory ??
+          (() async {
+            try {
+              return await AuthService.instance.getAuthenticatedClient();
+            } catch (e) {
+              if (kDebugMode) {
+                debugPrint(
+                  'Auth failed in debug mode, falling back to unauthenticated client: $e',
+                );
+                return http.Client();
               }
-            });
+              rethrow;
+            }
+          });
 
   final ClientFactory _clientFactory;
 
@@ -131,13 +139,13 @@ class ProjectService {
       final savedProjectId = prefs.getString('selected_project_id');
 
       if (savedProjectId != null && savedProjectId.isNotEmpty) {
-          // Find in projects list or create new
-          final project = _projects.value.firstWhere(
-            (p) => p.projectId == savedProjectId,
-            orElse: () => GcpProject(projectId: savedProjectId),
-          );
-          _selectedProject.value = project;
-          return;
+        // Find in projects list or create new
+        final project = _projects.value.firstWhere(
+          (p) => p.projectId == savedProjectId,
+          orElse: () => GcpProject(projectId: savedProjectId),
+        );
+        _selectedProject.value = project;
+        return;
       }
 
       // Fallback to backend preference if local not found (optional, depending on migration)
@@ -252,9 +260,7 @@ class ProjectService {
           : Uri.parse(_projectsUrl);
 
       debugPrint('📡 ProjectService: Sending request to $uri');
-      final response = await client
-          .get(uri)
-          .timeout(_requestTimeout);
+      final response = await client.get(uri).timeout(_requestTimeout);
 
       debugPrint('📥 ProjectService: Response status ${response.statusCode}');
       if (response.statusCode != 200) {
@@ -295,9 +301,9 @@ class ProjectService {
       } else {
         _error.value = 'Failed to fetch projects: ${response.statusCode}';
       }
-    } catch (e) {
+    } catch (e, stack) {
       _error.value = 'Error fetching projects: $e';
-      debugPrint('ProjectService error: $e');
+      debugPrint('ProjectService error: $e\n$stack');
       debugPrint('🔥 ProjectService Exception: $e');
     } finally {
       _isLoading.value = false;
@@ -343,7 +349,7 @@ class ProjectService {
   void dispose() {
     // Only allow disposal for non-singleton instances to avoid disposing
     // global notifiers that may still be in use elsewhere.
-    if (identical(this, _instance)) {
+    if (identical(this, _internalInstance)) {
       debugPrint('ProjectService.dispose() called on singleton; ignoring.');
       return;
     }

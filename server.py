@@ -39,6 +39,7 @@ import logging
 import os
 import uuid
 from collections.abc import AsyncGenerator
+from datetime import datetime, timezone
 from typing import Any
 
 import nest_asyncio
@@ -54,6 +55,12 @@ from google.adk.cli.fast_api import get_fast_api_app
 from pydantic import BaseModel
 
 from sre_agent.agent import root_agent
+from sre_agent.auth import (
+    SESSION_STATE_ACCESS_TOKEN_KEY,
+    SESSION_STATE_PROJECT_ID_KEY,
+    get_current_credentials_or_none,
+    get_current_project_id,
+)
 from sre_agent.services import get_session_service, get_storage_service
 from sre_agent.suggestions import generate_contextual_suggestions
 from sre_agent.tools import (
@@ -427,70 +434,9 @@ async def chat_agent(request: AgentRequest) -> StreamingResponse:
                                 yield evt_str + "\n"
 
                             # 2. Widget visualization
-                            if tool_name in TOOL_WIDGET_MAP:
-                                component_name = TOOL_WIDGET_MAP[tool_name]
-                                surface_id = str(uuid.uuid4())
-
-                                # Begin Rendering
-                                yield (
-                                    json.dumps(
-                                        {
-                                            "type": "a2ui",
-                                            "message": {
-                                                "beginRendering": {
-                                                    "surfaceId": surface_id,
-                                                    "root": f"{tool_name}-viz-root",
-                                                    "catalogId": "sre-catalog",
-                                                }
-                                            },
-                                        }
-                                    )
-                                    + "\n"
-                                )
-
-                                # Transform data
-                                data = result
-                                if isinstance(result, str):
-                                    try:
-                                        data = json.loads(result)
-                                    except json.JSONDecodeError:
-                                        pass
-
-                                if isinstance(data, dict):
-                                    if component_name == "x-sre-trace-waterfall":
-                                        data = genui_adapter.transform_trace(data)
-                                    elif component_name == "x-sre-metric-chart":
-                                        data = genui_adapter.transform_metrics(data)
-                                    elif component_name == "x-sre-log-pattern-viewer":
-                                        if "top_patterns" in data:
-                                            data = data["top_patterns"]
-                                    elif component_name == "x-sre-log-entries-viewer":
-                                        data = genui_adapter.transform_log_entries(data)
-                                    elif component_name == "x-sre-remediation-plan":
-                                        data = genui_adapter.transform_remediation(data)
-
-                                # Update Surface
-                                yield (
-                                    json.dumps(
-                                        {
-                                            "type": "a2ui",
-                                            "message": {
-                                                "surfaceUpdate": {
-                                                    "surfaceId": surface_id,
-                                                    "components": [
-                                                        {
-                                                            "id": f"{tool_name}-viz-root",
-                                                            "component": {
-                                                                component_name: data
-                                                            },
-                                                        }
-                                                    ],
-                                                }
-                                            },
-                                        }
-                                    )
-                                    + "\n"
-                                )
+                            widget_events = _create_widget_events(tool_name, result)
+                            for evt_str in widget_events:
+                                yield evt_str + "\n"
 
             except Exception as e:
                 logger.error(f"Error in agent run: {e}", exc_info=True)
@@ -1306,9 +1252,15 @@ def _create_tool_response_events(
             pass
 
     if isinstance(result, dict):
-        if "error" in result:
+        if "error" in result or result.get("status") == "error":
             status = "error"
-            formatted_result = result["error"]
+            # Extract error message from either "error" or "message" or "detail"
+            formatted_result = (
+                result.get("error")
+                or result.get("message")
+                or result.get("detail")
+                or str(result)
+            )
             if "error_type" in result:
                 formatted_result = f"[{result['error_type']}] {formatted_result}"
 
@@ -1399,6 +1351,7 @@ def _create_tool_response_events(
 TOOL_WIDGET_MAP = {
     "fetch_trace": "x-sre-trace-waterfall",
     "analyze_critical_path": "x-sre-trace-waterfall",
+    "analyze_trace_comprehensive": "x-sre-trace-waterfall",
     "query_promql": "x-sre-metric-chart",
     "list_time_series": "x-sre-metric-chart",
     "extract_log_patterns": "x-sre-log-pattern-viewer",
@@ -1406,6 +1359,8 @@ TOOL_WIDGET_MAP = {
     "list_log_entries": "x-sre-log-entries-viewer",
     "get_logs_for_trace": "x-sre-log-entries-viewer",
     "mcp_list_log_entries": "x-sre-log-entries-viewer",
+    "get_golden_signals": "x-sre-metrics-dashboard",
+    "get_workload_health_summary": "x-sre-log-entries-viewer",
     "generate_remediation_suggestions": "x-sre-remediation-plan",
 }
 
@@ -1435,19 +1390,47 @@ def _create_widget_events(tool_name: str, result: Any) -> list[str]:
             logger.warning(f"Failed to parse widget result as JSON: {e}")
             return []
 
+    # Note: We no longer skip on error here because we want specialized widgets
+    # to show their own high-fidelity error states via genui_adapter transformations.
+
     # Apply data transformations to match Flutter widget expectations
-    if isinstance(data, dict):
-        if component_name == "x-sre-trace-waterfall":
+    if isinstance(data, dict | list):
+        logger.debug(
+            f"📊 Transforming data for widget {component_name} (tool={tool_name})"
+        )
+
+        if component_name == "x-sre-trace-waterfall" and isinstance(data, dict):
             data = genui_adapter.transform_trace(data)
             logger.debug(f"Transformed trace data: {len(data.get('spans', []))} spans")
         elif component_name == "x-sre-metric-chart":
             data = genui_adapter.transform_metrics(data)
-        elif component_name == "x-sre-log-pattern-viewer":
+        elif component_name == "x-sre-metrics-dashboard" and isinstance(data, dict):
+            data = genui_adapter.transform_golden_signals(data)
+        elif component_name == "x-sre-log-pattern-viewer" and isinstance(data, dict):
             if "top_patterns" in data:
                 data = data["top_patterns"]
         elif component_name == "x-sre-log-entries-viewer":
+            if tool_name == "get_workload_health_summary" and isinstance(data, dict):
+                # Fake logs from workload health summary
+                logs = []
+                for wl in data.get("workloads", []):
+                    logs.append(
+                        {
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                            "severity": wl.get("status", "INFO"),
+                            "textPayload": f"Workload {wl.get('name')} state: {wl.get('status')}. Issues: {', '.join(wl.get('issues', []))}",
+                            "resource": {
+                                "type": "k8s_workload",
+                                "labels": {"name": wl.get("name")},
+                            },
+                        }
+                    )
+                data = {"entries": logs}
             data = genui_adapter.transform_log_entries(data)
-        elif component_name == "x-sre-remediation-plan":
+            logger.debug(
+                f"Transformed log entries: {len(data.get('entries', []))} entries"
+            )
+        elif component_name == "x-sre-remediation-plan" and isinstance(data, dict):
             data = genui_adapter.transform_remediation(data)
 
     events = [
@@ -1481,6 +1464,10 @@ def _create_widget_events(tool_name: str, result: Any) -> list[str]:
         ),
     ]
 
+    logger.info(
+        f"🎨 Visualization Outcome: {component_name} (Surface: {surface_id}) | "
+        f"{'Contains Error' if isinstance(data, dict) and 'error' in data else 'Success'}"
+    )
     return events
 
 
@@ -1595,15 +1582,57 @@ async def genui_chat(
                 # Instantiate remote agent
                 remote_agent = reasoning_engines.ReasoningEngine(remote_agent_id)
 
+                # Extract user credentials from context to pass to Agent Engine
+                # This enables End User Identity Credential (EIC) propagation
+                user_access_token: str | None = None
+                user_creds = get_current_credentials_or_none()
+                if user_creds and hasattr(user_creds, "token") and user_creds.token:
+                    user_access_token = user_creds.token
+                    logger.info("Passing user credentials to Agent Engine via session")
+
+                # Get project ID from context
+                effective_project_id = get_current_project_id() or project_id
+
+                # Build config with user credentials for session state
+                # ADK tools can read these from session.state
+                stream_config: dict[str, Any] = {}
+                if user_access_token or effective_project_id:
+                    # Include credentials in session state via configurable
+                    session_state_delta: dict[str, Any] = {}
+                    if user_access_token:
+                        session_state_delta[SESSION_STATE_ACCESS_TOKEN_KEY] = (
+                            user_access_token
+                        )
+                    if effective_project_id:
+                        session_state_delta[SESSION_STATE_PROJECT_ID_KEY] = (
+                            effective_project_id
+                        )
+
+                    # Note: ADK agents receive state via session
+                    # The state_delta approach updates the session before the agent runs
+                    stream_config = {
+                        "configurable": {
+                            "session_id": active_session_id,
+                            "state_delta": session_state_delta,
+                        }
+                    }
+
                 # Use streaming API if available, otherwise fall back to query
                 # The stream() method provides event-by-event streaming for tool calls
                 if hasattr(remote_agent, "stream"):
-                    logger.info("Using Remote Agent streaming API")
-                    # Stream events from remote agent
-                    async for event in remote_agent.stream(
-                        input=user_message,
-                        session_id=active_session_id,
-                    ):
+                    logger.info(
+                        f"Using Remote Agent streaming API (user_creds={user_access_token is not None})"
+                    )
+                    # Stream events from remote agent with user context
+                    # Pass config to propagate user credentials to session state
+                    stream_kwargs: dict[str, Any] = {
+                        "input": user_message,
+                        "session_id": active_session_id,
+                    }
+                    if stream_config:
+                        stream_kwargs["config"] = stream_config
+
+                    async for event in remote_agent.stream(**stream_kwargs):
                         # Process events the same way as local agent
                         if not event.content or not event.content.parts:
                             continue
@@ -1640,104 +1669,33 @@ async def genui_chat(
 
                                 result = fp.response
 
-                                # Update tool log using shared helper
+                                # 1. Update tool log using shared helper
                                 _, events = _create_tool_response_events(
                                     tool_name, result, pending_tool_calls
                                 )
                                 for event in events:
                                     yield event + "\n"
 
-                                # Widget visualization (with transforms)
-                                if tool_name in TOOL_WIDGET_MAP:
-                                    component_name = TOOL_WIDGET_MAP[tool_name]
-                                    surface_id = str(uuid.uuid4())
+                                # 2. Widget visualization (if applicable) using shared helper
+                                widget_events = _create_widget_events(tool_name, result)
+                                for event in widget_events:
+                                    yield event + "\n"
 
-                                    yield (
-                                        json.dumps(
-                                            {
-                                                "type": "a2ui",
-                                                "message": {
-                                                    "beginRendering": {
-                                                        "surfaceId": surface_id,
-                                                        "root": f"{tool_name}-viz-root",
-                                                        "catalogId": "sre-catalog",
-                                                    }
-                                                },
-                                            }
-                                        )
-                                        + "\n"
-                                    )
-
-                                    data = result
-                                    if isinstance(result, str):
-                                        try:
-                                            data = json.loads(result)
-                                        except json.JSONDecodeError as e:
-                                            logger.warning(
-                                                f"Failed to parse widget result as JSON: {e}"
-                                            )
-
-                                    if isinstance(data, dict | list):
-                                        if (
-                                            isinstance(data, dict)
-                                            and component_name
-                                            == "x-sre-trace-waterfall"
-                                        ):
-                                            data = genui_adapter.transform_trace(data)
-                                        elif component_name == "x-sre-metric-chart":
-                                            data = genui_adapter.transform_metrics(data)
-                                        elif (
-                                            component_name == "x-sre-log-pattern-viewer"
-                                            and isinstance(data, dict)
-                                        ):
-                                            if "top_patterns" in data:
-                                                data = data["top_patterns"]
-                                        elif (
-                                            component_name == "x-sre-log-entries-viewer"
-                                        ):
-                                            data = genui_adapter.transform_log_entries(
-                                                data
-                                            )
-                                        elif (
-                                            isinstance(data, dict)
-                                            and component_name
-                                            == "x-sre-remediation-plan"
-                                        ):
-                                            data = genui_adapter.transform_remediation(
-                                                data
-                                            )
-
-                                    yield (
-                                        json.dumps(
-                                            {
-                                                "type": "a2ui",
-                                                "message": {
-                                                    "surfaceUpdate": {
-                                                        "surfaceId": surface_id,
-                                                        "components": [
-                                                            {
-                                                                "id": f"{tool_name}-viz-root",
-                                                                "component": {
-                                                                    component_name: data
-                                                                },
-                                                            }
-                                                        ],
-                                                    }
-                                                },
-                                            }
-                                        )
-                                        + "\n"
-                                    )
                     return
                 else:
                     # Fallback to blocking query if streaming not available
                     logger.warning(
                         "Remote Agent streaming not available, using blocking query"
                     )
-                    response = remote_agent.query(  # type: ignore[attr-defined]
-                        input=user_message,
-                        session_id=active_session_id,
-                    )
+                    # Build query kwargs with credentials config
+                    query_kwargs: dict[str, Any] = {
+                        "input": user_message,
+                        "session_id": active_session_id,
+                    }
+                    if stream_config:
+                        query_kwargs["config"] = stream_config
+
+                    response = remote_agent.query(**query_kwargs)  # type: ignore[attr-defined]
 
                     if response:
                         response_text = str(response)
@@ -1939,83 +1897,18 @@ async def genui_chat(
 
                         result = fp.response
 
-                        # Update tool log using shared helper
+                        # 1. Update tool log using shared helper
                         _, events = _create_tool_response_events(
                             tool_name, result, pending_tool_calls
                         )
                         for event in events:
                             yield event + "\n"
 
-                        # Widget visualization (with transforms)
-                        if tool_name in TOOL_WIDGET_MAP:
-                            component_name = TOOL_WIDGET_MAP[tool_name]
-                            surface_id = str(uuid.uuid4())
+                        # 2. Widget visualization (if applicable) using shared helper
+                        widget_events = _create_widget_events(tool_name, result)
+                        for event in widget_events:
+                            yield event + "\n"
 
-                            # Begin Rendering
-                            yield (
-                                json.dumps(
-                                    {
-                                        "type": "a2ui",
-                                        "message": {
-                                            "beginRendering": {
-                                                "surfaceId": surface_id,
-                                                "root": f"{tool_name}-viz-root",
-                                                "catalogId": "sre-catalog",
-                                            }
-                                        },
-                                    }
-                                )
-                                + "\n"
-                            )
-
-                            # Transform data for the specific widget
-                            data = result
-                            if isinstance(result, str):
-                                try:
-                                    data = json.loads(result)
-                                except json.JSONDecodeError as e:
-                                    logger.warning(
-                                        f"Failed to parse widget result as JSON: {e}"
-                                    )
-
-                            # Ensure data is a dictionary before transformation
-                            if isinstance(data, dict):
-                                # Data Transformation (Adapting tool outputs to Flutter models)
-                                if component_name == "x-sre-trace-waterfall":
-                                    data = genui_adapter.transform_trace(data)
-                                elif component_name == "x-sre-metric-chart":
-                                    data = genui_adapter.transform_metrics(data)
-                                elif component_name == "x-sre-log-pattern-viewer":
-                                    # For Log patterns, we just need the list of patterns
-                                    if "top_patterns" in data:
-                                        data = data["top_patterns"]
-                                elif component_name == "x-sre-log-entries-viewer":
-                                    data = genui_adapter.transform_log_entries(data)
-                                elif component_name == "x-sre-remediation-plan":
-                                    data = genui_adapter.transform_remediation(data)
-
-                            # Surface Update
-                            yield (
-                                json.dumps(
-                                    {
-                                        "type": "a2ui",
-                                        "message": {
-                                            "surfaceUpdate": {
-                                                "surfaceId": surface_id,
-                                                "components": [
-                                                    {
-                                                        "id": f"{tool_name}-viz-root",
-                                                        "component": {
-                                                            component_name: data
-                                                        },
-                                                    }
-                                                ],
-                                            }
-                                        },
-                                    }
-                                )
-                                + "\n"
-                            )
         except Exception as e:
             logger.error(f"Error during agent execution: {e}", exc_info=True)
             # Yield error for pending tool calls

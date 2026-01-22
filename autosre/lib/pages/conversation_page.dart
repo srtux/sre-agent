@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter/rendering.dart';
 import 'package:genui/genui.dart';
 import 'package:provider/provider.dart';
 
@@ -40,6 +41,7 @@ class _ConversationPageState extends State<ConversationPage>
   final FocusNode _focusNode = FocusNode();
   final ProjectService _projectService = ProjectService();
   final SessionService _sessionService = SessionService();
+  final GlobalKey _inputKey = GlobalKey(debugLabel: 'prompt_input');
 
   late AnimationController _typingController;
 
@@ -110,8 +112,8 @@ class _ConversationPageState extends State<ConversationPage>
     _conversation = GenUiConversation(
       a2uiMessageProcessor: _messageProcessor,
       contentGenerator: _contentGenerator,
-      onSurfaceAdded: (update) => _scrollToBottom(),
-      onSurfaceUpdated: (update) {},
+      onSurfaceAdded: (update) => _scrollToBottom(force: true),
+      onSurfaceUpdated: (update) => _scrollToBottom(),
       onTextResponse: (text) => _scrollToBottom(),
     );
 
@@ -194,7 +196,7 @@ class _ConversationPageState extends State<ConversationPage>
               history;
           // Scroll to bottom after frame
           WidgetsBinding.instance.addPostFrameCallback(
-            (_) => _scrollToBottom(),
+            (_) => _scrollToBottom(force: true),
           );
         }
       } catch (e) {
@@ -206,15 +208,46 @@ class _ConversationPageState extends State<ConversationPage>
     StatusToast.show(context, 'Loaded session: ${session.displayTitle}');
   }
 
-  void _scrollToBottom() {
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 400),
-          curve: Curves.easeOutCubic,
-        );
-      }
+  void _scrollToBottom({bool force = false}) {
+    if (!mounted || !_scrollController.hasClients) return;
+
+    final position = _scrollController.position;
+    final double extentAfter = position.extentAfter;
+    final double maxScroll = position.maxScrollExtent;
+
+    // 1. Check if user is actively manual scrolling
+    final bool isUserScrolling = position.userScrollDirection != ScrollDirection.idle;
+
+    // 2. Threshold to detect if we should "stick" to the bottom.
+    // We use a larger threshold (300px) to ensure we don't lose stickiness
+    // when large blocks of text arrive between frames.
+    final bool isNearBottom = extentAfter < 300.0;
+
+    // 3. Logic to decide whether to scroll:
+    // - Always scroll if forced (e.g. user just sent a message)
+    // - Scroll if we are near the bottom AND the user isn't actively manual scrolling
+    // - Scroll if the list is empty/new
+    if (!force && (isUserScrolling || (!isNearBottom && maxScroll > 0))) {
+      return;
+    }
+
+    // Use addPostFrameCallback to ensure the layout has updated
+    // with the latest message sizes before calculating the target offset.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+
+      final currentMax = _scrollController.position.maxScrollExtent;
+      final currentOffset = _scrollController.offset;
+
+      // If we are already at the bottom (or very close), no need to start a new animation.
+      if ((currentMax - currentOffset).abs() < 5.0) return;
+
+      // Animate smoothly but quickly to the bottom.
+      _scrollController.animateTo(
+        currentMax,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOutCubic,
+      );
     });
   }
 
@@ -222,10 +255,17 @@ class _ConversationPageState extends State<ConversationPage>
     if (_textController.text.trim().isEmpty) return;
     final text = _textController.text;
     _textController.clear();
-    _focusNode.requestFocus();
-
     _conversation.sendRequest(UserMessage.text(text));
-    _scrollToBottom();
+
+    // Request focus after the frame to ensure that if the layout transitioned
+    // from Hero to Conversation state, the new TextField is ready to receive focus.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _focusNode.requestFocus();
+      }
+    });
+
+    _scrollToBottom(force: true);
   }
 
   bool _isSidebarOpen = false;
@@ -824,6 +864,7 @@ class _ConversationPageState extends State<ConversationPage>
       valueListenable: _contentGenerator.isProcessing,
       builder: (context, isProcessing, _) {
         return UnifiedPromptInput(
+          key: _inputKey,
           controller: _textController,
           focusNode: _focusNode,
           isProcessing: isProcessing,
@@ -935,6 +976,7 @@ class _ConversationPageState extends State<ConversationPage>
                   valueListenable: _contentGenerator.isProcessing,
                   builder: (context, isProcessing, child) {
                     return UnifiedPromptInput(
+                      key: _inputKey,
                       controller: _textController,
                       focusNode: _focusNode,
                       isProcessing: isProcessing,
@@ -1077,7 +1119,7 @@ class _MessageItemState extends State<_MessageItem>
     );
 
     _slideAnimation =
-        Tween<Offset>(begin: const Offset(0, 0.15), end: Offset.zero).animate(
+        Tween<Offset>(begin: const Offset(0, 0.015), end: Offset.zero).animate(
           CurvedAnimation(parent: _entryController, curve: Curves.easeOutCubic),
         );
 
@@ -1456,6 +1498,7 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
         _searchQuery = '';
         _searchController.clear();
       });
+      widget.onSearch('');
     }
   }
 
@@ -1557,6 +1600,7 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                                 setDropdownState(() {
                                   _searchQuery = '';
                                 });
+                                widget.onSearch('');
                               },
                             )
                           : null,
@@ -1573,6 +1617,13 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                     onChanged: (value) {
                       setDropdownState(() {
                         _searchQuery = value;
+                      });
+
+                      // Debounce search to avoid too many API calls
+                      _debounceTimer?.cancel();
+                      _debounceTimer =
+                          Timer(const Duration(milliseconds: 500), () {
+                        widget.onSearch(value);
                       });
                     },
                     onSubmitted: (value) {
@@ -1660,7 +1711,23 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                 // Custom project option when search doesn't match
                 if (_searchQuery.isNotEmpty && _filteredProjects.isEmpty)
                   _buildUseCustomProjectOption(_searchQuery, setDropdownState),
-                // Project list
+                // Loading indicator for search
+                if (widget.isLoading && _searchQuery.isNotEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 32),
+                    child: Center(
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            AppColors.primaryTeal,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 // Project list
                 if (_searchQuery.isEmpty && !widget.isLoading) ...[
                   if (widget.error != null)

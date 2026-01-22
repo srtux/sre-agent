@@ -9,45 +9,27 @@ of analysis tools:
 3.  **Cross-Signal Correlation**: Maps log clusters to Trace IDs.
 """
 
-import os
-
-# Determine environment settings for Agent initialization
-import google.auth
-import vertexai
 from google.adk.agents import LlmAgent
 
+from ..prompt import STRICT_ENGLISH_INSTRUCTION
 from ..tools import (
     # BigQuery tools
     analyze_bigquery_log_patterns,
+    # Time period comparison
+    compare_time_periods,
+    # Discovery
+    discover_telemetry_sources,
     # Log tools
     extract_log_patterns,
 )
-from ..tools.analysis.bigquery.otel import compare_time_periods
-from ..tools.discovery.discovery_tool import discover_telemetry_sources
 
-project_id = os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("GCP_PROJECT_ID")
+# Initialize environment (shared across sub-agents)
+from ._init_env import init_sub_agent_env
 
-# Fallback: Try to get project from Application Default Credentials
-if not project_id:
-    try:
-        _, project_id = google.auth.default()
-        if project_id:
-            # Set env vars for downstream tools
-            os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
-            os.environ["GCP_PROJECT_ID"] = project_id
-    except Exception:
-        pass
+init_sub_agent_env()
 
-location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
-use_vertex = os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", "true").lower() == "true"
-
-if use_vertex and project_id:
-    try:
-        vertexai.init(project=project_id, location=location)
-    except Exception:
-        pass
-
-LOG_ANALYST_PROMPT = """
+LOG_ANALYST_PROMPT = f"""
+{STRICT_ENGLISH_INSTRUCTION}
 You are the **Log Analyst** 📜🕵️‍♂️ - The "Log Whisperer".
 
 I don't just read logs; I *feel* them. I find the needle in the stack of needles, and then I tell you exactly why that needle is there. 🪡

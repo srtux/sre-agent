@@ -81,15 +81,18 @@ We use **`uv`** for dependency management and **`poethepoet`** for task automati
 
 ## 📦 Sub-Agent Architecture
 
-The project follows the "Council of Experts" pattern:
+The project follows the "Core Squad" pattern:
 
 1.  **Orchestrator** (`sre_agent/agent.py`):
     - Receives user query.
     - Delegated to specialized sub-agents (`sre_agent/sub_agents/`).
 2.  **Specialists**:
-    - **Trace Squad**: Latency, Error, Structure, Stats.
-    - **Log Squad**: Pattern Extractor.
-    - **Metrics Squad**: Metrics Analyzer.
+    - **Aggregate Analyzer**: "Big Picture" view, statistical baselines, and cross-service correlation.
+    - **Alert Analyst**: Triage and classification of incoming alerts and incident scope.
+    - **Trace Analyst**: Deep-dive latency, error structure, and distributed tracing analysis.
+    - **Metrics Analyzer**: Time-series anomaly detection and Golden Signal analysis.
+    - **Log Analyst**: SQL-based pattern clustering and anomaly extraction.
+    - **Root Cause Analyst**: Causality, dependency mapping, and final diagnosis.
 3.  **Tools**:
     - Located in `sre_agent/tools/`.
     - Divided into `mcp/` (Model Context Protocol) and `clients/` (Direct API).

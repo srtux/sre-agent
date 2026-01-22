@@ -9,10 +9,11 @@ For jsonPayload, we use heuristics to find the main message field:
 3. Field containing common log patterns
 """
 
-import json
 import logging
 import re
 from typing import Any
+
+from ...common import json_dumps
 
 logger = logging.getLogger(__name__)
 
@@ -136,9 +137,8 @@ class LogMessageExtractor:
         if nested_msg:
             return nested_msg.strip()
 
-        # Fallback: Compact JSON representation
         try:
-            compact = json.dumps(payload, separators=(",", ":"))
+            compact = json_dumps(payload, separators=(",", ":"))
             return compact[:500] if len(compact) > 500 else compact
         except Exception:
             return str(payload)[:500]

@@ -14,12 +14,11 @@ References:
 - https://cloud.google.com/blog/products/devops-sre/introducing-the-new-google-cloud-trace-explorer
 """
 
-import json
 import logging
 from typing import Any, cast
 
 from ...clients.trace import fetch_trace_data
-from ...common import adk_tool
+from ...common import adk_tool, json_dumps
 from ...common.telemetry import get_meter, get_tracer
 
 logger = logging.getLogger(__name__)
@@ -570,7 +569,7 @@ LIMIT 20
         }
 
         logger.info("Generated bottleneck services analysis SQL")
-        return json.dumps(result)
+        return json_dumps(result)
 
 
 @adk_tool
@@ -699,4 +698,4 @@ ORDER BY weighted_impact_ms DESC
         logger.info(
             f"Generated critical path contribution SQL for {service_name}/{operation_name}"
         )
-        return json.dumps(result)
+        return json_dumps(result)

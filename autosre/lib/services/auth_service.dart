@@ -1,17 +1,21 @@
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart' as gsi;
-import 'package:googleapis_auth/auth_io.dart';
+import 'package:googleapis_auth/googleapis_auth.dart';
 import 'package:http/http.dart' as http;
 import 'api_client.dart';
 import 'project_service.dart';
 
 /// Service to handle authentication with Google Sign-In
 class AuthService extends ChangeNotifier {
-  static final AuthService _instance = AuthService._internal();
+  static AuthService? _mockInstance;
+  static AuthService get instance => _mockInstance ?? _internalInstance;
+  static final AuthService _internalInstance = AuthService._internal();
 
-  factory AuthService() {
-    return _instance;
-  }
+  @visibleForTesting
+  static set mockInstance(AuthService? mock) => _mockInstance = mock;
+
+  factory AuthService() => instance;
 
   AuthService._internal();
 
@@ -38,17 +42,20 @@ class AuthService extends ChangeNotifier {
     _googleSignIn.authenticationEvents.listen(
       (event) async {
         try {
+          debugPrint('AuthService: Received auth event: ${event.runtimeType}');
           if (event is gsi.GoogleSignInAuthenticationEventSignIn) {
             _currentUser = event.user;
+            debugPrint('AuthService: User signed in: ${_currentUser?.email}');
             await _refreshTokens();
           } else if (event is gsi.GoogleSignInAuthenticationEventSignOut) {
+            debugPrint('AuthService: User signed out');
             _currentUser = null;
             _idToken = null;
             _accessToken = null;
           }
           notifyListeners();
-        } catch (e) {
-          debugPrint('Error handling auth event: $e');
+        } catch (e, stack) {
+          debugPrint('Error handling auth event: $e\n$stack');
         }
       },
       onError: (e) {
@@ -99,41 +106,79 @@ class AuthService extends ChangeNotifier {
 
   /// Refresh auth tokens
   Future<void> _refreshTokens() async {
-    if (_currentUser == null) return;
+    if (_currentUser == null) {
+      debugPrint('AuthService: Skip _refreshTokens because _currentUser is null');
+      return;
+    }
     try {
-      final auth = _currentUser!.authentication;
-      _idToken = auth.idToken;
-      // We need to request proper scopes if not granted?
-      // For now assume basic token is enough or we use authorizeScopes if needed.
-      // But getAuthenticatedClient handles access token.
+      debugPrint('AuthService: Refreshing tokens for ${_currentUser!.email}');
 
-      // Note: accessToken from authentication might be null if scopes weren't authorized securely?
-      // In v7, we might need to use authorizationClient or something for scopes.
-      // But let's see if authentication returns it.
+      // Use dynamic to avoid compiler errors during version mismatch/minification
+      // but wrap in checks to avoid crashes.
+      final dynamic account = _currentUser;
+      final dynamic auth = await account.authentication;
 
-      // Actually, authentication property on account (idToken) is for Identification.
-      // For API access (scopes), we need Authorization.
+      if (auth == null) {
+        debugPrint('AuthService: Warning - authentication property returned null');
+        return;
+      }
 
-    } catch (e) {
-      debugPrint('Error refreshing tokens: $e');
+      try {
+        _idToken = auth.idToken as String?;
+        debugPrint('AuthService: Successfully extracted idToken');
+      } catch (e) {
+        debugPrint('AuthService: Failed to extract idToken: $e');
+      }
+
+      try {
+        // Use dynamic access with catch to handle potential name mangling in production
+        _accessToken = auth.accessToken as String?;
+        if (_accessToken != null) {
+          debugPrint('AuthService: Successfully extracted accessToken from authentication');
+        }
+      } catch (e) {
+        debugPrint('AuthService: accessToken not found on authentication object (expected on some platforms if ID token only): $e');
+      }
+    } catch (e, stack) {
+      debugPrint('Error refreshing tokens: $e\n$stack');
     }
   }
 
   /// Get authenticated HTTP client
   Future<http.Client> getAuthenticatedClient() async {
     if (_currentUser == null) {
+      debugPrint('AuthService: getAuthenticatedClient failed - user not authenticated');
       throw Exception('User not authenticated');
     }
 
     try {
-      // Get authentication credentials (token)
-      final auth = _currentUser!.authentication;
-      // dynamic cast to bypass analyzer error "getter not defined"
-      final token = (auth as dynamic).accessToken as String?;
+      debugPrint('AuthService: Getting auth headers for ${_currentUser!.email}');
+
+      // Attempt to get auth headers. This is the modern way to get an access token.
+      Map<String, String>? headers;
+      try {
+        // Use dynamic to safely access authHeaders which might be problematic in minified web builds
+        final dynamic account = _currentUser;
+        final dynamic headersFuture = account.authHeaders;
+        headers = await headersFuture as Map<String, String>?;
+      } catch (e, stack) {
+        debugPrint('AuthService: Error accessing authHeaders property: $e\n$stack');
+      }
+
+      if (headers == null || headers.isEmpty) {
+        debugPrint('AuthService: Warning - authHeaders is null or empty');
+      } else {
+        debugPrint('AuthService: Successfully obtained ${headers.length} auth headers');
+      }
+
+      final String? token = headers != null ? extractTokenFromHeaders(headers) : _accessToken;
 
       if (token == null) {
-        throw Exception('Failed to obtain access token');
+        debugPrint('AuthService: Failed to obtain access token (Headers=${headers != null}, _accessToken=${_accessToken != null})');
+        throw Exception('Failed to obtain access token. Please ensure you are logged in and have granted necessary permissions.');
       }
+
+      debugPrint('AuthService: Creating authenticated client with token (prefix: ${token.substring(0, min(token.length, 10))}...)');
 
       return ProjectInterceptorClient(
         authenticatedClient(
@@ -148,11 +193,19 @@ class AuthService extends ChangeNotifier {
             _scopes,
           ),
         ),
-        projectService: ProjectService(),
+        projectService: ProjectService.instance,
       );
-    } catch (e) {
-       debugPrint('Error getting authenticated client: $e');
-       rethrow;
+    } catch (e, stack) {
+      debugPrint('AuthService: Exception in getAuthenticatedClient: $e\n$stack');
+      rethrow;
     }
+  }
+
+  /// Helper to extract token from headers (Exposed for testing)
+  static String? extractTokenFromHeaders(Map<String, String> headers) {
+    final authHeader = headers['Authorization'];
+    return authHeader != null && authHeader.startsWith('Bearer ')
+        ? authHeader.substring(7)
+        : authHeader;
   }
 }

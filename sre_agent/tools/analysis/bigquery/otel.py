@@ -20,10 +20,9 @@ Google Cloud Observability OpenTelemetry schema (_AllSpans table):
   - resource: RECORD with attributes (service.name, host.name, etc.)
 """
 
-import json
 import logging
 
-from ...common import adk_tool
+from ...common import adk_tool, json_dumps
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +102,7 @@ LIMIT 50
 
     logger.info(f"Generated Aggregate Analysis SQL:\n{query.strip()}")
 
-    return json.dumps(
+    return json_dumps(
         {
             "analysis_type": "aggregate_metrics",
             "sql_query": query.strip(),
@@ -275,7 +274,7 @@ SELECT * FROM outlier_traces
 ORDER BY selection_reason, duration_ms
 """
     else:
-        return json.dumps(
+        return json_dumps(
             {"error": f"Unknown selection_strategy: {selection_strategy}"}
         )
 
@@ -283,7 +282,7 @@ ORDER BY selection_reason, duration_ms
         f"Generated Exemplar Selection SQL ({selection_strategy}):\n{query.strip()}"
     )
 
-    return json.dumps(
+    return json_dumps(
         {
             "analysis_type": "exemplar_selection",
             "selection_strategy": selection_strategy,
@@ -376,7 +375,7 @@ ORDER BY timestamp
 
     logger.info(f"Generated Log Correlation SQL (trace={trace_id}):\n{query.strip()}")
 
-    return json.dumps(
+    return json_dumps(
         {
             "analysis_type": "log_correlation",
             "trace_id": trace_id,
@@ -480,7 +479,7 @@ ORDER BY period
 
     logger.info(f"Generated Time Period Comparison SQL:\n{query.strip()}")
 
-    return json.dumps(
+    return json_dumps(
         {
             "analysis_type": "time_period_comparison",
             "sql_query": query.strip(),
@@ -537,7 +536,7 @@ def detect_trend_changes(
         metric_calc = "COUNT(*) as metric_value"
         metric_name = "request_count"
     else:
-        return json.dumps(
+        return json_dumps(
             {
                 "error": f"Unknown metric: {metric}. Use p95, p99, error_rate, or throughput"
             }
@@ -589,7 +588,7 @@ ORDER BY time_bucket DESC
 
     logger.info(f"Generated Trend Detection SQL ({metric}):\n{query.strip()}")
 
-    return json.dumps(
+    return json_dumps(
         {
             "analysis_type": "trend_detection",
             "sql_query": query.strip(),

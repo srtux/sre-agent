@@ -64,16 +64,15 @@ def main():
         f"GOOGLE_CLOUD_LOCATION={args.region}",
     ]
 
-    google_client_id = os.getenv("GOOGLE_CLIENT_ID")
-    if google_client_id:
-        env_vars.append(f"GOOGLE_CLIENT_ID={google_client_id}")
-
     if agent_url:
         env_vars.append(f"SRE_AGENT_URL={agent_url}")
         env_vars.append(f"SRE_AGENT_API_URL={agent_url}")
 
     if agent_id:
         env_vars.append(f"SRE_AGENT_ID={agent_id}")
+
+    # Note: GOOGLE_CLIENT_ID is now handled via Secret Manager for security
+    # to avoid plain-text exposure in the GCP Console and deployment logs.
 
     # Grant IAM Permissions automatically
     print("\n🔐 Verifying/Granting IAM Permissions...")
@@ -104,8 +103,8 @@ def main():
             "--memory=1Gi",
             "--timeout=300",
             f"--set-env-vars={','.join(env_vars)}",
-            # Mount the secret as both environment variables to be safe
-            "--set-secrets=GOOGLE_API_KEY=gemini-api-key:latest,GEMINI_API_KEY=gemini-api-key:latest,GOOGLE_GENERATIVE_AI_API_KEY=gemini-api-key:latest",
+            # Mount the secrets as environment variables to be safe
+            "--set-secrets=GOOGLE_API_KEY=gemini-api-key:latest,GEMINI_API_KEY=gemini-api-key:latest,GOOGLE_GENERATIVE_AI_API_KEY=gemini-api-key:latest,GOOGLE_CLIENT_ID=google-client-id:latest",
             f"--project={project_id}",
         ]
 

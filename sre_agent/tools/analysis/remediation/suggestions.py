@@ -8,11 +8,10 @@ Philosophy: "Move from diagnosis to treatment" - don't just tell users
 what's wrong, tell them how to fix it!
 """
 
-import json
 import logging
 from typing import Any
 
-from ...common import adk_tool
+from ...common import adk_tool, json_dumps
 
 logger = logging.getLogger(__name__)
 
@@ -398,7 +397,7 @@ def generate_remediation_suggestions(
 
         if not matched_patterns:
             # Generic suggestions if no pattern matched
-            return json.dumps(
+            return json_dumps(
                 {
                     "matched_patterns": [],
                     "suggestions": [
@@ -466,12 +465,12 @@ def generate_remediation_suggestions(
             ],
         }
 
-        return json.dumps(result, indent=2)
+        return json_dumps(result, indent=2)
 
     except Exception as e:
         error_msg = f"Failed to generate remediation suggestions: {e!s}"
         logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})
 
 
 @adk_tool
@@ -585,7 +584,7 @@ def get_gcloud_commands(
             ]
 
         else:
-            return json.dumps(
+            return json_dumps(
                 {
                     "error": f"Unknown remediation type: {remediation_type}",
                     "available_types": [
@@ -608,12 +607,12 @@ def get_gcloud_commands(
             "warning": "Review commands before executing. Some changes may cause brief service interruption.",
         }
 
-        return json.dumps(result, indent=2)
+        return json_dumps(result, indent=2)
 
     except Exception as e:
         error_msg = f"Failed to generate gcloud commands: {e!s}"
         logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})
 
 
 @adk_tool
@@ -738,12 +737,12 @@ def estimate_remediation_risk(
             ],
         }
 
-        return json.dumps(result, indent=2)
+        return json_dumps(result, indent=2)
 
     except Exception as e:
         error_msg = f"Failed to estimate remediation risk: {e!s}"
         logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})
 
 
 @adk_tool
@@ -882,9 +881,9 @@ def find_similar_past_incidents(
                 "Consider documenting this incident for future reference."
             )
 
-        return json.dumps(result, indent=2)
+        return json_dumps(result, indent=2)
 
     except Exception as e:
         error_msg = f"Failed to find similar incidents: {e!s}"
         logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})

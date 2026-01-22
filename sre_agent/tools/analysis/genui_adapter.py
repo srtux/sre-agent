@@ -23,15 +23,40 @@ COMPONENT_AI_REASONING = "x-sre-ai-reasoning"
 
 def transform_trace(trace_data: dict[str, Any]) -> dict[str, Any]:
     """Transform Trace data for TraceWaterfall widget."""
+    # Unwrap if wrapped in status/result (MCP format)
+    if "status" in trace_data and "result" in trace_data:
+        trace_data = trace_data["result"]
+
+    # Handle error state
+    if isinstance(trace_data, dict) and (
+        "error" in trace_data or trace_data.get("status") == "error"
+    ):
+        err_msg = (
+            trace_data.get("error") or trace_data.get("message") or "Unknown error"
+        )
+        logger.warning(f"❌ Trace transformation error: {err_msg}")
+        return {
+            "trace_id": trace_data.get("trace_id", "unknown"),
+            "spans": [],
+            "error": err_msg,
+        }
+
     trace_id = trace_data.get("trace_id", "unknown")
     spans = []
     for span in trace_data.get("spans", []):
+        # Ensure it's a dict
+        if not isinstance(span, dict):
+            continue
         # Ensure trace_id is present in each span for Flutter SpanInfo model
         span["trace_id"] = trace_id
-        # Map labels to attributes
-        span["attributes"] = span.pop("labels", {})
+        # Map labels to attributes (Flutter model expects 'attributes')
+        if "labels" in span:
+            span["attributes"] = span.pop("labels", {})
+        elif "attributes" not in span:
+            span["attributes"] = {}
+
         # Derive status (Flutter model expects 'OK' or 'ERROR')
-        status_code = span["attributes"].get("/http/status_code", "200")
+        status_code = span.get("attributes", {}).get("/http/status_code", "200")
         span["status"] = "ERROR" if str(status_code).startswith(("4", "5")) else "OK"
         spans.append(span)
     return {"trace_id": trace_id, "spans": spans}
@@ -39,9 +64,34 @@ def transform_trace(trace_data: dict[str, Any]) -> dict[str, Any]:
 
 def transform_metrics(metric_data: Any) -> dict[str, Any]:
     """Transform Metric data for MetricCorrelationChart widget."""
+    # Unwrap if wrapped in status/result (MCP format)
+    if (
+        isinstance(metric_data, dict)
+        and "status" in metric_data
+        and "result" in metric_data
+    ):
+        metric_data = metric_data["result"]
+
+    # Handle error state
+    if isinstance(metric_data, dict) and (
+        "error" in metric_data or metric_data.get("status") == "error"
+    ):
+        err_msg = (
+            metric_data.get("error") or metric_data.get("message") or "Unknown error"
+        )
+        logger.warning(f"❌ Metric transformation error: {err_msg}")
+        return {
+            "metric_name": "Error",
+            "points": [],
+            "labels": {},
+            "error": err_msg,
+        }
+
     # If it's a list from list_time_series, take the first one
     if isinstance(metric_data, list) and metric_data:
         series = metric_data[0]
+        if not isinstance(series, dict):
+            return {"metric_name": "Metric", "points": [], "labels": {}}
         return {
             "metric_name": series.get("metric", {}).get("type", "Metric"),
             "points": series.get("points", []),
@@ -104,6 +154,27 @@ def transform_metrics(metric_data: Any) -> dict[str, Any]:
 
 def transform_remediation(remediation_data: dict[str, Any]) -> dict[str, Any]:
     """Transform Remediation data for RemediationPlanWidget."""
+    # Unwrap if wrapped in status/result (MCP format)
+    if (
+        isinstance(remediation_data, dict)
+        and "status" in remediation_data
+        and "result" in remediation_data
+    ):
+        remediation_data = remediation_data["result"]
+
+    # Handle error state
+    if isinstance(remediation_data, dict) and (
+        "error" in remediation_data or remediation_data.get("status") == "error"
+    ):
+        return {
+            "issue": "Error generating remediation plan",
+            "risk": "unknown",
+            "steps": [],
+            "error": remediation_data.get("error")
+            or remediation_data.get("message")
+            or "Unknown error",
+        }
+
     suggestions = remediation_data.get("suggestions", [])
     steps = []
     for s in suggestions:
@@ -151,6 +222,14 @@ def transform_agent_activity(activity_data: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Dictionary formatted for the AgentActivityCanvas widget.
     """
+    # Unwrap if wrapped in status/result (MCP format)
+    if (
+        isinstance(activity_data, dict)
+        and "status" in activity_data
+        and "result" in activity_data
+    ):
+        activity_data = activity_data["result"]
+
     nodes = []
     for node in activity_data.get("nodes", []):
         nodes.append(
@@ -188,6 +267,14 @@ def transform_service_topology(topology_data: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Dictionary formatted for the ServiceTopologyCanvas widget.
     """
+    # Unwrap if wrapped in status/result (MCP format)
+    if (
+        isinstance(topology_data, dict)
+        and "status" in topology_data
+        and "result" in topology_data
+    ):
+        topology_data = topology_data["result"]
+
     services = []
     for svc in topology_data.get("services", []):
         connections = []
@@ -244,6 +331,14 @@ def transform_incident_timeline(incident_data: dict[str, Any]) -> dict[str, Any]
     Returns:
         Dictionary formatted for the IncidentTimelineCanvas widget.
     """
+    # Unwrap if wrapped in status/result (MCP format)
+    if (
+        isinstance(incident_data, dict)
+        and "status" in incident_data
+        and "result" in incident_data
+    ):
+        incident_data = incident_data["result"]
+
     events = []
     for event in incident_data.get("events", []):
         events.append(
@@ -293,6 +388,14 @@ def transform_metrics_dashboard(dashboard_data: dict[str, Any]) -> dict[str, Any
     Returns:
         Dictionary formatted for the MetricsDashboardCanvas widget.
     """
+    # Unwrap if wrapped in status/result (MCP format)
+    if (
+        isinstance(dashboard_data, dict)
+        and "status" in dashboard_data
+        and "result" in dashboard_data
+    ):
+        dashboard_data = dashboard_data["result"]
+
     metrics = []
     for metric in dashboard_data.get("metrics", []):
         history = []
@@ -325,6 +428,76 @@ def transform_metrics_dashboard(dashboard_data: dict[str, Any]) -> dict[str, Any
         "service_name": dashboard_data.get("service_name"),
         "metrics": metrics,
         "last_updated": dashboard_data.get("last_updated"),
+    }
+
+
+def transform_golden_signals(data: dict[str, Any]) -> dict[str, Any]:
+    """Transform Golden Signals data for MetricsDashboardCanvas widget.
+
+    Args:
+        data: Dictionary from get_golden_signals tool.
+
+    Returns:
+        Dictionary formatted for the MetricsDashboardCanvas widget.
+    """
+    signals = data.get("signals", {})
+    metrics = []
+
+    # Map signals to the dashboard metric format
+    # 1. Latency
+    latency = signals.get("latency", {})
+    metrics.append(
+        {
+            "id": "latency",
+            "name": "Latency",
+            "unit": "ms",
+            "current_value": latency.get("value_ms", 0),
+            "status": latency.get("status", "normal").lower(),
+            "anomaly_description": latency.get("hint"),
+        }
+    )
+
+    # 2. Traffic
+    traffic = signals.get("traffic", {})
+    metrics.append(
+        {
+            "id": "traffic",
+            "name": "Traffic",
+            "unit": "req/s",
+            "current_value": traffic.get("requests_per_second", 0),
+            "status": traffic.get("status", "normal").lower(),
+        }
+    )
+
+    # 3. Errors
+    errors = signals.get("errors", {})
+    metrics.append(
+        {
+            "id": "errors",
+            "name": "Errors",
+            "unit": "%",
+            "current_value": errors.get("error_rate_percent", 0),
+            "status": errors.get("status", "normal").lower(),
+        }
+    )
+
+    # 4. Saturation
+    saturation = signals.get("saturation", {})
+    metrics.append(
+        {
+            "id": "saturation",
+            "name": "Saturation",
+            "unit": "%",
+            "current_value": saturation.get("cpu_utilization_avg_percent", 0),
+            "status": saturation.get("status", "normal").lower(),
+        }
+    )
+
+    return {
+        "title": f"Golden Signals: {data.get('service_name', 'Service')}",
+        "service_name": data.get("service_name"),
+        "metrics": metrics,
+        "last_updated": datetime.now(timezone.utc).isoformat(),
     }
 
 
@@ -613,6 +786,22 @@ def transform_log_entries(
     Returns:
         Dictionary formatted for the LogEntriesViewer widget.
     """
+    # Unwrap if wrapped in status/result (MCP format)
+    if isinstance(log_data, dict) and "status" in log_data and "result" in log_data:
+        log_data = log_data["result"]
+
+    # Handle error state
+    if isinstance(log_data, dict) and (
+        "error" in log_data or log_data.get("status") == "error"
+    ):
+        err_msg = log_data.get("error") or log_data.get("message") or "Unknown error"
+        logger.warning(f"❌ Log transformation error: {err_msg}")
+        return {
+            "entries": [],
+            "error": err_msg,
+            "filter": log_data.get("filter"),
+        }
+
     entries = []
     # Handle case where log_data is the raw entries list
     if isinstance(log_data, list):

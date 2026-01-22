@@ -15,10 +15,9 @@ References:
 - https://opentelemetry.io/docs/concepts/signals/traces/
 """
 
-import json
 import logging
 
-from ...common import adk_tool
+from ...common import adk_tool, json_dumps
 from ...common.telemetry import get_meter, get_tracer
 
 logger = logging.getLogger(__name__)
@@ -221,7 +220,7 @@ ORDER BY topology_role, service_name
         }
 
         logger.info("Generated service dependency graph SQL")
-        return json.dumps(result)
+        return json_dumps(result)
 
 
 @adk_tool
@@ -404,7 +403,7 @@ ORDER BY direction, depth, call_count DESC
         }
 
         logger.info(f"Generated impact analysis SQL for {service_name}")
-        return json.dumps(result)
+        return json_dumps(result)
 
 
 @adk_tool
@@ -539,7 +538,7 @@ ORDER BY cycle_length, cycle_path
         }
 
         logger.info("Generated circular dependency detection SQL")
-        return json.dumps(result)
+        return json_dumps(result)
 
 
 @adk_tool
@@ -686,4 +685,4 @@ ORDER BY source_service, documentation_priority DESC, call_count DESC
         }
 
         logger.info("Generated hidden dependencies analysis SQL")
-        return json.dumps(result)
+        return json_dumps(result)

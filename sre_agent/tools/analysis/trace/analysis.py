@@ -66,13 +66,14 @@ SpanData = dict[str, Any]
 
 @adk_tool
 def calculate_span_durations(
-    trace_id: str, project_id: str | None = None
+    trace_id: str, project_id: str | None = None, tool_context: Any = None
 ) -> list[SpanData]:
     """Extracts timing information for each span in a trace.
 
     Args:
         trace_id: The unique trace ID.
         project_id: The Google Cloud Project ID.
+        tool_context: Context object for tool execution.
 
     Returns:
         A list of span timing dictionaries with:
@@ -92,6 +93,16 @@ def calculate_span_durations(
         log_tool_call(logger, "calculate_span_durations", trace_id=trace_id)
 
         try:
+            from ...clients.trace import (
+                _clear_thread_credentials,
+                _set_thread_credentials,
+                get_credentials_from_tool_context,
+            )
+
+            user_creds = get_credentials_from_tool_context(tool_context)
+            if user_creds:
+                _set_thread_credentials(user_creds)
+
             trace = fetch_trace_data(trace_id, project_id)
             if "error" in trace:
                 span.set_attribute("error", True)
@@ -147,19 +158,23 @@ def calculate_span_durations(
             success = False
             raise e
         finally:
+            from ...clients.trace import _clear_thread_credentials
+
+            _clear_thread_credentials()
             duration_ms = (time.time() - start_time) * 1000
             _record_telemetry("calculate_span_durations", success, duration_ms)
 
 
 @adk_tool
 def extract_errors(
-    trace_id: str, project_id: str | None = None
+    trace_id: str, project_id: str | None = None, tool_context: Any = None
 ) -> list[dict[str, Any]]:
     """Finds all spans that contain errors or error-related information.
 
     Args:
         trace_id: The unique trace ID.
         project_id: The Google Cloud Project ID.
+        tool_context: Context object for tool execution.
 
     Returns:
         A list of error dictionaries with:
@@ -179,6 +194,16 @@ def extract_errors(
         log_tool_call(logger, "extract_errors", trace_id=trace_id)
 
         try:
+            from ...clients.trace import (
+                _clear_thread_credentials,
+                _set_thread_credentials,
+                get_credentials_from_tool_context,
+            )
+
+            user_creds = get_credentials_from_tool_context(tool_context)
+            if user_creds:
+                _set_thread_credentials(user_creds)
+
             trace = fetch_trace_data(trace_id, project_id)
             if "error" in trace:
                 return [{"error": trace["error"]}]
@@ -259,13 +284,16 @@ def extract_errors(
             success = False
             raise e
         finally:
+            from ...clients.trace import _clear_thread_credentials
+
+            _clear_thread_credentials()
             duration_ms = (time.time() - start_time) * 1000
             _record_telemetry("extract_errors", success, duration_ms)
 
 
 @adk_tool
 def validate_trace_quality(
-    trace_id: str, project_id: str | None = None
+    trace_id: str, project_id: str | None = None, tool_context: Any = None
 ) -> dict[str, Any]:
     """Validate trace data quality and detect issues.
 
@@ -278,90 +306,116 @@ def validate_trace_quality(
     Args:
         trace_id: The unique trace ID.
         project_id: The Google Cloud Project ID.
+        tool_context: ADK ToolContext for credential propagation.
 
     Returns:
         Dictionary with 'valid' boolean, 'issue_count', and list of 'issues'.
     """
-    trace = fetch_trace_data(trace_id, project_id)
-    if "error" in trace:
+    from ...clients.trace import (
+        _clear_thread_credentials,
+        _set_thread_credentials,
+        get_credentials_from_tool_context,
+    )
+
+    user_creds = get_credentials_from_tool_context(tool_context)
+    try:
+        if user_creds:
+            _set_thread_credentials(user_creds)
+
+        trace = fetch_trace_data(trace_id, project_id)
+        if "error" in trace:
+            return {
+                "valid": False,
+                "issue_count": 1,
+                "issues": [{"type": "fetch_error", "message": trace["error"]}],
+            }
+
+        spans = trace.get("spans", [])
+        issues: list[dict[str, Any]] = []
+
+        # Build parent-child map
+        span_map = {s["span_id"]: s for s in spans if "span_id" in s}
+
+        for span in spans:
+            span_id = span.get("span_id")
+            if not span_id:
+                issues.append({"type": "missing_span_id", "message": "Span missing ID"})
+                continue
+
+            # Check for orphaned spans
+            parent_id = span.get("parent_span_id")
+            if parent_id and parent_id not in span_map:
+                issues.append(
+                    {
+                        "type": "orphaned_span",
+                        "span_id": span_id,
+                        "message": f"Parent span {parent_id} not found",
+                    }
+                )
+
+            # Check for negative durations and clock skew
+            try:
+                start_str = span.get("start_time")
+                end_str = span.get("end_time")
+
+                if start_str and end_str:
+                    start = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
+                    end = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
+                    duration = (end - start).total_seconds()
+
+                    if duration < 0:
+                        issues.append(
+                            {
+                                "type": "negative_duration",
+                                "span_id": span_id,
+                                "duration_s": duration,
+                            }
+                        )
+
+                    # Check clock skew
+                    if parent_id and parent_id in span_map:
+                        parent = span_map[parent_id]
+                        p_start_str = parent.get("start_time")
+                        p_end_str = parent.get("end_time")
+
+                        if p_start_str and p_end_str:
+                            p_start = datetime.fromisoformat(
+                                p_start_str.replace("Z", "+00:00")
+                            )
+                            p_end = datetime.fromisoformat(
+                                p_end_str.replace("Z", "+00:00")
+                            )
+
+                            if start < p_start or end > p_end:
+                                issues.append(
+                                    {
+                                        "type": "clock_skew",
+                                        "span_id": span_id,
+                                        "message": "Child span outside parent timespan",
+                                    }
+                                )
+            except (ValueError, TypeError, KeyError) as e:
+                issues.append(
+                    {"type": "timestamp_error", "span_id": span_id, "error": str(e)}
+                )
+
+        return {"valid": len(issues) == 0, "issue_count": len(issues), "issues": issues}
+
+    except Exception as e:
+        logger.error(f"Trace validation failed: {e}")
         return {
             "valid": False,
             "issue_count": 1,
-            "issues": [{"type": "fetch_error", "message": trace["error"]}],
+            "issues": [{"type": "exception", "message": str(e)}],
         }
-
-    spans = trace.get("spans", [])
-    issues: list[dict[str, Any]] = []
-
-    # Build parent-child map
-    span_map = {s["span_id"]: s for s in spans if "span_id" in s}
-
-    for span in spans:
-        span_id = span.get("span_id")
-        if not span_id:
-            issues.append({"type": "missing_span_id", "message": "Span missing ID"})
-            continue
-
-        # Check for orphaned spans
-        parent_id = span.get("parent_span_id")
-        if parent_id and parent_id not in span_map:
-            issues.append(
-                {
-                    "type": "orphaned_span",
-                    "span_id": span_id,
-                    "message": f"Parent span {parent_id} not found",
-                }
-            )
-
-        # Check for negative durations and clock skew
-        try:
-            start_str = span.get("start_time")
-            end_str = span.get("end_time")
-
-            if start_str and end_str:
-                start = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
-                end = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
-                duration = (end - start).total_seconds()
-
-                if duration < 0:
-                    issues.append(
-                        {
-                            "type": "negative_duration",
-                            "span_id": span_id,
-                            "duration_s": duration,
-                        }
-                    )
-
-                # Check clock skew
-                if parent_id and parent_id in span_map:
-                    parent = span_map[parent_id]
-                    p_start_str = parent.get("start_time")
-                    p_end_str = parent.get("end_time")
-
-                    if p_start_str and p_end_str:
-                        p_start = datetime.fromisoformat(
-                            p_start_str.replace("Z", "+00:00")
-                        )
-                        p_end = datetime.fromisoformat(p_end_str.replace("Z", "+00:00"))
-
-                        if start < p_start or end > p_end:
-                            issues.append(
-                                {
-                                    "type": "clock_skew",
-                                    "span_id": span_id,
-                                    "message": "Child span outside parent timespan",
-                                }
-                            )
-        except (ValueError, TypeError, KeyError) as e:
-            issues.append(
-                {"type": "timestamp_error", "span_id": span_id, "error": str(e)}
-            )
-
-    return {"valid": len(issues) == 0, "issue_count": len(issues), "issues": issues}
+    finally:
+        _clear_thread_credentials()
 
 
 @adk_tool
-def build_call_graph(trace_id: str, project_id: str | None = None) -> dict[str, Any]:
+def build_call_graph(
+    trace_id: str, project_id: str | None = None, tool_context: Any = None
+) -> dict[str, Any]:
     """Builds a hierarchical call graph from the trace spans.
 
     This function reconstructs the parent-child relationships to form a tree
@@ -370,6 +424,7 @@ def build_call_graph(trace_id: str, project_id: str | None = None) -> dict[str, 
     Args:
         trace_id: The unique trace ID.
         project_id: The Google Cloud Project ID.
+        tool_context: Context object for tool execution.
 
     Returns:
         A dictionary representing the call graph:
@@ -387,6 +442,16 @@ def build_call_graph(trace_id: str, project_id: str | None = None) -> dict[str, 
         log_tool_call(logger, "build_call_graph", trace_id=trace_id)
 
         try:
+            from ...clients.trace import (
+                _clear_thread_credentials,
+                _set_thread_credentials,
+                get_credentials_from_tool_context,
+            )
+
+            user_creds = get_credentials_from_tool_context(tool_context)
+            if user_creds:
+                _set_thread_credentials(user_creds)
+
             trace = fetch_trace_data(trace_id, project_id)
             if "error" in trace:
                 return {"error": trace["error"]}
@@ -456,12 +521,17 @@ def build_call_graph(trace_id: str, project_id: str | None = None) -> dict[str, 
             success = False
             raise e
         finally:
+            from ...clients.trace import _clear_thread_credentials
+
+            _clear_thread_credentials()
             duration_ms = (time.time() - start_time) * 1000
             _record_telemetry("build_call_graph", success, duration_ms)
 
 
 @adk_tool
-def summarize_trace(trace_id: str, project_id: str | None = None) -> dict[str, Any]:
+def summarize_trace(
+    trace_id: str, project_id: str | None = None, tool_context: Any = None
+) -> dict[str, Any]:
     """Creates a summary of a trace to save context window tokens.
 
     Extracts high-level stats, top 5 slowest spans, and error spans.
@@ -469,55 +539,73 @@ def summarize_trace(trace_id: str, project_id: str | None = None) -> dict[str, A
     Args:
         trace_id: The unique trace ID.
         project_id: The Google Cloud Project ID.
+        tool_context: Context object for tool execution.
     """
     log_tool_call(logger, "summarize_trace", trace_id=trace_id)
 
-    trace_data = fetch_trace_data(trace_id, project_id)
-    if "error" in trace_data:
-        return trace_data
+    from ...clients.trace import (
+        _clear_thread_credentials,
+        _set_thread_credentials,
+        get_credentials_from_tool_context,
+    )
 
-    spans = trace_data.get("spans", [])
-    duration_ms = trace_data.get("duration_ms", 0)
+    user_creds = get_credentials_from_tool_context(tool_context)
+    try:
+        if user_creds:
+            _set_thread_credentials(user_creds)
+        trace_data = fetch_trace_data(trace_id, project_id)
 
-    # Extract errors
-    errors = []
-    if isinstance(trace_data, dict) and "spans" in trace_data:
-        for s in trace_data["spans"]:
-            if (
-                "error" in str(s.get("labels", {})).lower()
-                or s.get("labels", {}).get("error") == "true"
+        if "error" in trace_data:
+            return trace_data
+
+        spans = trace_data.get("spans", [])
+        duration_ms = trace_data.get("duration_ms", 0)
+
+        # Extract errors
+        errors = []
+        if isinstance(trace_data, dict) and "spans" in trace_data:
+            for s in trace_data["spans"]:
+                if (
+                    "error" in str(s.get("labels", {})).lower()
+                    or s.get("labels", {}).get("error") == "true"
+                ):
+                    errors.append({"span_name": s.get("name"), "error": "Detected"})
+        else:
+            errors = extract_errors(trace_id, project_id, tool_context=tool_context)
+
+        # Extract slow spans
+        spans_with_dur = []
+        for s in spans:
+            dur: float = 0.0
+            if "duration_ms" in s:
+                dur = s["duration_ms"]
+            elif (
+                s.get("start_time_unix") is not None
+                and s.get("end_time_unix") is not None
             ):
-                errors.append({"span_name": s.get("name"), "error": "Detected"})
-    else:
-        errors = extract_errors(trace_id, project_id)
+                dur = (s["end_time_unix"] - s["start_time_unix"]) * 1000
+            elif s.get("start_time") and s.get("end_time"):
+                try:
+                    start = datetime.fromisoformat(
+                        s["start_time"].replace("Z", "+00:00")
+                    )
+                    end = datetime.fromisoformat(s["end_time"].replace("Z", "+00:00"))
+                    dur = (end - start).total_seconds() * 1000
+                except (ValueError, TypeError):
+                    pass
+            spans_with_dur.append({"name": s.get("name"), "duration_ms": dur})
 
-    # Extract slow spans
-    spans_with_dur = []
-    for s in spans:
-        dur: float = 0.0
-        if "duration_ms" in s:
-            dur = s["duration_ms"]
-        elif (
-            s.get("start_time_unix") is not None and s.get("end_time_unix") is not None
-        ):
-            dur = (s["end_time_unix"] - s["start_time_unix"]) * 1000
-        elif s.get("start_time") and s.get("end_time"):
-            try:
-                start = datetime.fromisoformat(s["start_time"].replace("Z", "+00:00"))
-                end = datetime.fromisoformat(s["end_time"].replace("Z", "+00:00"))
-                dur = (end - start).total_seconds() * 1000
-            except (ValueError, TypeError):
-                pass
-        spans_with_dur.append({"name": s.get("name"), "duration_ms": dur})
+        spans_with_dur.sort(key=lambda x: x["duration_ms"], reverse=True)
+        top_slowest = spans_with_dur[:5]
 
-    spans_with_dur.sort(key=lambda x: x["duration_ms"], reverse=True)
-    top_slowest = spans_with_dur[:5]
+        return {
+            "trace_id": trace_data.get("trace_id"),
+            "total_spans": len(spans),
+            "duration_ms": duration_ms,
+            "error_count": len(errors),
+            "errors": errors[:5],
+            "slowest_spans": top_slowest,
+        }
 
-    return {
-        "trace_id": trace_data.get("trace_id"),
-        "total_spans": len(spans),
-        "duration_ms": duration_ms,
-        "error_count": len(errors),
-        "errors": errors[:5],
-        "slowest_spans": top_slowest,
-    }
+    finally:
+        _clear_thread_credentials()

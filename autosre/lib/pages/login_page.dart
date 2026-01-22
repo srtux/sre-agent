@@ -7,7 +7,7 @@ import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/tech_grid_painter.dart';
 import 'package:flutter/scheduler.dart'; // For Ticker
-import 'package:flutter/services.dart';  // For PointerHoverEvent
+import 'package:flutter/services.dart'; // For PointerHoverEvent
 import '../widgets/status_toast.dart';
 
 class LoginPage extends StatelessWidget {
@@ -31,9 +31,7 @@ class LoginPage extends StatelessWidget {
                   ],
                 ),
               ),
-              child: CustomPaint(
-                painter: const TechGridPainter(),
-              ),
+              child: CustomPaint(painter: const TechGridPainter()),
             ),
           ),
 
@@ -89,12 +87,14 @@ class LoginPage extends StatelessWidget {
                         width: 1,
                       ),
                     ),
-                    constraints: const BoxConstraints(maxWidth: 700), // Widen content
+                    constraints: const BoxConstraints(
+                      maxWidth: 700,
+                    ), // Widen content
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         // Element A: The Brand Hero
-const _AnimatedPhysicsRobot(),
+                        const _AnimatedPhysicsRobot(),
                         const SizedBox(height: 16),
 
                         // Master Logo Text (Gradient + Glow)
@@ -106,7 +106,8 @@ const _AnimatedPhysicsRobot(),
                               style: GoogleFonts.inter(
                                 fontSize: 32,
                                 fontWeight: FontWeight.w700,
-                                color: Colors.transparent, // Invisible, just for shadow
+                                color: Colors
+                                    .transparent, // Invisible, just for shadow
                                 shadows: [
                                   const Shadow(
                                     color: Colors.blueAccent,
@@ -135,8 +136,9 @@ const _AnimatedPhysicsRobot(),
                           ],
                         ),
 
-                        const SizedBox(height: 32), // Increased spacing to headline
-
+                        const SizedBox(
+                          height: 32,
+                        ), // Increased spacing to headline
                         // Element B: The Headline
                         Text(
                           'Observability, Solved.',
@@ -150,10 +152,11 @@ const _AnimatedPhysicsRobot(),
                         ),
 
                         const SizedBox(height: 24), // Increased spacing
-
                         // Element C: The Sub-Headline
                         ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 600), // Allow wider text
+                          constraints: const BoxConstraints(
+                            maxWidth: 600,
+                          ), // Allow wider text
                           child: Text(
                             'Your AI co-pilot for logs, traces, and metrics. Automate investigation and resolve GCP issues faster.',
                             style: GoogleFonts.inter(
@@ -202,7 +205,7 @@ const _AnimatedPhysicsRobot(),
             ),
           ),
 
-           // Footer (Optional but nice to keep)
+          // Footer (Optional but nice to keep)
           Positioned(
             bottom: 24,
             left: 0,
@@ -230,11 +233,13 @@ class _AnimatedPhysicsRobot extends StatefulWidget {
   State<_AnimatedPhysicsRobot> createState() => _AnimatedPhysicsRobotState();
 }
 
-class _AnimatedPhysicsRobotState extends State<_AnimatedPhysicsRobot> with TickerProviderStateMixin {
+class _AnimatedPhysicsRobotState extends State<_AnimatedPhysicsRobot>
+    with TickerProviderStateMixin {
   late final Ticker _ticker;
   late final AnimationController _entranceController;
   late final Animation<double> _scaleAnimation;
   late final Animation<double> _rotationAnimation;
+  late final Animation<Offset> _slideAnimation;
 
   // Physics State
   Offset _position = Offset.zero;
@@ -242,9 +247,10 @@ class _AnimatedPhysicsRobotState extends State<_AnimatedPhysicsRobot> with Ticke
 
   // Constants
   static const double _k = 120.0; // Spring stiffness
-  static const double _d = 12.0;  // Damping
+  static const double _d = 12.0; // Damping
   static const double _mass = 1.0;
-  static const double _sensitivity = 15.0; // How much mouse delta pushes the robot
+  static const double _sensitivity =
+      15.0; // How much mouse delta pushes the robot
 
   Duration _lastElapsed = Duration.zero;
 
@@ -257,18 +263,26 @@ class _AnimatedPhysicsRobotState extends State<_AnimatedPhysicsRobot> with Ticke
     // Entrance Animation
     _entranceController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: 1000),
     );
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(-5.0, 0.0), // Fly in from the left
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _entranceController,
+      curve: Curves.easeOutBack, // Gives a nice settle/overshoot
+    ));
 
     _scaleAnimation = CurvedAnimation(
       parent: _entranceController,
       curve: Curves.elasticOut, // Overshoot and vibrate
     );
 
-    _rotationAnimation = Tween<double>(begin: 4.0, end: 0.0).animate(
+    _rotationAnimation = Tween<double>(begin: 3.0, end: 0.0).animate(
       CurvedAnimation(
         parent: _entranceController,
-        curve: Curves.easeOutExpo, // Fast spiral in, then slow down
+        curve: Curves.easeOutCubic, // Fast spiral in, then slow down
       ),
     );
 
@@ -343,27 +357,30 @@ class _AnimatedPhysicsRobotState extends State<_AnimatedPhysicsRobot> with Ticke
   Widget build(BuildContext context) {
     return MouseRegion(
       onHover: _onHover,
-      child: ScaleTransition(
-        scale: _scaleAnimation,
-        child: RotationTransition(
-          turns: _rotationAnimation,
-          child: Transform.translate(
-            offset: _position,
-            child: Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.indigoAccent.withValues(alpha: 0.5),
-                    blurRadius: 40,
-                    spreadRadius: -5,
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.smart_toy, // Original Robot Icon
-                size: 96,
-                color: Colors.white,
+      child: SlideTransition(
+        position: _slideAnimation,
+        child: ScaleTransition(
+          scale: _scaleAnimation,
+          child: RotationTransition(
+            turns: _rotationAnimation,
+            child: Transform.translate(
+              offset: _position,
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.indigoAccent.withValues(alpha: 0.5),
+                      blurRadius: 40,
+                      spreadRadius: -5,
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.smart_toy, // Original Robot Icon
+                  size: 96,
+                  color: Colors.white,
+                ),
               ),
             ),
           ),

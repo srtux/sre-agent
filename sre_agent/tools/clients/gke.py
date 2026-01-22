@@ -14,23 +14,29 @@ Capabilities:
 Kubernetes Wisdom: "Cattle, not pets" - but we still care when the herd is sick!
 """
 
-import json
 import logging
 from typing import Any
 
 from google.auth.transport.requests import AuthorizedSession
 from google.cloud import monitoring_v3
 
-from ...auth import get_current_credentials, get_current_project_id
-from ..common import adk_tool
+from ...auth import (
+    get_credentials_from_tool_context,
+    get_current_credentials,
+    get_current_project_id,
+)
+from ..common import adk_tool, json_dumps
 from .factory import get_monitoring_client
 
 logger = logging.getLogger(__name__)
 
 
-def _get_authorized_session() -> AuthorizedSession:
+def _get_authorized_session(tool_context: Any = None) -> AuthorizedSession:
     """Get an authorized session for REST API calls."""
-    credentials, _ = get_current_credentials()
+    credentials = get_credentials_from_tool_context(tool_context)
+    if not credentials:
+        auth_obj: Any = get_current_credentials()
+        credentials, _ = auth_obj
     return AuthorizedSession(credentials)  # type: ignore[no-untyped-call]
 
 
@@ -39,6 +45,7 @@ async def get_gke_cluster_health(
     cluster_name: str,
     location: str,
     project_id: str | None = None,
+    tool_context: Any = None,
 ) -> str:
     """Get comprehensive GKE cluster health status.
 
@@ -49,6 +56,7 @@ async def get_gke_cluster_health(
         cluster_name: Name of the GKE cluster.
         location: Cluster location (zone or region, e.g., 'us-central1-a' or 'us-central1').
         project_id: The Google Cloud Project ID. Defaults to current context.
+        tool_context: ADK ToolContext for credential propagation.
 
     Returns:
         JSON with cluster status, node pool health, and any active issues.
@@ -61,14 +69,14 @@ async def get_gke_cluster_health(
     if not project_id:
         project_id = get_current_project_id()
         if not project_id:
-            return json.dumps(
+            return json_dumps(
                 {
                     "error": "Project ID is required but not provided or found in context."
                 }
             )
 
     return await run_in_threadpool(
-        _get_gke_cluster_health_sync, project_id, cluster_name, location
+        _get_gke_cluster_health_sync, project_id, cluster_name, location, tool_context
     )
 
 
@@ -76,10 +84,11 @@ def _get_gke_cluster_health_sync(
     project_id: str,
     cluster_name: str,
     location: str,
+    tool_context: Any = None,
 ) -> str:
     """Synchronous implementation of get_gke_cluster_health."""
     try:
-        session = _get_authorized_session()
+        session = _get_authorized_session(tool_context)
 
         # GKE Container API endpoint
         url = f"https://container.googleapis.com/v1/projects/{project_id}/locations/{location}/clusters/{cluster_name}"
@@ -151,12 +160,12 @@ def _get_gke_cluster_health_sync(
         if maintenance:
             result["maintenance_window"] = maintenance.get("window", {})
 
-        return json.dumps(result, indent=2)
+        return json_dumps(result, indent=2)
 
     except Exception as e:
         error_msg = f"Failed to get GKE cluster health: {e!s}"
         logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})
 
 
 @adk_tool
@@ -165,6 +174,7 @@ async def analyze_node_conditions(
     location: str,
     node_name: str | None = None,
     project_id: str | None = None,
+    tool_context: Any = None,
 ) -> str:
     """Check for node pressure conditions (CPU, Memory, Disk, PID).
 
@@ -176,6 +186,7 @@ async def analyze_node_conditions(
         location: Cluster location.
         node_name: Specific node to check (optional, checks all if not provided).
         project_id: The Google Cloud Project ID. Defaults to current context.
+        tool_context: ADK ToolContext for credential propagation.
 
     Returns:
         JSON with node conditions and any pressure warnings.
@@ -188,14 +199,19 @@ async def analyze_node_conditions(
     if not project_id:
         project_id = get_current_project_id()
         if not project_id:
-            return json.dumps(
+            return json_dumps(
                 {
                     "error": "Project ID is required but not provided or found in context."
                 }
             )
 
     return await run_in_threadpool(
-        _analyze_node_conditions_sync, project_id, cluster_name, location, node_name
+        _analyze_node_conditions_sync,
+        project_id,
+        cluster_name,
+        location,
+        node_name,
+        tool_context,
     )
 
 
@@ -204,11 +220,12 @@ def _analyze_node_conditions_sync(
     cluster_name: str,
     location: str,
     node_name: str | None = None,
+    tool_context: Any = None,
 ) -> str:
     """Synchronous implementation of analyze_node_conditions."""
     try:
         # Query Cloud Monitoring for node conditions
-        client = get_monitoring_client()
+        client = get_monitoring_client(tool_context)
         project_name = f"projects/{project_id}"
 
         import time
@@ -273,12 +290,25 @@ def _analyze_node_conditions_sync(
                     if node not in result["nodes"]:
                         result["nodes"][node] = {"metrics": {}, "conditions": []}
 
-                    # Get the most recent value
-                    if series.points:
-                        latest = series.points[0]
-                        value = latest.value.double_value or latest.value.int64_value
+                        # Get the most recent value
+                        if series.points:
+                            latest = series.points[0]
+                            val_proto = latest.value
+                            # Robust value extraction (TypedValue is a oneof)
+                            if hasattr(
+                                val_proto, "double_value"
+                            ) and "double_value" in str(val_proto):
+                                value = val_proto.double_value
+                            elif hasattr(
+                                val_proto, "int64_value"
+                            ) and "int64_value" in str(val_proto):
+                                value = val_proto.int64_value
+                            else:
+                                value = getattr(
+                                    val_proto, "double_value", 0.0
+                                ) or getattr(val_proto, "int64_value", 0.0)
 
-                        result["nodes"][node]["metrics"][metric_name] = value
+                            result["nodes"][node]["metrics"][metric_name] = value
 
                         # Check thresholds
                         if threshold and value > threshold:
@@ -354,12 +384,12 @@ def _analyze_node_conditions_sync(
             ),
         }
 
-        return json.dumps(result, indent=2)
+        return json_dumps(result, indent=2)
 
     except Exception as e:
         error_msg = f"Failed to analyze node conditions: {e!s}"
         logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})
 
 
 @adk_tool
@@ -368,6 +398,7 @@ async def get_pod_restart_events(
     pod_name: str | None = None,
     minutes_ago: int = 60,
     project_id: str | None = None,
+    tool_context: Any = None,
 ) -> str:
     """Find pods with high restart counts or recent restarts.
 
@@ -379,6 +410,7 @@ async def get_pod_restart_events(
         pod_name: Specific pod name to check (optional).
         minutes_ago: Time window to check (default 60 minutes).
         project_id: The Google Cloud Project ID. Defaults to current context.
+        tool_context: Context object for tool execution.
 
     Returns:
         JSON with pods that have restarted and their restart reasons.
@@ -391,14 +423,19 @@ async def get_pod_restart_events(
     if not project_id:
         project_id = get_current_project_id()
         if not project_id:
-            return json.dumps(
+            return json_dumps(
                 {
                     "error": "Project ID is required but not provided or found in context."
                 }
             )
 
     return await run_in_threadpool(
-        _get_pod_restart_events_sync, project_id, namespace, pod_name, minutes_ago
+        _get_pod_restart_events_sync,
+        project_id,
+        namespace,
+        pod_name,
+        minutes_ago,
+        tool_context,
     )
 
 
@@ -407,10 +444,11 @@ def _get_pod_restart_events_sync(
     namespace: str | None = None,
     pod_name: str | None = None,
     minutes_ago: int = 60,
+    tool_context: Any = None,
 ) -> str:
     """Synchronous implementation of get_pod_restart_events."""
     try:
-        client = get_monitoring_client()
+        client = get_monitoring_client(tool_context)
         project_name = f"projects/{project_id}"
 
         import time
@@ -450,8 +488,12 @@ def _get_pod_restart_events_sync(
 
             if series.points:
                 # Compare first and last points to get restart count in window
-                oldest = series.points[-1].value.int64_value
-                newest = series.points[0].value.int64_value
+                val_old = series.points[-1].value
+                val_new = series.points[0].value
+
+                # Robust int extraction
+                oldest = getattr(val_old, "int64_value", 0)
+                newest = getattr(val_new, "int64_value", 0)
                 restarts_in_window = newest - oldest
 
                 if restarts_in_window > 0 or newest > 0:
@@ -505,12 +547,12 @@ def _get_pod_restart_events_sync(
             result["severity"] = "NORMAL"
             result["message"] = "Pod restart activity within normal range."
 
-        return json.dumps(result, indent=2)
+        return json_dumps(result, indent=2)
 
     except Exception as e:
         error_msg = f"Failed to get pod restart events: {e!s}"
         logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})
 
 
 @adk_tool
@@ -519,6 +561,7 @@ async def analyze_hpa_events(
     deployment_name: str,
     minutes_ago: int = 60,
     project_id: str | None = None,
+    tool_context: Any = None,
 ) -> str:
     """Analyze HorizontalPodAutoscaler scaling events and decisions.
 
@@ -530,6 +573,7 @@ async def analyze_hpa_events(
         deployment_name: Name of the deployment with HPA.
         minutes_ago: Time window to analyze (default 60 minutes).
         project_id: The Google Cloud Project ID. Defaults to current context.
+        tool_context: Context object for tool execution.
 
     Returns:
         JSON with scaling events, current/desired replicas, and recommendations.
@@ -542,14 +586,19 @@ async def analyze_hpa_events(
     if not project_id:
         project_id = get_current_project_id()
         if not project_id:
-            return json.dumps(
+            return json_dumps(
                 {
                     "error": "Project ID is required but not provided or found in context."
                 }
             )
 
     return await run_in_threadpool(
-        _analyze_hpa_events_sync, project_id, namespace, deployment_name, minutes_ago
+        _analyze_hpa_events_sync,
+        project_id,
+        namespace,
+        deployment_name,
+        minutes_ago,
+        tool_context,
     )
 
 
@@ -558,10 +607,11 @@ def _analyze_hpa_events_sync(
     namespace: str,
     deployment_name: str,
     minutes_ago: int = 60,
+    tool_context: Any = None,
 ) -> str:
     """Synchronous implementation of analyze_hpa_events."""
     try:
-        client = get_monitoring_client()
+        client = get_monitoring_client(tool_context)
         project_name = f"projects/{project_id}"
 
         import time
@@ -676,12 +726,12 @@ def _analyze_hpa_events_sync(
         else:
             result["recommendation"] = "HPA activity appears normal."
 
-        return json.dumps(result, indent=2)
+        return json_dumps(result, indent=2)
 
     except Exception as e:
         error_msg = f"Failed to analyze HPA events: {e!s}"
         logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})
 
 
 @adk_tool
@@ -689,6 +739,7 @@ async def get_container_oom_events(
     namespace: str | None = None,
     minutes_ago: int = 60,
     project_id: str | None = None,
+    tool_context: Any = None,
 ) -> str:
     """Find containers that were OOMKilled (Out of Memory).
 
@@ -699,6 +750,7 @@ async def get_container_oom_events(
         namespace: Kubernetes namespace to filter (optional).
         minutes_ago: Time window to check (default 60 minutes).
         project_id: The Google Cloud Project ID. Defaults to current context.
+        tool_context: Context object for tool execution.
 
     Returns:
         JSON with containers that experienced OOM events and memory usage patterns.
@@ -711,14 +763,14 @@ async def get_container_oom_events(
     if not project_id:
         project_id = get_current_project_id()
         if not project_id:
-            return json.dumps(
+            return json_dumps(
                 {
                     "error": "Project ID is required but not provided or found in context."
                 }
             )
 
     return await run_in_threadpool(
-        _get_container_oom_events_sync, project_id, namespace, minutes_ago
+        _get_container_oom_events_sync, project_id, namespace, minutes_ago, tool_context
     )
 
 
@@ -726,11 +778,12 @@ def _get_container_oom_events_sync(
     project_id: str,
     namespace: str | None = None,
     minutes_ago: int = 60,
+    tool_context: Any = None,
 ) -> str:
     """Synchronous implementation of get_container_oom_events."""
     try:
         # First, check for OOM events in logs
-        session = _get_authorized_session()
+        session = _get_authorized_session(tool_context)
 
         # Build log filter for OOM events
         log_filter = 'resource.type="k8s_container" AND textPayload:"OOMKilled"'
@@ -755,7 +808,7 @@ def _get_container_oom_events_sync(
             oom_logs = []
 
         # Also query memory usage to find containers near limit
-        client = get_monitoring_client()
+        client = get_monitoring_client(tool_context)
         project_name = f"projects/{project_id}"
 
         import time
@@ -856,12 +909,12 @@ def _get_container_oom_events_sync(
                 "No OOM events or high memory utilization detected."
             )
 
-        return json.dumps(result, indent=2)
+        return json_dumps(result, indent=2)
 
     except Exception as e:
         error_msg = f"Failed to get OOM events: {e!s}"
         logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})
 
 
 @adk_tool
@@ -869,6 +922,7 @@ async def correlate_trace_with_kubernetes(
     project_id: str,
     trace_id: str,
     cluster_name: str | None = None,
+    tool_context: Any = None,
 ) -> str:
     """Link a distributed trace to Kubernetes pod and container context.
 
@@ -879,6 +933,7 @@ async def correlate_trace_with_kubernetes(
         project_id: The Google Cloud Project ID.
         trace_id: The trace ID to correlate.
         cluster_name: Optional cluster name to filter.
+        tool_context: Context object for tool execution.
 
     Returns:
         JSON with pod info, container status, and resource usage during the trace.
@@ -889,7 +944,11 @@ async def correlate_trace_with_kubernetes(
     from fastapi.concurrency import run_in_threadpool
 
     return await run_in_threadpool(
-        _correlate_trace_with_kubernetes_sync, project_id, trace_id, cluster_name
+        _correlate_trace_with_kubernetes_sync,
+        project_id,
+        trace_id,
+        cluster_name,
+        tool_context,
     )
 
 
@@ -897,20 +956,33 @@ def _correlate_trace_with_kubernetes_sync(
     project_id: str,
     trace_id: str,
     cluster_name: str | None = None,
+    tool_context: Any = None,
 ) -> str:
     """Synchronous implementation of correlate_trace_with_kubernetes."""
     try:
-        # First, get the trace to find the time window and service names
-        from .trace import fetch_trace_data
+        from .trace import (
+            _clear_thread_credentials,
+            _set_thread_credentials,
+            fetch_trace_data,
+            get_credentials_from_tool_context,
+        )
 
-        trace_data = fetch_trace_data(trace_id_or_json=trace_id, project_id=project_id)
+        user_creds = get_credentials_from_tool_context(tool_context)
+        try:
+            if user_creds:
+                _set_thread_credentials(user_creds)
+            trace_data = fetch_trace_data(
+                trace_id_or_json=trace_id, project_id=project_id
+            )
+        finally:
+            _clear_thread_credentials()
 
         if "error" in trace_data:
-            return json.dumps(trace_data)
+            return json_dumps(trace_data)
 
         spans = trace_data.get("spans", [])
         if not spans:
-            return json.dumps({"error": "No spans found in trace"})
+            return json_dumps({"error": "No spans found in trace"})
 
         # Find time window
         start_times = []
@@ -932,7 +1004,7 @@ def _correlate_trace_with_kubernetes_sync(
             trace_start = min(start_times)
             trace_end = max(end_times)
         else:
-            return json.dumps({"error": "Could not determine trace time window"})
+            return json_dumps({"error": "Could not determine trace time window"})
 
         result: dict[str, Any] = {
             "trace_id": trace_id,
@@ -945,7 +1017,7 @@ def _correlate_trace_with_kubernetes_sync(
         }
 
         # Query Cloud Logging for pod info during trace window
-        session = _get_authorized_session()
+        session = _get_authorized_session(tool_context)
 
         # Look for logs with this trace ID
         log_filter = f'trace="projects/{project_id}/traces/{trace_id}"'
@@ -996,12 +1068,12 @@ def _correlate_trace_with_kubernetes_sync(
                 "Ensure your application logs include trace context."
             )
 
-        return json.dumps(result, indent=2)
+        return json_dumps(result, indent=2)
 
     except Exception as e:
         error_msg = f"Failed to correlate trace with Kubernetes: {e!s}"
         logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})
 
 
 @adk_tool
@@ -1009,6 +1081,7 @@ async def get_workload_health_summary(
     namespace: str,
     minutes_ago: int = 30,
     project_id: str | None = None,
+    tool_context: Any = None,
 ) -> str:
     """Get a comprehensive health summary for all workloads in a namespace.
 
@@ -1019,6 +1092,7 @@ async def get_workload_health_summary(
         namespace: Kubernetes namespace to analyze.
         minutes_ago: Time window for analysis (default 30 minutes).
         project_id: The Google Cloud Project ID. Defaults to current context.
+        tool_context: Context object for tool execution.
 
     Returns:
         JSON with workload health status, resource usage, and issues.
@@ -1031,14 +1105,18 @@ async def get_workload_health_summary(
     if not project_id:
         project_id = get_current_project_id()
         if not project_id:
-            return json.dumps(
+            return json_dumps(
                 {
                     "error": "Project ID is required but not provided or found in context."
                 }
             )
 
     return await run_in_threadpool(
-        _get_workload_health_summary_sync, project_id, namespace, minutes_ago
+        _get_workload_health_summary_sync,
+        project_id,
+        namespace,
+        minutes_ago,
+        tool_context,
     )
 
 
@@ -1046,10 +1124,11 @@ def _get_workload_health_summary_sync(
     project_id: str,
     namespace: str,
     minutes_ago: int = 30,
+    tool_context: Any = None,
 ) -> str:
     """Synchronous implementation of get_workload_health_summary."""
     try:
-        client = monitoring_v3.MetricServiceClient()
+        client = get_monitoring_client(tool_context)
         project_name = f"projects/{project_id}"
 
         import time
@@ -1112,18 +1191,34 @@ def _get_workload_health_summary_sync(
 
                     if series.points:
                         if metric_key == "cpu_util":
-                            val = max(p.value.double_value for p in series.points)
+                            val = max(
+                                (
+                                    p.value.double_value
+                                    if hasattr(p.value, "double_value")
+                                    else 0.0
+                                )
+                                for p in series.points
+                            )
                             workloads[workload_name]["cpu_util_max"] = max(
                                 workloads[workload_name]["cpu_util_max"], val
                             )
                         elif metric_key == "memory_util":
-                            val = max(p.value.double_value for p in series.points)
+                            val = max(
+                                (
+                                    p.value.double_value
+                                    if hasattr(p.value, "double_value")
+                                    else 0.0
+                                )
+                                for p in series.points
+                            )
                             workloads[workload_name]["memory_util_max"] = max(
                                 workloads[workload_name]["memory_util_max"], val
                             )
                         elif metric_key == "restarts":
-                            oldest = series.points[-1].value.int64_value
-                            newest = series.points[0].value.int64_value
+                            val_old = series.points[-1].value
+                            val_new = series.points[0].value
+                            oldest = getattr(val_old, "int64_value", 0)
+                            newest = getattr(val_new, "int64_value", 0)
                             workloads[workload_name]["total_restarts"] += (
                                 newest - oldest
                             )
@@ -1221,9 +1316,9 @@ def _get_workload_health_summary_sync(
             "workloads": result_workloads,
         }
 
-        return json.dumps(result, indent=2)
+        return json_dumps(result, indent=2)
 
     except Exception as e:
         error_msg = f"Failed to get workload health summary: {e!s}"
         logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})

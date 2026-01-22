@@ -17,16 +17,19 @@ from typing import Any
 from google.auth.transport.requests import AuthorizedSession
 from google.cloud import monitoring_v3
 
-from ...auth import get_current_credentials
-from ..common import adk_tool
+from ...auth import get_credentials_from_tool_context, get_current_credentials
+from ..common import adk_tool, json_dumps
 from .factory import get_monitoring_client
 
 logger = logging.getLogger(__name__)
 
 
-def _get_authorized_session() -> AuthorizedSession:
+def _get_authorized_session(tool_context: Any = None) -> AuthorizedSession:
     """Get an authorized session for REST API calls."""
-    credentials, _ = get_current_credentials()
+    credentials = get_credentials_from_tool_context(tool_context)
+    if not credentials:
+        auth_obj: Any = get_current_credentials()
+        credentials, _ = auth_obj
     return AuthorizedSession(credentials)  # type: ignore[no-untyped-call]
 
 
@@ -34,6 +37,7 @@ def _get_authorized_session() -> AuthorizedSession:
 def list_slos(
     project_id: str,
     service_id: str | None = None,
+    tool_context: Any = None,
 ) -> str:
     """List all Service Level Objectives defined in a project.
 
@@ -44,6 +48,7 @@ def list_slos(
         project_id: The Google Cloud Project ID.
         service_id: Optional service ID to filter SLOs (e.g., 'my-service').
                    If not provided, lists SLOs for all services.
+        tool_context: Context object for tool execution.
 
     Returns:
         JSON list of SLO definitions with name, display name, goal, and type.
@@ -52,7 +57,10 @@ def list_slos(
         list_slos("my-project", "checkout-service")
     """
     try:
-        credentials, _ = get_current_credentials()
+        credentials = get_credentials_from_tool_context(tool_context)
+        if not credentials:
+            auth_obj: Any = get_current_credentials()
+            credentials, _ = auth_obj
         client = monitoring_v3.ServiceMonitoringServiceClient(credentials=credentials)
 
         if service_id:
@@ -107,12 +115,12 @@ def list_slos(
 
             result.append(slo_info)
 
-        return json.dumps(result, indent=2)
+        return json_dumps(result, indent=2)
 
     except Exception as e:
         error_msg = f"Failed to list SLOs: {e!s}"
         logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})
 
 
 @adk_tool
@@ -120,6 +128,7 @@ def get_slo_status(
     project_id: str,
     service_id: str,
     slo_id: str,
+    tool_context: Any = None,
 ) -> str:
     """Get current SLO compliance status including error budget.
 
@@ -130,6 +139,7 @@ def get_slo_status(
         project_id: The Google Cloud Project ID.
         service_id: The service ID (e.g., 'checkout-service').
         slo_id: The SLO ID (e.g., 'latency-slo').
+        tool_context: Context object for tool execution.
 
     Returns:
         JSON with SLO goal, current performance, error budget remaining,
@@ -139,7 +149,7 @@ def get_slo_status(
         get_slo_status("my-project", "checkout-service", "availability-slo")
     """
     try:
-        session = _get_authorized_session()
+        session = _get_authorized_session(tool_context)
         slo_name = f"projects/{project_id}/services/{service_id}/serviceLevelObjectives/{slo_id}"
 
         # Get SLO definition
@@ -184,12 +194,12 @@ def get_slo_status(
             f"Error budget allows {error_budget_percentage:.3f}% failures over the rolling period."
         )
 
-        return json.dumps(result, indent=2)
+        return json_dumps(result, indent=2)
 
     except Exception as e:
         error_msg = f"Failed to get SLO status: {e!s}"
         logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})
 
 
 @adk_tool
@@ -198,6 +208,7 @@ def analyze_error_budget_burn(
     service_id: str,
     slo_id: str,
     hours: int = 24,
+    tool_context: Any = None,
 ) -> str:
     """Analyze error budget burn rate to predict SLO violations.
 
@@ -209,6 +220,7 @@ def analyze_error_budget_burn(
         service_id: The service ID.
         slo_id: The SLO ID.
         hours: Time window for burn rate calculation (default 24h).
+        tool_context: Context object for tool execution.
 
     Returns:
         JSON with burn rate, projected exhaustion time, and risk assessment.
@@ -221,7 +233,7 @@ def analyze_error_budget_burn(
 
         # Get time series data for the SLO
         # Cloud Monitoring provides built-in SLO metrics
-        client = get_monitoring_client()
+        client = get_monitoring_client(tool_context)
 
         import time
 
@@ -315,12 +327,12 @@ def analyze_error_budget_burn(
                 "Ensure the SLO has been active long enough to generate metrics."
             )
 
-        return json.dumps(result, indent=2)
+        return json_dumps(result, indent=2)
 
     except Exception as e:
         error_msg = f"Failed to analyze error budget burn: {e!s}"
         logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})
 
 
 @adk_tool
@@ -328,6 +340,7 @@ def get_golden_signals(
     project_id: str,
     service_name: str,
     minutes_ago: int = 60,
+    tool_context: Any = None,
 ) -> str:
     """Get the four SRE Golden Signals for a service.
 
@@ -343,6 +356,7 @@ def get_golden_signals(
         project_id: The Google Cloud Project ID.
         service_name: Name of the service to analyze.
         minutes_ago: Time window for analysis (default 60 minutes).
+        tool_context: Context object for tool execution.
 
     Returns:
         JSON with all four golden signals and their current values.
@@ -351,7 +365,7 @@ def get_golden_signals(
         get_golden_signals("my-project", "frontend-service", 30)
     """
     try:
-        client = get_monitoring_client()
+        client = get_monitoring_client(tool_context)
         project_name = f"projects/{project_id}"
 
         import time
@@ -583,12 +597,12 @@ def get_golden_signals(
         else:
             golden_signals["overall_health"] = "UNKNOWN"
 
-        return json.dumps(golden_signals, indent=2)
+        return json_dumps(golden_signals, indent=2)
 
     except Exception as e:
         error_msg = f"Failed to get golden signals: {e!s}"
         logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})
 
 
 @adk_tool
@@ -598,6 +612,7 @@ def correlate_incident_with_slo_impact(
     slo_id: str,
     incident_start: str,
     incident_end: str,
+    tool_context: Any = None,
 ) -> str:
     """Calculate how much an incident consumed error budget.
 
@@ -610,6 +625,7 @@ def correlate_incident_with_slo_impact(
         slo_id: The SLO ID.
         incident_start: Incident start time (ISO format).
         incident_end: Incident end time (ISO format).
+        tool_context: Context object for tool execution.
 
     Returns:
         JSON with error budget consumed, percentage of monthly budget,
@@ -628,11 +644,13 @@ def correlate_incident_with_slo_impact(
         duration_minutes = (end_dt - start_dt).total_seconds() / 60
 
         # Get SLO details
-        slo_status_json = get_slo_status(project_id, service_id, slo_id)
+        slo_status_json = get_slo_status(
+            project_id, service_id, slo_id, tool_context=tool_context
+        )
         slo_status = json.loads(slo_status_json)
 
         if "error" in slo_status:
-            return json.dumps(slo_status)
+            return json_dumps(slo_status)
 
         slo_goal = slo_status.get("goal", 0.999)
         rolling_period_days = slo_status.get("rolling_period_days", 30)
@@ -698,12 +716,12 @@ def correlate_incident_with_slo_impact(
                 "error budget remains healthy."
             )
 
-        return json.dumps(result, indent=2)
+        return json_dumps(result, indent=2)
 
     except Exception as e:
         error_msg = f"Failed to correlate incident with SLO impact: {e!s}"
         logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})
 
 
 @adk_tool
@@ -712,6 +730,7 @@ def predict_slo_violation(
     service_id: str,
     slo_id: str,
     hours_ahead: int = 24,
+    tool_context: Any = None,
 ) -> str:
     """Predict if current error rate will exhaust error budget.
 
@@ -722,6 +741,7 @@ def predict_slo_violation(
         service_id: The service ID.
         slo_id: The SLO ID.
         hours_ahead: How far to predict (default 24 hours).
+        tool_context: Context object for tool execution.
 
     Returns:
         JSON with prediction confidence, projected compliance, and recommendations.
@@ -732,12 +752,12 @@ def predict_slo_violation(
     try:
         # Get current burn rate
         burn_analysis_json = analyze_error_budget_burn(
-            project_id, service_id, slo_id, hours=24
+            project_id, service_id, slo_id, hours=24, tool_context=tool_context
         )
         burn_analysis = json.loads(burn_analysis_json)
 
         if "error" in burn_analysis:
-            return json.dumps(burn_analysis)
+            return json_dumps(burn_analysis)
 
         result = {
             "prediction_window_hours": hours_ahead,
@@ -788,9 +808,9 @@ def predict_slo_violation(
                     "Continue monitoring for the next few hours."
                 )
 
-        return json.dumps(result, indent=2)
+        return json_dumps(result, indent=2)
 
     except Exception as e:
         error_msg = f"Failed to predict SLO violation: {e!s}"
         logger.error(error_msg)
-        return json.dumps({"error": error_msg})
+        return json_dumps({"error": error_msg})

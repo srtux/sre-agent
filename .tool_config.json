@@ -210,7 +210,7 @@
       "display_name": "MCP List Log Entries",
       "description": "List log entries via MCP Cloud Logging server",
       "category": "mcp",
-      "enabled": true,
+      "enabled": false,
       "testable": true,
       "last_test_result": {
         "status": "failed",
@@ -225,7 +225,7 @@
       "display_name": "MCP List Time Series",
       "description": "List metrics via MCP Cloud Monitoring server",
       "category": "mcp",
-      "enabled": true,
+      "enabled": false,
       "testable": true,
       "last_test_result": {
         "status": "failed",
@@ -240,7 +240,7 @@
       "display_name": "MCP Query Range (PromQL)",
       "description": "Execute PromQL queries via MCP Cloud Monitoring server",
       "category": "mcp",
-      "enabled": true,
+      "enabled": false,
       "testable": true,
       "last_test_result": {
         "status": "failed",
@@ -249,6 +249,15 @@
         "timestamp": "2026-01-19T08:47:16.025364+00:00",
         "details": {}
       }
+    },
+    {
+      "name": "mcp_execute_sql",
+      "display_name": "MCP Execute SQL",
+      "description": "Execute SQL queries via MCP BigQuery server",
+      "category": "mcp",
+      "enabled": true,
+      "testable": true,
+      "last_test_result": null
     },
     {
       "name": "analyze_aggregate_metrics",
@@ -359,6 +368,51 @@
       "last_test_result": null
     },
     {
+      "name": "analyze_trace_comprehensive",
+      "display_name": "Analyze Trace Comprehensive",
+      "description": "Comprehensive trace analysis (mega-tool) combining validation, durations, errors, critical path, and structure",
+      "category": "analysis",
+      "enabled": true,
+      "testable": false,
+      "last_test_result": null
+    },
+    {
+      "name": "analyze_trace_patterns",
+      "display_name": "Analyze Trace Patterns",
+      "description": "Analyze trace patterns for statistical anomalies",
+      "category": "analysis",
+      "enabled": true,
+      "testable": false,
+      "last_test_result": null
+    },
+    {
+      "name": "compute_latency_statistics",
+      "display_name": "Compute Latency Statistics",
+      "description": "Compute latency statistics for traces",
+      "category": "analysis",
+      "enabled": true,
+      "testable": false,
+      "last_test_result": null
+    },
+    {
+      "name": "select_traces_from_statistical_outliers",
+      "display_name": "Select Statistical Outliers",
+      "description": "Select traces that are statistical outliers",
+      "category": "analysis",
+      "enabled": true,
+      "testable": false,
+      "last_test_result": null
+    },
+    {
+      "name": "select_traces_manually",
+      "display_name": "Select Traces Manually",
+      "description": "Manually select traces for analysis",
+      "category": "analysis",
+      "enabled": true,
+      "testable": false,
+      "last_test_result": null
+    },
+    {
       "name": "detect_retry_storm",
       "display_name": "Detect Retry Storm",
       "description": "Identify excessive retries and exponential backoff patterns",
@@ -416,6 +470,15 @@
       "name": "analyze_log_anomalies",
       "display_name": "Analyze Log Anomalies",
       "description": "Analyze log anomalies and detect issues",
+      "category": "analysis",
+      "enabled": true,
+      "testable": false,
+      "last_test_result": null
+    },
+    {
+      "name": "analyze_bigquery_log_patterns",
+      "display_name": "Analyze BigQuery Log Patterns",
+      "description": "Analyze log patterns using BigQuery for large-scale analysis",
       "category": "analysis",
       "enabled": true,
       "testable": false,
@@ -768,6 +831,15 @@
       "last_test_result": null
     },
     {
+      "name": "list_gcp_projects",
+      "display_name": "List GCP Projects",
+      "description": "List accessible GCP projects",
+      "category": "discovery",
+      "enabled": true,
+      "testable": true,
+      "last_test_result": null
+    },
+    {
       "name": "run_aggregate_analysis",
       "display_name": "Run Aggregate Analysis",
       "description": "Run Stage 0: Aggregate analysis using BigQuery",
@@ -814,5 +886,5 @@
     }
   ],
   "version": "1.0",
-  "updated_at": "2026-01-22T01:37:50.806018+00:00"
+  "updated_at": "2026-01-22T17:39:25.655759+00:00"
 }
