@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter/rendering.dart';
 import 'package:genui/genui.dart';
 import 'package:provider/provider.dart';
 
@@ -112,7 +113,7 @@ class _ConversationPageState extends State<ConversationPage>
       contentGenerator: _contentGenerator,
       onSurfaceAdded: (update) => _scrollToBottom(force: true),
       onSurfaceUpdated: (update) => _scrollToBottom(),
-      onTextResponse: (text) => _scrollToBottom(force: true),
+      onTextResponse: (text) => _scrollToBottom(),
     );
 
     // Subscribe to suggestions
@@ -209,25 +210,44 @@ class _ConversationPageState extends State<ConversationPage>
   void _scrollToBottom({bool force = false}) {
     if (!mounted || !_scrollController.hasClients) return;
 
-    // Check if we are already near the bottom (within a reasonable threshold)
-    // If so, we should continue to "stick" to the bottom as new content arrives.
-    final bool isNearBottom = _scrollController.position.maxScrollExtent -
-            _scrollController.offset <
-        150.0;
+    final position = _scrollController.position;
+    final double extentAfter = position.extentAfter;
+    final double maxScroll = position.maxScrollExtent;
 
-    if (force || isNearBottom || _scrollController.position.maxScrollExtent == 0) {
-      // Use addPostFrameCallback to ensure the ListView has updated its layout
-      // and maxScrollExtent reflects the new content.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOutCubic,
-          );
-        }
-      });
+    // 1. Check if user is actively manual scrolling
+    final bool isUserScrolling = position.userScrollDirection != ScrollDirection.idle;
+
+    // 2. Threshold to detect if we should "stick" to the bottom.
+    // We use a larger threshold (300px) to ensure we don't lose stickiness
+    // when large blocks of text arrive between frames.
+    final bool isNearBottom = extentAfter < 300.0;
+
+    // 3. Logic to decide whether to scroll:
+    // - Always scroll if forced (e.g. user just sent a message)
+    // - Scroll if we are near the bottom AND the user isn't actively manual scrolling
+    // - Scroll if the list is empty/new
+    if (!force && (isUserScrolling || (!isNearBottom && maxScroll > 0))) {
+      return;
     }
+
+    // Use addPostFrameCallback to ensure the layout has updated
+    // with the latest message sizes before calculating the target offset.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+
+      final currentMax = _scrollController.position.maxScrollExtent;
+      final currentOffset = _scrollController.offset;
+
+      // If we are already at the bottom (or very close), no need to start a new animation.
+      if ((currentMax - currentOffset).abs() < 5.0) return;
+
+      // Animate smoothly but quickly to the bottom.
+      _scrollController.animateTo(
+        currentMax,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOutCubic,
+      );
+    });
   }
 
   void _sendMessage() {
@@ -1089,7 +1109,7 @@ class _MessageItemState extends State<_MessageItem>
     );
 
     _slideAnimation =
-        Tween<Offset>(begin: const Offset(0, 0.05), end: Offset.zero).animate(
+        Tween<Offset>(begin: const Offset(0, 0.015), end: Offset.zero).animate(
           CurvedAnimation(parent: _entryController, curve: Curves.easeOutCubic),
         );
 
