@@ -101,23 +101,62 @@ def _list_time_series_sync(
             )
             time_series_data = []
             for result in results:
+                metric_type = getattr(result.metric, "type", "unknown")
+                metric_labels = dict(getattr(result.metric, "labels", {}))
+                resource_type = getattr(result.resource, "type", "unknown")
+                resource_labels = dict(getattr(result.resource, "labels", {}))
+
+                points = []
+                for point in result.points:
+                    # Robust timestamp extraction
+                    try:
+                        ts = point.interval.end_time
+                        if hasattr(ts, "isoformat"):
+                            ts_str = ts.isoformat()
+                        else:
+                            # Fallback for native protobuf Timestamp
+                            from datetime import datetime
+
+                            ts_str = datetime.fromtimestamp(
+                                ts.seconds + ts.nanos / 1e9, tz=timezone.utc
+                            ).isoformat()
+                    except Exception:
+                        ts_str = str(point.interval.end_time)
+
+                    # Robust value extraction (TypedValue is a oneof)
+                    # We check which field is actually set
+                    val_proto = point.value
+                    if hasattr(val_proto, "double_value") and "double_value" in str(
+                        val_proto
+                    ):
+                        value = val_proto.double_value
+                    elif hasattr(val_proto, "int64_value") and "int64_value" in str(
+                        val_proto
+                    ):
+                        value = val_proto.int64_value
+                    elif hasattr(val_proto, "bool_value") and "bool_value" in str(
+                        val_proto
+                    ):
+                        value = val_proto.bool_value
+                    elif hasattr(val_proto, "string_value") and "string_value" in str(
+                        val_proto
+                    ):
+                        value = val_proto.string_value
+                    else:
+                        # Fallback try-all
+                        value = (
+                            getattr(val_proto, "double_value", None)
+                            or getattr(val_proto, "int64_value", None)
+                            or 0.0
+                        )
+
+                    points.append({"timestamp": ts_str, "value": value})
+
                 time_series_data.append(
                     {
-                        "metric": {
-                            "type": result.metric.type,
-                            "labels": dict(result.metric.labels),
-                        },
-                        "resource": {
-                            "type": result.resource.type,
-                            "labels": dict(result.resource.labels),
-                        },
-                        "points": [
-                            {
-                                "timestamp": point.interval.end_time.isoformat(),
-                                "value": point.value.double_value,
-                            }
-                            for point in result.points
-                        ],
+                        "metric": {"type": metric_type, "labels": metric_labels},
+                        "resource": {"type": resource_type, "labels": resource_labels},
+                        "points": points,
                     }
                 )
             span.set_attribute("gcp.monitoring.series_count", len(time_series_data))

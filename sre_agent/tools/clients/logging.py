@@ -98,9 +98,26 @@ def _list_log_entries_sync(
                             "timestamp": entry.timestamp.isoformat()
                             if entry.timestamp
                             else None,
-                            "severity": entry.severity.name
-                            if hasattr(entry.severity, "name")
-                            else str(entry.severity),
+                            "severity": (
+                                entry.severity.name
+                                if hasattr(entry.severity, "name")
+                                else {
+                                    0: "DEFAULT",
+                                    100: "DEBUG",
+                                    200: "INFO",
+                                    300: "NOTICE",
+                                    400: "WARNING",
+                                    500: "ERROR",
+                                    600: "CRITICAL",
+                                    700: "ALERT",
+                                    800: "EMERGENCY",
+                                }.get(
+                                    entry.severity
+                                    if isinstance(entry.severity, int)
+                                    else 0,
+                                    str(entry.severity),
+                                )
+                            ),
                             "payload": payload_data,
                             "resource": {
                                 "type": entry.resource.type,
@@ -110,12 +127,16 @@ def _list_log_entries_sync(
                             "trace": entry.trace,
                             "span_id": entry.span_id,
                             "http_request": {
-                                "requestMethod": entry.http_request.get(
-                                    "requestMethod"
+                                "requestMethod": getattr(
+                                    entry.http_request, "request_method", None
                                 ),
-                                "requestUrl": entry.http_request.get("requestUrl"),
-                                "status": entry.http_request.get("status"),
-                                "latency": entry.http_request.get("latency"),
+                                "requestUrl": getattr(
+                                    entry.http_request, "request_url", None
+                                ),
+                                "status": getattr(entry.http_request, "status", None),
+                                "latency": str(entry.http_request.latency)
+                                if hasattr(entry.http_request, "latency")
+                                else None,
                             }
                             if entry.http_request
                             else None,

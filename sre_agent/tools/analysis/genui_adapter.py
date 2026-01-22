@@ -328,6 +328,76 @@ def transform_metrics_dashboard(dashboard_data: dict[str, Any]) -> dict[str, Any
     }
 
 
+def transform_golden_signals(data: dict[str, Any]) -> dict[str, Any]:
+    """Transform Golden Signals data for MetricsDashboardCanvas widget.
+
+    Args:
+        data: Dictionary from get_golden_signals tool.
+
+    Returns:
+        Dictionary formatted for the MetricsDashboardCanvas widget.
+    """
+    signals = data.get("signals", {})
+    metrics = []
+
+    # Map signals to the dashboard metric format
+    # 1. Latency
+    latency = signals.get("latency", {})
+    metrics.append(
+        {
+            "id": "latency",
+            "name": "Latency",
+            "unit": "ms",
+            "current_value": latency.get("value_ms", 0),
+            "status": latency.get("status", "normal").lower(),
+            "anomaly_description": latency.get("hint"),
+        }
+    )
+
+    # 2. Traffic
+    traffic = signals.get("traffic", {})
+    metrics.append(
+        {
+            "id": "traffic",
+            "name": "Traffic",
+            "unit": "req/s",
+            "current_value": traffic.get("requests_per_second", 0),
+            "status": traffic.get("status", "normal").lower(),
+        }
+    )
+
+    # 3. Errors
+    errors = signals.get("errors", {})
+    metrics.append(
+        {
+            "id": "errors",
+            "name": "Errors",
+            "unit": "%",
+            "current_value": errors.get("error_rate_percent", 0),
+            "status": errors.get("status", "normal").lower(),
+        }
+    )
+
+    # 4. Saturation
+    saturation = signals.get("saturation", {})
+    metrics.append(
+        {
+            "id": "saturation",
+            "name": "Saturation",
+            "unit": "%",
+            "current_value": saturation.get("cpu_utilization_avg_percent", 0),
+            "status": saturation.get("status", "normal").lower(),
+        }
+    )
+
+    return {
+        "title": f"Golden Signals: {data.get('service_name', 'Service')}",
+        "service_name": data.get("service_name"),
+        "metrics": metrics,
+        "last_updated": datetime.now(timezone.utc).isoformat(),
+    }
+
+
 def transform_ai_reasoning(reasoning_data: dict[str, Any]) -> dict[str, Any]:
     """Transform AI reasoning data for AIReasoningCanvas widget.
 

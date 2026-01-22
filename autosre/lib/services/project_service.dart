@@ -296,9 +296,9 @@ class ProjectService {
       } else {
         _error.value = 'Failed to fetch projects: ${response.statusCode}';
       }
-    } catch (e) {
+    } catch (e, stack) {
       _error.value = 'Error fetching projects: $e';
-      debugPrint('ProjectService error: $e');
+      debugPrint('ProjectService error: $e\n$stack');
       debugPrint('🔥 ProjectService Exception: $e');
     } finally {
       _isLoading.value = false;

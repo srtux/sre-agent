@@ -213,12 +213,22 @@ def emojify_agent(agent: LlmAgent) -> LlmAgent:
     async def wrapped_run_async(context: Any) -> AsyncGenerator[Any, None]:
         # 1. Log Prompt
         user_msg = "Unknown"
-        if (
-            hasattr(context, "user_content")
-            and context.user_content
-            and context.user_content.parts
-        ):
-            user_msg = context.user_content.parts[0].text
+        try:
+            if hasattr(context, "user_content") and context.user_content:
+                parts = getattr(context.user_content, "parts", [])
+                if parts:
+                    # Try to get text from the first part
+                    p = parts[0]
+                    if hasattr(p, "text"):
+                        user_msg = p.text
+                    elif isinstance(p, dict) and "text" in p:
+                        user_msg = p["text"]
+                    else:
+                        user_msg = str(p)
+            elif hasattr(context, "message") and context.message:
+                user_msg = str(context.message)
+        except Exception as e:
+            logger.warning(f"Failed to extract user message for logging: {e}")
 
         # Determine project and session
         project_id = os.environ.get(
@@ -230,8 +240,8 @@ def emojify_agent(agent: LlmAgent) -> LlmAgent:
             else "unknown"
         )
 
-        logging.info(f"💬 User Prompt: '{user_msg}'")
-        logging.info(f"📍 Context: Project={project_id}, Session={session_id}")
+        logger.info(f"💬 User Prompt: '{user_msg}'")
+        logger.info(f"📍 Context: Project={project_id}, Session={session_id}")
 
         # 2. Run Original
         full_response_parts = []

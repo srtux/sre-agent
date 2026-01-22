@@ -86,9 +86,33 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
             try:
                 result = await func(*args, **kwargs)
                 duration_ms = (time.time() - start_time) * 1000
-                logger.info(
-                    f"✅ Tool Success: '{tool_name}' | Duration: {duration_ms:.2f}ms"
-                )
+
+                # Check if the result indicates a tool-level error (e.g. JSON with "error" key)
+                is_failed = False
+                if isinstance(result, str) and '"error":' in result:
+                    try:
+                        import json
+
+                        data = json.loads(result)
+                        if isinstance(data, dict) and "error" in data:
+                            is_failed = True
+                    except Exception:
+                        pass
+                elif isinstance(result, dict) and "error" in result:
+                    is_failed = True
+
+                if is_failed:
+                    logger.error(
+                        f"❌ Tool Failed (Logical): '{tool_name}' | Result contains error | Duration: {duration_ms:.2f}ms"
+                    )
+                    span.set_status(
+                        Status(StatusCode.ERROR, "Tool returned logical error")
+                    )
+                    success = False
+                else:
+                    logger.info(
+                        f"✅ Tool Success: '{tool_name}' | Duration: {duration_ms:.2f}ms"
+                    )
 
                 # Truncate result logging
                 result_str = repr(result)
@@ -148,9 +172,33 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
             try:
                 result = func(*args, **kwargs)
                 duration_ms = (time.time() - start_time) * 1000
-                logger.info(
-                    f"✅ Tool Success: '{tool_name}' | Duration: {duration_ms:.2f}ms"
-                )
+
+                # Check if the result indicates a tool-level error
+                is_failed = False
+                if isinstance(result, str) and '"error":' in result:
+                    try:
+                        import json
+
+                        data = json.loads(result)
+                        if isinstance(data, dict) and "error" in data:
+                            is_failed = True
+                    except Exception:
+                        pass
+                elif isinstance(result, dict) and "error" in result:
+                    is_failed = True
+
+                if is_failed:
+                    logger.error(
+                        f"❌ Tool Failed (Logical): '{tool_name}' | Result contains error | Duration: {duration_ms:.2f}ms"
+                    )
+                    span.set_status(
+                        Status(StatusCode.ERROR, "Tool returned logical error")
+                    )
+                    success = False
+                else:
+                    logger.info(
+                        f"✅ Tool Success: '{tool_name}' | Duration: {duration_ms:.2f}ms"
+                    )
                 # Truncate result logging
                 result_str = repr(result)
                 if len(result_str) > 1000:

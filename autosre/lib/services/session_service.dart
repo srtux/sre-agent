@@ -223,9 +223,9 @@ class SessionService {
       } else {
         _error.value = 'Failed to fetch sessions: ${response.statusCode}';
       }
-    } catch (e) {
+    } catch (e, stack) {
       _error.value = 'Error fetching sessions: $e';
-      debugPrint('SessionService error: $e');
+      debugPrint('SessionService error: $e\n$stack');
     } finally {
       _isLoading.value = false;
     }

@@ -276,8 +276,22 @@ def _fetch_trace_sync(project_id: str, trace_id: str) -> str:
             trace_end = None
 
             for span_proto in trace_obj.spans:
-                s_start = span_proto.start_time.timestamp()
-                s_end = span_proto.end_time.timestamp()
+                # Helper for robust timestamp extraction
+                def get_ts_val(ts_proto: Any) -> float:
+                    if hasattr(ts_proto, "timestamp"):
+                        return ts_proto.timestamp()
+                    return ts_proto.seconds + ts_proto.nanos / 1e9
+
+                def get_ts_str(ts_proto: Any) -> str:
+                    if hasattr(ts_proto, "isoformat"):
+                        return ts_proto.isoformat()
+
+                    return datetime.fromtimestamp(
+                        get_ts_val(ts_proto), tz=timezone.utc
+                    ).isoformat()
+
+                s_start = get_ts_val(span_proto.start_time)
+                s_end = get_ts_val(span_proto.end_time)
 
                 if trace_start is None or s_start < trace_start:
                     trace_start = s_start
@@ -288,8 +302,8 @@ def _fetch_trace_sync(project_id: str, trace_id: str) -> str:
                     {
                         "span_id": span_proto.span_id,
                         "name": span_proto.name,
-                        "start_time": span_proto.start_time.isoformat(),
-                        "end_time": span_proto.end_time.isoformat(),
+                        "start_time": get_ts_str(span_proto.start_time),
+                        "end_time": get_ts_str(span_proto.end_time),
                         # Optimization: Store unix timestamps to avoid expensive ISO parsing in analysis tools
                         "start_time_unix": s_start,
                         "end_time_unix": s_end,
@@ -441,11 +455,22 @@ def _list_traces_sync(
                     root_span = trace.spans[0]
                     summary["name"] = root_span.name
 
-                    start_ts = root_span.start_time.timestamp()
-                    end_ts = root_span.end_time.timestamp()
+                    # Helper for robust timestamp extraction
+                    def get_ts_val(ts_proto: Any) -> float:
+                        if hasattr(ts_proto, "timestamp"):
+                            return ts_proto.timestamp()
+                        return ts_proto.seconds + ts_proto.nanos / 1e9
+
+                    start_ts = get_ts_val(root_span.start_time)
+                    end_ts = get_ts_val(root_span.end_time)
                     duration_ms = (end_ts - start_ts) * 1000
 
-                    summary["start_time"] = root_span.start_time.isoformat()
+                    if hasattr(root_span.start_time, "isoformat"):
+                        summary["start_time"] = root_span.start_time.isoformat()
+                    else:
+                        summary["start_time"] = datetime.fromtimestamp(
+                            start_ts, tz=timezone.utc
+                        ).isoformat()
                     summary["duration_ms"] = round(duration_ms, 2)
 
                     # Labels/Attributes

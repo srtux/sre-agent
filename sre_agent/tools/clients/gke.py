@@ -273,12 +273,25 @@ def _analyze_node_conditions_sync(
                     if node not in result["nodes"]:
                         result["nodes"][node] = {"metrics": {}, "conditions": []}
 
-                    # Get the most recent value
-                    if series.points:
-                        latest = series.points[0]
-                        value = latest.value.double_value or latest.value.int64_value
+                        # Get the most recent value
+                        if series.points:
+                            latest = series.points[0]
+                            val_proto = latest.value
+                            # Robust value extraction (TypedValue is a oneof)
+                            if hasattr(
+                                val_proto, "double_value"
+                            ) and "double_value" in str(val_proto):
+                                value = val_proto.double_value
+                            elif hasattr(
+                                val_proto, "int64_value"
+                            ) and "int64_value" in str(val_proto):
+                                value = val_proto.int64_value
+                            else:
+                                value = getattr(
+                                    val_proto, "double_value", 0.0
+                                ) or getattr(val_proto, "int64_value", 0.0)
 
-                        result["nodes"][node]["metrics"][metric_name] = value
+                            result["nodes"][node]["metrics"][metric_name] = value
 
                         # Check thresholds
                         if threshold and value > threshold:
@@ -450,8 +463,12 @@ def _get_pod_restart_events_sync(
 
             if series.points:
                 # Compare first and last points to get restart count in window
-                oldest = series.points[-1].value.int64_value
-                newest = series.points[0].value.int64_value
+                val_old = series.points[-1].value
+                val_new = series.points[0].value
+
+                # Robust int extraction
+                oldest = getattr(val_old, "int64_value", 0)
+                newest = getattr(val_new, "int64_value", 0)
                 restarts_in_window = newest - oldest
 
                 if restarts_in_window > 0 or newest > 0:
@@ -1112,18 +1129,34 @@ def _get_workload_health_summary_sync(
 
                     if series.points:
                         if metric_key == "cpu_util":
-                            val = max(p.value.double_value for p in series.points)
+                            val = max(
+                                (
+                                    p.value.double_value
+                                    if hasattr(p.value, "double_value")
+                                    else 0.0
+                                )
+                                for p in series.points
+                            )
                             workloads[workload_name]["cpu_util_max"] = max(
                                 workloads[workload_name]["cpu_util_max"], val
                             )
                         elif metric_key == "memory_util":
-                            val = max(p.value.double_value for p in series.points)
+                            val = max(
+                                (
+                                    p.value.double_value
+                                    if hasattr(p.value, "double_value")
+                                    else 0.0
+                                )
+                                for p in series.points
+                            )
                             workloads[workload_name]["memory_util_max"] = max(
                                 workloads[workload_name]["memory_util_max"], val
                             )
                         elif metric_key == "restarts":
-                            oldest = series.points[-1].value.int64_value
-                            newest = series.points[0].value.int64_value
+                            val_old = series.points[-1].value
+                            val_new = series.points[0].value
+                            oldest = getattr(val_old, "int64_value", 0)
+                            newest = getattr(val_new, "int64_value", 0)
                             workloads[workload_name]["total_restarts"] += (
                                 newest - oldest
                             )
