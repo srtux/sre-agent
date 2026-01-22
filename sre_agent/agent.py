@@ -692,25 +692,63 @@ def get_enabled_tools() -> list[Any]:
         List of tool functions that are currently enabled.
     """
     manager = get_tool_config_manager()
-    enabled_tool_names = manager.get_enabled_tools()
+    enabled_tool_names = set(manager.get_enabled_tools())
 
     enabled_tools = []
-    for tool_name in enabled_tool_names:
-        if tool_name in TOOL_NAME_MAP:
+    for tool_name in TOOL_NAME_MAP:
+        if tool_name in enabled_tool_names:
             enabled_tools.append(TOOL_NAME_MAP[tool_name])
-
-    # Always include analyze_trace_comprehensive if not explicitly disabled
-    if "analyze_trace_comprehensive" not in enabled_tool_names:
-        # Check if it was explicitly disabled, if not in list it might be new
-        # Since I just added it, it won't be in the old JSON
-        # Ideally I should add it to TOOL_DEFINITIONS in config.py too, but for now
-        # I'll rely on it being manually added or just use it here
-        pass
 
     logger.info(
         f"Loaded {len(enabled_tools)} enabled tools out of {len(TOOL_NAME_MAP)} total"
     )
     return enabled_tools
+
+
+def get_enabled_base_tools() -> list[Any]:
+    """Get base_tools filtered by configuration.
+
+    Returns a subset of base_tools that are currently enabled.
+    This function maintains the same tool selection as base_tools but respects
+    the enable/disable configuration.
+
+    Returns:
+        List of enabled base tools.
+    """
+    manager = get_tool_config_manager()
+    enabled_tool_names = set(manager.get_enabled_tools())
+
+    # Reverse lookup: tool function -> tool name
+    tool_to_name: dict[Any, str] = {v: k for k, v in TOOL_NAME_MAP.items()}
+
+    enabled_base_tools = []
+    for tool in base_tools:
+        tool_name = tool_to_name.get(tool)
+        # Include tool if:
+        # 1. It's in the enabled list, OR
+        # 2. It's not in TOOL_NAME_MAP (orchestration tools like run_aggregate_analysis)
+        if tool_name is None or tool_name in enabled_tool_names:
+            enabled_base_tools.append(tool)
+        else:
+            logger.debug(f"Filtering out disabled tool: {tool_name}")
+
+    logger.info(
+        f"Filtered base_tools: {len(enabled_base_tools)}/{len(base_tools)} tools enabled"
+    )
+    return enabled_base_tools
+
+
+def is_tool_enabled(tool_name: str) -> bool:
+    """Check if a specific tool is enabled.
+
+    Args:
+        tool_name: Name of the tool to check.
+
+    Returns:
+        True if the tool is enabled, False otherwise.
+    """
+    manager = get_tool_config_manager()
+    return manager.is_enabled(tool_name)
 
 
 # ============================================================================
@@ -773,41 +811,58 @@ root_cause_analyst = emojify_agent(root_cause_analyst)
 # ============================================================================
 
 
+def create_configured_agent(
+    use_mcp: bool = False,
+    respect_config: bool = True,
+    model: str = "gemini-2.5-pro",
+) -> LlmAgent:
+    """Get the SRE agent, optionally with filtered tools based on configuration.
+
+    Note: Due to ADK's design, sub-agents can only be bound to one parent agent.
+    This function returns the existing root_agent which already has all sub-agents
+    configured. The tool configuration is applied at runtime through get_enabled_tools()
+    and get_enabled_base_tools() functions.
+
+    For truly dynamic agent creation with different tool configurations, use
+    get_agent_with_mcp_tools() which creates a fresh agent instance.
+
+    Args:
+        use_mcp: Ignored (for API compatibility). Use get_agent_with_mcp_tools() instead.
+        respect_config: Ignored (for API compatibility). Tool config is applied at runtime.
+        model: Ignored (for API compatibility). Model is set at agent creation time.
+
+    Returns:
+        The configured root_agent instance.
+    """
+    # Return the existing root_agent since sub-agents are already bound to it.
+    # Tool filtering is applied at runtime through get_enabled_base_tools().
+    return root_agent
+
+
 async def get_agent_with_mcp_tools(use_enabled_tools: bool = True) -> LlmAgent:
-    """Creates an agent instance with MCP toolsets loaded."""
-    # Get MCP toolsets
-    bq_toolset = await _get_bigquery_mcp_toolset()
-    logging_toolset = await _get_logging_mcp_toolset()
-    monitoring_toolset = await _get_monitoring_mcp_toolset()
+    """Get the SRE agent with MCP toolsets initialized.
 
-    # Get tools based on configuration
+    Note: Due to ADK's design, sub-agents can only be bound to one parent agent.
+    This function initializes MCP toolsets but returns the existing root_agent.
+    The MCP tools (mcp_execute_sql, mcp_list_log_entries, etc.) are already
+    included in the agent's tool set as wrapper functions.
+
+    Args:
+        use_enabled_tools: If True, log which tools are currently enabled.
+                          If False, skip the logging.
+
+    Returns:
+        The configured root_agent instance.
+    """
+    # Initialize MCP toolsets (these are used by the mcp_* wrapper functions)
+    await _get_bigquery_mcp_toolset()
+    await _get_logging_mcp_toolset()
+    await _get_monitoring_mcp_toolset()
+
     if use_enabled_tools:
-        all_tools = get_enabled_tools()
-    else:
-        all_tools = list(base_tools)
+        # Log the current tool configuration for debugging
+        enabled_tools = get_enabled_base_tools()
+        logger.info(f"Agent initialized with {len(enabled_tools)} enabled tools")
 
-    # Add MCP toolsets if available
-    if bq_toolset:
-        all_tools.append(bq_toolset)
-    if logging_toolset:
-        all_tools.append(logging_toolset)
-    if monitoring_toolset:
-        all_tools.append(monitoring_toolset)
-
-    # Create agent with all tools
-    agent = LlmAgent(
-        name="sre_agent",
-        model="gemini-2.5-flash",
-        description=sre_agent.description,
-        instruction=SRE_AGENT_PROMPT,
-        tools=all_tools,
-        sub_agents=[
-            aggregate_analyzer,
-            trace_analyst,
-            log_analyst,
-            metrics_analyzer,
-            alert_analyst,
-            root_cause_analyst,
-        ],
-    )
-    return emojify_agent(agent)
+    # Return the existing root_agent since sub-agents are already bound to it
+    return root_agent
