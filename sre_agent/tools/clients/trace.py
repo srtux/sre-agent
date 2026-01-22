@@ -13,6 +13,7 @@ and inspect individual traces during triage.
 """
 
 import asyncio
+import contextvars
 import json
 import logging
 import os
@@ -25,11 +26,36 @@ from fastapi.concurrency import run_in_threadpool
 from google.cloud import trace_v1
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from ...auth import get_current_project_id
+from ...auth import (
+    get_credentials_from_tool_context,
+    get_current_project_id,
+)
 from ..common import adk_tool
 from ..common.cache import get_data_cache
 from ..common.telemetry import get_meter, get_tracer
 from .factory import get_trace_client
+
+# Context variable for credentials to pass to sync functions running in threadpool
+# This enables EIC propagation for Direct API tools in Agent Engine
+_thread_credentials: contextvars.ContextVar[Any | None] = contextvars.ContextVar(
+    "thread_credentials", default=None
+)
+
+
+def _set_thread_credentials(creds: Any) -> None:
+    """Set credentials for use in threadpool sync functions."""
+    _thread_credentials.set(creds)
+
+
+def _get_thread_credentials() -> Any:
+    """Get credentials from thread storage."""
+    return _thread_credentials.get()
+
+
+def _clear_thread_credentials() -> None:
+    """Clear thread credentials after use."""
+    _thread_credentials.set(None)
+
 
 logger = logging.getLogger(__name__)
 tracer = get_tracer(__name__)
@@ -170,15 +196,23 @@ def fetch_trace_data(
 
 
 @adk_tool
-async def fetch_trace(trace_id: str, project_id: str | None = None) -> str:
+async def fetch_trace(
+    trace_id: str,
+    project_id: str | None = None,
+    tool_context: Any = None,
+) -> str:
     """Fetches a specific trace by ID from Cloud Trace API.
 
     Uses caching to avoid redundant API calls when the same trace
     is requested multiple times (e.g., by different sub-agents).
 
+    Supports End User Identity Credentials (EIC) when running in Agent Engine
+    by extracting user credentials from tool_context session state.
+
     Args:
         trace_id: The unique hex ID of the trace.
         project_id: The Google Cloud Project ID. Defaults to current context.
+        tool_context: ADK ToolContext for credential propagation (optional).
 
     Returns:
         A JSON string representation of the trace, including all spans.
@@ -191,11 +225,25 @@ async def fetch_trace(trace_id: str, project_id: str | None = None) -> str:
         except ValueError as e:
             return json.dumps({"error": str(e)})
 
-    return await run_in_threadpool(_fetch_trace_sync, project_id, trace_id)
+    # Extract user credentials from tool_context for EIC propagation
+    # This allows the tool to use the user's credentials when running in Agent Engine
+    user_creds = get_credentials_from_tool_context(tool_context)
+    try:
+        if user_creds:
+            _set_thread_credentials(user_creds)
+        return await run_in_threadpool(_fetch_trace_sync, project_id, trace_id)
+    finally:
+        _clear_thread_credentials()
 
 
 def _fetch_trace_sync(project_id: str, trace_id: str) -> str:
-    """Synchronous implementation of fetch_trace."""
+    """Synchronous implementation of fetch_trace.
+
+    Uses thread-local credentials if available for EIC propagation.
+    """
+    # Check for thread-local user credentials (set by async wrapper for EIC)
+    thread_creds = _get_thread_credentials()
+
     # Check cache first
     cache = get_data_cache()
 
@@ -212,7 +260,14 @@ def _fetch_trace_sync(project_id: str, trace_id: str) -> str:
         span.set_attribute("rpc.method", "get_trace")
 
         try:
-            client = get_trace_client()
+            # Use user credentials from thread storage if available (EIC propagation)
+            if thread_creds:
+                from google.cloud import trace_v1
+
+                client = trace_v1.TraceServiceClient(credentials=thread_creds)
+                logger.debug("Using user credentials for trace client")
+            else:
+                client = get_trace_client()
 
             trace_obj = client.get_trace(project_id=project_id, trace_id=trace_id)
 
