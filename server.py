@@ -49,7 +49,7 @@ nest_asyncio.apply()
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from google.adk.cli.fast_api import get_fast_api_app
 from pydantic import BaseModel
@@ -485,9 +485,8 @@ async def get_trace(trace_id: str, project_id: Any | None = None) -> Any:
             trace_id=trace_id,
             project_id=project_id,
         )
-        import json
-
-        return json.loads(result)
+        # Optimized: return pre-serialized JSON to avoid double serialization
+        return Response(content=result, media_type="application/json")
     except Exception as e:
         import traceback
 
