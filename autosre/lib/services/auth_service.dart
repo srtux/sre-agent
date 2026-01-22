@@ -101,7 +101,7 @@ class AuthService extends ChangeNotifier {
   Future<void> _refreshTokens() async {
     if (_currentUser == null) return;
     try {
-      final auth = _currentUser!.authentication;
+      final auth = await (_currentUser! as dynamic).authentication;
       _idToken = auth.idToken;
       // We need to request proper scopes if not granted?
       // For now assume basic token is enough or we use authorizeScopes if needed.
@@ -113,7 +113,6 @@ class AuthService extends ChangeNotifier {
 
       // Actually, authentication property on account (idToken) is for Identification.
       // For API access (scopes), we need Authorization.
-
     } catch (e) {
       debugPrint('Error refreshing tokens: $e');
     }
@@ -126,13 +125,15 @@ class AuthService extends ChangeNotifier {
     }
 
     try {
-      // Get authentication credentials (token)
-      final auth = _currentUser!.authentication;
-      // dynamic cast to bypass analyzer error "getter not defined"
-      final token = (auth as dynamic).accessToken as String?;
+      // Get authentication headers which contain the access token
+      // Using dynamic cast to ensure compatibility and bypass potential analyzer issues
+      final headers =
+          await (_currentUser! as dynamic).authHeaders as Map<String, String>;
+
+      final token = extractTokenFromHeaders(headers);
 
       if (token == null) {
-        throw Exception('Failed to obtain access token');
+        throw Exception('Failed to obtain access token from authHeaders');
       }
 
       return ProjectInterceptorClient(
@@ -151,8 +152,16 @@ class AuthService extends ChangeNotifier {
         projectService: ProjectService(),
       );
     } catch (e) {
-       debugPrint('Error getting authenticated client: $e');
-       rethrow;
+      debugPrint('Error getting authenticated client: $e');
+      rethrow;
     }
+  }
+
+  /// Helper to extract token from headers (Exposed for testing)
+  static String? extractTokenFromHeaders(Map<String, String> headers) {
+    final authHeader = headers['Authorization'];
+    return authHeader != null && authHeader.startsWith('Bearer ')
+        ? authHeader.substring(7)
+        : authHeader;
   }
 }

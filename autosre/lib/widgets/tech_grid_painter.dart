@@ -6,7 +6,8 @@ class TechGridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.03) // Extremely subtle
+      ..color = Colors.white
+          .withValues(alpha: 0.03) // Extremely subtle
       ..strokeWidth = 1;
 
     const spacing = 40.0;

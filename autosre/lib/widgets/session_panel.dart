@@ -31,24 +31,33 @@ class _SessionPanelState extends State<SessionPanel> {
     widget.sessionService.fetchHistory();
 
     // Listen for connectivity changes to auto-refetch
-    final connectivityService = Provider.of<ConnectivityService>(context, listen: false);
+    final connectivityService = Provider.of<ConnectivityService>(
+      context,
+      listen: false,
+    );
     connectivityService.status.addListener(_onConnectivityChanged);
   }
 
   @override
   void dispose() {
-    final connectivityService = Provider.of<ConnectivityService>(context, listen: false);
+    final connectivityService = Provider.of<ConnectivityService>(
+      context,
+      listen: false,
+    );
     connectivityService.status.removeListener(_onConnectivityChanged);
     super.dispose();
   }
 
   void _onConnectivityChanged() {
-    final connectivityStatus = Provider.of<ConnectivityService>(context, listen: false).status.value;
-    if (connectivityStatus == ConnectivityStatus.connected && widget.sessionService.sessions.value.isEmpty) {
+    final connectivityStatus = Provider.of<ConnectivityService>(
+      context,
+      listen: false,
+    ).status.value;
+    if (connectivityStatus == ConnectivityStatus.connected &&
+        widget.sessionService.sessions.value.isEmpty) {
       widget.sessionService.fetchHistory();
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -57,10 +66,7 @@ class _SessionPanelState extends State<SessionPanel> {
       decoration: BoxDecoration(
         color: AppColors.backgroundCard,
         border: Border(
-          right: BorderSide(
-            color: AppColors.surfaceBorder,
-            width: 1,
-          ),
+          right: BorderSide(color: AppColors.surfaceBorder, width: 1),
         ),
       ),
       child: Column(
@@ -68,9 +74,7 @@ class _SessionPanelState extends State<SessionPanel> {
           // Header
           _buildHeader(),
           // Session list
-          Expanded(
-            child: _buildSessionList(),
-          ),
+          Expanded(child: _buildSessionList()),
         ],
       ),
     );
@@ -82,7 +86,7 @@ class _SessionPanelState extends State<SessionPanel> {
       decoration: BoxDecoration(
         color: AppColors.backgroundCard,
         border: Border(
-           // Removed bottom border for cleaner look, visual separation via spacing
+          // Removed bottom border for cleaner look, visual separation via spacing
         ),
       ),
       child: Column(
@@ -128,17 +132,17 @@ class _SessionPanelState extends State<SessionPanel> {
               ValueListenableBuilder<bool>(
                 valueListenable: widget.sessionService.isLoading,
                 builder: (context, isLoading, _) {
-                   if (!isLoading) return const SizedBox.shrink();
-                   return SizedBox(
-                     width: 12,
-                     height: 12,
-                     child: CircularProgressIndicator(
-                       strokeWidth: 2,
-                       valueColor: AlwaysStoppedAnimation<Color>(
-                         AppColors.textMuted.withValues(alpha: 0.5),
-                       ),
-                     ),
-                   );
+                  if (!isLoading) return const SizedBox.shrink();
+                  return SizedBox(
+                    width: 12,
+                    height: 12,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        AppColors.textMuted.withValues(alpha: 0.5),
+                      ),
+                    ),
+                  );
                 },
               ),
             ],
@@ -165,51 +169,76 @@ class _SessionPanelState extends State<SessionPanel> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.error_outline, color: AppColors.error, size: 32),
+                            Icon(
+                              Icons.error_outline,
+                              color: AppColors.error,
+                              size: 32,
+                            ),
                             const SizedBox(height: 12),
                             Text(
                               'Failed to load history',
-                              style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w500),
+                              style: TextStyle(
+                                color: AppColors.error,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                             const SizedBox(height: 8),
                             TextButton(
-                                  onPressed: () async {
-                                    // Set loading to true immediately for better UX
-                                    await widget.sessionService.fetchHistory(force: true);
-                                  },
-                                  child: Text('Retry', style: TextStyle(color: AppColors.primaryTeal)),
-                              )
-                            ],
-                          ),
+                              onPressed: () async {
+                                // Set loading to true immediately for better UX
+                                await widget.sessionService.fetchHistory(
+                                  force: true,
+                                );
+                              },
+                              child: Text(
+                                'Retry',
+                                style: TextStyle(color: AppColors.primaryTeal),
+                              ),
+                            ),
+                          ],
                         ),
-                      );
-                    }
+                      ),
+                    );
+                  }
 
-                    final connectivityStatus = Provider.of<ConnectivityService>(context).status.value;
-                    if (connectivityStatus == ConnectivityStatus.offline) {
-                      return Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.wifi_off, color: AppColors.textMuted, size: 32),
-                              const SizedBox(height: 12),
-                              Text(
-                                'You are offline',
-                                style: TextStyle(color: AppColors.textMuted, fontWeight: FontWeight.w500),
+                  final connectivityStatus = Provider.of<ConnectivityService>(
+                    context,
+                  ).status.value;
+                  if (connectivityStatus == ConnectivityStatus.offline) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.wifi_off,
+                              color: AppColors.textMuted,
+                              size: 32,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'You are offline',
+                              style: TextStyle(
+                                color: AppColors.textMuted,
+                                fontWeight: FontWeight.w500,
                               ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'History unavailable',
-                                style: TextStyle(color: AppColors.textMuted.withValues(alpha: 0.7)),
-                                textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'History unavailable',
+                              style: TextStyle(
+                                color: AppColors.textMuted.withValues(
+                                  alpha: 0.7,
+                                ),
                               ),
-                            ],
-                          ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
                         ),
-                      );
-                    }
+                      ),
+                    );
+                  }
 
                   return ValueListenableBuilder<List<SessionSummary>>(
                     valueListenable: widget.sessionService.sessions,
@@ -224,11 +253,15 @@ class _SessionPanelState extends State<SessionPanel> {
                       }
 
                       return ListView.builder(
-                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 8,
+                          horizontal: 8,
+                        ),
                         itemCount: sessions.length,
                         itemBuilder: (context, index) {
                           final session = sessions[index];
-                          final isSelected = session.id == widget.currentSessionId;
+                          final isSelected =
+                              session.id == widget.currentSessionId;
 
                           return _SessionItem(
                             key: ValueKey(session.id),
@@ -236,7 +269,10 @@ class _SessionPanelState extends State<SessionPanel> {
                             isSelected: isSelected,
                             onTap: () => widget.onSessionSelected(session.id),
                             onDelete: () => _deleteSession(session.id),
-                            onRename: () => _renameSession(session.id, session.displayTitle),
+                            onRename: () => _renameSession(
+                              session.id,
+                              session.displayTitle,
+                            ),
                           );
                         },
                       );
@@ -303,17 +339,11 @@ class _SessionPanelState extends State<SessionPanel> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: AppColors.textMuted),
-            ),
+            child: Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: Text(
-              'Delete',
-              style: TextStyle(color: AppColors.error),
-            ),
+            child: Text('Delete', style: TextStyle(color: AppColors.error)),
           ),
         ],
       ),
@@ -341,30 +371,37 @@ class _SessionPanelState extends State<SessionPanel> {
           decoration: InputDecoration(
             hintText: 'Enter new name',
             hintStyle: TextStyle(color: AppColors.textMuted),
-            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.surfaceBorder)),
-            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.primaryTeal)),
+            enabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: AppColors.surfaceBorder),
+            ),
+            focusedBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: AppColors.primaryTeal),
+            ),
           ),
           onSubmitted: (_) {
-             if (controller.text.trim().isNotEmpty) {
-                 widget.sessionService.renameSession(sessionId, controller.text.trim());
-                 Navigator.of(context).pop();
-             }
+            if (controller.text.trim().isNotEmpty) {
+              widget.sessionService.renameSession(
+                sessionId,
+                controller.text.trim(),
+              );
+              Navigator.of(context).pop();
+            }
           },
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: AppColors.textMuted),
-            ),
+            child: Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
           ),
           TextButton(
             onPressed: () {
-               if (controller.text.trim().isNotEmpty) {
-                   widget.sessionService.renameSession(sessionId, controller.text.trim());
-                   Navigator.of(context).pop();
-               }
+              if (controller.text.trim().isNotEmpty) {
+                widget.sessionService.renameSession(
+                  sessionId,
+                  controller.text.trim(),
+                );
+                Navigator.of(context).pop();
+              }
             },
             child: Text(
               'Rename',
@@ -419,20 +456,20 @@ class _SessionItemState extends State<_SessionItem> {
                 color: widget.isSelected
                     ? AppColors.primaryTeal.withValues(alpha: 0.15)
                     : _isHovered
-                        ? Colors.white.withValues(alpha: 0.03)
-                        : Colors.transparent,
+                    ? Colors.white.withValues(alpha: 0.03)
+                    : Colors.transparent,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
                   // Icon
                   Icon(
-                      Icons.chat_bubble_outline,
-                      size: 16,
-                      color: widget.isSelected
-                          ? AppColors.primaryTeal
-                          : AppColors.textMuted,
-                    ),
+                    Icons.chat_bubble_outline,
+                    size: 16,
+                    color: widget.isSelected
+                        ? AppColors.primaryTeal
+                        : AppColors.textMuted,
+                  ),
                   const SizedBox(width: 12),
                   // Content
                   Expanded(
@@ -470,7 +507,7 @@ class _SessionItemState extends State<_SessionItem> {
                   ),
                   // Actions (Edit/Delete) on hover
                   if (_isHovered) ...[
-                      IconButton(
+                    IconButton(
                       onPressed: widget.onRename,
                       icon: Icon(
                         Icons.edit_outlined,
@@ -499,7 +536,7 @@ class _SessionItemState extends State<_SessionItem> {
                       ),
                       tooltip: 'Delete',
                     ),
-                  ]
+                  ],
                 ],
               ),
             ),

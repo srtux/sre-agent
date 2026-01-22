@@ -37,9 +37,7 @@ class AuthWrapper extends StatelessWidget {
           return const Scaffold(
             backgroundColor: AppColors.backgroundDark,
             body: Center(
-              child: CircularProgressIndicator(
-                color: AppColors.primaryTeal,
-              ),
+              child: CircularProgressIndicator(color: AppColors.primaryTeal),
             ),
           );
         }

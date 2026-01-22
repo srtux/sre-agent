@@ -7,7 +7,8 @@ import '../../theme/app_theme.dart';
 class ServiceNode {
   final String id;
   final String name;
-  final String type; // 'frontend', 'backend', 'database', 'cache', 'queue', 'external'
+  final String
+  type; // 'frontend', 'backend', 'database', 'cache', 'queue', 'external'
   final String health; // 'healthy', 'degraded', 'unhealthy', 'unknown'
   final double latencyMs;
   final double errorRate;
@@ -175,7 +176,14 @@ class _ServiceTopologyCanvasState extends State<ServiceTopologyCanvas>
 
   List<List<ServiceNode>> _organizeIntoLayers(List<ServiceNode> services) {
     // Simple layering: frontends first, then backends, then databases/external
-    final typeOrder = ['frontend', 'backend', 'cache', 'queue', 'database', 'external'];
+    final typeOrder = [
+      'frontend',
+      'backend',
+      'cache',
+      'queue',
+      'database',
+      'external',
+    ];
     final layers = <List<ServiceNode>>[];
 
     for (final type in typeOrder) {
@@ -186,7 +194,9 @@ class _ServiceTopologyCanvasState extends State<ServiceTopologyCanvas>
     }
 
     // Add any remaining nodes not in typeOrder
-    final unassigned = services.where((s) => !typeOrder.contains(s.type)).toList();
+    final unassigned = services
+        .where((s) => !typeOrder.contains(s.type))
+        .toList();
     if (unassigned.isNotEmpty) {
       layers.add(unassigned);
     }
@@ -287,30 +297,45 @@ class _ServiceTopologyCanvasState extends State<ServiceTopologyCanvas>
                       builder: (context, constraints) {
                         return Transform(
                           transform: Matrix4.identity()
-                            ..translateByDouble(_offset.dx, _offset.dy, 0.0, 1.0)
+                            ..translateByDouble(
+                              _offset.dx,
+                              _offset.dy,
+                              0.0,
+                              1.0,
+                            )
                             ..scaleByDouble(_scale, _scale, 1.0, 1.0),
                           child: Stack(
                             children: [
                               // Background pattern
                               CustomPaint(
-                                size: Size(constraints.maxWidth, constraints.maxHeight),
+                                size: Size(
+                                  constraints.maxWidth,
+                                  constraints.maxHeight,
+                                ),
                                 painter: _TopologyBackgroundPainter(),
                               ),
                               // Connections
                               CustomPaint(
-                                size: Size(constraints.maxWidth, constraints.maxHeight),
+                                size: Size(
+                                  constraints.maxWidth,
+                                  constraints.maxHeight,
+                                ),
                                 painter: _TopologyConnectionsPainter(
                                   services: widget.data.services,
                                   positions: _nodePositions,
-                                  highlightedId: _selectedServiceId ?? _hoveredServiceId,
-                                  incidentSourceId: widget.data.incidentSourceId,
+                                  highlightedId:
+                                      _selectedServiceId ?? _hoveredServiceId,
+                                  incidentSourceId:
+                                      widget.data.incidentSourceId,
                                   affectedPath: widget.data.affectedPath,
                                   entranceProgress: _entranceAnimation.value,
                                   pulseProgress: _pulseAnimation.value,
                                 ),
                               ),
                               // Service nodes
-                              ...widget.data.services.map((service) => _buildServiceNode(service)),
+                              ...widget.data.services.map(
+                                (service) => _buildServiceNode(service),
+                              ),
                             ],
                           ),
                         );
@@ -329,8 +354,12 @@ class _ServiceTopologyCanvasState extends State<ServiceTopologyCanvas>
   }
 
   Widget _buildHeader() {
-    final unhealthyCount = widget.data.services.where((s) => s.health == 'unhealthy').length;
-    final degradedCount = widget.data.services.where((s) => s.health == 'degraded').length;
+    final unhealthyCount = widget.data.services
+        .where((s) => s.health == 'unhealthy')
+        .length;
+    final degradedCount = widget.data.services
+        .where((s) => s.health == 'degraded')
+        .length;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
@@ -347,7 +376,11 @@ class _ServiceTopologyCanvasState extends State<ServiceTopologyCanvas>
               ),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.hub, size: 18, color: AppColors.primaryBlue),
+            child: const Icon(
+              Icons.hub,
+              size: 18,
+              color: AppColors.primaryBlue,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -483,8 +516,11 @@ class _ServiceTopologyCanvasState extends State<ServiceTopologyCanvas>
           onEnter: (_) => setState(() => _hoveredServiceId = service.id),
           onExit: (_) => setState(() => _hoveredServiceId = null),
           child: GestureDetector(
-            onTap: () => setState(() => _selectedServiceId =
-                _selectedServiceId == service.id ? null : service.id),
+            onTap: () => setState(
+              () => _selectedServiceId = _selectedServiceId == service.id
+                  ? null
+                  : service.id,
+            ),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               width: 80,
@@ -498,10 +534,10 @@ class _ServiceTopologyCanvasState extends State<ServiceTopologyCanvas>
                   color: isIncidentSource
                       ? AppColors.error
                       : isAffected
-                          ? AppColors.warning
-                          : isSelected
-                              ? typeColor
-                              : AppColors.surfaceBorder,
+                      ? AppColors.warning
+                      : isSelected
+                      ? typeColor
+                      : AppColors.surfaceBorder,
                   width: (isSelected || isIncidentSource) ? 2 : 1,
                 ),
                 boxShadow: [
@@ -568,12 +604,16 @@ class _ServiceTopologyCanvasState extends State<ServiceTopologyCanvas>
                     const SizedBox(height: 4),
                     _buildMetricChip(
                       '${service.latencyMs.toStringAsFixed(0)}ms',
-                      service.latencyMs > 500 ? AppColors.warning : AppColors.textMuted,
+                      service.latencyMs > 500
+                          ? AppColors.warning
+                          : AppColors.textMuted,
                     ),
                     const SizedBox(height: 2),
                     _buildMetricChip(
                       '${(service.errorRate * 100).toStringAsFixed(1)}% err',
-                      service.errorRate > 0.01 ? AppColors.error : AppColors.textMuted,
+                      service.errorRate > 0.01
+                          ? AppColors.error
+                          : AppColors.textMuted,
                     ),
                   ],
                 ],
@@ -594,11 +634,7 @@ class _ServiceTopologyCanvasState extends State<ServiceTopologyCanvas>
       ),
       child: Text(
         text,
-        style: TextStyle(
-          fontSize: 8,
-          color: color,
-          fontFamily: 'monospace',
-        ),
+        style: TextStyle(fontSize: 8, color: color, fontFamily: 'monospace'),
       ),
     );
   }
@@ -626,7 +662,11 @@ class _ServiceTopologyCanvasState extends State<ServiceTopologyCanvas>
         children: [
           Row(
             children: [
-              Icon(_getTypeIcon(selected.type), size: 16, color: _getTypeColor(selected.type)),
+              Icon(
+                _getTypeIcon(selected.type),
+                size: 16,
+                color: _getTypeColor(selected.type),
+              ),
               const SizedBox(width: 8),
               Text(
                 selected.name,
@@ -640,7 +680,9 @@ class _ServiceTopologyCanvasState extends State<ServiceTopologyCanvas>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: _getHealthColor(selected.health).withValues(alpha: 0.15),
+                  color: _getHealthColor(
+                    selected.health,
+                  ).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -657,8 +699,14 @@ class _ServiceTopologyCanvasState extends State<ServiceTopologyCanvas>
           const SizedBox(height: 8),
           Row(
             children: [
-              _buildStat('Latency', '${selected.latencyMs.toStringAsFixed(1)}ms'),
-              _buildStat('Error Rate', '${(selected.errorRate * 100).toStringAsFixed(2)}%'),
+              _buildStat(
+                'Latency',
+                '${selected.latencyMs.toStringAsFixed(1)}ms',
+              ),
+              _buildStat(
+                'Error Rate',
+                '${(selected.errorRate * 100).toStringAsFixed(2)}%',
+              ),
               _buildStat('RPS', '${selected.requestsPerSec}'),
               _buildStat('Connections', '${selected.connections.length}'),
             ],
@@ -675,10 +723,7 @@ class _ServiceTopologyCanvasState extends State<ServiceTopologyCanvas>
         children: [
           Text(
             label,
-            style: const TextStyle(
-              fontSize: 9,
-              color: AppColors.textMuted,
-            ),
+            style: const TextStyle(fontSize: 9, color: AppColors.textMuted),
           ),
           Text(
             value,
@@ -728,10 +773,7 @@ class _ServiceTopologyCanvasState extends State<ServiceTopologyCanvas>
           const SizedBox(width: 4),
           Text(
             label,
-            style: const TextStyle(
-              fontSize: 9,
-              color: AppColors.textMuted,
-            ),
+            style: const TextStyle(fontSize: 9, color: AppColors.textMuted),
           ),
         ],
       ),
@@ -747,18 +789,12 @@ class _ServiceTopologyCanvasState extends State<ServiceTopologyCanvas>
           Container(
             width: 8,
             height: 8,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
           const SizedBox(width: 4),
           Text(
             label,
-            style: const TextStyle(
-              fontSize: 9,
-              color: AppColors.textMuted,
-            ),
+            style: const TextStyle(fontSize: 9, color: AppColors.textMuted),
           ),
         ],
       ),
@@ -817,9 +853,10 @@ class _TopologyConnectionsPainter extends CustomPainter {
         final toPos = positions[connection.targetId];
         if (toPos == null) continue;
 
-        final isHighlighted = highlightedId == service.id ||
-            highlightedId == connection.targetId;
-        final isAffectedConnection = affectedPath.contains(service.id) &&
+        final isHighlighted =
+            highlightedId == service.id || highlightedId == connection.targetId;
+        final isAffectedConnection =
+            affectedPath.contains(service.id) &&
             affectedPath.contains(connection.targetId);
         final isIncidentPath = incidentSourceId == service.id;
 
@@ -862,7 +899,12 @@ class _TopologyConnectionsPainter extends CustomPainter {
         }
 
         // Draw arrow at midpoint
-        _drawArrowHead(canvas, fromPos, toPos, lineColor.withValues(alpha: entranceProgress));
+        _drawArrowHead(
+          canvas,
+          fromPos,
+          toPos,
+          lineColor.withValues(alpha: entranceProgress),
+        );
       }
     }
   }

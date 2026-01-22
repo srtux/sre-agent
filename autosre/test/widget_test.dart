@@ -39,7 +39,9 @@ void main() {
   });
 }
 
-class MockGoogleSignIn extends Fake with MockPlatformInterfaceMixin implements GoogleSignInPlatform {
+class MockGoogleSignIn extends Fake
+    with MockPlatformInterfaceMixin
+    implements GoogleSignInPlatform {
   @override
   Future<void> init(InitParameters params) async {}
 
@@ -48,7 +50,9 @@ class MockGoogleSignIn extends Fake with MockPlatformInterfaceMixin implements G
   }
 
   @override
-  Future<AuthenticationResults?> attemptLightweightAuthentication(dynamic options) async {
+  Future<AuthenticationResults?> attemptLightweightAuthentication(
+    dynamic options,
+  ) async {
     return null;
   }
 

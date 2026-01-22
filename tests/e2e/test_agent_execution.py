@@ -24,17 +24,17 @@ async def test_run_triage_analysis_flow():
             baseline_trace_id="b1", target_trace_id="t1", tool_context=mock_tool_context
         )
 
-        # Verify AgentTool instantiation (6 sub-agents)
-        assert MockAgentTool.call_count == 6
+        # Verify AgentTool instantiation (2 sub-agents: trace, log)
+        assert MockAgentTool.call_count == 2
 
         # Verify run_async calls
-        assert mock_tool_instance.run_async.call_count == 6
+        assert mock_tool_instance.run_async.call_count == 2
 
         # Verify result structure
         assert result["stage"] == "triage"
         assert result["baseline_trace_id"] == "b1"
         assert result["target_trace_id"] == "t1"
-        assert result["results"]["latency"]["result"] == "Stage 1 Report Content"
+        assert result["results"]["trace"]["result"] == "Stage 1 Report Content"
 
 
 @pytest.mark.asyncio
@@ -54,10 +54,11 @@ async def test_run_deep_dive_analysis_flow():
             tool_context=mock_tool_context,
         )
 
-        assert MockAgentTool.call_count == 3
-        assert mock_tool_instance.run_async.call_count == 3
+        assert MockAgentTool.call_count == 1
+        assert mock_tool_instance.run_async.call_count == 1
         assert result["stage"] == "deep_dive"
-        assert result["results"]["causality"]["result"] == "Stage 2 Report Content"
+        assert result["status"] == "success"
+        assert result["result"] == "Stage 2 Report Content"
 
 
 @pytest.mark.asyncio

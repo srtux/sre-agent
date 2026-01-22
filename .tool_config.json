@@ -210,7 +210,7 @@
       "display_name": "MCP List Log Entries",
       "description": "List log entries via MCP Cloud Logging server",
       "category": "mcp",
-      "enabled": true,
+      "enabled": false,
       "testable": true,
       "last_test_result": {
         "status": "failed",
@@ -225,7 +225,7 @@
       "display_name": "MCP List Time Series",
       "description": "List metrics via MCP Cloud Monitoring server",
       "category": "mcp",
-      "enabled": true,
+      "enabled": false,
       "testable": true,
       "last_test_result": {
         "status": "failed",
@@ -240,7 +240,7 @@
       "display_name": "MCP Query Range (PromQL)",
       "description": "Execute PromQL queries via MCP Cloud Monitoring server",
       "category": "mcp",
-      "enabled": true,
+      "enabled": false,
       "testable": true,
       "last_test_result": {
         "status": "failed",
