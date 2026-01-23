@@ -219,7 +219,24 @@ TRACE_PROJECT_ID=your-trace-project
 # Optional: Vertex AI settings
 GOOGLE_GENAI_USE_VERTEXAI=1
 GOOGLE_CLOUD_LOCATION=us-central1
+
+# Optional: Arize AX Observability & OpenInference
+USE_ARIZE=true
+ARIZE_SPACE_ID=your-space-id
+ARIZE_API_KEY=your-api-key
+ARIZE_PROJECT_NAME=AutoSRE
 ```
+
+### Arize AX Observability
+
+Auto SRE supports optional [Arize AX](https://arize.com/products/arize-ax/) integration for advanced LLM observability and tracing.
+
+1.  **Install Arize extras**:
+    ```bash
+    uv sync --extra arize
+    ```
+2.  **Configure `.env`**: Obtain your `ARIZE_SPACE_ID` and `ARIZE_API_KEY` from the Arize AX dashboard.
+3.  **Dual-Tracing**: When `USE_ARIZE=true`, traces are sent simultaneously to both Google Cloud Trace and Arize AX.
 
 ### Running the Agent
 
