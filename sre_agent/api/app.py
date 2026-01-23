@@ -17,6 +17,7 @@ from sre_agent.api.routers import (
     permissions_router,
     preferences_router,
     sessions_router,
+    system_router,
     tools_router,
 )
 from sre_agent.tools.test_functions import register_all_test_functions
@@ -62,6 +63,7 @@ def create_app(
     app.include_router(agent_router)
     app.include_router(tools_router)
     app.include_router(sessions_router)
+    app.include_router(system_router)
     app.include_router(preferences_router)
     app.include_router(permissions_router)
 
