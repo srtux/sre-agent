@@ -70,6 +70,12 @@ from sre_agent.tools import (
     list_log_entries,
 )
 from sre_agent.tools.analysis import genui_adapter
+from sre_agent.tools.common.debug import (
+    get_debug_summary,
+    log_agent_engine_call_state,
+    log_auth_state,
+    log_telemetry_state,
+)
 from sre_agent.tools.config import (
     ToolCategory,
     ToolTestStatus,
@@ -471,6 +477,33 @@ async def health_check() -> dict[str, str]:
     """Health check endpoint for connectivity testing."""
     logger.debug("Health check received")
     return {"status": "ok"}
+
+
+@app.get("/api/debug")
+async def debug_info() -> Any:
+    """Debug endpoint for diagnosing telemetry and authentication issues.
+
+    Returns comprehensive information about:
+    - OpenTelemetry configuration and trace context
+    - Authentication state (ContextVar, Session, Default)
+    - Environment variables affecting telemetry and auth
+
+    Enable detailed logging by setting DEBUG_TELEMETRY=true and DEBUG_AUTH=true.
+    """
+    # Log telemetry state at this point
+    telemetry_state = log_telemetry_state("debug_endpoint")
+    auth_state = log_auth_state(None, "debug_endpoint")
+
+    return {
+        "telemetry": telemetry_state,
+        "auth": auth_state,
+        "summary": get_debug_summary(),
+        "instructions": {
+            "enable_debug_logging": "Set DEBUG_TELEMETRY=true and DEBUG_AUTH=true environment variables",
+            "enable_agent_engine_telemetry": "Set GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY=true when deploying to Agent Engine",
+            "view_traces": "Navigate to Cloud Console > Trace > Trace list",
+        },
+    }
 
 
 # 4. TOOL ENDPOINTS
@@ -1116,6 +1149,318 @@ async def set_recent_projects(request: SetRecentProjectsRequest) -> Any:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+# ============================================================================
+# PROJECT PERMISSION ENDPOINTS
+# For helping users grant the agent's service account access to their projects
+# ============================================================================
+
+
+@app.get("/api/permissions/info")
+async def get_permissions_info() -> Any:
+    """Get information about permissions required by the agent.
+
+    Returns the agent's service account and the IAM roles needed to access
+    user projects for telemetry analysis.
+    """
+    import google.auth
+
+    # Get the agent's service account identity
+    try:
+        credentials, project_id = google.auth.default()
+        service_account = None
+
+        # Try to get the service account email
+        if hasattr(credentials, "service_account_email"):
+            service_account = credentials.service_account_email
+        elif hasattr(credentials, "_service_account_email"):
+            service_account = credentials._service_account_email
+
+        # If running locally, might not have a service account
+        if not service_account:
+            service_account = "(running with user credentials or ADC)"
+
+    except Exception as e:
+        logger.warning(f"Could not determine service account: {e}")
+        service_account = "(unable to determine)"
+        project_id = os.environ.get("GOOGLE_CLOUD_PROJECT", "(not set)")
+
+    # Define required roles
+    required_roles = [
+        {
+            "role": "roles/cloudtrace.user",
+            "name": "Cloud Trace User",
+            "description": "View and search traces for performance analysis",
+        },
+        {
+            "role": "roles/logging.viewer",
+            "name": "Logs Viewer",
+            "description": "View logs for debugging and error analysis",
+        },
+        {
+            "role": "roles/monitoring.viewer",
+            "name": "Monitoring Viewer",
+            "description": "View metrics, dashboards, and alerting policies",
+        },
+        {
+            "role": "roles/bigquery.dataViewer",
+            "name": "BigQuery Data Viewer",
+            "description": "View BigQuery datasets and tables for fleet analysis",
+        },
+        {
+            "role": "roles/bigquery.jobUser",
+            "name": "BigQuery Job User",
+            "description": "Run BigQuery jobs for data analysis",
+        },
+    ]
+
+    return {
+        "agent_identity": {
+            "service_account": service_account,
+            "agent_project": project_id,
+        },
+        "required_roles": required_roles,
+        "instructions": {
+            "summary": "Grant the agent's service account access to your GCP project to enable telemetry analysis.",
+            "steps": [
+                "1. Copy the service account email above",
+                "2. Go to your project's IAM & Admin page in Cloud Console",
+                "3. Click 'Grant Access'",
+                "4. Paste the service account email as the principal",
+                "5. Add each required role listed above",
+                "6. Click 'Save'",
+            ],
+            "console_url": "https://console.cloud.google.com/iam-admin/iam",
+        },
+    }
+
+
+@app.get("/api/permissions/gcloud-commands")
+async def get_gcloud_commands(project_id: str) -> Any:
+    """Generate gcloud commands for granting permissions to a specific project.
+
+    Args:
+        project_id: The user's GCP project ID to grant access to
+
+    Returns:
+        Ready-to-use gcloud commands for granting permissions.
+    """
+    import google.auth
+
+    # Get the agent's service account
+    try:
+        credentials, _ = google.auth.default()
+        service_account = None
+
+        if hasattr(credentials, "service_account_email"):
+            service_account = credentials.service_account_email
+        elif hasattr(credentials, "_service_account_email"):
+            service_account = credentials._service_account_email
+
+        if not service_account:
+            return {
+                "error": "Cannot generate commands - running with user credentials",
+                "note": "The agent must be running with a service account to use this feature",
+            }
+
+    except Exception as e:
+        logger.error(f"Error getting service account: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Could not determine agent's service account",
+        ) from e
+
+    # Define required roles
+    roles = [
+        "roles/cloudtrace.user",
+        "roles/logging.viewer",
+        "roles/monitoring.viewer",
+        "roles/bigquery.dataViewer",
+        "roles/bigquery.jobUser",
+    ]
+
+    # Generate individual commands
+    commands = []
+    for role in roles:
+        cmd = (
+            f"gcloud projects add-iam-policy-binding {project_id} "
+            f'--member="serviceAccount:{service_account}" '
+            f'--role="{role}"'
+        )
+        commands.append(cmd)
+
+    # Generate a single combined command
+    combined_script = f"""#!/bin/bash
+# Grant SRE Agent access to project: {project_id}
+# Service Account: {service_account}
+
+PROJECT_ID="{project_id}"
+AGENT_SA="{service_account}"
+
+echo "Granting SRE Agent access to $PROJECT_ID..."
+
+"""
+    for role in roles:
+        combined_script += f"""gcloud projects add-iam-policy-binding $PROJECT_ID \\
+    --member="serviceAccount:$AGENT_SA" \\
+    --role="{role}"
+
+"""
+    combined_script += 'echo "Done! SRE Agent can now access your project."'
+
+    return {
+        "project_id": project_id,
+        "service_account": service_account,
+        "individual_commands": commands,
+        "combined_script": combined_script,
+        "instructions": (
+            "Copy and run these commands in your terminal with gcloud CLI installed. "
+            "Make sure you have Owner or IAM Admin permissions on the target project."
+        ),
+    }
+
+
+@app.get("/api/permissions/check")
+async def check_permissions(project_id: str) -> Any:
+    """Check if the agent has the required permissions on a project.
+
+    This performs lightweight API calls to verify access.
+
+    Args:
+        project_id: The user's GCP project ID to check
+
+    Returns:
+        Status of each required permission.
+    """
+    results: dict[str, Any] = {
+        "project_id": project_id,
+        "permissions": {},
+        "all_granted": False,
+    }
+
+    # Test each permission with a lightweight API call
+    permission_tests: list[dict[str, Any]] = [
+        {
+            "name": "Cloud Trace",
+            "description": "View traces",
+            "test_fn": "_test_trace_access",
+        },
+        {
+            "name": "Cloud Logging",
+            "description": "View logs",
+            "test_fn": "_test_logging_access",
+        },
+        {
+            "name": "Cloud Monitoring",
+            "description": "View metrics",
+            "test_fn": "_test_monitoring_access",
+        },
+    ]
+
+    async def _test_trace_access() -> bool:
+        """Test if we can access Cloud Trace."""
+        try:
+            from google.cloud import trace_v1
+
+            client = trace_v1.TraceServiceClient()
+            # Just create the request - if we don't have permission, it will fail
+            # We use list_traces with a very short time window to minimize load
+            from datetime import datetime, timedelta, timezone
+
+            end_time = datetime.now(timezone.utc)
+            start_time = end_time - timedelta(seconds=1)
+
+            # Use iterator and just check if we can start it
+            request = trace_v1.ListTracesRequest(
+                project_id=project_id,
+                start_time=start_time,
+                end_time=end_time,
+            )
+            # Just create the pager - don't iterate
+            client.list_traces(request=request)
+            return True
+        except Exception as e:
+            logger.debug(f"Trace access test failed: {e}")
+            return False
+
+    async def _test_logging_access() -> bool:
+        """Test if we can access Cloud Logging."""
+        try:
+            from google.cloud.logging_v2.services.logging_service_v2 import (
+                LoggingServiceV2Client,
+            )
+
+            client = LoggingServiceV2Client()
+            # List a single entry to test access
+            from google.cloud.logging_v2.types import ListLogEntriesRequest
+
+            request = ListLogEntriesRequest(
+                resource_names=[f"projects/{project_id}"],
+                page_size=1,
+            )
+            client.list_log_entries(request=request)
+            return True
+        except Exception as e:
+            logger.debug(f"Logging access test failed: {e}")
+            return False
+
+    async def _test_monitoring_access() -> bool:
+        """Test if we can access Cloud Monitoring."""
+        try:
+            from google.cloud import monitoring_v3
+
+            client = monitoring_v3.MetricServiceClient()
+            # List metric descriptors to test access
+            request = monitoring_v3.ListMetricDescriptorsRequest(
+                name=f"projects/{project_id}",
+                page_size=1,
+            )
+            client.list_metric_descriptors(request=request)
+            return True
+        except Exception as e:
+            logger.debug(f"Monitoring access test failed: {e}")
+            return False
+
+    # Run all tests
+    test_functions = {
+        "Cloud Trace": _test_trace_access,
+        "Cloud Logging": _test_logging_access,
+        "Cloud Monitoring": _test_monitoring_access,
+    }
+
+    for name, test_fn in test_functions.items():
+        try:
+            is_granted = await test_fn()
+            results["permissions"][name] = {
+                "granted": is_granted,
+                "description": next(
+                    (t["description"] for t in permission_tests if t["name"] == name),
+                    "",
+                ),
+            }
+        except Exception as e:
+            logger.error(f"Error testing {name}: {e}")
+            results["permissions"][name] = {
+                "granted": False,
+                "error": str(e),
+            }
+
+    results["all_granted"] = all(
+        p.get("granted", False) for p in results["permissions"].values()
+    )
+
+    if results["all_granted"]:
+        results["message"] = "All required permissions are granted!"
+    else:
+        missing = [
+            name
+            for name, info in results["permissions"].items()
+            if not info.get("granted", False)
+        ]
+        results["message"] = f"Missing permissions: {', '.join(missing)}"
+
+    return results
+
+
 # 4. GENUI ENDPOINT (A2UI Protocol)
 
 
@@ -1576,6 +1921,10 @@ async def genui_chat(
 
         if remote_agent_id:
             logger.info(f"Using Remote Agent: {remote_agent_id}")
+
+            # DEBUG: Log telemetry state before calling Agent Engine
+            log_telemetry_state("before_agent_engine_call")
+
             try:
                 from vertexai.preview import reasoning_engines
 
@@ -1616,6 +1965,15 @@ async def genui_chat(
                             "state_delta": session_state_delta,
                         }
                     }
+
+                # DEBUG: Log the complete state before calling Agent Engine
+                log_agent_engine_call_state(
+                    user_message=user_message,
+                    session_id=active_session_id,
+                    user_access_token=user_access_token,
+                    project_id=effective_project_id,
+                    context_label="before_stream",
+                )
 
                 # Use streaming API if available, otherwise fall back to query
                 # The stream() method provides event-by-event streaming for tool calls
