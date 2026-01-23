@@ -67,8 +67,11 @@ from sre_agent.agent import root_agent
 from sre_agent.auth import (
     SESSION_STATE_ACCESS_TOKEN_KEY,
     SESSION_STATE_PROJECT_ID_KEY,
+    TokenInfo,
+    clear_current_credentials,
     get_current_credentials_or_none,
     get_current_project_id,
+    validate_access_token,
 )
 from sre_agent.services import get_session_service, get_storage_service
 from sre_agent.suggestions import generate_contextual_suggestions
@@ -144,31 +147,51 @@ app.add_middleware(
 # Auth Middleware
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next: Any) -> Any:
-    """Middleware to extract Authorization header and set credentials context."""
+    """Middleware to extract Authorization header and set credentials context.
+
+    This middleware implements the End User Credentials (EUC) flow by:
+    1. Extracting the OAuth access token from the Authorization header
+    2. Creating a Credentials object and storing it in ContextVar
+    3. Extracting the GCP Project ID from header or query parameter
+    4. Clearing credentials after request completion to prevent leakage
+
+    The credentials are then available to all tools via:
+    - get_current_credentials_or_none() for local execution
+    - Session state for Agent Engine execution (set in agent endpoint)
+    """
     from google.oauth2.credentials import Credentials
 
     from sre_agent.auth import set_current_credentials, set_current_project_id
 
-    auth_header = request.headers.get("Authorization")
-    if auth_header and auth_header.startswith("Bearer "):
-        token = auth_header.split(" ")[1]
-        # Create credentials from the token (Access Token)
-        # Note: We trust the token format here; downstream APIs will fail if invalid.
-        creds = Credentials(token=token)  # type: ignore[no-untyped-call]
-        set_current_credentials(creds)
+    try:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ")[1]
+            # Create credentials from the token (Access Token)
+            # Note: We trust the token format here; downstream APIs will fail if invalid.
+            # For stricter validation, use the /api/auth/info endpoint or enable
+            # VALIDATE_TOKENS=true environment variable.
+            creds = Credentials(token=token)  # type: ignore[no-untyped-call]
+            set_current_credentials(creds)
+            logger.debug(
+                f"Set user credentials from Bearer token (path={request.url.path})"
+            )
 
-    # Extract GCP Project ID if provided in header
-    project_id_header = request.headers.get("X-GCP-Project-ID")
-    if project_id_header:
-        set_current_project_id(project_id_header)
-    else:
-        # Fallback to query parameter if not in header
-        project_id_query = request.query_params.get("project_id")
-        if project_id_query:
-            set_current_project_id(project_id_query)
+        # Extract GCP Project ID if provided in header
+        project_id_header = request.headers.get("X-GCP-Project-ID")
+        if project_id_header:
+            set_current_project_id(project_id_header)
+        else:
+            # Fallback to query parameter if not in header
+            project_id_query = request.query_params.get("project_id")
+            if project_id_query:
+                set_current_project_id(project_id_query)
 
-    response = await call_next(request)
-    return response
+        response = await call_next(request)
+        return response
+    finally:
+        # Clear credentials after request to prevent leakage between requests
+        clear_current_credentials()
 
 
 # HELPER: Create ToolContext
@@ -482,6 +505,47 @@ async def chat_agent(request: AgentRequest) -> StreamingResponse:
 async def health_check() -> dict[str, str]:
     """Health check endpoint for connectivity testing."""
     return {"status": "ok"}
+
+
+@app.get("/api/auth/info")
+async def auth_info(request: Request) -> dict[str, Any]:
+    """Get information about the current authentication state.
+
+    Returns token validation status and user info if authenticated.
+    This endpoint can be used by the frontend to verify tokens and
+    check authentication status.
+
+    Returns:
+        Dictionary with:
+        - authenticated: bool - Whether a valid token is present
+        - token_info: TokenInfo data (if token present)
+        - project_id: Currently selected project (if any)
+    """
+    auth_header = request.headers.get("Authorization")
+
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return {
+            "authenticated": False,
+            "error": "No Authorization header or invalid format",
+            "project_id": get_current_project_id(),
+        }
+
+    token = auth_header.split(" ")[1]
+
+    # Validate the token with Google
+    token_info: TokenInfo = await validate_access_token(token)
+
+    return {
+        "authenticated": token_info.valid,
+        "token_info": {
+            "valid": token_info.valid,
+            "email": token_info.email,
+            "expires_in": token_info.expires_in,
+            "scopes": token_info.scopes,
+            "error": token_info.error,
+        },
+        "project_id": get_current_project_id(),
+    }
 
 
 @app.get("/api/debug")
