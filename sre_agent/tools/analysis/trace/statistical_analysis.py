@@ -580,9 +580,7 @@ def perform_causal_analysis(
         target_spans_by_name[s.get("name")].append(s)
 
     # 2. Analyze Critical Path of target trace to get actual span IDs
-    cp_report = analyze_critical_path(
-        target_trace_id, project_id, tool_context=tool_context
-    )
+    cp_report = _analyze_critical_path_impl(target_data)
     critical_path = cp_report.get("critical_path", [])
     critical_path_ids = {s["span_id"] for s in critical_path}
 
@@ -590,11 +588,9 @@ def perform_causal_analysis(
     cp_info_map = {s["span_id"]: s for s in critical_path}
 
     # 3. Build call graph to get depth information
-    from .analysis import build_call_graph
+    from .analysis import _build_call_graph_impl
 
-    target_graph = build_call_graph(
-        target_trace_id, project_id, tool_context=tool_context
-    )
+    target_graph = _build_call_graph_impl(target_data)
 
     # Flatten tree to map span_id -> depth
     depth_map = {}

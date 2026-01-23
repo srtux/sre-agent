@@ -80,6 +80,10 @@ def analyze_trace_comprehensive(
         # Fetch trace data ONCE
         trace_data = fetch_trace_data(trace_id, project_id)
 
+        # Update trace_id to the actual ID from data (relevant if input was a JSON string)
+        if "trace_id" in trace_data:
+            result["trace_id"] = trace_data["trace_id"]
+
         # If fetching failed, return error immediately
         if "error" in trace_data:
             result["status"] = "error"
