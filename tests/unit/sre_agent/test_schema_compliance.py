@@ -35,9 +35,9 @@ def test_no_complex_union_with_dict_in_tools():
             if "Union" in type_str and "dict" in type_str:
                 suspicious_tools.append(f"{tool_name}.{param_name}: {type_str}")
 
-    assert (
-        not suspicious_tools
-    ), f"Found tools with risky Union+Dict types: {suspicious_tools}"
+    assert not suspicious_tools, (
+        f"Found tools with risky Union+Dict types: {suspicious_tools}"
+    )
 
 
 def test_no_tool_context_type_in_signatures():
@@ -59,7 +59,9 @@ def test_no_tool_context_type_in_signatures():
             elif param_type is ToolContext:
                 tools_with_context.append(f"{tool_name}.{param_name}")
 
-    assert not tools_with_context, f"Found tools exposing ToolContext in signature (use Any instead): {tools_with_context}"
+    assert not tools_with_context, (
+        f"Found tools exposing ToolContext in signature (use Any instead): {tools_with_context}"
+    )
 
 
 def test_detect_metric_anomalies_signature_safe():
@@ -72,9 +74,9 @@ def test_detect_metric_anomalies_signature_safe():
     data_points_type = hints.get("data_points")
 
     # parameters should be list[float], not a Union
-    assert (
-        data_points_type == list[float]
-    ), f"detect_metric_anomalies data_points type is {data_points_type}, expected list[float]"
+    assert data_points_type == list[float], (
+        f"detect_metric_anomalies data_points type is {data_points_type}, expected list[float]"
+    )
 
 
 def test_run_analysis_tools_signature_safe():
@@ -99,9 +101,9 @@ def test_run_analysis_tools_signature_safe():
 
         # Should be Any or Any | None, definitely NOT ToolContext
         type_str = str(tool_context_type)
-        assert (
-            "ToolContext" not in type_str
-        ), f"{tool.__name__} has ToolContext in signature: {type_str}"
+        assert "ToolContext" not in type_str, (
+            f"{tool.__name__} has ToolContext in signature: {type_str}"
+        )
 
 
 def test_mcp_tools_signature_safe():
@@ -125,6 +127,6 @@ def test_mcp_tools_signature_safe():
         tool_context_type = hints.get("tool_context")
 
         type_str = str(tool_context_type)
-        assert (
-            "ToolContext" not in type_str
-        ), f"{tool.__name__} has ToolContext in signature: {type_str}"
+        assert "ToolContext" not in type_str, (
+            f"{tool.__name__} has ToolContext in signature: {type_str}"
+        )

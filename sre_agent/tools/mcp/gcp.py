@@ -29,6 +29,7 @@ from ...auth import (
 )
 from ...schema import ToolStatus
 from ..common import adk_tool
+from ..common.debug import log_auth_state, log_mcp_auth_state
 from .mock_mcp import MockMcpToolset
 
 logger = logging.getLogger(__name__)
@@ -299,6 +300,10 @@ async def call_mcp_tool_with_retry(
     # Set tool context for header provider to access session state
     # This enables EIC (End User Identity Credential) propagation in Agent Engine
     set_mcp_tool_context(tool_context)
+
+    # DEBUG: Log auth state and MCP headers before making the call
+    log_auth_state(tool_context, f"mcp_call_{tool_name}")
+    log_mcp_auth_state(project_id, tool_context, f"mcp_call_{tool_name}")
 
     for attempt in range(max_retries):
         mcp_toolset = None
