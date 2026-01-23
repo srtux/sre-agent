@@ -1,7 +1,56 @@
-"""Authentication utilities for propagating user credentials.
+"""Authentication utilities for propagating End User Credentials (EUC).
 
-This module provides utilities for managing user credentials across different
-execution contexts:
+This module implements OAuth 2.0 credential propagation for the SRE Agent,
+enabling multi-tenant access where each user accesses their own GCP projects.
+
+## Architecture Overview
+
+The EUC (End User Credentials) flow works as follows:
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│  Flutter Web    │     │  FastAPI        │     │  ADK Agent      │
+│  (Cloud Run)    │     │  (Cloud Run)    │     │  (Local/Engine) │
+└────────┬────────┘     └────────┬────────┘     └────────┬────────┘
+         │                       │                       │
+         │ 1. Google Sign-In     │                       │
+         │    (OAuth 2.0)        │                       │
+         │    Scopes:            │                       │
+         │    - email            │                       │
+         │    - cloud-platform   │                       │
+         │                       │                       │
+         │ 2. Send Request       │                       │
+         │    Headers:           │                       │
+         │    - Authorization:   │                       │
+         │      Bearer <token>   │                       │
+         │    - X-GCP-Project-ID │                       │
+         ├──────────────────────>│                       │
+         │                       │ 3. Middleware         │
+         │                       │    - Extract token    │
+         │                       │    - Validate (opt)   │
+         │                       │    - Set ContextVar   │
+         │                       │                       │
+         │                       │ 4a. Local Execution   │
+         │                       ├──────────────────────>│
+         │                       │    ContextVar creds   │
+         │                       │                       │
+         │                       │ 4b. Agent Engine      │
+         │                       ├──────────────────────>│
+         │                       │    Session State:     │
+         │                       │    _user_access_token │
+         │                       │    _user_project_id   │
+         │                       │                       │
+         │                       │ 5. Tool Execution     │
+         │                       │    get_credentials_   │
+         │                       │    from_tool_context()│
+         │                       │<──────────────────────┤
+         │                       │                       │
+         │ 6. Response           │                       │
+         │<──────────────────────┤                       │
+         │                       │                       │
+```
+
+## Execution Contexts
 
 1. **ContextVar-based**: For local execution where Cloud Run middleware sets
    credentials in context variables that tools can access.
@@ -9,14 +58,23 @@ execution contexts:
 2. **Session State-based**: For remote Agent Engine execution where credentials
    are passed via session state (since ContextVars don't cross process boundaries).
 
-The credential resolution order is:
+## Credential Resolution Order
+
 1. ContextVar (set by middleware in local mode)
 2. Session state (for Agent Engine remote execution)
 3. Default credentials (service account fallback)
+
+## Security Considerations
+
+- Access tokens are short-lived (typically 1 hour)
+- Token refresh is handled by the frontend (Google Sign-In)
+- Backend can optionally validate tokens via Google's tokeninfo endpoint
+- Credentials are NOT persisted to disk; only held in memory during request
 """
 
 import contextvars
 import logging
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import google.auth
@@ -190,3 +248,168 @@ def get_project_id_from_tool_context(tool_context: "ToolContext | None") -> str 
             logger.debug(f"Error getting project_id from tool_context: {e}")
 
     return None
+
+
+# =============================================================================
+# Token Validation
+# =============================================================================
+
+
+@dataclass
+class TokenInfo:
+    """Information about a validated OAuth token.
+
+    Attributes:
+        valid: Whether the token is valid and not expired.
+        email: The email address associated with the token.
+        expires_in: Seconds until token expiration (0 if expired).
+        scopes: List of OAuth scopes granted to the token.
+        audience: The client ID the token was issued for.
+        error: Error message if validation failed.
+    """
+
+    valid: bool
+    email: str | None = None
+    expires_in: int = 0
+    scopes: list[str] | None = None
+    audience: str | None = None
+    error: str | None = None
+
+
+async def validate_access_token(access_token: str) -> TokenInfo:
+    """Validate an OAuth 2.0 access token with Google's tokeninfo endpoint.
+
+    This function makes an HTTP request to Google's tokeninfo endpoint to verify
+    that the token is valid and retrieve associated metadata.
+
+    Args:
+        access_token: The OAuth 2.0 access token to validate.
+
+    Returns:
+        TokenInfo with validation results.
+
+    Note:
+        This adds latency (~50-100ms) to each request. Consider caching results
+        or only validating on session creation.
+    """
+    import httpx
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                "https://oauth2.googleapis.com/tokeninfo",
+                params={"access_token": access_token},
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                return TokenInfo(
+                    valid=True,
+                    email=data.get("email"),
+                    expires_in=int(data.get("expires_in", 0)),
+                    scopes=data.get("scope", "").split(" ")
+                    if data.get("scope")
+                    else [],
+                    audience=data.get("aud"),
+                )
+            elif response.status_code == 400:
+                # Token is invalid or expired
+                error_data = response.json()
+                return TokenInfo(
+                    valid=False,
+                    error=error_data.get("error_description", "Invalid token"),
+                )
+            else:
+                return TokenInfo(
+                    valid=False,
+                    error=f"Token validation failed with status {response.status_code}",
+                )
+
+    except httpx.TimeoutException:
+        logger.warning("Token validation timed out")
+        return TokenInfo(valid=False, error="Token validation timed out")
+    except Exception as e:
+        logger.error(f"Token validation error: {e}")
+        return TokenInfo(valid=False, error=str(e))
+
+
+def validate_access_token_sync(access_token: str) -> TokenInfo:
+    """Synchronous version of validate_access_token.
+
+    Uses httpx synchronous client for environments where async is not available.
+
+    Args:
+        access_token: The OAuth 2.0 access token to validate.
+
+    Returns:
+        TokenInfo with validation results.
+    """
+    import httpx
+
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            response = client.get(
+                "https://oauth2.googleapis.com/tokeninfo",
+                params={"access_token": access_token},
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                return TokenInfo(
+                    valid=True,
+                    email=data.get("email"),
+                    expires_in=int(data.get("expires_in", 0)),
+                    scopes=data.get("scope", "").split(" ")
+                    if data.get("scope")
+                    else [],
+                    audience=data.get("aud"),
+                )
+            elif response.status_code == 400:
+                error_data = response.json()
+                return TokenInfo(
+                    valid=False,
+                    error=error_data.get("error_description", "Invalid token"),
+                )
+            else:
+                return TokenInfo(
+                    valid=False,
+                    error=f"Token validation failed with status {response.status_code}",
+                )
+
+    except httpx.TimeoutException:
+        logger.warning("Token validation timed out")
+        return TokenInfo(valid=False, error="Token validation timed out")
+    except Exception as e:
+        logger.error(f"Token validation error: {e}")
+        return TokenInfo(valid=False, error=str(e))
+
+
+def has_required_scopes(token_info: TokenInfo, required_scopes: list[str]) -> bool:
+    """Check if a token has all required OAuth scopes.
+
+    Args:
+        token_info: TokenInfo from validate_access_token.
+        required_scopes: List of required scope strings.
+
+    Returns:
+        True if token has all required scopes, False otherwise.
+    """
+    if not token_info.valid or not token_info.scopes:
+        return False
+
+    return all(scope in token_info.scopes for scope in required_scopes)
+
+
+# Required scopes for SRE Agent operations
+REQUIRED_SCOPES = [
+    "https://www.googleapis.com/auth/cloud-platform",
+]
+
+
+def clear_current_credentials() -> None:
+    """Clear credentials from the current context.
+
+    Call this after request processing to prevent credential leakage.
+    """
+    _credentials_context.set(None)
+    _project_id_context.set(None)
