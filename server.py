@@ -21,7 +21,7 @@ app = create_app(title="SRE Agent Toolbox API", include_adk_routes=True)
 if __name__ == "__main__":
     import uvicorn
 
-    port = int(os.getenv("PORT", "8080"))
+    port = int(os.getenv("PORT", "8001"))
     host = os.getenv("HOST", "0.0.0.0")
 
     logger.info(f"🚀 Starting SRE Agent API on {host}:{port}")

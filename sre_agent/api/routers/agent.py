@@ -125,6 +125,7 @@ async def get_suggestions(
 
 
 @router.post("/api/genui/chat")
+@router.post("/agent")
 async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingResponse:
     """Handle chat requests for the SRE Agent."""
     # Import tool event helpers from the helpers module
@@ -185,11 +186,15 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
 
         # 3. Stream Response
         async def event_generator() -> AsyncGenerator[str, None]:
-            # Send session ID first
-            yield json.dumps({"type": "session", "session_id": session.id}) + "\n"
-
             # Track pending tool calls for FIFO matching
             pending_tool_calls: list[dict[str, Any]] = []
+
+            # Send session ID first
+            session_init_evt = (
+                json.dumps({"type": "session", "session_id": session.id}) + "\n"
+            )
+            logger.info(f"📤 Initializing session stream: {session.id}")
+            yield session_init_evt
 
             # Refresh session to ensure we have the latest state
             active_session = session
@@ -208,13 +213,14 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                     await session_manager.update_session_state(
                         active_session, {"title": title}
                     )
-                    logger.info(f"Auto-named session {session.id}: {title}")
+                    logger.info(f"🏷️ Auto-named session {session.id}: {title}")
                 except Exception as e:
-                    logger.warning(f"Failed to auto-name session: {e}")
+                    logger.warning(f"⚠️ Failed to auto-name session: {e}")
 
             try:
                 # Wrap the agent generator in a task-like structure for proactive cancellation
-                async def run_agent():
+                # This is essential for detecting disconnection while the agent is busy/sleeping
+                async def run_agent() -> AsyncGenerator[Any, None]:
                     async for event in root_agent.run_async(inv_ctx):
                         yield event
 
@@ -222,6 +228,7 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
 
                 while True:
                     # Create tasks for the next event and the disconnect check
+                    # Note: __anext__() returns a coroutine that we wrap in a task
                     next_event = asyncio.create_task(agent_gen.__anext__())
                     disconnect_check = asyncio.create_task(
                         raw_request.is_disconnected()
@@ -232,63 +239,99 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                         return_when=asyncio.FIRST_COMPLETED,
                     )
 
-                    # Cancel whichever is still pending
+                    # Cancel whichever is still pending (important to drive CancelledError into the agent)
                     for task in pending:
                         task.cancel()
 
                     if disconnect_check in done and disconnect_check.result():
-                        logger.info("Client disconnected, cancelling agent run")
+                        logger.info("❌ Client disconnected, cancelling agent run")
                         break
 
                     if next_event in done:
                         try:
                             event = next_event.result()
+                            logger.debug(f"📥 Received event from agent: {event}")
+
                             # Persist generated event
                             await session_manager.session_service.append_event(
                                 active_session, event
                             )
 
-                            if not event.content or not event.content.parts:
+                            # Extract content and parts robustly
+                            content = getattr(event, "content", None)
+                            if not content:
                                 continue
 
-                            for part in event.content.parts:
-                                # Handle Text
-                                if hasattr(part, "text") and part.text:
+                            parts = []
+                            if hasattr(content, "parts"):
+                                parts = content.parts
+                            elif isinstance(content, dict):
+                                parts = content.get("parts", [])
+
+                            if not parts:
+                                continue
+
+                            for part in parts:
+                                # 1. Handle Text
+                                text = None
+                                if hasattr(part, "text"):
+                                    text = part.text
+                                elif isinstance(part, dict):
+                                    text = part.get("text")
+
+                                if text:
+                                    logger.info(
+                                        f"📤 Yielding text part: {text[:50]}..."
+                                    )
                                     yield (
-                                        json.dumps(
-                                            {"type": "text", "content": part.text}
-                                        )
+                                        json.dumps({"type": "text", "content": text})
                                         + "\n"
                                     )
 
-                                # Handle Tool Calls
-                                if (
-                                    hasattr(part, "function_call")
-                                    and part.function_call
-                                ):
+                                # 2. Handle Tool Calls
+                                fc = None
+                                if hasattr(part, "function_call"):
                                     fc = part.function_call
-                                    tool_name = fc.name
+                                elif isinstance(part, dict):
+                                    fc = part.get("function_call")
+
+                                if fc:
+                                    tool_name = getattr(fc, "name", None) or (
+                                        isinstance(fc, dict) and fc.get("name")
+                                    )
                                     if not tool_name:
                                         continue
 
-                                    tool_args = normalize_tool_args(fc.args)
+                                    tool_args_raw = getattr(fc, "args", None) or (
+                                        isinstance(fc, dict) and fc.get("args")
+                                    )
+                                    tool_args = normalize_tool_args(tool_args_raw)
+
+                                    logger.info(f"🛠️ Tool Call: {tool_name}")
                                     _, events = create_tool_call_events(
                                         tool_name, tool_args, pending_tool_calls
                                     )
                                     for evt_str in events:
                                         yield evt_str + "\n"
 
-                                # Handle Tool Responses
-                                if (
-                                    hasattr(part, "function_response")
-                                    and part.function_response
-                                ):
-                                    fp = part.function_response
-                                    tool_name = fp.name
+                                # 3. Handle Tool Responses
+                                fr = None
+                                if hasattr(part, "function_response"):
+                                    fr = part.function_response
+                                elif isinstance(part, dict):
+                                    fr = part.get("function_response")
+
+                                if fr:
+                                    tool_name = getattr(fr, "name", None) or (
+                                        isinstance(fr, dict) and fr.get("name")
+                                    )
                                     if not tool_name:
                                         continue
 
-                                    result = fp.response
+                                    result = getattr(fr, "response", None) or (
+                                        isinstance(fr, dict) and fr.get("response")
+                                    )
+                                    logger.info(f"✅ Tool Response: {tool_name}")
 
                                     # 1. Update tool log (generic)
                                     _, events = create_tool_response_events(
@@ -303,6 +346,7 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                                     )
                                     for evt_str in widget_events:
                                         yield evt_str + "\n"
+
                         except StopAsyncIteration:
                             break
                         except Exception as e:
@@ -310,7 +354,7 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                             raise e
 
             except Exception as e:
-                logger.error(f"Error in agent run: {e}", exc_info=True)
+                logger.error(f"🔥 Error in agent run: {e}", exc_info=True)
                 yield (
                     json.dumps(
                         {

@@ -151,6 +151,7 @@ from .tools import (
     list_alerts,
     list_error_events,
     # GCP direct API tools
+    list_gcp_projects,
     list_log_entries,
     # SLO listing
     list_slos,
@@ -600,6 +601,7 @@ TOOL_NAME_MAP = {
     "get_trace_by_url": get_trace_by_url,
     "summarize_trace": summarize_trace,
     "get_golden_signals": get_golden_signals,
+    "list_gcp_projects": list_gcp_projects,
     # Analysis
     "calculate_span_durations": calculate_span_durations,
     "find_bottleneck_services": find_bottleneck_services,
@@ -734,6 +736,7 @@ base_tools: list[Any] = [
     run_deep_dive_analysis,
     run_log_pattern_analysis,
     synthesize_report,
+    list_gcp_projects,
 ]
 
 

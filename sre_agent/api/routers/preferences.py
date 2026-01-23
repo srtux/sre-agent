@@ -81,7 +81,7 @@ async def set_tool_preferences(request: SetToolConfigRequest) -> Any:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
-@router.get("/recent-projects")
+@router.get("/projects/recent")
 async def get_recent_projects(user_id: str = "default") -> Any:
     """Get recent projects for a user."""
     try:
@@ -93,7 +93,7 @@ async def get_recent_projects(user_id: str = "default") -> Any:
         return {"projects": []}
 
 
-@router.post("/recent-projects")
+@router.post("/projects/recent")
 async def set_recent_projects(request: SetRecentProjectsRequest) -> Any:
     """Set recent projects for a user."""
     try:
