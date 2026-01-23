@@ -100,11 +100,35 @@ def _create_header_provider(project_id: str) -> Callable[[Any], dict[str, str]]:
 
 
 def get_project_id_with_fallback() -> str | None:
-    """Get project ID from environment or default credentials."""
+    """Get project ID from environment or default credentials.
+
+    Checks in the following order:
+    1. Tool context / Session state (if available)
+    2. Default credentials
+    3. Environment variables
+    """
+    # 1. Check Tool Context (if set via set_mcp_tool_context)
+    ctx = _mcp_tool_context.get()
+    if ctx is not None:
+        try:
+            from ...auth import get_project_id_from_tool_context
+
+            project_id = get_project_id_from_tool_context(ctx)
+            if project_id:
+                logger.debug(f"Resolved project ID from tool context: {project_id}")
+                return project_id
+        except Exception as e:
+            logger.debug(f"Error resolving project ID from tool context: {e}")
+
+    # 2. Existing logic (Default credentials / Environment)
     project_id = None
     try:
         _, project_id = get_current_credentials()
-        project_id = project_id or os.environ.get("GOOGLE_CLOUD_PROJECT")
+        project_id = (
+            project_id
+            or os.environ.get("GOOGLE_CLOUD_PROJECT")
+            or os.environ.get("GCP_PROJECT_ID")
+        )
     except Exception:
         pass
     return project_id

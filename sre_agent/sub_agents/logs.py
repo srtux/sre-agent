@@ -11,7 +11,11 @@ of analysis tools:
 
 from google.adk.agents import LlmAgent
 
-from ..prompt import REACT_PATTERN_INSTRUCTION, STRICT_ENGLISH_INSTRUCTION
+from ..prompt import (
+    PROJECT_CONTEXT_INSTRUCTION,
+    REACT_PATTERN_INSTRUCTION,
+    STRICT_ENGLISH_INSTRUCTION,
+)
 from ..tools import (
     # BigQuery tools
     analyze_bigquery_log_patterns,
@@ -33,6 +37,7 @@ init_sub_agent_env()
 
 LOG_ANALYST_PROMPT = f"""
 {STRICT_ENGLISH_INSTRUCTION}
+{PROJECT_CONTEXT_INSTRUCTION}
 {REACT_PATTERN_INSTRUCTION}
 You are the **Log Analyst** 📜🕵️‍♂️ - The "Log Whisperer".
 
@@ -78,7 +83,7 @@ Example Reporting:
 
 log_analyst = LlmAgent(
     name="log_analyst",
-    model="gemini-2.5-pro",
+    model="gemini-3-pro-preview",
     description="Analyzes log patterns to find anomalies and new errors.",
     instruction=LOG_ANALYST_PROMPT,
     tools=[

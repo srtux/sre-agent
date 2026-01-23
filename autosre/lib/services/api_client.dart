@@ -27,6 +27,8 @@ class ProjectInterceptorClient extends http.BaseClient {
     if (projectId == null || projectId.isEmpty) {
       // Don't intercept health checks or project list requests
       if (request.url.path.contains('/health') ||
+          request.url.path.contains('/api/config') ||
+          request.url.path.contains('/agent') ||
           request.url.path.contains('/api/tools/projects/list')) {
         return _inner.send(request);
       }

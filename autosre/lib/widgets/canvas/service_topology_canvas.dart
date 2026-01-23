@@ -277,11 +277,7 @@ class _ServiceTopologyCanvasState extends State<ServiceTopologyCanvas>
                 onScaleUpdate: (details) {
                   setState(() {
                     _scale = (_scale * details.scale).clamp(0.5, 2.0);
-                  });
-                },
-                onPanUpdate: (details) {
-                  setState(() {
-                    _offset += details.delta;
+                    _offset += details.focalPointDelta;
                   });
                 },
                 child: ClipRRect(

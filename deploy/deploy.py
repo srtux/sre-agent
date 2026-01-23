@@ -156,7 +156,11 @@ def main(argv: list[str]) -> None:
     project_id = (
         FLAGS.project_id if FLAGS.project_id else os.getenv("GOOGLE_CLOUD_PROJECT")
     )
-    location = FLAGS.location if FLAGS.location else os.getenv("GOOGLE_CLOUD_LOCATION")
+    location = (
+        FLAGS.location
+        or os.getenv("AGENT_ENGINE_LOCATION")
+        or os.getenv("GOOGLE_CLOUD_LOCATION")
+    )
     bucket = FLAGS.bucket if FLAGS.bucket else os.getenv("GOOGLE_CLOUD_STORAGE_BUCKET")
 
     print(f"PROJECT: {project_id}")
@@ -188,6 +192,11 @@ def main(argv: list[str]) -> None:
             if not verify_local_import():
                 print("Aborting deployment due to local import failure.")
                 return
+
+        # Add location variables to deployment environment
+        env_vars["GOOGLE_CLOUD_LOCATION"] = os.getenv("GOOGLE_CLOUD_LOCATION", "")
+        env_vars["AGENT_ENGINE_LOCATION"] = os.getenv("AGENT_ENGINE_LOCATION", "")
+        env_vars["GCP_PROJECT_ID"] = project_id or ""
 
         create(env_vars=env_vars)
     elif FLAGS.delete:

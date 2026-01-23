@@ -1,6 +1,7 @@
 """System information and miscellaneous endpoints."""
 
 import logging
+import os
 from typing import Any
 
 from fastapi import APIRouter, Request
@@ -15,6 +16,14 @@ from sre_agent.tools.common.debug import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["system"])
+
+
+@router.get("/api/config")
+async def get_config() -> dict[str, Any]:
+    """Get public configuration for the frontend."""
+    return {
+        "google_client_id": os.getenv("GOOGLE_CLIENT_ID", ""),
+    }
 
 
 @router.get("/api/suggestions")

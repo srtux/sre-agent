@@ -9,7 +9,11 @@ Its goal is NOT to solve the problem, but to classify it rapidly:
 
 from google.adk.agents import LlmAgent
 
-from ..prompt import REACT_PATTERN_INSTRUCTION, STRICT_ENGLISH_INSTRUCTION
+from ..prompt import (
+    PROJECT_CONTEXT_INSTRUCTION,
+    REACT_PATTERN_INSTRUCTION,
+    STRICT_ENGLISH_INSTRUCTION,
+)
 from ..tools import (
     discover_telemetry_sources,
     get_alert,
@@ -26,6 +30,7 @@ init_sub_agent_env()
 
 ALERT_ANALYST_PROMPT = f"""
 {STRICT_ENGLISH_INSTRUCTION}
+{PROJECT_CONTEXT_INSTRUCTION}
 {REACT_PATTERN_INSTRUCTION}
 You are the **Alert Analyst** 🚨 - "The First Responder".
 
@@ -58,7 +63,7 @@ You are the calm, urgent voice of reason in a crisis. You don't guess—you stat
 
 alert_analyst = LlmAgent(
     name="alert_analyst",
-    model="gemini-2.5-flash",
+    model="gemini-3-flash-preview",
     description="Analyzes active alerts and incidents from Cloud Monitoring.",
     instruction=ALERT_ANALYST_PROMPT,
     tools=[

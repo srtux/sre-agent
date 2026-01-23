@@ -1,6 +1,7 @@
+import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+import 'package:google_sign_in/google_sign_in.dart' as gsi;
 import 'package:googleapis_auth/googleapis_auth.dart';
 import 'package:http/http.dart' as http;
 import 'api_client.dart';
@@ -24,31 +25,62 @@ class AuthService extends ChangeNotifier {
     'https://www.googleapis.com/auth/cloud-platform',
   ];
 
-  final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
+  static const String _buildTimeClientId = String.fromEnvironment('GOOGLE_CLIENT_ID');
+  late final gsi.GoogleSignIn _googleSignIn;
 
-  GoogleSignInAccount? _currentUser;
+  gsi.GoogleSignInAccount? _currentUser;
   String? _idToken;
   String? _accessToken;
   bool _isLoading = true;
 
-  GoogleSignInAccount? get currentUser => _currentUser;
+  gsi.GoogleSignInAccount? get currentUser => _currentUser;
   bool get isAuthenticated => _currentUser != null;
   bool get isLoading => _isLoading;
   String? get idToken => _idToken;
   String? get accessToken => _accessToken;
 
+  String get _baseUrl {
+    if (kDebugMode) {
+      return 'http://127.0.0.1:8001';
+    }
+    return '';
+  }
+
   /// Initialize auth state
   Future<void> init() async {
-    // Listen to auth events
+    String? runtimeClientId;
+
+    // 1. Fetch runtime config from backend
+    try {
+      final response = await http.get(Uri.parse('$_baseUrl/api/config'));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        runtimeClientId = data['google_client_id'] as String?;
+        if (runtimeClientId != null && runtimeClientId.isNotEmpty) {
+          debugPrint('AuthService: Obtained runtime Client ID from backend');
+        }
+      }
+    } catch (e) {
+      debugPrint('AuthService: Failed to fetch runtime config: $e');
+    }
+
+    final effectiveClientId = (runtimeClientId != null && runtimeClientId.isNotEmpty)
+        ? runtimeClientId
+        : _buildTimeClientId;
+
+    // 2. Initialize GoogleSignIn
+    _googleSignIn = gsi.GoogleSignIn.instance;
+
+    // 3. Listen to auth events
     _googleSignIn.authenticationEvents.listen(
       (event) async {
         try {
           debugPrint('AuthService: Received auth event: ${event.runtimeType}');
-          if (event is GoogleSignInAuthenticationEventSignIn) {
+          if (event is gsi.GoogleSignInAuthenticationEventSignIn) {
             _currentUser = event.user;
             debugPrint('AuthService: User signed in: ${_currentUser?.email}');
             await _refreshTokens();
-          } else if (event is GoogleSignInAuthenticationEventSignOut) {
+          } else if (event is gsi.GoogleSignInAuthenticationEventSignOut) {
             debugPrint('AuthService: User signed out');
             _currentUser = null;
             _idToken = null;
@@ -66,7 +98,7 @@ class AuthService extends ChangeNotifier {
 
     try {
       // Initialize configuration (REQUIRED for Web to setup Client ID)
-      await _googleSignIn.initialize();
+      await _googleSignIn.initialize(clientId: effectiveClientId);
 
       // Attempt silent sign-in
       // Note: On web, attemptLightweightAuthentication might fail or not be appropriate immediately

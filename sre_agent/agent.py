@@ -56,6 +56,7 @@ from google.adk.agents import LlmAgent
 from google.adk.tools import AgentTool  # type: ignore[attr-defined]
 from google.adk.tools.base_toolset import BaseToolset
 
+from .auth import get_current_project_id
 from .prompt import SRE_AGENT_PROMPT
 
 # Import sub-agents
@@ -237,9 +238,7 @@ def emojify_agent(agent: LlmAgent) -> LlmAgent:
             logger.warning(f"Failed to extract user message for logging: {e}")
 
         # Determine project and session
-        project_id = os.environ.get(
-            "GOOGLE_CLOUD_PROJECT", os.environ.get("GCP_PROJECT_ID", "unknown")
-        )
+        project_id = get_current_project_id() or "unknown"
         session_id = (
             getattr(context.session, "id", "unknown")
             if hasattr(context, "session")
@@ -822,7 +821,7 @@ def is_tool_enabled(tool_name: str) -> bool:
 # Create the main SRE Agent
 sre_agent = LlmAgent(
     name="sre_agent",
-    model="gemini-2.5-pro",
+    model="gemini-3-flash-preview",
     description="""SRE Agent - Google Cloud Observability & Reliability Expert.
 
 Capabilities:
@@ -877,7 +876,7 @@ root_cause_analyst = emojify_agent(root_cause_analyst)
 def create_configured_agent(
     use_mcp: bool = False,
     respect_config: bool = True,
-    model: str = "gemini-2.5-pro",
+    model: str = "gemini-3-flash-preview",
 ) -> LlmAgent:
     """Get the SRE agent, optionally with filtered tools based on configuration.
 

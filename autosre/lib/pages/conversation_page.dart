@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter/rendering.dart';
 import 'package:genui/genui.dart';
 import 'package:provider/provider.dart';
@@ -107,6 +107,14 @@ class _ConversationPageState extends State<ConversationPage>
       _sessionService.setCurrentSession(sessionId);
       // Refresh sessions list after a message is sent creates a new session
       _sessionService.fetchSessions();
+    });
+
+    // Subscribe to errors
+    _contentGenerator.errorStream.listen((error) {
+      if (mounted) {
+        StatusToast.show(context, 'Error: ${error.error}');
+        debugPrint('ContentGenerator Error: ${error.error}\n${error.stackTrace}');
+      }
     });
 
     _conversation = GenUiConversation(

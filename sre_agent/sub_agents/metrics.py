@@ -10,7 +10,11 @@ workflow to ensure precise and actionable findings:
 
 from google.adk.agents import LlmAgent
 
-from ..prompt import REACT_PATTERN_INSTRUCTION, STRICT_ENGLISH_INSTRUCTION
+from ..prompt import (
+    PROJECT_CONTEXT_INSTRUCTION,
+    REACT_PATTERN_INSTRUCTION,
+    STRICT_ENGLISH_INSTRUCTION,
+)
 from ..resources.gcp_metrics import COMMON_GCP_METRICS
 from ..tools import (
     calculate_series_stats,
@@ -45,6 +49,7 @@ SMART_METRICS_LIST = "\n".join(
 
 METRICS_ANALYZER_PROMPT = f"""
 {STRICT_ENGLISH_INSTRUCTION}
+{PROJECT_CONTEXT_INSTRUCTION}
 {REACT_PATTERN_INSTRUCTION}
 Role: You are the **Metrics Maestro** 🎼📊 - Master of Charts, Trends, and the Almighty Exemplar!
 
@@ -153,7 +158,7 @@ Example Reporting:
 
 metrics_analyzer = LlmAgent(
     name="metrics_analyzer",
-    model="gemini-2.5-pro",
+    model="gemini-3-pro-preview",
     description=(
         "Analyzes metrics and time-series data with exemplar-based trace correlation. "
         "Detects anomalies, statistical outliers, and uses exemplars to find "

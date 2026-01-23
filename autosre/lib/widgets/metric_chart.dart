@@ -121,14 +121,21 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
     final movingAvg = _calculateMovingAverage(sortedPoints, 5);
     final anomalyRegions = _findAnomalyRegions(sortedPoints);
 
-    // Determine trend
-    final firstHalfAvg =
-        values.sublist(0, values.length ~/ 2).reduce((a, b) => a + b) /
-        (values.length ~/ 2);
-    final secondHalfAvg =
-        values.sublist(values.length ~/ 2).reduce((a, b) => a + b) /
-        (values.length - values.length ~/ 2);
-    final trendPercent = ((secondHalfAvg - firstHalfAvg) / firstHalfAvg * 100);
+    // Determine trend safely
+    double trendPercent = 0;
+    if (values.length >= 2) {
+      final firstHalfLen = values.length ~/ 2;
+      if (firstHalfLen > 0) {
+        final firstHalfAvg =
+            values.sublist(0, firstHalfLen).reduce((a, b) => a + b) /
+            firstHalfLen;
+        final secondHalfAvg =
+            values.sublist(firstHalfLen).reduce((a, b) => a + b) /
+            (values.length - firstHalfLen);
+        trendPercent =
+            firstHalfAvg != 0 ? ((secondHalfAvg - firstHalfAvg) / firstHalfAvg * 100) : 0;
+      }
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

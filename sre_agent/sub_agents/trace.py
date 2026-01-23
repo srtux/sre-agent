@@ -7,7 +7,11 @@ orchestration.
 
 from google.adk.agents import LlmAgent
 
-from ..prompt import REACT_PATTERN_INSTRUCTION, STRICT_ENGLISH_INSTRUCTION
+from ..prompt import (
+    PROJECT_CONTEXT_INSTRUCTION,
+    REACT_PATTERN_INSTRUCTION,
+    STRICT_ENGLISH_INSTRUCTION,
+)
 from ..tools import (
     analyze_aggregate_metrics,
     analyze_critical_path,
@@ -46,6 +50,7 @@ init_sub_agent_env()
 
 AGGREGATE_ANALYZER_PROMPT = f"""
 {STRICT_ENGLISH_INSTRUCTION}
+{PROJECT_CONTEXT_INSTRUCTION}
 {REACT_PATTERN_INSTRUCTION}
 Role: You are the **Data Analyst** 🥷🐼 - The Big Data Ninja.
 
@@ -92,6 +97,7 @@ Output should be data-heavy but summarized with flair.
 
 TRACE_ANALYST_PROMPT = f"""
 {STRICT_ENGLISH_INSTRUCTION}
+{PROJECT_CONTEXT_INSTRUCTION}
 {REACT_PATTERN_INSTRUCTION}
 Role: You are the **Trace Analyst** 🏎️🩺 - The Comprehensive Performance Expert.
 
@@ -138,7 +144,7 @@ You don't just list numbers; you explain what they mean.
 
 trace_analyst = LlmAgent(
     name="trace_analyst",
-    model="gemini-2.5-flash",
+    model="gemini-3-flash-preview",
     description="""Comprehensive Trace Analyst - Analyzes latency, errors, structure, and stats.
 
 Capabilities:
@@ -172,7 +178,7 @@ Use when: You need detailed analysis of one or more traces, or need to compare t
 # Stage 0: Aggregate Analyzer
 aggregate_analyzer = LlmAgent(
     name="aggregate_analyzer",
-    model="gemini-2.5-flash",
+    model="gemini-3-pro-preview",
     description=(
         "Analyzes trace data at scale using BigQuery to identify trends, patterns, "
         "and select exemplar traces for investigation. Includes cross-signal correlation."

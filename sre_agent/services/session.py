@@ -89,7 +89,9 @@ class ADKSessionManager:
                 from google.adk.sessions import VertexAiSessionService
 
                 project = os.getenv("GOOGLE_CLOUD_PROJECT")
-                location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
+                location = os.getenv("AGENT_ENGINE_LOCATION") or os.getenv(
+                    "GOOGLE_CLOUD_LOCATION", "us-central1"
+                )
                 if project:
                     logger.info(
                         f"Using VertexAiSessionService for Agent Engine: {agent_engine_id}"

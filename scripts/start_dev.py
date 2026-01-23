@@ -74,61 +74,33 @@ def start_frontend() -> bool:
     frontend_dir = os.path.join(os.getcwd(), "autosre")
 
     # 1. Read Client ID
-    try:
-        from dotenv import load_dotenv
-
-        load_dotenv(os.path.join(frontend_dir, ".env"))
-    except ImportError:
-        pass
-
     client_id = os.getenv("GOOGLE_CLIENT_ID")
-    original_index_content = None
-    index_path = os.path.join(frontend_dir, "web", "index.html")
-
-    if client_id and os.path.exists(index_path):
-        print("🔑 Injecting Google Client ID into web/index.html...")
+    if not client_id:
         try:
-            with open(index_path) as f:
-                content = f.read()
+            from dotenv import load_dotenv
 
-            if "$GOOGLE_CLIENT_ID" in content:
-                original_index_content = content
-                new_content = content.replace("$GOOGLE_CLIENT_ID", client_id)
+            load_dotenv(os.path.join(frontend_dir, ".env"))
+            client_id = os.getenv("GOOGLE_CLIENT_ID")
+        except ImportError:
+            pass
 
-                with open(index_path, "w") as f:
-                    f.write(new_content)
+    flutter_cmd = [
+        "flutter",
+        "run",
+        "-d",
+        "chrome",
+        "--web-hostname",
+        "localhost",
+        "--web-port",
+        "8080",
+    ]
 
-                # Register restoration on cleanup
-                def restore_index() -> None:
-                    if original_index_content:
-                        print("🧹 Restoring web/index.html...")
-                        try:
-                            with open(index_path, "w") as f:
-                                f.write(original_index_content)
-                        except Exception as e:
-                            print(f"⚠️ Failed to restore index.html: {e}")
+    if client_id:
+        print("🔑 Passing Google Client ID to Flutter via --dart-define...")
+        flutter_cmd.append(f"--dart-define=GOOGLE_CLIENT_ID={client_id}")
 
-                # Hook into existing cleanup
-                # We can append this to the global cleanup logic or register atexit
-                import atexit
-
-                atexit.register(restore_index)
-
-        except Exception as e:
-            print(f"⚠️ Failed to inject Client ID: {e}")
-
-    # Run flutter for Chrome (web) to avoid Xcode dependency
     frontend_proc = subprocess.Popen(
-        [
-            "flutter",
-            "run",
-            "-d",
-            "chrome",
-            "--web-hostname",
-            "localhost",
-            "--web-port",
-            "8080",
-        ],
+        flutter_cmd,
         cwd=frontend_dir,
     )
 

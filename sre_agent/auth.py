@@ -129,9 +129,41 @@ def get_current_credentials_or_none() -> Credentials | None:
     return _credentials_context.get()
 
 
-def get_current_project_id() -> str | None:
-    """Gets the project ID for the current context."""
+def get_current_project_id_or_none() -> str | None:
+    """Gets the explicitly set project ID or None."""
     return _project_id_context.get()
+
+
+def get_current_project_id() -> str | None:
+    """Gets the project ID for the current context, falling back to discovery.
+
+    Checks:
+    1. ContextVar (set by middleware)
+    2. Environment variables (GOOGLE_CLOUD_PROJECT, GCP_PROJECT_ID)
+    3. Application Default Credentials
+    """
+    # 1. Check ContextVar
+    project_id = _project_id_context.get()
+    if project_id:
+        return project_id
+
+    # 2. Check Environment
+    import os
+
+    project_id = os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get(
+        "GCP_PROJECT_ID"
+    )
+    if project_id:
+        return project_id
+
+    # 3. Check Credentials
+    try:
+        _, project_id = google.auth.default()
+        return project_id
+    except Exception:
+        pass
+
+    return None
 
 
 def get_credentials_from_session(
@@ -200,11 +232,10 @@ def get_credentials_from_tool_context(
     # Second, check session state (for Agent Engine)
     if tool_context is not None:
         try:
-            session_state = getattr(
-                getattr(tool_context, "invocation_context", None),
-                "session",
-                None,
+            inv_ctx = getattr(tool_context, "invocation_context", None) or getattr(
+                tool_context, "_invocation_context", None
             )
+            session_state = getattr(inv_ctx, "session", None) if inv_ctx else None
             if session_state is not None:
                 state_dict = getattr(session_state, "state", None)
                 creds = get_credentials_from_session(state_dict)
@@ -220,25 +251,29 @@ def get_credentials_from_tool_context(
 def get_project_id_from_tool_context(tool_context: "ToolContext | None") -> str | None:
     """Get project ID from tool context, checking both ContextVar and session.
 
+    Priority order:
+    1. ContextVar (explicitly set via middleware)
+    2. Session state (for Agent Engine execution)
+    3. Discovery (env vars or ADC)
+
     Args:
         tool_context: The ADK ToolContext (can be None for standalone tool calls)
 
     Returns:
         Project ID if found, None otherwise.
     """
-    # First, check ContextVar
-    project_id = get_current_project_id()
+    # 1. Check ContextVar
+    project_id = get_current_project_id_or_none()
     if project_id:
         return project_id
 
-    # Second, check session state
+    # 2. Check session state
     if tool_context is not None:
         try:
-            session_state = getattr(
-                getattr(tool_context, "invocation_context", None),
-                "session",
-                None,
+            inv_ctx = getattr(tool_context, "invocation_context", None) or getattr(
+                tool_context, "_invocation_context", None
             )
+            session_state = getattr(inv_ctx, "session", None) if inv_ctx else None
             if session_state is not None:
                 state_dict = getattr(session_state, "state", None)
                 project_id = get_project_id_from_session(state_dict)
@@ -247,7 +282,8 @@ def get_project_id_from_tool_context(tool_context: "ToolContext | None") -> str 
         except Exception as e:
             logger.debug(f"Error getting project_id from tool_context: {e}")
 
-    return None
+    # 3. Fallback to discovery
+    return get_current_project_id()
 
 
 # =============================================================================

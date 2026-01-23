@@ -55,7 +55,16 @@ class CatalogRegistry {
         dataSchema: S.object(),
         widgetBuilder: (context) {
           try {
-            final data = _ensureMap(context.data);
+            var data = _ensureMap(context.data);
+
+            // Handle case where data might be wrapped in component name
+            if (data.containsKey('x-sre-metric-chart') &&
+                data['x-sre-metric-chart'] is Map) {
+              data = Map<String, dynamic>.from(
+                data['x-sre-metric-chart'] as Map,
+              );
+            }
+
             final series = MetricSeries.fromJson(data);
             if (series.points.isEmpty) return const SizedBox.shrink();
 
@@ -73,7 +82,16 @@ class CatalogRegistry {
         dataSchema: S.object(),
         widgetBuilder: (context) {
           try {
-            final data = _ensureMap(context.data);
+            var data = _ensureMap(context.data);
+
+            // Handle case where data might be wrapped in component name
+            if (data.containsKey('x-sre-remediation-plan') &&
+                data['x-sre-remediation-plan'] is Map) {
+              data = Map<String, dynamic>.from(
+                data['x-sre-remediation-plan'] as Map,
+              );
+            }
+
             final plan = RemediationPlan.fromJson(data);
             if (plan.steps.isEmpty) return const SizedBox.shrink();
 
@@ -92,17 +110,32 @@ class CatalogRegistry {
         dataSchema: S.object(),
         widgetBuilder: (context) {
           try {
-            List<dynamic> rawList;
-            final data = context.data;
+            final data_raw = context.data;
+            List<dynamic> rawList = [];
 
-            if (data is List) {
-              rawList = data;
-            } else if (data is Map) {
-              // Handle case where list is wrapped in a map
-              rawList = data['patterns'] ?? data['data'] ?? data['items'] ?? [];
+            if (data_raw is List) {
+              rawList = data_raw;
+            } else if (data_raw is Map) {
+              var data = Map<String, dynamic>.from(data_raw);
+
+              // Handle case where data might be wrapped in component name
+              if (data.containsKey('x-sre-log-pattern-viewer')) {
+                final wrapped = data['x-sre-log-pattern-viewer'];
+                if (wrapped is Map) {
+                  data = Map<String, dynamic>.from(wrapped);
+                } else if (wrapped is List) {
+                  rawList = wrapped;
+                  data = {}; // Skip further map processing
+                }
+              }
+
+              // Handle case where list is wrapped in a map (if not already found)
+              if (rawList.isEmpty) {
+                rawList = data['patterns'] ?? data['data'] ?? data['items'] ?? [];
+              }
             } else {
               throw Exception(
-                "Expected List or Map with patterns, got ${data.runtimeType}",
+                "Expected List or Map with patterns, got ${data_raw.runtimeType}",
               );
             }
 
@@ -129,7 +162,16 @@ class CatalogRegistry {
         dataSchema: S.object(),
         widgetBuilder: (context) {
           try {
-            final data = _ensureMap(context.data);
+            var data = _ensureMap(context.data);
+
+            // Handle case where data might be wrapped in component name
+            if (data.containsKey('x-sre-log-entries-viewer') &&
+                data['x-sre-log-entries-viewer'] is Map) {
+              data = Map<String, dynamic>.from(
+                data['x-sre-log-entries-viewer'] as Map,
+              );
+            }
+
             final logData = LogEntriesData.fromJson(data);
             if (logData.entries.isEmpty) return const SizedBox.shrink();
 
@@ -147,7 +189,16 @@ class CatalogRegistry {
         dataSchema: S.object(),
         widgetBuilder: (context) {
           try {
-            final data = _ensureMap(context.data);
+            var data = _ensureMap(context.data);
+
+            // Handle case where data might be wrapped in component name
+            if (data.containsKey('x-sre-tool-log') &&
+                data['x-sre-tool-log'] is Map) {
+              data = Map<String, dynamic>.from(
+                data['x-sre-tool-log'] as Map,
+              );
+            }
+
             final log = ToolLog.fromJson(data);
             if (log.toolName.isEmpty && log.status == 'unknown') return const SizedBox.shrink();
             return ToolLogWidget(log: log);
@@ -162,7 +213,16 @@ class CatalogRegistry {
         dataSchema: S.object(),
         widgetBuilder: (context) {
           try {
-            final data = _ensureMap(context.data);
+            var data = _ensureMap(context.data);
+
+            // Handle case where data might be wrapped in component name
+            if (data.containsKey('x-sre-agent-activity') &&
+                data['x-sre-agent-activity'] is Map) {
+              data = Map<String, dynamic>.from(
+                data['x-sre-agent-activity'] as Map,
+              );
+            }
+
             final activityData = AgentActivityData.fromJson(data);
             if (activityData.nodes.isEmpty) return const SizedBox.shrink();
 
@@ -180,7 +240,16 @@ class CatalogRegistry {
         dataSchema: S.object(),
         widgetBuilder: (context) {
           try {
-            final data = _ensureMap(context.data);
+            var data = _ensureMap(context.data);
+
+            // Handle case where data might be wrapped in component name
+            if (data.containsKey('x-sre-service-topology') &&
+                data['x-sre-service-topology'] is Map) {
+              data = Map<String, dynamic>.from(
+                data['x-sre-service-topology'] as Map,
+              );
+            }
+
             final topologyData = ServiceTopologyData.fromJson(data);
             if (topologyData.services.isEmpty) return const SizedBox.shrink();
 
@@ -198,7 +267,16 @@ class CatalogRegistry {
         dataSchema: S.object(),
         widgetBuilder: (context) {
           try {
-            final data = _ensureMap(context.data);
+            var data = _ensureMap(context.data);
+
+            // Handle case where data might be wrapped in component name
+            if (data.containsKey('x-sre-incident-timeline') &&
+                data['x-sre-incident-timeline'] is Map) {
+              data = Map<String, dynamic>.from(
+                data['x-sre-incident-timeline'] as Map,
+              );
+            }
+
             final timelineData = IncidentTimelineData.fromJson(data);
             if (timelineData.events.isEmpty) return const SizedBox.shrink();
 
@@ -216,7 +294,16 @@ class CatalogRegistry {
         dataSchema: S.object(),
         widgetBuilder: (context) {
           try {
-            final data = _ensureMap(context.data);
+            var data = _ensureMap(context.data);
+
+            // Handle case where data might be wrapped in component name
+            if (data.containsKey('x-sre-metrics-dashboard') &&
+                data['x-sre-metrics-dashboard'] is Map) {
+              data = Map<String, dynamic>.from(
+                data['x-sre-metrics-dashboard'] as Map,
+              );
+            }
+
             final dashboardData = MetricsDashboardData.fromJson(data);
             if (dashboardData.metrics.isEmpty) return const SizedBox.shrink();
 
@@ -234,7 +321,16 @@ class CatalogRegistry {
         dataSchema: S.object(),
         widgetBuilder: (context) {
           try {
-            final data = _ensureMap(context.data);
+            var data = _ensureMap(context.data);
+
+            // Handle case where data might be wrapped in component name
+            if (data.containsKey('x-sre-ai-reasoning') &&
+                data['x-sre-ai-reasoning'] is Map) {
+              data = Map<String, dynamic>.from(
+                data['x-sre-ai-reasoning'] as Map,
+              );
+            }
+
             final reasoningData = AIReasoningData.fromJson(data);
             if (reasoningData.steps.isEmpty && (reasoningData.conclusion == null || reasoningData.conclusion!.isEmpty)) {
               return const SizedBox.shrink();

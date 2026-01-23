@@ -16,6 +16,7 @@ from sre_agent.auth import (
     get_current_credentials,
     get_current_credentials_or_none,
     get_current_project_id,
+    get_current_project_id_or_none,
     get_project_id_from_session,
     get_project_id_from_tool_context,
     has_required_scopes,
@@ -199,7 +200,7 @@ def test_clear_current_credentials():
 
     # Verify they're cleared
     assert get_current_credentials_or_none() is None
-    assert get_current_project_id() is None
+    assert get_current_project_id_or_none() is None
 
 
 @pytest.mark.asyncio

@@ -129,7 +129,7 @@ ignore-words-list = "allReady,ot"
 ignore = ["DEP001", "DEP004"]
 
 [tool.deptry.per_rule_ignores]
-DEP002 = ["grpcio", "requests", "opentelemetry-exporter-otlp-proto-grpc", "aiosqlite", "greenlet", "openinference-instrumentation-google-adk", "arize-otel"]
+DEP002 = ["grpcio", "requests", "opentelemetry-exporter-otlp-proto-grpc", "aiosqlite", "greenlet", "openinference-instrumentation-google-adk", "arize-otel", "nest-asyncio"]
 DEP003 = ["mcp", "pydantic_core"]
 
 [tool.agent-starter-pack]
@@ -140,7 +140,9 @@ agent_directory = "sre_agent"
 
 [tool.poe.tasks]
 dev = { help = "Run the full dev stack (backend + frontend)", cmd = "python scripts/start_dev.py", envfile = ".env" }
-sync = { help = "Sync dependencies with uv", cmd = "uv sync" }
+sync = { help = "Sync all dependencies (uv + flutter)", sequence = ["_sync_uv", "_sync_flutter"] }
+_sync_uv = { cmd = "uv sync" }
+_sync_flutter = { cmd = "flutter pub get", cwd = "autosre" }
 run = { help = "Run agent in terminal", cmd = "adk run sre_agent --otel_to_cloud", envfile = ".env" }
 web = { help = "Run agent web UI & Tools API", cmd = "python server.py", envfile = ".env" }
 list = { help = "List deployed agents", cmd = "python deploy/deploy.py --list", envfile = ".env" }

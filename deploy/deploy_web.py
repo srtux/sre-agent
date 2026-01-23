@@ -61,7 +61,8 @@ def main():
     env_vars = [
         f"GCP_PROJECT_ID={project_id}",
         f"GCP_REGION={args.region}",
-        f"GOOGLE_CLOUD_LOCATION={args.region}",
+        f"AGENT_ENGINE_LOCATION={args.region}",
+        f"GOOGLE_CLOUD_LOCATION={os.getenv('GOOGLE_CLOUD_LOCATION', args.region)}",
         "USE_ARIZE=false",
     ]
 

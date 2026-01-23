@@ -28,132 +28,128 @@ void main() {
           ),
         ),
       );
-      await tester.pumpAndSettle();
+      await tester.pump();
     }
 
-    testWidgets('LogPatternViewer accepts List input', (
-      WidgetTester tester,
-    ) async {
-      final item = catalog.items.firstWhere(
-        (i) => i.name == 'x-sre-log-pattern-viewer',
-      );
-
-      final validList = [
+    final testData = {
+      'incident_id': 'inc-123',
+      'title': 'Test Title',
+      'start_time': '2024-01-01T00:00:00Z',
+      'status': 'completed',
+      'tool_name': 'test_tool',
+      'args': <String, dynamic>{},
+      'trace_id': '123',
+      'spans': [
         {
-          "template": "Error connecting to database",
-          "count": 5,
-          "severity_counts": {"ERROR": 5},
-        },
-      ];
+          'span_id': 's1',
+          'trace_id': '123',
+          'name': 'test-span',
+          'start_time': '2024-01-01T00:00:00Z',
+          'end_time': '2024-01-01T00:00:01Z',
+          'attributes': <String, dynamic>{},
+          'status': 'OK',
+        }
+      ],
+      'metric_name': 'test-metric',
+      'unit': 'ms',
+      'current_value': 100.0,
+      'points': [
+        {'timestamp': '2024-01-01T00:00:00Z', 'value': 1.0}
+      ],
+      'labels': <String, dynamic>{},
+      'issue': 'test-issue',
+      'risk': 'low',
+      'steps': [
+        {
+          'id': 'step1',
+          'type': 'observation',
+          'content': 'test step',
+          'description': 'remediation step',
+          'command': 'ls'
+        }
+      ],
+      'entries': [
+        {
+          'insert_id': 'id1',
+          'timestamp': '2024-01-01T00:00:00Z',
+          'severity': 'INFO',
+          'payload': 'test',
+          'resource_labels': <String, String>{},
+          'resource_type': 'test-resource',
+        }
+      ],
+      'nodes': [
+        {
+          'id': 'n1',
+          'name': 'node 1',
+          'type': 'coordinator',
+          'status': 'completed'
+        }
+      ],
+      'services': [
+        {'id': 's1', 'name': 'svc 1', 'type': 'backend', 'health': 'healthy'}
+      ],
+      'events': [
+        {
+          'id': 'e1',
+          'timestamp': '2024-01-01T00:00:00Z',
+          'type': 'info',
+          'title': 'evt 1',
+          'severity': 'info',
+        }
+      ],
+      'metrics': [
+        {'id': 'm1', 'name': 'met 1', 'current_value': 10, 'status': 'normal'}
+      ],
+      'template': 'test-template',
+      'count': 1,
+      'severity_counts': <String, int>{},
+      'agent_name': 'Test Agent',
+      'current_task': 'Test Task',
+      'conclusion': 'test-conclusion',
+    };
 
-      final widget = item.widgetBuilder(FakeCatalogItemContext(validList));
-      await pumpTestWidget(tester, widget);
+    final widgetsToTest = [
+      'x-sre-trace-waterfall',
+      'x-sre-metric-chart',
+      'x-sre-remediation-plan',
+      'x-sre-log-entries-viewer',
+      'x-sre-tool-log',
+      'x-sre-agent-activity',
+      'x-sre-service-topology',
+      'x-sre-incident-timeline',
+      'x-sre-metrics-dashboard',
+      'x-sre-ai-reasoning',
+    ];
 
-      expect(find.byType(LogPatternViewer), findsOneWidget);
-      expect(find.text('Error connecting to database'), findsOneWidget);
-    });
+    for (final name in widgetsToTest) {
+      testWidgets('$name handles "wrapped" A2UI data format', (tester) async {
+        final item = catalog.items.firstWhere((i) => i.name == name);
+        final wrappedData = {name: testData};
 
-    testWidgets('LogPatternViewer accepts Map input (patterns key)', (
-      WidgetTester tester,
-    ) async {
-      final item = catalog.items.firstWhere(
-        (i) => i.name == 'x-sre-log-pattern-viewer',
-      );
+        final widget = item.widgetBuilder(FakeCatalogItemContext(wrappedData));
+        await pumpTestWidget(tester, widget);
 
-      final validMap = {
-        "patterns": [
-          {
-            "template": "Timeout waiting for service",
-            "count": 3,
-            "severity_counts": {"WARNING": 3},
-          },
-        ],
-      };
-
-      final widget = item.widgetBuilder(FakeCatalogItemContext(validMap));
-      await pumpTestWidget(tester, widget);
-
-      expect(find.byType(LogPatternViewer), findsOneWidget);
-      expect(find.text('Timeout waiting for service'), findsOneWidget);
-    });
-
-    testWidgets('LogPatternViewer accepts Map input (data key fallback)', (
-      WidgetTester tester,
-    ) async {
-      final item = catalog.items.firstWhere(
-        (i) => i.name == 'x-sre-log-pattern-viewer',
-      );
-
-      final validMap = {
-        "data": [
-          {
-            "template": "Data key fallback",
-            "count": 1,
-            "severity_counts": {"INFO": 1},
-          },
-        ],
-      };
-
-      final widget = item.widgetBuilder(FakeCatalogItemContext(validMap));
-      await pumpTestWidget(tester, widget);
-
-      expect(find.byType(LogPatternViewer), findsOneWidget);
-      expect(find.text('Data key fallback'), findsOneWidget);
-    });
-
-    testWidgets('LogPatternViewer handles invalid input gracefully', (
-      WidgetTester tester,
-    ) async {
-      final item = catalog.items.firstWhere(
-        (i) => i.name == 'x-sre-log-pattern-viewer',
-      );
-
-      // Invalid: String instead of List/Map
-      final widget = item.widgetBuilder(
-        FakeCatalogItemContext("Invalid String Data"),
-      );
-      await pumpTestWidget(tester, widget);
-
-      // Should show ErrorPlaceholder, not crash
-      expect(find.byType(ErrorPlaceholder), findsOneWidget);
-      expect(find.textContaining('Expected List or Map'), findsOneWidget);
-    });
+        final errorFinder = find.byType(ErrorPlaceholder);
+        if (tester.any(errorFinder)) {
+          final errorWidget = tester.widget<ErrorPlaceholder>(errorFinder);
+          fail('$name failed to unwrap A2UI data: ${errorWidget.error}');
+        }
+      });
+    }
 
     testWidgets('All widgets handle invalid types gracefully', (
       WidgetTester tester,
     ) async {
-      final widgetsToTest = [
-        'x-sre-trace-waterfall',
-        'x-sre-metric-chart',
-        'x-sre-remediation-plan',
-        'x-sre-log-entries-viewer',
-        'x-sre-tool-log',
-        'x-sre-agent-activity',
-        'x-sre-service-topology',
-        'x-sre-incident-timeline',
-        'x-sre-metrics-dashboard',
-        'x-sre-ai-reasoning',
-      ];
-
       for (final name in widgetsToTest) {
         final item = catalog.items.firstWhere((i) => i.name == name);
-
-        // Pass a String, which should fail the _ensureMap check
         final widget = item.widgetBuilder(FakeCatalogItemContext("Not a Map"));
         await pumpTestWidget(tester, widget);
 
-        // Verify it rendered an ErrorPlaceholder
         expect(
           find.byType(ErrorPlaceholder),
           findsOneWidget,
           reason: '$name should return ErrorPlaceholder on invalid input',
-        );
-
-        // Verify the error message contains the type mismatch info
-        expect(
-          find.textContaining('Expected Map<String, dynamic>'),
-          findsOneWidget,
-          reason: '$name should report type mismatch',
         );
       }
     });

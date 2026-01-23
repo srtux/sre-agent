@@ -25,7 +25,10 @@ async def update_investigation_state(
     Use this tool whenever you successfully identify a key signal, confirm a hypothesis,
     or are ready to move to the next phase of analysis.
     """
-    session = getattr(tool_context.invocation_context, "session", None)
+    inv_ctx = getattr(tool_context, "invocation_context", None) or getattr(
+        tool_context, "_invocation_context", None
+    )
+    session = getattr(inv_ctx, "session", None) if inv_ctx else None
     if not session:
         return "Error: No active session found in tool context."
 
@@ -69,7 +72,10 @@ async def update_investigation_state(
 @adk_tool
 async def get_investigation_summary(tool_context: Any) -> str:
     """Returns a summary of the current investigation state and findings."""
-    session = getattr(tool_context.invocation_context, "session", None)
+    inv_ctx = getattr(tool_context, "invocation_context", None) or getattr(
+        tool_context, "_invocation_context", None
+    )
+    session = getattr(inv_ctx, "session", None) if inv_ctx else None
     if not session:
         return "Error: No active session found."
 
