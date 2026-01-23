@@ -169,6 +169,102 @@ def compute_latency_statistics(
         return stats
 
 
+def _detect_latency_anomalies_impl(
+    baseline_stats: dict[str, Any],
+    target_data: dict[str, Any],
+    threshold_sigma: float = 2.0,
+) -> dict[str, Any]:
+    """Internal implementation of detect_latency_anomalies using pre-fetched/computed data."""
+    if "error" in baseline_stats:
+        return baseline_stats
+
+    mean = baseline_stats["mean"]
+    stdev = baseline_stats["stdev"]
+
+    if not target_data:
+        return {"error": "Target trace not found or invalid"}
+
+    target_duration = target_data.get("duration_ms")
+    if target_duration is None:
+        # Try to calc from spans if needed, or error
+        return {"error": "Target trace has no duration_ms"}
+
+    # Z-score calculation for total trace
+    if stdev > 0:
+        z_score = (target_duration - mean) / stdev
+    else:
+        # If stdev is 0, any deviation is infinite anomaly, unless equal
+        if target_duration == mean:
+            z_score = 0
+        else:
+            # Fallback: if stdev is 0 (all baselines identical), use mean as scale?
+            # Or just mark high.
+            z_score = 100.0 if target_duration > mean else -100.0
+
+    is_anomaly = abs(z_score) > threshold_sigma
+
+    anomalous_spans = []
+
+    # Check individual spans against baseline per-span stats using Z-score
+    if "per_span_stats" in baseline_stats and "spans" in target_data:
+        span_stats = baseline_stats["per_span_stats"]
+        for s in target_data["spans"]:
+            name = s.get("name")
+            # Calc duration
+            dur = s.get("duration_ms")
+            if dur is None and s.get("start_time"):
+                try:
+                    start = datetime.fromisoformat(
+                        s["start_time"].replace("Z", "+00:00")
+                    )
+                    end = datetime.fromisoformat(s["end_time"].replace("Z", "+00:00"))
+                    dur = (end - start).total_seconds() * 1000
+                except Exception:
+                    pass
+
+            if name in span_stats and dur is not None:
+                b_span = span_stats[name]
+                span_mean = b_span.get("mean", 0)
+                span_stdev = b_span.get("stdev", 0)
+
+                # Calculate Z-score for this span
+                if span_stdev > 0:
+                    span_z_score = (dur - span_mean) / span_stdev
+                else:
+                    # If stdev is 0, use same logic as trace-level
+                    if dur == span_mean:
+                        span_z_score = 0
+                    else:
+                        span_z_score = 100.0 if dur > span_mean else -100.0
+
+                # Check if anomalous (using same threshold as trace level)
+                if (
+                    abs(span_z_score) > threshold_sigma and dur > 50
+                ):  # Ignore tiny spans
+                    anomalous_spans.append(
+                        {
+                            "span_name": name,
+                            "duration_ms": dur,
+                            "baseline_mean": span_mean,
+                            "baseline_stdev": span_stdev,
+                            "baseline_p95": b_span["p95"],
+                            "z_score": round(span_z_score, 2),
+                            "anomaly_type": "slow" if span_z_score > 0 else "fast",
+                        }
+                    )
+
+    return {
+        "is_anomaly": is_anomaly,
+        "z_score": z_score,
+        "target_duration": target_duration,
+        "baseline_mean": mean,
+        "baseline_stdev": stdev,
+        "threshold_sigma": threshold_sigma,
+        "deviation_ms": target_duration - mean,
+        "anomalous_spans": anomalous_spans,
+    }
+
+
 def detect_latency_anomalies(
     baseline_trace_ids: list[str],
     target_trace_id: str,
@@ -195,11 +291,6 @@ def detect_latency_anomalies(
         baseline_stats = compute_latency_statistics(
             baseline_trace_ids, project_id, tool_context=tool_context
         )
-        if "error" in baseline_stats:
-            return baseline_stats
-
-        mean = baseline_stats["mean"]
-        stdev = baseline_stats["stdev"]
 
         from ...clients.trace import (
             _clear_thread_credentials,
@@ -215,90 +306,192 @@ def detect_latency_anomalies(
             target_data = fetch_trace_data(target_trace_id, project_id)
         finally:
             _clear_thread_credentials()
-        if not target_data:
-            return {"error": "Target trace not found or invalid"}
 
-        target_duration = target_data.get("duration_ms")
-        if target_duration is None:
-            # Try to calc from spans if needed, or error
-            return {"error": "Target trace has no duration_ms"}
+        return _detect_latency_anomalies_impl(
+            baseline_stats, target_data, threshold_sigma
+        )
 
-        # Z-score calculation for total trace
-        if stdev > 0:
-            z_score = (target_duration - mean) / stdev
+
+def _analyze_critical_path_impl(trace_data: dict[str, Any]) -> dict[str, Any]:
+    """Internal implementation of analyze_critical_path using pre-fetched data."""
+    if not trace_data:
+        return {"error": "Trace not found or invalid"}
+
+    spans = trace_data.get("spans", [])
+    if not spans:
+        return {"critical_path": []}
+
+    # Parse all spans into a structured format
+    parsed_spans = {}
+    for s in spans:
+        try:
+            start = (
+                datetime.fromisoformat(
+                    s["start_time"].replace("Z", "+00:00")
+                ).timestamp()
+                * 1000
+            )
+            end = (
+                datetime.fromisoformat(s["end_time"].replace("Z", "+00:00")).timestamp()
+                * 1000
+            )
+            parsed_spans[s["span_id"]] = {
+                "id": s["span_id"],
+                "name": s.get("name"),
+                "start": start,
+                "end": end,
+                "duration": end - start,
+                "parent": s.get("parent_span_id"),
+                "children": [],
+            }
+        except (ValueError, KeyError):
+            continue
+
+    # Build tree (children links)
+    root_id = None
+    for sid, s in parsed_spans.items():
+        if s["parent"] and s["parent"] in parsed_spans:
+            parsed_spans[s["parent"]]["children"].append(sid)
         else:
-            # If stdev is 0, any deviation is infinite anomaly, unless equal
-            if target_duration == mean:
-                z_score = 0
+            if root_id is None:  # Assume first root found is THE root for simplicity
+                root_id = sid
+
+    if not root_id:
+        return {"critical_path": []}
+
+    # Enhanced Critical Path Calculation:
+    # This algorithm handles both synchronous and asynchronous operations.
+    # It calculates the "critical path" as the sequence of spans that determines
+    # the minimum possible execution time considering parallelism.
+    #
+    # Algorithm:
+    # 1. For each span, calculate "self time" (time not overlapping with children)
+    # 2. Use dynamic programming to find the path with maximum blocking time
+    # 3. Account for concurrent children by considering overlap
+
+    def calculate_critical_path_recursive(
+        span_id: str,
+    ) -> tuple[list[dict[str, Any]], float]:
+        """Returns (path, blocking_time) where:.
+
+        - path: list of span info dicts forming the critical path from this node
+        - blocking_time: the actual blocking/critical duration from this span down.
+        """
+        node = parsed_spans[span_id]
+
+        if not node["children"]:
+            # Leaf node - its duration is fully critical
+            return (
+                [
+                    {
+                        "name": node["name"],
+                        "span_id": node["id"],
+                        "duration_ms": node["duration"],
+                        "start_ms": node["start"],
+                        "end_ms": node["end"],
+                        "self_time_ms": node["duration"],
+                    }
+                ],
+                node["duration"],
+            )
+
+        # Calculate self time (time not overlapping with any child)
+        child_coverage = []
+        for child_id in node["children"]:
+            child = parsed_spans[child_id]
+            child_coverage.append((child["start"], child["end"]))
+
+        # Sort and merge overlapping intervals
+        if child_coverage:
+            child_coverage.sort()
+            merged = [child_coverage[0]]
+            for start, end in child_coverage[1:]:
+                if start <= merged[-1][1]:
+                    # Overlapping - merge
+                    merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+                else:
+                    merged.append((start, end))
+
+            # Calculate self time
+            children_total_time = sum(end - start for start, end in merged)
+            self_time = node["duration"] - children_total_time
+            self_time = max(0, self_time)  # Can't be negative
+        else:
+            self_time = node["duration"]
+
+        # Find critical child (the one with longest blocking path)
+        max_child_path = None
+        max_child_blocking: float = 0.0
+
+        for child_id in node["children"]:
+            child_path, child_blocking = calculate_critical_path_recursive(child_id)
+
+            # Check if this child is truly blocking (ends close to parent end)
+            child = parsed_spans[child_id]
+            gap_to_parent_end = node["end"] - child["end"]
+
+            # If child ends within 5ms of parent, consider it blocking
+            # Otherwise, discount its blocking time
+            if gap_to_parent_end > 5:
+                # Child finished early - might have been parallel with others
+                # Reduce its effective blocking time
+                effective_blocking = child_blocking * 0.5
             else:
-                # Fallback: if stdev is 0 (all baselines identical), use mean as scale?
-                # Or just mark high.
-                z_score = 100.0 if target_duration > mean else -100.0
+                effective_blocking = child_blocking
 
-        is_anomaly = abs(z_score) > threshold_sigma
+            if effective_blocking > max_child_blocking:
+                max_child_blocking = effective_blocking
+                max_child_path = child_path
 
-        anomalous_spans = []
-
-        # Check individual spans against baseline per-span stats using Z-score
-        if "per_span_stats" in baseline_stats and "spans" in target_data:
-            span_stats = baseline_stats["per_span_stats"]
-            for s in target_data["spans"]:
-                name = s.get("name")
-                # Calc duration
-                dur = s.get("duration_ms")
-                if dur is None and s.get("start_time"):
-                    try:
-                        start = datetime.fromisoformat(
-                            s["start_time"].replace("Z", "+00:00")
-                        )
-                        end = datetime.fromisoformat(
-                            s["end_time"].replace("Z", "+00:00")
-                        )
-                        dur = (end - start).total_seconds() * 1000
-                    except Exception:
-                        pass
-
-                if name in span_stats and dur is not None:
-                    b_span = span_stats[name]
-                    span_mean = b_span.get("mean", 0)
-                    span_stdev = b_span.get("stdev", 0)
-
-                    # Calculate Z-score for this span
-                    if span_stdev > 0:
-                        span_z_score = (dur - span_mean) / span_stdev
-                    else:
-                        # If stdev is 0, use same logic as trace-level
-                        if dur == span_mean:
-                            span_z_score = 0
-                        else:
-                            span_z_score = 100.0 if dur > span_mean else -100.0
-
-                    # Check if anomalous (using same threshold as trace level)
-                    if (
-                        abs(span_z_score) > threshold_sigma and dur > 50
-                    ):  # Ignore tiny spans
-                        anomalous_spans.append(
-                            {
-                                "span_name": name,
-                                "duration_ms": dur,
-                                "baseline_mean": span_mean,
-                                "baseline_stdev": span_stdev,
-                                "baseline_p95": b_span["p95"],
-                                "z_score": round(span_z_score, 2),
-                                "anomaly_type": "slow" if span_z_score > 0 else "fast",
-                            }
-                        )
-
-        return {
-            "is_anomaly": is_anomaly,
-            "z_score": z_score,
-            "target_duration": target_duration,
-            "baseline_mean": mean,
-            "baseline_stdev": stdev,
-            "threshold_sigma": threshold_sigma,
-            "deviation_ms": target_duration - mean,
-            "anomalous_spans": anomalous_spans,
+        # Build path for this span
+        current_span_info = {
+            "name": node["name"],
+            "span_id": node["id"],
+            "duration_ms": node["duration"],
+            "start_ms": node["start"],
+            "end_ms": node["end"],
+            "self_time_ms": self_time,
         }
+
+        total_blocking = self_time + max_child_blocking
+
+        if max_child_path:
+            full_path = [current_span_info, *max_child_path]
+        else:
+            full_path = [current_span_info]
+
+        return (full_path, total_blocking)
+
+    path, total_critical_duration = calculate_critical_path_recursive(root_id)
+
+    # Calculate contribution percentage based on total trace duration
+    trace_total_dur = parsed_spans[root_id]["duration"]
+    for p in path:
+        p["contribution_pct"] = (
+            (p["self_time_ms"] / trace_total_dur * 100) if trace_total_dur > 0 else 0
+        )
+        p["blocking_contribution_pct"] = (
+            (p["self_time_ms"] / total_critical_duration * 100)
+            if total_critical_duration > 0
+            else 0
+        )
+
+    # Calculate parallelism metrics
+    parallelism_ratio = (
+        trace_total_dur / total_critical_duration
+        if total_critical_duration > 0
+        else 1.0
+    )
+
+    return {
+        "critical_path": path,
+        "total_critical_duration_ms": round(total_critical_duration, 2),
+        "trace_duration_ms": round(trace_total_dur, 2),
+        "parallelism_ratio": round(parallelism_ratio, 2),
+        "parallelism_pct": round((1 - 1 / parallelism_ratio) * 100, 2)
+        if parallelism_ratio > 1
+        else 0,
+    }
 
 
 def analyze_critical_path(
@@ -327,190 +520,8 @@ def analyze_critical_path(
             trace_data = fetch_trace_data(trace_id, project_id)
         finally:
             _clear_thread_credentials()
-        if not trace_data:
-            return {"error": "Trace not found or invalid"}
 
-        spans = trace_data.get("spans", [])
-        if not spans:
-            return {"critical_path": []}
-
-        # Parse all spans into a structured format
-        parsed_spans = {}
-        for s in spans:
-            try:
-                start = (
-                    datetime.fromisoformat(
-                        s["start_time"].replace("Z", "+00:00")
-                    ).timestamp()
-                    * 1000
-                )
-                end = (
-                    datetime.fromisoformat(
-                        s["end_time"].replace("Z", "+00:00")
-                    ).timestamp()
-                    * 1000
-                )
-                parsed_spans[s["span_id"]] = {
-                    "id": s["span_id"],
-                    "name": s.get("name"),
-                    "start": start,
-                    "end": end,
-                    "duration": end - start,
-                    "parent": s.get("parent_span_id"),
-                    "children": [],
-                }
-            except (ValueError, KeyError):
-                continue
-
-        # Build tree (children links)
-        root_id = None
-        for sid, s in parsed_spans.items():
-            if s["parent"] and s["parent"] in parsed_spans:
-                parsed_spans[s["parent"]]["children"].append(sid)
-            else:
-                if (
-                    root_id is None
-                ):  # Assume first root found is THE root for simplicity
-                    root_id = sid
-
-        if not root_id:
-            return {"critical_path": []}
-
-        # Enhanced Critical Path Calculation:
-        # This algorithm handles both synchronous and asynchronous operations.
-        # It calculates the "critical path" as the sequence of spans that determines
-        # the minimum possible execution time considering parallelism.
-        #
-        # Algorithm:
-        # 1. For each span, calculate "self time" (time not overlapping with children)
-        # 2. Use dynamic programming to find the path with maximum blocking time
-        # 3. Account for concurrent children by considering overlap
-
-        def calculate_critical_path_recursive(
-            span_id: str,
-        ) -> tuple[list[dict[str, Any]], float]:
-            """Returns (path, blocking_time) where:.
-
-            - path: list of span info dicts forming the critical path from this node
-            - blocking_time: the actual blocking/critical duration from this span down.
-            """
-            node = parsed_spans[span_id]
-
-            if not node["children"]:
-                # Leaf node - its duration is fully critical
-                return (
-                    [
-                        {
-                            "name": node["name"],
-                            "span_id": node["id"],
-                            "duration_ms": node["duration"],
-                            "start_ms": node["start"],
-                            "end_ms": node["end"],
-                            "self_time_ms": node["duration"],
-                        }
-                    ],
-                    node["duration"],
-                )
-
-            # Calculate self time (time not overlapping with any child)
-            child_coverage = []
-            for child_id in node["children"]:
-                child = parsed_spans[child_id]
-                child_coverage.append((child["start"], child["end"]))
-
-            # Sort and merge overlapping intervals
-            if child_coverage:
-                child_coverage.sort()
-                merged = [child_coverage[0]]
-                for start, end in child_coverage[1:]:
-                    if start <= merged[-1][1]:
-                        # Overlapping - merge
-                        merged[-1] = (merged[-1][0], max(merged[-1][1], end))
-                    else:
-                        merged.append((start, end))
-
-                # Calculate self time
-                children_total_time = sum(end - start for start, end in merged)
-                self_time = node["duration"] - children_total_time
-                self_time = max(0, self_time)  # Can't be negative
-            else:
-                self_time = node["duration"]
-
-            # Find critical child (the one with longest blocking path)
-            max_child_path = None
-            max_child_blocking: float = 0.0
-
-            for child_id in node["children"]:
-                child_path, child_blocking = calculate_critical_path_recursive(child_id)
-
-                # Check if this child is truly blocking (ends close to parent end)
-                child = parsed_spans[child_id]
-                gap_to_parent_end = node["end"] - child["end"]
-
-                # If child ends within 5ms of parent, consider it blocking
-                # Otherwise, discount its blocking time
-                if gap_to_parent_end > 5:
-                    # Child finished early - might have been parallel with others
-                    # Reduce its effective blocking time
-                    effective_blocking = child_blocking * 0.5
-                else:
-                    effective_blocking = child_blocking
-
-                if effective_blocking > max_child_blocking:
-                    max_child_blocking = effective_blocking
-                    max_child_path = child_path
-
-            # Build path for this span
-            current_span_info = {
-                "name": node["name"],
-                "span_id": node["id"],
-                "duration_ms": node["duration"],
-                "start_ms": node["start"],
-                "end_ms": node["end"],
-                "self_time_ms": self_time,
-            }
-
-            total_blocking = self_time + max_child_blocking
-
-            if max_child_path:
-                full_path = [current_span_info, *max_child_path]
-            else:
-                full_path = [current_span_info]
-
-            return (full_path, total_blocking)
-
-        path, total_critical_duration = calculate_critical_path_recursive(root_id)
-
-        # Calculate contribution percentage based on total trace duration
-        trace_total_dur = parsed_spans[root_id]["duration"]
-        for p in path:
-            p["contribution_pct"] = (
-                (p["self_time_ms"] / trace_total_dur * 100)
-                if trace_total_dur > 0
-                else 0
-            )
-            p["blocking_contribution_pct"] = (
-                (p["self_time_ms"] / total_critical_duration * 100)
-                if total_critical_duration > 0
-                else 0
-            )
-
-        # Calculate parallelism metrics
-        parallelism_ratio = (
-            trace_total_dur / total_critical_duration
-            if total_critical_duration > 0
-            else 1.0
-        )
-
-        return {
-            "critical_path": path,
-            "total_critical_duration_ms": round(total_critical_duration, 2),
-            "trace_duration_ms": round(trace_total_dur, 2),
-            "parallelism_ratio": round(parallelism_ratio, 2),
-            "parallelism_pct": round((1 - 1 / parallelism_ratio) * 100, 2)
-            if parallelism_ratio > 1
-            else 0,
-        }
+        return _analyze_critical_path_impl(trace_data)
 
 
 @adk_tool
