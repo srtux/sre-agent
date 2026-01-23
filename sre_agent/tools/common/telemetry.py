@@ -186,10 +186,15 @@ def setup_telemetry(level: int = logging.INFO) -> None:
     except Exception as e:
         logging.getLogger(__name__).debug(f"LoggingInstrumentor failed: {e}")
 
-    project_id = os.environ.get("GOOGLE_CLOUD_PROJECT")
+    project_id = os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("PROJECT_ID")
     if project_id and "," in project_id:
         project_id = project_id.split(",")[0].strip()
+
+    # Strictly enforce clean environment
+    if project_id:
         os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
+        if "PROJECT_ID" in os.environ:
+            os.environ["PROJECT_ID"] = project_id
 
     logging.getLogger(__name__).info(
         f"Setting up telemetry with project_id: '{project_id}'"
@@ -240,7 +245,7 @@ def setup_telemetry(level: int = logging.INFO) -> None:
         request = google.auth.transport.requests.Request()
         ssl_creds = grpc.ssl_channel_credentials()
         call_creds = grpc.metadata_call_credentials(
-            google.auth.transport.grpc.AuthMetadataPlugin(
+            google.auth.transport.grpc.AuthMetadataPlugin(  # type: ignore[no-untyped-call]
                 credentials=credentials, request=request
             )
         )
@@ -261,7 +266,6 @@ def setup_telemetry(level: int = logging.INFO) -> None:
             span_exporter = OTLPSpanExporter(
                 endpoint=otlp_endpoint,
                 credentials=composite_creds,
-                headers=(("x-goog-user-project", project_id),),
             )
             span_processor = BatchSpanProcessor(span_exporter)
 
@@ -289,7 +293,6 @@ def setup_telemetry(level: int = logging.INFO) -> None:
             metric_exporter = OTLPMetricExporter(
                 endpoint=otlp_endpoint,
                 credentials=composite_creds,
-                headers=(("x-goog-user-project", project_id),),
             )
             reader = PeriodicExportingMetricReader(
                 metric_exporter, export_interval_millis=60000

@@ -10,7 +10,7 @@ dependencies = [
     "google-genai>=1.9.0",
     "pydantic>=2.10.6",
     "python-dotenv>=1.0.1",
-    "google-adk>=1.0.0",
+    "google-adk>=1.23.0",
     "google-cloud-trace>=1.0.0",
     "opentelemetry-api>=1.24.0",
     "opentelemetry-sdk>=1.24.0",
@@ -50,7 +50,7 @@ arize = [
 dev = [
     "pytest>=8.3.2",
     "pytest-asyncio>=0.23.7",
-    "google-adk[eval]>=1.0.0",
+    "google-adk[eval]>=1.23.0",
     "nest-asyncio>=1.6.0",
     "pytest-xdist>=3.8.0",
     "ruff==0.14.13",
