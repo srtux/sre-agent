@@ -57,6 +57,7 @@ from google.adk.tools import AgentTool  # type: ignore[attr-defined]
 from google.adk.tools.base_toolset import BaseToolset
 
 from .auth import get_current_project_id
+from .model_config import get_model_name
 from .prompt import SRE_AGENT_PROMPT
 
 # Import sub-agents
@@ -196,7 +197,9 @@ if not project_id:
     except Exception as e:
         print(f"⚠️ Could not discover project ID from credentials: {e}")
 
-location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
+location = os.environ.get("GCP_LOCATION") or os.environ.get(
+    "GOOGLE_CLOUD_LOCATION", "us-central1"
+)
 use_vertex = os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", "true").lower() == "true"
 
 # Ensure Environment is configured for SDKs
@@ -250,10 +253,16 @@ def emojify_agent(agent: LlmAgent) -> LlmAgent:
             if hasattr(context, "user_id")
             else "unknown"
         )
-        logger.info(f"💬 User Prompt: '{user_msg}'")
+        border = "⎯" * 80
+        logger.info(border)
+        logger.info("  📥 INCOMING USER REQUEST 📥")
+        logger.info(border)
+        logger.info(f"💬 User Prompt:\n{user_msg}")
+        logger.info(border)
         logger.info(
             f"📍 Context: Project={project_id}, Session={session_id}, User={user_id}"
         )
+        logger.info(border)
 
         from .tools.common import using_arize_session
 
@@ -272,7 +281,7 @@ def emojify_agent(agent: LlmAgent) -> LlmAgent:
                                 full_response_parts.append(part.text)
                     yield event
         except Exception as e:
-            logging.error(f"🔥 Agent Execution Failed: {e}", exc_info=True)
+            logger.error(f"🔥 Agent Execution Failed: {e}", exc_info=True)
             raise e
 
         # 3. Log Response
@@ -283,7 +292,12 @@ def emojify_agent(agent: LlmAgent) -> LlmAgent:
                 if len(final_response) > 500
                 else final_response
             )
-            logging.info(f"🏁 Final Response to User: '{preview}'")
+            border = "⎯" * 80
+            logger.info(border)
+            logger.info("  🏁 FINAL RESPONSE TO USER 🏁")
+            logger.info(border)
+            logger.info(f"{preview}")
+            logger.info(border)
 
     object.__setattr__(agent, "run_async", wrapped_run_async)
     return agent
@@ -821,7 +835,7 @@ def is_tool_enabled(tool_name: str) -> bool:
 # Create the main SRE Agent
 sre_agent = LlmAgent(
     name="sre_agent",
-    model="gemini-3-flash-preview",
+    model=get_model_name("fast"),
     description="""SRE Agent - Google Cloud Observability & Reliability Expert.
 
 Capabilities:

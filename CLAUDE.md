@@ -624,6 +624,14 @@ result = fetch_trace(project, trace_id)
 result = await fetch_trace(project, trace_id)
 ```
 
+### Pitfall 7: GenUI/A2UI Protocol Mismatches
+
+**Symptom**: Tool call widgets or responses invisible in the chat.
+
+**Solution**:
+- Check if the backend is sending nested `component` wrappers (it shouldn't).
+- See **`docs/debugging_genui.md`** for detailed debugging steps and the "wrapper issue" explanation.
+
 ---
 
 ## 🌟 Best Practices for AI-Assisted Development

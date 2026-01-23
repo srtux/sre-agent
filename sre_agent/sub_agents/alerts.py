@@ -9,6 +9,8 @@ Its goal is NOT to solve the problem, but to classify it rapidly:
 
 from google.adk.agents import LlmAgent
 
+# Initialize environment (shared across sub-agents)
+from ..model_config import get_model_name
 from ..prompt import (
     PROJECT_CONTEXT_INSTRUCTION,
     REACT_PATTERN_INSTRUCTION,
@@ -63,7 +65,7 @@ You are the calm, urgent voice of reason in a crisis. You don't guess—you stat
 
 alert_analyst = LlmAgent(
     name="alert_analyst",
-    model="gemini-3-flash-preview",
+    model=get_model_name("fast"),
     description="Analyzes active alerts and incidents from Cloud Monitoring.",
     instruction=ALERT_ANALYST_PROMPT,
     tools=[

@@ -23,7 +23,7 @@ def test_create_widget_events_log_success():
     assert "surfaceUpdate" in update_event["message"]
 
     # Verify data transformation happened
-    data = update_event["message"]["surfaceUpdate"]["components"][0]["component"][
+    data = update_event["message"]["surfaceUpdate"]["components"][0][
         "x-sre-log-entries-viewer"
     ]
     # Check if entries are flattened/transformed per genui_adapter
@@ -42,7 +42,7 @@ def test_create_widget_events_log_error():
     assert len(events) == 2
 
     update_event = json.loads(events[1])
-    data = update_event["message"]["surfaceUpdate"]["components"][0]["component"][
+    data = update_event["message"]["surfaceUpdate"]["components"][0][
         "x-sre-log-entries-viewer"
     ]
 
@@ -62,7 +62,7 @@ def test_create_widget_events_string_result():
 
     assert len(events) == 2
     update_event = json.loads(events[1])
-    data = update_event["message"]["surfaceUpdate"]["components"][0]["component"][
+    data = update_event["message"]["surfaceUpdate"]["components"][0][
         "x-sre-trace-waterfall"
     ]
 

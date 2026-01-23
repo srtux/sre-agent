@@ -80,6 +80,7 @@ def create_tool_call_events(
     )
 
     # 2. surfaceUpdate (running status)
+    logger.info(f"📤 Tool Call Surface Update: {tool_name} (call_id={call_id})")
     events.append(
         json.dumps(
             {
@@ -89,12 +90,10 @@ def create_tool_call_events(
                         "surfaceId": call_id,
                         "components": [
                             {
-                                "component": {
-                                    "x-sre-tool-log": {
-                                        "tool_name": tool_name,
-                                        "args": args,
-                                        "status": "running",
-                                    }
+                                "x-sre-tool-log": {
+                                    "tool_name": tool_name,
+                                    "args": args,
+                                    "status": "running",
                                 }
                             }
                         ],
@@ -147,6 +146,9 @@ def create_tool_response_events(
         result = result["result"]
 
     # surfaceUpdate (completed/error status)
+    logger.info(
+        f"📤 Tool Response Surface Update: {tool_name} (call_id={call_id}, status={status})"
+    )
     events.append(
         json.dumps(
             {
@@ -156,13 +158,11 @@ def create_tool_response_events(
                         "surfaceId": call_id,
                         "components": [
                             {
-                                "component": {
-                                    "x-sre-tool-log": {
-                                        "tool_name": tool_name,
-                                        "args": args,
-                                        "result": result,
-                                        "status": status,
-                                    }
+                                "x-sre-tool-log": {
+                                    "tool_name": tool_name,
+                                    "args": args,
+                                    "result": result,
+                                    "status": status,
                                 }
                             }
                         ],
@@ -216,6 +216,7 @@ def create_widget_events(tool_name: str, result: Any) -> list[str]:
                 )
             )
             # 2. surfaceUpdate (widget data)
+            logger.info(f"📤 Widget Surface Update: {widget_type} (call_id={call_id})")
             events.append(
                 json.dumps(
                     {
@@ -223,9 +224,7 @@ def create_widget_events(tool_name: str, result: Any) -> list[str]:
                         "message": {
                             "surfaceUpdate": {
                                 "surfaceId": call_id,
-                                "components": [
-                                    {"component": {widget_type: widget_data}}
-                                ],
+                                "components": [{widget_type: widget_data}],
                             }
                         },
                     }

@@ -94,7 +94,7 @@ def test_create_tool_call_events():
 
     # Verify tool log data in surfaceUpdate
     components = update_event["message"]["surfaceUpdate"]["components"]
-    tool_log = components[0]["component"]["x-sre-tool-log"]
+    tool_log = components[0]["x-sre-tool-log"]
     assert tool_log["tool_name"] == "test_tool"
     assert tool_log["status"] == "running"
     assert tool_log["args"] == {"arg1": "value1"}
@@ -126,7 +126,7 @@ def test_create_tool_response_events_success():
 
     update_event = json.loads(events[0])
     components = update_event["message"]["surfaceUpdate"]["components"]
-    tool_log = components[0]["component"]["x-sre-tool-log"]
+    tool_log = components[0]["x-sre-tool-log"]
     assert tool_log["status"] == "completed"
     assert tool_log["result"] == "success"
 
@@ -151,7 +151,7 @@ def test_create_tool_response_events_error():
     assert len(events) == 1
     update_event = json.loads(events[0])
     components = update_event["message"]["surfaceUpdate"]["components"]
-    tool_log = components[0]["component"]["x-sre-tool-log"]
+    tool_log = components[0]["x-sre-tool-log"]
     assert tool_log["status"] == "error"
     assert "RuntimeError" in tool_log["result"]
 
@@ -210,7 +210,7 @@ def test_create_tool_response_events_fifo_matching():
     # Verify the correct args were preserved
     update_event = json.loads(events1[0])
     components = update_event["message"]["surfaceUpdate"]["components"]
-    tool_log = components[0]["component"]["x-sre-tool-log"]
+    tool_log = components[0]["x-sre-tool-log"]
     assert tool_log["args"] == {"trace_id": "trace-1"}
 
     # Second response should match second call

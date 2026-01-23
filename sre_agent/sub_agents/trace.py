@@ -7,6 +7,7 @@ orchestration.
 
 from google.adk.agents import LlmAgent
 
+from ..model_config import get_model_name
 from ..prompt import (
     PROJECT_CONTEXT_INSTRUCTION,
     REACT_PATTERN_INSTRUCTION,
@@ -144,7 +145,7 @@ You don't just list numbers; you explain what they mean.
 
 trace_analyst = LlmAgent(
     name="trace_analyst",
-    model="gemini-3-flash-preview",
+    model=get_model_name("fast"),
     description="""Comprehensive Trace Analyst - Analyzes latency, errors, structure, and stats.
 
 Capabilities:
@@ -178,7 +179,7 @@ Use when: You need detailed analysis of one or more traces, or need to compare t
 # Stage 0: Aggregate Analyzer
 aggregate_analyzer = LlmAgent(
     name="aggregate_analyzer",
-    model="gemini-3-pro-preview",
+    model=get_model_name("deep"),
     description=(
         "Analyzes trace data at scale using BigQuery to identify trends, patterns, "
         "and select exemplar traces for investigation. Includes cross-signal correlation."

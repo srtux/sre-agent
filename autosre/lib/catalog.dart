@@ -29,6 +29,12 @@ class CatalogRegistry {
           try {
             var data = _ensureMap(context.data);
 
+            // NEW: Handle cases where the entire component payload is wrapped in "component"
+            // (e.g. { "component": { "x-sre-trace-waterfall": ... } })
+            if (data.containsKey('component') && data['component'] is Map) {
+              data = Map<String, dynamic>.from(data['component']);
+            }
+
             // Handle case where data might be wrapped in component name
             // (e.g., {"x-sre-trace-waterfall": {...actual data...}})
             if (data.containsKey('x-sre-trace-waterfall') &&
@@ -57,6 +63,10 @@ class CatalogRegistry {
           try {
             var data = _ensureMap(context.data);
 
+            if (data.containsKey('component') && data['component'] is Map) {
+              data = Map<String, dynamic>.from(data['component']);
+            }
+
             // Handle case where data might be wrapped in component name
             if (data.containsKey('x-sre-metric-chart') &&
                 data['x-sre-metric-chart'] is Map) {
@@ -83,6 +93,10 @@ class CatalogRegistry {
         widgetBuilder: (context) {
           try {
             var data = _ensureMap(context.data);
+
+            if (data.containsKey('component') && data['component'] is Map) {
+              data = Map<String, dynamic>.from(data['component']);
+            }
 
             // Handle case where data might be wrapped in component name
             if (data.containsKey('x-sre-remediation-plan') &&
@@ -127,6 +141,22 @@ class CatalogRegistry {
                   rawList = wrapped;
                   data = {}; // Skip further map processing
                 }
+              } else if (data.containsKey('component') &&
+                  data['component'] is Map) {
+                // Unwrap "component" wrapper and recurse logic essentially
+                final inner = Map<String, dynamic>.from(data['component']);
+                if (inner.containsKey('x-sre-log-pattern-viewer')) {
+                  final wrapped = inner['x-sre-log-pattern-viewer'];
+                  if (wrapped is Map) {
+                    data = Map<String, dynamic>.from(wrapped);
+                  } else if (wrapped is List) {
+                    rawList = wrapped;
+                    data = {};
+                  }
+                } else {
+                  // Maybe the list is directly inside or under patterns inside component
+                  data = inner;
+                }
               }
 
               // Handle case where list is wrapped in a map (if not already found)
@@ -164,6 +194,10 @@ class CatalogRegistry {
           try {
             var data = _ensureMap(context.data);
 
+            if (data.containsKey('component') && data['component'] is Map) {
+              data = Map<String, dynamic>.from(data['component']);
+            }
+
             // Handle case where data might be wrapped in component name
             if (data.containsKey('x-sre-log-entries-viewer') &&
                 data['x-sre-log-entries-viewer'] is Map) {
@@ -190,6 +224,10 @@ class CatalogRegistry {
         widgetBuilder: (context) {
           try {
             var data = _ensureMap(context.data);
+
+            if (data.containsKey('component') && data['component'] is Map) {
+              data = Map<String, dynamic>.from(data['component']);
+            }
 
             // Handle case where data might be wrapped in component name
             if (data.containsKey('x-sre-tool-log') &&

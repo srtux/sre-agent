@@ -11,6 +11,8 @@ of analysis tools:
 
 from google.adk.agents import LlmAgent
 
+# Initialize environment (shared across sub-agents)
+from ..model_config import get_model_name
 from ..prompt import (
     PROJECT_CONTEXT_INSTRUCTION,
     REACT_PATTERN_INSTRUCTION,
@@ -83,7 +85,7 @@ Example Reporting:
 
 log_analyst = LlmAgent(
     name="log_analyst",
-    model="gemini-3-pro-preview",
+    model=get_model_name("deep"),
     description="Analyzes log patterns to find anomalies and new errors.",
     instruction=LOG_ANALYST_PROMPT,
     tools=[

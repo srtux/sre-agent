@@ -119,6 +119,7 @@ def create(env_vars: dict[str, str] | None = None) -> None:
             "GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY": "true",
             "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "true",
             "USE_ARIZE": "false",
+            "RUNNING_IN_AGENT_ENGINE": "true",
             **env_vars,
         },
     )
@@ -194,7 +195,8 @@ def main(argv: list[str]) -> None:
                 return
 
         # Add location variables to deployment environment
-        env_vars["GOOGLE_CLOUD_LOCATION"] = os.getenv("GOOGLE_CLOUD_LOCATION", "")
+        # Note: GOOGLE_CLOUD_LOCATION is reserved by Vertex AI Agent Engine
+        env_vars["GCP_LOCATION"] = os.getenv("GOOGLE_CLOUD_LOCATION", "")
         env_vars["AGENT_ENGINE_LOCATION"] = os.getenv("AGENT_ENGINE_LOCATION", "")
         env_vars["GCP_PROJECT_ID"] = project_id or ""
 

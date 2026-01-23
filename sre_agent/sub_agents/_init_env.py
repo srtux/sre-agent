@@ -46,7 +46,9 @@ def init_sub_agent_env() -> tuple[str | None, str]:
         except Exception:
             pass
 
-    location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
+    location = os.environ.get("GCP_LOCATION") or os.environ.get(
+        "GOOGLE_CLOUD_LOCATION", "us-central1"
+    )
     use_vertex = os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", "true").lower() == "true"
 
     if use_vertex and project_id:

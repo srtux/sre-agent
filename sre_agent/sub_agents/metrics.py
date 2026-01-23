@@ -10,6 +10,8 @@ workflow to ensure precise and actionable findings:
 
 from google.adk.agents import LlmAgent
 
+# Initialize environment (shared across sub-agents)
+from ..model_config import get_model_name
 from ..prompt import (
     PROJECT_CONTEXT_INSTRUCTION,
     REACT_PATTERN_INSTRUCTION,
@@ -158,7 +160,7 @@ Example Reporting:
 
 metrics_analyzer = LlmAgent(
     name="metrics_analyzer",
-    model="gemini-3-pro-preview",
+    model=get_model_name("deep"),
     description=(
         "Analyzes metrics and time-series data with exemplar-based trace correlation. "
         "Detects anomalies, statistical outliers, and uses exemplars to find "

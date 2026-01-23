@@ -19,7 +19,10 @@ from google.genai.types import Content, Part
 from pydantic import BaseModel
 
 from sre_agent.agent import root_agent
-from sre_agent.auth import get_current_project_id
+from sre_agent.auth import (
+    get_current_credentials_or_none,
+    get_current_project_id,
+)
 from sre_agent.models.investigation import (
     PHASE_INSTRUCTIONS,
     InvestigationState,
@@ -149,7 +152,14 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
         # Prioritize project ID from header/context
         effective_project_id = get_current_project_id() or request.project_id
 
-        from sre_agent.auth import SESSION_STATE_PROJECT_ID_KEY
+        from sre_agent.auth import (
+            SESSION_STATE_ACCESS_TOKEN_KEY,
+            SESSION_STATE_PROJECT_ID_KEY,
+        )
+
+        # Get current access token
+        creds = get_current_credentials_or_none()
+        access_token = creds.token if creds and hasattr(creds, "token") else None
 
         if request.session_id:
             # Pass user_id to ensure we find the correct session
@@ -157,23 +167,33 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                 request.session_id, user_id=request.user_id
             )
             # Update project ID if it changed in the UI project selector
-            if (
-                session
-                and effective_project_id
-                and session.state.get(SESSION_STATE_PROJECT_ID_KEY)
-                != effective_project_id
-            ):
-                logger.info(
-                    f"🔄 Project changed in UI: {session.state.get(SESSION_STATE_PROJECT_ID_KEY)} -> {effective_project_id}"
-                )
-                await session_manager.update_session_state(
-                    session, {SESSION_STATE_PROJECT_ID_KEY: effective_project_id}
-                )
+            # Update project ID or Access Token if changed
+            if session:
+                state_updates = {}
+                if (
+                    effective_project_id
+                    and session.state.get(SESSION_STATE_PROJECT_ID_KEY)
+                    != effective_project_id
+                ):
+                    state_updates[SESSION_STATE_PROJECT_ID_KEY] = effective_project_id
+
+                if (
+                    access_token
+                    and session.state.get(SESSION_STATE_ACCESS_TOKEN_KEY)
+                    != access_token
+                ):
+                    state_updates[SESSION_STATE_ACCESS_TOKEN_KEY] = access_token
+
+                if state_updates:
+                    logger.info(f"🔄 Updating session state: {state_updates.keys()}")
+                    await session_manager.update_session_state(session, state_updates)
 
         if not session:
             initial_state: dict[str, Any] = {}
             if effective_project_id:
                 initial_state[SESSION_STATE_PROJECT_ID_KEY] = effective_project_id
+            if access_token:
+                initial_state[SESSION_STATE_ACCESS_TOKEN_KEY] = access_token
 
             # Initialize investigation state
             initial_state["investigation_state"] = InvestigationState().to_dict()
@@ -310,7 +330,6 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                         fc = getattr(event, "function_call", None)
                         fr = getattr(event, "function_response", None)
                         if fc or fr:
-                            # Create a synthetic part for our loop to process
                             parts = [
                                 {"function_call": fc}
                                 if fc
@@ -327,17 +346,17 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                         logger.debug(f"🔍 Processing part: {part}")
 
                         # A. Handle Text
-                        text = getattr(part, "text", None) or (
-                            isinstance(part, dict) and part.get("text")
-                        )
+                        text = getattr(part, "text", None)
+                        if text is None and isinstance(part, dict):
+                            text = part.get("text")
                         if text and isinstance(text, str):
                             logger.info(f"📤 Yielding text: {str(text)[:50]}...")
                             yield json.dumps({"type": "text", "content": text}) + "\n"
 
                         # B. Handle Thought (Reasoning)
-                        thought = getattr(part, "thought", None) or (
-                            isinstance(part, dict) and part.get("thought")
-                        )
+                        thought = getattr(part, "thought", None)
+                        if thought is None and isinstance(part, dict):
+                            thought = part.get("thought")
                         if thought and isinstance(thought, str):
                             logger.info(
                                 f"🧠 Yielding reasoning thought: {str(thought)[:50]}..."
@@ -351,53 +370,64 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                             )
 
                         # C. Handle Tool Calls
-                        fc = getattr(part, "function_call", None) or (
-                            isinstance(part, dict) and part.get("function_call")
-                        )
+                        fc = getattr(part, "function_call", None)
+                        if fc is None and isinstance(part, dict):
+                            fc = part.get("function_call")
+
                         if fc:
-                            tool_name = getattr(fc, "name", None) or (
-                                isinstance(fc, dict) and fc.get("name")
-                            )
+                            tool_name = getattr(fc, "name", None)
+                            if tool_name is None and isinstance(fc, dict):
+                                tool_name = fc.get("name")
+
                             if tool_name and isinstance(tool_name, str):
-                                tool_args_raw = getattr(fc, "args", None) or (
-                                    isinstance(fc, dict) and fc.get("args")
-                                )
+                                tool_args_raw = getattr(fc, "args", None)
+                                if tool_args_raw is None and isinstance(fc, dict):
+                                    tool_args_raw = fc.get("args")
                                 tool_args = normalize_tool_args(tool_args_raw)
                                 logger.info(f"🛠️ Tool Call Request: {tool_name}")
                                 _, events = create_tool_call_events(
                                     tool_name, tool_args, pending_tool_calls
                                 )
                                 for evt_str in events:
+                                    logger.info(
+                                        f"📤 Yielding tool call event: {evt_str}"
+                                    )
                                     yield evt_str + "\n"
 
                         # D. Handle Tool Responses
-                        fr = getattr(part, "function_response", None) or (
-                            isinstance(part, dict) and part.get("function_response")
-                        )
+                        fr = getattr(part, "function_response", None)
+                        if fr is None and isinstance(part, dict):
+                            fr = part.get("function_response")
+
                         if fr:
-                            tool_name = getattr(fr, "name", None) or (
-                                isinstance(fr, dict) and fr.get("name")
-                            )
+                            tool_name = getattr(fr, "name", None)
+                            if tool_name is None and isinstance(fr, dict):
+                                tool_name = fr.get("name")
+
                             if tool_name and isinstance(tool_name, str):
-                                result = getattr(fr, "response", None) or (
-                                    isinstance(fr, dict) and fr.get("response")
-                                )
+                                result = getattr(fr, "response", None)
+                                if result is None and isinstance(fr, dict):
+                                    result = fr.get("response")
                                 # Fallback to 'result' or 'output' if 'response' is missing
                                 if result is None:
-                                    result = getattr(fr, "result", None) or (
-                                        isinstance(fr, dict) and fr.get("result")
-                                    )
+                                    result = getattr(fr, "result", None)
+                                    if result is None and isinstance(fr, dict):
+                                        result = fr.get("result")
 
                                 logger.info(f"✅ Tool Response Received: {tool_name}")
                                 _, events = create_tool_response_events(
                                     tool_name, result, pending_tool_calls
                                 )
                                 for evt_str in events:
+                                    logger.info(
+                                        f"📤 Yielding tool response event: {evt_str}"
+                                    )
                                     yield evt_str + "\n"
 
                                 # Yield specialized widget
                                 widget_events = create_widget_events(tool_name, result)
                                 for evt_str in widget_events:
+                                    logger.info(f"📤 Yielding widget event: {evt_str}")
                                     yield evt_str + "\n"
 
                 # 4. Post-run Cleanup & Memory Sync

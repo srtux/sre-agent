@@ -7,6 +7,8 @@ synthesis of why an incident occurred.
 
 from google.adk.agents import LlmAgent
 
+# Initialize environment (shared across sub-agents)
+from ..model_config import get_model_name
 from ..prompt import (
     PROJECT_CONTEXT_INSTRUCTION,
     REACT_PATTERN_INSTRUCTION,
@@ -75,7 +77,7 @@ You are looking for the "First Domino".
 
 root_cause_analyst = LlmAgent(
     name="root_cause_analyst",
-    model="gemini-3-pro-preview",
+    model=get_model_name("deep"),
     description="""Root Cause Analyst - Synthesizes findings to find the root cause, impact, and triggers.
 
 Capabilities:

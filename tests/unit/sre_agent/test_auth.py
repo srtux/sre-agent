@@ -308,3 +308,44 @@ def test_validate_access_token_sync_success():
 
         assert result.valid is True
         assert result.email == "user@example.com"
+
+
+def test_get_credentials_from_tool_context_session_no_fallback_to_adc():
+    """Ensure we correctly retrieve session credentials without triggering ADC.
+
+    This verifies that when a valid token exists in the session state, we use it
+    directly and do NOT call google.auth.default() (ADC).
+    """
+    # 1. Setup: Clean context and prepare tool_context with a session token
+    mock_tool_context = MagicMock()
+    mock_tool_context.invocation_context.session.state = {
+        SESSION_STATE_ACCESS_TOKEN_KEY: "session-token-123"
+    }
+
+    # 2. Mock google.auth.default to FAIL if called.
+    # We want to prove it is NEVER called when session token is present.
+    with patch(
+        "google.auth.default", side_effect=RuntimeError("ADC SHOULD NOT BE CALLED")
+    ):
+        # 3. Action
+        creds = get_credentials_from_tool_context(mock_tool_context)
+
+        # 4. Assertions
+        assert creds is not None
+        assert creds.token == "session-token-123"
+
+        # Additional verification: The credentials object should be a simple Credentials wrapping the token
+        assert isinstance(creds, Credentials)
+
+
+def test_get_credentials_from_tool_context_no_context_returns_none():
+    """Ensure get_credentials_from_tool_context returns None if no creds found.
+
+    It should NOT fallback to ADC internally. Fallback is the caller's responsibility.
+    """
+
+    with patch("google.auth.default") as mock_adc:
+        creds = get_credentials_from_tool_context(None)
+
+        assert creds is None
+        mock_adc.assert_not_called()
