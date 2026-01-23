@@ -49,10 +49,10 @@ def _record_telemetry(
     func_name: str, success: bool = True, duration_ms: float = 0.0
 ) -> None:
     attributes = {
-        "code.function": func_name,
-        "code.namespace": __name__,
+        "code_function": func_name,
+        "code_namespace": __name__,
         "success": str(success).lower(),
-        "sre_agent.tool.name": func_name,
+        "sre_agent_tool_name": func_name,
     }
     execution_count.add(1, attributes)
     execution_duration.record(duration_ms, attributes)
@@ -556,7 +556,7 @@ def detect_all_sre_patterns(
         except Exception as e:
             span.record_exception(e)
             success = False
-            raise e
+            return {"error": str(e)}
         finally:
             duration_ms = (time.time() - start_time) * 1000
             _record_telemetry("detect_all_sre_patterns", success, duration_ms)

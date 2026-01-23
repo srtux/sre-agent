@@ -5,8 +5,9 @@ exceptions, and specific diagnostic scenarios (HTTP, DB, etc.).
 """
 
 import logging
+from typing import Any
 
-from ...common import adk_tool, json_dumps
+from ...common import adk_tool
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ def analyze_span_events(
     time_window_hours: int = 24,
     event_name_filter: str | None = None,
     service_name: str | None = None,
-) -> str:
+) -> dict[str, Any]:
     """Analyzes span events (e.g., logs, exceptions attached to spans).
 
     Args:
@@ -65,13 +66,11 @@ WHERE {where_clause}
 ORDER BY event.time DESC
 LIMIT 100
 """
-    return json_dumps(
-        {
-            "analysis_type": "span_events",
-            "sql_query": query.strip(),
-            "description": "Analyze span events from OpenTelemetry data",
-        }
-    )
+    return {
+        "analysis_type": "span_events",
+        "sql_query": query.strip(),
+        "description": "Analyze span events from OpenTelemetry data",
+    }
 
 
 @adk_tool
@@ -80,7 +79,7 @@ def analyze_exception_patterns(
     table_name: str = "_AllSpans",
     time_window_hours: int = 24,
     group_by: str = "exception_type",
-) -> str:
+) -> dict[str, Any]:
     """Analyzes patterns in exceptions found in span events.
 
     Args:
@@ -111,13 +110,11 @@ GROUP BY 1
 ORDER BY exception_count DESC
 LIMIT 50
 """
-    return json_dumps(
-        {
-            "analysis_type": "exception_patterns",
-            "sql_query": query.strip(),
-            "description": "Analyze exception patterns",
-        }
-    )
+    return {
+        "analysis_type": "exception_patterns",
+        "sql_query": query.strip(),
+        "description": "Analyze exception patterns",
+    }
 
 
 @adk_tool
@@ -126,7 +123,7 @@ def analyze_span_links(
     table_name: str = "_AllSpans",
     time_window_hours: int = 24,
     service_name: str | None = None,
-) -> str:
+) -> dict[str, Any]:
     """Analyzes span links which connect causal traces."""
     where_conditions = [
         f"start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {time_window_hours} HOUR)",
@@ -154,13 +151,11 @@ UNNEST(links) as link
 WHERE {where_clause}
 LIMIT 100
 """
-    return json_dumps(
-        {
-            "analysis_type": "span_links",
-            "sql_query": query.strip(),
-            "description": "Analyze span links",
-        }
-    )
+    return {
+        "analysis_type": "span_links",
+        "sql_query": query.strip(),
+        "description": "Analyze span links",
+    }
 
 
 @adk_tool
@@ -168,7 +163,7 @@ def analyze_link_patterns(
     dataset_id: str,
     table_name: str = "_AllSpans",
     time_window_hours: int = 24,
-) -> str:
+) -> dict[str, Any]:
     """Analyzes high-level statistics about span links."""
     query = f"""
 SELECT
@@ -181,13 +176,11 @@ WHERE t.start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {time_window_h
 GROUP BY 1
 ORDER BY total_links DESC
 """
-    return json_dumps(
-        {
-            "analysis_type": "link_patterns",
-            "sql_query": query.strip(),
-            "description": "Analyze link patterns",
-        }
-    )
+    return {
+        "analysis_type": "link_patterns",
+        "sql_query": query.strip(),
+        "description": "Analyze link patterns",
+    }
 
 
 @adk_tool
@@ -195,7 +188,7 @@ def analyze_instrumentation_libraries(
     dataset_id: str,
     table_name: str = "_AllSpans",
     time_window_hours: int = 24,
-) -> str:
+) -> dict[str, Any]:
     """Analyzes usage of instrumentation libraries/scopes."""
     query = f"""
 SELECT
@@ -211,13 +204,11 @@ WHERE start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {time_window_hou
 GROUP BY 1, 2, 3
 ORDER BY span_count DESC
 """
-    return json_dumps(
-        {
-            "analysis_type": "instrumentation_libraries",
-            "sql_query": query.strip(),
-            "description": "Analyze instrumentation libraries",
-        }
-    )
+    return {
+        "analysis_type": "instrumentation_libraries",
+        "sql_query": query.strip(),
+        "description": "Analyze instrumentation libraries",
+    }
 
 
 @adk_tool
@@ -226,7 +217,7 @@ def analyze_http_attributes(
     table_name: str = "_AllSpans",
     time_window_hours: int = 24,
     min_request_count: int = 1,
-) -> str:
+) -> dict[str, Any]:
     """Analyzes HTTP semantic conventions (SERVER spans)."""
     query = f"""
 SELECT
@@ -246,13 +237,11 @@ GROUP BY 1, 2, 3
 HAVING request_count >= {min_request_count}
 ORDER BY request_count DESC
 """
-    return json_dumps(
-        {
-            "analysis_type": "http_attributes",
-            "sql_query": query.strip(),
-            "description": "Analyze HTTP attributes",
-        }
-    )
+    return {
+        "analysis_type": "http_attributes",
+        "sql_query": query.strip(),
+        "description": "Analyze HTTP attributes",
+    }
 
 
 @adk_tool
@@ -261,7 +250,7 @@ def analyze_database_operations(
     table_name: str = "_AllSpans",
     time_window_hours: int = 24,
     db_system: str | None = None,
-) -> str:
+) -> dict[str, Any]:
     """Analyzes Database semantic conventions (CLIENT spans)."""
     where_extra = ""
     if db_system:
@@ -286,10 +275,8 @@ WHERE start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {time_window_hou
 GROUP BY 1, 2, 3
 ORDER BY call_count DESC
 """
-    return json_dumps(
-        {
-            "analysis_type": "database_operations",
-            "sql_query": query.strip(),
-            "description": "Analyze database operations",
-        }
-    )
+    return {
+        "analysis_type": "database_operations",
+        "sql_query": query.strip(),
+        "description": "Analyze database operations",
+    }

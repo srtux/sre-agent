@@ -50,10 +50,10 @@ def _record_telemetry(
     func_name: str, success: bool = True, duration_ms: float = 0.0
 ) -> None:
     attributes = {
-        "code.function": func_name,
-        "code.namespace": __name__,
+        "code_function": func_name,
+        "code_namespace": __name__,
         "success": str(success).lower(),
-        "sre_agent.tool.name": func_name,
+        "sre_agent_tool_name": func_name,
     }
     execution_count.add(1, attributes)
     execution_duration.record(duration_ms, attributes)
@@ -114,7 +114,7 @@ def _calculate_span_durations_impl(trace: TraceData) -> list[SpanData]:
 @adk_tool
 def calculate_span_durations(
     trace_id: str, project_id: str | None = None, tool_context: Any = None
-) -> list[SpanData]:
+) -> dict[str, Any]:
     """Extracts timing information for each span in a trace.
 
     Args:
@@ -161,7 +161,7 @@ def calculate_span_durations(
                 span.set_status(StatusCode.ERROR, str(result[0]["error"]))
                 span.set_attribute("error", True)
 
-            return result
+            return {"spans": result}
 
         except Exception as e:
             span.record_exception(e)
@@ -250,7 +250,7 @@ def _extract_errors_impl(trace: TraceData) -> list[dict[str, Any]]:
 @adk_tool
 def extract_errors(
     trace_id: str, project_id: str | None = None, tool_context: Any = None
-) -> list[dict[str, Any]]:
+) -> dict[str, Any]:
     """Finds all spans that contain errors or error-related information.
 
     Args:
@@ -293,7 +293,7 @@ def extract_errors(
             span.set_attribute("sre_agent.error_count", len(errors))
             anomalies_detected.add(len(errors), {"type": "error_span"})
 
-            return errors
+            return {"errors": errors}
         except Exception as e:
             span.record_exception(e)
             success = False

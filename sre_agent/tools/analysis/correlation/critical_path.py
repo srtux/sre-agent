@@ -18,7 +18,7 @@ import logging
 from typing import Any, cast
 
 from ...clients.trace import fetch_trace_data
-from ...common import adk_tool, json_dumps
+from ...common import adk_tool
 from ...common.telemetry import get_meter, get_tracer
 
 logger = logging.getLogger(__name__)
@@ -454,7 +454,7 @@ def find_bottleneck_services(
     table_name: str = "_AllSpans",
     time_window_hours: int = 24,
     min_sample_size: int = 100,
-) -> str:
+) -> dict[str, Any]:
     """Identifies services that frequently appear as bottlenecks on critical paths.
 
     This aggregates across many traces to find systematic bottlenecks,
@@ -467,7 +467,7 @@ def find_bottleneck_services(
         min_sample_size: Minimum number of traces to consider statistically significant
 
     Returns:
-        JSON with SQL query to find bottleneck services
+        Dictionary with SQL query to find bottleneck services
     """
     with tracer.start_as_current_span("find_bottleneck_services"):
         critical_path_operations.add(1, {"type": "find_bottlenecks"})
@@ -569,7 +569,7 @@ LIMIT 20
         }
 
         logger.info("Generated bottleneck services analysis SQL")
-        return json_dumps(result)
+        return result
 
 
 @adk_tool
@@ -579,7 +579,7 @@ def calculate_critical_path_contribution(
     service_name: str | None = None,
     operation_name: str | None = None,
     time_window_hours: int = 24,
-) -> str:
+) -> dict[str, Any]:
     """Calculates how much a specific service/operation contributes to critical paths.
 
     This helps answer: "If I optimize this service, how much will overall
@@ -593,7 +593,7 @@ def calculate_critical_path_contribution(
         time_window_hours: Time window for analysis
 
     Returns:
-        JSON with SQL query and analysis guidance
+        Dictionary with SQL query and analysis guidance
     """
     with tracer.start_as_current_span("calculate_critical_path_contribution"):
         critical_path_operations.add(1, {"type": "contribution"})
@@ -698,4 +698,4 @@ ORDER BY weighted_impact_ms DESC
         logger.info(
             f"Generated critical path contribution SQL for {service_name}/{operation_name}"
         )
-        return json_dumps(result)
+        return result

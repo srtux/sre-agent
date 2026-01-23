@@ -35,10 +35,9 @@ async def test_fetch_trace_caching():
         mock_cache_factory.return_value = mock_cache
 
         # Scenario 1: Cache hit
-        mock_cache.get.return_value = json.dumps(mock_result)
+        mock_cache.get.return_value = mock_result
 
-        result_json = await fetch_trace(trace_id, project_id)
-        result = json.loads(result_json)
+        result = await fetch_trace(trace_id, project_id)
 
         assert result["trace_id"] == trace_id
         mock_cache.get.assert_called_with(f"trace:{trace_id}")
@@ -59,7 +58,7 @@ async def test_fetch_trace_data_flexible_input():
 
     # 3. ID input (triggers fetch)
     with patch("sre_agent.tools.clients.trace._fetch_trace_sync") as mock_fetch:
-        mock_fetch.return_value = json.dumps(data_dict)
+        mock_fetch.return_value = data_dict
         assert fetch_trace_data("123", project_id="test") == data_dict
 
 

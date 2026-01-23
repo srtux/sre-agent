@@ -1,4 +1,3 @@
-import json
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -49,13 +48,12 @@ class TestFetchTrace:
         mock_client.get_trace.return_value = mock_trace
 
         # Execute
-        result_json = await trace_client.fetch_trace(
+        result = await trace_client.fetch_trace(
             project_id="test-project", trace_id=trace_id
         )
 
         # Verify
-        assert result_json is not None
-        result = json.loads(result_json)
+        assert result is not None
         assert result["trace_id"] == trace_id
         mock_client.get_trace.assert_called_once()
 
@@ -72,12 +70,11 @@ class TestFetchTrace:
         mock_client.get_trace.side_effect = exceptions.NotFound("Trace not found")
 
         # Execute
-        result_json = await trace_client.fetch_trace(
+        result = await trace_client.fetch_trace(
             project_id="test-project", trace_id="invalid-trace-id"
         )
 
         # Verify error handling (it returns an error JSON, not raises)
-        result = json.loads(result_json)
         assert "error" in result
         assert "404" in result["error"]
 
@@ -104,13 +101,10 @@ class TestListTraces:
         mock_client.list_traces.return_value = mock_traces
 
         # Execute
-        result_json = await trace_client.list_traces(
-            project_id="test-project", limit=10
-        )
+        result = await trace_client.list_traces(project_id="test-project", limit=10)
 
         # Verify
-        assert result_json is not None
-        result = json.loads(result_json)
+        assert result is not None
         assert len(result) <= 5
         mock_client.list_traces.assert_called_once()
 
@@ -179,14 +173,13 @@ class TestGetLogsForTrace:
         mock_client.list_log_entries.return_value = mock_pager
 
         # Execute
-        result_json = await list_log_entries(
+        result = await list_log_entries(
             project_id="test-project",
             filter_str=f'trace="projects/test-project/traces/{trace_id}"',
         )
 
         # Verify
-        assert result_json is not None
-        result = json.loads(result_json)
+        assert result is not None
         assert len(result["entries"]) == 5
         mock_client.list_log_entries.assert_called_once()
 
@@ -220,13 +213,12 @@ class TestFindExampleTraces:
         mock_client.list_traces.return_value = mock_traces
 
         # Execute
-        result_json = await trace_client.find_example_traces(
+        result = await trace_client.find_example_traces(
             project_id="test-project", prefer_errors=True
         )
 
         # Verify
-        assert result_json is not None
-        result = json.loads(result_json)
+        assert result is not None
         assert "baseline" in result
         assert "anomaly" in result
         mock_client.list_traces.assert_called()
@@ -244,11 +236,9 @@ class TestGetTraceByURL:
 
         # Mock the actual fetch to focus on URL parsing
         with patch("sre_agent.tools.clients.trace.fetch_trace") as mock_fetch:
-            mock_fetch.return_value = json.dumps(
-                {
-                    "trace_id": "4fb09ce68979116e0ca143d225695000"
-                }  # pragma: allowlist secret
-            )
+            mock_fetch.return_value = {
+                "trace_id": "4fb09ce68979116e0ca143d225695000"
+            }  # pragma: allowlist secret
 
             await trace_client.get_trace_by_url(url)
 
@@ -256,7 +246,7 @@ class TestGetTraceByURL:
             mock_fetch.assert_called_once()
             args, _kwargs = mock_fetch.call_args
             assert (
-                args[1]
+                args[0]
                 == "4fb09ce68979116e0ca143d225695000"  # pragma: allowlist secret
             )
 
@@ -265,8 +255,7 @@ class TestGetTraceByURL:
         """Test handling of invalid URL."""
         invalid_url = "https://example.com/invalid"
 
-        result_json = await trace_client.get_trace_by_url(invalid_url)
-        result = json.loads(result_json)
+        result = await trace_client.get_trace_by_url(invalid_url)
         assert "error" in result
 
 
@@ -293,11 +282,10 @@ class TestListErrorEvents:
         mock_client.list_events.return_value = mock_events
 
         # Execute
-        result_json = await list_error_events(project_id="test-project", minutes_ago=60)
+        result = await list_error_events(project_id="test-project", minutes_ago=60)
 
         # Verify
-        assert result_json is not None
-        result = json.loads(result_json)
+        assert result is not None
         assert len(result) == 5
         mock_client.list_events.assert_called_once()
 
@@ -342,13 +330,12 @@ class TestListLogEntries:
         mock_client.list_log_entries.return_value = mock_pager
 
         # Execute
-        result_json = await list_log_entries(
+        result = await list_log_entries(
             project_id="test-project", filter_str='severity="ERROR"', limit=10
         )
 
         # Verify
-        assert result_json is not None
-        result = json.loads(result_json)
+        assert result is not None
         assert len(result["entries"]) == 10
         mock_client.list_log_entries.assert_called_once()
 

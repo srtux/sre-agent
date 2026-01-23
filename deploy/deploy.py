@@ -118,6 +118,7 @@ def create(env_vars: dict[str, str] | None = None) -> None:
         env_vars={
             "GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY": "true",
             "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "true",
+            "USE_ARIZE": "false",
             **env_vars,
         },
     )

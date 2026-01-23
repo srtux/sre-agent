@@ -9,16 +9,15 @@ This module provides tools for:
 SRE Philosophy: "Hope is not a strategy" - measure everything with SLOs!
 """
 
-import json
 import logging
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from google.auth.transport.requests import AuthorizedSession
 from google.cloud import monitoring_v3
 
 from ...auth import get_credentials_from_tool_context, get_current_credentials
-from ..common import adk_tool, json_dumps
+from ..common import adk_tool
 from .factory import get_monitoring_client
 
 logger = logging.getLogger(__name__)
@@ -38,7 +37,7 @@ def list_slos(
     project_id: str,
     service_id: str | None = None,
     tool_context: Any = None,
-) -> str:
+) -> list[dict[str, Any]] | dict[str, Any]:
     """List all Service Level Objectives defined in a project.
 
     SLOs are the foundation of SRE - they define what "reliable enough" means
@@ -51,7 +50,7 @@ def list_slos(
         tool_context: Context object for tool execution.
 
     Returns:
-        JSON list of SLO definitions with name, display name, goal, and type.
+        Dictionary or list of SLO definitions with name, display name, goal, and type.
 
     Example:
         list_slos("my-project", "checkout-service")
@@ -115,12 +114,12 @@ def list_slos(
 
             result.append(slo_info)
 
-        return json_dumps(result, indent=2)
+        return result
 
     except Exception as e:
         error_msg = f"Failed to list SLOs: {e!s}"
         logger.error(error_msg)
-        return json_dumps({"error": error_msg})
+        return {"error": error_msg}
 
 
 @adk_tool
@@ -129,7 +128,7 @@ def get_slo_status(
     service_id: str,
     slo_id: str,
     tool_context: Any = None,
-) -> str:
+) -> dict[str, Any]:
     """Get current SLO compliance status including error budget.
 
     This is THE critical metric for SRE work - shows if you're meeting
@@ -142,7 +141,7 @@ def get_slo_status(
         tool_context: Context object for tool execution.
 
     Returns:
-        JSON with SLO goal, current performance, error budget remaining,
+        Dictionary with SLO goal, current performance, error budget remaining,
         and compliance status.
 
     Example:
@@ -194,12 +193,12 @@ def get_slo_status(
             f"Error budget allows {error_budget_percentage:.3f}% failures over the rolling period."
         )
 
-        return json_dumps(result, indent=2)
+        return result
 
     except Exception as e:
         error_msg = f"Failed to get SLO status: {e!s}"
         logger.error(error_msg)
-        return json_dumps({"error": error_msg})
+        return {"error": error_msg}
 
 
 @adk_tool
@@ -209,7 +208,7 @@ def analyze_error_budget_burn(
     slo_id: str,
     hours: int = 24,
     tool_context: Any = None,
-) -> str:
+) -> dict[str, Any]:
     """Analyze error budget burn rate to predict SLO violations.
 
     This is early warning for reliability issues - if you're burning
@@ -223,7 +222,7 @@ def analyze_error_budget_burn(
         tool_context: Context object for tool execution.
 
     Returns:
-        JSON with burn rate, projected exhaustion time, and risk assessment.
+        Dictionary with burn rate, projected exhaustion time, and risk assessment.
 
     Example:
         analyze_error_budget_burn("my-project", "api-service", "availability-slo", 24)
@@ -327,21 +326,21 @@ def analyze_error_budget_burn(
                 "Ensure the SLO has been active long enough to generate metrics."
             )
 
-        return json_dumps(result, indent=2)
+        return result
 
     except Exception as e:
         error_msg = f"Failed to analyze error budget burn: {e!s}"
         logger.error(error_msg)
-        return json_dumps({"error": error_msg})
+        return {"error": error_msg}
 
 
 @adk_tool
-def get_golden_signals(
+async def get_golden_signals(
     project_id: str,
     service_name: str,
     minutes_ago: int = 60,
     tool_context: Any = None,
-) -> str:
+) -> dict[str, Any]:
     """Get the four SRE Golden Signals for a service.
 
     The Golden Signals are:
@@ -359,7 +358,7 @@ def get_golden_signals(
         tool_context: Context object for tool execution.
 
     Returns:
-        JSON with all four golden signals and their current values.
+        Dictionary with all four golden signals and their current values.
 
     Example:
         get_golden_signals("my-project", "frontend-service", 30)
@@ -592,28 +591,23 @@ def get_golden_signals(
             golden_signals["overall_health"] = "CRITICAL"
         elif "WARNING" in statuses:
             golden_signals["overall_health"] = "WARNING"
-        elif all(s in ["GOOD", "OK"] for s in statuses):
-            golden_signals["overall_health"] = "HEALTHY"
-        else:
-            golden_signals["overall_health"] = "UNKNOWN"
-
-        return json_dumps(golden_signals, indent=2)
+        return golden_signals
 
     except Exception as e:
         error_msg = f"Failed to get golden signals: {e!s}"
         logger.error(error_msg)
-        return json_dumps({"error": error_msg})
+        return {"error": error_msg}
 
 
 @adk_tool
-def correlate_incident_with_slo_impact(
+async def correlate_incident_with_slo_impact(
     project_id: str,
     service_id: str,
     slo_id: str,
     incident_start: str,
     incident_end: str,
     tool_context: Any = None,
-) -> str:
+) -> dict[str, Any]:
     """Calculate how much an incident consumed error budget.
 
     This is critical for postmortems - quantifies the impact of an incident
@@ -628,7 +622,7 @@ def correlate_incident_with_slo_impact(
         tool_context: Context object for tool execution.
 
     Returns:
-        JSON with error budget consumed, percentage of monthly budget,
+        Dictionary with error budget consumed, percentage of monthly budget,
         and impact assessment.
 
     Example:
@@ -644,13 +638,12 @@ def correlate_incident_with_slo_impact(
         duration_minutes = (end_dt - start_dt).total_seconds() / 60
 
         # Get SLO details
-        slo_status_json = get_slo_status(
+        slo_status = get_slo_status(
             project_id, service_id, slo_id, tool_context=tool_context
         )
-        slo_status = json.loads(slo_status_json)
 
         if "error" in slo_status:
-            return json_dumps(slo_status)
+            return cast(dict[str, Any], slo_status)
 
         slo_goal = slo_status.get("goal", 0.999)
         rolling_period_days = slo_status.get("rolling_period_days", 30)
@@ -716,22 +709,22 @@ def correlate_incident_with_slo_impact(
                 "error budget remains healthy."
             )
 
-        return json_dumps(result, indent=2)
+        return result
 
     except Exception as e:
         error_msg = f"Failed to correlate incident with SLO impact: {e!s}"
         logger.error(error_msg)
-        return json_dumps({"error": error_msg})
+        return {"error": error_msg}
 
 
 @adk_tool
-def predict_slo_violation(
+async def predict_slo_violation(
     project_id: str,
     service_id: str,
     slo_id: str,
     hours_ahead: int = 24,
     tool_context: Any = None,
-) -> str:
+) -> dict[str, Any]:
     """Predict if current error rate will exhaust error budget.
 
     This is proactive SRE - catch problems before they become outages!
@@ -744,20 +737,19 @@ def predict_slo_violation(
         tool_context: Context object for tool execution.
 
     Returns:
-        JSON with prediction confidence, projected compliance, and recommendations.
+        Dictionary with prediction confidence, projected compliance, and recommendations.
 
     Example:
         predict_slo_violation("my-project", "api-service", "latency-slo", 48)
     """
     try:
         # Get current burn rate
-        burn_analysis_json = analyze_error_budget_burn(
+        burn_analysis = analyze_error_budget_burn(
             project_id, service_id, slo_id, hours=24, tool_context=tool_context
         )
-        burn_analysis = json.loads(burn_analysis_json)
 
         if "error" in burn_analysis:
-            return json_dumps(burn_analysis)
+            return cast(dict[str, Any], burn_analysis)
 
         result = {
             "prediction_window_hours": hours_ahead,
@@ -808,9 +800,9 @@ def predict_slo_violation(
                     "Continue monitoring for the next few hours."
                 )
 
-        return json_dumps(result, indent=2)
+        return result
 
     except Exception as e:
         error_msg = f"Failed to predict SLO violation: {e!s}"
         logger.error(error_msg)
-        return json_dumps({"error": error_msg})
+        return {"error": error_msg}

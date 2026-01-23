@@ -46,6 +46,7 @@ import functools
 import logging
 import os
 from collections.abc import AsyncGenerator
+from datetime import datetime, timezone
 from typing import Any
 
 # Determine environment settings for Agent initialization
@@ -257,7 +258,7 @@ def emojify_agent(agent: LlmAgent) -> LlmAgent:
         # 2. Run Original with Arize session context
         full_response_parts = []
         try:
-            async with using_arize_session(session_id=session_id, user_id=user_id):
+            with using_arize_session(session_id=session_id, user_id=user_id):
                 async for event in original_run_async(context):
                     if (
                         hasattr(event, "content")
@@ -829,7 +830,7 @@ Direct Tools:
 - Observability: fetch_trace, list_log_entries, query_promql, list_time_series, list_slos
 - Analysis: analyze_trace_comprehensive, find_bottleneck_services, correlate_logs_with_trace
 - Platform: get_gke_cluster_health, list_alerts, detect_metric_anomalies""",
-    instruction=SRE_AGENT_PROMPT,
+    instruction=f"{SRE_AGENT_PROMPT}\n\n## 📅 Current Time\nThe current time is: {datetime.now(timezone.utc).isoformat()}",
     tools=base_tools,
     # Sub-agents for specialized analysis (automatically invoked based on task)
     sub_agents=[

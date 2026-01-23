@@ -12,7 +12,7 @@ async def synthesize_report(
     aggregate_results: dict[str, Any] | None = None,
     log_analysis: dict[str, Any] | None = None,
     tool_context: Any | None = None,
-) -> str:
+) -> dict[str, Any]:
     """Synthesize a structured Root Cause Hypothesis report.
 
     Args:
@@ -77,4 +77,4 @@ async def synthesize_report(
     )
     report.append(f"## Impact Assessment\n{impact}\n")
 
-    return "\n".join(report)
+    return {"report": "\n".join(report)}

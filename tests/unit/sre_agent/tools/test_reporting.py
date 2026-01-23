@@ -31,18 +31,18 @@ async def test_synthesize_report_full_data():
         log_analysis=log_analysis,
     )
 
-    assert "# Root Cause Investigation Report" in report
-    assert "The database is the root cause." in report
-    assert "A deployment happened 5 mins ago." in report
-    assert "5 services affected." in report
-    assert "Latency spiked by 500ms." in report
-    assert "Error rate is 5%." in report
-    assert "Traffic increased by 20%." in report
-    assert "Log errors found in logs." in report
-    assert "## Executive Summary" in report
-    assert "## Evidence" in report
-    assert "## Trace Forensics" in report
-    assert "## Impact Assessment" in report
+    assert "# Root Cause Investigation Report" in report["report"]
+    assert "The database is the root cause." in report["report"]
+    assert "A deployment happened 5 mins ago." in report["report"]
+    assert "5 services affected." in report["report"]
+    assert "Latency spiked by 500ms." in report["report"]
+    assert "Error rate is 5%." in report["report"]
+    assert "Traffic increased by 20%." in report["report"]
+    assert "Log errors found in logs." in report["report"]
+    assert "## Executive Summary" in report["report"]
+    assert "## Evidence" in report["report"]
+    assert "## Trace Forensics" in report["report"]
+    assert "## Impact Assessment" in report["report"]
 
 
 @pytest.mark.asyncio
@@ -55,11 +55,11 @@ async def test_synthesize_report_minimal_data():
         root_cause_analysis=root_cause, triage_results=triage
     )
 
-    assert "# Root Cause Investigation Report" in report
-    assert "Analysis Inconclusive" in report
-    assert "No change detection data" in report
-    assert "Unknown Impact" in report
-    assert "## Trace Forensics" in report
+    assert "# Root Cause Investigation Report" in report["report"]
+    assert "Analysis Inconclusive" in report["report"]
+    assert "No change detection data" in report["report"]
+    assert "Unknown Impact" in report["report"]
+    assert "## Trace Forensics" in report["report"]
     # Should NOT have sections for missing data
-    assert "Aggregate Patterns" not in report
-    assert "Log Patterns" not in report
+    assert "Aggregate Patterns" not in report["report"]
+    assert "Log Patterns" not in report["report"]

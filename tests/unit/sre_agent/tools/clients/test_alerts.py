@@ -1,6 +1,5 @@
 """Tests for Alerting tools."""
 
-import json
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -53,11 +52,10 @@ async def test_list_alerts_success(mock_auth, mock_authorized_session):
     mock_authorized_session.get.return_value = mock_response
 
     # Execute
-    result = await list_alerts(project_id="test-project", filter_str='state="OPEN"')
+    data = await list_alerts(project_id="test-project", filter_str='state="OPEN"')
 
     # Verify
-    assert result is not None
-    data = json.loads(result)
+    assert data is not None
     assert len(data) == 1
     assert data[0]["name"] == "projects/test-project/alerts/123"
 
@@ -77,9 +75,8 @@ async def test_list_alerts_error(mock_auth, mock_authorized_session):
     """Test handling errors when listing alerts."""
     mock_authorized_session.get.side_effect = Exception("API Error")
 
-    result = await list_alerts(project_id="test-project")
+    data = await list_alerts(project_id="test-project")
 
-    data = json.loads(result)
     assert "error" in data
     assert "API Error" in data["error"]
 
@@ -95,9 +92,8 @@ async def test_get_alert_success(mock_auth, mock_authorized_session):
     }
     mock_authorized_session.get.return_value = mock_response
 
-    result = await get_alert(name="projects/test-project/alerts/123")
+    data = await get_alert(name="projects/test-project/alerts/123")
 
-    data = json.loads(result)
     assert data["name"] == "projects/test-project/alerts/123"
 
     # Verify call
@@ -154,10 +150,9 @@ async def test_list_alert_policies_success(mock_alert_policy_client):
     mock_alert_policy_client.list_alert_policies.return_value = [policy1]
 
     # Execute
-    result = await list_alert_policies(project_id="test-project")
+    data = await list_alert_policies(project_id="test-project")
 
     # Verify
-    data = json.loads(result)
     assert len(data) == 1
     assert data[0]["display_name"] == "High CPU"
     assert data[0]["conditions"][0]["display_name"] == "CPU > 90%"

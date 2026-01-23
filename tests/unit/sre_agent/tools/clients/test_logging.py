@@ -1,4 +1,3 @@
-import json
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -47,8 +46,7 @@ async def test_list_log_entries_success_text_payload(mock_get_client):
     mock_pager.pages = iter([mock_page])
     mock_client.list_log_entries.return_value = mock_pager
 
-    result = await list_log_entries("my-project", "filter")
-    data = json.loads(result)
+    data = await list_log_entries("my-project", "filter")
 
     assert "entries" in data
     assert len(data["entries"]) == 1
@@ -72,8 +70,7 @@ async def test_list_log_entries_pagination(mock_get_client):
     mock_pager.pages = iter([mock_page])
     mock_client.list_log_entries.return_value = mock_pager
 
-    result = await list_log_entries("my-project", "filter", limit=5)
-    data = json.loads(result)
+    data = await list_log_entries("my-project", "filter", limit=5)
 
     assert data["next_page_token"] == "token-abc"
 
@@ -118,8 +115,7 @@ async def test_list_log_entries_json_payload(mock_get_client):
     mock_pager.pages = iter([mock_page])
     mock_client.list_log_entries.return_value = mock_pager
 
-    result = await list_log_entries("p", "f")
-    data = json.loads(result)
+    data = await list_log_entries("p", "f")
 
     assert data["entries"][0]["payload"] == {"key": "value"}
 
@@ -138,8 +134,7 @@ async def test_list_error_events_success(mock_client_cls):
 
     from sre_agent.tools.clients.logging import list_error_events
 
-    result = await list_error_events("p")
-    data = json.loads(result)
+    data = await list_error_events("p")
 
     assert len(data) == 1
     assert data[0]["message"] == "Error occurred"
@@ -153,6 +148,5 @@ async def test_list_error_events_error(mock_client_cls):
 
     from sre_agent.tools.clients.logging import list_error_events
 
-    result = await list_error_events("p")
-    data = json.loads(result)
+    data = await list_error_events("p")
     assert "error" in data

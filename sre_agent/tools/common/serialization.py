@@ -48,8 +48,45 @@ def gcp_json_default(obj: Any) -> Any:
         return "<Unserializable Object>"
 
 
+def normalize_obj(obj: Any) -> Any:
+    """Recursively converts GCP/proto types to native Python types.
+
+    This ensures that dictionaries and lists returned by tools do not
+    contain proto-plus types like MapComposite or RepeatedComposite,
+    which cause Pydantic serialization errors.
+    """
+    if obj is None:
+        return None
+
+    # Handle primitive types directly
+    if isinstance(obj, str | int | float | bool):
+        return obj
+
+    # Handle proto-plus types using our existing logic first
+    type_name = type(obj).__name__
+    if type_name in ("RepeatedComposite", "MapComposite") or hasattr(obj, "to_dict"):
+        obj = gcp_json_default(obj)
+
+    # Now handle normalized containers recursively
+    if isinstance(obj, dict):
+        return {str(k): normalize_obj(v) for k, v in obj.items()}
+    if isinstance(obj, list | tuple | set):
+        return [normalize_obj(i) for i in obj]
+
+    # Handle other types (datetime, etc.) via gcp_json_default
+    try:
+        # If it's still not a basic type, try normalized default
+        res = gcp_json_default(obj)
+        # If gcp_json_default returned a container, we need to normalize its contents too
+        if isinstance(res, dict | list):
+            return normalize_obj(res)
+        return res
+    except Exception:
+        return str(obj)
+
+
 def json_dumps(obj: Any, **kwargs: Any) -> str:
     """Wrapper around json.dumps with GCP types support."""
-    if "default" not in kwargs:
-        kwargs["default"] = gcp_json_default
+    # Pre-normalize to avoid issues with nested containers
+    obj = normalize_obj(obj)
     return json.dumps(obj, **kwargs)

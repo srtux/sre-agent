@@ -199,7 +199,7 @@ def create_logging_mcp_toolset(project_id: str | None = None) -> Any:
 
     logger.info(f"Creating Cloud Logging MCP toolset for project: {project_id}")
 
-    default_server = "logging.googleapis.com-mcp"
+    default_server = "google-logging.googleapis.com-mcp"
     mcp_server = os.environ.get("LOGGING_MCP_SERVER", default_server)
     mcp_server_name = f"projects/{project_id}/locations/global/mcpServers/{mcp_server}"
 
@@ -247,7 +247,7 @@ def create_monitoring_mcp_toolset(project_id: str | None = None) -> Any:
 
     logger.info(f"Creating Cloud Monitoring MCP toolset for project: {project_id}")
 
-    default_server = "monitoring.googleapis.com-mcp"
+    default_server = "google-monitoring.googleapis.com-mcp"
     mcp_server = os.environ.get("MONITORING_MCP_SERVER", default_server)
     mcp_server_name = f"projects/{project_id}/locations/global/mcpServers/{mcp_server}"
 
@@ -640,13 +640,14 @@ async def mcp_list_timeseries(
     }
 
     if aggregation_json:
-        try:
-            args["aggregation"] = json.loads(aggregation_json)
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse aggregation_json: {e}")
-            # Do not add to args if invalid, or raise generic error?
-            # Logging is safe fallback.
-            pass
+        if isinstance(aggregation_json, dict):
+            args["aggregation"] = aggregation_json
+        elif isinstance(aggregation_json, str):
+            try:
+                args["aggregation"] = json.loads(aggregation_json)
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse aggregation_json: {e}")
+                pass
 
     return await call_mcp_tool_with_retry(
         create_monitoring_mcp_toolset,

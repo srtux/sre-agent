@@ -5,8 +5,9 @@ enabling efficient clustering of millions of logs without client-side processing
 """
 
 import logging
+from typing import Any
 
-from ...common import adk_tool, json_dumps
+from ...common import adk_tool
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +20,7 @@ def analyze_bigquery_log_patterns(
     service_name: str | None = None,
     severity: str | None = None,
     limit: int = 50,
-) -> str:
+) -> dict[str, Any]:
     """Analyzes log patterns in BigQuery using SQL-based clustering.
 
     This tool is equivalent to 'Drain' pattern analysis but runs entirely in BigQuery,
@@ -35,7 +36,7 @@ def analyze_bigquery_log_patterns(
         limit: Max patterns to return
 
     Returns:
-        JSON with SQL query to extract top patterns.
+        Dictionary with SQL query to extract top patterns.
     """
     where_conditions = [
         f"timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {time_window_hours} HOUR)",
@@ -95,15 +96,13 @@ LIMIT {limit}
 
     logger.info(f"Generated BigQuery Log Pattern SQL:\n{query.strip()}")
 
-    return json_dumps(
-        {
-            "analysis_type": "bigquery_log_patterns",
-            "sql_query": query.strip(),
-            "description": f"Top {limit} log patterns for {service_name or 'all services'} in last {time_window_hours}h",
-            "next_steps": [
-                "Execute this query using BigQuery MCP execute_sql tool",
-                "Start with 'ERROR' severity patterns",
-                "Compare pattern counts to baseline using compare_time_periods logic manually",
-            ],
-        }
-    )
+    return {
+        "analysis_type": "bigquery_log_patterns",
+        "sql_query": query.strip(),
+        "description": f"Top {limit} log patterns for {service_name or 'all services'} in last {time_window_hours}h",
+        "next_steps": [
+            "Execute this query using BigQuery MCP execute_sql tool",
+            "Start with 'ERROR' severity patterns",
+            "Compare pattern counts to baseline using compare_time_periods logic manually",
+        ],
+    }

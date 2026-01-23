@@ -275,6 +275,11 @@ uv run poe deploy-all
 | `analyze_critical_path`| Identify the sequence of spans determining total duration |
 | `find_bottleneck_services`| Identify services appearing most frequently on critical paths |
 | `detect_all_sre_patterns` | Detect retry storms, cascading timeouts, etc. |
+| `perform_causal_analysis` | Compare span behaviors between baseline and target traces |
+| `compute_latency_statistics`| Calculate P50, P95, P99 and standard deviation for a trace |
+| `detect_latency_anomalies` | Identify spans with statistically significant latency shifts |
+| `calculate_critical_path_contribution` | Quantify impact of individual services on end-to-end latency |
+| `summarize_trace` | Generate a human-readable summary of trace performance |
 
 ### Cloud Logging Tools
 | Tool | Description |

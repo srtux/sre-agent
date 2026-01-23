@@ -394,13 +394,15 @@ def extract_log_patterns(
     log_entries = []
     if isinstance(log_entries_json, list):
         log_entries = log_entries_json
-    else:
+    elif isinstance(log_entries_json, str):
         try:
             log_entries = json.loads(log_entries_json)
             if not isinstance(log_entries, list):
                 log_entries = []
         except (json.JSONDecodeError, TypeError):
             log_entries = []
+    else:
+        log_entries = []
 
     extractor = LogPatternExtractor()
 
@@ -450,24 +452,28 @@ def compare_log_patterns(
     baseline_entries = []
     if isinstance(baseline_entries_json, list):
         baseline_entries = baseline_entries_json
-    else:
+    elif isinstance(baseline_entries_json, str):
         try:
             baseline_entries = json.loads(baseline_entries_json)
             if not isinstance(baseline_entries, list):
                 baseline_entries = []
         except (json.JSONDecodeError, TypeError):
             baseline_entries = []
+    else:
+        baseline_entries = []
 
     comparison_entries = []
     if isinstance(comparison_entries_json, list):
         comparison_entries = comparison_entries_json
-    else:
+    elif isinstance(comparison_entries_json, str):
         try:
             comparison_entries = json.loads(comparison_entries_json)
             if not isinstance(comparison_entries, list):
                 comparison_entries = []
         except (json.JSONDecodeError, TypeError):
             comparison_entries = []
+    else:
+        comparison_entries = []
 
     # Extract patterns from both periods
     baseline_extractor = LogPatternExtractor()
@@ -540,13 +546,15 @@ def analyze_log_anomalies(
     log_entries = []
     if isinstance(log_entries_json, list):
         log_entries = log_entries_json
-    else:
+    elif isinstance(log_entries_json, str):
         try:
             log_entries = json.loads(log_entries_json)
             if not isinstance(log_entries, list):
                 log_entries = []
         except (json.JSONDecodeError, TypeError):
             log_entries = []
+    else:
+        log_entries = []
 
     extractor = LogPatternExtractor()
 

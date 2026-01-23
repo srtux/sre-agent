@@ -11,7 +11,7 @@ what's wrong, tell them how to fix it!
 import logging
 from typing import Any
 
-from ...common import adk_tool, json_dumps
+from ...common import adk_tool
 
 logger = logging.getLogger(__name__)
 
@@ -366,7 +366,7 @@ REMEDIATION_PATTERNS: dict[str, Any] = {
 def generate_remediation_suggestions(
     finding_summary: str,
     finding_details: dict[str, Any] | None = None,
-) -> str:
+) -> dict[str, Any]:
     """Generate remediation suggestions based on investigation findings.
 
     Takes the summary of what was found during analysis and returns
@@ -377,7 +377,7 @@ def generate_remediation_suggestions(
         finding_details: Optional structured details (severity, affected services, etc.)
 
     Returns:
-        JSON with prioritized remediation suggestions.
+        Dictionary with prioritized remediation suggestions.
 
     Example:
         generate_remediation_suggestions(
@@ -397,37 +397,34 @@ def generate_remediation_suggestions(
 
         if not matched_patterns:
             # Generic suggestions if no pattern matched
-            return json_dumps(
-                {
-                    "matched_patterns": [],
-                    "suggestions": [
-                        {
-                            "action": "Enable detailed logging",
-                            "description": "Increase log verbosity to gather more diagnostic information.",
-                            "steps": [
-                                "Set log level to DEBUG",
-                                "Reproduce the issue",
-                                "Analyze detailed logs",
-                            ],
-                            "risk": "low",
-                            "effort": "low",
-                        },
-                        {
-                            "action": "Create a minimal reproduction",
-                            "description": "Isolate the issue to identify root cause.",
-                            "steps": [
-                                "Identify affected component",
-                                "Create test case that reproduces issue",
-                                "Systematically eliminate variables",
-                            ],
-                            "risk": "low",
-                            "effort": "medium",
-                        },
-                    ],
-                    "note": "No specific pattern matched. Please provide more details about the issue.",
-                },
-                indent=2,
-            )
+            return {
+                "matched_patterns": [],
+                "suggestions": [
+                    {
+                        "action": "Enable detailed logging",
+                        "description": "Increase log verbosity to gather more diagnostic information.",
+                        "steps": [
+                            "Set log level to DEBUG",
+                            "Reproduce the issue",
+                            "Analyze detailed logs",
+                        ],
+                        "risk": "low",
+                        "effort": "low",
+                    },
+                    {
+                        "action": "Create a minimal reproduction",
+                        "description": "Isolate the issue to identify root cause.",
+                        "steps": [
+                            "Identify affected component",
+                            "Create test case that reproduces issue",
+                            "Systematically eliminate variables",
+                        ],
+                        "risk": "low",
+                        "effort": "medium",
+                    },
+                ],
+                "note": "No specific pattern matched. Please provide more details about the issue.",
+            }
 
         # Collect all suggestions from matched patterns
         all_suggestions = []
@@ -465,12 +462,12 @@ def generate_remediation_suggestions(
             ],
         }
 
-        return json_dumps(result, indent=2)
+        return result
 
     except Exception as e:
         error_msg = f"Failed to generate remediation suggestions: {e!s}"
         logger.error(error_msg)
-        return json_dumps({"error": error_msg})
+        return {"error": error_msg}
 
 
 @adk_tool
@@ -480,7 +477,7 @@ def get_gcloud_commands(
     project_id: str,
     region: str | None = None,
     **kwargs: Any,
-) -> str:
+) -> dict[str, Any]:
     """Generate ready-to-run gcloud commands for common remediations.
 
     When you know what fix is needed, this generates the exact commands
@@ -494,7 +491,7 @@ def get_gcloud_commands(
         **kwargs: Additional parameters specific to remediation type.
 
     Returns:
-        JSON with gcloud commands and explanations.
+        Dictionary with gcloud commands and explanations.
 
     Example:
         get_gcloud_commands("scale_up", "frontend-service", "my-project", region="us-central1", replicas=5)
@@ -584,20 +581,18 @@ def get_gcloud_commands(
             ]
 
         else:
-            return json_dumps(
-                {
-                    "error": f"Unknown remediation type: {remediation_type}",
-                    "available_types": [
-                        "scale_up",
-                        "rollback",
-                        "increase_memory",
-                        "scale_gke_nodepool",
-                        "increase_sql_connections",
-                        "enable_min_instances",
-                        "update_hpa",
-                    ],
-                }
-            )
+            return {
+                "error": f"Unknown remediation type: {remediation_type}",
+                "available_types": [
+                    "scale_up",
+                    "rollback",
+                    "increase_memory",
+                    "scale_gke_nodepool",
+                    "increase_sql_connections",
+                    "enable_min_instances",
+                    "update_hpa",
+                ],
+            }
 
         result = {
             "remediation_type": remediation_type,
@@ -607,12 +602,12 @@ def get_gcloud_commands(
             "warning": "Review commands before executing. Some changes may cause brief service interruption.",
         }
 
-        return json_dumps(result, indent=2)
+        return result
 
     except Exception as e:
         error_msg = f"Failed to generate gcloud commands: {e!s}"
         logger.error(error_msg)
-        return json_dumps({"error": error_msg})
+        return {"error": error_msg}
 
 
 @adk_tool
@@ -620,7 +615,7 @@ def estimate_remediation_risk(
     action: str,
     service_name: str,
     change_description: str,
-) -> str:
+) -> dict[str, Any]:
     """Estimate the risk level of a proposed remediation action.
 
     Not all fixes are created equal - some are safe to try immediately,
@@ -632,7 +627,7 @@ def estimate_remediation_risk(
         change_description: Description of what will change.
 
     Returns:
-        JSON with risk assessment, potential impacts, and recommendations.
+        Dictionary with risk assessment, potential impacts, and recommendations.
 
     Example:
         estimate_remediation_risk(
@@ -737,12 +732,12 @@ def estimate_remediation_risk(
             ],
         }
 
-        return json_dumps(result, indent=2)
+        return result
 
     except Exception as e:
         error_msg = f"Failed to estimate remediation risk: {e!s}"
         logger.error(error_msg)
-        return json_dumps({"error": error_msg})
+        return {"error": error_msg}
 
 
 @adk_tool
@@ -750,7 +745,7 @@ def find_similar_past_incidents(
     error_pattern: str,
     service_name: str | None = None,
     days_back: int = 90,
-) -> str:
+) -> dict[str, Any]:
     """Search for similar past incidents to learn from previous resolutions.
 
     Those who don't learn from history are doomed to repeat it!
@@ -762,7 +757,7 @@ def find_similar_past_incidents(
         days_back: How far back to search (default 90 days).
 
     Returns:
-        JSON with similar incidents and their resolutions (from knowledge base).
+        Dictionary with similar incidents and their resolutions (from knowledge base).
 
     Note: This currently uses a static knowledge base. In production,
     this would integrate with incident management systems like PagerDuty,
@@ -881,9 +876,9 @@ def find_similar_past_incidents(
                 "Consider documenting this incident for future reference."
             )
 
-        return json_dumps(result, indent=2)
+        return result
 
     except Exception as e:
         error_msg = f"Failed to find similar incidents: {e!s}"
         logger.error(error_msg)
-        return json_dumps({"error": error_msg})
+        return {"error": error_msg}

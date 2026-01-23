@@ -439,6 +439,66 @@ def set_span_attribute(key: str, value: Any) -> None:
 configure_logging = setup_telemetry
 
 
+class ArizeSessionContext:
+    """Context manager that supports both sync and async context protocols.
+
+    This ensures compatibility when used in asynchronous generators or with
+    different calling patterns (with vs async with).
+    """
+
+    def __init__(self, session_id: str, user_id: str = ""):
+        """Initialize the Arize session context.
+
+        Args:
+            session_id: The session ID to track.
+            user_id: The user ID to track.
+        """
+        self.session_id = session_id
+        self.user_id = user_id
+        self.cm: Any = None
+
+    def _get_cm(self) -> Any:
+        import contextlib
+        import os
+
+        @contextlib.contextmanager
+        def _null_context() -> Any:
+            yield
+
+        # Constraint: Use ARIZE only when running locally (not in Agent Engine)
+        # SRE_AGENT_ID is set in Agent Engine environments.
+        is_prod = os.environ.get("SRE_AGENT_ID") is not None
+        use_arize = os.environ.get("USE_ARIZE", "").lower() == "true"
+
+        if is_prod or not use_arize:
+            return _null_context()
+
+        try:
+            from openinference.instrumentation import using_attributes
+
+            return using_attributes(session_id=self.session_id, user_id=self.user_id)
+        except ImportError:
+            return _null_context()
+
+    def __enter__(self) -> Any:
+        """Enter the synchronous context block."""
+        self.cm = self._get_cm()
+        return self.cm.__enter__()
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> Any:
+        """Exit the synchronous context block."""
+        if self.cm:
+            return self.cm.__exit__(exc_type, exc_val, exc_tb)
+
+    async def __aenter__(self) -> Any:
+        """Enter the asynchronous context block."""
+        return self.__enter__()
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> Any:
+        """Exit the asynchronous context block."""
+        return self.__exit__(exc_type, exc_val, exc_tb)
+
+
 def using_arize_session(session_id: str, user_id: str = "") -> Any:
     """Returns a context manager for Arize session/user attributes.
 
@@ -448,16 +508,6 @@ def using_arize_session(session_id: str, user_id: str = "") -> Any:
 
     Returns:
         A context manager that sets OTel attributes for Arize.
+        Supports both synchronous and asynchronous 'with' blocks.
     """
-    try:
-        from openinference.instrumentation import using_attributes
-
-        return using_attributes(session_id=session_id, user_id=user_id)
-    except ImportError:
-        import contextlib
-
-        @contextlib.contextmanager
-        def _null_context() -> Any:
-            yield
-
-        return _null_context()
+    return ArizeSessionContext(session_id=session_id, user_id=user_id)

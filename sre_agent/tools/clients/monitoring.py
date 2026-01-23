@@ -12,14 +12,14 @@ with trace data using Exemplars.
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, cast
 
 from google.auth.transport.requests import AuthorizedSession
 from google.cloud import monitoring_v3
 from opentelemetry.trace import Status, StatusCode
 
 from ...auth import get_current_credentials, get_current_project_id
-from ..common import adk_tool, json_dumps
+from ..common import adk_tool
 from ..common.telemetry import get_tracer
 from .factory import get_monitoring_client
 
@@ -33,7 +33,7 @@ async def list_time_series(
     minutes_ago: int = 60,
     project_id: str | None = None,
     tool_context: Any = None,
-) -> str:
+) -> list[dict[str, Any]] | dict[str, Any]:
     """Lists time series data from Google Cloud Monitoring using direct API.
 
     IMPORTANT: You must use valid combinations of metric and monitored resource labels.
@@ -58,11 +58,9 @@ async def list_time_series(
     if not project_id:
         project_id = get_current_project_id()
         if not project_id:
-            return json_dumps(
-                {
-                    "error": "Project ID is required but not provided or found in context."
-                }
-            )
+            return {
+                "error": "Project ID is required but not provided or found in context."
+            }
 
     return await run_in_threadpool(
         _list_time_series_sync, project_id, filter_str, minutes_ago, tool_context
@@ -74,7 +72,7 @@ def _list_time_series_sync(
     filter_str: str,
     minutes_ago: int = 60,
     tool_context: Any = None,
-) -> str:
+) -> list[dict[str, Any]] | dict[str, Any]:
     """Synchronous implementation of list_time_series."""
     with tracer.start_as_current_span("list_time_series") as span:
         span.set_attribute("gcp.project_id", project_id)
@@ -166,7 +164,7 @@ def _list_time_series_sync(
                     }
                 )
             span.set_attribute("gcp.monitoring.series_count", len(time_series_data))
-            return json_dumps(time_series_data)
+            return time_series_data
         except Exception as e:
             span.record_exception(e)
             error_str = str(e)
@@ -186,7 +184,7 @@ def _list_time_series_sync(
             error_msg = f"Failed to list time series: {error_str}{suggestion}"
             logger.error(error_msg, exc_info=True)
             span.set_status(Status(StatusCode.ERROR, error_msg))
-            return json_dumps({"error": error_msg})
+            return {"error": error_msg}
 
 
 @adk_tool
@@ -197,7 +195,7 @@ async def query_promql(
     step: str = "60s",
     project_id: str | None = None,
     tool_context: Any = None,
-) -> str:
+) -> dict[str, Any]:
     """Executes a PromQL query using the Cloud Monitoring Prometheus API.
 
     Args:
@@ -216,11 +214,9 @@ async def query_promql(
     if not project_id:
         project_id = get_current_project_id()
         if not project_id:
-            return json_dumps(
-                {
-                    "error": "Project ID is required but not provided or found in context."
-                }
-            )
+            return {
+                "error": "Project ID is required but not provided or found in context."
+            }
 
     return await run_in_threadpool(
         _query_promql_sync, project_id, query, start, end, step, tool_context
@@ -234,7 +230,7 @@ def _query_promql_sync(
     end: str | None = None,
     step: str = "60s",
     tool_context: Any = None,
-) -> str:
+) -> dict[str, Any]:
     """Synchronous implementation of query_promql."""
     with tracer.start_as_current_span("query_promql") as span:
         span.set_attribute("gcp.project_id", project_id)
@@ -274,11 +270,11 @@ def _query_promql_sync(
             response = session.get(url, params=params)
             response.raise_for_status()
 
-            return json_dumps(response.json())
+            return cast(dict[str, Any], response.json())
 
         except Exception as e:
             error_msg = f"Failed to execute PromQL query: {e!s}"
             logger.error(error_msg)
             span.record_exception(e)
             span.set_status(Status(StatusCode.ERROR, error_msg))
-            return json_dumps({"error": error_msg})
+            return {"error": error_msg}

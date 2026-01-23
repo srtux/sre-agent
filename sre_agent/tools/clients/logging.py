@@ -15,7 +15,7 @@ execute locally within the agent's process (via threadpool for async compatibili
 import logging
 from typing import Any
 
-from ..common import adk_tool, json_dumps
+from ..common import adk_tool
 from ..common.telemetry import get_tracer
 from .factory import get_logging_client
 
@@ -30,7 +30,7 @@ async def list_log_entries(
     limit: int = 10,
     page_token: str | None = None,
     tool_context: Any = None,
-) -> str:
+) -> dict[str, Any]:
     """Lists log entries from Google Cloud Logging using direct API.
 
     Args:
@@ -41,7 +41,7 @@ async def list_log_entries(
         tool_context: Context object for tool execution.
 
     Returns:
-        A JSON string containing:
+        A dictionary containing:
         - "entries": List of log entries.
         - "next_page_token": Token for the next page (if any).
 
@@ -60,7 +60,7 @@ def _list_log_entries_sync(
     limit: int = 10,
     page_token: str | None = None,
     tool_context: Any = None,
-) -> str:
+) -> dict[str, Any]:
     """Synchronous implementation of list_log_entries."""
     with tracer.start_as_current_span("list_log_entries") as span:
         span.set_attribute("gcp.project_id", project_id)
@@ -153,20 +153,18 @@ def _list_log_entries_sync(
                 next_token = first_page.next_page_token
 
             span.set_attribute("gcp.logging.count", len(results))
-            return json_dumps(
-                {"entries": results, "next_page_token": next_token or None}
-            )
+            return {"entries": results, "next_page_token": next_token or None}
         except Exception as e:
             span.record_exception(e)
             error_msg = f"Failed to list log entries: {e!s}"
             logger.error(error_msg, exc_info=True)
-            return json_dumps({"error": error_msg})
+            return {"error": error_msg}
 
 
 @adk_tool
 async def list_error_events(
     project_id: str, minutes_ago: int = 60, tool_context: Any = None
-) -> str:
+) -> list[dict[str, Any]] | dict[str, Any]:
     """Lists error events from Google Cloud Error Reporting using direct API.
 
     Args:
@@ -175,7 +173,7 @@ async def list_error_events(
         tool_context: Context object for tool execution.
 
     Returns:
-        A JSON string representing the list of error events.
+        List of dictionaries representing error events.
     """
     from fastapi.concurrency import run_in_threadpool
 
@@ -186,7 +184,7 @@ async def list_error_events(
 
 def _list_error_events_sync(
     project_id: str, minutes_ago: int = 60, tool_context: Any = None
-) -> str:
+) -> list[dict[str, Any]] | dict[str, Any]:
     """Synchronous implementation of list_error_events."""
     try:
         import google.cloud.errorreporting_v1beta1 as errorreporting_v1beta1
@@ -218,17 +216,17 @@ def _list_error_events_sync(
                     },
                 }
             )
-        return json_dumps(results)
+        return results
     except Exception as e:
         error_msg = f"Failed to list error events: {e!s}"
         logger.error(error_msg)
-        return json_dumps({"error": error_msg})
+        return {"error": error_msg}
 
 
 @adk_tool
 async def get_logs_for_trace(
     project_id: str, trace_id: str, limit: int = 100, tool_context: Any = None
-) -> str:
+) -> dict[str, Any]:
     """Fetches log entries correlated with a specific trace ID.
 
     Args:
@@ -238,7 +236,7 @@ async def get_logs_for_trace(
         tool_context: Context object for tool execution.
 
     Returns:
-        JSON list of log entries.
+        Dictionary containing the list of log entries.
     """
     filter_str = f'trace="projects/{project_id}/traces/{trace_id}"'
 

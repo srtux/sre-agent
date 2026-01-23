@@ -4,7 +4,6 @@ These tests verify the functionality of tools that analyze the critical path
 in distributed traces to identify bottlenecks and optimization opportunities.
 """
 
-import json
 from unittest.mock import patch
 
 from sre_agent.tools.analysis.correlation.critical_path import (
@@ -206,7 +205,7 @@ class TestFindBottleneckServices:
             dataset_id="project.telemetry",
         )
 
-        parsed = json.loads(result)
+        parsed = result
         assert parsed["analysis_type"] == "bottleneck_services"
         assert "sql_query" in parsed
 
@@ -216,7 +215,7 @@ class TestFindBottleneckServices:
             dataset_id="proj.ds",
         )
 
-        parsed = json.loads(result)
+        parsed = result
         sql = parsed["sql_query"]
 
         # Should calculate contribution percentage
@@ -230,7 +229,7 @@ class TestFindBottleneckServices:
             time_window_hours=48,
         )
 
-        parsed = json.loads(result)
+        parsed = result
         sql = parsed["sql_query"]
 
         assert "48" in sql
@@ -242,7 +241,7 @@ class TestFindBottleneckServices:
             min_sample_size=500,
         )
 
-        parsed = json.loads(result)
+        parsed = result
         sql = parsed["sql_query"]
 
         assert "500" in sql
@@ -253,7 +252,7 @@ class TestFindBottleneckServices:
             dataset_id="proj.ds",
         )
 
-        parsed = json.loads(result)
+        parsed = result
         assert "metrics_explained" in parsed
 
         metrics = parsed["metrics_explained"]
@@ -266,7 +265,7 @@ class TestFindBottleneckServices:
             dataset_id="proj.ds",
         )
 
-        parsed = json.loads(result)
+        parsed = result
         assert "interpretation" in parsed
 
     def test_includes_next_steps(self):
@@ -275,7 +274,7 @@ class TestFindBottleneckServices:
             dataset_id="proj.ds",
         )
 
-        parsed = json.loads(result)
+        parsed = result
         assert "next_steps" in parsed
         assert len(parsed["next_steps"]) > 0
 
@@ -290,7 +289,7 @@ class TestCalculateCriticalPathContribution:
             service_name="my-service",
         )
 
-        parsed = json.loads(result)
+        parsed = result
         assert parsed["analysis_type"] == "critical_path_contribution"
         assert parsed["target_service"] == "my-service"
         assert "sql_query" in parsed
@@ -302,7 +301,7 @@ class TestCalculateCriticalPathContribution:
             service_name="target-service",
         )
 
-        parsed = json.loads(result)
+        parsed = result
         sql = parsed["sql_query"]
 
         assert "target-service" in sql
@@ -315,7 +314,7 @@ class TestCalculateCriticalPathContribution:
             operation_name="specific-operation",
         )
 
-        parsed = json.loads(result)
+        parsed = result
         sql = parsed["sql_query"]
 
         assert "specific-operation" in sql
@@ -327,7 +326,7 @@ class TestCalculateCriticalPathContribution:
             service_name="svc",
         )
 
-        parsed = json.loads(result)
+        parsed = result
         sql = parsed["sql_query"]
 
         # Should include percentile calculations
@@ -342,7 +341,7 @@ class TestCalculateCriticalPathContribution:
             service_name="svc",
         )
 
-        parsed = json.loads(result)
+        parsed = result
         sql = parsed["sql_query"]
 
         assert "contribution" in sql.lower()
@@ -355,7 +354,7 @@ class TestCalculateCriticalPathContribution:
             time_window_hours=72,
         )
 
-        parsed = json.loads(result)
+        parsed = result
         sql = parsed["sql_query"]
 
         assert "72" in sql
@@ -367,7 +366,7 @@ class TestCalculateCriticalPathContribution:
             service_name="svc",
         )
 
-        parsed = json.loads(result)
+        parsed = result
         assert "optimization_formula" in parsed
 
     def test_includes_metrics_explanation(self):
@@ -377,7 +376,7 @@ class TestCalculateCriticalPathContribution:
             service_name="svc",
         )
 
-        parsed = json.loads(result)
+        parsed = result
         assert "metrics_explained" in parsed
 
 
@@ -387,7 +386,7 @@ class TestCriticalPathToolsIntegration:
     def test_bottleneck_services_returns_valid_json(self):
         """Test that find_bottleneck_services returns valid JSON."""
         result = find_bottleneck_services(dataset_id="proj.ds")
-        parsed = json.loads(result)
+        parsed = result
 
         assert isinstance(parsed, dict)
         assert "sql_query" in parsed
@@ -398,7 +397,7 @@ class TestCriticalPathToolsIntegration:
             dataset_id="proj.ds",
             service_name="test-service",
         )
-        parsed = json.loads(result)
+        parsed = result
 
         assert isinstance(parsed, dict)
         assert "sql_query" in parsed
@@ -418,7 +417,7 @@ class TestCriticalPathToolsIntegration:
 
         for tool, args in sql_tools:
             result = tool(**args)
-            parsed = json.loads(result)
+            parsed = result
             sql = parsed["sql_query"]
 
             assert "SELECT" in sql
@@ -439,7 +438,7 @@ class TestCriticalPathToolsIntegration:
 
         for tool, args in sql_tools:
             result = tool(**args)
-            parsed = json.loads(result)
+            parsed = result
 
             assert "next_steps" in parsed, f"{tool.__name__} missing next_steps"
             assert len(parsed["next_steps"]) > 0

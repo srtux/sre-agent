@@ -1,4 +1,3 @@
-import json
 from unittest import mock
 
 import pytest
@@ -28,8 +27,7 @@ async def test_list_time_series(mock_get_client):
 
     mock_client.list_time_series.return_value = [mock_ts]
 
-    result_json = await list_time_series("filter", 60, project_id="p1")
-    result = json.loads(result_json)
+    result = await list_time_series("filter", 60, project_id="p1")
 
     assert len(result) == 1
     assert result[0]["metric"]["type"] == "metric_type"
@@ -49,8 +47,7 @@ async def test_query_promql(mock_auth_default, mock_session_cls):
     mock_response.json.return_value = {"status": "success", "data": {"result": []}}
     mock_session.get.return_value = mock_response
 
-    result_json = await query_promql("up", project_id="p1")
-    result = json.loads(result_json)
+    result = await query_promql("up", project_id="p1")
 
     assert result["status"] == "success"
     mock_session.get.assert_called_once()
@@ -65,8 +62,7 @@ async def test_list_time_series_error(mock_get_client):
     mock_client = mock_get_client.return_value
     mock_client.list_time_series.side_effect = Exception("API error")
 
-    result_json = await list_time_series("filter", project_id="p1")
-    result = json.loads(result_json)
+    result = await list_time_series("filter", project_id="p1")
 
     assert "API error" in result["error"]
 
@@ -92,8 +88,7 @@ async def test_query_promql_otel_error_status(
     mock_session.get.side_effect = Exception("Prometheus API Failed")
 
     # Execute tool
-    result_json = await query_promql("up", project_id="p1")
-    result = json.loads(result_json)
+    result = await query_promql("up", project_id="p1")
 
     # Verify tool behavior
     assert "error" in result
@@ -124,8 +119,7 @@ async def test_list_time_series_otel_error_status(mock_get_client, mock_tracer):
     mock_client.list_time_series.side_effect = Exception("Monitoring API Failed")
 
     # Execute tool
-    result_json = await list_time_series("filter", project_id="p1")
-    result = json.loads(result_json)
+    result = await list_time_series("filter", project_id="p1")
 
     # Verify tool behavior
     assert "error" in result

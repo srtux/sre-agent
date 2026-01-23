@@ -10,6 +10,8 @@ from typing import Any
 from opentelemetry import metrics, trace
 from opentelemetry.trace import Status, StatusCode
 
+from .serialization import normalize_obj
+
 logger = logging.getLogger(__name__)
 
 # Initialize OTel instruments
@@ -114,6 +116,10 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
                         f"✅ Tool Success: '{tool_name}' | Duration: {duration_ms:.2f}ms"
                     )
 
+                # Normalize result (convert GCP types to native Python types)
+                # This prevents Pydantic serialization errors later.
+                result = normalize_obj(result)
+
                 # Truncate result logging
                 result_str = repr(result)
                 if len(result_str) > 1000:
@@ -133,10 +139,10 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
             finally:
                 duration_ms = (time.time() - start_time) * 1000
                 tool_execution_duration.record(
-                    duration_ms, {"tool.name": tool_name, "success": str(success)}
+                    duration_ms, {"tool_name": tool_name, "success": str(success)}
                 )
                 tool_execution_count.add(
-                    1, {"tool.name": tool_name, "success": str(success)}
+                    1, {"tool_name": tool_name, "success": str(success)}
                 )
 
     @functools.wraps(func)
@@ -199,6 +205,11 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
                     logger.info(
                         f"✅ Tool Success: '{tool_name}' | Duration: {duration_ms:.2f}ms"
                     )
+
+                # Normalize result (convert GCP types to native Python types)
+                # This prevents Pydantic serialization errors later.
+                result = normalize_obj(result)
+
                 # Truncate result logging
                 result_str = repr(result)
                 if len(result_str) > 1000:
@@ -218,10 +229,10 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
             finally:
                 duration_ms = (time.time() - start_time) * 1000
                 tool_execution_duration.record(
-                    duration_ms, {"tool.name": tool_name, "success": str(success)}
+                    duration_ms, {"tool_name": tool_name, "success": str(success)}
                 )
                 tool_execution_count.add(
-                    1, {"tool.name": tool_name, "success": str(success)}
+                    1, {"tool_name": tool_name, "success": str(success)}
                 )
 
     if inspect.iscoroutinefunction(func):

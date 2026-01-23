@@ -10,13 +10,13 @@ This is the primary toolset for the `alert_analyst` sub-agent.
 """
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from google.auth.transport.requests import AuthorizedSession
 from google.cloud import monitoring_v3
 
 from ...auth import get_credentials_from_tool_context, get_current_credentials
-from ..common import adk_tool, json_dumps
+from ..common import adk_tool
 from ..common.telemetry import get_tracer
 from .factory import get_alert_policy_client
 
@@ -40,7 +40,7 @@ async def list_alerts(
     order_by: str | None = None,
     page_size: int = 100,
     tool_context: Any = None,
-) -> str:
+) -> list[dict[str, Any]] | dict[str, Any]:
     """Lists alerts (incidents) using the Google Cloud Monitoring API.
 
     Args:
@@ -54,7 +54,7 @@ async def list_alerts(
         tool_context: Context object for tool execution.
 
     Returns:
-        A JSON string containing the list of alerts (incidents).
+        List of dictionaries containing alert (incident) details.
     """
     from fastapi.concurrency import run_in_threadpool
 
@@ -69,7 +69,7 @@ def _list_alerts_sync(
     order_by: str | None = None,
     page_size: int = 100,
     tool_context: Any = None,
-) -> str:
+) -> list[dict[str, Any]] | dict[str, Any]:
     """Synchronous implementation of list_alerts."""
     with tracer.start_as_current_span("list_alerts") as span:
         span.set_attribute("gcp.project_id", project_id)
@@ -89,8 +89,8 @@ def _list_alerts_sync(
                 params["filter"] = filter_str
 
             if order_by:
-                # Map common aliases and camelCase fields back to canonical snake_case field names.
-                # REST API orderBy supports: open_time, close_time.
+                mapped_order_by = order_by
+                # Canonical mapping for Cloud Monitoring Alerting API
                 replacements = {
                     "start_time": "open_time",
                     "startTime": "open_time",
@@ -99,7 +99,6 @@ def _list_alerts_sync(
                     "endTime": "close_time",
                     "closeTime": "close_time",
                 }
-                mapped_order_by = order_by
                 for k, v in replacements.items():
                     mapped_order_by = mapped_order_by.replace(k, v)
                 params["orderBy"] = mapped_order_by
@@ -123,17 +122,17 @@ def _list_alerts_sync(
             alerts = data.get("alerts", [])
 
             span.set_attribute("gcp.monitoring.alerts_count", len(alerts))
-            return json_dumps(alerts)
+            return cast(list[dict[str, Any]], alerts)
 
         except Exception as e:
             span.record_exception(e)
             error_msg = f"Failed to list alerts: {e!s}"
             logger.error(error_msg, exc_info=True)
-            return json_dumps({"error": error_msg})
+            return {"error": error_msg}
 
 
 @adk_tool
-async def get_alert(name: str, tool_context: Any = None) -> str:
+async def get_alert(name: str, tool_context: Any = None) -> dict[str, Any]:
     """Gets a specific alert by its resource name.
 
     Args:
@@ -142,14 +141,14 @@ async def get_alert(name: str, tool_context: Any = None) -> str:
         tool_context: Context object for tool execution.
 
     Returns:
-        A JSON string containing the alert details.
+        Dictionary containing the alert details.
     """
     from fastapi.concurrency import run_in_threadpool
 
     return await run_in_threadpool(_get_alert_sync, name, tool_context)
 
 
-def _get_alert_sync(name: str, tool_context: Any = None) -> str:
+def _get_alert_sync(name: str, tool_context: Any = None) -> dict[str, Any]:
     """Synchronous implementation of get_alert."""
     with tracer.start_as_current_span("get_alert") as span:
         span.set_attribute("gcp.monitoring.alert_name", name)
@@ -176,13 +175,13 @@ def _get_alert_sync(name: str, tool_context: Any = None) -> str:
                     message = response.text
                 raise Exception(f"{response.status_code}: {message}")
 
-            return json_dumps(response.json())
+            return cast(dict[str, Any], response.json())
 
         except Exception as e:
             span.record_exception(e)
             error_msg = f"Failed to get alert: {e!s}"
             logger.error(error_msg, exc_info=True)
-            return json_dumps({"error": error_msg})
+            return {"error": error_msg}
 
 
 @adk_tool
@@ -191,7 +190,7 @@ async def list_alert_policies(
     filter_str: str | None = None,
     page_size: int = 100,
     tool_context: Any = None,
-) -> str:
+) -> list[dict[str, Any]] | dict[str, Any]:
     """Lists alert policies from Google Cloud Monitoring.
 
     Args:
@@ -201,7 +200,7 @@ async def list_alert_policies(
         tool_context: Context object for tool execution.
 
     Returns:
-        A JSON string containing the list of alert policies.
+        List of dictionaries containing alert policy details.
     """
     from fastapi.concurrency import run_in_threadpool
 
@@ -215,7 +214,7 @@ def _list_alert_policies_sync(
     filter_str: str | None = None,
     page_size: int = 100,
     tool_context: Any = None,
-) -> str:
+) -> list[dict[str, Any]] | dict[str, Any]:
     """Synchronous implementation of list_alert_policies."""
     with tracer.start_as_current_span("list_alert_policies") as span:
         span.set_attribute("gcp.project_id", project_id)
@@ -260,10 +259,10 @@ def _list_alert_policies_sync(
                 policies_data.append(policy_dict)
 
             span.set_attribute("gcp.monitoring.policies_count", len(policies_data))
-            return json_dumps(policies_data)
+            return policies_data
 
         except Exception as e:
             span.record_exception(e)
             error_msg = f"Failed to list alert policies: {e!s}"
             logger.error(error_msg, exc_info=True)
-            return json_dumps({"error": error_msg})
+            return {"error": error_msg}

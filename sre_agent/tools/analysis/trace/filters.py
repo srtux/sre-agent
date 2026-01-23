@@ -38,7 +38,7 @@ class TraceSelector:
 
 
 @adk_tool
-def select_traces_from_statistical_outliers(traces_json: str) -> list[str]:
+def select_traces_from_statistical_outliers(traces_json: str) -> dict[str, Any]:
     """Selects outlier traces from a given list of traces based on latency.
 
     Args:
@@ -52,20 +52,22 @@ def select_traces_from_statistical_outliers(traces_json: str) -> list[str]:
     traces = []
     if isinstance(traces_json, list):
         traces = traces_json
-    else:
+    elif isinstance(traces_json, str):
         try:
             traces = json.loads(traces_json)
             if not isinstance(traces, list):
-                return []
+                return {"trace_ids": []}
         except (json.JSONDecodeError, TypeError):
-            return []
+            return {"trace_ids": []}
+    else:
+        return {"trace_ids": []}
 
     selector = TraceSelector()
-    return selector.from_statistical_outliers(traces)
+    return {"trace_ids": selector.from_statistical_outliers(traces)}
 
 
 @adk_tool
-def select_traces_manually(trace_ids: list[str]) -> list[str]:
+def select_traces_manually(trace_ids: list[str]) -> dict[str, Any]:
     """Allows a user to manually provide a list of trace IDs for analysis.
 
     Args:
@@ -75,7 +77,7 @@ def select_traces_manually(trace_ids: list[str]) -> list[str]:
         The same list of trace IDs.
     """
     selector = TraceSelector()
-    return selector.from_manual_override(trace_ids)
+    return {"trace_ids": selector.from_manual_override(trace_ids)}
 
 
 class TraceQueryBuilder:

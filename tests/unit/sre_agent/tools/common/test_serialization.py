@@ -1,6 +1,6 @@
 import json
 
-from sre_agent.tools.common.serialization import json_dumps
+from sre_agent.tools.common.serialization import json_dumps, normalize_obj
 
 
 class MockRepeatedComposite:
@@ -134,5 +134,35 @@ def test_json_dumps_fallback():
 
     data = {"val": UnknownType()}
     result = json_dumps(data)
-    # Output format is "<UnknownType: strange>"
     assert json.loads(result) == {"val": "<UnknownType: strange>"}
+
+
+def test_normalize_obj_map_composite():
+    inner = MockMapComposite({"a": 1})
+    type(inner).__name__ = "MapComposite"
+
+    normalized = normalize_obj(inner)
+    assert isinstance(normalized, dict)
+    assert normalized == {"a": 1}
+
+
+def test_normalize_obj_nested():
+    inner = MockRepeatedComposite([MockMapComposite({"a": 1})])
+    type(inner).__name__ = "RepeatedComposite"
+    type(inner[0]).__name__ = "MapComposite"
+
+    normalized = normalize_obj({"root": inner})
+    assert isinstance(normalized, dict)
+    assert isinstance(normalized["root"], list)
+    assert isinstance(normalized["root"][0], dict)
+    assert normalized == {"root": [{"a": 1}]}
+
+
+def test_normalize_obj_to_dict():
+    class ObjWithToDict:
+        def to_dict(self):
+            return {"foo": "bar"}
+
+    normalized = normalize_obj(ObjWithToDict())
+    assert normalized == {"foo": "bar"}
+    assert isinstance(normalized, dict)

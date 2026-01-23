@@ -16,8 +16,9 @@ References:
 """
 
 import logging
+from typing import Any
 
-from ...common import adk_tool, json_dumps
+from ...common import adk_tool
 from ...common.telemetry import get_meter, get_tracer
 
 logger = logging.getLogger(__name__)
@@ -39,7 +40,7 @@ def build_service_dependency_graph(
     time_window_hours: int = 24,
     min_call_count: int = 10,
     include_external: bool = True,
-) -> str:
+) -> dict[str, Any]:
     """Builds a service dependency graph from trace data.
 
     Analyzes CLIENT spans (outgoing calls) to determine which services
@@ -54,7 +55,7 @@ def build_service_dependency_graph(
         include_external: Include external services (databases, APIs, etc.)
 
     Returns:
-        JSON with SQL query for dependency graph and visualization data
+        Dictionary with SQL query for dependency graph and visualization data
     """
     with tracer.start_as_current_span("build_service_dependency_graph"):
         dependency_operations.add(1, {"type": "build_graph"})
@@ -220,7 +221,7 @@ ORDER BY topology_role, service_name
         }
 
         logger.info("Generated service dependency graph SQL")
-        return json_dumps(result)
+        return result
 
 
 @adk_tool
@@ -230,7 +231,7 @@ def analyze_upstream_downstream_impact(
     table_name: str = "_AllSpans",
     time_window_hours: int = 24,
     depth: int = 3,
-) -> str:
+) -> dict[str, Any]:
     """Analyzes the upstream and downstream impact of a service.
 
     Upstream: Services that call this service (who would be affected if it fails)
@@ -246,7 +247,7 @@ def analyze_upstream_downstream_impact(
         depth: How many hops to traverse (default: 3)
 
     Returns:
-        JSON with SQL query for impact analysis
+        Dictionary with SQL query for impact analysis
     """
     with tracer.start_as_current_span("analyze_upstream_downstream_impact") as span:
         span.set_attribute("service_name", service_name)
@@ -403,7 +404,7 @@ ORDER BY direction, depth, call_count DESC
         }
 
         logger.info(f"Generated impact analysis SQL for {service_name}")
-        return json_dumps(result)
+        return result
 
 
 @adk_tool
@@ -412,7 +413,7 @@ def detect_circular_dependencies(
     table_name: str = "_AllSpans",
     time_window_hours: int = 24,
     max_cycle_length: int = 5,
-) -> str:
+) -> dict[str, Any]:
     """Detects circular dependencies in the service graph.
 
     Circular dependencies (A -> B -> C -> A) can cause:
@@ -428,7 +429,7 @@ def detect_circular_dependencies(
         max_cycle_length: Maximum cycle length to search for
 
     Returns:
-        JSON with SQL query to detect cycles
+        Dictionary with SQL query to detect cycles
     """
     with tracer.start_as_current_span("detect_circular_dependencies"):
         dependency_operations.add(1, {"type": "detect_cycles"})
@@ -538,7 +539,7 @@ ORDER BY cycle_length, cycle_path
         }
 
         logger.info("Generated circular dependency detection SQL")
-        return json_dumps(result)
+        return result
 
 
 @adk_tool
@@ -547,7 +548,7 @@ def find_hidden_dependencies(
     table_name: str = "_AllSpans",
     time_window_hours: int = 24,
     min_call_count: int = 5,
-) -> str:
+) -> dict[str, Any]:
     """Finds dependencies that may not be in official architecture documentation.
 
     Hidden dependencies are discovered by analyzing trace data for:
@@ -563,7 +564,7 @@ def find_hidden_dependencies(
         min_call_count: Minimum calls to consider a real dependency
 
     Returns:
-        JSON with SQL query to find hidden dependencies
+        Dictionary with SQL query to find hidden dependencies
     """
     with tracer.start_as_current_span("find_hidden_dependencies"):
         dependency_operations.add(1, {"type": "hidden_deps"})
@@ -685,4 +686,4 @@ ORDER BY source_service, documentation_priority DESC, call_count DESC
         }
 
         logger.info("Generated hidden dependencies analysis SQL")
-        return json_dumps(result)
+        return result

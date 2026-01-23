@@ -1,4 +1,3 @@
-import json
 import logging
 
 from .services import get_session_service
@@ -69,14 +68,24 @@ async def generate_contextual_suggestions(
     if project_id:
         try:
             # Proactively check for active alerts to provide truly contextual suggestions
-            from .tools import list_alerts
+            from .tools.clients.alerts import list_alerts
 
-            alerts_json = await list_alerts(project_id=project_id, status="firing")
-            alerts_data = json.loads(alerts_json)
+            alerts_data = await list_alerts(
+                project_id=project_id, filter_str='state="OPEN"'
+            )
 
-            if alerts_data.get("alerts"):
+            # Standardized tool returns direct dict/list
+            if isinstance(alerts_data, dict) and "alerts" in alerts_data:
+                alerts = alerts_data["alerts"]
+            elif isinstance(alerts_data, list):
+                alerts = alerts_data
+            else:
+                alerts = []
+
+            if alerts:
                 # Suggest analyzing the most recent alert
-                alert = alerts_data["alerts"][0]
+                alert = alerts[0]
+
                 alert_name = alert.get("display_name", "active alert")
                 return [
                     f"Analyze alert: {alert_name}",

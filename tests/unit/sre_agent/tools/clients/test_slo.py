@@ -1,7 +1,8 @@
 """Tests for SLO/SLI tools."""
 
-import json
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 
 class TestSLOTools:
@@ -37,8 +38,7 @@ class TestSLOTools:
             ) as mock_client_class,
         ):
             mock_client_class.return_value = mock_client
-            result = list_slos("test-project", "test-service")
-            result_data = json.loads(result)
+            result_data = list_slos("test-project", "test-service")
 
             # Verify we got a list
             assert isinstance(result_data, list)
@@ -68,22 +68,21 @@ class TestSLOTools:
         mock_response.raise_for_status = MagicMock()
         mock_session.get.return_value = mock_response
 
-        result = get_slo_status("test-project", "test-service", "test-slo")
-        result_data = json.loads(result)
+        result_data = get_slo_status("test-project", "test-service", "test-slo")
 
         assert "slo_name" in result_data
         assert "goal" in result_data
         assert result_data["goal"] == 0.999
 
-    def test_get_golden_signals_structure(self):
+    @pytest.mark.asyncio
+    async def test_get_golden_signals_structure(self):
         """Test that get_golden_signals returns the correct structure."""
         from sre_agent.tools.clients.slo import get_golden_signals
 
         # This will return NO_DATA for all signals since we're not mocking
         # but we can verify the structure
         with patch("sre_agent.tools.clients.slo.monitoring_v3.MetricServiceClient"):
-            result = get_golden_signals("test-project", "test-service", 60)
-            result_data = json.loads(result)
+            result_data = await get_golden_signals("test-project", "test-service", 60)
 
             assert "service_name" in result_data
             assert "time_window_minutes" in result_data
@@ -96,50 +95,48 @@ class TestSLOTools:
             assert "errors" in signals or result_data.get("error")
             assert "saturation" in signals or result_data.get("error")
 
-    def test_correlate_incident_with_slo_impact_calculation(self):
+    @pytest.mark.asyncio
+    async def test_correlate_incident_with_slo_impact_calculation(self):
         """Test incident impact calculation logic."""
         from sre_agent.tools.clients.slo import correlate_incident_with_slo_impact
 
         with patch("sre_agent.tools.clients.slo.get_slo_status") as mock_status:
-            mock_status.return_value = json.dumps(
-                {
-                    "goal": 0.999,
-                    "rolling_period_days": 30,
-                }
-            )
+            # Note: get_slo_status is also async now
+            mock_status.return_value = {
+                "goal": 0.999,
+                "rolling_period_days": 30,
+            }
 
-            result = correlate_incident_with_slo_impact(
+            result_data = await correlate_incident_with_slo_impact(
                 "test-project",
                 "test-service",
                 "test-slo",
                 "2024-01-15T10:00:00Z",
                 "2024-01-15T10:30:00Z",
             )
-            result_data = json.loads(result)
 
             assert "incident_window" in result_data
             assert result_data["incident_window"]["duration_minutes"] == 30
             assert "error_budget_analysis" in result_data
             assert "impact_assessment" in result_data
 
-    def test_predict_slo_violation_structure(self):
+    @pytest.mark.asyncio
+    async def test_predict_slo_violation_structure(self):
         """Test SLO violation prediction returns expected structure."""
         from sre_agent.tools.clients.slo import predict_slo_violation
 
         with patch(
             "sre_agent.tools.clients.slo.analyze_error_budget_burn"
         ) as mock_burn:
-            mock_burn.return_value = json.dumps(
-                {
-                    "burn_rate_per_hour": 0.001,
-                    "hours_to_budget_exhaustion": 100,
-                }
-            )
+            # analyze_error_budget_burn is also async now
+            mock_burn.return_value = {
+                "burn_rate_per_hour": 0.001,
+                "hours_to_budget_exhaustion": 100,
+            }
 
-            result = predict_slo_violation(
+            result_data = await predict_slo_violation(
                 "test-project", "test-service", "test-slo", 24
             )
-            result_data = json.loads(result)
 
             assert "prediction_window_hours" in result_data
             assert "current_state" in result_data

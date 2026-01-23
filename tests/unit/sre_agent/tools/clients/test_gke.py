@@ -1,6 +1,5 @@
 """Tests for GKE/Kubernetes tools."""
 
-import json
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -42,10 +41,9 @@ class TestGKETools:
         mock_response.raise_for_status = MagicMock()
         mock_session.get.return_value = mock_response
 
-        result = await get_gke_cluster_health(
+        result_data = await get_gke_cluster_health(
             "test-cluster", "us-central1", project_id="test-project"
         )
-        result_data = json.loads(result)
 
         assert result_data["cluster_name"] == "test-cluster"
         assert result_data["status"] == "RUNNING"
@@ -62,10 +60,9 @@ class TestGKETools:
         mock_client_class.return_value = mock_client
         mock_client.list_time_series.return_value = []
 
-        result = await analyze_node_conditions(
+        result_data = await analyze_node_conditions(
             "test-cluster", "us-central1", project_id="test-project"
         )
-        result_data = json.loads(result)
 
         assert "cluster" in result_data
         assert "nodes" in result_data
@@ -82,10 +79,9 @@ class TestGKETools:
         mock_client_class.return_value = mock_client
         mock_client.list_time_series.return_value = []
 
-        result = await get_pod_restart_events(
+        result_data = await get_pod_restart_events(
             namespace="production", minutes_ago=60, project_id="test-project"
         )
-        result_data = json.loads(result)
 
         assert "time_window_minutes" in result_data
         assert "pods_with_restarts" in result_data
@@ -102,10 +98,9 @@ class TestGKETools:
         mock_client_class.return_value = mock_client
         mock_client.list_time_series.return_value = []
 
-        result = await analyze_hpa_events(
+        result_data = await analyze_hpa_events(
             "production", "frontend-deploy", 60, project_id="test-project"
         )
-        result_data = json.loads(result)
 
         assert "namespace" in result_data
         assert "deployment" in result_data
@@ -132,10 +127,9 @@ class TestGKETools:
         mock_client_class.return_value = mock_client
         mock_client.list_time_series.return_value = []
 
-        result = await get_container_oom_events(
+        result_data = await get_container_oom_events(
             namespace="production", minutes_ago=60, project_id="test-project"
         )
-        result_data = json.loads(result)
 
         assert "time_window_minutes" in result_data
         assert "oom_events_in_logs" in result_data
@@ -154,10 +148,9 @@ class TestGKETools:
         mock_client_class.return_value = mock_client
         mock_client.list_time_series.return_value = []
 
-        result = await get_workload_health_summary(
+        result_data = await get_workload_health_summary(
             "production", 30, project_id="test-project"
         )
-        result_data = json.loads(result)
 
         assert "namespace" in result_data
         assert "time_window_minutes" in result_data

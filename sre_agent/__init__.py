@@ -30,4 +30,4 @@ except ImportError:
 # Avoid top-level imports of heavy agent modules to prevent early
 # initialization of OTel or ADK before telemetry.setup_telemetry() runs.
 # Modules should import from .agent directly.
-__all__: list[str] = []
+__all__ = ["agent", "auth", "prompt", "schema", "suggestions", "tools"]

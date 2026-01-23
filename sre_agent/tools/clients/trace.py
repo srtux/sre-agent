@@ -30,7 +30,7 @@ from ...auth import (
     get_credentials_from_tool_context,
     get_current_project_id,
 )
-from ..common import adk_tool, json_dumps
+from ..common import adk_tool
 from ..common.cache import get_data_cache
 from ..common.telemetry import get_meter, get_tracer
 from .factory import get_trace_client
@@ -211,7 +211,7 @@ async def fetch_trace(
     trace_id: str,
     project_id: str | None = None,
     tool_context: Any = None,
-) -> str:
+) -> dict[str, Any]:
     """Fetches a specific trace by ID from Cloud Trace API.
 
     Uses caching to avoid redundant API calls when the same trace
@@ -226,7 +226,7 @@ async def fetch_trace(
         tool_context: ADK ToolContext for credential propagation (optional).
 
     Returns:
-        A JSON string representation of the trace, including all spans.
+        A dictionary representation of the trace, including all spans.
     """
     from fastapi.concurrency import run_in_threadpool
 
@@ -234,7 +234,7 @@ async def fetch_trace(
         try:
             project_id = _get_project_id()
         except ValueError as e:
-            return json_dumps({"error": str(e)})
+            return {"error": str(e)}
 
     # Extract user credentials from tool_context for EIC propagation
     # This allows the tool to use the user's credentials when running in Agent Engine
@@ -247,7 +247,7 @@ async def fetch_trace(
         _clear_thread_credentials()
 
 
-def _fetch_trace_sync(project_id: str, trace_id: str) -> str:
+def _fetch_trace_sync(project_id: str, trace_id: str) -> dict[str, Any]:
     """Synchronous implementation of fetch_trace.
 
     Uses thread-local credentials if available for EIC propagation.
@@ -261,7 +261,12 @@ def _fetch_trace_sync(project_id: str, trace_id: str) -> str:
     cached = cache.get(f"trace:{trace_id}")
     if cached:
         logger.debug(f"Cache hit for trace {trace_id}, skipping API call")
-        return cast(str, cached)
+        if isinstance(cached, str):
+            try:
+                return cast(dict[str, Any], json.loads(cached))
+            except json.JSONDecodeError:
+                pass
+        return cast(dict[str, Any], cached)
 
     with tracer.start_as_current_span("fetch_trace") as span:
         span.set_attribute("gcp.project_id", project_id)
@@ -338,16 +343,14 @@ def _fetch_trace_sync(project_id: str, trace_id: str) -> str:
             }
 
             # Cache the result before returning
-            result_json = json_dumps(result)
-            cache.put(f"trace:{trace_id}", result_json)
-
-            return result_json
+            cache.put(f"trace:{trace_id}", result)
+            return result
 
         except Exception as e:
             span.record_exception(e)
             error_msg = f"Failed to fetch trace: {e!s}"
             logger.error(error_msg, exc_info=True)
-            return json_dumps({"error": error_msg})
+            return {"error": error_msg}
 
 
 @adk_tool
@@ -361,7 +364,7 @@ async def list_traces(
     error_only: bool = False,
     attributes_json: str | None = None,
     tool_context: Any = None,
-) -> str:
+) -> list[dict[str, Any]] | dict[str, Any]:
     """Lists recent traces with advanced filtering capabilities.
 
     Args:
@@ -376,7 +379,7 @@ async def list_traces(
         tool_context: Context object for tool execution.
 
     Returns:
-        JSON string list of trace summaries.
+        List of trace summaries.
     """
     from fastapi.concurrency import run_in_threadpool
 
@@ -384,7 +387,7 @@ async def list_traces(
         try:
             project_id = _get_project_id()
         except ValueError as e:
-            return json_dumps({"error": str(e)})
+            return {"error": str(e)}
 
     # Extract user credentials from tool_context for EIC propagation
     user_creds = get_credentials_from_tool_context(tool_context)
@@ -407,13 +410,13 @@ async def list_traces(
 
 def _list_traces_sync(
     project_id: str,
-    limit: int,
-    min_latency_ms: int | None,
-    error_only: bool,
-    start_time: str | None,
-    end_time: str | None,
-    attributes_json: str | None,
-) -> str:
+    limit: int = 10,
+    min_latency_ms: int | None = None,
+    error_only: bool = False,
+    start_time: str | None = None,
+    end_time: str | None = None,
+    attributes_json: str | None = None,
+) -> list[dict[str, Any]] | dict[str, Any]:
     """Synchronous implementation of list_traces."""
     with tracer.start_as_current_span("list_traces"):
         # Check for thread-local user credentials
@@ -512,12 +515,12 @@ def _list_traces_sync(
                 if len(traces) >= limit:
                     break
 
-            return json_dumps(traces)
+            return traces
 
         except Exception as e:
             error_msg = f"Failed to list traces: {e!s}"
             logger.error(error_msg, exc_info=True)
-            return json_dumps({"error": error_msg})
+            return {"error": error_msg}
 
 
 def _calculate_anomaly_score(
@@ -622,7 +625,7 @@ async def find_example_traces(
     prefer_errors: bool = True,
     min_sample_size: int = 20,
     tool_context: Any = None,
-) -> str:
+) -> dict[str, Any]:
     """Intelligently discovers representative baseline and anomaly traces.
 
     The algorithm:
@@ -638,14 +641,14 @@ async def find_example_traces(
         tool_context: Context object for tool execution.
 
     Returns:
-        JSON string with 'baseline' and 'anomaly' keys.
+        Dictionary with 'baseline' and 'anomaly' keys.
     """
     try:
         try:
             if not project_id:
                 project_id = _get_project_id()
         except ValueError:
-            return json_dumps({"error": "GOOGLE_CLOUD_PROJECT not set"})
+            return {"error": "GOOGLE_CLOUD_PROJECT not set"}
 
         # Prepare parallel tasks for trace fetching
         tasks = []
@@ -672,24 +675,21 @@ async def find_example_traces(
         # Execute all fetches concurrently
         results = await asyncio.gather(*tasks)
 
-        slow_traces_json = results[0]
-        raw_traces = results[1]
-        error_traces_json = results[2] if prefer_errors else "[]"
+        slow_traces = results[0]
+        traces = results[1]
+        error_traces = results[2] if prefer_errors else []
 
         # Process results
-        slow_traces = json.loads(slow_traces_json)
-        traces = json.loads(raw_traces)
-
         if (
             isinstance(traces, list)
             and traces
             and isinstance(traces[0], dict)
             and "error" in traces[0]
         ):
-            return cast(str, raw_traces)
+            return traces[0]
 
         if not traces:
-            return json_dumps({"error": "No traces found in the last hour."})
+            return {"error": "No traces found in the last hour."}
 
         # Inject slow traces into our pool
         if (
@@ -705,7 +705,6 @@ async def find_example_traces(
         # Process error traces
         error_trace_ids = set()
         if prefer_errors:
-            error_traces = json.loads(error_traces_json)
             if (
                 isinstance(error_traces, list)
                 and error_traces
@@ -723,13 +722,13 @@ async def find_example_traces(
                         traces.append(et)
 
         # Use threadpool for CPU-bound filtering and calculation
-        def _calculate_example_traces() -> str:
+        def _calculate_example_traces() -> dict[str, Any]:
             # Extract valid traces with latencies
             valid_traces = [
                 t for t in traces if isinstance(t, dict) and t.get("duration_ms", 0) > 0
             ]
             if not valid_traces:
-                return json_dumps({"error": "No traces with valid duration found."})
+                return {"error": "No traces with valid duration found."}
 
             latencies = [t["duration_ms"] for t in valid_traces]
             latencies.sort()
@@ -788,78 +787,79 @@ async def find_example_traces(
             validation = {
                 "baseline_valid": baseline.get("trace_id") is not None,
                 "anomaly_valid": anomaly.get("trace_id") is not None,
-                "sample_adequate": len(valid_traces)
-                >= 20,  # Use a reasonable default or pass min_sample_size
+                "sample_adequate": len(valid_traces) >= 20,
                 "latency_variance_detected": stdev > 0,
             }
 
-            return json_dumps(
-                {
-                    "stats": stats,
-                    "baseline": baseline,
-                    "anomaly": anomaly,
-                    "validation": validation,
-                    "selection_method": "hybrid_multi_signal",
-                }
-            )
+            results_dict: dict[str, Any] = {
+                "stats": stats,
+                "baseline": baseline,
+                "anomaly": anomaly,
+                "validation": validation,
+                "selection_method": "hybrid_multi_signal",
+            }
 
-        results_json = await run_in_threadpool(_calculate_example_traces)
-        results = json.loads(results_json)
+            # --- NEW: Try to find a better baseline with same root span name ---
+            root_name = anomaly.get("name")
+            if root_name:
+                # Search for traces with same root name that are "healthy" (shorter)
+                # This part still needs to be async, but we can return the name to search for
+                return {**results_dict, "_search_root_name": root_name}
 
-        if "error" in results:
-            return results_json
+            return results_dict
 
-        # --- NEW: Try to find a better baseline with same root span name ---
-        anomaly = results["anomaly"]
-        root_name = anomaly.get("name")  # name is populated in list_traces summary
+        results_final: dict[str, Any] = cast(
+            dict[str, Any], await run_in_threadpool(_calculate_example_traces)
+        )
 
-        if root_name:
-            # Search for traces with same root name that are "healthy" (shorter)
-            fb = TraceFilterBuilder().add_root_span_name(root_name, exact=True)
-            candidates_json = await list_traces(
+        if "error" in results_final:
+            return results_final
+
+        # Handle the async part of root name matching outside the threadpool
+        search_root_name = results_final.pop("_search_root_name", None)
+        if search_root_name:
+            fb = TraceFilterBuilder().add_root_span_name(search_root_name, exact=True)
+            candidates = await list_traces(
                 project_id, limit=20, filter_str=fb.build(), tool_context=tool_context
             )
-            candidates = json.loads(candidates_json)
 
             if (
                 isinstance(candidates, list)
                 and candidates
                 and "error" not in candidates[0]
             ):
-                # Filter for traces significantly faster than anomaly
+                anomaly = results_final["anomaly"]
                 shorter = [
                     t
                     for t in candidates
                     if t.get("duration_ms", 0) < anomaly["duration_ms"] * 0.8
                 ]
                 if shorter:
-                    # Pick the one closest to median or just the fastest?
-                    # Let's pick median of these healthy candidates
                     shorter.sort(key=lambda x: x.get("duration_ms", 0))
                     best_baseline = shorter[len(shorter) // 2]
                     best_baseline["_selection_reason"] = (
-                        f"Same root span ({root_name}), 20%+ faster"
+                        f"Same root span ({search_root_name}), 20%+ faster"
                     )
-                    results["baseline"] = best_baseline
-                    results["selection_method"] += "+root_name_match"
+                    results_final["baseline"] = best_baseline
+                    results_final["selection_method"] += "+root_name_match"
 
-        return json_dumps(results)
+        return results_final
 
     except Exception as e:
         error_msg = f"Failed to find example traces: {e!s}"
         logger.error(error_msg, exc_info=True)
-        return json_dumps({"error": error_msg})
+        return {"error": error_msg}
 
 
 @adk_tool
-async def get_trace_by_url(url: str) -> str:
+async def get_trace_by_url(url: str) -> dict[str, Any]:
     """Parses a Cloud Console URL and fetches the trace details.
 
     Args:
         url: The full URL from the browser address bar.
 
     Returns:
-        JSON string with trace details.
+        Dictionary with trace details.
     """
     try:
         from urllib.parse import parse_qs, urlparse
@@ -891,13 +891,11 @@ async def get_trace_by_url(url: str) -> str:
                     break
 
         if not project_id or not trace_id:
-            return json_dumps(
-                {"error": "Could not parse project_id or trace_id from URL"}
-            )
+            return {"error": "Could not parse project_id or trace_id from URL"}
 
-        return cast(str, await fetch_trace(project_id, trace_id))
+        return cast(dict[str, Any], await fetch_trace(trace_id, project_id))
 
     except Exception as e:
         error_msg = f"Failed to get trace by URL: {e!s}"
         logger.error(error_msg)
-        return json_dumps({"error": error_msg})
+        return {"error": error_msg}

@@ -1,7 +1,5 @@
 """Comprehensive tests for BigQuery OTel tools."""
 
-import json
-
 from sre_agent.tools.analysis.bigquery import otel as bigquery_otel
 from tests.fixtures.synthetic_otel_data import (
     generate_trace_id,
@@ -17,7 +15,7 @@ class TestAnalyzeAggregateMetrics:
             dataset_id="project.dataset", table_name="_AllSpans", time_window_hours=24
         )
 
-        data = json.loads(result)
+        data = result
         assert data["analysis_type"] == "aggregate_metrics"
         assert "sql_query" in data
         assert "SELECT" in data["sql_query"]
@@ -32,7 +30,7 @@ class TestAnalyzeAggregateMetrics:
             service_name="frontend",
         )
 
-        data = json.loads(result)
+        data = result
         query = data["sql_query"]
         assert (
             "JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = 'frontend'"
@@ -47,7 +45,7 @@ class TestAnalyzeAggregateMetrics:
             operation_name="HTTP GET /api/users",
         )
 
-        data = json.loads(result)
+        data = result
         query = data["sql_query"]
         assert "name = 'HTTP GET /api/users'" in query
 
@@ -57,7 +55,7 @@ class TestAnalyzeAggregateMetrics:
             dataset_id="project.dataset", table_name="_AllSpans", min_duration_ms=100.0
         )
 
-        data = json.loads(result)
+        data = result
         query = data["sql_query"]
         assert "duration_nano >= 100000000" in query
 
@@ -67,7 +65,7 @@ class TestAnalyzeAggregateMetrics:
             dataset_id="project.dataset", table_name="_AllSpans"
         )
 
-        data = json.loads(result)
+        data = result
         query = data["sql_query"]
 
         # Check for correct field names
@@ -84,7 +82,7 @@ class TestAnalyzeAggregateMetrics:
             group_by="service_name",
         )
 
-        data = json.loads(result)
+        data = result
         query = data["sql_query"]
         assert "JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name')" in query
 
@@ -96,7 +94,7 @@ class TestAnalyzeAggregateMetrics:
             group_by="operation_name",
         )
 
-        data = json.loads(result)
+        data = result
         query = data["sql_query"]
         assert "name as operation_name" in query
 
@@ -106,7 +104,7 @@ class TestAnalyzeAggregateMetrics:
             dataset_id="project.dataset", table_name="_AllSpans"
         )
 
-        data = json.loads(result)
+        data = result
         query = data["sql_query"]
 
         assert "APPROX_QUANTILES" in query
@@ -127,7 +125,7 @@ class TestFindExemplarTraces:
             limit=10,
         )
 
-        data = json.loads(result)
+        data = result
         assert data["selection_strategy"] == "outliers"
         query = data["sql_query"]
         assert "APPROX_QUANTILES" in query
@@ -142,7 +140,7 @@ class TestFindExemplarTraces:
             selection_strategy="errors",
         )
 
-        data = json.loads(result)
+        data = result
         assert data["selection_strategy"] == "errors"
         query = data["sql_query"]
         assert "status.code = 2" in query
@@ -155,7 +153,7 @@ class TestFindExemplarTraces:
             selection_strategy="baseline",
         )
 
-        data = json.loads(result)
+        data = result
         assert data["selection_strategy"] == "baseline"
         query = data["sql_query"]
         assert "OFFSET(50)" in query  # P50
@@ -170,7 +168,7 @@ class TestFindExemplarTraces:
             limit=10,
         )
 
-        data = json.loads(result)
+        data = result
         assert data["selection_strategy"] == "comparison"
         query = data["sql_query"]
         assert "baseline_traces" in query
@@ -185,7 +183,7 @@ class TestFindExemplarTraces:
             selection_strategy="unknown",
         )
 
-        data = json.loads(result)
+        data = result
         assert "error" in data
 
 
@@ -199,7 +197,7 @@ class TestCorrelateLogsWithTrace:
             dataset_id="project.dataset", trace_id=trace_id
         )
 
-        data = json.loads(result)
+        data = result
         assert data["analysis_type"] == "log_correlation"
         assert data["trace_id"] == trace_id
         query = data["sql_query"]
@@ -216,7 +214,7 @@ class TestCorrelateLogsWithTrace:
             time_window_seconds=30,
         )
 
-        data = json.loads(result)
+        data = result
         query = data["sql_query"]
         assert "nearby_logs" in query
         assert "temporal_correlation" in query
@@ -229,7 +227,7 @@ class TestCorrelateLogsWithTrace:
             dataset_id="project.dataset", trace_id=trace_id, include_nearby_logs=False
         )
 
-        data = json.loads(result)
+        data = result
         query = data["sql_query"]
         assert "nearby_logs" not in query
         assert "direct_logs" in query
@@ -241,7 +239,7 @@ class TestCorrelateLogsWithTrace:
             dataset_id="project.dataset", trace_id=trace_id
         )
 
-        data = json.loads(result)
+        data = result
         query = data["sql_query"]
         assert "time_unix_nano" in query
         assert "severity_text" in query
@@ -263,7 +261,7 @@ class TestCompareTimePeriods:
             anomaly_hours_ago_end=0,
         )
 
-        data = json.loads(result)
+        data = result
         assert data["analysis_type"] == "time_period_comparison"
         query = data["sql_query"]
         assert "baseline_period" in query
@@ -279,7 +277,7 @@ class TestCompareTimePeriods:
             service_name="frontend",
         )
 
-        data = json.loads(result)
+        data = result
         query = data["sql_query"]
         assert (
             "JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = 'frontend'"
@@ -292,7 +290,7 @@ class TestCompareTimePeriods:
             dataset_id="project.dataset", table_name="_AllSpans"
         )
 
-        data = json.loads(result)
+        data = result
         query = data["sql_query"]
         assert "p95_delta_ms" in query
         assert "p95_change_pct" in query
@@ -309,7 +307,7 @@ class TestDetectTrendChanges:
             dataset_id="project.dataset", table_name="_AllSpans", metric="p95"
         )
 
-        data = json.loads(result)
+        data = result
         assert data["metric"] == "p95"
         query = data["sql_query"]
         assert "APPROX_QUANTILES" in query
@@ -322,7 +320,7 @@ class TestDetectTrendChanges:
             dataset_id="project.dataset", table_name="_AllSpans", metric="p99"
         )
 
-        data = json.loads(result)
+        data = result
         assert data["metric"] == "p99"
         query = data["sql_query"]
         assert "OFFSET(99)" in query
@@ -333,7 +331,7 @@ class TestDetectTrendChanges:
             dataset_id="project.dataset", table_name="_AllSpans", metric="error_rate"
         )
 
-        data = json.loads(result)
+        data = result
         assert data["metric"] == "error_rate"
         query = data["sql_query"]
         assert "COUNTIF(status.code = 2)" in query
@@ -345,7 +343,7 @@ class TestDetectTrendChanges:
             dataset_id="project.dataset", table_name="_AllSpans", metric="throughput"
         )
 
-        data = json.loads(result)
+        data = result
         assert data["metric"] == "throughput"
         query = data["sql_query"]
         assert "request_count" in query
@@ -356,7 +354,7 @@ class TestDetectTrendChanges:
             dataset_id="project.dataset", table_name="_AllSpans", metric="unknown"
         )
 
-        data = json.loads(result)
+        data = result
         assert "error" in data
 
     def test_trend_includes_moving_average(self):
@@ -365,7 +363,7 @@ class TestDetectTrendChanges:
             dataset_id="project.dataset", table_name="_AllSpans"
         )
 
-        data = json.loads(result)
+        data = result
         query = data["sql_query"]
         assert "moving_avg_3h" in query
         assert "AVG(metric_value) OVER" in query
@@ -376,7 +374,7 @@ class TestDetectTrendChanges:
             dataset_id="project.dataset", table_name="_AllSpans"
         )
 
-        data = json.loads(result)
+        data = result
         query = data["sql_query"]
         assert "change_magnitude" in query
         assert "SIGNIFICANT_CHANGE" in query
@@ -392,7 +390,7 @@ class TestDetectTrendChanges:
             bucket_hours=2,
         )
 
-        data = json.loads(result)
+        data = result
         assert data["time_window_hours"] == 48
         query = data["sql_query"]
         assert "INTERVAL 48 HOUR" in query
@@ -420,7 +418,7 @@ class TestQueryValidation:
                 result = tool(dataset_id="project.dataset", table_name="_AllSpans")
 
             # Should not raise exception
-            data = json.loads(result)
+            data = result
             assert isinstance(data, dict)
 
     def test_all_queries_contain_select_statement(self):
@@ -445,8 +443,8 @@ class TestQueryValidation:
             ),
         ]
 
-        for query_json in queries:
-            data = json.loads(query_json)
+        for query_result in queries:
+            data = query_result
             assert "sql_query" in data
             assert "SELECT" in data["sql_query"]
 
@@ -469,8 +467,8 @@ class TestQueryValidation:
             ),
         ]
 
-        for query_json in queries:
-            data = json.loads(query_json)
+        for query_result in queries:
+            data = query_result
             query = data["sql_query"]
             # Should use duration_nano
             assert "duration_nano" in query
@@ -498,8 +496,8 @@ class TestQueryValidation:
             ),
         ]
 
-        for query_json in queries:
-            data = json.loads(query_json)
+        for query_result in queries:
+            data = query_result
             query = data["sql_query"]
             # Should use status.code
             assert "status.code" in query

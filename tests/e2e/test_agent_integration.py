@@ -1,6 +1,5 @@
 """Integration tests for the Trace Analyzer Agent."""
 
-import json
 import os
 from unittest.mock import MagicMock, patch
 
@@ -73,6 +72,6 @@ async def test_agent_finds_logs_for_trace(mock_trace_client):
     # Ensure view type is ROOTSPAN (value 1) or whatever the enum maps to,
     # but mainly we check that we didn't crash.
 
-    res_data = json.loads(result)
+    res_data = result
     assert len(res_data) == 1
     assert res_data[0]["duration_ms"] == 1000.0

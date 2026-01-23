@@ -36,7 +36,7 @@ def _record_telemetry(
     func_name: str, success: bool = True, duration_ms: float = 0.0
 ) -> None:
     attributes = {
-        "code.function": func_name,
+        "code_function": func_name,
         "success": str(success).lower(),
     }
     execution_count.add(1, attributes)
@@ -82,23 +82,16 @@ def compare_span_timings(
         )
 
         try:
-            baseline_timings = calculate_span_durations(baseline_trace_id, project_id)
-            target_timings = calculate_span_durations(target_trace_id, project_id)
+            baseline_result = calculate_span_durations(baseline_trace_id, project_id)
+            target_result = calculate_span_durations(target_trace_id, project_id)
 
-            if (
-                baseline_timings
-                and isinstance(baseline_timings[0], dict)
-                and "error" in baseline_timings[0]
-            ):
-                return {
-                    "error": f"Baseline trace error: {baseline_timings[0]['error']}"
-                }
-            if (
-                target_timings
-                and isinstance(target_timings[0], dict)
-                and "error" in target_timings[0]
-            ):
-                return {"error": f"Target trace error: {target_timings[0]['error']}"}
+            if "error" in baseline_result:
+                return {"error": f"Baseline trace error: {baseline_result['error']}"}
+            if "error" in target_result:
+                return {"error": f"Target trace error: {target_result['error']}"}
+
+            baseline_timings = baseline_result.get("spans", [])
+            target_timings = target_result.get("spans", [])
 
             # Anti-Pattern Detection
             patterns = []

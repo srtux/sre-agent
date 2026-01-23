@@ -1,11 +1,9 @@
-import json
-
 from sre_agent.tools.analysis.bigquery.logs import analyze_bigquery_log_patterns
 
 
 def test_analyze_bigquery_log_patterns_generates_sql():
     """Test that the tool generates valid SQL with correct masking."""
-    result_json = analyze_bigquery_log_patterns(
+    result = analyze_bigquery_log_patterns(
         dataset_id="my_dataset",
         table_name="_AllLogs",
         time_window_hours=48,
@@ -14,7 +12,6 @@ def test_analyze_bigquery_log_patterns_generates_sql():
         limit=10,
     )
 
-    result = json.loads(result_json)
     assert result["analysis_type"] == "bigquery_log_patterns"
 
     sql = result["sql_query"]

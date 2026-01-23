@@ -39,7 +39,7 @@ def test_compare_span_timings_n_plus_one(mock_calculate_durations):
         {"name": "other", "duration_ms": 5, "start_time": "2024-01-01T00:00:00Z"}
     )
 
-    mock_calculate_durations.side_effect = [baseline, target]
+    mock_calculate_durations.side_effect = [{"spans": baseline}, {"spans": target}]
 
     result = compare_span_timings("base", "target", "p")
 
@@ -80,7 +80,7 @@ def test_compare_span_timings_serial_chain(mock_calculate_durations):
         },
     ]
 
-    mock_calculate_durations.side_effect = [[], target]
+    mock_calculate_durations.side_effect = [{"spans": []}, {"spans": target}]
 
     result = compare_span_timings("base", "target", "p")
 
@@ -103,7 +103,7 @@ def test_compare_span_timings_diffs(mock_calculate_durations):
         {"name": "fast_func", "duration_ms": 50},
         {"name": "slow_func", "duration_ms": 10},
     ]
-    mock_calculate_durations.side_effect = [baseline, target]
+    mock_calculate_durations.side_effect = [{"spans": baseline}, {"spans": target}]
 
     result = compare_span_timings("base", "target")
 

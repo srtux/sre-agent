@@ -7,8 +7,7 @@ from datetime import datetime
 from typing import Any
 
 from ...clients.trace import fetch_trace_data
-from ...common import json_dumps
-from ...common.decorators import adk_tool
+from ...common import adk_tool
 from ...common.telemetry import get_meter, get_tracer
 
 # Telemetry setup
@@ -63,6 +62,7 @@ def _fetch_traces_parallel(
     return results
 
 
+@adk_tool
 def compute_latency_statistics(
     trace_ids: list[str], project_id: str | None = None, tool_context: Any = None
 ) -> dict[str, Any]:
@@ -265,6 +265,7 @@ def _detect_latency_anomalies_impl(
     }
 
 
+@adk_tool
 def detect_latency_anomalies(
     baseline_trace_ids: list[str],
     target_trace_id: str,
@@ -291,6 +292,15 @@ def detect_latency_anomalies(
         baseline_stats = compute_latency_statistics(
             baseline_trace_ids, project_id, tool_context=tool_context
         )
+        if isinstance(baseline_stats, str):
+            import json
+
+            try:
+                baseline_stats = json.loads(baseline_stats)
+            except (json.JSONDecodeError, TypeError):
+                return {"error": "Invalid baseline_stats format"}
+        elif not isinstance(baseline_stats, dict):
+            return {"error": f"Invalid baseline_stats type: {type(baseline_stats)}"}
 
         from ...clients.trace import (
             _clear_thread_credentials,
@@ -307,9 +317,10 @@ def detect_latency_anomalies(
         finally:
             _clear_thread_credentials()
 
-        return _detect_latency_anomalies_impl(
+        result = _detect_latency_anomalies_impl(
             baseline_stats, target_data, threshold_sigma
         )
+        return result
 
 
 def _analyze_critical_path_impl(trace_data: dict[str, Any]) -> dict[str, Any]:
@@ -494,6 +505,7 @@ def _analyze_critical_path_impl(trace_data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+@adk_tool
 def analyze_critical_path(
     trace_id: str, project_id: str | None = None, tool_context: Any = None
 ) -> dict[str, Any]:
@@ -521,7 +533,8 @@ def analyze_critical_path(
         finally:
             _clear_thread_credentials()
 
-        return _analyze_critical_path_impl(trace_data)
+        result = _analyze_critical_path_impl(trace_data)
+        return result
 
 
 @adk_tool
@@ -530,7 +543,7 @@ def perform_causal_analysis(
     target_trace_id: str,
     project_id: str | None = None,
     tool_context: Any = None,
-) -> dict[str, Any] | str:
+) -> dict[str, Any]:
     """Enhanced root cause analysis using span-ID-level precision."""
     from ...clients.trace import (
         _clear_thread_credentials,
@@ -552,7 +565,7 @@ def perform_causal_analysis(
             and baseline_trace_id.strip().startswith("{")
             else "Invalid baseline_trace ID provided."
         )
-        return json_dumps({"error": msg})
+        return {"error": msg}
 
     try:
         if user_creds:
@@ -567,7 +580,7 @@ def perform_causal_analysis(
             and target_trace_id.strip().startswith("{")
             else "Invalid target_trace ID provided."
         )
-        return json_dumps({"error": msg})
+        return {"error": msg}
 
     # 1. Build span name mappings for both traces
     baseline_spans_by_name = defaultdict(list)
@@ -707,12 +720,13 @@ def perform_causal_analysis(
     if candidates and candidates[0]["on_critical_path"]:
         candidates[0]["is_likely_root_cause"] = True
 
-    return {
+    result = {
         "root_cause_candidates": candidates[:10],  # Return top 10
         "analysis_method": "span_id_level_critical_path_analysis",
         "total_candidates": len(candidates),
         "critical_path_spans": len(critical_path),
     }
+    return result
 
 
 @adk_tool
@@ -891,7 +905,7 @@ def analyze_trace_patterns(
             elif change_pct < -15:
                 trend = "improving"
 
-        return {
+        result = {
             "traces_analyzed": len(parsed_traces),
             "unique_spans": len(span_performance),
             "overall_trend": trend,
@@ -907,8 +921,10 @@ def analyze_trace_patterns(
                 "trace_duration_trend": trend,
             },
         }
+        return result
 
 
+@adk_tool
 def compute_service_level_stats(
     trace_ids: list[str], project_id: str | None = None
 ) -> dict[str, Any]:
