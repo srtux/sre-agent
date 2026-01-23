@@ -136,9 +136,8 @@ def setup_telemetry(level: int = logging.INFO) -> None:
     if env_level in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
         level = getattr(logging, env_level)
 
-    # 0. Optional Arize / OpenInference Setup
-    # PRO-TIP: Arize MUST be initialized before any other instrumentors
-    # to claim the global TracerProvider correctly.
+    # Priority 1: Arize AX
+    arize_enabled = False
     if os.environ.get("USE_ARIZE", "").lower() == "true":
         try:
             from arize.otel import register
@@ -165,8 +164,9 @@ def setup_telemetry(level: int = logging.INFO) -> None:
                 GoogleADKInstrumentor().instrument(tracer_provider=arize_tp)
 
                 logging.getLogger(__name__).info(
-                    f"✅ Arize AX instrumentation enabled (Project: {project_name})"
+                    f"✅ Arize AX enabled (Project: {project_name}). Skipping Google Cloud Trace."
                 )
+                arize_enabled = True
             else:
                 logging.getLogger(__name__).warning(
                     "USE_ARIZE is true but ARIZE_SPACE_ID or ARIZE_API_KEY is missing"
@@ -178,7 +178,7 @@ def setup_telemetry(level: int = logging.INFO) -> None:
         except Exception as e:
             logging.getLogger(__name__).error(f"Failed to setup Arize: {e}")
 
-    # 1. Initialize Log Correlation
+    # 1. Initialize Log Correlation (Works with any global TracerProvider)
     try:
         from opentelemetry.instrumentation.logging import LoggingInstrumentor
 
@@ -187,14 +187,13 @@ def setup_telemetry(level: int = logging.INFO) -> None:
         logging.getLogger(__name__).debug(f"LoggingInstrumentor failed: {e}")
 
     project_id = os.environ.get("GOOGLE_CLOUD_PROJECT")
-
-    # Sanitize project_id if it contains commas (common issue with some env loaders)
     if project_id and "," in project_id:
-        raw_pid = project_id
         project_id = project_id.split(",")[0].strip()
-        print(f"⚠️  Sanitized GOOGLE_CLOUD_PROJECT from '{raw_pid}' to '{project_id}'")
-        # Update env var so dependent libs (like google.auth) also see clean value
         os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
+
+    logging.getLogger(__name__).info(
+        f"Setting up telemetry with project_id: '{project_id}'"
+    )
 
     # 1. Configure Logging handlers early to capture initialization logs
     _configure_logging_handlers(level, project_id)
@@ -247,8 +246,18 @@ def setup_telemetry(level: int = logging.INFO) -> None:
         )
         composite_creds = grpc.composite_channel_credentials(ssl_creds, call_creds)
 
-        # -- TRACES --
-        if os.environ.get("OTEL_TRACES_EXPORTER", "").lower() != "none":
+        # -- TRACES Sidecar (GCP) --
+        # Only set up GCP TracerProvider if Arize hasn't already claimed it
+        if (
+            not arize_enabled
+            and os.environ.get("OTEL_TRACES_EXPORTER", "").lower() != "none"
+        ):
+            from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
+                OTLPSpanExporter,
+            )
+            from opentelemetry.sdk.trace import TracerProvider
+            from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
             span_exporter = OTLPSpanExporter(
                 endpoint=otlp_endpoint,
                 credentials=composite_creds,
@@ -259,18 +268,14 @@ def setup_telemetry(level: int = logging.INFO) -> None:
             current_tp = trace.get_tracer_provider()
             is_proxy = "ProxyTracerProvider" in type(current_tp).__name__
 
-            if not is_proxy and hasattr(current_tp, "add_span_processor"):
-                logging.getLogger(__name__).info(
-                    "Attaching GCP SpanProcessor to existing TracerProvider (Dual-Tracing active)"
-                )
-                current_tp.add_span_processor(span_processor)
-            elif is_proxy:
+            if is_proxy:
                 tp = TracerProvider(resource=resource)
                 tp.add_span_processor(span_processor)
                 trace.set_tracer_provider(tp)
+                logging.getLogger(__name__).info("✅ Google Cloud Trace enabled.")
             else:
-                logging.getLogger(__name__).warning(
-                    f"Unknown TracerProvider type {type(current_tp).__name__}; skipping GCP attachment."
+                logging.getLogger(__name__).info(
+                    f"TracerProvider already set to {type(current_tp).__name__}; skipping GCP Trace setup."
                 )
 
         # -- METRICS --
@@ -304,13 +309,12 @@ def setup_telemetry(level: int = logging.INFO) -> None:
 
     else:
         # Fallback for local/testing without Project ID
-        # Just set up default providers (No-op or simple) if not already set
-        if not isinstance(trace.get_tracer_provider(), TracerProvider):
-            # Check for Proxy
+        if not arize_enabled:
+            from opentelemetry.sdk.metrics import MeterProvider
+            from opentelemetry.sdk.trace import TracerProvider
+
             if "ProxyTracerProvider" in type(trace.get_tracer_provider()).__name__:
                 trace.set_tracer_provider(TracerProvider())
-
-        if not isinstance(metrics.get_meter_provider(), MeterProvider):
             if "ProxyMeterProvider" in type(metrics.get_meter_provider()).__name__:
                 metrics.set_meter_provider(MeterProvider())
 
