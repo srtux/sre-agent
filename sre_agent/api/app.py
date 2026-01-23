@@ -9,6 +9,7 @@ import os
 from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from sre_agent.api.middleware import configure_middleware
 from sre_agent.api.routers import (
@@ -74,6 +75,12 @@ def create_app(
     # Optionally mount ADK agent routes
     if include_adk_routes:
         _mount_adk_routes(app)
+
+    # Mount static files for the frontend if they exist
+    # In Cloud Run, the build artifacts are copied to /app/web
+    if os.path.exists("web"):
+        app.mount("/", StaticFiles(directory="web", html=True), name="web")
+        logger.info("Mounted static files from 'web' directory")
 
     return app
 
