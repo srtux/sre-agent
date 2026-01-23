@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:google_sign_in_web/web_only.dart' as web;
+import 'package:google_sign_in_web/google_sign_in_web.dart';
+import 'package:google_sign_in_platform_interface/google_sign_in_platform_interface.dart';
 
 Widget buildGoogleSignInButton({required VoidCallback onMobileSignIn}) {
   return Container(
-    constraints: const BoxConstraints(maxWidth: 400, maxHeight: 50),
-    child: web.renderButton(
-      configuration: web.GSIButtonConfiguration(
-        type: web.GSIButtonType.standard,
-        theme: web.GSIButtonTheme.filledBlue,
-        size: web.GSIButtonSize.large,
-        text: web.GSIButtonText.signinWith,
-        shape: web.GSIButtonShape.pill,
+    constraints: const BoxConstraints(maxWidth: 400, minHeight: 50),
+    child: (GoogleSignInPlatform.instance as GoogleSignInPlugin).renderButton(
+      configuration: GSIButtonConfiguration(
+        type: GSIButtonType.standard,
+        theme: GSIButtonTheme.filledBlue,
+        size: GSIButtonSize.large,
+        text: GSIButtonText.signinWith,
+        shape: GSIButtonShape.pill,
       ),
     ),
   );

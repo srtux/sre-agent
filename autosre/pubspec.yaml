@@ -47,6 +47,7 @@ dependencies:
   googleapis_auth: ^2.0.0
   google_fonts: ^7.0.2
   shared_preferences: ^2.2.0
+  google_sign_in_platform_interface: ^3.1.0
 
 dev_dependencies:
   flutter_test:
@@ -61,7 +62,6 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
   plugin_platform_interface: ^2.1.8
-  google_sign_in_platform_interface: ^3.1.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

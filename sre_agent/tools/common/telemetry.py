@@ -47,6 +47,8 @@ class EmojiLoggingFilter(logging.Filter):
 
         # API Call Distinctions (Uvicorn access logs)
         elif "uvicorn.access" in record.name:
+            if "GET /health" in msg:
+                return False
             if not record.msg.startswith("🌐"):
                 record.msg = f"🌐 API Call | {record.msg}"
 
@@ -338,6 +340,7 @@ def _configure_logging_handlers(level: int, project_id: str | None) -> None:
         "google.cloud.aiplatform",
         "httpx",
         "httpcore",
+        "graphviz",
     ]:
         logging.getLogger(logger_name).setLevel(logging.INFO)
 

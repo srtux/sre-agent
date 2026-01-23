@@ -1,6 +1,6 @@
 import 'dart:math';
 import 'package:flutter/foundation.dart';
-import 'package:google_sign_in/google_sign_in.dart' as gsi;
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis_auth/googleapis_auth.dart';
 import 'package:http/http.dart' as http;
 import 'api_client.dart';
@@ -19,18 +19,19 @@ class AuthService extends ChangeNotifier {
 
   AuthService._internal();
 
-  final gsi.GoogleSignIn _googleSignIn = gsi.GoogleSignIn.instance;
-  final List<String> _scopes = [
+  static final List<String> _scopes = [
     'email',
     'https://www.googleapis.com/auth/cloud-platform',
   ];
 
-  gsi.GoogleSignInAccount? _currentUser;
+  final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
+
+  GoogleSignInAccount? _currentUser;
   String? _idToken;
   String? _accessToken;
   bool _isLoading = true;
 
-  gsi.GoogleSignInAccount? get currentUser => _currentUser;
+  GoogleSignInAccount? get currentUser => _currentUser;
   bool get isAuthenticated => _currentUser != null;
   bool get isLoading => _isLoading;
   String? get idToken => _idToken;
@@ -43,11 +44,11 @@ class AuthService extends ChangeNotifier {
       (event) async {
         try {
           debugPrint('AuthService: Received auth event: ${event.runtimeType}');
-          if (event is gsi.GoogleSignInAuthenticationEventSignIn) {
+          if (event is GoogleSignInAuthenticationEventSignIn) {
             _currentUser = event.user;
             debugPrint('AuthService: User signed in: ${_currentUser?.email}');
             await _refreshTokens();
-          } else if (event is gsi.GoogleSignInAuthenticationEventSignOut) {
+          } else if (event is GoogleSignInAuthenticationEventSignOut) {
             debugPrint('AuthService: User signed out');
             _currentUser = null;
             _idToken = null;
@@ -90,7 +91,13 @@ class AuthService extends ChangeNotifier {
   /// Sign in with Google
   Future<void> signIn() async {
     try {
-      await _googleSignIn.authenticate(scopeHint: _scopes);
+      debugPrint('AuthService: Starting sign in flow (signIn())...');
+      if (kIsWeb) {
+        debugPrint('AuthService: On web, the GIS button handles the flow via renderButton.');
+        return;
+      }
+      final account = await _googleSignIn.authenticate(scopeHint: _scopes);
+      debugPrint('AuthService: Sign in successful for ${account.email}');
     } catch (e) {
       debugPrint('Error signing in: $e');
       rethrow;

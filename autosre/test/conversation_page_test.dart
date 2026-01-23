@@ -117,7 +117,6 @@ class MockGoogleSignIn extends Fake
   @override
   Future<void> init(InitParameters params) async {}
 
-  @override
   Future<GoogleSignInUserData?> signInSilently() async => null;
 
   @override
@@ -126,9 +125,7 @@ class MockGoogleSignIn extends Fake
   @override
   Stream<AuthenticationEvent> get authenticationEvents => const Stream.empty();
 
-  @override
   Future<void> initialize() async {}
 
-  @override
   Future<void> attemptLightweightAuthenticationWithDefaultOptions() async {}
 }

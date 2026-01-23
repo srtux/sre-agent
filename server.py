@@ -481,7 +481,6 @@ async def chat_agent(request: AgentRequest) -> StreamingResponse:
 @app.get("/health")
 async def health_check() -> dict[str, str]:
     """Health check endpoint for connectivity testing."""
-    logger.debug("Health check received")
     return {"status": "ok"}
 
 
