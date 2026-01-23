@@ -40,12 +40,13 @@ async def test_list_alerts_success(mock_auth, mock_authorized_session):
     """Test listing alerts successfully."""
     # Setup mock response
     mock_response = MagicMock()
+    mock_response.ok = True
     mock_response.json.return_value = {
         "alerts": [
             {
                 "name": "projects/test-project/alerts/123",
                 "state": "OPEN",
-                "createTime": "2023-01-01T00:00:00Z",
+                "openTime": "2023-01-01T00:00:00Z",
             }
         ]
     }
@@ -67,6 +68,8 @@ async def test_list_alerts_success(mock_auth, mock_authorized_session):
         "https://monitoring.googleapis.com/v3/projects/test-project/alerts" in args[0]
     )
     assert kwargs["params"]["filter"] == 'state="OPEN"'
+    # Verify quota header
+    assert kwargs["headers"]["X-Goog-User-Project"] == "test-project"
 
 
 @pytest.mark.asyncio
@@ -85,6 +88,7 @@ async def test_list_alerts_error(mock_auth, mock_authorized_session):
 async def test_get_alert_success(mock_auth, mock_authorized_session):
     """Test getting a specific alert."""
     mock_response = MagicMock()
+    mock_response.ok = True
     mock_response.json.return_value = {
         "name": "projects/test-project/alerts/123",
         "state": "OPEN",
@@ -98,11 +102,36 @@ async def test_get_alert_success(mock_auth, mock_authorized_session):
 
     # Verify call
     mock_authorized_session.get.assert_called_once()
-    args, _ = mock_authorized_session.get.call_args
+    args, kwargs = mock_authorized_session.get.call_args
     assert (
         "https://monitoring.googleapis.com/v3/projects/test-project/alerts/123"
         in args[0]
     )
+    # Verify quota header extracted from name
+    assert kwargs["headers"]["X-Goog-User-Project"] == "test-project"
+
+
+@pytest.mark.asyncio
+async def test_list_alerts_order_by_mapping(mock_auth, mock_authorized_session):
+    """Test that informal orderBy fields are mapped correctly."""
+    mock_response = MagicMock()
+    mock_response.ok = True
+    mock_response.json.return_value = {"alerts": []}
+    mock_authorized_session.get.return_value = mock_response
+
+    # LLM uses 'start_time desc'
+    await list_alerts(project_id="test-project", order_by="start_time desc")
+
+    # Verify it was mapped to 'open_time desc'
+    _, kwargs = mock_authorized_session.get.call_args
+    assert kwargs["params"]["orderBy"] == "open_time desc"
+
+    # LLM uses 'endTime'
+    await list_alerts(project_id="test-project", order_by="endTime")
+
+    # Verify it was mapped to 'close_time'
+    _, kwargs = mock_authorized_session.get.call_args
+    assert kwargs["params"]["orderBy"] == "close_time"
 
 
 @pytest.mark.asyncio

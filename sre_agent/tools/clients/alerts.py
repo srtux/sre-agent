@@ -45,13 +45,16 @@ async def list_alerts(
 
     Args:
         project_id: The Google Cloud Project ID.
-        filter_str: Optional filter string (e.g., 'state="OPEN"').
-        order_by: Optional sort order field.
-        page_size: Number of results to return (default 100).
+        filter_str: Optional filter string. Server-side filtering supports only 'state' and 'policy_name'.
+                  Example: 'state="OPEN"' or 'state="CLOSED"'.
+                  Warning: Time-based filtering is NOT supported server-side; use sorting instead.
+        order_by: Optional sort order field. Supported fields: 'open_time', 'close_time'.
+                  Example: 'open_time desc'. Default is 'open_time desc'.
+        page_size: Number of results to return (default 100, max 1000).
         tool_context: Context object for tool execution.
 
     Returns:
-        A JSON string containing the list of alerts.
+        A JSON string containing the list of alerts (incidents).
     """
     from fastapi.concurrency import run_in_threadpool
 
@@ -84,13 +87,41 @@ def _list_alerts_sync(
             params: dict[str, Any] = {"pageSize": page_size}
             if filter_str:
                 params["filter"] = filter_str
+
             if order_by:
-                params["orderBy"] = order_by
+                # Map common aliases and camelCase fields back to canonical snake_case field names.
+                # REST API orderBy supports: open_time, close_time.
+                replacements = {
+                    "start_time": "open_time",
+                    "startTime": "open_time",
+                    "openTime": "open_time",
+                    "end_time": "close_time",
+                    "endTime": "close_time",
+                    "closeTime": "close_time",
+                }
+                mapped_order_by = order_by
+                for k, v in replacements.items():
+                    mapped_order_by = mapped_order_by.replace(k, v)
+                params["orderBy"] = mapped_order_by
 
-            response = session.get(url, params=params)
-            response.raise_for_status()
+            # Include X-Goog-User-Project for quota/billing attribution
+            headers = {"X-Goog-User-Project": project_id}
+            response = session.get(url, params=params, headers=headers)
 
-            alerts = response.json().get("alerts", [])
+            if not response.ok:
+                try:
+                    error_json = response.json()
+                    message = error_json.get("error", {}).get("message", response.text)
+                except Exception:
+                    message = response.text
+                raise Exception(
+                    f"{response.status_code} Client Error: {response.reason} for url: {response.url}\n"
+                    f"Response: {message}"
+                )
+
+            data = response.json()
+            alerts = data.get("alerts", [])
+
             span.set_attribute("gcp.monitoring.alerts_count", len(alerts))
             return json_dumps(alerts)
 
@@ -106,8 +137,8 @@ async def get_alert(name: str, tool_context: Any = None) -> str:
     """Gets a specific alert by its resource name.
 
     Args:
-        name: The resource name of the alert
-              (e.g., projects/{project_id}/alerts/{alert_id}).
+        name: The full resource name of the alert
+              (e.g., 'projects/{project_id}/alerts/{alert_id}').
         tool_context: Context object for tool execution.
 
     Returns:
@@ -130,8 +161,20 @@ def _get_alert_sync(name: str, tool_context: Any = None) -> str:
             # API Endpoint: projects.alerts.get
             url = f"https://monitoring.googleapis.com/v3/{name}"
 
-            response = session.get(url)
-            response.raise_for_status()
+            # Extract project ID from resource name for billing header
+            headers = {}
+            if name.startswith("projects/"):
+                proj_id = name.split("/")[1]
+                headers["X-Goog-User-Project"] = proj_id
+
+            response = session.get(url, headers=headers)
+            if not response.ok:
+                try:
+                    error_json = response.json()
+                    message = error_json.get("error", {}).get("message", response.text)
+                except Exception:
+                    message = response.text
+                raise Exception(f"{response.status_code}: {message}")
 
             return json_dumps(response.json())
 
