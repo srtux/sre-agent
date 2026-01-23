@@ -8,16 +8,7 @@ from typing import Any
 import google.auth
 import google.auth.transport.grpc
 import google.auth.transport.requests
-import grpc
 from opentelemetry import metrics, trace
-from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
-from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.semconv.resource import ResourceAttributes
 
 
 # Filter out the specific warning from google-generativeai types regarding function calls
@@ -130,25 +121,70 @@ def _get_gcp_otlp_credentials() -> Any:
 
 
 def setup_telemetry(level: int = logging.INFO) -> None:
-    """Configures Telemetry (Trace, Metrics, Logs) for the SRE Agent.
-
-    Configures:
-    - Traces: OTLP gRPC to telemetry.googleapis.com
-    - Metrics: OTLP gRPC to telemetry.googleapis.com
-    - Logs: Structured JSON to stdout (for logging.googleapis.com agent)
+    """Configures OpenTelemetry and Logging for the SRE Agent.
 
     Args:
         level: The logging level to use (default: INFO)
     """
+    import logging
+    import os
+
+    from opentelemetry import metrics, trace
+
     # Override level from env if set
     env_level = os.environ.get("LOG_LEVEL", "").upper()
     if env_level in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
         level = getattr(logging, env_level)
 
-    from opentelemetry.instrumentation.logging import LoggingInstrumentor
+    # 0. Optional Arize / OpenInference Setup
+    # PRO-TIP: Arize MUST be initialized before any other instrumentors
+    # to claim the global TracerProvider correctly.
+    if os.environ.get("USE_ARIZE", "").lower() == "true":
+        try:
+            from arize.otel import register
+            from openinference.instrumentation.google_adk import GoogleADKInstrumentor
 
-    # Initialize Trace-Log correlation
-    LoggingInstrumentor().instrument(set_logging_format=False)
+            space_id = os.environ.get("ARIZE_SPACE_ID")
+            api_key = os.environ.get("ARIZE_API_KEY")
+            project_name = os.environ.get("ARIZE_PROJECT_NAME", "AutoSRE")
+
+            # Arize consumes GOOGLE_API_KEY for ADK-level tracing
+            gemini_key = os.environ.get("GEMINI_API_KEY")
+            if gemini_key and not os.environ.get("GOOGLE_API_KEY"):
+                os.environ["GOOGLE_API_KEY"] = gemini_key
+
+            if space_id and api_key:
+                # 1. Register with Arize AX (sets global TracerProvider)
+                arize_tp = register(
+                    space_id=space_id,
+                    api_key=api_key,
+                    project_name=project_name,
+                )
+
+                # 2. Instrument Google ADK for Arize AX
+                GoogleADKInstrumentor().instrument(tracer_provider=arize_tp)
+
+                logging.getLogger(__name__).info(
+                    f"✅ Arize AX instrumentation enabled (Project: {project_name})"
+                )
+            else:
+                logging.getLogger(__name__).warning(
+                    "USE_ARIZE is true but ARIZE_SPACE_ID or ARIZE_API_KEY is missing"
+                )
+        except ImportError:
+            logging.getLogger(__name__).warning(
+                "Arize dependencies not found. Please install with 'uv sync --extra arize'"
+            )
+        except Exception as e:
+            logging.getLogger(__name__).error(f"Failed to setup Arize: {e}")
+
+    # 1. Initialize Log Correlation
+    try:
+        from opentelemetry.instrumentation.logging import LoggingInstrumentor
+
+        LoggingInstrumentor().instrument(set_logging_format=False)
+    except Exception as e:
+        logging.getLogger(__name__).debug(f"LoggingInstrumentor failed: {e}")
 
     project_id = os.environ.get("GOOGLE_CLOUD_PROJECT")
 
@@ -163,47 +199,6 @@ def setup_telemetry(level: int = logging.INFO) -> None:
     # 1. Configure Logging handlers early to capture initialization logs
     _configure_logging_handlers(level, project_id)
 
-    # 2. Optional Arize / OpenInference Setup
-    # Do this early so Arize can set the global TracerProvider if needed.
-    # Subsequent GCP setup will then add its span processor to the Arize provider.
-    if os.environ.get("USE_ARIZE", "").lower() == "true":
-        try:
-            from arize.otel import register
-            from openinference.instrumentation.google_adk import GoogleADKInstrumentor
-
-            space_id = os.environ.get("ARIZE_SPACE_ID")
-            api_key = os.environ.get("ARIZE_API_KEY")
-            project_name = os.environ.get("ARIZE_PROJECT_NAME", "AutoSRE")
-
-            # Handle GEMINI_API_KEY preference (map to GOOGLE_API_KEY which ADK expects)
-            gemini_key = os.environ.get("GEMINI_API_KEY")
-            if gemini_key and not os.environ.get("GOOGLE_API_KEY"):
-                os.environ["GOOGLE_API_KEY"] = gemini_key
-
-            if not space_id or not api_key:
-                logging.getLogger(__name__).warning(
-                    "USE_ARIZE is true but ARIZE_SPACE_ID or ARIZE_API_KEY is missing"
-                )
-            else:
-                arize_tracer_provider = register(
-                    space_id=space_id,
-                    api_key=api_key,
-                    project_name=project_name,
-                )
-                # Instrument Google ADK for Arize AX
-                GoogleADKInstrumentor().instrument(
-                    tracer_provider=arize_tracer_provider
-                )
-                logging.getLogger(__name__).info(
-                    "✅ Arize / OpenInference instrumentation enabled (Google ADK)"
-                )
-        except ImportError:
-            logging.getLogger(__name__).warning(
-                "Arize dependencies not found. Please install with 'uv sync --extra arize'"
-            )
-        except Exception as e:
-            logging.getLogger(__name__).error(f"Failed to setup Arize: {e}")
-
     # 1. Configure OpenTelemetry SDK
     # Check for DISABLE_TELEMETRY environment variable
     if os.environ.get("DISABLE_TELEMETRY", "").lower() == "true":
@@ -213,6 +208,18 @@ def setup_telemetry(level: int = logging.INFO) -> None:
         return
 
     if project_id:
+        import google.auth
+        import google.auth.transport.grpc
+        import google.auth.transport.requests
+        import grpc
+        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
+            OTLPSpanExporter,
+        )
+        from opentelemetry.sdk.resources import Resource
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+        from opentelemetry.semconv.resource import ResourceAttributes
+
         resource = Resource.create(
             {
                 ResourceAttributes.SERVICE_NAME: "sre-agent",
@@ -228,15 +235,13 @@ def setup_telemetry(level: int = logging.INFO) -> None:
 
         # Create credentials
         credentials, _ = google.auth.default()
-
-        # Ensure quota project is set to fix INVALID_ARGUMENT errors in OTLP export
         if project_id and hasattr(credentials, "with_quota_project"):
             credentials = credentials.with_quota_project(project_id)
-        request = google.auth.transport.requests.Request()
 
+        request = google.auth.transport.requests.Request()
         ssl_creds = grpc.ssl_channel_credentials()
         call_creds = grpc.metadata_call_credentials(
-            google.auth.transport.grpc.AuthMetadataPlugin(  # type: ignore[no-untyped-call]
+            google.auth.transport.grpc.AuthMetadataPlugin(
                 credentials=credentials, request=request
             )
         )
@@ -251,38 +256,31 @@ def setup_telemetry(level: int = logging.INFO) -> None:
             )
             span_processor = BatchSpanProcessor(span_exporter)
 
-            # distinct: Check if a TracerProvider is already configured
-            current_tracer_provider = trace.get_tracer_provider()
+            current_tp = trace.get_tracer_provider()
+            is_proxy = "ProxyTracerProvider" in type(current_tp).__name__
 
-            # If ProxyTracerProvider (default) matches "ProxyTracerProvider" in repr or type name
-            is_proxy = "ProxyTracerProvider" in type(current_tracer_provider).__name__
-
-            if not is_proxy and hasattr(current_tracer_provider, "add_span_processor"):
-                # Provider exists (e.g. from ADK or Agent Engine)
-                # We should be careful about adding duplicate processors if they are already sending to GCP
-                # For now, we add it to ensure OUR traces go to OUR project,
-                # but we log it.
+            if not is_proxy and hasattr(current_tp, "add_span_processor"):
                 logging.getLogger(__name__).info(
-                    "Existing TracerProvider found. Attaching SRE Agent OTLP exporter."
+                    "Attaching GCP SpanProcessor to existing TracerProvider (Dual-Tracing active)"
                 )
-                try:
-                    current_tracer_provider.add_span_processor(span_processor)
-                except Exception as e:
-                    logging.getLogger(__name__).warning(
-                        f"Failed to attach span processor to existing provider: {e}"
-                    )
+                current_tp.add_span_processor(span_processor)
             elif is_proxy:
-                # No provider yet (or it's a proxy), set ours
-                tracer_provider = TracerProvider(resource=resource)
-                tracer_provider.add_span_processor(span_processor)
-                trace.set_tracer_provider(tracer_provider)
+                tp = TracerProvider(resource=resource)
+                tp.add_span_processor(span_processor)
+                trace.set_tracer_provider(tp)
             else:
                 logging.getLogger(__name__).warning(
-                    "Unknown TracerProvider type; skipping OTLP span exporter attachment."
+                    f"Unknown TracerProvider type {type(current_tp).__name__}; skipping GCP attachment."
                 )
 
         # -- METRICS --
         if os.environ.get("OTEL_METRICS_EXPORTER", "").lower() != "none":
+            from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
+                OTLPMetricExporter,
+            )
+            from opentelemetry.sdk.metrics import MeterProvider
+            from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+
             metric_exporter = OTLPMetricExporter(
                 endpoint=otlp_endpoint,
                 credentials=composite_creds,
@@ -292,28 +290,17 @@ def setup_telemetry(level: int = logging.INFO) -> None:
                 metric_exporter, export_interval_millis=60000
             )
 
-            # For metrics, modifying the global provider is harder if it's already set.
-            # We try to set it only if it's not already a strict provider.
             try:
-                # If we can't easily check for proxy, we just try to set it.
-                # If set_meter_provider throws or warns, so be it.
-                # However, cleaner check:
-                current_meter_provider = metrics.get_meter_provider()
-                is_proxy_meter = (
-                    "ProxyMeterProvider" in type(current_meter_provider).__name__
-                )
-
-                if is_proxy_meter:
-                    meter_provider = MeterProvider(
-                        resource=resource, metric_readers=[reader]
-                    )
-                    metrics.set_meter_provider(meter_provider)
+                current_mp = metrics.get_meter_provider()
+                if "ProxyMeterProvider" in type(current_mp).__name__:
+                    mp = MeterProvider(resource=resource, metric_readers=[reader])
+                    metrics.set_meter_provider(mp)
                 else:
                     logging.getLogger(__name__).info(
-                        "Existing MeterProvider found. Skipping SRE Agent metrics setup (cannot easily attach reader)."
+                        "Existing MeterProvider found. Skipping GCP metrics sidecar."
                     )
             except Exception as e:
-                logging.getLogger(__name__).warning(f"Error setting up metrics: {e}")
+                logging.getLogger(__name__).debug(f"Failed to set MeterProvider: {e}")
 
     else:
         # Fallback for local/testing without Project ID

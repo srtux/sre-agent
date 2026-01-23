@@ -1,3 +1,13 @@
+import os
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from sre_agent.tools.common.telemetry import setup_telemetry
+
+setup_telemetry()
+
 # 1. APPLY PATCHES AS EARLY AS POSSIBLE
 print("🚀 server.py: Starting initialization...")
 # ruff: noqa: E402
@@ -36,7 +46,6 @@ except ImportError:
 import asyncio
 import json
 import logging
-import os
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import datetime, timezone
@@ -86,10 +95,7 @@ from sre_agent.tools.test_functions import register_all_test_functions
 # 0. SET LOG LEVEL EARLY
 os.environ["LOG_LEVEL"] = "DEBUG"
 
-# 1.1 CONFIGURING LOGGING
-from sre_agent.tools.common.telemetry import setup_telemetry
-
-setup_telemetry()  # Explicit initialization
+# 1.1 LOGGING INITIALIZED
 logger = logging.getLogger(__name__)
 
 # 1.2 INITIALIZE TOOL CONFIGURATION

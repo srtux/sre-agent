@@ -27,22 +27,7 @@ try:
 except ImportError:
     pass
 
-from .agent import (  # noqa: E402
-    create_configured_agent,
-    get_agent_with_mcp_tools,
-    get_enabled_base_tools,
-    get_enabled_tools,
-    is_tool_enabled,
-    root_agent,
-    sre_agent,
-)
-
-__all__ = [
-    "create_configured_agent",
-    "get_agent_with_mcp_tools",
-    "get_enabled_base_tools",
-    "get_enabled_tools",
-    "is_tool_enabled",
-    "root_agent",
-    "sre_agent",
-]
+# Avoid top-level imports of heavy agent modules to prevent early
+# initialization of OTel or ADK before telemetry.setup_telemetry() runs.
+# Modules should import from .agent directly.
+__all__: list[str] = []
