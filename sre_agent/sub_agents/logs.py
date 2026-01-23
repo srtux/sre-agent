@@ -21,6 +21,9 @@ from ..tools import (
     discover_telemetry_sources,
     # Log tools
     extract_log_patterns,
+    # Investigation
+    get_investigation_summary,
+    update_investigation_state,
 )
 
 # Initialize environment (shared across sub-agents)
@@ -83,5 +86,7 @@ log_analyst = LlmAgent(
         extract_log_patterns,
         compare_time_periods,
         discover_telemetry_sources,
+        get_investigation_summary,
+        update_investigation_state,
     ],
 )

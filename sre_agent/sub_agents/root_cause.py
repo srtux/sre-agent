@@ -17,8 +17,11 @@ from ..tools import (
     correlate_trace_with_metrics,
     detect_trend_changes,
     fetch_trace,
+    # Investigation
+    get_investigation_summary,
     list_log_entries,
     perform_causal_analysis,
+    update_investigation_state,
 )
 
 # Initialize environment (shared across sub-agents)
@@ -90,5 +93,7 @@ Use when: You need to know WHY it happened, WHO changed it, and HOW BAD it is.""
         list_log_entries,
         compare_time_periods,
         fetch_trace,
+        get_investigation_summary,
+        update_investigation_state,
     ],
 )

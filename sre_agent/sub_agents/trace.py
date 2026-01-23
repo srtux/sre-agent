@@ -28,8 +28,11 @@ from ..tools import (
     fetch_trace,
     find_bottleneck_services,
     find_exemplar_traces,
+    # Investigation
+    get_investigation_summary,
     list_traces,
     mcp_execute_sql,
+    update_investigation_state,
 )
 
 # Initialize environment (shared across sub-agents)
@@ -161,6 +164,8 @@ Use when: You need detailed analysis of one or more traces, or need to compare t
         detect_retry_storm,
         detect_cascading_timeout,
         detect_connection_pool_issues,
+        get_investigation_summary,
+        update_investigation_state,
     ],
 )
 
@@ -185,5 +190,7 @@ aggregate_analyzer = LlmAgent(
         build_service_dependency_graph,
         discover_telemetry_sources,
         list_traces,
+        get_investigation_summary,
+        update_investigation_state,
     ],
 )

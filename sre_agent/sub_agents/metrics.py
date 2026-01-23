@@ -20,11 +20,14 @@ from ..tools import (
     correlate_trace_with_metrics,
     # Analysis tools
     detect_metric_anomalies,
+    # Investigation
+    get_investigation_summary,
     # Metrics tools
     list_time_series,
     mcp_list_timeseries,
     mcp_query_range,
     query_promql,
+    update_investigation_state,
 )
 
 # Initialize environment (shared across sub-agents)
@@ -167,5 +170,7 @@ metrics_analyzer = LlmAgent(
         calculate_series_stats,
         correlate_trace_with_metrics,
         correlate_metrics_with_traces_via_exemplars,
+        get_investigation_summary,
+        update_investigation_state,
     ],
 )

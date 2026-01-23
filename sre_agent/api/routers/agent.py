@@ -20,6 +20,10 @@ from pydantic import BaseModel
 
 from sre_agent.agent import root_agent
 from sre_agent.auth import get_current_project_id
+from sre_agent.models.investigation import (
+    PHASE_INSTRUCTIONS,
+    InvestigationState,
+)
 from sre_agent.services import get_session_service
 from sre_agent.suggestions import generate_contextual_suggestions
 
@@ -156,14 +160,28 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
             if effective_project_id:
                 initial_state["project_id"] = effective_project_id
 
+            # Initialize investigation state
+            initial_state["investigation_state"] = InvestigationState().to_dict()
+
             session = await session_manager.create_session(
                 user_id=request.user_id, initial_state=initial_state
             )
             is_new_session = True
 
-        # 2. Prepare Context
+        # 2. Prepare State & Context
+        state_dict = session.state.get("investigation_state", {})
+        inv_state = InvestigationState.from_dict(state_dict)
+
         last_msg_text = request.messages[-1].text if request.messages else ""
-        user_content = Content(parts=[Part(text=last_msg_text)], role="user")
+
+        # Inject Phase Guidance to help agent focus on current stage
+        phase_instruction = PHASE_INSTRUCTIONS.get(inv_state.phase, "")
+        enhanced_text = (
+            f"[INVESTIGATION PHASE: {inv_state.phase.value.upper()}]\n"
+            f"Guidance: {phase_instruction}\n\n"
+            f"User Message: {last_msg_text}"
+        )
+        user_content = Content(parts=[Part(text=enhanced_text)], role="user")
 
         # Create InvocationContext
         inv_ctx = InvocationContext(
@@ -175,11 +193,11 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
         )
         inv_ctx.user_content = user_content
 
-        # Persist User Message
+        # Persist User Message (Original Text for history)
         user_event = Event(
             invocation_id=inv_ctx.invocation_id,
             author="user",
-            content=user_content,
+            content=Content(parts=[Part(text=last_msg_text)], role="user"),
             timestamp=time.time(),
         )
         await session_manager.session_service.append_event(session, user_event)
@@ -352,6 +370,16 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                         except Exception as e:
                             # Propagate other exceptions
                             raise e
+
+                # 4. Post-run Cleanup & Memory Sync
+                try:
+                    # Sync findings and observations to Long-term Memory Bank
+                    # This makes the investigation searchable in future sessions
+                    await session_manager.sync_to_memory(active_session)
+                except Exception as e:
+                    logger.warning(
+                        f"⚠️ Memory sync skipped or failed for {session.id}: {e}"
+                    )
 
             except Exception as e:
                 logger.error(f"🔥 Error in agent run: {e}", exc_info=True)

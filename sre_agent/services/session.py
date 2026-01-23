@@ -279,6 +279,30 @@ class ADKSessionManager:
         await self._session_service.append_event(session, event)
         logger.debug(f"Updated session {session.id} state: {list(state_delta.keys())}")
 
+    async def sync_to_memory(self, session: Session) -> bool:
+        """Sync session events and findings to long-term memory Bank.
+
+        This uses VertexAiMemoryBankService to make the investigation
+        searchable in the future.
+
+        Args:
+            session: The session to sync
+
+        Returns:
+            True if sync was successful or skipped (if disabled)
+        """
+        try:
+            from sre_agent.services.memory_manager import get_memory_manager
+
+            memory_manager = get_memory_manager()
+            if not memory_manager.is_enabled:
+                return True
+
+            return await memory_manager.add_session_to_memory(session)
+        except Exception as e:
+            logger.error(f"Failed to sync session {session.id} to memory: {e}")
+            return False
+
     async def get_or_create_session(
         self,
         session_id: str | None = None,

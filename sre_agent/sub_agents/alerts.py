@@ -13,8 +13,10 @@ from ..prompt import REACT_PATTERN_INSTRUCTION, STRICT_ENGLISH_INSTRUCTION
 from ..tools import (
     discover_telemetry_sources,
     get_alert,
+    get_investigation_summary,
     list_alert_policies,
     list_alerts,
+    update_investigation_state,
 )
 
 # Initialize environment (shared across sub-agents)
@@ -64,5 +66,7 @@ alert_analyst = LlmAgent(
         list_alert_policies,
         get_alert,
         discover_telemetry_sources,
+        get_investigation_summary,
+        update_investigation_state,
     ],
 )

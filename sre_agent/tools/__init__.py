@@ -139,6 +139,9 @@ from .config import (
 # Discovery Tools
 from .discovery.discovery_tool import discover_telemetry_sources
 
+# Investigation Tools
+from .investigation import get_investigation_summary, update_investigation_state
+
 # MCP Tools
 from .mcp.gcp import (
     call_mcp_tool_with_retry,
@@ -219,6 +222,7 @@ __all__ = [
     "get_gcloud_commands",
     "get_gke_cluster_health",
     "get_golden_signals",
+    "get_investigation_summary",
     "get_logs_for_trace",
     "get_pod_restart_events",
     "get_project_id_with_fallback",
@@ -245,5 +249,6 @@ __all__ = [
     "select_traces_manually",
     "summarize_trace",
     "synthesize_report",
+    "update_investigation_state",
     "validate_trace_quality",
 ]

@@ -144,6 +144,23 @@ class ToolConfig:
 # Tool definitions with metadata
 TOOL_DEFINITIONS: list[ToolConfig] = [
     # -------------------------------------------------------------------------
+    # Orchestration & State Tools
+    # -------------------------------------------------------------------------
+    ToolConfig(
+        name="update_investigation_state",
+        display_name="Update Investigation State",
+        description="Update the current phase, findings, and hypotheses of an investigation",
+        category=ToolCategory.ORCHESTRATION,
+        testable=False,
+    ),
+    ToolConfig(
+        name="get_investigation_summary",
+        display_name="Get Investigation Summary",
+        description="Get a summary of current findings and investigation progress",
+        category=ToolCategory.ORCHESTRATION,
+        testable=False,
+    ),
+    # -------------------------------------------------------------------------
     # API Client Tools (Direct GCP APIs) - TESTABLE
     # -------------------------------------------------------------------------
     ToolConfig(

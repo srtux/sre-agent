@@ -141,6 +141,7 @@ from .tools import (
     get_gke_cluster_health,
     # SLO Golden Signals
     get_golden_signals,
+    get_investigation_summary,
     get_logs_for_trace,
     get_pod_restart_events,
     get_slo_status,
@@ -162,6 +163,7 @@ from .tools import (
     predict_slo_violation,
     query_promql,
     summarize_trace,
+    update_investigation_state,
     validate_trace_quality,
 )
 from .tools.common import adk_tool
@@ -685,6 +687,9 @@ TOOL_NAME_MAP = {
     "run_triage_analysis": run_triage_analysis,
     "run_deep_dive_analysis": run_deep_dive_analysis,
     "run_log_pattern_analysis": run_log_pattern_analysis,
+    # Investigation
+    "update_investigation_state": update_investigation_state,
+    "get_investigation_summary": get_investigation_summary,
 }
 
 # Common tools for all agents
@@ -737,6 +742,9 @@ base_tools: list[Any] = [
     run_log_pattern_analysis,
     synthesize_report,
     list_gcp_projects,
+    # Investigation tools
+    update_investigation_state,
+    get_investigation_summary,
 ]
 
 
