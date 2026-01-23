@@ -242,18 +242,32 @@ def emojify_agent(agent: LlmAgent) -> LlmAgent:
             else "unknown"
         )
 
+        user_id = (
+            getattr(context, "user_id", "unknown")
+            if hasattr(context, "user_id")
+            else "unknown"
+        )
         logger.info(f"💬 User Prompt: '{user_msg}'")
-        logger.info(f"📍 Context: Project={project_id}, Session={session_id}")
+        logger.info(
+            f"📍 Context: Project={project_id}, Session={session_id}, User={user_id}"
+        )
 
-        # 2. Run Original
+        from .tools.common import using_arize_session
+
+        # 2. Run Original with Arize session context
         full_response_parts = []
         try:
-            async for event in original_run_async(context):
-                if hasattr(event, "content") and event.content and event.content.parts:
-                    for part in event.content.parts:
-                        if hasattr(part, "text") and part.text:
-                            full_response_parts.append(part.text)
-                yield event
+            async with using_arize_session(session_id=session_id, user_id=user_id):
+                async for event in original_run_async(context):
+                    if (
+                        hasattr(event, "content")
+                        and event.content
+                        and event.content.parts
+                    ):
+                        for part in event.content.parts:
+                            if hasattr(part, "text") and part.text:
+                                full_response_parts.append(part.text)
+                    yield event
         except Exception as e:
             logging.error(f"🔥 Agent Execution Failed: {e}", exc_info=True)
             raise e

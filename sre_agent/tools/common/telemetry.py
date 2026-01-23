@@ -434,3 +434,27 @@ def set_span_attribute(key: str, value: Any) -> None:
 
 # Backwards compatibility alias
 configure_logging = setup_telemetry
+
+
+def using_arize_session(session_id: str, user_id: str = "") -> Any:
+    """Returns a context manager for Arize session/user attributes.
+
+    Args:
+        session_id: The session ID to attach to traces.
+        user_id: The user ID to attach to traces.
+
+    Returns:
+        A context manager that sets OTel attributes for Arize.
+    """
+    try:
+        from openinference.instrumentation import using_attributes
+
+        return using_attributes(session_id=session_id, user_id=user_id)
+    except ImportError:
+        import contextlib
+
+        @contextlib.contextmanager
+        def _null_context() -> Any:
+            yield
+
+        return _null_context()

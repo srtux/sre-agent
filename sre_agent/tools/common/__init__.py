@@ -11,7 +11,7 @@ from .debug import (
 )
 from .decorators import adk_tool
 from .serialization import gcp_json_default, json_dumps
-from .telemetry import get_meter, get_tracer, log_tool_call
+from .telemetry import get_meter, get_tracer, log_tool_call, using_arize_session
 
 __all__ = [
     "DataCache",
@@ -28,4 +28,5 @@ __all__ = [
     "log_mcp_auth_state",
     "log_telemetry_state",
     "log_tool_call",
+    "using_arize_session",
 ]
