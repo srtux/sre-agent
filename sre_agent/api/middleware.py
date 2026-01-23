@@ -24,28 +24,36 @@ async def auth_middleware(request: Request, call_next: Any) -> Any:
     """Middleware to extract Authorization header and set credentials context."""
     from google.oauth2.credentials import Credentials
 
-    from sre_agent.auth import set_current_credentials, set_current_project_id
+    from sre_agent.auth import (
+        clear_current_credentials,
+        set_current_credentials,
+        set_current_project_id,
+    )
 
-    auth_header = request.headers.get("Authorization")
-    if auth_header and auth_header.startswith("Bearer "):
-        token = auth_header.split(" ")[1]
-        # Create credentials from the token (Access Token)
-        # Note: We trust the token format here; downstream APIs will fail if invalid.
-        creds = Credentials(token=token)  # type: ignore[no-untyped-call]
-        set_current_credentials(creds)
+    try:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ")[1]
+            # Create credentials from the token (Access Token)
+            # Note: We trust the token format here; downstream APIs will fail if invalid.
+            creds = Credentials(token=token)  # type: ignore[no-untyped-call]
+            set_current_credentials(creds)
 
-    # Extract GCP Project ID if provided in header
-    project_id_header = request.headers.get("X-GCP-Project-ID")
-    if project_id_header:
-        set_current_project_id(project_id_header)
-    else:
-        # Fallback to query parameter if not in header
-        project_id_query = request.query_params.get("project_id")
-        if project_id_query:
-            set_current_project_id(project_id_query)
+        # Extract GCP Project ID if provided in header
+        project_id_header = request.headers.get("X-GCP-Project-ID")
+        if project_id_header:
+            set_current_project_id(project_id_header)
+        else:
+            # Fallback to query parameter if not in header
+            project_id_query = request.query_params.get("project_id")
+            if project_id_query:
+                set_current_project_id(project_id_query)
 
-    response = await call_next(request)
-    return response
+        response = await call_next(request)
+        return response
+    finally:
+        # Clear credentials after request to prevent leakage between requests
+        clear_current_credentials()
 
 
 def configure_cors(app: FastAPI) -> None:

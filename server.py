@@ -8,13 +8,14 @@ load_dotenv()
 
 from sre_agent.api import create_app  # noqa: E402
 
-# Set log level
+# 0. SET LOG LEVEL EARLY
 os.environ["LOG_LEVEL"] = os.getenv("LOG_LEVEL", "DEBUG")
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # Create the modular FastAPI application
 # This includes all routers (health, agent, tools, sessions) refactored from the monolithic version
+# Telemetry, MCP patches, and Vertex AI initialization are handled inside create_app
 app = create_app(title="SRE Agent Toolbox API", include_adk_routes=True)
 
 if __name__ == "__main__":
