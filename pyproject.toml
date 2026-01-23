@@ -40,6 +40,12 @@ dependencies = [
 
 requires-python = ">=3.10,<3.13"
 
+[project.optional-dependencies]
+arize = [
+    "openinference-instrumentation-google-adk",
+    "arize-otel",
+]
+
 [dependency-groups]
 dev = [
     "pytest>=8.3.2",

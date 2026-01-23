@@ -160,6 +160,50 @@ def setup_telemetry(level: int = logging.INFO) -> None:
         # Update env var so dependent libs (like google.auth) also see clean value
         os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
 
+    # 1. Configure Logging handlers early to capture initialization logs
+    _configure_logging_handlers(level, project_id)
+
+    # 2. Optional Arize / OpenInference Setup
+    # Do this early so Arize can set the global TracerProvider if needed.
+    # Subsequent GCP setup will then add its span processor to the Arize provider.
+    if os.environ.get("USE_ARIZE", "").lower() == "true":
+        try:
+            from arize.otel import register
+            from openinference.instrumentation.google_adk import GoogleADKInstrumentor
+
+            space_id = os.environ.get("ARIZE_SPACE_ID")
+            api_key = os.environ.get("ARIZE_API_KEY")
+            project_name = os.environ.get("ARIZE_PROJECT_NAME", "AutoSRE")
+
+            # Handle GEMINI_API_KEY preference (map to GOOGLE_API_KEY which ADK expects)
+            gemini_key = os.environ.get("GEMINI_API_KEY")
+            if gemini_key and not os.environ.get("GOOGLE_API_KEY"):
+                os.environ["GOOGLE_API_KEY"] = gemini_key
+
+            if not space_id or not api_key:
+                logging.getLogger(__name__).warning(
+                    "USE_ARIZE is true but ARIZE_SPACE_ID or ARIZE_API_KEY is missing"
+                )
+            else:
+                arize_tracer_provider = register(
+                    space_id=space_id,
+                    api_key=api_key,
+                    project_name=project_name,
+                )
+                # Instrument Google ADK for Arize AX
+                GoogleADKInstrumentor().instrument(
+                    tracer_provider=arize_tracer_provider
+                )
+                logging.getLogger(__name__).info(
+                    "✅ Arize / OpenInference instrumentation enabled (Google ADK)"
+                )
+        except ImportError:
+            logging.getLogger(__name__).warning(
+                "Arize dependencies not found. Please install with 'uv sync --extra arize'"
+            )
+        except Exception as e:
+            logging.getLogger(__name__).error(f"Failed to setup Arize: {e}")
+
     # 1. Configure OpenTelemetry SDK
     # Check for DISABLE_TELEMETRY environment variable
     if os.environ.get("DISABLE_TELEMETRY", "").lower() == "true":
@@ -282,9 +326,6 @@ def setup_telemetry(level: int = logging.INFO) -> None:
         if not isinstance(metrics.get_meter_provider(), MeterProvider):
             if "ProxyMeterProvider" in type(metrics.get_meter_provider()).__name__:
                 metrics.set_meter_provider(MeterProvider())
-
-    # 2. Configure Logging
-    _configure_logging_handlers(level, project_id)
 
 
 def _configure_logging_handlers(level: int, project_id: str | None) -> None:
