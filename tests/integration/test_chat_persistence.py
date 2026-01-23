@@ -45,7 +45,7 @@ async def test_chat_endpoint_persists_user_role(client):
 
             # Send a request
             response = client.post(
-                "/agent",
+                "/api/genui/chat",
                 json={
                     "messages": [{"role": "user", "text": "Hello persistence"}],
                     "session_id": None,
@@ -76,9 +76,9 @@ async def test_chat_endpoint_persists_user_role(client):
 
             user_event = user_events[0]
             # This is the critical check
-            assert user_event.content.role == "user", (
-                "User role was not persisted correctly"
-            )
+            assert (
+                user_event.content.role == "user"
+            ), "User role was not persisted correctly"
             assert user_event.content.parts[0].text == "Hello persistence"
 
     finally:

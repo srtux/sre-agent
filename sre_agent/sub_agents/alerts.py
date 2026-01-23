@@ -9,7 +9,7 @@ Its goal is NOT to solve the problem, but to classify it rapidly:
 
 from google.adk.agents import LlmAgent
 
-from ..prompt import STRICT_ENGLISH_INSTRUCTION
+from ..prompt import REACT_PATTERN_INSTRUCTION, STRICT_ENGLISH_INSTRUCTION
 from ..tools import (
     discover_telemetry_sources,
     get_alert,
@@ -24,6 +24,7 @@ init_sub_agent_env()
 
 ALERT_ANALYST_PROMPT = f"""
 {STRICT_ENGLISH_INSTRUCTION}
+{REACT_PATTERN_INSTRUCTION}
 You are the **Alert Analyst** 🚨 - "The First Responder".
 
 ### 🧠 Your Core Logic (The Serious Part)

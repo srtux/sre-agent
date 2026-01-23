@@ -1,6 +1,6 @@
 import json
 
-from server import _create_widget_events
+from sre_agent.api.helpers.tool_events import create_widget_events
 
 
 def test_create_widget_events_log_success():
@@ -11,7 +11,7 @@ def test_create_widget_events_log_success():
         "result": {"entries": [{"insertId": "1", "textPayload": "test log"}]},
     }
 
-    events = _create_widget_events(tool_name, result)
+    events = create_widget_events(tool_name, result)
 
     # Should have 2 events: beginRendering and surfaceUpdate
     assert len(events) == 2
@@ -36,7 +36,7 @@ def test_create_widget_events_log_error():
     tool_name = "list_log_entries"
     result = {"status": "error", "error": "Failed to fetch logs"}
 
-    events = _create_widget_events(tool_name, result)
+    events = create_widget_events(tool_name, result)
 
     # Critical: Should NOT be empty because we removed the suppression
     assert len(events) == 2
@@ -58,7 +58,7 @@ def test_create_widget_events_string_result():
     result_dict = {"trace_id": "trace-123", "spans": [{"span_id": "s1"}]}
     result_str = json.dumps(result_dict)
 
-    events = _create_widget_events(tool_name, result_str)
+    events = create_widget_events(tool_name, result_str)
 
     assert len(events) == 2
     update_event = json.loads(events[1])

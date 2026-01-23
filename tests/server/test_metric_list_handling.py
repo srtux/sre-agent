@@ -1,4 +1,4 @@
-from server import TOOL_WIDGET_MAP
+from sre_agent.api.helpers.tool_events import TOOL_WIDGET_MAP
 from sre_agent.tools.analysis import genui_adapter
 
 

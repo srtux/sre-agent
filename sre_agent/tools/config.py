@@ -22,20 +22,39 @@ CONFIG_FILE_PATH = Path(os.getenv("TOOL_CONFIG_PATH", ".tool_config.json"))
 
 
 class ToolCategory(str, Enum):
-    """Categories of tools based on their functionality."""
+    """Categories of tools based on their functionality and signal type."""
 
-    API_CLIENT = (
-        "api_client"  # Direct GCP API clients (Trace, Logging, Monitoring, etc.)
-    )
-    MCP = "mcp"  # Model Context Protocol tools (BigQuery, Logging, Monitoring MCP)
-    ANALYSIS = (
-        "analysis"  # Analysis/processing tools (patterns, anomalies, correlation)
-    )
-    ORCHESTRATION = "orchestration"  # Orchestration tools (run_aggregate_analysis, run_triage_analysis)
-    DISCOVERY = "discovery"  # Discovery tools
-    REMEDIATION = "remediation"  # Remediation tools
-    GKE = "gke"  # GKE/Kubernetes tools
-    SLO = "slo"  # SLO/SLI tools
+    # Discovery & Global
+    DISCOVERY = "discovery"  # Find data sources, projects, etc.
+    ORCHESTRATION = "orchestration"  # High-level flow control (Stage 0, 1, 2)
+
+    # Trace Signal
+    TRACE_FETCH = "trace_fetch"  # Retrieve raw spans/traces
+    TRACE_ANALYZE = "trace_analyze"  # Process spans, critical path, patterns
+
+    # Log Signal
+    LOG_FETCH = "log_fetch"  # Retrieve log entries/events
+    LOG_ANALYZE = "log_analyze"  # Pattern mining, anomaly detection
+
+    # Metric Signal
+    METRIC_FETCH = "metric_fetch"  # Retrieve time series/exemplars
+    METRIC_ANALYZE = "metric_analyze"  # Trends, stats, anomaly detection
+
+    # Incident & Health
+    ALERT = "alert"  # Alert policies, active incidents
+    SLO = "slo"  # Service Level Objectives & status
+    GKE = "gke"  # Kubernetes health & events
+
+    # Remediation
+    REMEDIATION = "remediation"  # Suggestions, gcloud commands, risk
+
+    # Cross-Signal
+    CORRELATION = "correlation"  # Cross-pillar analysis (Trace + Log + Metric)
+
+    # Legacy/Infrastructure
+    API_CLIENT = "api_client"  # Generic direct API tools
+    MCP = "mcp"  # Generic MCP tools
+    ANALYSIS = "analysis"  # Generic analysis tools
 
 
 class ToolTestStatus(str, Enum):
@@ -131,14 +150,14 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         name="fetch_trace",
         display_name="Fetch Trace",
         description="Fetch a trace from Cloud Trace API",
-        category=ToolCategory.API_CLIENT,
+        category=ToolCategory.TRACE_FETCH,
         testable=True,
     ),
     ToolConfig(
         name="list_traces",
         display_name="List Traces",
         description="List traces from Cloud Trace API",
-        category=ToolCategory.API_CLIENT,
+        category=ToolCategory.TRACE_FETCH,
         testable=True,
     ),
     ToolConfig(
@@ -159,14 +178,14 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         name="list_log_entries",
         display_name="List Log Entries",
         description="List log entries from Cloud Logging API",
-        category=ToolCategory.API_CLIENT,
+        category=ToolCategory.LOG_FETCH,
         testable=True,
     ),
     ToolConfig(
         name="get_logs_for_trace",
         display_name="Get Logs for Trace",
         description="Get log entries correlated with a specific trace",
-        category=ToolCategory.API_CLIENT,
+        category=ToolCategory.LOG_FETCH,
         testable=True,
     ),
     ToolConfig(
@@ -180,21 +199,21 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         name="list_time_series",
         display_name="List Time Series",
         description="List metrics time series from Cloud Monitoring",
-        category=ToolCategory.API_CLIENT,
+        category=ToolCategory.METRIC_FETCH,
         testable=True,
     ),
     ToolConfig(
         name="query_promql",
         display_name="Query PromQL",
         description="Execute PromQL queries against Cloud Monitoring",
-        category=ToolCategory.API_CLIENT,
+        category=ToolCategory.METRIC_FETCH,
         testable=True,
     ),
     ToolConfig(
         name="list_alerts",
         display_name="List Alerts",
         description="List active alerts from Cloud Monitoring",
-        category=ToolCategory.API_CLIENT,
+        category=ToolCategory.ALERT,
         testable=True,
     ),
     ToolConfig(
@@ -260,35 +279,35 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         name="analyze_aggregate_metrics",
         display_name="Analyze Aggregate Metrics",
         description="Analyze aggregate metrics from BigQuery OpenTelemetry tables",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.METRIC_ANALYZE,
         testable=False,
     ),
     ToolConfig(
         name="find_exemplar_traces",
         display_name="Find Exemplar Traces",
         description="Find exemplar traces (baseline and anomaly) from BigQuery",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.TRACE_FETCH,
         testable=False,
     ),
     ToolConfig(
         name="compare_time_periods",
         display_name="Compare Time Periods",
         description="Compare metrics between two time periods",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.METRIC_ANALYZE,
         testable=False,
     ),
     ToolConfig(
         name="detect_trend_changes",
         display_name="Detect Trend Changes",
         description="Detect trend changes in metrics over time",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.METRIC_ANALYZE,
         testable=False,
     ),
     ToolConfig(
         name="correlate_logs_with_trace",
         display_name="Correlate Logs with Trace",
         description="Correlate log entries with a specific trace",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.CORRELATION,
         testable=False,
     ),
     # -------------------------------------------------------------------------
@@ -298,56 +317,56 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         name="calculate_span_durations",
         display_name="Calculate Span Durations",
         description="Calculate durations for all spans in a trace",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.TRACE_ANALYZE,
         testable=False,
     ),
     ToolConfig(
         name="extract_errors",
         display_name="Extract Errors",
         description="Extract error information from trace spans",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.TRACE_ANALYZE,
         testable=False,
     ),
     ToolConfig(
         name="build_call_graph",
         display_name="Build Call Graph",
         description="Build a call graph from trace data",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.TRACE_ANALYZE,
         testable=False,
     ),
     ToolConfig(
         name="summarize_trace",
         display_name="Summarize Trace",
         description="Generate a summary of trace data",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.TRACE_ANALYZE,
         testable=False,
     ),
     ToolConfig(
         name="validate_trace_quality",
         display_name="Validate Trace Quality",
         description="Validate the quality and completeness of trace data",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.TRACE_ANALYZE,
         testable=False,
     ),
     ToolConfig(
         name="compare_span_timings",
         display_name="Compare Span Timings",
         description="Compare span timings between two traces",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.TRACE_ANALYZE,
         testable=False,
     ),
     ToolConfig(
         name="find_structural_differences",
         display_name="Find Structural Differences",
         description="Find structural differences between two traces",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.TRACE_ANALYZE,
         testable=False,
     ),
     ToolConfig(
         name="analyze_trace_comprehensive",
         display_name="Analyze Trace Comprehensive",
         description="Comprehensive trace analysis (mega-tool) combining validation, durations, errors, critical path, and structure",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.TRACE_ANALYZE,
         testable=False,
     ),
     ToolConfig(
@@ -385,28 +404,28 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         name="detect_retry_storm",
         display_name="Detect Retry Storm",
         description="Identify excessive retries and exponential backoff patterns",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.TRACE_ANALYZE,
         testable=False,
     ),
     ToolConfig(
         name="detect_cascading_timeout",
         display_name="Detect Cascading Timeout",
         description="Trace timeout propagation through the call chain",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.TRACE_ANALYZE,
         testable=False,
     ),
     ToolConfig(
         name="detect_connection_pool_issues",
         display_name="Detect Connection Pool Issues",
         description="Detect waits for database or HTTP connections",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.TRACE_ANALYZE,
         testable=False,
     ),
     ToolConfig(
         name="detect_all_sre_patterns",
         display_name="Detect All SRE Patterns",
         description="Comprehensive scan for multiple SRE anti-patterns",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.TRACE_ANALYZE,
         testable=False,
     ),
     # -------------------------------------------------------------------------
@@ -416,28 +435,28 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         name="extract_log_patterns",
         display_name="Extract Log Patterns",
         description="Extract patterns from log entries using Drain3",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.LOG_ANALYZE,
         testable=False,
     ),
     ToolConfig(
         name="compare_log_patterns",
         display_name="Compare Log Patterns",
         description="Compare log patterns between two time periods",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.LOG_ANALYZE,
         testable=False,
     ),
     ToolConfig(
         name="analyze_log_anomalies",
         display_name="Analyze Log Anomalies",
         description="Analyze log anomalies and detect issues",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.LOG_ANALYZE,
         testable=False,
     ),
     ToolConfig(
         name="analyze_bigquery_log_patterns",
         display_name="Analyze BigQuery Log Patterns",
         description="Analyze log patterns using BigQuery for large-scale analysis",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.LOG_ANALYZE,
         testable=False,
     ),
     # -------------------------------------------------------------------------
@@ -447,21 +466,21 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         name="detect_metric_anomalies",
         display_name="Detect Metric Anomalies",
         description="Detect anomalies in metric time series",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.METRIC_ANALYZE,
         testable=False,
     ),
     ToolConfig(
         name="compare_metric_windows",
         display_name="Compare Metric Windows",
         description="Compare metrics between two time windows",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.METRIC_ANALYZE,
         testable=False,
     ),
     ToolConfig(
         name="calculate_series_stats",
         display_name="Calculate Series Stats",
         description="Calculate statistical metrics for time series",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.METRIC_ANALYZE,
         testable=False,
     ),
     # -------------------------------------------------------------------------
@@ -471,28 +490,28 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         name="correlate_trace_with_metrics",
         display_name="Correlate Trace with Metrics",
         description="Correlate trace data with metrics",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.CORRELATION,
         testable=False,
     ),
     ToolConfig(
         name="correlate_metrics_with_traces_via_exemplars",
         display_name="Correlate Metrics via Exemplars",
         description="Correlate metrics with traces using exemplars",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.CORRELATION,
         testable=False,
     ),
     ToolConfig(
         name="build_cross_signal_timeline",
         display_name="Build Cross-Signal Timeline",
         description="Build a unified timeline from multiple signal sources",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.CORRELATION,
         testable=False,
     ),
     ToolConfig(
         name="analyze_signal_correlation_strength",
         display_name="Analyze Signal Correlation",
         description="Analyze the correlation strength between signals",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.CORRELATION,
         testable=False,
     ),
     # -------------------------------------------------------------------------
@@ -502,49 +521,49 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         name="analyze_critical_path",
         display_name="Analyze Critical Path",
         description="Analyze the critical path in a trace",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.TRACE_ANALYZE,
         testable=False,
     ),
     ToolConfig(
         name="find_bottleneck_services",
         display_name="Find Bottleneck Services",
         description="Find services that are bottlenecks in the request path",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.TRACE_ANALYZE,
         testable=False,
     ),
     ToolConfig(
         name="calculate_critical_path_contribution",
         display_name="Calculate Critical Path Contribution",
         description="Calculate each service's contribution to critical path",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.TRACE_ANALYZE,
         testable=False,
     ),
     ToolConfig(
         name="build_service_dependency_graph",
         display_name="Build Service Dependency Graph",
         description="Build a graph of service dependencies",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.DISCOVERY,
         testable=False,
     ),
     ToolConfig(
         name="analyze_upstream_downstream_impact",
         display_name="Analyze Impact",
         description="Analyze upstream and downstream service impact",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.TRACE_ANALYZE,
         testable=False,
     ),
     ToolConfig(
         name="detect_circular_dependencies",
         display_name="Detect Circular Dependencies",
         description="Detect circular dependencies in service graph",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.TRACE_ANALYZE,
         testable=False,
     ),
     ToolConfig(
         name="find_hidden_dependencies",
         display_name="Find Hidden Dependencies",
         description="Find hidden or implicit service dependencies",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.TRACE_ANALYZE,
         testable=False,
     ),
     # -------------------------------------------------------------------------
@@ -634,7 +653,7 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         name="correlate_trace_with_kubernetes",
         display_name="Correlate Trace with K8s",
         description="Correlate trace data with Kubernetes events",
-        category=ToolCategory.GKE,
+        category=ToolCategory.CORRELATION,
         testable=False,
     ),
     ToolConfig(
@@ -730,7 +749,7 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         name="synthesize_report",
         display_name="Synthesize Report",
         description="Synthesize a comprehensive incident report",
-        category=ToolCategory.ANALYSIS,
+        category=ToolCategory.ORCHESTRATION,
         testable=False,
     ),
 ]

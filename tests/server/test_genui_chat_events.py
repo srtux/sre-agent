@@ -12,12 +12,12 @@ import httpx
 import pytest
 import pytest_asyncio
 
-from server import (
+from server import app
+from sre_agent.api.helpers.tool_events import (
     TOOL_WIDGET_MAP,
-    _create_tool_call_events,
-    _create_tool_response_events,
-    _normalize_tool_args,
-    app,
+    create_tool_call_events,
+    create_tool_response_events,
+    normalize_tool_args,
 )
 
 
@@ -35,40 +35,40 @@ async def async_client():
 
 
 def test_normalize_tool_args_none():
-    """Test _normalize_tool_args with None."""
-    result = _normalize_tool_args(None)
+    """Test normalize_tool_args with None."""
+    result = normalize_tool_args(None)
     assert result == {}
 
 
 def test_normalize_tool_args_dict():
-    """Test _normalize_tool_args with dict."""
+    """Test normalize_tool_args with dict."""
     args = {"key": "value"}
-    result = _normalize_tool_args(args)
+    result = normalize_tool_args(args)
     assert result == {"key": "value"}
 
 
 def test_normalize_tool_args_with_to_dict():
-    """Test _normalize_tool_args with object having to_dict method."""
+    """Test normalize_tool_args with object having to_dict method."""
     mock_args = MagicMock()
     mock_args.to_dict.return_value = {"key": "value"}
-    result = _normalize_tool_args(mock_args)
+    result = normalize_tool_args(mock_args)
     assert result == {"key": "value"}
 
 
 def test_normalize_tool_args_fallback():
-    """Test _normalize_tool_args with non-convertible object."""
+    """Test normalize_tool_args with non-convertible object."""
 
     class NonConvertible:
         pass
 
-    result = _normalize_tool_args(NonConvertible())
+    result = normalize_tool_args(NonConvertible())
     assert "_raw_args" in result
 
 
 def test_create_tool_call_events():
     """Test _create_tool_call_events creates proper A2UI events."""
     pending_calls: list[dict] = []
-    call_id, events = _create_tool_call_events(
+    call_id, events = create_tool_call_events(
         tool_name="test_tool",
         args={"arg1": "value1"},
         pending_tool_calls=pending_calls,
@@ -111,7 +111,7 @@ def test_create_tool_response_events_success():
         }
     ]
 
-    call_id, events = _create_tool_response_events(
+    call_id, events = create_tool_response_events(
         tool_name="test_tool",
         result={"result": "success"},
         pending_tool_calls=pending_calls,
@@ -142,7 +142,7 @@ def test_create_tool_response_events_error():
         }
     ]
 
-    _call_id, events = _create_tool_response_events(
+    _call_id, events = create_tool_response_events(
         tool_name="test_tool",
         result={"error": "Something went wrong", "error_type": "RuntimeError"},
         pending_tool_calls=pending_calls,
@@ -167,7 +167,7 @@ def test_create_tool_response_events_no_match():
         }
     ]
 
-    call_id, events = _create_tool_response_events(
+    call_id, events = create_tool_response_events(
         tool_name="test_tool",  # Different tool name
         result={"result": "success"},
         pending_tool_calls=pending_calls,
@@ -198,7 +198,7 @@ def test_create_tool_response_events_fifo_matching():
     ]
 
     # First response should match first call (FIFO)
-    call_id1, events1 = _create_tool_response_events(
+    call_id1, events1 = create_tool_response_events(
         tool_name="fetch_trace",
         result={"result": "trace-1-data"},
         pending_tool_calls=pending_calls,
@@ -214,7 +214,7 @@ def test_create_tool_response_events_fifo_matching():
     assert tool_log["args"] == {"trace_id": "trace-1"}
 
     # Second response should match second call
-    call_id2, _events2 = _create_tool_response_events(
+    call_id2, _events2 = create_tool_response_events(
         tool_name="fetch_trace",
         result={"result": "trace-2-data"},
         pending_tool_calls=pending_calls,

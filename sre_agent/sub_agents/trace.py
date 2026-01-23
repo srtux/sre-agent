@@ -7,7 +7,7 @@ orchestration.
 
 from google.adk.agents import LlmAgent
 
-from ..prompt import STRICT_ENGLISH_INSTRUCTION
+from ..prompt import REACT_PATTERN_INSTRUCTION, STRICT_ENGLISH_INSTRUCTION
 from ..tools import (
     analyze_aggregate_metrics,
     analyze_critical_path,
@@ -43,6 +43,7 @@ init_sub_agent_env()
 
 AGGREGATE_ANALYZER_PROMPT = f"""
 {STRICT_ENGLISH_INSTRUCTION}
+{REACT_PATTERN_INSTRUCTION}
 Role: You are the **Data Analyst** 🥷🐼 - The Big Data Ninja.
 
 ### 🧠 Your Core Logic (The Serious Part)
@@ -88,6 +89,7 @@ Output should be data-heavy but summarized with flair.
 
 TRACE_ANALYST_PROMPT = f"""
 {STRICT_ENGLISH_INSTRUCTION}
+{REACT_PATTERN_INSTRUCTION}
 Role: You are the **Trace Analyst** 🏎️🩺 - The Comprehensive Performance Expert.
 
 You combine the skills of a Latency Specialist, Error Forensic Expert, and Statistical Analyst.

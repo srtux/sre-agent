@@ -17,7 +17,9 @@ class TestStopButtonCancellation(unittest.IsolatedAsyncioTestCase):
         """
         from starlette.requests import Request
 
-        from server import ChatMessage, ChatRequest, genui_chat
+        from sre_agent.api.routers.agent import AgentMessage as ChatMessage
+        from sre_agent.api.routers.agent import AgentRequest as ChatRequest
+        from sre_agent.api.routers.agent import chat_agent as genui_chat
 
         # Mock Request
         mock_raw_request = MagicMock(spec=Request)
@@ -25,26 +27,32 @@ class TestStopButtonCancellation(unittest.IsolatedAsyncioTestCase):
 
         # Mock Session Service
         with (
-            patch("server.get_session_service") as mock_get_session_service,
-            patch("server.root_agent") as mock_root_agent,
-            patch("server.get_tool_context") as mock_get_tool_context,
+            patch(
+                "sre_agent.api.routers.agent.get_session_service"
+            ) as mock_get_session_service,
+            patch("sre_agent.api.routers.agent.root_agent") as mock_root_agent,
+            patch(
+                "sre_agent.api.routers.agent.InvocationContext"
+            ) as mock_inv_ctx_class,
+            patch("sre_agent.api.routers.agent.RunConfig") as _mock_run_config_class,
+            patch("sre_agent.api.routers.agent.Event") as _mock_event_class,
+            patch("sre_agent.api.routers.agent.Content") as _mock_content_class,
+            patch("sre_agent.api.routers.agent.Part") as _mock_part_class,
         ):
             # Setup Session
             mock_session = MagicMock()
             mock_session.id = "test-session-id"
             mock_session.events = []
             mock_session_service = AsyncMock()
-            mock_session_service.get_or_create_session.return_value = mock_session
+            mock_session_service.get_session.return_value = mock_session
+            mock_session_service.create_session.return_value = mock_session
+            mock_session_service.session_service = AsyncMock()
             mock_get_session_service.return_value = mock_session_service
 
-            # Setup Tool Context
-            mock_tool_ctx = MagicMock()
+            # Setup InvocationContext instance
             mock_inv_ctx = MagicMock()
-            # CRITICAL: Set agent to None so server.py uses root_agent (our mock)
-            # instead of the mock_inv_ctx.agent default mock
-            mock_inv_ctx.agent = None
-            mock_tool_ctx._invocation_context = mock_inv_ctx
-            mock_get_tool_context.return_value = mock_tool_ctx
+            mock_inv_ctx.invocation_id = "test-inv-id"
+            mock_inv_ctx_class.return_value = mock_inv_ctx
 
             # --- AGENT MOCK ---
             agent_cancelled_event = asyncio.Event()

@@ -170,7 +170,7 @@ def test_tool_config_manager_get_config():
     config = manager.get_config("list_traces")
     assert config is not None
     assert config.name == "list_traces"
-    assert config.category == ToolCategory.API_CLIENT
+    assert config.category == ToolCategory.TRACE_FETCH
     assert config.testable is True
 
     # Test non-existent tool
@@ -191,9 +191,9 @@ def test_tool_config_manager_get_configs_by_category():
     """Test getting configurations by category."""
     manager = get_tool_config_manager()
 
-    api_configs = manager.get_configs_by_category(ToolCategory.API_CLIENT)
+    api_configs = manager.get_configs_by_category(ToolCategory.TRACE_FETCH)
     assert len(api_configs) > 0
-    assert all(c.category == ToolCategory.API_CLIENT for c in api_configs)
+    assert all(c.category == ToolCategory.TRACE_FETCH for c in api_configs)
 
     slo_configs = manager.get_configs_by_category(ToolCategory.SLO)
     assert len(slo_configs) > 0
