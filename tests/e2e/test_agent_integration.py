@@ -61,8 +61,12 @@ async def test_agent_finds_logs_for_trace(mock_trace_client):
 
     mock_client.list_traces.return_value = [mock_trace]
 
-    # Run
-    result = await list_traces("p", limit=1, min_latency_ms=500)
+    with patch(
+        "sre_agent.tools.clients.trace._get_thread_credentials",
+        return_value=MagicMock(),
+    ):
+        # Run
+        result = await list_traces("p", limit=1, min_latency_ms=500)
 
     # Verify request args
     call_args = mock_client.list_traces.call_args

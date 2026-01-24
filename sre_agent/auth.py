@@ -121,6 +121,16 @@ def get_current_credentials() -> tuple[google.auth.credentials.Credentials, str 
         return creds, None
 
     # Fallback to default if no user credentials (e.g. running locally or background tasks)
+    # UNLESS strict EUC enforcement is enabled.
+    import os
+
+    if os.getenv("STRICT_EUC_ENFORCEMENT", "false").lower() == "true":
+        logger.info("Strict EUC enforcement enabled: no ADC fallback for credentials")
+        raise PermissionError(
+            "Authentication required: EUC not found and ADC fallback is disabled. "
+            "Please ensure you are logged in."
+        )
+
     return google.auth.default()
 
 
@@ -157,6 +167,13 @@ def get_current_project_id() -> str | None:
         return project_id
 
     # 3. Check Credentials
+    # UNLESS strict EUC enforcement is enabled and we have no user credentials.
+    if os.getenv("STRICT_EUC_ENFORCEMENT", "false").lower() == "true":
+        logger.debug(
+            "Strict EUC enforcement enabled: skipping ADC fallback for project ID"
+        )
+        return None
+
     try:
         _, project_id = google.auth.default()
         return project_id

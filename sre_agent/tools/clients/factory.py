@@ -50,9 +50,22 @@ def _get_client(
     Returns:
         The initialized client instance.
     """
-    if name not in _clients:
-        with _lock:
-            if name not in _clients:
+    with _lock:
+        if name not in _clients:
+            # Note: We provide a default client ONLY if explicitly allowed by environment.
+            # In production/strictly-EUC mode, we want this to be empty to catch missing creds.
+            import os
+
+            if os.getenv("STRICT_EUC_ENFORCEMENT", "false").lower() == "true":
+                logger.info(
+                    f"Strict EUC enforcement enabled: no default client for {name}"
+                )
+                _clients[name] = None
+            else:
+                logger.warning(
+                    f"⚠️ Initializing default {name} client (ADC). "
+                    "This usually means EUC propagation failed or we are running in a background task."
+                )
                 _clients[name] = client_class()
 
     # First, check for user credentials from tool_context (session state)
@@ -71,7 +84,13 @@ def _get_client(
         # We don't cache these in the global cache to avoid mixing user sessions.
         return client_class(credentials=user_creds)  # type: ignore[call-arg]
 
-    return cast(T, _clients[name])
+    client = _clients.get(name)
+    if client is None:
+        raise PermissionError(
+            f"Authentication failed: EUC not found for {name} client and ADC fallback is disabled. "
+            "Please ensure you are logged in."
+        )
+    return cast(T, client)
 
 
 def get_trace_client(

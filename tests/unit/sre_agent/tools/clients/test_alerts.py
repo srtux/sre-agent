@@ -13,9 +13,13 @@ from sre_agent.tools.clients.alerts import (
 
 @pytest.fixture
 def mock_auth():
-    with patch("google.auth.default") as mock:
-        mock.return_value = (MagicMock(), "test-project")
-        yield mock
+    with patch(
+        "os.getenv",
+        side_effect=lambda k, d=None: "false" if k == "STRICT_EUC_ENFORCEMENT" else d,
+    ):
+        with patch("google.auth.default") as mock:
+            mock.return_value = (MagicMock(), "test-project")
+            yield mock
 
 
 @pytest.fixture

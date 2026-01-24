@@ -33,7 +33,6 @@ from ...auth import (
 from ..common import adk_tool
 from ..common.cache import get_data_cache
 from ..common.telemetry import get_meter, get_tracer
-from .factory import get_trace_client
 
 __all__ = [
     "_clear_thread_credentials",
@@ -42,6 +41,7 @@ __all__ = [
     "fetch_trace_data",
     "find_example_traces",
     "get_credentials_from_tool_context",
+    "get_trace_client",
     "list_traces",
     "validate_trace",
 ]
@@ -157,6 +157,18 @@ def get_current_time() -> str:
     Use this to calculate relative time ranges for list_traces.
     """
     return datetime.now(timezone.utc).isoformat()
+
+
+def get_trace_client(credentials: Any = None) -> trace_v1.TraceServiceClient:
+    """Gets a Cloud Trace API client.
+
+    Args:
+        credentials: Google Auth credentials to use.
+
+    Returns:
+        A TraceServiceClient instance.
+    """
+    return trace_v1.TraceServiceClient(credentials=credentials)
 
 
 def fetch_trace_data(
@@ -278,12 +290,17 @@ def _fetch_trace_sync(project_id: str, trace_id: str) -> dict[str, Any]:
         try:
             # Use user credentials from thread storage if available (EIC propagation)
             if thread_creds:
-                from google.cloud import trace_v1
-
-                client = trace_v1.TraceServiceClient(credentials=thread_creds)
+                client = get_trace_client(credentials=thread_creds)
                 logger.debug("Using user credentials for trace client")
             else:
-                client = get_trace_client()
+                # STRICT MODE: Never fall back to ADC/Factory default if running in this context
+                # This ensures we don't accidentally use the host's gcloud identity
+                error_msg = (
+                    "Authentication failed: No user credentials found in thread context. "
+                    "EUC propagation required."
+                )
+                logger.error(error_msg)
+                return {"error": error_msg}
 
             trace_obj = client.get_trace(project_id=project_id, trace_id=trace_id)
 
@@ -423,9 +440,15 @@ def _list_traces_sync(
         thread_creds = _get_thread_credentials()
         try:
             if thread_creds:
-                client = trace_v1.TraceServiceClient(credentials=thread_creds)
+                client = get_trace_client(credentials=thread_creds)
             else:
-                client = get_trace_client()
+                # STRICT MODE: Never fall back to ADC/Factory default
+                error_msg = (
+                    "Authentication failed: No user credentials found in thread context. "
+                    "EUC propagation required for list_traces."
+                )
+                logger.error(error_msg)
+                return {"error": error_msg}
 
             # Construct complex filter string
             # Placeholder for build_trace_filter, assuming it's defined elsewhere or will be added.

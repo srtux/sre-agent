@@ -37,9 +37,12 @@ async def list_gcp_projects(
         # Use Any to avoid type mismatch between oauth2.credentials and google.auth.credentials
         auth_creds: Any = get_credentials_from_tool_context(tool_context)
 
-        # Fallback to default credentials if no user credentials found in tool_context/ContextVar
+        # Strict EUC Enforcement: No fallback to Default Credentials (ADC)
         if not auth_creds:
-            auth_creds, _ = google.auth.default()
+            return {
+                "projects": [],
+                "error": "Authentication required. EUC not found and ADC fallback is disabled for this tool.",
+            }
 
         if auth_creds and not getattr(auth_creds, "token", None):
             # Refresh credentials if needed

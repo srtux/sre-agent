@@ -56,12 +56,28 @@ def test_project_id_context():
 
 def test_get_current_credentials_fallback():
     mock_default_creds = MagicMock()
+    # Test with strict enforcement OFF
     with patch(
-        "google.auth.default", return_value=(mock_default_creds, "default-project")
+        "os.getenv",
+        side_effect=lambda k, d=None: "false" if k == "STRICT_EUC_ENFORCEMENT" else d,
     ):
-        creds, project_id = get_current_credentials()
-        assert creds == mock_default_creds
-        assert project_id == "default-project"
+        with patch(
+            "google.auth.default", return_value=(mock_default_creds, "default-project")
+        ):
+            creds, project_id = get_current_credentials()
+            assert creds == mock_default_creds
+            assert project_id == "default-project"
+
+
+def test_get_current_credentials_strict_enforcement():
+    # Test with strict enforcement ON
+    with patch(
+        "os.getenv",
+        side_effect=lambda k, d=None: "true" if k == "STRICT_EUC_ENFORCEMENT" else d,
+    ):
+        with pytest.raises(PermissionError) as excinfo:
+            get_current_credentials()
+        assert "Authentication required" in str(excinfo.value)
 
 
 def test_get_credentials_from_session():

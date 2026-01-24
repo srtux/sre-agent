@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from google.cloud import logging_v2, trace_v1
@@ -30,12 +30,14 @@ class TestFetchTrace:
     """Tests for fetch_trace function."""
 
     @pytest.mark.asyncio
-    @patch("sre_agent.tools.clients.trace.get_trace_client")
-    async def test_fetch_trace_success(self, mock_get_client):
+    @patch("sre_agent.tools.clients.trace.trace_v1.TraceServiceClient")
+    @patch("sre_agent.tools.clients.trace._get_thread_credentials")
+    async def test_fetch_trace_success(self, mock_get_creds, mock_client_cls):
         """Test successful trace fetch."""
         # Setup mock
         mock_client = MagicMock()
-        mock_get_client.return_value = mock_client
+        mock_client_cls.return_value = mock_client
+        mock_get_creds.return_value = MagicMock()  # valid credentials
 
         trace_id = generate_trace_id()
 
@@ -58,11 +60,30 @@ class TestFetchTrace:
         mock_client.get_trace.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("sre_agent.tools.clients.trace.get_trace_client")
-    async def test_fetch_trace_with_invalid_trace_id(self, mock_get_client):
+    @patch("sre_agent.tools.clients.trace.trace_v1.TraceServiceClient")
+    @patch("sre_agent.tools.clients.trace._get_thread_credentials")
+    async def test_fetch_trace_no_creds(self, mock_get_creds, mock_client_cls):
+        """Test fetch trace with no credentials."""
+        mock_get_creds.return_value = None  # No creds
+
+        result = await trace_client.fetch_trace(
+            project_id="test-project", trace_id=generate_trace_id()
+        )
+
+        assert "error" in result
+        assert "Authentication failed" in result["error"]
+        mock_client_cls.assert_not_called()
+
+    @pytest.mark.asyncio
+    @patch("sre_agent.tools.clients.trace.trace_v1.TraceServiceClient")
+    @patch("sre_agent.tools.clients.trace._get_thread_credentials")
+    async def test_fetch_trace_with_invalid_trace_id(
+        self, mock_get_creds, mock_client_cls
+    ):
         """Test fetch trace with invalid trace ID."""
         mock_client = MagicMock()
-        mock_get_client.return_value = mock_client
+        mock_client_cls.return_value = mock_client
+        mock_get_creds.return_value = MagicMock()  # valid credentials
 
         # Setup mock to raise exception
         from google.api_core import exceptions
@@ -83,11 +104,13 @@ class TestListTraces:
     """Tests for list_traces function."""
 
     @pytest.mark.asyncio
-    @patch("sre_agent.tools.clients.trace.get_trace_client")
-    async def test_list_traces_success(self, mock_get_client):
+    @patch("sre_agent.tools.clients.trace.trace_v1.TraceServiceClient")
+    @patch("sre_agent.tools.clients.trace._get_thread_credentials")
+    async def test_list_traces_success(self, mock_get_creds, mock_client_cls):
         """Test successful trace listing."""
         mock_client = MagicMock()
-        mock_get_client.return_value = mock_client
+        mock_client_cls.return_value = mock_client
+        mock_get_creds.return_value = MagicMock()  # valid credentials
 
         # Setup mock response
         mock_traces = []
@@ -109,11 +132,13 @@ class TestListTraces:
         mock_client.list_traces.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("sre_agent.tools.clients.trace.get_trace_client")
-    async def test_list_traces_with_time_filter(self, mock_get_client):
+    @patch("sre_agent.tools.clients.trace.trace_v1.TraceServiceClient")
+    @patch("sre_agent.tools.clients.trace._get_thread_credentials")
+    async def test_list_traces_with_time_filter(self, mock_get_creds, mock_client_cls):
         """Test trace listing with time filter."""
         mock_client = MagicMock()
-        mock_get_client.return_value = mock_client
+        mock_client_cls.return_value = mock_client
+        mock_get_creds.return_value = MagicMock()  # valid credentials
 
         mock_client.list_traces.return_value = []
 
@@ -188,29 +213,34 @@ class TestFindExampleTraces:
     """Tests for find_example_traces function."""
 
     @pytest.mark.asyncio
-    @patch("sre_agent.tools.clients.trace.get_trace_client")
-    async def test_find_example_traces_with_error_filter(self, mock_get_client):
+    @patch("sre_agent.tools.clients.trace.list_traces", new_callable=AsyncMock)
+    async def test_find_example_traces_with_error_filter(self, mock_list_traces):
         """Test finding example traces with error filter."""
-        mock_client = MagicMock()
-        mock_get_client.return_value = mock_client
+        # mock_client = MagicMock() # No longer needed if we mock list_traces directly
+        # mock_get_client.return_value = mock_client
 
         # Setup mock traces with errors
         mock_traces = []
         for _i in range(3):
-            mock_trace = MagicMock()
-            mock_trace.trace_id = generate_trace_id()
-            mock_trace.project_id = "test-project"
-            # Give them some span to avoid duration errors
-            mock_span = MagicMock()
-            mock_span.name = "root"
-            mock_span.start_time.timestamp.return_value = 1000
-            mock_span.start_time.isoformat.return_value = "2024-01-01T00:00:00Z"
-            mock_span.end_time.timestamp.return_value = 2000
-            mock_span.labels = {}
-            mock_trace.spans = [mock_span]
-            mock_traces.append(mock_trace)
+            trace_id = generate_trace_id()
+            mock_traces.append(
+                {
+                    "trace_id": trace_id,
+                    "project_id": "test-project",
+                    "duration_ms": 1000.0,
+                    "name": "root",
+                    "spans": [
+                        {
+                            "span_id": "s1",
+                            "name": "root",
+                            "start_time": "2024-01-01T00:00:00Z",
+                            "end_time": "2024-01-01T00:00:01Z",
+                        }
+                    ],
+                }
+            )
 
-        mock_client.list_traces.return_value = mock_traces
+        mock_list_traces.return_value = mock_traces
 
         # Execute
         result = await trace_client.find_example_traces(
@@ -221,7 +251,7 @@ class TestFindExampleTraces:
         assert result is not None
         assert "baseline" in result
         assert "anomaly" in result
-        mock_client.list_traces.assert_called()
+        mock_list_traces.assert_called()
 
 
 class TestGetTraceByURL:
@@ -344,10 +374,11 @@ class TestIntegration:
     """Integration tests for trace client tools."""
 
     @pytest.mark.asyncio
-    @patch("sre_agent.tools.clients.trace.get_trace_client")
+    @patch("sre_agent.tools.clients.trace.trace_v1.TraceServiceClient")
+    @patch("sre_agent.tools.clients.trace._get_thread_credentials")
     @patch("sre_agent.tools.clients.logging.get_logging_client")
     async def test_fetch_trace_and_logs_workflow(
-        self, mock_get_logging, mock_get_trace
+        self, mock_get_logging, mock_get_creds, mock_client_cls
     ):
         """Test complete workflow of fetching trace and its logs."""
         # Setup trace mock
@@ -358,7 +389,11 @@ class TestIntegration:
         mock_trace.project_id = "test-project"
         mock_trace.spans = []
 
-        mock_get_trace.return_value.get_trace.return_value = mock_trace
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
+        mock_get_creds.return_value = MagicMock()  # valid credentials
+
+        mock_client.get_trace.return_value = mock_trace
 
         # Setup logging mock
         mock_log_entry = MagicMock()
