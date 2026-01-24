@@ -62,6 +62,97 @@ def _fetch_traces_parallel(
     return results
 
 
+def compute_latency_statistics_impl(
+    valid_trace_data: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Logic implementation for compute_latency_statistics using pre-fetched data."""
+    latencies = []
+    valid_traces = []
+
+    # Track stats per span name
+    span_durations = defaultdict(list)
+
+    for trace_data in valid_trace_data:
+        if isinstance(trace_data, dict):
+            # Calculate total duration if not present
+            duration = trace_data.get("duration_ms")
+
+            # If we have spans, we can also aggregate span-level stats
+            if "spans" in trace_data:
+                for s in trace_data["spans"]:
+                    # Try to get duration from span
+                    d = s.get("duration_ms")
+                    if d is None and s.get("start_time") and s.get("end_time"):
+                        try:
+                            start = datetime.fromisoformat(
+                                s["start_time"].replace("Z", "+00:00")
+                            )
+                            end = datetime.fromisoformat(
+                                s["end_time"].replace("Z", "+00:00")
+                            )
+                            d = (end - start).total_seconds() * 1000
+                        except Exception:
+                            pass
+
+                    if d is not None:
+                        span_durations[s.get("name", "unknown")].append(d)
+
+            if duration is not None:
+                latencies.append(float(duration))
+                valid_traces.append(trace_data)
+
+    if not latencies:
+        return {"error": "No valid trace durations found"}
+
+    latencies.sort()
+    count = len(latencies)
+
+    stats: dict[str, Any] = {
+        "count": count,
+        "min": latencies[0],
+        "max": latencies[-1],
+        "mean": statistics.mean(latencies),
+        "median": statistics.median(latencies),
+        "p90": latencies[int(count * 0.9)] if count > 0 else 0,
+        "p95": latencies[int(count * 0.95)] if count > 0 else 0,
+        "p99": latencies[int(count * 0.99)] if count > 0 else 0,
+    }
+
+    if count > 1:
+        stats["stdev"] = statistics.stdev(latencies)
+        stats["variance"] = statistics.variance(latencies)
+    else:
+        stats["stdev"] = 0
+        stats["variance"] = 0
+
+    # Calculate per-span stats with Z-score support
+    per_span_stats: dict[str, Any] = {}
+    for name, durs in span_durations.items():
+        if not durs:
+            continue
+        durs.sort()
+        c = len(durs)
+        span_mean = statistics.mean(durs)
+        per_span_stats[name] = {
+            "count": c,
+            "mean": span_mean,
+            "min": durs[0],
+            "max": durs[-1],
+            "p95": durs[int(c * 0.95)] if c > 0 else 0,
+        }
+        # Calculate stdev for Z-score anomaly detection (need at least 2 samples)
+        if c > 1:
+            per_span_stats[name]["stdev"] = statistics.stdev(durs)
+            per_span_stats[name]["variance"] = statistics.variance(durs)
+        else:
+            per_span_stats[name]["stdev"] = 0
+            per_span_stats[name]["variance"] = 0
+
+    stats["per_span_stats"] = per_span_stats
+
+    return stats
+
+
 @adk_tool
 def compute_latency_statistics(
     trace_ids: list[str], project_id: str | None = None, tool_context: Any = None
@@ -77,96 +168,12 @@ def compute_latency_statistics(
         Dictionary containing statistical metrics.
     """
     with tracer.start_as_current_span("compute_latency_statistics"):
-        latencies = []
-        valid_traces = []
-
-        # Track stats per span name
-        span_durations = defaultdict(list)
-
         # Fetch traces in parallel
         valid_trace_data = _fetch_traces_parallel(
             trace_ids, project_id, tool_context=tool_context
         )
 
-        for trace_data in valid_trace_data:
-            if isinstance(trace_data, dict):
-                # Calculate total duration if not present
-                duration = trace_data.get("duration_ms")
-
-                # If we have spans, we can also aggregate span-level stats
-                if "spans" in trace_data:
-                    for s in trace_data["spans"]:
-                        # Try to get duration from span
-                        d = s.get("duration_ms")
-                        if d is None and s.get("start_time") and s.get("end_time"):
-                            try:
-                                start = datetime.fromisoformat(
-                                    s["start_time"].replace("Z", "+00:00")
-                                )
-                                end = datetime.fromisoformat(
-                                    s["end_time"].replace("Z", "+00:00")
-                                )
-                                d = (end - start).total_seconds() * 1000
-                            except Exception:
-                                pass
-
-                        if d is not None:
-                            span_durations[s.get("name", "unknown")].append(d)
-
-                if duration is not None:
-                    latencies.append(float(duration))
-                    valid_traces.append(trace_data)
-
-        if not latencies:
-            return {"error": "No valid trace durations found"}
-
-        latencies.sort()
-        count = len(latencies)
-
-        stats: dict[str, Any] = {
-            "count": count,
-            "min": latencies[0],
-            "max": latencies[-1],
-            "mean": statistics.mean(latencies),
-            "median": statistics.median(latencies),
-            "p90": latencies[int(count * 0.9)] if count > 0 else 0,
-            "p95": latencies[int(count * 0.95)] if count > 0 else 0,
-            "p99": latencies[int(count * 0.99)] if count > 0 else 0,
-        }
-
-        if count > 1:
-            stats["stdev"] = statistics.stdev(latencies)
-            stats["variance"] = statistics.variance(latencies)
-        else:
-            stats["stdev"] = 0
-            stats["variance"] = 0
-
-        # Calculate per-span stats with Z-score support
-        per_span_stats: dict[str, Any] = {}
-        for name, durs in span_durations.items():
-            if not durs:
-                continue
-            durs.sort()
-            c = len(durs)
-            span_mean = statistics.mean(durs)
-            per_span_stats[name] = {
-                "count": c,
-                "mean": span_mean,
-                "min": durs[0],
-                "max": durs[-1],
-                "p95": durs[int(c * 0.95)] if c > 0 else 0,
-            }
-            # Calculate stdev for Z-score anomaly detection (need at least 2 samples)
-            if c > 1:
-                per_span_stats[name]["stdev"] = statistics.stdev(durs)
-                per_span_stats[name]["variance"] = statistics.variance(durs)
-            else:
-                per_span_stats[name]["stdev"] = 0
-                per_span_stats[name]["variance"] = 0
-
-        stats["per_span_stats"] = per_span_stats
-
-        return stats
+        return compute_latency_statistics_impl(valid_trace_data)
 
 
 def _detect_latency_anomalies_impl(
