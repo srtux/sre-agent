@@ -69,9 +69,13 @@ def main():
         f"GCP_REGION={args.region}",
         f"AGENT_ENGINE_LOCATION={args.region}",
         f"GOOGLE_CLOUD_LOCATION={os.getenv('GOOGLE_CLOUD_LOCATION', args.region)}",
-        f"STRICT_EUC_ENFORCEMENT={os.getenv('STRICT_EUC_ENFORCEMENT', 'true')}",
         "USE_ARIZE=false",
     ]
+
+    if os.getenv("SRE_AGENT_ENCRYPTION_KEY"):
+        env_vars.append(
+            f"SRE_AGENT_ENCRYPTION_KEY={os.getenv('SRE_AGENT_ENCRYPTION_KEY')}"
+        )
 
     if agent_url:
         env_vars.append(f"SRE_AGENT_URL={agent_url}")
