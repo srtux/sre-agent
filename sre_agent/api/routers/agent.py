@@ -39,6 +39,8 @@ from sre_agent.auth import (
     get_current_credentials_or_none,
     get_current_project_id,
 )
+from sre_agent.core.prompt_composer import DomainContext
+from sre_agent.core.runner import Runner, create_runner
 from sre_agent.models.investigation import (
     PHASE_INSTRUCTIONS,
     InvestigationState,
@@ -313,6 +315,12 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
     access_token = creds.token if creds and hasattr(creds, "token") else None
     effective_project_id = get_current_project_id() or request.project_id
 
+    # Log auth context
+    logger.info(
+        f"🔐 Chat Auth Context: user={effective_user_id}, "
+        f"project={effective_project_id}, has_token={access_token is not None}"
+    )
+
     # Check if we should use remote Agent Engine
     if is_remote_mode():
         logger.info("Using remote Agent Engine mode")
@@ -339,6 +347,11 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
         create_widget_events,
         normalize_tool_args,
     )
+
+    # Lazy init runner
+    if not hasattr(root_agent, "_runner"):
+        setattr(root_agent, "_runner", create_runner(root_agent))  # noqa: B010
+    runner: Runner = getattr(root_agent, "_runner")  # noqa: B009
 
     try:
         session_manager = get_session_service()
@@ -489,10 +502,21 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
             checker_task = asyncio.create_task(disconnect_checker())
 
             try:
-                # Iterate through agent events and yield to the stream
-                # FastAPI StreamingResponse natively handles client disconnection via CancelledError
-                async for event in root_agent.run_async(inv_ctx):
-                    logger.debug(f"📥 Received event from agent: {event}")
+                # Iterate through agent events from the Runner
+                # create domain context for the run
+                domain_ctx = DomainContext(
+                    project_id=effective_project_id,
+                    investigation_phase=inv_state.phase.value if inv_state else None,
+                )
+
+                async for event in runner.run_turn(
+                    session=active_session,
+                    user_message=last_msg_text,
+                    user_id=effective_user_id,
+                    project_id=effective_project_id,
+                    domain_context=domain_ctx,
+                ):
+                    logger.debug(f"📥 Received event from runner: {event}")
 
                     # Persist generated event
                     await session_manager.session_service.append_event(

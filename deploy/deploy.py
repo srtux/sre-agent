@@ -26,6 +26,8 @@ from vertexai import agent_engines
 from vertexai.preview.reasoning_engines import AdkApp
 
 from sre_agent.agent import root_agent
+from sre_agent.core.runner import create_runner
+from sre_agent.core.runner_adapter import RunnerAgentAdapter
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string("project_id", None, "GCP project ID.")
@@ -88,8 +90,14 @@ def verify_local_import():
     print("Checking if agent is importable locally...")
     try:
         from sre_agent.agent import root_agent
+        from sre_agent.core.runner import create_runner
+        from sre_agent.core.runner_adapter import RunnerAgentAdapter
 
-        print(f"✅ Successfully imported agent: {root_agent.name}")
+        # Verify we can wrap the agent
+        runner = create_runner(root_agent)
+        adapter = RunnerAgentAdapter(runner, name=root_agent.name)
+
+        print(f"✅ Successfully imported and wrapped agent: {adapter.name}")
         return True
     except ImportError as e:
         print(f"❌ ERROR: Failed to import agent locally: {e}")
@@ -104,7 +112,13 @@ def create(env_vars: dict[str, str] | None = None) -> None:
     """Creates an agent engine for SRE Agent."""
     if env_vars is None:
         env_vars = {}
-    adk_app = AdkApp(agent=root_agent, enable_tracing=True)
+
+    # Wrap agent in Runner for remote deployment to ensure
+    # stateless execution, policy enforcement, and context compaction.
+    runner = create_runner(root_agent)
+    adapter = RunnerAgentAdapter(runner, name=root_agent.name)
+
+    adk_app = AdkApp(agent=adapter, enable_tracing=True)
 
     requirements = get_requirements()
     print(f"Deploying with requirements: {requirements}")

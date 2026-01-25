@@ -35,11 +35,6 @@ async def auth_middleware(request: Request, call_next: Any) -> Any:
         auth_header = request.headers.get("Authorization")
         project_id_header = request.headers.get("X-GCP-Project-ID")
 
-        logger.debug(
-            f"Auth Middleware: Authorization header present: {auth_header is not None}"
-        )
-        logger.debug(f"Auth Middleware: X-GCP-Project-ID header: {project_id_header}")
-
         if auth_header and auth_header.startswith("Bearer "):
             token = auth_header.split(" ")[1]
             # Create credentials from the token (Access Token)

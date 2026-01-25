@@ -186,10 +186,6 @@ class AgentEngineClient:
 
         # Note: State updates are handled via initial session state in get_or_create_session
         # The ADK app's async_stream_query will read credentials from session state
-        logger.debug(
-            f"EUC state prepared for session {session_id}: "
-            f"token={'set' if access_token else 'unset'}, project={project_id}"
-        )
 
     async def get_or_create_session(
         self,
