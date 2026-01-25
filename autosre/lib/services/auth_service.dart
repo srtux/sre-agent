@@ -1,8 +1,6 @@
 import 'dart:convert';
-import 'dart:math';
 import 'package:flutter/foundation.dart';
-import 'package:google_sign_in/google_sign_in.dart' as gsi;
-import 'package:googleapis_auth/googleapis_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart' as gsi_lib;
 import 'package:http/http.dart' as http;
 import 'api_client.dart';
 import 'project_service.dart';
@@ -26,14 +24,14 @@ class AuthService extends ChangeNotifier {
   ];
 
   static const String _buildTimeClientId = String.fromEnvironment('GOOGLE_CLIENT_ID');
-  late final gsi.GoogleSignIn _googleSignIn;
+  late final gsi_lib.GoogleSignIn _googleSignIn;
 
-  gsi.GoogleSignInAccount? _currentUser;
+  gsi_lib.GoogleSignInAccount? _currentUser;
   String? _idToken;
   String? _accessToken;
   bool _isLoading = true;
 
-  gsi.GoogleSignInAccount? get currentUser => _currentUser;
+  gsi_lib.GoogleSignInAccount? get currentUser => _currentUser;
   bool get isAuthenticated => _currentUser != null;
   bool get isLoading => _isLoading;
   String? get idToken => _idToken;
@@ -68,19 +66,18 @@ class AuthService extends ChangeNotifier {
         ? runtimeClientId
         : _buildTimeClientId;
 
-    // 2. Initialize GoogleSignIn
-    _googleSignIn = gsi.GoogleSignIn.instance;
+    // 2. Initialize GoogleSignIn using singleton
+    _googleSignIn = gsi_lib.GoogleSignIn.instance;
 
-    // 3. Listen to auth events
+    // 3. Listen to auth state changes via authenticationEvents
     _googleSignIn.authenticationEvents.listen(
-      (event) async {
+      (gsi_lib.GoogleSignInAuthenticationEvent event) async {
         try {
-          debugPrint('AuthService: Received auth event: ${event.runtimeType}');
-          if (event is gsi.GoogleSignInAuthenticationEventSignIn) {
+          if (event is gsi_lib.GoogleSignInAuthenticationEventSignIn) {
+            debugPrint('AuthService: User signed in: ${event.user.email}');
             _currentUser = event.user;
-            debugPrint('AuthService: User signed in: ${_currentUser?.email}');
             await _refreshTokens();
-          } else if (event is gsi.GoogleSignInAuthenticationEventSignOut) {
+          } else if (event is gsi_lib.GoogleSignInAuthenticationEventSignOut) {
             debugPrint('AuthService: User signed out');
             _currentUser = null;
             _idToken = null;
@@ -92,31 +89,69 @@ class AuthService extends ChangeNotifier {
         }
       },
       onError: (e) {
-        debugPrint('Stream error in authenticationEvents: $e');
+        debugPrint('Auth stream error: $e');
       },
     );
 
     try {
-      // Initialize configuration (REQUIRED for Web to setup Client ID)
-      await _googleSignIn.initialize(clientId: effectiveClientId);
+      // Initialize configuration
+      await _googleSignIn.initialize(
+        clientId: effectiveClientId,
+      );
 
       // Attempt silent sign-in
-      // Note: On web, attemptLightweightAuthentication might fail or not be appropriate immediately
-      // if not configured, but we wrap it.
       await _googleSignIn.attemptLightweightAuthentication();
     } catch (e) {
-      // Ignore cancellation errors during silent sign-in
-      // GoogleSignInExceptionCode.canceled is common when not logged in or FedCM is dismissed
-      final message = e.toString();
-      if (message.contains('canceled') || message.contains('cancelled')) {
-        debugPrint('Silent sign-in canceled/skipped: $message');
-      } else {
-        // Log but don't rethrow to avoid crashing the app
-        debugPrint('⚠️ Error initializing auth (silent sign-in): $e');
-      }
+      debugPrint('Silent sign-in failed: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  /// Refresh auth tokens
+  Future<void> _refreshTokens() async {
+    if (_currentUser == null) {
+      debugPrint('AuthService: Skip _refreshTokens because _currentUser is null');
+      return;
+    }
+    try {
+      debugPrint('AuthService: Refreshing tokens for ${_currentUser!.email}');
+      final auth = _currentUser!.authentication;
+      _idToken = auth.idToken;
+
+      // Note: accessToken is no longer on authentication property in this version.
+      // Use getAuthHeaders() to obtain a fresh access token for API calls.
+      debugPrint('AuthService: Successfully extracted idToken');
+    } catch (e, stack) {
+      debugPrint('Error refreshing tokens: $e\n$stack');
+    }
+  }
+
+  /// Get current auth headers
+  Future<Map<String, String>> getAuthHeaders() async {
+    if (_currentUser == null) return {};
+    try {
+      debugPrint('AuthService: Requesting authorization for GCP scopes...');
+      final authzClient = _currentUser!.authorizationClient;
+
+      // Try to get tokens silently first
+      var authz = await authzClient.authorizationForScopes(_scopes);
+
+      // If null, we might need interaction (e.g. first time or expired)
+      if (authz == null) {
+        debugPrint('AuthService: Silent authorization failed, trying interactive...');
+        authz = await authzClient.authorizeScopes(_scopes);
+      }
+
+      final token = authz.accessToken;
+
+      return {
+        'Authorization': 'Bearer $token',
+      };
+    } catch (e) {
+      debugPrint('AuthService: Error getting auth headers: $e');
+      return {};
     }
   }
 
@@ -143,46 +178,6 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Refresh auth tokens
-  Future<void> _refreshTokens() async {
-    if (_currentUser == null) {
-      debugPrint('AuthService: Skip _refreshTokens because _currentUser is null');
-      return;
-    }
-    try {
-      debugPrint('AuthService: Refreshing tokens for ${_currentUser!.email}');
-
-      // Use dynamic to avoid compiler errors during version mismatch/minification
-      // but wrap in checks to avoid crashes.
-      final dynamic account = _currentUser;
-      final dynamic auth = await account.authentication;
-
-      if (auth == null) {
-        debugPrint('AuthService: Warning - authentication property returned null');
-        return;
-      }
-
-      try {
-        _idToken = auth.idToken as String?;
-        debugPrint('AuthService: Successfully extracted idToken');
-      } catch (e) {
-        debugPrint('AuthService: Failed to extract idToken: $e');
-      }
-
-      try {
-        // Use dynamic access with catch to handle potential name mangling in production
-        _accessToken = auth.accessToken as String?;
-        if (_accessToken != null) {
-          debugPrint('AuthService: Successfully extracted accessToken from authentication');
-        }
-      } catch (e) {
-        debugPrint('AuthService: accessToken not found on authentication object (expected on some platforms if ID token only): $e');
-      }
-    } catch (e, stack) {
-      debugPrint('Error refreshing tokens: $e\n$stack');
-    }
-  }
-
   /// Get authenticated HTTP client
   Future<http.Client> getAuthenticatedClient() async {
     if (_currentUser == null) {
@@ -190,54 +185,10 @@ class AuthService extends ChangeNotifier {
       throw Exception('User not authenticated');
     }
 
-    try {
-      debugPrint('AuthService: Getting auth headers for ${_currentUser!.email}');
-
-      // Attempt to get auth headers. This is the modern way to get an access token.
-      Map<String, String>? headers;
-      try {
-        // Use dynamic to safely access authHeaders which might be problematic in minified web builds
-        final dynamic account = _currentUser;
-        final dynamic headersFuture = account.authHeaders;
-        headers = await headersFuture as Map<String, String>?;
-      } catch (e, stack) {
-        debugPrint('AuthService: Error accessing authHeaders property: $e\n$stack');
-      }
-
-      if (headers == null || headers.isEmpty) {
-        debugPrint('AuthService: Warning - authHeaders is null or empty');
-      } else {
-        debugPrint('AuthService: Successfully obtained ${headers.length} auth headers');
-      }
-
-      final String? token = headers != null ? extractTokenFromHeaders(headers) : _accessToken;
-
-      if (token == null) {
-        debugPrint('AuthService: Failed to obtain access token (Headers=${headers != null}, _accessToken=${_accessToken != null})');
-        throw Exception('Failed to obtain access token. Please ensure you are logged in and have granted necessary permissions.');
-      }
-
-      debugPrint('AuthService: Creating authenticated client with token (prefix: ${token.substring(0, min(token.length, 10))}...)');
-
-      return ProjectInterceptorClient(
-        authenticatedClient(
-          http.Client(),
-          AccessCredentials(
-            AccessToken(
-              'Bearer',
-              token,
-              DateTime.now().add(const Duration(hours: 1)).toUtc(),
-            ),
-            null, // refreshToken
-            _scopes,
-          ),
-        ),
-        projectService: ProjectService.instance,
-      );
-    } catch (e, stack) {
-      debugPrint('AuthService: Exception in getAuthenticatedClient: $e\n$stack');
-      rethrow;
-    }
+    return ProjectInterceptorClient(
+      http.Client(),
+      projectService: ProjectService.instance,
+    );
   }
 
   /// Helper to extract token from headers (Exposed for testing)

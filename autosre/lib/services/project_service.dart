@@ -71,19 +71,7 @@ class ProjectService {
   ProjectService._internal({ClientFactory? clientFactory})
     : _clientFactory =
           clientFactory ??
-          (() async {
-            try {
-              return await AuthService.instance.getAuthenticatedClient();
-            } catch (e) {
-              if (kDebugMode) {
-                debugPrint(
-                  'Auth failed in debug mode, falling back to unauthenticated client: $e',
-                );
-                return http.Client();
-              }
-              rethrow;
-            }
-          });
+          (() async => await AuthService.instance.getAuthenticatedClient());
 
   final ClientFactory _clientFactory;
 

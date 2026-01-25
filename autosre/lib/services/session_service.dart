@@ -195,19 +195,7 @@ class SessionService {
       final effectiveUserId =
           userId ?? AuthService().currentUser?.email ?? 'default';
 
-      http.Client client;
-      try {
-        client = await AuthService().getAuthenticatedClient();
-      } catch (e) {
-        if (kDebugMode) {
-          debugPrint(
-            'Auth failed in debug mode, falling back to unauthenticated client: $e',
-          );
-          client = http.Client();
-        } else {
-          rethrow;
-        }
-      }
+      final client = await AuthService().getAuthenticatedClient();
 
       final response = await client
           .get(Uri.parse('$_baseUrl/api/sessions?user_id=$effectiveUserId'))
@@ -241,19 +229,7 @@ class SessionService {
       final effectiveUserId =
           userId ?? AuthService().currentUser?.email ?? 'default';
 
-      http.Client client;
-      try {
-        client = await AuthService().getAuthenticatedClient();
-      } catch (e) {
-        if (kDebugMode) {
-          debugPrint(
-            'Auth failed in debug mode, falling back to unauthenticated client: $e',
-          );
-          client = http.Client();
-        } else {
-          rethrow;
-        }
-      }
+      final client = await AuthService().getAuthenticatedClient();
 
       final response = await client
           .post(
@@ -298,19 +274,7 @@ class SessionService {
       // depending on implementation.
       // Let's safe-guard by just getting the client.
 
-      http.Client client;
-      try {
-        client = await AuthService().getAuthenticatedClient();
-      } catch (e) {
-        if (kDebugMode) {
-          debugPrint(
-            'Auth failed in debug mode, falling back to unauthenticated client: $e',
-          );
-          client = http.Client();
-        } else {
-          rethrow;
-        }
-      }
+      final client = await AuthService().getAuthenticatedClient();
 
       // Check current user for the request usage if needed, but get calls usually are by ID.
       // API signature: get_session(session_id, user_id="default")
@@ -349,19 +313,7 @@ class SessionService {
     try {
       final effectiveUserId = AuthService().currentUser?.email ?? 'default';
 
-      http.Client client;
-      try {
-        client = await AuthService().getAuthenticatedClient();
-      } catch (e) {
-        if (kDebugMode) {
-          debugPrint(
-            'Auth failed in debug mode, falling back to unauthenticated client: $e',
-          );
-          client = http.Client();
-        } else {
-          rethrow;
-        }
-      }
+      final client = await AuthService().getAuthenticatedClient();
 
       final response = await client
           .delete(
@@ -399,19 +351,7 @@ class SessionService {
     try {
       // final effectiveUserId = AuthService().currentUser?.email ?? 'default'; // Patch might use it?
 
-      http.Client client;
-      try {
-        client = await AuthService().getAuthenticatedClient();
-      } catch (e) {
-        if (kDebugMode) {
-          debugPrint(
-            'Auth failed in debug mode, falling back to unauthenticated client: $e',
-          );
-          client = http.Client();
-        } else {
-          rethrow;
-        }
-      }
+      final client = await AuthService().getAuthenticatedClient();
 
       final response = await client
           .patch(

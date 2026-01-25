@@ -63,6 +63,7 @@ def main():
         f"GCP_REGION={args.region}",
         f"AGENT_ENGINE_LOCATION={args.region}",
         f"GOOGLE_CLOUD_LOCATION={os.getenv('GOOGLE_CLOUD_LOCATION', args.region)}",
+        f"STRICT_EUC_ENFORCEMENT={os.getenv('STRICT_EUC_ENFORCEMENT', 'true')}",
         "USE_ARIZE=false",
     ]
 

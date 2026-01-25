@@ -122,8 +122,8 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
 
                 # Truncate result logging
                 result_str = repr(result)
-                if len(result_str) > 1000:
-                    result_str = result_str[:1000] + "... (truncated)"
+                if len(result_str) > 500:
+                    result_str = result_str[:500] + "... (truncated)"
                 logger.debug(f"Tool '{tool_name}' RESULT: {result_str}")
                 return result
             except Exception as e:
@@ -212,8 +212,8 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
 
                 # Truncate result logging
                 result_str = repr(result)
-                if len(result_str) > 1000:
-                    result_str = result_str[:1000] + "... (truncated)"
+                if len(result_str) > 500:
+                    result_str = result_str[:500] + "... (truncated)"
                 logger.debug(f"Tool '{tool_name}' RESULT: {result_str}")
                 return result
             except Exception as e:

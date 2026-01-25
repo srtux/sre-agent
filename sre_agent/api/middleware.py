@@ -32,15 +32,22 @@ async def auth_middleware(request: Request, call_next: Any) -> Any:
 
     try:
         auth_header = request.headers.get("Authorization")
+        project_id_header = request.headers.get("X-GCP-Project-ID")
+
+        logger.debug(
+            f"Auth Middleware: Authorization header present: {auth_header is not None}"
+        )
+        logger.debug(f"Auth Middleware: X-GCP-Project-ID header: {project_id_header}")
+
         if auth_header and auth_header.startswith("Bearer "):
             token = auth_header.split(" ")[1]
             # Create credentials from the token (Access Token)
             # Note: We trust the token format here; downstream APIs will fail if invalid.
             creds = Credentials(token=token)  # type: ignore[no-untyped-call]
             set_current_credentials(creds)
+            logger.debug("Auth Middleware: Credentials set in ContextVar")
 
         # Extract GCP Project ID if provided in header
-        project_id_header = request.headers.get("X-GCP-Project-ID")
         if project_id_header:
             set_current_project_id(project_id_header)
         else:
@@ -48,6 +55,9 @@ async def auth_middleware(request: Request, call_next: Any) -> Any:
             project_id_query = request.query_params.get("project_id")
             if project_id_query:
                 set_current_project_id(project_id_query)
+                logger.debug(
+                    f"Auth Middleware: Project ID set from query: {project_id_query}"
+                )
 
         response = await call_next(request)
         return response
@@ -61,8 +71,12 @@ def configure_cors(app: FastAPI) -> None:
     cors_origins = [
         "http://localhost:3000",
         "http://localhost:8080",
+        "http://localhost:5000",
         "http://127.0.0.1:3000",
         "http://127.0.0.1:8080",
+        "http://127.0.0.1:5000",
+        "http://localhost:50811",  # From user logs
+        "http://127.0.0.1:50811",  # From user logs
     ]
     # Allow all origins only if explicitly set (e.g., for containerized deployments)
     if os.getenv("CORS_ALLOW_ALL", "").lower() == "true":

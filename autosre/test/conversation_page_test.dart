@@ -79,6 +79,11 @@ class MockAuthService extends ChangeNotifier implements AuthService {
   Future<http.Client> getAuthenticatedClient() async => http.Client();
 
   @override
+  Future<Map<String, String>> getAuthHeaders() async => {
+    'Authorization': 'Bearer mock-access-token',
+  };
+
+  @override
   Future<void> signIn() async {}
 
   @override

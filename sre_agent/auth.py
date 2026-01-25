@@ -249,19 +249,42 @@ def get_credentials_from_tool_context(
     # Second, check session state (for Agent Engine)
     if tool_context is not None:
         try:
+            logger.debug(
+                f"Extracting credentials from tool_context type={type(tool_context)}"
+            )
             inv_ctx = getattr(tool_context, "invocation_context", None) or getattr(
                 tool_context, "_invocation_context", None
             )
-            session_state = getattr(inv_ctx, "session", None) if inv_ctx else None
-            if session_state is not None:
-                state_dict = getattr(session_state, "state", None)
+
+            if inv_ctx is None:
+                logger.debug(
+                    f"Invocation context not found in tool_context. Available attrs: {dir(tool_context)}"
+                )
+
+            session_obj = getattr(inv_ctx, "session", None) if inv_ctx else None
+            if session_obj is not None:
+                # Handle both object with .state and dictionary (for different ADK versions/mocks)
+                state_dict = getattr(session_obj, "state", None)
+                if state_dict is None and isinstance(session_obj, dict):
+                    state_dict = session_obj.get("state") or session_obj
+
+                logger.debug(
+                    f"Found session state keys: {list(state_dict.keys()) if state_dict else 'None'}"
+                )
                 creds = get_credentials_from_session(state_dict)
                 if creds:
                     logger.debug("Using credentials from session state")
                     return creds
+                else:
+                    logger.debug(
+                        f"No token found in session state with key {SESSION_STATE_ACCESS_TOKEN_KEY}"
+                    )
+            else:
+                logger.debug("No session found in invocation_context")
         except Exception as e:
             logger.debug(f"Error getting credentials from tool_context: {e}")
 
+    logger.debug("No user credentials found in ContextVar or session")
     return None
 
 
@@ -290,9 +313,13 @@ def get_project_id_from_tool_context(tool_context: "ToolContext | None") -> str 
             inv_ctx = getattr(tool_context, "invocation_context", None) or getattr(
                 tool_context, "_invocation_context", None
             )
-            session_state = getattr(inv_ctx, "session", None) if inv_ctx else None
-            if session_state is not None:
-                state_dict = getattr(session_state, "state", None)
+            session_obj = getattr(inv_ctx, "session", None) if inv_ctx else None
+            if session_obj is not None:
+                # Handle both object with .state and dictionary
+                state_dict = getattr(session_obj, "state", None)
+                if state_dict is None and isinstance(session_obj, dict):
+                    state_dict = session_obj.get("state") or session_obj
+
                 project_id = get_project_id_from_session(state_dict)
                 if project_id:
                     return project_id

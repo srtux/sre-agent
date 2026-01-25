@@ -1,4 +1,7 @@
+import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'auth_service.dart';
 import 'project_service.dart';
 
 /// Exception thrown when an API request is made without a selected project.
@@ -17,12 +20,26 @@ class ProjectInterceptorClient extends http.BaseClient {
   final http.Client _inner;
   final ProjectService _projectService;
 
-  ProjectInterceptorClient(this._inner, {ProjectService? projectService})
-    : _projectService = projectService ?? ProjectService();
+  ProjectInterceptorClient(
+    this._inner, {
+    ProjectService? projectService,
+  }) : _projectService = projectService ?? ProjectService();
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    // 1. Fetch fresh auth headers from AuthService
+    final authHeaders = await AuthService.instance.getAuthHeaders();
+    request.headers.addAll(authHeaders);
+
+    if (kDebugMode && authHeaders.containsKey('Authorization')) {
+       final token = authHeaders['Authorization']!;
+       debugPrint('ProjectInterceptorClient: Injected Auth header (prefix: ${token.substring(0, min(token.length, 15))}...)');
+    }
+
     final projectId = _projectService.selectedProjectId;
+    if (kDebugMode) {
+      debugPrint('ProjectInterceptorClient: Request to ${request.url.path}, ProjectID: $projectId');
+    }
 
     if (projectId == null || projectId.isEmpty) {
       // Don't intercept health checks or project list requests
@@ -37,15 +54,6 @@ class ProjectInterceptorClient extends http.BaseClient {
 
     // 1. Add as Header
     request.headers['X-GCP-Project-ID'] = projectId;
-
-    // 2. Append as Query Parameter for GET requests or as fallback
-    // 2. Append as Query Parameter for GET requests or as fallback
-    // (Logic removed as we primarily use headers and modifying BaseRequest URL is complex)
-
-    // Note: We can't easily change the URL of a BaseRequest once created if it's already "frozen"
-    // but we can create a new request if needed. However, since we are using headers as preferred,
-    // the query param is a secondary measure. Most ADK tools handle bodies/query params.
-
     return _inner.send(request);
   }
 

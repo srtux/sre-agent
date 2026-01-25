@@ -138,7 +138,8 @@ class ADKContentGenerator implements ContentGenerator {
       _currentClient = await AuthService().getAuthenticatedClient();
     } catch (e) {
       debugPrint("Error getting authenticated client: $e");
-      _currentClient = http.Client(); // Fallback ?? Or fail?
+      // Rethrow to notify the UI that authentication failed
+      rethrow;
     }
 
     for (int attempt = 0; attempt <= _maxRetries; attempt++) {
@@ -281,10 +282,13 @@ class ADKContentGenerator implements ContentGenerator {
       final uri = Uri.parse(
         '$_baseUrl/api/suggestions',
       ).replace(queryParameters: queryParams);
-      final client = await AuthService().getAuthenticatedClient();
+
+      // We must get an authenticated client. If this throws, it means we are not logged in.
+      final client = await AuthService.instance.getAuthenticatedClient();
+
       final response = await client
           .get(uri)
-          .timeout(const Duration(seconds: 5));
+          .timeout(const Duration(seconds: 10)); // Increased timeout
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);

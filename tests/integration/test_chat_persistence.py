@@ -1,3 +1,4 @@
+import os
 from unittest.mock import patch
 
 import pytest
@@ -35,9 +36,10 @@ async def test_chat_endpoint_persists_user_role(client):
 
     try:
         # 3. Environment patch for session service
-        with patch.dict(
-            "os.environ", {"USE_DATABASE_SESSIONS": "false", "SRE_AGENT_ID": ""}
-        ):
+        with patch.dict(os.environ, {"USE_DATABASE_SESSIONS": "false"}):
+            # Ensure SRE_AGENT_ID is unset (empty string isn't enough as it's not None)
+            if "SRE_AGENT_ID" in os.environ:
+                del os.environ["SRE_AGENT_ID"]
             # Reset singleton to ensure we use InMemorySessionService
             from sre_agent.services import session as session_module
 
@@ -76,9 +78,9 @@ async def test_chat_endpoint_persists_user_role(client):
 
             user_event = user_events[0]
             # This is the critical check
-            assert user_event.content.role == "user", (
-                "User role was not persisted correctly"
-            )
+            assert (
+                user_event.content.role == "user"
+            ), "User role was not persisted correctly"
             assert user_event.content.parts[0].text == "Hello persistence"
 
     finally:

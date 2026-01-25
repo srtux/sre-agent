@@ -312,6 +312,10 @@ async def call_mcp_tool_with_retry(
     """
     from fastapi.concurrency import run_in_threadpool
 
+    # Set tool context for header provider to access session state
+    # This enables EIC (End User Identity Credential) propagation in Agent Engine
+    set_mcp_tool_context(tool_context)
+
     if not project_id:
         project_id = get_project_id_with_fallback()
 
@@ -320,10 +324,6 @@ async def call_mcp_tool_with_retry(
             "status": ToolStatus.ERROR,
             "error": "No project ID available. Set GOOGLE_CLOUD_PROJECT environment variable.",
         }
-
-    # Set tool context for header provider to access session state
-    # This enables EIC (End User Identity Credential) propagation in Agent Engine
-    set_mcp_tool_context(tool_context)
 
     # DEBUG: Log auth state and MCP headers before making the call
     log_auth_state(tool_context, f"mcp_call_{tool_name}")
