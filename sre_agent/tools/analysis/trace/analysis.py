@@ -18,6 +18,8 @@ from typing import Any, cast
 
 from opentelemetry.trace import StatusCode
 
+from sre_agent.schema import BaseToolResponse, ToolStatus
+
 from ...clients.trace import fetch_trace_data
 from ...common import adk_tool
 from ...common.telemetry import get_meter, get_tracer, log_tool_call
@@ -114,7 +116,7 @@ def _calculate_span_durations_impl(trace: TraceData) -> list[SpanData]:
 @adk_tool
 def calculate_span_durations(
     trace_id: str, project_id: str | None = None, tool_context: Any = None
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Extracts timing information for each span in a trace.
 
     Args:
@@ -157,11 +159,13 @@ def calculate_span_durations(
             # Telemetry for span count (replicated from original)
             if "spans" in trace:
                 span.set_attribute("sre_agent.span_count", len(trace["spans"]))
-            if result and "error" in result[0]:
-                span.set_status(StatusCode.ERROR, str(result[0]["error"]))
-                span.set_attribute("error", True)
 
-            return {"spans": result}
+            if isinstance(result, dict) and "error" in result:
+                span.set_status(StatusCode.ERROR, str(result["error"]))
+                span.set_attribute("error", True)
+                return BaseToolResponse(status=ToolStatus.ERROR, error=result["error"])
+
+            return BaseToolResponse(status=ToolStatus.SUCCESS, result={"spans": result})
 
         except Exception as e:
             span.record_exception(e)
@@ -250,7 +254,7 @@ def _extract_errors_impl(trace: TraceData) -> list[dict[str, Any]]:
 @adk_tool
 def extract_errors(
     trace_id: str, project_id: str | None = None, tool_context: Any = None
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Finds all spans that contain errors or error-related information.
 
     Args:
@@ -290,10 +294,20 @@ def extract_errors(
 
             errors = _extract_errors_impl(trace)
 
+            # Check if the implementation returned an error dict (e.g., from fetch_trace_data error)
+            if isinstance(errors, list) and errors and "error" in errors[0]:
+                span.set_status(StatusCode.ERROR, str(errors[0]["error"]))
+                span.set_attribute("error", True)
+                return BaseToolResponse(
+                    status=ToolStatus.ERROR, error=errors[0]["error"]
+                )
+
             span.set_attribute("sre_agent.error_count", len(errors))
             anomalies_detected.add(len(errors), {"type": "error_span"})
 
-            return {"errors": errors}
+            return BaseToolResponse(
+                status=ToolStatus.SUCCESS, result={"errors": errors}
+            )
         except Exception as e:
             span.record_exception(e)
             success = False
@@ -388,7 +402,7 @@ def _validate_trace_quality_impl(trace: TraceData) -> dict[str, Any]:
 @adk_tool
 def validate_trace_quality(
     trace_id: str, project_id: str | None = None, tool_context: Any = None
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Validate trace data quality and detect issues.
 
     Checks for:
@@ -417,15 +431,22 @@ def validate_trace_quality(
             _set_thread_credentials(user_creds)
 
         trace = fetch_trace_data(trace_id, project_id)
-        return _validate_trace_quality_impl(trace)
+        result = _validate_trace_quality_impl(trace)
+        if "error" in result:
+            return BaseToolResponse(status=ToolStatus.ERROR, error=result["error"])
+        return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
     except Exception as e:
         logger.error(f"Trace validation failed: {e}")
-        return {
-            "valid": False,
-            "issue_count": 1,
-            "issues": [{"type": "exception", "message": str(e)}],
-        }
+        return BaseToolResponse(
+            status=ToolStatus.ERROR,
+            error=str(e),
+            result={
+                "valid": False,
+                "issue_count": 1,
+                "issues": [{"type": "exception", "message": str(e)}],
+            },
+        )
     finally:
         _clear_thread_credentials()
 
@@ -497,7 +518,7 @@ def _build_call_graph_impl(trace: TraceData) -> dict[str, Any]:
 @adk_tool
 def build_call_graph(
     trace_id: str, project_id: str | None = None, tool_context: Any = None
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Builds a hierarchical call graph from the trace spans.
 
     This function reconstructs the parent-child relationships to form a tree
@@ -535,8 +556,10 @@ def build_call_graph(
                 _set_thread_credentials(user_creds)
 
             trace = fetch_trace_data(trace_id, project_id)
-
             result = _build_call_graph_impl(trace)
+
+            if "error" in result:
+                return BaseToolResponse(status=ToolStatus.ERROR, error=result["error"])
 
             # Telemetry
             if "max_depth" in result:
@@ -544,7 +567,7 @@ def build_call_graph(
             if "total_spans" in result:
                 span.set_attribute("sre_agent.total_spans", result["total_spans"])
 
-            return result
+            return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
         except Exception as e:
             span.record_exception(e)
@@ -561,7 +584,7 @@ def build_call_graph(
 @adk_tool
 def summarize_trace(
     trace_id: str, project_id: str | None = None, tool_context: Any = None
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Creates a summary of a trace to save context window tokens.
 
     Extracts high-level stats, top 5 slowest spans, and error spans.
@@ -586,7 +609,11 @@ def summarize_trace(
         trace_data = fetch_trace_data(trace_id, project_id)
 
         if "error" in trace_data:
-            return trace_data
+            return BaseToolResponse(
+                status=ToolStatus.ERROR,
+                error=trace_data["error"],
+                result={"trace_id": trace_id},
+            )
 
         spans = trace_data.get("spans", [])
         duration_ms = trace_data.get("duration_ms", 0)
@@ -601,7 +628,9 @@ def summarize_trace(
                 ):
                     errors.append({"span_name": s.get("name"), "error": "Detected"})
         else:
-            errors = extract_errors(trace_id, project_id, tool_context=tool_context)
+            errors = extract_errors(
+                trace_id, project_id, tool_context=tool_context
+            ).result["errors"]
 
         # Extract slow spans
         spans_with_dur = []
@@ -628,14 +657,17 @@ def summarize_trace(
         spans_with_dur.sort(key=lambda x: x["duration_ms"], reverse=True)
         top_slowest = spans_with_dur[:5]
 
-        return {
-            "trace_id": trace_data.get("trace_id"),
-            "total_spans": len(spans),
-            "duration_ms": duration_ms,
-            "error_count": len(errors),
-            "errors": errors[:5],
-            "slowest_spans": top_slowest,
-        }
+        return BaseToolResponse(
+            status=ToolStatus.SUCCESS,
+            result={
+                "trace_id": trace_data.get("trace_id"),
+                "total_spans": len(spans),
+                "duration_ms": duration_ms,
+                "error_count": len(errors),
+                "errors": errors[:5],
+                "slowest_spans": top_slowest,
+            },
+        )
 
     finally:
         _clear_thread_credentials()

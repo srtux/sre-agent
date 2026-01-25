@@ -1,4 +1,7 @@
-"""Test integration of Memory Module."""
+"""
+Goal: Verify Memory tools are correctly registered and categorized in the agent.
+Patterns: Registration Testing, Config Validation.
+"""
 
 from sre_agent.agent import TOOL_NAME_MAP
 from sre_agent.tools.config import ToolCategory, get_tool_config_manager

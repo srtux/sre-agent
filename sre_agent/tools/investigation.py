@@ -4,7 +4,7 @@ import logging
 from typing import Annotated, Any
 
 from sre_agent.memory.factory import get_memory_manager
-from sre_agent.schema import InvestigationPhase
+from sre_agent.schema import BaseToolResponse, InvestigationPhase, ToolStatus
 from sre_agent.tools.common.decorators import adk_tool
 
 logger = logging.getLogger(__name__)
@@ -12,7 +12,6 @@ logger = logging.getLogger(__name__)
 
 @adk_tool
 async def update_investigation_state(
-    tool_context: Any,
     phase: Annotated[
         str | None,
         "The current phase of investigation (triage, deep_dive, remediation, resolved)",
@@ -20,7 +19,8 @@ async def update_investigation_state(
     new_findings: Annotated[list[str] | None, "New factual findings discovered"] = None,
     hypothesis: Annotated[str | None, "New hypothesis being tested"] = None,
     root_cause: Annotated[str | None, "The confirmed root cause identity"] = None,
-) -> str:
+    tool_context: Any = None,
+) -> BaseToolResponse:
     """Updates the internal investigation state to track diagnostic progress.
 
     Use this tool whenever you successfully identify a key signal, confirm a hypothesis,
@@ -32,7 +32,9 @@ async def update_investigation_state(
     session = getattr(inv_ctx, "session", None) if inv_ctx else None
 
     if not session:
-        return "Error: No active session found."
+        return BaseToolResponse(
+            status=ToolStatus.ERROR, error="No active session found."
+        )
 
     # Get Memory Manager
     memory_manager = get_memory_manager()
@@ -46,9 +48,9 @@ async def update_investigation_state(
                 new_phase = InvestigationPhase(phase.lower())
                 await memory_manager.update_state(new_phase, session_id=session_id)
             except ValueError:
-                # Try mapping from old phases if needed, or error
-                # For now, strict mapping to new phases
-                return f"Error: Invalid phase {phase}"
+                return BaseToolResponse(
+                    status=ToolStatus.ERROR, error=f"Invalid phase {phase}"
+                )
         except Exception as e:
             logger.warning(f"Failed to update memory manager state: {e}")
 
@@ -81,7 +83,6 @@ async def update_investigation_state(
 
         updates: dict[str, Any] = {}
         if phase:
-            # Map deep_dive -> analysis if needed for frontend compat, or just use new phase
             updates["phase"] = phase.lower()
 
         if new_findings:
@@ -115,11 +116,13 @@ async def update_investigation_state(
 
         logger.info(f"Updated investigation state for session {session.id}")
 
-    return "Successfully updated investigation state."
+    return BaseToolResponse(
+        status=ToolStatus.SUCCESS, result="Successfully updated investigation state."
+    )
 
 
 @adk_tool
-async def get_investigation_summary(tool_context: Any) -> str:
+async def get_investigation_summary(tool_context: Any = None) -> BaseToolResponse:
     """Returns a summary of the current investigation state and findings."""
     inv_ctx = getattr(tool_context, "invocation_context", None) or getattr(
         tool_context, "_invocation_context", None
@@ -127,7 +130,9 @@ async def get_investigation_summary(tool_context: Any) -> str:
     session = getattr(inv_ctx, "session", None) if inv_ctx else None
 
     if not session:
-        return "Error: No active session found."
+        return BaseToolResponse(
+            status=ToolStatus.ERROR, error="No active session found."
+        )
 
     state = session.state.get("investigation_state", {})
     phase = state.get("phase", "unknown")
@@ -146,4 +151,5 @@ async def get_investigation_summary(tool_context: Any) -> str:
     if root_cause:
         summary.append(f"**Confirmed Root Cause:** {root_cause}")
 
-    return "\n".join(summary)
+    result = "\n".join(summary)
+    return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)

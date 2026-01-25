@@ -63,8 +63,10 @@ async def test_get_gke_cluster_health_happy():
         result = await get_gke_cluster_health(
             "test-cluster", "us-central1", "test-proj"
         )
-        assert result["health"] == "HEALTHY"
-        assert result["node_pools"][0]["machine_type"] == "n1-standard-1"
+        assert result["status"] == "success"
+        res_data = result["result"]
+        assert res_data["health"] == "HEALTHY"
+        assert res_data["node_pools"][0]["machine_type"] == "n1-standard-1"
 
 
 @pytest.mark.asyncio
@@ -87,8 +89,9 @@ async def test_get_gke_cluster_health_states():
         result = await get_gke_cluster_health(
             "test-cluster", "us-central1", "test-proj"
         )
-        assert result["health"] == "UPDATING"
-        assert result["node_pools"][0]["upgrade_in_progress"] is True
+        assert result["status"] == "success"
+        assert result["result"]["health"] == "UPDATING"
+        assert result["result"]["node_pools"][0]["upgrade_in_progress"] is True
 
         # Test DEGRADED state
         mock_response.json.return_value = {
@@ -102,7 +105,8 @@ async def test_get_gke_cluster_health_states():
         result = await get_gke_cluster_health(
             "test-cluster", "us-central1", "test-proj"
         )
-        assert result["health"] == "DEGRADED"
+        assert result["status"] == "success"
+        assert result["result"]["health"] == "DEGRADED"
 
         # Test status other than RUNNING, RECONCILING, DEGRADED
         mock_response.json.return_value = {
@@ -112,7 +116,8 @@ async def test_get_gke_cluster_health_states():
         result = await get_gke_cluster_health(
             "test-cluster", "us-central1", "test-proj"
         )
-        assert result["health"] == "STOPPED"
+        assert result["status"] == "success"
+        assert result["result"]["health"] == "STOPPED"
 
         # Test error handling
         mock_session.get.side_effect = Exception("API error")
@@ -153,8 +158,10 @@ async def test_analyze_node_conditions():
                 project_id="test-proj",
             )
 
-            assert "node-1" in result["nodes"]
-            assert len(result["pressure_warnings"]) > 0
+            assert result["status"] == "success"
+            res_data = result["result"]
+            assert "node-1" in res_data["nodes"]
+            assert len(res_data["pressure_warnings"]) > 0
 
 
 @pytest.mark.asyncio
@@ -171,7 +178,8 @@ async def test_analyze_node_conditions_edge_cases():
             result = await analyze_node_conditions(
                 "test-cluster", "us-central1", project_id="test-proj"
             )
-            assert result["nodes"] == {}
+            assert result["status"] == "success"
+            assert result["result"]["nodes"] == {}
 
             # No points in series
             mock_series = MagicMock()
@@ -181,7 +189,8 @@ async def test_analyze_node_conditions_edge_cases():
             result = await analyze_node_conditions(
                 "test-cluster", "us-central1", project_id="test-proj"
             )
-            assert "node-1" in result["nodes"]
+            assert result["status"] == "success"
+            assert "node-1" in result["result"]["nodes"]
 
 
 @pytest.mark.asyncio
@@ -207,7 +216,8 @@ async def test_get_pod_restart_events():
             mock_client.list_time_series.return_value = [mock_series]
 
             result = await get_pod_restart_events(project_id="test-proj")
-            assert result["summary"]["total_restarts"] == 5
+            assert result["status"] == "success"
+            assert result["result"]["summary"]["total_restarts"] == 5
 
 
 @pytest.mark.asyncio
@@ -231,7 +241,8 @@ async def test_analyze_hpa_events():
             result = await analyze_hpa_events(
                 namespace="default", deployment_name="app", project_id="test-proj"
             )
-            assert len(result["scaling_activity"]) > 0
+            assert result["status"] == "success"
+            assert len(result["result"]["scaling_activity"]) > 0
 
 
 @pytest.mark.asyncio
@@ -272,7 +283,8 @@ async def test_get_container_oom_events():
                 mock_m_client.return_value.list_time_series.return_value = [mock_series]
 
                 result = await get_container_oom_events(project_id="test-proj")
-                assert result["oom_events_in_logs"] == 1
+                assert result["status"] == "success"
+                assert result["result"]["oom_events_in_logs"] == 1
 
 
 @pytest.mark.asyncio
@@ -290,7 +302,8 @@ async def test_get_container_oom_events_error():
             with patch("sre_agent.tools.clients.gke.monitoring_v3"):
                 mock_m_client.return_value.list_time_series.return_value = []
                 result = await get_container_oom_events(project_id="test-proj")
-                assert result["oom_events_in_logs"] == 0
+                assert result["status"] == "success"
+                assert result["result"]["oom_events_in_logs"] == 0
 
 
 @pytest.mark.asyncio
@@ -336,8 +349,10 @@ async def test_correlate_trace_with_kubernetes():
                 result = await correlate_trace_with_kubernetes(
                     project_id="test-proj", trace_id="trace-123"
                 )
-                assert len(result["kubernetes_context"]) == 1
-                assert "Trace trace-123" in result["summary"]
+                assert result["status"] == "success"
+                res_data = result["result"]
+                assert len(res_data["kubernetes_context"]) == 1
+                assert "Trace trace-123" in res_data["summary"]
 
 
 @pytest.mark.asyncio
@@ -386,7 +401,9 @@ async def test_get_workload_health_summary_extensive():
             result = await get_workload_health_summary(
                 namespace="default", project_id="test-proj"
             )
-            assert result["summary"]["critical"] >= 2
-            assert "app" in [w["name"] for w in result["workloads"]]
-            assert "other" in [w["name"] for w in result["workloads"]]
-            assert result["workloads"][0]["status"] == "CRITICAL"
+            assert result["status"] == "success"
+            res_data = result["result"]
+            assert res_data["summary"]["critical"] >= 2
+            assert "app" in [w["name"] for w in res_data["workloads"]]
+            assert "other" in [w["name"] for w in res_data["workloads"]]
+            assert res_data["workloads"][0]["status"] == "CRITICAL"

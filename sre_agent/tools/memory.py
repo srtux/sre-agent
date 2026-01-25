@@ -3,7 +3,7 @@
 from typing import Annotated, Any
 
 from sre_agent.memory.factory import get_memory_manager
-from sre_agent.schema import Confidence, MemoryItem
+from sre_agent.schema import BaseToolResponse, Confidence, ToolStatus
 from sre_agent.tools.common.decorators import adk_tool
 
 
@@ -12,7 +12,7 @@ async def search_memory(
     query: Annotated[str, "Semantic search query to find relevant past findings"],
     limit: Annotated[int, "Maximum number of results to return"] = 5,
     tool_context: Any = None,
-) -> list[MemoryItem]:
+) -> BaseToolResponse:
     """Search the agent's memory for relevant findings from past investigations.
 
     Use this when:
@@ -31,9 +31,10 @@ async def search_memory(
 
     user_id = get_user_id_from_tool_context(tool_context)
 
-    return await manager.get_relevant_findings(
+    results = await manager.get_relevant_findings(
         query, session_id=session_id, limit=limit, user_id=user_id
     )
+    return BaseToolResponse(status=ToolStatus.SUCCESS, result=results)
 
 
 @adk_tool
@@ -44,7 +45,7 @@ async def add_finding_to_memory(
         Confidence, "Confidence level (high, medium, low)"
     ] = Confidence.MEDIUM,
     tool_context: Any = None,
-) -> str:
+) -> BaseToolResponse:
     """Explicitly add a finding to the agent's memory.
 
     Use this when:
@@ -70,4 +71,6 @@ async def add_finding_to_memory(
         session_id=session_id,
         user_id=user_id,
     )
-    return "Finding added to memory."
+    return BaseToolResponse(
+        status=ToolStatus.SUCCESS, result="Finding added to memory."
+    )

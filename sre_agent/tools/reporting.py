@@ -2,7 +2,8 @@
 
 from typing import Any
 
-from .common import adk_tool
+from sre_agent.schema import BaseToolResponse, ToolStatus
+from sre_agent.tools.common import adk_tool
 
 
 @adk_tool
@@ -12,7 +13,7 @@ async def synthesize_report(
     aggregate_results: dict[str, Any] | None = None,
     log_analysis: dict[str, Any] | None = None,
     tool_context: Any | None = None,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Synthesize a structured Root Cause Hypothesis report.
 
     Args:
@@ -23,7 +24,7 @@ async def synthesize_report(
         tool_context: Tool context.
 
     Returns:
-        Markdown-formatted investigation report.
+        Markdown-formatted investigation report in BaseToolResponse.
     """
     # This is a helper tool to structure the final output.
     # In a real agent, the LLM might do this naturally, but having a structured
@@ -77,4 +78,8 @@ async def synthesize_report(
     )
     report.append(f"## Impact Assessment\n{impact}\n")
 
-    return {"report": "\n".join(report)}
+    return BaseToolResponse(
+        status=ToolStatus.SUCCESS,
+        result={"report": "\n".join(report)},
+        metadata={"stage": "reporting"},
+    )

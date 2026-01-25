@@ -166,3 +166,16 @@ def test_normalize_obj_to_dict():
     normalized = normalize_obj(ObjWithToDict())
     assert normalized == {"foo": "bar"}
     assert isinstance(normalized, dict)
+
+
+def test_normalize_obj_pydantic():
+    from pydantic import BaseModel
+
+    class MyModel(BaseModel):
+        name: str
+        age: int
+
+    model = MyModel(name="test", age=20)
+    normalized = normalize_obj(model)
+    assert normalized == {"name": "test", "age": 20}
+    assert isinstance(normalized, dict)

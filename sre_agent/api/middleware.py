@@ -81,8 +81,6 @@ async def auth_middleware(request: Request, call_next: Any) -> Any:
         return response
     finally:
         # Clear credentials after request to prevent leakage between requests
-        from sre_agent.auth import clear_current_credentials
-
         clear_current_credentials()
 
 

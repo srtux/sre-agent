@@ -56,8 +56,9 @@ def test_compute_latency_statistics(complex_trace):
         "sre_agent.tools.analysis.trace.statistical_analysis._fetch_traces_parallel"
     ) as mock_fetch:
         mock_fetch.return_value = [complex_trace]
-        res = compute_latency_statistics(["trace-1"])
-        stats = res
+        res = compute_latency_statistics(["trace-1"], project_id="test-p")
+        assert res["status"] == "success"
+        stats = res["result"]
         assert stats["count"] == 1
         assert stats["mean"] == 100.0
         assert stats["max"] == 100.0
@@ -67,22 +68,29 @@ def test_compute_latency_statistics(complex_trace):
 def test_detect_latency_anomalies(complex_trace):
     with (
         patch(
-            "sre_agent.tools.analysis.trace.statistical_analysis.compute_latency_statistics"
+            "sre_agent.tools.analysis.trace.statistical_analysis._compute_latency_statistics_impl"
         ) as mock_stats,
         patch(
             "sre_agent.tools.analysis.trace.statistical_analysis.fetch_trace_data"
         ) as mock_fetch,
     ):
-        mock_stats.return_value = {
-            "count": 10,
+        from sre_agent.schema import BaseToolResponse, ToolStatus
+
+        baseline_stats = {
             "mean": 50.0,
             "stdev": 5.0,
             "per_span_stats": {},
         }
+        mock_stats.return_value = BaseToolResponse(
+            status=ToolStatus.SUCCESS, result=baseline_stats
+        )
         mock_fetch.return_value = complex_trace  # root is 100ms, which is > 50 + 2*5
 
-        res = detect_latency_anomalies(["baseline-1"], "target-1", threshold_sigma=2.0)
-        report = res
+        res = detect_latency_anomalies(
+            ["baseline-1"], "target-1", threshold_sigma=2.0, project_id="test-p"
+        )
+        assert res["status"] == "success"
+        report = res["result"]
         assert report["is_anomaly"] is True
         assert report["z_score"] > 2.0
 
@@ -114,6 +122,7 @@ def test_detect_all_sre_patterns(complex_trace):
         )
         mock_fetch.return_value = complex_trace
 
-        res = detect_all_sre_patterns("trace-1")
-        report = res
+        res = detect_all_sre_patterns("trace-1", project_id="test-p")
+        assert res["status"] == "success"
+        report = res["result"]
         assert report["trace_id"] == "trace-1"

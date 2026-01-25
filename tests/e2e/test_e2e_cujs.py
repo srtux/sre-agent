@@ -90,12 +90,14 @@ class TestCUJ_IncidentInvestigation:
             comparison_entries_json=incident_period_logs,
         )
 
+        assert result["status"] == "success"
+        data = result["result"]
         # Should detect new error patterns
-        new_patterns = result["anomalies"]["new_patterns"]
+        new_patterns = data["anomalies"]["new_patterns"]
         assert len(new_patterns) > 0, "Should detect new patterns during incident"
 
         # Should have elevated alert level
-        alert = result["alert_level"]
+        alert = data["alert_level"]
         assert "HIGH" in alert or "MEDIUM" in alert, "Alert should be elevated"
 
 
@@ -220,15 +222,17 @@ class TestCUJ_ErrorDiagnosis:
 
         result = analyze_log_anomalies(logs, focus_on_errors=True)
 
+        assert result["status"] == "success"
+        data = result["result"]
         # Should identify the database error pattern
-        assert result["unique_patterns"] > 0
-        assert len(result["error_patterns"]) > 0
+        assert data["unique_patterns"] > 0
+        assert len(data["error_patterns"]) > 0
 
         # The recommendation should mention the error
         assert (
-            "DatabaseConnectionError" in str(result)
-            or "Connection" in str(result)
-            or "ERROR" in result["recommendation"]
+            "DatabaseConnectionError" in str(data)
+            or "Connection" in str(data)
+            or "ERROR" in data["recommendation"]
         )
 
 
@@ -252,17 +256,21 @@ class TestCUJ_ProactiveMonitoring:
         )
 
         # Step 1: Quick pattern extraction
-        current_patterns = extract_log_patterns(incident_period_logs, max_patterns=10)
+        res = extract_log_patterns(incident_period_logs, max_patterns=10)
+        assert res["status"] == "success"
+        current_patterns = res["result"]
 
         # Should complete quickly with limited patterns
         assert current_patterns["total_logs_processed"] > 0
         assert len(current_patterns["top_patterns"]) <= 10
 
         # Step 2: Compare with baseline
-        comparison = compare_log_patterns(
+        res2 = compare_log_patterns(
             baseline_entries_json=baseline_period_logs,
             comparison_entries_json=incident_period_logs,
         )
+        assert res2["status"] == "success"
+        comparison = res2["result"]
 
         # Should have quick alert level determination
         assert comparison["alert_level"] is not None
@@ -391,10 +399,10 @@ class TestCUJ_HistoricalComparison:
             comparison_entries_json=current_logs,
         )
 
+        assert result["status"] == "success"
+        data = result["result"]
         # Identical patterns should result in LOW alert
-        assert (
-            "LOW" in result["alert_level"] or "stable" in result["alert_level"].lower()
-        )
+        assert "LOW" in data["alert_level"] or "stable" in data["alert_level"].lower()
 
 
 class TestCUJ_MultiSignalCorrelation:

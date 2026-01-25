@@ -1,4 +1,7 @@
-"""Unit tests for Memory Manager."""
+"""
+Goal: Verify MemoryManager correctly orchestrates between Vertex AI and Local fallbacks.
+Patterns: Mocking, Dependency Injection, Graceful Degradation.
+"""
 
 from unittest.mock import AsyncMock, MagicMock, patch
 

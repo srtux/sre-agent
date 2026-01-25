@@ -48,7 +48,9 @@ def test_compare_span_timings_n_plus_one_detection():
 
         target = {"trace_id": "target", "spans": spans}
 
-        result = compare_span_timings(json.dumps(baseline), json.dumps(target))
+        res = compare_span_timings(json.dumps(baseline), json.dumps(target))
+        assert res["status"] == "success"
+        result = res["result"]
 
         assert "patterns" in result
         patterns = result["patterns"]
@@ -106,7 +108,9 @@ def test_compare_span_timings_serial_chain_detection():
 
         target = {"trace_id": "target", "spans": spans}
 
-        result = compare_span_timings(json.dumps(baseline), json.dumps(target))
+        res = compare_span_timings(json.dumps(baseline), json.dumps(target))
+        assert res["status"] == "success"
+        result = res["result"]
 
         assert "patterns" in result
         patterns = result["patterns"]

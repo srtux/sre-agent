@@ -20,7 +20,7 @@ async def test_run_triage_analysis_flow():
         # Setup mock return
         mock_tool_instance.run_async.return_value = "Stage 1 Report Content"
 
-        result = await run_triage_analysis(
+        response = await run_triage_analysis(
             baseline_trace_id="b1", target_trace_id="t1", tool_context=mock_tool_context
         )
 
@@ -31,7 +31,8 @@ async def test_run_triage_analysis_flow():
         assert mock_tool_instance.run_async.call_count == 2
 
         # Verify result structure
-        assert result["stage"] == "triage"
+        assert response["metadata"]["stage"] == "triage"
+        result = response["result"]
         assert result["baseline_trace_id"] == "b1"
         assert result["target_trace_id"] == "t1"
         assert result["results"]["trace"]["result"] == "Stage 1 Report Content"
@@ -47,7 +48,7 @@ async def test_run_deep_dive_analysis_flow():
         MockAgentTool.return_value = mock_tool_instance
         mock_tool_instance.run_async.return_value = "Stage 2 Report Content"
 
-        result = await run_deep_dive_analysis(
+        response = await run_deep_dive_analysis(
             baseline_trace_id="b1",
             target_trace_id="t1",
             triage_findings={"findings": "Stage 1 Findings"},
@@ -56,9 +57,9 @@ async def test_run_deep_dive_analysis_flow():
 
         assert MockAgentTool.call_count == 1
         assert mock_tool_instance.run_async.call_count == 1
-        assert result["stage"] == "deep_dive"
-        assert result["status"] == "success"
-        assert result["result"] == "Stage 2 Report Content"
+        assert response["metadata"]["stage"] == "deep_dive"
+        assert response["status"] == "success"
+        assert response["result"] == "Stage 2 Report Content"
 
 
 @pytest.mark.asyncio

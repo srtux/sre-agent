@@ -1,4 +1,7 @@
-"""Security tests for Memory Manager."""
+"""
+Goal: Verify MemoryManager enforces strict user isolation and privacy hardening.
+Patterns: User Identity Propagation, Metadata Filtering, Anonymous Access Safety.
+"""
 
 from unittest.mock import AsyncMock, MagicMock
 

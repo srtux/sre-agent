@@ -20,7 +20,8 @@ class TestBigQueryOtelTools:
             time_window_hours=24,
         )
 
-        result_data = result
+        assert result["status"] == "success"
+        result_data = result["result"]
 
         assert "sql_query" in result_data
         assert "SELECT" in result_data["sql_query"]
@@ -37,7 +38,8 @@ class TestBigQueryOtelTools:
             time_window_hours=12,
         )
 
-        result_data = result
+        assert result["status"] == "success"
+        result_data = result["result"]
 
         assert "sql_query" in result_data
         assert (
@@ -55,7 +57,8 @@ class TestBigQueryOtelTools:
             limit=10,
         )
 
-        result_data = result
+        assert result["status"] == "success"
+        result_data = result["result"]
 
         assert result_data["selection_strategy"] == "outliers"
         assert "sql_query" in result_data
@@ -71,7 +74,8 @@ class TestBigQueryOtelTools:
             limit=5,
         )
 
-        result_data = result
+        assert result["status"] == "success"
+        result_data = result["result"]
 
         assert result_data["selection_strategy"] == "errors"
         assert "status.code = 2" in result_data["sql_query"]
@@ -85,7 +89,8 @@ class TestBigQueryOtelTools:
             selection_strategy="baseline",
         )
 
-        result_data = result
+        assert result["status"] == "success"
+        result_data = result["result"]
 
         assert result_data["selection_strategy"] == "baseline"
         assert "p50_ms" in result_data["sql_query"]
@@ -100,7 +105,8 @@ class TestBigQueryOtelTools:
             limit=20,
         )
 
-        result_data = result
+        assert result["status"] == "success"
+        result_data = result["result"]
 
         assert result_data["selection_strategy"] == "comparison"
         assert "baseline_traces" in result_data["sql_query"]
@@ -115,10 +121,8 @@ class TestBigQueryOtelTools:
             selection_strategy="invalid_strategy",
         )
 
-        result_data = result
-
-        assert "error" in result_data
-        assert "Unknown selection_strategy" in result_data["error"]
+        assert result["status"] == "error"
+        assert "Unknown selection_strategy" in result["error"]
 
     def test_correlate_logs_with_trace_basic(self):
         """Test log correlation query generation."""
@@ -128,7 +132,8 @@ class TestBigQueryOtelTools:
             include_nearby_logs=False,
         )
 
-        result_data = result
+        assert result["status"] == "success"
+        result_data = result["result"]
 
         assert result_data["trace_id"] == "abc123def456"
         assert "sql_query" in result_data
@@ -144,7 +149,8 @@ class TestBigQueryOtelTools:
             time_window_seconds=60,
         )
 
-        result_data = result
+        assert result["status"] == "success"
+        result_data = result["result"]
 
         assert "nearby_logs" in result_data["sql_query"]
         assert "60 SECOND" in result_data["sql_query"]
@@ -161,7 +167,8 @@ class TestBigQueryOtelTools:
             anomaly_hours_ago_end=0,
         )
 
-        result_data = result
+        assert result["status"] == "success"
+        result_data = result["result"]
 
         assert "sql_query" in result_data
         assert "baseline_period" in result_data["sql_query"]
@@ -177,7 +184,8 @@ class TestBigQueryOtelTools:
             service_name="checkout-service",
         )
 
-        result_data = result
+        assert result["status"] == "success"
+        result_data = result["result"]
 
         assert (
             "JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = 'checkout-service'"
@@ -194,7 +202,8 @@ class TestBigQueryOtelTools:
             metric="p95",
         )
 
-        result_data = result
+        assert result["status"] == "success"
+        result_data = result["result"]
 
         assert result_data["metric"] == "p95"
         assert "APPROX_QUANTILES" in result_data["sql_query"]
@@ -210,7 +219,8 @@ class TestBigQueryOtelTools:
             metric="error_rate",
         )
 
-        result_data = result
+        assert result["status"] == "success"
+        result_data = result["result"]
 
         assert result_data["metric"] == "error_rate"
         assert "COUNTIF(status.code = 2)" in result_data["sql_query"]
@@ -224,7 +234,8 @@ class TestBigQueryOtelTools:
             metric="throughput",
         )
 
-        result_data = result
+        assert result["status"] == "success"
+        result_data = result["result"]
 
         assert result_data["metric"] == "throughput"
         assert "COUNT(*) as metric_value" in result_data["sql_query"]
@@ -238,10 +249,8 @@ class TestBigQueryOtelTools:
             metric="invalid_metric",
         )
 
-        result_data = result
-
-        assert "error" in result_data
-        assert "Unknown metric" in result_data["error"]
+        assert result["status"] == "error"
+        assert "Unknown metric" in result["error"]
 
     def test_query_contains_proper_time_conversion(self):
         """Test that queries properly convert nanoseconds to milliseconds."""
@@ -249,7 +258,8 @@ class TestBigQueryOtelTools:
             dataset_id="myproject.telemetry", table_name="_AllSpans"
         )
 
-        result_data = result
+        assert result["status"] == "success"
+        result_data = result["result"]
 
         # OpenTelemetry stores duration in nanoseconds, we should convert to ms
         assert "duration_nano / 1000000" in result_data["sql_query"]
@@ -281,15 +291,15 @@ class TestBigQueryOtelTools:
 
         for tool_func, params in tools_and_params:
             result = tool_func(**params)
-            result_data = result
 
             # Skip if error response
-            if "error" in result_data:
+            if result["status"] == "error":
                 continue
 
-            assert "description" in result_data, (
-                f"{tool_func.__name__} missing description"
-            )
-            assert "next_steps" in result_data, (
-                f"{tool_func.__name__} missing next_steps"
-            )
+            result_data = result["result"]
+            assert (
+                "description" in result_data
+            ), f"{tool_func.__name__} missing description"
+            assert (
+                "next_steps" in result_data
+            ), f"{tool_func.__name__} missing next_steps"

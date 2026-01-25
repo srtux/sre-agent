@@ -8,6 +8,7 @@ import google.auth.transport.requests
 import httpx
 
 from ...auth import get_credentials_from_tool_context
+from ...schema import BaseToolResponse, ToolStatus
 from ..common import adk_tool
 
 logger = logging.getLogger(__name__)
@@ -16,7 +17,7 @@ logger = logging.getLogger(__name__)
 @adk_tool
 async def list_gcp_projects(
     query: str | None = None, tool_context: Any = None
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """List or search GCP projects that the user has access to.
 
     This tool calls the Cloud Resource Manager API v3 to search projects.
@@ -39,10 +40,11 @@ async def list_gcp_projects(
 
         # Strict EUC Enforcement: No fallback to Default Credentials (ADC)
         if not auth_creds:
-            return {
-                "projects": [],
-                "error": "Authentication required. EUC not found and ADC fallback is disabled for this tool.",
-            }
+            return BaseToolResponse(
+                status=ToolStatus.ERROR,
+                error="Authentication required. EUC not found and ADC fallback is disabled for this tool.",
+                result={"projects": []},
+            )
 
         if auth_creds and not getattr(auth_creds, "token", None):
             # Refresh credentials if needed
@@ -56,7 +58,11 @@ async def list_gcp_projects(
         async with httpx.AsyncClient() as client:
             token = getattr(auth_creds, "token", None)
             if not token:
-                return {"projects": [], "error": "No valid authentication token found"}
+                return BaseToolResponse(
+                    status=ToolStatus.ERROR,
+                    error="No valid authentication token found",
+                    result={"projects": []},
+                )
 
             headers = {"Authorization": f"Bearer {token}"}
 
@@ -79,13 +85,21 @@ async def list_gcp_projects(
 
             if response.status_code != 200:
                 logger.error(f"Failed to search projects: {response.text}")
-                return {"projects": [], "error": f"API error: {response.status_code}"}
+                return BaseToolResponse(
+                    status=ToolStatus.ERROR,
+                    error=f"API error: {response.status_code}",
+                    result={"projects": []},
+                )
 
             try:
                 data = response.json()
             except Exception:
                 logger.error(f"Failed to parse JSON response: {response.text[:200]}")
-                return {"projects": [], "error": "Invalid API response"}
+                return BaseToolResponse(
+                    status=ToolStatus.ERROR,
+                    error="Invalid API response",
+                    result={"projects": []},
+                )
 
             projects = []
             for p in data.get("projects", []):
@@ -99,8 +113,12 @@ async def list_gcp_projects(
                     {"project_id": pid, "display_name": p.get("displayName", pid)}
                 )
 
-            return {"projects": projects}
+            return BaseToolResponse(
+                status=ToolStatus.SUCCESS, result={"projects": projects}
+            )
 
     except Exception as e:
         logger.error(f"Error listing projects: {e}", exc_info=True)
-        return {"projects": [], "error": str(e)}
+        return BaseToolResponse(
+            status=ToolStatus.ERROR, error=str(e), result={"projects": []}
+        )

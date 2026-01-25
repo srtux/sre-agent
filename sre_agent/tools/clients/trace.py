@@ -19,6 +19,7 @@ import logging
 import os
 import re
 import statistics
+from collections.abc import Coroutine
 from datetime import datetime, timezone
 from typing import Any, cast
 
@@ -26,13 +27,14 @@ from fastapi.concurrency import run_in_threadpool
 from google.cloud import trace_v1
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from ...auth import (
+from sre_agent.auth import (
     get_credentials_from_tool_context,
     get_current_project_id,
 )
-from ..common import adk_tool
-from ..common.cache import get_data_cache
-from ..common.telemetry import get_meter, get_tracer
+from sre_agent.schema import BaseToolResponse, ToolStatus
+from sre_agent.tools.common import adk_tool
+from sre_agent.tools.common.cache import get_data_cache
+from sre_agent.tools.common.telemetry import get_meter, get_tracer
 
 __all__ = [
     "_clear_thread_credentials",
@@ -47,7 +49,6 @@ __all__ = [
 ]
 
 # Context variable for credentials to pass to sync functions running in threadpool
-# This enables EIC propagation for Direct API tools in Agent Engine
 _thread_credentials: contextvars.ContextVar[Any | None] = contextvars.ContextVar(
     "thread_credentials", default=None
 )
@@ -152,33 +153,19 @@ def _get_project_id() -> str:
 
 
 def get_current_time() -> str:
-    """Returns the current UTC time in ISO format.
-
-    Use this to calculate relative time ranges for list_traces.
-    """
+    """Returns the current UTC time in ISO format."""
     return datetime.now(timezone.utc).isoformat()
 
 
 def get_trace_client(credentials: Any = None) -> trace_v1.TraceServiceClient:
-    """Gets a Cloud Trace API client.
-
-    Args:
-        credentials: Google Auth credentials to use.
-
-    Returns:
-        A TraceServiceClient instance.
-    """
+    """Gets a Cloud Trace API client."""
     return trace_v1.TraceServiceClient(credentials=credentials)
 
 
 def fetch_trace_data(
     trace_id_or_json: str | dict[str, Any], project_id: str | None = None
 ) -> dict[str, Any]:
-    """Helper to fetch trace data by ID or from JSON/dict.
-
-    Commonly used across analysis tools to handle flexible inputs.
-    """
-    # Check if it's already a dictionary
+    """Helper to fetch trace data by ID or from JSON/dict."""
     if isinstance(trace_id_or_json, dict):
         if (
             "trace_id" in trace_id_or_json
@@ -188,7 +175,6 @@ def fetch_trace_data(
             return trace_id_or_json
         return {"error": "Invalid trace dictionary provided."}
 
-    # Check if it's a JSON string containing a trace
     if isinstance(trace_id_or_json, str) and trace_id_or_json.strip().startswith("{"):
         try:
             data = json.loads(trace_id_or_json)
@@ -211,8 +197,6 @@ def fetch_trace_data(
         if isinstance(trace_json, dict):
             return trace_json
         data = json.loads(trace_json)
-        if data and isinstance(data, dict) and "error" in data:
-            return cast(dict[str, Any], data)
         return cast(dict[str, Any], data)
     except json.JSONDecodeError:
         return {"error": "Invalid trace JSON"}
@@ -223,51 +207,31 @@ async def fetch_trace(
     trace_id: str,
     project_id: str | None = None,
     tool_context: Any = None,
-) -> dict[str, Any]:
-    """Fetches a specific trace by ID from Cloud Trace API.
-
-    Uses caching to avoid redundant API calls when the same trace
-    is requested multiple times (e.g., by different sub-agents).
-
-    Supports End User Identity Credentials (EIC) when running in Agent Engine
-    by extracting user credentials from tool_context session state.
-
-    Args:
-        trace_id: The unique hex ID of the trace.
-        project_id: The Google Cloud Project ID. Defaults to current context.
-        tool_context: ADK ToolContext for credential propagation (optional).
-
-    Returns:
-        A dictionary representation of the trace, including all spans.
-    """
+) -> BaseToolResponse:
+    """Fetches a specific trace by ID from Cloud Trace API."""
     from fastapi.concurrency import run_in_threadpool
 
     if not project_id:
         try:
             project_id = _get_project_id()
         except ValueError as e:
-            return {"error": str(e)}
+            return BaseToolResponse(status=ToolStatus.ERROR, error=str(e))
 
-    # Extract user credentials from tool_context for EIC propagation
-    # This allows the tool to use the user's credentials when running in Agent Engine
     user_creds = get_credentials_from_tool_context(tool_context)
     try:
         if user_creds:
             _set_thread_credentials(user_creds)
-        return await run_in_threadpool(_fetch_trace_sync, project_id, trace_id)
+        result = await run_in_threadpool(_fetch_trace_sync, project_id, trace_id)
+        if isinstance(result, dict) and "error" in result:
+            return BaseToolResponse(status=ToolStatus.ERROR, error=result["error"])
+        return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
     finally:
         _clear_thread_credentials()
 
 
 def _fetch_trace_sync(project_id: str, trace_id: str) -> dict[str, Any]:
-    """Synchronous implementation of fetch_trace.
-
-    Uses thread-local credentials if available for EIC propagation.
-    """
-    # Check for thread-local user credentials (set by async wrapper for EIC)
+    """Synchronous implementation of fetch_trace."""
     thread_creds = _get_thread_credentials()
-
-    # Check cache first
     cache = get_data_cache()
 
     cached = cache.get(f"trace:{trace_id}")
@@ -288,17 +252,10 @@ def _fetch_trace_sync(project_id: str, trace_id: str) -> dict[str, Any]:
         span.set_attribute("rpc.method", "get_trace")
 
         try:
-            # Use user credentials from thread storage if available (EIC propagation)
             if thread_creds:
                 client = get_trace_client(credentials=thread_creds)
-                logger.debug("Using user credentials for trace client")
             else:
-                # STRICT MODE: Never fall back to ADC/Factory default if running in this context
-                # This ensures we don't accidentally use the host's gcloud identity
-                error_msg = (
-                    "Authentication failed: No user credentials found in thread context. "
-                    "EUC propagation required."
-                )
+                error_msg = "Authentication failed: No user credentials found in thread context."
                 logger.error(error_msg)
                 return {"error": error_msg}
 
@@ -309,7 +266,7 @@ def _fetch_trace_sync(project_id: str, trace_id: str) -> dict[str, Any]:
             trace_end = None
 
             for span_proto in trace_obj.spans:
-                # Helper for robust timestamp extraction
+
                 def get_ts_val(ts_proto: Any) -> float:
                     if hasattr(ts_proto, "timestamp"):
                         return cast(float, ts_proto.timestamp())
@@ -318,7 +275,6 @@ def _fetch_trace_sync(project_id: str, trace_id: str) -> dict[str, Any]:
                 def get_ts_str(ts_proto: Any) -> str:
                     if hasattr(ts_proto, "isoformat"):
                         return cast(str, ts_proto.isoformat())
-
                     return datetime.fromtimestamp(
                         get_ts_val(ts_proto), tz=timezone.utc
                     ).isoformat()
@@ -337,7 +293,6 @@ def _fetch_trace_sync(project_id: str, trace_id: str) -> dict[str, Any]:
                         "name": span_proto.name,
                         "start_time": get_ts_str(span_proto.start_time),
                         "end_time": get_ts_str(span_proto.end_time),
-                        # Optimization: Store unix timestamps to avoid expensive ISO parsing in analysis tools
                         "start_time_unix": s_start,
                         "end_time_unix": s_end,
                         "parent_span_id": span_proto.parent_span_id,
@@ -359,7 +314,6 @@ def _fetch_trace_sync(project_id: str, trace_id: str) -> dict[str, Any]:
                 "duration_ms": dur_ms,
             }
 
-            # Cache the result before returning
             cache.put(f"trace:{trace_id}", result)
             return result
 
@@ -381,37 +335,21 @@ async def list_traces(
     error_only: bool = False,
     attributes_json: str | None = None,
     tool_context: Any = None,
-) -> list[dict[str, Any]] | dict[str, Any]:
-    """Lists recent traces with advanced filtering capabilities.
-
-    Args:
-        project_id: The GCP project ID. Defaults to current context.
-        start_time: ISO timestamp for start of window.
-        end_time: ISO timestamp for end of window.
-        limit: Max number of traces to return.
-        filter_str: Raw filter string (overrides other filters if provided).
-        min_latency_ms: Minimum latency in milliseconds.
-        error_only: If True, filters for traces with errors.
-        attributes_json: JSON string of additional span attributes to filter by (e.g., '{"/http/status_code": "500"}').
-        tool_context: Context object for tool execution.
-
-    Returns:
-        List of trace summaries.
-    """
+) -> BaseToolResponse:
+    """Lists recent traces with advanced filtering capabilities."""
     from fastapi.concurrency import run_in_threadpool
 
     if not project_id:
         try:
             project_id = _get_project_id()
         except ValueError as e:
-            return {"error": str(e)}
+            return BaseToolResponse(status=ToolStatus.ERROR, error=str(e))
 
-    # Extract user credentials from tool_context for EIC propagation
     user_creds = get_credentials_from_tool_context(tool_context)
     try:
         if user_creds:
             _set_thread_credentials(user_creds)
-        return await run_in_threadpool(
+        result = await run_in_threadpool(
             _list_traces_sync,
             project_id,
             limit,
@@ -421,6 +359,9 @@ async def list_traces(
             end_time,
             attributes_json,
         )
+        if isinstance(result, dict) and "error" in result:
+            return BaseToolResponse(status=ToolStatus.ERROR, error=result["error"])
+        return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
     finally:
         _clear_thread_credentials()
 
@@ -436,23 +377,15 @@ def _list_traces_sync(
 ) -> list[dict[str, Any]] | dict[str, Any]:
     """Synchronous implementation of list_traces."""
     with tracer.start_as_current_span("list_traces"):
-        # Check for thread-local user credentials
         thread_creds = _get_thread_credentials()
         try:
             if thread_creds:
                 client = get_trace_client(credentials=thread_creds)
             else:
-                # STRICT MODE: Never fall back to ADC/Factory default
-                error_msg = (
-                    "Authentication failed: No user credentials found in thread context. "
-                    "EUC propagation required for list_traces."
-                )
+                error_msg = "Authentication failed: No user credentials found in thread context."
                 logger.error(error_msg)
                 return {"error": error_msg}
 
-            # Construct complex filter string
-            # Placeholder for build_trace_filter, assuming it's defined elsewhere or will be added.
-            # For now, a simple filter construction based on provided parameters.
             filters = []
             if min_latency_ms:
                 filters.append(f"latency:{min_latency_ms}ms")
@@ -460,7 +393,6 @@ def _list_traces_sync(
                 filters.append("error:true")
             filter_str = " ".join(filters)
 
-            # Parse time window
             start_timestamp = None
             end_timestamp = None
 
@@ -480,12 +412,11 @@ def _list_traces_sync(
                 except Exception:
                     logger.warning(f"Invalid end_time format: {end_time}")
 
-            # Make API Request
-            request_kwargs = {
+            request_kwargs: dict[str, Any] = {
                 "project_id": project_id,
                 "page_size": limit,
                 "filter": filter_str,
-                "view": trace_v1.ListTracesRequest.ViewType.ROOTSPAN,  # Lightweight view
+                "view": trace_v1.ListTracesRequest.ViewType.ROOTSPAN,
             }
 
             if start_timestamp:
@@ -503,13 +434,10 @@ def _list_traces_sync(
                     "trace_id": trace.trace_id,
                     "project_id": trace.project_id,
                 }
-
-                # Extract root span details if available
                 if trace.spans:
                     root_span = trace.spans[0]
                     summary["name"] = root_span.name
 
-                    # Helper for robust timestamp extraction
                     def get_ts_val(ts_proto: Any) -> float:
                         if hasattr(ts_proto, "timestamp"):
                             return cast(float, ts_proto.timestamp())
@@ -527,14 +455,11 @@ def _list_traces_sync(
                         ).isoformat()
                     summary["duration_ms_str"] = str(round(duration_ms, 2))
                     summary["duration_ms"] = round(duration_ms, 2)
-
-                    # Labels/Attributes
                     labels = root_span.labels or {}
                     summary["status"] = labels.get("/http/status_code", "0")
                     summary["url"] = labels.get("/http/url", "")
 
                 traces.append(summary)
-
                 if len(traces) >= limit:
                     break
 
@@ -552,51 +477,26 @@ def _calculate_anomaly_score(
     stdev_latency: float,
     has_error: bool = False,
 ) -> float:
-    """Calculate a composite anomaly score for a trace.
-
-    The score combines multiple signals:
-    - Latency z-score (how many std devs from mean)
-    - Error presence (significant boost)
-    - Extreme latency bonus (for very slow traces)
-    """
+    """Calculate a composite anomaly score for a trace."""
     score = 0.0
     duration = trace.get("duration_ms", 0)
-
-    # Z-score component
     if stdev_latency > 0:
         z_score = (duration - mean_latency) / stdev_latency
         score += max(0, z_score)
     elif duration > mean_latency:
         score += 3.0
 
-    # Error component
     if has_error:
         score += 5.0
 
-    # Extreme latency bonus (>3x mean)
     if mean_latency > 0 and duration > mean_latency * 3:
         score += 2.0
-
     return score
 
 
 def validate_trace(trace_data: str | dict[str, Any]) -> dict[str, Any]:
-    """Validates trace data for completeness and quality.
-
-    Checks:
-    - Has required fields (trace_id, spans)
-    - Has valid span structure
-    - Has reasonable duration
-    - Spans have timestamps
-
-    Args:
-        trace_data: Trace data as JSON string or dict.
-
-    Returns:
-        Validation result with 'valid' boolean and 'issues' list.
-    """
+    """Validates trace data for completeness and quality."""
     issues = []
-
     if isinstance(trace_data, str):
         try:
             data = json.loads(trace_data)
@@ -624,7 +524,6 @@ def validate_trace(trace_data: str | dict[str, Any]) -> dict[str, Any]:
                 issues.append(f"Span {i} missing start_time")
             if not span.get("end_time"):
                 issues.append(f"Span {i} missing end_time")
-
         if len(spans) > 1000:
             issues.append(f"Unusually large trace with {len(spans)} spans")
 
@@ -648,46 +547,25 @@ async def find_example_traces(
     prefer_errors: bool = True,
     min_sample_size: int = 20,
     tool_context: Any = None,
-) -> dict[str, Any]:
-    """Intelligently discovers representative baseline and anomaly traces.
-
-    The algorithm:
-    1. Fetches recent traces to build a statistical model
-    2. Also fetches recent error traces for multi-signal analysis
-    3. Scores traces using composite anomaly scoring
-    4. Validates selected traces before returning
-
-    Args:
-        project_id: The GCP project ID.
-        prefer_errors: If true, favors traces that contains error spans.
-        min_sample_size: Minimum number of traces to sample.
-        tool_context: Context object for tool execution.
-
-    Returns:
-        Dictionary with 'baseline' and 'anomaly' keys.
-    """
+) -> BaseToolResponse:
+    """Intelligently discovers representative baseline and anomaly traces."""
     try:
         try:
             if not project_id:
                 project_id = _get_project_id()
         except ValueError:
-            return {"error": "GOOGLE_CLOUD_PROJECT not set"}
+            return BaseToolResponse(
+                status=ToolStatus.ERROR, error="GOOGLE_CLOUD_PROJECT not set"
+            )
 
-        # Prepare parallel tasks for trace fetching
-        tasks = []
-
-        # Strategy 1: Look for slow traces directly (latency > 1s)
+        tasks: list[Coroutine[Any, Any, Any]] = []
         slow_filter = TraceFilterBuilder().add_latency(1000).build()
         tasks.append(
             list_traces(
                 project_id, limit=20, filter_str=slow_filter, tool_context=tool_context
             )
         )
-
-        # Strategy 2: Fetch recent traces for statistical baseline
         tasks.append(list_traces(project_id, limit=50, tool_context=tool_context))
-
-        # Strategy 3: Fetch error traces if requested
         if prefer_errors:
             tasks.append(
                 list_traces(
@@ -695,58 +573,53 @@ async def find_example_traces(
                 )
             )
 
-        # Execute all fetches concurrently
         results = await asyncio.gather(*tasks)
 
-        slow_traces = results[0]
-        traces = results[1]
-        error_traces = results[2] if prefer_errors else []
+        # Helper to extract from normalized dict response (from adk_tool)
+        def extract(resp: dict[str, Any] | Any) -> list[dict[str, Any]]:
+            if isinstance(resp, dict) and "status" in resp:
+                return (
+                    cast(list[dict[str, Any]], resp.get("result"))
+                    if resp.get("status") == "success"
+                    and isinstance(resp.get("result"), list)
+                    else []
+                )
+            return cast(list[dict[str, Any]], resp if isinstance(resp, list) else [])
 
-        # Process results
-        if (
-            isinstance(traces, list)
-            and traces
-            and isinstance(traces[0], dict)
-            and "error" in traces[0]
-        ):
-            return traces[0]
+        slow_traces = extract(results[0])
+        traces = extract(results[1])
+        error_traces = extract(results[2]) if prefer_errors else []
 
         if not traces:
-            return {"error": "No traces found in the last hour."}
+            # Check if traces_resp exists and has error
+            if isinstance(results[1], dict) and results[1].get("status") == "error":
+                return BaseToolResponse(
+                    status=ToolStatus.ERROR, error=results[1].get("error")
+                )
+            return BaseToolResponse(
+                status=ToolStatus.ERROR, error="No traces found in the last hour."
+            )
 
-        # Inject slow traces into our pool
-        if (
-            isinstance(slow_traces, list)
-            and slow_traces
-            and "error" not in slow_traces[0]
-        ):
-            existing_ids = {t["trace_id"] for t in traces if "trace_id" in t}
-            for st in slow_traces:
-                if st["trace_id"] not in existing_ids:
-                    traces.append(st)
+        # Inject slow traces
+        existing_ids = {
+            t["trace_id"] for t in traces if isinstance(t, dict) and "trace_id" in t
+        }
+        for st in slow_traces:
+            if isinstance(st, dict) and st.get("trace_id") not in existing_ids:
+                traces.append(st)
 
         # Process error traces
         error_trace_ids = set()
         if prefer_errors:
-            if (
-                isinstance(error_traces, list)
-                and error_traces
-                and not (
-                    isinstance(error_traces[0], dict) and "error" in error_traces[0]
-                )
-            ):
-                error_trace_ids = {
-                    t.get("trace_id") for t in error_traces if t.get("trace_id")
-                }
-                existing_ids = {t.get("trace_id") for t in traces if "trace_id" in t}
-                for et in error_traces:
-                    if et.get("trace_id") not in existing_ids:
+            for et in error_traces:
+                if isinstance(et, dict) and et.get("trace_id"):
+                    tid = et["trace_id"]
+                    error_trace_ids.add(tid)
+                    if tid not in existing_ids:
                         et["has_error"] = True
                         traces.append(et)
 
-        # Use threadpool for CPU-bound filtering and calculation
         def _calculate_example_traces() -> dict[str, Any]:
-            # Extract valid traces with latencies
             valid_traces = [
                 t for t in traces if isinstance(t, dict) and t.get("duration_ms", 0) > 0
             ]
@@ -755,143 +628,78 @@ async def find_example_traces(
 
             latencies = [t["duration_ms"] for t in valid_traces]
             latencies.sort()
-
-            # Calculate statistical metrics
             p50 = statistics.median(latencies)
             mean = statistics.mean(latencies)
             stdev = statistics.stdev(latencies) if len(latencies) > 1 else 0
 
-            # Score all traces for anomaly detection
             for trace in valid_traces:
-                has_error = (
+                has_err = (
                     trace.get("has_error", False)
                     or trace.get("trace_id") in error_trace_ids
                 )
                 trace["_anomaly_score"] = _calculate_anomaly_score(
-                    trace, mean, stdev, has_error
+                    trace, mean, stdev, has_err
                 )
-                trace["_has_error"] = has_error
+                trace["_has_error"] = has_err
 
-            # Select anomaly (highest anomaly score)
             anomaly = max(valid_traces, key=lambda x: x.get("_anomaly_score", 0))
-
-            # Select baseline (closest to P50, prefer no errors)
             baseline_candidates = [
                 t for t in valid_traces if not t.get("_has_error", False)
             ]
             if not baseline_candidates:
                 baseline_candidates = valid_traces
-
             baseline = min(
                 baseline_candidates, key=lambda x: abs(x["duration_ms"] - p50)
             )
 
-            # Add selection reasoning
             baseline["_selection_reason"] = f"Closest to P50 ({p50:.1f}ms)"
             anomaly_score = anomaly.get("_anomaly_score", 0)
             if anomaly.get("_has_error"):
-                anomaly["_selection_reason"] = (
-                    f"Error trace with anomaly score {anomaly_score:.2f}"
-                )
+                anomaly["_selection_reason"] = f"Error trace ({anomaly_score:.2f})"
             else:
-                anomaly["_selection_reason"] = (
-                    f"High latency anomaly score {anomaly_score:.2f}"
-                )
+                anomaly["_selection_reason"] = f"Latency anomaly ({anomaly_score:.2f})"
 
-            # Clean up internal fields
-            stats = {
-                "count": len(valid_traces),
-                "p50_ms": round(p50, 2),
-                "mean_ms": round(mean, 2),
-                "stdev_ms": round(stdev, 2) if stdev else 0,
-                "error_traces_found": len(error_trace_ids),
-            }
-
-            validation = {
-                "baseline_valid": baseline.get("trace_id") is not None,
-                "anomaly_valid": anomaly.get("trace_id") is not None,
-                "sample_adequate": len(valid_traces) >= 20,
-                "latency_variance_detected": stdev > 0,
-            }
-
-            results_dict: dict[str, Any] = {
-                "stats": stats,
+            return {
+                "stats": {
+                    "count": len(valid_traces),
+                    "p50_ms": round(p50, 2),
+                    "mean_ms": round(mean, 2),
+                    "stdev_ms": round(stdev, 2) if stdev else 0,
+                    "error_traces_found": len(error_trace_ids),
+                },
                 "baseline": baseline,
                 "anomaly": anomaly,
-                "validation": validation,
+                "validation": {
+                    "baseline_valid": baseline.get("trace_id") is not None,
+                    "anomaly_valid": anomaly.get("trace_id") is not None,
+                    "sample_adequate": len(valid_traces) >= 20,
+                    "latency_variance_detected": stdev > 0,
+                },
                 "selection_method": "hybrid_multi_signal",
             }
 
-            # --- NEW: Try to find a better baseline with same root span name ---
-            root_name = anomaly.get("name")
-            if root_name:
-                # Search for traces with same root name that are "healthy" (shorter)
-                # This part still needs to be async, but we can return the name to search for
-                return {**results_dict, "_search_root_name": root_name}
-
-            return results_dict
-
-        results_final: dict[str, Any] = cast(
-            dict[str, Any], await run_in_threadpool(_calculate_example_traces)
-        )
-
+        results_final = await run_in_threadpool(_calculate_example_traces)
         if "error" in results_final:
-            return results_final
-
-        # Handle the async part of root name matching outside the threadpool
-        search_root_name = results_final.pop("_search_root_name", None)
-        if search_root_name:
-            fb = TraceFilterBuilder().add_root_span_name(search_root_name, exact=True)
-            candidates = await list_traces(
-                project_id, limit=20, filter_str=fb.build(), tool_context=tool_context
+            return BaseToolResponse(
+                status=ToolStatus.ERROR, error=results_final["error"]
             )
 
-            if (
-                isinstance(candidates, list)
-                and candidates
-                and "error" not in candidates[0]
-            ):
-                anomaly = results_final["anomaly"]
-                shorter = [
-                    t
-                    for t in candidates
-                    if t.get("duration_ms", 0) < anomaly["duration_ms"] * 0.8
-                ]
-                if shorter:
-                    shorter.sort(key=lambda x: x.get("duration_ms", 0))
-                    best_baseline = shorter[len(shorter) // 2]
-                    best_baseline["_selection_reason"] = (
-                        f"Same root span ({search_root_name}), 20%+ faster"
-                    )
-                    results_final["baseline"] = best_baseline
-                    results_final["selection_method"] += "+root_name_match"
-
-        return results_final
+        return BaseToolResponse(status=ToolStatus.SUCCESS, result=results_final)
 
     except Exception as e:
-        error_msg = f"Failed to find example traces: {e!s}"
-        logger.error(error_msg, exc_info=True)
-        return {"error": error_msg}
+        logger.error(f"Failed to find example traces: {e!s}", exc_info=True)
+        return BaseToolResponse(status=ToolStatus.ERROR, error=str(e))
 
 
 @adk_tool
-async def get_trace_by_url(url: str) -> dict[str, Any]:
-    """Parses a Cloud Console URL and fetches the trace details.
-
-    Args:
-        url: The full URL from the browser address bar.
-
-    Returns:
-        Dictionary with trace details.
-    """
+async def get_trace_by_url(url: str) -> BaseToolResponse:
+    """Parses a Cloud Console URL and fetches the trace details."""
     try:
         from urllib.parse import parse_qs, urlparse
 
         parsed = urlparse(url)
         params = parse_qs(parsed.query)
-
         project_id = params.get("project", [None])[0]
-
         trace_id = None
         if "tid" in params:
             trace_id = params["tid"][0]
@@ -901,8 +709,6 @@ async def get_trace_by_url(url: str) -> dict[str, Any]:
                 if "details" in part and i + 1 < len(parts):
                     trace_id = parts[i + 1]
                     break
-
-        # Fallback: look for hex ID in path
         if not trace_id:
             for part in reversed(parsed.path.split("/")):
                 if (
@@ -912,13 +718,10 @@ async def get_trace_by_url(url: str) -> dict[str, Any]:
                 ):
                     trace_id = part
                     break
-
         if not project_id or not trace_id:
-            return {"error": "Could not parse project_id or trace_id from URL"}
-
-        return cast(dict[str, Any], await fetch_trace(trace_id, project_id))
-
+            return BaseToolResponse(
+                status=ToolStatus.ERROR, error="Could not parse URL"
+            )
+        return cast(BaseToolResponse, await fetch_trace(trace_id, project_id))
     except Exception as e:
-        error_msg = f"Failed to get trace by URL: {e!s}"
-        logger.error(error_msg)
-        return {"error": error_msg}
+        return BaseToolResponse(status=ToolStatus.ERROR, error=str(e))

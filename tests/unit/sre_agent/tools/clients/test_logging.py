@@ -48,9 +48,11 @@ async def test_list_log_entries(mock_pager):
         mock_client.list_log_entries.return_value = mock_pager
 
         result = await list_log_entries("p1", "filter")
-        assert "entries" in result
-        assert len(result["entries"]) == 1
-        assert result["entries"][0]["severity"] == "ERROR"
+        assert result["status"] == "success"
+        res_data = result["result"]
+        assert "entries" in res_data
+        assert len(res_data["entries"]) == 1
+        assert res_data["entries"][0]["severity"] == "ERROR"
 
 
 @pytest.mark.asyncio
@@ -61,7 +63,8 @@ async def test_list_log_entries_with_token(mock_pager):
         mock_client.list_log_entries.return_value = mock_pager
 
         result = await list_log_entries("p1", "filter", page_token="token123")
-        assert "entries" in result
+        assert result["status"] == "success"
+        assert "entries" in result["result"]
 
 
 @pytest.mark.asyncio
@@ -71,7 +74,7 @@ async def test_list_log_entries_error():
         side_effect=Exception("API error"),
     ):
         result = await list_log_entries("p1", "filter")
-        assert "error" in result
+        assert result["status"] == "error"
         assert "API error" in result["error"]
 
 
@@ -83,7 +86,8 @@ async def test_get_logs_for_trace(mock_pager):
         mock_client.list_log_entries.return_value = mock_pager
 
         result = await get_logs_for_trace("p1", "t1")
-        assert "entries" in result
+        assert result["status"] == "success"
+        assert "entries" in result["result"]
 
 
 @pytest.mark.asyncio
@@ -103,9 +107,11 @@ async def test_list_error_events():
         mock_client.list_events.return_value = [mock_event]
 
         result = await list_error_events("p1")
-        assert isinstance(result, list)
-        assert len(result) == 1
-        assert result[0]["message"] == "Crash"
+        assert result["status"] == "success"
+        res_list = result["result"]
+        assert isinstance(res_list, list)
+        assert len(res_list) == 1
+        assert res_list[0]["message"] == "Crash"
 
 
 @pytest.mark.asyncio
@@ -115,7 +121,7 @@ async def test_list_error_events_error():
         side_effect=Exception("API Fail"),
     ):
         result = await list_error_events("p1")
-        assert "error" in result
+        assert result["status"] == "error"
 
 
 def test_extract_log_payload_text():

@@ -4,6 +4,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from sre_agent.schema import ToolStatus
+
 # Mock these globally to avoid segfaults
 with patch("google.cloud.monitoring_v3.TimeInterval", MagicMock()):
     with patch(
@@ -18,6 +20,17 @@ with patch("google.cloud.monitoring_v3.TimeInterval", MagicMock()):
             )
 
 
+@pytest.fixture(autouse=True)
+def mock_auth():
+    with patch("sre_agent.tools.clients.slo.get_current_credentials") as mock_current:
+        mock_current.return_value = (MagicMock(), "test-project")
+        with patch(
+            "sre_agent.tools.clients.slo.get_credentials_from_tool_context"
+        ) as mock_context:
+            mock_context.return_value = None
+            yield
+
+
 @pytest.fixture
 def mock_monitoring_v3_client():
     with patch("google.cloud.monitoring_v3.ServiceMonitoringServiceClient") as mock:
@@ -26,7 +39,8 @@ def mock_monitoring_v3_client():
         yield client
 
 
-def test_list_slos_all_services(mock_monitoring_v3_client):
+@pytest.mark.asyncio
+async def test_list_slos_all_services(mock_monitoring_v3_client):
     mock_service = MagicMock()
     mock_service.name = "projects/test-proj/services/svc-1"
     mock_monitoring_v3_client.list_services.return_value = [mock_service]
@@ -42,12 +56,15 @@ def test_list_slos_all_services(mock_monitoring_v3_client):
 
     mock_monitoring_v3_client.list_service_level_objectives.return_value = [mock_slo]
 
-    result = list_slos(project_id="test-proj")
-    assert len(result) == 1
-    assert result[0]["display_name"] == "Test SLO"
+    result = await list_slos(project_id="test-proj")
+    assert result["status"] == ToolStatus.SUCCESS
+    res_data = result["result"]
+    assert len(res_data) == 1
+    assert res_data[0]["display_name"] == "Test SLO"
 
 
-def test_get_slo_status_edge_cases():
+@pytest.mark.asyncio
+async def test_get_slo_status_edge_cases():
     with patch(
         "sre_agent.tools.clients.slo._get_authorized_session"
     ) as mock_session_factory:
@@ -62,8 +79,9 @@ def test_get_slo_status_edge_cases():
             "serviceLevelIndicator": {"basicSli": {"latency": {"threshold": "1.5s"}}},
         }
         mock_session.get.return_value = mock_response
-        result = get_slo_status("proj", "svc", "slo")
-        assert result["sli_type"] == "latency"
+        result = await get_slo_status("proj", "svc", "slo")
+        assert result["status"] == ToolStatus.SUCCESS
+        assert result["result"]["sli_type"] == "latency"
 
 
 @pytest.mark.asyncio
@@ -115,13 +133,16 @@ async def test_get_golden_signals_diverse():
             result = await get_golden_signals(
                 project_id="test-proj", service_name="svc"
             )
-            assert result["signals"]["latency"]["value_ms"] == 200
+            assert result["status"] == ToolStatus.SUCCESS
+            res_data = result["result"]
+            assert res_data["signals"]["latency"]["value_ms"] == 200
             assert (
-                result["signals"]["saturation"]["cpu_utilization_avg_percent"] == 50.0
+                res_data["signals"]["saturation"]["cpu_utilization_avg_percent"] == 50.0
             )
 
 
-def test_analyze_error_budget_burn_all_risks():
+@pytest.mark.asyncio
+async def test_analyze_error_budget_burn_all_risks():
     with patch(
         "sre_agent.tools.clients.slo.get_monitoring_client"
     ) as mock_client_factory:
@@ -142,12 +163,14 @@ def test_analyze_error_budget_burn_all_risks():
 
             # LOW risk (burn_rate <= 0 or duration very long)
             mock_client.list_time_series.return_value = create_mock_series(0.9, 0.9)
-            result = analyze_error_budget_burn("proj", "svc", "slo", hours=24)
-            assert result["risk_level"] == "HEALTHY"
+            result = await analyze_error_budget_burn("proj", "svc", "slo", hours=24)
+            assert result["status"] == ToolStatus.SUCCESS
+            assert result["result"]["risk_level"] == "HEALTHY"
 
             # MEDIUM risk
             # 168h > duration > 72h
             # 24 * 0.1 / (0.13 - 0.1) = 24 * 3.33 = 80h.
             mock_client.list_time_series.return_value = create_mock_series(0.1, 0.13)
-            result = analyze_error_budget_burn("proj", "svc", "slo", hours=24)
-            assert result["risk_level"] == "MEDIUM"
+            result = await analyze_error_budget_burn("proj", "svc", "slo", hours=24)
+            assert result["status"] == ToolStatus.SUCCESS
+            assert result["result"]["risk_level"] == "MEDIUM"

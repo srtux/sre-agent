@@ -60,7 +60,7 @@ from .auth import get_current_project_id
 from .memory.factory import get_memory_manager
 from .model_config import get_model_name
 from .prompt import SRE_AGENT_PROMPT
-from .schema import InvestigationPhase
+from .schema import BaseToolResponse, InvestigationPhase, ToolStatus
 
 # Import sub-agents
 from .sub_agents import (
@@ -354,7 +354,7 @@ async def run_aggregate_analysis(
     time_window_hours: int = 24,
     service_name: str | None = None,
     tool_context: Any | None = None,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Run Stage 0: Aggregate analysis using BigQuery."""
     logger.info(
         f"🎺 Running aggregate analysis (Dataset: {dataset_id}, Table: {table_name})"
@@ -373,11 +373,11 @@ async def run_aggregate_analysis(
 
             trace_table_full = discovery_result.get("trace_table")
             if not trace_table_full:
-                return {
-                    "stage": "aggregate",
-                    "status": "success",
-                    "result": "Telemetry discovery completed but found no trace tables. Please ask the user to provide the 'dataset_id' manually.",
-                }
+                return BaseToolResponse(
+                    status=ToolStatus.SUCCESS,
+                    result="Telemetry discovery completed but found no trace tables. Please ask the user to provide the 'dataset_id' manually.",
+                    metadata={"stage": "aggregate"},
+                )
 
             logger.info(f"Discovered trace table: {trace_table_full}")
 
@@ -411,19 +411,19 @@ Please:
             tool_context=tool_context,
         )
 
-        return {
-            "stage": "aggregate",
-            "status": "success",
-            "result": result,
-        }
+        return BaseToolResponse(
+            status=ToolStatus.SUCCESS,
+            result=result,
+            metadata={"stage": "aggregate"},
+        )
 
     except Exception as e:
         logger.error(f"Aggregate analysis failed: {e}", exc_info=True)
-        return {
-            "stage": "aggregate",
-            "status": "error",
-            "error": str(e),
-        }
+        return BaseToolResponse(
+            status=ToolStatus.ERROR,
+            error=str(e),
+            metadata={"stage": "aggregate"},
+        )
 
 
 @adk_tool
@@ -432,7 +432,7 @@ async def run_triage_analysis(
     target_trace_id: str,
     project_id: str | None = None,
     tool_context: Any | None = None,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Run Stage 1: Triage analysis with the Trace Analyst.
 
     This stage runs the Trace Analyst to check latency, errors, structure, and resiliency.
@@ -493,12 +493,15 @@ Compare them and report your findings on Latency, Errors, and Structure.
         else:
             triage_results[name] = {"status": "success", "result": result}
 
-    return {
-        "stage": "triage",
-        "baseline_trace_id": baseline_trace_id,
-        "target_trace_id": target_trace_id,
-        "results": triage_results,
-    }
+    return BaseToolResponse(
+        status=ToolStatus.SUCCESS,
+        result={
+            "baseline_trace_id": baseline_trace_id,
+            "target_trace_id": target_trace_id,
+            "results": triage_results,
+        },
+        metadata={"stage": "triage"},
+    )
 
 
 @adk_tool
@@ -508,7 +511,7 @@ async def run_deep_dive_analysis(
     triage_findings: dict[str, Any],
     project_id: str | None = None,
     tool_context: Any | None = None,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Run Stage 2: Deep Dive analysis with Root Cause Analyst.
 
     Synthesizes findings to determine causality, impact, and root cause (changes).
@@ -552,18 +555,18 @@ Determine the root cause (causality), check for recent changes (deployments), an
         result = await AgentTool(root_cause_analyst).run_async(
             args={"request": prompt}, tool_context=tool_context
         )
-        return {
-            "stage": "deep_dive",
-            "status": "success",
-            "result": result,
-        }
+        return BaseToolResponse(
+            status=ToolStatus.SUCCESS,
+            result=result,
+            metadata={"stage": "deep_dive"},
+        )
     except Exception as e:
         logger.error(f"Deep dive analysis failed: {e}", exc_info=True)
-        return {
-            "stage": "deep_dive",
-            "status": "error",
-            "error": str(e),
-        }
+        return BaseToolResponse(
+            status=ToolStatus.ERROR,
+            error=str(e),
+            metadata={"stage": "deep_dive"},
+        )
 
 
 @adk_tool
@@ -575,7 +578,7 @@ async def run_log_pattern_analysis(
     comparison_end: str,
     project_id: str | None = None,
     tool_context: Any | None = None,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Run log pattern analysis to find emergent issues."""
     if not project_id:
         project_id = get_project_id_with_fallback()
@@ -613,19 +616,19 @@ Please:
             tool_context=tool_context,
         )
 
-        return {
-            "stage": "log_pattern",
-            "status": "success",
-            "result": result,
-        }
+        return BaseToolResponse(
+            status=ToolStatus.SUCCESS,
+            result=result,
+            metadata={"stage": "log_pattern"},
+        )
 
     except Exception as e:
         logger.error(f"Log pattern analysis failed: {e}", exc_info=True)
-        return {
-            "stage": "log_pattern",
-            "status": "error",
-            "error": str(e),
-        }
+        return BaseToolResponse(
+            status=ToolStatus.ERROR,
+            error=str(e),
+            metadata={"stage": "log_pattern"},
+        )
 
 
 # ============================================================================
@@ -819,7 +822,6 @@ def get_enabled_tools() -> list[Any]:
 def get_enabled_base_tools() -> list[Any]:
     """Get base_tools filtered by configuration.
 
-    Returns a subset of base_tools that are currently enabled.
     This function maintains the same tool selection as base_tools but respects
     the enable/disable configuration.
 
@@ -916,6 +918,7 @@ log_analyst = emojify_agent(log_analyst)
 metrics_analyzer = emojify_agent(metrics_analyzer)
 alert_analyst = emojify_agent(alert_analyst)
 root_cause_analyst = emojify_agent(root_cause_analyst)
+
 
 # ============================================================================
 # Dynamic Tool Loading

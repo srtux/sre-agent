@@ -13,8 +13,9 @@ Trace/Logging APIs (which are slower for aggregate analysis but always available
 import logging
 from typing import Any
 
-from ..common import adk_tool
-from ..mcp.gcp import (
+from sre_agent.schema import BaseToolResponse, ToolStatus
+from sre_agent.tools.common import adk_tool
+from sre_agent.tools.mcp.gcp import (
     call_mcp_tool_with_retry,
     create_bigquery_mcp_toolset,
     get_project_id_with_fallback,
@@ -27,7 +28,7 @@ logger = logging.getLogger(__name__)
 async def discover_telemetry_sources(
     project_id: str | None = None,
     tool_context: Any | None = None,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Discover BigQuery datasets containing observability data.
 
     This tool scans the project for datasets that contain standard Cloud Observability
@@ -38,29 +39,26 @@ async def discover_telemetry_sources(
         tool_context: ADK tool context (required).
 
     Returns:
-        Dictionary containing discovered telemetry sources:
-        {
-            "trace_table": "project.dataset._AllSpans" | None,
-            "log_table": "project.dataset._AllLogs" | None,
-            "mode": "bigquery" | "api_fallback",
-            "datasets_scanned": ["dataset1", "dataset2"]
-        }
+        Standardized response containing discovered telemetry sources.
     """
     logger.info("ENTER discover_telemetry_sources")
     if tool_context is None:
         raise ValueError("tool_context is required for MCP tools")
 
-    from ..mcp.gcp import set_mcp_tool_context
+    from sre_agent.tools.mcp.gcp import set_mcp_tool_context
 
     set_mcp_tool_context(tool_context)
     pid = project_id or get_project_id_with_fallback()
     if not pid:
-        return {
-            "trace_table": None,
-            "log_table": None,
-            "mode": "api_fallback",
-            "error": "No project ID detected",
-        }
+        return BaseToolResponse(
+            status=ToolStatus.ERROR,
+            error="No project ID detected. Please set GOOGLE_CLOUD_PROJECT.",
+            result={
+                "trace_table": None,
+                "log_table": None,
+                "mode": "api_fallback",
+            },
+        )
 
     # 1. List Datasets
     logger.info(f"Calling list_dataset_ids for project {pid}")
@@ -81,11 +79,18 @@ async def discover_telemetry_sources(
         logger.warning(f"Failed to list datasets: {error_msg} (type={error_type})")
 
         # Provide actionable guidance based on the fallback
-        return {
-            "trace_table": None,
-            "log_table": None,
-            "mode": "api_fallback",
-            "warning": (
+        return BaseToolResponse(
+            status=ToolStatus.PARTIAL,
+            result={
+                "trace_table": None,
+                "log_table": None,
+                "mode": "api_fallback",
+            },
+            metadata={
+                "error_type": error_type,
+                "non_retryable": is_non_retryable,
+            },
+            error=(
                 f"BigQuery discovery failed - switching to direct API mode. "
                 f"Error: {error_msg}. "
                 "NEXT STEPS: Use direct API tools instead of BigQuery: "
@@ -94,9 +99,7 @@ async def discover_telemetry_sources(
                 "- For metrics: use query_promql or list_time_series. "
                 "DO NOT call discover_telemetry_sources again."
             ),
-            "error_type": error_type,
-            "non_retryable": is_non_retryable,
-        }
+        )
 
     datasets = list_datasets_result.get("result", [])
     if isinstance(datasets, dict):
@@ -157,12 +160,13 @@ async def discover_telemetry_sources(
 
     mode = "bigquery" if (trace_table or log_table) else "api_fallback"
 
-    result = {
-        "trace_table": trace_table,
-        "log_table": log_table,
-        "mode": mode,
-        "datasets_scanned": scanned_datasets,
-        "project_id": pid,
-    }
-    logger.info(f"EXIT discover_telemetry_sources with {result}")
-    return result
+    return BaseToolResponse(
+        status=ToolStatus.SUCCESS,
+        result={
+            "trace_table": trace_table,
+            "log_table": log_table,
+            "mode": mode,
+            "datasets_scanned": scanned_datasets,
+            "project_id": pid,
+        },
+    )

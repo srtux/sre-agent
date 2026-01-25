@@ -25,6 +25,7 @@ from ...auth import (
     get_current_credentials,
     get_current_project_id,
 )
+from ...schema import BaseToolResponse, ToolStatus
 from ..common import adk_tool
 from .factory import get_monitoring_client
 
@@ -46,7 +47,7 @@ async def get_gke_cluster_health(
     location: str,
     project_id: str | None = None,
     tool_context: Any = None,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Get comprehensive GKE cluster health status.
 
     This is your cluster's vital signs - node status, control plane health,
@@ -67,15 +68,16 @@ async def get_gke_cluster_health(
     from fastapi.concurrency import run_in_threadpool
 
     if not project_id:
-        project_id = get_current_project_id()
-        if not project_id:
-            return {
-                "error": "Project ID is required but not provided or found in context."
-            }
+        return BaseToolResponse(
+            status=ToolStatus.ERROR, error="No project ID provided or detected."
+        )
 
-    return await run_in_threadpool(
+    result = await run_in_threadpool(
         _get_gke_cluster_health_sync, project_id, cluster_name, location, tool_context
     )
+    if isinstance(result, dict) and "error" in result:
+        return BaseToolResponse(status=ToolStatus.ERROR, error=result["error"])
+    return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
 def _get_gke_cluster_health_sync(
@@ -173,7 +175,7 @@ async def analyze_node_conditions(
     node_name: str | None = None,
     project_id: str | None = None,
     tool_context: Any = None,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Check for node pressure conditions (CPU, Memory, Disk, PID).
 
     Node pressure conditions are early warnings that your nodes are struggling.
@@ -196,12 +198,13 @@ async def analyze_node_conditions(
 
     if not project_id:
         project_id = get_current_project_id()
-        if not project_id:
-            return {
-                "error": "Project ID is required but not provided or found in context."
-            }
 
-    return await run_in_threadpool(
+    if not project_id:
+        return BaseToolResponse(
+            status=ToolStatus.ERROR, error="No project ID provided or detected."
+        )
+
+    result = await run_in_threadpool(
         _analyze_node_conditions_sync,
         project_id,
         cluster_name,
@@ -209,6 +212,9 @@ async def analyze_node_conditions(
         node_name,
         tool_context,
     )
+    if isinstance(result, dict) and "error" in result:
+        return BaseToolResponse(status=ToolStatus.ERROR, error=result["error"])
+    return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
 def _analyze_node_conditions_sync(
@@ -395,7 +401,7 @@ async def get_pod_restart_events(
     pod_name: str | None = None,
     minutes_ago: int = 60,
     tool_context: Any = None,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Find pods with high restart counts or recent restarts.
 
     Pod restarts are often the first sign of trouble - OOMKilled, CrashLoopBackOff,
@@ -418,12 +424,13 @@ async def get_pod_restart_events(
 
     if not project_id:
         project_id = get_current_project_id()
-        if not project_id:
-            return {
-                "error": "Project ID is required but not provided or found in context."
-            }
 
-    return await run_in_threadpool(
+    if not project_id:
+        return BaseToolResponse(
+            status=ToolStatus.ERROR, error="No project ID provided or detected."
+        )
+
+    result = await run_in_threadpool(
         _get_pod_restart_events_sync,
         project_id,
         namespace,
@@ -431,6 +438,9 @@ async def get_pod_restart_events(
         minutes_ago,
         tool_context,
     )
+    if isinstance(result, dict) and "error" in result:
+        return BaseToolResponse(status=ToolStatus.ERROR, error=result["error"])
+    return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
 def _get_pod_restart_events_sync(
@@ -556,7 +566,7 @@ async def analyze_hpa_events(
     minutes_ago: int = 60,
     project_id: str | None = None,
     tool_context: Any = None,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Analyze HorizontalPodAutoscaler scaling events and decisions.
 
     HPAs are how Kubernetes handles load, but they can also cause problems
@@ -579,12 +589,13 @@ async def analyze_hpa_events(
 
     if not project_id:
         project_id = get_current_project_id()
-        if not project_id:
-            return {
-                "error": "Project ID is required but not provided or found in context."
-            }
 
-    return await run_in_threadpool(
+    if not project_id:
+        return BaseToolResponse(
+            status=ToolStatus.ERROR, error="No project ID provided or detected."
+        )
+
+    result = await run_in_threadpool(
         _analyze_hpa_events_sync,
         project_id,
         namespace,
@@ -592,6 +603,9 @@ async def analyze_hpa_events(
         minutes_ago,
         tool_context,
     )
+    if isinstance(result, dict) and "error" in result:
+        return BaseToolResponse(status=ToolStatus.ERROR, error=result["error"])
+    return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
 def _analyze_hpa_events_sync(
@@ -732,7 +746,7 @@ async def get_container_oom_events(
     namespace: str | None = None,
     minutes_ago: int = 60,
     tool_context: Any = None,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Find containers that were OOMKilled (Out of Memory).
 
     OOMKilled is one of the most common causes of container restarts.
@@ -754,14 +768,18 @@ async def get_container_oom_events(
 
     if not project_id:
         project_id = get_current_project_id()
-        if not project_id:
-            return {
-                "error": "Project ID is required but not provided or found in context."
-            }
 
-    return await run_in_threadpool(
+    if not project_id:
+        return BaseToolResponse(
+            status=ToolStatus.ERROR, error="No project ID provided or detected."
+        )
+
+    result = await run_in_threadpool(
         _get_container_oom_events_sync, project_id, namespace, minutes_ago, tool_context
     )
+    if isinstance(result, dict) and "error" in result:
+        return BaseToolResponse(status=ToolStatus.ERROR, error=result["error"])
+    return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
 def _get_container_oom_events_sync(
@@ -913,7 +931,7 @@ async def correlate_trace_with_kubernetes(
     trace_id: str,
     cluster_name: str | None = None,
     tool_context: Any = None,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Link a distributed trace to Kubernetes pod and container context.
 
     This bridges the gap between application traces and infrastructure -
@@ -933,13 +951,16 @@ async def correlate_trace_with_kubernetes(
     """
     from fastapi.concurrency import run_in_threadpool
 
-    return await run_in_threadpool(
+    result = await run_in_threadpool(
         _correlate_trace_with_kubernetes_sync,
         project_id,
         trace_id,
         cluster_name,
         tool_context,
     )
+    if isinstance(result, dict) and "error" in result:
+        return BaseToolResponse(status=ToolStatus.ERROR, error=result["error"])
+    return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
 def _correlate_trace_with_kubernetes_sync(
@@ -1072,7 +1093,7 @@ async def get_workload_health_summary(
     minutes_ago: int = 30,
     project_id: str | None = None,
     tool_context: Any = None,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Get a comprehensive health summary for all workloads in a namespace.
 
     This is your "dashboard view" of namespace health - see at a glance
@@ -1092,20 +1113,27 @@ async def get_workload_health_summary(
     """
     from fastapi.concurrency import run_in_threadpool
 
+    from ...auth import get_current_project_id
+    from ...schema import BaseToolResponse, ToolStatus
+
     if not project_id:
         project_id = get_current_project_id()
         if not project_id:
-            return {
-                "error": "Project ID is required but not provided or found in context."
-            }
+            return BaseToolResponse(
+                status=ToolStatus.ERROR,
+                error="Project ID is required but not provided or found in context.",
+            )
 
-    return await run_in_threadpool(
+    result = await run_in_threadpool(
         _get_workload_health_summary_sync,
         project_id,
         namespace,
         minutes_ago,
         tool_context,
     )
+    if isinstance(result, dict) and "error" in result:
+        return BaseToolResponse(status=ToolStatus.ERROR, error=result["error"])
+    return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
 def _get_workload_health_summary_sync(

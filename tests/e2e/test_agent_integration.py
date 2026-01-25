@@ -7,6 +7,7 @@ import pytest
 from google.adk.agents import LlmAgent
 
 from sre_agent.agent import root_agent
+from sre_agent.schema import ToolStatus
 
 
 @pytest.fixture
@@ -76,6 +77,7 @@ async def test_agent_finds_logs_for_trace(mock_trace_client):
     # Ensure view type is ROOTSPAN (value 1) or whatever the enum maps to,
     # but mainly we check that we didn't crash.
 
-    res_data = result
+    assert result["status"] == ToolStatus.SUCCESS
+    res_data = result["result"]
     assert len(res_data) == 1
     assert res_data[0]["duration_ms"] == 1000.0

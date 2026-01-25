@@ -3,14 +3,14 @@
 from typing import Any
 
 from sre_agent.memory.factory import get_memory_manager
-from sre_agent.schema import InvestigationPhase
+from sre_agent.schema import BaseToolResponse, InvestigationPhase, ToolStatus
 from sre_agent.tools.common.decorators import adk_tool
 
 
 @adk_tool
 async def suggest_next_steps(
     tool_context: Any,
-) -> str:
+) -> BaseToolResponse:
     """Suggest the next best steps based on the current investigation state.
 
     This tool analyzes the current phase and recent findings to recommend
@@ -51,4 +51,5 @@ async def suggest_next_steps(
     # Fetch recent memory to refine suggestions (simple heuristic for now)
     # In future, this could use an LLM call with memory context
 
-    return "\n".join(["### Suggested Next Steps", *suggestions])
+    result = "\n".join(["### Suggested Next Steps", *suggestions])
+    return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)

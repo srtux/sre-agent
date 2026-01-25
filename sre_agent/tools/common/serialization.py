@@ -22,6 +22,10 @@ def gcp_json_default(obj: Any) -> Any:
     if type_name == "MapComposite":
         return dict(obj)
 
+    # Check for Pydantic v2 models
+    if hasattr(obj, "model_dump"):
+        return obj.model_dump()
+
     # Check for proto-plus or other objects with to_dict
     if hasattr(obj, "to_dict"):
         return obj.to_dict()
@@ -62,9 +66,13 @@ def normalize_obj(obj: Any) -> Any:
     if isinstance(obj, str | int | float | bool):
         return obj
 
-    # Handle proto-plus types using our existing logic first
+    # Handle proto-plus and Pydantic types
     type_name = type(obj).__name__
-    if type_name in ("RepeatedComposite", "MapComposite") or hasattr(obj, "to_dict"):
+    if (
+        type_name in ("RepeatedComposite", "MapComposite")
+        or hasattr(obj, "to_dict")
+        or hasattr(obj, "model_dump")
+    ):
         obj = gcp_json_default(obj)
 
     # Now handle normalized containers recursively

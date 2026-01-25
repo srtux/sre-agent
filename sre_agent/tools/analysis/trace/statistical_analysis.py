@@ -4,7 +4,9 @@ import concurrent.futures
 import statistics
 from collections import defaultdict
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
+
+from sre_agent.schema import BaseToolResponse, ToolStatus
 
 from ...clients.trace import fetch_trace_data
 from ...common import adk_tool
@@ -65,17 +67,14 @@ def _fetch_traces_parallel(
 @adk_tool
 def compute_latency_statistics(
     trace_ids: list[str], project_id: str | None = None, tool_context: Any = None
-) -> dict[str, Any]:
-    """Computes aggregate latency statistics for a list of traces.
+) -> BaseToolResponse:
+    """Computes aggregate latency statistics for a list of traces."""
+    return _compute_latency_statistics_impl(trace_ids, project_id, tool_context)
 
-    Args:
-        trace_ids: List of trace IDs.
-        project_id: The Google Cloud Project ID.
-        tool_context: Context object for tool execution.
 
-    Returns:
-        Dictionary containing statistical metrics.
-    """
+def _compute_latency_statistics_impl(
+    trace_ids: list[str], project_id: str | None = None, tool_context: Any = None
+) -> BaseToolResponse:
     with tracer.start_as_current_span("compute_latency_statistics"):
         latencies = []
         valid_traces = []
@@ -118,7 +117,9 @@ def compute_latency_statistics(
                     valid_traces.append(trace_data)
 
         if not latencies:
-            return {"error": "No valid trace durations found"}
+            return BaseToolResponse(
+                status=ToolStatus.ERROR, error="No valid trace durations found"
+            )
 
         latencies.sort()
         count = len(latencies)
@@ -166,7 +167,7 @@ def compute_latency_statistics(
 
         stats["per_span_stats"] = per_span_stats
 
-        return stats
+        return BaseToolResponse(status=ToolStatus.SUCCESS, result=stats)
 
 
 def _detect_latency_anomalies_impl(
@@ -272,7 +273,7 @@ def detect_latency_anomalies(
     threshold_sigma: float = 2.0,
     project_id: str | None = None,
     tool_context: Any = None,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Detects if the target trace is anomalous compared to baseline distribution.
 
     Also checks individual spans for anomalies if baseline data allows.
@@ -289,18 +290,22 @@ def detect_latency_anomalies(
     """
     with tracer.start_as_current_span("detect_latency_anomalies"):
         # Compute baseline stats
-        baseline_stats = compute_latency_statistics(
+        baseline_stats = _compute_latency_statistics_impl(
             baseline_trace_ids, project_id, tool_context=tool_context
         )
-        if isinstance(baseline_stats, str):
-            import json
+        if not isinstance(baseline_stats, BaseToolResponse):
+            return BaseToolResponse(
+                status=ToolStatus.ERROR,
+                error=f"Invalid baseline_stats type: {type(baseline_stats)}",
+            )
+        if baseline_stats.status != ToolStatus.SUCCESS:
+            return baseline_stats
 
-            try:
-                baseline_stats = json.loads(baseline_stats)
-            except (json.JSONDecodeError, TypeError):
-                return {"error": "Invalid baseline_stats format"}
-        elif not isinstance(baseline_stats, dict):
-            return {"error": f"Invalid baseline_stats type: {type(baseline_stats)}"}
+        baseline_stats_dict = cast(dict[str, Any], baseline_stats.result)
+        if not baseline_stats_dict:
+            return BaseToolResponse(
+                status=ToolStatus.ERROR, error="Baseline stats missing"
+            )
 
         from ...clients.trace import (
             _clear_thread_credentials,
@@ -318,9 +323,11 @@ def detect_latency_anomalies(
             _clear_thread_credentials()
 
         result = _detect_latency_anomalies_impl(
-            baseline_stats, target_data, threshold_sigma
+            baseline_stats_dict, target_data, threshold_sigma
         )
-        return result
+        if "error" in result:
+            return BaseToolResponse(status=ToolStatus.ERROR, error=result["error"])
+        return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
 def _analyze_critical_path_impl(trace_data: dict[str, Any]) -> dict[str, Any]:
@@ -508,7 +515,7 @@ def _analyze_critical_path_impl(trace_data: dict[str, Any]) -> dict[str, Any]:
 @adk_tool
 def analyze_critical_path(
     trace_id: str, project_id: str | None = None, tool_context: Any = None
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Identifies the critical path of spans in a trace.
 
     The critical path is calculated by finding the longest path through the span dependency graph.
@@ -534,7 +541,9 @@ def analyze_critical_path(
             _clear_thread_credentials()
 
         result = _analyze_critical_path_impl(trace_data)
-        return result
+        if "error" in result:
+            return BaseToolResponse(status=ToolStatus.ERROR, error=result["error"])
+        return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
 @adk_tool
@@ -543,7 +552,7 @@ def perform_causal_analysis(
     target_trace_id: str,
     project_id: str | None = None,
     tool_context: Any = None,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Enhanced root cause analysis using span-ID-level precision."""
     from ...clients.trace import (
         _clear_thread_credentials,
@@ -565,7 +574,7 @@ def perform_causal_analysis(
             and baseline_trace_id.strip().startswith("{")
             else "Invalid baseline_trace ID provided."
         )
-        return {"error": msg}
+        return BaseToolResponse(status=ToolStatus.ERROR, error=msg)
 
     try:
         if user_creds:
@@ -580,7 +589,7 @@ def perform_causal_analysis(
             and target_trace_id.strip().startswith("{")
             else "Invalid target_trace ID provided."
         )
-        return {"error": msg}
+        return BaseToolResponse(status=ToolStatus.ERROR, error=msg)
 
     # 1. Build span name mappings for both traces
     baseline_spans_by_name = defaultdict(list)
@@ -726,7 +735,7 @@ def perform_causal_analysis(
         "total_candidates": len(candidates),
         "critical_path_spans": len(critical_path),
     }
-    return result
+    return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
 @adk_tool
@@ -735,7 +744,7 @@ def analyze_trace_patterns(
     lookback_window_minutes: int = 60,
     project_id: str | None = None,
     tool_context: Any = None,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Analyzes patterns across multiple traces to detect trends and recurring issues.
 
     This function helps identify:
@@ -755,7 +764,10 @@ def analyze_trace_patterns(
     """
     with tracer.start_as_current_span("analyze_trace_patterns"):
         if len(trace_ids) < 3:
-            return {"error": "Need at least 3 traces for pattern analysis"}
+            return BaseToolResponse(
+                status=ToolStatus.ERROR,
+                error="Need at least 3 traces for pattern analysis",
+            )
 
         # Fetch traces in parallel
         parsed_traces = _fetch_traces_parallel(
@@ -763,7 +775,10 @@ def analyze_trace_patterns(
         )
 
         if len(parsed_traces) < 3:
-            return {"error": "Not enough valid traces for pattern analysis"}
+            return BaseToolResponse(
+                status=ToolStatus.ERROR,
+                error="Not enough valid traces for pattern analysis",
+            )
 
         # Track span performance across traces
         span_performance: dict[str, dict[str, Any]] = defaultdict(
@@ -921,7 +936,7 @@ def analyze_trace_patterns(
                 "trace_duration_trend": trend,
             },
         }
-        return result
+        return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
 @adk_tool

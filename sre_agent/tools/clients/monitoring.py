@@ -18,10 +18,15 @@ from google.auth.transport.requests import AuthorizedSession
 from google.cloud import monitoring_v3
 from opentelemetry.trace import Status, StatusCode
 
-from ...auth import get_current_credentials, get_current_project_id
-from ..common import adk_tool
-from ..common.telemetry import get_tracer
-from .factory import get_monitoring_client
+from sre_agent.auth import (
+    get_credentials_from_tool_context,
+    get_current_credentials,
+    get_current_project_id,
+)
+from sre_agent.schema import BaseToolResponse, ToolStatus
+from sre_agent.tools.clients.factory import get_monitoring_client
+from sre_agent.tools.common import adk_tool
+from sre_agent.tools.common.telemetry import get_tracer
 
 logger = logging.getLogger(__name__)
 tracer = get_tracer(__name__)
@@ -33,7 +38,7 @@ async def list_time_series(
     minutes_ago: int = 60,
     project_id: str | None = None,
     tool_context: Any = None,
-) -> list[dict[str, Any]] | dict[str, Any]:
+) -> BaseToolResponse:
     """Lists time series data from Google Cloud Monitoring using direct API.
 
     IMPORTANT: You must use valid combinations of metric and monitored resource labels.
@@ -49,7 +54,7 @@ async def list_time_series(
         tool_context: Context object for tool execution.
 
     Returns:
-        A JSON string representing the list of time series.
+        Standardized response with list of time series data.
 
     Example filter_str: 'metric.type="compute.googleapis.com/instance/cpu/utilization" AND resource.labels.instance_id="123456789"'
     """
@@ -58,13 +63,17 @@ async def list_time_series(
     if not project_id:
         project_id = get_current_project_id()
         if not project_id:
-            return {
-                "error": "Project ID is required but not provided or found in context."
-            }
+            return BaseToolResponse(
+                status=ToolStatus.ERROR,
+                error="Project ID is required but not provided or found in context.",
+            )
 
-    return await run_in_threadpool(
+    result = await run_in_threadpool(
         _list_time_series_sync, project_id, filter_str, minutes_ago, tool_context
     )
+    if isinstance(result, dict) and "error" in result:
+        return BaseToolResponse(status=ToolStatus.ERROR, error=result["error"])
+    return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
 def _list_time_series_sync(
@@ -127,7 +136,6 @@ def _list_time_series_sync(
                         ts_str = str(point.interval.end_time)
 
                     # Robust value extraction (TypedValue is a oneof)
-                    # We check which field is actually set
                     val_proto = point.value
                     value: Any = None
                     if hasattr(val_proto, "double_value") and "double_value" in str(
@@ -195,7 +203,7 @@ async def query_promql(
     step: str = "60s",
     project_id: str | None = None,
     tool_context: Any = None,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Executes a PromQL query using the Cloud Monitoring Prometheus API.
 
     Args:
@@ -207,20 +215,24 @@ async def query_promql(
         tool_context: Context object for tool execution.
 
     Returns:
-        A JSON string containing the query results.
+        Standardized response with PromQL query results.
     """
     from fastapi.concurrency import run_in_threadpool
 
     if not project_id:
         project_id = get_current_project_id()
         if not project_id:
-            return {
-                "error": "Project ID is required but not provided or found in context."
-            }
+            return BaseToolResponse(
+                status=ToolStatus.ERROR,
+                error="Project ID is required but not provided or found in context.",
+            )
 
-    return await run_in_threadpool(
+    result = await run_in_threadpool(
         _query_promql_sync, project_id, query, start, end, step, tool_context
     )
+    if isinstance(result, dict) and "error" in result:
+        return BaseToolResponse(status=ToolStatus.ERROR, error=result["error"])
+    return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
 def _query_promql_sync(
@@ -237,16 +249,16 @@ def _query_promql_sync(
         span.set_attribute("promql.query", query)
 
         try:
-            # First, try to get user credentials from tool_context
-            from ...auth import get_credentials_from_tool_context
-
             credentials = get_credentials_from_tool_context(tool_context)
 
             # Fallback to current context (ContextVar or Default)
             if not credentials:
                 # Use Any to avoid type mismatch
                 auth_obj: Any = get_current_credentials()
-                credentials, _ = auth_obj
+                if isinstance(auth_obj, tuple):
+                    credentials, _ = auth_obj
+                else:
+                    credentials = auth_obj
 
             session = AuthorizedSession(credentials)  # type: ignore[no-untyped-call]
 
@@ -262,7 +274,6 @@ def _query_promql_sync(
                 start = start_dt.isoformat()
 
             # Cloud Monitoring Prometheus API endpoint
-            # https://cloud.google.com/stackdriver/docs/managed-prometheus/query
             url = f"https://monitoring.googleapis.com/v1/projects/{project_id}/location/global/prometheus/api/v1/query_range"
 
             params = {"query": query, "start": start, "end": end, "step": step}

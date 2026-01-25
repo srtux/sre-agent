@@ -57,9 +57,10 @@ async def test_list_alerts_success(mock_auth, mock_authorized_session):
 
     data = await list_alerts(project_id="test-project", filter_str='state="OPEN"')
 
-    assert data is not None
-    assert len(data) == 1
-    assert data[0]["name"] == "projects/test-project/alerts/123"
+    assert data["status"] == "success"
+    res_data = data["result"]
+    assert len(res_data) == 1
+    assert res_data[0]["name"] == "projects/test-project/alerts/123"
 
 
 @pytest.mark.asyncio
@@ -81,5 +82,7 @@ async def test_list_alert_policies_success(mock_alert_policy_client):
 
     data = await list_alert_policies(project_id="test-project")
 
-    assert len(data) == 1
-    assert data[0]["display_name"] == "High CPU"
+    assert data["status"] == "success"
+    res_data = data["result"]
+    assert len(res_data) == 1
+    assert res_data[0]["display_name"] == "High CPU"

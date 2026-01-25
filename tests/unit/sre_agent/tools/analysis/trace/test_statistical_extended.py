@@ -1,5 +1,6 @@
 from unittest.mock import patch
 
+from sre_agent.schema import BaseToolResponse, ToolStatus
 from sre_agent.tools.analysis.trace.statistical_analysis import (
     analyze_critical_path,
     analyze_trace_patterns,
@@ -36,7 +37,9 @@ def test_analyze_critical_path_success(mock_fetch):
     }
     mock_fetch.return_value = trace_data
 
-    result = analyze_critical_path("t1")
+    response = analyze_critical_path("t1")
+    assert response["status"] == "success"
+    result = response["result"]
 
     assert "critical_path" in result
     path = result["critical_path"]
@@ -47,8 +50,10 @@ def test_analyze_critical_path_success(mock_fetch):
 
 
 @patch("sre_agent.tools.analysis.trace.statistical_analysis.fetch_trace_data")
-@patch("sre_agent.tools.analysis.trace.statistical_analysis.analyze_critical_path")
-@patch("sre_agent.tools.analysis.trace.analysis.build_call_graph")
+@patch(
+    "sre_agent.tools.analysis.trace.statistical_analysis._analyze_critical_path_impl"
+)
+@patch("sre_agent.tools.analysis.trace.analysis._build_call_graph_impl")
 def test_perform_causal_analysis_success(
     mock_build_graph, mock_analyze_critical, mock_fetch
 ):
@@ -88,7 +93,9 @@ def test_perform_causal_analysis_success(
         "span_tree": [{"span_id": "t1", "depth": 0, "children": []}]
     }
 
-    result = perform_causal_analysis("base", "target")
+    response = perform_causal_analysis("base", "target", project_id="test-p")
+    assert response["status"] == "success"
+    result = response["result"]
 
     candidates = result["root_cause_candidates"]
     assert len(candidates) > 0
@@ -117,7 +124,9 @@ def test_analyze_trace_patterns_mocked_fetch(mock_fetch_parallel):
     }
     mock_fetch_parallel.return_value = [t1, t2, t3]
 
-    result = analyze_trace_patterns(["t1", "t2", "t3"])
+    response = analyze_trace_patterns(["t1", "t2", "t3"], project_id="test-p")
+    assert response["status"] == "success"
+    result = response["result"]
 
     # Based on error log, overall_trend is top level
     assert "overall_trend" in result
@@ -135,7 +144,9 @@ def test_analyze_trace_patterns_mocked_fetch(mock_fetch_parallel):
     assert slowdown["span_name"] == "spanA"
 
 
-@patch("sre_agent.tools.analysis.trace.statistical_analysis.compute_latency_statistics")
+@patch(
+    "sre_agent.tools.analysis.trace.statistical_analysis._compute_latency_statistics_impl"
+)
 @patch("sre_agent.tools.analysis.trace.statistical_analysis.fetch_trace_data")
 def test_detect_latency_anomalies_success(mock_fetch, mock_compute):
     baseline_stats = {
@@ -143,7 +154,9 @@ def test_detect_latency_anomalies_success(mock_fetch, mock_compute):
         "stdev": 10,
         "per_span_stats": {"spanA": {"mean": 10, "stdev": 2, "p95": 14}},
     }
-    mock_compute.return_value = baseline_stats
+    mock_compute.return_value = BaseToolResponse(
+        status=ToolStatus.SUCCESS, result=baseline_stats
+    )
 
     # Target trace: spanA takes 60ms (anomaly vs 10ms +/- 4ms)
     # Must be > 50ms to be considered (threshold logic)
@@ -160,7 +173,9 @@ def test_detect_latency_anomalies_success(mock_fetch, mock_compute):
     }
     mock_fetch.return_value = target_data
 
-    result = detect_latency_anomalies(["b1"], "t1")
+    response = detect_latency_anomalies(["b1"], "t1", project_id="test-p")
+    assert response["status"] == "success"
+    result = response["result"]
 
     assert result["is_anomaly"] is True
     spans = result["anomalous_spans"]

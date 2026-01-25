@@ -15,9 +15,10 @@ execute locally within the agent's process (via threadpool for async compatibili
 import logging
 from typing import Any
 
-from ..common import adk_tool
-from ..common.telemetry import get_tracer
-from .factory import get_logging_client
+from sre_agent.schema import BaseToolResponse, ToolStatus
+from sre_agent.tools.clients.factory import get_logging_client
+from sre_agent.tools.common import adk_tool
+from sre_agent.tools.common.telemetry import get_tracer
 
 logger = logging.getLogger(__name__)
 tracer = get_tracer(__name__)
@@ -30,7 +31,7 @@ async def list_log_entries(
     limit: int = 10,
     page_token: str | None = None,
     tool_context: Any = None,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Lists log entries from Google Cloud Logging using direct API.
 
     Args:
@@ -41,17 +42,18 @@ async def list_log_entries(
         tool_context: Context object for tool execution.
 
     Returns:
-        A dictionary containing:
+        Standardized response with:
         - "entries": List of log entries.
         - "next_page_token": Token for the next page (if any).
-
-    Example filter_str: 'resource.type="gce_instance" AND severity="ERROR"'
     """
     from fastapi.concurrency import run_in_threadpool
 
-    return await run_in_threadpool(
+    result = await run_in_threadpool(
         _list_log_entries_sync, project_id, filter_str, limit, page_token, tool_context
     )
+    if "error" in result:
+        return BaseToolResponse(status=ToolStatus.ERROR, error=result["error"])
+    return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
 def _list_log_entries_sync(
@@ -89,7 +91,6 @@ def _list_log_entries_sync(
             entries_pager = client.list_log_entries(request=request)
 
             # Fetch a single page to respect limit and get token
-            # We use .pages iterator to get the first page object
             results = []
             next_token = None
 
@@ -164,7 +165,7 @@ def _list_log_entries_sync(
 @adk_tool
 async def list_error_events(
     project_id: str, minutes_ago: int = 60, tool_context: Any = None
-) -> list[dict[str, Any]] | dict[str, Any]:
+) -> BaseToolResponse:
     """Lists error events from Google Cloud Error Reporting using direct API.
 
     Args:
@@ -173,13 +174,16 @@ async def list_error_events(
         tool_context: Context object for tool execution.
 
     Returns:
-        List of dictionaries representing error events.
+        Standardized response with list of error events.
     """
     from fastapi.concurrency import run_in_threadpool
 
-    return await run_in_threadpool(
+    result = await run_in_threadpool(
         _list_error_events_sync, project_id, minutes_ago, tool_context
     )
+    if isinstance(result, dict) and "error" in result:
+        return BaseToolResponse(status=ToolStatus.ERROR, error=result["error"])
+    return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
 def _list_error_events_sync(
@@ -190,8 +194,6 @@ def _list_error_events_sync(
         import google.cloud.errorreporting_v1beta1 as errorreporting_v1beta1
 
         client = errorreporting_v1beta1.ErrorStatsServiceClient()
-        # Note: errorreporting client instantiation doesn't currently support easy credential injection in this factory pattern
-        # but the logging client below DOES. Fallback to default for now for ErrorStats, but fix core logging.
         project_name = f"projects/{project_id}"
         time_range = errorreporting_v1beta1.QueryTimeRange()
         time_range.period = errorreporting_v1beta1.QueryTimeRange.Period.PERIOD_1_HOUR  # type: ignore
@@ -226,7 +228,7 @@ def _list_error_events_sync(
 @adk_tool
 async def get_logs_for_trace(
     project_id: str, trace_id: str, limit: int = 100, tool_context: Any = None
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Fetches log entries correlated with a specific trace ID.
 
     Args:
@@ -236,15 +238,18 @@ async def get_logs_for_trace(
         tool_context: Context object for tool execution.
 
     Returns:
-        Dictionary containing the list of log entries.
+        Standardized response containing the list of log entries.
     """
     filter_str = f'trace="projects/{project_id}/traces/{trace_id}"'
 
     from fastapi.concurrency import run_in_threadpool
 
-    return await run_in_threadpool(
+    result = await run_in_threadpool(
         _list_log_entries_sync, project_id, filter_str, limit, None, tool_context
     )
+    if "error" in result:
+        return BaseToolResponse(status=ToolStatus.ERROR, error=result["error"])
+    return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
 def _extract_log_payload(entry: Any) -> str | dict[str, Any]:

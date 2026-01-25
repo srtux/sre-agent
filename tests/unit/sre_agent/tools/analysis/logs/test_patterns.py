@@ -65,9 +65,9 @@ class TestLogPatternExtractor:
 
         # Most should cluster together (Drain3 may split first few)
         unique_patterns = len(set(ids))
-        assert unique_patterns <= 3, (
-            f"Expected at most 3 patterns, got {unique_patterns}"
-        )
+        assert (
+            unique_patterns <= 3
+        ), f"Expected at most 3 patterns, got {unique_patterns}"
 
         # Total count should match
         total_count = sum(p.count for p in extractor.patterns.values())
@@ -400,16 +400,20 @@ class TestExtractLogPatterns:
         """Test pattern extraction from textPayload logs."""
         result = extract_log_patterns(sample_text_payload_logs)
 
-        assert "total_logs_processed" in result
-        assert "unique_patterns" in result
-        assert "top_patterns" in result
-        assert result["total_logs_processed"] == len(sample_text_payload_logs)
+        assert result["status"] == "success"
+        data = result["result"]
+        assert "total_logs_processed" in data
+        assert "unique_patterns" in data
+        assert "top_patterns" in data
+        assert data["total_logs_processed"] == len(sample_text_payload_logs)
 
     def test_extract_with_max_patterns(self, sample_text_payload_logs):
         """Test limiting max patterns returned."""
         result = extract_log_patterns(sample_text_payload_logs, max_patterns=2)
 
-        assert len(result["top_patterns"]) <= 2
+        assert result["status"] == "success"
+        data = result["result"]
+        assert len(data["top_patterns"]) <= 2
 
     def test_extract_with_min_count(self):
         """Test filtering by minimum count."""
@@ -431,17 +435,21 @@ class TestExtractLogPatterns:
 
         result = extract_log_patterns(logs, min_count=5)
 
+        assert result["status"] == "success"
+        data = result["result"]
         # Should only return patterns with count >= 5
-        assert len(result["top_patterns"]) <= 2
-        if result["top_patterns"]:
-            assert result["top_patterns"][0]["count"] >= 5
+        assert len(data["top_patterns"]) <= 2
+        if data["top_patterns"]:
+            assert data["top_patterns"][0]["count"] >= 5
 
     def test_extract_tracks_severity_distribution(self, sample_text_payload_logs):
         """Test that severity distribution is tracked."""
         result = extract_log_patterns(sample_text_payload_logs)
 
-        assert "severity_distribution" in result
-        severity_dist = result["severity_distribution"]
+        assert result["status"] == "success"
+        data = result["result"]
+        assert "severity_distribution" in data
+        severity_dist = data["severity_distribution"]
         # Should have INFO, ERROR, WARNING from sample logs
         assert any(s in severity_dist for s in ["INFO", "ERROR", "WARNING"])
 
@@ -458,13 +466,15 @@ class TestCompareLogPatterns:
             comparison_entries_json=incident_period_logs,
         )
 
-        assert "baseline_summary" in result
-        assert "comparison_summary" in result
-        assert "anomalies" in result
-        assert "alert_level" in result
+        assert result["status"] == "success"
+        data = result["result"]
+        assert "baseline_summary" in data
+        assert "comparison_summary" in data
+        assert "anomalies" in data
+        assert "alert_level" in data
 
         # Should detect new error patterns
-        anomalies = result["anomalies"]
+        anomalies = data["anomalies"]
         assert len(anomalies.get("new_patterns", [])) > 0
 
     def test_compare_identical_periods(self, baseline_period_logs):
@@ -474,7 +484,9 @@ class TestCompareLogPatterns:
             comparison_entries_json=baseline_period_logs,
         )
 
-        anomalies = result["anomalies"]
+        assert result["status"] == "success"
+        data = result["result"]
+        anomalies = data["anomalies"]
         # Should have no new patterns
         assert len(anomalies.get("new_patterns", [])) == 0
         # Should have no disappeared patterns
@@ -498,9 +510,16 @@ class TestCompareLogPatterns:
             significance_threshold=0.1,
         )
 
+        assert result_high["status"] == "success"
+        assert result_low["status"] == "success"
+
         # Low threshold should detect more changes
-        high_changes = len(result_high["anomalies"].get("increased_patterns", []))
-        low_changes = len(result_low["anomalies"].get("increased_patterns", []))
+        high_changes = len(
+            result_high["result"]["anomalies"].get("increased_patterns", [])
+        )
+        low_changes = len(
+            result_low["result"]["anomalies"].get("increased_patterns", [])
+        )
         assert low_changes >= high_changes
 
 
@@ -511,31 +530,39 @@ class TestAnalyzeLogAnomalies:
         """Test anomaly analysis focused on errors."""
         result = analyze_log_anomalies(incident_period_logs, focus_on_errors=True)
 
-        assert "total_logs" in result
-        assert "unique_patterns" in result
-        assert "error_patterns" in result
-        assert "recommendation" in result
+        assert result["status"] == "success"
+        data = result["result"]
+        assert "total_logs" in data
+        assert "unique_patterns" in data
+        assert "error_patterns" in data
+        assert "recommendation" in data
 
     def test_analyze_all_logs(self, sample_text_payload_logs):
         """Test anomaly analysis without error focus."""
         result = analyze_log_anomalies(sample_text_payload_logs, focus_on_errors=False)
 
-        assert "top_patterns" in result
-        assert len(result["top_patterns"]) > 0
+        assert result["status"] == "success"
+        data = result["result"]
+        assert "top_patterns" in data
+        assert len(data["top_patterns"]) > 0
 
     def test_analyze_with_max_results(self, incident_period_logs):
         """Test limiting max results."""
         result = analyze_log_anomalies(incident_period_logs, max_results=3)
 
-        assert len(result["top_patterns"]) <= 3
+        assert result["status"] == "success"
+        data = result["result"]
+        assert len(data["top_patterns"]) <= 3
 
     def test_recommendation_generation(self, incident_period_logs):
         """Test that recommendations are generated."""
         result = analyze_log_anomalies(incident_period_logs)
 
-        assert "recommendation" in result
-        assert isinstance(result["recommendation"], str)
-        assert len(result["recommendation"]) > 0
+        assert result["status"] == "success"
+        data = result["result"]
+        assert "recommendation" in data
+        assert isinstance(data["recommendation"], str)
+        assert len(data["recommendation"]) > 0
 
 
 class TestGetPatternSummary:

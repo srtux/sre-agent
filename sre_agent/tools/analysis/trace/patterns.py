@@ -17,6 +17,8 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Any
 
+from sre_agent.schema import BaseToolResponse, ToolStatus
+
 from ...clients.trace import fetch_trace_data
 from ...common import adk_tool
 from ...common.telemetry import get_meter, get_tracer, log_tool_call
@@ -110,7 +112,7 @@ def _extract_span_info(span: dict[str, Any]) -> dict[str, Any]:
 @adk_tool
 def detect_retry_storm(
     trace_id: str, project_id: str | None = None, threshold: int = 3
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Detect retry storm patterns in a trace.
 
     A retry storm occurs when a service makes multiple retry attempts,
@@ -136,7 +138,7 @@ def detect_retry_storm(
         try:
             trace = fetch_trace_data(trace_id, project_id)
             if "error" in trace:
-                return {"error": trace["error"]}
+                return BaseToolResponse(status=ToolStatus.ERROR, error=trace["error"])
 
             spans = trace.get("spans", [])
             retry_patterns = []
@@ -206,12 +208,15 @@ def detect_retry_storm(
                         )
 
             patterns_detected.add(len(retry_patterns), {"type": "retry_storm"})
-            return {
-                "trace_id": trace_id,
-                "patterns_found": len(retry_patterns),
-                "retry_patterns": retry_patterns,
-                "has_retry_storm": len(retry_patterns) > 0,
-            }
+            return BaseToolResponse(
+                status=ToolStatus.SUCCESS,
+                result={
+                    "trace_id": trace_id,
+                    "patterns_found": len(retry_patterns),
+                    "retry_patterns": retry_patterns,
+                    "has_retry_storm": len(retry_patterns) > 0,
+                },
+            )
 
         except Exception as e:
             span.record_exception(e)
@@ -225,7 +230,7 @@ def detect_retry_storm(
 @adk_tool
 def detect_cascading_timeout(
     trace_id: str, project_id: str | None = None, timeout_threshold_ms: float = 1000
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Detect cascading timeout patterns in a trace.
 
     Cascading timeouts occur when a timeout in one service causes
@@ -251,7 +256,7 @@ def detect_cascading_timeout(
         try:
             trace = fetch_trace_data(trace_id, project_id)
             if "error" in trace:
-                return {"error": trace["error"]}
+                return BaseToolResponse(status=ToolStatus.ERROR, error=trace["error"])
 
             spans = trace.get("spans", [])
             timeout_spans = []
@@ -333,20 +338,23 @@ def detect_cascading_timeout(
                     unique_chains.append(c)
 
             patterns_detected.add(len(unique_chains), {"type": "cascading_timeout"})
-            return {
-                "trace_id": trace_id,
-                "timeout_spans_count": len(timeout_spans),
-                "timeout_spans": timeout_spans[:10],  # Limit output
-                "cascade_detected": len(unique_chains) > 0,
-                "cascade_chains": unique_chains,
-                "impact": "critical" if len(unique_chains) > 0 else "low",
-                "recommendation": (
-                    "Review timeout configuration. Consider deadline propagation "
-                    "and ensure child timeouts are shorter than parent timeouts."
-                    if unique_chains
-                    else "No cascading timeout detected."
-                ),
-            }
+            return BaseToolResponse(
+                status=ToolStatus.SUCCESS,
+                result={
+                    "trace_id": trace_id,
+                    "timeout_spans_count": len(timeout_spans),
+                    "timeout_spans": timeout_spans[:10],  # Limit output
+                    "cascade_detected": len(unique_chains) > 0,
+                    "cascade_chains": unique_chains,
+                    "impact": "critical" if len(unique_chains) > 0 else "low",
+                    "recommendation": (
+                        "Review timeout configuration. Consider deadline propagation "
+                        "and ensure child timeouts are shorter than parent timeouts."
+                        if unique_chains
+                        else "No cascading timeout detected."
+                    ),
+                },
+            )
 
         except Exception as e:
             span.record_exception(e)
@@ -360,7 +368,7 @@ def detect_cascading_timeout(
 @adk_tool
 def detect_connection_pool_issues(
     trace_id: str, project_id: str | None = None, wait_threshold_ms: float = 100
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Detect connection pool exhaustion or contention patterns.
 
     Connection pool issues occur when requests wait too long to acquire
@@ -386,7 +394,7 @@ def detect_connection_pool_issues(
         try:
             trace = fetch_trace_data(trace_id, project_id)
             if "error" in trace:
-                return {"error": trace["error"]}
+                return BaseToolResponse(status=ToolStatus.ERROR, error=trace["error"])
 
             spans = trace.get("spans", [])
             pool_issues = []
@@ -433,20 +441,23 @@ def detect_connection_pool_issues(
             total_wait = sum(p["wait_duration_ms"] for p in pool_issues)
 
             patterns_detected.add(len(pool_issues), {"type": "connection_pool_issue"})
-            return {
-                "trace_id": trace_id,
-                "issues_found": len(pool_issues),
-                "pool_issues": pool_issues,
-                "total_wait_ms": round(total_wait, 2),
-                "has_pool_exhaustion": len(pool_issues) > 0
-                and total_wait >= wait_threshold_ms * 3,
-                "recommendation": (
-                    "Consider increasing connection pool size or reducing connection hold time. "
-                    "Review connection lifecycle and ensure proper connection release."
-                    if pool_issues
-                    else "No connection pool issues detected."
-                ),
-            }
+            return BaseToolResponse(
+                status=ToolStatus.SUCCESS,
+                result={
+                    "trace_id": trace_id,
+                    "issues_found": len(pool_issues),
+                    "pool_issues": pool_issues,
+                    "total_wait_ms": round(total_wait, 2),
+                    "has_pool_exhaustion": len(pool_issues) > 0
+                    and total_wait >= wait_threshold_ms * 3,
+                    "recommendation": (
+                        "Consider increasing connection pool size or reducing connection hold time. "
+                        "Review connection lifecycle and ensure proper connection release."
+                        if pool_issues
+                        else "No connection pool issues detected."
+                    ),
+                },
+            )
 
         except Exception as e:
             span.record_exception(e)
@@ -460,7 +471,7 @@ def detect_connection_pool_issues(
 @adk_tool
 def detect_all_sre_patterns(
     trace_id: str, project_id: str | None = None
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Run all SRE pattern detection checks on a trace.
 
     This is a comprehensive scan that checks for:
@@ -493,9 +504,11 @@ def detect_all_sre_patterns(
             }
 
             # Retry storm detection
-            retry_result = detect_retry_storm(trace_id, project_id)
-            if retry_result.get("has_retry_storm"):
-                results["patterns"].extend(retry_result["retry_patterns"])
+            retry_res = detect_retry_storm(trace_id, project_id)
+            if retry_res["status"] == "success" and retry_res["result"].get(
+                "has_retry_storm"
+            ):
+                results["patterns"].extend(retry_res["result"]["retry_patterns"])
                 results["recommendations"].append(
                     {
                         "pattern": "retry_storm",
@@ -504,13 +517,15 @@ def detect_all_sre_patterns(
                 )
 
             # Cascading timeout detection
-            timeout_result = detect_cascading_timeout(trace_id, project_id)
-            if timeout_result.get("cascade_detected"):
+            timeout_res = detect_cascading_timeout(trace_id, project_id)
+            if timeout_res["status"] == "success" and timeout_res["result"].get(
+                "cascade_detected"
+            ):
                 results["patterns"].append(
                     {
                         "pattern_type": "cascading_timeout",
-                        "chains": timeout_result["cascade_chains"],
-                        "impact": timeout_result["impact"],
+                        "chains": timeout_res["result"]["cascade_chains"],
+                        "impact": timeout_res["result"]["impact"],
                     }
                 )
                 results["recommendations"].append(
@@ -521,13 +536,15 @@ def detect_all_sre_patterns(
                 )
 
             # Connection pool detection
-            pool_result = detect_connection_pool_issues(trace_id, project_id)
-            if pool_result.get("has_pool_exhaustion"):
+            pool_res = detect_connection_pool_issues(trace_id, project_id)
+            if pool_res["status"] == "success" and pool_res["result"].get(
+                "has_pool_exhaustion"
+            ):
                 results["patterns"].append(
                     {
                         "pattern_type": "connection_pool_exhaustion",
-                        "issues": pool_result["pool_issues"],
-                        "total_wait_ms": pool_result["total_wait_ms"],
+                        "issues": pool_res["result"]["pool_issues"],
+                        "total_wait_ms": pool_res["result"]["total_wait_ms"],
                     }
                 )
                 results["recommendations"].append(
@@ -551,12 +568,12 @@ def detect_all_sre_patterns(
 
             results["patterns_detected"] = len(results["patterns"])
 
-            return results
+            return BaseToolResponse(status=ToolStatus.SUCCESS, result=results)
 
         except Exception as e:
             span.record_exception(e)
             success = False
-            return {"error": str(e)}
+            return BaseToolResponse(status=ToolStatus.ERROR, error=str(e))
         finally:
             duration_ms = (time.time() - start_time) * 1000
             _record_telemetry("detect_all_sre_patterns", success, duration_ms)

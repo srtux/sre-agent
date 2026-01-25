@@ -17,6 +17,7 @@ from google.auth.transport.requests import AuthorizedSession
 from google.cloud import monitoring_v3
 
 from ...auth import get_credentials_from_tool_context, get_current_credentials
+from ...schema import BaseToolResponse, ToolStatus
 from ..common import adk_tool
 from .factory import get_monitoring_client
 
@@ -33,11 +34,11 @@ def _get_authorized_session(tool_context: Any = None) -> AuthorizedSession:
 
 
 @adk_tool
-def list_slos(
+async def list_slos(
     project_id: str,
     service_id: str | None = None,
     tool_context: Any = None,
-) -> list[dict[str, Any]] | dict[str, Any]:
+) -> BaseToolResponse:
     """List all Service Level Objectives defined in a project.
 
     SLOs are the foundation of SRE - they define what "reliable enough" means
@@ -114,21 +115,21 @@ def list_slos(
 
             result.append(slo_info)
 
-        return result
+        return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
     except Exception as e:
         error_msg = f"Failed to list SLOs: {e!s}"
         logger.error(error_msg)
-        return {"error": error_msg}
+        return BaseToolResponse(status=ToolStatus.ERROR, error=error_msg)
 
 
 @adk_tool
-def get_slo_status(
+async def get_slo_status(
     project_id: str,
     service_id: str,
     slo_id: str,
     tool_context: Any = None,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Get current SLO compliance status including error budget.
 
     This is THE critical metric for SRE work - shows if you're meeting
@@ -193,22 +194,22 @@ def get_slo_status(
             f"Error budget allows {error_budget_percentage:.3f}% failures over the rolling period."
         )
 
-        return result
+        return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
     except Exception as e:
         error_msg = f"Failed to get SLO status: {e!s}"
         logger.error(error_msg)
-        return {"error": error_msg}
+        return BaseToolResponse(status=ToolStatus.ERROR, error=error_msg)
 
 
 @adk_tool
-def analyze_error_budget_burn(
+async def analyze_error_budget_burn(
     project_id: str,
     service_id: str,
     slo_id: str,
     hours: int = 24,
     tool_context: Any = None,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Analyze error budget burn rate to predict SLO violations.
 
     This is early warning for reliability issues - if you're burning
@@ -326,12 +327,12 @@ def analyze_error_budget_burn(
                 "Ensure the SLO has been active long enough to generate metrics."
             )
 
-        return result
+        return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
     except Exception as e:
         error_msg = f"Failed to analyze error budget burn: {e!s}"
         logger.error(error_msg)
-        return {"error": error_msg}
+        return BaseToolResponse(status=ToolStatus.ERROR, error=error_msg)
 
 
 @adk_tool
@@ -340,7 +341,7 @@ async def get_golden_signals(
     service_name: str,
     minutes_ago: int = 60,
     tool_context: Any = None,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Get the four SRE Golden Signals for a service.
 
     The Golden Signals are:
@@ -591,12 +592,12 @@ async def get_golden_signals(
             golden_signals["overall_health"] = "CRITICAL"
         elif "WARNING" in statuses:
             golden_signals["overall_health"] = "WARNING"
-        return golden_signals
+        return BaseToolResponse(status=ToolStatus.SUCCESS, result=golden_signals)
 
     except Exception as e:
         error_msg = f"Failed to get golden signals: {e!s}"
         logger.error(error_msg)
-        return {"error": error_msg}
+        return BaseToolResponse(status=ToolStatus.ERROR, error=error_msg)
 
 
 @adk_tool
@@ -607,7 +608,7 @@ async def correlate_incident_with_slo_impact(
     incident_start: str,
     incident_end: str,
     tool_context: Any = None,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Calculate how much an incident consumed error budget.
 
     This is critical for postmortems - quantifies the impact of an incident
@@ -638,13 +639,17 @@ async def correlate_incident_with_slo_impact(
         duration_minutes = (end_dt - start_dt).total_seconds() / 60
 
         # Get SLO details
-        slo_status = get_slo_status(
-            project_id, service_id, slo_id, tool_context=tool_context
+        slo_response = cast(
+            BaseToolResponse,
+            await get_slo_status(
+                project_id, service_id, slo_id, tool_context=tool_context
+            ),
         )
 
-        if "error" in slo_status:
-            return cast(dict[str, Any], slo_status)
+        if slo_response.status == ToolStatus.ERROR:
+            return slo_response
 
+        slo_status = slo_response.result or {}
         slo_goal = slo_status.get("goal", 0.999)
         rolling_period_days = slo_status.get("rolling_period_days", 30)
 
@@ -709,12 +714,12 @@ async def correlate_incident_with_slo_impact(
                 "error budget remains healthy."
             )
 
-        return result
+        return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
     except Exception as e:
         error_msg = f"Failed to correlate incident with SLO impact: {e!s}"
         logger.error(error_msg)
-        return {"error": error_msg}
+        return BaseToolResponse(status=ToolStatus.ERROR, error=error_msg)
 
 
 @adk_tool
@@ -724,7 +729,7 @@ async def predict_slo_violation(
     slo_id: str,
     hours_ahead: int = 24,
     tool_context: Any = None,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Predict if current error rate will exhaust error budget.
 
     This is proactive SRE - catch problems before they become outages!
@@ -744,14 +749,19 @@ async def predict_slo_violation(
     """
     try:
         # Get current burn rate
-        burn_analysis = analyze_error_budget_burn(
-            project_id, service_id, slo_id, hours=24, tool_context=tool_context
+        burn_response = cast(
+            BaseToolResponse,
+            await analyze_error_budget_burn(
+                project_id, service_id, slo_id, hours=24, tool_context=tool_context
+            ),
         )
 
-        if "error" in burn_analysis:
-            return cast(dict[str, Any], burn_analysis)
+        if burn_response.status == ToolStatus.ERROR:
+            return burn_response
 
-        result = {
+        burn_analysis = burn_response.result or {}
+
+        result: dict[str, Any] = {
             "prediction_window_hours": hours_ahead,
             "current_state": burn_analysis,
             "prediction": {},
@@ -800,9 +810,9 @@ async def predict_slo_violation(
                     "Continue monitoring for the next few hours."
                 )
 
-        return result
+        return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
     except Exception as e:
         error_msg = f"Failed to predict SLO violation: {e!s}"
         logger.error(error_msg)
-        return {"error": error_msg}
+        return BaseToolResponse(status=ToolStatus.ERROR, error=error_msg)

@@ -1,4 +1,7 @@
-"""Tests for LocalMemoryService."""
+"""
+Goal: Verify LocalMemoryService correctly persists and retrieves findings using SQLite.
+Patterns: File System Interaction, SQLite CRUD, Persistence Testing.
+"""
 
 import os
 

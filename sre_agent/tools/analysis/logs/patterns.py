@@ -19,6 +19,8 @@ from drain3 import TemplateMiner
 from drain3.masking import MaskingInstruction
 from drain3.template_miner_config import TemplateMinerConfig
 
+from sre_agent.schema import BaseToolResponse, ToolStatus
+
 from ...common import adk_tool
 from .extraction import extract_log_message
 
@@ -375,7 +377,7 @@ def extract_log_patterns(
     log_entries_json: str,
     max_patterns: int = 30,
     min_count: int = 2,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Extract log patterns from a list of log entries using Drain3.
 
     This tool compresses repetitive logs into patterns, making it easier
@@ -422,7 +424,10 @@ def extract_log_patterns(
             resource=resource_type,
         )
 
-    return extractor.get_summary(max_patterns=max_patterns)
+    return BaseToolResponse(
+        status=ToolStatus.SUCCESS,
+        result=extractor.get_summary(max_patterns=max_patterns),
+    )
 
 
 @adk_tool
@@ -430,7 +435,7 @@ def compare_log_patterns(
     baseline_entries_json: str,
     comparison_entries_json: str,
     significance_threshold: float = 0.5,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Compare log patterns between two time periods to find anomalies.
 
     This is the key tool for detecting emergent issues. It identifies:
@@ -508,18 +513,21 @@ def compare_log_patterns(
         significance_threshold=significance_threshold,
     )
 
-    return {
-        "baseline_summary": {
-            "total_logs": sum(p.count for p in baseline_patterns),
-            "unique_patterns": len(baseline_patterns),
+    return BaseToolResponse(
+        status=ToolStatus.SUCCESS,
+        result={
+            "baseline_summary": {
+                "total_logs": sum(p.count for p in baseline_patterns),
+                "unique_patterns": len(baseline_patterns),
+            },
+            "comparison_summary": {
+                "total_logs": sum(p.count for p in comparison_patterns),
+                "unique_patterns": len(comparison_patterns),
+            },
+            "anomalies": comparison.to_dict(),
+            "alert_level": _determine_alert_level(comparison),
         },
-        "comparison_summary": {
-            "total_logs": sum(p.count for p in comparison_patterns),
-            "unique_patterns": len(comparison_patterns),
-        },
-        "anomalies": comparison.to_dict(),
-        "alert_level": _determine_alert_level(comparison),
-    }
+    )
 
 
 @adk_tool
@@ -527,7 +535,7 @@ def analyze_log_anomalies(
     log_entries_json: str,
     focus_on_errors: bool = True,
     max_results: int = 10,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Analyze logs for anomalous patterns, focusing on errors if specified.
 
     This tool extracts patterns and highlights the most concerning ones,
@@ -580,15 +588,18 @@ def analyze_log_anomalies(
     errors = [p for p in patterns if p.severity_counts.get("ERROR", 0) > 0]
     warnings = [p for p in patterns if p.severity_counts.get("WARNING", 0) > 0]
 
-    return {
-        "total_logs": sum(p.count for p in extractor.patterns.values()),
-        "unique_patterns": len(extractor.patterns),
-        "critical_patterns": [p.to_dict() for p in critical[:5]],
-        "error_patterns": [p.to_dict() for p in errors[:5]],
-        "warning_patterns": [p.to_dict() for p in warnings[:5]],
-        "top_patterns": [p.to_dict() for p in patterns],
-        "recommendation": _generate_recommendation(critical, errors, warnings),
-    }
+    return BaseToolResponse(
+        status=ToolStatus.SUCCESS,
+        result={
+            "total_logs": sum(p.count for p in extractor.patterns.values()),
+            "unique_patterns": len(extractor.patterns),
+            "critical_patterns": [p.to_dict() for p in critical[:5]],
+            "error_patterns": [p.to_dict() for p in errors[:5]],
+            "warning_patterns": [p.to_dict() for p in warnings[:5]],
+            "top_patterns": [p.to_dict() for p in patterns],
+            "recommendation": _generate_recommendation(critical, errors, warnings),
+        },
+    )
 
 
 def get_pattern_summary(

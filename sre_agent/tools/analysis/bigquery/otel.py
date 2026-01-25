@@ -21,9 +21,9 @@ Google Cloud Observability OpenTelemetry schema (_AllSpans table):
 """
 
 import logging
-from typing import Any
 
-from ...common import adk_tool
+from sre_agent.schema import BaseToolResponse, ToolStatus
+from sre_agent.tools.common.decorators import adk_tool
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ def analyze_aggregate_metrics(
     operation_name: str | None = None,
     min_duration_ms: float | None = None,
     group_by: str = "service_name",
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Performs broad aggregate analysis of trace data using BigQuery.
 
     This is the first step in SRE analysis: get the big picture before drilling down.
@@ -53,7 +53,7 @@ def analyze_aggregate_metrics(
         group_by: How to group results (service_name, operation_name, status_code)
 
     Returns:
-        Dictionary with SQL query and metadata for execution via BigQuery MCP.
+        Standardized response with SQL query and metadata for execution via BigQuery MCP.
     """
     where_conditions = [
         f"start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {time_window_hours} HOUR)",
@@ -103,16 +103,19 @@ LIMIT 50
 
     logger.info(f"Generated Aggregate Analysis SQL:\n{query.strip()}")
 
-    return {
-        "analysis_type": "aggregate_metrics",
-        "sql_query": query.strip(),
-        "description": f"Aggregate metrics grouped by {group_by} for last {time_window_hours}h",
-        "next_steps": [
-            "Execute this query using BigQuery MCP execute_sql tool",
-            "Review services with high error rates or P99 latency",
-            "Use find_exemplar_traces to get specific trace IDs for investigation",
-        ],
-    }
+    return BaseToolResponse(
+        status=ToolStatus.SUCCESS,
+        result={
+            "analysis_type": "aggregate_metrics",
+            "sql_query": query.strip(),
+            "description": f"Aggregate metrics grouped by {group_by} for last {time_window_hours}h",
+            "next_steps": [
+                "Execute this query using BigQuery MCP execute_sql tool",
+                "Review services with high error rates or P99 latency",
+                "Use find_exemplar_traces to get specific trace IDs for investigation",
+            ],
+        },
+    )
 
 
 @adk_tool
@@ -124,7 +127,7 @@ def find_exemplar_traces(
     operation_name: str | None = None,
     selection_strategy: str = "outliers",
     limit: int = 10,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Finds exemplar traces using BigQuery for detailed investigation.
 
     Args:
@@ -141,7 +144,7 @@ def find_exemplar_traces(
         limit: Number of exemplars to return
 
     Returns:
-        Dictionary with SQL query to find exemplar trace IDs.
+        Standardized response with SQL query to find exemplar trace IDs.
     """
     where_conditions = [
         f"start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {time_window_hours} HOUR)",
@@ -273,24 +276,30 @@ SELECT * FROM outlier_traces
 ORDER BY selection_reason, duration_ms
 """
     else:
-        return {"error": f"Unknown selection_strategy: {selection_strategy}"}
+        return BaseToolResponse(
+            status=ToolStatus.ERROR,
+            error=f"Unknown selection_strategy: {selection_strategy}",
+        )
 
     logger.info(
         f"Generated Exemplar Selection SQL ({selection_strategy}):\n{query.strip()}"
     )
 
-    return {
-        "analysis_type": "exemplar_selection",
-        "selection_strategy": selection_strategy,
-        "sql_query": query.strip(),
-        "description": f"Find {limit} exemplar traces using '{selection_strategy}' strategy",
-        "next_steps": [
-            "Execute this query using BigQuery MCP execute_sql tool",
-            "Extract trace_id values from results",
-            "Use fetch_trace to get full trace details",
-            "Use run_triage_analysis to compare baseline vs outlier traces",
-        ],
-    }
+    return BaseToolResponse(
+        status=ToolStatus.SUCCESS,
+        result={
+            "analysis_type": "exemplar_selection",
+            "selection_strategy": selection_strategy,
+            "sql_query": query.strip(),
+            "description": f"Find {limit} exemplar traces using '{selection_strategy}' strategy",
+            "next_steps": [
+                "Execute this query using BigQuery MCP execute_sql tool",
+                "Extract trace_id values from results",
+                "Use fetch_trace to get full trace details",
+                "Use run_triage_analysis to compare baseline vs outlier traces",
+            ],
+        },
+    )
 
 
 @adk_tool
@@ -301,7 +310,7 @@ def correlate_logs_with_trace(
     log_table_name: str = "_AllLogs",
     include_nearby_logs: bool = True,
     time_window_seconds: int = 30,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Finds logs correlated with a specific trace for root cause analysis.
 
     Args:
@@ -313,7 +322,7 @@ def correlate_logs_with_trace(
         time_window_seconds: Time window for nearby logs
 
     Returns:
-        Dictionary with SQL query to find correlated logs.
+        Standardized response with SQL query to find correlated logs.
     """
     query = f"""
 WITH trace_context AS (
@@ -370,17 +379,20 @@ ORDER BY timestamp
 
     logger.info(f"Generated Log Correlation SQL (trace={trace_id}):\n{query.strip()}")
 
-    return {
-        "analysis_type": "log_correlation",
-        "trace_id": trace_id,
-        "sql_query": query.strip(),
-        "description": f"Find logs correlated with trace {trace_id}",
-        "next_steps": [
-            "Execute this query using BigQuery MCP execute_sql tool",
-            "Look for ERROR or WARN severity logs",
-            "Check log messages for exceptions, timeouts, or error codes",
-        ],
-    }
+    return BaseToolResponse(
+        status=ToolStatus.SUCCESS,
+        result={
+            "analysis_type": "log_correlation",
+            "trace_id": trace_id,
+            "sql_query": query.strip(),
+            "description": f"Find logs correlated with trace {trace_id}",
+            "next_steps": [
+                "Execute this query using BigQuery MCP execute_sql tool",
+                "Look for ERROR or WARN severity logs",
+                "Check log messages for exceptions, timeouts, or error codes",
+            ],
+        },
+    )
 
 
 @adk_tool
@@ -393,7 +405,7 @@ def compare_time_periods(
     anomaly_hours_ago_end: int = 0,
     service_name: str | None = None,
     operation_name: str | None = None,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Compares trace metrics between two time periods to detect degradations.
 
     Args:
@@ -407,7 +419,7 @@ def compare_time_periods(
         operation_name: Optional filter for specific operation
 
     Returns:
-        Dictionary with SQL query comparing the two periods.
+        Standardized response with SQL query comparing the two periods.
     """
     where_filter = ""
     if service_name:
@@ -472,18 +484,21 @@ ORDER BY period
 
     logger.info(f"Generated Time Period Comparison SQL:\n{query.strip()}")
 
-    return {
-        "analysis_type": "time_period_comparison",
-        "sql_query": query.strip(),
-        "baseline_period": f"{baseline_hours_ago_start}h ago to {baseline_hours_ago_end}h ago",
-        "anomaly_period": f"{anomaly_hours_ago_start}h ago to {anomaly_hours_ago_end}h ago",
-        "description": "Compare metrics between baseline and anomaly time periods",
-        "next_steps": [
-            "Execute this query using BigQuery MCP execute_sql tool",
-            "Look for significant deltas in p95_change_pct or error_rate_delta",
-            "If degradation is confirmed, use find_exemplar_traces for each period",
-        ],
-    }
+    return BaseToolResponse(
+        status=ToolStatus.SUCCESS,
+        result={
+            "analysis_type": "time_period_comparison",
+            "sql_query": query.strip(),
+            "baseline_period": f"{baseline_hours_ago_start}h ago to {baseline_hours_ago_end}h ago",
+            "anomaly_period": f"{anomaly_hours_ago_start}h ago to {anomaly_hours_ago_end}h ago",
+            "description": "Compare metrics between baseline and anomaly time periods",
+            "next_steps": [
+                "Execute this query using BigQuery MCP execute_sql tool",
+                "Look for significant deltas in p95_change_pct or error_rate_delta",
+                "If degradation is confirmed, use find_exemplar_traces for each period",
+            ],
+        },
+    )
 
 
 @adk_tool
@@ -494,7 +509,7 @@ def detect_trend_changes(
     bucket_hours: int = 1,
     service_name: str | None = None,
     metric: str = "p95",
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Detects when performance trends changed using time-series analysis.
 
     Args:
@@ -506,7 +521,7 @@ def detect_trend_changes(
         metric: Which metric to track (p95, p99, error_rate, throughput)
 
     Returns:
-        Dictionary with SQL query showing metric trends over time.
+        Standardized response with SQL query showing metric trends over time.
     """
     where_filter = ""
     if service_name:
@@ -527,9 +542,10 @@ def detect_trend_changes(
         metric_calc = "COUNT(*) as metric_value"
         metric_name = "request_count"
     else:
-        return {
-            "error": f"Unknown metric: {metric}. Use p95, p99, error_rate, or throughput"
-        }
+        return BaseToolResponse(
+            status=ToolStatus.ERROR,
+            error=f"Unknown metric: {metric}. Use p95, p99, error_rate, or throughput",
+        )
 
     query = f"""
 WITH time_buckets AS (
@@ -577,17 +593,20 @@ ORDER BY time_bucket DESC
 
     logger.info(f"Generated Trend Detection SQL ({metric}):\n{query.strip()}")
 
-    return {
-        "analysis_type": "trend_detection",
-        "sql_query": query.strip(),
-        "metric": metric,
-        "time_window_hours": time_window_hours,
-        "bucket_hours": bucket_hours,
-        "description": f"Detect trend changes in {metric} over {time_window_hours}h",
-        "next_steps": [
-            "Execute this query using BigQuery MCP execute_sql tool",
-            "Look for rows with change_magnitude = 'SIGNIFICANT_CHANGE'",
-            "Note the time_bucket when degradation started",
-            "Use compare_time_periods with before/after time ranges",
-        ],
-    }
+    return BaseToolResponse(
+        status=ToolStatus.SUCCESS,
+        result={
+            "analysis_type": "trend_detection",
+            "sql_query": query.strip(),
+            "metric": metric,
+            "time_window_hours": time_window_hours,
+            "bucket_hours": bucket_hours,
+            "description": f"Detect trend changes in {metric} over {time_window_hours}h",
+            "next_steps": [
+                "Execute this query using BigQuery MCP execute_sql tool",
+                "Look for rows with change_magnitude = 'SIGNIFICANT_CHANGE'",
+                "Note the time_bucket when degradation started",
+                "Use compare_time_periods with before/after time ranges",
+            ],
+        },
+    )

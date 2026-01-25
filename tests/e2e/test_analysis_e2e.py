@@ -128,6 +128,8 @@ def mock_fetch_trace():
         def side_effect(trace_id, project_id=None):
             if isinstance(trace_id, str) and trace_id.strip().startswith("{"):
                 return json.loads(trace_id)
+            if isinstance(trace_id, dict):
+                return trace_id
             return trace_id
 
         mock_a.side_effect = side_effect
@@ -140,18 +142,20 @@ def test_compare_span_timings_e2e(good_trace_json, bad_trace_json, mock_fetch_tr
     Test comparison between a good baseline and a bad target trace.
     Should detect N+1 pattern and slowness.
     """
-    result = compare_span_timings(good_trace_json, bad_trace_json)
+    res = compare_span_timings(good_trace_json, bad_trace_json)
+    assert res["status"] == "success"
+    data = res["result"]
 
     # Check N+1 detection
-    patterns = result.get("patterns", [])
-    n_plus_one = next((p for p in patterns if p["type"] == "n_plus_one"), None)
+    patterns = data.get("patterns", [])
+    n_plus_one = next((p for p in patterns if p.get("type") == "n_plus_one"), None)
     assert n_plus_one is not None
     assert n_plus_one["span_name"] == "FetchItem"
     assert n_plus_one["count"] >= 4  # We added 4 sequential calls
 
     # Check timing comparison
     # Root span should be slower
-    slower_spans = result.get("slower_spans", [])
+    slower_spans = data.get("slower_spans", [])
     root_diff = next(
         (s for s in slower_spans if s["span_name"] == "ProcessRequest"), None
     )
@@ -169,9 +173,11 @@ def test_analyze_trace_patterns_e2e(bad_trace_json, mock_fetch_trace):
     # Simulate multiple bad traces to trigger pattern detection
     traces = [bad_trace_json, bad_trace_json, bad_trace_json]
 
-    result = analyze_trace_patterns(traces)
+    res = analyze_trace_patterns(traces, project_id="test-p")
+    assert res["status"] == "success"
+    data = res["result"]
 
-    patterns = result.get("patterns", {})
+    patterns = data.get("patterns", {})
 
     recurring = patterns.get("recurring_slowdowns", [])
     # root_span_bad is 1500ms > 100ms threshold

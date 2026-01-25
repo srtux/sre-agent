@@ -20,6 +20,19 @@ def clear_clients_cache():
         factory._clients.clear()
 
 
+@pytest.fixture(autouse=True)
+def enforce_euc_false():
+    with patch.dict("os.environ", {"STRICT_EUC_ENFORCEMENT": "false"}):
+        yield
+
+
+@pytest.fixture(autouse=True)
+def mock_google_auth():
+    with patch("google.auth.default") as mock:
+        mock.return_value = (MagicMock(), "test-project")
+        yield mock
+
+
 def test_get_trace_client_default():
     with patch("google.cloud.trace_v1.TraceServiceClient") as mock_class:
         client = get_trace_client()
@@ -74,6 +87,7 @@ def test_get_alert_policy_client():
 
 
 def test_strict_euc_enforcement():
+    # This test explicitly tests TRUE state
     with patch.dict("os.environ", {"STRICT_EUC_ENFORCEMENT": "true"}):
         with patch(
             "sre_agent.tools.clients.factory.get_current_credentials_or_none",

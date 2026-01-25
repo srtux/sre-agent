@@ -13,7 +13,8 @@ class TestRemediationSuggestions:
         result = generate_remediation_suggestions(
             "Container frontend-pod is repeatedly OOMKilled"
         )
-        result_data = result
+        assert result["status"] == "success"
+        result_data = result["result"]
 
         assert "matched_patterns" in result_data
         assert "oom_killed" in result_data["matched_patterns"]
@@ -31,7 +32,8 @@ class TestRemediationSuggestions:
         )
 
         result = generate_remediation_suggestions("Database connection pool exhausted")
-        result_data = result
+        assert result["status"] == "success"
+        result_data = result["result"]
 
         assert "connection_pool" in result_data["matched_patterns"]
         assert any(s["category"] == "database" for s in result_data["suggestions"])
@@ -45,7 +47,8 @@ class TestRemediationSuggestions:
         result = generate_remediation_suggestions(
             "P99 latency spike to 2000ms, timeouts occurring"
         )
-        result_data = result
+        assert result["status"] == "success"
+        result_data = result["result"]
 
         assert "high_latency" in result_data["matched_patterns"]
         assert any(s["category"] == "performance" for s in result_data["suggestions"])
@@ -57,7 +60,8 @@ class TestRemediationSuggestions:
         )
 
         result = generate_remediation_suggestions("Some unknown issue with xyz")
-        result_data = result
+        assert result["status"] == "success"
+        result_data = result["result"]
 
         assert len(result_data["matched_patterns"]) == 0
         assert "suggestions" in result_data
@@ -70,7 +74,8 @@ class TestRemediationSuggestions:
         )
 
         result = generate_remediation_suggestions("Container is repeatedly OOMKilled")
-        result_data = result
+        assert result["status"] == "success"
+        result_data = result["result"]
 
         assert "quick_wins" in result_data
         for quick_win in result_data["quick_wins"]:
@@ -94,7 +99,8 @@ class TestGcloudCommands:
             region="us-central1",
             replicas=5,
         )
-        result_data = result
+        assert result["status"] == "success"
+        result_data = result["result"]
 
         assert "commands" in result_data
         assert len(result_data["commands"]) > 0
@@ -117,7 +123,8 @@ class TestGcloudCommands:
             "my-project",
             region="us-central1",
         )
-        result_data = result
+        assert result["status"] == "success"
+        result_data = result["result"]
 
         assert "commands" in result_data
         commands = [c["command"] for c in result_data["commands"]]
@@ -136,7 +143,8 @@ class TestGcloudCommands:
             region="us-central1",
             memory="2Gi",
         )
-        result_data = result
+        assert result["status"] == "success"
+        result_data = result["result"]
 
         command = result_data["commands"][0]["command"]
         assert "--memory=2Gi" in command
@@ -152,10 +160,9 @@ class TestGcloudCommands:
             "service",
             "project",
         )
-        result_data = result
-
-        assert "error" in result_data
-        assert "available_types" in result_data
+        assert result["status"] == "error"
+        assert result["error"] is not None
+        assert "available_types" in result["result"]
 
 
 class TestRiskEstimation:
@@ -172,7 +179,8 @@ class TestRiskEstimation:
             "frontend-service",
             "Increase replicas from 3 to 5",
         )
-        result_data = result
+        assert result["status"] == "success"
+        result_data = result["result"]
 
         assert result_data["risk_assessment"]["level"] == "low"
         assert result_data["recommendations"]["proceed"] is True
@@ -188,7 +196,8 @@ class TestRiskEstimation:
             "main-db",
             "Migrate schema to new version",
         )
-        result_data = result
+        assert result["status"] == "success"
+        result_data = result["result"]
 
         assert result_data["risk_assessment"]["level"] == "high"
         assert result_data["recommendations"]["require_approval"] is True
@@ -204,7 +213,8 @@ class TestRiskEstimation:
             "main-db",
             "Increase max connections",
         )
-        result_data = result
+        assert result["status"] == "success"
+        result_data = result["result"]
 
         risk_factors = result_data["risk_assessment"]["factors"]
         assert any("data integrity" in f.lower() for f in risk_factors)
@@ -220,7 +230,8 @@ class TestRiskEstimation:
             "service",
             "Add replicas",
         )
-        result_data = result
+        assert result["status"] == "success"
+        result_data = result["result"]
 
         assert "checklist" in result_data
         assert len(result_data["checklist"]) > 0
@@ -236,7 +247,8 @@ class TestSimilarIncidents:
         )
 
         result = find_similar_past_incidents("OOMKilled")
-        result_data = result
+        assert result["status"] == "success"
+        result_data = result["result"]
 
         assert "matches_found" in result_data
         assert result_data["matches_found"] > 0
@@ -249,7 +261,8 @@ class TestSimilarIncidents:
         )
 
         result = find_similar_past_incidents("timeout errors")
-        result_data = result
+        assert result["status"] == "success"
+        result_data = result["result"]
 
         assert result_data["matches_found"] > 0
 
@@ -260,7 +273,8 @@ class TestSimilarIncidents:
         )
 
         result = find_similar_past_incidents("xyz123_unique_error")
-        result_data = result
+        assert result["status"] == "success"
+        result_data = result["result"]
 
         # Either no matches or partial matches
         if result_data["matches_found"] == 0:
@@ -273,7 +287,8 @@ class TestSimilarIncidents:
         )
 
         result = find_similar_past_incidents("connection pool")
-        result_data = result
+        assert result["status"] == "success"
+        result_data = result["result"]
 
         if result_data["matches_found"] > 0:
             assert "key_learnings" in result_data

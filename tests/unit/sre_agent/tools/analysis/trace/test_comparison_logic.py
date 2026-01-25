@@ -38,10 +38,14 @@ def test_compare_span_timings_n_plus_one(mock_calculate_durations):
     target.append(
         {"name": "other", "duration_ms": 5, "start_time": "2024-01-01T00:00:00Z"}
     )
+    mock_calculate_durations.side_effect = [
+        {"status": "success", "result": {"spans": baseline}},
+        {"status": "success", "result": {"spans": target}},
+    ]
 
-    mock_calculate_durations.side_effect = [{"spans": baseline}, {"spans": target}]
-
-    result = compare_span_timings("base", "target", "p")
+    res = compare_span_timings("base", "target", "p")
+    assert res["status"] == "success"
+    result = res["result"]
 
     patterns = result["patterns"]
     n_plus_one = next((p for p in patterns if p["type"] == "n_plus_one"), None)
@@ -80,9 +84,14 @@ def test_compare_span_timings_serial_chain(mock_calculate_durations):
         },
     ]
 
-    mock_calculate_durations.side_effect = [{"spans": []}, {"spans": target}]
+    mock_calculate_durations.side_effect = [
+        {"status": "success", "result": {"spans": []}},
+        {"status": "success", "result": {"spans": target}},
+    ]
 
-    result = compare_span_timings("base", "target", "p")
+    res = compare_span_timings("base", "target", "p")
+    assert res["status"] == "success"
+    result = res["result"]
 
     patterns = result["patterns"]
     serial = next((p for p in patterns if p["type"] == "serial_chain"), None)
@@ -103,9 +112,14 @@ def test_compare_span_timings_diffs(mock_calculate_durations):
         {"name": "fast_func", "duration_ms": 50},
         {"name": "slow_func", "duration_ms": 10},
     ]
-    mock_calculate_durations.side_effect = [{"spans": baseline}, {"spans": target}]
+    mock_calculate_durations.side_effect = [
+        {"status": "success", "result": {"spans": baseline}},
+        {"status": "success", "result": {"spans": target}},
+    ]
 
-    result = compare_span_timings("base", "target")
+    res = compare_span_timings("base", "target")
+    assert res["status"] == "success"
+    result = res["result"]
 
     slower = result["slower_spans"]
     assert len(slower) == 1
@@ -129,9 +143,14 @@ def test_find_structural_differences(mock_build_call_graph):
         "max_depth": 3,
         "total_spans": 3,
     }
-    mock_build_call_graph.side_effect = [baseline, target]
+    mock_build_call_graph.side_effect = [
+        {"status": "success", "result": baseline},
+        {"status": "success", "result": target},
+    ]
 
-    result = find_structural_differences("base", "target")
+    res = find_structural_differences("base", "target")
+    assert res["status"] == "success"
+    result = res["result"]
 
     assert "childB" in result["missing_spans"]
     assert "childC" in result["new_spans"]

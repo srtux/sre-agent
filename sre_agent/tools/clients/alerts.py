@@ -15,10 +15,14 @@ from typing import Any, cast
 from google.auth.transport.requests import AuthorizedSession
 from google.cloud import monitoring_v3
 
-from ...auth import get_credentials_from_tool_context, get_current_credentials
-from ..common import adk_tool
-from ..common.telemetry import get_tracer
-from .factory import get_alert_policy_client
+from sre_agent.auth import (
+    get_credentials_from_tool_context,
+    get_current_credentials,
+)
+from sre_agent.schema import BaseToolResponse, ToolStatus
+from sre_agent.tools.clients.factory import get_alert_policy_client
+from sre_agent.tools.common import adk_tool
+from sre_agent.tools.common.telemetry import get_tracer
 
 logger = logging.getLogger(__name__)
 tracer = get_tracer(__name__)
@@ -29,7 +33,10 @@ def _get_authorized_session(tool_context: Any = None) -> AuthorizedSession:
     credentials = get_credentials_from_tool_context(tool_context)
     if not credentials:
         auth_obj: Any = get_current_credentials()
-        credentials, _ = auth_obj
+        if isinstance(auth_obj, tuple):
+            credentials, _ = auth_obj
+        else:
+            credentials = auth_obj
     return AuthorizedSession(credentials)  # type: ignore[no-untyped-call]
 
 
@@ -40,27 +47,27 @@ async def list_alerts(
     order_by: str | None = None,
     page_size: int = 100,
     tool_context: Any = None,
-) -> list[dict[str, Any]] | dict[str, Any]:
+) -> BaseToolResponse:
     """Lists alerts (incidents) using the Google Cloud Monitoring API.
 
     Args:
         project_id: The Google Cloud Project ID.
-        filter_str: Optional filter string. Server-side filtering supports only 'state' and 'policy_name'.
-                  Example: 'state="OPEN"' or 'state="CLOSED"'.
-                  Warning: Time-based filtering is NOT supported server-side; use sorting instead.
-        order_by: Optional sort order field. Supported fields: 'open_time', 'close_time'.
-                  Example: 'open_time desc'. Default is 'open_time desc'.
-        page_size: Number of results to return (default 100, max 1000).
+        filter_str: Optional filter string.
+        order_by: Optional sort order field.
+        page_size: Number of results to return.
         tool_context: Context object for tool execution.
 
     Returns:
-        List of dictionaries containing alert (incident) details.
+        Standardized response with alert details.
     """
     from fastapi.concurrency import run_in_threadpool
 
-    return await run_in_threadpool(
+    result = await run_in_threadpool(
         _list_alerts_sync, project_id, filter_str, order_by, page_size, tool_context
     )
+    if isinstance(result, dict) and "error" in result:
+        return BaseToolResponse(status=ToolStatus.ERROR, error=result["error"])
+    return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
 def _list_alerts_sync(
@@ -77,20 +84,14 @@ def _list_alerts_sync(
             span.set_attribute("gcp.monitoring.filter", filter_str)
 
         try:
-            # Get credentials
             session = _get_authorized_session(tool_context)
-
-            # API Endpoint: projects.alerts.list
-            # https://cloud.google.com/monitoring/api/ref_v3/rest/v3/projects.alerts/list
             url = f"https://monitoring.googleapis.com/v3/projects/{project_id}/alerts"
-
             params: dict[str, Any] = {"pageSize": page_size}
             if filter_str:
                 params["filter"] = filter_str
 
             if order_by:
                 mapped_order_by = order_by
-                # Canonical mapping for Cloud Monitoring Alerting API
                 replacements = {
                     "start_time": "open_time",
                     "startTime": "open_time",
@@ -103,7 +104,6 @@ def _list_alerts_sync(
                     mapped_order_by = mapped_order_by.replace(k, v)
                 params["orderBy"] = mapped_order_by
 
-            # Include X-Goog-User-Project for quota/billing attribution
             headers = {"X-Goog-User-Project": project_id}
             response = session.get(url, params=params, headers=headers)
 
@@ -113,14 +113,10 @@ def _list_alerts_sync(
                     message = error_json.get("error", {}).get("message", response.text)
                 except Exception:
                     message = response.text
-                raise Exception(
-                    f"{response.status_code} Client Error: {response.reason} for url: {response.url}\n"
-                    f"Response: {message}"
-                )
+                raise Exception(f"{response.status_code} {response.reason}: {message}")
 
             data = response.json()
             alerts = data.get("alerts", [])
-
             span.set_attribute("gcp.monitoring.alerts_count", len(alerts))
             return cast(list[dict[str, Any]], alerts)
 
@@ -132,35 +128,23 @@ def _list_alerts_sync(
 
 
 @adk_tool
-async def get_alert(name: str, tool_context: Any = None) -> dict[str, Any]:
-    """Gets a specific alert by its resource name.
-
-    Args:
-        name: The full resource name of the alert
-              (e.g., 'projects/{project_id}/alerts/{alert_id}').
-        tool_context: Context object for tool execution.
-
-    Returns:
-        Dictionary containing the alert details.
-    """
+async def get_alert(name: str, tool_context: Any = None) -> BaseToolResponse:
+    """Gets a specific alert by its resource name."""
     from fastapi.concurrency import run_in_threadpool
 
-    return await run_in_threadpool(_get_alert_sync, name, tool_context)
+    result = await run_in_threadpool(_get_alert_sync, name, tool_context)
+    if isinstance(result, dict) and "error" in result:
+        return BaseToolResponse(status=ToolStatus.ERROR, error=result["error"])
+    return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
 def _get_alert_sync(name: str, tool_context: Any = None) -> dict[str, Any]:
     """Synchronous implementation of get_alert."""
     with tracer.start_as_current_span("get_alert") as span:
         span.set_attribute("gcp.monitoring.alert_name", name)
-
         try:
-            # Get credentials
             session = _get_authorized_session(tool_context)
-
-            # API Endpoint: projects.alerts.get
             url = f"https://monitoring.googleapis.com/v3/{name}"
-
-            # Extract project ID from resource name for billing header
             headers = {}
             if name.startswith("projects/"):
                 proj_id = name.split("/")[1]
@@ -176,7 +160,6 @@ def _get_alert_sync(name: str, tool_context: Any = None) -> dict[str, Any]:
                 raise Exception(f"{response.status_code}: {message}")
 
             return cast(dict[str, Any], response.json())
-
         except Exception as e:
             span.record_exception(e)
             error_msg = f"Failed to get alert: {e!s}"
@@ -190,23 +173,16 @@ async def list_alert_policies(
     filter_str: str | None = None,
     page_size: int = 100,
     tool_context: Any = None,
-) -> list[dict[str, Any]] | dict[str, Any]:
-    """Lists alert policies from Google Cloud Monitoring.
-
-    Args:
-        project_id: The Google Cloud Project ID.
-        filter_str: Optional filter string.
-        page_size: Number of results to return.
-        tool_context: Context object for tool execution.
-
-    Returns:
-        List of dictionaries containing alert policy details.
-    """
+) -> BaseToolResponse:
+    """Lists alert policies from Google Cloud Monitoring."""
     from fastapi.concurrency import run_in_threadpool
 
-    return await run_in_threadpool(
+    result = await run_in_threadpool(
         _list_alert_policies_sync, project_id, filter_str, page_size, tool_context
     )
+    if isinstance(result, dict) and "error" in result:
+        return BaseToolResponse(status=ToolStatus.ERROR, error=result["error"])
+    return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
 def _list_alert_policies_sync(
@@ -218,23 +194,17 @@ def _list_alert_policies_sync(
     """Synchronous implementation of list_alert_policies."""
     with tracer.start_as_current_span("list_alert_policies") as span:
         span.set_attribute("gcp.project_id", project_id)
-
         try:
             client = get_alert_policy_client(tool_context)
             project_name = f"projects/{project_id}"
-
             request = monitoring_v3.ListAlertPoliciesRequest(
                 name=project_name,
                 filter=filter_str if filter_str else "",
                 page_size=page_size,
             )
-
             results = client.list_alert_policies(request=request)
-
-            # Convert protobuf results to list of dicts
             policies_data = []
             for policy in results:
-                # Basic fields + user_labels
                 policy_dict = {
                     "name": policy.name,
                     "display_name": policy.display_name,
@@ -246,8 +216,6 @@ def _list_alert_policies_sync(
                     "conditions": [],
                     "enabled": policy.enabled,
                 }
-
-                # Extract simple condition info
                 for condition in policy.conditions:
                     policy_dict["conditions"].append(
                         {
@@ -255,12 +223,9 @@ def _list_alert_policies_sync(
                             "display_name": condition.display_name,
                         }
                     )
-
                 policies_data.append(policy_dict)
-
             span.set_attribute("gcp.monitoring.policies_count", len(policies_data))
             return policies_data
-
         except Exception as e:
             span.record_exception(e)
             error_msg = f"Failed to list alert policies: {e!s}"

@@ -29,9 +29,11 @@ class TestLogPatternAnalysisWorkflow:
         result = extract_log_patterns(sample_text_payload_logs)
 
         # Verify workflow produced expected results
-        assert result["total_logs_processed"] == len(sample_text_payload_logs)
-        assert result["unique_patterns"] > 0
-        assert result["compression_ratio"] >= 1.0
+        assert result["status"] == "success"
+        data = result["result"]
+        assert data["total_logs_processed"] == len(sample_text_payload_logs)
+        assert data["unique_patterns"] > 0
+        assert data["compression_ratio"] >= 1.0
 
     def test_incident_detection_workflow(
         self, baseline_period_logs, incident_period_logs
@@ -39,11 +41,13 @@ class TestLogPatternAnalysisWorkflow:
         """Test complete incident detection workflow."""
         # Step 1: Extract patterns from baseline
         baseline_result = extract_log_patterns(baseline_period_logs)
-        assert baseline_result["total_logs_processed"] > 0
+        assert baseline_result["status"] == "success"
+        assert baseline_result["result"]["total_logs_processed"] > 0
 
         # Step 2: Extract patterns from incident period
         incident_result = extract_log_patterns(incident_period_logs)
-        assert incident_result["total_logs_processed"] > 0
+        assert incident_result["status"] == "success"
+        assert incident_result["result"]["total_logs_processed"] > 0
 
         # Step 3: Compare patterns to find anomalies
         comparison = compare_log_patterns(
@@ -51,15 +55,17 @@ class TestLogPatternAnalysisWorkflow:
             comparison_entries_json=incident_period_logs,
         )
 
+        assert comparison["status"] == "success"
+        data = comparison["result"]
         # Verify new error patterns detected
-        assert "anomalies" in comparison
-        anomalies = comparison["anomalies"]
+        assert "anomalies" in data
+        anomalies = data["anomalies"]
 
         # Should detect new patterns that appeared during incident
         assert len(anomalies.get("new_patterns", [])) > 0
 
         # Alert level should be elevated
-        assert comparison["alert_level"] != ""
+        assert data["alert_level"] != ""
 
     def test_error_triage_workflow(self, incident_period_logs):
         """Test error-focused triage workflow."""
@@ -70,12 +76,14 @@ class TestLogPatternAnalysisWorkflow:
             max_results=10,
         )
 
+        assert result["status"] == "success"
+        data = result["result"]
         # Step 2: Verify error patterns are prioritized
-        assert "error_patterns" in result
-        assert "recommendation" in result
+        assert "error_patterns" in data
+        assert "recommendation" in data
 
         # Should have actionable recommendation
-        assert len(result["recommendation"]) > 0
+        assert len(data["recommendation"]) > 0
 
     def test_pattern_compression_effectiveness(self):
         """Test that pattern extraction achieves meaningful compression."""
@@ -108,10 +116,12 @@ class TestLogPatternAnalysisWorkflow:
 
         result = extract_log_patterns(logs)
 
+        assert result["status"] == "success"
+        data = result["result"]
         # Should compress 150 logs into ~2-3 patterns
-        assert result["total_logs_processed"] == 150
-        assert result["unique_patterns"] <= 5
-        assert result["compression_ratio"] >= 30  # At least 30:1 compression
+        assert data["total_logs_processed"] == 150
+        assert data["unique_patterns"] <= 5
+        assert data["compression_ratio"] >= 30  # At least 30:1 compression
 
     def test_mixed_severity_analysis(self):
         """Test analysis of logs with mixed severity levels."""
@@ -126,15 +136,16 @@ class TestLogPatternAnalysisWorkflow:
 
         result = analyze_log_anomalies(logs, focus_on_errors=True)
 
+        assert result["status"] == "success"
+        data = result["result"]
         # Should categorize by severity
-        assert "critical_patterns" in result
-        assert "error_patterns" in result
-        assert "warning_patterns" in result
+        assert "critical_patterns" in data
+        assert "error_patterns" in data
+        assert "warning_patterns" in data
 
         # Critical patterns should be flagged
         assert (
-            len(result["critical_patterns"]) > 0
-            or "CRITICAL" in result["recommendation"]
+            len(data["critical_patterns"]) > 0 or "CRITICAL" in data["recommendation"]
         )
 
 
@@ -144,14 +155,17 @@ class TestLogPatternToolIntegration:
     def test_tools_work_with_empty_logs(self):
         """Test that tools handle empty log lists gracefully."""
         result = extract_log_patterns([])
-        assert result["total_logs_processed"] == 0
-        assert result["unique_patterns"] == 0
+        assert result["status"] == "success"
+        assert result["result"]["total_logs_processed"] == 0
+        assert result["result"]["unique_patterns"] == 0
 
         comparison = compare_log_patterns([], [])
-        assert comparison["baseline_summary"]["total_logs"] == 0
+        assert comparison["status"] == "success"
+        assert comparison["result"]["baseline_summary"]["total_logs"] == 0
 
         anomalies = analyze_log_anomalies([])
-        assert anomalies["total_logs"] == 0
+        assert anomalies["status"] == "success"
+        assert anomalies["result"]["total_logs"] == 0
 
     def test_tools_handle_malformed_entries(self):
         """Test that tools handle malformed log entries."""
@@ -164,24 +178,34 @@ class TestLogPatternToolIntegration:
 
         # Should not raise exceptions
         result = extract_log_patterns(logs)
-        assert result["total_logs_processed"] == 4
+        assert result["status"] == "success"
+        assert result["result"]["total_logs_processed"] == 4
 
     def test_json_payload_field_detection(self, sample_json_payload_logs):
         """Test that JSON payload fields are correctly detected."""
         result = extract_log_patterns(sample_json_payload_logs)
 
+        assert result["status"] == "success"
+        data = result["result"]
         # Should successfully extract patterns from JSON logs
-        assert result["total_logs_processed"] == len(sample_json_payload_logs)
-        assert result["unique_patterns"] > 0
+        assert data["total_logs_processed"] == len(sample_json_payload_logs)
+        assert data["unique_patterns"] > 0
 
     def test_pattern_stability_across_runs(self, sample_text_payload_logs):
         """Test that pattern extraction is deterministic."""
         result1 = extract_log_patterns(sample_text_payload_logs)
         result2 = extract_log_patterns(sample_text_payload_logs)
 
+        assert result1["status"] == "success"
+        assert result2["status"] == "success"
         # Should produce same number of patterns
-        assert result1["unique_patterns"] == result2["unique_patterns"]
-        assert result1["total_logs_processed"] == result2["total_logs_processed"]
+        assert (
+            result1["result"]["unique_patterns"] == result2["result"]["unique_patterns"]
+        )
+        assert (
+            result1["result"]["total_logs_processed"]
+            == result2["result"]["total_logs_processed"]
+        )
 
 
 class TestSubAgentConfiguration:

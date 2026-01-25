@@ -38,39 +38,45 @@ def sample_trace_dict():
 def test_build_call_graph_dict(sample_trace_dict):
     """Test build_call_graph with a dictionary input."""
     graph = build_call_graph(sample_trace_dict)
-    assert graph["root_spans"] == ["root"]
-    assert len(graph["span_tree"]) == 1
-    assert graph["span_tree"][0]["span_id"] == "root"
-    assert len(graph["span_tree"][0]["children"]) == 1
-    assert graph["span_tree"][0]["children"][0]["span_id"] == "child1"
-    assert graph["total_spans"] == 2
+    assert graph["status"] == "success"
+    res_data = graph["result"]
+    assert res_data["root_spans"] == ["root"]
+    assert len(res_data["span_tree"]) == 1
+    assert res_data["span_tree"][0]["span_id"] == "root"
+    assert len(res_data["span_tree"][0]["children"]) == 1
+    assert res_data["span_tree"][0]["children"][0]["span_id"] == "child1"
+    assert res_data["total_spans"] == 2
 
 
 def test_build_call_graph_str(sample_trace_dict):
     """Test build_call_graph with a dictionary input."""
     graph = build_call_graph(sample_trace_dict)
-    assert graph["root_spans"] == ["root"]
-    assert len(graph["span_tree"]) == 1
-    assert graph["total_spans"] == 2
+    assert graph["status"] == "success"
+    res_data = graph["result"]
+    assert res_data["root_spans"] == ["root"]
+    assert len(res_data["span_tree"]) == 1
+    assert res_data["total_spans"] == 2
 
 
 def test_build_call_graph_invalid_json():
     """Test build_call_graph with an invalid JSON string."""
     result = build_call_graph("{invalid_json")
+    assert result["status"] == "error"
     assert "error" in result
 
 
 def test_build_call_graph_error_trace():
     """Test build_call_graph with a trace containing an error."""
     result = build_call_graph({"error": "Trace not found"})
-    assert "error" in result
+    assert result["status"] == "error"
     assert result["error"] == "Trace not found"
 
 
 def test_calculate_span_durations(sample_trace_dict):
     """Test calculate_span_durations."""
     result = calculate_span_durations(sample_trace_dict)
-    timings = result["spans"]
+    assert result["status"] == "success"
+    timings = result["result"]["spans"]
     assert len(timings) == 2
     root = next(s for s in timings if s["span_id"] == "root")
     child = next(s for s in timings if s["span_id"] == "child1")
@@ -90,7 +96,8 @@ def test_extract_errors():
     }
     # Note: status:200 is NOT an error in the fixed implementation
     result = extract_errors(trace)
-    errors = result["errors"]
+    assert result["status"] == "success"
+    errors = result["result"]["errors"]
     assert len(errors) == 2
     assert any(e["span_id"] == "2" for e in errors)
     assert any(e["span_id"] == "3" for e in errors)
@@ -109,7 +116,8 @@ def test_extract_errors_http_200_not_flagged():
         ]
     }
     result = extract_errors(trace)
-    errors = result["errors"]
+    assert result["status"] == "success"
+    errors = result["result"]["errors"]
     assert len(errors) == 0, "HTTP 200 should not be treated as error"
 
 
@@ -125,7 +133,8 @@ def test_extract_errors_http_500_flagged():
         ]
     }
     result = extract_errors(trace)
-    errors = result["errors"]
+    assert result["status"] == "success"
+    errors = result["result"]["errors"]
     assert len(errors) == 1
     assert errors[0]["status_code"] == 500
     assert errors[0]["span_id"] == "1"
@@ -151,9 +160,11 @@ def test_validate_trace_quality_detects_orphans():
         ]
     }
     result = validate_trace_quality(trace)
-    assert not result["valid"]
-    assert result["issue_count"] == 1
-    assert result["issues"][0]["type"] == "orphaned_span"
+    assert result["status"] == "success"
+    res_data = result["result"]
+    assert not res_data["valid"]
+    assert res_data["issue_count"] == 1
+    assert res_data["issues"][0]["type"] == "orphaned_span"
 
 
 def test_compare_span_timings(sample_trace_dict):
@@ -172,7 +183,9 @@ def test_compare_span_timings(sample_trace_dict):
         ],
     }
 
-    result = compare_span_timings(baseline, target)
+    res = compare_span_timings(baseline, target)
+    assert res["status"] == "success"
+    result = res["result"]
 
     assert len(result["slower_spans"]) == 1
     slower = result["slower_spans"][0]

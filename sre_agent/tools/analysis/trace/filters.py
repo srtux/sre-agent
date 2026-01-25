@@ -4,6 +4,8 @@ import logging
 import statistics
 from typing import Any
 
+from sre_agent.schema import BaseToolResponse, ToolStatus
+
 from ...common import adk_tool
 
 logger = logging.getLogger(__name__)
@@ -38,7 +40,7 @@ class TraceSelector:
 
 
 @adk_tool
-def select_traces_from_statistical_outliers(traces_json: str) -> dict[str, Any]:
+def select_traces_from_statistical_outliers(traces_json: str) -> BaseToolResponse:
     """Selects outlier traces from a given list of traces based on latency.
 
     Args:
@@ -56,18 +58,26 @@ def select_traces_from_statistical_outliers(traces_json: str) -> dict[str, Any]:
         try:
             traces = json.loads(traces_json)
             if not isinstance(traces, list):
-                return {"trace_ids": []}
+                return BaseToolResponse(
+                    status=ToolStatus.ERROR, error="JSON is not a list"
+                )
         except (json.JSONDecodeError, TypeError):
-            return {"trace_ids": []}
+            return BaseToolResponse(status=ToolStatus.ERROR, error="Invalid JSON")
     else:
-        return {"trace_ids": []}
+        return BaseToolResponse(
+            status=ToolStatus.ERROR, error="Input must be JSON string or list"
+        )
 
     selector = TraceSelector()
-    return {"trace_ids": selector.from_statistical_outliers(traces)}
+
+    return BaseToolResponse(
+        status=ToolStatus.SUCCESS,
+        result={"trace_ids": selector.from_statistical_outliers(traces)},
+    )
 
 
 @adk_tool
-def select_traces_manually(trace_ids: list[str]) -> dict[str, Any]:
+def select_traces_manually(trace_ids: list[str]) -> BaseToolResponse:
     """Allows a user to manually provide a list of trace IDs for analysis.
 
     Args:
@@ -77,7 +87,10 @@ def select_traces_manually(trace_ids: list[str]) -> dict[str, Any]:
         The same list of trace IDs.
     """
     selector = TraceSelector()
-    return {"trace_ids": selector.from_manual_override(trace_ids)}
+    return BaseToolResponse(
+        status=ToolStatus.SUCCESS,
+        result={"trace_ids": selector.from_manual_override(trace_ids)},
+    )
 
 
 class TraceQueryBuilder:

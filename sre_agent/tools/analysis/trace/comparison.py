@@ -5,6 +5,8 @@ import time
 from datetime import datetime
 from typing import Any
 
+from sre_agent.schema import BaseToolResponse, ToolStatus
+
 from ...common import adk_tool
 from ...common.telemetry import get_meter, get_tracer, log_tool_call
 from .analysis import build_call_graph, calculate_span_durations
@@ -51,7 +53,7 @@ def compare_span_timings(
     baseline_trace_id: str,
     target_trace_id: str,
     project_id: str | None = None,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Compares timing between spans in two traces and detects performance anti-patterns.
 
     Args:
@@ -85,13 +87,22 @@ def compare_span_timings(
             baseline_result = calculate_span_durations(baseline_trace_id, project_id)
             target_result = calculate_span_durations(target_trace_id, project_id)
 
-            if "error" in baseline_result:
-                return {"error": f"Baseline trace error: {baseline_result['error']}"}
-            if "error" in target_result:
-                return {"error": f"Target trace error: {target_result['error']}"}
+            if baseline_result.get("status") == ToolStatus.ERROR:
+                return BaseToolResponse(
+                    status=ToolStatus.ERROR,
+                    error=f"Baseline trace error: {baseline_result.get('error')}",
+                )
+            if target_result.get("status") == ToolStatus.ERROR:
+                return BaseToolResponse(
+                    status=ToolStatus.ERROR,
+                    error=f"Target trace error: {target_result.get('error')}",
+                )
 
-            baseline_timings = baseline_result.get("spans", [])
-            target_timings = target_result.get("spans", [])
+            baseline_data = baseline_result.get("result", {})
+            target_data = target_result.get("result", {})
+
+            baseline_timings = baseline_data.get("spans", [])
+            target_timings = target_data.get("spans", [])
 
             # Anti-Pattern Detection
             patterns = []
@@ -300,10 +311,7 @@ def compare_span_timings(
                     "num_faster": len(faster_spans),
                 },
             }
-            span.set_attribute("sre_agent.slower_spans_count", len(slower_spans))
-            anomalies_detected.add(len(slower_spans), {"type": "slow_span"})
-
-            return result
+            return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
         except Exception as e:
             span.record_exception(e)
             success = False
@@ -318,7 +326,7 @@ def find_structural_differences(
     baseline_trace_id: str,
     target_trace_id: str,
     project_id: str | None = None,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Compares the call graph structure between two traces.
 
     Args:
@@ -347,22 +355,31 @@ def find_structural_differences(
         )
 
         try:
-            baseline_graph = build_call_graph(baseline_trace_id, project_id)
-            target_graph = build_call_graph(target_trace_id, project_id)
+            res_baseline = build_call_graph(baseline_trace_id, project_id)
+            res_target = build_call_graph(target_trace_id, project_id)
 
-            if "error" in baseline_graph:
-                return {"error": f"Baseline trace error: {baseline_graph['error']}"}
-            if "error" in target_graph:
-                return {"error": f"Target trace error: {target_graph['error']}"}
+            if res_baseline.get("status") == ToolStatus.ERROR:
+                return BaseToolResponse(
+                    status=ToolStatus.ERROR,
+                    error=f"Baseline graph error: {res_baseline.get('error')}",
+                )
+            if res_target.get("status") == ToolStatus.ERROR:
+                return BaseToolResponse(
+                    status=ToolStatus.ERROR,
+                    error=f"Target graph error: {res_target.get('error')}",
+                )
 
-            baseline_names = set(baseline_graph.get("span_names", []))
-            target_names = set(target_graph.get("span_names", []))
+            graph_baseline = res_baseline.get("result", {})
+            graph_target = res_target.get("result", {})
+
+            baseline_names = set(graph_baseline.get("span_names", []))
+            target_names = set(graph_target.get("span_names", []))
 
             missing_spans = list(baseline_names - target_names)
             new_spans = list(target_names - baseline_names)
             common_spans = list(baseline_names & target_names)
 
-            depth_change = target_graph.get("max_depth", 0) - baseline_graph.get(
+            depth_change = graph_target.get("max_depth", 0) - graph_baseline.get(
                 "max_depth", 0
             )
 
@@ -370,32 +387,21 @@ def find_structural_differences(
                 "missing_spans": missing_spans,
                 "new_spans": new_spans,
                 "common_spans": common_spans,
-                "baseline_span_count": baseline_graph.get("total_spans", 0),
-                "target_span_count": target_graph.get("total_spans", 0),
-                "span_count_change": target_graph.get("total_spans", 0)
-                - baseline_graph.get("total_spans", 0),
-                "baseline_depth": baseline_graph.get("max_depth", 0),
-                "target_depth": target_graph.get("max_depth", 0),
+                "baseline_span_count": graph_baseline.get("total_spans", 0),
+                "target_span_count": graph_target.get("total_spans", 0),
+                "span_count_change": graph_target.get("total_spans", 0)
+                - graph_baseline.get("total_spans", 0),
                 "depth_change": depth_change,
-                "summary": {
-                    "spans_removed": len(missing_spans),
-                    "spans_added": len(new_spans),
-                    "structure_changed": len(missing_spans) > 0
-                    or len(new_spans) > 0
-                    or depth_change != 0,
-                },
             }
 
-            change_count = len(missing_spans) + len(new_spans)
-            anomalies_detected.add(change_count, {"type": "structural_change"})
-            if depth_change != 0:
-                anomalies_detected.add(1, {"type": "depth_change"})
+            return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
-            return result
         except Exception as e:
             span.record_exception(e)
             success = False
-            raise e
+            error_msg = f"Structural comparison failed: {e!s}"
+            logger.error(error_msg)
+            return BaseToolResponse(status=ToolStatus.ERROR, error=error_msg)
         finally:
             duration_ms = (time.time() - start_time) * 1000
             _record_telemetry("find_structural_differences", success, duration_ms)

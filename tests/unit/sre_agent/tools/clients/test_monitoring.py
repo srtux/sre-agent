@@ -43,9 +43,11 @@ async def test_list_time_series(mock_get_client):
 
     result = await list_time_series("filter", 60, project_id="p1")
 
-    assert len(result) == 1
-    assert result[0]["metric"]["type"] == "metric_type"
-    assert result[0]["points"][0]["value"] == 100.0
+    assert result["status"] == "success"
+    res_data = result["result"]
+    assert len(res_data) == 1
+    assert res_data[0]["metric"]["type"] == "metric_type"
+    assert res_data[0]["points"][0]["value"] == 100.0
 
 
 @pytest.mark.asyncio
@@ -64,6 +66,7 @@ async def test_query_promql(mock_auth_default, mock_session_cls):
     result = await query_promql("up", project_id="p1")
 
     assert result["status"] == "success"
+    assert result["result"]["status"] == "success"
     mock_session.get.assert_called_once()
     call_args = mock_session.get.call_args
     assert call_args.kwargs["params"]["query"] == "up"

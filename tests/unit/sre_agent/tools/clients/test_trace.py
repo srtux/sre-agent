@@ -6,6 +6,7 @@ import pytest
 
 # Global mocks to avoid segfaults/proto issues
 with patch("google.cloud.trace_v1.TraceServiceClient", MagicMock()):
+    from sre_agent.schema import ToolStatus
     from sre_agent.tools.clients.trace import (
         TraceFilterBuilder,
         fetch_trace,
@@ -89,16 +90,18 @@ async def test_find_example_traces_complex():
 
             # Mock list_traces for 3 calls (slow, all, errors)
             mock_list.side_effect = [
-                traces[20:],  # slow
-                traces,  # all
-                [traces[5]],  # errors
-                [],  # root name search
+                {"status": ToolStatus.SUCCESS, "result": traces[20:]},  # slow
+                {"status": ToolStatus.SUCCESS, "result": traces},  # all
+                {"status": ToolStatus.SUCCESS, "result": [traces[5]]},  # errors
+                {"status": ToolStatus.SUCCESS, "result": []},  # root name search
             ]
 
             result = await find_example_traces(project_id="proj")
-            assert "baseline" in result
-            assert "anomaly" in result
-            assert result["validation"]["sample_adequate"] is True
+            assert result["status"] == ToolStatus.SUCCESS
+            final_res = result["result"]
+            assert "baseline" in final_res
+            assert "anomaly" in final_res
+            assert final_res["validation"]["sample_adequate"] is True
 
 
 @pytest.mark.asyncio
@@ -106,4 +109,5 @@ async def test_fetch_trace_shortcut():
     with patch("sre_agent.tools.clients.trace._fetch_trace_sync") as mock_fetch:
         mock_fetch.return_value = {"trace_id": "ok"}
         result = await fetch_trace("ok", "proj")
-        assert result["trace_id"] == "ok"
+        assert result["status"] == "success"
+        assert result["result"]["trace_id"] == "ok"

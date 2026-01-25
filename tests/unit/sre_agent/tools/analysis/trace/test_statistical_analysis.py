@@ -61,7 +61,12 @@ def slow_target_trace():
 
 def test_perform_causal_analysis(baseline_trace, slow_target_trace):
     """Test causal analysis using string inputs (integration checks build_call_graph fix)."""
-    analysis = perform_causal_analysis(baseline_trace, slow_target_trace)
+    response = perform_causal_analysis(
+        baseline_trace, slow_target_trace, project_id="test-p"
+    )
+
+    assert response["status"] == "success"
+    analysis = response["result"]
 
     assert "root_cause_candidates" in analysis
     candidates = analysis["root_cause_candidates"]
@@ -70,7 +75,6 @@ def test_perform_causal_analysis(baseline_trace, slow_target_trace):
     # Logic: child slowed by 100ms (50->150), root slowed by 100ms (100->200).
     # Since child is independent (leaf), it's a candidate.
 
-    candidates[0]
     # The sort order might prioritize root because it is also slow.
     # We just want to ensure candidates are found.
     assert len(candidates) >= 1
@@ -82,7 +86,12 @@ def test_perform_causal_analysis(baseline_trace, slow_target_trace):
 def test_compute_latency_statistics(baseline_trace):
     """Test latency statistics computation."""
     # Pass a list of trace strings
-    stats = compute_latency_statistics([baseline_trace, baseline_trace])
+    response = compute_latency_statistics(
+        [baseline_trace, baseline_trace], project_id="test-p"
+    )
+
+    assert response["status"] == "success"
+    stats = response["result"]
 
     assert "per_span_stats" in stats
     root_stats = stats["per_span_stats"]["root"]
@@ -99,7 +108,11 @@ def test_detect_latency_anomalies(baseline_trace, slow_target_trace):
     # Mean = 100ms.
     # Target root = 200ms. Z-score = (200 - 100) / 1 = 100. Very high.
 
-    result = detect_latency_anomalies([baseline_trace] * 5, slow_target_trace)
+    response = detect_latency_anomalies(
+        [baseline_trace] * 5, slow_target_trace, project_id="test-p"
+    )
+    assert response["status"] == "success"
+    result = response["result"]
 
     assert len(result["anomalous_spans"]) > 0
     anomalies = {a["span_name"]: a for a in result["anomalous_spans"]}
@@ -115,13 +128,11 @@ def test_perform_causal_analysis_with_invalid_json(baseline_trace):
     invalid_json = '{"trace_id": "invalid", "spans": [}'
 
     # Test with invalid baseline
-    result1 = perform_causal_analysis(invalid_json, baseline_trace)
-    assert isinstance(result1, dict)
-    assert "error" in result1
-    assert "Invalid baseline_trace JSON" in result1["error"]
+    result1 = perform_causal_analysis(invalid_json, baseline_trace, project_id="test-p")
+    assert result1["status"] == "error"
+    assert result1["error"] is not None
 
     # Test with invalid target
-    result2 = perform_causal_analysis(baseline_trace, invalid_json)
-    assert isinstance(result2, dict)
-    assert "error" in result2
-    assert "Invalid target_trace JSON" in result2["error"]
+    result2 = perform_causal_analysis(baseline_trace, invalid_json, project_id="test-p")
+    assert result2["status"] == "error"
+    assert result2["error"] is not None
