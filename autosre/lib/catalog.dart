@@ -20,6 +20,41 @@ import 'widgets/canvas/ai_reasoning_canvas.dart';
 
 /// Registry for all SRE-specific UI components.
 class CatalogRegistry {
+  /// Unwraps component data from various A2UI formats to get the actual data.
+  ///
+  /// Handles these formats (in order of processing):
+  /// 1. A2UI v0.8: `{"id": "...", "component": {"x-sre-foo": {...}}}`
+  /// 2. Legacy component wrapper: `{"component": {"x-sre-foo": {...}}}`
+  /// 3. Component-name wrapped: `{"x-sre-foo": {...}}`
+  /// 4. Direct data: `{...actual data...}`
+  static Map<String, dynamic> _unwrapComponentData(
+    dynamic rawData,
+    String componentName,
+  ) {
+    var data = _ensureMap(rawData);
+
+    // Handle A2UI v0.8 format: {"id": "...", "component": {"x-sre-foo": {...}}}
+    // Check if this looks like an A2UI v0.8 component (has 'id' and 'component' keys)
+    if (data.containsKey('id') && data.containsKey('component')) {
+      final componentWrapper = data['component'];
+      if (componentWrapper is Map) {
+        data = Map<String, dynamic>.from(componentWrapper);
+      }
+    }
+
+    // Handle legacy "component" wrapper: {"component": {"x-sre-foo": {...}}}
+    if (data.containsKey('component') && data['component'] is Map) {
+      data = Map<String, dynamic>.from(data['component']);
+    }
+
+    // Handle component-name wrapper: {"x-sre-foo": {...}}
+    if (data.containsKey(componentName) && data[componentName] is Map) {
+      data = Map<String, dynamic>.from(data[componentName] as Map);
+    }
+
+    return data;
+  }
+
   static Catalog createSreCatalog() {
     return Catalog([
       CatalogItem(
@@ -27,22 +62,10 @@ class CatalogRegistry {
         dataSchema: S.object(),
         widgetBuilder: (context) {
           try {
-            var data = _ensureMap(context.data);
-
-            // NEW: Handle cases where the entire component payload is wrapped in "component"
-            // (e.g. { "component": { "x-sre-trace-waterfall": ... } })
-            if (data.containsKey('component') && data['component'] is Map) {
-              data = Map<String, dynamic>.from(data['component']);
-            }
-
-            // Handle case where data might be wrapped in component name
-            // (e.g., {"x-sre-trace-waterfall": {...actual data...}})
-            if (data.containsKey('x-sre-trace-waterfall') &&
-                data['x-sre-trace-waterfall'] is Map) {
-              data = Map<String, dynamic>.from(
-                data['x-sre-trace-waterfall'] as Map,
-              );
-            }
+            final data = _unwrapComponentData(
+              context.data,
+              'x-sre-trace-waterfall',
+            );
 
             final trace = Trace.fromJson(data);
             if (trace.spans.isEmpty) return const SizedBox.shrink();
@@ -61,19 +84,7 @@ class CatalogRegistry {
         dataSchema: S.object(),
         widgetBuilder: (context) {
           try {
-            var data = _ensureMap(context.data);
-
-            if (data.containsKey('component') && data['component'] is Map) {
-              data = Map<String, dynamic>.from(data['component']);
-            }
-
-            // Handle case where data might be wrapped in component name
-            if (data.containsKey('x-sre-metric-chart') &&
-                data['x-sre-metric-chart'] is Map) {
-              data = Map<String, dynamic>.from(
-                data['x-sre-metric-chart'] as Map,
-              );
-            }
+            final data = _unwrapComponentData(context.data, 'x-sre-metric-chart');
 
             final series = MetricSeries.fromJson(data);
             if (series.points.isEmpty) return const SizedBox.shrink();
@@ -92,19 +103,10 @@ class CatalogRegistry {
         dataSchema: S.object(),
         widgetBuilder: (context) {
           try {
-            var data = _ensureMap(context.data);
-
-            if (data.containsKey('component') && data['component'] is Map) {
-              data = Map<String, dynamic>.from(data['component']);
-            }
-
-            // Handle case where data might be wrapped in component name
-            if (data.containsKey('x-sre-remediation-plan') &&
-                data['x-sre-remediation-plan'] is Map) {
-              data = Map<String, dynamic>.from(
-                data['x-sre-remediation-plan'] as Map,
-              );
-            }
+            final data = _unwrapComponentData(
+              context.data,
+              'x-sre-remediation-plan',
+            );
 
             final plan = RemediationPlan.fromJson(data);
             if (plan.steps.isEmpty) return const SizedBox.shrink();
@@ -130,37 +132,18 @@ class CatalogRegistry {
             if (dataRaw is List) {
               rawList = dataRaw;
             } else if (dataRaw is Map) {
-              var data = Map<String, dynamic>.from(dataRaw);
+              // Use the unified unwrap helper
+              var data = _unwrapComponentData(
+                dataRaw,
+                'x-sre-log-pattern-viewer',
+              );
 
-              // Handle case where data might be wrapped in component name
-              if (data.containsKey('x-sre-log-pattern-viewer')) {
-                final wrapped = data['x-sre-log-pattern-viewer'];
-                if (wrapped is Map) {
-                  data = Map<String, dynamic>.from(wrapped);
-                } else if (wrapped is List) {
-                  rawList = wrapped;
-                  data = {}; // Skip further map processing
-                }
-              } else if (data.containsKey('component') &&
-                  data['component'] is Map) {
-                // Unwrap "component" wrapper and recurse logic essentially
-                final inner = Map<String, dynamic>.from(data['component']);
-                if (inner.containsKey('x-sre-log-pattern-viewer')) {
-                  final wrapped = inner['x-sre-log-pattern-viewer'];
-                  if (wrapped is Map) {
-                    data = Map<String, dynamic>.from(wrapped);
-                  } else if (wrapped is List) {
-                    rawList = wrapped;
-                    data = {};
-                  }
-                } else {
-                  // Maybe the list is directly inside or under patterns inside component
-                  data = inner;
-                }
-              }
-
-              // Handle case where list is wrapped in a map (if not already found)
-              if (rawList.isEmpty) {
+              // Check if the unwrapped data is actually a list
+              if (data.containsKey('x-sre-log-pattern-viewer') &&
+                  data['x-sre-log-pattern-viewer'] is List) {
+                rawList = data['x-sre-log-pattern-viewer'] as List;
+              } else {
+                // Handle case where list is wrapped in a map
                 rawList = data['patterns'] ?? data['data'] ?? data['items'] ?? [];
               }
             } else {
@@ -192,19 +175,10 @@ class CatalogRegistry {
         dataSchema: S.object(),
         widgetBuilder: (context) {
           try {
-            var data = _ensureMap(context.data);
-
-            if (data.containsKey('component') && data['component'] is Map) {
-              data = Map<String, dynamic>.from(data['component']);
-            }
-
-            // Handle case where data might be wrapped in component name
-            if (data.containsKey('x-sre-log-entries-viewer') &&
-                data['x-sre-log-entries-viewer'] is Map) {
-              data = Map<String, dynamic>.from(
-                data['x-sre-log-entries-viewer'] as Map,
-              );
-            }
+            final data = _unwrapComponentData(
+              context.data,
+              'x-sre-log-entries-viewer',
+            );
 
             final logData = LogEntriesData.fromJson(data);
             if (logData.entries.isEmpty) return const SizedBox.shrink();
@@ -223,22 +197,12 @@ class CatalogRegistry {
         dataSchema: S.object(),
         widgetBuilder: (context) {
           try {
-            var data = _ensureMap(context.data);
-
-            if (data.containsKey('component') && data['component'] is Map) {
-              data = Map<String, dynamic>.from(data['component']);
-            }
-
-            // Handle case where data might be wrapped in component name
-            if (data.containsKey('x-sre-tool-log') &&
-                data['x-sre-tool-log'] is Map) {
-              data = Map<String, dynamic>.from(
-                data['x-sre-tool-log'] as Map,
-              );
-            }
+            final data = _unwrapComponentData(context.data, 'x-sre-tool-log');
 
             final log = ToolLog.fromJson(data);
-            if (log.toolName.isEmpty && log.status == 'unknown') return const SizedBox.shrink();
+            if (log.toolName.isEmpty && log.status == 'unknown') {
+              return const SizedBox.shrink();
+            }
             return ToolLogWidget(log: log);
           } catch (e) {
             return ErrorPlaceholder(error: e);
@@ -251,15 +215,10 @@ class CatalogRegistry {
         dataSchema: S.object(),
         widgetBuilder: (context) {
           try {
-            var data = _ensureMap(context.data);
-
-            // Handle case where data might be wrapped in component name
-            if (data.containsKey('x-sre-agent-activity') &&
-                data['x-sre-agent-activity'] is Map) {
-              data = Map<String, dynamic>.from(
-                data['x-sre-agent-activity'] as Map,
-              );
-            }
+            final data = _unwrapComponentData(
+              context.data,
+              'x-sre-agent-activity',
+            );
 
             final activityData = AgentActivityData.fromJson(data);
             if (activityData.nodes.isEmpty) return const SizedBox.shrink();
@@ -278,15 +237,10 @@ class CatalogRegistry {
         dataSchema: S.object(),
         widgetBuilder: (context) {
           try {
-            var data = _ensureMap(context.data);
-
-            // Handle case where data might be wrapped in component name
-            if (data.containsKey('x-sre-service-topology') &&
-                data['x-sre-service-topology'] is Map) {
-              data = Map<String, dynamic>.from(
-                data['x-sre-service-topology'] as Map,
-              );
-            }
+            final data = _unwrapComponentData(
+              context.data,
+              'x-sre-service-topology',
+            );
 
             final topologyData = ServiceTopologyData.fromJson(data);
             if (topologyData.services.isEmpty) return const SizedBox.shrink();
@@ -305,15 +259,10 @@ class CatalogRegistry {
         dataSchema: S.object(),
         widgetBuilder: (context) {
           try {
-            var data = _ensureMap(context.data);
-
-            // Handle case where data might be wrapped in component name
-            if (data.containsKey('x-sre-incident-timeline') &&
-                data['x-sre-incident-timeline'] is Map) {
-              data = Map<String, dynamic>.from(
-                data['x-sre-incident-timeline'] as Map,
-              );
-            }
+            final data = _unwrapComponentData(
+              context.data,
+              'x-sre-incident-timeline',
+            );
 
             final timelineData = IncidentTimelineData.fromJson(data);
             if (timelineData.events.isEmpty) return const SizedBox.shrink();
@@ -332,15 +281,10 @@ class CatalogRegistry {
         dataSchema: S.object(),
         widgetBuilder: (context) {
           try {
-            var data = _ensureMap(context.data);
-
-            // Handle case where data might be wrapped in component name
-            if (data.containsKey('x-sre-metrics-dashboard') &&
-                data['x-sre-metrics-dashboard'] is Map) {
-              data = Map<String, dynamic>.from(
-                data['x-sre-metrics-dashboard'] as Map,
-              );
-            }
+            final data = _unwrapComponentData(
+              context.data,
+              'x-sre-metrics-dashboard',
+            );
 
             final dashboardData = MetricsDashboardData.fromJson(data);
             if (dashboardData.metrics.isEmpty) return const SizedBox.shrink();
@@ -359,18 +303,15 @@ class CatalogRegistry {
         dataSchema: S.object(),
         widgetBuilder: (context) {
           try {
-            var data = _ensureMap(context.data);
-
-            // Handle case where data might be wrapped in component name
-            if (data.containsKey('x-sre-ai-reasoning') &&
-                data['x-sre-ai-reasoning'] is Map) {
-              data = Map<String, dynamic>.from(
-                data['x-sre-ai-reasoning'] as Map,
-              );
-            }
+            final data = _unwrapComponentData(
+              context.data,
+              'x-sre-ai-reasoning',
+            );
 
             final reasoningData = AIReasoningData.fromJson(data);
-            if (reasoningData.steps.isEmpty && (reasoningData.conclusion == null || reasoningData.conclusion!.isEmpty)) {
+            if (reasoningData.steps.isEmpty &&
+                (reasoningData.conclusion == null ||
+                    reasoningData.conclusion!.isEmpty)) {
               return const SizedBox.shrink();
             }
 

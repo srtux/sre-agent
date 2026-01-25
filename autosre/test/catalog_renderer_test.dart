@@ -135,6 +135,25 @@ void main() {
           fail('$name failed to unwrap A2UI data: ${errorWidget.error}');
         }
       });
+
+      testWidgets('$name handles A2UI v0.8 format with id and component',
+          (tester) async {
+        final item = catalog.items.firstWhere((i) => i.name == name);
+        // A2UI v0.8 format: {"id": "...", "component": {"x-sre-foo": {...}}}
+        final a2uiV08Data = {
+          'id': 'component-${name.hashCode}',
+          'component': {name: testData}
+        };
+
+        final widget = item.widgetBuilder(FakeCatalogItemContext(a2uiV08Data));
+        await pumpTestWidget(tester, widget);
+
+        final errorFinder = find.byType(ErrorPlaceholder);
+        if (tester.any(errorFinder)) {
+          final errorWidget = tester.widget<ErrorPlaceholder>(errorFinder);
+          fail('$name failed to unwrap A2UI v0.8 data: ${errorWidget.error}');
+        }
+      });
     }
 
     testWidgets('All widgets handle invalid types gracefully', (

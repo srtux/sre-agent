@@ -1,0 +1,235 @@
+"""Tests for A2UI v0.8 tool event helpers."""
+
+import json
+
+from sre_agent.api.helpers import (
+    create_tool_call_events,
+    create_tool_response_events,
+    create_widget_events,
+    normalize_tool_args,
+)
+
+
+class TestNormalizeToolArgs:
+    """Tests for normalize_tool_args function."""
+
+    def test_none_returns_empty_dict(self) -> None:
+        """Test that None returns empty dict."""
+        assert normalize_tool_args(None) == {}
+
+    def test_dict_returns_dict(self) -> None:
+        """Test that dict returns dict."""
+        args = {"key": "value"}
+        assert normalize_tool_args(args) == args
+
+    def test_json_string_returns_dict(self) -> None:
+        """Test that JSON string returns parsed dict."""
+        args = '{"key": "value"}'
+        assert normalize_tool_args(args) == {"key": "value"}
+
+
+class TestCreateToolCallEvents:
+    """Tests for create_tool_call_events function."""
+
+    def test_creates_valid_a2ui_v08_format(self) -> None:
+        """Test that tool call events follow A2UI v0.8 format."""
+        pending: list[dict] = []
+        surface_id, events = create_tool_call_events(
+            "fetch_trace", {"trace_id": "abc123"}, pending
+        )
+
+        assert len(events) == 2
+        assert len(pending) == 1
+
+        # First event should be surfaceUpdate with component
+        surface_update = json.loads(events[0])
+        assert surface_update["type"] == "a2ui"
+        assert "surfaceUpdate" in surface_update["message"]
+
+        update_msg = surface_update["message"]["surfaceUpdate"]
+        assert update_msg["surfaceId"] == surface_id
+        assert len(update_msg["components"]) == 1
+
+        component = update_msg["components"][0]
+        # A2UI v0.8 requires "id" and "component" wrapper
+        assert "id" in component
+        assert "component" in component
+        assert "x-sre-tool-log" in component["component"]
+
+        tool_log = component["component"]["x-sre-tool-log"]
+        assert tool_log["tool_name"] == "fetch_trace"
+        assert tool_log["args"] == {"trace_id": "abc123"}
+        assert tool_log["status"] == "running"
+
+        # Second event should be beginRendering with root reference
+        begin_rendering = json.loads(events[1])
+        assert begin_rendering["type"] == "a2ui"
+        assert "beginRendering" in begin_rendering["message"]
+
+        begin_msg = begin_rendering["message"]["beginRendering"]
+        assert begin_msg["surfaceId"] == surface_id
+        assert "root" in begin_msg
+        assert begin_msg["root"] == component["id"]
+
+    def test_registers_pending_call_with_component_id(self) -> None:
+        """Test that pending call includes component_id for response matching."""
+        pending: list[dict] = []
+        surface_id, _ = create_tool_call_events(
+            "list_logs", {"filter": "severity>=ERROR"}, pending
+        )
+
+        assert len(pending) == 1
+        assert pending[0]["call_id"] == surface_id
+        assert pending[0]["tool_name"] == "list_logs"
+        assert pending[0]["args"] == {"filter": "severity>=ERROR"}
+        assert "component_id" in pending[0]
+
+
+class TestCreateToolResponseEvents:
+    """Tests for create_tool_response_events function."""
+
+    def test_creates_valid_a2ui_v08_format(self) -> None:
+        """Test that tool response events follow A2UI v0.8 format."""
+        pending: list[dict] = [
+            {
+                "call_id": "surface-123",
+                "tool_name": "fetch_trace",
+                "args": {"trace_id": "abc123"},
+                "component_id": "tool-log-surface",
+            }
+        ]
+
+        result = {"trace_id": "abc123", "spans": [{"span_id": "s1"}]}
+        surface_id, events = create_tool_response_events(
+            "fetch_trace", result, pending
+        )
+
+        assert surface_id == "surface-123"
+        assert len(events) == 1
+        assert len(pending) == 0  # Pending call removed
+
+        response_event = json.loads(events[0])
+        assert response_event["type"] == "a2ui"
+        assert "surfaceUpdate" in response_event["message"]
+
+        update_msg = response_event["message"]["surfaceUpdate"]
+        assert update_msg["surfaceId"] == surface_id
+        assert len(update_msg["components"]) == 1
+
+        component = update_msg["components"][0]
+        # A2UI v0.8 format
+        assert "id" in component
+        assert "component" in component
+        assert "x-sre-tool-log" in component["component"]
+
+        tool_log = component["component"]["x-sre-tool-log"]
+        assert tool_log["tool_name"] == "fetch_trace"
+        assert tool_log["status"] == "completed"
+        assert tool_log["result"] == result
+
+    def test_handles_error_result(self) -> None:
+        """Test that error results are handled correctly."""
+        pending: list[dict] = [
+            {
+                "call_id": "surface-456",
+                "tool_name": "fetch_trace",
+                "args": {},
+                "component_id": "tool-log-456",
+            }
+        ]
+
+        error_result = {"error": "Trace not found", "error_type": "NotFoundError"}
+        _surface_id, events = create_tool_response_events(
+            "fetch_trace", error_result, pending
+        )
+
+        response_event = json.loads(events[0])
+        component = response_event["message"]["surfaceUpdate"]["components"][0]
+        tool_log = component["component"]["x-sre-tool-log"]
+
+        assert tool_log["status"] == "error"
+
+    def test_returns_empty_for_unmatched_tool(self) -> None:
+        """Test that unmatched tool returns empty events."""
+        pending: list[dict] = [
+            {
+                "call_id": "surface-789",
+                "tool_name": "different_tool",
+                "args": {},
+                "component_id": "tool-log-789",
+            }
+        ]
+
+        surface_id, events = create_tool_response_events(
+            "fetch_trace", {"result": "data"}, pending
+        )
+
+        assert surface_id is None
+        assert events == []
+
+
+class TestCreateWidgetEvents:
+    """Tests for create_widget_events function."""
+
+    def test_creates_valid_a2ui_v08_format_for_trace(self) -> None:
+        """Test that widget events follow A2UI v0.8 format for trace."""
+        result = {
+            "trace_id": "abc123",
+            "spans": [
+                {
+                    "span_id": "s1",
+                    "name": "test-span",
+                    "start_time": "2024-01-01T00:00:00Z",
+                    "end_time": "2024-01-01T00:00:01Z",
+                }
+            ],
+        }
+
+        events = create_widget_events("fetch_trace", result)
+
+        assert len(events) == 2
+
+        # First event should be surfaceUpdate
+        surface_update = json.loads(events[0])
+        assert surface_update["type"] == "a2ui"
+        assert "surfaceUpdate" in surface_update["message"]
+
+        update_msg = surface_update["message"]["surfaceUpdate"]
+        component = update_msg["components"][0]
+        # A2UI v0.8 format
+        assert "id" in component
+        assert "component" in component
+        assert "x-sre-trace-waterfall" in component["component"]
+
+        # Second event should be beginRendering with root
+        begin_rendering = json.loads(events[1])
+        assert begin_rendering["type"] == "a2ui"
+        assert "beginRendering" in begin_rendering["message"]
+
+        begin_msg = begin_rendering["message"]["beginRendering"]
+        assert "root" in begin_msg
+        assert begin_msg["root"] == component["id"]
+
+    def test_returns_empty_for_unmapped_tool(self) -> None:
+        """Test that unmapped tools return no widget events."""
+        events = create_widget_events("unmapped_tool", {"data": "value"})
+        assert events == []
+
+    def test_handles_json_string_result(self) -> None:
+        """Test that JSON string results are parsed."""
+        result = json.dumps(
+            {
+                "trace_id": "abc123",
+                "spans": [
+                    {
+                        "span_id": "s1",
+                        "name": "test",
+                        "start_time": "2024-01-01T00:00:00Z",
+                        "end_time": "2024-01-01T00:00:01Z",
+                    }
+                ],
+            }
+        )
+
+        events = create_widget_events("fetch_trace", result)
+        assert len(events) == 2
