@@ -53,6 +53,7 @@ def compare_span_timings(
     baseline_trace_id: str,
     target_trace_id: str,
     project_id: str | None = None,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Compares timing between spans in two traces and detects performance anti-patterns.
 
@@ -60,6 +61,7 @@ def compare_span_timings(
         baseline_trace_id: The ID of the reference/normal trace.
         target_trace_id: The ID of the trace being analyzed.
         project_id: The Google Cloud Project ID.
+        tool_context: Context object for tool execution.
 
     Returns:
         A comparison report with:
@@ -84,8 +86,12 @@ def compare_span_timings(
         )
 
         try:
-            baseline_result = calculate_span_durations(baseline_trace_id, project_id)
-            target_result = calculate_span_durations(target_trace_id, project_id)
+            baseline_result = calculate_span_durations(
+                baseline_trace_id, project_id, tool_context=tool_context
+            )
+            target_result = calculate_span_durations(
+                target_trace_id, project_id, tool_context=tool_context
+            )
 
             if baseline_result.get("status") == ToolStatus.ERROR:
                 return BaseToolResponse(
@@ -326,6 +332,7 @@ def find_structural_differences(
     baseline_trace_id: str,
     target_trace_id: str,
     project_id: str | None = None,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Compares the call graph structure between two traces.
 
@@ -333,6 +340,7 @@ def find_structural_differences(
         baseline_trace_id: The ID of the reference/normal trace.
         target_trace_id: The ID of the trace being analyzed.
         project_id: The Google Cloud Project ID.
+        tool_context: Context object for tool execution.
 
     Returns:
         A structural comparison with:
@@ -355,8 +363,12 @@ def find_structural_differences(
         )
 
         try:
-            res_baseline = build_call_graph(baseline_trace_id, project_id)
-            res_target = build_call_graph(target_trace_id, project_id)
+            res_baseline = build_call_graph(
+                baseline_trace_id, project_id, tool_context=tool_context
+            )
+            res_target = build_call_graph(
+                target_trace_id, project_id, tool_context=tool_context
+            )
 
             if res_baseline.get("status") == ToolStatus.ERROR:
                 return BaseToolResponse(

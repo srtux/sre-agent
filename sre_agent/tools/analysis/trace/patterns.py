@@ -111,7 +111,10 @@ def _extract_span_info(span: dict[str, Any]) -> dict[str, Any]:
 
 @adk_tool
 def detect_retry_storm(
-    trace_id: str, project_id: str | None = None, threshold: int = 3
+    trace_id: str,
+    project_id: str | None = None,
+    threshold: int = 3,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Detect retry storm patterns in a trace.
 
@@ -123,6 +126,7 @@ def detect_retry_storm(
         trace_id: The trace ID to analyze.
         project_id: The Google Cloud Project ID.
         threshold: Minimum retry count to flag as a storm (default: 3).
+        tool_context: Context object for tool execution.
 
     Returns:
         Detection results with retry patterns found.
@@ -136,7 +140,7 @@ def detect_retry_storm(
         log_tool_call(logger, "detect_retry_storm", trace_id=trace_id)
 
         try:
-            trace = fetch_trace_data(trace_id, project_id)
+            trace = fetch_trace_data(trace_id, project_id, tool_context=tool_context)
             if "error" in trace:
                 return BaseToolResponse(status=ToolStatus.ERROR, error=trace["error"])
 
@@ -229,7 +233,10 @@ def detect_retry_storm(
 
 @adk_tool
 def detect_cascading_timeout(
-    trace_id: str, project_id: str | None = None, timeout_threshold_ms: float = 1000
+    trace_id: str,
+    project_id: str | None = None,
+    timeout_threshold_ms: float = 1000,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Detect cascading timeout patterns in a trace.
 
@@ -241,6 +248,7 @@ def detect_cascading_timeout(
         trace_id: The trace ID to analyze.
         project_id: The Google Cloud Project ID.
         timeout_threshold_ms: Minimum duration to consider as potential timeout.
+        tool_context: Context object for tool execution.
 
     Returns:
         Detection results with timeout cascade information.
@@ -254,7 +262,7 @@ def detect_cascading_timeout(
         log_tool_call(logger, "detect_cascading_timeout", trace_id=trace_id)
 
         try:
-            trace = fetch_trace_data(trace_id, project_id)
+            trace = fetch_trace_data(trace_id, project_id, tool_context=tool_context)
             if "error" in trace:
                 return BaseToolResponse(status=ToolStatus.ERROR, error=trace["error"])
 
@@ -367,7 +375,10 @@ def detect_cascading_timeout(
 
 @adk_tool
 def detect_connection_pool_issues(
-    trace_id: str, project_id: str | None = None, wait_threshold_ms: float = 100
+    trace_id: str,
+    project_id: str | None = None,
+    wait_threshold_ms: float = 100,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Detect connection pool exhaustion or contention patterns.
 
@@ -379,6 +390,7 @@ def detect_connection_pool_issues(
         trace_id: The trace ID to analyze.
         project_id: The Google Cloud Project ID.
         wait_threshold_ms: Threshold for connection wait time to flag.
+        tool_context: Context object for tool execution.
 
     Returns:
         Detection results with connection pool issue indicators.
@@ -392,7 +404,7 @@ def detect_connection_pool_issues(
         log_tool_call(logger, "detect_connection_pool_issues", trace_id=trace_id)
 
         try:
-            trace = fetch_trace_data(trace_id, project_id)
+            trace = fetch_trace_data(trace_id, project_id, tool_context=tool_context)
             if "error" in trace:
                 return BaseToolResponse(status=ToolStatus.ERROR, error=trace["error"])
 
@@ -470,7 +482,7 @@ def detect_connection_pool_issues(
 
 @adk_tool
 def detect_all_sre_patterns(
-    trace_id: str, project_id: str | None = None
+    trace_id: str, project_id: str | None = None, tool_context: Any = None
 ) -> BaseToolResponse:
     """Run all SRE pattern detection checks on a trace.
 
@@ -482,6 +494,7 @@ def detect_all_sre_patterns(
     Args:
         trace_id: The trace ID to analyze.
         project_id: The Google Cloud Project ID.
+        tool_context: Context object for tool execution.
 
     Returns:
         Comprehensive pattern detection results.
@@ -504,7 +517,9 @@ def detect_all_sre_patterns(
             }
 
             # Retry storm detection
-            retry_res = detect_retry_storm(trace_id, project_id)
+            retry_res = detect_retry_storm(
+                trace_id, project_id, tool_context=tool_context
+            )
             if retry_res["status"] == "success" and retry_res["result"].get(
                 "has_retry_storm"
             ):
@@ -517,7 +532,9 @@ def detect_all_sre_patterns(
                 )
 
             # Cascading timeout detection
-            timeout_res = detect_cascading_timeout(trace_id, project_id)
+            timeout_res = detect_cascading_timeout(
+                trace_id, project_id, tool_context=tool_context
+            )
             if timeout_res["status"] == "success" and timeout_res["result"].get(
                 "cascade_detected"
             ):
@@ -536,7 +553,9 @@ def detect_all_sre_patterns(
                 )
 
             # Connection pool detection
-            pool_res = detect_connection_pool_issues(trace_id, project_id)
+            pool_res = detect_connection_pool_issues(
+                trace_id, project_id, tool_context=tool_context
+            )
             if pool_res["status"] == "success" and pool_res["result"].get(
                 "has_pool_exhaustion"
             ):

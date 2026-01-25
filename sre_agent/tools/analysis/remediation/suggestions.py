@@ -368,6 +368,7 @@ REMEDIATION_PATTERNS: dict[str, Any] = {
 def generate_remediation_suggestions(
     finding_summary: str,
     finding_details: dict[str, Any] | None = None,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Generate remediation suggestions based on investigation findings.
 
@@ -377,6 +378,7 @@ def generate_remediation_suggestions(
     Args:
         finding_summary: Text description of the issue found.
         finding_details: Optional structured details (severity, affected services, etc.)
+        tool_context: Context object for tool execution.
 
     Returns:
         Standardized response with prioritized remediation suggestions.
@@ -481,6 +483,7 @@ def get_gcloud_commands(
     resource_name: str,
     project_id: str,
     region: str | None = None,
+    tool_context: Any = None,
     **kwargs: Any,
 ) -> BaseToolResponse:
     """Generate ready-to-run gcloud commands for common remediations.
@@ -493,6 +496,7 @@ def get_gcloud_commands(
         resource_name: Name of the resource to modify.
         project_id: Google Cloud project ID.
         region: Optional region for regional resources.
+        tool_context: Context object for tool execution.
         **kwargs: Additional parameters specific to remediation type.
 
     Returns:
@@ -623,6 +627,7 @@ def estimate_remediation_risk(
     action: str,
     service_name: str,
     change_description: str,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Estimate the risk level of a proposed remediation action.
 
@@ -633,6 +638,7 @@ def estimate_remediation_risk(
         action: The remediation action being considered.
         service_name: Name of the affected service.
         change_description: Description of what will change.
+        tool_context: Context object for tool execution.
 
     Returns:
         Dictionary with risk assessment, potential impacts, and recommendations.
@@ -753,6 +759,7 @@ def find_similar_past_incidents(
     error_pattern: str,
     service_name: str | None = None,
     days_back: int = 90,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Search for similar past incidents to learn from previous resolutions.
 
@@ -763,6 +770,7 @@ def find_similar_past_incidents(
         error_pattern: The error pattern or symptom to search for.
         service_name: Optional service name to narrow search.
         days_back: How far back to search (default 90 days).
+        tool_context: Context object for tool execution.
 
     Returns:
         Dictionary with similar incidents and their resolutions (from knowledge base).

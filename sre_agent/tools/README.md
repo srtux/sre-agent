@@ -151,6 +151,7 @@ async def my_new_tool(
     param1: str,
     param2: int = 10,
     project_id: str | None = None,
+    tool_context: Any = None,
 ) -> dict[str, Any]:
     """Tool description for the LLM.
 
@@ -158,6 +159,7 @@ async def my_new_tool(
         param1: Description of param1.
         param2: Description of param2 (default: 10).
         project_id: GCP project ID (optional, uses env if not provided).
+        tool_context: Context object for tool execution.
 
     Returns:
         A dictionary containing the analysis results.

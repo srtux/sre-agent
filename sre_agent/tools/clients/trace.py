@@ -163,7 +163,9 @@ def get_trace_client(credentials: Any = None) -> trace_v1.TraceServiceClient:
 
 
 def fetch_trace_data(
-    trace_id_or_json: str | dict[str, Any], project_id: str | None = None
+    trace_id_or_json: str | dict[str, Any],
+    project_id: str | None = None,
+    tool_context: Any = None,
 ) -> dict[str, Any]:
     """Helper to fetch trace data by ID or from JSON/dict."""
     if isinstance(trace_id_or_json, dict):
@@ -192,14 +194,21 @@ def fetch_trace_data(
     if not project_id:
         return {"error": "Project ID required to fetch trace."}
 
-    trace_json = _fetch_trace_sync(project_id, trace_id_or_json)
+    user_creds = get_credentials_from_tool_context(tool_context)
     try:
-        if isinstance(trace_json, dict):
-            return trace_json
-        data = json.loads(trace_json)
-        return cast(dict[str, Any], data)
-    except json.JSONDecodeError:
-        return {"error": "Invalid trace JSON"}
+        if user_creds:
+            _set_thread_credentials(user_creds)
+        trace_json = _fetch_trace_sync(project_id, trace_id_or_json)
+        try:
+            if isinstance(trace_json, dict):
+                return trace_json
+            data = json.loads(trace_json)
+            return cast(dict[str, Any], data)
+        except json.JSONDecodeError:
+            return {"error": "Invalid trace JSON"}
+    finally:
+        if user_creds:
+            _clear_thread_credentials()
 
 
 @adk_tool

@@ -42,19 +42,20 @@ def test_analyze_trace_comprehensive(sample_trace_dict):
     result = analyze_trace_comprehensive(trace_json, project_id="test-project")
 
     assert result["status"] == "success"
-    assert result["trace_id"] == "test-trace-comprehensive"
-    assert "quality_check" in result
-    assert result["quality_check"]["valid"] is True
-    assert "span_count" in result
-    assert result["span_count"] == 2
-    assert "total_duration_ms" in result
-    assert result["total_duration_ms"] == 1000.0
-    assert "errors" in result
-    assert len(result["errors"]) == 1
-    assert result["errors"][0]["span_id"] == "child1"
-    assert "critical_path_analysis" in result
-    assert "structure" in result
-    assert result["structure"]["total_spans"] == 2
+    data = result["result"]
+    assert data["trace_id"] == "test-trace-comprehensive"
+    assert "quality_check" in data
+    assert data["quality_check"]["valid"] is True
+    assert "span_count" in data
+    assert data["span_count"] == 2
+    assert "total_duration_ms" in data
+    assert data["total_duration_ms"] == 1000.0
+    assert "errors" in data
+    assert len(data["errors"]) == 1
+    assert data["errors"][0]["span_id"] == "child1"
+    assert "critical_path_analysis" in data
+    assert "structure" in data
+    assert data["structure"]["total_spans"] == 2
 
 
 def test_analyze_trace_comprehensive_with_baseline(sample_trace_dict):
@@ -79,11 +80,11 @@ def test_analyze_trace_comprehensive_with_baseline(sample_trace_dict):
     )
 
     assert result["status"] == "success"
-    assert "anomaly_analysis" in result
+    assert "anomaly_analysis" in result["result"]
     # Since we only have one baseline, stdev might be 0, but it should still return something.
 
 
 def test_analyze_trace_comprehensive_error():
     result = analyze_trace_comprehensive(json.dumps({"error": "Not found"}))
     assert result["status"] == "error"
-    assert "error" in result
+    assert result["error"] is not None

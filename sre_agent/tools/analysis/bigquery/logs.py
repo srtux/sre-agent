@@ -5,6 +5,7 @@ enabling efficient clustering of millions of logs without client-side processing
 """
 
 import logging
+from typing import Any
 
 from sre_agent.schema import BaseToolResponse, ToolStatus
 
@@ -21,6 +22,7 @@ def analyze_bigquery_log_patterns(
     service_name: str | None = None,
     severity: str | None = None,
     limit: int = 50,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Analyzes log patterns in BigQuery using SQL-based clustering.
 
@@ -35,6 +37,7 @@ def analyze_bigquery_log_patterns(
         service_name: Optional filter for specific service
         severity: Optional severity filter (e.g., 'ERROR')
         limit: Max patterns to return
+        tool_context: Context object for tool execution.
 
     Returns:
         SQL query to extract top patterns in BaseToolResponse.

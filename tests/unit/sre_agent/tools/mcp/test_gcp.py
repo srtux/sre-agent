@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from sre_agent.schema import ToolStatus
 from sre_agent.tools.mcp.gcp import (
     clear_mcp_tool_context,
     get_project_id_with_fallback,
@@ -57,11 +58,15 @@ async def test_mcp_list_log_entries():
     with patch(
         "sre_agent.tools.mcp.gcp.call_mcp_tool_with_retry", new_callable=AsyncMock
     ) as mock_call:
-        mock_call.return_value = {"entries": []}
+        mock_call.return_value = {
+            "status": ToolStatus.SUCCESS,
+            "result": {"entries": []},
+        }
         result = await mcp_list_log_entries(
             filter='severity="ERROR"', project_id="p1", tool_context=mock_context
         )
-        assert "entries" in result
+        assert result["status"] == ToolStatus.SUCCESS
+        assert "entries" in result["result"]
         mock_call.assert_called_once()
 
 
@@ -71,11 +76,15 @@ async def test_mcp_list_timeseries():
     with patch(
         "sre_agent.tools.mcp.gcp.call_mcp_tool_with_retry", new_callable=AsyncMock
     ) as mock_call:
-        mock_call.return_value = {"timeSeries": []}
+        mock_call.return_value = {
+            "status": ToolStatus.SUCCESS,
+            "result": {"timeSeries": []},
+        }
         result = await mcp_list_timeseries(
             filter='metric.type="m1"', project_id="p1", tool_context=mock_context
         )
-        assert "timeSeries" in result
+        assert result["status"] == "success"
+        assert "timeSeries" in result["result"]
 
 
 @pytest.mark.asyncio
@@ -84,11 +93,15 @@ async def test_mcp_query_range():
     with patch(
         "sre_agent.tools.mcp.gcp.call_mcp_tool_with_retry", new_callable=AsyncMock
     ) as mock_call:
-        mock_call.return_value = {"status": "success"}
+        mock_call.return_value = {
+            "status": ToolStatus.SUCCESS,
+            "result": {"status": "success"},
+        }
         result = await mcp_query_range(
             query="up", project_id="p1", tool_context=mock_context
         )
         assert result["status"] == "success"
+        assert result["result"]["status"] == "success"
 
 
 @pytest.mark.asyncio
@@ -97,8 +110,9 @@ async def test_mcp_execute_sql():
     with patch(
         "sre_agent.tools.mcp.gcp.call_mcp_tool_with_retry", new_callable=AsyncMock
     ) as mock_call:
-        mock_call.return_value = {"rows": []}
+        mock_call.return_value = {"status": ToolStatus.SUCCESS, "result": {"rows": []}}
         result = await mcp_execute_sql(
             sql_query="SELECT 1", project_id="p1", tool_context=mock_context
         )
-        assert "rows" in result
+        assert result["status"] == "success"
+        assert "rows" in result["result"]

@@ -5,6 +5,7 @@ exceptions, and specific diagnostic scenarios (HTTP, DB, etc.).
 """
 
 import logging
+from typing import Any
 
 from sre_agent.schema import BaseToolResponse, ToolStatus
 
@@ -20,6 +21,7 @@ def analyze_span_events(
     time_window_hours: int = 24,
     event_name_filter: str | None = None,
     service_name: str | None = None,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Analyzes span events (e.g., logs, exceptions attached to spans).
 
@@ -29,6 +31,7 @@ def analyze_span_events(
         time_window_hours: Time window in hours
         event_name_filter: Optional filter for event name
         service_name: Optional filter for service name
+        tool_context: Context object for tool execution.
 
     Returns:
         JSON with SQL query.
@@ -83,6 +86,7 @@ def analyze_exception_patterns(
     table_name: str = "_AllSpans",
     time_window_hours: int = 24,
     group_by: str = "exception_type",
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Analyzes patterns in exceptions found in span events.
 
@@ -91,6 +95,7 @@ def analyze_exception_patterns(
         table_name: Table name
         time_window_hours: Time window
         group_by: 'exception_type' or 'service_name'
+        tool_context: Context object for tool execution.
     """
     group_expr = "JSON_EXTRACT_SCALAR(event.attributes, '$.exception.type')"
     group_alias = "exception_type"
@@ -130,8 +135,17 @@ def analyze_span_links(
     table_name: str = "_AllSpans",
     time_window_hours: int = 24,
     service_name: str | None = None,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
-    """Analyzes span links which connect causal traces."""
+    """Analyzes span links which connect causal traces.
+
+    Args:
+        dataset_id: BigQuery dataset ID
+        table_name: Table name
+        time_window_hours: Time window in hours
+        service_name: Optional filter for service name
+        tool_context: Context object for tool execution.
+    """
     where_conditions = [
         f"start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {time_window_hours} HOUR)",
         "ARRAY_LENGTH(links) > 0",
@@ -173,8 +187,16 @@ def analyze_link_patterns(
     dataset_id: str,
     table_name: str = "_AllSpans",
     time_window_hours: int = 24,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
-    """Analyzes high-level statistics about span links."""
+    """Analyzes high-level statistics about span links.
+
+    Args:
+        dataset_id: BigQuery dataset ID
+        table_name: Table name
+        time_window_hours: Time window in hours
+        tool_context: Context object for tool execution.
+    """
     query = f"""
 SELECT
   JSON_EXTRACT_SCALAR(t.resource.attributes, '$.service.name') as service_name,
@@ -201,8 +223,16 @@ def analyze_instrumentation_libraries(
     dataset_id: str,
     table_name: str = "_AllSpans",
     time_window_hours: int = 24,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
-    """Analyzes usage of instrumentation libraries/scopes."""
+    """Analyzes usage of instrumentation libraries/scopes.
+
+    Args:
+        dataset_id: BigQuery dataset ID
+        table_name: Table name
+        time_window_hours: Time window in hours
+        tool_context: Context object for tool execution.
+    """
     query = f"""
 SELECT
   instrumentation_scope.name as `instrumentation_scope.name`,
@@ -233,8 +263,17 @@ def analyze_http_attributes(
     table_name: str = "_AllSpans",
     time_window_hours: int = 24,
     min_request_count: int = 1,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
-    """Analyzes HTTP semantic conventions (SERVER spans)."""
+    """Analyzes HTTP semantic conventions (SERVER spans).
+
+    Args:
+        dataset_id: BigQuery dataset ID
+        table_name: Table name
+        time_window_hours: Time window in hours
+        min_request_count: Minimum request count
+        tool_context: Context object for tool execution.
+    """
     query = f"""
 SELECT
   JSON_EXTRACT_SCALAR(attributes, '$.http.method') as `http.method`,
@@ -269,8 +308,17 @@ def analyze_database_operations(
     table_name: str = "_AllSpans",
     time_window_hours: int = 24,
     db_system: str | None = None,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
-    """Analyzes Database semantic conventions (CLIENT spans)."""
+    """Analyzes Database semantic conventions (CLIENT spans).
+
+    Args:
+        dataset_id: BigQuery dataset ID
+        table_name: Table name
+        time_window_hours: Time window in hours
+        db_system: Optional database system filter
+        tool_context: Context object for tool execution.
+    """
     where_extra = ""
     if db_system:
         where_extra = (

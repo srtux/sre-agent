@@ -40,11 +40,14 @@ class TraceSelector:
 
 
 @adk_tool
-def select_traces_from_statistical_outliers(traces_json: str) -> BaseToolResponse:
+def select_traces_from_statistical_outliers(
+    traces_json: str, tool_context: Any = None
+) -> BaseToolResponse:
     """Selects outlier traces from a given list of traces based on latency.
 
     Args:
         traces_json: A JSON string list of trace dictionaries, each with a 'latency' and 'traceId'.
+        tool_context: Context object for tool execution.
 
     Returns:
         A list of outlier trace IDs.
@@ -77,11 +80,14 @@ def select_traces_from_statistical_outliers(traces_json: str) -> BaseToolRespons
 
 
 @adk_tool
-def select_traces_manually(trace_ids: list[str]) -> BaseToolResponse:
+def select_traces_manually(
+    trace_ids: list[str], tool_context: Any = None
+) -> BaseToolResponse:
     """Allows a user to manually provide a list of trace IDs for analysis.
 
     Args:
         trace_ids: A list of trace IDs.
+        tool_context: Context object for tool execution.
 
     Returns:
         The same list of trace IDs.

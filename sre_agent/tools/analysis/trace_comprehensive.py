@@ -21,8 +21,8 @@ from .trace.analysis import (
 )
 from .trace.statistical_analysis import (
     _analyze_critical_path_impl,
+    _compute_latency_statistics_impl,
     _detect_latency_anomalies_impl,
-    compute_latency_statistics,
 )
 
 # Telemetry setup
@@ -54,7 +54,7 @@ def analyze_trace_comprehensive(
         project_id: GCP Project ID.
         include_call_graph: Whether to include the full call graph tree (can be large).
         baseline_trace_id: Optional ID of a baseline trace to compare against.
-        tool_context: ADK ToolContext for credential propagation.
+        tool_context: Context object for tool execution.
 
     Returns:
         All analysis results in BaseToolResponse.
@@ -80,7 +80,7 @@ def analyze_trace_comprehensive(
 
     try:
         # Fetch trace data ONCE
-        trace_data = fetch_trace_data(trace_id, project_id)
+        trace_data = fetch_trace_data(trace_id, project_id, tool_context=tool_context)
 
         # Update trace_id to the actual ID from data (relevant if input was a JSON string)
         if "trace_id" in trace_data:
@@ -95,7 +95,7 @@ def analyze_trace_comprehensive(
             )
 
         # 1. Validation
-        validation = cast(dict[str, Any], _validate_trace_quality_impl(trace_data))
+        validation = _validate_trace_quality_impl(trace_data)
         result["quality_check"] = validation
         if not validation.get("valid", False):
             return BaseToolResponse(
@@ -132,7 +132,7 @@ def analyze_trace_comprehensive(
         # 5. Anomaly Detection (if baseline provided)
         if baseline_trace_id:
             # We must compute baseline stats first (this still requires fetching baselines)
-            baseline_stats_response = compute_latency_statistics(
+            baseline_stats_response = _compute_latency_statistics_impl(
                 [baseline_trace_id], project_id, tool_context=tool_context
             )
             # Then use our pre-fetched target data

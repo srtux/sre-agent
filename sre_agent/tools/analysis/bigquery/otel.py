@@ -21,6 +21,7 @@ Google Cloud Observability OpenTelemetry schema (_AllSpans table):
 """
 
 import logging
+from typing import Any
 
 from sre_agent.schema import BaseToolResponse, ToolStatus
 from sre_agent.tools.common.decorators import adk_tool
@@ -37,6 +38,7 @@ def analyze_aggregate_metrics(
     operation_name: str | None = None,
     min_duration_ms: float | None = None,
     group_by: str = "service_name",
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Performs broad aggregate analysis of trace data using BigQuery.
 
@@ -51,6 +53,7 @@ def analyze_aggregate_metrics(
         operation_name: Optional filter for specific operation
         min_duration_ms: Optional filter for minimum duration
         group_by: How to group results (service_name, operation_name, status_code)
+        tool_context: Context object for tool execution.
 
     Returns:
         Standardized response with SQL query and metadata for execution via BigQuery MCP.
@@ -127,6 +130,7 @@ def find_exemplar_traces(
     operation_name: str | None = None,
     selection_strategy: str = "outliers",
     limit: int = 10,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Finds exemplar traces using BigQuery for detailed investigation.
 
@@ -142,6 +146,7 @@ def find_exemplar_traces(
             - 'baseline': Typical traces (P50)
             - 'comparison': Both baseline and outliers
         limit: Number of exemplars to return
+        tool_context: Context object for tool execution.
 
     Returns:
         Standardized response with SQL query to find exemplar trace IDs.
@@ -310,6 +315,7 @@ def correlate_logs_with_trace(
     log_table_name: str = "_AllLogs",
     include_nearby_logs: bool = True,
     time_window_seconds: int = 30,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Finds logs correlated with a specific trace for root cause analysis.
 
@@ -320,6 +326,7 @@ def correlate_logs_with_trace(
         log_table_name: Table name containing OTEL logs
         include_nearby_logs: If True, include logs from same service around same time
         time_window_seconds: Time window for nearby logs
+        tool_context: Context object for tool execution.
 
     Returns:
         Standardized response with SQL query to find correlated logs.
@@ -405,6 +412,7 @@ def compare_time_periods(
     anomaly_hours_ago_end: int = 0,
     service_name: str | None = None,
     operation_name: str | None = None,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Compares trace metrics between two time periods to detect degradations.
 
@@ -417,6 +425,7 @@ def compare_time_periods(
         anomaly_hours_ago_end: Anomaly period end (hours ago)
         service_name: Optional filter for specific service
         operation_name: Optional filter for specific operation
+        tool_context: Context object for tool execution.
 
     Returns:
         Standardized response with SQL query comparing the two periods.
@@ -509,6 +518,7 @@ def detect_trend_changes(
     bucket_hours: int = 1,
     service_name: str | None = None,
     metric: str = "p95",
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Detects when performance trends changed using time-series analysis.
 
@@ -519,6 +529,7 @@ def detect_trend_changes(
         bucket_hours: Size of each time bucket for trending
         service_name: Optional filter for specific service
         metric: Which metric to track (p95, p99, error_rate, throughput)
+        tool_context: Context object for tool execution.
 
     Returns:
         Standardized response with SQL query showing metric trends over time.

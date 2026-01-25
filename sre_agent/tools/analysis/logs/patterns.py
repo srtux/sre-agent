@@ -377,6 +377,7 @@ def extract_log_patterns(
     log_entries_json: str,
     max_patterns: int = 30,
     min_count: int = 2,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Extract log patterns from a list of log entries using Drain3.
 
@@ -387,6 +388,7 @@ def extract_log_patterns(
         log_entries_json: JSON string of log entry dicts (from list_log_entries)
         max_patterns: Maximum patterns to return
         min_count: Minimum occurrences for a pattern
+        tool_context: Context object for tool execution.
 
     Returns:
         Summary dict with patterns and statistics
@@ -435,6 +437,7 @@ def compare_log_patterns(
     baseline_entries_json: str,
     comparison_entries_json: str,
     significance_threshold: float = 0.5,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Compare log patterns between two time periods to find anomalies.
 
@@ -448,6 +451,7 @@ def compare_log_patterns(
         baseline_entries_json: JSON string of log entries from the baseline period
         comparison_entries_json: JSON string of log entries from the period to compare
         significance_threshold: Minimum % change to be significant (0.5 = 50%)
+        tool_context: Context object for tool execution.
 
     Returns:
         Comparison results with categorized patterns
@@ -535,6 +539,7 @@ def analyze_log_anomalies(
     log_entries_json: str,
     focus_on_errors: bool = True,
     max_results: int = 10,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Analyze logs for anomalous patterns, focusing on errors if specified.
 
@@ -545,6 +550,7 @@ def analyze_log_anomalies(
         log_entries_json: JSON string of list of log entry dicts
         focus_on_errors: If True, prioritize ERROR/CRITICAL patterns
         max_results: Maximum patterns to return
+        tool_context: Context object for tool execution.
 
     Returns:
         Analysis results with prioritized anomalies

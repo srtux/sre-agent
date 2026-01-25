@@ -38,7 +38,7 @@ def _fetch_traces_parallel(
         try:
             if user_creds:
                 _set_thread_credentials(user_creds)
-            return fetch_trace_data(tid, project_id)
+            return fetch_trace_data(tid, project_id, tool_context=tool_context)
         finally:
             if user_creds:
                 _clear_thread_credentials()
@@ -66,9 +66,17 @@ def _fetch_traces_parallel(
 
 @adk_tool
 def compute_latency_statistics(
-    trace_ids: list[str], project_id: str | None = None, tool_context: Any = None
+    trace_ids: list[str],
+    project_id: str | None = None,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
-    """Computes aggregate latency statistics for a list of traces."""
+    """Computes aggregate latency statistics for a list of traces.
+
+    Args:
+        trace_ids: List of trace IDs to analyze.
+        project_id: The Google Cloud Project ID.
+        tool_context: Context object for tool execution.
+    """
     return _compute_latency_statistics_impl(trace_ids, project_id, tool_context)
 
 
@@ -318,7 +326,9 @@ def detect_latency_anomalies(
             if user_creds:
                 _set_thread_credentials(user_creds)
             # Get target duration
-            target_data = fetch_trace_data(target_trace_id, project_id)
+            target_data = fetch_trace_data(
+                target_trace_id, project_id, tool_context=tool_context
+            )
         finally:
             _clear_thread_credentials()
 
@@ -512,7 +522,7 @@ def _analyze_critical_path_impl(trace_data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-# @adk_tool  -- Registered in correlation/critical_path.py
+@adk_tool
 def analyze_critical_path(
     trace_id: str, project_id: str | None = None, tool_context: Any = None
 ) -> BaseToolResponse:
@@ -536,7 +546,9 @@ def analyze_critical_path(
         try:
             if user_creds:
                 _set_thread_credentials(user_creds)
-            trace_data = fetch_trace_data(trace_id, project_id)
+            trace_data = fetch_trace_data(
+                trace_id, project_id, tool_context=tool_context
+            )
         finally:
             _clear_thread_credentials()
 
@@ -553,7 +565,17 @@ def perform_causal_analysis(
     project_id: str | None = None,
     tool_context: Any = None,
 ) -> BaseToolResponse:
-    """Enhanced root cause analysis using span-ID-level precision."""
+    """Enhanced root cause analysis using span-ID-level precision.
+
+    Args:
+        baseline_trace_id: The ID of a 'normal' trace.
+        target_trace_id: The ID of the anomalous trace.
+        project_id: The Google Cloud Project ID.
+        tool_context: Context object for tool execution.
+
+    Returns:
+        Standardized response with root cause analysis results.
+    """
     from ...clients.trace import (
         _clear_thread_credentials,
         _set_thread_credentials,
@@ -564,7 +586,9 @@ def perform_causal_analysis(
     try:
         if user_creds:
             _set_thread_credentials(user_creds)
-        baseline_data = fetch_trace_data(baseline_trace_id, project_id)
+        baseline_data = fetch_trace_data(
+            baseline_trace_id, project_id, tool_context=tool_context
+        )
     finally:
         _clear_thread_credentials()
     if not baseline_data or "error" in baseline_data:
@@ -579,7 +603,9 @@ def perform_causal_analysis(
     try:
         if user_creds:
             _set_thread_credentials(user_creds)
-        target_data = fetch_trace_data(target_trace_id, project_id)
+        target_data = fetch_trace_data(
+            target_trace_id, project_id, tool_context=tool_context
+        )
     finally:
         _clear_thread_credentials()
     if not target_data or "error" in target_data:
@@ -941,20 +967,25 @@ def analyze_trace_patterns(
 
 @adk_tool
 def compute_service_level_stats(
-    trace_ids: list[str], project_id: str | None = None
+    trace_ids: list[str],
+    project_id: str | None = None,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Computes stats aggregated by service name (if available in labels).
 
     Args:
         trace_ids: List of trace IDs.
         project_id: The Google Cloud Project ID.
+        tool_context: Context object for tool execution.
     """
     service_stats: dict[str, dict[str, Any]] = defaultdict(
         lambda: {"count": 0, "errors": 0, "total_duration": 0}
     )
 
     # Fetch traces in parallel
-    traces_data = _fetch_traces_parallel(trace_ids, project_id)
+    traces_data = _fetch_traces_parallel(
+        trace_ids, project_id, tool_context=tool_context
+    )
 
     for t_data in traces_data:
         for s in t_data.get("spans", []):

@@ -16,6 +16,7 @@ References:
 """
 
 import logging
+from typing import Any
 
 from sre_agent.schema import BaseToolResponse, ToolStatus
 
@@ -41,6 +42,7 @@ def build_service_dependency_graph(
     time_window_hours: int = 24,
     min_call_count: int = 10,
     include_external: bool = True,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Builds a service dependency graph from trace data.
 
@@ -54,6 +56,7 @@ def build_service_dependency_graph(
         time_window_hours: Time window for analysis
         min_call_count: Minimum number of calls to include a dependency
         include_external: Include external services (databases, APIs, etc.)
+        tool_context: Context object for tool execution.
 
     Returns:
         Dictionary with SQL query for dependency graph and visualization data
@@ -232,6 +235,7 @@ def analyze_upstream_downstream_impact(
     table_name: str = "_AllSpans",
     time_window_hours: int = 24,
     depth: int = 3,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Analyzes the upstream and downstream impact of a service.
 
@@ -246,6 +250,7 @@ def analyze_upstream_downstream_impact(
         table_name: Table name containing OTel traces
         time_window_hours: Time window for analysis
         depth: How many hops to traverse (default: 3)
+        tool_context: Context object for tool execution.
 
     Returns:
         Dictionary with SQL query for impact analysis
@@ -414,6 +419,7 @@ def detect_circular_dependencies(
     table_name: str = "_AllSpans",
     time_window_hours: int = 24,
     max_cycle_length: int = 5,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Detects circular dependencies in the service graph.
 
@@ -428,6 +434,7 @@ def detect_circular_dependencies(
         table_name: Table name containing OTel traces
         time_window_hours: Time window for analysis
         max_cycle_length: Maximum cycle length to search for
+        tool_context: Context object for tool execution.
 
     Returns:
         Dictionary with SQL query to detect cycles
@@ -549,6 +556,7 @@ def find_hidden_dependencies(
     table_name: str = "_AllSpans",
     time_window_hours: int = 24,
     min_call_count: int = 5,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Finds dependencies that may not be in official architecture documentation.
 
@@ -563,6 +571,7 @@ def find_hidden_dependencies(
         table_name: Table name containing OTel traces
         time_window_hours: Time window for analysis
         min_call_count: Minimum calls to consider a real dependency
+        tool_context: Context object for tool execution.
 
     Returns:
         Dictionary with SQL query to find hidden dependencies

@@ -9,7 +9,9 @@ from sre_agent.tools.analysis.metrics import (
 
 def test_calculate_series_stats_basic() -> None:
     data = [1.0, 2.0, 3.0, 4.0, 5.0]
-    stats = calculate_series_stats(data)
+    stats_response = calculate_series_stats(data)
+    assert stats_response["status"] == "success"
+    stats = stats_response["result"]
 
     assert stats["count"] == 5.0
     assert stats["mean"] == 3.0
@@ -21,7 +23,9 @@ def test_calculate_series_stats_basic() -> None:
 
 
 def test_calculate_series_stats_empty() -> None:
-    assert calculate_series_stats([]) == {}
+    result = calculate_series_stats([])
+    assert result["status"] == "success"
+    assert result["result"] == {}
 
 
 def test_detect_metric_anomalies_basic() -> None:
@@ -32,7 +36,9 @@ def test_detect_metric_anomalies_basic() -> None:
     # 5.0 * 10 = 50. + 100 = 150. / 11 ~= 13.6
     # This might skewer stdev.
 
-    result = detect_metric_anomalies(data, threshold_sigma=2.0)
+    result_response = detect_metric_anomalies(data, threshold_sigma=2.0)
+    assert result_response["status"] == "success"
+    result = result_response["result"]
     assert result["is_anomaly_detected"] is True
     assert result["anomalies_count"] == 1
     assert result["anomalies"][0]["value"] == 100.0
@@ -40,7 +46,9 @@ def test_detect_metric_anomalies_basic() -> None:
 
 def test_detect_metric_anomalies_dicts() -> None:
     data = [{"v": 10}, {"v": 10}, {"v": 500}]
-    result = detect_metric_anomalies(data, value_key="v", threshold_sigma=1.0)
+    result_response = detect_metric_anomalies(data, value_key="v", threshold_sigma=1.0)
+    assert result_response["status"] == "success"
+    result = result_response["result"]
     assert result["is_anomaly_detected"] is True
     assert result["anomalies"][0]["value"] == 500.0
     assert result["anomalies"][0]["original_data"] == {"v": 500}
@@ -50,7 +58,9 @@ def test_compare_metric_windows_shift() -> None:
     base = [10.0] * 10
     target = [20.0] * 10
 
-    result = compare_metric_windows(base, target)
+    result_response = compare_metric_windows(base, target)
+    assert result_response["status"] == "success"
+    result = result_response["result"]
     assert result["comparison"]["is_significant_shift"] is True
     assert result["comparison"]["mean_shift"] == 10.0
     assert result["comparison"]["mean_shift_pct"] == 100.0
@@ -60,14 +70,18 @@ def test_compare_metric_windows_stable() -> None:
     base = [10.0] * 10
     target = [10.1] * 10
 
-    result = compare_metric_windows(base, target)
+    result_response = compare_metric_windows(base, target)
+    assert result_response["status"] == "success"
+    result = result_response["result"]
     assert result["comparison"]["is_significant_shift"] is False
     assert result["comparison"]["mean_shift_pct"] < 10.0
 
 
 def test_calculate_series_stats_single_point() -> None:
     data = [42.0]
-    stats = calculate_series_stats(data)
+    stats_response = calculate_series_stats(data)
+    assert stats_response["status"] == "success"
+    stats = stats_response["result"]
     assert stats["count"] == 1.0
     assert stats["stdev"] == 0.0
     assert stats["mean"] == 42.0
@@ -76,7 +90,9 @@ def test_calculate_series_stats_single_point() -> None:
 def test_detect_metric_anomalies_no_anomalies() -> None:
     # Normal distributionish data
     data = [10.0, 11.0, 9.0, 10.5, 9.5]
-    result = detect_metric_anomalies(data, threshold_sigma=3.0)
+    result_response = detect_metric_anomalies(data, threshold_sigma=3.0)
+    assert result_response["status"] == "success"
+    result = result_response["result"]
     assert result["is_anomaly_detected"] is False
     assert len(result["anomalies"]) == 0
 
@@ -84,6 +100,8 @@ def test_detect_metric_anomalies_no_anomalies() -> None:
 def test_detect_metric_anomalies_zero_variance() -> None:
     # All same values
     data = [10.0] * 5
-    result = detect_metric_anomalies(data)
+    result_response = detect_metric_anomalies(data)
+    assert result_response["status"] == "success"
+    result = result_response["result"]
     assert result["is_anomaly_detected"] is False
     assert result["params"]["stdev"] == 0.0

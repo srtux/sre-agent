@@ -39,6 +39,7 @@ critical_path_operations = meter.create_counter(
 def analyze_critical_path(
     trace_id: str,
     project_id: str | None = None,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Analyzes the critical path of a distributed trace.
 
@@ -49,6 +50,7 @@ def analyze_critical_path(
     Args:
         trace_id: The trace ID to analyze
         project_id: The Google Cloud Project ID
+        tool_context: Context object for tool execution.
 
     Returns:
         Dictionary with:
@@ -63,7 +65,7 @@ def analyze_critical_path(
         critical_path_operations.add(1, {"type": "analyze"})
 
         # Fetch trace data
-        trace = fetch_trace_data(trace_id, project_id)
+        trace = fetch_trace_data(trace_id, project_id, tool_context=tool_context)
         if "error" in trace:
             return BaseToolResponse(status=ToolStatus.ERROR, error=trace["error"])
 
@@ -460,6 +462,7 @@ def find_bottleneck_services(
     table_name: str = "_AllSpans",
     time_window_hours: int = 24,
     min_sample_size: int = 100,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Identifies services that frequently appear as bottlenecks on critical paths.
 
@@ -471,6 +474,7 @@ def find_bottleneck_services(
         table_name: Table name containing OTel traces
         time_window_hours: Time window for analysis
         min_sample_size: Minimum number of traces to consider statistically significant
+        tool_context: Context object for tool execution.
 
     Returns:
         Dictionary with SQL query to find bottleneck services
@@ -585,6 +589,7 @@ def calculate_critical_path_contribution(
     service_name: str | None = None,
     operation_name: str | None = None,
     time_window_hours: int = 24,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Calculates how much a specific service/operation contributes to critical paths.
 
@@ -597,6 +602,7 @@ def calculate_critical_path_contribution(
         service_name: Service to analyze
         operation_name: Specific operation to analyze (optional)
         time_window_hours: Time window for analysis
+        tool_context: Context object for tool execution.
 
     Returns:
         Dictionary with SQL query and analysis guidance

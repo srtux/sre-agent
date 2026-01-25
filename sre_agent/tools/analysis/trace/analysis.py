@@ -152,7 +152,7 @@ def calculate_span_durations(
             if user_creds:
                 _set_thread_credentials(user_creds)
 
-            trace = fetch_trace_data(trace_id, project_id)
+            trace = fetch_trace_data(trace_id, project_id, tool_context=tool_context)
 
             result = _calculate_span_durations_impl(trace)
 
@@ -290,7 +290,7 @@ def extract_errors(
             if user_creds:
                 _set_thread_credentials(user_creds)
 
-            trace = fetch_trace_data(trace_id, project_id)
+            trace = fetch_trace_data(trace_id, project_id, tool_context=tool_context)
 
             errors = _extract_errors_impl(trace)
 
@@ -430,7 +430,7 @@ def validate_trace_quality(
         if user_creds:
             _set_thread_credentials(user_creds)
 
-        trace = fetch_trace_data(trace_id, project_id)
+        trace = fetch_trace_data(trace_id, project_id, tool_context=tool_context)
         result = _validate_trace_quality_impl(trace)
         if "error" in result:
             return BaseToolResponse(status=ToolStatus.ERROR, error=result["error"])
@@ -555,7 +555,7 @@ def build_call_graph(
             if user_creds:
                 _set_thread_credentials(user_creds)
 
-            trace = fetch_trace_data(trace_id, project_id)
+            trace = fetch_trace_data(trace_id, project_id, tool_context=tool_context)
             result = _build_call_graph_impl(trace)
 
             if "error" in result:
@@ -606,7 +606,7 @@ def summarize_trace(
     try:
         if user_creds:
             _set_thread_credentials(user_creds)
-        trace_data = fetch_trace_data(trace_id, project_id)
+        trace_data = fetch_trace_data(trace_id, project_id, tool_context=tool_context)
 
         if "error" in trace_data:
             return BaseToolResponse(

@@ -983,7 +983,9 @@ def _correlate_trace_with_kubernetes_sync(
             if user_creds:
                 _set_thread_credentials(user_creds)
             trace_data = fetch_trace_data(
-                trace_id_or_json=trace_id, project_id=project_id
+                trace_id_or_json=trace_id,
+                project_id=project_id,
+                tool_context=tool_context,
             )
         finally:
             _clear_thread_credentials()

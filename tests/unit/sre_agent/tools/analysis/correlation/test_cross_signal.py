@@ -22,7 +22,8 @@ class TestCorrelateTraceWithMetrics:
             dataset_id="my_project.telemetry",
         )
 
-        parsed = result
+        assert result["status"] == "success"
+        parsed = result["result"]
         assert parsed["analysis_type"] == "trace_metrics_correlation"
         assert parsed["trace_id"] == "abc123def456"
         assert "trace_context_sql" in parsed
@@ -36,7 +37,8 @@ class TestCorrelateTraceWithMetrics:
             trace_table_name="_AllSpans",
         )
 
-        parsed = result
+        assert result["status"] == "success"
+        parsed = result["result"]
         sql = parsed["trace_context_sql"]
 
         # Verify SQL contains key elements
@@ -52,7 +54,8 @@ class TestCorrelateTraceWithMetrics:
             dataset_id="proj.ds",
         )
 
-        parsed = result
+        assert result["status"] == "success"
+        parsed = result["result"]
         queries = parsed["recommended_promql_queries"]
 
         assert len(queries) > 0
@@ -70,7 +73,8 @@ class TestCorrelateTraceWithMetrics:
             service_name="my-service",
         )
 
-        parsed = result
+        assert result["status"] == "success"
+        parsed = result["result"]
         queries = parsed["recommended_promql_queries"]
 
         # At least one query should contain the service filter
@@ -86,7 +90,8 @@ class TestCorrelateTraceWithMetrics:
             metrics_to_check=custom_metrics,
         )
 
-        parsed = result
+        assert result["status"] == "success"
+        parsed = result["result"]
         queries = parsed["recommended_promql_queries"]
 
         # Should have queries for our custom metrics
@@ -101,7 +106,8 @@ class TestCorrelateTraceWithMetrics:
             dataset_id="proj.ds",
         )
 
-        parsed = result
+        assert result["status"] == "success"
+        parsed = result["result"]
         assert "correlation_strategy" in parsed
         strategy = parsed["correlation_strategy"]
 
@@ -116,7 +122,8 @@ class TestCorrelateTraceWithMetrics:
             dataset_id="proj.ds",
         )
 
-        parsed = result
+        assert result["status"] == "success"
+        parsed = result["result"]
         assert "exemplar_usage" in parsed
         exemplar_guide = parsed["exemplar_usage"]
 
@@ -135,7 +142,8 @@ class TestCorrelateMetricsWithTracesViaExemplars:
             service_name="api-service",
         )
 
-        parsed = result
+        assert result["status"] == "success"
+        parsed = result["result"]
         assert parsed["analysis_type"] == "exemplar_correlation"
         assert parsed["metric_name"] == "http_request_duration_seconds"
         assert parsed["service_name"] == "api-service"
@@ -149,7 +157,8 @@ class TestCorrelateMetricsWithTracesViaExemplars:
             percentile_threshold=95.0,
         )
 
-        parsed = result
+        assert result["status"] == "success"
+        parsed = result["result"]
         sql = parsed["exemplar_sql"]
 
         # Verify SQL contains key elements
@@ -165,7 +174,8 @@ class TestCorrelateMetricsWithTracesViaExemplars:
             service_name="frontend",
         )
 
-        parsed = result
+        assert result["status"] == "success"
+        parsed = result["result"]
         sql = parsed["exemplar_sql"]
 
         # Should include bucket boundary analysis
@@ -179,7 +189,8 @@ class TestCorrelateMetricsWithTracesViaExemplars:
             service_name="backend",
         )
 
-        parsed = result
+        assert result["status"] == "success"
+        parsed = result["result"]
         assert "promql_queries" in parsed
         queries = parsed["promql_queries"]
 
@@ -196,7 +207,8 @@ class TestCorrelateMetricsWithTracesViaExemplars:
                 percentile_threshold=threshold,
             )
 
-            parsed = result
+            assert result["status"] == "success"
+            parsed = result["result"]
             assert parsed["percentile_threshold"] == threshold
 
     def test_includes_explanation(self):
@@ -207,7 +219,8 @@ class TestCorrelateMetricsWithTracesViaExemplars:
             service_name="svc",
         )
 
-        parsed = result
+        assert result["status"] == "success"
+        parsed = result["result"]
         assert "explanation" in parsed
         explanation = parsed["explanation"]
 
@@ -225,7 +238,8 @@ class TestBuildCrossSignalTimeline:
             dataset_id="project.telemetry",
         )
 
-        parsed = result
+        assert result["status"] == "success"
+        parsed = result["result"]
         assert parsed["analysis_type"] == "cross_signal_timeline"
         assert parsed["trace_id"] == "timeline-trace-123"
         assert "timeline_sql" in parsed
@@ -237,7 +251,8 @@ class TestBuildCrossSignalTimeline:
             dataset_id="proj.ds",
         )
 
-        parsed = result
+        assert result["status"] == "success"
+        parsed = result["result"]
         sql = parsed["timeline_sql"]
 
         assert "SPAN" in sql
@@ -251,7 +266,8 @@ class TestBuildCrossSignalTimeline:
             log_table_name="_AllLogs",
         )
 
-        parsed = result
+        assert result["status"] == "success"
+        parsed = result["result"]
         sql = parsed["timeline_sql"]
 
         # Should include both direct and temporal log correlation
@@ -266,7 +282,8 @@ class TestBuildCrossSignalTimeline:
             time_buffer_seconds=120,
         )
 
-        parsed = result
+        assert result["status"] == "success"
+        parsed = result["result"]
         sql = parsed["timeline_sql"]
 
         # Should contain the buffer value
@@ -279,7 +296,8 @@ class TestBuildCrossSignalTimeline:
             dataset_id="proj.ds",
         )
 
-        parsed = result
+        assert result["status"] == "success"
+        parsed = result["result"]
         assert "event_types" in parsed
         event_types = parsed["event_types"]
 
@@ -294,7 +312,8 @@ class TestBuildCrossSignalTimeline:
             dataset_id="proj.ds",
         )
 
-        parsed = result
+        assert result["status"] == "success"
+        parsed = result["result"]
         assert "how_to_read" in parsed
 
 
@@ -307,7 +326,8 @@ class TestAnalyzeSignalCorrelationStrength:
             dataset_id="project.telemetry",
         )
 
-        parsed = result
+        assert result["status"] == "success"
+        parsed = result["result"]
         assert parsed["analysis_type"] == "correlation_strength"
         assert "correlation_sql" in parsed
 
@@ -317,7 +337,8 @@ class TestAnalyzeSignalCorrelationStrength:
             dataset_id="proj.ds",
         )
 
-        parsed = result
+        assert result["status"] == "success"
+        parsed = result["result"]
         sql = parsed["correlation_sql"]
 
         # Should calculate various correlation percentages
@@ -330,7 +351,8 @@ class TestAnalyzeSignalCorrelationStrength:
             service_name="specific-service",
         )
 
-        parsed = result
+        assert result["status"] == "success"
+        parsed = result["result"]
         sql = parsed["correlation_sql"]
 
         assert "specific-service" in sql
@@ -341,7 +363,8 @@ class TestAnalyzeSignalCorrelationStrength:
             dataset_id="proj.ds",
         )
 
-        parsed = result
+        assert result["status"] == "success"
+        parsed = result["result"]
         assert "metrics_explained" in parsed
 
         metrics = parsed["metrics_explained"]
@@ -353,7 +376,8 @@ class TestAnalyzeSignalCorrelationStrength:
             dataset_id="proj.ds",
         )
 
-        parsed = result
+        assert result["status"] == "success"
+        parsed = result["result"]
         assert "score_interpretation" in parsed
 
     def test_includes_improvement_recommendations(self):
@@ -362,7 +386,8 @@ class TestAnalyzeSignalCorrelationStrength:
             dataset_id="proj.ds",
         )
 
-        parsed = result
+        assert result["status"] == "success"
+        parsed = result["result"]
         assert "improvement_recommendations" in parsed
 
         recs = parsed["improvement_recommendations"]
@@ -408,7 +433,8 @@ class TestCrossSignalToolsIntegration:
 
         for tool, args in tools_and_args:
             result = tool(**args)
-            parsed = result
+            assert result["status"] == "success"
+            parsed = result["result"]
             assert isinstance(parsed, dict)
             assert (
                 "analysis_type" in parsed
@@ -451,7 +477,8 @@ class TestCrossSignalToolsIntegration:
 
         for tool, args in tools_and_args:
             result = tool(**args)
-            parsed = result
+            assert result["status"] == "success"
+            parsed = result["result"]
             assert "next_steps" in parsed, f"{tool.__name__} missing next_steps"
 
     def test_sql_queries_are_syntactically_reasonable(self):
@@ -461,7 +488,8 @@ class TestCrossSignalToolsIntegration:
             dataset_id="proj.ds",
         )
 
-        parsed = result
+        assert result["status"] == "success"
+        parsed = result["result"]
         sql = parsed["trace_context_sql"]
 
         # Basic SQL structure checks

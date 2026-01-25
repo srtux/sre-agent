@@ -15,6 +15,7 @@ References:
 """
 
 import logging
+from typing import Any
 
 from sre_agent.schema import BaseToolResponse, ToolStatus
 
@@ -42,6 +43,7 @@ def correlate_trace_with_metrics(
     service_name: str | None = None,
     metrics_to_check: list[str] | None = None,
     time_buffer_seconds: int = 60,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Correlates a trace with relevant metrics during its execution window.
 
@@ -56,6 +58,7 @@ def correlate_trace_with_metrics(
         service_name: Optional service filter for targeted metric lookup
         metrics_to_check: Specific metric types to look for (default: common SRE metrics)
         time_buffer_seconds: Buffer before/after trace for metric correlation
+        tool_context: Context object for tool execution.
 
     Returns:
         Dictionary with:
@@ -194,6 +197,7 @@ def correlate_metrics_with_traces_via_exemplars(
     percentile_threshold: float = 95.0,
     time_window_hours: int = 1,
     trace_table_name: str = "_AllSpans",
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Uses exemplar-style analysis to find traces corresponding to metric outliers.
 
@@ -213,6 +217,7 @@ def correlate_metrics_with_traces_via_exemplars(
         percentile_threshold: Find traces above this percentile (default: 95th)
         time_window_hours: How far back to search
         trace_table_name: Table name containing OTel traces
+        tool_context: Context object for tool execution.
 
     Returns:
         Dictionary with SQL to find exemplar-like traces and PromQL for histogram analysis
@@ -365,6 +370,7 @@ def build_cross_signal_timeline(
     trace_table_name: str = "_AllSpans",
     log_table_name: str = "_AllLogs",
     time_buffer_seconds: int = 30,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Builds a unified timeline correlating traces, logs, and metrics events.
 
@@ -377,6 +383,7 @@ def build_cross_signal_timeline(
         trace_table_name: Table name containing OTel traces
         log_table_name: Table name containing OTel logs
         time_buffer_seconds: Buffer before/after trace for log correlation
+        tool_context: Context object for tool execution.
 
     Returns:
         Dictionary with SQL for unified timeline and interpretation guide
@@ -553,6 +560,7 @@ def analyze_signal_correlation_strength(
     log_table_name: str = "_AllLogs",
     service_name: str | None = None,
     time_window_hours: int = 24,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Analyzes how well traces, logs, and metrics are correlated in the system.
 
@@ -567,6 +575,7 @@ def analyze_signal_correlation_strength(
         log_table_name: Table name containing OTel logs
         service_name: Optional service to focus on
         time_window_hours: Time window for analysis
+        tool_context: Context object for tool execution.
 
     Returns:
         Dictionary with correlation health metrics and improvement recommendations

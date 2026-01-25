@@ -1,6 +1,7 @@
 """Statistical analysis for time series data."""
 
 import statistics
+from typing import Any
 
 from sre_agent.schema import BaseToolResponse, ToolStatus
 
@@ -8,11 +9,14 @@ from ...common.decorators import adk_tool
 
 
 @adk_tool
-def calculate_series_stats(points: list[float]) -> BaseToolResponse:
+def calculate_series_stats(
+    points: list[float], tool_context: Any = None
+) -> BaseToolResponse:
     """Calculates statistical metrics for a list of data points.
 
     Args:
         points: List of numerical values.
+        tool_context: Context object for tool execution.
 
     Returns:
         Statistical metrics in BaseToolResponse.

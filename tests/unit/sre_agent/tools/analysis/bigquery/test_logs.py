@@ -12,9 +12,11 @@ def test_analyze_bigquery_log_patterns_generates_sql():
         limit=10,
     )
 
-    assert result["analysis_type"] == "bigquery_log_patterns"
+    assert result["status"] == "success"
+    data = result["result"]
+    assert data["analysis_type"] == "bigquery_log_patterns"
 
-    sql = result["sql_query"]
+    sql = data["sql_query"]
     assert "FROM `my_dataset._AllLogs`" in sql
     assert "timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 48 HOUR)" in sql
     assert (

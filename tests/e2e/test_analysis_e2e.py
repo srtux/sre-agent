@@ -125,7 +125,7 @@ def mock_fetch_trace():
         ) as mock_b,
     ):
 
-        def side_effect(trace_id, project_id=None):
+        def side_effect(trace_id, project_id=None, **kwargs):
             if isinstance(trace_id, str) and trace_id.strip().startswith("{"):
                 return json.loads(trace_id)
             if isinstance(trace_id, dict):
