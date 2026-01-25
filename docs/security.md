@@ -40,9 +40,9 @@ echo -n "your-generated-key" | gcloud secrets create sre-agent-encryption-key --
 
 #### 2. Update Deployment Configuration
 
-The `deploy/deploy_web.py` script can be updated to pull this from Secret Manager. Ensure your Cloud Run service account has the `roles/secretmanager.secretAccessor` role (handled by `deploy/grant_permissions.py`).
+The `deploy/deploy_web.py` script is pre-configured to pull this from Secret Manager. Ensure your Cloud Run service account has the `roles/secretmanager.secretAccessor` role (handled by `deploy/grant_permissions.py`).
 
-Add the secret to your `gcloud run deploy` command:
+Once the secret exists, the deployment script automatically includes it:
 
 ```bash
 --set-secrets=SRE_AGENT_ENCRYPTION_KEY=sre-agent-encryption-key:latest

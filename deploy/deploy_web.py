@@ -73,11 +73,6 @@ def main():
         "USE_ARIZE=false",
     ]
 
-    if os.getenv("SRE_AGENT_ENCRYPTION_KEY"):
-        env_vars.append(
-            f"SRE_AGENT_ENCRYPTION_KEY={os.getenv('SRE_AGENT_ENCRYPTION_KEY')}"
-        )
-
     if agent_url:
         env_vars.append(f"SRE_AGENT_URL={agent_url}")
         env_vars.append(f"SRE_AGENT_API_URL={agent_url}")
@@ -125,7 +120,7 @@ def main():
                 "--timeout=300",
                 f"--set-env-vars={','.join(env_vars)}",
                 # Mount the secrets as environment variables to be safe
-                "--set-secrets=GOOGLE_API_KEY=gemini-api-key:latest,GEMINI_API_KEY=gemini-api-key:latest,GOOGLE_GENERATIVE_AI_API_KEY=gemini-api-key:latest,GOOGLE_CLIENT_ID=google-client-id:latest",
+                "--set-secrets=GOOGLE_API_KEY=gemini-api-key:latest,GEMINI_API_KEY=gemini-api-key:latest,GOOGLE_GENERATIVE_AI_API_KEY=gemini-api-key:latest,GOOGLE_CLIENT_ID=google-client-id:latest,SRE_AGENT_ENCRYPTION_KEY=sre-agent-encryption-key:latest",
                 f"--project={project_id}",
             ]
         )

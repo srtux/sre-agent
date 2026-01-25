@@ -196,6 +196,10 @@ echo -n "YOUR_API_KEY" | gcloud secrets create gemini-api-key --data-file=-
 
 # Google OAuth Client ID (for frontend)
 echo -n "YOUR_CLIENT_ID" | gcloud secrets create google-client-id --data-file=-
+
+# SRE Agent Encryption Key (for securing session tokens)
+# Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+echo -n "YOUR_ENCRYPTION_KEY" | gcloud secrets create sre-agent-encryption-key --data-file=-
 ```
 
 ### 3. OAuth Configuration
