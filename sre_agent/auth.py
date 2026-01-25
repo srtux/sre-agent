@@ -288,6 +288,18 @@ def get_credentials_from_tool_context(
                 creds = get_credentials_from_session(state_dict)
                 if creds:
                     logger.debug("Using credentials from session state")
+
+                    # If user ID not set in context, try to set it from session
+                    # This helps in Agent Engine mode
+                    user_id = get_current_user_id()
+                    if not user_id and state_dict:
+                        user_email = state_dict.get("user_email")
+                        if user_email:
+                            set_current_user_id(user_email)
+                            logger.info(
+                                f"Auto-set user ID to {user_email} from session state"
+                            )
+
                     return creds
                 else:
                     logger.debug(

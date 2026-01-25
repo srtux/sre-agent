@@ -4,10 +4,17 @@ This document explains the root causes of telemetry and authentication issues wh
 
 ## Table of Contents
 
-1. [Issue 1: Traces Not Emitting from Cloud Run](#issue-1-traces-not-emitting-from-cloud-run)
-2. [Issue 2: End User Authentication](#issue-2-end-user-authentication)
-3. [Debug Tools](#debug-tools)
-4. [Configuration Checklist](#configuration-checklist)
+1. [System Architecture Overview](./ARCHITECTURE.md)
+2. [Backend Deep-Dive](./BACKEND.md)
+3. [Agent Engine & Reasoning](./AGENT_ENGINE.md)
+4. [Tools & Analysis Guide](./TOOLS_GUIDE.md)
+5. [Frontend (Flutter) Architecture](./FRONTEND.md)
+6. [Authentication & Session Design](./AUTHENTICATION.md)
+7. [Technical Learnings: Google SSO](./AUTH_LEARNINGS.md)
+8. [Issue 1: Telemetry in Agent Engine](#issue-1-telemetry-in-agent-engine)
+4. [Issue 2: End User Authentication](#issue-2-end-user-authentication)
+5. [Debug Tools](#debug-tools)
+6. [Configuration Checklist](#configuration-checklist)
 
 ---
 

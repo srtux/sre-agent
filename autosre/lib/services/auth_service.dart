@@ -29,6 +29,7 @@ class AuthService extends ChangeNotifier {
   gsi_lib.GoogleSignInAccount? _currentUser;
   String? _idToken;
   String? _accessToken;
+  DateTime? _accessTokenExpiry;
   bool _isLoading = true;
 
   gsi_lib.GoogleSignInAccount? get currentUser => _currentUser;
@@ -123,14 +124,62 @@ class AuthService extends ChangeNotifier {
       // Note: accessToken is no longer on authentication property in this version.
       // Use getAuthHeaders() to obtain a fresh access token for API calls.
       debugPrint('AuthService: Successfully extracted idToken');
+
+      // Note: We used to try to set _accessToken here, but it's better to
+      // let getAuthHeaders() handle it via the authorizationClient to ensure
+      // it's fresh and has the correct scopes.
     } catch (e, stack) {
       debugPrint('Error refreshing tokens: $e\n$stack');
+    }
+  }
+
+  /// Call backend login endpoint to establish session cookie
+  Future<void> _loginToBackend(String accessToken) async {
+    try {
+      debugPrint('AuthService: Logging in to backend...');
+      final client = http.Client();
+      if (kIsWeb) {
+        try {
+          // On web, http.Client() is a BrowserClient
+          (client as dynamic).withCredentials = true;
+        } catch (e) {
+          debugPrint('AuthService: could not set withCredentials (not a BrowserClient?)');
+        }
+      }
+      final response = await client.post(
+        Uri.parse('$_baseUrl/api/auth/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'access_token': accessToken,
+          'project_id': ProjectService.instance.selectedProjectId,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        debugPrint('AuthService: Successfully logged in to backend and established session cookie');
+      } else {
+        debugPrint('AuthService: Backend login failed with status ${response.statusCode}: ${response.body}');
+      }
+      client.close();
+    } catch (e) {
+      debugPrint('AuthService: Error calling backend login: $e');
     }
   }
 
   /// Get current auth headers
   Future<Map<String, String>> getAuthHeaders() async {
     if (_currentUser == null) return {};
+
+    // Check local cache first
+    if (_accessToken != null && _accessTokenExpiry != null) {
+      if (DateTime.now().isBefore(_accessTokenExpiry!.subtract(const Duration(minutes: 5)))) {
+        debugPrint('AuthService: Using cached access token (expires at $_accessTokenExpiry)');
+        return {
+          'Authorization': 'Bearer $_accessToken',
+        };
+      }
+    }
+
     try {
       debugPrint('AuthService: Requesting authorization for GCP scopes...');
       final authzClient = _currentUser!.authorizationClient;
@@ -144,10 +193,15 @@ class AuthService extends ChangeNotifier {
         authz = await authzClient.authorizeScopes(_scopes);
       }
 
-      final token = authz.accessToken;
+      _accessToken = authz.accessToken;
+      // Tokens usually last 1 hour; we'll assume 55 minutes for safety if not provided
+      _accessTokenExpiry = DateTime.now().add(const Duration(minutes: 55));
+
+      // Asynchronously let the backend know about the new token to update session state
+      await _loginToBackend(_accessToken!);
 
       return {
-        'Authorization': 'Bearer $token',
+        'Authorization': 'Bearer $_accessToken',
       };
     } catch (e) {
       debugPrint('AuthService: Error getting auth headers: $e');
@@ -185,8 +239,18 @@ class AuthService extends ChangeNotifier {
       throw Exception('User not authenticated');
     }
 
+    final client = http.Client();
+    if (kIsWeb) {
+      try {
+        // On web, http.Client() is a BrowserClient
+        (client as dynamic).withCredentials = true;
+      } catch (e) {
+        debugPrint('AuthService: could not set withCredentials on authenticated client');
+      }
+    }
+
     return ProjectInterceptorClient(
-      http.Client(),
+      client,
       projectService: ProjectService.instance,
     );
   }

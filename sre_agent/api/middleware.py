@@ -45,7 +45,7 @@ async def auth_middleware(request: Request, call_next: Any) -> Any:
             # Note: We trust the token format here; downstream APIs will fail if invalid.
             creds = Credentials(token=token)  # type: ignore[no-untyped-call]
             set_current_credentials(creds)
-            logger.debug("Auth Middleware: Credentials set in ContextVar")
+            logger.debug("Auth Middleware: Credentials set in ContextVar from Header")
 
             try:
                 # Validate token to extract user identity (email)
@@ -64,6 +64,67 @@ async def auth_middleware(request: Request, call_next: Any) -> Any:
                     )
             except Exception as e:
                 logger.warning(f"Auth Middleware: Identity check failed: {e}")
+        else:
+            # Fallback to session cookie
+            session_id = request.cookies.get("sre_session_id")
+            if session_id:
+                logger.debug(f"Auth Middleware: Found session cookie: {session_id}")
+                from sre_agent.auth import (
+                    SESSION_STATE_ACCESS_TOKEN_KEY,
+                    set_current_user_id,
+                )
+                from sre_agent.services import get_session_service
+
+                session_manager = get_session_service()
+
+                # Robust session lookup: try to find user_email from request headers/params first
+                user_id_hint = (
+                    request.headers.get("X-User-ID")
+                    or request.query_params.get("user_id")
+                    or ""
+                )
+
+                session = await session_manager.get_session(
+                    session_id, user_id=user_id_hint
+                )
+
+                # If not found with hint, and hint was empty, we might be stuck
+                # In local mode with DatabaseSessionService, we could theoretically query by ID only
+                # but ADK doesn't expose that easily.
+                # For now, we'll rely on the client providing user_id if possible, or 'default'.
+                if not session and not user_id_hint:
+                    session = await session_manager.get_session(
+                        session_id, user_id="default"
+                    )
+
+                if session:
+                    session_token = session.state.get(SESSION_STATE_ACCESS_TOKEN_KEY)
+                    if session_token:
+                        # CRITICAL IMPROVEMENT: Validate cached token
+                        from sre_agent.auth import validate_access_token
+
+                        token_info = await validate_access_token(session_token)
+
+                        if token_info.valid:
+                            creds = Credentials(token=session_token)  # type: ignore[no-untyped-call]
+                            set_current_credentials(creds)
+                            logger.debug(
+                                "Auth Middleware: Valid credentials set from Session Cookie"
+                            )
+
+                            user_email = (
+                                session.state.get("user_email") or token_info.email
+                            )
+                            if user_email:
+                                set_current_user_id(user_email)
+                                logger.debug(
+                                    f"Auth Middleware: User identified as {user_email} from session"
+                                )
+                        else:
+                            logger.warning(
+                                f"Auth Middleware: Cached session token is invalid: {token_info.error}"
+                            )
+                            # Optional: Clear credentials or take action
 
         # Extract GCP Project ID if provided in header
         if project_id_header:

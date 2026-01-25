@@ -4,9 +4,15 @@ import logging
 import os
 from typing import Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request, Response
+from pydantic import BaseModel
 
-from sre_agent.auth import get_current_project_id, validate_access_token
+from sre_agent.auth import (
+    SESSION_STATE_ACCESS_TOKEN_KEY,
+    get_current_project_id,
+    validate_access_token,
+)
+from sre_agent.services import get_session_service
 from sre_agent.suggestions import generate_contextual_suggestions
 from sre_agent.tools.common.debug import (
     get_debug_summary,
@@ -24,6 +30,79 @@ async def get_config() -> dict[str, Any]:
     return {
         "google_client_id": os.getenv("GOOGLE_CLIENT_ID", ""),
     }
+
+
+class LoginRequest(BaseModel):
+    """Request model for the login endpoint."""
+
+    access_token: str
+    project_id: str | None = None
+
+
+@router.post("/api/auth/login")
+async def login(request: LoginRequest, response: Response) -> dict[str, Any]:
+    """Exchange a Google access token for a session cookie.
+
+    This endpoint validates the token, creates/retrieves a session,
+    and sets an HTTP-only cookie for stateful authentication.
+    """
+    # 1. Validate the token with Google
+    token_info = await validate_access_token(request.access_token)
+
+    if not token_info.valid:
+        raise HTTPException(
+            status_code=401, detail=f"Invalid token: {token_info.error}"
+        )
+
+    if not token_info.email:
+        raise HTTPException(status_code=401, detail="Token does not contain user email")
+
+    # 2. Get or Create session for this user
+    session_manager = get_session_service()
+
+    # Create a new session for this login to ensure fresh state
+    # or reuse an existing one if provided (though login usually implies fresh start)
+    initial_state = {
+        SESSION_STATE_ACCESS_TOKEN_KEY: request.access_token,
+        "user_email": token_info.email,
+    }
+    if request.project_id:
+        from sre_agent.auth import SESSION_STATE_PROJECT_ID_KEY
+
+        initial_state[SESSION_STATE_PROJECT_ID_KEY] = request.project_id
+
+    session = await session_manager.create_session(
+        user_id=token_info.email,
+        initial_state=initial_state,
+    )
+
+    # 3. Set the session cookie
+    # httponly: true prevents JavaScript from accessing the cookie
+    # secure: true (should be true in production/HTTPS)
+    # samesite: Lax is a good middle ground for balancing security and UX
+    response.set_cookie(
+        key="sre_session_id",
+        value=session.id,
+        httponly=True,
+        secure=os.getenv("SECURE_COOKIES", "false").lower() == "true",
+        samesite="lax",
+        max_age=3600 * 24 * 7,  # 7 days
+    )
+
+    logger.info(f"🔑 User {token_info.email} logged in. Session: {session.id}")
+
+    return {
+        "status": "success",
+        "session_id": session.id,
+        "email": token_info.email,
+    }
+
+
+@router.post("/api/auth/logout")
+async def logout(response: Response) -> dict[str, Any]:
+    """Log out by clearing the session cookie."""
+    response.delete_cookie(key="sre_session_id")
+    return {"status": "success"}
 
 
 @router.get("/api/suggestions")

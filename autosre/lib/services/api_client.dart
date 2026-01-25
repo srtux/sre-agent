@@ -52,8 +52,15 @@ class ProjectInterceptorClient extends http.BaseClient {
       throw ProjectNotSelectedException();
     }
 
-    // 1. Add as Header
+    // 2. Add as Header
     request.headers['X-GCP-Project-ID'] = projectId;
+
+    // 3. Add User ID hint for better backend session lookup
+    final userEmail = AuthService.instance.currentUser?.email;
+    if (userEmail != null) {
+      request.headers['X-User-ID'] = userEmail;
+    }
+
     return _inner.send(request);
   }
 
