@@ -9,7 +9,6 @@ sys.path.append(os.getcwd())
 
 
 class TestStopButtonCancellation(unittest.IsolatedAsyncioTestCase):
-    @unittest.skip("Skipping backend cancellation test pending Runner mock updates")
     async def test_backend_cancellation(self):
         """
         Verify that:
@@ -57,6 +56,10 @@ class TestStopButtonCancellation(unittest.IsolatedAsyncioTestCase):
             mock_inv_ctx.invocation_id = "test-inv-id"
             mock_inv_ctx_class.return_value = mock_inv_ctx
 
+            # Ensure _runner is not already present on mock_root_agent
+            if hasattr(mock_root_agent, "_runner"):
+                del mock_root_agent._runner
+
             # --- AGENT MOCK ---
             agent_cancelled_event = asyncio.Event()
 
@@ -64,8 +67,6 @@ class TestStopButtonCancellation(unittest.IsolatedAsyncioTestCase):
                 try:
                     while True:
                         yield MagicMock()
-                        # Sleep long enough to allow disconnect_checker (which sleeps 0.1s)
-                        # to run and detect disconnection.
                         await asyncio.sleep(0.5)
                 except asyncio.CancelledError:
                     agent_cancelled_event.set()
@@ -93,24 +94,30 @@ class TestStopButtonCancellation(unittest.IsolatedAsyncioTestCase):
             response = await genui_chat(chat_req, mock_raw_request)
             iterator = response.body_iterator
 
-            # Consume stream
-            try:
-                async for _item in iterator:
-                    # Force yield to event loop to allow background tasks to run
-                    await asyncio.sleep(0)
+            # Consume stream in a separate task so the disconnection checker
+            # cancels THAT task instead of the main test task.
+            async def consume_stream():
+                try:
+                    async for _ in iterator:
+                        await asyncio.sleep(0.01)
+                except asyncio.CancelledError:
+                    # Expected when disconnect is detected
                     pass
-            except asyncio.CancelledError:
-                pass
-            except Exception as e:
-                # server.py handles internal exceptions, but CancelledError is re-raised
-                if "Client disconnected" not in str(e):
-                    print(f"Unexpected exception during stream consumption: {e}")
+
+            consume_task = asyncio.create_task(consume_stream())
 
             # Verify Agent Cancellation
             try:
                 await asyncio.wait_for(agent_cancelled_event.wait(), timeout=5.0)
             except asyncio.TimeoutError:
                 self.fail("FAILURE: Agent task was NOT cancelled within timeout.")
+            finally:
+                if not consume_task.done():
+                    consume_task.cancel()
+                    try:
+                        await consume_task
+                    except asyncio.CancelledError:
+                        pass
 
 
 if __name__ == "__main__":

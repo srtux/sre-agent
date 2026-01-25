@@ -159,6 +159,7 @@ class Runner:
         """
         start_time = time.time()
         session_id = session.id
+        logger.error(f"DEBUG: Runner.run_turn START for session {session_id}")
 
         # Create execution context
         turn_number = len(session.events) if session.events else 0

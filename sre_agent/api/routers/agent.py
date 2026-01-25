@@ -508,7 +508,6 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                     project_id=effective_project_id,
                     investigation_phase=inv_state.phase.value if inv_state else None,
                 )
-
                 async for event in runner.run_turn(
                     session=active_session,
                     user_message=last_msg_text,

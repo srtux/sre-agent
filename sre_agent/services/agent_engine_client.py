@@ -132,7 +132,7 @@ class AgentEngineClient:
             return
 
         import vertexai
-        from vertexai.preview import reasoning_engines
+        from vertexai import agent_engines
 
         # Initialize Vertex AI
         vertexai.init(
@@ -149,9 +149,20 @@ class AgentEngineClient:
 
         logger.info(f"Connecting to Agent Engine: {resource_name}")
         try:
-            self._adk_app = reasoning_engines.ReasoningEngine(resource_name)
+            # Use GA agent_engines.get which ensures proper method registration
+            self._adk_app = agent_engines.get(resource_name)
             self._initialized = True
-            logger.info("Agent Engine client initialized successfully")
+
+            # Verify the agent has the expected query method
+            if not hasattr(self._adk_app, "query"):
+                # Log available methods to help debugging if this happens again
+                methods = [m for m in dir(self._adk_app) if not m.startswith("_")]
+                logger.warning(
+                    f"Agent Engine resource found but '.query()' method is missing. "
+                    f"Available methods: {methods}"
+                )
+
+            logger.info("Agent Engine client initialized successfully (GA mode)")
         except Exception as e:
             logger.error(f"Failed to initialize Agent Engine client: {e}")
             # Do not set _initialized to True, so next call retries (or fails again)
@@ -202,12 +213,6 @@ class AgentEngineClient:
 
         session_manager = get_session_service()
 
-        initial_state = {}
-        if access_token:
-            initial_state[SESSION_STATE_ACCESS_TOKEN_KEY] = access_token
-        if project_id:
-            initial_state[SESSION_STATE_PROJECT_ID_KEY] = project_id
-
         session = await session_manager.get_or_create_session(
             session_id=session_id, user_id=user_id, project_id=project_id
         )
@@ -246,27 +251,26 @@ class AgentEngineClient:
         session_manager = get_session_service()
 
         # Get session ID using the unified session manager
-        # This handles the EUC state update properly via initial_state if creating new
-        initial_state = {}
-        if access_token:
-            initial_state[SESSION_STATE_ACCESS_TOKEN_KEY] = access_token
-        if project_id:
-            initial_state[SESSION_STATE_PROJECT_ID_KEY] = project_id
-
         session = await session_manager.get_or_create_session(
             session_id=session_id, user_id=user_id, project_id=project_id
         )
         effective_session_id = session.id
 
-        # Update state if existing session and creds changed
-        if session_id and (access_token or project_id):
-            state_delta = {}
-            if access_token:
-                state_delta[SESSION_STATE_ACCESS_TOKEN_KEY] = access_token
-            if project_id:
-                state_delta[SESSION_STATE_PROJECT_ID_KEY] = project_id
-            if state_delta:
-                await session_manager.update_session_state(session, state_delta)
+        # ALWAYS update session state with latest credentials to ensure EUC propagation
+        state_delta = {}
+        if (
+            access_token
+            and session.state.get(SESSION_STATE_ACCESS_TOKEN_KEY) != access_token
+        ):
+            state_delta[SESSION_STATE_ACCESS_TOKEN_KEY] = access_token
+        if project_id and session.state.get(SESSION_STATE_PROJECT_ID_KEY) != project_id:
+            state_delta[SESSION_STATE_PROJECT_ID_KEY] = project_id
+
+        if state_delta:
+            logger.info(
+                f"🔄 Updating session state with EUC: {list(state_delta.keys())}"
+            )
+            await session_manager.update_session_state(session, state_delta)
 
         logger.info(
             f"Streaming query to Agent Engine: user={user_id}, "
@@ -280,12 +284,19 @@ class AgentEngineClient:
         }
 
         # Stream query to Agent Engine
-        # Warning: vertexai.preview.reasoning_engines.ReasoningEngine.query is synchronous
+        # Warning: vertexai.agent_engines.AgentEngine.query is synchronous
         # and doesn't natively support async streaming protocols yet.
         # We run it in a thread to avoid blocking the event loop.
         import asyncio
 
         def _query_agent() -> Any:
+            if not hasattr(self._adk_app, "query"):
+                raise AttributeError(
+                    f"AgentEngine object at {self._adk_app.resource_name} "
+                    "does not have a 'query' method. This usually means the "
+                    "agent was not deployed correctly or the SDK failed to "
+                    "register dynamic methods."
+                )
             # Pass user_id and session_id as kwargs which the remote agent should be configured to accept
             return self._adk_app.query(
                 input=message, user_id=user_id, session_id=effective_session_id
@@ -335,7 +346,20 @@ class AgentEngineClient:
         await self._ensure_initialized()
 
         try:
-            sessions = await self._adk_app.async_list_sessions(user_id=user_id)
+            # Check for async_list_sessions or list_sessions
+            if hasattr(self._adk_app, "async_list_sessions"):
+                sessions = await self._adk_app.async_list_sessions(user_id=user_id)
+            elif hasattr(self._adk_app, "list_sessions"):
+                # Run sync method in thread
+                import asyncio
+
+                sessions = await asyncio.to_thread(
+                    self._adk_app.list_sessions, user_id=user_id
+                )
+            else:
+                logger.warning("Agent Engine does not support list_sessions")
+                return []
+
             return sessions if isinstance(sessions, list) else [sessions]
         except Exception as e:
             logger.error(f"Error listing sessions: {e}")
@@ -354,10 +378,23 @@ class AgentEngineClient:
         await self._ensure_initialized()
 
         try:
-            await self._adk_app.async_delete_session(
-                user_id=user_id,
-                session_id=session_id,
-            )
+            if hasattr(self._adk_app, "async_delete_session"):
+                await self._adk_app.async_delete_session(
+                    user_id=user_id,
+                    session_id=session_id,
+                )
+            elif hasattr(self._adk_app, "delete_session"):
+                import asyncio
+
+                await asyncio.to_thread(
+                    self._adk_app.delete_session,
+                    user_id=user_id,
+                    session_id=session_id,
+                )
+            else:
+                logger.warning("Agent Engine does not support delete_session")
+                return False
+
             logger.info(f"Deleted session: {session_id}")
             return True
         except Exception as e:

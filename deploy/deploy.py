@@ -23,7 +23,7 @@ import vertexai
 from absl import app, flags
 from dotenv import load_dotenv
 from vertexai import agent_engines
-from vertexai.preview.reasoning_engines import AdkApp
+from vertexai.agent_engines import AdkApp
 
 from sre_agent.agent import root_agent
 from sre_agent.core.runner import create_runner
@@ -36,6 +36,9 @@ flags.DEFINE_string("bucket", None, "GCP bucket.")
 flags.DEFINE_string("resource_id", None, "ReasoningEngine resource ID.")
 flags.DEFINE_string("display_name", None, "Display name for the agent.")
 flags.DEFINE_string("description", None, "Description for the agent.")
+flags.DEFINE_string("service_account", None, "Service account for the agent.")
+flags.DEFINE_integer("min_instances", 1, "Minimum instances.")
+flags.DEFINE_integer("max_instances", None, "Maximum instances.")
 
 
 flags.DEFINE_bool("list", False, "List all agents.")
@@ -57,7 +60,7 @@ def get_requirements() -> list[str]:
     # Ensure crucial deployment dependencies are present
     # These are required by the Reasoning Engine runtime itself
     required_for_deploy = [
-        "google-adk>=1.0.0",
+        "google-adk>=1.23.0",
         "google-cloud-aiplatform[adk,agent-engines]>=1.93.0",
         "requests>=2.31.0",
     ]
@@ -134,8 +137,12 @@ def create(env_vars: dict[str, str] | None = None) -> None:
             "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "true",
             "USE_ARIZE": "false",
             "RUNNING_IN_AGENT_ENGINE": "true",
+            "STRICT_EUC_ENFORCEMENT": os.getenv("STRICT_EUC_ENFORCEMENT", "false"),
             **env_vars,
         },
+        service_account=FLAGS.service_account,
+        min_instances=FLAGS.min_instances,
+        max_instances=FLAGS.max_instances,
     )
     print(f"Created remote agent: {remote_agent.resource_name}")
 
