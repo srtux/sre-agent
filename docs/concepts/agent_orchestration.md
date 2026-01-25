@@ -29,6 +29,11 @@ To ensure rigorous investigations, the engine follows a structured 3-stage pipel
 
 ---
 
+### Investigation Flow
+![Investigation Flow](../images/flow.jpg)
+
+---
+
 ## Prompt Engineering Strategy
 
 The agent's intelligence is defined in `sre_agent/prompt.py`.

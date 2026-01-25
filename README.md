@@ -16,7 +16,7 @@
 [![Pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
 
 <div align="center">
-  <img src="docs/login.png" alt="Auto SRE Login" width="600" style="border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+  <img src="docs/images/login.png" alt="Auto SRE Login" width="600" style="border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
 </div>
 
 ---

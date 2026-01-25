@@ -55,6 +55,9 @@ graph TD
     SubAgents <--> BigQuery
 ```
 
+### Conceptual Topology
+![Conceptual Architecture](../images/architecture.jpg)
+
 ---
 
 ## Data Flow & Execution Modes
