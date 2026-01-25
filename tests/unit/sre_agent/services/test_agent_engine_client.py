@@ -210,9 +210,7 @@ class TestAgentEngineClient:
         mock_adk_app.async_get_session.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_stream_query_yields_events(
-        self, client: AgentEngineClient
-    ) -> None:
+    async def test_stream_query_yields_events(self, client: AgentEngineClient) -> None:
         """Test stream_query yields events from Agent Engine."""
         mock_adk_app = MagicMock()
         mock_adk_app.async_create_session = AsyncMock(
@@ -221,11 +219,7 @@ class TestAgentEngineClient:
 
         # Create async generator for stream_query
         async def mock_stream():
-            yield {
-                "content": {
-                    "parts": [{"text": "Hello, I'm the agent!"}]
-                }
-            }
+            yield {"content": {"parts": [{"text": "Hello, I'm the agent!"}]}}
             yield {
                 "content": {
                     "parts": [{"function_call": {"name": "test_tool", "args": {}}}]

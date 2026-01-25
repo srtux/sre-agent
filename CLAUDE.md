@@ -179,6 +179,97 @@ return result
 
 **Fallback Rule**: If MCP fails, tools MUST fall back to Direct API and document this in error messages.
 
+### 9. Dual-Mode Execution Pattern (CRITICAL)
+
+The agent supports two execution modes determined by the `SRE_AGENT_ID` environment variable:
+
+**Local Mode (Development)** - `SRE_AGENT_ID` NOT set:
+```python
+# In sre_agent/api/routers/agent.py
+if not is_remote_mode():
+    # Run agent directly in FastAPI process
+    from sre_agent.agent import root_agent
+    async for event in root_agent.run_async(inv_ctx):
+        yield event
+```
+
+**Remote Mode (Production)** - `SRE_AGENT_ID` IS set:
+```python
+# In sre_agent/api/routers/agent.py
+if is_remote_mode():
+    # Forward to Agent Engine
+    client = get_agent_engine_client()
+    async for event in client.stream_query(
+        user_id=user_id,
+        message=message,
+        access_token=access_token,  # EUC passed via session state
+        project_id=project_id,
+    ):
+        yield event
+```
+
+**Key Files:**
+- `sre_agent/services/agent_engine_client.py`: Remote Agent Engine client
+- `sre_agent/api/routers/agent.py`: Dual-mode endpoint implementation
+
+### 10. End-User Credentials (EUC) Pattern (CRITICAL)
+
+User credentials MUST be propagated to tools for multi-tenant access:
+
+**Frontend (Flutter)**:
+```dart
+// In autosre/lib/services/api_client.dart
+class ProjectInterceptorClient {
+  Future<http.Response> post(Uri uri, {Object? body, ...}) async {
+    final response = await _inner.post(uri,
+      headers: {
+        'Authorization': 'Bearer ${authService.accessToken}',  // EUC
+        'X-GCP-Project-ID': projectService.selectedProjectId,
+      },
+      body: body,
+    );
+  }
+}
+```
+
+**Backend Middleware**:
+```python
+# In sre_agent/api/middleware.py
+async def auth_middleware(request: Request, call_next):
+    # Extract token from Authorization header
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+        creds = Credentials(token=token)
+        set_current_credentials(creds)  # Set ContextVar
+
+    # Extract project ID from header
+    project_id = request.headers.get("X-GCP-Project-ID")
+    set_current_project_id(project_id)  # Set ContextVar
+```
+
+**Tool Implementation**:
+```python
+# In any tool that needs user credentials
+from sre_agent.auth import get_credentials_from_tool_context
+
+@adk_tool
+async def my_gcp_tool(arg: str, tool_context: ToolContext | None = None) -> str:
+    # Priority: ContextVar → Session State → Default
+    creds = get_credentials_from_tool_context(tool_context)
+    client = get_trace_client(tool_context)  # Factory respects EUC
+    # ...
+```
+
+**Session State Keys** (for Agent Engine mode):
+```python
+SESSION_STATE_ACCESS_TOKEN_KEY = "_user_access_token"
+SESSION_STATE_PROJECT_ID_KEY = "_user_project_id"
+```
+
+**STRICT_EUC_ENFORCEMENT**:
+When `STRICT_EUC_ENFORCEMENT=true`, tools will raise `PermissionError` instead of falling back to Application Default Credentials.
+
 ---
 
 ## 💻 Frontend Architecture (Flutter/GenUI)

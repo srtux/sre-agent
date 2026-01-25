@@ -95,7 +95,87 @@ curl http://localhost:8001/api/debug | jq
 
 The goal is to use end-user credentials (OAuth tokens) to make API requests from the agent, rather than using the agent's service account.
 
-### Root Cause Analysis
+### Current Implementation (EUC Flow)
+
+Auto SRE now implements a complete End-User Credentials (EUC) flow:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                          EUC FLOW (IMPLEMENTED)                                  │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│  1. Browser: User signs in with Google OAuth                                    │
+│     └─► Scopes: email, cloud-platform                                           │
+│                                                                                  │
+│  2. Flutter Web: ProjectInterceptorClient sends request                         │
+│     ├─► Authorization: Bearer <access_token>                                    │
+│     └─► X-GCP-Project-ID: <selected_project>                                    │
+│                                                                                  │
+│  3. FastAPI Middleware (auth_middleware):                                       │
+│     ├─► Extracts token from Authorization header                                │
+│     ├─► Creates Credentials(token=token)                                        │
+│     ├─► Sets ContextVar: _credentials_context                                   │
+│     └─► Sets ContextVar: _project_id_context                                    │
+│                                                                                  │
+│  4a. LOCAL MODE (SRE_AGENT_ID not set):                                         │
+│      └─► Agent runs in FastAPI process                                          │
+│      └─► Tools use get_credentials_from_tool_context()                          │
+│      └─► ContextVar contains user credentials                                   │
+│                                                                                  │
+│  4b. REMOTE MODE (SRE_AGENT_ID is set):                                         │
+│      └─► AgentEngineClient creates session with state:                          │
+│          • _user_access_token: <access_token>                                   │
+│          • _user_project_id: <project_id>                                       │
+│      └─► Tools read from tool_context.invocation_context.session.state          │
+│                                                                                  │
+│  5. Tool Execution:                                                             │
+│     └─► get_credentials_from_tool_context() checks:                             │
+│         1. ContextVar (local mode)                                              │
+│         2. Session state (remote mode)                                          │
+│         3. Default credentials (if STRICT_EUC_ENFORCEMENT=false)                │
+│                                                                                  │
+│  6. GCP API Calls:                                                              │
+│     └─► Authenticated as the user, not service account                          │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Key Files:**
+- `sre_agent/auth.py`: Credential extraction, ContextVars, session state
+- `sre_agent/api/middleware.py`: Token extraction from headers
+- `sre_agent/services/agent_engine_client.py`: Remote Agent Engine with EUC
+- `sre_agent/tools/clients/factory.py`: Client factory with EUC support
+- `autosre/lib/services/api_client.dart`: ProjectInterceptorClient
+
+### Debugging EUC Issues
+
+**Check auth info endpoint:**
+```bash
+curl -H "Authorization: Bearer <token>" http://localhost:8001/api/auth/info | jq
+```
+
+**Response shows:**
+```json
+{
+  "authenticated": true,
+  "token_preview": "ya29.a0A...",
+  "token_info": {
+    "valid": true,
+    "email": "user@example.com",
+    "expires_in": 3540,
+    "scopes": ["https://www.googleapis.com/auth/cloud-platform", ...]
+  },
+  "project_id": "my-project"
+}
+```
+
+**Enable strict EUC enforcement:**
+```bash
+# Prevent fallback to service account
+export STRICT_EUC_ENFORCEMENT=true
+```
+
+### Root Cause Analysis (Historical Context)
 
 Several factors affect end-user authentication:
 
