@@ -19,7 +19,11 @@ from typing import TYPE_CHECKING, Any, TypeVar, cast
 from google.cloud import monitoring_v3, trace_v1
 from google.cloud.logging_v2.services.logging_service_v2 import LoggingServiceV2Client
 
-from ...auth import get_credentials_from_tool_context, get_current_credentials_or_none
+from ...auth import (
+    GLOBAL_CONTEXT_CREDENTIALS,
+    get_credentials_from_tool_context,
+    get_current_credentials_or_none,
+)
 
 if TYPE_CHECKING:
     from google.adk.tools.tool_context import ToolContext
@@ -66,7 +70,7 @@ def _get_client(
                     f"⚠️ Initializing default {name} client (ADC). "
                     "This usually means EUC propagation failed or we are running in a background task."
                 )
-                _clients[name] = client_class()
+                _clients[name] = client_class(credentials=GLOBAL_CONTEXT_CREDENTIALS)  # type: ignore[call-arg]
 
     # First, check for user credentials from tool_context (session state)
     # This is the EIC path for Agent Engine execution

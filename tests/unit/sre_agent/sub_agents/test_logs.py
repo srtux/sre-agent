@@ -243,7 +243,12 @@ class TestSubAgentConfiguration:
 
         assert log_analyst.model is not None
         # Should use Gemini model
-        assert "gemini" in log_analyst.model.lower()
+        model_name = (
+            log_analyst.model
+            if isinstance(log_analyst.model, str)
+            else getattr(log_analyst.model, "model", str(log_analyst.model))
+        )
+        assert "gemini" in model_name.lower()
 
 
 class TestMainAgentIntegration:

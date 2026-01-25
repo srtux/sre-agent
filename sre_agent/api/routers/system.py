@@ -5,12 +5,14 @@ import os
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from sre_agent.auth import (
     SESSION_STATE_ACCESS_TOKEN_KEY,
+    encrypt_token,
     get_current_project_id,
     validate_access_token,
+    validate_id_token,
 )
 from sre_agent.services import get_session_service
 from sre_agent.suggestions import generate_contextual_suggestions
@@ -36,6 +38,7 @@ class LoginRequest(BaseModel):
     """Request model for the login endpoint."""
 
     access_token: str
+    id_token: str | None = Field(default=None, description="OIDC ID Token for identity")
     project_id: str | None = None
 
 
@@ -46,24 +49,34 @@ async def login(request: LoginRequest, response: Response) -> dict[str, Any]:
     This endpoint validates the token, creates/retrieves a session,
     and sets an HTTP-only cookie for stateful authentication.
     """
-    # 1. Validate the token with Google
-    token_info = await validate_access_token(request.access_token)
+    # 1. Validate credentials
+    # If id_token is provided, use it for faster local identity verification.
+    # Otherwise fallback to access_token validation (now cached).
+    if request.id_token:
+        token_info = await validate_id_token(request.id_token)
+    else:
+        token_info = await validate_access_token(request.access_token)
 
     if not token_info.valid:
         raise HTTPException(
-            status_code=401, detail=f"Invalid token: {token_info.error}"
+            status_code=401, detail=f"Invalid credentials: {token_info.error}"
         )
 
     if not token_info.email:
-        raise HTTPException(status_code=401, detail="Token does not contain user email")
+        raise HTTPException(
+            status_code=401, detail="Identity verification failed: no email found"
+        )
 
     # 2. Get or Create session for this user
     session_manager = get_session_service()
 
     # Create a new session for this login to ensure fresh state
     # or reuse an existing one if provided (though login usually implies fresh start)
+    # SECURITY: Encrypt the access token before storage
+    encrypted_access_token = encrypt_token(request.access_token)
+
     initial_state = {
-        SESSION_STATE_ACCESS_TOKEN_KEY: request.access_token,
+        SESSION_STATE_ACCESS_TOKEN_KEY: encrypted_access_token,
         "user_email": token_info.email,
     }
     if request.project_id:
@@ -145,10 +158,14 @@ async def auth_info(request: Request) -> dict[str, Any]:
             "project_id": get_current_project_id(),
         }
 
-    token = auth_header.split(" ")[1]
-
-    # Validate the token with Google
-    token_info = await validate_access_token(token)
+    # Optimized Identity Check: Use X-ID-Token if provided
+    id_token_header = request.headers.get("X-ID-Token")
+    if id_token_header:
+        token_info = await validate_id_token(id_token_header)
+    else:
+        token = auth_header.split(" ")[1]
+        # Validate the access token with Google (now cached)
+        token_info = await validate_access_token(token)
 
     return {
         "authenticated": token_info.valid,

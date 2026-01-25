@@ -74,10 +74,13 @@ The EUC (End User Credentials) flow works as follows:
 
 import contextvars
 import logging
+import os
+import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import google.auth
+from google.oauth2 import id_token
 from google.oauth2.credentials import Credentials
 
 if TYPE_CHECKING:
@@ -102,6 +105,77 @@ _project_id_context: contextvars.ContextVar[str | None] = contextvars.ContextVar
 _user_id_context: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "user_id_context", default=None
 )
+
+# Encryption key for securing tokens at rest
+# In production, this should be loaded from a Secret Manager
+ENCRYPTION_KEY = os.environ.get("SRE_AGENT_ENCRYPTION_KEY")
+_cached_fernet = None
+
+
+def _get_fernet() -> Any:
+    """Gets a Fernet instance for encryption/decryption."""
+    global _cached_fernet
+    if _cached_fernet:
+        return _cached_fernet
+
+    from cryptography.fernet import Fernet
+
+    key = ENCRYPTION_KEY
+    if not key:
+        # Fallback for local development (NOT for production)
+        # Use a consistent key within the same process
+        key = Fernet.generate_key().decode()
+        logger.warning(
+            "⚠️ SRE_AGENT_ENCRYPTION_KEY not set. Using a transient key. Tokens will not be decryptable after restart."
+        )
+
+    _cached_fernet = Fernet(key.encode())
+    return _cached_fernet
+
+
+def encrypt_token(token: str) -> str:
+    """Encrypts a token for storage."""
+    try:
+        f = _get_fernet()
+        return cast(str, f.encrypt(token.encode()).decode())
+    except Exception as e:
+        logger.error(f"Failed to encrypt token: {e}")
+        return token
+
+
+def decrypt_token(encrypted_token: str) -> str:
+    """Decrypts a token from storage."""
+    try:
+        # If it doesn't look like a Fernet token, return as is (migration fallback)
+        if not (encrypted_token.startswith("gAAAA") and len(encrypted_token) > 50):
+            return encrypted_token
+
+        f = _get_fernet()
+        return cast(str, f.decrypt(encrypted_token.encode()).decode())
+    except Exception as e:
+        logger.debug(f"Decryption failed (might be unencrypted): {e}")
+        return encrypted_token
+
+
+# Token Validation Cache (TTL: 10 minutes)
+_token_cache: dict[str, tuple[float, "TokenInfo"]] = {}
+TOKEN_CACHE_TTL = 600  # 10 minutes
+
+
+def _get_cached_token_info(token: str) -> "TokenInfo | None":
+    """Retrieves token info from cache if not expired."""
+    if token in _token_cache:
+        expiry, info = _token_cache[token]
+        if time.time() < expiry:
+            return info
+        del _token_cache[token]
+    return None
+
+
+def _cache_token_info(token: str, info: "TokenInfo") -> None:
+    """Caches token info if valid."""
+    if info.valid:
+        _token_cache[token] = (time.time() + TOKEN_CACHE_TTL, info)
 
 
 def set_current_credentials(creds: Credentials) -> None:
@@ -133,14 +207,27 @@ def get_current_credentials() -> tuple[google.auth.credentials.Credentials, str 
     # UNLESS strict EUC enforcement is enabled.
     import os
 
-    if os.getenv("STRICT_EUC_ENFORCEMENT", "false").lower() == "true":
+    is_strict = os.getenv("STRICT_EUC_ENFORCEMENT", "false").lower() == "true"
+
+    if is_strict:
         logger.info("Strict EUC enforcement enabled: no ADC fallback for credentials")
         raise PermissionError(
-            "Authentication required: EUC not found and ADC fallback is disabled. "
-            "Please ensure you are logged in."
+            "Authentication required: End-User Credentials (EUC) not found and ADC fallback is disabled. "
+            "Please ensure you are logged in via the web UI."
         )
 
-    return google.auth.default()
+    logger.warning(
+        "⚠️ No user credentials (EUC) found in context. Falling back to Application Default Credentials (ADC). "
+        "This is expected for background tasks but may indicate an auth failure in interactive sessions."
+    )
+    try:
+        return google.auth.default()
+    except Exception as e:
+        logger.error(f"Failed to load Application Default Credentials: {e}")
+        raise PermissionError(
+            f"Authentication failed: No user credentials found and ADC fallback failed: {e}. "
+            "If you are running locally, please run 'gcloud auth application-default login'."
+        ) from e
 
 
 def get_current_credentials_or_none() -> Credentials | None:
@@ -189,9 +276,11 @@ def get_current_project_id() -> str | None:
         return None
 
     try:
+        logger.debug("Falling back to ADC for project ID discovery")
         _, project_id = google.auth.default()
         return project_id
-    except Exception:
+    except Exception as e:
+        logger.debug(f"ADC project discovery failed: {e}")
         pass
 
     return None
@@ -402,22 +491,108 @@ class TokenInfo:
     error: str | None = None
 
 
+class ContextAwareCredentials(google.auth.credentials.Credentials):
+    """Credentials that dynamically delegate to the current execution context.
+
+    This class bridges the gap between long-lived service clients (like gRPC)
+    and per-request user identity. It satisfies the google-auth interface
+    while pulling the actual token from ContextVars at the moment of the request.
+    """
+
+    def __init__(self) -> None:
+        """Initialize context-aware credentials."""
+        self._token: str | None = None
+        super().__init__()  # type: ignore[no-untyped-call]
+
+    @property
+    def token(self) -> str | None:
+        """Dynamically retrieve the token from the current context."""
+        creds = _credentials_context.get()
+        if creds:
+            t = getattr(creds, "token", None)
+            # logger.debug(f"🔑 ContextAwareCredentials: Found token in ContextVar")
+            return cast(str, t)
+
+        if self._token:
+            # logger.debug(f"🔑 ContextAwareCredentials: Using fallback token")
+            return self._token
+
+        return None
+
+    @token.setter
+    def token(self, value: str | None) -> None:
+        """Set the internal token."""
+        self._token = value
+
+    @property
+    def valid(self) -> bool:
+        """Check if the current context has valid credentials."""
+        creds = _credentials_context.get()
+        if creds:
+            return cast(bool, creds.valid)
+        return False
+
+    def apply(self, headers: dict[str, str], token: str | None = None) -> None:
+        """Apply credentials to the request headers."""
+        creds = _credentials_context.get()
+        if creds:
+            creds.apply(headers, token=token)  # type: ignore[no-untyped-call]
+        else:
+            # Fallback: do nothing or use default logic if no user identity
+            if self.token:
+                headers["authorization"] = f"Bearer {self.token}"
+
+    def before_request(
+        self, request: Any, method: str, url: str, headers: dict[str, str]
+    ) -> None:
+        """Called before a request is made to inject credentials."""
+        creds = _credentials_context.get()
+        if creds:
+            creds.before_request(request, method, url, headers)  # type: ignore[no-untyped-call]
+        else:
+            # If no user context, we don't inject anything here.
+            # This allows the client to fall back to its internal behavior
+            # or default auth if configured elsewhere.
+            self.apply(headers)
+
+    def refresh(self, request: Any) -> None:
+        """Delegates refresh to the current credentials."""
+        creds = _credentials_context.get()
+        if creds:
+            try:
+                # Only call refresh if the credentials support it (have a refresh token)
+                if hasattr(creds, "refresh_token") and creds.refresh_token:
+                    logger.debug(
+                        "🔑 ContextAwareCredentials: Refreshing credentials..."
+                    )
+                    creds.refresh(request)
+                else:
+                    logger.debug(
+                        "🔑 ContextAwareCredentials: Creds in context not refreshable (no refresh token)"
+                    )
+            except Exception as e:
+                logger.warning(f"🔑 ContextAwareCredentials: Refresh failed: {e}")
+        else:
+            logger.debug(
+                "🔑 ContextAwareCredentials: No credentials in context to refresh"
+            )
+
+
+# Singleton instance of context-aware credentials for global use
+# Inject this into clients that need to pick up request identity dynamically.
+GLOBAL_CONTEXT_CREDENTIALS = ContextAwareCredentials()
+
+
 async def validate_access_token(access_token: str) -> TokenInfo:
     """Validate an OAuth 2.0 access token with Google's tokeninfo endpoint.
 
-    This function makes an HTTP request to Google's tokeninfo endpoint to verify
-    that the token is valid and retrieve associated metadata.
-
-    Args:
-        access_token: The OAuth 2.0 access token to validate.
-
-    Returns:
-        TokenInfo with validation results.
-
-    Note:
-        This adds latency (~50-100ms) to each request. Consider caching results
-        or only validating on session creation.
+    This function is cached to prevent high-latency network calls on every request.
     """
+    # 1. Check cache first
+    cached = _get_cached_token_info(access_token)
+    if cached:
+        return cached
+
     import httpx
 
     try:
@@ -429,7 +604,7 @@ async def validate_access_token(access_token: str) -> TokenInfo:
 
             if response.status_code == 200:
                 data = response.json()
-                return TokenInfo(
+                info = TokenInfo(
                     valid=True,
                     email=data.get("email"),
                     expires_in=int(data.get("expires_in", 0)),
@@ -438,6 +613,8 @@ async def validate_access_token(access_token: str) -> TokenInfo:
                     else [],
                     audience=data.get("aud"),
                 )
+                _cache_token_info(access_token, info)
+                return info
             elif response.status_code == 400:
                 # Token is invalid or expired
                 error_data = response.json()
@@ -456,6 +633,45 @@ async def validate_access_token(access_token: str) -> TokenInfo:
         return TokenInfo(valid=False, error="Token validation timed out")
     except Exception as e:
         logger.error(f"Token validation error: {e}")
+        return TokenInfo(valid=False, error=str(e))
+
+
+async def validate_id_token(id_token_str: str) -> TokenInfo:
+    """Validates an OIDC ID Token locally using Google's public keys.
+
+    This is much faster than validate_access_token as it doesn't always
+    require a network call (public keys are cached by the library).
+    """
+    # Check cache first
+    cached = _get_cached_token_info(id_token_str)
+    if cached:
+        return cached
+
+    from google.auth.transport import requests
+
+    try:
+        # Request object is used for fetching/caching Google's public keys
+        request = requests.Request()
+
+        # Local signature verification and claim extraction
+        # SECURITY: Specifying audience (GOOGLE_CLIENT_ID) prevents ID token substitution attacks
+        client_id = os.environ.get("GOOGLE_CLIENT_ID")
+        idinfo = id_token.verify_oauth2_token(id_token_str, request, audience=client_id)  # type: ignore[no-untyped-call]
+
+        info = TokenInfo(
+            valid=True,
+            email=idinfo.get("email"),
+            expires_in=int(idinfo.get("exp", 0)) - int(time.time()),
+            scopes=["openid", "email", "profile"],
+            audience=idinfo.get("aud"),
+        )
+        _cache_token_info(id_token_str, info)
+        return info
+    except ValueError as e:
+        # Invalid token
+        return TokenInfo(valid=False, error=str(e))
+    except Exception as e:
+        logger.error(f"ID Token validation error: {e}")
         return TokenInfo(valid=False, error=str(e))
 
 

@@ -390,21 +390,33 @@ def _configure_logging_handlers(level: int, project_id: str | None) -> None:
         logging.getLogger().setLevel(level)
 
     else:
-        # Modern text format
-        logging.basicConfig(
-            level=level,
-            format="%(asctime)s [%(levelname)s] %(name)s [trace_id=%(otelTraceID)s span_id=%(otelSpanID)s]: %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S",
-            force=True,
+        # Modern text format with safe field handling
+        class SafeOtelFormatter(logging.Formatter):
+            """Formatter that safely handles missing OTel fields."""
+
+            def format(self, record: logging.LogRecord) -> str:
+                # Ensure fields exist even if instrumentor failed
+                if not hasattr(record, "otelTraceID"):
+                    record.otelTraceID = "0"
+                if not hasattr(record, "otelSpanID"):
+                    record.otelSpanID = "0"
+                return super().format(record)
+
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setFormatter(
+            SafeOtelFormatter(
+                "%(asctime)s [%(levelname)s] %(name)s [trace_id=%(otelTraceID)s span_id=%(otelSpanID)s]: %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S",
+            )
         )
-        # Add emoji filter to all project loggers and uvicorn
-        emoji_filter = EmojiLoggingFilter()
+        handler.addFilter(EmojiLoggingFilter())
 
-        # Add to root logger handlers
-        for h in logging.getLogger().handlers:
-            h.addFilter(emoji_filter)
+        # Reset root logger handlers
+        root_logger = logging.getLogger()
+        root_logger.handlers = [handler]
+        root_logger.setLevel(level)
 
-        # Add to specific loggers that might have their own handlers (like uvicorn)
+        # Add emoji filter to specific loggers that might have their own handlers (like uvicorn)
         for logger_name in [
             "uvicorn",
             "uvicorn.access",
@@ -413,18 +425,13 @@ def _configure_logging_handlers(level: int, project_id: str | None) -> None:
             "google.adk",
         ]:
             logger_obj = logging.getLogger(logger_name)
-            logger_obj.addFilter(emoji_filter)
-            for h in logger_obj.handlers:
-                h.addFilter(emoji_filter)
+            logger_obj.addFilter(EmojiLoggingFilter())
 
         # Suppress OTLP export errors if they are too noisy and failing
-        # These are often due to quota or project ID mismatches in local dev
         if os.environ.get("SUPPRESS_OTEL_ERRORS", "true").lower() == "true":
             logging.getLogger(
                 "opentelemetry.exporter.otlp.proto.grpc.exporter"
             ).setLevel(logging.CRITICAL)
-
-        logging.getLogger().setLevel(level)
 
 
 def set_span_attribute(key: str, value: Any) -> None:

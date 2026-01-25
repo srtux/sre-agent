@@ -3319,6 +3319,7 @@ version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiosqlite" },
+    { name = "cryptography" },
     { name = "drain3" },
     { name = "fastapi" },
     { name = "google-adk" },
@@ -3376,6 +3377,7 @@ dev = [
 requires-dist = [
     { name = "aiosqlite", specifier = ">=0.19.0" },
     { name = "arize-otel", marker = "extra == 'arize'" },
+    { name = "cryptography", specifier = ">=46.0.3" },
     { name = "drain3", specifier = ">=0.9.11" },
     { name = "fastapi", specifier = ">=0.111.0" },
     { name = "google-adk", specifier = ">=1.23.0" },

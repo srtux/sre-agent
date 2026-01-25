@@ -134,7 +134,7 @@ class AuthService extends ChangeNotifier {
   }
 
   /// Call backend login endpoint to establish session cookie
-  Future<void> _loginToBackend(String accessToken) async {
+  Future<void> _loginToBackend(String accessToken, String? idToken) async {
     try {
       debugPrint('AuthService: Logging in to backend...');
       final client = http.Client();
@@ -151,6 +151,7 @@ class AuthService extends ChangeNotifier {
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'access_token': accessToken,
+          'id_token': idToken,
           'project_id': ProjectService.instance.selectedProjectId,
         }),
       );
@@ -174,9 +175,13 @@ class AuthService extends ChangeNotifier {
     if (_accessToken != null && _accessTokenExpiry != null) {
       if (DateTime.now().isBefore(_accessTokenExpiry!.subtract(const Duration(minutes: 5)))) {
         debugPrint('AuthService: Using cached access token (expires at $_accessTokenExpiry)');
-        return {
+        final headers = {
           'Authorization': 'Bearer $_accessToken',
         };
+        if (_idToken != null) {
+          headers['X-ID-Token'] = _idToken!;
+        }
+        return headers;
       }
     }
 
@@ -198,11 +203,15 @@ class AuthService extends ChangeNotifier {
       _accessTokenExpiry = DateTime.now().add(const Duration(minutes: 55));
 
       // Asynchronously let the backend know about the new token to update session state
-      await _loginToBackend(_accessToken!);
+      await _loginToBackend(_accessToken!, _idToken);
 
-      return {
+      final headers = {
         'Authorization': 'Bearer $_accessToken',
       };
+      if (_idToken != null) {
+        headers['X-ID-Token'] = _idToken!;
+      }
+      return headers;
     } catch (e) {
       debugPrint('AuthService: Error getting auth headers: $e');
       return {};

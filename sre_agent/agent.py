@@ -56,7 +56,15 @@ from google.adk.agents import LlmAgent
 from google.adk.tools import AgentTool  # type: ignore[attr-defined]
 from google.adk.tools.base_toolset import BaseToolset
 
-from .auth import get_current_project_id
+from .auth import (
+    GLOBAL_CONTEXT_CREDENTIALS,
+    get_credentials_from_session,
+    get_current_project_id,
+    get_project_id_from_session,
+    set_current_credentials,
+    set_current_project_id,
+    set_current_user_id,
+)
 from .memory.factory import get_memory_manager
 from .model_config import get_model_name
 from .prompt import SRE_AGENT_PROMPT
@@ -271,7 +279,33 @@ def emojify_agent(agent: LlmAgent) -> LlmAgent:
 
         from .tools.common import using_arize_session
 
-        # 2. Run Original with Arize session context
+        # 1a. Safety: Ensure model is context-aware for THIS request
+        _inject_global_credentials(agent)
+
+        # 2. Propagation: Ensure user credentials from session are in ContextVar
+        # This protects both tool calls and LLM calls (via GLOBAL_CONTEXT_CREDENTIALS).
+        session_state = None
+        if hasattr(context, "session") and context.session:
+            session_state = getattr(context.session, "state", None)
+            if session_state is None and isinstance(context.session, dict):
+                session_state = context.session.get("state")
+
+        if session_state:
+            user_creds = get_credentials_from_session(session_state)
+            if user_creds:
+                set_current_credentials(user_creds)
+                logger.debug("Emojify: Propagated user credentials from session")
+
+            sess_project_id = get_project_id_from_session(session_state)
+            if sess_project_id:
+                set_current_project_id(sess_project_id)
+                logger.debug(f"Emojify: Propagated project ID: {sess_project_id}")
+
+            user_email = session_state.get("user_email")
+            if user_email:
+                set_current_user_id(user_email)
+
+        # 3. Run Original with Arize session context
         full_response_parts = []
         try:
             with using_arize_session(session_id=session_id, user_id=user_id):
@@ -918,6 +952,88 @@ log_analyst = emojify_agent(log_analyst)
 metrics_analyzer = emojify_agent(metrics_analyzer)
 alert_analyst = emojify_agent(alert_analyst)
 root_cause_analyst = emojify_agent(root_cause_analyst)
+
+
+# ============================================================================
+# Global Credential Injection
+# ============================================================================
+
+
+def _inject_global_credentials(agent_to_patch: Any) -> None:
+    """Inject GLOBAL_CONTEXT_CREDENTIALS into an agent's model.
+
+    This ensures that the underlying LLM client uses context-aware credentials
+    that dynamically pick up the user's token from the request context.
+    """
+    try:
+        if not hasattr(agent_to_patch, "model"):
+            return
+
+        if isinstance(agent_to_patch.model, str):
+            from google.adk.models import LLMRegistry
+
+            logger.debug(
+                f"Forcing instantiation of model {agent_to_patch.model} for {getattr(agent_to_patch, 'name', 'unknown')}"
+            )
+            # Ensure environment is ready for google-genai discovery
+            curr_project = get_current_project_id() or project_id
+            curr_location = location or "us-central1"
+            if curr_project:
+                os.environ["GOOGLE_CLOUD_PROJECT"] = curr_project
+            if curr_location:
+                os.environ["GOOGLE_CLOUD_LOCATION"] = curr_location
+
+            # Use Vertex AI by default for these models
+            os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "true"
+
+            try:
+                agent_to_patch.model = LLMRegistry.new_llm(agent_to_patch.model)
+            except Exception as e:
+                logger.warning(
+                    f"LLMRegistry.new_llm failed: {e}. Trying direct Gemini instantiation."
+                )
+                from google.adk.models import Gemini
+
+                agent_to_patch.model = Gemini(
+                    model=agent_to_patch.model,
+                    vertexai=True,
+                    project=curr_project,
+                    location=curr_location,
+                )  # type: ignore[call-arg]
+
+        m = agent_to_patch.model
+        # Check for google-genai client structure (used by ADK's GoogleLLM/Gemini)
+        if hasattr(m, "api_client"):
+            # Older google-genai versions
+            if hasattr(m.api_client, "config"):
+                m.api_client.config.credentials = GLOBAL_CONTEXT_CREDENTIALS
+
+            # Newer google-genai versions (like 1.59.0+)
+            if hasattr(m.api_client, "_api_client"):
+                m.api_client._api_client._credentials = GLOBAL_CONTEXT_CREDENTIALS
+
+            logger.debug(
+                f"✅ Injected global context credentials into {getattr(agent_to_patch, 'name', 'unknown')} model ({type(m).__name__})"
+            )
+        else:
+            logger.debug(
+                f"⚠️ Model for {getattr(agent_to_patch, 'name', 'unknown')} has no api_client to patch (type={type(m).__name__})"
+            )
+    except Exception as e:
+        logger.warning(f"Failed to inject credentials into agent: {e}")
+
+
+# Apply injection to main agent and all sub-agents
+_inject_global_credentials(sre_agent)
+for _sa in [
+    aggregate_analyzer,
+    trace_analyst,
+    log_analyst,
+    metrics_analyzer,
+    alert_analyst,
+    root_cause_analyst,
+]:
+    _inject_global_credentials(_sa)
 
 
 # ============================================================================

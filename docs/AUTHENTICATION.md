@@ -24,28 +24,33 @@ sequenceDiagram
 
     U->>F: Opens App
     F->>F: Check Local Token Cache
-    alt Token Missing or Expired
+    alt Tokens Missing or Expired
         F->>G: Silent / Interactive Sign-In
-        G-->>F: Return Access Token
-        F->>F: Cache Token (local state)
+        G-->>F: Return AccessToken & idToken (OIDC)
+        F->>F: Cache Tokens (local state)
     end
 
-    F->>B: POST /api/auth/login (AccessToken)
-    Note over B: Validate with Google
-    B->>G: GET /tokeninfo
-    G-->>B: Valid (email, scopes)
+    F->>B: POST /api/auth/login (AccessToken, idToken)
+    Note over B: Optimized Identity Check
+    B->>B: Local idToken Verification (Claims)
     B->>B: Create/Retrieve Session
-    B->>B: Store AccessToken in Session State
+    B->>B: Encrypt AccessToken (AES-256)
+    B->>B: Store Encrypted Token in Session State
     B-->>F: Set-Cookie: sre_session_id
 
     F->>B: API Request (GET /api/tools/...)
-    Note right of F: Injects sre_session_id cookie + X-User-ID header
+    Note right of F: Injects sre_session_id cookie + X-ID-Token header
     B->>B: auth_middleware
-    B->>B: Extract Cookie + User Hint
-    B->>B: Retrieve Session & Cached Token
-    B->>G: Re-validate Token (Background)
+    B->>B: Local idToken Verification (Identity)
+    B->>B: Extract Cookie & Retrieve Session
+    B->>B: Decrypt Cached AccessToken
+    B->>B: Check Validation Cache (TTL 10m)
+    alt Cache Miss
+        B->>G: Background Validate with Google
+        B->>B: Update Validation Cache
+    end
     B->>B: Set context_vars (Credentials)
-    B->>G: Forward to GCP (using User Token)
+    B->>G: Forward to GCP (using User AccessToken)
     G-->>B: Data
     B-->>F: JSON Response
 ```
@@ -58,7 +63,8 @@ sequenceDiagram
 Backend sessions are managed using the ADK `SessionService`.
 - **Local Dev**: Uses `DatabaseSessionService` (SQLite) to persist sessions.
 - **Agent Engine**: Uses `VertexAiSessionService` for cloud-native persistence.
-- **Session State**: Stores the user's `access_token`, `user_email`, and `project_id`.
+- **Session State**: Stores the **encrypted** user's `access_token`, `user_email`, and `project_id`.
+- **Encryption**: Tokens are encrypted at rest using AES-256 (Fernet).
 
 ### 2. API Endpoints (`sre_agent/api/routers/system.py`)
 - `POST /api/auth/login`:
@@ -69,9 +75,11 @@ Backend sessions are managed using the ADK `SessionService`.
 
 ### 3. Middleware Security (`sre_agent/api/middleware.py`)
 The `auth_middleware` acts as the primary gatekeeper:
-- **Header Auth**: Supports standard `Authorization: Bearer <token>` for programmatic access.
+- **Header Auth**: Supports standard `Authorization: Bearer <token>` + `X-ID-Token`.
+- **Identity (OIDC)**: Uses the `id_token` for fast, local identity verification (signature checking) without network latency.
 - **Cookie Auth**: Supports `sre_session_id` for browser sessions.
-- **Validation**: Every request using a session cookie triggers a background validation of the cached Google token. If the token is expired, the request is permitted but treated as unauthenticated, forcing the frontend to perform a refresh.
+- **Token Decryption**: Decrypts the session's `access_token` on-the-fly for request injection.
+- **Validation Caching**: Implements a 10-minute TTL cache for Google token validation results to eliminate repeated API overhead.
 - **Identity Propagation**: Sets `Credentials` and `current_user_id` ContextVars, which tools use to perform authorized actions.
 
 ---
@@ -101,8 +109,10 @@ To maintain compatibility between Flutter Web (production) and VM (unit tests):
 ## Security Considerations
 
 - **Secure Cookies**: Cookies are configured with `httponly=True` (preventing JS access) and `samesite='lax'` (protecting against CSRF while allowing seamless navigation).
-- **Background Validation**: Unlike simple JWTs, our session tokens are re-validated with Google on the backend to ensure immediate revocation if the user's Google account is disabled or the token is revoked.
-- **Scope Enforcement**: The system strictly enforces the `https://www.googleapis.com/auth/cloud-platform` scope; sessions created with insufficient scopes will be rejected during validation.
+- **Encryption at Rest**: All access tokens stored in the session database are encrypted with AES-256. The `SRE_AGENT_ENCRYPTION_KEY` environment variable must be set in production.
+- **Local OIDC Validation**: Using `id_token` for local verification ensures identity is proven by Google's cryptography without relying on shared secrets or repeated network lookups.
+- **Background Validation**: Access tokens are periodically re-validated with Google (using a 10-minute cache) to ensure they haven't been revoked.
+- **Scope Enforcement**: The system strictly enforces the `https://www.googleapis.com/auth/cloud-platform` scope; sessions created with insufficient scopes will be rejected.
 
 ---
 

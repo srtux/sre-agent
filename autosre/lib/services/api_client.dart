@@ -28,6 +28,9 @@ class ProjectInterceptorClient extends http.BaseClient {
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     // 1. Fetch fresh auth headers from AuthService
+    // We ALWAYS want to send the Authorization header if we have a token,
+    // even for project list / health check endpoints, to ensure the backend
+    // can identify the user and skip ADC fallback.
     final authHeaders = await AuthService.instance.getAuthHeaders();
     request.headers.addAll(authHeaders);
 
@@ -36,29 +39,20 @@ class ProjectInterceptorClient extends http.BaseClient {
        debugPrint('ProjectInterceptorClient: Injected Auth header (prefix: ${token.substring(0, min(token.length, 15))}...)');
     }
 
+    // 2. Add User ID hint for better backend session lookup
+    final userEmail = AuthService.instance.currentUser?.email;
+    if (userEmail != null) {
+      request.headers['X-User-ID'] = userEmail;
+    }
+
     final projectId = _projectService.selectedProjectId;
     if (kDebugMode) {
       debugPrint('ProjectInterceptorClient: Request to ${request.url.path}, ProjectID: $projectId');
     }
 
-    if (projectId == null || projectId.isEmpty) {
-      // Don't intercept health checks or project list requests
-      if (request.url.path.contains('/health') ||
-          request.url.path.contains('/api/config') ||
-          request.url.path.contains('/agent') ||
-          request.url.path.contains('/api/tools/projects/list')) {
-        return _inner.send(request);
-      }
-      throw ProjectNotSelectedException();
-    }
-
-    // 2. Add as Header
-    request.headers['X-GCP-Project-ID'] = projectId;
-
-    // 3. Add User ID hint for better backend session lookup
-    final userEmail = AuthService.instance.currentUser?.email;
-    if (userEmail != null) {
-      request.headers['X-User-ID'] = userEmail;
+    // 3. Add as Header
+    if (projectId != null && projectId.isNotEmpty) {
+      request.headers['X-GCP-Project-ID'] = projectId;
     }
 
     return _inner.send(request);

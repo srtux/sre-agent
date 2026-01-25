@@ -4,7 +4,11 @@ import pytest
 from fastapi.testclient import TestClient
 
 from sre_agent.api import create_app
-from sre_agent.auth import SESSION_STATE_ACCESS_TOKEN_KEY, SESSION_STATE_PROJECT_ID_KEY
+from sre_agent.auth import (
+    SESSION_STATE_ACCESS_TOKEN_KEY,
+    SESSION_STATE_PROJECT_ID_KEY,
+    decrypt_token,
+)
 
 app = create_app()
 
@@ -62,9 +66,10 @@ async def test_login_endpoint(client, mock_session_manager):
 
     # Verify session was created with correct state
     mock_session_manager.create_session.assert_called_once()
-    args, kwargs = mock_session_manager.create_session.call_args
+    _args, kwargs = mock_session_manager.create_session.call_args
     assert kwargs["user_id"] == "test@example.com"
-    assert kwargs["initial_state"][SESSION_STATE_ACCESS_TOKEN_KEY] == "valid-token"
+    stored_token = kwargs["initial_state"][SESSION_STATE_ACCESS_TOKEN_KEY]
+    assert decrypt_token(stored_token) == "valid-token"
     assert kwargs["initial_state"]["user_email"] == "test@example.com"
     assert kwargs["initial_state"][SESSION_STATE_PROJECT_ID_KEY] == "test-project"
 
@@ -76,8 +81,10 @@ async def test_auth_middleware_with_cookie_and_header(
     # Setup mock session
     mock_session = MagicMock()
     mock_session.id = "test-session-id"
+    from sre_agent.auth import encrypt_token
+
     mock_session.state = {
-        SESSION_STATE_ACCESS_TOKEN_KEY: "cached-token",
+        SESSION_STATE_ACCESS_TOKEN_KEY: encrypt_token("cached-token"),
         "user_email": "test@example.com",
     }
     # Mock lookup with specific user_id
@@ -119,8 +126,10 @@ async def test_auth_middleware_with_expired_token(
     # Setup mock session with an expired token
     mock_session = MagicMock()
     mock_session.id = "test-session-id"
+    from sre_agent.auth import encrypt_token
+
     mock_session.state = {
-        SESSION_STATE_ACCESS_TOKEN_KEY: "expired-token",
+        SESSION_STATE_ACCESS_TOKEN_KEY: encrypt_token("expired-token"),
         "user_email": "test@example.com",
     }
     mock_session_manager_middleware.get_session = AsyncMock(return_value=mock_session)

@@ -26,6 +26,7 @@ async def auth_middleware(request: Request, call_next: Any) -> Any:
 
     from sre_agent.auth import (
         clear_current_credentials,
+        decrypt_token,
         set_current_credentials,
         set_current_project_id,
     )
@@ -48,11 +49,20 @@ async def auth_middleware(request: Request, call_next: Any) -> Any:
             logger.debug("Auth Middleware: Credentials set in ContextVar from Header")
 
             try:
-                # Validate token to extract user identity (email)
-                # TODO: Implement caching to avoid latency on every request
-                from sre_agent.auth import set_current_user_id, validate_access_token
+                # Optimized Identity Check: Use id_token if provided in header
+                from sre_agent.auth import (
+                    set_current_user_id,
+                    validate_access_token,
+                    validate_id_token,
+                )
 
-                token_info = await validate_access_token(token)
+                id_token_header = request.headers.get("X-ID-Token")
+                if id_token_header:
+                    token_info = await validate_id_token(id_token_header)
+                else:
+                    # Fallback to access_token validation (now cached)
+                    token_info = await validate_access_token(token)
+
                 if token_info.valid and token_info.email:
                     set_current_user_id(token_info.email)
                     logger.debug(
@@ -60,7 +70,7 @@ async def auth_middleware(request: Request, call_next: Any) -> Any:
                     )
                 else:
                     logger.warning(
-                        f"Auth Middleware: Token validation failed: {token_info.error}"
+                        f"Auth Middleware: Identity check failed: {token_info.error}"
                     )
             except Exception as e:
                 logger.warning(f"Auth Middleware: Identity check failed: {e}")
@@ -98,9 +108,12 @@ async def auth_middleware(request: Request, call_next: Any) -> Any:
                     )
 
                 if session:
-                    session_token = session.state.get(SESSION_STATE_ACCESS_TOKEN_KEY)
-                    if session_token:
-                        # CRITICAL IMPROVEMENT: Validate cached token
+                    encrypted_token = session.state.get(SESSION_STATE_ACCESS_TOKEN_KEY)
+                    if encrypted_token:
+                        # Decrypt token for use
+                        session_token = decrypt_token(encrypted_token)
+
+                        # CRITICAL IMPROVEMENT: Validate cached token (now with local TTL cache)
                         from sre_agent.auth import validate_access_token
 
                         token_info = await validate_access_token(session_token)
@@ -122,7 +135,7 @@ async def auth_middleware(request: Request, call_next: Any) -> Any:
                                 )
                         else:
                             logger.warning(
-                                f"Auth Middleware: Cached session token is invalid: {token_info.error}"
+                                f"Auth Middleware: Cached session token is invalid or expired: {token_info.error}"
                             )
                             # Optional: Clear credentials or take action
 

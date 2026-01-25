@@ -366,6 +366,13 @@ GOOGLE_CLIENT_ID=your-oauth-client-id.apps.googleusercontent.com
 STRICT_EUC_ENFORCEMENT=false
 
 # ============================================================
+# Security
+# ============================================================
+# AES-256 key for encrypting access tokens at rest.
+# Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+SRE_AGENT_ENCRYPTION_KEY=your-secure-encryption-key
+
+# ============================================================
 # Optional: Override trace project if different
 # ============================================================
 TRACE_PROJECT_ID=your-trace-project
