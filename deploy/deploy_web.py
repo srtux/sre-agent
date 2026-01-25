@@ -28,6 +28,11 @@ def main():
     parser.add_argument(
         "--image", help="Pre-built Docker image to deploy (skips build)"
     )
+    parser.add_argument(
+        "--authenticated",
+        action="store_true",
+        help="Require authentication for Cloud Run (disables --allow-unauthenticated)",
+    )
     args, unknown = parser.parse_known_args()
 
     load_dotenv()
@@ -115,7 +120,6 @@ def main():
             [
                 "--region",
                 args.region,
-                "--allow-unauthenticated",
                 "--memory=1Gi",
                 "--timeout=300",
                 f"--set-env-vars={','.join(env_vars)}",
@@ -124,6 +128,11 @@ def main():
                 f"--project={project_id}",
             ]
         )
+
+        if args.authenticated:
+            cmd.append("--no-allow-unauthenticated")
+        else:
+            cmd.append("--allow-unauthenticated")
 
         # Append any unknown arguments (e.g. --cpu, --memory)
         cmd.extend(unknown)

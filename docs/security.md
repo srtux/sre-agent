@@ -53,3 +53,16 @@ Once the secret exists, the deployment script automatically includes it:
 Auto SRE uses **End-User Credentials** flow. This means it never stores your password. It only uses short-lived OAuth access tokens granted during the Google Sign-In process on the frontend.
 
 - **Strict EUC Enforcement**: When `STRICT_EUC_ENFORCEMENT=true`, the agent will explicitly fail if no user token is present, preventing any fallback to the Service Account's credentials. This is the recommended setting for production to ensure per-user data isolation.
+
+## Protected Access
+
+If your organization restricts unauthenticated access to Cloud Run (preventing the use of `--allow-unauthenticated`), you can deploy the agent in **Authenticated Mode**:
+
+```bash
+uv run python deploy/deploy_web.py --authenticated
+```
+
+When deployed with `--authenticated`:
+1.  The service will be created with `--no-allow-unauthenticated`.
+2.  You will need to grant users the `roles/run.invoker` role to access the URL.
+3.  Access via the browser will require a Google-signed request (typically handled by a Load Balancer or IAP).

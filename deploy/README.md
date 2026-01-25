@@ -59,6 +59,9 @@ Deploy the entire stack with a single command:
 uv run poe deploy-all
 ```
 
+**Options:**
+- `--authenticated`: Deploys the full stack with unauthenticated access disabled in Cloud Run.
+
 **What this script does:**
 1. **Backend**: Deploys `sre_agent` to Vertex AI Agent Engine via `deploy.py --create`
 2. **Capture**: Parses the generated `ReasoningEngine` resource ID
@@ -104,6 +107,8 @@ uv run python deploy/deploy_web.py --agent_id <AGENT_ID>
 export SRE_AGENT_ID=projects/xxx/locations/xxx/reasoningEngines/xxx
 uv run python deploy/deploy_web.py
 ```
+**Options:**
+- `--authenticated`: Require authentication for Cloud Run (adds `--no-allow-unauthenticated`). Use this if your organization restricts public access.
 
 **What Gets Deployed:**
 - Flutter Web app (built and served as static files)

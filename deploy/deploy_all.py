@@ -40,6 +40,18 @@ def run_command(cmd, cwd=None, env=None, interactive=False):
 
 def main():
     """Orchestrates the deployment of the full stack."""
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Deploy SRE Mission Control full stack"
+    )
+    parser.add_argument(
+        "--authenticated",
+        action="store_true",
+        help="Require authentication for Cloud Run (no public access)",
+    )
+    args = parser.parse_args()
+
     root_dir = Path(__file__).parent.parent
 
     print("🚀 STARTING FULL STACK DEPLOYMENT")
@@ -108,6 +120,9 @@ def main():
             "--agent-id",
             resource_name,
         ]
+        if args.authenticated:
+            frontend_cmd.append("--authenticated")
+
         # Frontend deployment is primarily the heavy lifting, definitely allow interactivity.
         run_command(frontend_cmd, cwd=str(root_dir), interactive=True)
 
