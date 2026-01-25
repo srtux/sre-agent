@@ -108,5 +108,5 @@ If using a custom port, add it to `_cors_origins` in `server.py` or set `CORS_AL
 ## Automated Verification
 Run the server tests to ensure APIs are correctly defined:
 ```bash
-uv run pytest tests/sre_agent/test_server.py
+uv run pytest tests/server/test_server.py
 ```

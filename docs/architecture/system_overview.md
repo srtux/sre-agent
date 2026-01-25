@@ -18,19 +18,15 @@ The system consists of four primary layers:
 graph TD
     User([User])
 
-    subgraph "Frontend Layer (Flutter Web)"
+    subgraph "Cloud Run (Frontend & Proxy)"
         UI[Flutter UI]
         Interceptors[Auth & Project Interceptors]
-        StreamHandler[NDJSON Stream Handler]
-    end
-
-    subgraph "Backend Layer (FastAPI)"
         Proxy[FastAPI Router]
         AuthSvc[Auth & Cookie Middleware]
         StoreSvc[Preference & Session Storage]
     end
 
-    subgraph "Agent Engine (ADK)"
+    subgraph "Vertex AI (Reasoning Engine)"
         RootAgent[SRE Root Agent]
         SubAgents[Specialized Analysts]
         MemoryBank[Memory Bank]
@@ -97,9 +93,10 @@ The backend does not just return text; it emits specialized **UI Events**. These
 ---
 
 ## Key Documentation
-- [BACKEND.md](./BACKEND.md): API, Middleware, and Services deep-dive.
-- [AGENT_ENGINE.md](./AGENT_ENGINE.md): Orchestration and reasoning logic.
-- [TOOLS_GUIDE.md](./TOOLS_GUIDE.md): Catalog of analysis capabilities.
-- [FRONTEND.md](./FRONTEND.md): Flutter UI and GenUI implementation.
-- [AUTHENTICATION.md](./AUTHENTICATION.md): IAM and Session security.
-- [TECHNICAL_DECISIONS.md](./TECHNICAL_DECISIONS.md): Records of dependency constraints and implementation rationale.
+- [Project Structure](project_structure.md): Detailed directory tree and module descriptions.
+- [Backend](backend.md): API, Middleware, and Services deep-dive.
+- [Agent Orchestration](../concepts/agent_orchestration.md): Orchestration and reasoning logic.
+- [Tools Catalog](../reference/tools.md): Catalog of analysis capabilities.
+- [Frontend](frontend.md): Flutter UI and GenUI implementation.
+- [Authentication](authentication.md): IAM and Session security.
+- [Technical Decisions](decisions.md): Records of dependency constraints and implementation rationale.

@@ -54,6 +54,14 @@ Auto SRE uses **End-User Credentials** flow. This means it never stores your pas
 
 - **Strict EUC Enforcement**: When `STRICT_EUC_ENFORCEMENT=true`, the agent will explicitly fail if no user token is present, preventing any fallback to the Service Account's credentials. This is the recommended setting for production to ensure per-user data isolation.
 
+## Privacy & Data Sovereignty
+
+### 1. PII Masking
+The agent includes specialized middleware that automatically redacts PII (Emails, Credit Cards, IP addresses) from tool outputs before they are processed by the LLM. This ensures that sensitive user data never leaves your environment or is stored in the LLM's history.
+
+### 2. Regionalized Processing
+Auto SRE can be configured to run in specific GCP regions. All data processing (parsing, analysis, and session storage) stays within the configured region boundary to satisfy strict data residency requirements.
+
 ## Protected Access
 
 By default, Cloud Run is deployed in **Authenticated Mode** (`--no-allow-unauthenticated`). This means only authorized users (with `roles/run.invoker`) can access the URL.

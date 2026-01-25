@@ -9,7 +9,7 @@
 
 ## 🛡️ Coding Rules
 - **Vibe Lifecycle**: 1. Read Docs -> 2. Plan -> 3. Test First -> 4. Micro-Edit -> 5. Pass Tests -> 6. Self-Critique -> 7. Compact Info to Docs.
-- **Knowledge Compaction**: Update `.md` files after every change to keep the "Source of Truth" current for future agents.
+- **Knowledge Compaction**: Update `.md` files and `PROJECT_PLAN.md` after every change to keep the "Source of Truth" current.
 - **Self-Correction**: Run `lint-all` and `test-all` before submitting. Zero warnings policy.
 - **Read Truth**: Always `view_file` Pydantic models/logic before modifying. Never assume schemas.
 - **TDD**: Specs MUST be translated to tests before implementation.
@@ -20,6 +20,8 @@
 
 ## 📁 Documentation Standard
 - **Universal Entry Point**: [AGENTS.md](./AGENTS.md)
-- **Testing Strategy**: [TESTING.md](./TESTING.md)
-- **Linting Policy**: [LINTING.md](./LINTING.md)
+- **Project Roadmap**: [docs/PROJECT_PLAN.md](./docs/PROJECT_PLAN.md)
+- **Development Rules**: [docs/guides/development.md](./docs/guides/development.md)
+- **Testing Strategy**: [docs/guides/testing.md](./docs/guides/testing.md)
+- **Linting Policy**: [docs/guides/linting.md](./docs/guides/linting.md)
 - **Claude-Specific**: [CLAUDE.md](./CLAUDE.md)

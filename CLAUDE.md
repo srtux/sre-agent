@@ -9,16 +9,18 @@
 
 **ALWAYS start by reading the Universal Standard first:**
 1. **llm.txt** - Universal High-density rule summary (Context efficient)
-2. **AGENTS.md** - Universal AI Agent Standard (Comprehensive)
-3. **CLAUDE.md** (this file) - Claude-specific implementation guide
-4. **README.md** - High-level project architecture
+2. **AGENTS.md** - Universal AI Agent Standard (Index)
+3. **docs/PROJECT_PLAN.md** - Living roadmap of completed work and future tasks.
+4. **docs/guides/development.md** - Detailed Development & Vibe Coding Guide
+5. **CLAUDE.md** (this file) - Claude-specific implementation guide
+6. **README.md** - High-level project architecture
 
 **The Vibe Coding Cycle**:
-1. **Read Docs** -> 2. **Plan** -> 3. **Test First** -> 4. **Micro-Edit** -> 5. **Verify** -> 6. **Self-Critique** -> 7. **Knowledge Compaction** (Update docs).
+1. **Read Docs** -> 2. **Plan** -> 3. **Test First** -> 4. **Micro-Edit** -> 5. **Verify** -> 6. **Self-Critique** -> 7. **Knowledge Compaction** (Update docs & `PROJECT_PLAN.md`).
 
 **The Loop**: If any checks fail, fix and repeat. Never present failing code.
 
-**Testing Guide**: [TESTING.md](./TESTING.md)
+**Testing Guide**: [docs/guides/testing.md](./docs/guides/testing.md)
 
 ---
 

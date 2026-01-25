@@ -19,14 +19,15 @@ The following diagram illustrates the interaction between the Flutter Frontend, 
 sequenceDiagram
     participant U as User
     participant F as Flutter Frontend
-    participant B as FastAPI Backend
-    participant G as Google Identity/GCP
+    participant B as Cloud Run Proxy (FastAPI)
+    participant G as Google APIs / Vertex AI
+    participant I as Google Identity (OIDC)
 
     U->>F: Opens App
     F->>F: Check Local Token Cache
     alt Tokens Missing or Expired
-        F->>G: Silent / Interactive Sign-In
-        G-->>F: Return AccessToken & idToken (OIDC)
+        F->>I: Silent / Interactive Sign-In
+        I-->>F: Return AccessToken & idToken (OIDC)
         F->>F: Cache Tokens (local state)
     end
 
@@ -38,7 +39,7 @@ sequenceDiagram
     B->>B: Store Encrypted Token in Session State
     B-->>F: Set-Cookie: sre_session_id
 
-    F->>B: API Request (GET /api/tools/...)
+    F->>B: API Request (GET /api/agent/...)
     Note right of F: Injects sre_session_id cookie + X-ID-Token header
     B->>B: auth_middleware
     B->>B: Local idToken Verification (Identity)
@@ -46,13 +47,13 @@ sequenceDiagram
     B->>B: Decrypt Cached AccessToken
     B->>B: Check Validation Cache (TTL 10m)
     alt Cache Miss
-        B->>G: Background Validate with Google
+        B->>I: Background Validate with Google
         B->>B: Update Validation Cache
     end
     B->>B: Set context_vars (Credentials)
-    B->>G: Forward to GCP (using User AccessToken)
-    G-->>B: Data
-    B-->>F: JSON Response
+    B->>G: Forward Query (using User AccessToken)
+    G-->>B: Data Stream
+    B-->>F: NDJSON Response Stream
 ```
 
 ---

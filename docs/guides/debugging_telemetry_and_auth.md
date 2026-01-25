@@ -4,13 +4,13 @@ This document explains the root causes of telemetry and authentication issues wh
 
 ## Table of Contents
 
-1. [System Architecture Overview](./ARCHITECTURE.md)
-2. [Backend Deep-Dive](./BACKEND.md)
-3. [Agent Engine & Reasoning](./AGENT_ENGINE.md)
-4. [Tools & Analysis Guide](./TOOLS_GUIDE.md)
-5. [Frontend (Flutter) Architecture](./FRONTEND.md)
-6. [Authentication & Session Design](./AUTHENTICATION.md)
-7. [Technical Learnings: Google SSO](./AUTH_LEARNINGS.md)
+1. [System Architecture Overview](../architecture/system_overview.md)
+2. [Backend Deep-Dive](../architecture/backend.md)
+3. [Agent Orchestration](../concepts/agent_orchestration.md)
+4. [Tools & Analysis Guide](../reference/tools.md)
+5. [Frontend (Flutter) Architecture](../architecture/frontend.md)
+6. [Authentication & Session Design](../architecture/authentication.md)
+7. [Technical Learnings: Google SSO](../concepts/auth_learnings.md)
 8. [Issue 1: Telemetry in Agent Engine](#issue-1-telemetry-in-agent-engine)
 4. [Issue 2: End User Authentication](#issue-2-end-user-authentication)
 5. [Debug Tools](#debug-tools)
