@@ -72,16 +72,26 @@ async def test_chat_agent_local(mock_agent_deps):
             event.content.parts = [{"text": "Hello"}]
             yield event
 
-        mock_agent.run_async.return_value = mock_gen()
+        # Mock Runner
+        mock_runner = MagicMock()
+        mock_runner.run_turn.return_value = mock_gen()
 
-        payload = {"messages": [{"role": "user", "text": "Hi"}], "project_id": "p1"}
+        # Patch create_runner to return our mock runner
+        with patch(
+            "sre_agent.api.routers.agent.create_runner", return_value=mock_runner
+        ):
+            # Ensure root_agent doesn't have _runner set from previous tests
+            if hasattr(mock_agent, "_runner"):
+                delattr(mock_agent, "_runner")
 
-        response = client.post("/api/genui/chat", json=payload)
-        assert response.status_code == 200
-        # Check stream content
-        lines = response.content.split(b"\n")
-        assert any(b"session" in line for line in lines)
-        assert any(b"Hello" in line for line in lines)
+            payload = {"messages": [{"role": "user", "text": "Hi"}], "project_id": "p1"}
+
+            response = client.post("/api/genui/chat", json=payload)
+            assert response.status_code == 200
+            # Check stream content
+            lines = response.content.split(b"\n")
+            assert any(b"session" in line for line in lines)
+            assert any(b"Hello" in line for line in lines)
 
 
 @pytest.mark.asyncio

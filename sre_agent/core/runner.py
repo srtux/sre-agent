@@ -278,7 +278,10 @@ class Runner:
                     for part in parts:
                         if hasattr(part, "text") and part.text:
                             parts_text.append(str(part.text))
-                        elif hasattr(part, "function_response") and part.function_response:
+                        elif (
+                            hasattr(part, "function_response")
+                            and part.function_response
+                        ):
                             resp = getattr(part.function_response, "response", None)
                             if resp is not None:
                                 parts_text.append(str(resp))
@@ -353,7 +356,7 @@ class Runner:
         Yields:
             Events from agent execution
         """
-        from google.adk.agents import InvocationContext
+        from google.adk.agents import InvocationContext, RunConfig
         from google.adk.sessions import InMemorySessionService
         from google.genai import types
 
@@ -372,6 +375,7 @@ class Runner:
             session=session,
             session_service=session_service,
             user_content=user_content,
+            run_config=RunConfig(),
         )
 
         # Run agent and intercept tool calls

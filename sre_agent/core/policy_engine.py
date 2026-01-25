@@ -706,7 +706,9 @@ class PolicyEngine:
 
         # Check project context requirement
         if policy.requires_project_context and not project_id:
-            logger.warning(f"Tool {tool_name} requires project context but none provided")
+            logger.warning(
+                f"Tool {tool_name} requires project context but none provided"
+            )
             return PolicyDecision(
                 tool_name=tool_name,
                 allowed=False,
@@ -775,7 +777,7 @@ class PolicyEngine:
 Risk Assessment for {tool_name}:
 - Category: {policy.category.value}
 - Description: {policy.description}
-- Factors: {'; '.join(risk_factors)}
+- Factors: {"; ".join(risk_factors)}
 - Recommendation: Review arguments carefully before approval
 """
         return assessment.strip()
@@ -783,7 +785,9 @@ Risk Assessment for {tool_name}:
     def get_tools_by_category(self, category: ToolCategory) -> list[str]:
         """Get all tool names in a category."""
         return [
-            name for name, policy in self.policies.items() if policy.category == category
+            name
+            for name, policy in self.policies.items()
+            if policy.category == category
         ]
 
     def get_tools_by_access_level(self, access_level: ToolAccessLevel) -> list[str]:

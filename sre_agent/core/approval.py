@@ -49,7 +49,9 @@ class HumanApprovalEvent(BaseModel):
     status: ApprovalStatus = Field(description="The approval decision")
     approver_id: str = Field(description="ID of the person who made the decision")
     decided_at: str = Field(description="ISO 8601 timestamp of decision")
-    comment: str | None = Field(default=None, description="Optional comment from approver")
+    comment: str | None = Field(
+        default=None, description="Optional comment from approver"
+    )
 
 
 @dataclass

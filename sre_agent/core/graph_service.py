@@ -305,7 +305,10 @@ class GraphService:
             # Find upstream of upstream
             upstream = graph.get_upstream(current)
             for upstream_svc in upstream:
-                if upstream_svc not in visited and upstream_svc not in directly_affected:
+                if (
+                    upstream_svc not in visited
+                    and upstream_svc not in directly_affected
+                ):
                     indirectly_affected.add(upstream_svc)
                     queue.append(upstream_svc)
 
@@ -429,7 +432,7 @@ class GraphService:
         # Try direct duration
         if "duration" in span:
             duration = span["duration"]
-            if isinstance(duration, (int, float)):
+            if isinstance(duration, int | float):
                 return float(duration)
             # Parse duration string (e.g., "1.234s")
             if isinstance(duration, str):

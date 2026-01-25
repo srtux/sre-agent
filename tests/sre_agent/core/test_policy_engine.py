@@ -1,6 +1,7 @@
 """Tests for the Policy Engine."""
 
 import pytest
+from pydantic import ValidationError
 
 from sre_agent.core.policy_engine import (
     PolicyDecision,
@@ -223,5 +224,5 @@ class TestPolicyDecision:
             access_level=ToolAccessLevel.READ_ONLY,
         )
 
-        with pytest.raises(Exception):  # Pydantic frozen model
+        with pytest.raises(ValidationError):  # Pydantic frozen model
             decision.allowed = False  # type: ignore[misc]

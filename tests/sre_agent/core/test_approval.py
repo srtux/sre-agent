@@ -1,8 +1,9 @@
 """Tests for the Human-in-the-Loop Approval System."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 import pytest
+from pydantic import ValidationError
 
 from sre_agent.core.approval import (
     ApprovalManager,
@@ -50,7 +51,7 @@ class TestHumanApprovalRequest:
             created_at=now.isoformat(),
         )
 
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             request.tool_name = "other_tool"  # type: ignore[misc]
 
 

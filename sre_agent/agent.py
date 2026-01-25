@@ -206,9 +206,9 @@ if not project_id:
     try:
         _, project_id = google.auth.default()
         if project_id:
-            print(f"🚀 Discovered project ID from credentials: {project_id}")
+            logger.info(f"🚀 Discovered project ID from credentials: {project_id}")
     except Exception as e:
-        print(f"⚠️ Could not discover project ID from credentials: {e}")
+        logger.debug(f"Could not discover project ID from credentials: {e}")
 
 location = os.environ.get("GCP_LOCATION") or os.environ.get(
     "GOOGLE_CLOUD_LOCATION", "us-central1"
@@ -223,9 +223,9 @@ if project_id:
 if use_vertex and project_id:
     try:
         vertexai.init(project=project_id, location=location)
-        print(f"✅ Initialized Vertex AI: {project_id} @ {location}")
+        logger.info(f"✅ Initialized Vertex AI: {project_id} @ {location}")
     except Exception as e:
-        print(f"⚠️ Failed to initialize Vertex AI: {e}")
+        logger.warning(f"Failed to initialize Vertex AI: {e}")
 
 
 def emojify_agent(agent: LlmAgent) -> LlmAgent:
@@ -294,12 +294,10 @@ def emojify_agent(agent: LlmAgent) -> LlmAgent:
             user_creds = get_credentials_from_session(session_state)
             if user_creds:
                 set_current_credentials(user_creds)
-                logger.debug("Emojify: Propagated user credentials from session")
 
             sess_project_id = get_project_id_from_session(session_state)
             if sess_project_id:
                 set_current_project_id(sess_project_id)
-                logger.debug(f"Emojify: Propagated project ID: {sess_project_id}")
 
             user_email = session_state.get("user_email")
             if user_email:
@@ -972,9 +970,6 @@ def _inject_global_credentials(agent_to_patch: Any) -> None:
         if isinstance(agent_to_patch.model, str):
             from google.adk.models import LLMRegistry
 
-            logger.debug(
-                f"Forcing instantiation of model {agent_to_patch.model} for {getattr(agent_to_patch, 'name', 'unknown')}"
-            )
             # Ensure environment is ready for google-genai discovery
             curr_project = get_current_project_id() or project_id
             curr_location = location or "us-central1"
@@ -1011,14 +1006,6 @@ def _inject_global_credentials(agent_to_patch: Any) -> None:
             # Newer google-genai versions (like 1.59.0+)
             if hasattr(m.api_client, "_api_client"):
                 m.api_client._api_client._credentials = GLOBAL_CONTEXT_CREDENTIALS
-
-            logger.debug(
-                f"✅ Injected global context credentials into {getattr(agent_to_patch, 'name', 'unknown')} model ({type(m).__name__})"
-            )
-        else:
-            logger.debug(
-                f"⚠️ Model for {getattr(agent_to_patch, 'name', 'unknown')} has no api_client to patch (type={type(m).__name__})"
-            )
     except Exception as e:
         logger.warning(f"Failed to inject credentials into agent: {e}")
 

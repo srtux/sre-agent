@@ -101,7 +101,7 @@ def _apply_mcp_patch() -> None:
         ClientSession.__get_pydantic_core_schema__ = classmethod(  # type: ignore
             _get_pydantic_core_schema
         )
-        print("✅ Applied Pydantic bridge for MCP ClientSession")
+        logger.debug("✅ Applied Pydantic bridge for MCP ClientSession")
     except ImportError:
         pass
 
@@ -112,12 +112,12 @@ def _enable_json_schema_feature() -> None:
         from google.adk.features import FeatureName, override_feature_enabled
 
         override_feature_enabled(FeatureName.JSON_SCHEMA_FOR_FUNC_DECL, True)
-        print(
+        logger.debug(
             "✅ Enabled JSON_SCHEMA_FOR_FUNC_DECL feature for Vertex AI compatibility"
         )
     except ImportError:
-        print(
-            "⚠️ Could not enable JSON_SCHEMA_FOR_FUNC_DECL - "
+        logger.debug(
+            "Could not enable JSON_SCHEMA_FOR_FUNC_DECL - "
             "google.adk.features not available"
         )
 

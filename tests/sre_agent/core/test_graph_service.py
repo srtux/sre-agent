@@ -1,6 +1,7 @@
 """Tests for the Graph Service."""
 
 import pytest
+from pydantic import ValidationError
 
 from sre_agent.core.graph_service import (
     BlastRadiusReport,
@@ -413,5 +414,5 @@ class TestBlastRadiusReport:
             estimated_impact="Minimal",
         )
 
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             report.source_service = "other"  # type: ignore[misc]

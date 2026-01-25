@@ -221,8 +221,8 @@ For every investigation step:
             summary_text = f"""### Session Summary (Compacted)
 {session_summary.summary_text}
 
-**Key Findings**: {', '.join(session_summary.key_findings) if session_summary.key_findings else 'None yet'}
-**Tools Used**: {', '.join(session_summary.tools_used) if session_summary.tools_used else 'None yet'}
+**Key Findings**: {", ".join(session_summary.key_findings) if session_summary.key_findings else "None yet"}
+**Tools Used**: {", ".join(session_summary.tools_used) if session_summary.tools_used else "None yet"}
 """
         else:
             summary_text = "### Session Summary\nThis is a new session."

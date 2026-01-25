@@ -103,7 +103,9 @@ class ContextCompactor:
 
         # Estimate current token usage
         raw_tokens = self._estimate_tokens(events)
-        logger.debug(f"Session {session_id}: {len(events)} events, ~{raw_tokens} tokens")
+        logger.debug(
+            f"Session {session_id}: {len(events)} events, ~{raw_tokens} tokens"
+        )
 
         # Check if compaction needed
         needs_compaction = (

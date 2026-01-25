@@ -107,9 +107,7 @@ class TestPromptComposer:
         assert "my-project-123" in text
         assert "CURRENT PROJECT" in text
 
-    def test_compose_developer_role_with_alerts(
-        self, composer: PromptComposer
-    ) -> None:
+    def test_compose_developer_role_with_alerts(self, composer: PromptComposer) -> None:
         """Test composing developer role with active alerts."""
         domain_context = DomainContext(
             active_alerts=["High CPU on frontend", "Database connection errors"]
@@ -120,9 +118,7 @@ class TestPromptComposer:
         assert "Active Alerts" in text
         assert "High CPU" in text
 
-    def test_compose_developer_role_with_phase(
-        self, composer: PromptComposer
-    ) -> None:
+    def test_compose_developer_role_with_phase(self, composer: PromptComposer) -> None:
         """Test composing developer role with investigation phase."""
         domain_context = DomainContext(investigation_phase="DEEP_DIVE")
         content = composer.compose_developer_role(domain_context)
@@ -266,7 +262,10 @@ class TestPromptComposer:
 
     def test_format_recent_events_limit(self, composer: PromptComposer) -> None:
         """Test that recent events are limited."""
-        events = [{"type": "test", "content": f"Event {i}", "timestamp": f"T{i}"} for i in range(10)]
+        events = [
+            {"type": "test", "content": f"Event {i}", "timestamp": f"T{i}"}
+            for i in range(10)
+        ]
 
         formatted = composer._format_recent_events(events, max_events=3)
 

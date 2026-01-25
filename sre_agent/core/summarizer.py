@@ -160,7 +160,9 @@ class Summarizer:
             try:
                 output = json.loads(output)
             except json.JSONDecodeError:
-                return self._truncate(f"Tool {tool_name} output: {output}", max_chars=200)
+                return self._truncate(
+                    f"Tool {tool_name} output: {output}", max_chars=200
+                )
 
         # Use tool-specific summarizer if available
         summarizer = self._tool_summarizers.get(tool_name)

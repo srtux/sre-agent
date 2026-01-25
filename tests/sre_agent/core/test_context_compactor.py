@@ -74,7 +74,7 @@ class TestContextCompactor:
         """Test getting working context with compaction triggered."""
         # Create events that exceed compaction threshold
         events = []
-        for i in range(20):
+        for _ in range(20):
             events.append(
                 {
                     "type": "tool_output",
@@ -114,21 +114,17 @@ class TestContextCompactor:
         assert context.recent_events[-1]["content"] == "Fifth message"
         assert context.recent_events[0]["content"] == "Third message"
 
-    def test_should_compact_below_threshold(
-        self, compactor: ContextCompactor
-    ) -> None:
+    def test_should_compact_below_threshold(self, compactor: ContextCompactor) -> None:
         """Test should_compact returns False below threshold."""
         events = [{"type": "user_message", "content": "Short"}]
 
         assert compactor.should_compact(events) is False
 
-    def test_should_compact_above_threshold(
-        self, compactor: ContextCompactor
-    ) -> None:
+    def test_should_compact_above_threshold(self, compactor: ContextCompactor) -> None:
         """Test should_compact returns True above threshold."""
         # Create events that exceed threshold
         events = []
-        for i in range(15):
+        for _ in range(15):
             events.append(
                 {"type": "tool_output", "content": json.dumps({"data": "x" * 500})}
             )
