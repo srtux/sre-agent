@@ -2,33 +2,72 @@
 
 This guide documents known issues and debugging techniques for the GenUI (A2UI) protocol implementation in the Auto SRE Agent.
 
+## 📋 A2UI v0.8 Protocol Compliance
+
+The Auto SRE Agent now follows the **A2UI v0.8 specification** for proper compatibility with the genui package.
+
+### Required Component Format
+
+Each component in a `surfaceUpdate` message MUST have:
+- `id`: A unique identifier string
+- `component`: An object wrapping the actual component type
+
+```json
+{
+  "surfaceUpdate": {
+    "surfaceId": "unique-surface-id",
+    "components": [
+      {
+        "id": "component-unique-id",
+        "component": {
+          "x-sre-tool-log": {
+            "tool_name": "fetch_trace",
+            "args": {"trace_id": "abc123"},
+            "status": "running"
+          }
+        }
+      }
+    ]
+  }
+}
+```
+
+### Required beginRendering Format
+
+The `beginRendering` message MUST include a `root` field pointing to the root component ID:
+
+```json
+{
+  "beginRendering": {
+    "surfaceId": "unique-surface-id",
+    "root": "component-unique-id"
+  }
+}
+```
+
 ## ⚠️ Known Issues
 
-### 1. The "Component Wrapper" Mismatch
+### 1. Component Format Mismatch (RESOLVED)
 
-**Problem**:
-The GenUI frontend library and the `autosre` implementation have a subtle but critical expectation regarding the JSON structure of tool events.
-- **Backend Tests (Historical)**: Often enforced a nested structure: `{"component": {"x-sre-tool-log": {...}}}`.
-- **Frontend (`autosre`)**: Expects a flattened structure: `{"x-sre-tool-log": {...}}`.
+**Previous Problem**:
+The backend was sending components without the required `id` and `component` wrapper fields.
 
-**Symptoms**:
-- Tool call widgets (e.g., "Thinking...", "Running tool...") do not appear in the chat stream.
-- No client-side errors in the browser console (the event is simply ignored or parsed as empty).
-- Backend logs show successful event yielding.
-
-**Resolution**:
-Ensure the backend sends the flattened structure.
+**Previous Incorrect Format**:
 ```python
-# Correct (sre_agent/api/helpers/__init__.py)
+# Old (incorrect) - Missing id and component wrapper
 "components": [
     {
         "x-sre-tool-log": { ... }
     }
 ]
+```
 
-# Incorrect (Legacy/Broken)
+**Current Correct Format (A2UI v0.8)**:
+```python
+# New (correct) - Has id and component wrapper
 "components": [
     {
+        "id": "tool-log-abc12345",
         "component": {
             "x-sre-tool-log": { ... }
         }
@@ -36,9 +75,14 @@ Ensure the backend sends the flattened structure.
 ]
 ```
 
+**Symptoms (if regression occurs)**:
+- Tool call widgets (e.g., "Thinking...", "Running tool...") do not appear in the chat stream.
+- No client-side errors in the browser console (the event is simply ignored or parsed as empty).
+- Backend logs show successful event yielding.
+
 **Prevention**:
-- Always verify `autosre/lib/catalog.dart`'s `widgetBuilder` logic if you suspect a protocol mismatch.
-- The `autosre` catalog now has defensive code to handle both, but the backend *must* default to the flattened structure for compatibility with standard GenUI behaviors.
+- The `autosre/lib/catalog.dart` has defensive code (`_unwrapComponentData()`) to handle multiple formats.
+- Tests in `tests/sre_agent/api/test_tool_events.py` verify A2UI v0.8 compliance.
 
 ---
 
