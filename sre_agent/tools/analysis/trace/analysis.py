@@ -160,10 +160,11 @@ def calculate_span_durations(
             if "spans" in trace:
                 span.set_attribute("sre_agent.span_count", len(trace["spans"]))
 
-            if isinstance(result, dict) and "error" in result:
-                span.set_status(StatusCode.ERROR, str(result["error"]))
+            if isinstance(result, list) and result and "error" in result[0]:
+                error_msg = str(result[0]["error"])
+                span.set_status(StatusCode.ERROR, error_msg)
                 span.set_attribute("error", True)
-                return BaseToolResponse(status=ToolStatus.ERROR, error=result["error"])
+                return BaseToolResponse(status=ToolStatus.ERROR, error=error_msg)
 
             return BaseToolResponse(status=ToolStatus.SUCCESS, result={"spans": result})
 
@@ -207,7 +208,15 @@ def _extract_errors_impl(trace: TraceData) -> list[dict[str, Any]]:
             key_lower = key.lower()
             value_str = str(value).lower() if value else ""
 
-            # Check HTTP/gRPC status codes first
+            # Check for gRPC error codes first (they have small numeric values)
+            if "grpc" in key_lower and "status" in key_lower:
+                if value_str not in ("ok", "0"):
+                    is_error = True
+                    error_info["error_type"] = "gRPC Error"
+                    error_info["status_code"] = value
+                continue
+
+            # Check HTTP/gRPC status codes
             if "/http/status_code" in key_lower or "http.status_code" in key_lower:
                 try:
                     code = int(value)
@@ -237,13 +246,6 @@ def _extract_errors_impl(trace: TraceData) -> list[dict[str, Any]]:
                     is_error = True
                     error_info["error_type"] = key
                     error_info["error_message"] = str(value)
-
-            # Check for gRPC error codes
-            if "grpc" in key_lower and "status" in key_lower:
-                if value_str not in ("ok", "0"):
-                    is_error = True
-                    error_info["error_type"] = "gRPC Error"
-                    error_info["status_code"] = value
 
         if is_error:
             errors.append(error_info)
@@ -327,6 +329,7 @@ def _validate_trace_quality_impl(trace: TraceData) -> dict[str, Any]:
             "valid": False,
             "issue_count": 1,
             "issues": [{"type": "fetch_error", "message": trace["error"]}],
+            "error": trace["error"],
         }
 
     spans = trace.get("spans", [])
@@ -622,7 +625,7 @@ def summarize_trace(
         errors = []
         if isinstance(trace_data, dict) and "spans" in trace_data:
             for s in trace_data["spans"]:
-                if (
+                if isinstance(s.get("labels", {}), dict) and (
                     "error" in str(s.get("labels", {})).lower()
                     or s.get("labels", {}).get("error") == "true"
                 ):
