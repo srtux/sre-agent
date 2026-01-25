@@ -39,6 +39,7 @@ class TestStopButtonCancellation(unittest.IsolatedAsyncioTestCase):
             patch("sre_agent.api.routers.agent.Event") as _mock_event_class,
             patch("sre_agent.api.routers.agent.Content") as _mock_content_class,
             patch("sre_agent.api.routers.agent.Part") as _mock_part_class,
+            patch("sre_agent.api.routers.agent.is_remote_mode", return_value=False),
         ):
             # Setup Session
             mock_session = MagicMock()
@@ -67,7 +68,7 @@ class TestStopButtonCancellation(unittest.IsolatedAsyncioTestCase):
                 try:
                     while True:
                         yield MagicMock()
-                        await asyncio.sleep(0.5)
+                        await asyncio.sleep(0.1)
                 except asyncio.CancelledError:
                     agent_cancelled_event.set()
                     raise
@@ -81,7 +82,7 @@ class TestStopButtonCancellation(unittest.IsolatedAsyncioTestCase):
 
             # --- CLIENT DISCONNECT SIMULATION ---
             # Return False a few times, then True to simulate disconnect
-            is_disconnected_responses = [False] * 10 + [True]
+            is_disconnected_responses = [False] * 2 + [True]
 
             async def side_effect_is_disconnected():
                 if is_disconnected_responses:

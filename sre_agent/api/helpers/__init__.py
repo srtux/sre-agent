@@ -25,7 +25,6 @@ TOOL_WIDGET_MAP = {
     "list_log_entries": "x-sre-log-entries-viewer",
     "mcp_list_log_entries": "x-sre-log-entries-viewer",
     "get_golden_signals": "x-sre-metrics-dashboard",
-    "get_workload_health_summary": "x-sre-log-entries-viewer",
     "generate_remediation_suggestions": "x-sre-remediation-plan",
 }
 
@@ -67,7 +66,6 @@ def create_tool_call_events(
     """
     surface_id = str(uuid.uuid4())
     component_id = f"tool-log-{surface_id[:8]}"
-    events: list[str] = []
 
     # Register as pending for later matching
     pending_tool_calls.append(
@@ -79,49 +77,36 @@ def create_tool_call_events(
         }
     )
 
-    # 1. surfaceUpdate first (components must exist before beginRendering references them)
-    logger.info(f"📤 Tool Call Surface Update: {tool_name} (surface_id={surface_id})")
-    events.append(
-        json.dumps(
-            {
-                "type": "a2ui",
-                "message": {
-                    "surfaceUpdate": {
-                        "surfaceId": surface_id,
-                        "components": [
-                            {
-                                "id": component_id,
-                                "component": {
-                                    "x-sre-tool-log": {
-                                        "tool_name": tool_name,
-                                        "args": args,
-                                        "status": "running",
-                                    }
-                                },
-                            }
-                        ],
-                    }
+    # Combined event containing both update and beginRendering (A2UI v0.8 protocol)
+    logger.info(f"📤 Tool Call Combined Event: {tool_name} (surface_id={surface_id})")
+    event = json.dumps(
+        {
+            "type": "a2ui",
+            "message": {
+                "surfaceUpdate": {
+                    "surfaceId": surface_id,
+                    "components": [
+                        {
+                            "id": component_id,
+                            "component": {
+                                "x-sre-tool-log": {
+                                    "tool_name": tool_name,
+                                    "args": args,
+                                    "status": "running",
+                                }
+                            },
+                        }
+                    ],
                 },
-            }
-        )
+                "beginRendering": {
+                    "surfaceId": surface_id,
+                    "root": component_id,
+                },
+            },
+        }
     )
 
-    # 2. beginRendering with root reference (tells frontend to start rendering)
-    events.append(
-        json.dumps(
-            {
-                "type": "a2ui",
-                "message": {
-                    "beginRendering": {
-                        "surfaceId": surface_id,
-                        "root": component_id,
-                    }
-                },
-            }
-        )
-    )
-
-    return surface_id, events
+    return surface_id, [event]
 
 
 def create_tool_response_events(
@@ -130,7 +115,6 @@ def create_tool_response_events(
     pending_tool_calls: list[dict[str, Any]],
 ) -> tuple[str | None, list[str]]:
     """Create A2UI events for a tool response (A2UI v0.8 protocol)."""
-    events: list[str] = []
     surface_id: str | None = None
     component_id: str | None = None
     args: dict[str, Any] = {}
@@ -166,36 +150,39 @@ def create_tool_response_events(
         result = result["result"]
 
     # surfaceUpdate (completed/error status) with A2UI v0.8 format
+    # Bundle with beginRendering to ensure the update renders correctly in its bubble
     logger.info(
-        f"📤 Tool Response Surface Update: {tool_name} (surface_id={surface_id}, status={status})"
+        f"📤 Tool Response Combined Event: {tool_name} (surface_id={surface_id}, status={status})"
     )
-    events.append(
-        json.dumps(
-            {
-                "type": "a2ui",
-                "message": {
-                    "surfaceUpdate": {
-                        "surfaceId": surface_id,
-                        "components": [
-                            {
-                                "id": component_id,
-                                "component": {
-                                    "x-sre-tool-log": {
-                                        "tool_name": tool_name,
-                                        "args": args,
-                                        "result": result,
-                                        "status": status,
-                                    }
-                                },
-                            }
-                        ],
-                    }
+    event = json.dumps(
+        {
+            "type": "a2ui",
+            "message": {
+                "surfaceUpdate": {
+                    "surfaceId": surface_id,
+                    "components": [
+                        {
+                            "id": component_id,
+                            "component": {
+                                "x-sre-tool-log": {
+                                    "tool_name": tool_name,
+                                    "args": args,
+                                    "result": result,
+                                    "status": status,
+                                }
+                            },
+                        }
+                    ],
                 },
-            }
-        )
+                "beginRendering": {
+                    "surfaceId": surface_id,
+                    "root": component_id,
+                },
+            },
+        }
     )
 
-    return surface_id, events
+    return surface_id, [event]
 
 
 def create_widget_events(tool_name: str, result: Any) -> list[str]:
@@ -206,14 +193,17 @@ def create_widget_events(tool_name: str, result: Any) -> list[str]:
     if not widget_type:
         return events
 
-    # Normalize result
-    if isinstance(result, str):
-        try:
-            result = json.loads(result)
-        except json.JSONDecodeError:
-            return events
+    # Normalize result (handles JSON strings and objects)
+    result = normalize_tool_args(result)
 
-    # Transform data based on widget type
+    # Normalize result wrapper if present
+    if isinstance(result, dict):
+        if "status" in result and "result" in result:
+            result = result["result"]
+        elif len(result) == 1 and "result" in result:  # Handle simple {"result": [...]}
+            result = result["result"]
+
+    # Transformation mapping check
     try:
         widget_data = None
         if widget_type == "x-sre-trace-waterfall":
@@ -231,43 +221,32 @@ def create_widget_events(tool_name: str, result: Any) -> list[str]:
             surface_id = str(uuid.uuid4())
             component_id = f"widget-{surface_id[:8]}"
 
-            # 1. surfaceUpdate first (components must exist before beginRendering)
+            # Combined event containing both update and beginRendering (A2UI v0.8 protocol)
             logger.info(
-                f"📤 Widget Surface Update: {widget_type} (surface_id={surface_id})"
+                f"📤 Widget Combined Event: {widget_type} (surface_id={surface_id})"
             )
-            events.append(
-                json.dumps(
-                    {
-                        "type": "a2ui",
-                        "message": {
-                            "surfaceUpdate": {
-                                "surfaceId": surface_id,
-                                "components": [
-                                    {
-                                        "id": component_id,
-                                        "component": {widget_type: widget_data},
-                                    }
-                                ],
-                            }
+            event = json.dumps(
+                {
+                    "type": "a2ui",
+                    "message": {
+                        "surfaceUpdate": {
+                            "surfaceId": surface_id,
+                            "components": [
+                                {
+                                    "id": component_id,
+                                    "component": {widget_type: widget_data},
+                                }
+                            ],
                         },
-                    }
-                )
-            )
-
-            # 2. beginRendering with root reference
-            events.append(
-                json.dumps(
-                    {
-                        "type": "a2ui",
-                        "message": {
-                            "beginRendering": {
-                                "surfaceId": surface_id,
-                                "root": component_id,
-                            }
+                        "beginRendering": {
+                            "surfaceId": surface_id,
+                            "root": component_id,
                         },
-                    }
-                )
+                    },
+                }
             )
+            logger.info(f"📊 Transformed data for {widget_type} (surface={surface_id})")
+            events.append(event)
 
     except Exception as e:
         logger.warning(f"Failed to create widget for {tool_name}: {e}")

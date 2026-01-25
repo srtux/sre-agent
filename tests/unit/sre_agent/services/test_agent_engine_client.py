@@ -269,7 +269,7 @@ class TestAgentEngineClient:
 
     @pytest.mark.asyncio
     async def test_stream_query_yields_events(self, client: AgentEngineClient) -> None:
-        """Test stream_query yields events from Agent Engine using async_stream_query."""
+        """Test stream_query yields events from Agent Engine using stream_query."""
         # Mock Session Manager
         mock_session_manager = MagicMock()
         mock_session = MagicMock()
@@ -296,7 +296,7 @@ class TestAgentEngineClient:
             for event in events:
                 yield event
 
-        mock_adk_app.async_stream_query = MagicMock(side_effect=mock_stream_generator)
+        mock_adk_app.stream_query = MagicMock(side_effect=mock_stream_generator)
 
         client._initialized = True
         client._adk_app = mock_adk_app
@@ -329,12 +329,63 @@ class TestAgentEngineClient:
             content_events = [e for e in events if e.get("type", "") != "session"]
             assert len(content_events) == 2
 
-            # Verify async_stream_query was called with correct args
-            mock_adk_app.async_stream_query.assert_called_once()
-            call_kwargs = mock_adk_app.async_stream_query.call_args.kwargs
+            # Verify stream_query was called with correct args
+            mock_adk_app.stream_query.assert_called_once()
+            call_kwargs = mock_adk_app.stream_query.call_args.kwargs
             assert call_kwargs["input"] == "Hello"
             assert call_kwargs["user_id"] == "test-user"
             assert call_kwargs["session_id"] == "test-session"
+
+    @pytest.mark.asyncio
+    async def test_stream_query_sync_iterator_fallback(
+        self, client: AgentEngineClient
+    ) -> None:
+        """Test stream_query handles synchronous iterator fallback."""
+        # Mock Session Manager
+        mock_session_manager = MagicMock()
+        mock_session = MagicMock()
+        mock_session.id = "test-session"
+        mock_session.state = {}
+        mock_session_manager.get_or_create_session = AsyncMock(
+            return_value=mock_session
+        )
+        mock_session_manager.update_session_state = AsyncMock()
+
+        # Mock ADK App
+        mock_adk_app = MagicMock()
+
+        # Mock sync stream_query returning a direct list (which is an iterator)
+        def mock_sync_stream(*args, **kwargs):
+            return [
+                {"content": {"parts": [{"text": "Sync response 1"}]}},
+                {"content": {"parts": [{"text": "Sync response 2"}]}},
+            ]
+
+        mock_adk_app.stream_query = MagicMock(side_effect=mock_sync_stream)
+
+        client._initialized = True
+        client._adk_app = mock_adk_app
+
+        with patch(
+            "sre_agent.services.session.get_session_service",
+            return_value=mock_session_manager,
+        ):
+            events: list[dict] = []
+            async for event in client.stream_query(
+                user_id="test-user",
+                message="Hello sync",
+            ):
+                events.append(event)
+
+            # verify we got events back
+            text_events = [
+                e["content"]["parts"][0]["text"]
+                for e in events
+                if e.get("type", "") != "session"
+            ]
+            assert "Sync response 1" in text_events
+            assert "Sync response 2" in text_events
+            mock_adk_app.stream_query.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_list_sessions_async(self, client: AgentEngineClient) -> None:

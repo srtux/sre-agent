@@ -13,17 +13,15 @@ def test_create_widget_events_log_success():
 
     events = create_widget_events(tool_name, result)
 
-    # Should have 2 events: beginRendering and surfaceUpdate
-    assert len(events) == 2
+    # Should have 1 event (bundled A2UI v0.8)
+    assert len(events) == 1
 
-    begin_event = json.loads(events[0])
-    assert "beginRendering" in begin_event["message"]
-
-    update_event = json.loads(events[1])
+    update_event = json.loads(events[0])
     assert "surfaceUpdate" in update_event["message"]
+    assert "beginRendering" in update_event["message"]
 
     # Verify data transformation happened
-    data = update_event["message"]["surfaceUpdate"]["components"][0][
+    data = update_event["message"]["surfaceUpdate"]["components"][0]["component"][
         "x-sre-log-entries-viewer"
     ]
     # Check if entries are flattened/transformed per genui_adapter
@@ -38,11 +36,11 @@ def test_create_widget_events_log_error():
 
     events = create_widget_events(tool_name, result)
 
-    # Critical: Should NOT be empty because we removed the suppression
-    assert len(events) == 2
+    # Critical: Should NOT be empty
+    assert len(events) == 1
 
-    update_event = json.loads(events[1])
-    data = update_event["message"]["surfaceUpdate"]["components"][0][
+    update_event = json.loads(events[0])
+    data = update_event["message"]["surfaceUpdate"]["components"][0]["component"][
         "x-sre-log-entries-viewer"
     ]
 
@@ -60,9 +58,9 @@ def test_create_widget_events_string_result():
 
     events = create_widget_events(tool_name, result_str)
 
-    assert len(events) == 2
-    update_event = json.loads(events[1])
-    data = update_event["message"]["surfaceUpdate"]["components"][0][
+    assert len(events) == 1
+    update_event = json.loads(events[0])
+    data = update_event["message"]["surfaceUpdate"]["components"][0]["component"][
         "x-sre-trace-waterfall"
     ]
 

@@ -30,10 +30,8 @@ logging.getLogger("google_genai._api_client").addFilter(_FunctionCallWarningFilt
 class EmojiLoggingFilter(logging.Filter):
     """Filter to add emojis to logs from specific libraries for better visibility."""
 
-    def filter(self, record: logging.LogRecord) -> bool:
-        """Filter log records to add emojis."""
-        msg = record.getMessage()
-
+    def _apply_emojis(self, record: logging.LogRecord, msg: str) -> None:
+        """Apply emojis and separators to the log record."""
         # LLM Call Starting/Completed (ADK messages)
         if "google_adk" in record.name or "google.adk" in record.name:
             if "Sending out request" in msg:
@@ -42,15 +40,10 @@ class EmojiLoggingFilter(logging.Filter):
                 record.msg = f"🧠 LLM Call Completed | {record.msg}"
             elif "LLM Request:" in msg or "LLM Response:" in msg:
                 # Add a separator before large LLM payloads
-                record.msg = f"\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n{msg}"
-                if len(msg) > 500:
-                    record.msg = f"{msg[:500]}... (truncated, original len={len(msg)})"
-                    record.args = ()
+                record.msg = f"\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n{record.msg}"
 
         # API Call Distinctions (Uvicorn access logs)
         elif "uvicorn.access" in record.name:
-            if "GET /health" in msg:
-                return False
             if not record.msg.startswith("🌐"):
                 record.msg = f"🌐 API Call | {record.msg}"
 
@@ -68,13 +61,61 @@ class EmojiLoggingFilter(logging.Filter):
             elif "MCP Success" in msg and "✨" not in msg:
                 record.msg = f"✨ {record.msg}"
 
-            # Truncate result logs if they are too long
-            if "RESULT" in msg and len(msg) > 500:
-                record.msg = f"{msg[:500]}... (truncated result)"
-
         # User Prompt (Agent)
         elif "sre_agent.agent" in record.name and "User Prompt" in msg:
             record.msg = f"\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n💬 {msg}"
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        """Filter log records to add emojis and truncate long payloads."""
+        msg = record.getMessage()
+
+        # 1. Skip noisy health checks
+        if "uvicorn.access" in record.name and "GET /health" in msg:
+            return False
+
+        # 2. Apply styling (emojis, separators)
+        self._apply_emojis(record, msg)
+
+        # 3. Truncate extremely long logs for communication-heavy modules
+        # We check the potentially modified message
+        final_msg = record.getMessage()
+        if len(final_msg) > 1000:
+            should_truncate = False
+
+            # Known noisy modules
+            if any(
+                mod in record.name
+                for mod in [
+                    "google_adk",
+                    "google.adk",
+                    "sre_agent.api.routers.agent",
+                    "sre_agent.agent",
+                    "sre_agent.tools",
+                ]
+            ):
+                # Only truncate if it looks like a heavy payload or is just massive
+                payload_keywords = [
+                    "LLM Request",
+                    "LLM Response",
+                    "Received event",
+                    "Processing part",
+                    "Raw response",
+                    "content=",
+                    "RESULT",
+                    "function_call",
+                    "Yielding widget event",
+                ]
+                if (
+                    any(k in final_msg for k in payload_keywords)
+                    or len(final_msg) > 2500
+                ):
+                    should_truncate = True
+
+            if should_truncate:
+                record.msg = (
+                    f"{final_msg[:1000]}... (truncated, original len={len(final_msg)})"
+                )
+                record.args = ()
 
         return True
 

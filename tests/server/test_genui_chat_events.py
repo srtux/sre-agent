@@ -80,24 +80,26 @@ def test_create_tool_call_events():
     assert pending_calls[0]["args"] == {"arg1": "value1"}
     assert call_id == pending_calls[0]["call_id"]
 
-    # Should have 2 events: beginRendering and surfaceUpdate
-    assert len(events) == 2
+    # Should have 1 event (bundled A2UI v0.8)
+    assert len(events) == 1
 
-    # Parse and verify events
-    begin_event = json.loads(events[0])
-    assert begin_event["type"] == "a2ui"
-    assert "beginRendering" in begin_event["message"]
-
-    update_event = json.loads(events[1])
+    # Parse and verify event
+    update_event = json.loads(events[0])
     assert update_event["type"] == "a2ui"
     assert "surfaceUpdate" in update_event["message"]
+    assert "beginRendering" in update_event["message"]
 
     # Verify tool log data in surfaceUpdate
     components = update_event["message"]["surfaceUpdate"]["components"]
-    tool_log = components[0]["x-sre-tool-log"]
+    assert "id" in components[0]
+    assert "component" in components[0]
+    tool_log = components[0]["component"]["x-sre-tool-log"]
     assert tool_log["tool_name"] == "test_tool"
     assert tool_log["status"] == "running"
     assert tool_log["args"] == {"arg1": "value1"}
+
+    # Verify beginRendering references the component
+    assert update_event["message"]["beginRendering"]["root"] == components[0]["id"]
 
 
 def test_create_tool_response_events_success():
@@ -125,8 +127,9 @@ def test_create_tool_response_events_success():
     assert len(events) == 1
 
     update_event = json.loads(events[0])
+    assert "beginRendering" in update_event["message"]
     components = update_event["message"]["surfaceUpdate"]["components"]
-    tool_log = components[0]["x-sre-tool-log"]
+    tool_log = components[0]["component"]["x-sre-tool-log"]
     assert tool_log["status"] == "completed"
     assert tool_log["result"] == "success"
 
@@ -151,7 +154,7 @@ def test_create_tool_response_events_error():
     assert len(events) == 1
     update_event = json.loads(events[0])
     components = update_event["message"]["surfaceUpdate"]["components"]
-    tool_log = components[0]["x-sre-tool-log"]
+    tool_log = components[0]["component"]["x-sre-tool-log"]
     assert tool_log["status"] == "error"
     assert "RuntimeError" in tool_log["result"]
 
@@ -210,7 +213,7 @@ def test_create_tool_response_events_fifo_matching():
     # Verify the correct args were preserved
     update_event = json.loads(events1[0])
     components = update_event["message"]["surfaceUpdate"]["components"]
-    tool_log = components[0]["x-sre-tool-log"]
+    tool_log = components[0]["component"]["x-sre-tool-log"]
     assert tool_log["args"] == {"trace_id": "trace-1"}
 
     # Second response should match second call
@@ -275,3 +278,4 @@ async def test_genui_chat_valid_request_format(async_client: httpx.AsyncClient):
     )
     # Should be accepted (200 OK for streaming) not a validation error (422)
     assert response.status_code == 200
+    await response.aclose()

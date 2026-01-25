@@ -21,7 +21,7 @@ Browser → Cloud Run (Proxy) → Agent Engine (Remote Agent)
 2. Proxy creates/updates session with token in state:
    - `_user_access_token`: The OAuth access token
    - `_user_project_id`: The selected GCP project
-3. Proxy calls `async_stream_query` with session_id
+3. Proxy calls `stream_query` with session_id
 4. Agent Engine loads session state
 5. Tools read credentials via `get_credentials_from_tool_context()`
 6. Tools use user's credentials for GCP API calls
@@ -153,16 +153,17 @@ class AgentEngineClient:
             self._adk_app = agent_engines.get(resource_name)
             self._initialized = True
 
-            # Verify the agent has the expected query method
-            if not hasattr(self._adk_app, "query"):
-                # Log available methods to help debugging if this happens again
-                methods = [m for m in dir(self._adk_app) if not m.startswith("_")]
+            # Verify the agent has the expected methods
+            methods = [m for m in dir(self._adk_app) if not m.startswith("_")]
+            if not hasattr(self._adk_app, "query") and not hasattr(
+                self._adk_app, "stream_query"
+            ):
                 logger.warning(
-                    f"Agent Engine resource found but '.query()' method is missing. "
+                    f"Agent Engine resource found but expected methods (.query/.stream_query) are missing. "
                     f"Available methods: {methods}"
                 )
-
-            logger.info("Agent Engine client initialized successfully (GA mode)")
+            else:
+                logger.info(f"Agent Engine client initialized with methods: {methods}")
         except Exception as e:
             logger.error(f"Failed to initialize Agent Engine client: {e}")
             # Do not set _initialized to True, so next call retries (or fails again)
@@ -196,7 +197,7 @@ class AgentEngineClient:
             state_delta[SESSION_STATE_PROJECT_ID_KEY] = project_id
 
         # Note: State updates are handled via initial session state in get_or_create_session
-        # The ADK app's async_stream_query will read credentials from session state
+        # The ADK app's stream_query will read credentials from session state
 
     async def get_or_create_session(
         self,
@@ -301,20 +302,31 @@ class AgentEngineClient:
 
         # Stream query to Agent Engine
         try:
-            # Use async_stream_query for better performance and native async support
-            if hasattr(self._adk_app, "async_stream_query"):
-                stream = self._adk_app.async_stream_query(
+            # The correct method name in vertexai SDK for streaming is 'stream_query'.
+            # 'async_stream_query' is not a standard method and triggered errors.
+            if hasattr(self._adk_app, "stream_query"):
+                stream = self._adk_app.stream_query(
                     input=message,
                     user_id=user_id,
                     session_id=effective_session_id,
                 )
-                async for event in stream:
-                    yield process_event(event)
 
-            # Fallback to sync query in thread if async_stream_query is missing (unlikely given check)
-            else:
+                # The vertexai proxy might return either a sync or async iterator
+                # depending on the internal client state and SDK version.
+                if hasattr(stream, "__aiter__"):
+                    async for event in stream:
+                        yield process_event(event)
+                else:
+                    # Fallback for sync iterator. We iterate manually.
+                    # Note: for-loop on a sync generator is fine here as it's
+                    # what the SDK provides by default in most versions.
+                    for event in stream:
+                        yield process_event(event)
+
+            # Fallback to sync query in thread if stream_query is somehow missing
+            elif hasattr(self._adk_app, "query"):
                 logger.warning(
-                    "AgentEngine missing 'async_stream_query', falling back to sync 'query'"
+                    "AgentEngine missing 'stream_query', falling back to sync 'query'"
                 )
 
                 def _query_agent() -> Any:

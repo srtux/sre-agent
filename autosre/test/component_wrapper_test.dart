@@ -76,7 +76,7 @@ void main() {
 
     // Should find the ToolLogWidget
     expect(find.byType(ToolLogWidget), findsOneWidget);
-    expect(find.text('Fetch Trace'), findsOneWidget);
+    expect(find.text('Fetching Trace Details'), findsOneWidget);
   });
 
   testWidgets('Catalog handles direct data format',

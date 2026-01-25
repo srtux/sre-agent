@@ -1,5 +1,6 @@
 """Shared test fixtures for SRE Agent tests."""
 
+import os
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -10,6 +11,17 @@ import pytest
 # ============================================================================
 # Helper Functions
 # ============================================================================
+
+
+@pytest.fixture(scope="session", autouse=True)
+def sanitize_environment():
+    """Sanitize environment variables to avoid client conflicts."""
+    # If Vertex AI is enabled, remove API keys to avoid "mutually exclusive" error
+    # in google-genai client when both project/location and API key are present.
+    if os.environ.get("GOOGLE_GENAI_USE_VERTEXAI") == "1":
+        os.environ.pop("GOOGLE_API_KEY", None)
+        os.environ.pop("GEMINI_API_KEY", None)
+    yield
 
 
 def generate_trace_id() -> str:

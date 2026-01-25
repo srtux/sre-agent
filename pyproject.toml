@@ -106,6 +106,9 @@ filterwarnings = [
     "ignore:\\[EXPERIMENTAL\\].*:UserWarning",
     "ignore:\\[WIP\\].*:UserWarning",
     "ignore:Inheritance class AiohttpClientSession from ClientSession is discouraged:DeprecationWarning",
+    "ignore:.*module is experimental.*",
+    "ignore:.*experimental.*:UserWarning",
+    "ignore:unclosed event loop:ResourceWarning",
 ]
 
 [build-system]
