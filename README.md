@@ -31,6 +31,7 @@ The agent is built using the Google Agent Development Kit (ADK). It uses a **"Co
 - **Mission Control Dashboard**: A "Deep Space" themed Flutter GenUI with glassmorphic visuals and real-time canvas visualizations.
 - **Project ID Enforcement**: Global context awareness ensuring the correct GCP project is always targeted.
 - **Investigation Persistence**: Automatic sync and storage of investigation sessions with Firestore support.
+- **Memory Bank**: Long-term recall of confirmed findings using Vertex AI Vector Search (Production) or SQLite (Local).
 - **Multi-Session History**: View, load, and manage previous investigations through the Mission Control history panel.
 - **End-User Credentials (EUC)**: Users authenticate with their Google account; the agent uses their credentials to access GCP resources.
 - **Dual-Mode Execution**: Supports both local development and production Agent Engine deployment.
@@ -54,6 +55,7 @@ Auto SRE supports **two execution modes** to optimize for both development veloc
 │  • Fast iteration during development                                             │
 │  • Credentials via ContextVars (same process)                                    │
 │  • Session storage: SQLite or in-memory                                          │
+│  • Memory Bank: Local SQLite (`.sre_agent_memory.db`)                            │
 │                                                                                  │
 └─────────────────────────────────────────────────────────────────────────────────┘
 
@@ -71,7 +73,7 @@ Auto SRE supports **two execution modes** to optimize for both development veloc
 │  • Scalable, managed infrastructure  │ Session State:                 │         │
 │  • Credentials via session state     │ _user_access_token ──────────►│         │
 │  • Session storage: VertexAI         │ _user_project_id ────────────►│         │
-│                                                                       ▼         │
+│  • Memory Bank: Vertex AI            │                                ▼         │
 │                                                               ┌─────────────┐   │
 │                                                               │  GCP APIs   │   │
 │                                                               │ (User EUC)  │   │
@@ -447,6 +449,11 @@ This command:
 2. Captures the generated Agent ID
 3. Grants necessary IAM permissions
 4. Deploys Flutter + FastAPI proxy to Cloud Run with `SRE_AGENT_ID` set
+
+### Security & Personalization
+- **Strict User Isolation**: All memory and session data is strictly partitioned by `user_id`.
+- **Trusted Identity**: Identity is authenticated via Google OAuth 2.0 and propagated securely to all tools.
+- **Privacy First**: Users cannot access each other's investigation history or memory findings.
 
 ## Available Tools
 

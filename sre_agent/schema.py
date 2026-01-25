@@ -22,6 +22,16 @@ class ToolStatus(str, Enum):
     PARTIAL = "partial"
 
 
+class InvestigationPhase(str, Enum):
+    """State of the SRE investigation."""
+
+    INITIATED = "initiated"
+    TRIAGE = "triage"
+    DEEP_DIVE = "deep_dive"
+    REMEDIATION = "remediation"
+    RESOLVED = "resolved"
+
+
 class BaseToolResponse(BaseModel):
     """Standardized envelope for all tool responses."""
 
@@ -150,6 +160,37 @@ class TraceComparisonReport(BaseModel):
     root_cause_hypothesis: str = Field(description="Hypothesis for the root cause")
     recommendations: list[str] = Field(
         default_factory=list, description="List of actionable recommendations"
+    )
+
+
+class MemoryItem(BaseModel):
+    """A single finding or fact stored in memory."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    source_tool: str = Field(description="Tool that generated this finding")
+    confidence: Confidence = Field(description="Confidence in this finding")
+    timestamp: str = Field(description="ISO 8601 timestamp")
+    description: str = Field(description="Human-readable description of finding")
+    structured_data: dict[str, Any] | None = Field(
+        default=None, description="Raw structured data for programmatic use"
+    )
+
+
+class AgentHandoff(BaseModel):
+    """Structured context for handing off between sub-agents."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    source_agent: str = Field(description="Agent initiating the handoff")
+    target_agent: str = Field(description="Target agent")
+    task_description: str = Field(
+        description="Specific instructions for the target agent"
+    )
+    current_state: InvestigationPhase = Field(description="Current investigation phase")
+    context_summary: str = Field(description="Summary of relevant findings so far")
+    relevant_findings: list[MemoryItem] = Field(
+        default_factory=list, description="Specific findings to pass along"
     )
 
 

@@ -99,10 +99,19 @@ _project_id_context: contextvars.ContextVar[str | None] = contextvars.ContextVar
     "project_id_context", default=None
 )
 
+_user_id_context: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "user_id_context", default=None
+)
+
 
 def set_current_credentials(creds: Credentials) -> None:
     """Sets the credentials for the current context."""
     _credentials_context.set(creds)
+
+
+def set_current_user_id(user_id: str | None) -> None:
+    """Sets the user ID (email) for the current context."""
+    _user_id_context.set(user_id)
 
 
 def set_current_project_id(project_id: str | None) -> None:
@@ -142,6 +151,11 @@ def get_current_credentials_or_none() -> Credentials | None:
 def get_current_project_id_or_none() -> str | None:
     """Gets the explicitly set project ID or None."""
     return _project_id_context.get()
+
+
+def get_current_user_id() -> str | None:
+    """Gets the explicitly set user ID (email) or None."""
+    return _user_id_context.get()
 
 
 def get_current_project_id() -> str | None:
@@ -330,6 +344,26 @@ def get_project_id_from_tool_context(tool_context: "ToolContext | None") -> str 
     return get_current_project_id()
 
 
+def get_user_id_from_tool_context(tool_context: "ToolContext | None") -> str | None:
+    """Get user ID (email) from tool context, checking both ContextVar and session.
+
+    Args:
+        tool_context: The ADK ToolContext.
+
+    Returns:
+        User email if found, None otherwise.
+    """
+    # 1. Check ContextVar
+    user_id = get_current_user_id()
+    if user_id:
+        return user_id
+
+    # 2. Check session state (assuming we store it there in future)
+    # For now, we only support ContextVar based propagation for user identity
+    # TODO: Add session state propagation for user ID in Agent Engine mode
+    return None
+
+
 # =============================================================================
 # Token Validation
 # =============================================================================
@@ -493,3 +527,4 @@ def clear_current_credentials() -> None:
     """
     _credentials_context.set(None)
     _project_id_context.set(None)
+    _user_id_context.set(None)

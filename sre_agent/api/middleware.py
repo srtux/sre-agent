@@ -47,6 +47,24 @@ async def auth_middleware(request: Request, call_next: Any) -> Any:
             set_current_credentials(creds)
             logger.debug("Auth Middleware: Credentials set in ContextVar")
 
+            try:
+                # Validate token to extract user identity (email)
+                # TODO: Implement caching to avoid latency on every request
+                from sre_agent.auth import set_current_user_id, validate_access_token
+
+                token_info = await validate_access_token(token)
+                if token_info.valid and token_info.email:
+                    set_current_user_id(token_info.email)
+                    logger.debug(
+                        f"Auth Middleware: User identified as {token_info.email}"
+                    )
+                else:
+                    logger.warning(
+                        f"Auth Middleware: Token validation failed: {token_info.error}"
+                    )
+            except Exception as e:
+                logger.warning(f"Auth Middleware: Identity check failed: {e}")
+
         # Extract GCP Project ID if provided in header
         if project_id_header:
             set_current_project_id(project_id_header)
@@ -63,6 +81,8 @@ async def auth_middleware(request: Request, call_next: Any) -> Any:
         return response
     finally:
         # Clear credentials after request to prevent leakage between requests
+        from sre_agent.auth import clear_current_credentials
+
         clear_current_credentials()
 
 

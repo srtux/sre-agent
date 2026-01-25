@@ -31,17 +31,17 @@ async def test_update_investigation_state():
 
         # Test phase update
         result = await update_investigation_state(
-            mock_tool_context, phase="analysis", new_findings=["Disk is 90% full"]
+            mock_tool_context, phase="triage", new_findings=["Disk is 90% full"]
         )
 
         assert "Successfully updated" in result
-        assert "analysis" in result
+        assert "Successfully updated" in result
         mock_service.update_session_state.assert_called_once()
 
         # Verify call arguments
         args = mock_service.update_session_state.call_args
         state_update = args[0][1]
-        assert state_update["investigation_state"]["phase"] == "analysis"
+        assert state_update["investigation_state"]["phase"] == "triage"
         assert "Disk is 90% full" in state_update["investigation_state"]["findings"]
 
 

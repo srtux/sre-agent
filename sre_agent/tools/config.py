@@ -55,6 +55,7 @@ class ToolCategory(str, Enum):
     API_CLIENT = "api_client"  # Generic direct API tools
     MCP = "mcp"  # Generic MCP tools
     ANALYSIS = "analysis"  # Generic analysis tools
+    MEMORY = "memory"  # Memory and context tools
 
 
 class ToolTestStatus(str, Enum):
@@ -157,6 +158,30 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         name="get_investigation_summary",
         display_name="Get Investigation Summary",
         description="Get a summary of current findings and investigation progress",
+        category=ToolCategory.ORCHESTRATION,
+        testable=False,
+    ),
+    # -------------------------------------------------------------------------
+    # Memory Tools
+    # -------------------------------------------------------------------------
+    ToolConfig(
+        name="add_finding_to_memory",
+        display_name="Add Finding to Memory",
+        description="Explicitly add a finding to the agent's memory",
+        category=ToolCategory.MEMORY,
+        testable=False,
+    ),
+    ToolConfig(
+        name="search_memory",
+        display_name="Search Memory",
+        description="Search the agent's memory for relevant findings",
+        category=ToolCategory.MEMORY,
+        testable=False,
+    ),
+    ToolConfig(
+        name="suggest_next_steps",
+        display_name="Suggest Next Steps",
+        description="Suggest the next best steps based on investigation state",
         category=ToolCategory.ORCHESTRATION,
         testable=False,
     ),

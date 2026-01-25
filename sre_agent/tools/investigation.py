@@ -3,7 +3,8 @@
 import logging
 from typing import Annotated, Any
 
-from sre_agent.models.investigation import InvestigationPhase, InvestigationState
+from sre_agent.memory.factory import get_memory_manager
+from sre_agent.schema import InvestigationPhase
 from sre_agent.tools.common.decorators import adk_tool
 
 logger = logging.getLogger(__name__)
@@ -14,7 +15,7 @@ async def update_investigation_state(
     tool_context: Any,
     phase: Annotated[
         str | None,
-        "The current phase of investigation (triage, analysis, root_cause, remediation)",
+        "The current phase of investigation (triage, deep_dive, remediation, resolved)",
     ] = None,
     new_findings: Annotated[list[str] | None, "New factual findings discovered"] = None,
     hypothesis: Annotated[str | None, "New hypothesis being tested"] = None,
@@ -29,44 +30,92 @@ async def update_investigation_state(
         tool_context, "_invocation_context", None
     )
     session = getattr(inv_ctx, "session", None) if inv_ctx else None
+
     if not session:
-        return "Error: No active session found in tool context."
+        return "Error: No active session found."
 
-    # Get current state
-    current_state_dict = session.state.get("investigation_state", {})
-    state = InvestigationState.from_dict(current_state_dict)
+    # Get Memory Manager
+    memory_manager = get_memory_manager()
+    session_id = getattr(session, "id", None) if session else None
 
-    # Apply updates
+    # Update Phase in Memory Manager
     if phase:
         try:
-            state.phase = InvestigationPhase(phase.lower())
-        except ValueError:
-            return f"Error: Invalid phase '{phase}'. Valid phases: {[p.value for p in InvestigationPhase]}"
+            # Normalize phase
+            try:
+                new_phase = InvestigationPhase(phase.lower())
+                await memory_manager.update_state(new_phase, session_id=session_id)
+            except ValueError:
+                # Try mapping from old phases if needed, or error
+                # For now, strict mapping to new phases
+                return f"Error: Invalid phase {phase}"
+        except Exception as e:
+            logger.warning(f"Failed to update memory manager state: {e}")
 
+    # Add findings to Memory Manager
     if new_findings:
-        state.findings.extend(new_findings)
-        # Unique findings only
-        state.findings = list(dict.fromkeys(state.findings))
+        from sre_agent.auth import get_user_id_from_tool_context
 
-    if hypothesis:
-        state.hypotheses.append(hypothesis)
+        user_id = get_user_id_from_tool_context(tool_context)
+        for finding in new_findings:
+            await memory_manager.add_finding(
+                description=finding,
+                source_tool="update_investigation_state",
+                session_id=session_id,
+                user_id=user_id,
+            )
 
-    if root_cause:
-        state.confirmed_root_cause = root_cause
-        state.phase = InvestigationPhase.ROOT_CAUSE
+    # Maintain Session State for backward compatibility / Frontend
+    if session:
+        current_state = session.state.get("investigation_state", {})
 
-    # Save back to session
-    from sre_agent.services import get_session_service
+        # Initialize defaults if empty
+        if not current_state:
+            current_state = {
+                "phase": InvestigationPhase.INITIATED.value,
+                "findings": [],
+                "hypotheses": [],
+                "confirmed_root_cause": None,
+                "suggested_fix": None,
+            }
 
-    session_manager = get_session_service()
-    await session_manager.update_session_state(
-        session, {"investigation_state": state.to_dict()}
-    )
+        updates: dict[str, Any] = {}
+        if phase:
+            # Map deep_dive -> analysis if needed for frontend compat, or just use new phase
+            updates["phase"] = phase.lower()
 
-    logger.info(f"Investigation state updated for session {session.id}: {state.phase}")
-    return (
-        f"Successfully updated investigation state. Current Phase: {state.phase.value}"
-    )
+        if new_findings:
+            existing = current_state.get("findings", [])
+            existing.extend(new_findings)
+            updates["findings"] = list(dict.fromkeys(existing))
+
+        if hypothesis:
+            existing_hyp = current_state.get("hypotheses", [])
+            existing_hyp.append(hypothesis)
+            updates["hypotheses"] = list(dict.fromkeys(existing_hyp))
+
+        if root_cause:
+            updates["confirmed_root_cause"] = root_cause
+            if not phase:  # Auto-switch phase if root cause found
+                updates["phase"] = InvestigationPhase.REMEDIATION.value
+                await memory_manager.update_state(
+                    InvestigationPhase.REMEDIATION, session_id=session_id
+                )
+
+        # Apply updates
+        current_state.update(updates)
+
+        # Persist session
+        from sre_agent.services import get_session_service
+
+        session_manager = get_session_service()
+        await session_manager.update_session_state(
+            session, {"investigation_state": current_state}
+        )
+
+        logger.info(f"Updated investigation state for session {session.id}")
+
+    return "Successfully updated investigation state."
 
 
 @adk_tool
@@ -76,21 +125,25 @@ async def get_investigation_summary(tool_context: Any) -> str:
         tool_context, "_invocation_context", None
     )
     session = getattr(inv_ctx, "session", None) if inv_ctx else None
+
     if not session:
         return "Error: No active session found."
 
-    state_dict = session.state.get("investigation_state", {})
-    state = InvestigationState.from_dict(state_dict)
+    state = session.state.get("investigation_state", {})
+    phase = state.get("phase", "unknown")
+    findings = state.get("findings", [])
+    hypotheses = state.get("hypotheses", [])
+    root_cause = state.get("confirmed_root_cause")
 
     summary = [
-        f"### Investigation Summary (Phase: {state.phase.value.upper()})",
-        f"**Findings:** {', '.join(state.findings) if state.findings else 'None yet'}",
+        f"### Investigation Summary (Phase: {phase.upper()})",
+        f"**Findings:** {', '.join(findings) if findings else 'None yet'}",
     ]
 
-    if state.hypotheses:
-        summary.append(f"**Hypotheses:** {', '.join(state.hypotheses)}")
+    if hypotheses:
+        summary.append(f"**Hypotheses:** {', '.join(hypotheses)}")
 
-    if state.confirmed_root_cause:
-        summary.append(f"**Confirmed Root Cause:** {state.confirmed_root_cause}")
+    if root_cause:
+        summary.append(f"**Confirmed Root Cause:** {root_cause}")
 
     return "\n".join(summary)

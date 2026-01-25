@@ -155,6 +155,12 @@ from .mcp.gcp import (
     mcp_query_range,
 )
 
+# Memory Tools
+from .memory import add_finding_to_memory, search_memory
+
+# Proactive Tools
+from .proactive import suggest_next_steps
+
 # Reporting Tools
 from .reporting import synthesize_report
 
@@ -165,6 +171,7 @@ __all__ = [
     "ToolConfigManager",
     "ToolTestResult",
     "ToolTestStatus",
+    "add_finding_to_memory",
     "analyze_aggregate_metrics",
     "analyze_bigquery_log_patterns",
     "analyze_critical_path",
@@ -245,8 +252,10 @@ __all__ = [
     "perform_causal_analysis",
     "predict_slo_violation",
     "query_promql",
+    "search_memory",
     "select_traces_from_statistical_outliers",
     "select_traces_manually",
+    "suggest_next_steps",
     "summarize_trace",
     "synthesize_report",
     "update_investigation_state",

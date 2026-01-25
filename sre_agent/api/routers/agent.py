@@ -296,12 +296,31 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
     """
     # Get credentials from middleware (set by auth_middleware)
     creds = get_current_credentials_or_none()
+
+    # STRICT SECURITY: Use trusted user ID from token if available
+    from sre_agent.auth import get_current_user_id
+
+    trusted_user_id = get_current_user_id()
+    effective_user_id = trusted_user_id or request.user_id
+
+    # If strict enforcement is on, we might reject mismatch, but for now we
+    # just prioritize the trusted one if running in the same process.
+    if trusted_user_id and trusted_user_id != request.user_id:
+        logger.warning(
+            f"User ID mismatch: Request={request.user_id}, Token={trusted_user_id}. Using Token ID."
+        )
+
     access_token = creds.token if creds and hasattr(creds, "token") else None
     effective_project_id = get_current_project_id() or request.project_id
 
     # Check if we should use remote Agent Engine
     if is_remote_mode():
         logger.info("Using remote Agent Engine mode")
+
+        # We must override the user_id in the request passed to remote agent
+        # to ensure it uses the trusted ID.
+        request.user_id = effective_user_id
+
         return await _handle_remote_agent(
             request=request,
             raw_request=raw_request,
@@ -336,7 +355,7 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
         if request.session_id:
             # Pass user_id to ensure we find the correct session
             session = await session_manager.get_session(
-                request.session_id, user_id=request.user_id
+                request.session_id, user_id=effective_user_id
             )
             # Update project ID if it changed in the UI project selector
             # Update project ID or Access Token if changed
@@ -371,7 +390,7 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
             initial_state["investigation_state"] = InvestigationState().to_dict()
 
             session = await session_manager.create_session(
-                user_id=request.user_id, initial_state=initial_state
+                user_id=effective_user_id, initial_state=initial_state
             )
             is_new_session = True
 
@@ -431,7 +450,7 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
             # Refresh session to ensure we have the latest state
             active_session = session
             refreshed_session = await session_manager.get_session(
-                session.id, user_id=request.user_id
+                session.id, user_id=effective_user_id
             )
             if refreshed_session:
                 active_session = refreshed_session

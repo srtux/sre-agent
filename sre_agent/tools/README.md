@@ -122,6 +122,21 @@ Tools for generating fix recommendations.
 | `get_gcloud_commands` | Ready-to-run gcloud commands |
 | `estimate_remediation_risk` | Risk assessment |
 
+### 10. Memory Tools
+Tools for long-term context retention.
+
+| Tool | Description |
+|------|-------------|
+| `add_finding_to_memory` | Save key findings to Vertex AI Memory Bank |
+| `search_memory` | Semantic search over past investigations |
+
+### 11. Proactive Tools
+Tools for automated reasoning and suggestions.
+
+| Tool | Description |
+|------|-------------|
+| `suggest_next_steps` | Recommend next analysis steps based on phase |
+
 ## Creating New Tools
 
 ### Using the @adk_tool Decorator

@@ -28,6 +28,8 @@ htmlcov/
 sre_agent_tmp*/
 session.db
 .sre_agent_sessions.db
+.sre_agent_memory.db
+*.db
 .sre_agent_preferences.json
 
 # IDEs

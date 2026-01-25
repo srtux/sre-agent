@@ -1,72 +1,109 @@
-"""
-Goal: Verify the Cloud Trace client correctly fetches and processes distributed traces.
-Patterns: Cloud Trace API Mocking, Trace Waterfall Transformation.
-"""
+"""Unit tests for the Cloud Trace client."""
 
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from sre_agent.tools.clients.trace import fetch_trace, list_traces
+# Global mocks to avoid segfaults/proto issues
+with patch("google.cloud.trace_v1.TraceServiceClient", MagicMock()):
+    from sre_agent.tools.clients.trace import (
+        TraceFilterBuilder,
+        fetch_trace,
+        find_example_traces,
+        validate_trace,
+    )
 
 
-@pytest.fixture
-def mock_trace_client():
-    with patch("sre_agent.tools.clients.trace.get_trace_client") as mock:
-        client = MagicMock()
-        mock.return_value = client
-        yield client
+def test_trace_filter_builder_extensive():
+    builder = TraceFilterBuilder()
+    builder.add_latency(500).add_root_span_name("my-op", exact=True).add_attribute(
+        "key", "val", root_only=True
+    )
+    builder.add_span_name("sub", root_only=False)
+    filter_str = builder.build()
+    assert "latency:500ms" in filter_str
+    assert "+root:my-op" in filter_str
+    assert "^key:val" in filter_str
+    assert "span:sub" in filter_str
+
+
+def test_validate_trace_comprehensive():
+    # Valid trace
+    valid_trace = {
+        "trace_id": "t1",
+        "duration_ms": 100,
+        "spans": [
+            {
+                "span_id": "s1",
+                "name": "root",
+                "start_time": "2024-01-01T00:00:00Z",
+                "end_time": "2024-01-01T00:00:01Z",
+            }
+        ],
+    }
+    result = validate_trace(valid_trace)
+    assert result["valid"] is True
+
+    # Missing fields
+    result = validate_trace({"trace_id": "t1"})
+    assert result["valid"] is False
+    assert "spans" in str(result["issues"])
+
+    # Large trace
+    large_trace = {
+        "trace_id": "t1",
+        "duration_ms": 100,
+        "spans": [
+            {"span_id": str(i), "name": "n", "start_time": "...", "end_time": "..."}
+            for i in range(1001)
+        ],
+    }
+    result = validate_trace(large_trace)
+    assert "large trace" in str(result["issues"])
 
 
 @pytest.mark.asyncio
-async def test_list_traces(mock_trace_client):
-    mock_trace = MagicMock()
-    mock_trace.trace_id = "trace-1"
-    mock_trace.project_id = "test-proj"
-    mock_trace.spans = []
+async def test_find_example_traces_complex():
+    with patch("sre_agent.tools.clients.trace.list_traces") as mock_list:
+        with patch(
+            "sre_agent.tools.clients.trace.get_current_project_id", return_value="proj"
+        ):
+            # Mock enough traces to trigger statistics.stdev
+            traces = []
+            for i in range(25):
+                traces.append(
+                    {
+                        "trace_id": f"t{i}",
+                        "duration_ms": 100 + i * 10,
+                        "name": "op",
+                        "spans": [
+                            {
+                                "span_id": f"s{i}",
+                                "name": "n",
+                                "start_time": "...",
+                                "end_time": "...",
+                            }
+                        ],
+                    }
+                )
 
-    mock_trace_client.list_traces.return_value = [mock_trace]
+            # Mock list_traces for 3 calls (slow, all, errors)
+            mock_list.side_effect = [
+                traces[20:],  # slow
+                traces,  # all
+                [traces[5]],  # errors
+                [],  # root name search
+            ]
 
-    # Mock credentials in tool_context
-    mock_context = MagicMock()
-    mock_context.session_state = {"credentials": "fake"}
-
-    with patch(
-        "sre_agent.tools.clients.trace.get_credentials_from_tool_context"
-    ) as mock_creds:
-        mock_creds.return_value = "fake"
-        result = await list_traces(project_id="test-proj", tool_context=mock_context)
-        assert len(result) == 1
-        assert result[0]["trace_id"] == "trace-1"
+            result = await find_example_traces(project_id="proj")
+            assert "baseline" in result
+            assert "anomaly" in result
+            assert result["validation"]["sample_adequate"] is True
 
 
 @pytest.mark.asyncio
-async def test_fetch_trace(mock_trace_client):
-    mock_trace = MagicMock()
-    mock_trace.trace_id = "trace-1"
-    mock_trace.project_id = "test-proj"
-
-    mock_span = MagicMock()
-    mock_span.span_id = "span-1"
-    mock_span.name = "op1"
-    # Create valid mock timestamps
-
-    st = MagicMock()
-    st.timestamp.return_value = 1000.0
-    et = MagicMock()
-    et.timestamp.return_value = 1001.0
-    mock_span.start_time = st
-    mock_span.end_time = et
-    mock_span.labels = {"key": "val"}
-
-    mock_trace.spans = [mock_span]
-    mock_trace_client.get_trace.return_value = mock_trace
-
-    with patch(
-        "sre_agent.tools.clients.trace.get_credentials_from_tool_context"
-    ) as mock_creds:
-        mock_creds.return_value = "fake"
-        result = await fetch_trace(trace_id="trace-1", project_id="test-proj")
-        assert result["trace_id"] == "trace-1"
-        assert len(result["spans"]) == 1
-        assert result["spans"][0]["name"] == "op1"
+async def test_fetch_trace_shortcut():
+    with patch("sre_agent.tools.clients.trace._fetch_trace_sync") as mock_fetch:
+        mock_fetch.return_value = {"trace_id": "ok"}
+        result = await fetch_trace("ok", "proj")
+        assert result["trace_id"] == "ok"

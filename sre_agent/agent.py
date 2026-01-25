@@ -57,8 +57,10 @@ from google.adk.tools import AgentTool  # type: ignore[attr-defined]
 from google.adk.tools.base_toolset import BaseToolset
 
 from .auth import get_current_project_id
+from .memory.factory import get_memory_manager
 from .model_config import get_model_name
 from .prompt import SRE_AGENT_PROMPT
+from .schema import InvestigationPhase
 
 # Import sub-agents
 from .sub_agents import (
@@ -74,6 +76,7 @@ from .sub_agents import (
     trace_analyst,
 )
 from .tools import (
+    add_finding_to_memory,
     # BigQuery tools
     analyze_aggregate_metrics,
     # Additional BQ tools
@@ -164,6 +167,8 @@ from .tools import (
     # SLO prediction
     predict_slo_violation,
     query_promql,
+    search_memory,
+    suggest_next_steps,
     summarize_trace,
     update_investigation_state,
     validate_trace_quality,
@@ -447,6 +452,17 @@ async def run_triage_analysis(
 
     logger.info(f"Running triage analysis: {baseline_trace_id} vs {target_trace_id}")
 
+    # Update state to TRIAGE
+    try:
+        inv_ctx = getattr(tool_context, "invocation_context", None)
+        session = getattr(inv_ctx, "session", None) if inv_ctx else None
+        session_id = getattr(session, "id", None) if session else None
+
+        manager = get_memory_manager()
+        await manager.update_state(InvestigationPhase.TRIAGE, session_id=session_id)
+    except Exception as e:
+        logger.warning(f"Failed to update investigation state: {e}")
+
     prompt = f"""
 Analyze the differences between these two traces:
 - Baseline (good): {baseline_trace_id}
@@ -511,6 +527,17 @@ async def run_deep_dive_analysis(
         project_id = get_project_id_with_fallback()
 
     logger.info(f"Running deep dive analysis for {target_trace_id}")
+
+    # Update state to DEEP_DIVE
+    try:
+        inv_ctx = getattr(tool_context, "invocation_context", None)
+        session = getattr(inv_ctx, "session", None) if inv_ctx else None
+        session_id = getattr(session, "id", None) if session else None
+
+        manager = get_memory_manager()
+        await manager.update_state(InvestigationPhase.DEEP_DIVE, session_id=session_id)
+    except Exception as e:
+        logger.warning(f"Failed to update investigation state: {e}")
 
     prompt = f"""
 Deep dive into the issue with target trace {target_trace_id}.
@@ -703,6 +730,10 @@ TOOL_NAME_MAP = {
     # Investigation
     "update_investigation_state": update_investigation_state,
     "get_investigation_summary": get_investigation_summary,
+    # Memory
+    "add_finding_to_memory": add_finding_to_memory,
+    "search_memory": search_memory,
+    "suggest_next_steps": suggest_next_steps,
 }
 
 # Common tools for all agents
@@ -758,6 +789,10 @@ base_tools: list[Any] = [
     # Investigation tools
     update_investigation_state,
     get_investigation_summary,
+    # Memory tools
+    add_finding_to_memory,
+    search_memory,
+    suggest_next_steps,
 ]
 
 
