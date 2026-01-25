@@ -76,9 +76,9 @@ async def test_chat_endpoint_persists_user_role(client):
 
             user_event = user_events[0]
             # This is the critical check
-            assert (
-                user_event.content.role == "user"
-            ), "User role was not persisted correctly"
+            assert user_event.content.role == "user", (
+                "User role was not persisted correctly"
+            )
             assert user_event.content.parts[0].text == "Hello persistence"
 
     finally:
