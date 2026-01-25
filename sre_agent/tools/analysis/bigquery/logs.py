@@ -5,7 +5,8 @@ enabling efficient clustering of millions of logs without client-side processing
 """
 
 import logging
-from typing import Any
+
+from sre_agent.schema import BaseToolResponse, ToolStatus
 
 from ...common import adk_tool
 
@@ -20,7 +21,7 @@ def analyze_bigquery_log_patterns(
     service_name: str | None = None,
     severity: str | None = None,
     limit: int = 50,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Analyzes log patterns in BigQuery using SQL-based clustering.
 
     This tool is equivalent to 'Drain' pattern analysis but runs entirely in BigQuery,
@@ -36,7 +37,7 @@ def analyze_bigquery_log_patterns(
         limit: Max patterns to return
 
     Returns:
-        Dictionary with SQL query to extract top patterns.
+        SQL query to extract top patterns in BaseToolResponse.
     """
     where_conditions = [
         f"timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {time_window_hours} HOUR)",
@@ -96,13 +97,16 @@ LIMIT {limit}
 
     logger.info(f"Generated BigQuery Log Pattern SQL:\n{query.strip()}")
 
-    return {
-        "analysis_type": "bigquery_log_patterns",
-        "sql_query": query.strip(),
-        "description": f"Top {limit} log patterns for {service_name or 'all services'} in last {time_window_hours}h",
-        "next_steps": [
-            "Execute this query using BigQuery MCP execute_sql tool",
-            "Start with 'ERROR' severity patterns",
-            "Compare pattern counts to baseline using compare_time_periods logic manually",
-        ],
-    }
+    return BaseToolResponse(
+        status=ToolStatus.SUCCESS,
+        result={
+            "analysis_type": "bigquery_log_patterns",
+            "sql_query": query.strip(),
+            "description": f"Top {limit} log patterns for {service_name or 'all services'} in last {time_window_hours}h",
+            "next_steps": [
+                "Execute this query using BigQuery MCP execute_sql tool",
+                "Start with 'ERROR' severity patterns",
+                "Compare pattern counts to baseline using compare_time_periods logic manually",
+            ],
+        },
+    )

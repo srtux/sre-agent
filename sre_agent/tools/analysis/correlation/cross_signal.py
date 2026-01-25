@@ -15,7 +15,8 @@ References:
 """
 
 import logging
-from typing import Any
+
+from sre_agent.schema import BaseToolResponse, ToolStatus
 
 from ...common import adk_tool
 from ...common.telemetry import get_meter, get_tracer
@@ -41,7 +42,7 @@ def correlate_trace_with_metrics(
     service_name: str | None = None,
     metrics_to_check: list[str] | None = None,
     time_buffer_seconds: int = 60,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Correlates a trace with relevant metrics during its execution window.
 
     This tool finds metrics that were recorded during the trace's execution,
@@ -182,8 +183,7 @@ FROM trace_spans
             ],
         }
 
-        logger.info(f"Generated trace-metrics correlation for trace {trace_id}")
-        return result
+        return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
 @adk_tool
@@ -194,7 +194,7 @@ def correlate_metrics_with_traces_via_exemplars(
     percentile_threshold: float = 95.0,
     time_window_hours: int = 1,
     trace_table_name: str = "_AllSpans",
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Uses exemplar-style analysis to find traces corresponding to metric outliers.
 
     Exemplars are trace references attached to histogram bucket data points.
@@ -355,7 +355,7 @@ ORDER BY duration_ms DESC
         logger.info(
             f"Generated exemplar correlation for {metric_name} on {service_name}"
         )
-        return result
+        return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
 @adk_tool
@@ -365,7 +365,7 @@ def build_cross_signal_timeline(
     trace_table_name: str = "_AllSpans",
     log_table_name: str = "_AllLogs",
     time_buffer_seconds: int = 30,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Builds a unified timeline correlating traces, logs, and metrics events.
 
     This is the "unified view" of observability - aligning all three pillars
@@ -543,7 +543,7 @@ ORDER BY event_time
         }
 
         logger.info(f"Generated cross-signal timeline for trace {trace_id}")
-        return result
+        return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
 @adk_tool
@@ -553,7 +553,7 @@ def analyze_signal_correlation_strength(
     log_table_name: str = "_AllLogs",
     service_name: str | None = None,
     time_window_hours: int = 24,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Analyzes how well traces, logs, and metrics are correlated in the system.
 
     This diagnostic tool helps identify gaps in observability instrumentation:
@@ -709,4 +709,4 @@ ORDER BY overall_correlation_score
         }
 
         logger.info("Generated signal correlation strength analysis")
-        return result
+        return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)

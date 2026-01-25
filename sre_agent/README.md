@@ -22,6 +22,19 @@ A collection of specialized agents involving:
 - **Log Analysis**: `log_analyst`.
 - **Metrics Analysis**: `metrics_analyzer`.
 - **Deep Dive**: `causality_analyzer`, `service_impact_analyzer`, `change_detective`.
+- **Reporting**: `synthesize_report` (Specialized tool for incident summary generation).
+
+### 4. Tool Response Standardization
+All tools in the `sre_agent` follow a strict response contract using the `BaseToolResponse` Pydantic model. This ensures:
+- **Consistent Error Handling**: The orchestrator and frontend can predictably detect and display errors.
+- **Frontend Optimization**: The GenUI adapter can reliably transform tool results into interactive widgets (spans, charts, logs).
+- **Type Safety**: Mypy and Pydantic enforce field-level correctness across the analysis pipeline.
+
+### 5. Reporting Pipeline
+The investigation culminates in a professional SRE report generated via `synthesize_report`. This pipeline:
+- Aggregates findings from multiple specialists (Trace, Log, Metrics).
+- Standardizes formatting (Markdown) for both structured summaries and human-readable narratives.
+- Extracts root cause hypotheses and actionable recommendations.
 
 ### 3. Services (`services/`)
 - **Session Management** (`session.py`): Handles conversation history using ADK's `SessionService`. Supports `DatabaseSessionService` (SQLite) for local dev and `VertexAiSessionService` for production.

@@ -7,7 +7,9 @@ improving latency and context usage.
 
 import logging
 import time
-from typing import Any
+from typing import Any, cast
+
+from sre_agent.schema import BaseToolResponse, ToolStatus
 
 from ..common import adk_tool
 from ..common.telemetry import get_meter, get_tracer, log_tool_call
@@ -36,7 +38,7 @@ def analyze_trace_comprehensive(
     include_call_graph: bool = True,
     baseline_trace_id: str | None = None,
     tool_context: Any = None,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Performs a comprehensive analysis of a single trace.
 
     Combines:
@@ -55,7 +57,7 @@ def analyze_trace_comprehensive(
         tool_context: ADK ToolContext for credential propagation.
 
     Returns:
-        A dictionary containing all analysis results.
+        All analysis results in BaseToolResponse.
     """
     log_tool_call(logger, "analyze_trace_comprehensive", trace_id=trace_id)
 
@@ -86,16 +88,21 @@ def analyze_trace_comprehensive(
 
         # If fetching failed, return error immediately
         if "error" in trace_data:
-            result["status"] = "error"
-            result["error"] = trace_data["error"]
-            return result
+            return BaseToolResponse(
+                status=ToolStatus.ERROR,
+                error=trace_data["error"],
+                result={"trace_id": trace_id},
+            )
 
         # 1. Validation
-        validation = _validate_trace_quality_impl(trace_data)
+        validation = cast(dict[str, Any], _validate_trace_quality_impl(trace_data))
         result["quality_check"] = validation
         if not validation.get("valid", False):
-            result["status"] = "invalid_trace"
-            return result
+            return BaseToolResponse(
+                status=ToolStatus.ERROR,
+                error=f"Trace {trace_id} failed quality check: {validation.get('issues', 'unknown')}",
+                result=result,
+            )
 
         # 2. Timing & Errors
         # Durations
@@ -125,24 +132,22 @@ def analyze_trace_comprehensive(
         # 5. Anomaly Detection (if baseline provided)
         if baseline_trace_id:
             # We must compute baseline stats first (this still requires fetching baselines)
-            baseline_stats = compute_latency_statistics(
+            baseline_stats_response = compute_latency_statistics(
                 [baseline_trace_id], project_id, tool_context=tool_context
             )
             # Then use our pre-fetched target data
-            anomaly = _detect_latency_anomalies_impl(
-                baseline_stats,
-                trace_data,
-            )
-            result["anomaly_analysis"] = anomaly
+            if baseline_stats_response.status == ToolStatus.SUCCESS:
+                anomaly = _detect_latency_anomalies_impl(
+                    cast(dict[str, Any], baseline_stats_response.result),
+                    trace_data,
+                )
+                result["anomaly_analysis"] = anomaly
 
-        result["status"] = "success"
-        return result
+        return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
     except Exception as e:
         logger.error(f"Comprehensive trace analysis failed: {e}", exc_info=True)
-        result["status"] = "error"
-        result["error"] = str(e)
-        return result
+        return BaseToolResponse(status=ToolStatus.ERROR, error=str(e), result=result)
     finally:
         if user_creds:
             _clear_thread_credentials()

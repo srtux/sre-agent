@@ -17,6 +17,8 @@ References:
 import logging
 from typing import Any, cast
 
+from sre_agent.schema import BaseToolResponse, ToolStatus
+
 from ...clients.trace import fetch_trace_data
 from ...common import adk_tool
 from ...common.telemetry import get_meter, get_tracer
@@ -37,7 +39,7 @@ critical_path_operations = meter.create_counter(
 def analyze_critical_path(
     trace_id: str,
     project_id: str | None = None,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Analyzes the critical path of a distributed trace.
 
     The critical path is the chain of spans that determines the total latency
@@ -63,11 +65,13 @@ def analyze_critical_path(
         # Fetch trace data
         trace = fetch_trace_data(trace_id, project_id)
         if "error" in trace:
-            return {"error": trace["error"]}
+            return BaseToolResponse(status=ToolStatus.ERROR, error=trace["error"])
 
         spans = trace.get("spans", [])
         if not spans:
-            return {"error": "No spans found in trace"}
+            return BaseToolResponse(
+                status=ToolStatus.ERROR, error="No spans found in trace"
+            )
 
         # Build span lookup and timing data
         span_map = {}
@@ -119,7 +123,9 @@ def analyze_critical_path(
         root_spans = [s for s in span_map.values() if not s.get("parent_id")]
 
         if not root_spans:
-            return {"error": "No root span found in trace"}
+            return BaseToolResponse(
+                status=ToolStatus.ERROR, error="No root span found in trace"
+            )
 
         # For each root, calculate critical path
         all_critical_paths = []
@@ -187,7 +193,7 @@ def analyze_critical_path(
             "sre_agent.critical_path.duration_ms", critical_path["total_duration_ms"]
         )
 
-        return result
+        return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
 def _extract_service_name(span: dict[str, Any]) -> str | None:
@@ -454,7 +460,7 @@ def find_bottleneck_services(
     table_name: str = "_AllSpans",
     time_window_hours: int = 24,
     min_sample_size: int = 100,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Identifies services that frequently appear as bottlenecks on critical paths.
 
     This aggregates across many traces to find systematic bottlenecks,
@@ -569,7 +575,7 @@ LIMIT 20
         }
 
         logger.info("Generated bottleneck services analysis SQL")
-        return result
+        return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
 @adk_tool
@@ -579,7 +585,7 @@ def calculate_critical_path_contribution(
     service_name: str | None = None,
     operation_name: str | None = None,
     time_window_hours: int = 24,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Calculates how much a specific service/operation contributes to critical paths.
 
     This helps answer: "If I optimize this service, how much will overall
@@ -698,4 +704,4 @@ ORDER BY weighted_impact_ms DESC
         logger.info(
             f"Generated critical path contribution SQL for {service_name}/{operation_name}"
         )
-        return result
+        return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)

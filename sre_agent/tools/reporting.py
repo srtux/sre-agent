@@ -26,57 +26,93 @@ async def synthesize_report(
     Returns:
         Markdown-formatted investigation report in BaseToolResponse.
     """
-    # This is a helper tool to structure the final output.
-    # In a real agent, the LLM might do this naturally, but having a structured
-    # tool ensures consistent formatting.
+
+    def extract_result(data: Any) -> Any:
+        """Robustly extract the 'result' field from tool output."""
+        if not isinstance(data, dict):
+            return data
+        # Check if it's a BaseToolResponse-style dict
+        if "status" in data and "result" in data:
+            return data["result"]
+        return data
+
+    # Extract inner results
+    rc_result = extract_result(root_cause_analysis)
+    triage_result = extract_result(triage_results)
+    agg_result = extract_result(aggregate_results) if aggregate_results else None
+    log_result = extract_result(log_analysis) if log_analysis else None
 
     report = ["# Root Cause Investigation Report\n"]
 
     # 1. Executive Summary
     report.append("## Executive Summary")
-    # Extract likely root cause from deep dive
-    causality = (
-        root_cause_analysis.get("results", {})
-        .get("causality", {})
-        .get("result", "Analysis Inconclusive")
-    )
-    report.append(f"{causality}\n")
+
+    # If rc_result is a string (from LlmAgent), use it directly as the summary
+    if isinstance(rc_result, str):
+        report.append(f"{rc_result}\n")
+    else:
+        # If it's a dict (legacy/structured), try to find causality
+        causality = rc_result.get("causality", {}).get("result")
+        if not causality:
+            # Maybe it's nested under results
+            causality = (
+                rc_result.get("results", {})
+                .get("causality", {})
+                .get("result", "Analysis Inconclusive")
+            )
+        report.append(f"{causality}\n")
 
     # 2. Evidence
     report.append("## Evidence")
 
     # Change Detection
-    change_detective = (
-        root_cause_analysis.get("results", {})
-        .get("change_detective", {})
-        .get("result", "No change detection data")
-    )
-    report.append(f"### Change Correlation\n{change_detective}\n")
-
-    # 3. Trace Analysis
-    report.append("## Trace Forensics")
-    if aggregate_results:
-        report.append(
-            f"### Aggregate Patterns\n{aggregate_results.get('result', 'No aggregate data')}\n"
+    if isinstance(rc_result, dict):
+        change_detective = (
+            rc_result.get("results", {})
+            .get("change_detective", {})
+            .get("result", "No change detection data")
         )
+        report.append(f"### Change Correlation\n{change_detective}\n")
 
-    for name, result in triage_results.get("results", {}).items():
-        if result.get("status") == "success":
-            report.append(f"### {name.title()} Specialist\n{result.get('result')}\n")
+    # 3. Trace Forensics
+    report.append("## Trace Forensics")
+
+    if agg_result:
+        if isinstance(agg_result, str):
+            report.append(f"### Aggregate Patterns\n{agg_result}\n")
+        else:
+            report.append(
+                f"### Aggregate Patterns\n{agg_result.get('result', 'No aggregate data')}\n"
+            )
+
+    # Triage Findings
+    if isinstance(triage_result, dict):
+        findings = triage_result.get("results", {})
+        for name, res in findings.items():
+            if isinstance(res, dict) and res.get("status") == "success":
+                report.append(f"### {name.title()} Analyst\n{res.get('result')}\n")
+            elif isinstance(res, str):
+                report.append(f"### {name.title()} Analyst\n{res}\n")
 
     # 4. Log Analysis
-    if log_analysis:
-        report.append(
-            f"## Log Patterns\n{log_analysis.get('result', 'No log analysis data')}\n"
-        )
+    if log_result:
+        report.append("## Log Patterns")
+        if isinstance(log_result, str):
+            report.append(f"{log_result}\n")
+        else:
+            report.append(f"{log_result.get('result', 'No log analysis data')}\n")
 
     # 5. Service Impact
-    impact = (
-        root_cause_analysis.get("results", {})
-        .get("service_impact", {})
-        .get("result", "Unknown Impact")
-    )
-    report.append(f"## Impact Assessment\n{impact}\n")
+    report.append("## Impact Assessment")
+    if isinstance(rc_result, dict):
+        impact = (
+            rc_result.get("results", {})
+            .get("service_impact", {})
+            .get("result", "Unknown Impact")
+        )
+        report.append(f"{impact}\n")
+    else:
+        report.append("Refer to Executive Summary for impact details.\n")
 
     return BaseToolResponse(
         status=ToolStatus.SUCCESS,

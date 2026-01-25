@@ -512,7 +512,7 @@ def _analyze_critical_path_impl(trace_data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-@adk_tool
+# @adk_tool  -- Registered in correlation/critical_path.py
 def analyze_critical_path(
     trace_id: str, project_id: str | None = None, tool_context: Any = None
 ) -> BaseToolResponse:
@@ -942,7 +942,7 @@ def analyze_trace_patterns(
 @adk_tool
 def compute_service_level_stats(
     trace_ids: list[str], project_id: str | None = None
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Computes stats aggregated by service name (if available in labels).
 
     Args:
@@ -997,4 +997,4 @@ def compute_service_level_stats(
                 "avg_latency": round(stats["total_duration"] / stats["count"], 2),
             }
 
-    return result
+    return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)

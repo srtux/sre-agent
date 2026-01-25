@@ -2,21 +2,23 @@
 
 import statistics
 
+from sre_agent.schema import BaseToolResponse, ToolStatus
+
 from ...common.decorators import adk_tool
 
 
 @adk_tool
-def calculate_series_stats(points: list[float]) -> dict[str, float]:
+def calculate_series_stats(points: list[float]) -> BaseToolResponse:
     """Calculates statistical metrics for a list of data points.
 
     Args:
         points: List of numerical values.
 
     Returns:
-        Dictionary containing statistical metrics.
+        Statistical metrics in BaseToolResponse.
     """
     if not points:
-        return {}
+        return BaseToolResponse(status=ToolStatus.SUCCESS, result={})
 
     points_sorted = sorted(points)
     count = len(points_sorted)
@@ -42,4 +44,4 @@ def calculate_series_stats(points: list[float]) -> dict[str, float]:
         stats["p95"] = points_sorted[0]
         stats["p99"] = points_sorted[0]
 
-    return stats
+    return BaseToolResponse(status=ToolStatus.SUCCESS, result=stats)

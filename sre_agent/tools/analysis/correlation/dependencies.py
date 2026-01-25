@@ -16,7 +16,8 @@ References:
 """
 
 import logging
-from typing import Any
+
+from sre_agent.schema import BaseToolResponse, ToolStatus
 
 from ...common import adk_tool
 from ...common.telemetry import get_meter, get_tracer
@@ -40,7 +41,7 @@ def build_service_dependency_graph(
     time_window_hours: int = 24,
     min_call_count: int = 10,
     include_external: bool = True,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Builds a service dependency graph from trace data.
 
     Analyzes CLIENT spans (outgoing calls) to determine which services
@@ -221,7 +222,7 @@ ORDER BY topology_role, service_name
         }
 
         logger.info("Generated service dependency graph SQL")
-        return result
+        return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
 @adk_tool
@@ -231,7 +232,7 @@ def analyze_upstream_downstream_impact(
     table_name: str = "_AllSpans",
     time_window_hours: int = 24,
     depth: int = 3,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Analyzes the upstream and downstream impact of a service.
 
     Upstream: Services that call this service (who would be affected if it fails)
@@ -404,7 +405,7 @@ ORDER BY direction, depth, call_count DESC
         }
 
         logger.info(f"Generated impact analysis SQL for {service_name}")
-        return result
+        return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
 @adk_tool
@@ -413,7 +414,7 @@ def detect_circular_dependencies(
     table_name: str = "_AllSpans",
     time_window_hours: int = 24,
     max_cycle_length: int = 5,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Detects circular dependencies in the service graph.
 
     Circular dependencies (A -> B -> C -> A) can cause:
@@ -539,7 +540,7 @@ ORDER BY cycle_length, cycle_path
         }
 
         logger.info("Generated circular dependency detection SQL")
-        return result
+        return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
 @adk_tool
@@ -548,7 +549,7 @@ def find_hidden_dependencies(
     table_name: str = "_AllSpans",
     time_window_hours: int = 24,
     min_call_count: int = 5,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Finds dependencies that may not be in official architecture documentation.
 
     Hidden dependencies are discovered by analyzing trace data for:
@@ -686,4 +687,4 @@ ORDER BY source_service, documentation_priority DESC, call_count DESC
         }
 
         logger.info("Generated hidden dependencies analysis SQL")
-        return result
+        return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)

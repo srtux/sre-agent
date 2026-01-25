@@ -27,7 +27,7 @@ from ...auth import (
     get_current_credentials,
     get_current_credentials_or_none,
 )
-from ...schema import ToolStatus
+from ...schema import BaseToolResponse, ToolStatus
 from ..common import adk_tool
 from ..common.debug import log_auth_state, log_mcp_auth_state
 from .mock_mcp import MockMcpToolset
@@ -545,7 +545,7 @@ async def mcp_list_log_entries(
     page_size: int = 100,
     order_by: str | None = None,
     tool_context: Any | None = None,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Search and retrieve log entries from Google Cloud Logging via MCP.
 
     This is the primary tool for querying Cloud Logging. Use it for debugging
@@ -588,12 +588,17 @@ async def mcp_list_log_entries(
     if pid:
         args["resource_names"] = [f"projects/{pid}"]
 
-    return await call_mcp_tool_with_retry(
+    res = await call_mcp_tool_with_retry(
         create_logging_mcp_toolset,
         "list_log_entries",
         args,
         tool_context,
         project_id=project_id,
+    )
+    return BaseToolResponse(
+        status=res.get("status", ToolStatus.SUCCESS),
+        result=res.get("result"),
+        error=res.get("error"),
     )
 
 
@@ -606,7 +611,7 @@ async def mcp_list_timeseries(
     minutes_ago: int = 60,
     aggregation_json: str | None = None,
     tool_context: Any | None = None,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Query time series metrics data from Google Cloud Monitoring via MCP.
 
     Use this tool to retrieve metric values over time for monitoring, alerting,
@@ -673,12 +678,17 @@ async def mcp_list_timeseries(
                 logger.error(f"Failed to parse aggregation_json: {e}")
                 pass
 
-    return await call_mcp_tool_with_retry(
+    res = await call_mcp_tool_with_retry(
         create_monitoring_mcp_toolset,
         "list_timeseries",
         args,
         tool_context,
         project_id=project_id,
+    )
+    return BaseToolResponse(
+        status=res.get("status", ToolStatus.SUCCESS),
+        result=res.get("result"),
+        error=res.get("error"),
     )
 
 
@@ -691,7 +701,7 @@ async def mcp_query_range(
     minutes_ago: int = 60,
     step: str = "60s",
     tool_context: Any | None = None,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Evaluate a PromQL query over a time range via Cloud Monitoring MCP.
 
     Use this for complex metric aggregations, calculations, and analysis using
@@ -740,12 +750,17 @@ async def mcp_query_range(
         "step": step,
     }
 
-    return await call_mcp_tool_with_retry(
+    res = await call_mcp_tool_with_retry(
         create_monitoring_mcp_toolset,
         "query_range",
         args,
         tool_context,
         project_id=project_id,
+    )
+    return BaseToolResponse(
+        status=res.get("status", ToolStatus.SUCCESS),
+        result=res.get("result"),
+        error=res.get("error"),
     )
 
 
@@ -754,7 +769,7 @@ async def mcp_execute_sql(
     sql_query: str,
     project_id: str | None = None,
     tool_context: Any | None = None,
-) -> dict[str, Any]:
+) -> BaseToolResponse:
     """Execute a SQL query against BigQuery via MCP.
 
     Use this tool to run analytical queries against trace and log data
@@ -776,10 +791,15 @@ async def mcp_execute_sql(
         "projectId": project_id or get_project_id_with_fallback(),
     }
 
-    return await call_mcp_tool_with_retry(
+    res = await call_mcp_tool_with_retry(
         create_bigquery_mcp_toolset,
         "execute_sql",
         args,
         tool_context,
         project_id=project_id,
+    )
+    return BaseToolResponse(
+        status=res.get("status", ToolStatus.SUCCESS),
+        result=res.get("result"),
+        error=res.get("error"),
     )
