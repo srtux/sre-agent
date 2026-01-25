@@ -1,4 +1,21 @@
-"""Agent chat endpoints."""
+"""Agent chat endpoints.
+
+This module provides the main chat endpoint for the SRE Agent, supporting both:
+
+1. **Local Mode (Development)**: Agent runs directly in the FastAPI process.
+   - Faster iteration during development
+   - Credentials passed via ContextVars
+   - Uses local session storage (SQLite or in-memory)
+
+2. **Remote Mode (Production)**: Agent runs in Vertex AI Agent Engine.
+   - Scalable, managed infrastructure
+   - Credentials passed via session state
+   - Uses VertexAiSessionService for persistence
+
+The mode is determined by the `SRE_AGENT_ID` environment variable:
+- If set: Remote mode (call Agent Engine)
+- If not set: Local mode (run agent locally)
+"""
 
 import asyncio
 import json
@@ -18,7 +35,6 @@ from google.adk.sessions.session import Session as AdkSession
 from google.genai.types import Content, Part
 from pydantic import BaseModel
 
-from sre_agent.agent import root_agent
 from sre_agent.auth import (
     get_current_credentials_or_none,
     get_current_project_id,
@@ -28,6 +44,10 @@ from sre_agent.models.investigation import (
     InvestigationState,
 )
 from sre_agent.services import get_session_service
+from sre_agent.services.agent_engine_client import (
+    get_agent_engine_client,
+    is_remote_mode,
+)
 from sre_agent.suggestions import generate_contextual_suggestions
 
 logger = logging.getLogger(__name__)
@@ -131,11 +151,169 @@ async def get_suggestions(
         }
 
 
+async def _handle_remote_agent(
+    request: AgentRequest,
+    raw_request: Request,
+    access_token: str | None,
+    project_id: str | None,
+) -> StreamingResponse:
+    """Handle chat request by calling remote Agent Engine.
+
+    This function is used in production when SRE_AGENT_ID is set.
+    It forwards the request to the deployed Agent Engine and streams
+    the response back to the client.
+
+    Args:
+        request: The chat request
+        raw_request: The raw FastAPI request
+        access_token: User's OAuth access token for EUC
+        project_id: Selected GCP project ID
+
+    Returns:
+        StreamingResponse with agent events
+    """
+    from sre_agent.api.helpers.tool_events import (
+        create_tool_call_events,
+        create_tool_response_events,
+        create_widget_events,
+        normalize_tool_args,
+    )
+
+    client = get_agent_engine_client()
+    if client is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Agent Engine client not configured (SRE_AGENT_ID missing)",
+        )
+
+    last_msg_text = request.messages[-1].text if request.messages else ""
+
+    async def remote_event_generator() -> AsyncGenerator[str, None]:
+        """Stream events from remote Agent Engine."""
+        pending_tool_calls: list[dict[str, Any]] = []
+
+        try:
+            async for event in client.stream_query(
+                user_id=request.user_id,
+                message=last_msg_text,
+                session_id=request.session_id,
+                access_token=access_token,
+                project_id=project_id,
+            ):
+                event_type = event.get("type", "unknown")
+
+                # Handle session event
+                if event_type == "session":
+                    yield json.dumps(event) + "\n"
+                    yield (
+                        json.dumps({"type": "text", "content": "*(Thinking...)* "})
+                        + "\n"
+                    )
+                    continue
+
+                # Handle error event
+                if event_type == "error":
+                    yield (
+                        json.dumps(
+                            {
+                                "type": "text",
+                                "content": f"\n\n**Error:** {event.get('error', 'Unknown error')}",
+                            }
+                        )
+                        + "\n"
+                    )
+                    continue
+
+                # Process content parts from the event
+                content = event.get("content", {})
+                parts = content.get("parts", []) if isinstance(content, dict) else []
+
+                for part in parts:
+                    # Handle text
+                    text = part.get("text") if isinstance(part, dict) else None
+                    if text:
+                        yield json.dumps({"type": "text", "content": text}) + "\n"
+
+                    # Handle function calls
+                    fc = part.get("function_call") if isinstance(part, dict) else None
+                    if fc:
+                        tool_name = fc.get("name", "")
+                        tool_args = normalize_tool_args(fc.get("args", {}))
+                        _, events = create_tool_call_events(
+                            tool_name, tool_args, pending_tool_calls
+                        )
+                        for evt_str in events:
+                            yield evt_str + "\n"
+
+                    # Handle function responses
+                    fr = (
+                        part.get("function_response")
+                        if isinstance(part, dict)
+                        else None
+                    )
+                    if fr:
+                        tool_name = fr.get("name", "")
+                        result = fr.get("response") or fr.get("result")
+                        _, events = create_tool_response_events(
+                            tool_name, result, pending_tool_calls
+                        )
+                        for evt_str in events:
+                            yield evt_str + "\n"
+
+                        # Widget events
+                        widget_events = create_widget_events(tool_name, result)
+                        for evt_str in widget_events:
+                            yield evt_str + "\n"
+
+        except Exception as e:
+            logger.error(f"Error streaming from Agent Engine: {e}", exc_info=True)
+            yield (
+                json.dumps(
+                    {
+                        "type": "text",
+                        "content": f"\n\n**Error:** {e!s}",
+                    }
+                )
+                + "\n"
+            )
+
+    return StreamingResponse(
+        remote_event_generator(),
+        media_type="application/x-ndjson",
+    )
+
+
 @router.post("/api/genui/chat")
 @router.post("/agent")
 async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingResponse:
-    """Handle chat requests for the SRE Agent."""
-    # Import tool event helpers from the helpers module
+    """Handle chat requests for the SRE Agent.
+
+    This endpoint supports two modes:
+    - **Remote Mode** (production): Forwards to Vertex AI Agent Engine
+    - **Local Mode** (development): Runs agent directly in this process
+
+    The mode is determined by the SRE_AGENT_ID environment variable.
+    """
+    # Get credentials from middleware (set by auth_middleware)
+    creds = get_current_credentials_or_none()
+    access_token = creds.token if creds and hasattr(creds, "token") else None
+    effective_project_id = get_current_project_id() or request.project_id
+
+    # Check if we should use remote Agent Engine
+    if is_remote_mode():
+        logger.info("Using remote Agent Engine mode")
+        return await _handle_remote_agent(
+            request=request,
+            raw_request=raw_request,
+            access_token=access_token,
+            project_id=effective_project_id,
+        )
+
+    # Local mode: Run agent directly
+    logger.info("Using local agent execution mode")
+
+    # Import root_agent only in local mode to avoid loading model in proxy-only mode
+    from sre_agent.agent import root_agent
     from sre_agent.api.helpers.tool_events import (
         create_tool_call_events,
         create_tool_response_events,
@@ -148,18 +326,12 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
         session: AdkSession | None = None
         is_new_session = False
 
-        # 1. Get or Create Session
-        # Prioritize project ID from header/context
-        effective_project_id = get_current_project_id() or request.project_id
-
         from sre_agent.auth import (
             SESSION_STATE_ACCESS_TOKEN_KEY,
             SESSION_STATE_PROJECT_ID_KEY,
         )
 
-        # Get current access token
-        creds = get_current_credentials_or_none()
-        access_token = creds.token if creds and hasattr(creds, "token") else None
+        # access_token and effective_project_id already extracted at function start
 
         if request.session_id:
             # Pass user_id to ensure we find the correct session
