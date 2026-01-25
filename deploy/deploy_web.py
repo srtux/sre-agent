@@ -29,9 +29,9 @@ def main():
         "--image", help="Pre-built Docker image to deploy (skips build)"
     )
     parser.add_argument(
-        "--authenticated",
+        "--allow-unauthenticated",
         action="store_true",
-        help="Require authentication for Cloud Run (disables --allow-unauthenticated)",
+        help="Allow unauthenticated access to Cloud Run (public)",
     )
     args, unknown = parser.parse_known_args()
 
@@ -129,10 +129,10 @@ def main():
             ]
         )
 
-        if args.authenticated:
-            cmd.append("--no-allow-unauthenticated")
-        else:
+        if args.allow_unauthenticated:
             cmd.append("--allow-unauthenticated")
+        else:
+            cmd.append("--no-allow-unauthenticated")
 
         # Append any unknown arguments (e.g. --cpu, --memory)
         cmd.extend(unknown)

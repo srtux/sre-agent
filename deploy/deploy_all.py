@@ -46,9 +46,9 @@ def main():
         description="Deploy SRE Mission Control full stack"
     )
     parser.add_argument(
-        "--authenticated",
+        "--allow-unauthenticated",
         action="store_true",
-        help="Require authentication for Cloud Run (no public access)",
+        help="Allow unauthenticated access to Cloud Run (public access)",
     )
     args = parser.parse_args()
 
@@ -120,8 +120,8 @@ def main():
             "--agent-id",
             resource_name,
         ]
-        if args.authenticated:
-            frontend_cmd.append("--authenticated")
+        if args.allow_unauthenticated:
+            frontend_cmd.append("--allow-unauthenticated")
 
         # Frontend deployment is primarily the heavy lifting, definitely allow interactivity.
         run_command(frontend_cmd, cwd=str(root_dir), interactive=True)

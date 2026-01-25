@@ -56,13 +56,15 @@ Auto SRE uses **End-User Credentials** flow. This means it never stores your pas
 
 ## Protected Access
 
-If your organization restricts unauthenticated access to Cloud Run (preventing the use of `--allow-unauthenticated`), you can deploy the agent in **Authenticated Mode**:
+By default, Cloud Run is deployed in **Authenticated Mode** (`--no-allow-unauthenticated`). This means only authorized users (with `roles/run.invoker`) can access the URL.
+
+If your organization allows public access and you wish to enable it, you must explicitly use the `--allow-unauthenticated` flag:
 
 ```bash
-uv run python deploy/deploy_web.py --authenticated
+uv run python deploy/deploy_web.py --allow-unauthenticated
 ```
 
-When deployed with `--authenticated`:
-1.  The service will be created with `--no-allow-unauthenticated`.
+When deployed in the default (Authenticated) mode:
+1.  The service is created with `--no-allow-unauthenticated`.
 2.  You will need to grant users the `roles/run.invoker` role to access the URL.
-3.  Access via the browser will require a Google-signed request (typically handled by a Load Balancer or IAP).
+3.  Direct browser access may require an IAP (Identity-Aware Proxy) or Load Balancer if not accessed via a Google-authenticated tunnel.
