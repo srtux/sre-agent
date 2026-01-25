@@ -269,7 +269,7 @@ class TestAgentEngineClient:
 
     @pytest.mark.asyncio
     async def test_stream_query_yields_events(self, client: AgentEngineClient) -> None:
-        """Test stream_query yields events from Agent Engine."""
+        """Test stream_query yields events from Agent Engine using async_stream_query."""
         # Mock Session Manager
         mock_session_manager = MagicMock()
         mock_session = MagicMock()
@@ -282,15 +282,21 @@ class TestAgentEngineClient:
 
         # Mock ADK App
         mock_adk_app = MagicMock()
-        # Mock the synchronous query method
-        mock_adk_app.query.return_value = [
-            {"content": {"parts": [{"text": "Hello, I'm the agent!"}]}},
-            {
-                "content": {
-                    "parts": [{"function_call": {"name": "test_tool", "args": {}}}]
-                }
-            },
-        ]
+
+        # Mock async_stream_query returning an async generator
+        async def mock_stream_generator(*args, **kwargs):
+            events = [
+                {"content": {"parts": [{"text": "Hello, I'm the agent!"}]}},
+                {
+                    "content": {
+                        "parts": [{"function_call": {"name": "test_tool", "args": {}}}]
+                    }
+                },
+            ]
+            for event in events:
+                yield event
+
+        mock_adk_app.async_stream_query = MagicMock(side_effect=mock_stream_generator)
 
         client._initialized = True
         client._adk_app = mock_adk_app
@@ -323,9 +329,9 @@ class TestAgentEngineClient:
             content_events = [e for e in events if e.get("type", "") != "session"]
             assert len(content_events) == 2
 
-            # Verify query was called with correct args
-            mock_adk_app.query.assert_called_once()
-            call_kwargs = mock_adk_app.query.call_args.kwargs
+            # Verify async_stream_query was called with correct args
+            mock_adk_app.async_stream_query.assert_called_once()
+            call_kwargs = mock_adk_app.async_stream_query.call_args.kwargs
             assert call_kwargs["input"] == "Hello"
             assert call_kwargs["user_id"] == "test-user"
             assert call_kwargs["session_id"] == "test-session"

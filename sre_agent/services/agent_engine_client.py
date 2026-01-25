@@ -283,49 +283,53 @@ class AgentEngineClient:
             "session_id": effective_session_id,
         }
 
-        # Stream query to Agent Engine
-        # Warning: vertexai.agent_engines.AgentEngine.query is synchronous
-        # and doesn't natively support async streaming protocols yet.
-        # We run it in a thread to avoid blocking the event loop.
         import asyncio
 
-        def _query_agent() -> Any:
-            if not hasattr(self._adk_app, "query"):
-                raise AttributeError(
-                    f"AgentEngine object at {self._adk_app.resource_name} "
-                    "does not have a 'query' method. This usually means the "
-                    "agent was not deployed correctly or the SDK failed to "
-                    "register dynamic methods."
-                )
-            # Pass user_id and session_id as kwargs which the remote agent should be configured to accept
-            return self._adk_app.query(
-                input=message, user_id=user_id, session_id=effective_session_id
-            )
-
-        try:
-            # Note: This assumes the agent returns an iterable (generator) for streaming.
-            # If the agent is non-streaming, this will return the full response at once.
-            response = await asyncio.to_thread(_query_agent)
-
-            # Handle both streaming (generator) and non-streaming (direct return) responses
-            if hasattr(response, "__iter__") and not isinstance(response, str | dict):
-                for event in response:
-                    # Convert ADK event to dict if needed
-                    if hasattr(event, "model_dump"):
-                        event_dict = event.model_dump()
-                    elif hasattr(event, "to_dict"):
-                        event_dict = event.to_dict()
-                    elif isinstance(event, dict):
-                        event_dict = event
-                    else:
-                        event_dict = {
-                            "type": "event",
-                            "content": str(event),
-                        }
-                    yield event_dict
+        def process_event(event: Any) -> dict[str, Any]:
+            """Helper to convert ADK event to dict."""
+            if hasattr(event, "model_dump"):
+                return dict(event.model_dump())
+            elif hasattr(event, "to_dict"):
+                return dict(event.to_dict())
+            elif isinstance(event, dict):
+                return event
             else:
-                # Non-streaming response
-                yield {"type": "event", "content": str(response)}
+                return {
+                    "type": "event",
+                    "content": str(event),
+                }
+
+        # Stream query to Agent Engine
+        try:
+            # Use async_stream_query for better performance and native async support
+            if hasattr(self._adk_app, "async_stream_query"):
+                stream = self._adk_app.async_stream_query(
+                    input=message,
+                    user_id=user_id,
+                    session_id=effective_session_id,
+                )
+                async for event in stream:
+                    yield process_event(event)
+
+            # Fallback to sync query in thread if async_stream_query is missing (unlikely given check)
+            else:
+                logger.warning(
+                    "AgentEngine missing 'async_stream_query', falling back to sync 'query'"
+                )
+
+                def _query_agent() -> Any:
+                    return self._adk_app.query(
+                        input=message, user_id=user_id, session_id=effective_session_id
+                    )
+
+                response = await asyncio.to_thread(_query_agent)
+                if hasattr(response, "__iter__") and not isinstance(
+                    response, str | dict
+                ):
+                    for event in response:
+                        yield process_event(event)
+                else:
+                    yield {"type": "event", "content": str(response)}
 
         except Exception as e:
             logger.error(f"Error streaming from Agent Engine: {e}", exc_info=True)
