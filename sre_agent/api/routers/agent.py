@@ -241,8 +241,12 @@ async def _handle_remote_agent(
                     if fc:
                         tool_name = fc.get("name", "")
                         tool_args = normalize_tool_args(fc.get("args", {}))
-                        _, events = create_tool_call_events(
+                        surface_id, events = create_tool_call_events(
                             tool_name, tool_args, pending_tool_calls
+                        )
+                        # Yield UI marker first to ensure a bubble is created
+                        yield (
+                            json.dumps({"type": "ui", "surface_id": surface_id}) + "\n"
                         )
                         for evt_str in events:
                             yield evt_str + "\n"
@@ -263,7 +267,11 @@ async def _handle_remote_agent(
                             yield evt_str + "\n"
 
                         # Widget events
-                        widget_events = create_widget_events(tool_name, result)
+                        widget_events, widget_surface_ids = create_widget_events(
+                            tool_name, result
+                        )
+                        for sid in widget_surface_ids:
+                            yield json.dumps({"type": "ui", "surface_id": sid}) + "\n"
                         for evt_str in widget_events:
                             yield evt_str + "\n"
 
@@ -572,9 +580,7 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                         if thought is None and isinstance(part, dict):
                             thought = part.get("thought")
                         if thought and isinstance(thought, str):
-                            logger.info(
-                                f"🧠 Yielding reasoning thought: {str(thought)[:50]}..."
-                            )
+                            # logger.info(f"🧠 Yielding reasoning thought: {str(thought)[:50]}...")
                             formatted_thought = f"\n\n**Thought**: {thought}\n\n"
                             yield (
                                 json.dumps(
@@ -599,8 +605,13 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                                     tool_args_raw = fc.get("args")
                                 tool_args = normalize_tool_args(tool_args_raw)
                                 logger.info(f"🛠️ Tool Call Request: {tool_name}")
-                                _, events = create_tool_call_events(
+                                surface_id, events = create_tool_call_events(
                                     tool_name, tool_args, pending_tool_calls
+                                )
+                                # Yield UI marker first to ensure a bubble is created in the frontend
+                                yield (
+                                    json.dumps({"type": "ui", "surface_id": surface_id})
+                                    + "\n"
                                 )
                                 for evt_str in events:
                                     logger.info(
@@ -639,7 +650,14 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                                     yield evt_str + "\n"
 
                                 # Yield specialized widget
-                                widget_events = create_widget_events(tool_name, result)
+                                widget_events, widget_surface_ids = (
+                                    create_widget_events(tool_name, result)
+                                )
+                                for sid in widget_surface_ids:
+                                    yield (
+                                        json.dumps({"type": "ui", "surface_id": sid})
+                                        + "\n"
+                                    )
                                 for evt_str in widget_events:
                                     logger.info(f"📤 Yielding widget event: {evt_str}")
                                     yield evt_str + "\n"

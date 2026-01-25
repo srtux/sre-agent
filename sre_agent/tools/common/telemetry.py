@@ -34,17 +34,17 @@ class EmojiLoggingFilter(logging.Filter):
         """Apply emojis and separators to the log record."""
         # LLM Call Starting/Completed (ADK messages)
         if "google_adk" in record.name or "google.adk" in record.name:
-            if "Sending out request" in msg:
+            if "Sending out request" in msg and "🧠" not in msg:
                 record.msg = f"🧠 LLM Call Starting | {record.msg}"
-            elif "Response received" in msg:
+            elif "Response received" in msg and "🧠" not in msg:
                 record.msg = f"🧠 LLM Call Completed | {record.msg}"
-            elif "LLM Request:" in msg or "LLM Response:" in msg:
+            elif ("LLM Request:" in msg or "LLM Response:" in msg) and "⎯" not in msg:
                 # Add a separator before large LLM payloads
                 record.msg = f"\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n{record.msg}"
 
-        # API Call Distinctions (Uvicorn access logs)
+        # API Call Distinctions (Uvicorn access logs - although we mostly silence these now)
         elif "uvicorn.access" in record.name:
-            if not record.msg.startswith("🌐"):
+            if not any(e in record.msg for e in ["🌐", "🕵️"]):
                 record.msg = f"🌐 API Call | {record.msg}"
 
         # Tool calls from decorators or MCP
@@ -63,23 +63,39 @@ class EmojiLoggingFilter(logging.Filter):
 
         # User Prompt (Agent)
         elif "sre_agent.agent" in record.name and "User Prompt" in msg:
-            record.msg = f"\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n💬 {msg}"
+            if "💬" not in msg:
+                record.msg = f"\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n💬 {msg}"
 
     def filter(self, record: logging.LogRecord) -> bool:
         """Filter log records to add emojis and truncate long payloads."""
         msg = record.getMessage()
 
-        # 1. Skip noisy health checks
-        if "uvicorn.access" in record.name and "GET /health" in msg:
+        # 1. Skip noisy health checks and redundant access logs
+        # We use our own tracing_middleware for request logging
+        if "uvicorn.access" in record.name:
+            if "GET /health" in msg or "GET /api/health" in msg:
+                return False
+            # Silence standard access logs if we are in DEBUG/INFO and want clean output
+            # Our custom middleware handles the logging now.
             return False
 
-        # 2. Apply styling (emojis, separators)
+        # 2. Hide massive System Instructions in LLM logs unless explicitly requested
+        if (
+            "System Instruction:" in msg
+            and os.environ.get("LOG_SYSTEM_INSTRUCTIONS", "false").lower() != "true"
+        ):
+            # Truncate or hide the system instruction part which is usually 90% of the noise
+            if "LLM Request:" in msg:
+                parts = msg.split("System Instruction:")
+                record.msg = f"{parts[0]}System Instruction: [HIDDEN - Set LOG_SYSTEM_INSTRUCTIONS=true to see]"
+                msg = record.msg  # Update for subsequent checks
+
+        # 3. Apply styling (emojis, separators)
         self._apply_emojis(record, msg)
 
-        # 3. Truncate extremely long logs for communication-heavy modules
-        # We check the potentially modified message
+        # 4. Truncate extremely long logs for communication-heavy modules
         final_msg = record.getMessage()
-        if len(final_msg) > 1000:
+        if len(final_msg) > 1200:
             should_truncate = False
 
             # Known noisy modules
@@ -91,6 +107,7 @@ class EmojiLoggingFilter(logging.Filter):
                     "sre_agent.api.routers.agent",
                     "sre_agent.agent",
                     "sre_agent.tools",
+                    "sre_agent.api.middleware",
                 ]
             ):
                 # Only truncate if it looks like a heavy payload or is just massive
@@ -104,16 +121,17 @@ class EmojiLoggingFilter(logging.Filter):
                     "RESULT",
                     "function_call",
                     "Yielding widget event",
+                    "Auth Middleware",
                 ]
                 if (
                     any(k in final_msg for k in payload_keywords)
-                    or len(final_msg) > 2500
+                    or len(final_msg) > 3000
                 ):
                     should_truncate = True
 
             if should_truncate:
                 record.msg = (
-                    f"{final_msg[:1000]}... (truncated, original len={len(final_msg)})"
+                    f"{final_msg[:1200]}... (truncated, original len={len(final_msg)})"
                 )
                 record.args = ()
 
@@ -254,11 +272,15 @@ def setup_telemetry(level: int = logging.INFO) -> None:
 
     # 3. Initialize Log Correlation (Works with any global TracerProvider)
     try:
+        from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
         from opentelemetry.instrumentation.logging import LoggingInstrumentor
+        from opentelemetry.instrumentation.requests import RequestsInstrumentor
 
         LoggingInstrumentor().instrument(set_logging_format=False)
+        RequestsInstrumentor().instrument()
+        HTTPXClientInstrumentor().instrument()
     except Exception as e:
-        logging.getLogger(__name__).debug(f"LoggingInstrumentor failed: {e}")
+        logging.getLogger(__name__).debug(f"Instrumentation failed: {e}")
 
     logging.getLogger(__name__).info(
         f"Setting up telemetry with project_id: '{project_id}'"
@@ -456,7 +478,7 @@ def _configure_logging_handlers(level: int, project_id: str | None) -> None:
             BLUE = "\x1b[34;20m"
             CYAN = "\x1b[36;20m"
 
-            request_format: str = "%(asctime)s [%(levelname)s] %(name)s [trace_id=%(otelTraceID)s span_id=%(otelSpanID)s]: %(message)s"
+            request_format: str = "%(asctime)s [%(levelname)s] %(name)s [trace_id=%(otelTraceID)s span_id=%(otelSpanID)s%(correlationID)s]: %(message)s"
 
             FORMATS: ClassVar[dict[int, str]] = {
                 logging.DEBUG: GREY + request_format + RESET,
@@ -467,13 +489,44 @@ def _configure_logging_handlers(level: int, project_id: str | None) -> None:
             }
 
             def format(self, record: logging.LogRecord) -> str:
-                # Ensure fields exist even if instrumentor failed
-                if not hasattr(record, "otelTraceID"):
-                    record.otelTraceID = "0"
-                if not hasattr(record, "otelSpanID"):
-                    record.otelSpanID = "0"
+                from sre_agent.auth import get_correlation_id
 
-                log_fmt = self.FORMATS.get(record.levelno, self.request_format)
+                # Cast to Any to handle dynamic OTel attributes added by instrumentors
+                record_any: Any = record
+
+                # Ensure fields exist even if instrumentor failed
+                if not hasattr(record_any, "otelTraceID"):
+                    record_any.otelTraceID = "0"
+                if not hasattr(record_any, "otelSpanID"):
+                    record_any.otelSpanID = "0"
+
+                # Handle Trace Context
+                # If trace_id is 0, we don't want to show it as it's just noise
+                otel_trace_id = str(record_any.otelTraceID)
+                otel_span_id = str(record_any.otelSpanID)
+
+                if (
+                    otel_trace_id == "0"
+                    or otel_trace_id == "00000000000000000000000000000000"
+                ):
+                    trace_ctx = ""
+                else:
+                    trace_ctx = f" [trace_id={otel_trace_id} span_id={otel_span_id}]"
+
+                # Handle Correlation ID
+                cid = get_correlation_id()
+                if cid:
+                    # Append to trace context
+                    record_any.otelContext = f"{trace_ctx} corr_id={cid}"
+                else:
+                    record_any.otelContext = trace_ctx
+
+                # Update format string to use combined context
+                log_fmt = self.FORMATS.get(record.levelno, self.request_format).replace(
+                    "[trace_id=%(otelTraceID)s span_id=%(otelSpanID)s%(correlationID)s]",
+                    "%(otelContext)s",
+                )
+
                 formatter = logging.Formatter(log_fmt, datefmt="%Y-%m-%d %H:%M:%S")
                 return formatter.format(record)
 

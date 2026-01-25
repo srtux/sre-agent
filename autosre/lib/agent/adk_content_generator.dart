@@ -16,6 +16,8 @@ class ADKContentGenerator implements ContentGenerator {
       StreamController<ContentGeneratorError>.broadcast();
   final StreamController<String> _sessionController =
       StreamController<String>.broadcast();
+  final StreamController<String> _uiMessageController =
+      StreamController<String>.broadcast();
   final StreamController<List<String>> _suggestionsController =
       StreamController<List<String>>.broadcast();
   final ValueNotifier<bool> _isProcessing = ValueNotifier(false);
@@ -38,6 +40,9 @@ class ADKContentGenerator implements ContentGenerator {
 
   /// Stream of session ID updates (emitted when backend assigns/creates session).
   Stream<String> get sessionStream => _sessionController.stream;
+
+  /// Stream of new UI surface IDs to be added as messages.
+  Stream<String> get uiMessageStream => _uiMessageController.stream;
 
   /// Stream of suggested actions.
   Stream<List<String>> get suggestionsStream => _suggestionsController.stream;
@@ -208,6 +213,12 @@ class ADKContentGenerator implements ContentGenerator {
                   final msgJson = data['message'] as Map<String, dynamic>;
                   final msg = A2uiMessage.fromJson(msgJson);
                   _a2uiController.add(msg);
+                } else if (type == 'ui') {
+                  // New UI component that should be added as a message bubble
+                  final newSurfaceId = data['surface_id'] as String?;
+                  if (newSurfaceId != null) {
+                    _uiMessageController.add(newSurfaceId);
+                  }
                 } else if (type == 'session') {
                   // Update session ID from server
                   final newSessionId = data['session_id'] as String?;
@@ -317,6 +328,7 @@ class ADKContentGenerator implements ContentGenerator {
     _healthCheckTimer?.cancel();
     _a2uiController.close();
     _textController.close();
+    _uiMessageController.close();
     _errorController.close();
     _sessionController.close();
     _suggestionsController.close();

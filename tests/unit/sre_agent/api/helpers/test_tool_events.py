@@ -38,11 +38,17 @@ class TestCreateToolCallEvents:
             "fetch_trace", {"trace_id": "abc123"}, pending
         )
 
-        assert len(events) == 1
+        assert len(events) == 2
         assert len(pending) == 1
 
-        # First event should be surfaceUpdate with component
-        surface_update = json.loads(events[0])
+        # First event: beginRendering
+        begin_event = json.loads(events[0])
+        assert begin_event["type"] == "a2ui"
+        assert "beginRendering" in begin_event["message"]
+        assert begin_event["message"]["beginRendering"]["surfaceId"] == surface_id
+
+        # Second event: surfaceUpdate
+        surface_update = json.loads(events[1])
         assert surface_update["type"] == "a2ui"
         assert "surfaceUpdate" in surface_update["message"]
 
@@ -51,7 +57,6 @@ class TestCreateToolCallEvents:
         assert len(update_msg["components"]) == 1
 
         component = update_msg["components"][0]
-        # A2UI v0.8 requires "id" and "component" wrapper
         assert "id" in component
         assert "component" in component
         assert "x-sre-tool-log" in component["component"]
@@ -61,13 +66,8 @@ class TestCreateToolCallEvents:
         assert tool_log["args"] == {"trace_id": "abc123"}
         assert tool_log["status"] == "running"
 
-        # Combined event should include beginRendering with root reference
-        assert "beginRendering" in surface_update["message"]
-
-        begin_msg = surface_update["message"]["beginRendering"]
-        assert begin_msg["surfaceId"] == surface_id
-        assert "root" in begin_msg
-        assert begin_msg["root"] == component["id"]
+        # Verify beginRendering references the component (root field)
+        assert begin_event["message"]["beginRendering"]["root"] == component["id"]
 
     def test_registers_pending_call_with_component_id(self) -> None:
         """Test that pending call includes component_id for response matching."""
@@ -181,33 +181,35 @@ class TestCreateWidgetEvents:
             ],
         }
 
-        events = create_widget_events("fetch_trace", result)
+        events, sids = create_widget_events("fetch_trace", result)
 
-        assert len(events) == 1
+        assert len(events) == 2
+        assert len(sids) == 1
 
-        # First event should be surfaceUpdate
-        surface_update = json.loads(events[0])
+        # First event: beginRendering
+        begin_event = json.loads(events[0])
+        assert begin_event["type"] == "a2ui"
+        assert "beginRendering" in begin_event["message"]
+
+        # Second event: surfaceUpdate
+        surface_update = json.loads(events[1])
         assert surface_update["type"] == "a2ui"
         assert "surfaceUpdate" in surface_update["message"]
 
         update_msg = surface_update["message"]["surfaceUpdate"]
         component = update_msg["components"][0]
-        # A2UI v0.8 format
         assert "id" in component
         assert "component" in component
         assert "x-sre-trace-waterfall" in component["component"]
 
-        # Combined event should include beginRendering with root
-        assert "beginRendering" in surface_update["message"]
-
-        begin_msg = surface_update["message"]["beginRendering"]
-        assert "root" in begin_msg
-        assert begin_msg["root"] == component["id"]
+        # Verify beginRendering references the component
+        assert begin_event["message"]["beginRendering"]["root"] == component["id"]
 
     def test_returns_empty_for_unmapped_tool(self) -> None:
         """Test that unmapped tools return no widget events."""
-        events = create_widget_events("unmapped_tool", {"data": "value"})
+        events, sids = create_widget_events("unmapped_tool", {"data": "value"})
         assert events == []
+        assert sids == []
 
     def test_handles_json_string_result(self) -> None:
         """Test that JSON string results are parsed."""
@@ -225,5 +227,6 @@ class TestCreateWidgetEvents:
             }
         )
 
-        events = create_widget_events("fetch_trace", result)
-        assert len(events) == 1
+        events, sids = create_widget_events("fetch_trace", result)
+        assert len(events) == 2
+        assert len(sids) == 1

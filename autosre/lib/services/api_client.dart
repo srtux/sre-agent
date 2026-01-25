@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:uuid/uuid.dart';
 import 'auth_service.dart';
 import 'project_service.dart';
 
@@ -55,7 +56,32 @@ class ProjectInterceptorClient extends http.BaseClient {
       request.headers['X-GCP-Project-ID'] = projectId;
     }
 
-    return _inner.send(request);
+    // 4. Correlation ID for Cross-Service Tracing
+    final correlationId = request.headers['X-Correlation-ID'] ??
+        const Uuid().v4();
+    request.headers['X-Correlation-ID'] = correlationId;
+
+    if (kDebugMode) {
+      debugPrint('🌐 [API Request] ${request.method} ${request.url.path} | CorrID: $correlationId');
+    }
+
+    final stopwatch = Stopwatch()..start();
+    try {
+      final response = await _inner.send(request);
+      final duration = stopwatch.elapsedMilliseconds;
+
+      if (kDebugMode) {
+        debugPrint('🌐 [API Response] ${request.method} ${request.url.path} | Status: ${response.statusCode} | Duration: ${duration}ms | CorrID: $correlationId');
+      }
+
+      return response;
+    } catch (e) {
+      final duration = stopwatch.elapsedMilliseconds;
+      if (kDebugMode) {
+        debugPrint('❌ [API Error] ${request.method} ${request.url.path} | Error: $e | Duration: ${duration}ms | CorrID: $correlationId');
+      }
+      rethrow;
+    }
   }
 
   @override

@@ -11,14 +11,15 @@ def test_create_widget_events_log_success():
         "result": {"entries": [{"insertId": "1", "textPayload": "test log"}]},
     }
 
-    events = create_widget_events(tool_name, result)
+    events, sids = create_widget_events(tool_name, result)
+    assert len(events) == 2
+    assert len(sids) == 1
 
-    # Should have 1 event (bundled A2UI v0.8)
-    assert len(events) == 1
+    begin_event = json.loads(events[0])
+    assert "beginRendering" in begin_event["message"]
 
-    update_event = json.loads(events[0])
+    update_event = json.loads(events[1])
     assert "surfaceUpdate" in update_event["message"]
-    assert "beginRendering" in update_event["message"]
 
     # Verify data transformation happened
     data = update_event["message"]["surfaceUpdate"]["components"][0]["component"][
@@ -34,12 +35,13 @@ def test_create_widget_events_log_error():
     tool_name = "list_log_entries"
     result = {"status": "error", "error": "Failed to fetch logs"}
 
-    events = create_widget_events(tool_name, result)
+    events, sids = create_widget_events(tool_name, result)
 
     # Critical: Should NOT be empty
-    assert len(events) == 1
+    assert len(events) == 2
+    assert len(sids) == 1
 
-    update_event = json.loads(events[0])
+    update_event = json.loads(events[1])
     data = update_event["message"]["surfaceUpdate"]["components"][0]["component"][
         "x-sre-log-entries-viewer"
     ]
@@ -56,10 +58,11 @@ def test_create_widget_events_string_result():
     result_dict = {"trace_id": "trace-123", "spans": [{"span_id": "s1"}]}
     result_str = json.dumps(result_dict)
 
-    events = create_widget_events(tool_name, result_str)
+    events, sids = create_widget_events(tool_name, result_str)
 
-    assert len(events) == 1
-    update_event = json.loads(events[0])
+    assert len(events) == 2
+    assert len(sids) == 1
+    update_event = json.loads(events[1])
     data = update_event["message"]["surfaceUpdate"]["components"][0]["component"][
         "x-sre-trace-waterfall"
     ]

@@ -80,14 +80,19 @@ def test_create_tool_call_events():
     assert pending_calls[0]["args"] == {"arg1": "value1"}
     assert call_id == pending_calls[0]["call_id"]
 
-    # Should have 1 event (bundled A2UI v0.8)
-    assert len(events) == 1
+    # Should have 2 events: beginRendering and surfaceUpdate
+    assert len(events) == 2
 
-    # Parse and verify event
-    update_event = json.loads(events[0])
+    # Parse and verify first event: beginRendering
+    begin_event = json.loads(events[0])
+    assert begin_event["type"] == "a2ui"
+    assert "beginRendering" in begin_event["message"]
+    assert begin_event["message"]["beginRendering"]["surfaceId"] == call_id
+
+    # Parse and verify second event: surfaceUpdate
+    update_event = json.loads(events[1])
     assert update_event["type"] == "a2ui"
     assert "surfaceUpdate" in update_event["message"]
-    assert "beginRendering" in update_event["message"]
 
     # Verify tool log data in surfaceUpdate
     components = update_event["message"]["surfaceUpdate"]["components"]
@@ -99,7 +104,7 @@ def test_create_tool_call_events():
     assert tool_log["args"] == {"arg1": "value1"}
 
     # Verify beginRendering references the component
-    assert update_event["message"]["beginRendering"]["root"] == components[0]["id"]
+    assert begin_event["message"]["beginRendering"]["root"] == components[0]["id"]
 
 
 def test_create_tool_response_events_success():
@@ -127,7 +132,7 @@ def test_create_tool_response_events_success():
     assert len(events) == 1
 
     update_event = json.loads(events[0])
-    assert "beginRendering" in update_event["message"]
+    assert "surfaceUpdate" in update_event["message"]
     components = update_event["message"]["surfaceUpdate"]["components"]
     tool_log = components[0]["component"]["x-sre-tool-log"]
     assert tool_log["status"] == "completed"

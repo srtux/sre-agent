@@ -52,6 +52,7 @@ class _ConversationPageState extends State<ConversationPage>
     'Check for high latency',
   ]);
   StreamSubscription<List<String>>? _suggestionsSubscription;
+  StreamSubscription<String>? _uiMessageSubscription;
 
   @override
   void initState() {
@@ -131,6 +132,23 @@ class _ConversationPageState extends State<ConversationPage>
     ) {
       if (mounted) {
         _suggestedActions.value = suggestions;
+      }
+    });
+
+    // Subscribe to new UI surfaces that we want to show as message bubbles
+    _uiMessageSubscription?.cancel();
+    _uiMessageSubscription = _contentGenerator.uiMessageStream.listen((surfaceId) {
+      if (mounted) {
+        setState(() {
+          final messages = List<ChatMessage>.from(_conversation.conversation.value);
+          messages.add(AiUiMessage(
+            definition: UiDefinition(surfaceId: surfaceId),
+            surfaceId: surfaceId,
+          ));
+          (_conversation.conversation as ValueNotifier<List<ChatMessage>>).value =
+              messages;
+        });
+        _scrollToBottom(force: true);
       }
     });
 
@@ -1056,6 +1074,7 @@ class _ConversationPageState extends State<ConversationPage>
   void dispose() {
     _sessionSubscription?.cancel();
     _suggestionsSubscription?.cancel();
+    _uiMessageSubscription?.cancel();
     _projectService.selectedProject.removeListener(_onProjectChanged);
     _typingController.dispose();
     _conversation.dispose();

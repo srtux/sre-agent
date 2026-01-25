@@ -77,9 +77,24 @@ def create_tool_call_events(
         }
     )
 
-    # Combined event containing both update and beginRendering (A2UI v0.8 protocol)
-    logger.info(f"📤 Tool Call Combined Event: {tool_name} (surface_id={surface_id})")
-    event = json.dumps(
+    # Create separate events for beginRendering and surfaceUpdate for maximum compatibility
+    logger.info(f"📤 Tool Call Events: {tool_name} (surface_id={surface_id})")
+
+    # 1. beginRendering first
+    begin_event = json.dumps(
+        {
+            "type": "a2ui",
+            "message": {
+                "beginRendering": {
+                    "surfaceId": surface_id,
+                    "root": component_id,
+                },
+            },
+        }
+    )
+
+    # 2. surfaceUpdate second
+    update_event = json.dumps(
         {
             "type": "a2ui",
             "message": {
@@ -98,15 +113,11 @@ def create_tool_call_events(
                         }
                     ],
                 },
-                "beginRendering": {
-                    "surfaceId": surface_id,
-                    "root": component_id,
-                },
             },
         }
     )
 
-    return surface_id, [event]
+    return surface_id, [begin_event, update_event]
 
 
 def create_tool_response_events(
@@ -140,19 +151,23 @@ def create_tool_response_events(
 
     # Status determination
     status = "completed"
-    if isinstance(result, dict) and ("error" in result or "error_type" in result):
+    if isinstance(result, dict) and (result.get("error") or result.get("error_type")):
         status = "error"
-        if "error" in result and "error_type" in result:
-            result = f"{result['error_type']}: {result['error']}"
-        elif "error" in result:
-            result = str(result["error"])
-    elif isinstance(result, dict) and len(result) == 1 and "result" in result:
+        error_msg = result.get("error")
+        error_type = result.get("error_type")
+        if error_msg and error_type:
+            result = f"{error_type}: {error_msg}"
+        elif error_msg:
+            result = str(error_msg)
+        elif error_type:
+            result = str(error_type)
+    elif isinstance(result, dict) and "result" in result:
+        # If it's a standard tool output dict, extract the result part
         result = result["result"]
 
-    # surfaceUpdate (completed/error status) with A2UI v0.8 format
-    # Bundle with beginRendering to ensure the update renders correctly in its bubble
+    # Create separate surfaceUpdate event
     logger.info(
-        f"📤 Tool Response Combined Event: {tool_name} (surface_id={surface_id}, status={status})"
+        f"📤 Tool Response Event: {tool_name} (surface_id={surface_id}, status={status})"
     )
     event = json.dumps(
         {
@@ -173,11 +188,7 @@ def create_tool_response_events(
                             },
                         }
                     ],
-                },
-                "beginRendering": {
-                    "surfaceId": surface_id,
-                    "root": component_id,
-                },
+                }
             },
         }
     )
@@ -185,13 +196,18 @@ def create_tool_response_events(
     return surface_id, [event]
 
 
-def create_widget_events(tool_name: str, result: Any) -> list[str]:
-    """Create A2UI events for widget visualization (A2UI v0.8 protocol)."""
+def create_widget_events(tool_name: str, result: Any) -> tuple[list[str], list[str]]:
+    """Create A2UI events for widget visualization (A2UI v0.8 protocol).
+
+    Returns:
+        tuple (list of event JSON strings, list of surface IDs created)
+    """
     events: list[str] = []
+    surface_ids: list[str] = []
 
     widget_type = TOOL_WIDGET_MAP.get(tool_name)
     if not widget_type:
-        return events
+        return events, surface_ids
 
     # Normalize result (handles JSON strings and objects)
     result = normalize_tool_args(result)
@@ -221,11 +237,22 @@ def create_widget_events(tool_name: str, result: Any) -> list[str]:
             surface_id = str(uuid.uuid4())
             component_id = f"widget-{surface_id[:8]}"
 
-            # Combined event containing both update and beginRendering (A2UI v0.8 protocol)
-            logger.info(
-                f"📤 Widget Combined Event: {widget_type} (surface_id={surface_id})"
+            # Split into separate events for compatibility
+            logger.info(f"📤 Widget Events: {widget_type} (surface_id={surface_id})")
+
+            begin_event = json.dumps(
+                {
+                    "type": "a2ui",
+                    "message": {
+                        "beginRendering": {
+                            "surfaceId": surface_id,
+                            "root": component_id,
+                        },
+                    },
+                }
             )
-            event = json.dumps(
+
+            update_event = json.dumps(
                 {
                     "type": "a2ui",
                     "message": {
@@ -238,17 +265,15 @@ def create_widget_events(tool_name: str, result: Any) -> list[str]:
                                 }
                             ],
                         },
-                        "beginRendering": {
-                            "surfaceId": surface_id,
-                            "root": component_id,
-                        },
                     },
                 }
             )
+
             logger.info(f"📊 Transformed data for {widget_type} (surface={surface_id})")
-            events.append(event)
+            events.extend([begin_event, update_event])
+            surface_ids.append(surface_id)
 
     except Exception as e:
         logger.warning(f"Failed to create widget for {tool_name}: {e}")
 
-    return events
+    return events, surface_ids

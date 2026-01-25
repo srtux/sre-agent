@@ -20,6 +20,57 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
     )
 
 
+async def tracing_middleware(request: Request, call_next: Any) -> Any:
+    """Middleware for request tracing and correlation ID propagation."""
+    import time
+    import uuid
+
+    from opentelemetry import trace
+
+    from sre_agent.auth import set_correlation_id
+
+    # 1. Capture or Generate Correlation ID
+    correlation_id = (
+        request.headers.get("X-Correlation-ID")
+        or request.headers.get("X-Request-ID")
+        or str(uuid.uuid4())
+    )
+    set_correlation_id(correlation_id)
+
+    # 2. Add to OTel Span if active
+    span = trace.get_current_span()
+    if span.is_recording():
+        span.set_attribute("http.correlation_id", correlation_id)
+
+    # 3. Log request start
+    start_time = time.time()
+    logger.info(
+        f"🌐 Request Start: {request.method} {request.url.path} [Correlation-ID: {correlation_id}]"
+    )
+
+    try:
+        response = await call_next(request)
+
+        # 4. Log request completion
+        duration = (time.time() - start_time) * 1000
+        logger.info(
+            f"🌐 Request End: {request.method} {request.url.path} - {response.status_code} "
+            f"({duration:.2f}ms) [Correlation-ID: {correlation_id}]"
+        )
+
+        # 5. Inject back into response headers for client visibility
+        response.headers["X-Correlation-ID"] = correlation_id
+        return response
+    except Exception as e:
+        # Request failed
+        duration = (time.time() - start_time) * 1000
+        logger.error(
+            f"🌐 Request Failed: {request.method} {request.url.path} - {e} "
+            f"({duration:.2f}ms) [Correlation-ID: {correlation_id}]"
+        )
+        raise
+
+
 async def auth_middleware(request: Request, call_next: Any) -> Any:
     """Middleware to extract Authorization header and set credentials context."""
     from google.oauth2.credentials import Credentials
@@ -60,9 +111,7 @@ async def auth_middleware(request: Request, call_next: Any) -> Any:
 
                 if token_info.valid and token_info.email:
                     set_current_user_id(token_info.email)
-                    logger.debug(
-                        f"Auth Middleware: User identified as {token_info.email}"
-                    )
+                    # logger.debug(f"Auth Middleware: User identified as {token_info.email}")
                 else:
                     logger.warning(
                         f"Auth Middleware: Identity check failed: {token_info.error}"
@@ -125,9 +174,7 @@ async def auth_middleware(request: Request, call_next: Any) -> Any:
                             )
                             if user_email:
                                 set_current_user_id(user_email)
-                                logger.debug(
-                                    f"Auth Middleware: User identified as {user_email} from session"
-                                )
+                                # logger.debug(f"Auth Middleware: User identified as {user_email} from session")
                         else:
                             logger.warning(
                                 f"Auth Middleware: Cached session token is invalid or expired: {token_info.error}"
@@ -182,6 +229,9 @@ def configure_middleware(app: FastAPI) -> None:
     """Configure all middleware for the application."""
     # Register exception handler
     app.add_exception_handler(Exception, global_exception_handler)
+
+    # Register tracing middleware (must be early in the stack)
+    app.middleware("http")(tracing_middleware)
 
     # Configure CORS
     configure_cors(app)

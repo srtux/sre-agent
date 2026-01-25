@@ -106,6 +106,10 @@ _user_id_context: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "user_id_context", default=None
 )
 
+_correlation_id_context: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "correlation_id_context", default=None
+)
+
 # Encryption key for securing tokens at rest
 # In production, this should be loaded from a Secret Manager
 ENCRYPTION_KEY = os.environ.get("SRE_AGENT_ENCRYPTION_KEY")
@@ -191,6 +195,16 @@ def set_current_user_id(user_id: str | None) -> None:
 def set_current_project_id(project_id: str | None) -> None:
     """Sets the project ID for the current context."""
     _project_id_context.set(project_id)
+
+
+def set_correlation_id(correlation_id: str | None) -> None:
+    """Sets the correlation ID for the current context."""
+    _correlation_id_context.set(correlation_id)
+
+
+def get_correlation_id() -> str | None:
+    """Gets the correlation ID for the current context."""
+    return _correlation_id_context.get()
 
 
 def get_current_credentials() -> tuple[google.auth.credentials.Credentials, str | None]:
@@ -763,3 +777,4 @@ def clear_current_credentials() -> None:
     _credentials_context.set(None)
     _project_id_context.set(None)
     _user_id_context.set(None)
+    _correlation_id_context.set(None)
