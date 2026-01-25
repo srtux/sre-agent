@@ -230,3 +230,42 @@ class TestCreateWidgetEvents:
         events, sids = create_widget_events("fetch_trace", result)
         assert len(events) == 2
         assert len(sids) == 1
+
+    def test_creates_valid_a2ui_v08_format_for_list_alerts(self) -> None:
+        """Test that widget events follow A2UI v0.8 format for list_alerts."""
+        result = [
+            {
+                "name": "projects/p1/alertPolicies/a1",
+                "state": "OPEN",
+                "severity": "CRITICAL",
+                "openTime": "2024-01-01T10:00:00Z",
+                "policy": {"displayName": "High CPU"},
+            }
+        ]
+
+        events, sids = create_widget_events("list_alerts", result)
+
+        assert len(events) == 2
+        assert len(sids) == 1
+
+        surface_update = json.loads(events[1])
+        component = surface_update["message"]["surfaceUpdate"]["components"][0]
+        assert "x-sre-incident-timeline" in component["component"]
+
+    def test_handles_tool_execution_failure(self) -> None:
+        """Test that None result (failure) is handled and returns an error widget."""
+        # Tool result of None indicates failure/timeout
+        events, sids = create_widget_events("fetch_trace", None)
+
+        assert len(events) == 2
+        assert len(sids) == 1
+
+        surface_update = json.loads(events[1])
+        component = surface_update["message"]["surfaceUpdate"]["components"][0]
+        # It should still be the mapped widget type, but with an error property
+        assert "x-sre-trace-waterfall" in component["component"]
+        assert "error" in component["component"]["x-sre-trace-waterfall"]
+        assert (
+            "Tool execution failed"
+            in component["component"]["x-sre-trace-waterfall"]["error"]
+        )

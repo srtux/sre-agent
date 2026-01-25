@@ -26,6 +26,7 @@ TOOL_WIDGET_MAP = {
     "mcp_list_log_entries": "x-sre-log-entries-viewer",
     "get_golden_signals": "x-sre-metrics-dashboard",
     "generate_remediation_suggestions": "x-sre-remediation-plan",
+    "list_alerts": "x-sre-incident-timeline",
 }
 
 
@@ -209,6 +210,10 @@ def create_widget_events(tool_name: str, result: Any) -> tuple[list[str], list[s
     if not widget_type:
         return events, surface_ids
 
+    # Handle failed tool execution (None result)
+    if result is None:
+        result = {"error": "Tool execution failed (timeout or internal error)"}
+
     # Normalize result (handles JSON strings and objects)
     result = normalize_tool_args(result)
 
@@ -232,6 +237,8 @@ def create_widget_events(tool_name: str, result: Any) -> tuple[list[str], list[s
             widget_data = genui_adapter.transform_log_entries(result)
         elif widget_type == "x-sre-remediation-plan":
             widget_data = genui_adapter.transform_remediation(result)
+        elif widget_type == "x-sre-incident-timeline":
+            widget_data = genui_adapter.transform_alerts_to_timeline(result)
 
         if widget_data:
             surface_id = str(uuid.uuid4())

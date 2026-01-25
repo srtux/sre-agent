@@ -446,3 +446,47 @@ class TestAgentEngineClient:
         mock_adk_app.delete_session.assert_called_once_with(
             user_id="user", session_id="s1"
         )
+
+    @pytest.mark.asyncio
+    async def test_stream_query_handles_list_get_error(
+        self, client: AgentEngineClient
+    ) -> None:
+        """Test stream_query handles the 'list object has no attribute get' error."""
+        mock_session_manager = MagicMock()
+        mock_session = MagicMock()
+        mock_session.id = "test-session"
+        mock_session.state = {}
+        mock_session_manager.get_or_create_session = AsyncMock(
+            return_value=mock_session
+        )
+        mock_session_manager.update_session_state = AsyncMock()
+
+        mock_adk_app = MagicMock()
+
+        async def mock_error_generator(*args, **kwargs):
+            # Simulate the error that happens during iteration
+            raise AttributeError("'list' object has no attribute 'get'")
+            yield {}  # To keep it a generator
+
+        mock_adk_app.stream_query = MagicMock(side_effect=mock_error_generator)
+
+        client._initialized = True
+        client._adk_app = mock_adk_app
+
+        with patch(
+            "sre_agent.services.session.get_session_service",
+            return_value=mock_session_manager,
+        ):
+            events = []
+            async for event in client.stream_query(
+                user_id="test-user", message="trigger error"
+            ):
+                events.append(event)
+
+            # Look for error event
+            error_events = [e for e in events if e.get("type") == "error"]
+            assert len(error_events) == 1
+            assert (
+                "invalid response format" in error_events[0]["error"].lower()
+                or "invalid response" in error_events[0]["error"].lower()
+            )

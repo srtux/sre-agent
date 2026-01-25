@@ -314,14 +314,43 @@ class AgentEngineClient:
                 # The vertexai proxy might return either a sync or async iterator
                 # depending on the internal client state and SDK version.
                 if hasattr(stream, "__aiter__"):
-                    async for event in stream:
-                        yield process_event(event)
+                    try:
+                        async for event in stream:
+                            yield process_event(event)
+                    except AttributeError as e:
+                        # Catch specific error in google-cloud-aiplatform/api_core where it expects
+                        # a dict (JSON object) but gets a list (JSON array) for error details.
+                        # Error: 'list' object has no attribute 'get'
+                        if "'list' object has no attribute 'get'" in str(e):
+                            logger.error(
+                                "Agent Engine backend returned an invalid response format (List instead of Dict). "
+                                "This usually indicates an upstream error that the SDK cannot parse."
+                            )
+                            yield {
+                                "type": "error",
+                                "error": "Agent Engine returned an invalid response. Please check backend logs.",
+                            }
+                        else:
+                            raise e
                 else:
                     # Fallback for sync iterator. We iterate manually.
                     # Note: for-loop on a sync generator is fine here as it's
                     # what the SDK provides by default in most versions.
-                    for event in stream:
-                        yield process_event(event)
+                    try:
+                        for event in stream:
+                            yield process_event(event)
+                    except AttributeError as e:
+                        if "'list' object has no attribute 'get'" in str(e):
+                            logger.error(
+                                "Agent Engine backend returned an invalid response format (List instead of Dict). "
+                                "This usually indicates an upstream error that the SDK cannot parse."
+                            )
+                            yield {
+                                "type": "error",
+                                "error": "Agent Engine returned an invalid response. Please check backend logs.",
+                            }
+                        else:
+                            raise e
 
             # Fallback to sync query in thread if stream_query is somehow missing
             elif hasattr(self._adk_app, "query"):

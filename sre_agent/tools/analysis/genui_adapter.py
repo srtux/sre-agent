@@ -1,6 +1,7 @@
 """Adapter for transforming ADK tool outputs into GenUI-compatible schemas."""
 
 import logging
+import uuid
 from datetime import datetime, timezone
 from typing import Any
 
@@ -372,6 +373,114 @@ def transform_incident_timeline(incident_data: dict[str, Any]) -> dict[str, Any]
         "root_cause": incident_data.get("root_cause"),
         "ttd_seconds": incident_data.get("ttd_seconds"),
         "ttm_seconds": incident_data.get("ttm_seconds"),
+    }
+
+
+def transform_alerts_to_timeline(alerts_data: list[dict[str, Any]]) -> dict[str, Any]:
+    """Transform list_alerts output for IncidentTimelineCanvas widget.
+
+    Args:
+        alerts_data: List of alert dictionaries from list_alerts tool.
+
+    Returns:
+        Dictionary formatted for the IncidentTimelineCanvas widget.
+    """
+    # Unwrap if in result format
+    if (
+        isinstance(alerts_data, dict)
+        and "status" in alerts_data
+        and "result" in alerts_data
+    ):
+        alerts_data = alerts_data["result"]
+
+    # Handle error or empty
+    if not isinstance(alerts_data, list):
+        return {
+            "title": "Alerts Analysis",
+            "status": "unknown",
+            "events": [],
+            "error": "Invalid alerts data format",
+        }
+
+    events = []
+    # If no alerts, return empty timeline
+    if not alerts_data:
+        return {
+            "title": "No Active Alerts",
+            "status": "resolved",
+            "start_time": datetime.now(timezone.utc).isoformat(),
+            "events": [],
+        }
+
+    # Sort by open time
+    try:
+        sorted_alerts = sorted(
+            alerts_data,
+            key=lambda x: x.get("openTime", ""),
+            reverse=True,  # Newest first
+        )
+    except Exception:
+        sorted_alerts = alerts_data
+
+    # Helper to map state to severity
+    def map_severity(severity_str: str) -> str:
+        s = severity_str.upper()
+        if s == "CRITICAL":
+            return "critical"
+        if s in ("ERROR", "HIGH"):
+            return "high"
+        if s == "WARNING":
+            return "medium"
+        return "info"
+
+    for alert in sorted_alerts:
+        policy = alert.get("policy", {})
+        resource = alert.get("resource", {})
+        metric = alert.get("metric", {})
+
+        events.append(
+            {
+                "id": alert.get("name", str(uuid.uuid4())),
+                "timestamp": alert.get(
+                    "openTime", datetime.now(timezone.utc).isoformat()
+                ),
+                "type": "alert",
+                "title": policy.get("displayName", "Unknown Alert"),
+                "description": (
+                    f"State: {alert.get('state', 'UNKNOWN')}\n"
+                    f"Resource: {resource.get('type')} ({resource.get('labels', {}).get('service_name', 'unknown')})\n"
+                    f"Metric: {metric.get('type', 'unknown')}"
+                ),
+                "severity": map_severity(alert.get("severity", "info")),
+                "is_correlated": True,
+                "metadata": {
+                    "alert_id": alert.get("name"),
+                    "close_time": alert.get("closeTime"),
+                    "url": alert.get("url"),
+                },
+            }
+        )
+
+    # Determine overall status based on most recent alert
+    overall_status = "mitigated"
+    if sorted_alerts:
+        latest = sorted_alerts[0]
+        if latest.get("state") == "OPEN":
+            overall_status = "ongoing"
+        elif latest.get("state") == "CLOSED":
+            overall_status = "resolved"
+
+    return {
+        "incident_id": f"ALERTS-{datetime.now().strftime('%Y%m%d')}",
+        "title": "Active Alerts Timeline",
+        "start_time": (
+            sorted_alerts[-1].get("openTime")
+            if sorted_alerts
+            else datetime.now(timezone.utc).isoformat()
+        ),
+        "status": overall_status,
+        "events": events,
+        "root_cause": "Aggregated view of active alerts from Cloud Monitoring",
     }
 
 

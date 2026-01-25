@@ -10,6 +10,7 @@ from sre_agent.tools.analysis.genui_adapter import (
     create_demo_service_topology,
     transform_agent_activity,
     transform_ai_reasoning,
+    transform_alerts_to_timeline,
     transform_golden_signals,
     transform_incident_timeline,
     transform_log_entries,
@@ -139,3 +140,28 @@ def test_demo_functions():
     assert "services" in create_demo_service_topology()
     assert "events" in create_demo_incident_timeline()
     assert "entries" in create_demo_log_entries()
+
+
+def test_transform_alerts_to_timeline():
+    alerts_data = [
+        {
+            "name": "projects/p1/alertPolicies/a1",
+            "state": "OPEN",
+            "severity": "CRITICAL",
+            "openTime": "2024-01-01T10:00:00Z",
+            "policy": {"displayName": "High CPU"},
+            "resource": {"type": "gce_instance", "labels": {"service_name": "worker"}},
+            "metric": {"type": "compute.googleapis.com/instance/cpu/utilization"},
+        }
+    ]
+    result = transform_alerts_to_timeline(alerts_data)
+    assert result["title"] == "Active Alerts Timeline"
+    assert result["status"] == "ongoing"
+    assert len(result["events"]) == 1
+    assert result["events"][0]["severity"] == "critical"
+    assert "worker" in result["events"][0]["description"]
+
+    # Test empty list
+    result_empty = transform_alerts_to_timeline([])
+    assert result_empty["title"] == "No Active Alerts"
+    assert result_empty["status"] == "resolved"
