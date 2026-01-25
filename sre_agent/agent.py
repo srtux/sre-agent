@@ -280,7 +280,15 @@ def emojify_agent(agent: LlmAgent) -> LlmAgent:
         from .tools.common import using_arize_session
 
         # 1a. Safety: Ensure model is context-aware for THIS request
-        _inject_global_credentials(agent)
+        # We use temporary swapping to avoid poisoning the global agent object
+        # with unpickleable model clients, which would break deployment/deepcopy.
+        model_obj = _inject_global_credentials(agent, force=True)
+        old_model = agent.model
+        should_swap = model_obj is not None and model_obj is not old_model
+
+        if should_swap:
+            object.__setattr__(agent, "model", model_obj)
+            logger.debug(f"Emojify: Temporarily swapped model for {agent.name}")
 
         # 2. Propagation: Ensure user credentials from session are in ContextVar
         # This protects both tool calls and LLM calls (via GLOBAL_CONTEXT_CREDENTIALS).
@@ -322,8 +330,13 @@ def emojify_agent(agent: LlmAgent) -> LlmAgent:
         except Exception as e:
             logger.error(f"🔥 Agent Execution Failed: {e}", exc_info=True)
             raise e
+        finally:
+            # Restore model to avoid breaking deepcopy for deployment
+            if should_swap:
+                object.__setattr__(agent, "model", old_model)
+                logger.debug(f"Emojify: Restored model for {agent.name}")
 
-        # 3. Log Response
+        # 4. Log Response
         final_response = "".join(full_response_parts)
         if final_response:
             preview = (
@@ -959,21 +972,38 @@ root_cause_analyst = emojify_agent(root_cause_analyst)
 # ============================================================================
 
 
-def _inject_global_credentials(agent_to_patch: Any) -> None:
+def _inject_global_credentials(agent_to_patch: Any, force: bool = False) -> Any:
     """Inject GLOBAL_CONTEXT_CREDENTIALS into an agent's model.
 
     This ensures that the underlying LLM client uses context-aware credentials
     that dynamically pick up the user's token from the request context.
+
+    Args:
+        agent_to_patch: The agent to patch.
+        force: If True, forces instantiation of the model if it's currently a string.
+               This should be set to True at runtime (in run_async) but False at
+               module level to avoid deepcopy failures during deployment.
+
+    Returns:
+        The instantiated/patched model object, or None if injection was skipped.
     """
     try:
         if not hasattr(agent_to_patch, "model"):
-            return
+            return None
 
-        if isinstance(agent_to_patch.model, str):
+        model_obj = agent_to_patch.model
+
+        if isinstance(model_obj, str):
+            if not force:
+                logger.debug(
+                    f"Skipping model injection for {getattr(agent_to_patch, 'name', 'unknown')} (model is string and force=False)"
+                )
+                return None
+
             from google.adk.models import LLMRegistry
 
             logger.debug(
-                f"Forcing instantiation of model {agent_to_patch.model} for {getattr(agent_to_patch, 'name', 'unknown')}"
+                f"Forcing instantiation of model {model_obj} for {getattr(agent_to_patch, 'name', 'unknown')}"
             )
             # Ensure environment is ready for google-genai discovery
             curr_project = get_current_project_id() or project_id
@@ -987,40 +1017,44 @@ def _inject_global_credentials(agent_to_patch: Any) -> None:
             os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "true"
 
             try:
-                agent_to_patch.model = LLMRegistry.new_llm(agent_to_patch.model)
+                model_obj = LLMRegistry.new_llm(model_obj)
             except Exception as e:
                 logger.warning(
                     f"LLMRegistry.new_llm failed: {e}. Trying direct Gemini instantiation."
                 )
                 from google.adk.models import Gemini
 
-                agent_to_patch.model = Gemini(
-                    model=agent_to_patch.model,
+                model_obj = Gemini(
+                    model=model_obj,
                     vertexai=True,
                     project=curr_project,
                     location=curr_location,
                 )  # type: ignore[call-arg]
 
-        m = agent_to_patch.model
         # Check for google-genai client structure (used by ADK's GoogleLLM/Gemini)
-        if hasattr(m, "api_client"):
+        if hasattr(model_obj, "api_client"):
             # Older google-genai versions
-            if hasattr(m.api_client, "config"):
-                m.api_client.config.credentials = GLOBAL_CONTEXT_CREDENTIALS
+            if hasattr(model_obj.api_client, "config"):
+                model_obj.api_client.config.credentials = GLOBAL_CONTEXT_CREDENTIALS
 
             # Newer google-genai versions (like 1.59.0+)
-            if hasattr(m.api_client, "_api_client"):
-                m.api_client._api_client._credentials = GLOBAL_CONTEXT_CREDENTIALS
+            if hasattr(model_obj.api_client, "_api_client"):
+                model_obj.api_client._api_client._credentials = (
+                    GLOBAL_CONTEXT_CREDENTIALS
+                )
 
             logger.debug(
-                f"✅ Injected global context credentials into {getattr(agent_to_patch, 'name', 'unknown')} model ({type(m).__name__})"
+                f"✅ Injected global context credentials into {getattr(agent_to_patch, 'name', 'unknown')} model ({type(model_obj).__name__})"
             )
         else:
             logger.debug(
-                f"⚠️ Model for {getattr(agent_to_patch, 'name', 'unknown')} has no api_client to patch (type={type(m).__name__})"
+                f"⚠️ Model for {getattr(agent_to_patch, 'name', 'unknown')} has no api_client to patch (type={type(model_obj).__name__})"
             )
+
+        return model_obj
     except Exception as e:
         logger.warning(f"Failed to inject credentials into agent: {e}")
+        return None
 
 
 # Apply injection to main agent and all sub-agents

@@ -577,6 +577,16 @@ class ContextAwareCredentials(google.auth.credentials.Credentials):
                 "🔑 ContextAwareCredentials: No credentials in context to refresh"
             )
 
+    def __deepcopy__(self, memo: Any) -> "ContextAwareCredentials":
+        """Dunder method to support deepcopy and pickling during deployment.
+
+        Since we are a proxy to global ContextVars, sharing the same instance
+        during deepcopy is acceptable and avoids pickling issues with locks.
+        """
+        if id(self) in memo:
+            return cast("ContextAwareCredentials", memo[id(self)])
+        return self
+
 
 # Singleton instance of context-aware credentials for global use
 # Inject this into clients that need to pick up request identity dynamically.
