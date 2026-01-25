@@ -49,12 +49,12 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
   ) {
     if (points.length < windowSize) return points.map((p) => p.value).toList();
 
-    List<double> result = [];
-    for (int i = 0; i < points.length; i++) {
+    var result = <double>[];
+    for (var i = 0; i < points.length; i++) {
       int start = math.max(0, i - windowSize ~/ 2);
       int end = math.min(points.length, i + windowSize ~/ 2 + 1);
       double sum = 0;
-      for (int j = start; j < end; j++) {
+      for (var j = start; j < end; j++) {
         sum += points[j].value;
       }
       result.add(sum / (end - start));
@@ -64,10 +64,10 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
 
   // Find anomaly regions (consecutive anomaly points)
   List<_AnomalyRegion> _findAnomalyRegions(List<MetricPoint> points) {
-    List<_AnomalyRegion> regions = [];
+    var regions = <_AnomalyRegion>[];
     int? startIndex;
 
-    for (int i = 0; i < points.length; i++) {
+    for (var i = 0; i < points.length; i++) {
       if (points[i].isAnomaly) {
         startIndex ??= i;
       } else if (startIndex != null) {
@@ -84,7 +84,7 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
   // Calculate percentiles
   double _calculatePercentile(List<double> sortedValues, double percentile) {
     if (sortedValues.isEmpty) return 0;
-    int index = ((percentile / 100) * (sortedValues.length - 1)).round();
+    var index = ((percentile / 100) * (sortedValues.length - 1)).round();
     return sortedValues[index];
   }
 
@@ -196,14 +196,14 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
               color: AppColors.textMuted.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(
+            child: const Icon(
               Icons.show_chart_outlined,
               size: 40,
               color: AppColors.textMuted,
             ),
           ),
           const SizedBox(height: 16),
-          Text(
+          const Text(
             'No metric data available',
             style: TextStyle(color: AppColors.textMuted, fontSize: 14),
           ),
@@ -250,7 +250,7 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Metric Analysis',
                   style: TextStyle(
                     fontSize: 15,
@@ -261,7 +261,7 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
                 const SizedBox(height: 2),
                 Text(
                   widget.series.metricName,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 10,
                     color: AppColors.textMuted,
                     fontFamily: 'monospace',
@@ -392,7 +392,7 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
                 const SizedBox(width: 4),
                 Text(
                   label,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 9,
                     fontWeight: FontWeight.w500,
                     color: AppColors.textMuted,
@@ -489,7 +489,7 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
       drawVerticalLine: false,
       horizontalInterval: null,
       getDrawingHorizontalLine: (value) {
-        return FlLine(
+        return const FlLine(
           color: AppColors.surfaceBorder,
           strokeWidth: 0.5,
           dashArray: [4, 4],
@@ -508,7 +508,7 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
           reservedSize: 28,
           interval: interval.toDouble(),
           getTitlesWidget: (value, meta) {
-            int index = value.toInt();
+            var index = value.toInt();
             if (index >= 0 &&
                 index < sortedPoints.length &&
                 index % interval == 0) {
@@ -516,7 +516,7 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
                 padding: const EdgeInsets.only(top: 6),
                 child: Text(
                   DateFormat('HH:mm').format(sortedPoints[index].timestamp),
-                  style: TextStyle(fontSize: 9, color: AppColors.textMuted),
+                  style: const TextStyle(fontSize: 9, color: AppColors.textMuted),
                 ),
               );
             }
@@ -533,7 +533,7 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
               padding: const EdgeInsets.only(right: 4),
               child: Text(
                 _formatValue(value),
-                style: TextStyle(fontSize: 9, color: AppColors.textMuted),
+                style: const TextStyle(fontSize: 9, color: AppColors.textMuted),
                 textAlign: TextAlign.right,
               ),
             );
@@ -546,7 +546,7 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
   }
 
   ExtraLinesData _buildExtraLines(double avg, double p95) {
-    if (!_showThreshold) return ExtraLinesData();
+    if (!_showThreshold) return const ExtraLinesData();
 
     return ExtraLinesData(
       horizontalLines: [
@@ -558,7 +558,7 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
           label: HorizontalLineLabel(
             show: true,
             alignment: Alignment.topRight,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 9,
               color: AppColors.primaryTeal,
               fontWeight: FontWeight.w500,
@@ -574,7 +574,7 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
           label: HorizontalLineLabel(
             show: true,
             alignment: Alignment.topRight,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 9,
               color: AppColors.warning,
               fontWeight: FontWeight.w500,
@@ -608,7 +608,7 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
       enabled: true,
       touchTooltipData: LineTouchTooltipData(
         getTooltipColor: (_) => AppColors.backgroundElevated,
-        tooltipBorder: BorderSide(color: AppColors.surfaceBorder),
+        tooltipBorder: const BorderSide(color: AppColors.surfaceBorder),
         tooltipBorderRadius: BorderRadius.circular(8),
         tooltipPadding: const EdgeInsets.all(12),
         getTooltipItems: (touchedSpots) {
@@ -760,7 +760,7 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          const Text(
             'Resource Labels',
             style: TextStyle(
               fontSize: 9,
@@ -781,7 +781,7 @@ class _MetricCorrelationChartState extends State<MetricCorrelationChart>
                 ),
                 child: Text(
                   '${e.key}: ${e.value}',
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 9,
                     color: AppColors.textSecondary,
                     fontFamily: 'monospace',
@@ -843,7 +843,7 @@ class _SparklinePainter extends CustomPainter {
 
     // Draw sparkline
     final linePath = Path();
-    for (int i = 0; i < points.length; i++) {
+    for (var i = 0; i < points.length; i++) {
       final x = (i / (points.length - 1)) * size.width;
       final normalizedY = range > 0 ? (points[i].value - minVal) / range : 0.5;
       final y =
@@ -867,7 +867,7 @@ class _SparklinePainter extends CustomPainter {
 
     // Draw anomaly dots
     final dotPaint = Paint()..color = AppColors.error;
-    for (int i = 0; i < points.length; i++) {
+    for (var i = 0; i < points.length; i++) {
       if (points[i].isAnomaly) {
         final x = (i / (points.length - 1)) * size.width;
         final normalizedY = range > 0

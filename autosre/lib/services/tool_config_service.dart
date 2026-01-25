@@ -141,7 +141,7 @@ class ToolConfig {
       );
     }
 
-    List<ToolArgument> args = [];
+    var args = <ToolArgument>[];
     if (json['arguments'] != null) {
       args = (json['arguments'] as List<dynamic>)
           .map((a) => ToolArgument.fromJson(a as Map<String, dynamic>))
@@ -262,7 +262,7 @@ class ToolConfigService {
         final summaryData = data['summary'] as Map<String, dynamic>?;
 
         // Parse tools grouped by category
-        final Map<ToolCategory, List<ToolConfig>> grouped = {};
+        final grouped = <ToolCategory, List<ToolConfig>>{};
         for (final entry in toolsMap.entries) {
           final category = ToolCategory.fromValue(entry.key);
           if (category != null) {
@@ -408,7 +408,7 @@ class ToolConfigService {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final results = data['results'] as Map<String, dynamic>? ?? {};
 
-        final Map<String, ToolTestResult> parsedResults = {};
+        final parsedResults = <String, ToolTestResult>{};
         for (final entry in results.entries) {
           final resultData = entry.value as Map<String, dynamic>;
           parsedResults[entry.key] = ToolTestResult.fromJson(resultData);

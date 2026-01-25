@@ -1,21 +1,36 @@
-# SRE Agent: Developer Guidelines
+# AGENTS.md: Universal AI Agent Standard
+**High-density summary available in [llm.txt](./llm.txt).**
 
 ## 🚀 Core Workflows
 
 We use **`uv`** for dependency management and **`poethepoet`** for task automation defined in `pyproject.toml`.
 
-| Task | Command | Description |
-|------|---------|-------------|
 | **Sync** | `uv run poe sync` | Install dependencies and update `.venv` |
 | **Run** | `uv run poe run` | Launch interactive terminal agent |
-| **Lint** | `uv run poe lint` | Run **Ruff**, **MyPy**, **Codespell**, and **Deptry** |
-| **Test** | `uv run poe test` | Run **Pytest** with coverage guards |
+| **Lint** | `uv run poe lint-all` | Run **Ruff**, **MyPy**, **Codespell**, **Deptry**, and **Flutter Analyze** |
+| **Test** | `uv run poe test-all` | Run **Pytest** and **Flutter Test** with coverage guards |
 | **Deploy** | `uv run poe deploy` | Validate & Deploy to Agent Engine |
 | **Pre-commit** | `uv run poe pre-commit` | Run quality guards (formatting, trailing whitespace) |
 
+**See [TESTING.md](./TESTING.md) for our world-class testing strategy and [LINTING.md](./LINTING.md) for linting rules.**
+
+4.  **Zero-Warning Policy**: Treat linter warnings and "info" messages as hard failures.
+
+### 🌊 The Vibe Coding Lifecycle
+We embrace a "Vibe Coding" workflow—moving at high speed with AI while maintaining rigid quality via this 7-step cycle:
+1.  **Context Loading**: Read the full documentation set (`*.md`) and relevant source code to load the project's "vibe" (architecture, style, patterns) before starting.
+2.  **Explicit Planning**: Create a concrete plan in `task.md` or `implementation_plan.md`. Never start coding without a stated path.
+3.  **Spec-Driven TDD**: Write the test **first**. The test is the "contract" that protects against AI drift.
+4.  **Micro-Iteration**: Make changes in small, testable chunks. One function, one component, or one rule change at a time.
+5.  **Green-to-Fix Loop**: Make the tests pass, then run `uv run poe lint-all`.
+6.  **Agentic Self-Critique**: Critically review your own code. Challenge your design decisions before asking the user for review.
+7.  **Knowledge Compaction**: Update documentation (`AGENTS.md`, `README.md`, etc.) to reflect the change. This "compacts" the new knowledge into the project's source of truth for the next iteration.
+
 ## 🛠️ Development Rules
 
-### 1. Modern Python Stack
+### 1. Modern Python Stack - Testing First
+- **Test-Driven Development**: specs **MUST** be translated to tests first before writing code. This is mandatory for all coding agents.
+- **Coverage**: Project target is **100% coverage**. Every branch and every error condition must be tested.
 - **Dependencies**: Managed via `pyproject.toml` (NOT `requirements.txt`).
 - **Lockfile**: Always commit `uv.lock`.
 - **Python Version**: 3.10+ (Testing uses 3.10 & 3.11).
@@ -28,7 +43,7 @@ We use **`uv`** for dependency management and **`poethepoet`** for task automati
   - **No Implicit Any**: Annotate empty containers: `items: list[dict[str, Any]] = []`.
   - **Float Initialization**: Use `val: float = 0.0` (not `0`) to satisfy strict typing.
 - **Pydantic Schemas**: Use `model_config = ConfigDict(frozen=True, extra="forbid")` for all structured outputs.
-  - **Why**: Ensures LLM hallucinations (extra fields) are caught immediately.
+  - **Schema-Driven Coding**: Always read the model definition (source of truth) before writing code that instantiates it. This prevents "imaginary" fields.
 - **Dependency Freshness**: **Deptry** ensures no unused or missing dependencies are in `pyproject.toml`.
 - **Error Envelopes**: All tools should follow the `BaseToolResponse` structure (status, result, error, metadata) to ensure the Orchestrator can handle failures gracefully.
 - **Structured Logging**: Use `configure_logging()` from `sre_agent.tools.common.telemetry`. Set `LOG_FORMAT=JSON` in production for Cloud Logging compatibility.
@@ -101,6 +116,6 @@ The project follows the "Core Squad" pattern:
 
 1.  Sync dependencies: `uv run poe sync`
 2.  Run pre-commit: `uv run poe pre-commit`
-3.  Run lint checks: `uv run poe lint` (Must pass clean)
-4.  Run tests: `uv run poe test` (Must pass all tests)
+3.  Run lint checks: `uv run poe lint-all` (Must pass clean, see [LINTING.md](./LINTING.md))
+4.  Run tests: `uv run poe test-all` (Must pass all tests, see [TESTING.md](./TESTING.md))
 5.  Update docs: `README.md` if visible behavior changed.

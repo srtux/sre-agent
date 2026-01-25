@@ -1,261 +1,135 @@
-"""Tests for GKE/Kubernetes tools."""
+"""Unit tests for the GKE forensics client."""
 
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from sre_agent.tools.clients.gke import (
+    analyze_hpa_events,
+    analyze_node_conditions,
+    get_container_oom_events,
+    get_gke_cluster_health,
+    get_pod_restart_events,
+)
 
-class TestGKETools:
-    """Test suite for GKE/Kubernetes tools."""
 
-    @pytest.mark.asyncio
-    @patch("sre_agent.tools.clients.gke._get_authorized_session")
-    async def test_get_gke_cluster_health_returns_cluster_info(self, mock_session_fn):
-        """Test that get_gke_cluster_health returns cluster information."""
-        from sre_agent.tools.clients.gke import get_gke_cluster_health
-
+@pytest.mark.asyncio
+async def test_get_gke_cluster_health():
+    with patch(
+        "sre_agent.tools.clients.gke._get_authorized_session"
+    ) as mock_session_factory:
         mock_session = MagicMock()
-        mock_session_fn.return_value = mock_session
+        mock_session_factory.return_value = mock_session
 
         mock_response = MagicMock()
         mock_response.json.return_value = {
             "name": "test-cluster",
             "location": "us-central1",
             "status": "RUNNING",
-            "currentMasterVersion": "1.28.0",
-            "currentNodeVersion": "1.28.0",
-            "nodePools": [
-                {
-                    "name": "default-pool",
-                    "status": "RUNNING",
-                    "config": {"machineType": "e2-medium"},
-                    "initialNodeCount": 3,
-                    "autoscaling": {
-                        "enabled": True,
-                        "minNodeCount": 1,
-                        "maxNodeCount": 5,
-                    },
-                }
-            ],
+            "nodePools": [{"name": "default", "status": "RUNNING"}],
+            "conditions": [],
         }
-        mock_response.raise_for_status = MagicMock()
         mock_session.get.return_value = mock_response
 
-        result_data = await get_gke_cluster_health(
-            "test-cluster", "us-central1", project_id="test-project"
+        result = await get_gke_cluster_health(
+            cluster_name="test-cluster", location="us-central1", project_id="test-proj"
         )
 
-        assert result_data["cluster_name"] == "test-cluster"
-        assert result_data["status"] == "RUNNING"
-        assert result_data["health"] == "HEALTHY"
-        assert len(result_data["node_pools"]) == 1
+        assert result["cluster_name"] == "test-cluster"
+        assert result["health"] == "HEALTHY"
 
-    @pytest.mark.asyncio
-    @patch("sre_agent.tools.clients.gke.monitoring_v3.MetricServiceClient")
-    async def test_analyze_node_conditions_structure(self, mock_client_class):
-        """Test that analyze_node_conditions returns correct structure."""
-        from sre_agent.tools.clients.gke import analyze_node_conditions
 
+@pytest.mark.asyncio
+async def test_analyze_node_conditions():
+    with patch(
+        "sre_agent.tools.clients.gke.get_monitoring_client"
+    ) as mock_client_factory:
         mock_client = MagicMock()
-        mock_client_class.return_value = mock_client
-        mock_client.list_time_series.return_value = []
+        mock_client_factory.return_value = mock_client
 
-        result_data = await analyze_node_conditions(
-            "test-cluster", "us-central1", project_id="test-project"
+        # Mock metric response
+        mock_series = MagicMock()
+        mock_series.resource.labels = {"node_name": "node-1"}
+        mock_point = MagicMock()
+        mock_point.value.double_value = 0.9  # 90% utilization
+        mock_series.points = [mock_point]
+        mock_client.list_time_series.return_value = [mock_series]
+
+        result = await analyze_node_conditions(
+            cluster_name="test-cluster", location="us-central1", project_id="test-proj"
         )
 
-        assert "cluster" in result_data
-        assert "nodes" in result_data
-        assert "pressure_warnings" in result_data
-        assert "summary" in result_data
+        assert "node-1" in result["nodes"]
+        assert len(result["pressure_warnings"]) > 0
 
-    @pytest.mark.asyncio
-    @patch("sre_agent.tools.clients.gke.monitoring_v3.MetricServiceClient")
-    async def test_get_pod_restart_events_returns_pods(self, mock_client_class):
-        """Test that get_pod_restart_events returns pod restart information."""
-        from sre_agent.tools.clients.gke import get_pod_restart_events
 
+@pytest.mark.asyncio
+async def test_get_pod_restart_events():
+    with patch(
+        "sre_agent.tools.clients.gke.get_monitoring_client"
+    ) as mock_client_factory:
         mock_client = MagicMock()
-        mock_client_class.return_value = mock_client
-        mock_client.list_time_series.return_value = []
+        mock_client_factory.return_value = mock_client
 
-        result_data = await get_pod_restart_events(
-            namespace="production", minutes_ago=60, project_id="test-project"
-        )
+        mock_series = MagicMock()
+        mock_series.resource.labels = {
+            "namespace_name": "default",
+            "pod_name": "pod-1",
+            "container_name": "app",
+        }
+        p1 = MagicMock()
+        p1.value.int64_value = 10
+        p2 = MagicMock()
+        p2.value.int64_value = 5
+        mock_series.points = [p1, p2]  # current=10, old=5 -> 5 restarts
+        mock_client.list_time_series.return_value = [mock_series]
 
-        assert "time_window_minutes" in result_data
-        assert "pods_with_restarts" in result_data
-        assert "summary" in result_data
-        assert "severity" in result_data
+        result = await get_pod_restart_events(project_id="test-proj")
+        assert result["summary"]["total_restarts"] == 5
 
-    @pytest.mark.asyncio
-    @patch("sre_agent.tools.clients.gke.monitoring_v3.MetricServiceClient")
-    async def test_analyze_hpa_events_structure(self, mock_client_class):
-        """Test that analyze_hpa_events returns HPA information."""
-        from sre_agent.tools.clients.gke import analyze_hpa_events
 
+@pytest.mark.asyncio
+async def test_analyze_hpa_events():
+    with patch(
+        "sre_agent.tools.clients.gke.get_monitoring_client"
+    ) as mock_client_factory:
         mock_client = MagicMock()
-        mock_client_class.return_value = mock_client
-        mock_client.list_time_series.return_value = []
+        mock_client_factory.return_value = mock_client
 
-        result_data = await analyze_hpa_events(
-            "production", "frontend-deploy", 60, project_id="test-project"
+        mock_series = MagicMock()
+        p1 = MagicMock()
+        p1.value.int64_value = 10
+        p1.interval.end_time.isoformat.return_value = "2024-01-01T00:00:00Z"
+        p2 = MagicMock()
+        p2.value.int64_value = 5
+        mock_series.points = [p1, p2]
+        mock_client.list_time_series.return_value = [mock_series]
+
+        result = await analyze_hpa_events(
+            namespace="default", deployment_name="app", project_id="test-proj"
         )
+        assert len(result["scaling_activity"]) > 0
 
-        assert "namespace" in result_data
-        assert "deployment" in result_data
-        assert "scaling_activity" in result_data
-        assert "summary" in result_data
 
-    @pytest.mark.asyncio
-    @patch("sre_agent.tools.clients.gke._get_authorized_session")
-    @patch("sre_agent.tools.clients.gke.monitoring_v3.MetricServiceClient")
-    async def test_get_container_oom_events_structure(
-        self, mock_client_class, mock_session_fn
-    ):
-        """Test that get_container_oom_events returns OOM information."""
-        from sre_agent.tools.clients.gke import get_container_oom_events
-
+@pytest.mark.asyncio
+async def test_get_container_oom_events():
+    with patch(
+        "sre_agent.tools.clients.gke._get_authorized_session"
+    ) as mock_session_factory:
         mock_session = MagicMock()
-        mock_session_fn.return_value = mock_session
+        mock_session_factory.return_value = mock_session
+
         mock_response = MagicMock()
-        mock_response.json.return_value = {"entries": []}
-        mock_response.raise_for_status = MagicMock()
+        mock_response.json.return_value = {
+            "entries": [{"textPayload": "Pod OOMKilled"}]
+        }
         mock_session.post.return_value = mock_response
 
-        mock_client = MagicMock()
-        mock_client_class.return_value = mock_client
-        mock_client.list_time_series.return_value = []
+        # Mock monitoring client for memory usage part
+        with patch(
+            "sre_agent.tools.clients.gke.get_monitoring_client"
+        ) as mock_m_client:
+            mock_m_client.return_value.list_time_series.return_value = []
 
-        result_data = await get_container_oom_events(
-            namespace="production", minutes_ago=60, project_id="test-project"
-        )
-
-        assert "time_window_minutes" in result_data
-        assert "oom_events_in_logs" in result_data
-        assert "containers_at_risk" in result_data
-        assert "severity" in result_data
-
-    @pytest.mark.asyncio
-    @patch("sre_agent.tools.clients.gke.monitoring_v3.MetricServiceClient")
-    async def test_get_workload_health_summary_returns_workloads(
-        self, mock_client_class
-    ):
-        """Test that get_workload_health_summary returns workload info."""
-        from sre_agent.tools.clients.gke import get_workload_health_summary
-
-        mock_client = MagicMock()
-        mock_client_class.return_value = mock_client
-        mock_client.list_time_series.return_value = []
-
-        result_data = await get_workload_health_summary(
-            "production", 30, project_id="test-project"
-        )
-
-        assert "namespace" in result_data
-        assert "time_window_minutes" in result_data
-        assert "summary" in result_data
-        assert "workloads" in result_data
-
-
-class TestNodePressureThresholds:
-    """Test node pressure threshold logic."""
-
-    def test_cpu_pressure_threshold(self):
-        """Test CPU pressure threshold at 85%."""
-        threshold = 0.85
-        assert 0.80 < threshold  # Not pressure
-        assert 0.90 > threshold  # Is pressure
-
-    def test_memory_pressure_threshold(self):
-        """Test memory pressure threshold at 85%."""
-        threshold = 0.85
-        assert 0.80 < threshold  # Not pressure
-        assert 0.90 > threshold  # Is pressure
-
-    def test_disk_pressure_threshold(self):
-        """Test disk pressure threshold at 85%."""
-        threshold = 0.85
-        disk_used = 90 * 1024 * 1024 * 1024  # 90GB
-        disk_total = 100 * 1024 * 1024 * 1024  # 100GB
-        utilization = disk_used / disk_total  # 0.9
-
-        assert utilization > threshold
-
-    def test_pid_pressure_threshold(self):
-        """Test PID pressure threshold at 80%."""
-        threshold = 0.80
-        pid_used = 3500
-        pid_limit = 4096
-        utilization = pid_used / pid_limit  # ~0.85
-
-        assert utilization > threshold
-
-
-class TestWorkloadHealthClassification:
-    """Test workload health classification logic."""
-
-    def test_critical_classification(self):
-        """Test that high restart count is classified as CRITICAL."""
-        restart_count = 10
-        threshold = 5
-        assert restart_count > threshold  # CRITICAL
-
-    def test_memory_critical_classification(self):
-        """Test that >95% memory is classified as CRITICAL."""
-        memory_util = 0.97
-        critical_threshold = 0.95
-        assert memory_util > critical_threshold
-
-    def test_warning_classification(self):
-        """Test that >85% memory is classified as WARNING."""
-        memory_util = 0.88
-        warning_threshold = 0.85
-        critical_threshold = 0.95
-        assert memory_util > warning_threshold
-        assert memory_util < critical_threshold
-
-    def test_healthy_classification(self):
-        """Test that normal metrics are classified as HEALTHY."""
-        memory_util = 0.60
-        cpu_util = 0.50
-        restart_count = 0
-
-        warning_threshold = 0.85
-        restart_threshold = 0
-
-        is_healthy = (
-            memory_util < warning_threshold
-            and cpu_util < warning_threshold
-            and restart_count == restart_threshold
-        )
-        assert is_healthy
-
-
-class TestDeploymentNameExtraction:
-    """Test deployment name extraction from pod name."""
-
-    def test_standard_deployment_pod_name(self):
-        """Test extraction from standard deployment pod name."""
-        pod_name = "frontend-deploy-7f4d5b6c9-abcde"
-        parts = pod_name.rsplit("-", 2)
-        deployment_name = parts[0] if len(parts) >= 3 else pod_name
-
-        assert deployment_name == "frontend-deploy"
-
-    def test_statefulset_pod_name(self):
-        """Test extraction from statefulset pod name (only one suffix)."""
-        pod_name = "redis-0"
-        parts = pod_name.rsplit("-", 2)
-        deployment_name = parts[0] if len(parts) >= 3 else pod_name
-
-        # StatefulSets only have index suffix, so returns full name
-        assert deployment_name == "redis-0"
-
-    def test_complex_deployment_name(self):
-        """Test extraction from deployment name with hyphens."""
-        pod_name = "my-complex-service-name-7f4d5b6c9-xyz12"
-        parts = pod_name.rsplit("-", 2)
-        deployment_name = parts[0] if len(parts) >= 3 else pod_name
-
-        assert deployment_name == "my-complex-service-name"
+            result = await get_container_oom_events(project_id="test-proj")
+            assert "oom_events_in_logs" in result

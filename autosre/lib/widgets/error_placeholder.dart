@@ -32,7 +32,7 @@ class ErrorPlaceholder extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          Text(
+          const Text(
             'Widget Rendering Error',
             style: TextStyle(
               fontSize: 14,
@@ -49,7 +49,7 @@ class ErrorPlaceholder extends StatelessWidget {
             ),
             child: Text(
               error.toString(),
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 12,
                 fontFamily: 'monospace',
                 color: AppColors.textSecondary,
@@ -146,7 +146,7 @@ class LoadingPlaceholder extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          SizedBox(
+          const SizedBox(
             width: 40,
             height: 40,
             child: CircularProgressIndicator(
@@ -158,7 +158,7 @@ class LoadingPlaceholder extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               message!,
-              style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+              style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
             ),
           ],
         ],

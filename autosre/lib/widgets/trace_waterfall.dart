@@ -83,7 +83,7 @@ class _TraceWaterfallState extends State<TraceWaterfall>
     _totalDuration = traceEnd.difference(_traceStart).inMicroseconds;
 
     // Build parent-child map
-    final Map<String?, List<SpanInfo>> childrenMap = {};
+    final childrenMap = <String?, List<SpanInfo>>{};
     for (final span in sortedSpans) {
       childrenMap.putIfAbsent(span.parentSpanId, () => []).add(span);
     }
@@ -140,8 +140,8 @@ class _TraceWaterfallState extends State<TraceWaterfall>
 
   Set<String> _findCriticalPath(List<_SpanNode> roots) {
     // Critical path is the longest chain of spans by cumulative duration
-    Set<String> criticalPath = {};
-    int maxDuration = 0;
+    var criticalPath = <String>{};
+    var maxDuration = 0;
 
     void findPath(
       _SpanNode node,
@@ -171,7 +171,7 @@ class _TraceWaterfallState extends State<TraceWaterfall>
   }
 
   void _assignServiceColors() {
-    int colorIndex = 0;
+    var colorIndex = 0;
     for (final node in _flattenedNodes) {
       final service = _extractServiceName(node.span.name);
       if (!_serviceColors.containsKey(service)) {
@@ -189,7 +189,7 @@ class _TraceWaterfallState extends State<TraceWaterfall>
     final slashIndex = spanName.indexOf('/');
     final dotIndex = spanName.indexOf('.');
 
-    int splitIndex = spanName.length;
+    var splitIndex = spanName.length;
     if (colonIndex > 0) splitIndex = math.min(splitIndex, colonIndex);
     if (slashIndex > 0) splitIndex = math.min(splitIndex, slashIndex);
     if (dotIndex > 0) splitIndex = math.min(splitIndex, dotIndex);
@@ -278,14 +278,14 @@ class _TraceWaterfallState extends State<TraceWaterfall>
               color: AppColors.textMuted.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(
+            child: const Icon(
               Icons.timeline_outlined,
               size: 40,
               color: AppColors.textMuted,
             ),
           ),
           const SizedBox(height: 16),
-          Text(
+          const Text(
             'No spans in trace',
             style: TextStyle(color: AppColors.textMuted, fontSize: 14),
           ),
@@ -323,7 +323,7 @@ class _TraceWaterfallState extends State<TraceWaterfall>
               children: [
                 Row(
                   children: [
-                    Text(
+                    const Text(
                       'Trace Waterfall',
                       style: TextStyle(
                         fontSize: 15,
@@ -343,7 +343,7 @@ class _TraceWaterfallState extends State<TraceWaterfall>
                       ),
                       child: Text(
                         '${_flattenedNodes.length} spans',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 10,
                           color: AppColors.primaryTeal,
                           fontWeight: FontWeight.w500,
@@ -355,7 +355,7 @@ class _TraceWaterfallState extends State<TraceWaterfall>
                 const SizedBox(height: 2),
                 Row(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.fingerprint,
                       size: 10,
                       color: AppColors.textMuted,
@@ -364,7 +364,7 @@ class _TraceWaterfallState extends State<TraceWaterfall>
                     Expanded(
                       child: Text(
                         widget.trace.traceId,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 10,
                           fontFamily: 'monospace',
                           color: AppColors.textMuted,
@@ -473,7 +473,7 @@ class _TraceWaterfallState extends State<TraceWaterfall>
   }
 
   Widget _buildTimeRuler() {
-    const int tickCount = 6;
+    const tickCount = 6;
     final tickInterval = _totalDuration / (tickCount - 1);
 
     return Container(
@@ -498,8 +498,8 @@ class _TraceWaterfallState extends State<TraceWaterfall>
     final offsetMicros = span.startTime.difference(_traceStart).inMicroseconds;
     final durationMicros = span.duration.inMicroseconds;
 
-    double startPercent = offsetMicros / _totalDuration;
-    double widthPercent = durationMicros / _totalDuration;
+    var startPercent = offsetMicros / _totalDuration;
+    var widthPercent = durationMicros / _totalDuration;
     if (widthPercent < 0.015) widthPercent = 0.015;
 
     final isHovered = _hoveredIndex == index;
@@ -555,7 +555,7 @@ class _TraceWaterfallState extends State<TraceWaterfall>
                             child: AnimatedRotation(
                               duration: const Duration(milliseconds: 200),
                               turns: node.isExpanded ? 0.25 : 0,
-                              child: Icon(
+                              child: const Icon(
                                 Icons.chevron_right,
                                 size: 16,
                                 color: AppColors.textMuted,
@@ -771,7 +771,7 @@ class _TraceWaterfallState extends State<TraceWaterfall>
                   children: [
                     Text(
                       span.name,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: AppColors.textPrimary,
@@ -794,7 +794,7 @@ class _TraceWaterfallState extends State<TraceWaterfall>
                     color: AppColors.warning.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: Row(
+                  child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
@@ -802,7 +802,7 @@ class _TraceWaterfallState extends State<TraceWaterfall>
                         size: 12,
                         color: AppColors.warning,
                       ),
-                      const SizedBox(width: 4),
+                      SizedBox(width: 4),
                       Text(
                         'Critical Path',
                         style: TextStyle(
@@ -866,7 +866,7 @@ class _TraceWaterfallState extends State<TraceWaterfall>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  const Text(
                     'Attributes',
                     style: TextStyle(
                       fontSize: 10,
@@ -887,7 +887,7 @@ class _TraceWaterfallState extends State<TraceWaterfall>
                                 width: 100,
                                 child: Text(
                                   '${e.key}:',
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontSize: 10,
                                     color: AppColors.textMuted,
                                   ),
@@ -896,7 +896,7 @@ class _TraceWaterfallState extends State<TraceWaterfall>
                               Expanded(
                                 child: Text(
                                   '${e.value}',
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontSize: 10,
                                     color: AppColors.textSecondary,
                                     fontFamily: 'monospace',
@@ -930,7 +930,7 @@ class _TraceWaterfallState extends State<TraceWaterfall>
         children: [
           Text(
             '$label: ',
-            style: TextStyle(fontSize: 10, color: AppColors.textMuted),
+            style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
           ),
           Text(
             value,
@@ -974,7 +974,7 @@ class _TimeRulerPainter extends CustomPainter {
 
     // Draw ticks and labels
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
-    for (int i = 0; i < tickCount; i++) {
+    for (var i = 0; i < tickCount; i++) {
       final x = (i / (tickCount - 1)) * size.width;
       final timeMs = (tickInterval * i) / 1000;
 
@@ -988,7 +988,7 @@ class _TimeRulerPainter extends CustomPainter {
       // Label
       textPainter.text = TextSpan(
         text: '${timeMs.toStringAsFixed(0)}ms',
-        style: TextStyle(fontSize: 9, color: AppColors.textMuted),
+        style: const TextStyle(fontSize: 9, color: AppColors.textMuted),
       );
       textPainter.layout();
       final labelX = x - textPainter.width / 2;

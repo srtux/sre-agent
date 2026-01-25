@@ -138,6 +138,26 @@ def setup_telemetry(level: int = logging.INFO) -> None:
     if env_level in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
         level = getattr(logging, env_level)
 
+    # Strictly enforce clean environment
+    project_id = os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("PROJECT_ID")
+    if project_id and "," in project_id:
+        project_id = project_id.split(",")[0].strip()
+
+    if project_id:
+        os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
+        if "PROJECT_ID" in os.environ:
+            os.environ["PROJECT_ID"] = project_id
+
+    # 1. Configure Logging handlers early to capture initialization logs
+    _configure_logging_handlers(level, project_id)
+
+    # 2. Check for DISABLE_TELEMETRY environment variable early
+    if os.environ.get("DISABLE_TELEMETRY", "").lower() == "true":
+        logging.getLogger(__name__).info(
+            "Telemetry setup disabled via DISABLE_TELEMETRY env var"
+        )
+        return
+
     # Priority 1: Arize AX
     arize_enabled = False
     if os.environ.get("USE_ARIZE", "").lower() == "true":
@@ -180,7 +200,7 @@ def setup_telemetry(level: int = logging.INFO) -> None:
         except Exception as e:
             logging.getLogger(__name__).error(f"Failed to setup Arize: {e}")
 
-    # 1. Initialize Log Correlation (Works with any global TracerProvider)
+    # 3. Initialize Log Correlation (Works with any global TracerProvider)
     try:
         from opentelemetry.instrumentation.logging import LoggingInstrumentor
 
@@ -188,30 +208,9 @@ def setup_telemetry(level: int = logging.INFO) -> None:
     except Exception as e:
         logging.getLogger(__name__).debug(f"LoggingInstrumentor failed: {e}")
 
-    project_id = os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("PROJECT_ID")
-    if project_id and "," in project_id:
-        project_id = project_id.split(",")[0].strip()
-
-    # Strictly enforce clean environment
-    if project_id:
-        os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
-        if "PROJECT_ID" in os.environ:
-            os.environ["PROJECT_ID"] = project_id
-
     logging.getLogger(__name__).info(
         f"Setting up telemetry with project_id: '{project_id}'"
     )
-
-    # 1. Configure Logging handlers early to capture initialization logs
-    _configure_logging_handlers(level, project_id)
-
-    # 1. Configure OpenTelemetry SDK
-    # Check for DISABLE_TELEMETRY environment variable
-    if os.environ.get("DISABLE_TELEMETRY", "").lower() == "true":
-        logging.getLogger(__name__).info(
-            "Telemetry setup disabled via DISABLE_TELEMETRY env var"
-        )
-        return
 
     if project_id:
         import google.auth

@@ -83,3 +83,92 @@ def test_set_span_attribute_no_active_span():
         set_span_attribute("test.key", "test.value")
 
         mock_span.set_attribute.assert_not_called()
+
+
+def test_setup_telemetry_disabled():
+    """Test setup_telemetry when disabled via environment variable."""
+    import os
+
+    from sre_agent.tools.common.telemetry import setup_telemetry
+
+    with patch.dict(os.environ, {"DISABLE_TELEMETRY": "true"}):
+        # This should return early without setting up spans/metrics
+        with patch(
+            "sre_agent.tools.common.telemetry._configure_logging_handlers"
+        ) as mock_log:
+            with patch("opentelemetry.trace.set_tracer_provider") as mock_trace:
+                setup_telemetry()
+                mock_log.assert_called_once()
+                mock_trace.assert_not_called()
+
+
+def test_setup_telemetry_enabled_mocked():
+    """Test setup_telemetry hit the OTLP logic with mocks."""
+    import os
+
+    from sre_agent.tools.common.telemetry import setup_telemetry
+
+    with patch.dict(
+        os.environ,
+        {
+            "DISABLE_TELEMETRY": "false",
+            "GOOGLE_CLOUD_PROJECT": "test-proj",
+            "OTEL_TRACES_EXPORTER": "otlp",
+            "OTEL_METRICS_EXPORTER": "otlp",
+        },
+    ):
+        with patch("google.auth.default", return_value=(MagicMock(), "test-proj")):
+            with patch(
+                "opentelemetry.exporter.otlp.proto.grpc.trace_exporter.OTLPSpanExporter"
+            ):
+                with patch(
+                    "opentelemetry.exporter.otlp.proto.grpc.metric_exporter.OTLPMetricExporter"
+                ):
+                    with patch("opentelemetry.sdk.trace.export.BatchSpanProcessor"):
+                        with patch(
+                            "opentelemetry.sdk.metrics.export.PeriodicExportingMetricReader"
+                        ):
+                            with patch("opentelemetry.sdk.trace.TracerProvider"):
+                                with patch("opentelemetry.sdk.metrics.MeterProvider"):
+                                    with patch(
+                                        "opentelemetry.trace.get_tracer_provider"
+                                    ) as mock_get_tp:
+                                        with patch(
+                                            "opentelemetry.metrics.get_meter_provider"
+                                        ) as mock_get_mp:
+                                            # Trigger both trace and metric setup
+                                            mock_get_tp.return_value = MagicMock()
+                                            type(
+                                                mock_get_tp.return_value
+                                            ).__name__ = "ProxyTracerProvider"
+                                            mock_get_mp.return_value = MagicMock()
+                                            type(
+                                                mock_get_mp.return_value
+                                            ).__name__ = "ProxyMeterProvider"
+
+                                            setup_telemetry()
+
+
+def test_setup_telemetry_arize_mocked():
+    """Test setup_telemetry with Arize enabled using mocks."""
+    import os
+
+    from sre_agent.tools.common.telemetry import setup_telemetry
+
+    with patch.dict(
+        os.environ,
+        {
+            "DISABLE_TELEMETRY": "false",
+            "USE_ARIZE": "true",
+            "ARIZE_SPACE_ID": "space",
+            "ARIZE_API_KEY": "key",  # pragma: allowlist secret
+            "GOOGLE_CLOUD_PROJECT": "test-proj",
+        },
+    ):
+        with patch("arize.otel.register") as mock_register:
+            with patch(
+                "openinference.instrumentation.google_adk.GoogleADKInstrumentor.instrument"
+            ) as mock_instrument:
+                setup_telemetry()
+                mock_register.assert_called_once()
+                mock_instrument.assert_called_once()

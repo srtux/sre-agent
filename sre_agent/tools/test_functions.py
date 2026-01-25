@@ -10,6 +10,12 @@ picking them up as test cases. These are runtime connectivity checks, not unit t
 import logging
 import os
 
+from .clients.factory import (
+    get_alert_policy_client,
+    get_logging_client,
+    get_monitoring_client,
+    get_trace_client,
+)
 from .config import ToolTestResult, ToolTestStatus, get_tool_config_manager
 
 logger = logging.getLogger(__name__)
@@ -32,16 +38,14 @@ def get_check_project_id() -> str | None:
 async def check_fetch_trace() -> ToolTestResult:
     """Check Cloud Trace API connectivity."""
     try:
-        from .clients.factory import get_trace_client
-
-        client = get_trace_client()
         project_id = get_check_project_id()
-
         if not project_id:
             return ToolTestResult(
                 status=ToolTestStatus.FAILED,
                 message="No project ID configured. Set GOOGLE_CLOUD_PROJECT environment variable.",
             )
+
+        client = get_trace_client()
 
         # Just verify we can create the client and it has the expected methods
         # We don't actually call list_traces as it might be slow with large projects
@@ -76,16 +80,14 @@ async def check_find_example_traces() -> ToolTestResult:
 async def check_list_log_entries() -> ToolTestResult:
     """Check Cloud Logging API connectivity."""
     try:
-        from .clients.factory import get_logging_client
-
-        client = get_logging_client()
         project_id = get_check_project_id()
-
         if not project_id:
             return ToolTestResult(
                 status=ToolTestStatus.FAILED,
                 message="No project ID configured. Set GOOGLE_CLOUD_PROJECT environment variable.",
             )
+
+        client = get_logging_client()
 
         if hasattr(client, "list_log_entries"):
             return ToolTestResult(
@@ -118,16 +120,14 @@ async def check_list_error_events() -> ToolTestResult:
 async def check_list_time_series() -> ToolTestResult:
     """Check Cloud Monitoring API connectivity."""
     try:
-        from .clients.factory import get_monitoring_client
-
-        client = get_monitoring_client()
         project_id = get_check_project_id()
-
         if not project_id:
             return ToolTestResult(
                 status=ToolTestStatus.FAILED,
                 message="No project ID configured. Set GOOGLE_CLOUD_PROJECT environment variable.",
             )
+
+        client = get_monitoring_client()
 
         if hasattr(client, "list_time_series"):
             return ToolTestResult(
@@ -155,16 +155,14 @@ async def check_query_promql() -> ToolTestResult:
 async def check_list_alerts() -> ToolTestResult:
     """Check alerts API connectivity."""
     try:
-        from .clients.factory import get_alert_policy_client
-
-        client = get_alert_policy_client()
         project_id = get_check_project_id()
-
         if not project_id:
             return ToolTestResult(
                 status=ToolTestStatus.FAILED,
                 message="No project ID configured. Set GOOGLE_CLOUD_PROJECT environment variable.",
             )
+
+        client = get_alert_policy_client()
 
         if hasattr(client, "list_alert_policies"):
             return ToolTestResult(
@@ -262,16 +260,16 @@ async def check_mcp_query_range() -> ToolTestResult:
 async def check_list_slos() -> ToolTestResult:
     """Check SLO API connectivity."""
     try:
-        from google.cloud import monitoring_v3
-
-        client = monitoring_v3.ServiceMonitoringServiceClient()
         project_id = get_check_project_id()
-
         if not project_id:
             return ToolTestResult(
                 status=ToolTestStatus.FAILED,
                 message="No project ID configured. Set GOOGLE_CLOUD_PROJECT environment variable.",
             )
+
+        from google.cloud import monitoring_v3
+
+        client = monitoring_v3.ServiceMonitoringServiceClient()
 
         if hasattr(client, "list_services") and hasattr(
             client, "list_service_level_objectives"
@@ -306,16 +304,16 @@ async def check_get_slo_status() -> ToolTestResult:
 async def check_get_gke_cluster_health() -> ToolTestResult:
     """Check GKE API connectivity."""
     try:
-        from google.cloud import container_v1  # type: ignore
-
-        client = container_v1.ClusterManagerClient()
         project_id = get_check_project_id()
-
         if not project_id:
             return ToolTestResult(
                 status=ToolTestStatus.FAILED,
                 message="No project ID configured. Set GOOGLE_CLOUD_PROJECT environment variable.",
             )
+
+        from google.cloud import container_v1  # type: ignore
+
+        client = container_v1.ClusterManagerClient()
 
         if hasattr(client, "list_clusters") and hasattr(client, "get_cluster"):
             return ToolTestResult(

@@ -155,16 +155,16 @@ class _ServiceTopologyCanvasState extends State<ServiceTopologyCanvas>
 
     // Layer-based layout (left to right flow)
     final layers = _organizeIntoLayers(services);
-    final layerSpacing = 160.0;
-    final nodeSpacing = 100.0;
+    const layerSpacing = 160.0;
+    const nodeSpacing = 100.0;
 
-    double currentX = 80.0;
-    for (int layerIdx = 0; layerIdx < layers.length; layerIdx++) {
+    var currentX = 80.0;
+    for (var layerIdx = 0; layerIdx < layers.length; layerIdx++) {
       final layer = layers[layerIdx];
       final totalHeight = layer.length * nodeSpacing;
-      double startY = (400 - totalHeight) / 2 + nodeSpacing / 2;
+      var startY = (400 - totalHeight) / 2 + nodeSpacing / 2;
 
-      for (int nodeIdx = 0; nodeIdx < layer.length; nodeIdx++) {
+      for (var nodeIdx = 0; nodeIdx < layer.length; nodeIdx++) {
         _nodePositions[layer[nodeIdx].id] = Offset(
           currentX,
           startY + nodeIdx * nodeSpacing,
@@ -911,7 +911,7 @@ class _TopologyConnectionsPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     // Calculate position along the path
-    for (int i = 0; i < 3; i++) {
+    for (var i = 0; i < 3; i++) {
       final t = (pulseProgress + i * 0.33) % 1.0;
       final x = from.dx + (to.dx - from.dx) * t;
       final y = from.dy + (to.dy - from.dy) * t;

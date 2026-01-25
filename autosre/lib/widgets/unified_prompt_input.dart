@@ -104,11 +104,11 @@ class _UnifiedPromptInputState extends State<UnifiedPromptInput>
                       CrossAxisAlignment.end, // Align to bottom for multi-line
                   children: [
                     // Magic Icon
-                    Padding(
+                    const Padding(
                       // Icon is 22px. Center is 11px.
                       // Target center is 30px (60/2).
                       // Bottom padding needed: 30 - 11 = 19px.
-                      padding: const EdgeInsets.only(
+                      padding: EdgeInsets.only(
                         left: 20,
                         right: 12,
                         bottom: 19,
@@ -146,7 +146,7 @@ class _UnifiedPromptInputState extends State<UnifiedPromptInput>
                           ),
                           cursorColor: AppColors.primaryTeal,
                           decoration: InputDecoration(
-                            hintText: "Ask anything...",
+                            hintText: 'Ask anything...',
                             hintStyle: TextStyle(
                               color: AppColors.textMuted.withValues(alpha: 0.7),
                               fontSize: 16,

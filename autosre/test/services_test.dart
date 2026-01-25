@@ -35,7 +35,7 @@ void main() {
 
     test('should clear project selection', () {
       final service = ProjectService.newInstance(clientFactory: clientFactory);
-      final testProject = GcpProject(
+      const testProject = GcpProject(
         projectId: 'test-project-123',
         displayName: 'Test Project',
       );
@@ -66,7 +66,7 @@ void main() {
 
   group('GcpProject', () {
     test('model with all fields', () {
-      final project = GcpProject(
+      const project = GcpProject(
         projectId: 'test-project-123',
         displayName: 'Test Project',
         projectNumber: '123456789',
@@ -79,13 +79,13 @@ void main() {
     });
 
     test('model without display name', () {
-      final project = GcpProject(projectId: 'test-project-123');
+      const project = GcpProject(projectId: 'test-project-123');
 
       expect(project.name, 'test-project-123');
     });
 
     test('serialization and deserialization', () {
-      final project = GcpProject(
+      const project = GcpProject(
         projectId: 'test-project-123',
         displayName: 'Test Project',
         projectNumber: '123456789',

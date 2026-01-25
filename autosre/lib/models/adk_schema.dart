@@ -56,7 +56,7 @@ class Trace {
     }
 
     // Parse each span, filtering out any that fail to parse
-    final List<SpanInfo> parsedSpans = [];
+    final parsedSpans = <SpanInfo>[];
     for (final item in spansList) {
       try {
         if (item is Map) {
@@ -105,7 +105,7 @@ class MetricSeries {
 
   factory MetricSeries.fromJson(Map<String, dynamic> json) {
     var list = json['points'] as List;
-    List<MetricPoint> pointsList = list
+    var pointsList = list
         .map((i) => MetricPoint.fromJson(i))
         .toList();
     return MetricSeries(
@@ -163,7 +163,7 @@ class RemediationPlan {
 
   factory RemediationPlan.fromJson(Map<String, dynamic> json) {
     var list = json['steps'] as List;
-    List<RemediationStep> stepsList = list
+    var stepsList = list
         .map((i) => RemediationStep.fromJson(i))
         .toList();
     return RemediationPlan(

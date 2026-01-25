@@ -208,7 +208,7 @@ auth_credential = AuthCredential(
     auth_type=AuthCredentialTypes.OAUTH2,
     oauth2=OAuth2Auth(
         client_id="YOUR_CLIENT_ID.apps.googleusercontent.com",
-        client_secret="YOUR_CLIENT_SECRET",
+        client_secret="YOUR_CLIENT_SECRET",  # pragma: allowlist secret
     )
 )
 

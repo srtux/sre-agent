@@ -133,21 +133,21 @@ class _AgentActivityCanvasState extends State<AgentActivityCanvas>
     final nodes = widget.data.nodes;
     if (nodes.isEmpty) return;
 
-    final centerX = 200.0;
-    final centerY = 180.0;
+    const centerX = 200.0;
+    const centerY = 180.0;
 
     // Find coordinator node (center)
     final coordinatorIdx = nodes.indexWhere((n) => n.type == 'coordinator');
 
     if (coordinatorIdx >= 0) {
-      _nodePositions[nodes[coordinatorIdx].id] = Offset(centerX, centerY);
+      _nodePositions[nodes[coordinatorIdx].id] = const Offset(centerX, centerY);
 
       // Position other nodes in a circle around coordinator
       final otherNodes = nodes.where((n) => n.type != 'coordinator').toList();
       final angleStep = (2 * math.pi) / otherNodes.length;
-      final radius = 120.0;
+      const radius = 120.0;
 
-      for (int i = 0; i < otherNodes.length; i++) {
+      for (var i = 0; i < otherNodes.length; i++) {
         final angle = -math.pi / 2 + i * angleStep;
         _nodePositions[otherNodes[i].id] = Offset(
           centerX + radius * math.cos(angle),
@@ -157,7 +157,7 @@ class _AgentActivityCanvasState extends State<AgentActivityCanvas>
     } else {
       // Grid layout if no coordinator
       final cols = (math.sqrt(nodes.length)).ceil();
-      for (int i = 0; i < nodes.length; i++) {
+      for (var i = 0; i < nodes.length; i++) {
         final row = i ~/ cols;
         final col = i % cols;
         _nodePositions[nodes[i].id] = Offset(
@@ -349,7 +349,7 @@ class _AgentActivityCanvasState extends State<AgentActivityCanvas>
         mainAxisSize: MainAxisSize.min,
         children: [
           if (isActive)
-            SizedBox(
+            const SizedBox(
               width: 8,
               height: 8,
               child: CircularProgressIndicator(
@@ -361,7 +361,7 @@ class _AgentActivityCanvasState extends State<AgentActivityCanvas>
             Container(
               width: 8,
               height: 8,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: AppColors.textMuted,
                 shape: BoxShape.circle,
               ),
@@ -465,7 +465,7 @@ class _AgentActivityCanvasState extends State<AgentActivityCanvas>
                         child: Container(
                           width: 16,
                           height: 16,
-                          decoration: BoxDecoration(
+                          decoration: const BoxDecoration(
                             color: AppColors.success,
                             shape: BoxShape.circle,
                           ),
@@ -514,7 +514,7 @@ class _AgentActivityCanvasState extends State<AgentActivityCanvas>
       children: [
         Icon(icon, size: 14, color: color),
         const SizedBox(width: 4),
-        Text(label, style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
+        Text(label, style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
       ],
     );
   }
@@ -700,7 +700,7 @@ class _ConnectionsPainter extends CustomPainter {
     final dy = to.dy - from.dy;
 
     // Draw multiple particles along the path
-    for (int i = 0; i < 3; i++) {
+    for (var i = 0; i < 3; i++) {
       final progress = (flowProgress + i * 0.33) % 1.0;
       final particlePos = Offset(
         from.dx + dx * progress,
@@ -712,8 +712,8 @@ class _ConnectionsPainter extends CustomPainter {
 
   void _drawArrow(Canvas canvas, Offset from, Offset to, Color color) {
     final angle = math.atan2(to.dy - from.dy, to.dx - from.dx);
-    final arrowLength = 8.0;
-    final arrowAngle = math.pi / 6;
+    const arrowLength = 8.0;
+    const arrowAngle = math.pi / 6;
 
     // Calculate midpoint for arrow
     final midX = (from.dx + to.dx) / 2;

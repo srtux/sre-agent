@@ -78,15 +78,15 @@ class _RemediationPlanWidgetState extends State<RemediationPlanWidget>
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+      const SnackBar(
         content: Row(
           children: [
             Icon(Icons.check_circle, color: AppColors.success, size: 18),
-            const SizedBox(width: 12),
-            const Text('Command copied to clipboard'),
+            SizedBox(width: 12),
+            Text('Command copied to clipboard'),
           ],
         ),
-        duration: const Duration(seconds: 2),
+        duration: Duration(seconds: 2),
       ),
     );
 
@@ -166,7 +166,7 @@ class _RemediationPlanWidgetState extends State<RemediationPlanWidget>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Remediation Plan',
                   style: TextStyle(
                     fontSize: 16,
@@ -177,7 +177,7 @@ class _RemediationPlanWidgetState extends State<RemediationPlanWidget>
                 const SizedBox(height: 4),
                 Text(
                   widget.plan.issue,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 13,
                     color: AppColors.textSecondary,
                     height: 1.4,
@@ -232,7 +232,7 @@ class _RemediationPlanWidgetState extends State<RemediationPlanWidget>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
+              const Text(
                 'Progress',
                 style: TextStyle(
                   fontSize: 11,
@@ -242,7 +242,7 @@ class _RemediationPlanWidgetState extends State<RemediationPlanWidget>
               ),
               Text(
                 '${_completedSteps.length} of ${widget.plan.steps.length} steps',
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
                   color: AppColors.textSecondary,
@@ -267,7 +267,7 @@ class _RemediationPlanWidgetState extends State<RemediationPlanWidget>
                 height: 6,
                 width: (MediaQuery.of(context).size.width - 32) * progress,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
+                  gradient: const LinearGradient(
                     colors: [AppColors.primaryTeal, AppColors.primaryCyan],
                   ),
                   borderRadius: BorderRadius.circular(3),
@@ -378,7 +378,7 @@ class _RemediationPlanWidgetState extends State<RemediationPlanWidget>
                                   )
                                 : Text(
                                     '${index + 1}',
-                                    style: TextStyle(
+                                    style: const TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
                                       color: AppColors.primaryTeal,
@@ -411,7 +411,7 @@ class _RemediationPlanWidgetState extends State<RemediationPlanWidget>
                       AnimatedRotation(
                         duration: const Duration(milliseconds: 200),
                         turns: isExpanded ? 0.5 : 0,
-                        child: Icon(
+                        child: const Icon(
                           Icons.expand_more,
                           color: AppColors.textMuted,
                         ),
@@ -453,13 +453,13 @@ class _RemediationPlanWidgetState extends State<RemediationPlanWidget>
                         ),
                         child: Row(
                           children: [
-                            Icon(
+                            const Icon(
                               Icons.terminal,
                               size: 14,
                               color: AppColors.textMuted,
                             ),
                             const SizedBox(width: 8),
-                            Text(
+                            const Text(
                               'Command',
                               style: TextStyle(
                                 fontSize: 11,
@@ -520,7 +520,7 @@ class _RemediationPlanWidgetState extends State<RemediationPlanWidget>
                         padding: const EdgeInsets.all(12),
                         child: SelectableText(
                           step.command,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 13,
                             fontFamily: 'monospace',
                             color: AppColors.primaryTeal,

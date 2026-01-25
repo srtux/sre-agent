@@ -90,7 +90,7 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
       SnackBar(
         content: Row(
           children: [
-            Icon(Icons.check_circle, color: AppColors.success, size: 18),
+            const Icon(Icons.check_circle, color: AppColors.success, size: 18),
             const SizedBox(width: 8),
             Text('$label copied to clipboard'),
           ],
@@ -112,7 +112,7 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
   @override
   Widget build(BuildContext context) {
     final isRunning = widget.log.status == 'running';
-    bool isError = _checkForError();
+    var isError = _checkForError();
     final completed = widget.log.status == 'completed';
 
     // Extract error message for preview if needed
@@ -126,7 +126,7 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
           }
         } catch (_) {}
       }
-      errorMessage ??= "Output contains error"; // Fallback
+      errorMessage ??= 'Output contains error'; // Fallback
     }
 
     // Compact collapsed view vs expanded view
@@ -265,7 +265,7 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
   Widget _buildCollapsedHeader(bool isRunning, bool isError, bool isCompleted) {
     final toolIcon = _getToolIcon(widget.log.toolName);
 
-    Color iconColor = AppColors.textPrimary;
+    var iconColor = AppColors.textPrimary;
     if (isCompleted) iconColor = AppColors.success;
     if (isError) iconColor = AppColors.error;
     if (isRunning) iconColor = AppColors.warning;
@@ -310,7 +310,7 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
             const SizedBox(width: 4),
             Text(
               isRunning ? 'Running' : widget.log.duration ?? '',
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 11,
                 color: AppColors.textSecondary,
                 fontFamily: 'monospace',
@@ -354,7 +354,7 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
                   Flexible(
                     child: Text(
                       _getSmartTitle(),
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
                         color: AppColors.textPrimary,
@@ -389,7 +389,7 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
                   child: Row(
                     children: [
                       if (!isRunning) ...[
-                        Icon(
+                        const Icon(
                           Icons.timer_outlined,
                           size: 12,
                           color: AppColors.textSecondary,
@@ -398,7 +398,7 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
                       ],
                       Text(
                         isRunning ? 'Processing...' : widget.log.duration ?? '',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 12,
                           color: AppColors.textSecondary,
                           fontFamily: 'monospace',
@@ -414,7 +414,7 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
         // Expand icon
         RotationTransition(
           turns: _rotateAnimation,
-          child: Icon(
+          child: const Icon(
             Icons.keyboard_arrow_down,
             color: AppColors.textMuted,
             size: 20,
@@ -505,7 +505,7 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: AppColors.warning.withValues(alpha: 0.5)),
       ),
-      child: Text(
+      child: const Text(
         'Running',
         style: TextStyle(
           fontSize: 9,
@@ -537,7 +537,7 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
             const SizedBox(width: 6),
             Text(
               title,
-              style: TextStyle(
+              style: const TextStyle(
                 color: AppColors.textMuted,
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
@@ -549,8 +549,8 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
               child: InkWell(
                 onTap: onCopy,
                 borderRadius: BorderRadius.circular(4),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(
                     horizontal: 6,
                     vertical: 2,
                   ),
@@ -558,7 +558,7 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.copy, size: 11, color: AppColors.textMuted),
-                      const SizedBox(width: 3),
+                      SizedBox(width: 3),
                       Text(
                         'Copy',
                         style: TextStyle(
@@ -592,13 +592,13 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
         children: [
           Row(
             children: [
-              Icon(
+              const Icon(
                 Icons.warning_amber_rounded,
                 size: 12,
                 color: AppColors.error,
               ),
               const SizedBox(width: 6),
-              Text(
+              const Text(
                 'Error',
                 style: TextStyle(
                   color: AppColors.error,

@@ -31,7 +31,7 @@ class LoginPage extends StatelessWidget {
                   ],
                 ),
               ),
-              child: CustomPaint(painter: const TechGridPainter()),
+              child: const CustomPaint(painter: TechGridPainter()),
             ),
           ),
 
@@ -301,27 +301,27 @@ class _AnimatedPhysicsRobotState extends State<_AnimatedPhysicsRobot>
       _lastElapsed = elapsed;
       return;
     }
-    final double dt = (elapsed - _lastElapsed).inMicroseconds / 1000000.0;
+    final dt = (elapsed - _lastElapsed).inMicroseconds / 1000000.0;
     _lastElapsed = elapsed;
 
     if (dt <= 0) return;
     if (dt > 0.1) return; // Prevent huge jumps on lag spikes
 
     // F_spring = -k * x
-    final Offset springForce = -_position * _k;
+    final springForce = -_position * _k;
 
     // F_damping = -d * v
-    final Offset dampingForce = -_velocity * _d;
+    final dampingForce = -_velocity * _d;
 
-    final Offset totalForce = springForce + dampingForce;
-    final Offset acceleration = totalForce / _mass;
+    final totalForce = springForce + dampingForce;
+    final acceleration = totalForce / _mass;
 
-    final Offset nextVelocity = _velocity + acceleration * dt;
-    final Offset nextPosition = _position + nextVelocity * dt;
+    final nextVelocity = _velocity + acceleration * dt;
+    final nextPosition = _position + nextVelocity * dt;
 
     // Only update state if there's meaningful movement
     // and use an epsilon to allow settling
-    const double epsilon = 0.05;
+    const epsilon = 0.05;
     if (nextPosition.distance < epsilon && nextVelocity.distance < epsilon) {
       if (_position != Offset.zero || _velocity != Offset.zero) {
         setState(() {

@@ -180,7 +180,7 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
               children: [
                 Row(
                   children: [
-                    Text(
+                    const Text(
                       'Log Entries',
                       style: TextStyle(
                         fontSize: 15,
@@ -200,7 +200,7 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
                       ),
                       child: Text(
                         '${widget.data.entries.length} entries',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 10,
                           color: AppColors.primaryTeal,
                           fontWeight: FontWeight.w500,
@@ -213,7 +213,7 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
                   const SizedBox(height: 2),
                   Text(
                     widget.data.filter!,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 10,
                       color: AppColors.textMuted,
                       fontFamily: 'monospace',
@@ -290,14 +290,14 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
         child: Row(
           children: [
             const SizedBox(width: 12),
-            Icon(Icons.search, size: 18, color: AppColors.textMuted),
+            const Icon(Icons.search, size: 18, color: AppColors.textMuted),
             const SizedBox(width: 8),
             Expanded(
               child: TextField(
                 controller: _searchController,
                 onChanged: (value) => setState(() => _searchQuery = value),
-                style: TextStyle(fontSize: 13, color: AppColors.textPrimary),
-                decoration: InputDecoration(
+                style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
+                decoration: const InputDecoration(
                   hintText: 'Search logs...',
                   hintStyle: TextStyle(
                     color: AppColors.textMuted,
@@ -311,7 +311,7 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
             ),
             if (_searchQuery.isNotEmpty)
               IconButton(
-                icon: Icon(Icons.close, size: 16, color: AppColors.textMuted),
+                icon: const Icon(Icons.close, size: 16, color: AppColors.textMuted),
                 onPressed: () {
                   _searchController.clear();
                   setState(() => _searchQuery = '');
@@ -334,7 +334,7 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            Text(
+            const Text(
               'Filter:',
               style: TextStyle(fontSize: 10, color: AppColors.textMuted),
             ),
@@ -415,7 +415,7 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
               color: AppColors.textMuted.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(
+            child: const Icon(
               Icons.search_off_outlined,
               size: 40,
               color: AppColors.textMuted,
@@ -426,7 +426,7 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
             _searchQuery.isNotEmpty || _filterSeverity != null
                 ? 'No logs match your filters'
                 : 'No log entries',
-            style: TextStyle(color: AppColors.textMuted, fontSize: 14),
+            style: const TextStyle(color: AppColors.textMuted, fontSize: 14),
           ),
         ],
       ),
@@ -510,7 +510,7 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
                             children: [
                               Text(
                                 _formatTimestamp(entry.timestamp),
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontSize: 10,
                                   color: AppColors.textMuted,
                                   fontFamily: 'monospace',
@@ -549,7 +549,7 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
                                 ),
                                 child: Text(
                                   entry.resourceType,
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontSize: 9,
                                     color: AppColors.primaryTeal,
                                   ),
@@ -557,7 +557,7 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
                               ),
                               if (entry.isJsonPayload) ...[
                                 const SizedBox(width: 8),
-                                Icon(
+                                const Icon(
                                   Icons.data_object,
                                   size: 12,
                                   color: AppColors.primaryCyan,
@@ -569,7 +569,7 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
                           // Message preview
                           Text(
                             entry.payloadPreview,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 12,
                               color: AppColors.textPrimary,
                               height: 1.4,
@@ -585,7 +585,7 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
                     AnimatedRotation(
                       duration: const Duration(milliseconds: 200),
                       turns: isExpanded ? 0.5 : 0,
-                      child: Icon(
+                      child: const Icon(
                         Icons.keyboard_arrow_down,
                         size: 20,
                         color: AppColors.textMuted,
@@ -607,7 +607,7 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
     return Container(
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.2),
-        border: Border(top: BorderSide(color: AppColors.surfaceBorder)),
+        border: const Border(top: BorderSide(color: AppColors.surfaceBorder)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -694,7 +694,7 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
               const SizedBox(width: 6),
               Text(
                 title,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
                   color: AppColors.textMuted,
@@ -724,7 +724,7 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
         children: [
           Text(
             '$key:',
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 10,
               color: AppColors.textMuted,
               fontFamily: 'monospace',
@@ -734,7 +734,7 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
           Flexible(
             child: Text(
               value,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 10,
                 color: AppColors.primaryTeal,
                 fontFamily: 'monospace',
@@ -754,10 +754,10 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             children: [
               Icon(Icons.data_object, size: 12, color: AppColors.primaryCyan),
-              const SizedBox(width: 6),
+              SizedBox(width: 6),
               Text(
                 'JSON Payload',
                 style: TextStyle(
@@ -781,7 +781,7 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
             ),
             child: SelectableText(
               const JsonEncoder.withIndent('  ').convert(payload),
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 11,
                 color: AppColors.textSecondary,
                 fontFamily: 'monospace',
@@ -814,7 +814,7 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
             const SizedBox(width: 6),
             Text(
               label,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 10,
                 color: AppColors.primaryTeal,
                 fontWeight: FontWeight.w500,
@@ -861,16 +861,16 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
   void _copyToClipboard(BuildContext context, String text) {
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+      const SnackBar(
         content: Row(
           children: [
             Icon(Icons.check_circle, color: AppColors.success, size: 16),
-            const SizedBox(width: 8),
-            const Text('Copied to clipboard'),
+            SizedBox(width: 8),
+            Text('Copied to clipboard'),
           ],
         ),
         backgroundColor: AppColors.backgroundElevated,
-        duration: const Duration(seconds: 2),
+        duration: Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
       ),
     );

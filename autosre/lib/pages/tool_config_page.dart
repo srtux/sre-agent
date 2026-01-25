@@ -116,7 +116,7 @@ class _ToolConfigPageState extends State<ToolConfigPage>
 
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             color: AppColors.backgroundCard,
             border: Border(
               bottom: BorderSide(color: AppColors.surfaceBorder, width: 1),
@@ -164,7 +164,7 @@ class _ToolConfigPageState extends State<ToolConfigPage>
             color: color,
           ),
         ),
-        Text(label, style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+        Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
       ],
     );
   }
@@ -189,11 +189,11 @@ class _ToolConfigPageState extends State<ToolConfigPage>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.error_outline, size: 48, color: AppColors.error),
+                    const Icon(Icons.error_outline, size: 48, color: AppColors.error),
                     const SizedBox(height: 16),
                     Text(
                       error,
-                      style: TextStyle(color: AppColors.textSecondary),
+                      style: const TextStyle(color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton(
@@ -224,7 +224,7 @@ class _ToolConfigPageState extends State<ToolConfigPage>
         final tools = toolsByCategory[category] ?? [];
 
         if (tools.isEmpty) {
-          return Center(
+          return const Center(
             child: Text(
               'No tools in this category',
               style: TextStyle(color: AppColors.textMuted),
@@ -261,7 +261,7 @@ class _ToolConfigPageState extends State<ToolConfigPage>
         children: [
           Text(
             '${tools.length} tools ($enabledCount enabled, $testableCount testable)',
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+            style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
           ),
           const Spacer(),
           TextButton.icon(
@@ -318,7 +318,7 @@ class _ToolConfigPageState extends State<ToolConfigPage>
                           const SizedBox(height: 4),
                           Text(
                             tool.name,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 12,
                               color: AppColors.textMuted,
                               fontFamily: 'monospace',
@@ -369,7 +369,7 @@ class _ToolConfigPageState extends State<ToolConfigPage>
                 const SizedBox(height: 8),
                 Text(
                   tool.description,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 13,
                     color: AppColors.textSecondary,
                   ),
@@ -398,11 +398,11 @@ class _ToolConfigPageState extends State<ToolConfigPage>
       childrenPadding: const EdgeInsets.only(left: 8, right: 8, bottom: 8),
       title: Row(
         children: [
-          Icon(Icons.input, size: 16, color: AppColors.primaryTeal),
+          const Icon(Icons.input, size: 16, color: AppColors.primaryTeal),
           const SizedBox(width: 8),
           Text(
             'Arguments (${arguments.length})',
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
               color: AppColors.primaryTeal,
@@ -431,7 +431,7 @@ class _ToolConfigPageState extends State<ToolConfigPage>
               // Argument name
               Text(
                 arg.name,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: AppColors.textPrimary,
@@ -448,7 +448,7 @@ class _ToolConfigPageState extends State<ToolConfigPage>
                 ),
                 child: Text(
                   arg.type,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w500,
                     color: AppColors.primaryBlue,
@@ -480,7 +480,7 @@ class _ToolConfigPageState extends State<ToolConfigPage>
             const SizedBox(height: 6),
             Text(
               arg.description,
-              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
           ],
           if (arg.defaultValue != null || arg.example != null) ...[
@@ -492,7 +492,7 @@ class _ToolConfigPageState extends State<ToolConfigPage>
                 if (arg.defaultValue != null)
                   Text(
                     'Default: ${arg.defaultValue}',
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 11,
                       color: AppColors.textMuted,
                       fontStyle: FontStyle.italic,
@@ -501,7 +501,7 @@ class _ToolConfigPageState extends State<ToolConfigPage>
                 if (arg.example != null)
                   Text(
                     'Example: ${arg.example}',
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 11,
                       color: AppColors.textMuted,
                       fontStyle: FontStyle.italic,
@@ -567,7 +567,7 @@ class _ToolConfigPageState extends State<ToolConfigPage>
             const SizedBox(width: 8),
             Text(
               '${result.latencyMs!.toStringAsFixed(0)}ms',
-              style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+              style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
             ),
           ],
           if (result.message.isNotEmpty &&
@@ -576,7 +576,7 @@ class _ToolConfigPageState extends State<ToolConfigPage>
             Flexible(
               child: Text(
                 result.message,
-                style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
                 overflow: TextOverflow.ellipsis,
               ),
             ),

@@ -23,7 +23,7 @@ class CatalogRegistry {
   static Catalog createSreCatalog() {
     return Catalog([
       CatalogItem(
-        name: "x-sre-trace-waterfall",
+        name: 'x-sre-trace-waterfall',
         dataSchema: S.object(),
         widgetBuilder: (context) {
           try {
@@ -57,7 +57,7 @@ class CatalogRegistry {
         },
       ),
       CatalogItem(
-        name: "x-sre-metric-chart",
+        name: 'x-sre-metric-chart',
         dataSchema: S.object(),
         widgetBuilder: (context) {
           try {
@@ -88,7 +88,7 @@ class CatalogRegistry {
         },
       ),
       CatalogItem(
-        name: "x-sre-remediation-plan",
+        name: 'x-sre-remediation-plan',
         dataSchema: S.object(),
         widgetBuilder: (context) {
           try {
@@ -120,17 +120,17 @@ class CatalogRegistry {
         },
       ),
       CatalogItem(
-        name: "x-sre-log-pattern-viewer",
+        name: 'x-sre-log-pattern-viewer',
         dataSchema: S.object(),
         widgetBuilder: (context) {
           try {
-            final data_raw = context.data;
-            List<dynamic> rawList = [];
+            final dataRaw = context.data;
+            var rawList = <dynamic>[];
 
-            if (data_raw is List) {
-              rawList = data_raw;
-            } else if (data_raw is Map) {
-              var data = Map<String, dynamic>.from(data_raw);
+            if (dataRaw is List) {
+              rawList = dataRaw;
+            } else if (dataRaw is Map) {
+              var data = Map<String, dynamic>.from(dataRaw);
 
               // Handle case where data might be wrapped in component name
               if (data.containsKey('x-sre-log-pattern-viewer')) {
@@ -165,7 +165,7 @@ class CatalogRegistry {
               }
             } else {
               throw Exception(
-                "Expected List or Map with patterns, got ${data_raw.runtimeType}",
+                'Expected List or Map with patterns, got ${dataRaw.runtimeType}',
               );
             }
 
@@ -188,7 +188,7 @@ class CatalogRegistry {
         },
       ),
       CatalogItem(
-        name: "x-sre-log-entries-viewer",
+        name: 'x-sre-log-entries-viewer',
         dataSchema: S.object(),
         widgetBuilder: (context) {
           try {
@@ -219,7 +219,7 @@ class CatalogRegistry {
         },
       ),
       CatalogItem(
-        name: "x-sre-tool-log",
+        name: 'x-sre-tool-log',
         dataSchema: S.object(),
         widgetBuilder: (context) {
           try {
@@ -247,7 +247,7 @@ class CatalogRegistry {
       ),
       // Canvas Widgets
       CatalogItem(
-        name: "x-sre-agent-activity",
+        name: 'x-sre-agent-activity',
         dataSchema: S.object(),
         widgetBuilder: (context) {
           try {
@@ -274,7 +274,7 @@ class CatalogRegistry {
         },
       ),
       CatalogItem(
-        name: "x-sre-service-topology",
+        name: 'x-sre-service-topology',
         dataSchema: S.object(),
         widgetBuilder: (context) {
           try {
@@ -301,7 +301,7 @@ class CatalogRegistry {
         },
       ),
       CatalogItem(
-        name: "x-sre-incident-timeline",
+        name: 'x-sre-incident-timeline',
         dataSchema: S.object(),
         widgetBuilder: (context) {
           try {
@@ -328,7 +328,7 @@ class CatalogRegistry {
         },
       ),
       CatalogItem(
-        name: "x-sre-metrics-dashboard",
+        name: 'x-sre-metrics-dashboard',
         dataSchema: S.object(),
         widgetBuilder: (context) {
           try {
@@ -355,7 +355,7 @@ class CatalogRegistry {
         },
       ),
       CatalogItem(
-        name: "x-sre-ai-reasoning",
+        name: 'x-sre-ai-reasoning',
         dataSchema: S.object(),
         widgetBuilder: (context) {
           try {
@@ -383,7 +383,7 @@ class CatalogRegistry {
           }
         },
       ),
-    ], catalogId: "sre-catalog");
+    ], catalogId: 'sre-catalog');
   }
 
   /// Helper to safely cast dynamic data to a Map, throwing a clear error if mismatch
@@ -393,7 +393,7 @@ class CatalogRegistry {
       return Map<String, dynamic>.from(data);
     }
     throw Exception(
-      "Expected Map<String, dynamic>, got ${data.runtimeType}: $data",
+      'Expected Map<String, dynamic>, got ${data.runtimeType}: $data',
     );
   }
 

@@ -269,62 +269,62 @@ class AppTheme {
       // Text Theme
       textTheme: GoogleFonts.outfitTextTheme(ThemeData.dark().textTheme)
           .copyWith(
-            displayLarge: TextStyle(
+            displayLarge: const TextStyle(
               fontSize: 32,
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
               letterSpacing: -0.5,
             ),
-            headlineLarge: TextStyle(
+            headlineLarge: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w600,
               color: AppColors.textPrimary,
               letterSpacing: -0.3,
             ),
-            headlineMedium: TextStyle(
+            headlineMedium: const TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w600,
               color: AppColors.textPrimary,
             ),
-            titleLarge: TextStyle(
+            titleLarge: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
               color: AppColors.textPrimary,
             ),
-            titleMedium: TextStyle(
+            titleMedium: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w500,
               color: AppColors.textPrimary,
             ),
-            bodyLarge: TextStyle(
+            bodyLarge: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w400,
               color: AppColors.textPrimary,
               height: 1.5,
             ),
-            bodyMedium: TextStyle(
+            bodyMedium: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w400,
               color: AppColors.textSecondary,
               height: 1.5,
             ),
-            bodySmall: TextStyle(
+            bodySmall: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w400,
               color: AppColors.textMuted,
             ),
-            labelLarge: TextStyle(
+            labelLarge: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
               color: AppColors.textPrimary,
               letterSpacing: 0.5,
             ),
-            labelMedium: TextStyle(
+            labelMedium: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
               color: AppColors.textSecondary,
             ),
-            labelSmall: TextStyle(
+            labelSmall: const TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w500,
               color: AppColors.textMuted,

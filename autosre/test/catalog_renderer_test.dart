@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:autosre/catalog.dart';
 import 'package:autosre/widgets/error_placeholder.dart';
-import 'package:autosre/widgets/log_pattern_viewer.dart';
 import 'package:genui/genui.dart';
 
 class FakeCatalogItemContext implements CatalogItemContext {
@@ -143,7 +142,7 @@ void main() {
     ) async {
       for (final name in widgetsToTest) {
         final item = catalog.items.firstWhere((i) => i.name == name);
-        final widget = item.widgetBuilder(FakeCatalogItemContext("Not a Map"));
+        final widget = item.widgetBuilder(FakeCatalogItemContext('Not a Map'));
         await pumpTestWidget(tester, widget);
 
         expect(

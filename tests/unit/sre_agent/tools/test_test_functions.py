@@ -52,7 +52,7 @@ async def test_check_fetch_trace_success():
             return_value="test-project",
         ),
         patch(
-            "sre_agent.tools.clients.factory.get_trace_client", return_value=mock_client
+            "sre_agent.tools.test_functions.get_trace_client", return_value=mock_client
         ),
     ):
         result = await check_fetch_trace()
@@ -83,7 +83,7 @@ async def test_check_fetch_trace_client_error():
             return_value="test-project",
         ),
         patch(
-            "sre_agent.tools.clients.factory.get_trace_client",
+            "sre_agent.tools.test_functions.get_trace_client",
             side_effect=Exception("Client error"),
         ),
     ):
@@ -105,7 +105,7 @@ async def test_check_list_log_entries_success():
             return_value="test-project",
         ),
         patch(
-            "sre_agent.tools.clients.factory.get_logging_client",
+            "sre_agent.tools.test_functions.get_logging_client",
             return_value=mock_client,
         ),
     ):
@@ -127,7 +127,7 @@ async def test_check_list_time_series_success():
             return_value="test-project",
         ),
         patch(
-            "sre_agent.tools.clients.factory.get_monitoring_client",
+            "sre_agent.tools.test_functions.get_monitoring_client",
             return_value=mock_client,
         ),
     ):
@@ -149,7 +149,7 @@ async def test_check_list_alerts_success():
             return_value="test-project",
         ),
         patch(
-            "sre_agent.tools.clients.factory.get_alert_policy_client",
+            "sre_agent.tools.test_functions.get_alert_policy_client",
             return_value=mock_client,
         ),
     ):

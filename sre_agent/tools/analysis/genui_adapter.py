@@ -700,19 +700,19 @@ def create_demo_service_topology() -> dict[str, Any]:
 
 def create_demo_incident_timeline() -> dict[str, Any]:
     """Create demo data for Incident Timeline Canvas."""
+    from datetime import timedelta
+
     base_time = datetime.now(timezone.utc)
     return transform_incident_timeline(
         {
             "incident_id": "INC-2024-001",
             "title": "Order Service Latency Degradation",
-            "start_time": (base_time.replace(hour=base_time.hour - 2)).isoformat(),
+            "start_time": (base_time - timedelta(hours=2)).isoformat(),
             "status": "mitigated",
             "events": [
                 {
                     "id": "e1",
-                    "timestamp": (
-                        base_time.replace(hour=base_time.hour - 2)
-                    ).isoformat(),
+                    "timestamp": (base_time - timedelta(hours=2)).isoformat(),
                     "type": "alert",
                     "title": "High latency alert triggered",
                     "severity": "high",
@@ -721,7 +721,7 @@ def create_demo_incident_timeline() -> dict[str, Any]:
                 {
                     "id": "e2",
                     "timestamp": (
-                        base_time.replace(hour=base_time.hour - 2, minute=5)
+                        base_time - timedelta(hours=2, minutes=-5)
                     ).isoformat(),
                     "type": "deployment",
                     "title": "v2.3.1 deployed to order-service",
@@ -731,7 +731,7 @@ def create_demo_incident_timeline() -> dict[str, Any]:
                 {
                     "id": "e3",
                     "timestamp": (
-                        base_time.replace(hour=base_time.hour - 1, minute=45)
+                        base_time - timedelta(hours=1, minutes=15)
                     ).isoformat(),
                     "type": "agent_action",
                     "title": "SRE Agent started investigation",
@@ -740,7 +740,7 @@ def create_demo_incident_timeline() -> dict[str, Any]:
                 {
                     "id": "e4",
                     "timestamp": (
-                        base_time.replace(hour=base_time.hour - 1, minute=30)
+                        base_time - timedelta(hours=1, minutes=30)
                     ).isoformat(),
                     "type": "config_change",
                     "title": "DB connection pool exhausted",
@@ -749,16 +749,14 @@ def create_demo_incident_timeline() -> dict[str, Any]:
                 },
                 {
                     "id": "e5",
-                    "timestamp": (
-                        base_time.replace(hour=base_time.hour - 1)
-                    ).isoformat(),
+                    "timestamp": (base_time - timedelta(hours=1)).isoformat(),
                     "type": "scaling",
                     "title": "Auto-scaled DB connections",
                     "severity": "medium",
                 },
                 {
                     "id": "e6",
-                    "timestamp": (base_time.replace(minute=30)).isoformat(),
+                    "timestamp": (base_time - timedelta(minutes=30)).isoformat(),
                     "type": "recovery",
                     "title": "Latency returning to normal",
                     "severity": "low",
@@ -865,6 +863,8 @@ def transform_log_entries(
 
 def create_demo_log_entries() -> dict[str, Any]:
     """Create demo data for Log Entries Viewer."""
+    from datetime import timedelta
+
     base_time = datetime.now(timezone.utc)
     return transform_log_entries(
         {
@@ -893,9 +893,7 @@ def create_demo_log_entries() -> dict[str, Any]:
                 },
                 {
                     "insertId": "log-002",
-                    "timestamp": (
-                        base_time.replace(second=base_time.second - 5)
-                    ).isoformat(),
+                    "timestamp": (base_time - timedelta(seconds=5)).isoformat(),
                     "severity": "WARNING",
                     "payload": "High latency detected: 450ms > threshold 200ms",
                     "resource": {
@@ -909,9 +907,7 @@ def create_demo_log_entries() -> dict[str, Any]:
                 },
                 {
                     "insertId": "log-003",
-                    "timestamp": (
-                        base_time.replace(second=base_time.second - 10)
-                    ).isoformat(),
+                    "timestamp": (base_time - timedelta(seconds=10)).isoformat(),
                     "severity": "INFO",
                     "payload": {
                         "message": "Request processed",
@@ -937,9 +933,7 @@ def create_demo_log_entries() -> dict[str, Any]:
                 },
                 {
                     "insertId": "log-004",
-                    "timestamp": (
-                        base_time.replace(second=base_time.second - 15)
-                    ).isoformat(),
+                    "timestamp": (base_time - timedelta(seconds=15)).isoformat(),
                     "severity": "DEBUG",
                     "payload": "Cache miss for key: order:12345",
                     "resource": {
@@ -953,9 +947,7 @@ def create_demo_log_entries() -> dict[str, Any]:
                 },
                 {
                     "insertId": "log-005",
-                    "timestamp": (
-                        base_time.replace(second=base_time.second - 20)
-                    ).isoformat(),
+                    "timestamp": (base_time - timedelta(seconds=20)).isoformat(),
                     "severity": "CRITICAL",
                     "payload": {
                         "message": "Database connection failed",

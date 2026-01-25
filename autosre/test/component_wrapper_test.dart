@@ -22,11 +22,11 @@ void main() {
 
     // Data with the "component" wrapper, exactly as sent by the backend logic
     final wrappedData = {
-      "component": {
-        "x-sre-tool-log": {
-          "tool_name": "list_gcp_projects",
-          "args": {},
-          "status": "running"
+      'component': {
+        'x-sre-tool-log': {
+          'tool_name': 'list_gcp_projects',
+          'args': {},
+          'status': 'running'
         }
       }
     };

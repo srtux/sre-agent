@@ -102,7 +102,7 @@ class ADKContentGenerator implements ContentGenerator {
   /// Cancels the current request if one is in progress.
   void cancelRequest() {
     if (_currentClient != null) {
-      debugPrint("Cancelling current request...");
+      debugPrint('Cancelling current request...');
 
       // Cancel the stream subscription first
       _streamSubscription?.cancel();
@@ -116,7 +116,7 @@ class ADKContentGenerator implements ContentGenerator {
       _isProcessing.value = false;
 
       // Add cancellation message
-      _textController.add("\n\n*Request cancelled by user.*");
+      _textController.add('\n\n*Request cancelled by user.*');
     }
   }
 
@@ -137,12 +137,12 @@ class ADKContentGenerator implements ContentGenerator {
     try {
       _currentClient = await AuthService().getAuthenticatedClient();
     } catch (e) {
-      debugPrint("Error getting authenticated client: $e");
+      debugPrint('Error getting authenticated client: $e');
       // Rethrow to notify the UI that authentication failed
       rethrow;
     }
 
-    for (int attempt = 0; attempt <= _maxRetries; attempt++) {
+    for (var attempt = 0; attempt <= _maxRetries; attempt++) {
       if (_isDisposed || _currentClient == null) break;
 
       try {
@@ -150,7 +150,7 @@ class ADKContentGenerator implements ContentGenerator {
         if (attempt > 0) {
           final delay = _retryDelay * (1 << (attempt - 1));
           debugPrint(
-            "Retrying request (attempt ${attempt + 1}/${_maxRetries + 1}) after ${delay.inSeconds}s...",
+            'Retrying request (attempt ${attempt + 1}/${_maxRetries + 1}) after ${delay.inSeconds}s...',
           );
           await Future.delayed(delay);
         }
@@ -162,20 +162,20 @@ class ADKContentGenerator implements ContentGenerator {
         request.headers['Content-Type'] = 'application/json';
 
         final requestBody = <String, dynamic>{
-          "messages": [
-            {"role": "user", "text": message.text},
+          'messages': [
+            {'role': 'user', 'text': message.text},
           ],
         };
 
         // Include session_id if set
         if (sessionId != null && sessionId!.isNotEmpty) {
-          requestBody["session_id"] = sessionId;
+          requestBody['session_id'] = sessionId;
         }
 
         // Include user_id from auth service
         final userId = AuthService().currentUser?.email;
         if (userId != null) {
-          requestBody["user_id"] = userId;
+          requestBody['user_id'] = userId;
         }
 
         request.body = jsonEncode(requestBody);
@@ -214,11 +214,11 @@ class ADKContentGenerator implements ContentGenerator {
                   if (newSessionId != null) {
                     sessionId = newSessionId;
                     _sessionController.add(newSessionId);
-                    debugPrint("Session ID updated: $newSessionId");
+                    debugPrint('Session ID updated: $newSessionId');
                   }
                 }
               } catch (e) {
-                debugPrint("Error parsing line: $e");
+                debugPrint('Error parsing line: $e');
               }
             });
         await _streamSubscription!.asFuture();
@@ -233,19 +233,19 @@ class ADKContentGenerator implements ContentGenerator {
       } catch (e, st) {
         // Check if this was a cancellation
         if (_currentClient == null) {
-          debugPrint("Request was cancelled");
+          debugPrint('Request was cancelled');
           break;
         }
 
         // Check if stream subscription was cancelled
         if (_streamSubscription == null) {
-          debugPrint("Stream was cancelled");
+          debugPrint('Stream was cancelled');
           break;
         }
 
         lastError = e is Exception ? e : Exception(e.toString());
         lastStackTrace = st;
-        debugPrint("Request failed (attempt ${attempt + 1}): $e");
+        debugPrint('Request failed (attempt ${attempt + 1}): $e');
 
         if (!_isDisposed) {
           _isConnected.value = false;
@@ -268,7 +268,7 @@ class ADKContentGenerator implements ContentGenerator {
     }
 
     // Fetch new contextual suggestions after request is complete
-    fetchSuggestions();
+    unawaited(fetchSuggestions());
   }
 
   /// Fetches contextual suggestions from the backend.
@@ -298,7 +298,7 @@ class ADKContentGenerator implements ContentGenerator {
         }
       }
     } catch (e) {
-      debugPrint("Error fetching suggestions: $e");
+      debugPrint('Error fetching suggestions: $e');
     }
   }
 

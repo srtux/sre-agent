@@ -1,0 +1,25 @@
+# SRE Agent: Universal Agent Instructions (LLM-Specific)
+
+## 🚀 Inner Loop
+- Sync: `uv run poe sync`
+- Run: `uv run poe run`
+- Lint: `uv run poe lint-all`
+- Test: `uv run poe test-all`
+- Deploy: `uv run poe deploy`
+
+## 🛡️ Coding Rules
+- **Vibe Lifecycle**: 1. Read Docs -> 2. Plan -> 3. Test First -> 4. Micro-Edit -> 5. Pass Tests -> 6. Self-Critique -> 7. Compact Info to Docs.
+- **Knowledge Compaction**: Update `.md` files after every change to keep the "Source of Truth" current for future agents.
+- **Self-Correction**: Run `lint-all` and `test-all` before submitting. Zero warnings policy.
+- **Read Truth**: Always `view_file` Pydantic models/logic before modifying. Never assume schemas.
+- **TDD**: Specs MUST be translated to tests before implementation.
+- **Pydantic**: Use `extra="forbid"` and `frozen=True`. Read model source before use.
+- **Coverage**: Target 100%. Coverage gate currently 75%.
+- **Python**: 3.10+, absolute imports, explicit `Optional`, JSON logging.
+- **Flutter**: Use `const`, single quotes, sort child properties last.
+
+## 📁 Documentation Standard
+- **Universal Entry Point**: [AGENTS.md](./AGENTS.md)
+- **Testing Strategy**: [TESTING.md](./TESTING.md)
+- **Linting Policy**: [LINTING.md](./LINTING.md)
+- **Claude-Specific**: [CLAUDE.md](./CLAUDE.md)

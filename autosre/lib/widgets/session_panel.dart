@@ -63,7 +63,7 @@ class _SessionPanelState extends State<SessionPanel> {
   Widget build(BuildContext context) {
     return Container(
       width: 280,
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AppColors.backgroundCard,
         border: Border(
           right: BorderSide(color: AppColors.surfaceBorder, width: 1),
@@ -83,7 +83,7 @@ class _SessionPanelState extends State<SessionPanel> {
   Widget _buildHeader() {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AppColors.backgroundCard,
         border: Border(
           // Removed bottom border for cleaner look, visual separation via spacing
@@ -118,7 +118,7 @@ class _SessionPanelState extends State<SessionPanel> {
           const SizedBox(height: 20),
           Row(
             children: [
-              Text(
+              const Text(
                 'Recent Investigations',
                 style: TextStyle(
                   fontSize: 13,
@@ -169,13 +169,13 @@ class _SessionPanelState extends State<SessionPanel> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(
+                            const Icon(
                               Icons.error_outline,
                               color: AppColors.error,
                               size: 32,
                             ),
                             const SizedBox(height: 12),
-                            Text(
+                            const Text(
                               'Failed to load history',
                               style: TextStyle(
                                 color: AppColors.error,
@@ -190,7 +190,7 @@ class _SessionPanelState extends State<SessionPanel> {
                                   force: true,
                                 );
                               },
-                              child: Text(
+                              child: const Text(
                                 'Retry',
                                 style: TextStyle(color: AppColors.primaryTeal),
                               ),
@@ -211,13 +211,13 @@ class _SessionPanelState extends State<SessionPanel> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(
+                            const Icon(
                               Icons.wifi_off,
                               color: AppColors.textMuted,
                               size: 32,
                             ),
                             const SizedBox(height: 12),
-                            Text(
+                            const Text(
                               'You are offline',
                               style: TextStyle(
                                 color: AppColors.textMuted,
@@ -300,7 +300,7 @@ class _SessionPanelState extends State<SessionPanel> {
               color: AppColors.textMuted.withValues(alpha: 0.3),
             ),
             const SizedBox(height: 16),
-            Text(
+            const Text(
               'No investigations yet',
               style: TextStyle(
                 fontSize: 14,
@@ -328,22 +328,22 @@ class _SessionPanelState extends State<SessionPanel> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.backgroundCard,
-        title: Text(
+        title: const Text(
           'Delete Investigation',
           style: TextStyle(color: AppColors.textPrimary),
         ),
-        content: Text(
+        content: const Text(
           'Are you sure you want to delete this investigation? This action cannot be undone.',
           style: TextStyle(color: AppColors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: Text('Delete', style: TextStyle(color: AppColors.error)),
+            child: const Text('Delete', style: TextStyle(color: AppColors.error)),
           ),
         ],
       ),
@@ -360,15 +360,15 @@ class _SessionPanelState extends State<SessionPanel> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.backgroundCard,
-        title: Text(
+        title: const Text(
           'Rename Investigation',
           style: TextStyle(color: AppColors.textPrimary),
         ),
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: TextStyle(color: AppColors.textPrimary),
-          decoration: InputDecoration(
+          style: const TextStyle(color: AppColors.textPrimary),
+          decoration: const InputDecoration(
             hintText: 'Enter new name',
             hintStyle: TextStyle(color: AppColors.textMuted),
             enabledBorder: UnderlineInputBorder(
@@ -391,7 +391,7 @@ class _SessionPanelState extends State<SessionPanel> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
           ),
           TextButton(
             onPressed: () {
@@ -403,7 +403,7 @@ class _SessionPanelState extends State<SessionPanel> {
                 Navigator.of(context).pop();
               }
             },
-            child: Text(
+            child: const Text(
               'Rename',
               style: TextStyle(color: AppColors.primaryTeal),
             ),
@@ -495,7 +495,7 @@ class _SessionItemState extends State<_SessionItem> {
                           children: [
                             Text(
                               widget.session.formattedDate,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 11,
                                 color: AppColors.textMuted,
                               ),
@@ -509,7 +509,7 @@ class _SessionItemState extends State<_SessionItem> {
                   if (_isHovered) ...[
                     IconButton(
                       onPressed: widget.onRename,
-                      icon: Icon(
+                      icon: const Icon(
                         Icons.edit_outlined,
                         size: 14,
                         color: AppColors.textMuted,
@@ -524,7 +524,7 @@ class _SessionItemState extends State<_SessionItem> {
                     const SizedBox(width: 4),
                     IconButton(
                       onPressed: widget.onDelete,
-                      icon: Icon(
+                      icon: const Icon(
                         Icons.delete_outline,
                         size: 14,
                         color: AppColors.textMuted,

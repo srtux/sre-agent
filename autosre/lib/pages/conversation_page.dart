@@ -48,8 +48,8 @@ class _ConversationPageState extends State<ConversationPage>
   StreamSubscription<String>? _sessionSubscription;
   final ValueNotifier<List<String>> _suggestedActions = ValueNotifier([
     "Analyze last hour's logs",
-    "List active incidents",
-    "Check for high latency",
+    'List active incidents',
+    'Check for high latency',
   ]);
   StreamSubscription<List<String>>? _suggestionsSubscription;
 
@@ -208,7 +208,7 @@ class _ConversationPageState extends State<ConversationPage>
           );
         }
       } catch (e) {
-        debugPrint("Could not hydrate session history: $e");
+        debugPrint('Could not hydrate session history: $e');
       }
     }
 
@@ -220,16 +220,16 @@ class _ConversationPageState extends State<ConversationPage>
     if (!mounted || !_scrollController.hasClients) return;
 
     final position = _scrollController.position;
-    final double extentAfter = position.extentAfter;
-    final double maxScroll = position.maxScrollExtent;
+    final extentAfter = position.extentAfter;
+    final maxScroll = position.maxScrollExtent;
 
     // 1. Check if user is actively manual scrolling
-    final bool isUserScrolling = position.userScrollDirection != ScrollDirection.idle;
+    final isUserScrolling = position.userScrollDirection != ScrollDirection.idle;
 
     // 2. Threshold to detect if we should "stick" to the bottom.
     // We use a larger threshold (300px) to ensure we don't lose stickiness
     // when large blocks of text arrive between frames.
-    final bool isNearBottom = extentAfter < 300.0;
+    final isNearBottom = extentAfter < 300.0;
 
     // 3. Logic to decide whether to scroll:
     // - Always scroll if forced (e.g. user just sent a message)
@@ -340,7 +340,7 @@ class _ConversationPageState extends State<ConversationPage>
                 ),
               // Divider
               if (showSidebar)
-                VerticalDivider(
+                const VerticalDivider(
                   width: 1,
                   thickness: 1,
                   color: AppColors.surfaceBorder,
@@ -705,15 +705,15 @@ class _ConversationPageState extends State<ConversationPage>
     return Stack(
       children: [
         // 1. Tech Grid Background
-        Positioned.fill(child: CustomPaint(painter: const TechGridPainter())),
+        const Positioned.fill(child: CustomPaint(painter: TechGridPainter())),
         // Gradient Overlay for Fade Effect
-        Positioned.fill(
+        const Positioned.fill(
           child: DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                stops: const [0.5, 1.0],
+                stops: [0.5, 1.0],
                 colors: [Colors.transparent, AppColors.backgroundDark],
               ),
             ),
@@ -742,7 +742,7 @@ class _ConversationPageState extends State<ConversationPage>
                 final msg = messages[index];
 
                 // Determine vertical spacing
-                double topSpacing = 4.0;
+                var topSpacing = 4.0;
                 if (index > 0) {
                   final prevMsg = messages[index - 1];
                   final isSameSender =
@@ -777,14 +777,14 @@ class _ConversationPageState extends State<ConversationPage>
     final authService = Provider.of<AuthService>(context, listen: false);
     final user = authService.currentUser;
     // Get first name for "Hi [Name]"
-    String name = 'there';
+    var name = 'there';
     if (user?.displayName != null && user!.displayName!.isNotEmpty) {
       name = user.displayName!.split(' ').first;
     }
 
     return Stack(
       children: [
-        Positioned.fill(child: CustomPaint(painter: const TechGridPainter())),
+        const Positioned.fill(child: CustomPaint(painter: TechGridPainter())),
         Center(
           child: SingleChildScrollView(
             child: Padding(
@@ -812,7 +812,7 @@ class _ConversationPageState extends State<ConversationPage>
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Text(
+                    const Text(
                       'Where should we start debugging?',
                       style: TextStyle(
                         fontSize: 24,
@@ -964,7 +964,7 @@ class _ConversationPageState extends State<ConversationPage>
   Widget _buildInputArea() {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: Colors
             .transparent, // Floating effect: Transparent background wrapper
       ),
@@ -1213,7 +1213,7 @@ class _MessageItemState extends State<_MessageItem>
             Container(
               width: 32,
               height: 32,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 shape: BoxShape.circle,
                 color: AppColors.primaryTeal,
               ),
@@ -1587,18 +1587,18 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                     ),
                     decoration: InputDecoration(
                       hintText: 'Search or enter project ID...',
-                      hintStyle: TextStyle(
+                      hintStyle: const TextStyle(
                         color: AppColors.textMuted,
                         fontSize: 13,
                       ),
-                      prefixIcon: Icon(
+                      prefixIcon: const Icon(
                         Icons.search,
                         size: 18,
                         color: AppColors.textMuted,
                       ),
                       suffixIcon: _searchController.text.isNotEmpty
                           ? IconButton(
-                              icon: Icon(
+                              icon: const Icon(
                                 Icons.clear,
                                 size: 16,
                                 color: AppColors.textMuted,
@@ -1662,14 +1662,14 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                           color: AppColors.primaryTeal.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: Icon(
+                        child: const Icon(
                           Icons.cloud_outlined,
                           size: 14,
                           color: AppColors.primaryTeal,
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Text(
+                      const Text(
                         'GCP Projects',
                         style: TextStyle(
                           fontSize: 11,
@@ -1681,7 +1681,7 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                       const Spacer(),
                       Text(
                         '${_filteredProjects.length} projects',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 11,
                           color: AppColors.textMuted,
                         ),
@@ -1695,7 +1695,7 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                           child: Padding(
                             padding: const EdgeInsets.all(6),
                             child: widget.isLoading
-                                ? SizedBox(
+                                ? const SizedBox(
                                     width: 14,
                                     height: 14,
                                     child: CircularProgressIndicator(
@@ -1705,7 +1705,7 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                                       ),
                                     ),
                                   )
-                                : Icon(
+                                : const Icon(
                                     Icons.refresh,
                                     size: 14,
                                     color: AppColors.textMuted,
@@ -1743,13 +1743,13 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                       padding: const EdgeInsets.all(24),
                       child: Column(
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.error_outline,
                             size: 32,
                             color: Colors.redAccent,
                           ),
                           const SizedBox(height: 12),
-                          Text(
+                          const Text(
                             'Error loading projects',
                             style: TextStyle(
                               fontSize: 13,
@@ -1761,7 +1761,7 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                           Text(
                             widget.error!,
                             textAlign: TextAlign.center,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 11,
                               color: AppColors.textMuted,
                             ),
@@ -1770,8 +1770,8 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                       ),
                     )
                   else if (widget.projects.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.all(24),
+                    const Padding(
+                      padding: EdgeInsets.all(24),
                       child: Column(
                         children: [
                           Icon(
@@ -1779,7 +1779,7 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                             size: 32,
                             color: AppColors.textMuted,
                           ),
-                          const SizedBox(height: 12),
+                          SizedBox(height: 12),
                           Text(
                             'No projects available',
                             style: TextStyle(
@@ -1886,8 +1886,8 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                     ),
                   )
                 else if (_searchQuery.isNotEmpty && _filteredProjects.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.all(24),
+                  const Padding(
+                    padding: EdgeInsets.all(24),
                     child: Column(
                       children: [
                         Icon(
@@ -1895,7 +1895,7 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                           size: 32,
                           color: AppColors.textMuted,
                         ),
-                        const SizedBox(height: 12),
+                        SizedBox(height: 12),
                         Text(
                           'No matching projects',
                           style: TextStyle(
@@ -1947,7 +1947,7 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                     color: AppColors.primaryTeal.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.add,
                     size: 14,
                     color: AppColors.primaryTeal,
@@ -1960,14 +1960,14 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                     children: [
                       Text(
                         'Use "$projectId"',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
                           color: AppColors.primaryTeal,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
-                      Text(
+                      const Text(
                         'Press Enter or click to use this project ID',
                         style: TextStyle(
                           fontSize: 11,
@@ -1977,7 +1977,7 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                     ],
                   ),
                 ),
-                Icon(
+                const Icon(
                   Icons.keyboard_return,
                   size: 14,
                   color: AppColors.primaryTeal,
@@ -2064,7 +2064,7 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                           project.displayName != project.projectId)
                         Text(
                           project.projectId,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 11,
                             color: AppColors.textMuted,
                           ),
@@ -2076,11 +2076,11 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                 if (isSelected)
                   Container(
                     padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
+                    decoration: const BoxDecoration(
                       color: AppColors.primaryTeal,
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(
+                    child: const Icon(
                       Icons.check,
                       size: 12,
                       color: AppColors.backgroundDark,

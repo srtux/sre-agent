@@ -7,18 +7,18 @@
 
 ## 🚀 Quick Start for Claude
 
-**ALWAYS start by reading these files first:**
-1. **CLAUDE.md** (this file) - Core architecture and patterns
-2. **README.md** - High-level architecture and features
-3. **AGENTS.md** - Development workflow and code quality rules
+**ALWAYS start by reading the Universal Standard first:**
+1. **llm.txt** - Universal High-density rule summary (Context efficient)
+2. **AGENTS.md** - Universal AI Agent Standard (Comprehensive)
+3. **CLAUDE.md** (this file) - Claude-specific implementation guide
+4. **README.md** - High-level project architecture
 
-**Before ANY code change:**
-```bash
-# Read the relevant source files first
-# Make changes
-uv run poe lint      # Must pass clean
-uv run poe test-all  # Must pass with 70%+ coverage
-```
+**The Vibe Coding Cycle**:
+1. **Read Docs** -> 2. **Plan** -> 3. **Test First** -> 4. **Micro-Edit** -> 5. **Verify** -> 6. **Self-Critique** -> 7. **Knowledge Compaction** (Update docs).
+
+**The Loop**: If any checks fail, fix and repeat. Never present failing code.
+
+**Testing Guide**: [TESTING.md](./TESTING.md)
 
 ---
 
@@ -413,7 +413,9 @@ latency_analyzer = LlmAgent(
 
 ### Coverage Requirement
 
-**Minimum**: 70% test coverage (enforced in CI)
+**Target**: **100% test coverage**. Every branch and error condition must be verified.
+
+**Test-First Policy**: Coding agents MUST translate specs to tests **before** writing implementation code.
 
 ### Test Structure
 

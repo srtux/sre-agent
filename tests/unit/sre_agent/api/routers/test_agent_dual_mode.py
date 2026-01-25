@@ -177,7 +177,12 @@ class TestRemoteAgentHandler:
             yield {
                 "content": {
                     "parts": [
-                        {"function_call": {"name": "test_tool", "args": {"arg1": "val1"}}}
+                        {
+                            "function_call": {
+                                "name": "test_tool",
+                                "args": {"arg1": "val1"},
+                            }
+                        }
                     ]
                 }
             }
@@ -261,7 +266,9 @@ class TestAgentEndpointModeSelection:
             os.environ.pop("SRE_AGENT_ID", None)
 
             # Mock the local execution path
-            with patch("sre_agent.api.routers.agent.is_remote_mode", return_value=False):
+            with patch(
+                "sre_agent.api.routers.agent.is_remote_mode", return_value=False
+            ):
                 with patch(
                     "sre_agent.api.routers.agent.get_session_service"
                 ) as mock_session:

@@ -648,7 +648,7 @@ class _SparklinePainter extends CustomPainter {
     final linePath = Path();
     final fillPath = Path();
 
-    for (int i = 0; i < points.length; i++) {
+    for (var i = 0; i < points.length; i++) {
       final x = (i / (points.length - 1)) * size.width * animProgress;
       final normalizedY = range > 0 ? (points[i].value - minVal) / range : 0.5;
       final y =

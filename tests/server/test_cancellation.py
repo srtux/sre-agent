@@ -30,7 +30,7 @@ class TestStopButtonCancellation(unittest.IsolatedAsyncioTestCase):
             patch(
                 "sre_agent.api.routers.agent.get_session_service"
             ) as mock_get_session_service,
-            patch("sre_agent.api.routers.agent.root_agent") as mock_root_agent,
+            patch("sre_agent.agent.root_agent") as mock_root_agent,
             patch(
                 "sre_agent.api.routers.agent.InvocationContext"
             ) as mock_inv_ctx_class,

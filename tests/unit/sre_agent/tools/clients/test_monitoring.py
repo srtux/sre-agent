@@ -6,6 +6,20 @@ from opentelemetry.trace import Status, StatusCode
 from sre_agent.tools.clients.monitoring import list_time_series, query_promql
 
 
+@pytest.fixture(autouse=True)
+def mock_user_auth():
+    """Mock user credentials for all monitoring tool tests."""
+    from unittest.mock import MagicMock
+
+    from sre_agent.auth import clear_current_credentials, set_current_credentials
+
+    mock_creds = MagicMock()
+    mock_creds.token = "test-token"
+    set_current_credentials(mock_creds)
+    yield
+    clear_current_credentials()
+
+
 @pytest.mark.asyncio
 @mock.patch("sre_agent.tools.clients.monitoring.get_monitoring_client")
 async def test_list_time_series(mock_get_client):

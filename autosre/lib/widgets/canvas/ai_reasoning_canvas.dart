@@ -290,7 +290,7 @@ class _AIReasoningCanvasState extends State<AIReasoningCanvas>
                           if (_showEvidence && widget.data.evidence.isNotEmpty)
                             Container(
                               width: 200,
-                              decoration: BoxDecoration(
+                              decoration: const BoxDecoration(
                                 border: Border(
                                   left: BorderSide(
                                     color: AppColors.surfaceBorder,
@@ -769,7 +769,7 @@ class _AIReasoningCanvasState extends State<AIReasoningCanvas>
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.03),
-            border: Border(bottom: BorderSide(color: AppColors.surfaceBorder)),
+            border: const Border(bottom: BorderSide(color: AppColors.surfaceBorder)),
           ),
           child: Row(
             children: [
@@ -867,9 +867,9 @@ class _AIReasoningCanvasState extends State<AIReasoningCanvas>
           // Relevance bar
           Row(
             children: [
-              Text(
+              const Text(
                 'Relevance',
-                style: const TextStyle(fontSize: 8, color: AppColors.textMuted),
+                style: TextStyle(fontSize: 8, color: AppColors.textMuted),
               ),
               const SizedBox(width: 4),
               Expanded(
@@ -985,11 +985,11 @@ class _NeuralNetworkPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final random = math.Random(42);
-    final nodeCount = 15;
+    const nodeCount = 15;
     final nodes = <Offset>[];
 
     // Generate node positions
-    for (int i = 0; i < nodeCount; i++) {
+    for (var i = 0; i < nodeCount; i++) {
       nodes.add(
         Offset(
           random.nextDouble() * size.width,
@@ -1003,8 +1003,8 @@ class _NeuralNetworkPainter extends CustomPainter {
       ..color = AppColors.primaryTeal.withValues(alpha: 0.1 * entranceProgress)
       ..strokeWidth = 0.5;
 
-    for (int i = 0; i < nodes.length; i++) {
-      for (int j = i + 1; j < nodes.length; j++) {
+    for (var i = 0; i < nodes.length; i++) {
+      for (var j = i + 1; j < nodes.length; j++) {
         final distance = (nodes[i] - nodes[j]).distance;
         if (distance < 150) {
           final alpha = (1 - distance / 150) * 0.1 * entranceProgress;
@@ -1017,7 +1017,7 @@ class _NeuralNetworkPainter extends CustomPainter {
     }
 
     // Draw nodes with animation
-    for (int i = 0; i < nodes.length; i++) {
+    for (var i = 0; i < nodes.length; i++) {
       final nodeProgress = ((progress + i / nodeCount) % 1.0);
       final pulseScale = 0.5 + 0.5 * math.sin(nodeProgress * math.pi * 2);
 

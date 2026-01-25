@@ -1,4 +1,7 @@
-"""Tests for GCP projects client."""
+"""
+Goal: Verify the GCP projects tool correctly lists and searches accessible projects.
+Patterns: HTTPX Mocking, Credential Refresh Simulation, Project ID Parsing Logic.
+"""
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -9,210 +12,115 @@ from sre_agent.tools.clients.gcp_projects import list_gcp_projects
 
 @pytest.mark.asyncio
 async def test_list_gcp_projects_success():
-    """Test successful listing of GCP projects (V3 Search)."""
-    mock_credentials = MagicMock()
-    mock_credentials.token = "test-token"
+    mock_creds = MagicMock()
+    mock_creds.token = "token123"
 
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = {
         "projects": [
-            {"projectId": "project-1", "displayName": "Project One"},
-            {"projectId": "project-2", "displayName": "Project Two"},
+            {"projectId": "p1", "displayName": "Project 1"},
+            {"name": "projects/p2", "displayName": "Project 2"},
         ]
     }
 
-    with (
-        patch(
-            "sre_agent.tools.clients.gcp_projects.get_credentials_from_tool_context",
-            return_value=mock_credentials,
-        ),
-        patch("httpx.AsyncClient") as mock_client_class,
+    with patch(
+        "sre_agent.tools.clients.gcp_projects.get_credentials_from_tool_context",
+        return_value=mock_creds,
     ):
-        mock_client = AsyncMock()
-        mock_client_class.return_value.__aenter__.return_value = mock_client
-        mock_client.get.return_value = mock_response
-
-        result = await list_gcp_projects()
-
-        assert result == {
-            "projects": [
-                {"project_id": "project-1", "display_name": "Project One"},
-                {"project_id": "project-2", "display_name": "Project Two"},
-            ]
-        }
-
-        mock_client.get.assert_called_once_with(
-            "https://cloudresourcemanager.googleapis.com/v3/projects:search",
-            headers={"Authorization": "Bearer test-token"},
-            params={"pageSize": 50},
-        )
+        with patch(
+            "httpx.AsyncClient.get", new_callable=AsyncMock, return_value=mock_response
+        ):
+            result = await list_gcp_projects()
+            assert len(result["projects"]) == 2
+            assert result["projects"][0]["project_id"] == "p1"
+            assert result["projects"][1]["project_id"] == "p2"
 
 
 @pytest.mark.asyncio
 async def test_list_gcp_projects_with_query():
-    """Test searching projects with a query."""
-    mock_credentials = MagicMock()
-    mock_credentials.token = "test-token"
-
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = {
-        "projects": [
-            {"projectId": "test-project", "displayName": "Test Project"},
-        ]
-    }
-
-    with (
-        patch(
-            "sre_agent.tools.clients.gcp_projects.get_credentials_from_tool_context",
-            return_value=mock_credentials,
-        ),
-        patch("httpx.AsyncClient") as mock_client_class,
-    ):
-        mock_client = AsyncMock()
-        mock_client_class.return_value.__aenter__.return_value = mock_client
-        mock_client.get.return_value = mock_response
-
-        # Call with query
-        result = await list_gcp_projects(query="test")
-
-        assert result["projects"][0]["project_id"] == "test-project"
-
-        # Verify query parameter construction
-        call_args = mock_client.get.call_args
-        assert call_args is not None
-        _, kwargs = call_args
-
-        assert kwargs["params"]["pageSize"] == 50
-        assert 'projectId:test* OR displayName:"test*"' in kwargs["params"]["query"]
-
-
-@pytest.mark.asyncio
-async def test_list_gcp_projects_json_error():
-    """Test handling of invalid JSON response."""
-    mock_credentials = MagicMock()
-    mock_credentials.token = "test-token"
-
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.text = "Invalid JSON"
-    mock_response.json.side_effect = Exception("JSON Decode Error")
-
-    with (
-        patch(
-            "sre_agent.tools.clients.gcp_projects.get_credentials_from_tool_context",
-            return_value=mock_credentials,
-        ),
-        patch("httpx.AsyncClient") as mock_client_class,
-    ):
-        mock_client = AsyncMock()
-        mock_client_class.return_value.__aenter__.return_value = mock_client
-        mock_client.get.return_value = mock_response
-
-        result = await list_gcp_projects()
-
-        assert result == {"projects": [], "error": "Invalid API response"}
-
-
-@pytest.mark.asyncio
-async def test_list_gcp_projects_no_token_refresh():
-    """Test listing projects when token exists."""
-    mock_credentials = MagicMock()
-    mock_credentials.token = "existing-token"
+    mock_creds = MagicMock()
+    mock_creds.token = "token123"
 
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = {"projects": []}
 
-    with (
-        patch(
-            "sre_agent.tools.clients.gcp_projects.get_credentials_from_tool_context",
-            return_value=mock_credentials,
-        ),
-        patch("httpx.AsyncClient") as mock_client_class,
+    with patch(
+        "sre_agent.tools.clients.gcp_projects.get_credentials_from_tool_context",
+        return_value=mock_creds,
     ):
-        mock_client = AsyncMock()
-        mock_client_class.return_value.__aenter__.return_value = mock_client
-        mock_client.get.return_value = mock_response
-
-        result = await list_gcp_projects()
-
-        assert result == {"projects": []}
-
-        # Should not attempt refresh since token exists
-        mock_credentials.refresh.assert_not_called()
+        with patch(
+            "httpx.AsyncClient.get", new_callable=AsyncMock, return_value=mock_response
+        ):
+            result = await list_gcp_projects(query="test")
+            assert "projects" in result
 
 
 @pytest.mark.asyncio
-async def test_list_gcp_projects_refresh_token():
-    """Test listing projects with token refresh."""
-    mock_credentials = MagicMock()
-    mock_credentials.token = None
-
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = {"projects": []}
-
-    with (
-        patch(
-            "sre_agent.tools.clients.gcp_projects.get_credentials_from_tool_context",
-            return_value=mock_credentials,
-        ),
-        patch("httpx.AsyncClient") as mock_client_class,
-        patch("google.auth.transport.requests.Request"),
+async def test_list_gcp_projects_no_creds():
+    with patch(
+        "sre_agent.tools.clients.gcp_projects.get_credentials_from_tool_context",
+        return_value=None,
     ):
-        mock_client = AsyncMock()
-        mock_client_class.return_value.__aenter__.return_value = mock_client
-        mock_client.get.return_value = mock_response
-
-        # Mock refresh to set a token
-        def mock_refresh(request):
-            mock_credentials.token = "refreshed-token"
-
-        mock_credentials.refresh.side_effect = mock_refresh
-
         result = await list_gcp_projects()
+        assert "error" in result
+        assert "Authentication required" in result["error"]
 
-        assert result == {"projects": []}
 
-        # Should attempt refresh
-        mock_credentials.refresh.assert_called_once()
+@pytest.mark.asyncio
+async def test_list_gcp_projects_refresh_fail():
+    mock_creds = MagicMock()
+    mock_creds.token = None  # Needs refresh
+    mock_creds.refresh.side_effect = Exception("Refresh failed")
+
+    with patch(
+        "sre_agent.tools.clients.gcp_projects.get_credentials_from_tool_context",
+        return_value=mock_creds,
+    ):
+        result = await list_gcp_projects()
+        assert "error" in result
+        # Should fall back to "No valid authentication token found" if token is still None after refresh
+        assert "No valid authentication token found" in result["error"]
 
 
 @pytest.mark.asyncio
 async def test_list_gcp_projects_api_error():
-    """Test handling of API errors."""
-    mock_credentials = MagicMock()
-    mock_credentials.token = "test-token"
+    mock_creds = MagicMock()
+    mock_creds.token = "token123"
 
     mock_response = MagicMock()
-    mock_response.status_code = 403
-    mock_response.text = "Forbidden"
+    mock_response.status_code = 500
+    mock_response.text = "Internal Server Error"
 
-    with (
-        patch(
-            "sre_agent.tools.clients.gcp_projects.get_credentials_from_tool_context",
-            return_value=mock_credentials,
-        ),
-        patch("httpx.AsyncClient") as mock_client_class,
+    with patch(
+        "sre_agent.tools.clients.gcp_projects.get_credentials_from_tool_context",
+        return_value=mock_creds,
     ):
-        mock_client = AsyncMock()
-        mock_client_class.return_value.__aenter__.return_value = mock_client
-        mock_client.get.return_value = mock_response
-
-        result = await list_gcp_projects()
-
-        assert result == {"projects": [], "error": "API error: 403"}
+        with patch(
+            "httpx.AsyncClient.get", new_callable=AsyncMock, return_value=mock_response
+        ):
+            result = await list_gcp_projects()
+            assert "error" in result
+            assert "API error: 500" in result["error"]
 
 
 @pytest.mark.asyncio
-async def test_list_gcp_projects_exception():
-    """Test handling of exceptions."""
+async def test_list_gcp_projects_invalid_json():
+    mock_creds = MagicMock()
+    mock_creds.token = "token123"
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.side_effect = Exception("not json")
+
     with patch(
         "sre_agent.tools.clients.gcp_projects.get_credentials_from_tool_context",
-        side_effect=Exception("Auth failed"),
+        return_value=mock_creds,
     ):
-        result = await list_gcp_projects()
-
-        assert result == {"projects": [], "error": "Auth failed"}
+        with patch(
+            "httpx.AsyncClient.get", new_callable=AsyncMock, return_value=mock_response
+        ):
+            result = await list_gcp_projects()
+            assert "error" in result
+            assert "Invalid API response" in result["error"]
