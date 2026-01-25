@@ -608,16 +608,19 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                                 surface_id, events = create_tool_call_events(
                                     tool_name, tool_args, pending_tool_calls
                                 )
-                                # Yield UI marker first to ensure a bubble is created in the frontend
-                                yield (
-                                    json.dumps({"type": "ui", "surface_id": surface_id})
-                                    + "\n"
-                                )
+                                # Yield A2UI events FIRST to populate component data,
+                                # THEN yield UI marker to create the bubble.
+                                # This fixes the race condition where GenUiSurface renders
+                                # before the component data is available.
                                 for evt_str in events:
                                     logger.info(
                                         f"📤 Yielding tool call event: {evt_str}"
                                     )
                                     yield evt_str + "\n"
+                                yield (
+                                    json.dumps({"type": "ui", "surface_id": surface_id})
+                                    + "\n"
+                                )
 
                         # D. Handle Tool Responses
                         fr = getattr(part, "function_response", None)
@@ -650,17 +653,18 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                                     yield evt_str + "\n"
 
                                 # Yield specialized widget
+                                # Send A2UI events FIRST, then UI markers (same fix as tool calls)
                                 widget_events, widget_surface_ids = (
                                     create_widget_events(tool_name, result)
                                 )
+                                for evt_str in widget_events:
+                                    logger.info(f"📤 Yielding widget event: {evt_str}")
+                                    yield evt_str + "\n"
                                 for sid in widget_surface_ids:
                                     yield (
                                         json.dumps({"type": "ui", "surface_id": sid})
                                         + "\n"
                                     )
-                                for evt_str in widget_events:
-                                    logger.info(f"📤 Yielding widget event: {evt_str}")
-                                    yield evt_str + "\n"
 
                 # 4. Post-run Cleanup & Memory Sync
                 try:
