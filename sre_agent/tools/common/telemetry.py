@@ -3,7 +3,7 @@
 import logging
 import os
 import sys
-from typing import Any
+from typing import Any, ClassVar
 
 import google.auth
 import google.auth.transport.grpc
@@ -41,8 +41,10 @@ class EmojiLoggingFilter(logging.Filter):
             elif "Response received" in msg:
                 record.msg = f"🧠 LLM Call Completed | {record.msg}"
             elif "LLM Request:" in msg or "LLM Response:" in msg:
-                if len(msg) > 200:
-                    record.msg = f"{msg[:200]}... (truncated, original len={len(msg)})"
+                # Add a separator before large LLM payloads
+                record.msg = f"\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n{msg}"
+                if len(msg) > 500:
+                    record.msg = f"{msg[:500]}... (truncated, original len={len(msg)})"
                     record.args = ()
 
         # API Call Distinctions (Uvicorn access logs)
@@ -55,7 +57,8 @@ class EmojiLoggingFilter(logging.Filter):
         # Tool calls from decorators or MCP
         elif "sre_agent.tools" in record.name:
             if "Tool Call" in msg and "🛠️" not in msg:
-                record.msg = f"🛠️  {record.msg}"
+                # Add separator for tool calls
+                record.msg = f"\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n🛠️  {record.msg}"
             elif "Tool Success" in msg and "✅" not in msg:
                 record.msg = f"✅ {record.msg}"
             elif "Tool Failed" in msg and "❌" not in msg:
@@ -64,6 +67,14 @@ class EmojiLoggingFilter(logging.Filter):
                 record.msg = f"🔗 {record.msg}"
             elif "MCP Success" in msg and "✨" not in msg:
                 record.msg = f"✨ {record.msg}"
+
+            # Truncate result logs if they are too long
+            if "RESULT" in msg and len(msg) > 500:
+                record.msg = f"{msg[:500]}... (truncated result)"
+
+        # User Prompt (Agent)
+        elif "sre_agent.agent" in record.name and "User Prompt" in msg:
+            record.msg = f"\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n💬 {msg}"
 
         return True
 
@@ -390,9 +401,29 @@ def _configure_logging_handlers(level: int, project_id: str | None) -> None:
         logging.getLogger().setLevel(level)
 
     else:
-        # Modern text format with safe field handling
-        class SafeOtelFormatter(logging.Formatter):
-            """Formatter that safely handles missing OTel fields."""
+        # Modern text format with safe field handling and colors
+        class ColoredOtelFormatter(logging.Formatter):
+            """Formatter that safely handles missing OTel fields and performs colorization."""
+
+            # ANSI Color Codes
+            GREY = "\x1b[38;20m"
+            GREEN = "\x1b[32;20m"
+            YELLOW = "\x1b[33;20m"
+            RED = "\x1b[31;20m"
+            BOLD_RED = "\x1b[31;1m"
+            RESET = "\x1b[0m"
+            BLUE = "\x1b[34;20m"
+            CYAN = "\x1b[36;20m"
+
+            request_format: str = "%(asctime)s [%(levelname)s] %(name)s [trace_id=%(otelTraceID)s span_id=%(otelSpanID)s]: %(message)s"
+
+            FORMATS: ClassVar[dict[int, str]] = {
+                logging.DEBUG: GREY + request_format + RESET,
+                logging.INFO: GREEN + request_format + RESET,
+                logging.WARNING: YELLOW + request_format + RESET,
+                logging.ERROR: RED + request_format + RESET,
+                logging.CRITICAL: BOLD_RED + request_format + RESET,
+            }
 
             def format(self, record: logging.LogRecord) -> str:
                 # Ensure fields exist even if instrumentor failed
@@ -400,15 +431,13 @@ def _configure_logging_handlers(level: int, project_id: str | None) -> None:
                     record.otelTraceID = "0"
                 if not hasattr(record, "otelSpanID"):
                     record.otelSpanID = "0"
-                return super().format(record)
+
+                log_fmt = self.FORMATS.get(record.levelno, self.request_format)
+                formatter = logging.Formatter(log_fmt, datefmt="%Y-%m-%d %H:%M:%S")
+                return formatter.format(record)
 
         handler = logging.StreamHandler(sys.stdout)
-        handler.setFormatter(
-            SafeOtelFormatter(
-                "%(asctime)s [%(levelname)s] %(name)s [trace_id=%(otelTraceID)s span_id=%(otelSpanID)s]: %(message)s",
-                datefmt="%Y-%m-%d %H:%M:%S",
-            )
-        )
+        handler.setFormatter(ColoredOtelFormatter())
         handler.addFilter(EmojiLoggingFilter())
 
         # Reset root logger handlers
@@ -423,6 +452,7 @@ def _configure_logging_handlers(level: int, project_id: str | None) -> None:
             "uvicorn.error",
             "google_adk",
             "google.adk",
+            "sre_agent.agent",
         ]:
             logger_obj = logging.getLogger(logger_name)
             logger_obj.addFilter(EmojiLoggingFilter())

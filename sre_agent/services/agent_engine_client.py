@@ -56,10 +56,31 @@ class AgentEngineConfig:
 
         Returns None if not configured (local dev mode).
         """
-        agent_id = os.getenv("SRE_AGENT_ID")
-        if not agent_id:
+        agent_id_raw = os.getenv("SRE_AGENT_ID")
+        if not agent_id_raw:
             return None
 
+        # Check if SRE_AGENT_ID is a full resource name
+        # Format: projects/{project}/locations/{location}/reasoningEngines/{id}
+        if agent_id_raw.startswith("projects/"):
+            try:
+                parts = agent_id_raw.split("/")
+                # Expecting: projects, {project}, locations, {location}, reasoningEngines, {id}
+                if (
+                    len(parts) >= 6
+                    and parts[0] == "projects"
+                    and parts[2] == "locations"
+                    and parts[4] == "reasoningEngines"
+                ):
+                    return cls(
+                        project_id=parts[1], location=parts[3], agent_id=parts[5]
+                    )
+            except Exception:
+                logger.warning(
+                    f"Failed to parse SRE_AGENT_ID as resource name: {agent_id_raw}"
+                )
+
+        # Fallback to separate environment variables
         project_id = os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GCP_PROJECT_ID")
         location = (
             os.getenv("AGENT_ENGINE_LOCATION")
@@ -72,7 +93,7 @@ class AgentEngineConfig:
             logger.warning("SRE_AGENT_ID set but GOOGLE_CLOUD_PROJECT missing")
             return None
 
-        return cls(project_id=project_id, location=location, agent_id=agent_id)
+        return cls(project_id=project_id, location=location, agent_id=agent_id_raw)
 
 
 class AgentEngineClient:
@@ -128,9 +149,14 @@ class AgentEngineClient:
         )
 
         logger.info(f"Connecting to Agent Engine: {resource_name}")
-        self._adk_app = reasoning_engines.ReasoningEngine(resource_name)
-        self._initialized = True
-        logger.info("Agent Engine client initialized successfully")
+        try:
+            self._adk_app = reasoning_engines.ReasoningEngine(resource_name)
+            self._initialized = True
+            logger.info("Agent Engine client initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize Agent Engine client: {e}")
+            # Do not set _initialized to True, so next call retries (or fails again)
+            raise e
 
     async def _update_session_state(
         self,

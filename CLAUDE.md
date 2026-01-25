@@ -60,6 +60,9 @@ sre_agent/
 
 ### 1. Pydantic Schema Pattern
 
+**NOTE: A runtime monkeypatch for Pydantic is active in `sre_agent/api/app.py`.**
+This resolves an incompatibility between `google-adk` 1.23.0 and Pydantic 2.12+. Do not remove `_patch_pydantic()` until ADK is updated.
+
 **ALL Pydantic models MUST use:**
 ```python
 from pydantic import BaseModel, ConfigDict

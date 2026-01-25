@@ -102,3 +102,4 @@ The backend does not just return text; it emits specialized **UI Events**. These
 - [TOOLS_GUIDE.md](./TOOLS_GUIDE.md): Catalog of analysis capabilities.
 - [FRONTEND.md](./FRONTEND.md): Flutter UI and GenUI implementation.
 - [AUTHENTICATION.md](./AUTHENTICATION.md): IAM and Session security.
+- [TECHNICAL_DECISIONS.md](./TECHNICAL_DECISIONS.md): Records of dependency constraints and implementation rationale.

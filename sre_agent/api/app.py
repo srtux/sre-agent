@@ -6,7 +6,7 @@ and middleware.
 
 import logging
 import os
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -49,6 +49,9 @@ def create_app(
 
     # Apply MCP Pydantic bridge patch
     _apply_mcp_patch()
+
+    # Patch Pydantic TypeAdapter for google-adk compatibility
+    _patch_pydantic()
 
     # Enable JSON Schema for Vertex AI compatibility
     _enable_json_schema_feature()
@@ -101,7 +104,7 @@ def _apply_mcp_patch() -> None:
         ClientSession.__get_pydantic_core_schema__ = classmethod(  # type: ignore
             _get_pydantic_core_schema
         )
-        print("✅ Applied Pydantic bridge for MCP ClientSession")
+        logger.info("Applied Pydantic bridge for MCP ClientSession")
     except ImportError:
         pass
 
@@ -112,14 +115,53 @@ def _enable_json_schema_feature() -> None:
         from google.adk.features import FeatureName, override_feature_enabled
 
         override_feature_enabled(FeatureName.JSON_SCHEMA_FOR_FUNC_DECL, True)
-        print(
-            "✅ Enabled JSON_SCHEMA_FOR_FUNC_DECL feature for Vertex AI compatibility"
+        logger.info(
+            "Enabled JSON_SCHEMA_FOR_FUNC_DECL feature for Vertex AI compatibility"
         )
     except ImportError:
-        print(
-            "⚠️ Could not enable JSON_SCHEMA_FOR_FUNC_DECL - "
+        logger.warning(
+            "Could not enable JSON_SCHEMA_FOR_FUNC_DECL - "
             "google.adk.features not available"
         )
+
+
+def _patch_pydantic() -> None:
+    """Patch Pydantic TypeAdapter to avoid errors with BaseModel + config.
+
+    This is a workaround for google-adk compatibility. The ADK library passes
+    `config=pydantic.ConfigDict(arbitrary_types_allowed=True)` to TypeAdapter,
+    which Pydantic forbids if the type is already a BaseModel.
+    """
+    try:
+        import inspect
+
+        import pydantic
+        from pydantic import TypeAdapter
+
+        original_init = TypeAdapter.__init__
+
+        def new_init(
+            self: Any,
+            type: Any,
+            *,
+            config: Any = None,
+            _parent_depth: int = 2,
+            module: str | None = None,
+        ) -> None:
+            if config is not None:
+                # Check if type is a BaseModel or similar
+                if inspect.isclass(type) and issubclass(type, pydantic.BaseModel):
+                    # Mask the config to avoid PydanticUserError
+                    # The BaseModel's own config will be used instead.
+                    config = None
+            return original_init(
+                self, type, config=config, _parent_depth=_parent_depth, module=module
+            )
+
+        TypeAdapter.__init__ = new_init  # type: ignore
+        logger.info("Patched Pydantic TypeAdapter for google-adk compatibility")
+    except (ImportError, AttributeError) as e:
+        logger.warning(f"Failed to patch Pydantic TypeAdapter: {e}")
 
 
 def _mount_adk_routes(app: FastAPI) -> None:

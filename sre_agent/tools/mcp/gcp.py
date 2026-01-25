@@ -342,6 +342,20 @@ async def call_mcp_tool_with_retry(
                     run_in_threadpool(create_toolset_fn, project_id),
                     timeout=60.0,  # 60s timeout for toolset creation
                 )
+            except ValueError as e:
+                # Catch "MCP server ... not found" error from api_registry.get_toolset
+                logger.error(f"MCP server configuration error for {tool_name}: {e}")
+                clear_mcp_tool_context()
+                return {
+                    "status": ToolStatus.ERROR,
+                    "error": (
+                        f"MCP server unavailable for '{tool_name}'. verify the MCP server configuration. "
+                        "Use direct API alternatives instead: list_log_entries for logs, fetch_trace for traces, "
+                        "query_promql for metrics."
+                    ),
+                    "non_retryable": True,
+                    "error_type": "MCP_CONFIG_ERROR",
+                }
             except asyncio.TimeoutError:
                 logger.error(f"Timeout creating MCP toolset for {tool_name}")
                 clear_mcp_tool_context()
