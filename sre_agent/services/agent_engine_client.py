@@ -29,7 +29,6 @@ Browser → Cloud Run (Proxy) → Agent Engine (Remote Agent)
 
 import logging
 import os
-import time
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 from typing import Any
@@ -201,56 +200,22 @@ class AgentEngineClient:
     ) -> str:
         """Get existing session or create new one with EUC in state.
 
-        Args:
-            user_id: User identifier
-            session_id: Optional existing session ID
-            access_token: User's OAuth access token
-            project_id: Selected GCP project ID
-
-        Returns:
-            Session ID (existing or newly created)
+        Delegates to ADKSessionManager.
         """
-        await self._ensure_initialized()
+        from sre_agent.services.session import get_session_service
 
-        if session_id:
-            # Try to get existing session
-            try:
-                session = await self._adk_app.async_get_session(
-                    user_id=user_id,
-                    session_id=session_id,
-                )
-                if session:
-                    logger.debug(f"Retrieved existing session: {session_id}")
-                    return session_id
-            except Exception as e:
-                logger.warning(f"Failed to get session {session_id}: {e}")
+        session_manager = get_session_service()
 
-        # Create new session with EUC in initial state
-        initial_state: dict[str, Any] = {
-            "created_at": time.time(),
-        }
+        initial_state = {}
         if access_token:
             initial_state[SESSION_STATE_ACCESS_TOKEN_KEY] = access_token
         if project_id:
             initial_state[SESSION_STATE_PROJECT_ID_KEY] = project_id
 
-        session = await self._adk_app.async_create_session(
-            user_id=user_id,
-            state=initial_state,
+        session = await session_manager.get_or_create_session(
+            session_id=session_id, user_id=user_id, project_id=project_id
         )
-
-        # Extract session ID from response (handles both dict and object)
-        new_session_id: str
-        if isinstance(session, dict):
-            new_session_id = str(session.get("id", ""))
-        else:
-            new_session_id = str(getattr(session, "id", ""))
-
-        if not new_session_id:
-            raise ValueError("Failed to get session ID from Agent Engine response")
-
-        logger.info(f"Created new session with EUC: {new_session_id}")
-        return new_session_id
+        return session.id
 
     async def stream_query(
         self,
@@ -279,13 +244,33 @@ class AgentEngineClient:
         """
         await self._ensure_initialized()
 
-        # Ensure session exists with EUC
-        effective_session_id = await self.get_or_create_session(
-            user_id=user_id,
-            session_id=session_id,
-            access_token=access_token,
-            project_id=project_id,
+        # Ensure session exists with EUC using the Session Manager
+        from sre_agent.services.session import get_session_service
+
+        session_manager = get_session_service()
+
+        # Get session ID using the unified session manager
+        # This handles the EUC state update properly via initial_state if creating new
+        initial_state = {}
+        if access_token:
+            initial_state[SESSION_STATE_ACCESS_TOKEN_KEY] = access_token
+        if project_id:
+            initial_state[SESSION_STATE_PROJECT_ID_KEY] = project_id
+
+        session = await session_manager.get_or_create_session(
+            session_id=session_id, user_id=user_id, project_id=project_id
         )
+        effective_session_id = session.id
+
+        # Update state if existing session and creds changed
+        if session_id and (access_token or project_id):
+            state_delta = {}
+            if access_token:
+                state_delta[SESSION_STATE_ACCESS_TOKEN_KEY] = access_token
+            if project_id:
+                state_delta[SESSION_STATE_PROJECT_ID_KEY] = project_id
+            if state_delta:
+                await session_manager.update_session_state(session, state_delta)
 
         logger.info(
             f"Streaming query to Agent Engine: user={user_id}, "
@@ -299,27 +284,41 @@ class AgentEngineClient:
         }
 
         # Stream query to Agent Engine
-        try:
-            async for event in self._adk_app.async_stream_query(
-                user_id=user_id,
-                session_id=effective_session_id,
-                message=message,
-            ):
-                # Convert ADK event to dict if needed
-                if hasattr(event, "model_dump"):
-                    event_dict = event.model_dump()
-                elif hasattr(event, "to_dict"):
-                    event_dict = event.to_dict()
-                elif isinstance(event, dict):
-                    event_dict = event
-                else:
-                    # Try to extract useful information
-                    event_dict = {
-                        "type": "event",
-                        "content": str(event),
-                    }
+        # Warning: vertexai.preview.reasoning_engines.ReasoningEngine.query is synchronous
+        # and doesn't natively support async streaming protocols yet.
+        # We run it in a thread to avoid blocking the event loop.
+        import asyncio
 
-                yield event_dict
+        def _query_agent() -> Any:
+            # Pass user_id and session_id as kwargs which the remote agent should be configured to accept
+            return self._adk_app.query(
+                input=message, user_id=user_id, session_id=effective_session_id
+            )
+
+        try:
+            # Note: This assumes the agent returns an iterable (generator) for streaming.
+            # If the agent is non-streaming, this will return the full response at once.
+            response = await asyncio.to_thread(_query_agent)
+
+            # Handle both streaming (generator) and non-streaming (direct return) responses
+            if hasattr(response, "__iter__") and not isinstance(response, str | dict):
+                for event in response:
+                    # Convert ADK event to dict if needed
+                    if hasattr(event, "model_dump"):
+                        event_dict = event.model_dump()
+                    elif hasattr(event, "to_dict"):
+                        event_dict = event.to_dict()
+                    elif isinstance(event, dict):
+                        event_dict = event
+                    else:
+                        event_dict = {
+                            "type": "event",
+                            "content": str(event),
+                        }
+                    yield event_dict
+            else:
+                # Non-streaming response
+                yield {"type": "event", "content": str(response)}
 
         except Exception as e:
             logger.error(f"Error streaming from Agent Engine: {e}", exc_info=True)

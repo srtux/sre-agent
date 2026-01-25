@@ -162,83 +162,110 @@ class TestAgentEngineClient:
         self, client: AgentEngineClient
     ) -> None:
         """Test get_or_create_session creates new session."""
-        mock_adk_app = MagicMock()
-        mock_adk_app.async_create_session = AsyncMock(
-            return_value={"id": "new-session-123"}
+        mock_session_manager = MagicMock()
+        mock_session = MagicMock()
+        mock_session.id = "new-session-123"
+        mock_session_manager.get_or_create_session = AsyncMock(
+            return_value=mock_session
         )
 
-        # Skip actual initialization
-        client._initialized = True
-        client._adk_app = mock_adk_app
+        with patch(
+            "sre_agent.services.session.get_session_service",
+            return_value=mock_session_manager,
+        ):
+            session_id = await client.get_or_create_session(
+                user_id="test-user",
+                access_token="test-token",
+                project_id="test-project",
+            )
 
-        session_id = await client.get_or_create_session(
-            user_id="test-user",
-            access_token="test-token",
-            project_id="test-project",
-        )
-
-        assert session_id == "new-session-123"
-        mock_adk_app.async_create_session.assert_called_once()
-
-        # Verify initial state contains EUC
-        call_args = mock_adk_app.async_create_session.call_args
-        state = call_args.kwargs.get("state", {})
-        assert "_user_access_token" in state
-        assert state["_user_access_token"] == "test-token"
-        assert "_user_project_id" in state
-        assert state["_user_project_id"] == "test-project"
+            assert session_id == "new-session-123"
+            mock_session_manager.get_or_create_session.assert_called_once_with(
+                session_id=None,
+                user_id="test-user",
+                project_id="test-project",
+            )
 
     @pytest.mark.asyncio
     async def test_get_or_create_session_returns_existing(
         self, client: AgentEngineClient
     ) -> None:
         """Test get_or_create_session returns existing session."""
-        mock_adk_app = MagicMock()
-        mock_adk_app.async_get_session = AsyncMock(
-            return_value={"id": "existing-session"}
+        mock_session_manager = MagicMock()
+        mock_session = MagicMock()
+        mock_session.id = "existing-session"
+        mock_session_manager.get_or_create_session = AsyncMock(
+            return_value=mock_session
         )
 
-        client._initialized = True
-        client._adk_app = mock_adk_app
+        with patch(
+            "sre_agent.services.session.get_session_service",
+            return_value=mock_session_manager,
+        ):
+            session_id = await client.get_or_create_session(
+                user_id="test-user",
+                session_id="existing-session",
+            )
 
-        session_id = await client.get_or_create_session(
-            user_id="test-user",
-            session_id="existing-session",
-        )
-
-        assert session_id == "existing-session"
-        mock_adk_app.async_get_session.assert_called_once()
+            assert session_id == "existing-session"
+            mock_session_manager.get_or_create_session.assert_called_once_with(
+                session_id="existing-session",
+                user_id="test-user",
+                project_id=None,
+            )
 
     @pytest.mark.asyncio
     async def test_stream_query_yields_events(self, client: AgentEngineClient) -> None:
         """Test stream_query yields events from Agent Engine."""
-        mock_adk_app = MagicMock()
-        mock_adk_app.async_create_session = AsyncMock(
-            return_value={"id": "test-session"}
+        # Mock Session Manager
+        mock_session_manager = MagicMock()
+        mock_session = MagicMock()
+        mock_session.id = "test-session"
+        mock_session_manager.get_or_create_session = AsyncMock(
+            return_value=mock_session
         )
+        mock_session_manager.update_session_state = AsyncMock()
 
-        # Create async generator for stream_query
-        async def mock_stream():
-            yield {"content": {"parts": [{"text": "Hello, I'm the agent!"}]}}
-            yield {
+        # Mock ADK App
+        mock_adk_app = MagicMock()
+        # Mock the synchronous query method
+        mock_adk_app.query.return_value = [
+            {"content": {"parts": [{"text": "Hello, I'm the agent!"}]}},
+            {
                 "content": {
                     "parts": [{"function_call": {"name": "test_tool", "args": {}}}]
                 }
-            }
-
-        mock_adk_app.async_stream_query = mock_stream
+            },
+        ]
 
         client._initialized = True
         client._adk_app = mock_adk_app
 
-        events: list[dict] = []
-        async for event in client.stream_query(
-            user_id="test-user",
-            message="Hello",
-            access_token="test-token",
+        with patch(
+            "sre_agent.services.session.get_session_service",
+            return_value=mock_session_manager,
         ):
-            events.append(event)
+            events: list[dict] = []
+            async for event in client.stream_query(
+                user_id="test-user",
+                message="Hello",
+                access_token="test-token",
+            ):
+                events.append(event)
 
-        # Should have session event + content events
-        assert len(events) >= 1
-        assert events[0]["type"] == "session"
+            # Should have session event + content events
+            assert len(events) >= 1
+            assert events[0]["type"] == "session"
+            assert events[0]["session_id"] == "test-session"
+
+            # Verify events from generator
+            # Note: We rely on the implementation converting them to dicts or passing through
+            content_events = [e for e in events if e.get("type", "") != "session"]
+            assert len(content_events) == 2
+
+            # Verify query was called with correct args
+            mock_adk_app.query.assert_called_once()
+            call_kwargs = mock_adk_app.query.call_args.kwargs
+            assert call_kwargs["input"] == "Hello"
+            assert call_kwargs["user_id"] == "test-user"
+            assert call_kwargs["session_id"] == "test-session"

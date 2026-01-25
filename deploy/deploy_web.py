@@ -4,6 +4,8 @@ import shutil
 import subprocess
 import sys
 
+from dotenv import load_dotenv
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -23,8 +25,12 @@ def main():
     parser.add_argument(
         "--service-name", default="autosre", help="Cloud Run service name"
     )
-
+    parser.add_argument(
+        "--image", help="Pre-built Docker image to deploy (skips build)"
+    )
     args, unknown = parser.parse_known_args()
+
+    load_dotenv()
 
     # Check if gcloud is installed
     if not subprocess.run(["which", "gcloud"], capture_output=True).returncode == 0:
@@ -98,18 +104,26 @@ def main():
             "run",
             "deploy",
             args.service_name,
-            "--source",
-            ".",  # Deploy from root context
-            "--region",
-            args.region,
-            "--allow-unauthenticated",
-            "--memory=1Gi",
-            "--timeout=300",
-            f"--set-env-vars={','.join(env_vars)}",
-            # Mount the secrets as environment variables to be safe
-            "--set-secrets=GOOGLE_API_KEY=gemini-api-key:latest,GEMINI_API_KEY=gemini-api-key:latest,GOOGLE_GENERATIVE_AI_API_KEY=gemini-api-key:latest,GOOGLE_CLIENT_ID=google-client-id:latest",
-            f"--project={project_id}",
         ]
+
+        if args.image:
+            cmd.extend(["--image", args.image])
+        else:
+            cmd.extend(["--source", "."])
+
+        cmd.extend(
+            [
+                "--region",
+                args.region,
+                "--allow-unauthenticated",
+                "--memory=1Gi",
+                "--timeout=300",
+                f"--set-env-vars={','.join(env_vars)}",
+                # Mount the secrets as environment variables to be safe
+                "--set-secrets=GOOGLE_API_KEY=gemini-api-key:latest,GEMINI_API_KEY=gemini-api-key:latest,GOOGLE_GENERATIVE_AI_API_KEY=gemini-api-key:latest,GOOGLE_CLIENT_ID=google-client-id:latest",
+                f"--project={project_id}",
+            ]
+        )
 
         # Append any unknown arguments (e.g. --cpu, --memory)
         cmd.extend(unknown)
