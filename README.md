@@ -365,10 +365,10 @@ GOOGLE_CLIENT_ID=your-oauth-client-id.apps.googleusercontent.com
 # Set to "true" in production to ensure user authentication
 STRICT_EUC_ENFORCEMENT=false
 
-# ============================================================
 # Security
 # ============================================================
 # AES-256 key for encrypting access tokens at rest.
+# See [docs/security.md](docs/security.md) for details.
 # Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 SRE_AGENT_ENCRYPTION_KEY=your-secure-encryption-key
 
