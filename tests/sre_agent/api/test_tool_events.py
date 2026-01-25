@@ -100,9 +100,7 @@ class TestCreateToolResponseEvents:
         ]
 
         result = {"trace_id": "abc123", "spans": [{"span_id": "s1"}]}
-        surface_id, events = create_tool_response_events(
-            "fetch_trace", result, pending
-        )
+        surface_id, events = create_tool_response_events("fetch_trace", result, pending)
 
         assert surface_id == "surface-123"
         assert len(events) == 1
