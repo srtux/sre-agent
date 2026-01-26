@@ -464,12 +464,12 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                 logger.info("🧪 Triggering DEBUG_UI_TEST mock sequence")
                 yield json.dumps({"type": "session", "session_id": session.id}) + "\n"
 
-                # Test: Simple 'tool-log' Alias + Waterfall Control
+                # Test: Simple 'tool-log' Alias
                 yield (
                     json.dumps(
                         {
                             "type": "text",
-                            "content": "### Test: Simple 'tool-log' Alias + BUTTON Control\nExpecting: GREEN/CYAN BOX or BUTTON",
+                            "content": "### Test: tool-log component\nExpecting: GREEN/CYAN tool status box",
                         }
                     )
                     + "\n"
@@ -478,7 +478,7 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                 sid = uuid.uuid4().hex
                 cid = f"tool-log-{sid[:8]}"
 
-                # Atomic Init with Alias & Redundant Types & Button
+                # A2UI Format: Component type is the KEY in the component object
                 yield (
                     json.dumps(
                         {
@@ -491,10 +491,8 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                                         {
                                             "id": cid,
                                             "component": {
-                                                "type": "tool-log",
-                                                "componentType": "tool-log",
+                                                # Component type is the KEY, data is the VALUE
                                                 "tool-log": {
-                                                    "type": "tool-log",
                                                     "tool_name": "alias_test",
                                                     "status": "running",
                                                 },
@@ -520,12 +518,9 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                                         {
                                             "id": cid,
                                             "component": {
-                                                "type": "tool-log",
-                                                "componentType": "tool-log",
                                                 "tool-log": {
-                                                    "type": "tool-log",
                                                     "tool_name": "alias_test",
-                                                    "status": "running",
+                                                    "status": "completed",
                                                 },
                                             },
                                         }
@@ -540,7 +535,7 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                 # Test Button (Core Catalog)
                 sid_btn = uuid.uuid4().hex
                 cid_btn = f"btn-{sid_btn[:8]}"
-                yield json.dumps({"type": "ui", "surface_id": sid_btn}) + "\n"
+                # A2UI first, then UI marker (fixes race condition)
                 yield (
                     json.dumps(
                         {
@@ -553,9 +548,11 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                                         {
                                             "id": cid_btn,
                                             "component": {
-                                                "type": "button",
-                                                "label": "CORE BUTTON TEST",
-                                                "actionId": "test_action",
+                                                # Component type is KEY, data is VALUE
+                                                "button": {
+                                                    "label": "CORE BUTTON TEST",
+                                                    "actionId": "test_action",
+                                                },
                                             },
                                         }
                                     ],
@@ -565,6 +562,7 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                     )
                     + "\n"
                 )
+                yield json.dumps({"type": "ui", "surface_id": sid_btn}) + "\n"
 
                 return
             # -----------------------------

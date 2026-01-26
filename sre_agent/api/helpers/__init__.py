@@ -81,9 +81,9 @@ def create_tool_call_events(
     # Create separate events for beginRendering and surfaceUpdate for maximum compatibility
     logger.info(f"📤 Tool Call Events: {tool_name} (surface_id={surface_id})")
 
-    # Hybrid Initialization (Wrapper + Root Type)
-    # We wrap the data in a key matching the component type to ensure GenUI matches it
-    # regardless of whether it uses key-based or type-based matching.
+    # A2UI Format: The component type is determined by the KEY name in the component object.
+    # The GenUI A2uiMessageProcessor looks for the first non-reserved key to find the CatalogItem.
+    # Format: { "id": "...", "component": { "x-sre-tool-log": { ...data... } } }
     begin_event = json.dumps(
         {
             "type": "a2ui",
@@ -95,10 +95,8 @@ def create_tool_call_events(
                         {
                             "id": component_id,
                             "component": {
-                                "type": "x-sre-tool-log",  # Root type for v0.8+
-                                "x-sre-tool-log": {  # Wrapper key for legacy/hybrid
-                                    "type": "x-sre-tool-log",
-                                    "componentName": "x-sre-tool-log",
+                                # Component type is the KEY, data is the VALUE
+                                "x-sre-tool-log": {
                                     "tool_name": tool_name,
                                     "toolName": tool_name,
                                     "args": args,
@@ -160,7 +158,7 @@ def create_tool_response_events(
         # If it's a standard tool output dict, extract the result part
         result = result["result"]
 
-    # Create separate surfaceUpdate event (Hybrid Structure)
+    # Create surfaceUpdate event - same format as beginRendering
     logger.info(
         f"📤 Tool Response Event: {tool_name} (surface_id={surface_id}, status={status})"
     )
@@ -174,10 +172,8 @@ def create_tool_response_events(
                         {
                             "id": component_id,
                             "component": {
-                                "type": "x-sre-tool-log",
+                                # Component type is the KEY, data is the VALUE
                                 "x-sre-tool-log": {
-                                    "type": "x-sre-tool-log",
-                                    "componentName": "x-sre-tool-log",
                                     "tool_name": tool_name,
                                     "toolName": tool_name,
                                     "args": args,
@@ -245,7 +241,7 @@ def create_widget_events(tool_name: str, result: Any) -> tuple[list[str], list[s
             # Split into separate events for compatibility
             logger.info(f"📤 Widget Events: {widget_type} (surface_id={surface_id})")
 
-            # Atomic initialization for widgets (Root Type)
+            # A2UI Format: Component type is the KEY name in the component object
             begin_event = json.dumps(
                 {
                     "type": "a2ui",
@@ -257,7 +253,7 @@ def create_widget_events(tool_name: str, result: Any) -> tuple[list[str], list[s
                                 {
                                     "id": component_id,
                                     "component": {
-                                        "type": widget_type,
+                                        # Component type is the KEY, data is the VALUE
                                         widget_type: widget_data,
                                     },
                                 }
@@ -277,7 +273,7 @@ def create_widget_events(tool_name: str, result: Any) -> tuple[list[str], list[s
                                 {
                                     "id": component_id,
                                     "component": {
-                                        "type": widget_type,
+                                        # Component type is the KEY, data is the VALUE
                                         widget_type: widget_data,
                                     },
                                 }
