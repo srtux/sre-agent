@@ -302,11 +302,22 @@ class AgentEngineClient:
 
         # Stream query to Agent Engine
         try:
-            # The correct method name in vertexai SDK for streaming is 'stream_query'.
-            # 'async_stream_query' is not a standard method and triggered errors.
-            if hasattr(self._adk_app, "stream_query"):
+            # Vertex AI Reasoning Engine SDK prefers 'async_stream_query'.
+            # It uses 'message' (keyword-only) as the query argument, not 'input'.
+            if hasattr(self._adk_app, "async_stream_query"):
+                stream = self._adk_app.async_stream_query(
+                    message=message,
+                    user_id=user_id,
+                    session_id=effective_session_id,
+                )
+
+                async for event in stream:
+                    yield process_event(event)
+
+            elif hasattr(self._adk_app, "stream_query"):
+                # Fallback to sync stream_query (deprecated in SDK but still present)
                 stream = self._adk_app.stream_query(
-                    input=message,
+                    message=message,
                     user_id=user_id,
                     session_id=effective_session_id,
                 )
@@ -352,15 +363,17 @@ class AgentEngineClient:
                         else:
                             raise e
 
-            # Fallback to sync query in thread if stream_query is somehow missing
+            # Fallback to sync query in thread if streaming methods are somehow missing
             elif hasattr(self._adk_app, "query"):
                 logger.warning(
-                    "AgentEngine missing 'stream_query', falling back to sync 'query'"
+                    "AgentEngine missing streaming methods, falling back to sync 'query'"
                 )
 
                 def _query_agent() -> Any:
                     return self._adk_app.query(
-                        input=message, user_id=user_id, session_id=effective_session_id
+                        message=message,
+                        user_id=user_id,
+                        session_id=effective_session_id,
                     )
 
                 response = await asyncio.to_thread(_query_agent)

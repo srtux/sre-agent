@@ -258,7 +258,9 @@ class TestAgentEngineClient:
         ):
             # Mock the query call
             mock_agent = MagicMock()
-            mock_agent.query.return_value = []
+            mock_agent.async_stream_query.return_value = (
+                AsyncMock()
+            )  # mock as async generator
             client._adk_app = mock_agent
 
             generator = client.stream_query(user_id="user", message="msg")
@@ -296,7 +298,9 @@ class TestAgentEngineClient:
             for event in events:
                 yield event
 
-        mock_adk_app.stream_query = MagicMock(side_effect=mock_stream_generator)
+        mock_adk_app.async_stream_query = MagicMock(side_effect=mock_stream_generator)
+        # Ensure it doesn't try to call stream_query first
+        del mock_adk_app.stream_query
 
         client._initialized = True
         client._adk_app = mock_adk_app
@@ -329,10 +333,10 @@ class TestAgentEngineClient:
             content_events = [e for e in events if e.get("type", "") != "session"]
             assert len(content_events) == 2
 
-            # Verify stream_query was called with correct args
-            mock_adk_app.stream_query.assert_called_once()
-            call_kwargs = mock_adk_app.stream_query.call_args.kwargs
-            assert call_kwargs["input"] == "Hello"
+            # Verify async_stream_query was called with correct args
+            mock_adk_app.async_stream_query.assert_called_once()
+            call_kwargs = mock_adk_app.async_stream_query.call_args.kwargs
+            assert call_kwargs["message"] == "Hello"
             assert call_kwargs["user_id"] == "test-user"
             assert call_kwargs["session_id"] == "test-session"
 
@@ -353,6 +357,8 @@ class TestAgentEngineClient:
 
         # Mock ADK App
         mock_adk_app = MagicMock()
+        # Delete async_stream_query to force fallback to stream_query
+        del mock_adk_app.async_stream_query
 
         # Mock sync stream_query returning a direct list (which is an iterator)
         def mock_sync_stream(*args, **kwargs):
@@ -462,6 +468,8 @@ class TestAgentEngineClient:
         mock_session_manager.update_session_state = AsyncMock()
 
         mock_adk_app = MagicMock()
+        # Delete async_stream_query to force fallback to stream_query
+        del mock_adk_app.async_stream_query
 
         async def mock_error_generator(*args, **kwargs):
             # Simulate the error that happens during iteration
