@@ -157,7 +157,12 @@ def decrypt_token(encrypted_token: str) -> str:
         f = _get_fernet()
         return cast(str, f.decrypt(encrypted_token.encode()).decode())
     except Exception as e:
-        logger.debug(f"Decryption failed (might be unencrypted): {e}")
+        if encrypted_token.startswith("gAAAA"):
+            logger.warning(
+                f"🚨 Failed to decrypt Fernet token. This strongly indicates an SRE_AGENT_ENCRYPTION_KEY mismatch between environment services. Error: {e}"
+            )
+        else:
+            logger.debug(f"Decryption failed (might be unencrypted): {e}")
         return encrypted_token
 
 
