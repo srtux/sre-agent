@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:genui/genui.dart';
 import 'package:json_schema_builder/json_schema_builder.dart';
@@ -214,13 +215,21 @@ class CatalogRegistry {
         name: 'tool-log', // Alias for matching
         dataSchema: S.any(),
         widgetBuilder: (context) {
+          debugPrint('🔧 tool-log widgetBuilder called');
+          debugPrint('🔧 tool-log context.data: ${context.data}');
           try {
             final raw = context.data;
             final data = _unwrapComponentData(raw, 'tool-log');
-            if (data.isEmpty) return const SizedBox.shrink();
+            debugPrint('🔧 tool-log unwrapped data: $data');
+            if (data.isEmpty) {
+              return ErrorPlaceholder(
+                error: 'tool-log: data is empty after unwrap.\nRaw: $raw',
+              );
+            }
             final log = ToolLog.fromJson(data);
             return ToolLogWidget(log: log);
-          } catch (e) {
+          } catch (e, st) {
+            debugPrint('🔧 tool-log error: $e\n$st');
             return ErrorPlaceholder(error: e);
           }
         },
@@ -229,25 +238,31 @@ class CatalogRegistry {
         name: 'x-sre-tool-log',
         dataSchema: S.any(),
         widgetBuilder: (context) {
+          debugPrint('🔧 x-sre-tool-log widgetBuilder called');
+          debugPrint('🔧 x-sre-tool-log context.data: ${context.data}');
           try {
             final raw = context.data;
 
             final data = _unwrapComponentData(raw, 'x-sre-tool-log');
+            debugPrint('🔧 x-sre-tool-log unwrapped data: $data');
 
-            // Validate before parsing to catch the exact moment of failure
-            if (data.isEmpty) return const SizedBox.shrink();
+            if (data.isEmpty) {
+              return ErrorPlaceholder(
+                error: 'x-sre-tool-log: data is empty after unwrap.\nRaw: $raw',
+              );
+            }
 
             if (!data.containsKey('tool_name') &&
                 !data.containsKey('toolName')) {
-              return const ErrorPlaceholder(error: 'Missing tool_name in tool-log data');
+              return ErrorPlaceholder(
+                error: 'x-sre-tool-log: Missing tool_name.\nData keys: ${data.keys.toList()}\nRaw: $raw',
+              );
             }
 
             final log = ToolLog.fromJson(data);
-            if (log.toolName.isEmpty && log.status == 'unknown') {
-              return const SizedBox.shrink();
-            }
             return ToolLogWidget(log: log);
-          } catch (e) {
+          } catch (e, st) {
+            debugPrint('🔧 x-sre-tool-log error: $e\n$st');
             return ErrorPlaceholder(error: e);
           }
         },
