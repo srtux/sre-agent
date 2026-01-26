@@ -1,5 +1,6 @@
 from sre_agent.tools.analysis.genui_adapter import (
     transform_log_entries,
+    transform_log_patterns,
     transform_metrics,
     transform_trace,
 )
@@ -121,3 +122,21 @@ def test_transform_trace_robustness():
     assert transformed["spans"][0]["span_id"] == "valid-1"
     assert transformed["spans"][1]["span_id"] == "valid-2"
     assert "attributes" in transformed["spans"][1]
+
+
+def test_transform_log_patterns_robustness():
+    # Test with invalid inputs
+    assert transform_log_patterns(None) == {"patterns": [], "count": 0}
+    assert transform_log_patterns("string") == {"patterns": [], "count": 0}
+    assert transform_log_patterns(123) == {"patterns": [], "count": 0}
+
+    # Test with malformed list items
+    malformed_list = [{"pattern_id": "p1"}, "not-a-dict", None]
+    result = transform_log_patterns(malformed_list)
+    assert result["count"] == 1
+    assert result["patterns"][0]["pattern_id"] == "p1"
+
+    # Test with wrapped result
+    wrapped = {"status": "success", "result": {"patterns": [{"pattern_id": "w1"}]}}
+    result_wrapped = transform_log_patterns(wrapped)
+    assert result_wrapped["patterns"][0]["pattern_id"] == "w1"

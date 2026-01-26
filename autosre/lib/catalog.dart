@@ -34,8 +34,15 @@ class CatalogRegistry {
     var data = _ensureMap(rawData);
 
     // 1. Direct match (e.g. {"x-sre-tool-log": {...}})
-    if (data.containsKey(componentName) && data[componentName] is Map) {
-      return Map<String, dynamic>.from(data[componentName] as Map);
+    if (data.containsKey(componentName)) {
+      final inner = data[componentName];
+      if (inner is Map) {
+        return Map<String, dynamic>.from(inner);
+      }
+      if (inner is List) {
+        // Return a map wrapping the list if found directly under the key
+        return {componentName: inner};
+      }
     }
 
     // 2. Component wrapper (e.g. {"component": {"x-sre-tool-log": {...}}})
@@ -149,24 +156,24 @@ class CatalogRegistry {
             if (dataRaw is List) {
               rawList = dataRaw;
             } else if (dataRaw is Map) {
-              // Use the unified unwrap helper
               var data = _unwrapComponentData(
                 dataRaw,
                 'x-sre-log-pattern-viewer',
               );
 
-              // Check if the unwrapped data is actually a list
-              if (data.containsKey('x-sre-log-pattern-viewer') &&
+              // Prefer "patterns" key, then try other common keys
+              if (data.containsKey('patterns') && data['patterns'] is List) {
+                rawList = data['patterns'] as List;
+              } else if (data.containsKey('x-sre-log-pattern-viewer') &&
                   data['x-sre-log-pattern-viewer'] is List) {
                 rawList = data['x-sre-log-pattern-viewer'] as List;
               } else {
-                // Handle case where list is wrapped in a map
                 rawList =
-                    data['patterns'] ?? data['data'] ?? data['items'] ?? [];
+                    data['data'] ?? data['items'] ?? data['anomalies'] ?? [];
               }
             } else {
               throw Exception(
-                'Expected List or Map with patterns, got ${dataRaw.runtimeType}',
+                'LogPatternViewer: Expected List or Map, got ${dataRaw.runtimeType}',
               );
             }
 

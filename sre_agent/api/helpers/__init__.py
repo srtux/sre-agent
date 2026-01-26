@@ -24,6 +24,10 @@ TOOL_WIDGET_MAP = {
     "mcp_query_range": "x-sre-metric-chart",
     "list_log_entries": "x-sre-log-entries-viewer",
     "mcp_list_log_entries": "x-sre-log-entries-viewer",
+    "extract_log_patterns": "x-sre-log-pattern-viewer",
+    "compare_log_patterns": "x-sre-log-pattern-viewer",
+    "analyze_log_anomalies": "x-sre-log-pattern-viewer",
+    "run_log_pattern_analysis": "x-sre-log-pattern-viewer",
     "get_golden_signals": "x-sre-metrics-dashboard",
     "generate_remediation_suggestions": "x-sre-remediation-plan",
     "list_alerts": "x-sre-incident-timeline",
@@ -233,11 +237,12 @@ def create_widget_events(tool_name: str, result: Any) -> tuple[list[str], list[s
             widget_data = genui_adapter.transform_metrics_dashboard(result)
         elif widget_type == "x-sre-log-entries-viewer":
             widget_data = genui_adapter.transform_log_entries(result)
+        elif widget_type == "x-sre-log-pattern-viewer":
+            widget_data = genui_adapter.transform_log_patterns(result)
         elif widget_type == "x-sre-remediation-plan":
             widget_data = genui_adapter.transform_remediation(result)
         elif widget_type == "x-sre-incident-timeline":
             widget_data = genui_adapter.transform_alerts_to_timeline(result)
-
         if widget_data:
             surface_id = str(uuid.uuid4())
             component_id = f"widget-{surface_id[:8]}"
@@ -290,8 +295,15 @@ def create_widget_events(tool_name: str, result: Any) -> tuple[list[str], list[s
             logger.info(f"📊 Transformed data for {widget_type} (surface={surface_id})")
             events.extend([begin_event, update_event])
             surface_ids.append(surface_id)
+        else:
+            logger.warning(f"⚠️ No transformed data for {widget_type}. Skipping.")
 
     except Exception as e:
-        logger.warning(f"Failed to create widget for {tool_name}: {e}")
+        logger.error(
+            f"❌ Error creating widget events for {tool_name}: {e}", exc_info=True
+        )
+        # Fallback to an error notification or a generic tool-log widget?
+        # For now, just skip the specialized widget
+        pass
 
     return events, surface_ids

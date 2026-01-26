@@ -1079,3 +1079,87 @@ def create_demo_log_entries() -> dict[str, Any]:
             "project_id": "my-gcp-project",
         }
     )
+
+
+def transform_log_patterns(
+    pattern_data: dict[str, Any] | list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Transform log pattern data for LogPatternViewer widget.
+
+    Args:
+        pattern_data: Data from extract_log_patterns or compare_log_patterns.
+
+    Returns:
+        List of log patterns formatted for the LogPatternViewer.
+    """
+    # Unwrap if wrapped
+    if (
+        isinstance(pattern_data, dict)
+        and "status" in pattern_data
+        and "result" in pattern_data
+    ):
+        pattern_data = pattern_data["result"]
+
+    # Case 1: Comparison format (from compare_log_patterns or run_log_pattern_analysis)
+    if isinstance(pattern_data, dict) and "anomalies" in pattern_data:
+        anomalies = pattern_data["anomalies"]
+        # Merge new and significantly increased patterns
+        new_p = anomalies.get("new_patterns", [])
+        inc_p = [
+            x["pattern"]
+            for x in anomalies.get("increased_patterns", [])
+            if isinstance(x, dict) and "pattern" in x
+        ]
+        # Avoid duplicates just in case
+        seen_ids = set()
+        result = []
+        for p in new_p + inc_p:
+            pid = p.get("pattern_id")
+            if pid not in seen_ids:
+                result.append(p)
+                seen_ids.add(pid)
+        return {"patterns": result, "count": len(result)}
+
+    # Case 2: Summary format (from extract_log_patterns)
+    if isinstance(pattern_data, dict):
+        patterns = (
+            pattern_data.get("error_patterns")
+            or pattern_data.get("top_patterns")
+            or pattern_data.get("patterns")
+            or []
+        )
+        return {"patterns": patterns, "count": len(patterns)}
+
+    # Case 3: Raw list
+    if isinstance(pattern_data, list):
+        patterns = [p for p in pattern_data if isinstance(p, dict)]
+        return {"patterns": patterns, "count": len(patterns)}
+
+    return {"patterns": [], "count": 0}
+
+
+def create_demo_log_patterns() -> list[dict[str, Any]]:
+    """Create demo data for Log Pattern Viewer."""
+    return [
+        {
+            "pattern_id": "p1",
+            "template": "Connection to database <*> failed after <DNS_TIMEOUT>",
+            "count": 145,
+            "severity_counts": {"ERROR": 145},
+            "sample_messages": ["Connection to database db-1 failed after 5000ms"],
+        },
+        {
+            "pattern_id": "p2",
+            "template": "User <ID> logged in from <IP>",
+            "count": 5230,
+            "severity_counts": {"INFO": 5230},
+            "sample_messages": ["User 12345 logged in from 10.0.0.1"],
+        },
+        {
+            "pattern_id": "p3",
+            "template": "Request processed in <DURATION>",
+            "count": 12450,
+            "severity_counts": {"INFO": 12450},
+            "sample_messages": ["Request processed in 125ms"],
+        },
+    ]

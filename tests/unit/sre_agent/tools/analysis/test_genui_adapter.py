@@ -14,6 +14,7 @@ from sre_agent.tools.analysis.genui_adapter import (
     transform_golden_signals,
     transform_incident_timeline,
     transform_log_entries,
+    transform_log_patterns,
     transform_metrics,
     transform_metrics_dashboard,
     transform_remediation,
@@ -133,6 +134,41 @@ def test_transform_log_entries():
     log_data = {"entries": [{"timestamp": "2024-01-01T00:00:00Z", "payload": "Error"}]}
     result = transform_log_entries(log_data)
     assert len(result["entries"]) == 1
+
+
+def test_transform_log_patterns():
+    # Test dictionary input (Summary format)
+    pattern_data = {
+        "top_patterns": [{"pattern_id": "p1", "template": "abc", "count": 10}]
+    }
+    result = transform_log_patterns(pattern_data)
+    assert isinstance(result, dict)
+    assert "patterns" in result
+    assert result["count"] == 1
+    assert result["patterns"][0]["pattern_id"] == "p1"
+
+    # Test comparison format
+    comparison_data = {
+        "anomalies": {
+            "new_patterns": [{"pattern_id": "new1", "template": "new", "count": 5}],
+            "increased_patterns": [
+                {
+                    "pattern": {"pattern_id": "inc1", "template": "inc", "count": 20},
+                    "increase_pct": 200,
+                }
+            ],
+        }
+    }
+    result_comp = transform_log_patterns(comparison_data)
+    assert result_comp["count"] == 2
+    assert any(p["pattern_id"] == "new1" for p in result_comp["patterns"])
+    assert any(p["pattern_id"] == "inc1" for p in result_comp["patterns"])
+
+    # Test raw list input
+    list_data = [{"pattern_id": "list1", "template": "list", "count": 1}]
+    result_list = transform_log_patterns(list_data)
+    assert result_list["count"] == 1
+    assert result_list["patterns"][0]["pattern_id"] == "list1"
 
 
 def test_demo_functions():
