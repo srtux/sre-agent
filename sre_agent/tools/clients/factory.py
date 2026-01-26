@@ -13,14 +13,15 @@ The credential resolution order is:
 """
 
 import logging
+import os
 import threading
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
+import google.auth
 from google.cloud import monitoring_v3, trace_v1
 from google.cloud.logging_v2.services.logging_service_v2 import LoggingServiceV2Client
 
 from ...auth import (
-    GLOBAL_CONTEXT_CREDENTIALS,
     get_credentials_from_tool_context,
     get_current_credentials_or_none,
 )
@@ -58,19 +59,19 @@ def _get_client(
         if name not in _clients:
             # Note: We provide a default client ONLY if explicitly allowed by environment.
             # In production/strictly-EUC mode, we want this to be empty to catch missing creds.
-            import os
-
             if os.getenv("STRICT_EUC_ENFORCEMENT", "false").lower() == "true":
                 logger.info(
                     f"Strict EUC enforcement enabled: no default client for {name}"
                 )
                 _clients[name] = None
             else:
-                logger.warning(
-                    f"⚠️ Initializing default {name} client (ADC). "
-                    "This usually means EUC propagation failed or we are running in a background task."
+                # Use actual Application Default Credentials for the fallback.
+                # This enables Playground testing with service account identity.
+                logger.info(
+                    f"Initializing default {name} client with ADC (Playground/service account mode)"
                 )
-                _clients[name] = client_class(credentials=GLOBAL_CONTEXT_CREDENTIALS)  # type: ignore[call-arg]
+                adc_creds, _ = google.auth.default()
+                _clients[name] = client_class(credentials=adc_creds)  # type: ignore[call-arg]
 
     # First, check for user credentials from tool_context (session state)
     # This is the EIC path for Agent Engine execution
