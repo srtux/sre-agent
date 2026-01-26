@@ -42,11 +42,9 @@ async def tracing_middleware(request: Request, call_next: Any) -> Any:
     if span.is_recording():
         span.set_attribute("http.correlation_id", correlation_id)
 
-    # 3. Log request start
+    # 3. Log request start (Buffered - only logged on error)
     start_time = time.time()
-    logger.info(
-        f"🌐 Request Start: {request.method} {request.url.path} [Correlation-ID: {correlation_id}]"
-    )
+    start_msg = f"🌐 Request Start: {request.method} {request.url.path} [Correlation-ID: {correlation_id}]"
 
     try:
         response = await call_next(request)
@@ -62,7 +60,9 @@ async def tracing_middleware(request: Request, call_next: Any) -> Any:
         response.headers["X-Correlation-ID"] = correlation_id
         return response
     except Exception as e:
-        # Request failed
+        # Request failed - Log the buffered start message first to aid debugging
+        logger.info(start_msg)
+
         duration = (time.time() - start_time) * 1000
         logger.error(
             f"🌐 Request Failed: {request.method} {request.url.path} - {e} "
@@ -230,11 +230,11 @@ def configure_middleware(app: FastAPI) -> None:
     # Register exception handler
     app.add_exception_handler(Exception, global_exception_handler)
 
-    # Register tracing middleware (must be early in the stack)
-    app.middleware("http")(tracing_middleware)
-
     # Configure CORS
     configure_cors(app)
 
     # Register auth middleware
     app.middleware("http")(auth_middleware)
+
+    # Register tracing middleware (must be the last added to be the first executed - outermost)
+    app.middleware("http")(tracing_middleware)
