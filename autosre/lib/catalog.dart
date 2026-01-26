@@ -33,23 +33,33 @@ class CatalogRegistry {
   ) {
     var data = _ensureMap(rawData);
 
-    // Handle A2UI v0.8 format: {"id": "...", "component": {"x-sre-foo": {...}}}
-    // Check if this looks like an A2UI v0.8 component (has 'id' and 'component' keys)
-    if (data.containsKey('id') && data.containsKey('component')) {
-      final componentWrapper = data['component'];
-      if (componentWrapper is Map) {
-        data = Map<String, dynamic>.from(componentWrapper);
+    // 1. Direct match (e.g. {"x-sre-tool-log": {...}})
+    if (data.containsKey(componentName) && data[componentName] is Map) {
+      return Map<String, dynamic>.from(data[componentName] as Map);
+    }
+
+    // 2. Component wrapper (e.g. {"component": {"x-sre-tool-log": {...}}})
+    if (data.containsKey('component') && data['component'] is Map) {
+      final inner = data['component'] as Map;
+      if (inner.containsKey(componentName)) {
+        return Map<String, dynamic>.from(inner[componentName] as Map);
+      }
+      // If component wrapper exists but doesn't have the named key, maybe it IS the data?
+      if (inner['type'] == componentName) {
+        return Map<String, dynamic>.from(inner);
       }
     }
 
-    // Handle legacy "component" wrapper: {"component": {"x-sre-foo": {...}}}
-    if (data.containsKey('component') && data['component'] is Map) {
-      data = Map<String, dynamic>.from(data['component']);
+    // 3. Root Level Match (e.g. {"type": "x-sre-tool-log", ...})
+    if (data['type'] == componentName) {
+      return data;
     }
 
-    // Handle component-name wrapper: {"x-sre-foo": {...}}
-    if (data.containsKey(componentName) && data[componentName] is Map) {
-      data = Map<String, dynamic>.from(data[componentName] as Map);
+    // 4. Fallback: If we are specifically looking for tool log, try to find ANY log-like shape
+    if (componentName == 'x-sre-tool-log' || componentName == 'tool-log') {
+       if (data.containsKey('toolName') || data.containsKey('tool_name')) {
+         return data;
+       }
     }
 
     return data;
@@ -59,7 +69,7 @@ class CatalogRegistry {
     return Catalog([
       CatalogItem(
         name: 'x-sre-trace-waterfall',
-        dataSchema: S.object(),
+        dataSchema: S.any(),
         widgetBuilder: (context) {
           try {
             final data = _unwrapComponentData(
@@ -81,7 +91,7 @@ class CatalogRegistry {
       ),
       CatalogItem(
         name: 'x-sre-metric-chart',
-        dataSchema: S.object(),
+        dataSchema: S.any(),
         widgetBuilder: (context) {
           try {
             final data = _unwrapComponentData(context.data, 'x-sre-metric-chart');
@@ -100,7 +110,7 @@ class CatalogRegistry {
       ),
       CatalogItem(
         name: 'x-sre-remediation-plan',
-        dataSchema: S.object(),
+        dataSchema: S.any(),
         widgetBuilder: (context) {
           try {
             final data = _unwrapComponentData(
@@ -123,7 +133,7 @@ class CatalogRegistry {
       ),
       CatalogItem(
         name: 'x-sre-log-pattern-viewer',
-        dataSchema: S.object(),
+        dataSchema: S.any(),
         widgetBuilder: (context) {
           try {
             final dataRaw = context.data;
@@ -172,7 +182,7 @@ class CatalogRegistry {
       ),
       CatalogItem(
         name: 'x-sre-log-entries-viewer',
-        dataSchema: S.object(),
+        dataSchema: S.any(),
         widgetBuilder: (context) {
           try {
             final data = _unwrapComponentData(
@@ -193,26 +203,54 @@ class CatalogRegistry {
         },
       ),
       CatalogItem(
-        name: 'x-sre-tool-log',
-        dataSchema: S.object(),
+        name: 'tool-log', // Alias for matching
+        dataSchema: S.any(),
         widgetBuilder: (context) {
           try {
-            final data = _unwrapComponentData(context.data, 'x-sre-tool-log');
+            final raw = context.data;
+            final data = _unwrapComponentData(raw, 'tool-log');
+            if (data.isEmpty) {
+                 return const ErrorPlaceholder(error: 'DEBUG: Unwrapped tool-log data is EMPTY.');
+            }
+            final log = ToolLog.fromJson(data);
+            return ToolLogWidget(log: log);
+          } catch (e) {
+            return ErrorPlaceholder(error: 'DEBUG tool-log EXCEPTION: $e');
+          }
+        },
+      ),
+      CatalogItem(
+        name: 'x-sre-tool-log',
+        dataSchema: S.any(),
+        widgetBuilder: (context) {
+          try {
+            final raw = context.data;
+
+            final data = _unwrapComponentData(raw, 'x-sre-tool-log');
+
+            // Validate before parsing to catch the exact moment of failure
+            if (data.isEmpty) {
+                 return ErrorPlaceholder(error: 'DEBUG: Unwrapped data is EMPTY. Raw keys: ${_ensureMap(raw).keys.toList()}');
+            }
+            if (!data.containsKey('tool_name') && !data.containsKey('toolName')) {
+                 return ErrorPlaceholder(error: 'DEBUG: No tool_name. Keys: ${data.keys.toList()}');
+            }
 
             final log = ToolLog.fromJson(data);
             if (log.toolName.isEmpty && log.status == 'unknown') {
-              return const SizedBox.shrink();
+               // This was the hidden state. Make it visible!
+               return ErrorPlaceholder(error: 'DEBUG: ToolLog parsed as EMPTY. Raw: $data');
             }
             return ToolLogWidget(log: log);
           } catch (e) {
-            return ErrorPlaceholder(error: e);
+            return ErrorPlaceholder(error: 'DEBUG EXCEPTION: $e');
           }
         },
       ),
       // Canvas Widgets
       CatalogItem(
         name: 'x-sre-agent-activity',
-        dataSchema: S.object(),
+        dataSchema: S.any(),
         widgetBuilder: (context) {
           try {
             final data = _unwrapComponentData(
@@ -234,7 +272,7 @@ class CatalogRegistry {
       ),
       CatalogItem(
         name: 'x-sre-service-topology',
-        dataSchema: S.object(),
+        dataSchema: S.any(),
         widgetBuilder: (context) {
           try {
             final data = _unwrapComponentData(
@@ -256,7 +294,7 @@ class CatalogRegistry {
       ),
       CatalogItem(
         name: 'x-sre-incident-timeline',
-        dataSchema: S.object(),
+        dataSchema: S.any(),
         widgetBuilder: (context) {
           try {
             final data = _unwrapComponentData(
@@ -278,7 +316,7 @@ class CatalogRegistry {
       ),
       CatalogItem(
         name: 'x-sre-metrics-dashboard',
-        dataSchema: S.object(),
+        dataSchema: S.any(),
         widgetBuilder: (context) {
           try {
             final data = _unwrapComponentData(
@@ -300,7 +338,7 @@ class CatalogRegistry {
       ),
       CatalogItem(
         name: 'x-sre-ai-reasoning',
-        dataSchema: S.object(),
+        dataSchema: S.any(),
         widgetBuilder: (context) {
           try {
             final data = _unwrapComponentData(

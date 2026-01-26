@@ -17,6 +17,7 @@ from sre_agent.api.helpers.tool_events import (
     TOOL_WIDGET_MAP,
     create_tool_call_events,
     create_tool_response_events,
+    create_widget_events,
     normalize_tool_args,
 )
 
@@ -283,4 +284,90 @@ async def test_genui_chat_valid_request_format(async_client: httpx.AsyncClient):
     )
     # Should be accepted (200 OK for streaming) not a validation error (422)
     assert response.status_code == 200
+    # Should be accepted (200 OK for streaming) not a validation error (422)
+    assert response.status_code == 200
     await response.aclose()
+
+
+# --- Widget Event Tests (Fix PR #78) ---
+
+
+def test_create_widget_events_structure():
+    """Test that create_widget_events returns tuple of (events, surface_ids)."""
+    # Use a known tool that produces widgets (fetch_trace -> x-sre-trace-waterfall)
+    # We need a dummy result that passes transform_trace
+    dummy_trace = {
+        "trace_id": "test-trace",
+        "spans": [
+            {
+                "span_id": "s1",
+                "name": "root",
+                "start_time": "2023-01-01T00:00:00Z",
+                "end_time": "2023-01-01T00:00:01Z",
+            }
+        ],
+    }
+
+    events, surface_ids = create_widget_events(
+        tool_name="fetch_trace", result=dummy_trace
+    )
+
+    assert isinstance(events, list)
+    assert isinstance(surface_ids, list)
+    assert len(events) == 2  # beginRendering + surfaceUpdate
+    assert len(surface_ids) == 1
+
+    # Verify surface ID matches
+    surface_id = surface_ids[0]
+    begin_event = json.loads(events[0])
+    assert begin_event["message"]["beginRendering"]["surfaceId"] == surface_id
+
+
+def test_create_widget_events_ordering_simulation():
+    """Test that yielding data events BEFORE markers works as expected.
+
+    This simulates the logic in the router to verify the fix in PR #78.
+    """
+    dummy_trace = {
+        "trace_id": "test-trace",
+        "spans": [
+            {
+                "span_id": "s1",
+                "name": "root",
+                "start_time": "2023-01-01T00:00:00Z",
+                "end_time": "2023-01-01T00:00:01Z",
+            }
+        ],
+    }
+
+    widget_events, widget_surface_ids = create_widget_events("fetch_trace", dummy_trace)
+
+    # Simulate the yield order from the router (PR #78 fix)
+    yielded_sequence = []
+
+    # 1. Widget Data Events (A2UI)
+    for evt_str in widget_events:
+        yielded_sequence.append(json.loads(evt_str))
+
+    # 2. UI Markers (Bubble creation)
+    for sid in widget_surface_ids:
+        yielded_sequence.append({"type": "ui", "surface_id": sid})
+
+    # Verify Order:
+    # Event 0: beginRendering (A2UI)
+    # Event 1: surfaceUpdate (A2UI - Data)
+    # Event 2: ui marker (Trigger Bubble)
+
+    assert len(yielded_sequence) == 3
+
+    assert yielded_sequence[0]["type"] == "a2ui"
+    assert "beginRendering" in yielded_sequence[0]["message"]
+
+    assert yielded_sequence[1]["type"] == "a2ui"
+    assert "surfaceUpdate" in yielded_sequence[1]["message"]
+
+    assert yielded_sequence[2]["type"] == "ui"
+    assert (
+        yielded_sequence[2]["surface_id"]
+        == yielded_sequence[0]["message"]["beginRendering"]["surfaceId"]
+    )

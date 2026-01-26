@@ -81,7 +81,8 @@ def create_tool_call_events(
     # Create separate events for beginRendering and surfaceUpdate for maximum compatibility
     logger.info(f"📤 Tool Call Events: {tool_name} (surface_id={surface_id})")
 
-    # 1. beginRendering first
+    # Atomic Initialization with Root-Level Type
+    # This ensures the component is defined immediately with the correct type for matching.
     begin_event = json.dumps(
         {
             "type": "a2ui",
@@ -89,12 +90,28 @@ def create_tool_call_events(
                 "beginRendering": {
                     "surfaceId": surface_id,
                     "root": component_id,
+                    "components": [
+                        {
+                            "id": component_id,
+                            "component": {
+                                "type": "x-sre-tool-log",  # Root-level type for matching
+                                "x-sre-tool-log": {
+                                    "type": "x-sre-tool-log",
+                                    "componentName": "x-sre-tool-log",
+                                    "tool_name": tool_name,
+                                    "toolName": tool_name,
+                                    "args": args,
+                                    "status": "running",
+                                },
+                            },
+                        }
+                    ],
                 },
             },
         }
     )
 
-    # 2. surfaceUpdate second
+    # Backup update event (same structure)
     update_event = json.dumps(
         {
             "type": "a2ui",
@@ -105,11 +122,15 @@ def create_tool_call_events(
                         {
                             "id": component_id,
                             "component": {
+                                "type": "x-sre-tool-log",
                                 "x-sre-tool-log": {
+                                    "type": "x-sre-tool-log",
+                                    "componentName": "x-sre-tool-log",
                                     "tool_name": tool_name,
+                                    "toolName": tool_name,
                                     "args": args,
                                     "status": "running",
-                                }
+                                },
                             },
                         }
                     ],
@@ -180,12 +201,16 @@ def create_tool_response_events(
                         {
                             "id": component_id,
                             "component": {
+                                "type": "x-sre-tool-log",
                                 "x-sre-tool-log": {
+                                    "type": "x-sre-tool-log",
+                                    "componentName": "x-sre-tool-log",
                                     "tool_name": tool_name,
+                                    "toolName": tool_name,
                                     "args": args,
                                     "result": result,
                                     "status": status,
-                                }
+                                },
                             },
                         }
                     ],
@@ -247,6 +272,7 @@ def create_widget_events(tool_name: str, result: Any) -> tuple[list[str], list[s
             # Split into separate events for compatibility
             logger.info(f"📤 Widget Events: {widget_type} (surface_id={surface_id})")
 
+            # Atomic initialization for widgets (Root Type)
             begin_event = json.dumps(
                 {
                     "type": "a2ui",
@@ -254,6 +280,15 @@ def create_widget_events(tool_name: str, result: Any) -> tuple[list[str], list[s
                         "beginRendering": {
                             "surfaceId": surface_id,
                             "root": component_id,
+                            "components": [
+                                {
+                                    "id": component_id,
+                                    "component": {
+                                        "type": widget_type,
+                                        widget_type: widget_data,
+                                    },
+                                }
+                            ],
                         },
                     },
                 }
@@ -268,7 +303,10 @@ def create_widget_events(tool_name: str, result: Any) -> tuple[list[str], list[s
                             "components": [
                                 {
                                     "id": component_id,
-                                    "component": {widget_type: widget_data},
+                                    "component": {
+                                        "type": widget_type,
+                                        widget_type: widget_data,
+                                    },
                                 }
                             ],
                         },

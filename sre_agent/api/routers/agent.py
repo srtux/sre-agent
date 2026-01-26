@@ -33,7 +33,7 @@ from google.adk.agents.run_config import RunConfig
 from google.adk.events import Event
 from google.adk.sessions.session import Session as AdkSession
 from google.genai.types import Content, Part
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from sre_agent.auth import (
     get_current_credentials_or_none,
@@ -59,12 +59,16 @@ router = APIRouter(tags=["agent"])
 class AgentMessage(BaseModel):
     """A chat message from the agent."""
 
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
     role: str
     text: str
 
 
 class AgentRequest(BaseModel):
     """Request model for the chat agent endpoint."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     messages: list[AgentMessage]
     session_id: str | None = None
@@ -244,12 +248,13 @@ async def _handle_remote_agent(
                         surface_id, events = create_tool_call_events(
                             tool_name, tool_args, pending_tool_calls
                         )
-                        # Yield UI marker first to ensure a bubble is created
+                        # Yield events first to populate component data
+                        for evt_str in events:
+                            yield evt_str + "\n"
+                        # Then yield UI marker to create the bubble
                         yield (
                             json.dumps({"type": "ui", "surface_id": surface_id}) + "\n"
                         )
-                        for evt_str in events:
-                            yield evt_str + "\n"
 
                     # Handle function responses
                     fr = (
@@ -270,10 +275,10 @@ async def _handle_remote_agent(
                         widget_events, widget_surface_ids = create_widget_events(
                             tool_name, result
                         )
-                        for sid in widget_surface_ids:
-                            yield json.dumps({"type": "ui", "surface_id": sid}) + "\n"
                         for evt_str in widget_events:
                             yield evt_str + "\n"
+                        for sid in widget_surface_ids:
+                            yield json.dumps({"type": "ui", "surface_id": sid}) + "\n"
 
         except Exception as e:
             logger.error(f"Error streaming from Agent Engine: {e}", exc_info=True)
@@ -335,7 +340,7 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
 
         # We must override the user_id in the request passed to remote agent
         # to ensure it uses the trusted ID.
-        request.user_id = effective_user_id
+        request = request.model_copy(update={"user_id": effective_user_id})
 
         return await _handle_remote_agent(
             request=request,
@@ -457,6 +462,116 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
         async def event_generator() -> AsyncGenerator[str, None]:
             # Track pending tool calls for FIFO matching
             pending_tool_calls: list[dict[str, Any]] = []
+
+            # --- DEBUG UI TEST PATTERN ---
+            if "DEBUG_UI_TEST" in last_msg_text:
+                logger.info("🧪 Triggering DEBUG_UI_TEST mock sequence")
+                yield json.dumps({"type": "session", "session_id": session.id}) + "\n"
+
+                # Test: Simple 'tool-log' Alias + Waterfall Control
+                yield (
+                    json.dumps(
+                        {
+                            "type": "text",
+                            "content": "### Test: Simple 'tool-log' Alias + BUTTON Control\nExpecting: GREEN/CYAN BOX or BUTTON",
+                        }
+                    )
+                    + "\n"
+                )
+
+                sid = uuid.uuid4().hex
+                cid = f"tool-log-{sid[:8]}"
+
+                # Atomic Init with Alias & Redundant Types & Button
+                yield (
+                    json.dumps(
+                        {
+                            "type": "a2ui",
+                            "message": {
+                                "beginRendering": {
+                                    "surfaceId": sid,
+                                    "root": cid,
+                                    "components": [
+                                        {
+                                            "id": cid,
+                                            "component": {
+                                                "type": "tool-log",
+                                                "componentType": "tool-log",
+                                                "tool-log": {
+                                                    "type": "tool-log",
+                                                    "tool_name": "alias_test",
+                                                    "status": "running",
+                                                },
+                                            },
+                                        }
+                                    ],
+                                }
+                            },
+                        }
+                    )
+                    + "\n"
+                )
+
+                yield json.dumps({"type": "ui", "surface_id": sid}) + "\n"
+                yield (
+                    json.dumps(
+                        {
+                            "type": "a2ui",
+                            "message": {
+                                "surfaceUpdate": {
+                                    "surfaceId": sid,
+                                    "components": [
+                                        {
+                                            "id": cid,
+                                            "component": {
+                                                "type": "tool-log",
+                                                "componentType": "tool-log",
+                                                "tool-log": {
+                                                    "type": "tool-log",
+                                                    "tool_name": "alias_test",
+                                                    "status": "running",
+                                                },
+                                            },
+                                        }
+                                    ],
+                                }
+                            },
+                        }
+                    )
+                    + "\n"
+                )
+
+                # Test Button (Core Catalog)
+                sid_btn = uuid.uuid4().hex
+                cid_btn = f"btn-{sid_btn[:8]}"
+                yield json.dumps({"type": "ui", "surface_id": sid_btn}) + "\n"
+                yield (
+                    json.dumps(
+                        {
+                            "type": "a2ui",
+                            "message": {
+                                "beginRendering": {
+                                    "surfaceId": sid_btn,
+                                    "root": cid_btn,
+                                    "components": [
+                                        {
+                                            "id": cid_btn,
+                                            "component": {
+                                                "type": "button",
+                                                "label": "CORE BUTTON TEST",
+                                                "actionId": "test_action",
+                                            },
+                                        }
+                                    ],
+                                }
+                            },
+                        }
+                    )
+                    + "\n"
+                )
+
+                return
+            # -----------------------------
 
             # Send session ID first
             session_init_evt = (
@@ -604,7 +719,9 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                                 if tool_args_raw is None and isinstance(fc, dict):
                                     tool_args_raw = fc.get("args")
                                 tool_args = normalize_tool_args(tool_args_raw)
-                                logger.info(f"🛠️ Tool Call Request: {tool_name}")
+                                logger.info(
+                                    f"🛠️ Tool Call Detected: {tool_name} with args: {str(tool_args)[:100]}..."
+                                )
                                 surface_id, events = create_tool_call_events(
                                     tool_name, tool_args, pending_tool_calls
                                 )
@@ -614,12 +731,16 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                                 # before the component data is available.
                                 for evt_str in events:
                                     logger.info(
-                                        f"📤 Yielding tool call event: {evt_str}"
+                                        f"📤 Yielding tool call event (Size: {len(evt_str)}): {evt_str[:100]}..."
                                     )
                                     yield evt_str + "\n"
                                 yield (
                                     json.dumps({"type": "ui", "surface_id": surface_id})
                                     + "\n"
+                                )
+                            else:
+                                logger.warning(
+                                    f"⚠️ Tool call detected but name is missing or invalid: {tool_name}"
                                 )
 
                         # D. Handle Tool Responses
