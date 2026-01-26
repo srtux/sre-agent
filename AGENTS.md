@@ -9,6 +9,13 @@
 *   **[Testing Strategy](docs/guides/testing.md)**: Standards.
 *   **[Reference](docs/reference/)**: Specs.
 
+## ⚡ Quick Rules
+1.  **Vibe First**: Read docs, load context, then plan.
+2.  **Test First**: Create/update tests *before* implementing logic.
+3.  **Lint Always**: `uv run poe lint-all` must be clean.
+4.  **No Hallucinations**: Read `pydantic` schemas; use `extra="forbid"`.
+5.  **Compaction**: Update `PROJECT_PLAN.md` and docs when task completes.
+
 ## 🚀 Quick Start for Agents
 
 **ALWAYS start by reading the Universal Standard first:**
@@ -484,6 +491,7 @@ uv run pytest --cov=sre_agent --cov-report=html
 
 ## 🎨 Code Style & Type Checking
 
+**Absolute imports preferred** (e.g., `from sre_agent.tools import ...`).
 ### Type Annotations (Strict MyPy)
 
 **ALL functions MUST have explicit types:**
@@ -1026,9 +1034,9 @@ uv run poe web               # Backend server only
 uv run poe dev               # Full stack (backend + frontend)
 
 # Quality Checks
-uv run poe lint              # Run all linters
+uv run poe lint-all       # Run all linters (ruff + mypy)
 uv run poe pre-commit        # Run pre-commit hooks
-uv run poe test              # Run tests with coverage
+uv run poe test-all       # Run all tests (backend + frontend)
 
 # Deployment
 uv run poe deploy            # Deploy backend to Agent Engine
