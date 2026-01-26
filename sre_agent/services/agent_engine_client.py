@@ -36,6 +36,7 @@ from typing import Any
 from sre_agent.auth import (
     SESSION_STATE_ACCESS_TOKEN_KEY,
     SESSION_STATE_PROJECT_ID_KEY,
+    encrypt_token,
 )
 
 logger = logging.getLogger(__name__)
@@ -264,7 +265,7 @@ class AgentEngineClient:
             access_token
             and session.state.get(SESSION_STATE_ACCESS_TOKEN_KEY) != access_token
         ):
-            state_delta[SESSION_STATE_ACCESS_TOKEN_KEY] = access_token
+            state_delta[SESSION_STATE_ACCESS_TOKEN_KEY] = encrypt_token(access_token)
         if project_id and session.state.get(SESSION_STATE_PROJECT_ID_KEY) != project_id:
             state_delta[SESSION_STATE_PROJECT_ID_KEY] = project_id
 

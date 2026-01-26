@@ -12,8 +12,15 @@ class TestGcpMcpAuth(unittest.TestCase):
         provider = _create_header_provider(project_id)
 
         # When
-        with patch(
-            "sre_agent.tools.mcp.gcp.get_current_credentials_or_none", return_value=None
+        with (
+            patch(
+                "sre_agent.tools.mcp.gcp.get_credentials_from_tool_context",
+                return_value=None,
+            ),
+            patch(
+                "sre_agent.tools.mcp.gcp.get_current_credentials",
+                return_value=(MagicMock(token=None), "test-project"),
+            ),
         ):
             headers = provider(None)
 
@@ -32,7 +39,7 @@ class TestGcpMcpAuth(unittest.TestCase):
 
         # When
         with patch(
-            "sre_agent.tools.mcp.gcp.get_current_credentials_or_none",
+            "sre_agent.tools.mcp.gcp.get_credentials_from_tool_context",
             return_value=mock_creds,
         ):
             headers = provider(None)
@@ -50,9 +57,15 @@ class TestGcpMcpAuth(unittest.TestCase):
         provider = _create_header_provider(project_id)
 
         # When
-        with patch(
-            "sre_agent.tools.mcp.gcp.get_current_credentials_or_none",
-            return_value=mock_creds,
+        with (
+            patch(
+                "sre_agent.tools.mcp.gcp.get_credentials_from_tool_context",
+                return_value=mock_creds,
+            ),
+            patch(
+                "sre_agent.tools.mcp.gcp.get_current_credentials",
+                return_value=(MagicMock(token=None), "test-project"),
+            ),
         ):
             headers = provider(None)
 

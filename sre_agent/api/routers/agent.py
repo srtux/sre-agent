@@ -36,6 +36,7 @@ from google.genai.types import Content, Part
 from pydantic import BaseModel, ConfigDict
 
 from sre_agent.auth import (
+    encrypt_token,
     get_current_credentials_or_none,
     get_current_project_id,
 )
@@ -406,7 +407,9 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
             if effective_project_id:
                 initial_state[SESSION_STATE_PROJECT_ID_KEY] = effective_project_id
             if access_token:
-                initial_state[SESSION_STATE_ACCESS_TOKEN_KEY] = access_token
+                initial_state[SESSION_STATE_ACCESS_TOKEN_KEY] = encrypt_token(
+                    access_token
+                )
 
             # Initialize investigation state
             initial_state["investigation_state"] = InvestigationState().to_dict()

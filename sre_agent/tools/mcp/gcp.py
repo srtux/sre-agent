@@ -16,16 +16,15 @@ import logging
 import os
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, cast
 
 import httpx
 from google.adk.tools import ToolContext  # type: ignore[attr-defined]
 from google.adk.tools.api_registry import ApiRegistry
 
 from ...auth import (
-    SESSION_STATE_ACCESS_TOKEN_KEY,
+    get_credentials_from_tool_context,
     get_current_credentials,
-    get_current_credentials_or_none,
 )
 from ...schema import BaseToolResponse, ToolStatus
 from ..common import adk_tool
@@ -62,37 +61,33 @@ def _create_header_provider(project_id: str) -> Callable[[Any], dict[str, str]]:
     def header_provider(_: Any) -> dict[str, str]:
         headers = {"x-goog-user-project": project_id}
 
-        # First, check for explicit user credentials (set by auth middleware)
-        user_creds = get_current_credentials_or_none()
-        if user_creds:
-            # Check if it has a token (google.oauth2.credentials.Credentials usually does)
-            if hasattr(user_creds, "token") and user_creds.token:
-                logger.debug("MCP: Using user credentials from ContextVar")
-                headers["Authorization"] = f"Bearer {user_creds.token}"
-                return headers
-
-        # Second, check session state (for Agent Engine execution)
-        # This is the EIC (End User Identity Credential) propagation path
+        # Use unified credential resolution (ContextVar + Session State + Decryption)
         ctx = _mcp_tool_context.get()
-        if ctx is not None:
-            try:
-                session = getattr(
-                    getattr(ctx, "invocation_context", None),
-                    "session",
-                    None,
-                )
-                if session is not None:
-                    state = getattr(session, "state", None)
-                    if state and SESSION_STATE_ACCESS_TOKEN_KEY in state:
-                        token = state[SESSION_STATE_ACCESS_TOKEN_KEY]
-                        if token:
-                            logger.debug(
-                                "MCP: Using user credentials from session state"
-                            )
-                            headers["Authorization"] = f"Bearer {token}"
-                            return headers
-            except Exception as e:
-                logger.debug(f"MCP: Error getting credentials from session: {e}")
+        user_creds = get_credentials_from_tool_context(ctx)
+
+        if user_creds and hasattr(user_creds, "token") and user_creds.token:
+            logger.debug("MCP: Using resolved user/session credentials")
+            headers["Authorization"] = f"Bearer {user_creds.token}"
+            return headers
+
+        # Fallback for Local Development / Service Account mode
+        # If no user credentials, try to get a token from ADC
+        try:
+            logger.debug(
+                "MCP: No user credentials found, attempting ADC fallback for token"
+            )
+            adc_creds, _ = get_current_credentials()
+            if not adc_creds.token:
+                # Force a refresh to get the token
+                import google.auth.transport.requests
+
+                cast(Any, adc_creds).refresh(google.auth.transport.requests.Request())
+
+            if adc_creds.token:
+                logger.debug("MCP: Using token from Application Default Credentials")
+                headers["Authorization"] = f"Bearer {adc_creds.token}"
+        except Exception as e:
+            logger.debug(f"MCP: Failed to resolve ADC token: {e}")
 
         return headers
 

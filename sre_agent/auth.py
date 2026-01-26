@@ -302,7 +302,7 @@ def get_current_project_id() -> str | None:
 
 def get_credentials_from_session(
     session_state: dict[str, Any] | None,
-) -> Credentials | None:
+) -> google.oauth2.credentials.Credentials | None:
     """Extract user credentials from session state.
 
     This is used when running in Agent Engine where ContextVars aren't available.
@@ -318,11 +318,16 @@ def get_credentials_from_session(
     if not session_state:
         return None
 
-    token = session_state.get(SESSION_STATE_ACCESS_TOKEN_KEY)
-    if not token:
+    encrypted_token = session_state.get(SESSION_STATE_ACCESS_TOKEN_KEY)
+    if not encrypted_token:
         return None
 
+    # Decrypt token for use (handles unencrypted tokens via fallback)
+    token = decrypt_token(encrypted_token)
+
     # Create Credentials from the access token
+    from google.oauth2.credentials import Credentials
+
     return Credentials(token=token)  # type: ignore[no-untyped-call]
 
 

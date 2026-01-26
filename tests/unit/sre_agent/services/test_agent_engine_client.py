@@ -305,9 +305,15 @@ class TestAgentEngineClient:
         client._initialized = True
         client._adk_app = mock_adk_app
 
-        with patch(
-            "sre_agent.services.session.get_session_service",
-            return_value=mock_session_manager,
+        with (
+            patch(
+                "sre_agent.services.session.get_session_service",
+                return_value=mock_session_manager,
+            ),
+            patch(
+                "sre_agent.services.agent_engine_client.encrypt_token",
+                side_effect=lambda x: x,
+            ),
         ):
             events: list[dict] = []
             async for event in client.stream_query(
