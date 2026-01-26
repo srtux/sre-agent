@@ -193,13 +193,37 @@ class _ConversationPageState extends State<ConversationPage>
       a2uiMessageProcessor: _messageProcessor,
       contentGenerator: _contentGenerator,
       onSurfaceAdded: (update) {
-        // CRITICAL FIX: Add the AiUiMessage AFTER the surface is registered.
-        // Previously, we used a separate uiMessageStream subscription which created
-        // a race condition where messages were added before surfaces were processed.
-        // Now we use onSurfaceAdded to ensure the surface data is available when
-        // GenUiSurface tries to render it.
+        debugPrint('🎯 onSurfaceAdded called: surfaceId=${update.surfaceId}');
+        _scrollToBottom(force: true);
+      },
+      onSurfaceUpdated: (update) {
+        debugPrint('🔄 onSurfaceUpdated called: surfaceId=${update.surfaceId}');
+        _scrollToBottom();
+      },
+      onTextResponse: (text) => _scrollToBottom(),
+    );
+
+    // Subscribe to suggestions
+    _suggestionsSubscription = _contentGenerator.suggestionsStream.listen((
+      suggestions,
+    ) {
+      if (mounted) {
+        _suggestedActions.value = suggestions;
+      }
+    });
+
+    // Subscribe to new UI surfaces that we want to show as message bubbles.
+    // Use addPostFrameCallback to give the A2UI processor time to register the
+    // surface before we try to render it.
+    _uiMessageSubscription?.cancel();
+    _uiMessageSubscription = _contentGenerator.uiMessageStream.listen((
+      surfaceId,
+    ) {
+      debugPrint('📦 uiMessageStream received: surfaceId=$surfaceId');
+      // Wait for next frame to allow A2UI processing to complete
+      WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          final surfaceId = update.surfaceId;
+          debugPrint('📦 Adding AiUiMessage for surfaceId=$surfaceId');
           setState(() {
             final messages = List<ChatMessage>.from(
               _conversation.conversation.value,
@@ -214,32 +238,10 @@ class _ConversationPageState extends State<ConversationPage>
                     .value =
                 messages;
           });
+          _scrollToBottom(force: true);
         }
-        _scrollToBottom(force: true);
-      },
-      onSurfaceUpdated: (update) => _scrollToBottom(),
-      onTextResponse: (text) => _scrollToBottom(),
-    );
-
-    // Subscribe to suggestions
-    _suggestionsSubscription = _contentGenerator.suggestionsStream.listen((
-      suggestions,
-    ) {
-      if (mounted) {
-        _suggestedActions.value = suggestions;
-      }
+      });
     });
-
-    // NOTE: We no longer subscribe to uiMessageStream for adding messages.
-    // The backend sends 'ui' events to signal when a bubble should be created,
-    // but this caused a race condition with A2UI processing. Now we rely on
-    // the onSurfaceAdded callback from GenUiConversation which fires AFTER
-    // the A2UI beginRendering message is fully processed.
-    // The uiMessageStream subscription is kept commented for reference:
-    //
-    // _uiMessageSubscription = _contentGenerator.uiMessageStream.listen(...)
-    _uiMessageSubscription?.cancel();
-    _uiMessageSubscription = null;
 
     // Initial fetch of suggestions
     _contentGenerator.fetchSuggestions();
