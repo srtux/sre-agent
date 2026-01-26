@@ -9,96 +9,1088 @@
 *   **[Testing Strategy](docs/guides/testing.md)**: Standards.
 *   **[Reference](docs/reference/)**: Specs.
 
-## ⚡ Quick Rules
-1.  **Vibe First**: Read docs, load context, then plan.
-2.  **Test First**: Create/update tests *before* implementing logic.
-3.  **Lint Always**: `uv run poe lint-all` must be clean.
-4.  **No Hallucinations**: Read `pydantic` schemas; use `extra="forbid"`.
-5.  **Compaction**: Update `PROJECT_PLAN.md` and docs when task completes.
+## 🚀 Quick Start for Agents
 
-## 🛠️ Build, Lint, & Test Commands
+**ALWAYS start by reading the Universal Standard first:**
+1. **llm.txt** - Universal High-density rule summary (Context efficient)
+2. **AGENTS.md** (this file) - Universal AI Agent Standard (Index)
+3. **docs/PROJECT_PLAN.md** - Living roadmap of completed work and future tasks.
+4. **docs/guides/development.md** - Detailed Development & Vibe Coding Guide
+5. **README.md** - High-level project architecture
 
-**Dependency Management:**
-- Sync dependencies: `uv run poe sync`
+**The Vibe Coding Cycle**:
+1. **Read Docs** -> 2. **Plan** -> 3. **Test First** -> 4. **Micro-Edit** -> 5. **Verify** -> 6. **Self-Critique** -> 7. **Knowledge Compaction** (Update docs & `PROJECT_PLAN.md`).
 
-**Linting & Formatting (Run before commit):**
-- Run all linters: `uv run poe lint-all`
-- Fix formatting: `uv run ruff format .`
-- Fix lint issues: `uv run ruff check --fix .`
-- Type check: `uv run mypy .`
+**The Loop**: If any checks fail, fix and repeat. Never present failing code.
 
-**Testing:**
-- **Run all tests**: `uv run poe test-all`
-- **Run backend tests**: `uv run poe test`
-- **Run specific test file**: `uv run pytest tests/sre_agent/tools/clients/test_trace.py`
-- **Run specific test case**: `uv run pytest tests/sre_agent/tools/clients/test_trace.py::test_fetch_trace`
-- **With verbose output**: Add `-v -s` (e.g., `uv run pytest ... -v -s`)
+**Testing Guide**: [docs/guides/testing.md](./docs/guides/testing.md)
 
-**Running the App:**
-- Backend only: `uv run poe web`
-- Full stack (Backend + Flutter): `uv run poe dev`
+---
 
-## 🎨 Code Style & Guidelines
+## 📚 Codebase Architecture
 
-### Python (Backend)
-- **Version**: Python 3.10+
-- **Type Hints**: **MANDATORY** & Strict. No implicit `Any`.
-  - Good: `def func(a: str | None = None) -> list[int]: ...`
-  - Bad: `def func(a=None): ...`
-- **Imports**: Absolute imports preferred (e.g., `from sre_agent.tools import ...`).
-- **Async**: Always `await` coroutines. Use `asyncio.gather` for parallelism.
-- **Error Handling**: Use `try/except` blocks. Log errors with `logger.error(..., exc_info=True)`. Return structured error responses in tools.
+### High-Level Overview
 
-### Pydantic Models
-- **Strict Config**: ALWAYS use `extra="forbid"` to prevent hallucinations.
-  ```python
-  class MyModel(BaseModel):
-      model_config = ConfigDict(frozen=True, extra="forbid")
-      field: str
-  ```
+**Pattern**: "Council of Experts" - A main orchestrator delegates to specialized sub-agents.
 
-### Tool Development Pattern
-- **Decorator**: Use `@adk_tool` for all tools.
-- **Return Structure**: Must follow `BaseToolResponse`.
-  ```python
-  @adk_tool
-  async def my_tool(arg: str) -> str:
-      try:
-          # ... implementation ...
-          return json.dumps({"status": "success", "result": {...}})
-      except Exception as e:
-          return json.dumps({"status": "error", "error": str(e)})
-  ```
-- **Clients**: Use factory pattern (`get_trace_client()`). Never instantiate directly.
-- **Credentials**: Respect End-User Credentials (EUC). Pass `tool_context` where needed.
+**Technology Stack**:
+- **Language**: Python 3.10+ (Backend), Dart/Flutter (Frontend)
+- **Agent Framework**: Google Agent Development Kit (ADK)
+- **LLM**: Gemini 2.5 Flash
+- **Frontend**: Flutter Web + GenUI Protocol (Deep Space Theme)
+- **API Strategy**: Hybrid (MCP for heavy-lifting, Direct API for speed)
+- **Testing**: pytest (Backend), flutter test (Frontend)
+- **Linting**: Ruff + MyPy (Python), flutter analyze (Dart)
 
-### Testing Standards
-- **Mocking**: NEVER use real credentials or project IDs. Mock all GCP clients.
-- **Structure**: Mirror source (e.g., `sre_agent/foo.py` -> `tests/sre_agent/test_foo.py`).
-- **Coverage**: Aim for 100% path coverage.
+### Core Components
 
-### Flutter (Frontend)
-- **Format**: `dart format .`
-- **Lint**: `flutter analyze .`
-- **Test**: `flutter test`
-- **Style**: "Deep Space" theme (Glassmorphism). Use `UnifiedPromptInput`, `StatusToast`.
+```
+sre_agent/
+├── agent.py              # Main orchestrator with 3-stage analysis pipeline
+├── prompt.py             # Agent personality and instructions
+├── schema.py             # Pydantic models (all with extra="forbid")
+├── sub_agents/           # Specialist agents (trace, logs, metrics, alerts)
+├── tools/                # Tool implementations
+│   ├── mcp/              # Model Context Protocol (heavy SQL/queries)
+│   ├── clients/          # Direct GCP API clients (low-latency)
+│   ├── analysis/         # Pure analysis functions
+│   └── common/           # Shared utilities (decorators, cache, telemetry)
+├── services/             # Infrastructure (session management, storage)
+└── server.py             # FastAPI server
+```
 
-## 🏗️ Architecture Overview
-- **Orchestrator**: `sre_agent/agent.py` delegates to sub-agents.
-- **Sub-Agents**: Located in `sre_agent/sub_agents/` (Trace, Log, Metrics specialists).
-- **Tools**: `sre_agent/tools/` (MCP for heavy SQL, Direct API for low latency).
-- **Protocol**: GenUI over HTTP.
+---
 
-## ❌ Common Pitfalls
-- **Missing @adk_tool**: Agent won't see the tool.
-- **Hardcoded Secrets**: Use env vars (`GOOGLE_CLOUD_PROJECT`).
-- **Implicit Any**: `mypy` will fail. Define types explicitly.
-- **Relative Imports**: Use absolute paths to avoid circular deps.
+## 🎯 Core Patterns You MUST Follow
 
-## 📝 Development Workflow
-1.  **Read**: Understand file context and related tests.
-2.  **Plan**: Check `docs/PROJECT_PLAN.md` and define approach.
-3.  **Test**: Write failing test first (TDD).
-4.  **Implement**: Write code to pass test.
-5.  **Verify**: Run `uv run poe lint-all` and `uv run poe test`.
-6.  **Commit**: Use conventional commits (feat, fix, docs, refactor).
+### 1. Pydantic Schema Pattern
+
+**NOTE: A runtime monkeypatch for Pydantic is active in `sre_agent/api/app.py`.**
+This resolves an incompatibility between `google-adk` 1.23.0 and Pydantic 2.12+. Do not remove `_patch_pydantic()` until ADK is updated.
+
+**ALL Pydantic models MUST use:**
+```python
+from pydantic import BaseModel, ConfigDict
+
+class MySchema(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    field: str
+```
+
+**Why**: `extra="forbid"` catches LLM hallucinations (extra fields) immediately.
+
+### 2. Tool Decorator Pattern
+
+**ALL tools MUST use `@adk_tool` decorator:**
+```python
+from sre_agent.tools.common.decorators import adk_tool
+
+@adk_tool
+async def my_tool(arg: str) -> str:
+    """Tool description."""
+    # Implementation
+    return result
+```
+
+**Benefits**: Automatic OpenTelemetry spans, metrics, logging, error handling.
+
+### 3. Error Response Pattern
+
+**ALL tools MUST follow `BaseToolResponse` structure:**
+```python
+{
+    "status": "success" | "error" | "partial",
+    "result": {...},  # Only if successful
+    "error": "error message",  # Only if failed
+    "metadata": {...}  # Optional context
+}
+```
+
+**For non-retryable errors, explicitly state:**
+```python
+return json.dumps({
+    "status": "error",
+    "error": "MCP session timeout. DO NOT retry. Use Direct API instead.",
+    "non_retryable": True
+})
+```
+
+### 4. Client Singleton Pattern
+
+**ALL GCP clients MUST use factory pattern:**
+```python
+from sre_agent.tools.clients.factory import get_trace_client
+
+def my_function():
+    client = get_trace_client()  # Thread-safe singleton
+    # Use client
+```
+
+### 5. Session Persistence Pattern (CRITICAL)
+
+**When modifying `server.py` or event loops:**
+- **Refresh Sessions**: The `session` object passed to an async generator creates a stale closure.
+- **Pattern**: ALWAYS refresh the session from the DB inside the loop or before use if `await` calls have occurred.
+- **Anti-Pattern**: Using the initial `session` object after `await session_service.append_event(...)` without refreshing.
+
+### 6. Caching Pattern
+
+**Use data cache for expensive operations:**
+```python
+from sre_agent.tools.common.cache import get_data_cache
+
+cache = get_data_cache()
+cache_key = f"trace:{trace_id}"
+
+# Check cache
+cached = cache.get(cache_key)
+if cached:
+    return cached
+
+# Fetch and cache
+result = await fetch_data()
+cache.put(cache_key, result)
+return result
+```
+
+**TTL**: 300 seconds (5 minutes)
+
+### 6. Project ID Enforcement Pattern (CRITICAL)
+
+**ALL API tools and clients MUST enforce Project ID:**
+- **Interceptor Pattern**: The `ProjectContextInterceptor` automatically injects the active `X-GCP-Project-ID` header.
+- **No Hardcoding**: NEVER hardcode project IDs. Use `get_current_project_id()` if absolutely necessary in backend logic.
+- **Frontend**: The generic `ProjectService` ensures the selected project is propagated.
+
+### 7. Mission Control UI Standards (Flutter)
+
+**Aesthetic**: "Deep Space Command Center"
+- **Theme**: Dark mode, Glassmorphism (frosted glass), "Electric Indigo" & "Signal Cyan" accents.
+- **Typography**: `Inter` or `Outfit` for headers, `JetBrains Mono` for code.
+- **Components**:
+  - `StatusToast`: Floating glassmorphic notification.
+  - `UnifiedPromptInput`: Centered pill-shaped input.
+  - **Canvas Widgets**: Dynamic visualization (e.g., `AgentActivityCanvas`).
+
+### 8. MCP vs Direct API Strategy
+
+**Use MCP (`mcp/`) for**:
+- BigQuery SQL execution (fleet-wide analysis)
+- Complex log queries with aggregation
+- Heavy PromQL queries
+
+**Use Direct API (`clients/`) for**:
+- Single trace fetching (low-latency)
+- Simple log queries
+- Real-time metric queries
+- Alert policy queries
+
+**Fallback Rule**: If MCP fails, tools MUST fall back to Direct API and document this in error messages.
+
+### 9. Dual-Mode Execution Pattern (CRITICAL)
+
+The agent supports two execution modes determined by the `SRE_AGENT_ID` environment variable:
+
+**Local Mode (Development)** - `SRE_AGENT_ID` NOT set:
+```python
+# In sre_agent/api/routers/agent.py
+if not is_remote_mode():
+    # Run agent directly in FastAPI process
+    from sre_agent.agent import root_agent
+    async for event in root_agent.run_async(inv_ctx):
+        yield event
+```
+
+**Remote Mode (Production)** - `SRE_AGENT_ID` IS set:
+```python
+# In sre_agent/api/routers/agent.py
+if is_remote_mode():
+    # Forward to Agent Engine
+    client = get_agent_engine_client()
+    async for event in client.stream_query(
+        user_id=user_id,
+        message=message,
+        access_token=access_token,  # EUC passed via session state
+        project_id=project_id,
+    ):
+        yield event
+```
+
+**Key Files:**
+- `sre_agent/services/agent_engine_client.py`: Remote Agent Engine client
+- `sre_agent/api/routers/agent.py`: Dual-mode endpoint implementation
+
+### 10. End-User Credentials (EUC) Pattern (CRITICAL)
+
+User credentials MUST be propagated to tools for multi-tenant access:
+
+**Frontend (Flutter)**:
+```dart
+// In autosre/lib/services/api_client.dart
+class ProjectInterceptorClient {
+  Future<http.Response> post(Uri uri, {Object? body, ...}) async {
+    final response = await _inner.post(uri,
+      headers: {
+        'Authorization': 'Bearer ${authService.accessToken}',  // EUC
+        'X-GCP-Project-ID': projectService.selectedProjectId,
+      },
+      body: body,
+    );
+  }
+}
+```
+
+**Backend Middleware**:
+```python
+# In sre_agent/api/middleware.py
+async def auth_middleware(request: Request, call_next):
+    # Extract token from Authorization header
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+        creds = Credentials(token=token)
+        set_current_credentials(creds)  # Set ContextVar
+
+    # Extract project ID from header
+    project_id = request.headers.get("X-GCP-Project-ID")
+    set_current_project_id(project_id)  # Set ContextVar
+```
+
+**Tool Implementation**:
+```python
+# In any tool that needs user credentials
+from sre_agent.auth import get_credentials_from_tool_context
+
+@adk_tool
+async def my_gcp_tool(arg: str, tool_context: ToolContext | None = None) -> str:
+    # Priority: ContextVar → Session State → Default
+    creds = get_credentials_from_tool_context(tool_context)
+    client = get_trace_client(tool_context)  # Factory respects EUC
+    # ...
+```
+
+**Session State Keys** (for Agent Engine mode):
+```python
+SESSION_STATE_ACCESS_TOKEN_KEY = "_user_access_token"
+SESSION_STATE_PROJECT_ID_KEY = "_user_project_id"
+```
+
+**STRICT_EUC_ENFORCEMENT**:
+When `STRICT_EUC_ENFORCEMENT=true`, tools will raise `PermissionError` instead of falling back to Application Default Credentials.
+
+---
+
+## 💻 Frontend Architecture (Flutter/GenUI)
+
+**Path**: `autosre/`
+
+**Key Components**:
+- **Framework**: Flutter Web
+- **Protocol**: GenUI (Generative UI) + A2UI
+- **State**: Provider + ValueNotifier
+- **Agent Integration**: `AdkContentGenerator` connects to Vertex AI Agent
+
+**Development Rules**:
+1. **Visual Excellence**: "WOW" the user. No flat, boring UIs.
+2. **Components**: Use `lib/widgets/` reusable components (e.g., `GlassContainer`).
+3. **Format**: Run `dart format .` before committing.
+
+
+---
+
+## 🛠️ Development Workflow
+
+### Before ANY Code Change
+
+1. **Read relevant files**:
+   ```bash
+   # Read the file you're modifying
+   # Read related test files
+   # Read related schema files
+   ```
+
+2. **Understand the context**:
+   - What sub-agent uses this tool?
+   - What other tools does it interact with?
+   - What are the error cases?
+
+### Making Changes
+
+1. **Add/Modify Code**
+2. **Run linter** (catches 90% of issues):
+   ```bash
+   uv run poe lint
+   ```
+3. **Run tests**:
+   ```bash
+   uv run poe test
+   ```
+4. **Fix any failures** and repeat steps 2-3
+
+### Adding a New Tool
+
+**Checklist**:
+1. ✅ Create function in `/sre_agent/tools/` (appropriate subdirectory)
+2. ✅ Add `@adk_tool` decorator
+3. ✅ Add docstring with clear description
+4. ✅ Add to `__all__` in `/sre_agent/tools/__init__.py`
+5. ✅ Add to `base_tools` list in `/sre_agent/agent.py`
+6. ✅ Add to `TOOL_NAME_MAP` in `/sre_agent/agent.py`
+7. ✅ Add `ToolConfig` entry in `/sre_agent/tools/config.py`
+8. ✅ Add test in `tests/sre_agent/tools/`
+9. ✅ Run `uv run poe lint` and `uv run poe test`
+10. ✅ Update README.md tool table (if user-facing)
+
+**Example**:
+```python
+# File: sre_agent/tools/clients/trace.py
+
+@adk_tool
+async def fetch_trace(project_id: str, trace_id: str) -> str:
+    """Fetch a single trace by ID from Cloud Trace API.
+
+    Args:
+        project_id: GCP project ID
+        trace_id: Trace ID (128-bit hex string)
+
+    Returns:
+        JSON string with trace data or error response
+    """
+    try:
+        client = get_trace_client()
+        # Implementation
+        return json.dumps({"status": "success", "result": trace_data})
+    except Exception as e:
+        return json.dumps({"status": "error", "error": str(e)})
+```
+
+### Adding a New Sub-Agent
+
+**Checklist**:
+1. ✅ Create file in `/sre_agent/sub_agents/<name>.py`
+2. ✅ Define clear prompt with:
+   - Persona (e.g., "Latency Specialist")
+   - Workflow steps
+   - Tool usage guidelines
+   - Output format
+3. ✅ Select curated tool subset (only what's needed)
+4. ✅ Export in `/sre_agent/sub_agents/__init__.py`
+5. ✅ Add to `sub_agents` list in `/sre_agent/agent.py`
+6. ✅ Add test in `tests/sre_agent/sub_agents/`
+7. ✅ Run `uv run poe lint` and `uv run poe test`
+8. ✅ Update README.md architecture diagram
+
+**Example Structure**:
+```python
+# File: sre_agent/sub_agents/latency.py
+
+from google.ai.generativelanguage import LlmAgent
+
+LATENCY_ANALYZER_PROMPT = """
+You are a Latency Specialist. Your role is to...
+
+**Workflow**:
+1. Fetch trace data
+2. Calculate span durations
+3. Identify critical path
+4. Report bottlenecks
+
+**Output Format**:
+{
+    "bottlenecks": [...],
+    "critical_path": [...],
+    "recommendations": [...]
+}
+"""
+
+latency_analyzer = LlmAgent(
+    model="gemini-2.5-flash",
+    system_instruction=LATENCY_ANALYZER_PROMPT,
+    tools=[
+        # Only latency-relevant tools
+        "fetch_trace",
+        "calculate_span_durations",
+        "analyze_critical_path",
+    ]
+)
+```
+
+---
+
+## 🧪 Testing Requirements
+
+### Coverage Requirement
+
+**Target**: **100% test coverage**. Every branch and error condition must be verified.
+
+**Test-First Policy**: Coding agents MUST translate specs to tests **before** writing implementation code.
+
+### Test Structure
+
+```
+tests/
+├── unit/                       # Unit tests (Isolated logic)
+├── server/                     # API tests (server.py)
+├── integration/                # State/DB tests (persistence)
+└── e2e/                        # End-to-end tests
+```
+
+### Writing Tests
+
+**Pattern**: Mirror source structure
+- `sre_agent/tools/clients/trace.py` → `tests/sre_agent/tools/clients/test_trace.py`
+
+**Mock External APIs**:
+```python
+from unittest.mock import patch, MagicMock
+
+@patch("sre_agent.tools.clients.factory.get_trace_client")
+async def test_fetch_trace(mock_get_client):
+    mock_client = MagicMock()
+    mock_get_client.return_value = mock_client
+
+    # Setup mock response
+    mock_client.get_trace.return_value = {...}
+
+    # Test
+    result = await fetch_trace("project-id", "trace-id")
+    assert "success" in result
+```
+
+**MCP Testing**:
+Set environment variable to use mock:
+```python
+import os
+os.environ["USE_MOCK_MCP"] = "true"
+```
+
+### Running Tests
+
+```bash
+# All tests
+uv run poe test
+
+# Specific test file
+uv run pytest tests/sre_agent/tools/clients/test_trace.py
+
+# Specific test function
+uv run pytest tests/sre_agent/tools/clients/test_trace.py::test_fetch_trace
+
+# With coverage report
+uv run pytest --cov=sre_agent --cov-report=html
+```
+
+---
+
+## 🎨 Code Style & Type Checking
+
+### Type Annotations (Strict MyPy)
+
+**ALL functions MUST have explicit types:**
+
+```python
+# ✅ GOOD
+def process_trace(trace_id: str, project: str | None = None) -> dict[str, Any]:
+    items: list[dict[str, Any]] = []
+    total: float = 0.0
+    return {"items": items, "total": total}
+
+# ❌ BAD
+def process_trace(trace_id, project=None):  # Missing types
+    items = []  # Implicit Any
+    total = 0  # Should be 0.0 for float
+    return {"items": items, "total": total}
+```
+
+**Key Rules**:
+- Optional types: `str | None` (NOT `str = None` without type)
+- Empty containers: `items: list[dict[str, Any]] = []`
+- Float initialization: `val: float = 0.0` (not `0`)
+- No implicit `Any`
+
+### Import Style
+
+```python
+# Absolute imports for cross-module
+from sre_agent.tools.clients.trace import fetch_trace
+from sre_agent.schema import BaseToolResponse
+
+# Relative imports for siblings/parents
+from .trace import fetch_trace
+from ..common.decorators import adk_tool
+
+# Type checking imports (avoid circular deps)
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from sre_agent.agent import SREAgent
+```
+
+### Linting Stack
+
+**Run before every commit:**
+```bash
+uv run poe lint
+```
+
+**Components**:
+- **Ruff**: Formatting, import sorting, linting (replaces Black/Flake8/Isort)
+- **MyPy**: Strict type checking
+- **Codespell**: Spelling checker
+- **Deptry**: Dependency checker (unused/missing in pyproject.toml)
+- **detect-secrets**: Secret scanning
+
+---
+
+## 🔍 Common Tasks
+
+### Task 1: Fix a Bug in a Tool
+
+1. **Read the tool file**:
+   ```bash
+   # Example: Bug in fetch_trace
+   cat sre_agent/tools/clients/trace.py
+   ```
+
+2. **Read the test file**:
+   ```bash
+   cat tests/sre_agent/tools/clients/test_trace.py
+   ```
+
+3. **Reproduce the issue**:
+   ```bash
+   uv run pytest tests/sre_agent/tools/clients/test_trace.py -v
+   ```
+
+4. **Fix the code**
+
+5. **Run linter and tests**:
+   ```bash
+   uv run poe lint
+   uv run poe test
+   ```
+
+### Task 2: Add a New Analysis Feature
+
+1. **Create analysis function** in `sre_agent/tools/analysis/`
+2. **Add tests** in `tests/sre_agent/tools/analysis/`
+3. **Create tool wrapper** (if needed) that uses the analysis function
+4. **Add to agent** following "Adding a New Tool" checklist
+5. **Run linter and tests**
+
+### Task 3: Improve Error Handling
+
+**Pattern**:
+```python
+@adk_tool
+async def my_tool(arg: str) -> str:
+    try:
+        # Implementation
+        return json.dumps({
+            "status": "success",
+            "result": result
+        })
+    except SpecificError as e:
+        # Log with context
+        logger.error(f"Specific error in my_tool: {e}", exc_info=True)
+        return json.dumps({
+            "status": "error",
+            "error": f"Specific error: {str(e)}",
+            "non_retryable": True  # If shouldn't retry
+        })
+    except Exception as e:
+        # Catch-all
+        logger.error(f"Unexpected error in my_tool: {e}", exc_info=True)
+        return json.dumps({
+            "status": "error",
+            "error": f"Unexpected error: {str(e)}"
+        })
+```
+
+### Task 4: Optimize Performance
+
+**Strategies**:
+1. **Add caching** for repeated data fetches
+2. **Use batch APIs** instead of loops
+3. **Parallelize independent operations** with `asyncio.gather()`
+4. **Reduce LLM context** by summarizing data before sending
+5. **Profile slow operations**:
+   ```python
+   import time
+   start = time.time()
+   result = await slow_operation()
+   logger.info(f"slow_operation took {time.time() - start:.2f}s")
+   ```
+
+### Task 5: Debug MCP Issues
+
+**Common Issues**:
+1. **Session timeout**: Fall back to Direct API
+2. **Missing credentials**: Check `GOOGLE_CLOUD_PROJECT` env var
+3. **Schema errors**: Check BigQuery table schema matches expectations
+
+**Debug Steps**:
+```bash
+# Enable debug logging
+export LOG_LEVEL=DEBUG
+
+# Run specific test
+uv run pytest tests/sre_agent/tools/mcp/test_gcp.py -v -s
+
+# Check MCP mock is used in tests
+export USE_MOCK_MCP=true
+```
+
+---
+
+## 🚨 Common Pitfalls & Solutions
+
+### Pitfall 1: Missing Tool Registration
+
+**Symptom**: Tool exists but agent can't find it.
+
+**Solution**: Check ALL registration points:
+- `__all__` in `/sre_agent/tools/__init__.py`
+- `base_tools` in `/sre_agent/agent.py`
+- `TOOL_NAME_MAP` in `/sre_agent/agent.py`
+- `ToolConfig` in `/sre_agent/tools/config.py`
+
+### Pitfall 2: Import Errors
+
+**Symptom**: `ImportError` or `ModuleNotFoundError`
+
+**Solution**:
+```bash
+# Sync dependencies
+uv run poe sync
+
+# Check if module is installed
+uv pip list | grep <module-name>
+
+# Verify import path
+python -c "from sre_agent.tools import fetch_trace; print('OK')"
+```
+
+### Pitfall 3: Type Checking Errors
+
+**Symptom**: MyPy errors like "Missing type annotation"
+
+**Solution**: Add explicit types:
+```python
+# ❌ Before
+def process(data):
+    items = []
+    return items
+
+# ✅ After
+def process(data: dict[str, Any]) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    return items
+```
+
+### Pitfall 4: Test Coverage Drops
+
+**Symptom**: CI fails with "Coverage dropped below 80%"
+
+**Solution**:
+```bash
+# Check coverage report
+uv run pytest --cov=sre_agent --cov-report=html
+
+# Open htmlcov/index.html to see uncovered lines
+
+# Add tests for uncovered code
+```
+
+### Pitfall 5: Pydantic Validation Errors
+
+**Symptom**: `ValidationError: Extra inputs are not permitted`
+
+**Solution**: Check schema has `extra="forbid"`:
+```python
+class MySchema(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    # Fields...
+```
+
+### Pitfall 6: Async/Await Issues
+
+**Symptom**: `RuntimeWarning: coroutine was never awaited`
+
+**Solution**: Always `await` async functions:
+```python
+# ❌ Wrong
+result = fetch_trace(project, trace_id)
+
+# ✅ Correct
+result = await fetch_trace(project, trace_id)
+```
+
+### Pitfall 7: GenUI/A2UI Protocol Mismatches
+
+**Symptom**: Tool call widgets or responses invisible in the chat.
+
+**Solution**:
+- Check if the backend is sending nested `component` wrappers (it shouldn't).
+- See **`docs/debugging_genui.md`** for detailed debugging steps and the "wrapper issue" explanation.
+
+---
+
+## 🌟 Best Practices for AI-Assisted Development
+
+### 1. Always Read Before Modifying
+
+**Never propose changes to code you haven't read.**
+```bash
+# Read the file first
+cat sre_agent/tools/clients/trace.py
+
+# Then make changes
+```
+
+### 2. Understand the Full Context
+
+Before making a change, understand:
+- What sub-agents use this tool?
+- What are the dependencies?
+- What are the edge cases?
+- What tests exist?
+
+### 3. Make Minimal Changes
+
+**Avoid over-engineering:**
+- Only make changes that are directly requested
+- Don't add "improvements" beyond the scope
+- Don't refactor surrounding code
+- Don't add docstrings to code you didn't change
+
+### 4. Follow the Existing Patterns
+
+**Don't reinvent patterns:**
+- Use `@adk_tool` decorator (don't create your own)
+- Use `get_trace_client()` factory (don't instantiate directly)
+- Use `BaseToolResponse` structure (don't create custom)
+- Use existing error handling patterns
+
+### 5. Test-Driven Development
+
+**Write tests first when possible:**
+```python
+# 1. Write failing test
+def test_new_feature():
+    result = await new_feature("input")
+    assert result == "expected"
+
+# 2. Run test (should fail)
+# 3. Implement feature
+# 4. Run test (should pass)
+```
+
+### 6. Incremental Changes
+
+**Make small, verifiable changes:**
+1. Change one file
+2. Run linter
+3. Run tests
+4. Commit
+5. Repeat
+
+### 7. Document Intent, Not Implementation
+
+**Good comments explain WHY, not WHAT:**
+```python
+# ❌ Bad comment (explains what)
+# Loop through traces
+for trace in traces:
+    process(trace)
+
+# ✅ Good comment (explains why)
+# Process traces in sequence to avoid rate limiting
+for trace in traces:
+    process(trace)
+```
+
+### 8. Use Type Hints as Documentation
+
+**Types are self-documenting:**
+```python
+# ✅ Clear from types
+def fetch_traces(
+    project_id: str,
+    start_time: datetime,
+    limit: int = 100
+) -> list[dict[str, Any]]:
+    ...
+```
+
+### 9. Handle Errors Gracefully
+
+**Always provide actionable error messages:**
+```python
+# ❌ Bad error
+raise Exception("Failed")
+
+# ✅ Good error
+raise ValueError(
+    f"Invalid trace_id format: {trace_id}. "
+    "Expected 128-bit hex string (32 characters)."
+)
+```
+
+### 10. Keep the User Informed
+
+**For long-running operations, add progress logging:**
+```python
+logger.info(f"Fetching {len(trace_ids)} traces...")
+for i, trace_id in enumerate(trace_ids):
+    if i % 10 == 0:
+        logger.info(f"Progress: {i}/{len(trace_ids)} traces fetched")
+    await fetch_trace(project, trace_id)
+logger.info("All traces fetched successfully")
+```
+
+---
+
+## 🔐 Security & Secrets
+
+### Never Commit Secrets
+
+**Scan before commit:**
+```bash
+uv run detect-secrets scan --baseline .secrets.baseline
+```
+
+**If false positive:**
+```bash
+uv run detect-secrets scan --baseline .secrets.baseline --update
+```
+
+### Environment Variables
+
+**Required**:
+- `GOOGLE_CLOUD_PROJECT`: GCP project ID
+- `GOOGLE_CLOUD_LOCATION`: GCP region (default: us-central1)
+
+**Optional**:
+- `TRACE_PROJECT_ID`: Override trace project
+- `LOG_LEVEL`: Logging level (DEBUG, INFO, WARNING, ERROR)
+- `USE_MOCK_MCP`: Use mock MCP in tests
+
+**Never hardcode**:
+- API keys
+- Project IDs (use env vars)
+- Service account credentials
+
+---
+
+## 📊 Monitoring & Observability
+
+### OpenTelemetry Instrumentation
+
+**Every tool call generates**:
+- **Span**: With attributes (tool name, arguments, duration)
+- **Metrics**: Execution count, latency
+- **Logs**: Entry, completion, errors
+
+**Configured in**: `/sre_agent/tools/common/telemetry.py`
+
+### Logging Best Practices
+
+```python
+import logging
+logger = logging.getLogger(__name__)
+
+# Use appropriate levels
+logger.debug("Detailed debug info")
+logger.info("Important state changes")
+logger.warning("Recoverable issues")
+logger.error("Errors requiring attention", exc_info=True)
+
+# Include context
+logger.info(f"Fetching trace {trace_id} from project {project_id}")
+```
+
+---
+
+## 🚀 Deployment
+
+### Local Development
+
+```bash
+# Backend only
+uv run poe web
+
+# Full stack (backend + frontend)
+uv run poe dev
+
+# Interactive terminal
+uv run poe run
+```
+
+### Deployment to Agent Engine
+
+```bash
+# Backend to Vertex AI Agent Engine
+uv run poe deploy
+
+# Frontend to Cloud Run
+uv run poe deploy-web
+
+# Full stack to Cloud Run
+uv run poe deploy-all
+```
+
+**See**: `deploy/README.md` for detailed deployment guide.
+
+---
+
+## 🆘 Troubleshooting
+
+### Issue: Tests Failing
+
+**Debug Steps**:
+```bash
+# Run specific test with verbose output
+uv run pytest tests/path/to/test.py::test_name -v -s
+
+# Check test logs
+uv run pytest --log-cli-level=DEBUG
+
+# Use debugger
+uv run pytest --pdb
+```
+
+
+### Issue: Client Connectivity
+
+**Symptom**: Frontend stuck on "Connecting..." or 404/Connection Refused.
+
+**Solution**:
+1. Verify backend running on port 8001.
+2. Check `/health` endpoint: `curl http://localhost:8001/health`.
+3. Check CORS settings in `server.py`.
+4. See `docs/debugging_connectivity.md` for full guide.
+
+### Issue: Linter Failing
+
+**Common Fixes**:
+```bash
+# Auto-fix formatting issues
+uv run ruff check --fix sre_agent/
+
+# Auto-fix import sorting
+uv run ruff check --select I --fix sre_agent/
+
+# Check MyPy specific file
+uv run mypy sre_agent/tools/clients/trace.py
+```
+
+### Issue: Import Errors in Production
+
+**Check**:
+1. All dependencies in `pyproject.toml`
+2. Correct import paths (absolute vs relative)
+3. `__init__.py` files in all package directories
+
+### Issue: MCP Timeout
+
+**Solution**: Use Direct API fallback:
+```python
+try:
+    result = await mcp_list_log_entries(...)
+except TimeoutError:
+    logger.warning("MCP timeout, using Direct API")
+    result = await list_log_entries(...)
+```
+
+---
+
+## 📚 Additional Resources
+
+### Key Files to Reference
+
+- **Architecture**: `README.md` (Mermaid diagrams)
+- **Development Workflow**: `AGENTS.md` (code quality, git standards)
+- **Tool Reference**: `sre_agent/tools/__init__.py` (all available tools)
+- **Sub-Agent Reference**: `sre_agent/sub_agents/__init__.py` (all specialists)
+- **Schema Reference**: `sre_agent/schema.py` (all data models)
+
+### Command Reference
+
+```bash
+# Dependencies
+uv run poe sync              # Install/update dependencies
+
+# Development
+uv run poe run               # Interactive terminal agent
+uv run poe web               # Backend server only
+uv run poe dev               # Full stack (backend + frontend)
+
+# Quality Checks
+uv run poe lint              # Run all linters
+uv run poe pre-commit        # Run pre-commit hooks
+uv run poe test              # Run tests with coverage
+
+# Deployment
+uv run poe deploy            # Deploy backend to Agent Engine
+uv run poe deploy-web        # Deploy frontend to Cloud Run
+uv run poe deploy-all        # Deploy full stack to Cloud Run
+
+# Utilities
+uv run poe list              # List deployed agents
+uv run poe delete --resource_id ID  # Delete agent
+```
+
+### External Documentation
+
+- **Google ADK**: https://github.com/googleapis/python-genai
+- **MCP**: https://modelcontextprotocol.io/
+- **OpenTelemetry**: https://opentelemetry.io/docs/languages/python/
+- **Pydantic**: https://docs.pydantic.dev/
+- **pytest**: https://docs.pytest.org/
+
+---
+
+## 🎓 Learning Path for New Contributors
+
+1. **Week 1**: Read `README.md`, `AGENTS.md`, `CLAUDE.md`
+2. **Week 2**: Explore `/sre_agent/agent.py`, `/sre_agent/prompt.py`
+3. **Week 3**: Study sub-agents in `/sre_agent/sub_agents/`
+4. **Week 4**: Deep dive into tools in `/sre_agent/tools/`
+5. **Week 5**: Write your first tool or sub-agent
+6. **Week 6**: Contribute to tests and documentation
+
+---
+
+## ✅ Pre-Commit Checklist
+
+Before committing code, verify:
+
+- [ ] Read all files I'm modifying
+- [ ] Understood the context and dependencies
+- [ ] Made minimal, focused changes
+- [ ] Added/updated tests for changes
+- [ ] Ran `uv run poe lint` (passed clean)
+- [ ] Ran `uv run poe test-all` (passed with 70%+ coverage)
+- [ ] Updated docstrings if adding new functions
+- [ ] Updated README.md if adding user-facing features
+- [ ] Used conventional commit message format
+- [ ] No secrets or credentials committed
+
+---
+
+## 🎯 Summary: Golden Rules
+
+1. **Always read before modifying** - Never propose changes to unread code
+2. **Follow existing patterns** - Don't reinvent the wheel
+3. **Test everything** - 70% coverage minimum, no exceptions
+4. **Type everything** - Strict MyPy, explicit types always
+5. **Lint before commit** - `uv run poe lint` must pass
+6. **Make minimal changes** - Avoid over-engineering
+7. **Document intent** - Comments explain WHY, not WHAT
+8. **Handle errors gracefully** - Provide actionable error messages
+9. **Use the tools** - `@adk_tool`, factories, caching, etc.
+10. **Keep learning** - Read the codebase, ask questions, improve
+
+---
+
+**Happy Coding! 🚀**
