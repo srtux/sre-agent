@@ -8,6 +8,7 @@ import 'package:genui/genui.dart';
 import 'package:provider/provider.dart';
 
 import '../services/auth_service.dart';
+import '../services/prompt_history_service.dart';
 
 import '../agent/adk_content_generator.dart';
 import '../catalog.dart';
@@ -42,8 +43,14 @@ class _ConversationPageState extends State<ConversationPage>
   final ProjectService _projectService = ProjectService();
   final SessionService _sessionService = SessionService();
   final GlobalKey _inputKey = GlobalKey(debugLabel: 'prompt_input');
+  final PromptHistoryService _promptHistoryService = PromptHistoryService();
 
   late AnimationController _typingController;
+
+  // Prompt History State
+  List<String> _promptHistory = [];
+  int _historyIndex = -1; // -1 means not navigating history
+  String _tempInput = '';
 
   StreamSubscription<String>? _sessionSubscription;
   final ValueNotifier<List<String>> _suggestedActions = ValueNotifier([
@@ -59,15 +66,29 @@ class _ConversationPageState extends State<ConversationPage>
     super.initState();
 
     // Handle Enter key behavior (Enter to send, Shift+Enter for newline)
+    // Also handles History navigation (Up/Down arrows)
     _focusNode.onKeyEvent = (node, event) {
-      if (event is KeyDownEvent &&
-          event.logicalKey == LogicalKeyboardKey.enter) {
+      if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+      if (event.logicalKey == LogicalKeyboardKey.enter) {
         if (HardwareKeyboard.instance.isShiftPressed) {
           return KeyEventResult.ignored;
         }
         _sendMessage();
         return KeyEventResult.handled;
+      } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+        // Only navigate history if input is empty or we are already navigating
+        if (_textController.text.isEmpty || _historyIndex != -1) {
+          _navigateHistory(up: true);
+          return KeyEventResult.handled;
+        }
+      } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+        if (_historyIndex != -1) {
+          _navigateHistory(up: false);
+          return KeyEventResult.handled;
+        }
       }
+
       return KeyEventResult.ignored;
     };
 
@@ -84,9 +105,57 @@ class _ConversationPageState extends State<ConversationPage>
     // Fetch projects and sessions on startup
     _projectService.fetchProjects();
     _sessionService.fetchSessions();
+    _loadPromptHistory();
 
     // Update content generator when project selection changes
     _projectService.selectedProject.addListener(_onProjectChanged);
+  }
+
+  Future<void> _loadPromptHistory() async {
+    _promptHistory = await _promptHistoryService.getHistory();
+  }
+
+  void _navigateHistory({required bool up}) {
+    if (_promptHistory.isEmpty) return;
+
+    if (_historyIndex == -1) {
+      if (up) {
+        // Start navigation
+        _tempInput = _textController.text;
+        _historyIndex = _promptHistory.length - 1;
+        _updateInputFromHistory();
+      }
+    } else {
+      if (up) {
+        if (_historyIndex > 0) {
+          _historyIndex--;
+          _updateInputFromHistory();
+        }
+      } else {
+        if (_historyIndex < _promptHistory.length - 1) {
+          _historyIndex++;
+          _updateInputFromHistory();
+        } else {
+          // Exit navigation
+          _historyIndex = -1;
+          _textController.text = _tempInput;
+          _moveCursorToEnd();
+        }
+      }
+    }
+  }
+
+  void _updateInputFromHistory() {
+    if (_historyIndex >= 0 && _historyIndex < _promptHistory.length) {
+      _textController.text = _promptHistory[_historyIndex];
+      _moveCursorToEnd();
+    }
+  }
+
+  void _moveCursorToEnd() {
+    _textController.selection = TextSelection.fromPosition(
+      TextPosition(offset: _textController.text.length),
+    );
   }
 
   void _initializeConversation() {
@@ -114,7 +183,9 @@ class _ConversationPageState extends State<ConversationPage>
     _contentGenerator.errorStream.listen((error) {
       if (mounted) {
         StatusToast.show(context, 'Error: ${error.error}');
-        debugPrint('ContentGenerator Error: ${error.error}\n${error.stackTrace}');
+        debugPrint(
+          'ContentGenerator Error: ${error.error}\n${error.stackTrace}',
+        );
       }
     });
 
@@ -137,15 +208,22 @@ class _ConversationPageState extends State<ConversationPage>
 
     // Subscribe to new UI surfaces that we want to show as message bubbles
     _uiMessageSubscription?.cancel();
-    _uiMessageSubscription = _contentGenerator.uiMessageStream.listen((surfaceId) {
+    _uiMessageSubscription = _contentGenerator.uiMessageStream.listen((
+      surfaceId,
+    ) {
       if (mounted) {
         setState(() {
-          final messages = List<ChatMessage>.from(_conversation.conversation.value);
-          messages.add(AiUiMessage(
-            definition: UiDefinition(surfaceId: surfaceId),
-            surfaceId: surfaceId,
-          ));
-          (_conversation.conversation as ValueNotifier<List<ChatMessage>>).value =
+          final messages = List<ChatMessage>.from(
+            _conversation.conversation.value,
+          );
+          messages.add(
+            AiUiMessage(
+              definition: UiDefinition(surfaceId: surfaceId),
+              surfaceId: surfaceId,
+            ),
+          );
+          (_conversation.conversation as ValueNotifier<List<ChatMessage>>)
+                  .value =
               messages;
         });
         _scrollToBottom(force: true);
@@ -242,7 +320,8 @@ class _ConversationPageState extends State<ConversationPage>
     final maxScroll = position.maxScrollExtent;
 
     // 1. Check if user is actively manual scrolling
-    final isUserScrolling = position.userScrollDirection != ScrollDirection.idle;
+    final isUserScrolling =
+        position.userScrollDirection != ScrollDirection.idle;
 
     // 2. Threshold to detect if we should "stick" to the bottom.
     // We use a larger threshold (300px) to ensure we don't lose stickiness
@@ -281,6 +360,15 @@ class _ConversationPageState extends State<ConversationPage>
     if (_textController.text.trim().isEmpty) return;
     final text = _textController.text;
     _textController.clear();
+
+    // Save to history
+    _promptHistoryService.addPrompt(text).then((_) {
+      _loadPromptHistory(); // Reload to get updated list/order
+    });
+    // Reset history navigation state
+    _historyIndex = -1;
+    _tempInput = '';
+
     _conversation.sendRequest(UserMessage.text(text));
 
     // Request focus after the frame to ensure that if the layout transitioned
@@ -1648,10 +1736,12 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
 
                       // Debounce search to avoid too many API calls
                       _debounceTimer?.cancel();
-                      _debounceTimer =
-                          Timer(const Duration(milliseconds: 500), () {
-                        widget.onSearch(value);
-                      });
+                      _debounceTimer = Timer(
+                        const Duration(milliseconds: 500),
+                        () {
+                          widget.onSearch(value);
+                        },
+                      );
                     },
                     onSubmitted: (value) {
                       if (_filteredProjects.isEmpty && value.isNotEmpty) {

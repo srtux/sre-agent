@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 @adk_tool
 def analyze_trace_comprehensive(
-    trace_id: str,
+    trace_id: str | dict[str, Any],
     project_id: str | None = None,
     include_call_graph: bool = True,
     baseline_trace_id: str | None = None,
@@ -50,7 +50,7 @@ def analyze_trace_comprehensive(
     6. Anomaly detection (if baseline_trace_id is provided)
 
     Args:
-        trace_id: The ID of the trace to analyze.
+        trace_id: The ID of the trace to analyze or a raw trace dictionary.
         project_id: GCP Project ID.
         include_call_graph: Whether to include the full call graph tree (can be large).
         baseline_trace_id: Optional ID of a baseline trace to compare against.

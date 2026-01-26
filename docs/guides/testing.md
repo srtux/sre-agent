@@ -18,12 +18,13 @@ Our philosophy is simple: **If it's not tested, it's broken.**
 
 ## 🏗️ Testing Levels
 
-| Level | Path | Description |
-|-------|------|-------------|
-| **Unit** | `tests/unit/` | Isolated logic, pure functions, tool implementations with mocked clients. |
-| **Integration** | `tests/integration/` | Interactions between services (e.g., Session Service + DB), State management. |
-| **System** | `tests/server/` | API endpoints, Middleware, Authentication flow, and Routing. |
-| **E2E** | `tests/e2e/` | Full agent loops, user query to final remediation plan. |
+| Level | Path | Tool | Description |
+|-------|------|------|-------------|
+| **Behavioral** | `openspec/specs/` | **OpenSpec** | "Source of Truth" specs defining behavior and acceptance criteria. |
+| **Unit** | `tests/unit/` | `pytest` | Isolated logic, pure functions, tool implementations with mocked clients. |
+| **Integration** | `tests/integration/` | `pytest` | Interactions between services (e.g., Session Service + DB), State management. |
+| **System** | `tests/server/` | `pytest` | API endpoints, Middleware, Authentication flow, and Routing. |
+| **E2E** | `tests/e2e/` | `pytest` | Full agent loops, user query to final remediation plan. |
 
 ---
 
@@ -59,12 +60,29 @@ Since our tools rely on `ToolContext` for session and credentials, use specializ
 
 ---
 
+## 🛰️ OpenSpec-Driven Development (BDD)
+
+Every major feature or fix should be anchored in an OpenSpec change located in `openspec/changes/`.
+
+### 1. The BDD Lifecycle (TDD Schema)
+When building a new capability, use the `tdd` schema:
+1. **`spec`**: Define the behavior, input/output contracts, and success criteria.
+2. **`tests`**: Draft the test cases (Gherkin/Functional).
+3. **`implementation`**: Write code to pass the tests.
+4. **`archive`**: Permanently move verified specs to `openspec/specs/`.
+
+### 2. Retroactive Specification
+For critical existing modules (like the `chat_agent`), we maintain "Base Specs" in `openspec/specs/` to serve as the definitive source of truth for behavior.
+
+---
+
 ## 📜 Policies
 
-1.  **TDD Rule**: For all new features, you must produce a test file demonstrating the intended behavior before modifying `sre_agent/`.
-2.  **Coverage Gate**: PRs that drop the project coverage level will be rejected.
-3.  **Regression Zero**: Every bug fix must include a regression test that fails without the fix.
-4.  **No Placeholders**: Do not use `TODO` in tests. Tests must be complete and assert on all relevant fields in responses.
+1.  **OpenSpec First**: No PR should be submitted for a new feature without a corresponding OpenSpec artifact.
+2.  **TDD Rule**: For all new features, you must produce a test file demonstrating the intended behavior before modifying `sre_agent/`.
+3.  **Coverage Gate**: PRs that drop the project coverage level will be rejected.
+4.  **Regression Zero**: Every bug fix must include a regression test that fails without the fix.
+5.  **No Placeholders**: Do not use `TODO` in tests. Tests must be complete and assert on all relevant fields in responses.
 
 ## 🚀 Execution
 

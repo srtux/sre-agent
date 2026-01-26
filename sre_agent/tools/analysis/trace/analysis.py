@@ -115,12 +115,14 @@ def _calculate_span_durations_impl(trace: TraceData) -> list[SpanData]:
 
 @adk_tool
 def calculate_span_durations(
-    trace_id: str, project_id: str | None = None, tool_context: Any = None
+    trace_id: str | dict[str, Any],
+    project_id: str | None = None,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Extracts timing information for each span in a trace.
 
     Args:
-        trace_id: The unique trace ID.
+        trace_id: The unique trace ID or a raw trace dictionary.
         project_id: The Google Cloud Project ID.
         tool_context: Context object for tool execution.
 
@@ -255,12 +257,14 @@ def _extract_errors_impl(trace: TraceData) -> list[dict[str, Any]]:
 
 @adk_tool
 def extract_errors(
-    trace_id: str, project_id: str | None = None, tool_context: Any = None
+    trace_id: str | dict[str, Any],
+    project_id: str | None = None,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Finds all spans that contain errors or error-related information.
 
     Args:
-        trace_id: The unique trace ID.
+        trace_id: The unique trace ID or a raw trace dictionary.
         project_id: The Google Cloud Project ID.
         tool_context: Context object for tool execution.
 
@@ -404,7 +408,9 @@ def _validate_trace_quality_impl(trace: TraceData) -> dict[str, Any]:
 
 @adk_tool
 def validate_trace_quality(
-    trace_id: str, project_id: str | None = None, tool_context: Any = None
+    trace_id: str | dict[str, Any],
+    project_id: str | None = None,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Validate trace data quality and detect issues.
 
@@ -415,7 +421,7 @@ def validate_trace_quality(
     - Timestamp parsing errors
 
     Args:
-        trace_id: The unique trace ID.
+        trace_id: The unique trace ID or a raw trace dictionary.
         project_id: The Google Cloud Project ID.
         tool_context: ADK ToolContext for credential propagation.
 
@@ -520,7 +526,9 @@ def _build_call_graph_impl(trace: TraceData) -> dict[str, Any]:
 
 @adk_tool
 def build_call_graph(
-    trace_id: str, project_id: str | None = None, tool_context: Any = None
+    trace_id: str | dict[str, Any],
+    project_id: str | None = None,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Builds a hierarchical call graph from the trace spans.
 
@@ -528,7 +536,7 @@ def build_call_graph(
     structure, which is useful for structural analysis and visualization.
 
     Args:
-        trace_id: The unique trace ID.
+        trace_id: The unique trace ID or a raw trace dictionary.
         project_id: The Google Cloud Project ID.
         tool_context: Context object for tool execution.
 
@@ -586,14 +594,16 @@ def build_call_graph(
 
 @adk_tool
 def summarize_trace(
-    trace_id: str, project_id: str | None = None, tool_context: Any = None
+    trace_id: str | dict[str, Any],
+    project_id: str | None = None,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
     """Creates a summary of a trace to save context window tokens.
 
     Extracts high-level stats, top 5 slowest spans, and error spans.
 
     Args:
-        trace_id: The unique trace ID.
+        trace_id: The unique trace ID or a raw trace dictionary.
         project_id: The Google Cloud Project ID.
         tool_context: Context object for tool execution.
     """
