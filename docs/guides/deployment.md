@@ -72,11 +72,17 @@ uv run poe deploy-all
 
 ### `deploy.py` - Backend (Agent Engine)
 
-Deploys the `sre_agent` package to Vertex AI Agent Engine.
+Deploys or updates the `sre_agent` package to Vertex AI Agent Engine.
 
 ```bash
-# Deploy a new agent
+# Deploy a new agent or update an existing one (smart deployment)
 uv run python deploy/deploy.py --create
+
+# Force creation of a NEW agent resource even if one exists with the same name
+uv run python deploy/deploy.py --create --force_new
+
+# Update a specific agent resource by ID
+uv run python deploy/deploy.py --create --resource_id <RESOURCE_ID>
 
 # List existing agents
 uv run python deploy/deploy.py --list
@@ -84,6 +90,19 @@ uv run python deploy/deploy.py --list
 # Delete an agent
 uv run python deploy/deploy.py --delete --resource_id <RESOURCE_ID>
 ```
+
+**Smart Deployment Behavior:**
+The `--create` command is now "smart" by default. It will:
+1. Search for an existing Reasoning Engine with the same `display_name` (defaulting to the agent's name).
+2. If found, it will **update (patch)** the existing resource. This ensures your query endpoint URL remains unchanged.
+3. If not found, it will create a new resource.
+
+**Options:**
+- `--create`: Deploy or update an agent.
+- `--force_new`: Force creation of a new agent even if one exists with the same name.
+- `--resource_id`: Specify a specific Reasoning Engine resource ID to update or delete.
+- `--display_name`: Override the display name (used for searching existing agents).
+- `--verify`: (Default: True) Verify the agent can be imported locally before deploying.
 
 **Required Environment Variables:**
 - `GOOGLE_CLOUD_PROJECT`: GCP project ID

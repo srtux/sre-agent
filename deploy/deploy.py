@@ -42,9 +42,14 @@ flags.DEFINE_integer("max_instances", None, "Maximum instances.")
 
 
 flags.DEFINE_bool("list", False, "List all agents.")
-flags.DEFINE_bool("create", False, "Creates a new agent.")
+flags.DEFINE_bool("create", False, "Deploy or update an agent.")
 flags.DEFINE_bool("delete", False, "Deletes an existing agent.")
 flags.DEFINE_bool("verify", True, "Verify agent import before creation.")
+flags.DEFINE_bool(
+    "force_new",
+    False,
+    "Force creation of a new agent even if one exists with the same name.",
+)
 flags.mark_bool_flags_as_mutual_exclusive(["create", "delete"])
 
 
@@ -111,8 +116,8 @@ def verify_local_import():
         return False
 
 
-def create(env_vars: dict[str, str] | None = None) -> None:
-    """Creates an agent engine for SRE Agent."""
+def deploy(env_vars: dict[str, str] | None = None) -> None:
+    """Deploys or updates an agent engine for SRE Agent."""
     if env_vars is None:
         env_vars = {}
 
@@ -124,15 +129,33 @@ def create(env_vars: dict[str, str] | None = None) -> None:
     adk_app = AdkApp(agent=adapter, enable_tracing=True)
 
     requirements = get_requirements()
-    print(f"Deploying with requirements: {requirements}")
+    display_name = FLAGS.display_name if FLAGS.display_name else root_agent.name
+    description = FLAGS.description if FLAGS.description else root_agent.description
 
-    remote_agent = agent_engines.create(
-        adk_app,  # type: ignore
-        display_name=FLAGS.display_name if FLAGS.display_name else root_agent.name,
-        description=FLAGS.description if FLAGS.description else root_agent.description,
-        requirements=requirements,
-        extra_packages=["./sre_agent"],
-        env_vars={
+    # Find existing agent by Resource ID or Display Name
+    existing_agent = None
+    if FLAGS.resource_id:
+        print(f"Checking for existing agent with ID: {FLAGS.resource_id}")
+        try:
+            existing_agent = agent_engines.get(FLAGS.resource_id)
+        except Exception:
+            print(f"Agent with ID {FLAGS.resource_id} not found.")
+
+    if not existing_agent and not FLAGS.force_new:
+        print(f"Searching for existing agent with display name '{display_name}'...")
+        try:
+            all_agents = agent_engines.list()
+            for agent in all_agents:
+                if agent.display_name == display_name:
+                    existing_agent = agent
+                    break
+        except Exception as e:
+            print(f"Note: Could not list agents: {e}")
+
+    common_kwargs = {
+        "requirements": requirements,
+        "extra_packages": ["./sre_agent"],
+        "env_vars": {
             "GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY": "true",
             "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "true",
             "USE_ARIZE": "false",
@@ -140,11 +163,35 @@ def create(env_vars: dict[str, str] | None = None) -> None:
             "STRICT_EUC_ENFORCEMENT": os.getenv("STRICT_EUC_ENFORCEMENT", "false"),
             **env_vars,
         },
-        service_account=FLAGS.service_account,
-        min_instances=FLAGS.min_instances,
-        max_instances=FLAGS.max_instances,
-    )
-    print(f"Created remote agent: {remote_agent.resource_name}")
+    }
+
+    print(f"Deploying with requirements: {requirements}")
+
+    if existing_agent and not FLAGS.force_new:
+        print(f"✅ Found existing agent: {existing_agent.resource_name}")
+        print("🚀 Updating existing agent (patching)...")
+        # In the ADK/Vertex SDK, update() performs the PATCH operation
+        remote_agent = existing_agent.update(
+            adk_app,
+            display_name=display_name,
+            description=description,
+            **common_kwargs,
+        )
+        print(f"Successfully updated agent: {remote_agent.resource_name}")
+    else:
+        print(f"🚀 Creating new agent: {display_name}")
+        remote_agent = agent_engines.create(
+            adk_app,
+            display_name=display_name,
+            description=description,
+            **common_kwargs,
+            service_account=FLAGS.service_account,
+            min_instances=FLAGS.min_instances,
+            max_instances=FLAGS.max_instances,
+        )
+        print(f"Successfully created agent: {remote_agent.resource_name}")
+
+    print(f"Resource name: {remote_agent.resource_name}")
 
 
 def delete(resource_id: str) -> None:
@@ -221,7 +268,7 @@ def main(argv: list[str]) -> None:
         env_vars["AGENT_ENGINE_LOCATION"] = os.getenv("AGENT_ENGINE_LOCATION", "")
         env_vars["GCP_PROJECT_ID"] = project_id or ""
 
-        create(env_vars=env_vars)
+        deploy(env_vars=env_vars)
     elif FLAGS.delete:
         if not FLAGS.resource_id:
             print("resource_id is required for delete")
