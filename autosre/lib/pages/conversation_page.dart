@@ -192,7 +192,31 @@ class _ConversationPageState extends State<ConversationPage>
     _conversation = GenUiConversation(
       a2uiMessageProcessor: _messageProcessor,
       contentGenerator: _contentGenerator,
-      onSurfaceAdded: (update) => _scrollToBottom(force: true),
+      onSurfaceAdded: (update) {
+        // CRITICAL FIX: Add the AiUiMessage AFTER the surface is registered.
+        // Previously, we used a separate uiMessageStream subscription which created
+        // a race condition where messages were added before surfaces were processed.
+        // Now we use onSurfaceAdded to ensure the surface data is available when
+        // GenUiSurface tries to render it.
+        if (mounted) {
+          final surfaceId = update.surfaceId;
+          setState(() {
+            final messages = List<ChatMessage>.from(
+              _conversation.conversation.value,
+            );
+            messages.add(
+              AiUiMessage(
+                definition: UiDefinition(surfaceId: surfaceId),
+                surfaceId: surfaceId,
+              ),
+            );
+            (_conversation.conversation as ValueNotifier<List<ChatMessage>>)
+                    .value =
+                messages;
+          });
+        }
+        _scrollToBottom(force: true);
+      },
       onSurfaceUpdated: (update) => _scrollToBottom(),
       onTextResponse: (text) => _scrollToBottom(),
     );
@@ -206,29 +230,16 @@ class _ConversationPageState extends State<ConversationPage>
       }
     });
 
-    // Subscribe to new UI surfaces that we want to show as message bubbles
+    // NOTE: We no longer subscribe to uiMessageStream for adding messages.
+    // The backend sends 'ui' events to signal when a bubble should be created,
+    // but this caused a race condition with A2UI processing. Now we rely on
+    // the onSurfaceAdded callback from GenUiConversation which fires AFTER
+    // the A2UI beginRendering message is fully processed.
+    // The uiMessageStream subscription is kept commented for reference:
+    //
+    // _uiMessageSubscription = _contentGenerator.uiMessageStream.listen(...)
     _uiMessageSubscription?.cancel();
-    _uiMessageSubscription = _contentGenerator.uiMessageStream.listen((
-      surfaceId,
-    ) {
-      if (mounted) {
-        setState(() {
-          final messages = List<ChatMessage>.from(
-            _conversation.conversation.value,
-          );
-          messages.add(
-            AiUiMessage(
-              definition: UiDefinition(surfaceId: surfaceId),
-              surfaceId: surfaceId,
-            ),
-          );
-          (_conversation.conversation as ValueNotifier<List<ChatMessage>>)
-                  .value =
-              messages;
-        });
-        _scrollToBottom(force: true);
-      }
-    });
+    _uiMessageSubscription = null;
 
     // Initial fetch of suggestions
     _contentGenerator.fetchSuggestions();
@@ -1469,24 +1480,15 @@ class _MessageItemState extends State<_MessageItem>
         ),
       );
     } else if (msg is AiUiMessage) {
-      // Find the _ConversationPageState from the ancestor to get access to _conversation
-      final conversationState =
-          context.findAncestorStateOfType<_ConversationPageState>();
-
-      // Use the host from the parent state if available to ensure we have the SRE catalog.
-      // This is a workaround for GenUI host propagation issues in complex bubble hierarchies.
-      GenUiHost? host;
-      if (conversationState != null) {
-        try {
-          final dynamic conv = (conversationState as dynamic)._conversation;
-          // Try to get the host from the conversation wrapper, or use the conversation itself if it's a host
-          host =
-              (conv.host is GenUiHost) ? (conv.host as GenUiHost) : (conv as GenUiHost);
-        } catch (e) {
-          // Fallback
-        }
-      }
-      host ??= widget.host;
+      // The host is passed from _buildMessageList via widget.host.
+      // CRITICAL: We now use onSurfaceAdded to add AiUiMessage entries, which
+      // ensures the surface is fully registered before this widget renders.
+      // This eliminates the previous race condition where the surface lookup
+      // would fail because the A2UI message hadn't been processed yet.
+      //
+      // The host from widget.host (which is _conversation.host) should now
+      // correctly resolve the surface since it's guaranteed to be registered.
+      final host = widget.host;
 
       return Align(
         alignment: Alignment.centerLeft,
