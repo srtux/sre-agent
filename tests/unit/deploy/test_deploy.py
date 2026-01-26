@@ -59,6 +59,7 @@ def test_deploy_creates_new_when_none_exists(mock_agent_engines, mock_flags):
     mock_agent_engines.create.assert_called_once()
     # Verify some create arguments
     _, kwargs = mock_agent_engines.create.call_args
+    assert "agent_engine" in kwargs
     assert kwargs["display_name"] == "sre-agent"
     assert kwargs["env_vars"]["TEST_VAR"] == "value"
 
@@ -81,6 +82,7 @@ def test_deploy_updates_when_agent_exists_by_name(mock_agent_engines, mock_flags
     mock_agent.update.assert_called_once()
     # Verify update arguments
     _, kwargs = mock_agent.update.call_args
+    assert kwargs["agent_engine"] is not None
     assert kwargs["display_name"] == "sre-agent"
     assert kwargs["env_vars"]["TEST_VAR"] == "value"
 
@@ -100,6 +102,7 @@ def test_deploy_updates_when_resource_id_provided(mock_agent_engines, mock_flags
     mock_agent_engines.get.assert_called_with(resource_id)
     # Should call update on THAT agent
     mock_agent.update.assert_called_once()
+    assert mock_agent.update.call_args.kwargs["agent_engine"] is not None
     mock_agent_engines.create.assert_not_called()
 
 

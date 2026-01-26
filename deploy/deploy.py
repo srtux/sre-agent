@@ -171,8 +171,9 @@ def deploy(env_vars: dict[str, str] | None = None) -> None:
         print(f"✅ Found existing agent: {existing_agent.resource_name}")
         print("🚀 Updating existing agent (patching)...")
         # In the ADK/Vertex SDK, update() performs the PATCH operation
+        # Note: update() requires all arguments to be keyword-only
         remote_agent = existing_agent.update(
-            adk_app,
+            agent_engine=adk_app,
             display_name=display_name,
             description=description,
             **common_kwargs,
@@ -181,7 +182,7 @@ def deploy(env_vars: dict[str, str] | None = None) -> None:
     else:
         print(f"🚀 Creating new agent: {display_name}")
         remote_agent = agent_engines.create(
-            adk_app,
+            agent_engine=adk_app,
             display_name=display_name,
             description=description,
             **common_kwargs,
