@@ -231,12 +231,13 @@ class AgentEngineClient:
 
         This method:
         1. Ensures session exists with EUC in state
-        2. Calls the remote agent with the message
+        2. Calls the remote agent with the message using the required 'message'
+           keyword-only argument and preferring 'async_stream_query'.
         3. Yields streaming events
 
         Args:
             user_id: User identifier
-            message: The query message
+            message: The query message (propagated as 'message=' to SDK)
             session_id: Optional session ID (creates new if None)
             access_token: User's OAuth access token for EUC
             project_id: Selected GCP project ID

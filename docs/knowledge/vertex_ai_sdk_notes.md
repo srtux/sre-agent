@@ -17,20 +17,23 @@ Introspection of the `AgentEngine` object returned by the GA SDK reveals:
     *   `stream_query(**kwargs) -> Iterable`
     *   `list_sessions`, `delete_session`, etc.
 
-### proper Usage
+### Proper Usage
 The correct way to stream responses from a deployed agent is to use `async_stream_query` (for async applications) or `stream_query` (for sync applications).
+
+> [!IMPORTANT]
+> The query argument must be named `message` (not `input`), and it must be passed as a **keyword-only** argument.
 
 **Incorrect (Legacy/Preview):**
 ```python
-# May raise AttributeError
-response = agent.query(input="Hello", ...)
+# Fails because 'input' is not an expected keyword
+response = agent.async_stream_query(input="Hello", ...)
 ```
 
 **Correct (GA):**
 ```python
 # Async Streaming
 stream = agent.async_stream_query(
-    input="Hello",
+    message="Hello",  # MUST use 'message='
     user_id="user-123",
     session_id="session-456"
 )
@@ -38,8 +41,12 @@ async for event in stream:
     print(event)
 ```
 
+> [!NOTE]
+> `stream_query` is currently deprecated in the `vertexai` template in favor of `async_stream_query`. It is recommended to use the `async` version whenever possible.
+
 ### Reference Implementation
 See `sre_agent/services/agent_engine_client.py` for a production-grade implementation that handles:
 *   Dynamic method checking (using `hasattr`).
-*   Fallback logic (though primary path should be `async_stream_query`).
+*   Precedence of `async_stream_query` over `stream_query`.
+*   Correct `message` keyword-only argument propagation.
 *   Event dictionary processing support for JSON serialization.
