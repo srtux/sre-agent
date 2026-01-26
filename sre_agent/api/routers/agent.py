@@ -39,6 +39,9 @@ from sre_agent.auth import (
     encrypt_token,
     get_current_credentials_or_none,
     get_current_project_id,
+    set_current_credentials,
+    set_current_project_id,
+    set_current_user_id,
 )
 from sre_agent.core.prompt_composer import DomainContext
 from sre_agent.core.runner import Runner, create_runner
@@ -459,6 +462,18 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
 
         # 3. Stream Response
         async def event_generator() -> AsyncGenerator[str, None]:
+            # Propagate authentication context into the generator.
+            # This is CRITICAL for StreamingResponse because the middleware's finally block
+            # clears the ContextVars before the generator starts yielding.
+            if access_token:
+                from google.oauth2.credentials import Credentials
+
+                set_current_credentials(Credentials(token=access_token))
+            if effective_project_id:
+                set_current_project_id(effective_project_id)
+            if effective_user_id:
+                set_current_user_id(effective_user_id)
+
             # Track pending tool calls for FIFO matching
             pending_tool_calls: list[dict[str, Any]] = []
 

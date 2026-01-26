@@ -64,6 +64,24 @@ def test_deploy_creates_new_when_none_exists(mock_agent_engines, mock_flags):
     assert kwargs["env_vars"]["TEST_VAR"] == "value"
 
 
+def test_deploy_propagates_encryption_key(mock_agent_engines, mock_flags):
+    """Test that SRE_AGENT_ENCRYPTION_KEY is automatically propagated from environment."""
+    test_key = "test-secret-key-123"
+    mock_agent_engines.list.return_value = []
+
+    with patch(
+        "os.getenv",
+        side_effect=lambda k, d=None: test_key
+        if k == "SRE_AGENT_ENCRYPTION_KEY"
+        else d,
+    ):
+        deploy_mod.deploy()
+
+    _, kwargs = mock_agent_engines.create.call_args
+    assert "SRE_AGENT_ENCRYPTION_KEY" in kwargs["env_vars"]
+    assert kwargs["env_vars"]["SRE_AGENT_ENCRYPTION_KEY"] == test_key
+
+
 def test_deploy_updates_when_agent_exists_by_name(mock_agent_engines, mock_flags):
     """Test that it updates an existing agent when found by display name."""
     mock_agent = MagicMock()
