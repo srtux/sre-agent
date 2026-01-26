@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter/rendering.dart';
 import 'package:genui/genui.dart';
-import 'package:json_schema_builder/json_schema_builder.dart';
 import 'package:provider/provider.dart';
 
 import '../services/auth_service.dart';
@@ -162,55 +161,8 @@ class _ConversationPageState extends State<ConversationPage>
   void _initializeConversation() {
     final sreCatalog = CatalogRegistry.createSreCatalog();
 
-    // Inline Catalog to debug matching issues (Fixed syntax error by adding import S)
-    final inlineCatalog = Catalog([
-      CatalogItem(
-        name: 'x-sre-tool-log',
-        dataSchema: S.any(),
-        widgetBuilder: (context) {
-          // PINK BOX DEBUG
-          return Container(
-            height: 120,
-            width: double.infinity,
-            color: Colors.pinkAccent,
-            padding: const EdgeInsets.all(12),
-            child: SingleChildScrollView(
-              child: Text(
-                "DEBUG: Matched x-sre-tool-log!\nData Type: ${context.data.runtimeType}\nKeys: ${context.data is Map ? (context.data as Map).keys : 'N/A'}",
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-      CatalogItem(
-        name: 'tool-log', // Alias
-        dataSchema: S.any(),
-        widgetBuilder: (context) {
-          // PINK BOX DEBUG
-          return Container(
-            height: 120,
-            width: double.infinity,
-            color: Colors.pink,
-            child: const Center(
-              child: Text(
-                'DEBUG: Matched tool-log ALIAS!',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    ], catalogId: 'debug-inline-catalog');
-
     _messageProcessor = A2uiMessageProcessor(
-      catalogs: [inlineCatalog, sreCatalog, CoreCatalogItems.asCatalog()],
+      catalogs: [sreCatalog, CoreCatalogItems.asCatalog()],
     );
 
     // Dispose previous content generator if it exists (though effectively we just replace it)
@@ -1297,16 +1249,20 @@ class _MessageItemState extends State<_MessageItem>
 
   @override
   Widget build(BuildContext context) {
+    // Find the _ConversationPageState from the ancestor to get access to _conversation
+    final conversationState = context
+        .findAncestorStateOfType<_ConversationPageState>();
+
     return FadeTransition(
       opacity: _fadeAnimation,
       child: SlideTransition(
         position: _slideAnimation,
-        child: _buildMessageContent(),
+        child: _buildMessageContent(conversationState),
       ),
     );
   }
 
-  Widget _buildMessageContent() {
+  Widget _buildMessageContent(_ConversationPageState? conversationState) {
     final msg = widget.message;
 
     if (msg is UserMessage) {
@@ -1517,8 +1473,22 @@ class _MessageItemState extends State<_MessageItem>
         ),
       );
     } else if (msg is AiUiMessage) {
-      // DEBUG: Log the surface ID we are attempting to render
-      debugPrint('DEBUG: Rendering GenUiSurface for ID: ${msg.surfaceId}');
+      // Use the conversation instance from the parent state if available.
+      // This ensures we use the host that has the custom SRE catalog registered.
+      GenUiHost? host;
+      if (conversationState != null) {
+        try {
+          // Use dynamic access to the private property to avoid exposing it publicly
+          // across the whole app while still ensuring catalog availability for bubbles.
+          host = (conversationState as dynamic)._conversation as GenUiHost;
+        } catch (e) {
+          // Silently fallback if extraction fails
+        }
+      }
+
+      // Fallback to widget.host if state access fails
+      host ??= widget.host;
+
       return Align(
         alignment: Alignment.centerLeft,
         child: Row(
@@ -1532,10 +1502,7 @@ class _MessageItemState extends State<_MessageItem>
                 // No decoration here to avoid double border - inner widgets (ToolLog) handle their own borders
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: GenUiSurface(
-                    host: widget.host,
-                    surfaceId: msg.surfaceId,
-                  ),
+                  child: GenUiSurface(host: host, surfaceId: msg.surfaceId),
                 ),
               ),
             ),

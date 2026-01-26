@@ -57,9 +57,13 @@ class CatalogRegistry {
 
     // 4. Fallback: If we are specifically looking for tool log, try to find ANY log-like shape
     if (componentName == 'x-sre-tool-log' || componentName == 'tool-log') {
-       if (data.containsKey('toolName') || data.containsKey('tool_name')) {
-         return data;
-       }
+      // Expanded Heuristic: Also check for 'args' and 'status' if 'tool_name' is missing
+      // This handles the case where type is implicit or data is just {args:..., status:...}
+      if (data.containsKey('toolName') ||
+          data.containsKey('tool_name') ||
+          (data.containsKey('args') && data.containsKey('status'))) {
+        return data;
+      }
     }
 
     return data;
@@ -94,7 +98,10 @@ class CatalogRegistry {
         dataSchema: S.any(),
         widgetBuilder: (context) {
           try {
-            final data = _unwrapComponentData(context.data, 'x-sre-metric-chart');
+            final data = _unwrapComponentData(
+              context.data,
+              'x-sre-metric-chart',
+            );
 
             final series = MetricSeries.fromJson(data);
             if (series.points.isEmpty) return const SizedBox.shrink();
@@ -154,7 +161,8 @@ class CatalogRegistry {
                 rawList = data['x-sre-log-pattern-viewer'] as List;
               } else {
                 // Handle case where list is wrapped in a map
-                rawList = data['patterns'] ?? data['data'] ?? data['items'] ?? [];
+                rawList =
+                    data['patterns'] ?? data['data'] ?? data['items'] ?? [];
               }
             } else {
               throw Exception(
@@ -209,13 +217,11 @@ class CatalogRegistry {
           try {
             final raw = context.data;
             final data = _unwrapComponentData(raw, 'tool-log');
-            if (data.isEmpty) {
-                 return const ErrorPlaceholder(error: 'DEBUG: Unwrapped tool-log data is EMPTY.');
-            }
+            if (data.isEmpty) return const SizedBox.shrink();
             final log = ToolLog.fromJson(data);
             return ToolLogWidget(log: log);
           } catch (e) {
-            return ErrorPlaceholder(error: 'DEBUG tool-log EXCEPTION: $e');
+            return ErrorPlaceholder(error: e);
           }
         },
       ),
@@ -229,21 +235,20 @@ class CatalogRegistry {
             final data = _unwrapComponentData(raw, 'x-sre-tool-log');
 
             // Validate before parsing to catch the exact moment of failure
-            if (data.isEmpty) {
-                 return ErrorPlaceholder(error: 'DEBUG: Unwrapped data is EMPTY. Raw keys: ${_ensureMap(raw).keys.toList()}');
-            }
-            if (!data.containsKey('tool_name') && !data.containsKey('toolName')) {
-                 return ErrorPlaceholder(error: 'DEBUG: No tool_name. Keys: ${data.keys.toList()}');
+            if (data.isEmpty) return const SizedBox.shrink();
+
+            if (!data.containsKey('tool_name') &&
+                !data.containsKey('toolName')) {
+              return const ErrorPlaceholder(error: 'Missing tool_name in tool-log data');
             }
 
             final log = ToolLog.fromJson(data);
             if (log.toolName.isEmpty && log.status == 'unknown') {
-               // This was the hidden state. Make it visible!
-               return ErrorPlaceholder(error: 'DEBUG: ToolLog parsed as EMPTY. Raw: $data');
+              return const SizedBox.shrink();
             }
             return ToolLogWidget(log: log);
           } catch (e) {
-            return ErrorPlaceholder(error: 'DEBUG EXCEPTION: $e');
+            return ErrorPlaceholder(error: e);
           }
         },
       ),

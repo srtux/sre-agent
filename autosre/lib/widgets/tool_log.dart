@@ -63,11 +63,21 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
     // Check transitions
     if (newIsError && !_isError) {
       // Became error -> Expand
-      if (!_isExpanded) _toggleExpand();
+      if (!_isExpanded) {
+        // Defer state update to next frame to avoid layout mutation crash
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _toggleExpand();
+        });
+      }
     } else if (newIsCompleted && !wasCompleted && !newIsError) {
       // Became completed (success) -> Collapse
       // User requested: "Auto-Collapse after success"
-      if (_isExpanded) _toggleExpand();
+      if (_isExpanded) {
+        // Defer state update to next frame
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _toggleExpand();
+        });
+      }
     }
 
     _isError = newIsError;
@@ -550,10 +560,7 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
                 onTap: onCopy,
                 borderRadius: BorderRadius.circular(4),
                 child: const Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
+                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
