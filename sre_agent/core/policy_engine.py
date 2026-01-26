@@ -568,6 +568,12 @@ TOOL_POLICIES: dict[str, ToolPolicy] = {
         category=ToolCategory.ORCHESTRATION,
         description="Run log pattern analysis",
     ),
+    "transfer_to_agent": ToolPolicy(
+        name="transfer_to_agent",
+        access_level=ToolAccessLevel.READ_ONLY,
+        category=ToolCategory.ORCHESTRATION,
+        description="Delegate task to a specialized agent",
+    ),
     # Investigation State
     "update_investigation_state": ToolPolicy(
         name="update_investigation_state",

@@ -4,7 +4,7 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from sre_agent.services import get_storage_service
 
@@ -15,6 +15,8 @@ router = APIRouter(prefix="/api/preferences", tags=["preferences"])
 class SetProjectRequest(BaseModel):
     """Request model for setting selected project."""
 
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
     project_id: str
     user_id: str = "default"
 
@@ -22,12 +24,16 @@ class SetProjectRequest(BaseModel):
 class SetToolConfigRequest(BaseModel):
     """Request model for setting tool configuration."""
 
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
     enabled_tools: dict[str, bool]
     user_id: str = "default"
 
 
 class SetRecentProjectsRequest(BaseModel):
     """Request model for setting recent projects."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     projects: list[dict[str, str]]
     user_id: str = "default"

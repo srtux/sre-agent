@@ -5,7 +5,7 @@ import os
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from sre_agent.auth import (
     SESSION_STATE_ACCESS_TOKEN_KEY,
@@ -36,6 +36,8 @@ async def get_config() -> dict[str, Any]:
 
 class LoginRequest(BaseModel):
     """Request model for the login endpoint."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     access_token: str
     id_token: str | None = Field(default=None, description="OIDC ID Token for identity")

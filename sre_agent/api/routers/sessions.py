@@ -4,7 +4,7 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from sre_agent.services import get_session_service
 
@@ -15,6 +15,8 @@ router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 class CreateSessionRequest(BaseModel):
     """Request model for creating a session."""
 
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
     user_id: str = "default"
     project_id: str | None = None
     title: str | None = None
@@ -22,6 +24,8 @@ class CreateSessionRequest(BaseModel):
 
 class UpdateSessionRequest(BaseModel):
     """Request model for updating a session."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     title: str | None = None
 

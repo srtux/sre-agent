@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class BigQuerySpan(BaseModel):
     """Represents a Trace Span in BigQuery OTel schema."""
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(frozen=True, extra="forbid", populate_by_name=True)
 
     trace_id: str = Field(..., alias="trace_id")
     span_id: str = Field(..., alias="span_id")
@@ -31,7 +31,7 @@ class BigQuerySpan(BaseModel):
 class BigQueryLogEntry(BaseModel):
     """Represents a Log Entry in BigQuery."""
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(frozen=True, extra="forbid", populate_by_name=True)
 
     log_name: str | None = None
     resource: dict[str, Any] | None = None
