@@ -1249,20 +1249,16 @@ class _MessageItemState extends State<_MessageItem>
 
   @override
   Widget build(BuildContext context) {
-    // Find the _ConversationPageState from the ancestor to get access to _conversation
-    final conversationState = context
-        .findAncestorStateOfType<_ConversationPageState>();
-
     return FadeTransition(
       opacity: _fadeAnimation,
       child: SlideTransition(
         position: _slideAnimation,
-        child: _buildMessageContent(conversationState),
+        child: _buildMessageContent(context),
       ),
     );
   }
 
-  Widget _buildMessageContent(_ConversationPageState? conversationState) {
+  Widget _buildMessageContent(BuildContext context) {
     final msg = widget.message;
 
     if (msg is UserMessage) {
@@ -1473,20 +1469,23 @@ class _MessageItemState extends State<_MessageItem>
         ),
       );
     } else if (msg is AiUiMessage) {
-      // Use the conversation instance from the parent state if available.
-      // This ensures we use the host that has the custom SRE catalog registered.
+      // Find the _ConversationPageState from the ancestor to get access to _conversation
+      final conversationState =
+          context.findAncestorStateOfType<_ConversationPageState>();
+
+      // Use the host from the parent state if available to ensure we have the SRE catalog.
+      // This is a workaround for GenUI host propagation issues in complex bubble hierarchies.
       GenUiHost? host;
       if (conversationState != null) {
         try {
-          // Use dynamic access to the private property to avoid exposing it publicly
-          // across the whole app while still ensuring catalog availability for bubbles.
-          host = (conversationState as dynamic)._conversation as GenUiHost;
+          final dynamic conv = (conversationState as dynamic)._conversation;
+          // Try to get the host from the conversation wrapper, or use the conversation itself if it's a host
+          host =
+              (conv.host is GenUiHost) ? (conv.host as GenUiHost) : (conv as GenUiHost);
         } catch (e) {
-          // Silently fallback if extraction fails
+          // Fallback
         }
       }
-
-      // Fallback to widget.host if state access fails
       host ??= widget.host;
 
       return Align(

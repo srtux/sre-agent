@@ -211,10 +211,6 @@ async def _handle_remote_agent(
                 # Handle session event
                 if event_type == "session":
                     yield json.dumps(event) + "\n"
-                    yield (
-                        json.dumps({"type": "text", "content": "*(Thinking...)* "})
-                        + "\n"
-                    )
                     continue
 
                 # Handle error event
@@ -579,10 +575,6 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
             )
             logger.info(f"📤 Initializing session stream: {session.id}")
             yield session_init_evt
-
-            # Yield an initial indicator to open the chat bubble
-            yield json.dumps({"type": "text", "content": "*(Thinking...)* "}) + "\n"
-
             # Refresh session to ensure we have the latest state
             active_session = session
             refreshed_session = await session_manager.get_session(
