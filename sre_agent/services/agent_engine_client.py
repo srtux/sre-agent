@@ -313,8 +313,39 @@ class AgentEngineClient:
                     session_id=effective_session_id,
                 )
 
-                async for event in stream:
-                    yield process_event(event)
+                try:
+                    async for event in stream:
+                        yield process_event(event)
+                except ValueError as e:
+                    # Google API REST streaming raises ValueError when parsing
+                    # malformed responses (e.g., "Can only parse array of JSON objects")
+                    # This typically happens when Agent Engine returns an error response
+                    error_msg = str(e)
+                    logger.error(
+                        f"Agent Engine stream returned invalid JSON format: {error_msg}. "
+                        "This usually indicates an authentication or execution error in the deployed agent."
+                    )
+                    yield {
+                        "type": "error",
+                        "error": (
+                            "Agent execution failed. This is typically caused by authentication issues "
+                            "(e.g., expired/invalid token or encryption key mismatch). "
+                            "Please try signing out and back in, or check the SRE_AGENT_ENCRYPTION_KEY configuration."
+                        ),
+                    }
+                except AttributeError as e:
+                    # Catch specific error where SDK expects dict but gets list
+                    if "'list' object has no attribute 'get'" in str(e):
+                        logger.error(
+                            "Agent Engine backend returned an invalid response format (List instead of Dict). "
+                            "This usually indicates an upstream error that the SDK cannot parse."
+                        )
+                        yield {
+                            "type": "error",
+                            "error": "Agent Engine returned an invalid response. Please check backend logs.",
+                        }
+                    else:
+                        raise
 
             elif hasattr(self._adk_app, "stream_query"):
                 # Fallback to sync stream_query (deprecated in SDK but still present)
@@ -330,10 +361,24 @@ class AgentEngineClient:
                     try:
                         async for event in stream:
                             yield process_event(event)
+                    except ValueError as e:
+                        # Google API REST streaming raises ValueError when parsing
+                        # malformed responses (e.g., "Can only parse array of JSON objects")
+                        error_msg = str(e)
+                        logger.error(
+                            f"Agent Engine stream returned invalid JSON format: {error_msg}. "
+                            "This usually indicates an authentication or execution error."
+                        )
+                        yield {
+                            "type": "error",
+                            "error": (
+                                "Agent execution failed. This is typically caused by authentication issues "
+                                "(e.g., expired/invalid token or encryption key mismatch). "
+                                "Please try signing out and back in."
+                            ),
+                        }
                     except AttributeError as e:
-                        # Catch specific error in google-cloud-aiplatform/api_core where it expects
-                        # a dict (JSON object) but gets a list (JSON array) for error details.
-                        # Error: 'list' object has no attribute 'get'
+                        # Catch specific error where SDK expects dict but gets list
                         if "'list' object has no attribute 'get'" in str(e):
                             logger.error(
                                 "Agent Engine backend returned an invalid response format (List instead of Dict). "
@@ -344,7 +389,7 @@ class AgentEngineClient:
                                 "error": "Agent Engine returned an invalid response. Please check backend logs.",
                             }
                         else:
-                            raise e
+                            raise
                 else:
                     # Fallback for sync iterator. We iterate manually.
                     # Note: for-loop on a sync generator is fine here as it's
@@ -352,6 +397,22 @@ class AgentEngineClient:
                     try:
                         for event in stream:
                             yield process_event(event)
+                    except ValueError as e:
+                        # Google API REST streaming raises ValueError when parsing
+                        # malformed responses (e.g., "Can only parse array of JSON objects")
+                        error_msg = str(e)
+                        logger.error(
+                            f"Agent Engine stream returned invalid JSON format: {error_msg}. "
+                            "This usually indicates an authentication or execution error."
+                        )
+                        yield {
+                            "type": "error",
+                            "error": (
+                                "Agent execution failed. This is typically caused by authentication issues "
+                                "(e.g., expired/invalid token or encryption key mismatch). "
+                                "Please try signing out and back in."
+                            ),
+                        }
                     except AttributeError as e:
                         if "'list' object has no attribute 'get'" in str(e):
                             logger.error(
@@ -363,7 +424,7 @@ class AgentEngineClient:
                                 "error": "Agent Engine returned an invalid response. Please check backend logs.",
                             }
                         else:
-                            raise e
+                            raise
 
             # Fallback to sync query in thread if streaming methods are somehow missing
             elif hasattr(self._adk_app, "query"):

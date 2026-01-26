@@ -148,7 +148,13 @@ def encrypt_token(token: str) -> str:
 
 
 def decrypt_token(encrypted_token: str) -> str:
-    """Decrypts a token from storage."""
+    """Decrypts a token from storage.
+
+    Returns:
+        The decrypted token, or an empty string if decryption fails for a
+        known Fernet-encrypted token (to prevent sending encrypted gibberish
+        as an OAuth token to downstream services).
+    """
     try:
         # If it doesn't look like a Fernet token, return as is (migration fallback)
         if not (encrypted_token.startswith("gAAAA") and len(encrypted_token) > 50):
@@ -159,11 +165,17 @@ def decrypt_token(encrypted_token: str) -> str:
     except Exception as e:
         if encrypted_token.startswith("gAAAA"):
             logger.warning(
-                f"🚨 Failed to decrypt Fernet token. This strongly indicates an SRE_AGENT_ENCRYPTION_KEY mismatch between environment services. Error: {e}"
+                f"🚨 Failed to decrypt Fernet token. This strongly indicates an "
+                f"SRE_AGENT_ENCRYPTION_KEY mismatch between environment services. "
+                f"The token will NOT be used to avoid sending encrypted gibberish "
+                f"to downstream APIs. Error: {e}"
             )
+            # Return empty string to signal no valid token - prevents sending
+            # encrypted token as Bearer auth which causes 401 errors
+            return ""
         else:
             logger.debug(f"Decryption failed (might be unencrypted): {e}")
-        return encrypted_token
+            return encrypted_token
 
 
 # Token Validation Cache (TTL: 10 minutes)
@@ -328,7 +340,16 @@ def get_credentials_from_session(
         return None
 
     # Decrypt token for use (handles unencrypted tokens via fallback)
+    # Returns empty string if decryption fails for known Fernet tokens
     token = decrypt_token(encrypted_token)
+
+    # If decryption failed (empty token), don't create invalid credentials
+    if not token:
+        logger.warning(
+            "No valid token available after decryption - "
+            "likely encryption key mismatch between services"
+        )
+        return None
 
     # Create Credentials from the access token
     from google.oauth2.credentials import Credentials

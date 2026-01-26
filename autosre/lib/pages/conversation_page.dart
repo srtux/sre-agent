@@ -182,7 +182,13 @@ class _ConversationPageState extends State<ConversationPage>
     // Subscribe to errors
     _contentGenerator.errorStream.listen((error) {
       if (mounted) {
-        StatusToast.show(context, 'Error: ${error.error}');
+        // Show error toast with isError=true for proper styling
+        StatusToast.show(
+          context,
+          'Agent Error: ${error.error}',
+          isError: true,
+          duration: const Duration(seconds: 5),
+        );
         debugPrint(
           'ContentGenerator Error: ${error.error}\n${error.stackTrace}',
         );
