@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter/rendering.dart';
 import 'package:genui/genui.dart';
+import 'package:json_schema_builder/json_schema_builder.dart';
 import 'package:provider/provider.dart';
 
 import '../services/auth_service.dart';
@@ -161,8 +162,55 @@ class _ConversationPageState extends State<ConversationPage>
   void _initializeConversation() {
     final sreCatalog = CatalogRegistry.createSreCatalog();
 
+    // Inline Catalog to debug matching issues (Fixed syntax error by adding import S)
+    final inlineCatalog = Catalog([
+      CatalogItem(
+        name: 'x-sre-tool-log',
+        dataSchema: S.any(),
+        widgetBuilder: (context) {
+          // PINK BOX DEBUG
+          return Container(
+            height: 120,
+            width: double.infinity,
+            color: Colors.pinkAccent,
+            padding: const EdgeInsets.all(12),
+            child: SingleChildScrollView(
+              child: Text(
+                "DEBUG: Matched x-sre-tool-log!\nData Type: ${context.data.runtimeType}\nKeys: ${context.data is Map ? (context.data as Map).keys : 'N/A'}",
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+      CatalogItem(
+        name: 'tool-log', // Alias
+        dataSchema: S.any(),
+        widgetBuilder: (context) {
+          // PINK BOX DEBUG
+          return Container(
+            height: 120,
+            width: double.infinity,
+            color: Colors.pink,
+            child: const Center(
+              child: Text(
+                'DEBUG: Matched tool-log ALIAS!',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    ], catalogId: 'debug-inline-catalog');
+
     _messageProcessor = A2uiMessageProcessor(
-      catalogs: [sreCatalog, CoreCatalogItems.asCatalog()],
+      catalogs: [inlineCatalog, sreCatalog, CoreCatalogItems.asCatalog()],
     );
 
     // Dispose previous content generator if it exists (though effectively we just replace it)
@@ -1469,6 +1517,8 @@ class _MessageItemState extends State<_MessageItem>
         ),
       );
     } else if (msg is AiUiMessage) {
+      // DEBUG: Log the surface ID we are attempting to render
+      debugPrint('DEBUG: Rendering GenUiSurface for ID: ${msg.surfaceId}');
       return Align(
         alignment: Alignment.centerLeft,
         child: Row(
