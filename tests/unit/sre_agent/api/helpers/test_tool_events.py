@@ -38,7 +38,7 @@ class TestCreateToolCallEvents:
             "fetch_trace", {"trace_id": "abc123"}, pending
         )
 
-        assert len(events) == 2
+        assert len(events) == 1  # Only 1 event (beginRendering)
         assert len(pending) == 1
 
         # First event: beginRendering
@@ -47,24 +47,20 @@ class TestCreateToolCallEvents:
         assert "beginRendering" in begin_event["message"]
         assert begin_event["message"]["beginRendering"]["surfaceId"] == surface_id
 
-        # Second event: surfaceUpdate
-        surface_update = json.loads(events[1])
-        assert surface_update["type"] == "a2ui"
-        assert "surfaceUpdate" in surface_update["message"]
-
-        update_msg = surface_update["message"]["surfaceUpdate"]
-        assert update_msg["surfaceId"] == surface_id
-        assert len(update_msg["components"]) == 1
-
-        component = update_msg["components"][0]
+        components = begin_event["message"]["beginRendering"]["components"]
+        assert len(components) == 1
+        component = components[0]
         assert "id" in component
         assert "component" in component
-        assert "x-sre-tool-log" in component["component"]
 
-        tool_log = component["component"]["x-sre-tool-log"]
-        assert tool_log["tool_name"] == "fetch_trace"
-        assert tool_log["args"] == {"trace_id": "abc123"}
-        assert tool_log["status"] == "running"
+        # Verify Hybrid Structure
+        component_data = component["component"]
+        assert component_data["type"] == "x-sre-tool-log"
+        assert "x-sre-tool-log" in component_data
+        inner_data = component_data["x-sre-tool-log"]
+        assert inner_data["tool_name"] == "fetch_trace"
+        assert inner_data["args"] == {"trace_id": "abc123"}
+        assert inner_data["status"] == "running"
 
         # Verify beginRendering references the component (root field)
         assert begin_event["message"]["beginRendering"]["root"] == component["id"]
@@ -116,12 +112,15 @@ class TestCreateToolResponseEvents:
         # A2UI v0.8 format
         assert "id" in component
         assert "component" in component
-        assert "x-sre-tool-log" in component["component"]
 
-        tool_log = component["component"]["x-sre-tool-log"]
-        assert tool_log["tool_name"] == "fetch_trace"
-        assert tool_log["status"] == "completed"
-        assert tool_log["result"] == result
+        # Verify Hybrid Structure
+        component_data = component["component"]
+        assert component_data["type"] == "x-sre-tool-log"
+        assert "x-sre-tool-log" in component_data
+        inner_data = component_data["x-sre-tool-log"]
+        assert inner_data["tool_name"] == "fetch_trace"
+        assert inner_data["status"] == "completed"
+        assert inner_data["result"] == result
 
     def test_handles_error_result(self) -> None:
         """Test that error results are handled correctly."""
@@ -141,9 +140,12 @@ class TestCreateToolResponseEvents:
 
         response_event = json.loads(events[0])
         component = response_event["message"]["surfaceUpdate"]["components"][0]
-        tool_log = component["component"]["x-sre-tool-log"]
 
-        assert tool_log["status"] == "error"
+        # Verify Hybrid Structure
+        component_data = component["component"]
+        assert component_data["type"] == "x-sre-tool-log"
+        inner_data = component_data["x-sre-tool-log"]
+        assert inner_data["status"] == "error"
 
     def test_returns_empty_for_unmatched_tool(self) -> None:
         """Test that unmatched tool returns empty events."""

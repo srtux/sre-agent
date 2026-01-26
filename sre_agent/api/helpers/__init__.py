@@ -81,8 +81,9 @@ def create_tool_call_events(
     # Create separate events for beginRendering and surfaceUpdate for maximum compatibility
     logger.info(f"📤 Tool Call Events: {tool_name} (surface_id={surface_id})")
 
-    # Atomic Initialization with Root-Level Type
-    # This ensures the component is defined immediately with the correct type for matching.
+    # Hybrid Initialization (Wrapper + Root Type)
+    # We wrap the data in a key matching the component type to ensure GenUI matches it
+    # regardless of whether it uses key-based or type-based matching.
     begin_event = json.dumps(
         {
             "type": "a2ui",
@@ -94,8 +95,8 @@ def create_tool_call_events(
                         {
                             "id": component_id,
                             "component": {
-                                "type": "x-sre-tool-log",  # Root-level type for matching
-                                "x-sre-tool-log": {
+                                "type": "x-sre-tool-log",  # Root type for v0.8+
+                                "x-sre-tool-log": {  # Wrapper key for legacy/hybrid
                                     "type": "x-sre-tool-log",
                                     "componentName": "x-sre-tool-log",
                                     "tool_name": tool_name,
@@ -111,35 +112,7 @@ def create_tool_call_events(
         }
     )
 
-    # Backup update event (same structure)
-    update_event = json.dumps(
-        {
-            "type": "a2ui",
-            "message": {
-                "surfaceUpdate": {
-                    "surfaceId": surface_id,
-                    "components": [
-                        {
-                            "id": component_id,
-                            "component": {
-                                "type": "x-sre-tool-log",
-                                "x-sre-tool-log": {
-                                    "type": "x-sre-tool-log",
-                                    "componentName": "x-sre-tool-log",
-                                    "tool_name": tool_name,
-                                    "toolName": tool_name,
-                                    "args": args,
-                                    "status": "running",
-                                },
-                            },
-                        }
-                    ],
-                },
-            },
-        }
-    )
-
-    return surface_id, [begin_event, update_event]
+    return surface_id, [begin_event]
 
 
 def create_tool_response_events(
@@ -187,7 +160,7 @@ def create_tool_response_events(
         # If it's a standard tool output dict, extract the result part
         result = result["result"]
 
-    # Create separate surfaceUpdate event
+    # Create separate surfaceUpdate event (Hybrid Structure)
     logger.info(
         f"📤 Tool Response Event: {tool_name} (surface_id={surface_id}, status={status})"
     )

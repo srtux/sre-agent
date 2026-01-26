@@ -10,6 +10,9 @@ from fastapi.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
 
+# Track if we have already logged a successful health check to reduce log noise
+_HEALTH_SUCCESS_LOGGED = False
+
 
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Global handler for unhandled exceptions."""
@@ -51,10 +54,26 @@ async def tracing_middleware(request: Request, call_next: Any) -> Any:
 
         # 4. Log request completion
         duration = (time.time() - start_time) * 1000
-        logger.info(
-            f"🌐 Request End: {request.method} {request.url.path} - {response.status_code} "
-            f"({duration:.2f}ms) [Correlation-ID: {correlation_id}]"
-        )
+
+        # Suppress noisy health checks: log only the first success or any transition back to success
+        is_health = request.url.path == "/health"
+        should_log = True
+        if is_health:
+            global _HEALTH_SUCCESS_LOGGED
+            if response.status_code < 400:
+                if _HEALTH_SUCCESS_LOGGED:
+                    should_log = False
+                else:
+                    _HEALTH_SUCCESS_LOGGED = True
+            else:
+                # On failure, reset the flag so the next success is logged as recovery
+                _HEALTH_SUCCESS_LOGGED = False
+
+        if should_log:
+            logger.info(
+                f"🌐 Request End: {request.method} {request.url.path} - {response.status_code} "
+                f"({duration:.2f}ms) [Correlation-ID: {correlation_id}]"
+            )
 
         # 5. Inject back into response headers for client visibility
         response.headers["X-Correlation-ID"] = correlation_id

@@ -81,28 +81,30 @@ def test_create_tool_call_events():
     assert pending_calls[0]["args"] == {"arg1": "value1"}
     assert call_id == pending_calls[0]["call_id"]
 
-    # Should have 2 events: beginRendering and surfaceUpdate
-    assert len(events) == 2
+    # Should have 1 event: beginRendering (Atomic Initialization)
+    assert len(events) == 1
 
-    # Parse and verify first event: beginRendering
+    # Parse and verify event: beginRendering
     begin_event = json.loads(events[0])
     assert begin_event["type"] == "a2ui"
     assert "beginRendering" in begin_event["message"]
     assert begin_event["message"]["beginRendering"]["surfaceId"] == call_id
 
-    # Parse and verify second event: surfaceUpdate
-    update_event = json.loads(events[1])
-    assert update_event["type"] == "a2ui"
-    assert "surfaceUpdate" in update_event["message"]
-
-    # Verify tool log data in surfaceUpdate
-    components = update_event["message"]["surfaceUpdate"]["components"]
+    # Verify Hybrid Structure in component
+    components = begin_event["message"]["beginRendering"]["components"]
     assert "id" in components[0]
     assert "component" in components[0]
-    tool_log = components[0]["component"]["x-sre-tool-log"]
-    assert tool_log["tool_name"] == "test_tool"
-    assert tool_log["status"] == "running"
-    assert tool_log["args"] == {"arg1": "value1"}
+
+    # Check Hybrid Structure
+    component_data = components[0]["component"]
+    assert component_data["type"] == "x-sre-tool-log"
+    # Inner wrapper check
+    assert "x-sre-tool-log" in component_data
+    inner_data = component_data["x-sre-tool-log"]
+    assert inner_data["type"] == "x-sre-tool-log"
+    assert inner_data["tool_name"] == "test_tool"
+    assert inner_data["status"] == "running"
+    assert inner_data["args"] == {"arg1": "value1"}
 
     # Verify beginRendering references the component
     assert begin_event["message"]["beginRendering"]["root"] == components[0]["id"]
@@ -135,7 +137,12 @@ def test_create_tool_response_events_success():
     update_event = json.loads(events[0])
     assert "surfaceUpdate" in update_event["message"]
     components = update_event["message"]["surfaceUpdate"]["components"]
-    tool_log = components[0]["component"]["x-sre-tool-log"]
+
+    # Verify Hybrid Structure
+    tool_log_wrapper = components[0]["component"]
+    assert tool_log_wrapper["type"] == "x-sre-tool-log"
+    tool_log = tool_log_wrapper["x-sre-tool-log"]
+
     assert tool_log["status"] == "completed"
     assert tool_log["result"] == "success"
 
@@ -160,33 +167,12 @@ def test_create_tool_response_events_error():
     assert len(events) == 1
     update_event = json.loads(events[0])
     components = update_event["message"]["surfaceUpdate"]["components"]
+
+    # Verify Hybrid Structure
     tool_log = components[0]["component"]["x-sre-tool-log"]
+    assert tool_log["type"] == "x-sre-tool-log"
     assert tool_log["status"] == "error"
     assert "RuntimeError" in tool_log["result"]
-
-
-def test_create_tool_response_events_no_match():
-    """Test _create_tool_response_events with no matching pending call."""
-    pending_calls = [
-        {
-            "call_id": "other_tool_abc123",
-            "tool_name": "other_tool",
-            "surface_id": "surface-123",
-            "args": {},
-        }
-    ]
-
-    call_id, events = create_tool_response_events(
-        tool_name="test_tool",  # Different tool name
-        result={"result": "success"},
-        pending_tool_calls=pending_calls,
-    )
-
-    # Should not have matched
-    assert call_id is None
-    assert len(events) == 0
-    # Original pending call should still be there
-    assert len(pending_calls) == 1
 
 
 def test_create_tool_response_events_fifo_matching():
@@ -216,10 +202,11 @@ def test_create_tool_response_events_fifo_matching():
     assert call_id1 == "fetch_trace_111"
     assert len(pending_calls) == 1  # One remaining
 
-    # Verify the correct args were preserved
+    # Verify the correct args were preserved (Hybrid Structure)
     update_event = json.loads(events1[0])
     components = update_event["message"]["surfaceUpdate"]["components"]
     tool_log = components[0]["component"]["x-sre-tool-log"]
+    assert tool_log["type"] == "x-sre-tool-log"
     assert tool_log["args"] == {"trace_id": "trace-1"}
 
     # Second response should match second call
