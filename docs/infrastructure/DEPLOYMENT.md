@@ -1,6 +1,6 @@
 # Deployment Architecture
 
-The SRE Agent uses a **parallel deployment strategy** to optimize build times by decoupling the backend (Agent Engine) deployment from the frontend (Cloud Run) build process.
+The SRE Agent uses a **parallel deployment strategy** to optimize build times by decoupling the backend (Agent Engine) deployment from the frontend (Cloud Run) build process. This strategy is implemented in both the **CI/CD pipeline** and the **local deployment scripts**.
 
 ## CI/CD Pipeline (`cloudbuild.yaml`)
 
@@ -76,3 +76,22 @@ Once the agent exists, the CI/CD pipeline will work automatically.
 
 *   **If Backend Fails, Frontend Succeeds**: The new Frontend will be calculating against the *old* Backend logic. This is generally safe for minor updates but requires care for breaking schema changes.
 *   **If Frontend Fails**: The Backend might be updated but no UI changes are visible.
+
+## Local Parallel Deployment (`deploy_all.py`)
+
+The `uv run poe deploy-all` command (which runs `deploy/deploy_all.py`) also supports parallel deployment when an existing agent is detected.
+
+### How it works:
+1.  **Discovery**: The script performs a quick lookup for an existing stable Agent ID by name (`sre_agent`).
+2.  **Parallel Tracks**: If an ID is found, it launches the backend and frontend deployments in parallel using threads.
+3.  **Prefixing**: Logs are prefixed with `[BACKEND]` and `[FRONTEND]` to distinguish the output.
+
+### Verification:
+To verify the parallel flow is working locally:
+1.  Run `uv run poe list` to see your current agent IDs.
+2.  Run `uv run poe deploy-all`.
+3.  Look for the message: `🚀 PARALLEL DEPLOYMENT INITIATED (Patching existing agent)`.
+4.  Navigate to the provided Cloud Run URL once finished.
+
+### First-Time Deployment (Local):
+If no agent is found, the script automatically falls back to **sequential deployment** to safely capture the new ID.

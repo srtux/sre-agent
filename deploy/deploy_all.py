@@ -4,9 +4,12 @@ import sys
 from pathlib import Path
 
 
-def run_command(cmd, cwd=None, env=None, interactive=False):
+def run_command(cmd, cwd=None, env=None, interactive=False, prefix=None):
     """Runs a command and returns the output (or just runs it if interactive)."""
-    print(f"Executing: {' '.join(cmd)}")
+    if prefix:
+        print(f"[{prefix}] Executing: {' '.join(cmd)}")
+    else:
+        print(f"Executing: {' '.join(cmd)}")
 
     if interactive:
         # Inherit TTY for authentication/interaction
@@ -28,14 +31,47 @@ def run_command(cmd, cwd=None, env=None, interactive=False):
     output = []
     if process.stdout:
         for line in process.stdout:
-            print(line, end="")
+            if prefix:
+                print(f"[{prefix}] {line}", end="")
+            else:
+                print(line, end="")
             output.append(line)
 
     process.wait()
     if process.returncode != 0:
+        if prefix:
+            print(f"[{prefix}] ❌ Command failed with return code {process.returncode}")
         raise subprocess.CalledProcessError(process.returncode, cmd, "".join(output))
 
     return "".join(output)
+
+
+def get_existing_agent_id():
+    """Quickly check for an existing agent by name."""
+    try:
+        import vertexai
+        from dotenv import load_dotenv
+        from vertexai import agent_engines
+
+        load_dotenv()
+        project = os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GCP_PROJECT_ID")
+        location = (
+            os.getenv("AGENT_ENGINE_LOCATION")
+            or os.getenv("GOOGLE_CLOUD_LOCATION")
+            or "us-central1"
+        )
+
+        if not project:
+            return None
+
+        vertexai.init(project=project, location=location)
+        agents = agent_engines.list()
+        for agent in agents:
+            if agent.display_name == "sre_agent":
+                return agent.resource_name
+        return None
+    except Exception:
+        return None
 
 
 def main():
@@ -57,28 +93,87 @@ def main():
     print("🚀 STARTING FULL STACK DEPLOYMENT")
     print("=================================")
 
-    # --- STEP 1: Deploy Backend to Vertex AI ---
-    print("\n🏗️  Step 1: Deploying Backend (Vertex Agent Engine)...")
+    # --- OPTIMIZATION: Check for existing agent for parallel deployment ---
+    print("\n🔍 Checking for existing stable Backend ID...")
+    existing_resource_id = get_existing_agent_id()
+
+    if existing_resource_id:
+        print(f"✅ Found stable Backend ID: {existing_resource_id}")
+        print("🚀 PARALLEL DEPLOYMENT INITIATED (Patching existing agent)")
+        print("=========================================================")
+
+        parts = existing_resource_id.split("/")
+        location = "us-central1"
+        if "locations" in parts:
+            idx = parts.index("locations")
+            if idx + 1 < len(parts):
+                location = parts[idx + 1]
+
+        agent_url = f"https://{location}-aiplatform.googleapis.com/v1/{existing_resource_id}:query"
+
+        # Track A: Backend (Parallel)
+        backend_cmd = [sys.executable, "deploy/deploy.py", "--create"]
+
+        # Track B: Frontend (Parallel)
+        frontend_cmd = [
+            sys.executable,
+            "deploy/deploy_web.py",
+            "--agent-url",
+            agent_url,
+            "--agent-id",
+            existing_resource_id,
+        ]
+        if args.allow_unauthenticated:
+            frontend_cmd.append("--allow-unauthenticated")
+
+        import threading
+
+        def run_backend():
+            try:
+                run_command(backend_cmd, cwd=str(root_dir), prefix="BACKEND")
+                print("\n[BACKEND] ✅ Backend patch complete.")
+            except Exception as e:
+                print(f"\n[BACKEND] ❌ Backend deployment failed: {e}")
+                # We don't exit here to let the other track finish or report
+
+        def run_frontend():
+            try:
+                # Use interactive=True if possible, but for parallel we might prefer prefixing
+                run_command(frontend_cmd, cwd=str(root_dir), prefix="FRONTEND")
+                print("\n[FRONTEND] ✅ Frontend deployment complete.")
+            except Exception as e:
+                print(f"\n[FRONTEND] ❌ Frontend deployment failed: {e}")
+
+        t1 = threading.Thread(target=run_backend)
+        t2 = threading.Thread(target=run_frontend)
+
+        t1.start()
+        t2.start()
+
+        t1.join()
+        t2.join()
+
+        print("\n🚀 PARALLEL DEPLOYMENT PROCESS FINISHED!")
+        return
+
+    # --- FALLBACK: Sequential Deployment (for new agents) ---
+    print(
+        "\n⚠️  No existing agent found or error checking. Running SEQUENTIAL deployment..."
+    )
+    print("🏗️  Step 1: Deploying Backend (Vertex Agent Engine)...")
     try:
         backend_cmd = [sys.executable, "deploy/deploy.py", "--create"]
-        # We MUST capture output to get the resource ID, but this might
-        # fail if re-auth is needed. We recommend the user run 'gcloud auth login'
-        # beforehand if they have session expiration issues.
         output = run_command(backend_cmd, cwd=str(root_dir))
 
-        # Parse the resource name from output
         resource_name = None
         for line in output.splitlines():
-            # Most specific match first: "Resource name: projects/.../reasoningEngines/..."
             if "Resource name:" in line:
                 resource_name = line.split("Resource name:")[1].strip()
                 break
-            # Or "Resource Name: projects/.../reasoningEngines/..."
             if "Resource Name:" in line:
                 resource_name = line.split("Resource Name:")[1].strip()
                 break
 
-        # Fallback: find any line that looks like the resource name but IS NOT an LRO/operation
         if not resource_name:
             import re
 
@@ -95,13 +190,9 @@ def main():
 
         print(f"\n✅ Backend deployed! Resource URI: agentengine://{resource_name}")
 
-        # --- STEP 2: Deploy Frontend to Cloud Run ---
         print("\n🏗️  Step 2: Deploying Frontend to Cloud Run...")
-
-        # Construct the Agent Engine Query URL
-        # Resource Name: projects/{project}/locations/{location}/reasoningEngines/{id}
         parts = resource_name.split("/")
-        location = "us-central1"  # Default
+        location = "us-central1"
         if "locations" in parts:
             idx = parts.index("locations")
             if idx + 1 < len(parts):
@@ -110,7 +201,6 @@ def main():
         agent_url = (
             f"https://{location}-aiplatform.googleapis.com/v1/{resource_name}:query"
         )
-        print(f"Connecting Frontend to Agent URL: {agent_url}")
 
         frontend_cmd = [
             sys.executable,
@@ -123,10 +213,9 @@ def main():
         if args.allow_unauthenticated:
             frontend_cmd.append("--allow-unauthenticated")
 
-        # Frontend deployment is primarily the heavy lifting, definitely allow interactivity.
         run_command(frontend_cmd, cwd=str(root_dir), interactive=True)
 
-        print("\n🚀 FULL STACK DEPLOYMENT COMPLETE!")
+        print("\n🚀 SEQUENTIAL DEPLOYMENT COMPLETE!")
         print(f"Backend (Vertex):  {resource_name}")
         print("Frontend (Flutter): Dashboard is ready!")
 
