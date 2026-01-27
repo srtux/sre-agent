@@ -31,12 +31,8 @@ class _TelemetryNoiseFilter(logging.Filter):
         return True
 
 
-# Apply filter to root logger and specific noisy loggers
+# Applying filter to loggers is now done inside setup_telemetry to avoid early clashes.
 noise_filter = _TelemetryNoiseFilter()
-logging.getLogger().addFilter(noise_filter)
-logging.getLogger("google.generativeai").addFilter(noise_filter)
-logging.getLogger("google_genai.types").addFilter(noise_filter)
-logging.getLogger("opentelemetry.sdk.metrics._internal.export").addFilter(noise_filter)
 
 
 class EmojiLoggingFilter(logging.Filter):
@@ -45,7 +41,17 @@ class EmojiLoggingFilter(logging.Filter):
     def _apply_emojis(self, record: logging.LogRecord, msg: str) -> None:
         """Apply emojis and separators to the log record."""
         # LLM Call Starting/Completed (ADK messages)
-        if "google_adk" in record.name or "google.adk" in record.name:
+        # Skip modification if we want "uninterfered" OTel logs from ADK
+        skip_adk_mod = (
+            os.environ.get(
+                "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "false"
+            ).lower()
+            == "true"
+            or os.environ.get("RUNNING_IN_AGENT_ENGINE", "").lower() == "true"
+        )
+        if (
+            "google_adk" in record.name or "google.adk" in record.name
+        ) and not skip_adk_mod:
             if "Sending out request" in msg and "🧠" not in msg:
                 record.msg = f"🧠 LLM Call Starting | {record.msg}"
             elif "Response received" in msg and "🧠" not in msg:
@@ -237,11 +243,8 @@ def setup_telemetry(level: int = logging.INFO) -> None:
         if "GCP_PROJECT_ID" in os.environ:
             os.environ["GCP_PROJECT_ID"] = project_id
 
-    # 1. Configure Logging handlers early to capture initialization logs (emojis, formatting)
-    _configure_logging_handlers(level, project_id)
-
-    # 2. Check for DISABLE_TELEMETRY, OTEL_SDK_DISABLED, or RUNNING_IN_AGENT_ENGINE
-    # We skip manual OTel setup in Agent Engine because ADK manages it natively.
+    # 1. Check for DISABLE_TELEMETRY, OTEL_SDK_DISABLED, or RUNNING_IN_AGENT_ENGINE early
+    # We skip manual setup in Agent Engine because ADK manages it natively.
     if (
         os.environ.get("DISABLE_TELEMETRY", "").lower() == "true"
         or os.environ.get("OTEL_SDK_DISABLED", "").lower() == "true"
@@ -251,9 +254,12 @@ def setup_telemetry(level: int = logging.INFO) -> None:
         )  # Disable during unit tests to avoid hangs
     ):
         logging.getLogger(__name__).info(
-            "Manual OTel setup skipped (disabled or running in Native ADK environment)"
+            "Manual Telemetry/Logging setup skipped (disabled or running in Native ADK environment)"
         )
         return
+
+    # 2. Configure Logging handlers early for non-ADK environments (emojis, formatting)
+    _configure_logging_handlers(level, project_id)
 
     # Priority 1: Arize AX (Local Development ONLY)
     arize_enabled = False
@@ -298,12 +304,10 @@ def setup_telemetry(level: int = logging.INFO) -> None:
     # Phase 3: Initialize Shared Instrumentation (Works with any global TracerProvider: Arize or GCP)
     try:
         from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
-        from opentelemetry.instrumentation.logging import LoggingInstrumentor
         from opentelemetry.instrumentation.requests import RequestsInstrumentor
         from opentelemetry.instrumentation.urllib3 import URLLib3Instrumentor
 
-        # Standard instrumentation
-        LoggingInstrumentor().instrument(set_logging_format=False)
+        # Standard instrumentation (Logging is now handled natively or via stdout)
         RequestsInstrumentor().instrument()
         HTTPXClientInstrumentor().instrument()
         URLLib3Instrumentor().instrument()
@@ -481,6 +485,14 @@ def setup_telemetry(level: int = logging.INFO) -> None:
 
 def _configure_logging_handlers(level: int, project_id: str | None) -> None:
     """Internal helper to configure logging handlers."""
+    # Apply noise filters
+    logging.getLogger().addFilter(noise_filter)
+    logging.getLogger("google.generativeai").addFilter(noise_filter)
+    logging.getLogger("google_genai.types").addFilter(noise_filter)
+    logging.getLogger("opentelemetry.sdk.metrics._internal.export").addFilter(
+        noise_filter
+    )
+
     # Silence chatty loggers that produce high-volume debug noise
     for logger_name in [
         "aiosqlite",

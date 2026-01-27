@@ -3,6 +3,7 @@
 import functools
 import inspect
 import logging
+import os
 import time
 from collections.abc import Callable
 from typing import Any
@@ -60,6 +61,19 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
         tool_name = func.__name__
         start_time = time.time()
         success = True
+
+        # Check if we should skip manual spans/logs (let ADK handle it)
+        skip_manual_instrumentation = (
+            os.environ.get(
+                "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "false"
+            ).lower()
+            == "true"
+            or os.environ.get("RUNNING_IN_AGENT_ENGINE", "").lower() == "true"
+        )
+
+        # If skipping, just run the function directly
+        if skip_manual_instrumentation:
+            return await func(*args, **kwargs)
 
         with tracer.start_as_current_span(tool_name) as span:
             span.set_attribute("tool.name", tool_name)
@@ -159,6 +173,19 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
         tool_name = func.__name__
         start_time = time.time()
         success = True
+
+        # Check if we should skip manual spans/logs (let ADK handle it)
+        skip_manual_instrumentation = (
+            os.environ.get(
+                "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "false"
+            ).lower()
+            == "true"
+            or os.environ.get("RUNNING_IN_AGENT_ENGINE", "").lower() == "true"
+        )
+
+        # If skipping, just run the function directly
+        if skip_manual_instrumentation:
+            return func(*args, **kwargs)
 
         with tracer.start_as_current_span(tool_name) as span:
             span.set_attribute("tool.name", tool_name)

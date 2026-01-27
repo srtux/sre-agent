@@ -1518,7 +1518,24 @@ class _MessageItemState extends State<_MessageItem>
 
       debugPrint('🖼️ [MSG_ITEM] ===== RENDERING AiUiMessage =====');
       debugPrint('🖼️ [MSG_ITEM] surfaceId: ${msg.surfaceId}');
+<<<<<<< HEAD
       debugPrint('🖼️ [MSG_ITEM] host type: ${host.runtimeType}');
+=======
+      debugPrint('🖼️ [MSG_ITEM] host: ${host.runtimeType}');
+
+      // Try to get surface data for debugging
+      try {
+        final surfaceData = host.getSurfaceData(msg.surfaceId);
+        debugPrint('🖼️ [MSG_ITEM] surfaceData: $surfaceData');
+        debugPrint('🖼️ [MSG_ITEM] surfaceData type: ${surfaceData.runtimeType}');
+        if (surfaceData != null) {
+          debugPrint('🖼️ [MSG_ITEM] surfaceData keys: ${surfaceData is Map ? (surfaceData as Map).keys.toList() : "N/A"}');
+        }
+      } catch (e) {
+        debugPrint('🖼️ [MSG_ITEM] ⚠️ Could not get surface data: $e');
+      }
+
+>>>>>>> origin/main
       debugPrint('🖼️ [MSG_ITEM] Creating GenUiSurface widget...');
       debugPrint('🖼️ [MSG_ITEM] ===== END RENDERING AiUiMessage =====');
 
