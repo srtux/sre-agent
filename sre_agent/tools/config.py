@@ -794,6 +794,30 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         category=ToolCategory.ORCHESTRATION,
         testable=False,
     ),
+    # -------------------------------------------------------------------------
+    # Mutation Tools (Write)
+    # -------------------------------------------------------------------------
+    ToolConfig(
+        name="restart_pod",
+        display_name="Restart Pod",
+        description="Restart a Kubernetes pod",
+        category=ToolCategory.GKE,
+        testable=True,
+    ),
+    ToolConfig(
+        name="scale_deployment",
+        display_name="Scale Deployment",
+        description="Scale a Kubernetes deployment",
+        category=ToolCategory.GKE,
+        testable=True,
+    ),
+    ToolConfig(
+        name="rollback_deployment",
+        display_name="Rollback Deployment",
+        description="Rollback a deployment to previous version",
+        category=ToolCategory.GKE,
+        testable=True,
+    ),
 ]
 
 

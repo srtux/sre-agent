@@ -573,7 +573,7 @@ class ContextAwareCredentials(google.auth.credentials.Credentials):
                 # Create a dummy credentials object to avoid further errors if ADC is missing
                 from google.auth.credentials import AnonymousCredentials
 
-                self._adc_creds = AnonymousCredentials()
+                self._adc_creds = AnonymousCredentials()  # type: ignore[no-untyped-call]
         return self._adc_creds
 
     @property
@@ -582,23 +582,25 @@ class ContextAwareCredentials(google.auth.credentials.Credentials):
         creds = _credentials_context.get()
         if creds:
             t = getattr(creds, "token", None)
-            # logger.debug(f"🔑 ContextAwareCredentials: Found token in ContextVar")
+            logger.debug(
+                f"🔑 ContextAwareCredentials: Using token from context (exists: {t is not None})"
+            )
             return cast(str, t)
 
         if self._token:
-            # logger.debug(f"🔑 ContextAwareCredentials: Using fallback token")
+            logger.debug("🔑 ContextAwareCredentials: Using explicitly set token")
             return self._token
 
         # Fallback to ADC token
-        # NOTE: ADC credentials might need refresh to have a token
         try:
             adc = self.adc_creds
-            if not getattr(adc, "token", None) and hasattr(adc, "refresh"):
-                # We can't easily refresh here if it's sync and we are in async context,
-                # but google-genai will call refresh() if it finds token is None.
-                pass
-            return getattr(adc, "token", None)
-        except Exception:
+            t = getattr(adc, "token", None)
+            logger.debug(
+                f"🔑 ContextAwareCredentials: Using token from ADC (exists: {t is not None}, type: {type(adc).__name__})"
+            )
+            return t
+        except Exception as e:
+            logger.warning(f"🔑 ContextAwareCredentials: Error getting ADC token: {e}")
             return None
 
     @token.setter
@@ -607,16 +609,47 @@ class ContextAwareCredentials(google.auth.credentials.Credentials):
         self._token = value
 
     @property
+    def expiry(self) -> Any | None:
+        """Get the expiry of the current credentials."""
+        creds = _credentials_context.get()
+        if creds and hasattr(creds, "expiry"):
+            return creds.expiry
+        if self._token:
+            return None
+        adc = self.adc_creds
+        return getattr(adc, "expiry", None)
+
+    @expiry.setter
+    def expiry(self, value: Any) -> None:
+        """Setter for expiry to satisfy the base class requirement."""
+        # This proxy generally delegates to context, but we allow setting for compatibility
+        pass
+
+    @property
     def valid(self) -> bool:
         """Check if the current context has valid credentials."""
         creds = _credentials_context.get()
         if creds:
-            return cast(bool, creds.valid)
+            v = cast(bool, creds.valid)
+            # logger.debug(f"🔑 ContextAwareCredentials: Context creds valid: {v}")
+            return v
 
         if self._token:
             return True
 
-        return cast(bool, self.adc_creds.valid)
+        v = cast(bool, self.adc_creds.valid)
+        # logger.debug(f"🔑 ContextAwareCredentials: ADC creds valid: {v}")
+        return v
+
+    @property
+    def expired(self) -> bool:
+        """Check if the current credentials have expired."""
+        creds = _credentials_context.get()
+        if creds:
+            return cast(bool, creds.expired)
+        if self._token:
+            return False
+        return cast(bool, self.adc_creds.expired)
 
     def apply(self, headers: dict[str, str], token: str | None = None) -> None:
         """Apply credentials to the request headers."""
@@ -625,8 +658,9 @@ class ContextAwareCredentials(google.auth.credentials.Credentials):
             creds.apply(headers, token=token)  # type: ignore[no-untyped-call]
         else:
             # Fallback: do nothing or use default logic if no user identity
-            if self.token:
-                headers["authorization"] = f"Bearer {self.token}"
+            t = self.token
+            if t:
+                headers["authorization"] = f"Bearer {t}"
 
     def before_request(
         self, request: Any, method: str, url: str, headers: dict[str, str]
@@ -648,22 +682,27 @@ class ContextAwareCredentials(google.auth.credentials.Credentials):
             try:
                 # Only call refresh if the credentials support it (have a refresh token)
                 if hasattr(creds, "refresh_token") and creds.refresh_token:
-                    logger.debug(
-                        "🔑 ContextAwareCredentials: Refreshing credentials..."
+                    logger.info(
+                        "🔑 ContextAwareCredentials: Refreshing context credentials..."
                     )
                     creds.refresh(request)
                 else:
                     logger.debug(
-                        "🔑 ContextAwareCredentials: Creds in context not refreshable (no refresh token)"
+                        "🔑 ContextAwareCredentials: Context creds not refreshable"
                     )
             except Exception as e:
-                logger.warning(f"🔑 ContextAwareCredentials: Refresh failed: {e}")
+                logger.warning(
+                    f"🔑 ContextAwareCredentials: Context refresh failed: {e}"
+                )
         else:
-            logger.debug(
+            logger.info(
                 "🔑 ContextAwareCredentials: No credentials in context. Falling back to ADC refresh."
             )
             try:
-                self.adc_creds.refresh(request)
+                self.adc_creds.refresh(request)  # type: ignore[no-untyped-call]
+                logger.info(
+                    f"🔑 ContextAwareCredentials: ADC refresh successful. Token exists: {self.adc_creds.token is not None}"
+                )
             except Exception as e:
                 logger.warning(f"🔑 ContextAwareCredentials: ADC refresh failed: {e}")
 

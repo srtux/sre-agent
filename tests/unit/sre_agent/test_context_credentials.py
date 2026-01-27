@@ -9,10 +9,23 @@ from sre_agent.auth import (
 
 def test_context_aware_credentials_delegation():
     """Verify that GLOBAL_CONTEXT_CREDENTIALS delegates to ContextVar."""
-    clear_current_credentials()
+    from unittest.mock import MagicMock, patch
 
-    # 1. No credentials in context
-    assert GLOBAL_CONTEXT_CREDENTIALS.token is None
+    # Mock google.auth.default to return no token
+    # This prevents the test from picking up real ADC tokens in the environment
+    mock_adc = MagicMock()
+    mock_adc.token = None
+    mock_adc.valid = False
+
+    # Reset the singleton's cached ADC credentials to force re-evaluation
+    # This ensures the mock below is actually used
+    GLOBAL_CONTEXT_CREDENTIALS._adc_creds = None
+
+    with patch("google.auth.default", return_value=(mock_adc, "test-project")):
+        clear_current_credentials()
+
+        # 1. No credentials in context
+        assert GLOBAL_CONTEXT_CREDENTIALS.token is None
 
     # 2. Set user credentials
     user_token = "fake-user-token"

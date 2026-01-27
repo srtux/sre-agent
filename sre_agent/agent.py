@@ -311,6 +311,9 @@ def emojify_agent(agent: LlmAgent | Any) -> LlmAgent | Any:
         # 2. Propagation: Ensure user credentials from session are in ContextVar
         # This protects both tool calls and LLM calls (via GLOBAL_CONTEXT_CREDENTIALS).
         session_state = None
+        token = (
+            None  # Initialize token here to avoid UnboundLocalError in finally block
+        )
         if hasattr(context, "session") and context.session:
             session_state = getattr(context.session, "state", None)
             if session_state is None and isinstance(context.session, dict):

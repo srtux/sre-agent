@@ -227,7 +227,7 @@ def test_clear_current_credentials():
     assert get_current_project_id_or_none() is None
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_validate_access_token_success():
     """Test validate_access_token with a valid token response."""
     from unittest.mock import AsyncMock
@@ -263,7 +263,7 @@ async def test_validate_access_token_success():
     assert result.error is None
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_validate_access_token_invalid():
     """Test validate_access_token with an invalid token."""
     from unittest.mock import AsyncMock
@@ -291,7 +291,7 @@ async def test_validate_access_token_invalid():
     assert result.error == "Invalid Value"
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_validate_access_token_timeout():
     """Test validate_access_token handles timeout."""
     from unittest.mock import AsyncMock

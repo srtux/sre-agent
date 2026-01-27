@@ -18,6 +18,7 @@ def test_policy_engine_respects_disabled_tools():
             access_level=ToolAccessLevel.READ_ONLY,
             category=ToolCategory.OBSERVABILITY,
             description="test description",
+            requires_project_context=False,
         )
     }
     engine = PolicyEngine(policies=policies)
@@ -29,7 +30,9 @@ def test_policy_engine_respects_disabled_tools():
     with patch(
         "sre_agent.tools.config.get_tool_config_manager", return_value=mock_manager
     ):
-        decision = engine.evaluate("test_tool", {"arg": "val"})
+        decision = engine.evaluate(
+            "test_tool", {"arg": "val"}, project_id="test-project"
+        )
 
         assert decision.allowed is False
         assert "disabled in configuration" in decision.reason
@@ -56,7 +59,9 @@ def test_policy_engine_allows_enabled_tools():
     with patch(
         "sre_agent.tools.config.get_tool_config_manager", return_value=mock_manager
     ):
-        decision = engine.evaluate("test_tool", {"arg": "val"})
+        decision = engine.evaluate(
+            "test_tool", {"arg": "val"}, project_id="test-project"
+        )
 
         assert decision.allowed is True
         assert "allowed" in decision.reason.lower()
@@ -91,7 +96,7 @@ def test_get_enabled_base_tools_filtering():
                 assert len(enabled) == 1
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_runner_refreshes_tools_per_turn():
     """Test that Runner refreshes the agent's tool list at the start of run_turn."""
     from google.adk.agents import LlmAgent
@@ -116,7 +121,12 @@ async def test_runner_refreshes_tools_per_turn():
     with patch("sre_agent.agent.get_enabled_base_tools", return_value=[mock_tool]):
         # We use a mock for the internal _run_with_policy to stop execution early
         with patch.object(Runner, "_run_with_policy") as mock_run:
-            mock_run.return_value = (ev for ev in [])  # Empty generator
+            # Create a manual async generator to yield nothing
+            async def empty_gen(*args, **kwargs):
+                if False:
+                    yield
+
+            mock_run.side_effect = empty_gen
 
             # Execute one turn
             async for _ in runner.run_turn(mock_session, "msg", "user"):

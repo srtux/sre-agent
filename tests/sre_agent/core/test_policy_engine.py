@@ -1,5 +1,7 @@
 """Tests for the Policy Engine."""
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 from pydantic import ValidationError
 
@@ -53,6 +55,16 @@ class TestPolicyEngine:
     def engine(self) -> PolicyEngine:
         """Create a policy engine for testing."""
         return PolicyEngine()
+
+    @pytest.fixture(autouse=True)
+    def mock_tool_config(self):
+        """Mock ToolConfigManager to allow all tools during tests."""
+        mock_manager = MagicMock()
+        mock_manager.is_enabled.return_value = True
+        with patch(
+            "sre_agent.tools.config.get_tool_config_manager", return_value=mock_manager
+        ):
+            yield mock_manager
 
     def test_get_policy_existing(self, engine: PolicyEngine) -> None:
         """Test getting an existing policy."""
