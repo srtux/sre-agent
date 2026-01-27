@@ -73,6 +73,10 @@ def normalize_tool_args(raw_args: Any) -> dict[str, Any]:
         return {}
     if isinstance(raw_args, dict):
         return raw_args
+    if hasattr(raw_args, "model_dump"):
+        return cast(dict[str, Any], raw_args.model_dump(mode="json"))
+    if hasattr(raw_args, "dict"):
+        return cast(dict[str, Any], raw_args.dict())
     if hasattr(raw_args, "to_dict"):
         return cast(dict[str, Any], raw_args.to_dict())
     try:
@@ -212,6 +216,12 @@ def create_tool_response_events(
         )
         return None, []
 
+    # Handle Pydantic models
+    if hasattr(result, "model_dump"):
+        result = result.model_dump(mode="json")
+    elif hasattr(result, "dict"):
+        result = result.dict()
+
     # Normalize result
     if isinstance(result, str):
         try:
@@ -239,13 +249,25 @@ def create_tool_response_events(
         _debug_log("[TOOL_RESPONSE_UNWRAPPED] Extracted result from wrapper")
 
     # Create separate surfaceUpdate event (Hybrid Structure)
+    # Ensure all nested fields in component_data are normalized to dicts/primitives
+    def _normalize_for_json(obj: Any) -> Any:
+        if hasattr(obj, "model_dump"):
+            return obj.model_dump(mode="json")
+        if hasattr(obj, "dict"):
+            return obj.dict()
+        if isinstance(obj, list):
+            return [_normalize_for_json(x) for x in obj]
+        if isinstance(obj, dict):
+            return {k: _normalize_for_json(v) for k, v in obj.items()}
+        return obj
+
     component_data = {
         "type": "x-sre-tool-log",
         "componentName": "x-sre-tool-log",
         "tool_name": tool_name,
         "toolName": tool_name,
-        "args": args,
-        "result": result,
+        "args": _normalize_for_json(args),
+        "result": _normalize_for_json(result),
         "status": status,
     }
 
@@ -268,7 +290,8 @@ def create_tool_response_events(
         },
     }
 
-    event = json.dumps(event_obj)
+    # json.dumps defaults explicitly set to str to handle any remaining weird types (like UUID)
+    event = json.dumps(event_obj, default=str)
 
     _debug_log(
         "[TOOL_RESPONSE_EVENT] Created surfaceUpdate event",

@@ -437,7 +437,14 @@ def emojify_agent(agent: LlmAgent | Any) -> LlmAgent | Any:
 
             # Detach OTel context if attached
             if token is not None:
-                otel_context.detach(token)
+                try:
+                    otel_context.detach(token)
+                except ValueError:
+                    # Context drift in async generator (GeneratorExit in new context)
+                    # This is harmless as usage scope is over.
+                    pass
+                except Exception as e:
+                    logger.warning(f"Failed to detach OTel context: {e}")
 
         # 4. Log Response
         final_response = "".join(full_response_parts)
