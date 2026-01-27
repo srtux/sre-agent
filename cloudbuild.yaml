@@ -14,9 +14,10 @@ steps:
     args:
       - '-c'
       - |
-        # Install uv
+        # Install uv using the newer recommended path and avoiding cargo/env issues
         curl -LsSf https://astral.sh/uv/install.sh | sh
-        source $$HOME/.cargo/env
+        export PATH="/builder/home/.local/bin:$$PATH"
+
         uv python install 3.10
         uv sync
 
@@ -32,6 +33,9 @@ steps:
     args:
       - '-c'
       - |
+        # Install jq
+        apt-get update && apt-get install -y jq
+
         # Fast lookup using REST API to avoid waiting for uv/python environment
         echo "🔍 Looking up stable Agent ID..."
         TOKEN=$(gcloud auth print-access-token)
