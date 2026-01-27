@@ -79,7 +79,7 @@ def main():
 
         # Construct the command with flags BEFORE positional arguments
         # adk eval [FLAGS] [AGENT] [FILES]
-        cmd = ["adk", "eval", *flags]
+        cmd = ["adk", "eval", "--otel_to_cloud", *flags]
 
         # Add config file if it exists
         config_path = "eval/test_config.json"

@@ -127,7 +127,7 @@ def deploy(env_vars: dict[str, str] | None = None) -> None:
     runner = create_runner(root_agent)
     adapter = RunnerAgentAdapter(runner, name=root_agent.name)
 
-    adk_app = AdkApp(agent=adapter, enable_tracing=True)
+    adk_app = AdkApp(agent=adapter)
 
     requirements = get_requirements()
     display_name = FLAGS.display_name if FLAGS.display_name else root_agent.name
@@ -158,7 +158,12 @@ def deploy(env_vars: dict[str, str] | None = None) -> None:
         "extra_packages": ["./sre_agent"],
         "env_vars": {
             "GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY": "true",
+            "ADK_OTEL_TO_CLOUD": "true",
+            "OTEL_TO_CLOUD": "true",
+            "OTEL_SERVICE_NAME": "sre-agent",
+            "OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED": "true",
             "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "true",
+            "ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS": "false",
             "USE_ARIZE": "false",
             "RUNNING_IN_AGENT_ENGINE": "true",
             "LOG_FORMAT": "JSON",

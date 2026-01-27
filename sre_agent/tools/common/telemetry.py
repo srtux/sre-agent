@@ -225,16 +225,18 @@ def setup_telemetry(level: int = logging.INFO) -> None:
         if "GCP_PROJECT_ID" in os.environ:
             os.environ["GCP_PROJECT_ID"] = project_id
 
-    # 1. Configure Logging handlers early to capture initialization logs
+    # 1. Configure Logging handlers early to capture initialization logs (emojis, formatting)
     _configure_logging_handlers(level, project_id)
 
-    # 2. Check for DISABLE_TELEMETRY or OTEL_SDK_DISABLED environment variable early
+    # 2. Check for DISABLE_TELEMETRY, OTEL_SDK_DISABLED, or RUNNING_IN_AGENT_ENGINE
+    # We skip manual OTel setup in Agent Engine because ADK manages it natively.
     if (
         os.environ.get("DISABLE_TELEMETRY", "").lower() == "true"
         or os.environ.get("OTEL_SDK_DISABLED", "").lower() == "true"
+        or os.environ.get("RUNNING_IN_AGENT_ENGINE", "").lower() == "true"
     ):
         logging.getLogger(__name__).info(
-            "Telemetry setup disabled via environment variable"
+            "Manual OTel setup skipped (disabled or running in Native ADK environment)"
         )
         return
 
