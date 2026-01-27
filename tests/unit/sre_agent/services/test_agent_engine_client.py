@@ -219,8 +219,9 @@ class TestAgentEngineClient:
         """Test that _ensure_initialized calls vertexai.init and agent_engines.get."""
         with (
             patch("vertexai.init") as mock_init,
-            patch("vertexai.agent_engines.get") as mock_get,
+            patch("vertexai.agent_engines", create=True) as mock_agent_engines,
         ):
+            mock_get = mock_agent_engines.get
             mock_agent = MagicMock()
             mock_agent.query = MagicMock()
             mock_get.return_value = mock_agent

@@ -34,6 +34,15 @@ def mock_agent_engines():
         yield mock
 
 
+@pytest.fixture(autouse=True)
+def mock_gcp_init():
+    with (
+        patch("vertexai.init"),
+        patch("google.auth.default", return_value=(MagicMock(), "test-project")),
+    ):
+        yield
+
+
 @pytest.fixture
 def mock_flags():
     # Patch FLAGS inside the deploy module

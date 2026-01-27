@@ -19,7 +19,7 @@ def test_get_existing_agent_id_success():
 
     with (
         patch("vertexai.init"),
-        patch("vertexai.agent_engines.list", return_value=[mock_agent]),
+        patch("vertexai.agent_engines", create=True) as mock_agent_engines,
         patch(
             "os.getenv",
             side_effect=lambda k, d=None: "test-project"
@@ -27,6 +27,7 @@ def test_get_existing_agent_id_success():
             else d,
         ),
     ):
+        mock_agent_engines.list.return_value = [mock_agent]
         result = deploy_all.get_existing_agent_id()
         assert result == "projects/p/locations/l/reasoningEngines/123"
 
@@ -35,9 +36,10 @@ def test_get_existing_agent_id_not_found():
     """Test that it returns None when agent is missing."""
     with (
         patch("vertexai.init"),
-        patch("vertexai.agent_engines.list", return_value=[]),
+        patch("vertexai.agent_engines", create=True) as mock_agent_engines,
         patch("os.getenv", return_value="test-project"),
     ):
+        mock_agent_engines.list.return_value = []
         result = deploy_all.get_existing_agent_id()
         assert result is None
 

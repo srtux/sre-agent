@@ -93,10 +93,10 @@ async def test_get_logs_for_trace(mock_pager):
 @pytest.mark.asyncio
 async def test_list_error_events():
     with patch(
-        "google.cloud.errorreporting_v1beta1.ErrorStatsServiceClient"
-    ) as mock_client_class:
+        "sre_agent.tools.clients.logging.get_error_reporting_client"
+    ) as mock_get_client:
         mock_client = MagicMock()
-        mock_client_class.return_value = mock_client
+        mock_get_client.return_value = mock_client
 
         mock_event = MagicMock()
         mock_event.event_time = datetime.datetime.now()
