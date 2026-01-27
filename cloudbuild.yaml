@@ -11,9 +11,32 @@ steps:
         uv python install 3.10
         uv sync
 
-  # 2. Deploy Agent Engine Backend
+  # 2. Fetch Agent Engine Resource ID
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'fetch-resource-id'
+    entrypoint: 'bash'
+    env:
+      - 'GOOGLE_CLOUD_PROJECT=$PROJECT_ID'
+      - 'GOOGLE_CLOUD_LOCATION=$_LOCATION'
+      - 'AGENT_ENGINE_LOCATION=$_LOCATION'
+      - 'GOOGLE_CLOUD_STORAGE_BUCKET=$_BUCKET'
+    args:
+      - '-c'
+      - |
+        source $$HOME/.cargo/env
+        # Fetch the existing stable resource ID
+        uv run python deploy/get_id.py > backend_resource_name.txt
+
+        if [ ! -s backend_resource_name.txt ]; then
+           echo "❌ Agent not found. Cannot parallelize. Please deploy manually first."
+           exit 1
+        fi
+        echo "✅ Found Agent: $(cat backend_resource_name.txt)"
+
+  # 3. Deploy Agent Engine Backend (Parallel Track A)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'deploy-backend'
+    waitFor: ['-'] # Start immediately in parallel
     entrypoint: 'bash'
     secretEnv: ['SRE_AGENT_ENCRYPTION_KEY']
     env:
@@ -27,22 +50,14 @@ steps:
       - '-c'
       - |
         source $$HOME/.cargo/env
-        # Capture the resource ID from the deployment output
-        # Using deploy/deploy.py directly to have better control
-        uv run python deploy/deploy.py --create > deploy_output.txt 2>&1
-        cat deploy_output.txt
-        # Extract resource name: projects/{project}/locations/{location}/reasoningEngines/{id}
-        RESOURCE_NAME=$(grep -oE "projects/[^/]+/locations/[^/]+/reasoningEngines/[^/ \n]+" deploy_output.txt | head -1)
-        if [ -z "$$RESOURCE_NAME" ]; then
-          echo "❌ Failed to capture Agent Engine Resource Name"
-          exit 1
-        fi
-        echo "$$RESOURCE_NAME" > backend_resource_name.txt
-        echo "✅ Captured Backend Resource: $$RESOURCE_NAME"
+        echo "🚀 Updating Agent Engine (Patching existing agent if found)..."
+        # Deploy checks for existing agent by name 'sre_agent' and updates it
+        uv run python deploy/deploy.py --create
 
-  # 3. Build Unified Docker Image
+  # 4. Build Unified Docker Image (Parallel Track B)
   - name: 'gcr.io/cloud-builders/docker'
     id: 'build-image'
+    waitFor: ['fetch-resource-id']
     entrypoint: 'bash'
     args:
       - '-c'
@@ -57,14 +72,16 @@ steps:
           --build-arg SRE_AGENT_URL=$$AGENT_URL \
           --build-arg SRE_AGENT_ID=$$RESOURCE_NAME .
 
-  # 4. Push Image
+  # 5. Push Image
   - name: 'gcr.io/cloud-builders/docker'
     id: 'push-image'
+    waitFor: ['build-image']
     args: ['push', 'gcr.io/$PROJECT_ID/autosre:latest']
 
-  # 5. Deploy to Cloud Run
+  # 6. Deploy to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'deploy-frontend'
+    waitFor: ['push-image']
     entrypoint: 'bash'
     args:
       - '-c'
@@ -83,7 +100,7 @@ steps:
 
 substitutions:
   _LOCATION: us-central1
-  _BUCKET: summitt-bucket
+  _BUCKET: your-staging-bucket-name
 
 availableSecrets:
   secretManager:
