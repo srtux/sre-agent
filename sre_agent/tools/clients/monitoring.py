@@ -454,19 +454,27 @@ def _query_promql_sync(
             response = session.get(url, params=params)
             if response.status_code != 200:
                 try:
-                    error_details = response.json()
+                    error_json = response.json()
                     error_msg = "Unknown error"
-                    if isinstance(error_details, dict):
-                        error_msg = error_details.get("error", {}).get(
-                            "message", str(error_details)
-                        )
+                    if isinstance(error_json, dict):
+                        # Handle nested error structure if present
+                        if "error" in error_json and isinstance(
+                            error_json["error"], dict
+                        ):
+                            error_msg = error_json["error"].get(
+                                "message", str(error_json)
+                            )
+                        else:
+                            error_msg = error_json.get("message", str(error_json))
                     else:
-                        error_msg = str(error_details)
+                        error_msg = str(error_json)
                     logger.error(
                         f"PromQL API Error ({response.status_code}): {error_msg}"
                     )
                     raise Exception(error_msg)
-                except Exception:
+                except Exception as e:
+                    if "raise Exception(error_msg)" in str(e):
+                        raise
                     response.raise_for_status()
 
             return cast(dict[str, Any], response.json())

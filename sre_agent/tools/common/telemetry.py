@@ -539,11 +539,6 @@ def _configure_logging_handlers(level: int, project_id: str | None) -> None:
                     span_id = format(span_context.span_id, "016x")
 
                 if trace_id:
-                    log_obj["trace_id"] = trace_id
-                    if span_id:
-                        log_obj["span_id"] = span_id
-
-                    # GCP-specific correlation fields
                     if project_id:
                         log_obj["logging.googleapis.com/trace"] = (
                             f"projects/{project_id}/traces/{trace_id}"
@@ -610,10 +605,13 @@ def _configure_logging_handlers(level: int, project_id: str | None) -> None:
                     otel_trace_id == "0"
                     or otel_trace_id == "00000000000000000000000000000000"
                 ):
-                    from sre_agent.auth import get_trace_id
+                    try:
+                        from sre_agent.auth import get_trace_id
 
-                    # Use propagated trace ID if available
-                    otel_trace_id = get_trace_id() or "0"
+                        otel_trace_id = get_trace_id() or "0"
+                    except (ImportError, TypeError):
+                        # Handle shutdown or import errors
+                        otel_trace_id = "0"
                     otel_span_id = "0"
 
                 if otel_trace_id == "0":
@@ -622,7 +620,12 @@ def _configure_logging_handlers(level: int, project_id: str | None) -> None:
                     trace_ctx = f" [trace_id={otel_trace_id} span_id={otel_span_id}]"
 
                 # Handle Correlation ID
-                cid = get_correlation_id()
+                try:
+                    from sre_agent.auth import get_correlation_id
+
+                    cid = get_correlation_id()
+                except (ImportError, TypeError):
+                    cid = None
                 if cid:
                     # Append to trace context
                     record_any.otelContext = f"{trace_ctx} corr_id={cid}"

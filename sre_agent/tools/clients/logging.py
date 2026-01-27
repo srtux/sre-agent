@@ -205,7 +205,15 @@ def _list_log_entries_sync(
                 elif "instance_id" in error_msg:
                     error_msg += (
                         "\n\nHINT: Compute Engine fields like 'instance_id' must be prefixed "
-                        "with 'resource.labels.'. Try 'resource.labels.instance_id=\"...\"' instead."
+                        "with 'resource.labels.'. Try 'resource.labels.instance_id=\"...\"' instead. "
+                        "Note: 'resource.labels.instance_name' is NOT a valid field for 'gce_instance' resource logs. "
+                        "You must use 'resource.labels.instance_id'."
+                    )
+                elif "instance_name" in error_msg:
+                    error_msg += (
+                        "\n\nHINT: 'resource.labels.instance_name' is NOT a valid field for 'gce_instance' resource logs. "
+                        "You must use 'resource.labels.instance_id'. If you only know the name, search "
+                        "globally for the name string (e.g. 'textPayload:\"my-instance\"') or list instances first."
                     )
                 elif "nested type" in error_msg and "jsonPayload" in error_msg:
                     error_msg += (
