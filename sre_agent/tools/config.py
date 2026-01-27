@@ -808,6 +808,20 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         category=ToolCategory.ORCHESTRATION,
         testable=False,
     ),
+    ToolConfig(
+        name="transfer_to_agent",
+        display_name="Transfer to Agent",
+        description="Transfer the investigation to a specialized sub-agent",
+        category=ToolCategory.ORCHESTRATION,
+        testable=False,
+    ),
+    ToolConfig(
+        name="list_metric_descriptors",
+        display_name="List Metric Descriptors",
+        description="List and filter GCP metric descriptors",
+        category=ToolCategory.METRIC_FETCH,
+        testable=True,
+    ),
     # -------------------------------------------------------------------------
     # Reporting Tools
     # -------------------------------------------------------------------------

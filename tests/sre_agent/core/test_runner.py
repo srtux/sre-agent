@@ -228,11 +228,18 @@ class TestRunner:
             ):
                 events.append(e)
 
-        # Verify
-        assert len(events) == 1
+        # Verify: Should yield 2 events (Rejection + Dummy Response)
+        assert len(events) == 2
         content = events[0].content.parts[0].text
         assert "Policy Rejection" in content
         assert "Too dangerous" in content
+
+        # Verify dummy response
+        parts = events[1].content.parts
+        assert len(parts) == 1
+        assert parts[0].function_response is not None
+        assert parts[0].function_response.name == "dangerous_tool"
+        assert parts[0].function_response.response["status"] == "error"
 
     @pytest.mark.asyncio
     async def test_approval_request_creation(self, runner, session, mock_policy_engine):

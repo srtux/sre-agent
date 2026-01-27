@@ -11,20 +11,32 @@ import google.auth.transport.requests
 from opentelemetry import metrics, trace
 
 
-# Filter out the specific warning from google-generativeai types regarding function calls
-class _FunctionCallWarningFilter(logging.Filter):
+# Filter out specific noisy warnings from OTel and GenAI
+class _TelemetryNoiseFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
-        return (
-            "Warning: there are non-text parts in the response"
-            not in record.getMessage()
-        )
+        msg = record.getMessage()
+        # 1. GenAI non-text parts noise (ADK/Vertex)
+        if "Warning: there are non-text parts in the response" in msg:
+            return False
+        # 2. OTel MetricReader collect warning (harmless race during init)
+        if "Cannot call collect on a MetricReader until it is registered" in msg:
+            return False
+        # 3. OTLP Export noise when suppressed
+        if (
+            os.environ.get("SUPPRESS_OTEL_ERRORS", "true").lower() == "true"
+            and "Failed to export" in msg
+            and "otlp" in record.name.lower()
+        ):
+            return False
+        return True
 
 
-# Apply filter to root logger and specific GenAI loggers
-logging.getLogger().addFilter(_FunctionCallWarningFilter())
-logging.getLogger("google.generativeai").addFilter(_FunctionCallWarningFilter())
-logging.getLogger("google_genai.types").addFilter(_FunctionCallWarningFilter())
-logging.getLogger("google_genai._api_client").addFilter(_FunctionCallWarningFilter())
+# Apply filter to root logger and specific noisy loggers
+noise_filter = _TelemetryNoiseFilter()
+logging.getLogger().addFilter(noise_filter)
+logging.getLogger("google.generativeai").addFilter(noise_filter)
+logging.getLogger("google_genai.types").addFilter(noise_filter)
+logging.getLogger("opentelemetry.sdk.metrics._internal.export").addFilter(noise_filter)
 
 
 class EmojiLoggingFilter(logging.Filter):
@@ -234,6 +246,9 @@ def setup_telemetry(level: int = logging.INFO) -> None:
         os.environ.get("DISABLE_TELEMETRY", "").lower() == "true"
         or os.environ.get("OTEL_SDK_DISABLED", "").lower() == "true"
         or os.environ.get("RUNNING_IN_AGENT_ENGINE", "").lower() == "true"
+        or os.environ.get(
+            "PYTEST_CURRENT_TEST"
+        )  # Disable during unit tests to avoid hangs
     ):
         logging.getLogger(__name__).info(
             "Manual OTel setup skipped (disabled or running in Native ADK environment)"
@@ -423,25 +438,28 @@ def setup_telemetry(level: int = logging.INFO) -> None:
 
         # -- METRICS --
         if os.environ.get("OTEL_METRICS_EXPORTER", "").lower() != "none":
-            from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
-                OTLPMetricExporter,
-            )
-            from opentelemetry.sdk.metrics import MeterProvider
-            from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
-
-            metric_exporter = OTLPMetricExporter(
-                endpoint=otlp_endpoint,
-                credentials=composite_creds,
-            )
-            reader = PeriodicExportingMetricReader(
-                metric_exporter, export_interval_millis=60000
-            )
-
             try:
                 current_mp = metrics.get_meter_provider()
                 if "ProxyMeterProvider" in type(current_mp).__name__:
+                    from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
+                        OTLPMetricExporter,
+                    )
+                    from opentelemetry.sdk.metrics import MeterProvider
+                    from opentelemetry.sdk.metrics.export import (
+                        PeriodicExportingMetricReader,
+                    )
+
+                    metric_exporter = OTLPMetricExporter(
+                        endpoint=otlp_endpoint,
+                        credentials=composite_creds,
+                    )
+                    reader = PeriodicExportingMetricReader(
+                        metric_exporter, export_interval_millis=60000
+                    )
+
                     mp = MeterProvider(resource=resource, metric_readers=[reader])
                     metrics.set_meter_provider(mp)
+                    logging.getLogger(__name__).info("✅ Google Cloud Metrics enabled.")
                 else:
                     logging.getLogger(__name__).info(
                         "Existing MeterProvider found. Skipping GCP metrics sidecar."

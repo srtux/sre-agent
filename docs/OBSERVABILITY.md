@@ -62,3 +62,21 @@ Telemetry is **DISABLED** by default for automated evaluations (`run_eval.py`) t
 The `SRE_AGENT_ENCRYPTION_KEY` is critical for decrypting session state on the backend.
 *   If this key is mismatched, the backend will fail to read credentials and trace IDs.
 *   Always ensure the key in Cloud Secret Manager (`sre-agent-encryption-key`) matches the one used during deployment.
+
+## 6. Telemetry Resilience & Noise Filtering
+
+To maintain high signal-to-noise ratios in logs, the agent implements a `_TelemetryNoiseFilter` that suppresses harmless but distracting internal SDK warnings:
+
+*   **MetricReader Registration**: Suppresses `Cannot call collect on a MetricReader until it is registered` warnings caused by race conditions during provider initialization.
+*   **GenAI Parts**: Filters out `Warning: there are non-text parts in the response` from the Vertex AI and ADK libraries.
+*   **OTLP Export Suppression**: When `SUPPRESS_OTEL_ERRORS=true` (default), persistent gRPC export failures are silenced to prevent log flooding during temporary network issues or local runs without credentials.
+
+## 7. Configuration Summary
+
+| Variable | Description | Default |
+| :--- | :--- | :--- |
+| `LOG_LEVEL` | Logging level (DEBUG, INFO, etc.) | `INFO` |
+| `LOG_FORMAT` | Log output format (TEXT or JSON) | `TEXT` |
+| `DISABLE_TELEMETRY` | Disable all tracing and metrics | `false` |
+| `SUPPRESS_OTEL_ERRORS` | Silence OTLP export errors | `true` |
+| `USE_ARIZE` | Enable Arize Phoenix for local dev | `false` |

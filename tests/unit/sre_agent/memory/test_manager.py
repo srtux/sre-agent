@@ -14,6 +14,12 @@ from sre_agent.schema import InvestigationPhase
 class TestMemoryManager:
     """Test suite for MemoryManager."""
 
+    @pytest.fixture(autouse=True)
+    def mock_env(self):
+        """Mock environment variables for all tests."""
+        with patch.dict("os.environ", {"SRE_AGENT_ID": "test-agent"}):
+            yield
+
     @pytest.fixture
     def mock_vertex_ai(self):
         """Mock Vertex AI Memory Bank Service."""

@@ -397,9 +397,15 @@ class Runner:
             async for event in self.agent.run_async(inv_ctx):
                 # Check for function calls that need policy evaluation
                 if self.config.enforce_policy:
-                    intercepted = await self._intercept_tool_calls(event, exec_ctx)
+                    # _intercept_tool_calls is an async generator - we must iterate over it
+                    intercepted = False
+                    async for result_event in self._intercept_tool_calls(
+                        event, exec_ctx
+                    ):
+                        yield result_event
+                        intercepted = True
+
                     if intercepted:
-                        yield intercepted
                         continue
 
                 yield event
@@ -410,22 +416,24 @@ class Runner:
 
     async def _intercept_tool_calls(
         self, event: Event, exec_ctx: ExecutionContext
-    ) -> Event | None:
+    ) -> AsyncGenerator[Event, None]:
         """Intercept and validate tool calls.
 
         Args:
             event: Event to check
             exec_ctx: Execution context
 
-        Returns:
+        Yields:
             Modified event if intervention needed, None otherwise
         """
+        from google.genai import types
+
         if not hasattr(event, "content") or not event.content:
-            return None
+            return
 
         parts = getattr(event.content, "parts", None)
         if not parts:
-            return None
+            return
 
         for part in parts:
             if hasattr(part, "function_call") and part.function_call:
@@ -442,14 +450,45 @@ class Runner:
                 )
 
                 if not decision.allowed:
-                    return self._create_policy_rejection_event(decision)
+                    # CRITICAL: We MUST yield a function_response to the ADK loop
+                    # even if rejected, otherwise it will crash looking for a response
+                    # to the call event it just recorded in its internal history.
+                    rejection_event = self._create_policy_rejection_event(decision)
+
+                    # Also yield a tool response result so the agent knows it failed
+                    # and doesn't wait/hang.
+                    yield rejection_event
+
+                    # Yield a dummy function response to satisfy the ADK event list
+                    # This prevents: ValueError: No function call event found for function responses ids
+                    yield Event(
+                        invocation_id=str(uuid.uuid4()),
+                        author="system",
+                        content=types.Content(
+                            role="user",
+                            parts=[
+                                types.Part(
+                                    function_response=types.FunctionResponse(
+                                        name=tool_name,
+                                        id=func_call.id,
+                                        response={
+                                            "status": "error",
+                                            "error": decision.reason,
+                                        },
+                                    )
+                                )
+                            ],
+                        ),
+                    )
+                    return
 
                 if decision.requires_approval:
-                    return await self._create_approval_request_event(
+                    yield await self._create_approval_request_event(
                         decision, tool_args, exec_ctx
                     )
+                    return
 
-        return None
+        yield event  # Yield the original event if no interception occurred
 
     def _create_policy_rejection_event(self, decision: PolicyDecision) -> Event:
         """Create event for policy rejection."""

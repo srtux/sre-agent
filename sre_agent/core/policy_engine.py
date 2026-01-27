@@ -140,6 +140,12 @@ TOOL_POLICIES: dict[str, ToolPolicy] = {
         category=ToolCategory.OBSERVABILITY,
         description="Execute PromQL queries",
     ),
+    "list_metric_descriptors": ToolPolicy(
+        name="list_metric_descriptors",
+        access_level=ToolAccessLevel.READ_ONLY,
+        category=ToolCategory.OBSERVABILITY,
+        description="List GCP metric descriptors and types",
+    ),
     "detect_metric_anomalies": ToolPolicy(
         name="detect_metric_anomalies",
         access_level=ToolAccessLevel.READ_ONLY,

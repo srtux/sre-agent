@@ -37,6 +37,15 @@ class MemoryManager:
     def _check_init_memory_service(self) -> None:
         """Initialize the Vertex AI Memory Service if credentials allow."""
         try:
+            # Vertex AI Memory Bank requires SRE_AGENT_ID to be set (effectively running in Agent Engine)
+            # If not set, we skip and fallback to local memory immediately to avoid "Agent Engine ID missing" errors.
+            import os
+
+            if not os.environ.get("SRE_AGENT_ID"):
+                raise ValueError(
+                    "SRE_AGENT_ID not set. Skipping Vertex AI Memory Bank setup in local mode."
+                )
+
             # We use a specific corpus for SRE investigations if configured,
             # otherwise allow it to separate by session_id automatically.
             self.memory_service = VertexAiMemoryBankService(

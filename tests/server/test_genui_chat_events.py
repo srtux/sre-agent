@@ -271,8 +271,6 @@ async def test_genui_chat_valid_request_format(async_client: httpx.AsyncClient):
     )
     # Should be accepted (200 OK for streaming) not a validation error (422)
     assert response.status_code == 200
-    # Should be accepted (200 OK for streaming) not a validation error (422)
-    assert response.status_code == 200
     await response.aclose()
 
 

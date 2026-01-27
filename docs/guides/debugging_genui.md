@@ -84,6 +84,57 @@ The backend was sending components without the required `id` and `component` wra
 - The `autosre/lib/catalog.dart` has defensive code (`_unwrapComponentData()`) to handle multiple formats.
 - Tests in `tests/sre_agent/api/test_tool_events.py` verify A2UI v0.8 compliance.
 
+### 2. "Ghost Bubbles" & Race Conditions (RESOLVED)
+
+**Problem**:
+Surface bubbles would sometimes appear empty ("Ghost Bubbles") or duplicated. This was caused by the UI marker (`{"type": "ui", "surface_id": "..."}`) arriving at the frontend before the actual component data (`beginRendering`). The frontend would create a bubble for the ID, but since the data hadn't arrived, it rendered nothing.
+
+**Current Solution (Sequencing)**:
+The backend MUST yield the A2UI data events **BEFORE** yielding the UI marker. This ensures that when the frontend creates the `GenUiSurface` bubble, the data is already registered in the `A2uiMessageProcessor`.
+
+```python
+# Optimal Yield Sequence (sre_agent/api/routers/agent.py)
+# 1. Yield A2UI metadata/data first
+for evt_str in events:
+    yield evt_str + "\n"
+
+# 2. Yield UI marker second (this triggers the visual bubble)
+yield json.dumps({"type": "ui", "surface_id": surface_id}) + "\n"
+```
+
+### 3. Root-Level type Promotion (A2UI v0.8+)
+
+For specialized widgets (charts, traces), we now promote the `type` field to the root level of the component object. This helps the `CatalogRegistry` match the widget correctly without deep-diving into nested keys.
+
+```json
+{
+  "id": "chart-123",
+  "type": "x-sre-metric-chart",  // Root-level promotion
+  "component": {
+    "type": "x-sre-metric-chart",
+    "x-sre-metric-chart": { ... data ... }
+  }
+}
+```
+
+### 4. Sub-Agent Delegation & Policy Rejections
+
+When a tool call is rejected by the `PolicyEngine` (e.g., restricted access or disabled tool), the `Runner` MUST still yield a `function_response` event to the ADK loop.
+
+**Why**: If a `function_call` is emitted but no `function_response` follows, the ADK event history becomes inconsistent, leading to a `ValueError: No function call event found for function responses`.
+
+**Guideline**: Always catch rejections and yield a dummy "error" response to satisfy the framework's state machine.
+
+---
+
+## 🏗️ World-Class Platform Patterns
+
+### 1. "Verify-then-Query" Anti-Hallucination
+Before the agent queries a specific metric, it should use `list_metric_descriptors` to verify the exact string name (e.g., `kubernetes.io/container/cpu/core_usage_time` vs `usage_time`). This prevents 404s and hallucinated metric names.
+
+### 2. Reactive Errors & Hints
+Monitoring tools now include **Smart Error Hints**. If a query fails with a 400 (Bad Request), the tool adds a context-aware HINT (e.g., "Your query looks like MQL but this tool requires PromQL") to help the agent self-correct.
+
 ---
 
 ## 🔍 Debugging Techniques

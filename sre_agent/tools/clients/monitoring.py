@@ -455,9 +455,13 @@ def _query_promql_sync(
             if response.status_code != 200:
                 try:
                     error_details = response.json()
-                    error_msg = error_details.get("error", {}).get(
-                        "message", str(error_details)
-                    )
+                    error_msg = "Unknown error"
+                    if isinstance(error_details, dict):
+                        error_msg = error_details.get("error", {}).get(
+                            "message", str(error_details)
+                        )
+                    else:
+                        error_msg = str(error_details)
                     logger.error(
                         f"PromQL API Error ({response.status_code}): {error_msg}"
                     )
@@ -489,6 +493,8 @@ def _query_promql_sync(
                     suggestion += " Note: When using '__name__' with regex, ensure the regex is valid and matches actual metrics in your project. Try a simpler query like '{__name__=\"metric_name\"}' first to verify the metric exists."
                 elif "by (" in query:
                     suggestion += " Note: If you are aggregating by labels (e.g., 'sum by (label_name)'), ensure those labels exist on the underlying metric. Use a raw query like 'metric_name' to see available labels."
+                elif "run_googleapis_com" in query:
+                    suggestion += " Note: For Cloud Run metrics, ensure the service name is correct. Try searching for available metrics using 'list_metric_descriptors'."
 
             error_msg = f"Failed to execute PromQL query: {e!s}{suggestion}"
             logger.error(error_msg, exc_info=True)

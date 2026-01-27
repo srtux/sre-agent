@@ -7,24 +7,46 @@ import pytest
 
 from sre_agent.tools.common.telemetry import (
     GenAiAttributes,
-    _FunctionCallWarningFilter,
     log_tool_call,
     set_span_attribute,
 )
 
 
-def test_function_call_warning_filter():
-    """Test the function call warning filter."""
-    filter_obj = _FunctionCallWarningFilter()
+def test_telemetry_noise_filter():
+    """Test the telemetry noise filter."""
+    from sre_agent.tools.common.telemetry import _TelemetryNoiseFilter
+
+    filter_obj = _TelemetryNoiseFilter()
 
     # Should allow normal messages
     record = MagicMock()
     record.getMessage.return_value = "Normal message"
+    record.name = "root"
     assert filter_obj.filter(record) is True
 
-    # Should filter out specific warning
+    # 1. Should filter out GenAI non-text parts noise
     record.getMessage.return_value = "Warning: there are non-text parts in the response"
     assert filter_obj.filter(record) is False
+
+    # 2. Should filter out OTel MetricReader warning
+    record.getMessage.return_value = (
+        "Cannot call collect on a MetricReader until it is registered"
+    )
+    assert filter_obj.filter(record) is False
+
+    # 3. Should filter out OTLP Export noise when suppressed
+    import os
+
+    with patch.dict(os.environ, {"SUPPRESS_OTEL_ERRORS": "true"}):
+        record.getMessage.return_value = "Failed to export traces"
+        record.name = "opentelemetry.exporter.otlp.proto.grpc.exporter"
+        assert filter_obj.filter(record) is False
+
+    # Should NOT filter OTLP export if suppression is false
+    with patch.dict(os.environ, {"SUPPRESS_OTEL_ERRORS": "false"}):
+        record.getMessage.return_value = "Failed to export traces"
+        record.name = "opentelemetry.exporter.otlp.proto.grpc.exporter"
+        assert filter_obj.filter(record) is True
 
 
 def test_gen_ai_attributes_constants():
@@ -117,6 +139,7 @@ def test_setup_telemetry_enabled_mocked():
             "GOOGLE_CLOUD_PROJECT": "test-proj",
             "OTEL_TRACES_EXPORTER": "otlp",
             "OTEL_METRICS_EXPORTER": "otlp",
+            "PYTEST_CURRENT_TEST": "",  # Force bypass for this test
         },
     ):
         with patch("google.auth.default", return_value=(MagicMock(), "test-proj")):
@@ -166,6 +189,7 @@ def test_setup_telemetry_arize_mocked():
             "ARIZE_SPACE_ID": "space",
             "ARIZE_API_KEY": "key",  # pragma: allowlist secret
             "GOOGLE_CLOUD_PROJECT": "test-proj",
+            "PYTEST_CURRENT_TEST": "",  # Force bypass for this test
         },
     ):
         with patch("arize.otel.register") as mock_register:

@@ -59,13 +59,16 @@ class CatalogRegistry {
 
     // 3. Root Level Match (e.g. {"type": "x-sre-tool-log", ...})
     if (data['type'] == componentName) {
+      // If it's a v0.8 component wrapper, unwrap the named key if present
+      if (data.containsKey(componentName) && data[componentName] is Map) {
+        return Map<String, dynamic>.from(data[componentName] as Map);
+      }
       return data;
     }
 
     // 4. Fallback: If we are specifically looking for tool log, try to find ANY log-like shape
     if (componentName == 'x-sre-tool-log' || componentName == 'tool-log') {
-      // Expanded Heuristic: Also check for 'args' and 'status' if 'tool_name' is missing
-      // This handles the case where type is implicit or data is just {args:..., status:...}
+      // Check for common tool log fields at root or under a generic 'component' key
       if (data.containsKey('toolName') ||
           data.containsKey('tool_name') ||
           (data.containsKey('args') && data.containsKey('status'))) {
