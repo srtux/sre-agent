@@ -157,6 +157,20 @@ def get_current_time() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _get_ts_val(ts_proto: Any) -> float:
+    """Helper to get timestamp value from proto or datetime."""
+    if hasattr(ts_proto, "timestamp"):
+        return cast(float, ts_proto.timestamp())
+    return cast(float, ts_proto.seconds + ts_proto.nanos / 1e9)
+
+
+def _get_ts_str(ts_proto: Any) -> str:
+    """Helper to get ISO formatted string from proto or datetime."""
+    if hasattr(ts_proto, "isoformat"):
+        return cast(str, ts_proto.isoformat())
+    return datetime.fromtimestamp(_get_ts_val(ts_proto), tz=timezone.utc).isoformat()
+
+
 def get_trace_client(credentials: Any = None) -> trace_v1.TraceServiceClient:
     """Gets a Cloud Trace API client."""
     return trace_v1.TraceServiceClient(credentials=credentials)
@@ -275,21 +289,8 @@ def _fetch_trace_sync(project_id: str, trace_id: str) -> dict[str, Any]:
             trace_end = None
 
             for span_proto in trace_obj.spans:
-
-                def get_ts_val(ts_proto: Any) -> float:
-                    if hasattr(ts_proto, "timestamp"):
-                        return cast(float, ts_proto.timestamp())
-                    return cast(float, ts_proto.seconds + ts_proto.nanos / 1e9)
-
-                def get_ts_str(ts_proto: Any) -> str:
-                    if hasattr(ts_proto, "isoformat"):
-                        return cast(str, ts_proto.isoformat())
-                    return datetime.fromtimestamp(
-                        get_ts_val(ts_proto), tz=timezone.utc
-                    ).isoformat()
-
-                s_start = get_ts_val(span_proto.start_time)
-                s_end = get_ts_val(span_proto.end_time)
+                s_start = _get_ts_val(span_proto.start_time)
+                s_end = _get_ts_val(span_proto.end_time)
 
                 if trace_start is None or s_start < trace_start:
                     trace_start = s_start
@@ -300,8 +301,8 @@ def _fetch_trace_sync(project_id: str, trace_id: str) -> dict[str, Any]:
                     {
                         "span_id": span_proto.span_id,
                         "name": span_proto.name,
-                        "start_time": get_ts_str(span_proto.start_time),
-                        "end_time": get_ts_str(span_proto.end_time),
+                        "start_time": _get_ts_str(span_proto.start_time),
+                        "end_time": _get_ts_str(span_proto.end_time),
                         "start_time_unix": s_start,
                         "end_time_unix": s_end,
                         "parent_span_id": span_proto.parent_span_id,
@@ -447,13 +448,8 @@ def _list_traces_sync(
                     root_span = trace.spans[0]
                     summary["name"] = root_span.name
 
-                    def get_ts_val(ts_proto: Any) -> float:
-                        if hasattr(ts_proto, "timestamp"):
-                            return cast(float, ts_proto.timestamp())
-                        return cast(float, ts_proto.seconds + ts_proto.nanos / 1e9)
-
-                    start_ts = get_ts_val(root_span.start_time)
-                    end_ts = get_ts_val(root_span.end_time)
+                    start_ts = _get_ts_val(root_span.start_time)
+                    end_ts = _get_ts_val(root_span.end_time)
                     duration_ms = (end_ts - start_ts) * 1000
 
                     if hasattr(root_span.start_time, "isoformat"):
