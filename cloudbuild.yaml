@@ -1,42 +1,8 @@
 steps:
-  # 1. Install uv and Python dependencies
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    id: 'install-dependencies'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        curl -LsSf https://astral.sh/uv/install.sh | sh
-        source $$HOME/.cargo/env
-        uv python install 3.10
-        uv sync
-
-  # 2. Fetch Agent Engine Resource ID
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    id: 'fetch-resource-id'
-    entrypoint: 'bash'
-    env:
-      - 'GOOGLE_CLOUD_PROJECT=$PROJECT_ID'
-      - 'GOOGLE_CLOUD_LOCATION=$_LOCATION'
-      - 'AGENT_ENGINE_LOCATION=$_LOCATION'
-      - 'GOOGLE_CLOUD_STORAGE_BUCKET=$_BUCKET'
-    args:
-      - '-c'
-      - |
-        source $$HOME/.cargo/env
-        # Fetch the existing stable resource ID
-        uv run python deploy/get_id.py > backend_resource_name.txt
-
-        if [ ! -s backend_resource_name.txt ]; then
-           echo "❌ Agent not found. Cannot parallelize. Please deploy manually first."
-           exit 1
-        fi
-        echo "✅ Found Agent: $(cat backend_resource_name.txt)"
-
-  # 3. Deploy Agent Engine Backend (Parallel Track A)
+  # 1. Deploy Agent Engine Backend (Parallel Track A)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'deploy-backend'
-    waitFor: ['-'] # Start immediately in parallel
+    waitFor: ['-'] # Start immediately
     entrypoint: 'bash'
     secretEnv: ['SRE_AGENT_ENCRYPTION_KEY']
     env:
@@ -44,15 +10,44 @@ steps:
       - 'GOOGLE_CLOUD_LOCATION=$_LOCATION'
       - 'AGENT_ENGINE_LOCATION=$_LOCATION'
       - 'GOOGLE_CLOUD_STORAGE_BUCKET=$_BUCKET'
-      # Ensure backend has the key to decrypt user tokens
       - 'STRICT_EUC_ENFORCEMENT=false'
     args:
       - '-c'
       - |
+        # Install uv
+        curl -LsSf https://astral.sh/uv/install.sh | sh
         source $$HOME/.cargo/env
+        uv python install 3.10
+        uv sync
+
         echo "🚀 Updating Agent Engine (Patching existing agent if found)..."
         # Deploy checks for existing agent by name 'sre_agent' and updates it
         uv run python deploy/deploy.py --create
+
+  # 2. Fetch Agent Engine Resource ID (Parallel Track B - Fast)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'fetch-resource-id'
+    waitFor: ['-'] # Start immediately
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        # Fast lookup using REST API to avoid waiting for uv/python environment
+        echo "🔍 Looking up stable Agent ID..."
+        TOKEN=$(gcloud auth print-access-token)
+        RESOURCE_NAME=$(curl -s -X GET \
+          -H "Authorization: Bearer $$TOKEN" \
+          "https://$_LOCATION-aiplatform.googleapis.com/v1/projects/$PROJECT_ID/locations/$_LOCATION/reasoningEngines" \
+          | jq -r '.reasoningEngines[] | select(.displayName == "sre_agent") | .name' | head -n 1)
+
+        if [ -z "$$RESOURCE_NAME" ] || [ "$$RESOURCE_NAME" = "null" ]; then
+           echo "❌ Agent 'sre_agent' not found. Please deploy manually once first."
+           exit 1
+        fi
+        echo "$$RESOURCE_NAME" > backend_resource_name.txt
+        echo "✅ Found Agent: $$RESOURCE_NAME"
+
+
 
   # 4. Build Unified Docker Image (Parallel Track B)
   - name: 'gcr.io/cloud-builders/docker'
