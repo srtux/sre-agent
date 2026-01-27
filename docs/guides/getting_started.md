@@ -48,9 +48,6 @@ SRE_AGENT_ENCRYPTION_KEY=your-secure-encryption-key
 
 # Strict End-User Credential Enforcement
 STRICT_EUC_ENFORCEMENT=false
-
-# Arize Observability
-USE_ARIZE=false
 ```
 
 ## Running the Application

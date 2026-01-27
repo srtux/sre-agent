@@ -17,7 +17,7 @@ High-level tools that perform multi-step analysis or statistical processing.
 - `detect_metric_anomalies`: Uses seasonality and z-scores to identify statistical outliers.
 
 ### 3. BigQuery Fleet Analysis
-Enables fleet-wide analysis by querying OTel data exported to BigQuery.
+Enables fleet-wide analysis by querying telemetry data exported to BigQuery.
 - `analyze_aggregate_metrics`: Health overview of all services.
 - `find_exemplar_traces`: Automatically separates "Fast" from "Slow" traces for comparison.
 

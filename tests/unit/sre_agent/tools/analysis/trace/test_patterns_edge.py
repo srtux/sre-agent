@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from sre_agent.schema import ToolStatus
+from sre_agent.schema import BaseToolResponse, ToolStatus
 from sre_agent.tools.analysis.trace.patterns import (
     _get_span_duration,
     _parse_timestamp,
@@ -62,8 +62,8 @@ def test_detect_retry_storm_exponential_backoff(mock_fetch):
     }  # Sequential with small gaps, and increasing durations -> exponential backoff
     mock_fetch.return_value = trace
     res = detect_retry_storm("t1", threshold=3)
-    assert res["status"] == ToolStatus.SUCCESS
-    assert res["result"]["retry_patterns"][0]["has_exponential_backoff"] is True
+    assert res.status == ToolStatus.SUCCESS
+    assert res.result["retry_patterns"][0]["has_exponential_backoff"] is True
 
 
 def test_detect_cascading_timeout_subset_and_explicit(mock_fetch):
@@ -88,9 +88,9 @@ def test_detect_cascading_timeout_subset_and_explicit(mock_fetch):
     }
     mock_fetch.return_value = trace
     res = detect_cascading_timeout("t1")
-    assert res["status"] == ToolStatus.SUCCESS
-    assert res["result"]["cascade_detected"] is True
-    assert len(res["result"]["cascade_chains"]) == 1  # Subset should be removed
+    assert res.status == ToolStatus.SUCCESS
+    assert res.result["cascade_detected"] is True
+    assert len(res.result["cascade_chains"]) == 1  # Subset should be removed
 
 
 def test_detect_connection_pool_severities(mock_fetch):
@@ -109,7 +109,7 @@ def test_detect_connection_pool_severities(mock_fetch):
     mock_fetch.return_value = trace
     res = detect_connection_pool_issues("t1", wait_threshold_ms=100)
     # Note: the 4th span is NOT included because 50 < 100
-    issues = res["result"]["pool_issues"]
+    issues = res.result["pool_issues"]
     sev = [i["severity"] for i in issues]
     assert "high" in sev
     assert "low" in sev
@@ -120,92 +120,92 @@ def test_detect_all_sre_patterns_health_mapping(mock_fetch):
     with patch(
         "sre_agent.tools.analysis.trace.patterns.detect_cascading_timeout"
     ) as mock_ct:
-        mock_ct.return_value = {
-            "status": "success",
-            "result": {
+        mock_ct.return_value = BaseToolResponse(
+            status=ToolStatus.SUCCESS,
+            result={
                 "cascade_detected": True,
                 "impact": "critical",
                 "cascade_chains": [],
             },
-        }
+        )
         with patch(
             "sre_agent.tools.analysis.trace.patterns.detect_retry_storm",
-            return_value={"status": "success", "result": {}},
+            return_value=BaseToolResponse(status=ToolStatus.SUCCESS, result={}),
         ):
             with patch(
                 "sre_agent.tools.analysis.trace.patterns.detect_connection_pool_issues",
-                return_value={"status": "success", "result": {}},
+                return_value=BaseToolResponse(status=ToolStatus.SUCCESS, result={}),
             ):
                 res = detect_all_sre_patterns("t1")
-                assert res["result"]["overall_health"] == "critical"
+                assert res.result["overall_health"] == "critical"
 
     # 2. Degraded (retry storm)
     with patch("sre_agent.tools.analysis.trace.patterns.detect_retry_storm") as mock_rs:
-        mock_rs.return_value = {
-            "status": "success",
-            "result": {"has_retry_storm": True, "retry_patterns": [{"impact": "high"}]},
-        }
+        mock_rs.return_value = BaseToolResponse(
+            status=ToolStatus.SUCCESS,
+            result={"has_retry_storm": True, "retry_patterns": [{"impact": "high"}]},
+        )
         with patch(
             "sre_agent.tools.analysis.trace.patterns.detect_cascading_timeout",
-            return_value={"status": "success", "result": {}},
+            return_value=BaseToolResponse(status=ToolStatus.SUCCESS, result={}),
         ):
             with patch(
                 "sre_agent.tools.analysis.trace.patterns.detect_connection_pool_issues",
-                return_value={"status": "success", "result": {}},
+                return_value=BaseToolResponse(status=ToolStatus.SUCCESS, result={}),
             ):
                 res = detect_all_sre_patterns("t1")
-                assert res["result"]["overall_health"] == "degraded"
+                assert res.result["overall_health"] == "degraded"
 
     # 3. Warning (low impact pattern)
     with patch("sre_agent.tools.analysis.trace.patterns.detect_retry_storm") as mock_rs:
-        mock_rs.return_value = {
-            "status": "success",
-            "result": {"has_retry_storm": True, "retry_patterns": [{"impact": "low"}]},
-        }
+        mock_rs.return_value = BaseToolResponse(
+            status=ToolStatus.SUCCESS,
+            result={"has_retry_storm": True, "retry_patterns": [{"impact": "low"}]},
+        )
         with patch(
             "sre_agent.tools.analysis.trace.patterns.detect_cascading_timeout",
-            return_value={"status": "success", "result": {}},
+            return_value=BaseToolResponse(status=ToolStatus.SUCCESS, result={}),
         ):
             with patch(
                 "sre_agent.tools.analysis.trace.patterns.detect_connection_pool_issues",
-                return_value={"status": "success", "result": {}},
+                return_value=BaseToolResponse(status=ToolStatus.SUCCESS, result={}),
             ):
                 res = detect_all_sre_patterns("t1")
-                assert res["result"]["overall_health"] == "warning"
+                assert res.result["overall_health"] == "warning"
 
     # 4. Connection pool exhaustion
     with patch(
         "sre_agent.tools.analysis.trace.patterns.detect_connection_pool_issues"
     ) as mock_cp:
-        mock_cp.return_value = {
-            "status": "success",
-            "result": {
+        mock_cp.return_value = BaseToolResponse(
+            status=ToolStatus.SUCCESS,
+            result={
                 "has_pool_exhaustion": True,
                 "pool_issues": [],
                 "total_wait_ms": 1000,
             },
-        }
+        )
         with patch(
             "sre_agent.tools.analysis.trace.patterns.detect_retry_storm",
-            return_value={"status": "success", "result": {}},
+            return_value=BaseToolResponse(status=ToolStatus.SUCCESS, result={}),
         ):
             with patch(
                 "sre_agent.tools.analysis.trace.patterns.detect_cascading_timeout",
-                return_value={"status": "success", "result": {}},
+                return_value=BaseToolResponse(status=ToolStatus.SUCCESS, result={}),
             ):
                 res = detect_all_sre_patterns("t1")
                 assert any(
                     p["pattern_type"] == "connection_pool_exhaustion"
-                    for p in res["result"]["patterns"]
+                    for p in res.result["patterns"]
                 )
 
 
 def test_detectors_error_paths(mock_fetch):
     mock_fetch.return_value = {"error": "API Failure"}
 
-    assert detect_retry_storm("t1")["status"] == ToolStatus.ERROR
-    assert detect_cascading_timeout("t1")["status"] == ToolStatus.ERROR
-    assert detect_connection_pool_issues("t1")["status"] == ToolStatus.ERROR
+    assert detect_retry_storm("t1").status == ToolStatus.ERROR
+    assert detect_cascading_timeout("t1").status == ToolStatus.ERROR
+    assert detect_connection_pool_issues("t1").status == ToolStatus.ERROR
 
 
 def test_detect_all_patterns_exception():
@@ -214,5 +214,5 @@ def test_detect_all_patterns_exception():
         side_effect=Exception("Global Fail"),
     ):
         res = detect_all_sre_patterns("t1")
-        assert res["status"] == ToolStatus.ERROR
-        assert "Global Fail" in res["error"]
+        assert res.status == ToolStatus.ERROR
+        assert "Global Fail" in res.error

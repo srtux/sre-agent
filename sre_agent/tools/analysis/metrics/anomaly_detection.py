@@ -49,14 +49,15 @@ def detect_metric_anomalies(
             status=ToolStatus.ERROR, error="No valid data points found"
         )
 
-    stats_response = calculate_series_stats(values)
-    if stats_response["status"] != "success":
+    stats_response = calculate_series_stats(values, tool_context=tool_context)
+
+    if stats_response.status != ToolStatus.SUCCESS:
         return BaseToolResponse(
             status=ToolStatus.ERROR,
-            error=stats_response["error"] or "Error calculating stats",
+            error=stats_response.error or "Error calculating stats",
         )
 
-    stats = stats_response["result"]
+    stats = stats_response.result
     mean = stats["mean"]
     stdev = stats["stdev"]
 
@@ -113,19 +114,23 @@ def compare_metric_windows(
             status=ToolStatus.ERROR, error="Missing data for comparison"
         )
 
-    base_stats_response = calculate_series_stats(baseline_points)
-    target_stats_response = calculate_series_stats(target_points)
+    base_stats_response = calculate_series_stats(
+        baseline_points, tool_context=tool_context
+    )
+    target_stats_response = calculate_series_stats(
+        target_points, tool_context=tool_context
+    )
 
     if (
-        base_stats_response["status"] != "success"
-        or target_stats_response["status"] != "success"
+        base_stats_response.status != ToolStatus.SUCCESS
+        or target_stats_response.status != ToolStatus.SUCCESS
     ):
         return BaseToolResponse(
             status=ToolStatus.ERROR, error="Error calculating stats for comparison"
         )
 
-    base_stats = base_stats_response["result"]
-    target_stats = target_stats_response["result"]
+    base_stats = base_stats_response.result
+    target_stats = target_stats_response.result
 
     mean_shift = target_stats["mean"] - base_stats["mean"]
     if base_stats["mean"] != 0:
@@ -141,8 +146,7 @@ def compare_metric_windows(
             "comparison": {
                 "mean_shift": round(mean_shift, 4),
                 "mean_shift_pct": round(mean_shift_pct, 2),
-                "is_significant_shift": abs(mean_shift_pct)
-                > 10.0,  # 10% arbitrary threshold
+                "is_significant_shift": abs(mean_shift_pct) > 10.0,
             },
         },
     )

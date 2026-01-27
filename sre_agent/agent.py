@@ -315,8 +315,6 @@ def emojify_agent(agent: LlmAgent | Any) -> LlmAgent | Any:
             )
             logger.info(border)
 
-        from .tools.common import using_arize_session
-
         # 1a. Safety: Ensure model is context-aware for THIS request
         # We use temporary swapping to avoid poisoning the global agent object
         # with unpickleable model clients, which would break deployment/deepcopy.
@@ -331,9 +329,6 @@ def emojify_agent(agent: LlmAgent | Any) -> LlmAgent | Any:
         # 2. Propagation: Ensure user credentials from session are in ContextVar
         # This protects both tool calls and LLM calls (via GLOBAL_CONTEXT_CREDENTIALS).
         session_state = None
-        token = (
-            None  # Initialize token here to avoid UnboundLocalError in finally block
-        )
         if hasattr(context, "session") and context.session:
             session_state = getattr(context.session, "state", None)
             if session_state is None and isinstance(context.session, dict):
@@ -352,80 +347,21 @@ def emojify_agent(agent: LlmAgent | Any) -> LlmAgent | Any:
             if user_email:
                 set_current_user_id(user_email)
 
-            # Import OTel components here to ensure they are available in this scope
-            from opentelemetry import context as otel_context
-            from opentelemetry import trace
-            from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
-
-            from .auth import (
-                SESSION_STATE_SPAN_ID_KEY,
-                SESSION_STATE_TRACE_FLAGS_KEY,
-                SESSION_STATE_TRACE_ID_KEY,
-                set_trace_id,
-            )
+            from .auth import SESSION_STATE_TRACE_ID_KEY, set_trace_id
 
             remote_trace_id = session_state.get(SESSION_STATE_TRACE_ID_KEY)
-            remote_span_id = session_state.get(SESSION_STATE_SPAN_ID_KEY)
-            remote_flags = session_state.get(SESSION_STATE_TRACE_FLAGS_KEY)
-
-            token = None
             if remote_trace_id:
                 set_trace_id(remote_trace_id)
-                try:
-                    # Link local operations to the global trace!
-                    # CRITICAL: span_id MUST be non-zero for the context to be valid.
-                    # We use the propagated span_id if available, or fall back to
-                    # a deterministic non-zero ID derived from the trace ID.
-                    s_id = 0
-                    if remote_span_id:
-                        try:
-                            s_id = int(remote_span_id, 16)
-                        except (ValueError, TypeError):
-                            pass
 
-                    if s_id == 0:
-                        # Deterministic fallback: use first 8 bytes of trace_id
-                        s_id = int(remote_trace_id[:16], 16)
-
-                    # Trace flags (e.g. sampled)
-                    flags = TraceFlags.SAMPLED
-                    if remote_flags:
-                        try:
-                            flags = TraceFlags(int(remote_flags, 16))
-                        except (ValueError, TypeError):
-                            pass
-
-                    span_context = SpanContext(
-                        trace_id=int(remote_trace_id, 16),
-                        span_id=s_id,
-                        is_remote=True,
-                        trace_flags=TraceFlags(flags),
-                    )
-                    parent_ctx = trace.set_span_in_context(
-                        NonRecordingSpan(span_context)
-                    )
-                    token = otel_context.attach(parent_ctx)
-                    logger.debug(
-                        f"📍 Restored OTel Context: trace_id={remote_trace_id}, span_id={s_id:016x}, flags={flags:02x}"
-                    )
-                except Exception as e:
-                    logger.warning(f"Failed to restore OTel context: {e}")
-                    pass
-
-        # 3. Run Original with Arize session context
+        # 3. Run Original
         full_response_parts = []
         try:
-            with using_arize_session(session_id=session_id, user_id=user_id):
-                async for event in original_run_async(context):
-                    if (
-                        hasattr(event, "content")
-                        and event.content
-                        and event.content.parts
-                    ):
-                        for part in event.content.parts:
-                            if hasattr(part, "text") and part.text:
-                                full_response_parts.append(part.text)
-                    yield event
+            async for event in original_run_async(context):
+                if hasattr(event, "content") and event.content and event.content.parts:
+                    for part in event.content.parts:
+                        if hasattr(part, "text") and part.text:
+                            full_response_parts.append(part.text)
+                yield event
         except Exception as e:
             logger.error(f"🔥 Agent Execution Failed: {e}", exc_info=True)
             raise e
@@ -434,17 +370,6 @@ def emojify_agent(agent: LlmAgent | Any) -> LlmAgent | Any:
             if should_swap:
                 object.__setattr__(agent, "model", old_model)
                 logger.debug(f"Emojify: Restored model for {agent.name}")
-
-            # Detach OTel context if attached
-            if token is not None:
-                try:
-                    otel_context.detach(token)
-                except ValueError:
-                    # Context drift in async generator (GeneratorExit in new context)
-                    # This is harmless as usage scope is over.
-                    pass
-                except Exception as e:
-                    logger.warning(f"Failed to detach OTel context: {e}")
 
         # 4. Log Response
         final_response = "".join(full_response_parts)

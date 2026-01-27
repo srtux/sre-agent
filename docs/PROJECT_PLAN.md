@@ -32,7 +32,10 @@ Auto SRE is an autonomous reliability engine for Google Cloud. We are transition
     *   Consolidated fragmented tracking files (`TASK_LIST.md`, `IMPLEMENTATION_PLAN.md`, etc.) into this living `PROJECT_PLAN.md`.
     *   Synchronized Mermaid diagrams across `README.md` and architecture docs.
     *   Updated `AGENTS.md` and `CLAUDE.md` to establish the new Project Plan as the primary source of truth.
-    *   Expanded `configuration.md` to cover all active environment variables.
+*   **Minimalist Telemetry Transition**:
+    *   Removed 1000+ lines of manual OpenTelemetry and Arize instrumentation logic.
+    *   Adopted ADK native tracing and Agent Engine observability for internal agent telemetry.
+    *   Reduced package dependencies and resolved OTLP export warnings.
 
 ---
 
@@ -68,7 +71,7 @@ Auto SRE is an autonomous reliability engine for Google Cloud. We are transition
 
 - [x] **Streaming Reasoning (CoT)**: Real-time "Thinking" stream in the UI, exposing the agent's internal chain-of-thought before it acts.
 - [x] **CI-Driven Evaluations**: Integrated "LLM-as-a-Judge" into Cloud Build. Regression suites run on every PR to ensure reasoning accuracy never drops.
-- [ ] **Observability-on-Self**: Fully link the agent's own trace IDs to the UI. Allow the user to "View Reasoning Trace" in Cloud Trace/Arize via deep links.
+- [ ] **Observability-on-Self**: Fully link the agent's own trace IDs to the UI. Allow the user to "View Reasoning Trace" in Cloud Trace via deep links, leveraging native ADK instrumentation.
 - [ ] **Confirmation Bridge (HITL 2.0)**: Global interceptor for `IMPACT: HIGH` tool calls (e.g., Delete/Modify) that pauses the agent and requests user permission via UI banner.
 - [ ] **Zero-Trust Identity propagation**: 1:1 mapping of every tool execution to the *actual* end-user IAM identity, ensuring absolute auditability in massive GCP environments.
 

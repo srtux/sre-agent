@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from sre_agent.schema import ToolStatus
 from sre_agent.tools.clients.logging import (
     _extract_log_payload,
     get_logs_for_trace,
@@ -48,8 +49,8 @@ async def test_list_log_entries(mock_pager):
         mock_client.list_log_entries.return_value = mock_pager
 
         result = await list_log_entries("p1", "filter")
-        assert result["status"] == "success"
-        res_data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        res_data = result.result
         assert "entries" in res_data
         assert len(res_data["entries"]) == 1
         assert res_data["entries"][0]["severity"] == "ERROR"
@@ -63,8 +64,8 @@ async def test_list_log_entries_with_token(mock_pager):
         mock_client.list_log_entries.return_value = mock_pager
 
         result = await list_log_entries("p1", "filter", page_token="token123")
-        assert result["status"] == "success"
-        assert "entries" in result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        assert "entries" in result.result
 
 
 @pytest.mark.asyncio
@@ -74,8 +75,8 @@ async def test_list_log_entries_error():
         side_effect=Exception("API error"),
     ):
         result = await list_log_entries("p1", "filter")
-        assert result["status"] == "error"
-        assert "API error" in result["error"]
+        assert result.status == ToolStatus.ERROR
+        assert "API error" in result.error
 
 
 @pytest.mark.asyncio
@@ -86,8 +87,8 @@ async def test_get_logs_for_trace(mock_pager):
         mock_client.list_log_entries.return_value = mock_pager
 
         result = await get_logs_for_trace("p1", "t1")
-        assert result["status"] == "success"
-        assert "entries" in result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        assert "entries" in result.result
 
 
 @pytest.mark.asyncio
@@ -107,8 +108,8 @@ async def test_list_error_events():
         mock_client.list_events.return_value = [mock_event]
 
         result = await list_error_events(project_id="p1")
-        assert result["status"] == "success"
-        res_list = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        res_list = result.result
         assert isinstance(res_list, list)
         assert len(res_list) == 1
         assert res_list[0]["message"] == "Crash"
@@ -121,8 +122,8 @@ async def test_list_error_events_error():
         side_effect=Exception("API Fail"),
     ):
         result = await list_error_events(project_id="p1")
-        assert result["status"] == "error"
-        assert "API Fail" in result["error"]
+        assert result.status == ToolStatus.ERROR
+        assert "API Fail" in result.error
 
 
 def test_extract_log_payload_text():

@@ -724,6 +724,7 @@ class PolicyEngine:
             # We used to reject here, but removing the check as requested by user.
 
         # Dynamic Tool Filtering: Check if tool is disabled in config
+        manager = None
         try:
             from sre_agent.tools.config import get_tool_config_manager
 
@@ -744,7 +745,7 @@ class PolicyEngine:
         if policy.access_level == ToolAccessLevel.READ_ONLY:
             reason = "Read-only operation - allowed."
             try:
-                if not manager.is_enabled(tool_name):
+                if manager and not manager.is_enabled(tool_name):
                     reason += " (allowing anyway as policy checks are disabled)"
             except Exception:
                 pass

@@ -269,35 +269,6 @@ class AgentEngineClient:
         if project_id and session.state.get(SESSION_STATE_PROJECT_ID_KEY) != project_id:
             state_delta[SESSION_STATE_PROJECT_ID_KEY] = project_id
 
-        # PROPAGATION: Include current OTel Trace Context in session state for cross-service correlation!
-        from opentelemetry import trace
-
-        from sre_agent.auth import (
-            SESSION_STATE_SPAN_ID_KEY,
-            SESSION_STATE_TRACE_FLAGS_KEY,
-            SESSION_STATE_TRACE_ID_KEY,
-        )
-
-        span_context = trace.get_current_span().get_span_context()
-        if span_context.is_valid:
-            trace_id = format(span_context.trace_id, "032x")
-            span_id = format(span_context.span_id, "016x")
-            trace_flags = format(span_context.trace_flags, "02x")
-
-            if session.state.get(SESSION_STATE_TRACE_ID_KEY) != trace_id:
-                state_delta[SESSION_STATE_TRACE_ID_KEY] = trace_id
-                logger.debug(f"📍 Injecting Trace ID into session state: {trace_id}")
-
-            if session.state.get(SESSION_STATE_SPAN_ID_KEY) != span_id:
-                state_delta[SESSION_STATE_SPAN_ID_KEY] = span_id
-                logger.debug(f"📍 Injecting Span ID into session state: {span_id}")
-
-            if session.state.get(SESSION_STATE_TRACE_FLAGS_KEY) != trace_flags:
-                state_delta[SESSION_STATE_TRACE_FLAGS_KEY] = trace_flags
-                logger.debug(
-                    f"📍 Injecting Trace Flags into session state: {trace_flags}"
-                )
-
         if state_delta:
             logger.info(
                 f"🔄 Updating session state with EUC: {list(state_delta.keys())}"

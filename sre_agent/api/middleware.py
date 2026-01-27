@@ -28,8 +28,6 @@ async def tracing_middleware(request: Request, call_next: Any) -> Any:
     import time
     import uuid
 
-    from opentelemetry import trace
-
     from sre_agent.auth import set_correlation_id
 
     # 1. Capture or Generate Correlation ID
@@ -39,11 +37,6 @@ async def tracing_middleware(request: Request, call_next: Any) -> Any:
         or str(uuid.uuid4())
     )
     set_correlation_id(correlation_id)
-
-    # 2. Add to OTel Span if active
-    span = trace.get_current_span()
-    if span.is_recording():
-        span.set_attribute("http.correlation_id", correlation_id)
 
     # 3. Log request start (Buffered - only logged on error)
     start_time = time.time()

@@ -2,6 +2,7 @@ import json
 
 import pytest
 
+from sre_agent.schema import ToolStatus
 from sre_agent.tools.analysis.trace.patterns import (
     detect_all_sre_patterns,
     detect_cascading_timeout,
@@ -82,8 +83,8 @@ def connection_pool_trace():
 
 def test_detect_retry_storm(retry_storm_trace):
     res = detect_retry_storm(json.dumps(retry_storm_trace))
-    assert res["status"] == "success"
-    result = res["result"]
+    assert res.status == ToolStatus.SUCCESS
+    result = res.result
     assert result["has_retry_storm"] is True
     assert result["patterns_found"] == 1
     assert result["retry_patterns"][0]["retry_count"] == 3
@@ -92,8 +93,8 @@ def test_detect_retry_storm(retry_storm_trace):
 
 def test_detect_cascading_timeout(cascading_timeout_trace):
     res = detect_cascading_timeout(json.dumps(cascading_timeout_trace))
-    assert res["status"] == "success"
-    result = res["result"]
+    assert res.status == ToolStatus.SUCCESS
+    result = res.result
     assert result["cascade_detected"] is True
     assert len(result["cascade_chains"]) == 1
     assert result["cascade_chains"][0]["chain_length"] == 2
@@ -101,8 +102,8 @@ def test_detect_cascading_timeout(cascading_timeout_trace):
 
 def test_detect_connection_pool_issues(connection_pool_trace):
     res = detect_connection_pool_issues(json.dumps(connection_pool_trace))
-    assert res["status"] == "success"
-    result = res["result"]
+    assert res.status == ToolStatus.SUCCESS
+    result = res.result
     assert result["has_pool_exhaustion"] is True
     assert result["issues_found"] == 1
     assert result["pool_issues"][0]["wait_duration_ms"] == 500.0
@@ -111,8 +112,8 @@ def test_detect_connection_pool_issues(connection_pool_trace):
 def test_detect_all_sre_patterns(retry_storm_trace):
     # This one will run all detectors on the retry_storm_trace
     res = detect_all_sre_patterns(json.dumps(retry_storm_trace))
-    assert res["status"] == "success"
-    result = res["result"]
+    assert res.status == ToolStatus.SUCCESS
+    result = res.result
     assert result["patterns_detected"] >= 1
     assert any(p["pattern_type"] == "retry_storm" for p in result["patterns"])
     assert result["overall_health"] != "healthy"
@@ -131,7 +132,7 @@ def test_no_patterns_found():
         ],
     }
     res = detect_all_sre_patterns(json.dumps(trace))
-    assert res["status"] == "success"
-    result = res["result"]
+    assert res.status == ToolStatus.SUCCESS
+    result = res.result
     assert result["patterns_detected"] == 0
     assert result["overall_health"] == "healthy"

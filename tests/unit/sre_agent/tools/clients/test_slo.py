@@ -57,8 +57,8 @@ async def test_list_slos_all_services(mock_monitoring_v3_client):
     mock_monitoring_v3_client.list_service_level_objectives.return_value = [mock_slo]
 
     result = await list_slos(project_id="test-proj")
-    assert result["status"] == ToolStatus.SUCCESS
-    res_data = result["result"]
+    assert result.status == ToolStatus.SUCCESS
+    res_data = result.result
     assert len(res_data) == 1
     assert res_data[0]["display_name"] == "Test SLO"
 
@@ -80,8 +80,8 @@ async def test_get_slo_status_edge_cases():
         }
         mock_session.get.return_value = mock_response
         result = await get_slo_status("proj", "svc", "slo")
-        assert result["status"] == ToolStatus.SUCCESS
-        assert result["result"]["sli_type"] == "latency"
+        assert result.status == ToolStatus.SUCCESS
+        assert result.result["sli_type"] == "latency"
 
 
 @pytest.mark.asyncio
@@ -133,8 +133,8 @@ async def test_get_golden_signals_diverse():
             result = await get_golden_signals(
                 project_id="test-proj", service_name="svc"
             )
-            assert result["status"] == ToolStatus.SUCCESS
-            res_data = result["result"]
+            assert result.status == ToolStatus.SUCCESS
+            res_data = result.result
             assert res_data["signals"]["latency"]["value_ms"] == 200
             assert (
                 res_data["signals"]["saturation"]["cpu_utilization_avg_percent"] == 50.0
@@ -164,13 +164,13 @@ async def test_analyze_error_budget_burn_all_risks():
             # LOW risk (burn_rate <= 0 or duration very long)
             mock_client.list_time_series.return_value = create_mock_series(0.9, 0.9)
             result = await analyze_error_budget_burn("proj", "svc", "slo", hours=24)
-            assert result["status"] == ToolStatus.SUCCESS
-            assert result["result"]["risk_level"] == "HEALTHY"
+            assert result.status == ToolStatus.SUCCESS
+            assert result.result["risk_level"] == "HEALTHY"
 
             # MEDIUM risk
             # 168h > duration > 72h
             # 24 * 0.1 / (0.13 - 0.1) = 24 * 3.33 = 80h.
             mock_client.list_time_series.return_value = create_mock_series(0.1, 0.13)
             result = await analyze_error_budget_burn("proj", "svc", "slo", hours=24)
-            assert result["status"] == ToolStatus.SUCCESS
-            assert result["result"]["risk_level"] == "MEDIUM"
+            assert result.status == ToolStatus.SUCCESS
+            assert result.result["risk_level"] == "MEDIUM"

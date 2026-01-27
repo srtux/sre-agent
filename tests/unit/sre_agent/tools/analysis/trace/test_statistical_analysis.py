@@ -1,5 +1,6 @@
 import pytest
 
+from sre_agent.schema import ToolStatus
 from sre_agent.tools.analysis.trace.statistical_analysis import (
     compute_latency_statistics,
     detect_latency_anomalies,
@@ -65,8 +66,8 @@ def test_perform_causal_analysis(baseline_trace, slow_target_trace):
         baseline_trace, slow_target_trace, project_id="test-p"
     )
 
-    assert response["status"] == "success"
-    analysis = response["result"]
+    assert response.status == ToolStatus.SUCCESS
+    analysis = response.result
 
     assert "root_cause_candidates" in analysis
     candidates = analysis["root_cause_candidates"]
@@ -90,8 +91,8 @@ def test_compute_latency_statistics(baseline_trace):
         [baseline_trace, baseline_trace], project_id="test-p"
     )
 
-    assert response["status"] == "success"
-    stats = response["result"]
+    assert response.status == ToolStatus.SUCCESS
+    stats = response.result
 
     assert "per_span_stats" in stats
     root_stats = stats["per_span_stats"]["root"]
@@ -111,8 +112,8 @@ def test_detect_latency_anomalies(baseline_trace, slow_target_trace):
     response = detect_latency_anomalies(
         [baseline_trace] * 5, slow_target_trace, project_id="test-p"
     )
-    assert response["status"] == "success"
-    result = response["result"]
+    assert response.status == ToolStatus.SUCCESS
+    result = response.result
 
     assert len(result["anomalous_spans"]) > 0
     anomalies = {a["span_name"]: a for a in result["anomalous_spans"]}
@@ -129,10 +130,10 @@ def test_perform_causal_analysis_with_invalid_json(baseline_trace):
 
     # Test with invalid baseline
     result1 = perform_causal_analysis(invalid_json, baseline_trace, project_id="test-p")
-    assert result1["status"] == "error"
-    assert result1["error"] is not None
+    assert result1.status == ToolStatus.ERROR
+    assert result1.error is not None
 
     # Test with invalid target
     result2 = perform_causal_analysis(baseline_trace, invalid_json, project_id="test-p")
-    assert result2["status"] == "error"
-    assert result2["error"] is not None
+    assert result2.status == ToolStatus.ERROR
+    assert result2.error is not None

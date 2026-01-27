@@ -65,8 +65,8 @@ def test_compute_latency_statistics_real_logic():
         return_value=traces,
     ):
         res = compute_latency_statistics(["b1", "b2", "b3"])
-        assert res["status"] == ToolStatus.SUCCESS
-        stats = res["result"]
+        assert res.status == ToolStatus.SUCCESS
+        stats = res.result
         assert stats["mean"] == 150.0
         assert stats["per_span_stats"]["s1"]["mean"] == 150.0
 
@@ -100,9 +100,9 @@ def test_detect_latency_anomalies_full_flow(mock_trace_data):
         ):
             # Target 1000 -> Z=90! -> Heavy Anomaly
             res = detect_latency_anomalies(["b1", "b2", "b3"], "target_id")
-            assert res["status"] == ToolStatus.SUCCESS
-            assert res["result"]["is_anomaly"] is True
-            assert len(res["result"]["anomalous_spans"]) > 0
+            assert res.status == ToolStatus.SUCCESS
+            assert res.result["is_anomaly"] is True
+            assert len(res.result["anomalous_spans"]) > 0
 
 
 def test_perform_causal_analysis_success():
@@ -123,8 +123,8 @@ def test_perform_causal_analysis_success():
         side_effect=[baseline, target],
     ):
         res = perform_causal_analysis("b1", "t1")
-        assert res["status"] == ToolStatus.SUCCESS
-        assert res["result"]["root_cause_candidates"][0]["is_likely_root_cause"] is True
+        assert res.status == ToolStatus.SUCCESS
+        assert res.result["root_cause_candidates"][0]["is_likely_root_cause"] is True
 
 
 def test_analyze_trace_patterns_trends():
@@ -156,8 +156,8 @@ def test_analyze_trace_patterns_trends():
         return_value=traces,
     ):
         res = analyze_trace_patterns(["t1", "t2", "t3", "t4"])
-        assert res["result"]["overall_trend"] == "degrading"
-        assert len(res["result"]["patterns"]["intermittent_issues"]) > 0
+        assert res.result["overall_trend"] == "degrading"
+        assert len(res.result["patterns"]["intermittent_issues"]) > 0
 
 
 def test_compute_service_level_stats_various():
@@ -182,5 +182,5 @@ def test_compute_service_level_stats_various():
         return_value=traces,
     ):
         res = compute_service_level_stats(["t1"])
-        assert res["status"] == ToolStatus.SUCCESS
-        assert res["result"]["s1"]["error_rate"] == 100.0
+        assert res.status == ToolStatus.SUCCESS
+        assert res.result["s1"]["error_rate"] == 100.0

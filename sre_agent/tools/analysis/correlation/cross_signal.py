@@ -20,19 +20,8 @@ from typing import Any
 from sre_agent.schema import BaseToolResponse, ToolStatus
 
 from ...common import adk_tool
-from ...common.telemetry import get_meter, get_tracer
 
 logger = logging.getLogger(__name__)
-
-tracer = get_tracer(__name__)
-meter = get_meter(__name__)
-
-# Metrics for tracking correlation operations
-correlation_operations = meter.create_counter(
-    name="sre_agent.correlation.operations",
-    description="Count of cross-signal correlation operations",
-    unit="1",
-)
 
 
 @adk_tool
@@ -66,26 +55,22 @@ def correlate_trace_with_metrics(
         - recommended_metrics: PromQL queries to run for correlation
         - correlation_strategy: How to interpret the results
     """
-    with tracer.start_as_current_span("correlate_trace_with_metrics") as span:
-        span.set_attribute("trace_id", trace_id)
-        correlation_operations.add(1, {"type": "trace_to_metrics"})
+    # Default SRE-relevant metrics to check
+    if metrics_to_check is None:
+        metrics_to_check = [
+            "http_request_duration_seconds",  # Request latency
+            "http_requests_total",  # Request rate
+            "process_cpu_seconds_total",  # CPU usage
+            "process_resident_memory_bytes",  # Memory usage
+            "grpc_server_handled_total",  # gRPC metrics
+            "go_goroutines",  # Goroutine count (Go services)
+            "jvm_memory_used_bytes",  # JVM memory (Java services)
+            "db_client_connections",  # Database connections
+            "redis_connected_clients",  # Redis connections
+        ]
 
-        # Default SRE-relevant metrics to check
-        if metrics_to_check is None:
-            metrics_to_check = [
-                "http_request_duration_seconds",  # Request latency
-                "http_requests_total",  # Request rate
-                "process_cpu_seconds_total",  # CPU usage
-                "process_resident_memory_bytes",  # Memory usage
-                "grpc_server_handled_total",  # gRPC metrics
-                "go_goroutines",  # Goroutine count (Go services)
-                "jvm_memory_used_bytes",  # JVM memory (Java services)
-                "db_client_connections",  # Database connections
-                "redis_connected_clients",  # Redis connections
-            ]
-
-        # SQL to get trace time window and services involved
-        trace_context_sql = f"""
+    # SQL to get trace time window and services involved
+    trace_context_sql = f"""
 WITH trace_spans AS (
   SELECT
     trace_id,
@@ -123,70 +108,70 @@ SELECT
 FROM trace_spans
 """
 
-        # Generate PromQL queries for each metric type
-        promql_queries = []
-        service_filter = f'service="{service_name}"' if service_name else ""
+    # Generate PromQL queries for each metric type
+    promql_queries = []
+    service_filter = f'service="{service_name}"' if service_name else ""
 
-        for metric in metrics_to_check:
-            # Request latency histogram (with exemplars!)
-            if "duration" in metric or "latency" in metric:
-                promql_queries.append(
-                    {
-                        "metric": metric,
-                        "query": f"histogram_quantile(0.95, sum(rate({metric}_bucket{{{service_filter}}}[5m])) by (le, service))",
-                        "purpose": "Check P95 latency during trace execution",
-                        "exemplar_query": f"{metric}_bucket{{{service_filter}}}",
-                        "has_exemplars": True,
-                    }
-                )
-            # Counter metrics (request rate, errors)
-            elif "total" in metric:
-                promql_queries.append(
-                    {
-                        "metric": metric,
-                        "query": f"sum(rate({metric}{{{service_filter}}}[1m])) by (service, code)",
-                        "purpose": "Check request/error rate during trace execution",
-                        "has_exemplars": False,
-                    }
-                )
-            # Gauge metrics (CPU, memory, connections)
-            else:
-                promql_queries.append(
-                    {
-                        "metric": metric,
-                        "query": f"{metric}{{{service_filter}}}",
-                        "purpose": "Check resource utilization during trace execution",
-                        "has_exemplars": False,
-                    }
-                )
+    for metric in metrics_to_check:
+        # Request latency histogram (with exemplars!)
+        if "duration" in metric or "latency" in metric:
+            promql_queries.append(
+                {
+                    "metric": metric,
+                    "query": f"histogram_quantile(0.95, sum(rate({metric}_bucket{{{service_filter}}}[5m])) by (le, service))",
+                    "purpose": "Check P95 latency during trace execution",
+                    "exemplar_query": f"{metric}_bucket{{{service_filter}}}",
+                    "has_exemplars": True,
+                }
+            )
+        # Counter metrics (request rate, errors)
+        elif "total" in metric:
+            promql_queries.append(
+                {
+                    "metric": metric,
+                    "query": f"sum(rate({metric}{{{service_filter}}}[1m])) by (service, code)",
+                    "purpose": "Check request/error rate during trace execution",
+                    "has_exemplars": False,
+                }
+            )
+        # Gauge metrics (CPU, memory, connections)
+        else:
+            promql_queries.append(
+                {
+                    "metric": metric,
+                    "query": f"{metric}{{{service_filter}}}",
+                    "purpose": "Check resource utilization during trace execution",
+                    "has_exemplars": False,
+                }
+            )
 
-        result = {
-            "analysis_type": "trace_metrics_correlation",
-            "trace_id": trace_id,
-            "trace_context_sql": trace_context_sql.strip(),
-            "recommended_promql_queries": promql_queries,
-            "time_buffer_seconds": time_buffer_seconds,
-            "correlation_strategy": {
-                "step_1": "Execute trace_context_sql to get trace time window and services",
-                "step_2": "Use trace start/end times (with buffer) as PromQL time range",
-                "step_3": "Run recommended PromQL queries for each service involved",
-                "step_4": "For histogram metrics, check exemplars to find traces with similar latency",
-                "step_5": "Look for resource anomalies (CPU spikes, memory pressure, connection exhaustion)",
-            },
-            "exemplar_usage": {
-                "description": "Exemplars link metric data points to specific traces",
-                "how_to_use": "Query histogram buckets and check for exemplar annotations",
-                "gcp_ui": "In Cloud Monitoring, hover over histogram data points to see linked traces",
-            },
-            "next_steps": [
-                "Execute trace_context_sql using BigQuery MCP",
-                "Run PromQL queries using mcp_query_range with trace time window",
-                "Compare metric values against baseline to detect anomalies",
-                "Check exemplars on latency histograms to find related traces",
-            ],
-        }
+    result = {
+        "analysis_type": "trace_metrics_correlation",
+        "trace_id": trace_id,
+        "trace_context_sql": trace_context_sql.strip(),
+        "recommended_promql_queries": promql_queries,
+        "time_buffer_seconds": time_buffer_seconds,
+        "correlation_strategy": {
+            "step_1": "Execute trace_context_sql to get trace time window and services",
+            "step_2": "Use trace start/end times (with buffer) as PromQL time range",
+            "step_3": "Run recommended PromQL queries for each service involved",
+            "step_4": "For histogram metrics, check exemplars to find traces with similar latency",
+            "step_5": "Look for resource anomalies (CPU spikes, memory pressure, connection exhaustion)",
+        },
+        "exemplar_usage": {
+            "description": "Exemplars link metric data points to specific traces",
+            "how_to_use": "Query histogram buckets and check for exemplar annotations",
+            "gcp_ui": "In Cloud Monitoring, hover over histogram data points to see linked traces",
+        },
+        "next_steps": [
+            "Execute trace_context_sql using BigQuery MCP",
+            "Run PromQL queries using mcp_query_range with trace time window",
+            "Compare metric values against baseline to detect anomalies",
+            "Check exemplars on latency histograms to find related traces",
+        ],
+    }
 
-        return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
+    return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
 @adk_tool
@@ -199,40 +184,11 @@ def correlate_metrics_with_traces_via_exemplars(
     trace_table_name: str = "_AllSpans",
     tool_context: Any = None,
 ) -> BaseToolResponse:
-    """Uses exemplar-style analysis to find traces corresponding to metric outliers.
+    """Uses exemplar-style analysis to find traces corresponding to metric outliers."""
+    percentile_offset = int(percentile_threshold)
 
-    Exemplars are trace references attached to histogram bucket data points.
-    This tool simulates exemplar lookup by finding traces that match the
-    latency characteristics of metric outliers.
-
-    In GCP Managed Prometheus with OpenTelemetry:
-    - Exemplars are automatically attached when metrics are recorded within a span
-    - They appear as annotations on histogram data points in Cloud Monitoring UI
-    - You can click an exemplar to jump directly to the corresponding trace
-
-    Args:
-        dataset_id: BigQuery dataset containing trace data
-        metric_name: The histogram metric to analyze (e.g., http_request_duration_seconds)
-        service_name: Service to filter by
-        percentile_threshold: Find traces above this percentile (default: 95th)
-        time_window_hours: How far back to search
-        trace_table_name: Table name containing OTel traces
-        tool_context: Context object for tool execution.
-
-    Returns:
-        Dictionary with SQL to find exemplar-like traces and PromQL for histogram analysis
-    """
-    with tracer.start_as_current_span(
-        "correlate_metrics_with_traces_via_exemplars"
-    ) as span:
-        span.set_attribute("metric_name", metric_name)
-        span.set_attribute("service_name", service_name)
-        correlation_operations.add(1, {"type": "exemplar_correlation"})
-
-        percentile_offset = int(percentile_threshold)
-
-        # SQL to find traces matching the latency distribution outliers
-        exemplar_sql = f"""
+    # SQL to find traces matching the latency distribution outliers
+    exemplar_sql = f"""
 -- Find traces that would be exemplars for high-latency histogram buckets
 -- These are traces above P{percentile_offset} that represent metric outliers
 WITH latency_distribution AS (
@@ -314,53 +270,50 @@ SELECT * FROM exemplar_candidates
 ORDER BY duration_ms DESC
 """
 
-        # PromQL queries for histogram analysis
-        promql_queries = {
-            "histogram_quantile_p95": f'histogram_quantile(0.95, sum(rate({metric_name}_bucket{{service="{service_name}"}}[5m])) by (le))',
-            "histogram_quantile_p99": f'histogram_quantile(0.99, sum(rate({metric_name}_bucket{{service="{service_name}"}}[5m])) by (le))',
-            "request_rate": f'sum(rate({metric_name}_count{{service="{service_name}"}}[1m]))',
-            "bucket_distribution": f'{metric_name}_bucket{{service="{service_name}"}}',
-        }
+    # PromQL queries for histogram analysis
+    promql_queries = {
+        "histogram_quantile_p95": f'histogram_quantile(0.95, sum(rate({metric_name}_bucket{{service="{service_name}"}}[5m])) by (le))',
+        "histogram_quantile_p99": f'histogram_quantile(0.99, sum(rate({metric_name}_bucket{{service="{service_name}"}}[5m])) by (le))',
+        "request_rate": f'sum(rate({metric_name}_count{{service="{service_name}"}}[1m]))',
+        "bucket_distribution": f'{metric_name}_bucket{{service="{service_name}"}}',
+    }
 
-        result = {
-            "analysis_type": "exemplar_correlation",
-            "metric_name": metric_name,
-            "service_name": service_name,
-            "percentile_threshold": percentile_threshold,
-            "exemplar_sql": exemplar_sql.strip(),
-            "promql_queries": promql_queries,
-            "explanation": {
-                "what_are_exemplars": (
-                    "Exemplars are sample trace references attached to histogram metric data points. "
-                    "They let you jump from a metric spike directly to a representative trace."
-                ),
-                "how_this_helps": (
-                    "When you see P95 latency spike in metrics, exemplars show you WHICH specific "
-                    "requests were slow, with full distributed trace context."
-                ),
-                "gcp_implementation": (
-                    "GCP Managed Prometheus automatically collects exemplars from OpenTelemetry SDKs. "
-                    "In Cloud Monitoring UI, hover over histogram data points to see linked traces."
-                ),
-            },
-            "workflow": [
-                "1. Run the exemplar_sql to find traces matching your latency threshold",
-                "2. Use the PromQL queries to see the metric distribution",
-                "3. Compare trace timing with metric spike timing",
-                "4. Fetch the exemplar trace IDs for detailed analysis with fetch_trace",
-            ],
-            "next_steps": [
-                "Execute exemplar_sql using BigQuery MCP execute_sql",
-                "Run PromQL queries with mcp_query_range",
-                "Use fetch_trace on the returned trace_ids for detailed span analysis",
-                "Run correlate_logs_with_trace to get log context",
-            ],
-        }
+    result = {
+        "analysis_type": "exemplar_correlation",
+        "metric_name": metric_name,
+        "service_name": service_name,
+        "percentile_threshold": percentile_threshold,
+        "exemplar_sql": exemplar_sql.strip(),
+        "promql_queries": promql_queries,
+        "explanation": {
+            "what_are_exemplars": (
+                "Exemplars are sample trace references attached to histogram metric data points. "
+                "They let you jump from a metric spike directly to a representative trace."
+            ),
+            "how_this_helps": (
+                "When you see P95 latency spike in metrics, exemplars show you WHICH specific "
+                "requests were slow, with full distributed trace context."
+            ),
+            "gcp_implementation": (
+                "GCP Managed Prometheus automatically collects exemplars from OpenTelemetry SDKs. "
+                "In Cloud Monitoring UI, hover over histogram data points to see linked traces."
+            ),
+        },
+        "workflow": [
+            "1. Run the exemplar_sql to find traces matching your latency threshold",
+            "2. Use the PromQL queries to see the metric distribution",
+            "3. Compare trace timing with metric spike timing",
+            "4. Fetch the exemplar trace IDs for detailed analysis with fetch_trace",
+        ],
+        "next_steps": [
+            "Execute exemplar_sql using BigQuery MCP execute_sql",
+            "Run PromQL queries with mcp_query_range",
+            "Use fetch_trace on the returned trace_ids for detailed span analysis",
+            "Run correlate_logs_with_trace to get log context",
+        ],
+    }
 
-        logger.info(
-            f"Generated exemplar correlation for {metric_name} on {service_name}"
-        )
-        return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
+    return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
 @adk_tool
@@ -372,27 +325,8 @@ def build_cross_signal_timeline(
     time_buffer_seconds: int = 30,
     tool_context: Any = None,
 ) -> BaseToolResponse:
-    """Builds a unified timeline correlating traces, logs, and metrics events.
-
-    This is the "unified view" of observability - aligning all three pillars
-    on a single timeline to understand the sequence of events during an incident.
-
-    Args:
-        trace_id: The trace ID to build timeline around
-        dataset_id: BigQuery dataset containing telemetry data
-        trace_table_name: Table name containing OTel traces
-        log_table_name: Table name containing OTel logs
-        time_buffer_seconds: Buffer before/after trace for log correlation
-        tool_context: Context object for tool execution.
-
-    Returns:
-        Dictionary with SQL for unified timeline and interpretation guide
-    """
-    with tracer.start_as_current_span("build_cross_signal_timeline") as span:
-        span.set_attribute("trace_id", trace_id)
-        correlation_operations.add(1, {"type": "timeline_correlation"})
-
-        timeline_sql = f"""
+    """Builds a unified timeline correlating traces, logs, and metrics events."""
+    timeline_sql = f"""
 -- Build a unified timeline of trace spans and correlated logs
 -- This shows the sequence of events during request processing
 
@@ -519,38 +453,37 @@ FROM unified_timeline
 ORDER BY event_time
 """
 
-        result = {
-            "analysis_type": "cross_signal_timeline",
-            "trace_id": trace_id,
-            "timeline_sql": timeline_sql.strip(),
-            "event_types": {
-                "SPAN": "Trace span (start of operation)",
-                "LOG_DIRECT": "Log entry with matching trace_id (direct correlation)",
-                "LOG_TEMPORAL": "Log entry from same service/time (temporal correlation)",
-            },
-            "correlation_fields": {
-                "trace_id": "Unique identifier for the distributed trace",
-                "span_id": "Identifier for specific operation within trace",
-                "service_name": "Which service emitted the event",
-                "relative_time_ms": "Milliseconds since trace started",
-            },
-            "how_to_read": {
-                "step_1": "Look at the relative_time_ms column to understand event ordering",
-                "step_2": "LOG_DIRECT events are definitively part of this trace",
-                "step_3": "LOG_TEMPORAL events happened during trace but may be from other requests",
-                "step_4": "ERROR/WARN logs often indicate the root cause",
-                "step_5": "Check db_system/db_statement for slow database calls",
-            },
-            "next_steps": [
-                "Execute timeline_sql using BigQuery MCP execute_sql",
-                "Sort by relative_time_ms to see chronological order",
-                "Look for ERROR status spans or logs",
-                "Check if errors cascade through services",
-            ],
-        }
+    result = {
+        "analysis_type": "cross_signal_timeline",
+        "trace_id": trace_id,
+        "timeline_sql": timeline_sql.strip(),
+        "event_types": {
+            "SPAN": "Trace span (start of operation)",
+            "LOG_DIRECT": "Log entry with matching trace_id (direct correlation)",
+            "LOG_TEMPORAL": "Log entry from same service/time (temporal correlation)",
+        },
+        "correlation_fields": {
+            "trace_id": "Unique identifier for the distributed trace",
+            "span_id": "Identifier for specific operation within trace",
+            "service_name": "Which service emitted the event",
+            "relative_time_ms": "Milliseconds since trace started",
+        },
+        "how_to_read": {
+            "step_1": "Look at the relative_time_ms column to understand event ordering",
+            "step_2": "LOG_DIRECT events are definitively part of this trace",
+            "step_3": "LOG_TEMPORAL events happened during trace but may be from other requests",
+            "step_4": "ERROR/WARN logs often indicate the root cause",
+            "step_5": "Check db_system/db_statement for slow database calls",
+        },
+        "next_steps": [
+            "Execute timeline_sql using BigQuery MCP execute_sql",
+            "Sort by relative_time_ms to see chronological order",
+            "Look for ERROR status spans or logs",
+            "Check if errors cascade through services",
+        ],
+    }
 
-        logger.info(f"Generated cross-signal timeline for trace {trace_id}")
-        return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
+    return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
 @adk_tool
@@ -562,32 +495,12 @@ def analyze_signal_correlation_strength(
     time_window_hours: int = 24,
     tool_context: Any = None,
 ) -> BaseToolResponse:
-    """Analyzes how well traces, logs, and metrics are correlated in the system.
+    """Analyzes how well traces, logs, and metrics are correlated in the system."""
+    service_filter = ""
+    if service_name:
+        service_filter = f"AND JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = '{service_name}'"
 
-    This diagnostic tool helps identify gaps in observability instrumentation:
-    - Are logs properly annotated with trace context?
-    - Are metrics being recorded with exemplars?
-    - Which services have good vs poor correlation?
-
-    Args:
-        dataset_id: BigQuery dataset containing telemetry data
-        trace_table_name: Table name containing OTel traces
-        log_table_name: Table name containing OTel logs
-        service_name: Optional service to focus on
-        time_window_hours: Time window for analysis
-        tool_context: Context object for tool execution.
-
-    Returns:
-        Dictionary with correlation health metrics and improvement recommendations
-    """
-    with tracer.start_as_current_span("analyze_signal_correlation_strength"):
-        correlation_operations.add(1, {"type": "correlation_health"})
-
-        service_filter = ""
-        if service_name:
-            service_filter = f"AND JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = '{service_name}'"
-
-        correlation_sql = f"""
+    correlation_sql = f"""
 -- Analyze cross-signal correlation strength across the system
 -- This helps identify instrumentation gaps
 
@@ -673,49 +586,48 @@ WHERE service_name IS NOT NULL
 ORDER BY overall_correlation_score
 """
 
-        result = {
-            "analysis_type": "correlation_strength",
-            "correlation_sql": correlation_sql.strip(),
-            "metrics_explained": {
-                "log_trace_correlation_pct": "% of logs with trace_id (target: >80%)",
-                "error_log_trace_correlation_pct": "% of ERROR logs with trace_id (target: 100%)",
-                "span_events_coverage_pct": "% of spans with embedded log events",
-                "span_links_coverage_pct": "% of spans with cross-trace links",
-                "overall_correlation_score": "Weighted score of all correlation metrics",
-            },
-            "score_interpretation": {
-                "90-100": "Excellent: Full cross-signal correlation",
-                "70-89": "Good: Most signals are correlated",
-                "50-69": "Fair: Significant correlation gaps exist",
-                "0-49": "Poor: Limited cross-signal debugging capability",
-            },
-            "improvement_recommendations": {
-                "low_log_correlation": [
-                    "Configure OpenTelemetry logging SDK to inject trace context",
-                    "Use logging.googleapis.com/trace and logging.googleapis.com/spanId fields",
-                    "Ensure log statements are called within active spans",
-                ],
-                "low_error_correlation": [
-                    "Add try/catch blocks that log with span context",
-                    "Use span.record_exception() for error handling",
-                    "Ensure error handlers have access to trace context",
-                ],
-                "low_span_events": [
-                    "Use span.add_event() for important checkpoints",
-                    "Consider adding business events to spans",
-                ],
-                "low_span_links": [
-                    "Use span links for async/batch processing",
-                    "Link cause traces to effect traces",
-                ],
-            },
-            "next_steps": [
-                "Execute correlation_sql using BigQuery MCP execute_sql",
-                "Identify services with low correlation scores",
-                "Prioritize improving error_log_trace_correlation",
-                "Focus on services involved in recent incidents",
+    result = {
+        "analysis_type": "correlation_strength",
+        "correlation_sql": correlation_sql.strip(),
+        "metrics_explained": {
+            "log_trace_correlation_pct": "% of logs with trace_id (target: >80%)",
+            "error_log_trace_correlation_pct": "% of ERROR logs with trace_id (target: 100%)",
+            "span_events_coverage_pct": "% of spans with embedded log events",
+            "span_links_coverage_pct": "% of spans with cross-trace links",
+            "overall_correlation_score": "Weighted score of all correlation metrics",
+        },
+        "score_interpretation": {
+            "90-100": "Excellent: Full cross-signal correlation",
+            "70-89": "Good: Most signals are correlated",
+            "50-69": "Fair: Significant correlation gaps exist",
+            "0-49": "Poor: Limited cross-signal debugging capability",
+        },
+        "improvement_recommendations": {
+            "low_log_correlation": [
+                "Configure OpenTelemetry logging SDK to inject trace context",
+                "Use logging.googleapis.com/trace and logging.googleapis.com/spanId fields",
+                "Ensure log statements are called within active spans",
             ],
-        }
+            "low_error_correlation": [
+                "Add try/catch blocks that log with span context",
+                "Use span.record_exception() for error handling",
+                "Ensure error handlers have access to trace context",
+            ],
+            "low_span_events": [
+                "Use span.add_event() for important checkpoints",
+                "Consider adding business events to spans",
+            ],
+            "low_span_links": [
+                "Use span links for async/batch processing",
+                "Link cause traces to effect traces",
+            ],
+        },
+        "next_steps": [
+            "Execute correlation_sql using BigQuery MCP execute_sql",
+            "Identify services with low correlation scores",
+            "Prioritize improving error_log_trace_correlation",
+            "Focus on services involved in recent incidents",
+        ],
+    }
 
-        logger.info("Generated signal correlation strength analysis")
-        return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
+    return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)

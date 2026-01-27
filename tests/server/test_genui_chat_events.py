@@ -52,6 +52,7 @@ def test_normalize_tool_args_with_to_dict():
     """Test normalize_tool_args with object having to_dict method."""
     mock_args = MagicMock()
     mock_args.to_dict.return_value = {"key": "value"}
+    mock_args.model_dump.return_value = {"key": "value"}
     result = normalize_tool_args(mock_args)
     assert result == {"key": "value"}
 

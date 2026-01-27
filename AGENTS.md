@@ -99,7 +99,7 @@ async def my_tool(arg: str) -> str:
     return result
 ```
 
-**Benefits**: Automatic OpenTelemetry spans, metrics, logging, error handling.
+**Benefits**: Support for ADK native instrumentation, automatic logging, error handling, and logical response normalization.
 
 ### 3. Error Response Pattern
 

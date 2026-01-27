@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from sre_agent.schema import InvestigationPhase
+from sre_agent.schema import BaseToolResponse, InvestigationPhase
 from sre_agent.tools.proactive.related_signals import suggest_next_steps
 
 
@@ -26,9 +26,9 @@ async def test_suggest_next_steps_initiated(mock_memory_manager):
     mock_memory_manager.return_value = mock_manager
 
     response = await suggest_next_steps(tool_context=None)
-    # @adk_tool normalizes result to dict
-    assert isinstance(response, dict)
-    result = response["result"]
+    # @adk_tool returns Pydantic object in tests
+    assert isinstance(response, BaseToolResponse)
+    result = response.result
 
     assert "Suggested Next Steps" in result
     assert "run_aggregate_analysis" in result
@@ -43,7 +43,7 @@ async def test_suggest_next_steps_triage(mock_memory_manager):
     mock_memory_manager.return_value = mock_manager
 
     response = await suggest_next_steps(tool_context=None)
-    result = response["result"]
+    result = response.result
 
     assert "find_bottleneck_services" in result
     assert "run_triage_analysis" in result
@@ -57,7 +57,7 @@ async def test_suggest_next_steps_deep_dive(mock_memory_manager):
     mock_memory_manager.return_value = mock_manager
 
     response = await suggest_next_steps(tool_context=None)
-    result = response["result"]
+    result = response.result
 
     assert "run_deep_dive_analysis" in result
     assert "run_log_pattern_analysis" in result
@@ -71,7 +71,7 @@ async def test_suggest_next_steps_remediation(mock_memory_manager):
     mock_memory_manager.return_value = mock_manager
 
     response = await suggest_next_steps(tool_context=None)
-    result = response["result"]
+    result = response.result
 
     assert "generate_remediation_suggestions" in result
     assert "estimate_remediation_risk" in result

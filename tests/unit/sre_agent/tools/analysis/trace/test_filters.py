@@ -124,34 +124,34 @@ def test_select_traces_tool():
 
     # Test valid JSON list
     resp = select_traces_from_statistical_outliers(json.dumps(traces))
-    assert resp["status"] == ToolStatus.SUCCESS
-    assert "outlier" in resp["result"]["trace_ids"]
+    assert resp.status == ToolStatus.SUCCESS
+    assert "outlier" in resp.result["trace_ids"]
 
     # Test direct list
     resp = select_traces_from_statistical_outliers(traces)
-    assert resp["status"] == ToolStatus.SUCCESS
-    assert "outlier" in resp["result"]["trace_ids"]
+    assert resp.status == ToolStatus.SUCCESS
+    assert "outlier" in resp.result["trace_ids"]
 
     # Test invalid JSON
     resp = select_traces_from_statistical_outliers("{ invalid }")
-    assert resp["status"] == ToolStatus.ERROR
-    assert "Invalid JSON" in resp["error"]
+    assert resp.status == ToolStatus.ERROR
+    assert "Invalid JSON" in resp.error
 
     # Test JSON but not list
     resp = select_traces_from_statistical_outliers('{"key": "val"}')
-    assert resp["status"] == ToolStatus.ERROR
-    assert "not a list" in resp["error"]
+    assert resp.status == ToolStatus.ERROR
+    assert "not a list" in resp.error
 
     # Test invalid type
     resp = select_traces_from_statistical_outliers(123)
-    assert resp["status"] == ToolStatus.ERROR
-    assert "must be JSON string or list" in resp["error"]
+    assert resp.status == ToolStatus.ERROR
+    assert "must be JSON string or list" in resp.error
 
 
 def test_select_traces_manually():
     resp = select_traces_manually(["t1", "t2"])
-    assert resp["status"] == ToolStatus.SUCCESS
-    assert resp["result"]["trace_ids"] == ["t1", "t2"]
+    assert resp.status == ToolStatus.SUCCESS
+    assert resp.result["trace_ids"] == ["t1", "t2"]
 
 
 def test_build_trace_filter_helper():

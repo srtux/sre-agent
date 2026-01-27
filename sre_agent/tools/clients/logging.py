@@ -21,10 +21,8 @@ from sre_agent.tools.clients.factory import (
     get_logging_client,
 )
 from sre_agent.tools.common import adk_tool
-from sre_agent.tools.common.telemetry import get_tracer
 
 logger = logging.getLogger(__name__)
-tracer = get_tracer(__name__)
 
 
 @adk_tool
@@ -92,138 +90,129 @@ def _list_log_entries_sync(
     tool_context: Any = None,
 ) -> dict[str, Any]:
     """Synchronous implementation of list_log_entries."""
-    with tracer.start_as_current_span("list_log_entries") as span:
-        span.set_attribute("gcp.project_id", project_id)
-        span.set_attribute("gcp.logging.filter", filter_str)
-        span.set_attribute("rpc.system", "google_cloud")
-        span.set_attribute("rpc.service", "cloud_logging")
-        span.set_attribute("rpc.method", "list_log_entries")
+    try:
+        client = get_logging_client(tool_context=tool_context)
+        resource_names = [f"projects/{project_id}"]
 
-        try:
-            client = get_logging_client(tool_context=tool_context)
-            resource_names = [f"projects/{project_id}"]
+        # Ensure timestamp desc ordering for recent logs
+        order_by = "timestamp desc"
 
-            # Ensure timestamp desc ordering for recent logs
-            order_by = "timestamp desc"
+        request = {
+            "resource_names": resource_names,
+            "filter": filter_str,
+            "page_size": limit,
+            "order_by": order_by,
+        }
+        if page_token:
+            request["page_token"] = page_token
 
-            request = {
-                "resource_names": resource_names,
-                "filter": filter_str,
-                "page_size": limit,
-                "order_by": order_by,
-            }
-            if page_token:
-                request["page_token"] = page_token
+        # Get the iterator/pager
+        entries_pager = client.list_log_entries(request=request)
 
-            # Get the iterator/pager
-            entries_pager = client.list_log_entries(request=request)
+        # Fetch a single page to respect limit and get token
+        results = []
+        next_token = None
 
-            # Fetch a single page to respect limit and get token
-            results = []
-            next_token = None
+        # Get the first page of the iterator
+        pages_iterator = entries_pager.pages
+        first_page = next(pages_iterator, None)
 
-            # Get the first page of the iterator
-            pages_iterator = entries_pager.pages
-            first_page = next(pages_iterator, None)
+        if first_page:
+            for entry in first_page.entries:
+                payload_data = _extract_log_payload(entry)
 
-            if first_page:
-                for entry in first_page.entries:
-                    payload_data = _extract_log_payload(entry)
-
-                    results.append(
-                        {
-                            "timestamp": entry.timestamp.isoformat()
-                            if entry.timestamp
-                            else None,
-                            "severity": (
-                                entry.severity.name
-                                if hasattr(entry.severity, "name")
-                                else {
-                                    0: "DEFAULT",
-                                    100: "DEBUG",
-                                    200: "INFO",
-                                    300: "NOTICE",
-                                    400: "WARNING",
-                                    500: "ERROR",
-                                    600: "CRITICAL",
-                                    700: "ALERT",
-                                    800: "EMERGENCY",
-                                }.get(
-                                    entry.severity
-                                    if isinstance(entry.severity, int)
-                                    else 0,
-                                    str(entry.severity),
-                                )
+                results.append(
+                    {
+                        "timestamp": entry.timestamp.isoformat()
+                        if entry.timestamp
+                        else None,
+                        "severity": (
+                            entry.severity.name
+                            if hasattr(entry.severity, "name")
+                            else {
+                                0: "DEFAULT",
+                                100: "DEBUG",
+                                200: "INFO",
+                                300: "NOTICE",
+                                400: "WARNING",
+                                500: "ERROR",
+                                600: "CRITICAL",
+                                700: "ALERT",
+                                800: "EMERGENCY",
+                            }.get(
+                                entry.severity
+                                if isinstance(entry.severity, int)
+                                else 0,
+                                str(entry.severity),
+                            )
+                        ),
+                        "payload": payload_data,
+                        "resource": {
+                            "type": entry.resource.type,
+                            "labels": dict(entry.resource.labels),
+                        },
+                        "insert_id": entry.insert_id,
+                        "trace": entry.trace,
+                        "span_id": entry.span_id,
+                        "http_request": {
+                            "requestMethod": getattr(
+                                entry.http_request, "request_method", None
                             ),
-                            "payload": payload_data,
-                            "resource": {
-                                "type": entry.resource.type,
-                                "labels": dict(entry.resource.labels),
-                            },
-                            "insert_id": entry.insert_id,
-                            "trace": entry.trace,
-                            "span_id": entry.span_id,
-                            "http_request": {
-                                "requestMethod": getattr(
-                                    entry.http_request, "request_method", None
-                                ),
-                                "requestUrl": getattr(
-                                    entry.http_request, "request_url", None
-                                ),
-                                "status": getattr(entry.http_request, "status", None),
-                                "latency": str(entry.http_request.latency)
-                                if hasattr(entry.http_request, "latency")
-                                else None,
-                            }
-                            if entry.http_request
+                            "requestUrl": getattr(
+                                entry.http_request, "request_url", None
+                            ),
+                            "status": getattr(entry.http_request, "status", None),
+                            "latency": str(entry.http_request.latency)
+                            if hasattr(entry.http_request, "latency")
                             else None,
                         }
-                    )
-                next_token = first_page.next_page_token
+                        if entry.http_request
+                        else None,
+                    }
+                )
+            next_token = first_page.next_page_token
 
-            span.set_attribute("gcp.logging.count", len(results))
-            return {"entries": results, "next_page_token": next_token or None}
-        except Exception as e:
-            span.record_exception(e)
-            error_msg = f"Failed to list log entries: {e!s}"
+        return {"entries": results, "next_page_token": next_token or None}
+    except Exception as e:
+        error_msg = f"Failed to list log entries: {e!s}"
 
-            # Provide smart hints for common mistakes
-            if "Field not found" in error_msg:
-                if any(
-                    f in error_msg
-                    for f in [
-                        "container_name",
-                        "pod_name",
-                        "namespace_name",
-                        "cluster_name",
-                    ]
-                ):
-                    error_msg += (
-                        "\n\nHINT: GKE fields like 'container_name' or 'pod_name' must be prefixed "
-                        "with 'resource.labels.'. Try 'resource.labels.container_name=\"...\"' instead."
-                    )
-                elif "instance_id" in error_msg:
-                    error_msg += (
-                        "\n\nHINT: Compute Engine fields like 'instance_id' must be prefixed "
-                        "with 'resource.labels.'. Try 'resource.labels.instance_id=\"...\"' instead. "
-                        "Note: 'resource.labels.instance_name' is NOT a valid field for 'gce_instance' resource logs. "
-                        "You must use 'resource.labels.instance_id'."
-                    )
-                elif "instance_name" in error_msg:
-                    error_msg += (
-                        "\n\nHINT: 'resource.labels.instance_name' is NOT a valid field for 'gce_instance' resource logs. "
-                        "You must use 'resource.labels.instance_id'. If you only know the name, search "
-                        "globally for the name string (e.g. 'textPayload:\"my-instance\"') or list instances first."
-                    )
-                elif "nested type" in error_msg and "jsonPayload" in error_msg:
-                    error_msg += (
-                        "\n\nHINT: You cannot use the colon operator on 'jsonPayload' itself "
-                        "if it is treated as a nested type. Try searching for specific fields like 'jsonPayload.message' "
-                        "or just use a global search string without 'jsonPayload:'."
-                    )
+        # Provide smart hints for common mistakes
+        if "Field not found" in error_msg:
+            if any(
+                f in error_msg
+                for f in [
+                    "container_name",
+                    "pod_name",
+                    "namespace_name",
+                    "cluster_name",
+                ]
+            ):
+                error_msg += (
+                    "\n\nHINT: GKE fields like 'container_name' or 'pod_name' must be prefixed "
+                    "with 'resource.labels.'. Try 'resource.labels.container_name=\"...\"' instead."
+                )
+            elif "instance_id" in error_msg:
+                error_msg += (
+                    "\n\nHINT: Compute Engine fields like 'instance_id' must be prefixed "
+                    "with 'resource.labels.'. Try 'resource.labels.instance_id=\"...\"' instead. "
+                    "Note: 'resource.labels.instance_name' is NOT a valid field for 'gce_instance' resource logs. "
+                    "You must use 'resource.labels.instance_id'."
+                )
+            elif "instance_name" in error_msg:
+                error_msg += (
+                    "\n\nHINT: 'resource.labels.instance_name' is NOT a valid field for 'gce_instance' resource logs. "
+                    "You must use 'resource.labels.instance_id'. If you only know the name, search "
+                    "globally for the name string (e.g. 'textPayload:\"my-instance\"') or list instances first."
+                )
+            elif "nested type" in error_msg and "jsonPayload" in error_msg:
+                error_msg += (
+                    "\n\nHINT: You cannot use the colon operator on 'jsonPayload' itself "
+                    "if it is treated as a nested type. Try searching for specific fields like 'jsonPayload.message' "
+                    "or just use a global search string without 'jsonPayload:'."
+                )
 
-            logger.error(error_msg, exc_info=True)
-            return {"error": error_msg}
+        logger.error(error_msg, exc_info=True)
+        return {"error": error_msg}
 
 
 @adk_tool

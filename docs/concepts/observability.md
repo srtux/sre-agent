@@ -48,13 +48,16 @@ OTel ensures that a `Trace ID` is passed ("propagated") from service A to servic
 
 ---
 
-## How SRE Agent Usage OTel Data
+## How SRE Agent Uses OTel Data
 
-The SRE Agent is designed to "speak OTel natively." It interprets the semantic conventions defined by OTel to make intelligent deductions:
+The SRE Agent is designed to "speak OTel natively." It interprets the semantic conventions defined by OTel to make intelligent deductions about **target systems** it is investigating:
 
 *   **Error Detection**: It checks spans for `status.code != OK` and standard error attributes like `exception.message`.
 *   **Latency Analysis**: It calculates duration by subtracting `start_time` from `end_time` for spans and comparing them against historical baselines.
 *   **Service Dependency Mapping**: By traversing the Parent -> Child links in trace data, the agent automatically reconstructs your architecture diagram.
+
+### Internal Agent Instrumentation
+While the agent *analyzes* target OTel data manually, its **own internal observability** is handled automatically. The agent relies on [Google ADK](https://github.com/google/adk) native instrumentation, ensuring its reasoning steps, tool calls, and LLM prompts are captured in Cloud Trace without manual boilerplate code.
 
 ### Example: The "N+1 Query" Anti-Pattern
 

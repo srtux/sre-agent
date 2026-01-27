@@ -2,6 +2,7 @@ from unittest.mock import patch
 
 import pytest
 
+from sre_agent.schema import ToolStatus
 from sre_agent.tools.analysis.trace.filters import (
     select_traces_from_statistical_outliers,
     select_traces_manually,
@@ -14,8 +15,8 @@ async def test_manual_selection_tool():
     """Test manual selection tool."""
     trace_ids = ["trace-1", "trace-2"]
     result = select_traces_manually(trace_ids)
-    assert result["status"] == "success"
-    assert result["result"] == {"trace_ids": trace_ids}
+    assert result.status == ToolStatus.SUCCESS
+    assert result.result == {"trace_ids": trace_ids}
 
 
 def test_statistical_outlier_tool():
@@ -28,7 +29,7 @@ def test_statistical_outlier_tool():
     ]
 
     result = select_traces_from_statistical_outliers(traces)
-    assert result["status"] == "success"
+    assert result.status == ToolStatus.SUCCESS
     # Threshold will be mean (325) + 2*std (~389*2=778) = 1103.
     # Wait, t4 is 1000, so it's NOT an outlier?
     # Let's check logic.
@@ -56,8 +57,8 @@ async def test_hybrid_selection_includes_stats(mock_list_traces):
     ):
         result = await find_example_traces(project_id="test-project")
 
-    assert result["status"] == "success"
-    data = result["result"]
+    assert result.status == ToolStatus.SUCCESS
+    data = result.result
     assert "stats" in data
     assert "p50_ms" in data["stats"]
     assert "mean_ms" in data["stats"]

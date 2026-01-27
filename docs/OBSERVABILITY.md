@@ -31,31 +31,18 @@ All logs use a custom `JsonFormatter` that automatically adds:
 
 ## 3. Instrumentation Layers
 
-The agent uses multiple OTel instrumentors to provide full visibility into its operations:
-
-*   **FastAPI**: Inbound request lifecycle.
-*   **gRPC**: Outbound calls to Vertex AI and Agent Engine.
-*   **Vertex AI**: Low-level visibility into Gemini model iterations/prompts.
-*   **Google ADK**: High-level visibility into agent steps and tool calls.
-*   **Requests / HTTPX / URLLib3**: Generic network operations.
+*   **Standard Logging**: Captures all activity via stdout/stderr.
 
 ### Serverless Optimization
-In cloud environments, we set `schedule_delay_millis=1000` (1 second) in the `BatchSpanProcessor`. This ensures spans are exported quickly before serverless instances are paused or terminated.
+In cloud environments, we rely on Google Cloud's native logging and monitoring agents to capture stdout/stderr.
 
 ## 4. Telemetry Environments
 
-### Local Development (Arize AX)
-For local development, we prioritize **Arize AX** (Phoenix) for LLM observability.
-*   **Enabled by**: `USE_ARIZE=true`
-*   **Restriction**: Arize is **EXPLICITLY DISABLED** when running in GCP (Cloud Run or Agent Engine) to avoid performance overhead and duplicate tracing. The platform will automatically fall back to Google Cloud Trace.
-
-### Production (Google Cloud Trace)
-In production, telemetry is exported directly to Google Cloud via OTLP over gRPC.
-*   **Required Role**: `roles/cloudtrace.agent`
-*   **Project ID**: Standardized via `GOOGLE_CLOUD_PROJECT`.
+### Local & Production
+We use standard Python `logging` which is automatically captured by Google Cloud Logging (Agent Engine) or Cloud Run's log scraper.
 
 ### Evaluations
-Telemetry is **DISABLED** by default for automated evaluations (`run_eval.py`) to prevent noise and background process hangs. This is controlled via `OTEL_SDK_DISABLED=true`.
+Logging is standard but can be silenced if needed via log levels.
 
 ## 5. Encryption Key Configuration
 
@@ -63,13 +50,7 @@ The `SRE_AGENT_ENCRYPTION_KEY` is critical for decrypting session state on the b
 *   If this key is mismatched, the backend will fail to read credentials and trace IDs.
 *   Always ensure the key in Cloud Secret Manager (`sre-agent-encryption-key`) matches the one used during deployment.
 
-## 6. Telemetry Resilience & Noise Filtering
-
-To maintain high signal-to-noise ratios in logs, the agent implements a `_TelemetryNoiseFilter` that suppresses harmless but distracting internal SDK warnings:
-
-*   **MetricReader Registration**: Suppresses `Cannot call collect on a MetricReader until it is registered` warnings caused by race conditions during provider initialization.
-*   **GenAI Parts**: Filters out `Warning: there are non-text parts in the response` from the Vertex AI and ADK libraries.
-*   **OTLP Export Suppression**: When `SUPPRESS_OTEL_ERRORS=true` (default), persistent gRPC export failures are silenced to prevent log flooding during temporary network issues or local runs without credentials.
+To maintain high signal-to-noise ratios, the agent uses standard Python logging filters where necessary.
 
 ## 7. Configuration Summary
 
@@ -78,5 +59,4 @@ To maintain high signal-to-noise ratios in logs, the agent implements a `_Teleme
 | `LOG_LEVEL` | Logging level (DEBUG, INFO, etc.) | `INFO` |
 | `LOG_FORMAT` | Log output format (TEXT or JSON) | `TEXT` |
 | `DISABLE_TELEMETRY` | Disable all tracing and metrics | `false` |
-| `SUPPRESS_OTEL_ERRORS` | Silence OTLP export errors | `true` |
-| `USE_ARIZE` | Enable Arize Phoenix for local dev | `false` |
+| `DISABLE_TELEMETRY` | Disable all tracing and metrics | `false` |

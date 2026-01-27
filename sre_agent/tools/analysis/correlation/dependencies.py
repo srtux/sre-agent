@@ -21,18 +21,8 @@ from typing import Any
 from sre_agent.schema import BaseToolResponse, ToolStatus
 
 from ...common import adk_tool
-from ...common.telemetry import get_meter, get_tracer
 
 logger = logging.getLogger(__name__)
-
-tracer = get_tracer(__name__)
-meter = get_meter(__name__)
-
-dependency_operations = meter.create_counter(
-    name="sre_agent.dependency.operations",
-    description="Count of dependency analysis operations",
-    unit="1",
-)
 
 
 @adk_tool
@@ -44,27 +34,8 @@ def build_service_dependency_graph(
     include_external: bool = True,
     tool_context: Any = None,
 ) -> BaseToolResponse:
-    """Builds a service dependency graph from trace data.
-
-    Analyzes CLIENT spans (outgoing calls) to determine which services
-    depend on which other services. This is the actual runtime topology,
-    not the designed architecture - they often differ!
-
-    Args:
-        dataset_id: BigQuery dataset containing trace data
-        table_name: Table name containing OTel traces
-        time_window_hours: Time window for analysis
-        min_call_count: Minimum number of calls to include a dependency
-        include_external: Include external services (databases, APIs, etc.)
-        tool_context: Context object for tool execution.
-
-    Returns:
-        Dictionary with SQL query for dependency graph and visualization data
-    """
-    with tracer.start_as_current_span("build_service_dependency_graph"):
-        dependency_operations.add(1, {"type": "build_graph"})
-
-        sql = f"""
+    """Builds a service dependency graph from trace data."""
+    sql = f"""
 -- Build service dependency graph from trace CLIENT spans
 -- CLIENT spans represent outgoing calls from one service to another
 
@@ -146,10 +117,11 @@ SELECT
   END as criticality
 FROM dependency_edges
 ORDER BY source_service, dependency_weight_pct DESC
+LIMIT 50
 """
 
-        # SQL to find isolated services (potential orphans or entry points)
-        topology_sql = f"""
+    # SQL to find isolated services (potential orphans or entry points)
+    topology_sql = f"""
 -- Find service topology characteristics
 
 WITH all_services AS (
@@ -191,41 +163,41 @@ FROM all_services a
 ORDER BY topology_role, service_name
 """
 
-        result = {
-            "analysis_type": "service_dependency_graph",
-            "dependency_graph_sql": sql.strip(),
-            "topology_sql": topology_sql.strip(),
-            "output_format": {
-                "nodes": "Each unique service_name (source or target)",
-                "edges": "source_service -> target_service with call_type and metrics",
-            },
-            "metrics_explained": {
-                "call_count": "Total number of calls in time window",
-                "trace_count": "Number of distinct traces using this edge",
-                "dependency_weight_pct": "% of source's outgoing calls to this target",
-                "criticality": "Impact level if this dependency fails",
-                "dependency_health": "Current health based on error rate",
-            },
-            "topology_roles": {
-                "ENTRY_POINT": "Services that make calls but don't receive any (frontends, APIs)",
-                "INTERMEDIATE": "Services that both receive and make calls (middleware)",
-                "LEAF": "Services that receive calls but don't make any (databases, storage)",
-                "ISOLATED": "Services with no detected dependencies (may be instrumentation gap)",
-            },
-            "visualization_hint": (
-                "Use the edges from dependency_graph_sql to build a directed graph. "
-                "Color nodes by topology_role and edges by dependency_health."
-            ),
-            "next_steps": [
-                "Execute dependency_graph_sql using BigQuery MCP execute_sql",
-                "Execute topology_sql to understand service roles",
-                "Identify CRITICAL dependencies with UNHEALTHY status",
-                "Look for unexpected dependencies not in architecture docs",
-            ],
-        }
+    result = {
+        "analysis_type": "service_dependency_graph",
+        "dependency_graph_sql": sql.strip(),
+        "topology_sql": topology_sql.strip(),
+        "output_format": {
+            "nodes": "Each unique service_name (source or target)",
+            "edges": "source_service -> target_service with call_type and metrics",
+        },
+        "metrics_explained": {
+            "call_count": "Total number of calls in time window",
+            "trace_count": "Number of distinct traces using this edge",
+            "dependency_weight_pct": "% of source's outgoing calls to this target",
+            "criticality": "Impact level if this dependency fails",
+            "dependency_health": "Current health based on error rate",
+        },
+        "topology_roles": {
+            "ENTRY_POINT": "Services that make calls but don't receive any (frontends, APIs)",
+            "INTERMEDIATE": "Services that both receive and make calls (middleware)",
+            "LEAF": "Services that receive calls but don't make any (databases, storage)",
+            "ISOLATED": "Services with no detected dependencies (may be instrumentation gap)",
+        },
+        "visualization_hint": (
+            "Use the edges from dependency_graph_sql to build a directed graph. "
+            "Color nodes by topology_role and edges by dependency_health."
+        ),
+        "next_steps": [
+            "Execute dependency_graph_sql using BigQuery MCP execute_sql",
+            "Execute topology_sql to understand service roles",
+            "Identify CRITICAL dependencies with UNHEALTHY status",
+            "Look for unexpected dependencies not in architecture docs",
+        ],
+    }
 
-        logger.info("Generated service dependency graph SQL")
-        return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
+    logger.info("Generated service dependency graph SQL")
+    return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
 @adk_tool
@@ -237,30 +209,9 @@ def analyze_upstream_downstream_impact(
     depth: int = 3,
     tool_context: Any = None,
 ) -> BaseToolResponse:
-    """Analyzes the upstream and downstream impact of a service.
-
-    Upstream: Services that call this service (who would be affected if it fails)
-    Downstream: Services this service calls (whose failures would affect it)
-
-    This is critical for understanding blast radius during incidents.
-
-    Args:
-        dataset_id: BigQuery dataset containing trace data
-        service_name: The service to analyze
-        table_name: Table name containing OTel traces
-        time_window_hours: Time window for analysis
-        depth: How many hops to traverse (default: 3)
-        tool_context: Context object for tool execution.
-
-    Returns:
-        Dictionary with SQL query for impact analysis
-    """
-    with tracer.start_as_current_span("analyze_upstream_downstream_impact") as span:
-        span.set_attribute("service_name", service_name)
-        dependency_operations.add(1, {"type": "impact_analysis"})
-
-        # Recursive CTE to find multi-hop dependencies
-        sql = f"""
+    """Analyzes the upstream and downstream impact of a service."""
+    # Recursive CTE to find multi-hop dependencies
+    sql = f"""
 -- Analyze upstream (callers) and downstream (callees) of a service
 -- This shows the blast radius if the service fails
 
@@ -375,42 +326,42 @@ FROM downstream
 ORDER BY direction, depth, call_count DESC
 """
 
-        result = {
-            "analysis_type": "upstream_downstream_impact",
-            "target_service": service_name,
-            "analysis_depth": depth,
-            "sql_query": sql.strip(),
-            "directions_explained": {
-                "UPSTREAM": (
-                    f"Services that call {service_name}. "
-                    f"These would experience failures if {service_name} is down."
-                ),
-                "DOWNSTREAM": (
-                    f"Services that {service_name} depends on. "
-                    f"If these fail, {service_name} would be impacted."
-                ),
-            },
-            "relationships": {
-                "DIRECT_CALLER": "Calls target service directly (1 hop)",
-                "INDIRECT_CALLER": "Reaches target through other services (2+ hops)",
-                "DIRECT_DEPENDENCY": "Target service calls this directly (1 hop)",
-                "INDIRECT_DEPENDENCY": "Reachable from target through other services (2+ hops)",
-            },
-            "incident_response_usage": {
-                "if_target_fails": "Look at UPSTREAM services - they will experience errors",
-                "if_target_slow": "UPSTREAM services will see increased latency",
-                "diagnose_target_issues": "Check DOWNSTREAM services for root cause",
-            },
-            "next_steps": [
-                "Execute SQL using BigQuery MCP execute_sql",
-                "For UPSTREAM with high call_count - expect significant user impact",
-                "For DOWNSTREAM with high error_rate - likely root cause candidates",
-                "Check dependency_path for unexpected routing",
-            ],
-        }
+    result = {
+        "analysis_type": "upstream_downstream_impact",
+        "target_service": service_name,
+        "analysis_depth": depth,
+        "sql_query": sql.strip(),
+        "directions_explained": {
+            "UPSTREAM": (
+                f"Services that call {service_name}. "
+                f"These would experience failures if {service_name} is down."
+            ),
+            "DOWNSTREAM": (
+                f"Services that {service_name} depends on. "
+                f"If these fail, {service_name} would be impacted."
+            ),
+        },
+        "relationships": {
+            "DIRECT_CALLER": "Calls target service directly (1 hop)",
+            "INDIRECT_CALLER": "Reaches target through other services (2+ hops)",
+            "DIRECT_DEPENDENCY": "Target service calls this directly (1 hop)",
+            "INDIRECT_DEPENDENCY": "Reachable from target through other services (2+ hops)",
+        },
+        "incident_response_usage": {
+            "if_target_fails": "Look at UPSTREAM services - they will experience errors",
+            "if_target_slow": "UPSTREAM services will see increased latency",
+            "diagnose_target_issues": "Check DOWNSTREAM services for root cause",
+        },
+        "next_steps": [
+            "Execute SQL using BigQuery MCP execute_sql",
+            "For UPSTREAM with high call_count - expect significant user impact",
+            "For DOWNSTREAM with high error_rate - likely root cause candidates",
+            "Check dependency_path for unexpected routing",
+        ],
+    }
 
-        logger.info(f"Generated impact analysis SQL for {service_name}")
-        return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
+    logger.info(f"Generated impact analysis SQL for {service_name}")
+    return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
 @adk_tool
@@ -421,30 +372,8 @@ def detect_circular_dependencies(
     max_cycle_length: int = 5,
     tool_context: Any = None,
 ) -> BaseToolResponse:
-    """Detects circular dependencies in the service graph.
-
-    Circular dependencies (A -> B -> C -> A) can cause:
-    - Deadlocks under load
-    - Cascading failures that loop
-    - Difficulty in deployment ordering
-    - Hidden coupling
-
-    Args:
-        dataset_id: BigQuery dataset containing trace data
-        table_name: Table name containing OTel traces
-        time_window_hours: Time window for analysis
-        max_cycle_length: Maximum cycle length to search for
-        tool_context: Context object for tool execution.
-
-    Returns:
-        Dictionary with SQL query to detect cycles
-    """
-    with tracer.start_as_current_span("detect_circular_dependencies"):
-        dependency_operations.add(1, {"type": "detect_cycles"})
-
-        # Note: BigQuery doesn't support recursive CTEs well for cycle detection
-        # So we use a self-join approach for small cycle lengths
-        sql = f"""
+    """Detects circular dependencies in the service graph."""
+    sql = f"""
 -- Detect circular dependencies in service graph
 -- Looking for A -> B -> A (length 2) and A -> B -> C -> A (length 3) patterns
 
@@ -515,39 +444,39 @@ SELECT service_1, service_2, service_3, cycle_length, cycle_path FROM cycles_4
 ORDER BY cycle_length, cycle_path
 """
 
-        result = {
-            "analysis_type": "circular_dependency_detection",
-            "sql_query": sql.strip(),
-            "max_cycle_length_searched": min(max_cycle_length, 4),
-            "why_cycles_are_problematic": {
-                "deadlock_risk": "Under load, circular calls can create deadlocks",
-                "cascading_failures": "Errors can loop indefinitely through the cycle",
-                "deployment_ordering": "No safe order to deploy/restart services",
-                "testing_difficulty": "Hard to test services in isolation",
-                "tight_coupling": "Services become tightly coupled, reducing flexibility",
-            },
-            "common_cycle_patterns": {
-                "callback_pattern": "A calls B, B calls back to A (often intentional)",
-                "cache_invalidation": "Service A invalidates cache in B, B checks state in A",
-                "event_driven": "Async events flowing in circles",
-                "configuration": "Distributed config where services update each other",
-            },
-            "resolution_strategies": {
-                "break_with_async": "Convert synchronous call to async message",
-                "consolidate_services": "Merge tightly coupled services",
-                "introduce_mediator": "Add a coordinator service",
-                "redesign_ownership": "Clarify data/responsibility ownership",
-            },
-            "next_steps": [
-                "Execute SQL using BigQuery MCP execute_sql",
-                "Analyze each cycle to determine if intentional",
-                "For unintentional cycles, plan architectural changes",
-                "Use analyze_upstream_downstream_impact to understand full impact",
-            ],
-        }
+    result = {
+        "analysis_type": "circular_dependency_detection",
+        "sql_query": sql.strip(),
+        "max_cycle_length_searched": min(max_cycle_length, 4),
+        "why_cycles_are_problematic": {
+            "deadlock_risk": "Under load, circular calls can create deadlocks",
+            "cascading_failures": "Errors can loop indefinitely through the cycle",
+            "deployment_ordering": "No safe order to deploy/restart services",
+            "testing_difficulty": "Hard to test services in isolation",
+            "tight_coupling": "Services become tightly coupled, reducing flexibility",
+        },
+        "common_cycle_patterns": {
+            "callback_pattern": "A calls B, B calls back to A (often intentional)",
+            "cache_invalidation": "Service A invalidates cache in B, B checks state in A",
+            "event_driven": "Async events flowing in circles",
+            "configuration": "Distributed config where services update each other",
+        },
+        "resolution_strategies": {
+            "break_with_async": "Convert synchronous call to async message",
+            "consolidate_services": "Merge tightly coupled services",
+            "introduce_mediator": "Add a coordinator service",
+            "redesign_ownership": "Clarify data/responsibility ownership",
+        },
+        "next_steps": [
+            "Execute SQL using BigQuery MCP execute_sql",
+            "Analyze each cycle to determine if intentional",
+            "For unintentional cycles, plan architectural changes",
+            "Use analyze_upstream_downstream_impact to understand full impact",
+        ],
+    }
 
-        logger.info("Generated circular dependency detection SQL")
-        return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
+    logger.info("Generated circular dependency detection SQL")
+    return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
 @adk_tool
@@ -558,28 +487,8 @@ def find_hidden_dependencies(
     min_call_count: int = 5,
     tool_context: Any = None,
 ) -> BaseToolResponse:
-    """Finds dependencies that may not be in official architecture documentation.
-
-    Hidden dependencies are discovered by analyzing trace data for:
-    - Calls to external services
-    - Database connections
-    - Third-party API calls
-    - Internal services not in diagrams
-
-    Args:
-        dataset_id: BigQuery dataset containing trace data
-        table_name: Table name containing OTel traces
-        time_window_hours: Time window for analysis
-        min_call_count: Minimum calls to consider a real dependency
-        tool_context: Context object for tool execution.
-
-    Returns:
-        Dictionary with SQL query to find hidden dependencies
-    """
-    with tracer.start_as_current_span("find_hidden_dependencies"):
-        dependency_operations.add(1, {"type": "hidden_deps"})
-
-        sql = f"""
+    """Finds dependencies that may not be in official architecture documentation."""
+    sql = f"""
 -- Find potentially hidden or undocumented dependencies
 -- by analyzing CLIENT span attributes for external connections
 
@@ -662,38 +571,38 @@ HAVING call_count >= {min_call_count}
 ORDER BY source_service, documentation_priority DESC, call_count DESC
 """
 
-        result = {
-            "analysis_type": "hidden_dependencies",
-            "sql_query": sql.strip(),
-            "dependency_types": {
-                "DATABASE": "Calls to database systems (PostgreSQL, MySQL, Redis, etc.)",
-                "MESSAGE_QUEUE": "Calls to message brokers (Kafka, Pub/Sub, RabbitMQ)",
-                "GRPC_SERVICE": "gRPC calls to other services",
-                "GCP_API": "Calls to Google Cloud APIs",
-                "AWS_API": "Calls to AWS APIs",
-                "HTTP_EXTERNAL": "HTTP calls to external services",
-                "CLOUD_FUNCTION": "Invocations of serverless functions",
-                "INTERNAL_SERVICE": "Calls to internal services",
-            },
-            "documentation_priority_meaning": {
-                "HIGH": "Should definitely be in architecture docs",
-                "MEDIUM": "Worth documenting for operational awareness",
-                "LOW": "Low risk, document if maintaining full inventory",
-            },
-            "common_hidden_dependency_issues": {
-                "undocumented_database": "Service using a database not in architecture",
-                "shadow_api": "Calls to external APIs without proper contracts",
-                "implicit_coupling": "Services coupled through shared database",
-                "legacy_integration": "Old integrations forgotten but still active",
-            },
-            "next_steps": [
-                "Execute SQL using BigQuery MCP execute_sql",
-                "Compare results with official architecture documentation",
-                "Prioritize documenting HIGH priority items",
-                "Check error_rate for reliability concerns",
-                "Validate external API contracts exist",
-            ],
-        }
+    result = {
+        "analysis_type": "hidden_dependencies",
+        "sql_query": sql.strip(),
+        "dependency_types": {
+            "DATABASE": "Calls to database systems (PostgreSQL, MySQL, Redis, etc.)",
+            "MESSAGE_QUEUE": "Calls to message brokers (Kafka, Pub/Sub, RabbitMQ)",
+            "GRPC_SERVICE": "gRPC calls to other services",
+            "GCP_API": "Calls to Google Cloud APIs",
+            "AWS_API": "Calls to AWS APIs",
+            "HTTP_EXTERNAL": "HTTP calls to external services",
+            "CLOUD_FUNCTION": "Invocations of serverless functions",
+            "INTERNAL_SERVICE": "Calls to internal services",
+        },
+        "documentation_priority_meaning": {
+            "HIGH": "Should definitely be in architecture docs",
+            "MEDIUM": "Worth documenting for operational awareness",
+            "LOW": "Low risk, document if maintaining full inventory",
+        },
+        "common_hidden_dependency_issues": {
+            "undocumented_database": "Service using a database not in architecture",
+            "shadow_api": "Calls to external APIs without proper contracts",
+            "implicit_coupling": "Services coupled through shared database",
+            "legacy_integration": "Old integrations forgotten but still active",
+        },
+        "next_steps": [
+            "Execute SQL using BigQuery MCP execute_sql",
+            "Compare results with official architecture documentation",
+            "Prioritize documenting HIGH priority items",
+            "Check error_rate for reliability concerns",
+            "Validate external API contracts exist",
+        ],
+    }
 
-        logger.info("Generated hidden dependencies analysis SQL")
-        return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
+    logger.info("Generated hidden dependencies analysis SQL")
+    return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)

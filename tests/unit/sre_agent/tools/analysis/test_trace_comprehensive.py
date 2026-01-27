@@ -2,6 +2,7 @@ import json
 
 import pytest
 
+from sre_agent.schema import ToolStatus
 from sre_agent.tools.analysis.trace_comprehensive import analyze_trace_comprehensive
 
 
@@ -41,8 +42,8 @@ def test_analyze_trace_comprehensive(sample_trace_dict):
     # We pass trace_json as trace_id because fetch_trace_data handles it
     result = analyze_trace_comprehensive(trace_json, project_id="test-project")
 
-    assert result["status"] == "success"
-    data = result["result"]
+    assert result.status == ToolStatus.SUCCESS
+    data = result.result
     assert data["trace_id"] == "test-trace-comprehensive"
     assert "quality_check" in data
     assert data["quality_check"]["valid"] is True
@@ -79,12 +80,12 @@ def test_analyze_trace_comprehensive_with_baseline(sample_trace_dict):
         target_json, project_id="test-project", baseline_trace_id=baseline_json
     )
 
-    assert result["status"] == "success"
-    assert "anomaly_analysis" in result["result"]
+    assert result.status == ToolStatus.SUCCESS
+    assert "anomaly_analysis" in result.result
     # Since we only have one baseline, stdev might be 0, but it should still return something.
 
 
 def test_analyze_trace_comprehensive_error():
     result = analyze_trace_comprehensive(json.dumps({"error": "Not found"}))
-    assert result["status"] == "error"
-    assert result["error"] is not None
+    assert result.status == ToolStatus.ERROR
+    assert result.error is not None

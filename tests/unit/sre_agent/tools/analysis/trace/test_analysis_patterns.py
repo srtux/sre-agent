@@ -1,6 +1,7 @@
 import json
 from unittest.mock import patch
 
+from sre_agent.schema import ToolStatus
 from sre_agent.tools.analysis.trace.comparison import compare_span_timings
 
 
@@ -51,8 +52,8 @@ def test_compare_span_timings_n_plus_one_detection():
         target = {"trace_id": "target", "spans": spans}
 
         res = compare_span_timings(json.dumps(baseline), json.dumps(target))
-        assert res["status"] == "success"
-        result = res["result"]
+        assert res.status == ToolStatus.SUCCESS
+        result = res.result
 
         assert "patterns" in result
         patterns = result["patterns"]
@@ -113,8 +114,8 @@ def test_compare_span_timings_serial_chain_detection():
         target = {"trace_id": "target", "spans": spans}
 
         res = compare_span_timings(json.dumps(baseline), json.dumps(target))
-        assert res["status"] == "success"
-        result = res["result"]
+        assert res.status == ToolStatus.SUCCESS
+        result = res.result
 
         assert "patterns" in result
         patterns = result["patterns"]

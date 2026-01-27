@@ -38,8 +38,8 @@ def test_analyze_critical_path_success(mock_fetch):
     mock_fetch.return_value = trace_data
 
     response = analyze_critical_path("t1")
-    assert response["status"] == "success"
-    result = response["result"]
+    assert response.status == ToolStatus.SUCCESS
+    result = response.result
 
     assert "critical_path" in result
     path = result["critical_path"]
@@ -94,8 +94,8 @@ def test_perform_causal_analysis_success(
     }
 
     response = perform_causal_analysis("base", "target", project_id="test-p")
-    assert response["status"] == "success"
-    result = response["result"]
+    assert response.status == ToolStatus.SUCCESS
+    result = response.result
 
     candidates = result["root_cause_candidates"]
     assert len(candidates) > 0
@@ -125,8 +125,8 @@ def test_analyze_trace_patterns_mocked_fetch(mock_fetch_parallel):
     mock_fetch_parallel.return_value = [t1, t2, t3]
 
     response = analyze_trace_patterns(["t1", "t2", "t3"], project_id="test-p")
-    assert response["status"] == "success"
-    result = response["result"]
+    assert response.status == ToolStatus.SUCCESS
+    result = response.result
 
     # Based on error log, overall_trend is top level
     assert "overall_trend" in result
@@ -174,8 +174,8 @@ def test_detect_latency_anomalies_success(mock_fetch, mock_compute):
     mock_fetch.return_value = target_data
 
     response = detect_latency_anomalies(["b1"], "t1", project_id="test-p")
-    assert response["status"] == "success"
-    result = response["result"]
+    assert response.status == ToolStatus.SUCCESS
+    result = response.result
 
     assert result["is_anomaly"] is True
     spans = result["anomalous_spans"]

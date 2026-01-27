@@ -1,80 +1,74 @@
 # Telemetry and Observability in SRE Agent
 
-This document describes the telemetry and observability architecture for the SRE Agent, including how it handles Tracing, Metrics, and Logging.
+This document describes the telemetry and observability architecture for the SRE Agent.
 
-## Overview
+## Minimalist Telemetry Standard (January 2026)
 
-The SRE Agent uses [OpenTelemetry (OTel)](https://opentelemetry.io/) for high-quality observability. It supports multiple backends and is designed to work in both local development and hosted (Agent Engine / Cloud Run) environments.
+As of January 2026, the SRE Agent has moved to a **Minimalist Telemetry Standard**. We have completely removed all manual/custom OpenTelemetry (OTel) and Arize instrumentation from the codebase.
 
-### Key Components
+### Core Principles
 
-1.  **Tracing**: Captures tool calls, LLM iterations, and overall request flows.
-2.  **Metrics**: (WIP) Tracks performance and usage metrics.
-3.  **Logging**: Structured logging with OpenTelemetry correlation (Trace ID / Span ID).
-4.  **Emoji Filters**: A custom logging filter adds emojis to the console output for better visibility of system events (LLM calls 🧠, Tool calls 🛠️, API calls 🌐).
+1.  **Reliance on Native ADK Instrumentation**: The agent now defers entirely to the [Google Agent Development Kit (ADK)](https://github.com/google/adk) and its native integration with the **Vertex AI Agent Engine**.
+2.  **No Manual Spans**: Tools and sub-agents no longer call `tracer.start_as_current_span()` or manually set OTel attributes.
+3.  **Automatic High-Fidelity Tracing**: By setting the environment variable `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true`, the ADK automatically captures all prompts, responses, and tool calls with full fidelity, exporting them to Cloud Trace via the Agent Engine service.
+4.  **Standardized Response Logging**: Instead of manual instrumentation, the `@adk_tool` decorator and `BaseToolResponse` structure provide consistent visibility into tool execution via standard logging.
 
 ---
 
 ## Configuration
 
-Telemetry is configured via environment variables.
+Telemetry is now primarily configured via environment variables that affect the Underlying ADK and runtime.
 
 ### General Settings
 
 *   `LOG_LEVEL`: One of `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`. (Default: `INFO`).
 *   `LOG_FORMAT`: `TEXT` (default) for readable console logs, or `JSON` for structured logs in production.
-*   `DISABLE_TELEMETRY`: Set to `true` to completely disable OTel exporters. **Highly recommended for hermetic tests.**
+*   `DISABLE_TELEMETRY`: Set to `true` during tests to prevent unnecessary export overhead.
 
-### Google Cloud (OTLP)
+### ADK / Agent Engine native Tracing
 
-The agent can export traces and metrics directly to Google Cloud Observability using the OTLP protocol over gRPC.
+To enable full visibility into agent reasoning:
 
-*   `GOOGLE_CLOUD_PROJECT`: The project to send telemetry to.
-*   `OTEL_TRACES_EXPORTER`: Set to `otlp` (default) or `none`.
-*   `OTEL_METRICS_EXPORTER`: Set to `otlp` (default) or `none`.
-
-### Arize AX
-
-The agent has built-in support for [Arize AX](https://arize.com/) for LLM observability.
-
-*   `USE_ARIZE`: Set to `true` to enable Arize.
-*   `ARIZE_SPACE_ID`: Your Arize Space ID.
-*   `ARIZE_API_KEY`: Your Arize API Key.
-*   `ARIZE_PROJECT_NAME`: The name of the project in Arize (Default: `AutoSRE`).
-
-> **Note**: When `USE_ARIZE` is enabled, the agent prioritize Arize for tracing and will skip Google Cloud Trace setup to avoid duplicate spans.
+*   `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true`: Enables high-fidelity prompt/response capture in Cloud Trace.
+*   `SUPPRESS_OTEL_ERRORS=true`: Suppresses non-critical OTLP export warnings to keep logs clean.
 
 ---
 
-## Technical Details
+## Technical Architecture
 
-### Initialization Flow
+### Tool Visibility
 
-Telemetry is initialized early in the application lifecycle (usually in `sre_agent.api.app:create_app`).
+Every tool marked with `@adk_tool` automatically benefits from:
+1.  **Standard Logging**: Input arguments and output status are logged to `stdout`.
+2.  **Native Span Generation**: When running in Agent Engine, tool calls are automatically converted into spans by the platform.
 
-1.  **Early Logging**: Handlers are configured first.
-2.  **Hermetic Check**: If `DISABLE_TELEMETRY` is set, setup returns early.
-3.  **Arize Setup**: If enabled, Arize is initialized and claimed as the global TracerProvider.
-4.  **GCP OTLP Setup**: If Arize is disabled and exporters are not `none`, the Google Cloud OTLP exporters are configured.
-5.  **Log Correlation**: `LoggingInstrumentor` is applied to inject `trace_id` and `span_id` into all log records.
+### Standardized Tool Responses
 
-### Testing and Hermeticity
-
-To ensure tests are hermetic and don't leak telemetry to external services, the `pyproject.toml` configuration enforces `DISABLE_TELEMETRY=true` for the `pytest` task.
-
-```toml
-[tool.poe.tasks]
-test = { cmd = "pytest ...", env = { DISABLE_TELEMETRY = "true", ... } }
-```
-
-### Context Propagation
-
-Tools should use the `ArizeSessionContext` (via `using_arize_session`) to ensure that traces are correctly grouped by session and user when running locally.
+All tools must return a `BaseToolResponse`. This ensures that even without manual OTel code, the agent's performance and error rates can be monitored via the logical status of these objects.
 
 ```python
-from sre_agent.tools.common.telemetry import using_arize_session
+from sre_agent.schema import BaseToolResponse, ToolStatus
 
-with using_arize_session(session_id="...", user_id="..."):
-    # Traces here will have session/user attributes
-    ...
+@adk_tool
+async def my_tool(...) -> BaseToolResponse:
+    # Logic here
+    return BaseToolResponse(
+        status=ToolStatus.SUCCESS,
+        result={"data": ...}
+    )
 ```
+
+### Removal of Legacy Components
+
+The following legacy components have been **removed**:
+*   `ArizeAxExporter` and all `arize` package dependencies.
+*   `setup_telemetry()` logic for manual `MetricReader` and `TraceProvider` registration.
+*   Manual `opentelemetry-api` and `opentelemetry-sdk` direct imports in tools.
+
+---
+
+## Observability Best Practices
+
+1.  **Use Logging for Context**: Instead of a manual span attribute, use `logger.info()` or `logger.debug()`. These are automatically correlated with the active trace by the Agent Engine logging service.
+2.  **Trust the Decorator**: Let `@adk_tool` handle the standard execution tracing.
+3.  **Monitor via BigQuery**: For historical analysis, use BigQuery tools to query the `_AllSpans` table (where ADK exports spans) rather than searching for manual instrumentation code.

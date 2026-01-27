@@ -35,7 +35,6 @@ from sre_agent.auth import (
 from sre_agent.schema import BaseToolResponse, ToolStatus
 from sre_agent.tools.common import adk_tool
 from sre_agent.tools.common.cache import get_data_cache
-from sre_agent.tools.common.telemetry import get_meter, get_tracer
 
 __all__ = [
     "_clear_thread_credentials",
@@ -71,15 +70,10 @@ def _clear_thread_credentials() -> None:
 
 
 logger = logging.getLogger(__name__)
-tracer = get_tracer(__name__)
-meter = get_meter(__name__)
 
 
 class TraceFilterBuilder:
-    """Helper to construct Cloud Trace filter strings.
-
-    Encapsulates the complex [^][+]key:value syntax of Cloud Trace.
-    """
+    """Helper to construct Cloud Trace filter strings."""
 
     def __init__(self) -> None:
         """Initialize the builder with empty terms."""
@@ -113,14 +107,7 @@ class TraceFilterBuilder:
     def add_attribute(
         self, key: str, value: Any, exact: bool = False, root_only: bool = False
     ) -> "TraceFilterBuilder":
-        """Add an attribute filter.
-
-        Args:
-            key: The attribute key (e.g. '/http/status_code').
-            value: The value to match.
-            exact: If True, uses exact match (+).
-            root_only: If True, restricts to root span (^).
-        """
+        """Add an attribute filter."""
         str_val = str(value)
         # Quote value if it contains special characters
         if not re.match(r"^[a-zA-Z0-9./_-]+$", str_val):
@@ -264,95 +251,83 @@ def _fetch_trace_sync(project_id: str, trace_id: str) -> dict[str, Any]:
                 pass
         return cast(dict[str, Any], cached)
 
-    with tracer.start_as_current_span("fetch_trace") as span:
-        span.set_attribute("gcp.project_id", project_id)
-        span.set_attribute("gcp.trace_id", trace_id)
-        span.set_attribute("rpc.system", "google_cloud")
-        span.set_attribute("rpc.service", "cloud_trace")
-        span.set_attribute("rpc.method", "get_trace")
-
-        try:
-            if thread_creds:
-                client = get_trace_client(credentials=thread_creds)
-            else:
-                # This should not be hit with GLOBAL_CONTEXT_CREDENTIALS fallback
-                error_msg = (
-                    "Authentication failed: No credentials found in context or ADC. "
-                    "Ensure GOOGLE_APPLICATION_CREDENTIALS is set."
-                )
-                logger.error(error_msg)
-                return {"error": error_msg}
-
-            trace_obj = client.get_trace(project_id=project_id, trace_id=trace_id)
-
-            spans = []
-            trace_start = None
-            trace_end = None
-
-            for span_proto in trace_obj.spans:
-
-                def get_ts_val(ts_proto: Any) -> float:
-                    if hasattr(ts_proto, "timestamp"):
-                        return cast(float, ts_proto.timestamp())
-                    return cast(float, ts_proto.seconds + ts_proto.nanos / 1e9)
-
-                def get_ts_str(ts_proto: Any) -> str:
-                    if hasattr(ts_proto, "isoformat"):
-                        return cast(str, ts_proto.isoformat())
-                    return datetime.fromtimestamp(
-                        get_ts_val(ts_proto), tz=timezone.utc
-                    ).isoformat()
-
-                s_start = get_ts_val(span_proto.start_time)
-                s_end = get_ts_val(span_proto.end_time)
-
-                if trace_start is None or s_start < trace_start:
-                    trace_start = s_start
-                if trace_end is None or s_end > trace_end:
-                    trace_end = s_end
-
-                spans.append(
-                    {
-                        "span_id": span_proto.span_id,
-                        "name": span_proto.name,
-                        "start_time": get_ts_str(span_proto.start_time),
-                        "end_time": get_ts_str(span_proto.end_time),
-                        "start_time_unix": s_start,
-                        "end_time_unix": s_end,
-                        "parent_span_id": span_proto.parent_span_id,
-                        "labels": dict(span_proto.labels),
-                    }
-                )
-
-            dur_ms = (
-                (trace_end - trace_start) * 1000 if trace_start and trace_end else 0
+    try:
+        if thread_creds:
+            client = get_trace_client(credentials=thread_creds)
+        else:
+            # This should not be hit with GLOBAL_CONTEXT_CREDENTIALS fallback
+            error_msg = (
+                "Authentication failed: No credentials found in context or ADC. "
+                "Ensure GOOGLE_APPLICATION_CREDENTIALS is set."
             )
-            span.set_attribute("gcp.trace.duration_ms", dur_ms)
-            span.set_attribute("gcp.trace.span_count", len(spans))
-
-            result = {
-                "trace_id": trace_obj.trace_id,
-                "project_id": trace_obj.project_id,
-                "spans": spans,
-                "span_count": len(spans),
-                "duration_ms": dur_ms,
-            }
-
-            cache.put(f"trace:{trace_id}", result)
-            return result
-
-        except Exception as e:
-            span.record_exception(e)
-            error_msg = f"Failed to fetch trace: {e!s}"
-            if "404" in error_msg or "NotFound" in error_msg:
-                error_msg += (
-                    "\n\nHINT: Trace not found. "
-                    "Ensure the trace ID is correct. If you found this ID in a log, "
-                    "make sure it's the full 32-character hex string. "
-                    "Try listing recent traces with 'list_traces' to find valid IDs."
-                )
-            logger.error(error_msg, exc_info=True)
+            logger.error(error_msg)
             return {"error": error_msg}
+
+        trace_obj = client.get_trace(project_id=project_id, trace_id=trace_id)
+
+        spans = []
+        trace_start = None
+        trace_end = None
+
+        for span_proto in trace_obj.spans:
+
+            def get_ts_val(ts_proto: Any) -> float:
+                if hasattr(ts_proto, "timestamp"):
+                    return cast(float, ts_proto.timestamp())
+                return cast(float, ts_proto.seconds + ts_proto.nanos / 1e9)
+
+            def get_ts_str(ts_proto: Any) -> str:
+                if hasattr(ts_proto, "isoformat"):
+                    return cast(str, ts_proto.isoformat())
+                return datetime.fromtimestamp(
+                    get_ts_val(ts_proto), tz=timezone.utc
+                ).isoformat()
+
+            s_start = get_ts_val(span_proto.start_time)
+            s_end = get_ts_val(span_proto.end_time)
+
+            if trace_start is None or s_start < trace_start:
+                trace_start = s_start
+            if trace_end is None or s_end > trace_end:
+                trace_end = s_end
+
+            spans.append(
+                {
+                    "span_id": span_proto.span_id,
+                    "name": span_proto.name,
+                    "start_time": get_ts_str(span_proto.start_time),
+                    "end_time": get_ts_str(span_proto.end_time),
+                    "start_time_unix": s_start,
+                    "end_time_unix": s_end,
+                    "parent_span_id": span_proto.parent_span_id,
+                    "labels": dict(span_proto.labels),
+                }
+            )
+
+        dur_ms = (trace_end - trace_start) * 1000 if trace_start and trace_end else 0
+
+        result = {
+            "trace_id": trace_obj.trace_id,
+            "project_id": trace_obj.project_id,
+            "spans": spans,
+            "span_count": len(spans),
+            "duration_ms": dur_ms,
+        }
+
+        cache.put(f"trace:{trace_id}", result)
+        return result
+
+    except Exception as e:
+        error_msg = f"Failed to fetch trace: {e!s}"
+        if "404" in error_msg or "NotFound" in error_msg:
+            error_msg += (
+                "\n\nHINT: Trace not found. "
+                "Ensure the trace ID is correct. If you found this ID in a log, "
+                "make sure it's the full 32-character hex string. "
+                "Try listing recent traces with 'list_traces' to find valid IDs."
+            )
+        logger.error(error_msg, exc_info=True)
+        return {"error": error_msg}
 
 
 @adk_tool
@@ -408,102 +383,101 @@ def _list_traces_sync(
     attributes_json: str | None = None,
 ) -> list[dict[str, Any]] | dict[str, Any]:
     """Synchronous implementation of list_traces."""
-    with tracer.start_as_current_span("list_traces"):
-        thread_creds = _get_thread_credentials() or GLOBAL_CONTEXT_CREDENTIALS
-        try:
-            if thread_creds:
-                client = get_trace_client(credentials=thread_creds)
-            else:
-                error_msg = (
-                    "Authentication failed: No credentials found in context or ADC. "
-                    "Ensure GOOGLE_APPLICATION_CREDENTIALS is set."
-                )
-                logger.error(error_msg)
-                return {"error": error_msg}
-
-            filters = []
-            if min_latency_ms:
-                filters.append(f"latency:{min_latency_ms}ms")
-            if error_only:
-                filters.append("error:true")
-            filter_str = " ".join(filters)
-
-            start_timestamp = None
-            end_timestamp = None
-
-            if start_time:
-                try:
-                    dt = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
-                    start_timestamp = Timestamp()
-                    start_timestamp.FromDatetime(dt)
-                except Exception:
-                    logger.warning(f"Invalid start_time format: {start_time}")
-
-            if end_time:
-                try:
-                    dt = datetime.fromisoformat(end_time.replace("Z", "+00:00"))
-                    end_timestamp = Timestamp()
-                    end_timestamp.FromDatetime(dt)
-                except Exception:
-                    logger.warning(f"Invalid end_time format: {end_time}")
-
-            request_kwargs: dict[str, Any] = {
-                "project_id": project_id,
-                "page_size": limit,
-                "filter": filter_str,
-                "view": trace_v1.ListTracesRequest.ViewType.ROOTSPAN,
-            }
-
-            if start_timestamp:
-                request_kwargs["start_time"] = start_timestamp
-            if end_timestamp:
-                request_kwargs["end_time"] = end_timestamp
-
-            response = client.list_traces(
-                request=trace_v1.ListTracesRequest(**request_kwargs)
+    thread_creds = _get_thread_credentials() or GLOBAL_CONTEXT_CREDENTIALS
+    try:
+        if thread_creds:
+            client = get_trace_client(credentials=thread_creds)
+        else:
+            error_msg = (
+                "Authentication failed: No credentials found in context or ADC. "
+                "Ensure GOOGLE_APPLICATION_CREDENTIALS is set."
             )
-
-            traces = []
-            for trace in response:
-                summary: dict[str, Any] = {
-                    "trace_id": trace.trace_id,
-                    "project_id": trace.project_id,
-                }
-                if trace.spans:
-                    root_span = trace.spans[0]
-                    summary["name"] = root_span.name
-
-                    def get_ts_val(ts_proto: Any) -> float:
-                        if hasattr(ts_proto, "timestamp"):
-                            return cast(float, ts_proto.timestamp())
-                        return cast(float, ts_proto.seconds + ts_proto.nanos / 1e9)
-
-                    start_ts = get_ts_val(root_span.start_time)
-                    end_ts = get_ts_val(root_span.end_time)
-                    duration_ms = (end_ts - start_ts) * 1000
-
-                    if hasattr(root_span.start_time, "isoformat"):
-                        summary["start_time"] = root_span.start_time.isoformat()
-                    else:
-                        summary["start_time"] = datetime.fromtimestamp(
-                            start_ts, tz=timezone.utc
-                        ).isoformat()
-                    summary["duration_ms_str"] = str(round(duration_ms, 2))
-                    summary["duration_ms"] = round(duration_ms, 2)
-                    labels = root_span.labels or {}
-                    summary["status"] = labels.get("/http/status_code", "0")
-                    summary["url"] = labels.get("/http/url", "")
-
-                traces.append(summary)
-                if len(traces) >= limit:
-                    break
-
-            return traces
-
-        except Exception as e:
-            error_msg = f"Failed to list traces: {e!s}"
-            logger.error(error_msg, exc_info=True)
+            logger.error(error_msg)
             return {"error": error_msg}
+
+        filters = []
+        if min_latency_ms:
+            filters.append(f"latency:{min_latency_ms}ms")
+        if error_only:
+            filters.append("error:true")
+        filter_str = " ".join(filters)
+
+        start_timestamp = None
+        end_timestamp = None
+
+        if start_time:
+            try:
+                dt = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
+                start_timestamp = Timestamp()
+                start_timestamp.FromDatetime(dt)
+            except Exception:
+                logger.warning(f"Invalid start_time format: {start_time}")
+
+        if end_time:
+            try:
+                dt = datetime.fromisoformat(end_time.replace("Z", "+00:00"))
+                end_timestamp = Timestamp()
+                end_timestamp.FromDatetime(dt)
+            except Exception:
+                logger.warning(f"Invalid end_time format: {end_time}")
+
+        request_kwargs: dict[str, Any] = {
+            "project_id": project_id,
+            "page_size": limit,
+            "filter": filter_str,
+            "view": trace_v1.ListTracesRequest.ViewType.ROOTSPAN,
+        }
+
+        if start_timestamp:
+            request_kwargs["start_time"] = start_timestamp
+        if end_timestamp:
+            request_kwargs["end_time"] = end_timestamp
+
+        response = client.list_traces(
+            request=trace_v1.ListTracesRequest(**request_kwargs)
+        )
+
+        traces = []
+        for trace in response:
+            summary: dict[str, Any] = {
+                "trace_id": trace.trace_id,
+                "project_id": trace.project_id,
+            }
+            if trace.spans:
+                root_span = trace.spans[0]
+                summary["name"] = root_span.name
+
+                def get_ts_val(ts_proto: Any) -> float:
+                    if hasattr(ts_proto, "timestamp"):
+                        return cast(float, ts_proto.timestamp())
+                    return cast(float, ts_proto.seconds + ts_proto.nanos / 1e9)
+
+                start_ts = get_ts_val(root_span.start_time)
+                end_ts = get_ts_val(root_span.end_time)
+                duration_ms = (end_ts - start_ts) * 1000
+
+                if hasattr(root_span.start_time, "isoformat"):
+                    summary["start_time"] = root_span.start_time.isoformat()
+                else:
+                    summary["start_time"] = datetime.fromtimestamp(
+                        start_ts, tz=timezone.utc
+                    ).isoformat()
+                summary["duration_ms_str"] = str(round(duration_ms, 2))
+                summary["duration_ms"] = round(duration_ms, 2)
+                labels = root_span.labels or {}
+                summary["status"] = labels.get("/http/status_code", "0")
+                summary["url"] = labels.get("/http/url", "")
+
+            traces.append(summary)
+            if len(traces) >= limit:
+                break
+
+        return traces
+
+    except Exception as e:
+        error_msg = f"Failed to list traces: {e!s}"
+        logger.error(error_msg, exc_info=True)
+        return {"error": error_msg}
 
 
 def _calculate_anomaly_score(

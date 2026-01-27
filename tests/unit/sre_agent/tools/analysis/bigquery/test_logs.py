@@ -1,3 +1,4 @@
+from sre_agent.schema import ToolStatus
 from sre_agent.tools.analysis.bigquery.logs import analyze_bigquery_log_patterns
 
 
@@ -12,8 +13,8 @@ def test_analyze_bigquery_log_patterns_generates_sql():
         limit=10,
     )
 
-    assert result["status"] == "success"
-    data = result["result"]
+    assert result.status == ToolStatus.SUCCESS
+    data = result.result
     assert data["analysis_type"] == "bigquery_log_patterns"
 
     sql = data["sql_query"]

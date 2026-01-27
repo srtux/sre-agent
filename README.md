@@ -36,7 +36,7 @@
 Auto SRE avoids the "single prompt" limitation by using a **Council of Experts** pattern. When you ask a question, a central Orchestrator coordinates a pipeline of specialized sub-agents:
 
 1.  **The Orchestrator**: Decomposes your request and assigns tasks to specialists.
-2.  **Aggregation Specialist**: Scans fleet-wide metrics (BigQuery/OTel) to identify statistical outliers.
+2.  **Aggregation Specialist**: Scans fleet-wide metrics (BigQuery/Cloud Monitoring) to identify statistical outliers.
 3.  **Trace Analyst**: Performs deep-dive waterfall analysis on distributed traces to find latency bottlenecks.
 4.  **Log Analyst**: Uses advanced clustering (Drain3) to find anomalous patterns across millions of log lines.
 5.  **Root Cause Analyst**: Synthesizes all findings into a causal graph and proposes remediation.

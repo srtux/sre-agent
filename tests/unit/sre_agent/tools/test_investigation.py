@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from sre_agent.schema import ToolStatus
+from sre_agent.schema import BaseToolResponse, ToolStatus
 from sre_agent.tools.investigation import (
     get_investigation_summary,
     update_investigation_state,
@@ -48,9 +48,9 @@ async def test_update_investigation_state(mock_memory_manager):
             tool_context=mock_tool_context,
         )
 
-        assert isinstance(response, dict)
-        assert response["status"] == ToolStatus.SUCCESS
-        assert "Successfully updated" in response["result"]
+        assert isinstance(response, BaseToolResponse)
+        assert response.status == ToolStatus.SUCCESS
+        assert "Successfully updated" in response.result
 
         # Verify session service update
         mock_service.update_session_state.assert_called_once()
@@ -78,8 +78,8 @@ async def test_update_investigation_state_invalid_phase():
     response = await update_investigation_state(
         phase="invalid_phase", tool_context=mock_tool_context
     )
-    assert response["status"] == ToolStatus.ERROR
-    assert "Invalid phase" in response["error"]
+    assert response.status == ToolStatus.ERROR
+    assert "Invalid phase" in response.error
 
 
 @pytest.mark.asyncio
@@ -97,7 +97,7 @@ async def test_get_investigation_summary():
     mock_tool_context.invocation_context.session = mock_session
 
     response = await get_investigation_summary(tool_context=mock_tool_context)
-    result = response["result"]
+    result = response.result
     assert "DEEP_DIVE" in result
     assert "Error 500" in result
     assert "DB connection issue" in result
@@ -114,9 +114,9 @@ async def test_investigation_no_session():
     response = await update_investigation_state(
         phase="triage", tool_context=mock_tool_context
     )
-    assert response["status"] == ToolStatus.ERROR
-    assert "No active session" in response["error"]
+    assert response.status == ToolStatus.ERROR
+    assert "No active session" in response.error
 
     response = await get_investigation_summary(tool_context=mock_tool_context)
-    assert response["status"] == ToolStatus.ERROR
-    assert "No active session" in response["error"]
+    assert response.status == ToolStatus.ERROR
+    assert "No active session" in response.error

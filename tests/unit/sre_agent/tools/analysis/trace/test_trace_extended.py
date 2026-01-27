@@ -2,6 +2,7 @@ from unittest.mock import patch
 
 import pytest
 
+from sre_agent.schema import ToolStatus
 from sre_agent.tools.analysis.trace.patterns import detect_all_sre_patterns
 from sre_agent.tools.analysis.trace.statistical_analysis import (
     compute_latency_statistics,
@@ -57,8 +58,8 @@ def test_compute_latency_statistics(complex_trace):
     ) as mock_fetch:
         mock_fetch.return_value = [complex_trace]
         res = compute_latency_statistics(["trace-1"], project_id="test-p")
-        assert res["status"] == "success"
-        stats = res["result"]
+        assert res.status == ToolStatus.SUCCESS
+        stats = res.result
         assert stats["count"] == 1
         assert stats["mean"] == 100.0
         assert stats["max"] == 100.0
@@ -89,8 +90,8 @@ def test_detect_latency_anomalies(complex_trace):
         res = detect_latency_anomalies(
             ["baseline-1"], "target-1", threshold_sigma=2.0, project_id="test-p"
         )
-        assert res["status"] == "success"
-        report = res["result"]
+        assert res.status == ToolStatus.SUCCESS
+        report = res.result
         assert report["is_anomaly"] is True
         assert report["z_score"] > 2.0
 
@@ -123,6 +124,6 @@ def test_detect_all_sre_patterns(complex_trace):
         mock_fetch.return_value = complex_trace
 
         res = detect_all_sre_patterns("trace-1", project_id="test-p")
-        assert res["status"] == "success"
-        report = res["result"]
+        assert res.status == ToolStatus.SUCCESS
+        report = res.result
         assert report["trace_id"] == "trace-1"

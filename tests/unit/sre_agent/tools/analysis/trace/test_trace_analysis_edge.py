@@ -68,30 +68,32 @@ def test_calculate_span_durations_tool_error(mock_clients):
     mock_fetch, _, _ = mock_clients
     mock_fetch.return_value = {"error": "API Limit"}
     res = calculate_span_durations("t1")
-    assert res["status"] == ToolStatus.ERROR
-    assert res["error"] == "API Limit"
+    assert res.status == ToolStatus.ERROR
+    assert res.error == "API Limit"
 
 
 def test_calculate_span_durations_exception(mock_clients):
     mock_fetch, _, _ = mock_clients
     mock_fetch.side_effect = Exception("Fatal")
-    with pytest.raises(Exception, match="Fatal"):
-        calculate_span_durations("t1")
+    res = calculate_span_durations("t1")
+    assert res.status == ToolStatus.ERROR
+    assert "Fatal" in res.error
 
 
 def test_extract_errors_tool_error(mock_clients):
     mock_fetch, _, _ = mock_clients
     mock_fetch.return_value = {"error": "Auth Failed"}
     res = extract_errors("t1")
-    assert res["status"] == ToolStatus.ERROR
-    assert res["error"] == "Auth Failed"
+    assert res.status == ToolStatus.ERROR
+    assert res.error == "Auth Failed"
 
 
 def test_extract_errors_exception(mock_clients):
     mock_fetch, _, _ = mock_clients
     mock_fetch.side_effect = Exception("Explosion")
-    with pytest.raises(Exception, match="Explosion"):
-        extract_errors("t1")
+    res = extract_errors("t1")
+    assert res.status == ToolStatus.ERROR
+    assert "Explosion" in res.error
 
 
 def test_extract_errors_impl_status_parse_error():
@@ -126,12 +128,12 @@ def test_extract_errors_impl_grpc_and_indicators():
 def test_validate_trace_quality_edge_cases():
     # 1. Fetch Error
     res = validate_trace_quality({"error": "Not Found", "trace_id": "t1"})
-    assert res["status"] == ToolStatus.ERROR
+    assert res.status == ToolStatus.ERROR
 
     # 2. Missing ID
     res = validate_trace_quality({"spans": [{"name": "n"}]})
-    assert res["result"]["issue_count"] == 1
-    assert res["result"]["issues"][0]["type"] == "missing_span_id"
+    assert res.result["issue_count"] == 1
+    assert res.result["issues"][0]["type"] == "missing_span_id"
 
     # 3. Negative Duration
     res = validate_trace_quality(
@@ -145,7 +147,7 @@ def test_validate_trace_quality_edge_cases():
             ]
         }
     )
-    assert res["result"]["issues"][0]["type"] == "negative_duration"
+    assert res.result["issues"][0]["type"] == "negative_duration"
 
     # 4. Clock Skew
     res = validate_trace_quality(
@@ -165,13 +167,13 @@ def test_validate_trace_quality_edge_cases():
             ]
         }
     )
-    assert any(i["type"] == "clock_skew" for i in res["result"]["issues"])
+    assert any(i["type"] == "clock_skew" for i in res.result["issues"])
 
     # 5. Timestamp Error
     res = validate_trace_quality(
         {"spans": [{"span_id": "1", "start_time": "!!!", "end_time": "!!!"}]}
     )
-    assert res["result"]["issues"][0]["type"] == "timestamp_error"
+    assert res.result["issues"][0]["type"] == "timestamp_error"
 
 
 def test_validate_trace_quality_exception():
@@ -180,8 +182,8 @@ def test_validate_trace_quality_exception():
         side_effect=Exception("Hard Fail"),
     ):
         res = validate_trace_quality("t1")
-        assert res["status"] == ToolStatus.ERROR
-        assert "Hard Fail" in res["error"]
+        assert res.status == ToolStatus.ERROR
+        assert "Hard Fail" in res.error
 
 
 def test_build_call_graph_exception():
@@ -189,8 +191,9 @@ def test_build_call_graph_exception():
         "sre_agent.tools.analysis.trace.analysis.fetch_trace_data",
         side_effect=Exception("Boom"),
     ):
-        with pytest.raises(Exception, match="Boom"):
-            build_call_graph("t1")
+        res = build_call_graph("t1")
+        assert res.status == ToolStatus.ERROR
+        assert "Boom" in res.error
 
 
 def test_summarize_trace_various_paths():
@@ -200,7 +203,7 @@ def test_summarize_trace_various_paths():
         return_value={"error": "Broke", "trace_id": "t1"},
     ):
         res = summarize_trace("t1")
-        assert res["status"] == ToolStatus.ERROR
+        assert res.status == ToolStatus.ERROR
 
     # 2. Missing spans key (hits extract_errors fallback)
     trace_no_spans = {"trace_id": "t1", "duration_ms": 100}
@@ -213,7 +216,7 @@ def test_summarize_trace_various_paths():
         ) as mock_ext:
             mock_ext.return_value = MagicMock(result={"errors": []})
             res = summarize_trace("t1")
-            assert res["status"] == ToolStatus.SUCCESS
+            assert res.status == ToolStatus.SUCCESS
             mock_ext.assert_called_once()
 
     # 3. Full data with manual time parsing coverage
@@ -234,5 +237,5 @@ def test_summarize_trace_various_paths():
         return_value=trace_full,
     ):
         res = summarize_trace("t1")
-        assert res["status"] == ToolStatus.SUCCESS
-        assert len(res["result"]["slowest_spans"]) == 2
+        assert res.status == ToolStatus.SUCCESS
+        assert len(res.result["slowest_spans"]) == 2

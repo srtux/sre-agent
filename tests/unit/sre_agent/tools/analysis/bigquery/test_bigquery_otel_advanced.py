@@ -1,5 +1,6 @@
 """Tests for advanced BigQuery OTel analysis tools."""
 
+from sre_agent.schema import ToolStatus
 from sre_agent.tools.analysis.bigquery import otel_advanced as bigquery_otel_advanced
 
 
@@ -12,8 +13,8 @@ class TestAnalyzeSpanEvents:
             dataset_id="project.dataset"
         )
 
-        assert result["status"] == "success"
-        data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        data = result.result
         assert data["analysis_type"] == "span_events"
         query = data["sql_query"]
         assert "UNNEST(events)" in query
@@ -27,8 +28,8 @@ class TestAnalyzeSpanEvents:
             dataset_id="project.dataset", event_name_filter="exception"
         )
 
-        assert result["status"] == "success"
-        data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        data = result.result
         query = data["sql_query"]
         assert "event.name = 'exception'" in query
 
@@ -38,8 +39,8 @@ class TestAnalyzeSpanEvents:
             dataset_id="project.dataset"
         )
 
-        assert result["status"] == "success"
-        data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        data = result.result
         query = data["sql_query"]
         assert "exception.type" in query
         assert "exception.message" in query
@@ -55,8 +56,8 @@ class TestAnalyzeExceptionPatterns:
             dataset_id="project.dataset", group_by="exception_type"
         )
 
-        assert result["status"] == "success"
-        data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        data = result.result
         assert data["analysis_type"] == "exception_patterns"
         query = data["sql_query"]
         assert "event.name = 'exception'" in query
@@ -69,8 +70,8 @@ class TestAnalyzeExceptionPatterns:
             dataset_id="project.dataset", group_by="service_name"
         )
 
-        assert result["status"] == "success"
-        data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        data = result.result
         query = data["sql_query"]
         assert "service_name" in query
 
@@ -80,8 +81,8 @@ class TestAnalyzeExceptionPatterns:
             dataset_id="project.dataset"
         )
 
-        assert result["status"] == "success"
-        data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        data = result.result
         query = data["sql_query"]
         assert "exception_count" in query
         assert "affected_traces" in query
@@ -96,8 +97,8 @@ class TestAnalyzeSpanLinks:
         """Test basic span link analysis query."""
         result = bigquery_otel_advanced.analyze_span_links(dataset_id="project.dataset")
 
-        assert result["status"] == "success"
-        data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        data = result.result
         assert data["analysis_type"] == "span_links"
         query = data["sql_query"]
         assert "UNNEST(links)" in query
@@ -109,8 +110,8 @@ class TestAnalyzeSpanLinks:
         """Test that query extracts link-specific attributes."""
         result = bigquery_otel_advanced.analyze_span_links(dataset_id="project.dataset")
 
-        assert result["status"] == "success"
-        data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        data = result.result
         query = data["sql_query"]
         assert "link.type" in query
         assert "link.reason" in query
@@ -122,8 +123,8 @@ class TestAnalyzeSpanLinks:
             dataset_id="project.dataset", service_name="frontend"
         )
 
-        assert result["status"] == "success"
-        data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        data = result.result
         query = data["sql_query"]
         assert (
             "JSON_EXTRACT_SCALAR(resource.attributes, '$.service.name') = 'frontend'"
@@ -140,8 +141,8 @@ class TestAnalyzeLinkPatterns:
             dataset_id="project.dataset"
         )
 
-        assert result["status"] == "success"
-        data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        data = result.result
         assert data["analysis_type"] == "link_patterns"
         query = data["sql_query"]
         assert "spans_with_links" in query
@@ -159,8 +160,8 @@ class TestAnalyzeInstrumentationLibraries:
             dataset_id="project.dataset"
         )
 
-        assert result["status"] == "success"
-        data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        data = result.result
         assert data["analysis_type"] == "instrumentation_libraries"
         query = data["sql_query"]
         assert "instrumentation_scope.name" in query
@@ -173,8 +174,8 @@ class TestAnalyzeInstrumentationLibraries:
             dataset_id="project.dataset"
         )
 
-        assert result["status"] == "success"
-        data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        data = result.result
         query = data["sql_query"]
         assert "span_count" in query
         assert "service_count" in query
@@ -191,8 +192,8 @@ class TestAnalyzeHTTPAttributes:
             dataset_id="project.dataset"
         )
 
-        assert result["status"] == "success"
-        data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        data = result.result
         assert data["analysis_type"] == "http_attributes"
         query = data["sql_query"]
         assert "kind = 2" in query  # SERVER spans
@@ -206,8 +207,8 @@ class TestAnalyzeHTTPAttributes:
             dataset_id="project.dataset"
         )
 
-        assert result["status"] == "success"
-        data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        data = result.result
         query = data["sql_query"]
         assert "p50_ms" in query
         assert "p95_ms" in query
@@ -219,8 +220,8 @@ class TestAnalyzeHTTPAttributes:
             dataset_id="project.dataset"
         )
 
-        assert result["status"] == "success"
-        data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        data = result.result
         query = data["sql_query"]
         assert "http.request_content_length" in query
         assert "http.response_content_length" in query
@@ -231,8 +232,8 @@ class TestAnalyzeHTTPAttributes:
             dataset_id="project.dataset", min_request_count=50
         )
 
-        assert result["status"] == "success"
-        data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        data = result.result
         query = data["sql_query"]
         assert "HAVING request_count >= 50" in query
 
@@ -246,8 +247,8 @@ class TestAnalyzeDatabaseOperations:
             dataset_id="project.dataset"
         )
 
-        assert result["status"] == "success"
-        data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        data = result.result
         assert data["analysis_type"] == "database_operations"
         query = data["sql_query"]
         assert "kind = 3" in query  # CLIENT spans
@@ -261,8 +262,8 @@ class TestAnalyzeDatabaseOperations:
             dataset_id="project.dataset", db_system="postgresql"
         )
 
-        assert result["status"] == "success"
-        data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        data = result.result
         query = data["sql_query"]
         assert "db.system') = 'postgresql'" in query
 
@@ -272,8 +273,8 @@ class TestAnalyzeDatabaseOperations:
             dataset_id="project.dataset"
         )
 
-        assert result["status"] == "success"
-        data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        data = result.result
         query = data["sql_query"]
         assert "db.statement" in query
         assert "sample_statements" in query
@@ -296,8 +297,8 @@ class TestAdvancedToolsIntegration:
 
         for tool in tools:
             result = tool(dataset_id="project.dataset")
-            assert result["status"] == "success"
-            data = result["result"]
+            assert result.status == ToolStatus.SUCCESS
+            data = result.result
             assert isinstance(data, dict)
             assert "analysis_type" in data
             assert "sql_query" in data
@@ -316,8 +317,8 @@ class TestAdvancedToolsIntegration:
 
         for tool in tools:
             result = tool(dataset_id="project.dataset")
-            assert result["status"] == "success"
-            data = result["result"]
+            assert result.status == ToolStatus.SUCCESS
+            data = result.result
             query = data["sql_query"]
             assert "_AllSpans" in query
 
@@ -335,7 +336,7 @@ class TestAdvancedToolsIntegration:
 
         for tool in tools:
             result = tool(dataset_id="project.dataset", time_window_hours=24)
-            assert result["status"] == "success"
-            data = result["result"]
+            assert result.status == ToolStatus.SUCCESS
+            data = result.result
             query = data["sql_query"]
             assert "start_time >=" in query or "INTERVAL" in query

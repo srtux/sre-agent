@@ -59,14 +59,6 @@ def create_app(
     # Create application
     app = FastAPI(title=title)
 
-    # Instrument FastAPI
-    try:
-        from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-
-        FastAPIInstrumentor().instrument_app(app)
-    except Exception as e:
-        logger.debug(f"FastAPI instrumentation failed: {e}")
-
     # Configure middleware (CORS, auth, exception handling)
     configure_middleware(app)
 

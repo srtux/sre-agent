@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from sre_agent.schema import ToolStatus
 from sre_agent.tools.discovery.discovery_tool import discover_telemetry_sources
 
 
@@ -33,8 +34,8 @@ async def test_dlp_discovery_success(mock_tool_context):
             project_id="test-project", tool_context=mock_tool_context
         )
 
-        assert result["status"] == "success"
-        res_data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        res_data = result.result
         assert res_data["mode"] == "bigquery"
         assert res_data["trace_table"] == "test-project.my_dataset._AllSpans"
         assert res_data["log_table"] == "test-project.my_dataset._AllLogs"
@@ -65,8 +66,8 @@ async def test_dlp_discovery_partial(mock_tool_context):
             project_id="test-project", tool_context=mock_tool_context
         )
 
-        assert result["status"] == "success"
-        res_data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        res_data = result.result
         assert res_data["mode"] == "bigquery"
         assert res_data["trace_table"] == "test-project.dataset2._AllSpans"
         assert res_data["log_table"] is None
@@ -96,8 +97,8 @@ async def test_dlp_discovery_fallback(mock_tool_context):
             project_id="test-project", tool_context=mock_tool_context
         )
 
-        assert result["status"] == "success"
-        res_data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        res_data = result.result
         assert res_data["mode"] == "api_fallback"
         assert res_data["trace_table"] is None
 
@@ -122,12 +123,12 @@ async def test_dlp_discovery_handles_cancellation_gracefully(mock_tool_context):
         )
 
         # Should return partial, not error (prevents retry loops)
-        assert result["status"] == "partial"
-        assert "error" in result
-        assert result["result"]["mode"] == "api_fallback"
+        assert result.status == ToolStatus.PARTIAL
+        assert result.error is not None
+        assert result.result["mode"] == "api_fallback"
         # Should include guidance to not retry
-        assert "DO NOT call discover_telemetry_sources" in result["error"]
-        assert result["metadata"].get("non_retryable") is True
+        assert "DO NOT call discover_telemetry_sources" in result.error
+        assert result.metadata.get("non_retryable") is True
 
 
 @pytest.mark.asyncio
@@ -148,7 +149,7 @@ async def test_dlp_discovery_provides_alternative_suggestions(mock_tool_context)
             project_id="test-project", tool_context=mock_tool_context
         )
 
-        warning = result["error"]
+        warning = result.error
         # Should mention alternative tools
         assert "list_log_entries" in warning or "fetch_trace" in warning
         assert "direct api" in warning.lower()
@@ -172,4 +173,4 @@ async def test_dlp_discovery_error_includes_original_error_type(mock_tool_contex
             project_id="test-project", tool_context=mock_tool_context
         )
 
-        assert result["metadata"].get("error_type") == "TIMEOUT"
+        assert result.metadata.get("error_type") == "TIMEOUT"

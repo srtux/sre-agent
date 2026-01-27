@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import sre_agent.tools.clients.trace as trace_module
+from sre_agent.schema import ToolStatus
 from sre_agent.tools.clients.trace import (
     fetch_trace,
     fetch_trace_data,
@@ -39,8 +40,8 @@ async def test_fetch_trace_caching():
 
         result = await fetch_trace(trace_id, project_id)
 
-        assert result["status"] == "success"
-        assert result["result"]["trace_id"] == trace_id
+        assert result.status == ToolStatus.SUCCESS
+        assert result.result["trace_id"] == trace_id
         mock_cache.get.assert_called_with(f"trace:{trace_id}")
         # API should NOT be called if cache hits
         # Note: _fetch_trace_sync is where the API call happens

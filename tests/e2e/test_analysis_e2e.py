@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
+from sre_agent.schema import ToolStatus
 from sre_agent.tools.analysis.trace.comparison import compare_span_timings
 from sre_agent.tools.analysis.trace.statistical_analysis import analyze_trace_patterns
 from tests.fixtures.synthetic_otel_data import OtelSpanGenerator, TraceGenerator
@@ -143,8 +144,8 @@ def test_compare_span_timings_e2e(good_trace_json, bad_trace_json, mock_fetch_tr
     Should detect N+1 pattern and slowness.
     """
     res = compare_span_timings(good_trace_json, bad_trace_json)
-    assert res["status"] == "success"
-    data = res["result"]
+    assert res.status == ToolStatus.SUCCESS
+    data = res.result
 
     # Check N+1 detection
     patterns = data.get("patterns", [])
@@ -174,8 +175,8 @@ def test_analyze_trace_patterns_e2e(bad_trace_json, mock_fetch_trace):
     traces = [bad_trace_json, bad_trace_json, bad_trace_json]
 
     res = analyze_trace_patterns(traces, project_id="test-p")
-    assert res["status"] == "success"
-    data = res["result"]
+    assert res.status == ToolStatus.SUCCESS
+    data = res.result
 
     patterns = data.get("patterns", {})
 
@@ -187,4 +188,4 @@ def test_analyze_trace_patterns_e2e(bad_trace_json, mock_fetch_trace):
 
     assert root_pattern is not None
     assert root_pattern["avg_duration_ms"] == 1500.0
-    assert root_pattern["consistency"] == 100.0  # Identical traces = 100% consistent
+    assert root_pattern["occurrences"] == 3

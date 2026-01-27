@@ -8,27 +8,9 @@ import time
 from collections.abc import Callable
 from typing import Any
 
-from opentelemetry import metrics, trace
-from opentelemetry.trace import Status, StatusCode
-
 from .serialization import normalize_obj
 
 logger = logging.getLogger(__name__)
-
-# Initialize OTel instruments
-tracer = trace.get_tracer("sre_agent.tools")
-meter = metrics.get_meter("sre_agent.tools")
-
-tool_execution_duration = meter.create_histogram(
-    name="sre_agent.tool.execution_duration",
-    description="Duration of tool executions",
-    unit="ms",
-)
-tool_execution_count = meter.create_counter(
-    name="sre_agent.tool.execution_count",
-    description="Total number of tool calls",
-    unit="1",
-)
 
 
 def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -46,237 +28,160 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
             ...
     """
 
-    def _record_attributes(
-        span: trace.Span, bound_args: inspect.BoundArguments
-    ) -> None:
-        for k, v in bound_args.arguments.items():
-            # Truncate long strings to avoid span attribute limits
-            val_str = str(v)
-            if len(val_str) > 1000:
-                val_str = val_str[:1000] + "...(truncated)"
-            span.set_attribute(f"arg.{k}", val_str)
+    def should_skip_logging() -> bool:
+        """Check if we should skip logging due to native instrumentation."""
+        return (
+            os.environ.get(
+                "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", ""
+            ).lower()
+            == "true"
+        )
 
     @functools.wraps(func)
     async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
         tool_name = func.__name__
         start_time = time.time()
-        success = True
 
-        # Check if we should skip manual spans/logs (let ADK handle it)
-        skip_manual_instrumentation = (
-            os.environ.get(
-                "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "false"
-            ).lower()
-            == "true"
-            or os.environ.get("RUNNING_IN_AGENT_ENGINE", "").lower() == "true"
-        )
+        # Log calling
+        try:
+            sig = inspect.signature(func)
+            bound = sig.bind(*args, **kwargs)
+            bound.apply_defaults()
+            arg_str = ", ".join(
+                f"{k}={repr(v)[:200]}" for k, v in bound.arguments.items()
+            )
 
-        # If skipping, just run the function directly
-        if skip_manual_instrumentation:
-            return await func(*args, **kwargs)
+            # Full args for debug
+            full_arg_str = ", ".join(f"{k}={v!r}" for k, v in bound.arguments.items())
+            logger.debug(f"Tool '{tool_name}' FULL ARGS: {full_arg_str}")
+        except Exception:
+            arg_str = f"args={args}, kwargs={kwargs}"
 
-        with tracer.start_as_current_span(tool_name) as span:
-            span.set_attribute("tool.name", tool_name)
-            span.set_attribute("code.function", tool_name)
-
-            # Log calling
-            try:
-                sig = inspect.signature(func)
-                bound = sig.bind(*args, **kwargs)
-                bound.apply_defaults()
-                arg_str = ", ".join(
-                    f"{k}={repr(v)[:200]}" for k, v in bound.arguments.items()
-                )
-                _record_attributes(span, bound)
-
-                # Full args for debug
-                full_arg_str = ", ".join(
-                    f"{k}={v!r}" for k, v in bound.arguments.items()
-                )
-                logger.debug(f"Tool '{tool_name}' FULL ARGS: {full_arg_str}")
-            except Exception:
-                arg_str = f"args={args}, kwargs={kwargs}"
-
+        if not should_skip_logging():
             logger.info(f"🛠️  Tool Call: '{tool_name}' | Args: {arg_str}")
 
-            try:
-                result = await func(*args, **kwargs)
-                duration_ms = (time.time() - start_time) * 1000
+        try:
+            result = await func(*args, **kwargs)
+            duration_ms = (time.time() - start_time) * 1000
 
-                # Check if the result indicates a tool-level error (e.g. JSON with "error" key)
-                is_failed = False
-                if isinstance(result, str) and '"error":' in result:
-                    try:
-                        import json
+            # Check if the result indicates a tool-level error (e.g. JSON with "error" key)
+            is_failed = False
+            if isinstance(result, str) and '"error":' in result:
+                try:
+                    import json
 
-                        data = json.loads(result)
-                        if isinstance(data, dict) and "error" in data:
-                            is_failed = True
-                    except Exception:
-                        pass
-                elif isinstance(result, dict) and "error" in result:
-                    is_failed = True
-                elif (
-                    hasattr(result, "status")
-                    and getattr(result, "status", None) == "error"
-                ):
-                    # Handles BaseToolResponse or any object with status='error'
-                    is_failed = True
-                elif hasattr(result, "error") and getattr(result, "error", None):
-                    # Handles case where error is a non-empty string or object
-                    is_failed = True
+                    data = json.loads(result)
+                    if isinstance(data, dict) and "error" in data:
+                        is_failed = True
+                except Exception:
+                    pass
+            elif isinstance(result, dict) and "error" in result:
+                is_failed = True
+            elif (
+                hasattr(result, "status")
+                and str(getattr(result, "status", "")) == "error"
+            ):
+                # Handle both string status and Enum status
+                is_failed = True
+            elif hasattr(result, "error") and getattr(result, "error", None):
+                is_failed = True
 
-                if is_failed:
-                    logger.error(
-                        f"❌ Tool Failed (Logical): '{tool_name}' | Result contains error | Duration: {duration_ms:.2f}ms"
-                    )
-                    span.set_status(
-                        Status(StatusCode.ERROR, "Tool returned logical error")
-                    )
-                    success = False
-                else:
-                    logger.info(
-                        f"✅ Tool Success: '{tool_name}' | Duration: {duration_ms:.2f}ms"
-                    )
-
-                # Normalize result (convert GCP types to native Python types)
-                # This prevents Pydantic serialization errors later.
-                result = normalize_obj(result)
-
-                # Truncate result logging
-                result_str = repr(result)
-                if len(result_str) > 500:
-                    result_str = result_str[:500] + "... (truncated)"
-                logger.debug(f"Tool '{tool_name}' RESULT: {result_str}")
-                return result
-            except Exception as e:
-                success = False
-                duration_ms = (time.time() - start_time) * 1000
+            if is_failed:
                 logger.error(
-                    f"❌ Tool Failed: '{tool_name}' | Duration: {duration_ms:.2f}ms | Error: {e}",
-                    exc_info=True,
+                    f"❌ Tool Failed (Logical): '{tool_name}' | Result contains error | Duration: {duration_ms:.2f}ms"
                 )
-                span.record_exception(e)
-                span.set_status(Status(StatusCode.ERROR, str(e)))
-                raise e
-            finally:
-                duration_ms = (time.time() - start_time) * 1000
-                tool_execution_duration.record(
-                    duration_ms, {"tool_name": tool_name, "success": str(success)}
+            elif not should_skip_logging():
+                logger.info(
+                    f"✅ Tool Success: '{tool_name}' | Duration: {duration_ms:.2f}ms"
                 )
-                tool_execution_count.add(
-                    1, {"tool_name": tool_name, "success": str(success)}
-                )
+
+            # Do NOT normalize BaseToolResponse objects, legacy to keep for others
+            from sre_agent.schema import BaseToolResponse
+
+            if isinstance(result, BaseToolResponse):
+                return result
+
+            # Normalize result (convert GCP types to native Python types)
+            return normalize_obj(result)
+        except Exception as e:
+            duration_ms = (time.time() - start_time) * 1000
+            logger.error(
+                f"❌ Tool Failed: '{tool_name}' | Duration: {duration_ms:.2f}ms | Error: {e}",
+                exc_info=True,
+            )
+            raise e
 
     @functools.wraps(func)
     def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
         tool_name = func.__name__
         start_time = time.time()
-        success = True
 
-        # Check if we should skip manual spans/logs (let ADK handle it)
-        skip_manual_instrumentation = (
-            os.environ.get(
-                "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "false"
-            ).lower()
-            == "true"
-            or os.environ.get("RUNNING_IN_AGENT_ENGINE", "").lower() == "true"
-        )
+        # Log calling
+        try:
+            sig = inspect.signature(func)
+            bound = sig.bind(*args, **kwargs)
+            bound.apply_defaults()
+            arg_str = ", ".join(
+                f"{k}={repr(v)[:200]}" for k, v in bound.arguments.items()
+            )
 
-        # If skipping, just run the function directly
-        if skip_manual_instrumentation:
-            return func(*args, **kwargs)
+            # Full args for debug
+            full_arg_str = ", ".join(f"{k}={v!r}" for k, v in bound.arguments.items())
+            logger.debug(f"Tool '{tool_name}' FULL ARGS: {full_arg_str}")
+        except Exception:
+            arg_str = f"args={args}, kwargs={kwargs}"
 
-        with tracer.start_as_current_span(tool_name) as span:
-            span.set_attribute("tool.name", tool_name)
-            span.set_attribute("code.function", tool_name)
-
-            # Log calling
-            try:
-                sig = inspect.signature(func)
-                bound = sig.bind(*args, **kwargs)
-                bound.apply_defaults()
-                arg_str = ", ".join(
-                    f"{k}={repr(v)[:200]}" for k, v in bound.arguments.items()
-                )
-                _record_attributes(span, bound)
-
-                # Full args for debug
-                full_arg_str = ", ".join(
-                    f"{k}={v!r}" for k, v in bound.arguments.items()
-                )
-                logger.debug(f"Tool '{tool_name}' FULL ARGS: {full_arg_str}")
-            except Exception:
-                arg_str = f"args={args}, kwargs={kwargs}"
-
+        if not should_skip_logging():
             logger.info(f"🛠️  Tool Call: '{tool_name}' | Args: {arg_str}")
 
-            try:
-                result = func(*args, **kwargs)
-                duration_ms = (time.time() - start_time) * 1000
+        try:
+            result = func(*args, **kwargs)
+            duration_ms = (time.time() - start_time) * 1000
 
-                # Check if the result indicates a tool-level error
-                is_failed = False
-                if isinstance(result, str) and '"error":' in result:
-                    try:
-                        import json
+            # Check if the result indicates a tool-level error
+            is_failed = False
+            if isinstance(result, str) and '"error":' in result:
+                try:
+                    import json
 
-                        data = json.loads(result)
-                        if isinstance(data, dict) and "error" in data:
-                            is_failed = True
-                    except Exception:
-                        pass
-                elif isinstance(result, dict) and "error" in result:
-                    is_failed = True
-                elif (
-                    hasattr(result, "status")
-                    and getattr(result, "status", None) == "error"
-                ):
-                    is_failed = True
-                elif hasattr(result, "error") and getattr(result, "error", None):
-                    is_failed = True
+                    data = json.loads(result)
+                    if isinstance(data, dict) and "error" in data:
+                        is_failed = True
+                except Exception:
+                    pass
+            elif isinstance(result, dict) and "error" in result:
+                is_failed = True
+            elif (
+                hasattr(result, "status")
+                and str(getattr(result, "status", "")) == "error"
+            ):
+                is_failed = True
+            elif hasattr(result, "error") and getattr(result, "error", None):
+                is_failed = True
 
-                if is_failed:
-                    logger.error(
-                        f"❌ Tool Failed (Logical): '{tool_name}' | Result contains error | Duration: {duration_ms:.2f}ms"
-                    )
-                    span.set_status(
-                        Status(StatusCode.ERROR, "Tool returned logical error")
-                    )
-                    success = False
-                else:
-                    logger.info(
-                        f"✅ Tool Success: '{tool_name}' | Duration: {duration_ms:.2f}ms"
-                    )
-
-                # Normalize result (convert GCP types to native Python types)
-                # This prevents Pydantic serialization errors later.
-                result = normalize_obj(result)
-
-                # Truncate result logging
-                result_str = repr(result)
-                if len(result_str) > 500:
-                    result_str = result_str[:500] + "... (truncated)"
-                logger.debug(f"Tool '{tool_name}' RESULT: {result_str}")
-                return result
-            except Exception as e:
-                success = False
-                duration_ms = (time.time() - start_time) * 1000
+            if is_failed:
                 logger.error(
-                    f"❌ Tool Failed: '{tool_name}' | Duration: {duration_ms:.2f}ms | Error: {e}",
-                    exc_info=True,
+                    f"❌ Tool Failed (Logical): '{tool_name}' | Result contains error | Duration: {duration_ms:.2f}ms"
                 )
-                span.record_exception(e)
-                span.set_status(Status(StatusCode.ERROR, str(e)))
-                raise e
-            finally:
-                duration_ms = (time.time() - start_time) * 1000
-                tool_execution_duration.record(
-                    duration_ms, {"tool_name": tool_name, "success": str(success)}
+            elif not should_skip_logging():
+                logger.info(
+                    f"✅ Tool Success: '{tool_name}' | Duration: {duration_ms:.2f}ms"
                 )
-                tool_execution_count.add(
-                    1, {"tool_name": tool_name, "success": str(success)}
-                )
+
+            # Do NOT normalize BaseToolResponse objects
+            from sre_agent.schema import BaseToolResponse
+
+            if isinstance(result, BaseToolResponse):
+                return result
+
+            return normalize_obj(result)
+        except Exception as e:
+            duration_ms = (time.time() - start_time) * 1000
+            logger.error(
+                f"❌ Tool Failed: '{tool_name}' | Duration: {duration_ms:.2f}ms | Error: {e}",
+                exc_info=True,
+            )
+            raise e
 
     if inspect.iscoroutinefunction(func):
         return async_wrapper

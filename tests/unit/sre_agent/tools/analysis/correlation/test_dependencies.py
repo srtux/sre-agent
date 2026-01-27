@@ -4,6 +4,7 @@ These tests verify the functionality of tools that analyze service dependencies,
 upstream/downstream impact, and detect architectural issues like circular dependencies.
 """
 
+from sre_agent.schema import ToolStatus
 from sre_agent.tools.analysis.correlation.dependencies import (
     analyze_upstream_downstream_impact,
     build_service_dependency_graph,
@@ -21,8 +22,8 @@ class TestBuildServiceDependencyGraph:
             dataset_id="project.telemetry",
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         assert parsed["analysis_type"] == "service_dependency_graph"
         assert "dependency_graph_sql" in parsed
         assert "topology_sql" in parsed
@@ -33,8 +34,8 @@ class TestBuildServiceDependencyGraph:
             dataset_id="proj.ds",
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         sql = parsed["dependency_graph_sql"]
 
         # Should filter for CLIENT spans (kind = 3)
@@ -46,8 +47,8 @@ class TestBuildServiceDependencyGraph:
             dataset_id="proj.ds",
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         sql = parsed["dependency_graph_sql"]
 
         # Should look for peer.service or similar attributes
@@ -60,8 +61,8 @@ class TestBuildServiceDependencyGraph:
             time_window_hours=48,
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         sql = parsed["dependency_graph_sql"]
 
         assert "48" in sql
@@ -73,8 +74,8 @@ class TestBuildServiceDependencyGraph:
             min_call_count=100,
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         sql = parsed["dependency_graph_sql"]
 
         assert "100" in sql
@@ -85,8 +86,8 @@ class TestBuildServiceDependencyGraph:
             dataset_id="proj.ds",
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         assert "topology_sql" in parsed
 
         topology_sql = parsed["topology_sql"]
@@ -98,8 +99,8 @@ class TestBuildServiceDependencyGraph:
             dataset_id="proj.ds",
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         assert "output_format" in parsed
 
         output_format = parsed["output_format"]
@@ -112,8 +113,8 @@ class TestBuildServiceDependencyGraph:
             dataset_id="proj.ds",
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         assert "topology_roles" in parsed
 
         roles = parsed["topology_roles"]
@@ -127,8 +128,8 @@ class TestBuildServiceDependencyGraph:
             dataset_id="proj.ds",
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         assert "metrics_explained" in parsed
 
 
@@ -142,8 +143,8 @@ class TestAnalyzeUpstreamDownstreamImpact:
             service_name="my-service",
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         assert parsed["analysis_type"] == "upstream_downstream_impact"
         assert parsed["target_service"] == "my-service"
         assert "sql_query" in parsed
@@ -155,8 +156,8 @@ class TestAnalyzeUpstreamDownstreamImpact:
             service_name="target-service",
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         sql = parsed["sql_query"]
 
         assert "target-service" in sql
@@ -168,8 +169,8 @@ class TestAnalyzeUpstreamDownstreamImpact:
             service_name="svc",
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         sql = parsed["sql_query"]
 
         # Should have logic for finding callers
@@ -182,8 +183,8 @@ class TestAnalyzeUpstreamDownstreamImpact:
             service_name="svc",
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         sql = parsed["sql_query"]
 
         # Should have logic for finding callees
@@ -197,8 +198,8 @@ class TestAnalyzeUpstreamDownstreamImpact:
             time_window_hours=72,
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         sql = parsed["sql_query"]
 
         assert "72" in sql
@@ -211,8 +212,8 @@ class TestAnalyzeUpstreamDownstreamImpact:
             depth=5,
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         sql = parsed["sql_query"]
 
         assert "5" in sql
@@ -224,8 +225,8 @@ class TestAnalyzeUpstreamDownstreamImpact:
             service_name="svc",
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         assert "directions_explained" in parsed
 
         directions = parsed["directions_explained"]
@@ -239,8 +240,8 @@ class TestAnalyzeUpstreamDownstreamImpact:
             service_name="svc",
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         assert "relationships" in parsed
 
     def test_includes_incident_response_usage(self):
@@ -250,8 +251,8 @@ class TestAnalyzeUpstreamDownstreamImpact:
             service_name="svc",
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         assert "incident_response_usage" in parsed
 
 
@@ -264,8 +265,8 @@ class TestDetectCircularDependencies:
             dataset_id="project.telemetry",
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         assert parsed["analysis_type"] == "circular_dependency_detection"
         assert "sql_query" in parsed
 
@@ -275,7 +276,7 @@ class TestDetectCircularDependencies:
             dataset_id="proj.ds",
         )
 
-        parsed = result["result"]
+        parsed = result.result
         sql = parsed["sql_query"]
 
         # Should have logic for detecting 2-hop cycles
@@ -287,7 +288,7 @@ class TestDetectCircularDependencies:
             dataset_id="proj.ds",
         )
 
-        parsed = result["result"]
+        parsed = result.result
         sql = parsed["sql_query"]
 
         # Should have logic for detecting 3-hop cycles
@@ -300,8 +301,8 @@ class TestDetectCircularDependencies:
             time_window_hours=48,
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         sql = parsed["sql_query"]
 
         assert "48" in sql
@@ -312,8 +313,8 @@ class TestDetectCircularDependencies:
             dataset_id="proj.ds",
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         assert "why_cycles_are_problematic" in parsed
 
         problems = parsed["why_cycles_are_problematic"]
@@ -326,8 +327,8 @@ class TestDetectCircularDependencies:
             dataset_id="proj.ds",
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         assert "common_cycle_patterns" in parsed
 
     def test_includes_resolution_strategies(self):
@@ -336,8 +337,8 @@ class TestDetectCircularDependencies:
             dataset_id="proj.ds",
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         assert "resolution_strategies" in parsed
 
         strategies = parsed["resolution_strategies"]
@@ -353,8 +354,8 @@ class TestFindHiddenDependencies:
             dataset_id="project.telemetry",
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         assert parsed["analysis_type"] == "hidden_dependencies"
         assert "sql_query" in parsed
 
@@ -364,7 +365,7 @@ class TestFindHiddenDependencies:
             dataset_id="proj.ds",
         )
 
-        parsed = result["result"]
+        parsed = result.result
         sql = parsed["sql_query"]
 
         assert "kind = 3" in sql or "CLIENT" in sql
@@ -375,7 +376,7 @@ class TestFindHiddenDependencies:
             dataset_id="proj.ds",
         )
 
-        parsed = result["result"]
+        parsed = result.result
         sql = parsed["sql_query"]
 
         assert "db.system" in sql or "DATABASE" in sql
@@ -386,7 +387,7 @@ class TestFindHiddenDependencies:
             dataset_id="proj.ds",
         )
 
-        parsed = result["result"]
+        parsed = result.result
         sql = parsed["sql_query"]
 
         assert "http" in sql.lower()
@@ -398,8 +399,8 @@ class TestFindHiddenDependencies:
             time_window_hours=72,
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         sql = parsed["sql_query"]
 
         assert "72" in sql
@@ -411,8 +412,8 @@ class TestFindHiddenDependencies:
             min_call_count=50,
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         sql = parsed["sql_query"]
 
         assert "50" in sql
@@ -423,8 +424,8 @@ class TestFindHiddenDependencies:
             dataset_id="proj.ds",
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         assert "dependency_types" in parsed
 
         types = parsed["dependency_types"]
@@ -437,8 +438,8 @@ class TestFindHiddenDependencies:
             dataset_id="proj.ds",
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         assert "documentation_priority_meaning" in parsed
 
     def test_includes_common_issues(self):
@@ -447,8 +448,8 @@ class TestFindHiddenDependencies:
             dataset_id="proj.ds",
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         assert "common_hidden_dependency_issues" in parsed
 
 
@@ -472,8 +473,8 @@ class TestDependencyToolsIntegration:
 
         for tool, args in tools_and_args:
             result = tool(**args)
-            assert result["status"] == "success"
-            parsed = result["result"]
+            assert result.status == ToolStatus.SUCCESS
+            parsed = result.result
 
             assert isinstance(parsed, dict)
             assert "sql_query" in parsed or "dependency_graph_sql" in parsed
@@ -495,8 +496,8 @@ class TestDependencyToolsIntegration:
 
         for tool, args in tools_and_args:
             result = tool(**args)
-            assert result["status"] == "success"
-            parsed = result["result"]
+            assert result.status == ToolStatus.SUCCESS
+            parsed = result.result
 
             assert "next_steps" in parsed, f"{tool.__name__} missing next_steps"
             assert len(parsed["next_steps"]) > 0
@@ -518,8 +519,8 @@ class TestDependencyToolsIntegration:
 
         for tool, args in tools_and_args:
             result = tool(**args)
-            assert result["status"] == "success"
-            parsed = result["result"]
+            assert result.status == ToolStatus.SUCCESS
+            parsed = result.result
 
             # Get the SQL query (different key names)
             sql = parsed.get("sql_query") or parsed.get("dependency_graph_sql")
@@ -530,8 +531,8 @@ class TestDependencyToolsIntegration:
     def test_dependency_graph_includes_both_sqls(self):
         """Test that dependency graph includes both main and topology SQL."""
         result = build_service_dependency_graph(dataset_id="proj.ds")
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
 
         assert "dependency_graph_sql" in parsed
         assert "topology_sql" in parsed
@@ -550,7 +551,7 @@ class TestDependencyToolsIntegration:
             service_name=service_name,
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         assert parsed["target_service"] == service_name
         assert service_name in parsed["sql_query"]

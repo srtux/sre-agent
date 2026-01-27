@@ -4,6 +4,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from sre_agent.schema import ToolStatus
+
 # Mock these globally to avoid segfaults
 with patch("google.cloud.monitoring_v3.ListAlertPoliciesRequest", MagicMock()):
     with patch("google.cloud.monitoring_v3.GetAlertPolicyRequest", MagicMock()):
@@ -57,8 +59,8 @@ async def test_list_alerts_success(mock_auth, mock_authorized_session):
 
     data = await list_alerts(project_id="test-project", filter_str='state="OPEN"')
 
-    assert data["status"] == "success"
-    res_data = data["result"]
+    assert data.status == ToolStatus.SUCCESS
+    res_data = data.result
     assert len(res_data) == 1
     assert res_data[0]["name"] == "projects/test-project/alerts/123"
 
@@ -82,7 +84,7 @@ async def test_list_alert_policies_success(mock_alert_policy_client):
 
     data = await list_alert_policies(project_id="test-project")
 
-    assert data["status"] == "success"
-    res_data = data["result"]
+    assert data.status == ToolStatus.SUCCESS
+    res_data = data.result
     assert len(res_data) == 1
     assert res_data[0]["display_name"] == "High CPU"

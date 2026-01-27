@@ -1,5 +1,7 @@
 """Tests for remediation suggestion tools."""
 
+from sre_agent.schema import ToolStatus
+
 
 class TestRemediationSuggestions:
     """Test suite for remediation suggestion tools."""
@@ -13,8 +15,8 @@ class TestRemediationSuggestions:
         result = generate_remediation_suggestions(
             "Container frontend-pod is repeatedly OOMKilled"
         )
-        assert result["status"] == "success"
-        result_data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        result_data = result.result
 
         assert "matched_patterns" in result_data
         assert "oom_killed" in result_data["matched_patterns"]
@@ -32,8 +34,8 @@ class TestRemediationSuggestions:
         )
 
         result = generate_remediation_suggestions("Database connection pool exhausted")
-        assert result["status"] == "success"
-        result_data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        result_data = result.result
 
         assert "connection_pool" in result_data["matched_patterns"]
         assert any(s["category"] == "database" for s in result_data["suggestions"])
@@ -47,8 +49,8 @@ class TestRemediationSuggestions:
         result = generate_remediation_suggestions(
             "P99 latency spike to 2000ms, timeouts occurring"
         )
-        assert result["status"] == "success"
-        result_data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        result_data = result.result
 
         assert "high_latency" in result_data["matched_patterns"]
         assert any(s["category"] == "performance" for s in result_data["suggestions"])
@@ -60,8 +62,8 @@ class TestRemediationSuggestions:
         )
 
         result = generate_remediation_suggestions("Some unknown issue with xyz")
-        assert result["status"] == "success"
-        result_data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        result_data = result.result
 
         assert len(result_data["matched_patterns"]) == 0
         assert "suggestions" in result_data
@@ -74,8 +76,8 @@ class TestRemediationSuggestions:
         )
 
         result = generate_remediation_suggestions("Container is repeatedly OOMKilled")
-        assert result["status"] == "success"
-        result_data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        result_data = result.result
 
         assert "quick_wins" in result_data
         for quick_win in result_data["quick_wins"]:
@@ -99,8 +101,8 @@ class TestGcloudCommands:
             region="us-central1",
             replicas=5,
         )
-        assert result["status"] == "success"
-        result_data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        result_data = result.result
 
         assert "commands" in result_data
         assert len(result_data["commands"]) > 0
@@ -123,8 +125,8 @@ class TestGcloudCommands:
             "my-project",
             region="us-central1",
         )
-        assert result["status"] == "success"
-        result_data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        result_data = result.result
 
         assert "commands" in result_data
         commands = [c["command"] for c in result_data["commands"]]
@@ -143,8 +145,8 @@ class TestGcloudCommands:
             region="us-central1",
             memory="2Gi",
         )
-        assert result["status"] == "success"
-        result_data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        result_data = result.result
 
         command = result_data["commands"][0]["command"]
         assert "--memory=2Gi" in command
@@ -160,9 +162,9 @@ class TestGcloudCommands:
             "service",
             "project",
         )
-        assert result["status"] == "error"
-        assert result["error"] is not None
-        assert "available_types" in result["result"]
+        assert result.status == ToolStatus.ERROR
+        assert result.error is not None
+        assert "available_types" in result.result
 
 
 class TestRiskEstimation:
@@ -179,8 +181,8 @@ class TestRiskEstimation:
             "frontend-service",
             "Increase replicas from 3 to 5",
         )
-        assert result["status"] == "success"
-        result_data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        result_data = result.result
 
         assert result_data["risk_assessment"]["level"] == "low"
         assert result_data["recommendations"]["proceed"] is True
@@ -196,8 +198,8 @@ class TestRiskEstimation:
             "main-db",
             "Migrate schema to new version",
         )
-        assert result["status"] == "success"
-        result_data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        result_data = result.result
 
         assert result_data["risk_assessment"]["level"] == "high"
         assert result_data["recommendations"]["require_approval"] is True
@@ -213,8 +215,8 @@ class TestRiskEstimation:
             "main-db",
             "Increase max connections",
         )
-        assert result["status"] == "success"
-        result_data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        result_data = result.result
 
         risk_factors = result_data["risk_assessment"]["factors"]
         assert any("data integrity" in f.lower() for f in risk_factors)
@@ -230,8 +232,8 @@ class TestRiskEstimation:
             "service",
             "Add replicas",
         )
-        assert result["status"] == "success"
-        result_data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        result_data = result.result
 
         assert "checklist" in result_data
         assert len(result_data["checklist"]) > 0
@@ -247,8 +249,8 @@ class TestSimilarIncidents:
         )
 
         result = find_similar_past_incidents("OOMKilled")
-        assert result["status"] == "success"
-        result_data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        result_data = result.result
 
         assert "matches_found" in result_data
         assert result_data["matches_found"] > 0
@@ -261,8 +263,8 @@ class TestSimilarIncidents:
         )
 
         result = find_similar_past_incidents("timeout errors")
-        assert result["status"] == "success"
-        result_data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        result_data = result.result
 
         assert result_data["matches_found"] > 0
 
@@ -273,8 +275,8 @@ class TestSimilarIncidents:
         )
 
         result = find_similar_past_incidents("xyz123_unique_error")
-        assert result["status"] == "success"
-        result_data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        result_data = result.result
 
         # Either no matches or partial matches
         if result_data["matches_found"] == 0:
@@ -287,8 +289,8 @@ class TestSimilarIncidents:
         )
 
         result = find_similar_past_incidents("connection pool")
-        assert result["status"] == "success"
-        result_data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        result_data = result.result
 
         if result_data["matches_found"] > 0:
             assert "key_learnings" in result_data

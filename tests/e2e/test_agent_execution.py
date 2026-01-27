@@ -4,6 +4,7 @@ import pytest
 from google.adk.tools import ToolContext
 
 from sre_agent.agent import run_deep_dive_analysis, run_triage_analysis
+from sre_agent.schema import ToolStatus
 
 
 @pytest.mark.asyncio
@@ -31,10 +32,19 @@ async def test_run_triage_analysis_flow():
         assert mock_tool_instance.run_async.call_count == 2
 
         # Verify result structure
-        assert response["metadata"]["stage"] == "triage"
-        result = response["result"]
+        assert response.metadata["stage"] == "triage"
+        result = response.result
         assert result["baseline_trace_id"] == "b1"
         assert result["target_trace_id"] == "t1"
+        # Since AgentTool is mocked to return a string, and result is constructed manually in run_triage_analysis,
+        # we need to check how run_triage_analysis constructs "results".
+        # Assuming run_triage_analysis wraps tool outputs.
+        # If run_triage_analysis returns BaseToolResponse, then response.result is the payload.
+        # But wait, run_triage_analysis calls other tools.
+        # Let's assume the previous code `response["result"]` was correct for the structure,
+        # but now response is an object.
+        # The internal structure of `result` (the dict) depends on run_triage_analysis implementation.
+        # If run_triage_analysis returns a dict as result, then `result["baseline_trace_id"]` is fine.
         assert result["results"]["trace"]["result"] == "Stage 1 Report Content"
 
 
@@ -57,9 +67,9 @@ async def test_run_deep_dive_analysis_flow():
 
         assert MockAgentTool.call_count == 1
         assert mock_tool_instance.run_async.call_count == 1
-        assert response["metadata"]["stage"] == "deep_dive"
-        assert response["status"] == "success"
-        assert response["result"] == "Stage 2 Report Content"
+        assert response.metadata["stage"] == "deep_dive"
+        assert response.status == ToolStatus.SUCCESS
+        assert response.result == "Stage 2 Report Content"
 
 
 @pytest.mark.asyncio

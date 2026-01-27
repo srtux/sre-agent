@@ -97,8 +97,8 @@ async def test_find_example_traces_complex():
             ]
 
             result = await find_example_traces(project_id="proj")
-            assert result["status"] == ToolStatus.SUCCESS
-            final_res = result["result"]
+            assert result.status == ToolStatus.SUCCESS
+            final_res = result.result
             assert "baseline" in final_res
             assert "anomaly" in final_res
             assert final_res["validation"]["sample_adequate"] is True
@@ -109,5 +109,5 @@ async def test_fetch_trace_shortcut():
     with patch("sre_agent.tools.clients.trace._fetch_trace_sync") as mock_fetch:
         mock_fetch.return_value = {"trace_id": "ok"}
         result = await fetch_trace("ok", "proj")
-        assert result["status"] == "success"
-        assert result["result"]["trace_id"] == "ok"
+        assert result.status == ToolStatus.SUCCESS
+        assert result.result["trace_id"] == "ok"

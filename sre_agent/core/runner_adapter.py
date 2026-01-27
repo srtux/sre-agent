@@ -64,38 +64,12 @@ class RunnerAgentAdapter(LlmAgent):
 
         user_id = getattr(session, "user_id", "default")
 
-        from opentelemetry import context as otel_context
-        from opentelemetry import trace
-        from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
-
         from sre_agent.auth import SESSION_STATE_TRACE_ID_KEY, set_trace_id
 
         # PROPAGATION: Set Trace ID from Session State for log correlation
         remote_trace_id = session.state.get(SESSION_STATE_TRACE_ID_KEY)
-        token = None
         if remote_trace_id:
             set_trace_id(remote_trace_id)
-            try:
-                # Link local operations to the global trace!
-                # This ensures any spans created here are children of the frontend request.
-                # Use a deterministic span_id to represent the "Agent Entry" if we don't have the parent's.
-                # OTel spec requires span_id to be non-zero.
-                span_id = int(
-                    remote_trace_id[:16], 16
-                )  # Use first 16 chars as a pseudo-parent ID
-                span_context = SpanContext(
-                    trace_id=int(remote_trace_id, 16),
-                    span_id=span_id,
-                    is_remote=True,
-                    trace_flags=TraceFlags(TraceFlags.SAMPLED),
-                )
-                parent_ctx = trace.set_span_in_context(NonRecordingSpan(span_context))
-                token = otel_context.attach(parent_ctx)
-                logger.debug(
-                    f"📍 Attached OTel context with Trace ID: {remote_trace_id}, Parent Span: {span_id:016x}"
-                )
-            except Exception as e:
-                logger.warning(f"Failed to attach OTel context: {e}")
 
         # Extract Project ID from Session State
         # The proxy ensures this is set in session state before calling Agent Engine
@@ -137,5 +111,4 @@ class RunnerAgentAdapter(LlmAgent):
             # Re-raise to allow AdkApp to handle/return error
             raise e
         finally:
-            if token:
-                otel_context.detach(token)
+            pass

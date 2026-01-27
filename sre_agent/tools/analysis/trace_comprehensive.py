@@ -12,7 +12,7 @@ from typing import Any, cast
 from sre_agent.schema import BaseToolResponse, ToolStatus
 
 from ..common import adk_tool
-from ..common.telemetry import get_meter, get_tracer, log_tool_call
+from ..common.telemetry import log_tool_call
 from .trace.analysis import (
     _build_call_graph_impl,
     _calculate_span_durations_impl,
@@ -25,9 +25,6 @@ from .trace.statistical_analysis import (
     _detect_latency_anomalies_impl,
 )
 
-# Telemetry setup
-tracer = get_tracer(__name__)
-meter = get_meter(__name__)
 logger = logging.getLogger(__name__)
 
 

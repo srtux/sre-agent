@@ -31,7 +31,7 @@ async def test_synthesize_report_full_data():
         log_analysis=log_analysis,
     )
 
-    report_data = report["result"]["report"]
+    report_data = report.result["report"]
     assert "# Root Cause Investigation Report" in report_data
     assert "The database is the root cause." in report_data
     assert "A deployment happened 5 mins ago." in report_data
@@ -56,7 +56,7 @@ async def test_synthesize_report_minimal_data():
         root_cause_analysis=root_cause, triage_results=triage
     )
 
-    report_data = report["result"]["report"]
+    report_data = report.result["report"]
     assert "# Root Cause Investigation Report" in report_data
     assert "Analysis Inconclusive" in report_data
     assert "No change detection data" in report_data

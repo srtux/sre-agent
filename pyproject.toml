@@ -12,9 +12,6 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "google-adk>=1.23.0",
     "google-cloud-trace>=1.0.0",
-    "opentelemetry-api>=1.24.0",
-    "opentelemetry-sdk>=1.24.0",
-    "opentelemetry-exporter-otlp-proto-grpc>=1.24.0",
     "google-auth>=2.18.1",
     "grpcio>=1.63.0",
     # Phase 4: Extended GCP integrations
@@ -26,8 +23,6 @@ dependencies = [
     "requests>=2.31.0",
     # Log pattern analysis
     "drain3>=0.9.11",
-    "opentelemetry-semantic-conventions>=0.58b0",
-    "opentelemetry-instrumentation-logging>=0.58b0",
     "fastapi>=0.111.0",
     "uvicorn>=0.29.0",
     "httpx>=0.28.1",
@@ -37,21 +32,12 @@ dependencies = [
     "tomli>=2.0.1 ; python_version < '3.11'",
     "greenlet>=3.0.3",
     "cryptography>=46.0.3",
-    "opentelemetry-instrumentation-fastapi>=0.58b0",
-    "opentelemetry-instrumentation-httpx>=0.58b0",
-    "opentelemetry-instrumentation-requests>=0.58b0",
-    "opentelemetry-instrumentation-urllib3>=0.58b0",
-    "opentelemetry-instrumentation-grpc>=0.58b0",
-    "opentelemetry-instrumentation-vertexai>=0.58b0",
 ]
 
 requires-python = ">=3.10,<3.13"
 
 [project.optional-dependencies]
-arize = [
-    "openinference-instrumentation-google-adk",
-    "arize-otel",
-]
+arize = []
 
 [dependency-groups]
 dev = [

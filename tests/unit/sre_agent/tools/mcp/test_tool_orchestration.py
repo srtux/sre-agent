@@ -377,11 +377,11 @@ class TestDiscoveryToolErrorHandling:
             )
 
         # Should return partial (completes status), not error
-        assert result["status"] == ToolStatus.PARTIAL
-        assert "error" in result
-        assert result["result"]["mode"] == "api_fallback"
-        assert "DO NOT call discover_telemetry_sources again" in result["error"]
-        assert result["metadata"].get("non_retryable") is True
+        assert result.status == ToolStatus.PARTIAL
+        assert result.error is not None
+        assert result.result["mode"] == "api_fallback"
+        assert "DO NOT call discover_telemetry_sources again" in result.error
+        assert result.metadata.get("non_retryable") is True
 
     @pytest.mark.asyncio
     async def test_discovery_failure_suggests_alternatives(self, mock_tool_context):
@@ -402,7 +402,7 @@ class TestDiscoveryToolErrorHandling:
                 project_id="test-project", tool_context=mock_tool_context
             )
 
-        warning = result["error"]
+        warning = result.error
         # Check that alternatives are mentioned
         assert "list_log_entries" in warning or "fetch_trace" in warning
         assert "direct api" in warning.lower()

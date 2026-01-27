@@ -23,9 +23,9 @@ async def test_run_aggregate_analysis_success():
             dataset_id="d", table_name="t", tool_context=tool_context
         )
 
-        assert response["status"] == ToolStatus.SUCCESS
-        assert response["result"] == "Analysis complete"
-        assert response["metadata"]["stage"] == "aggregate"
+        assert response.status == ToolStatus.SUCCESS
+        assert response.result == "Analysis complete"
+        assert response.metadata["stage"] == "aggregate"
         mock_instance.run_async.assert_called_once()
 
 
@@ -41,9 +41,9 @@ async def test_run_triage_analysis_success():
                 baseline_trace_id="b", target_trace_id="t", tool_context=tool_context
             )
 
-            assert response["status"] == ToolStatus.SUCCESS
-            assert response["metadata"]["stage"] == "triage"
-            result = response["result"]
+            assert response.status == ToolStatus.SUCCESS
+            assert response.metadata["stage"] == "triage"
+            result = response.result
             assert result["baseline_trace_id"] == "b"
             assert result["target_trace_id"] == "t"
             results = result["results"]
@@ -70,9 +70,9 @@ async def test_run_log_pattern_analysis_success():
                 tool_context=tool_context,
             )
 
-            assert response["status"] == ToolStatus.SUCCESS
-            assert response["result"] == "Patterns found"
-            assert response["metadata"]["stage"] == "log_pattern"
+            assert response.status == ToolStatus.SUCCESS
+            assert response.result == "Patterns found"
+            assert response.metadata["stage"] == "log_pattern"
 
 
 @pytest.mark.asyncio
@@ -90,8 +90,8 @@ async def test_run_deep_dive_analysis_success():
                 tool_context=tool_context,
             )
 
-            assert response["status"] == ToolStatus.SUCCESS
-            assert response["result"] == "Deep dive done"
-            assert response["metadata"]["stage"] == "deep_dive"
+            assert response.status == ToolStatus.SUCCESS
+            assert response.result == "Deep dive done"
+            assert response.metadata["stage"] == "deep_dive"
             # 1 agent called (Root Cause Analyst)
             assert mock_instance.run_async.await_count == 1

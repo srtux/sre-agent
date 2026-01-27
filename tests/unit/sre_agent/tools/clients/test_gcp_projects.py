@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from sre_agent.schema import ToolStatus
 from sre_agent.tools.clients.gcp_projects import list_gcp_projects
 
 
@@ -32,8 +33,8 @@ async def test_list_gcp_projects_success():
             "httpx.AsyncClient.get", new_callable=AsyncMock, return_value=mock_response
         ):
             result = await list_gcp_projects()
-            assert result["status"] == "success"
-            res_data = result["result"]
+            assert result.status == ToolStatus.SUCCESS
+            res_data = result.result
             assert len(res_data["projects"]) == 2
             assert res_data["projects"][0]["project_id"] == "p1"
             assert res_data["projects"][1]["project_id"] == "p2"
@@ -56,8 +57,8 @@ async def test_list_gcp_projects_with_query():
             "httpx.AsyncClient.get", new_callable=AsyncMock, return_value=mock_response
         ):
             result = await list_gcp_projects(query="test")
-            assert result["status"] == "success"
-            assert "projects" in result["result"]
+            assert result.status == ToolStatus.SUCCESS
+            assert "projects" in result.result
 
 
 @pytest.mark.asyncio
@@ -67,8 +68,8 @@ async def test_list_gcp_projects_no_creds():
         return_value=None,
     ):
         result = await list_gcp_projects()
-        assert result["status"] == "error"
-        assert "Authentication required" in result["error"]
+        assert result.status == ToolStatus.ERROR
+        assert "Authentication required" in result.error
 
 
 @pytest.mark.asyncio
@@ -82,8 +83,8 @@ async def test_list_gcp_projects_refresh_fail():
         return_value=mock_creds,
     ):
         result = await list_gcp_projects()
-        assert result["status"] == "error"
-        assert "No valid authentication token found" in result["error"]
+        assert result.status == ToolStatus.ERROR
+        assert "No valid authentication token found" in result.error
 
 
 @pytest.mark.asyncio
@@ -103,8 +104,8 @@ async def test_list_gcp_projects_api_error():
             "httpx.AsyncClient.get", new_callable=AsyncMock, return_value=mock_response
         ):
             result = await list_gcp_projects()
-            assert result["status"] == "error"
-            assert "API error: 500" in result["error"]
+            assert result.status == ToolStatus.ERROR
+            assert "API error: 500" in result.error
 
 
 @pytest.mark.asyncio
@@ -124,5 +125,5 @@ async def test_list_gcp_projects_invalid_json():
             "httpx.AsyncClient.get", new_callable=AsyncMock, return_value=mock_response
         ):
             result = await list_gcp_projects()
-            assert result["status"] == "error"
-            assert "Invalid API response" in result["error"]
+            assert result.status == ToolStatus.ERROR
+            assert "Invalid API response" in result.error

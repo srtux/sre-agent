@@ -4,6 +4,7 @@ Tests the pattern extraction, comparison, and anomaly detection
 functionality using the Drain3 algorithm.
 """
 
+from sre_agent.schema import ToolStatus
 from sre_agent.tools.analysis.logs.patterns import (
     LogPattern,
     LogPatternExtractor,
@@ -400,8 +401,8 @@ class TestExtractLogPatterns:
         """Test pattern extraction from textPayload logs."""
         result = extract_log_patterns(sample_text_payload_logs)
 
-        assert result["status"] == "success"
-        data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        data = result.result
         assert "total_logs_processed" in data
         assert "unique_patterns" in data
         assert "top_patterns" in data
@@ -411,8 +412,8 @@ class TestExtractLogPatterns:
         """Test limiting max patterns returned."""
         result = extract_log_patterns(sample_text_payload_logs, max_patterns=2)
 
-        assert result["status"] == "success"
-        data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        data = result.result
         assert len(data["top_patterns"]) <= 2
 
     def test_extract_with_min_count(self):
@@ -435,8 +436,8 @@ class TestExtractLogPatterns:
 
         result = extract_log_patterns(logs, min_count=5)
 
-        assert result["status"] == "success"
-        data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        data = result.result
         # Should only return patterns with count >= 5
         assert len(data["top_patterns"]) <= 2
         if data["top_patterns"]:
@@ -446,8 +447,8 @@ class TestExtractLogPatterns:
         """Test that severity distribution is tracked."""
         result = extract_log_patterns(sample_text_payload_logs)
 
-        assert result["status"] == "success"
-        data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        data = result.result
         assert "severity_distribution" in data
         severity_dist = data["severity_distribution"]
         # Should have INFO, ERROR, WARNING from sample logs
@@ -466,8 +467,8 @@ class TestCompareLogPatterns:
             comparison_entries_json=incident_period_logs,
         )
 
-        assert result["status"] == "success"
-        data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        data = result.result
         assert "baseline_summary" in data
         assert "comparison_summary" in data
         assert "anomalies" in data
@@ -484,8 +485,8 @@ class TestCompareLogPatterns:
             comparison_entries_json=baseline_period_logs,
         )
 
-        assert result["status"] == "success"
-        data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        data = result.result
         anomalies = data["anomalies"]
         # Should have no new patterns
         assert len(anomalies.get("new_patterns", [])) == 0
@@ -510,16 +511,14 @@ class TestCompareLogPatterns:
             significance_threshold=0.1,
         )
 
-        assert result_high["status"] == "success"
-        assert result_low["status"] == "success"
+        assert result_high.status == ToolStatus.SUCCESS
+        assert result_low.status == ToolStatus.SUCCESS
 
         # Low threshold should detect more changes
         high_changes = len(
-            result_high["result"]["anomalies"].get("increased_patterns", [])
+            result_high.result["anomalies"].get("increased_patterns", [])
         )
-        low_changes = len(
-            result_low["result"]["anomalies"].get("increased_patterns", [])
-        )
+        low_changes = len(result_low.result["anomalies"].get("increased_patterns", []))
         assert low_changes >= high_changes
 
 
@@ -530,8 +529,8 @@ class TestAnalyzeLogAnomalies:
         """Test anomaly analysis focused on errors."""
         result = analyze_log_anomalies(incident_period_logs, focus_on_errors=True)
 
-        assert result["status"] == "success"
-        data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        data = result.result
         assert "total_logs" in data
         assert "unique_patterns" in data
         assert "error_patterns" in data
@@ -541,8 +540,8 @@ class TestAnalyzeLogAnomalies:
         """Test anomaly analysis without error focus."""
         result = analyze_log_anomalies(sample_text_payload_logs, focus_on_errors=False)
 
-        assert result["status"] == "success"
-        data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        data = result.result
         assert "top_patterns" in data
         assert len(data["top_patterns"]) > 0
 
@@ -550,16 +549,16 @@ class TestAnalyzeLogAnomalies:
         """Test limiting max results."""
         result = analyze_log_anomalies(incident_period_logs, max_results=3)
 
-        assert result["status"] == "success"
-        data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        data = result.result
         assert len(data["top_patterns"]) <= 3
 
     def test_recommendation_generation(self, incident_period_logs):
         """Test that recommendations are generated."""
         result = analyze_log_anomalies(incident_period_logs)
 
-        assert result["status"] == "success"
-        data = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        data = result.result
         assert "recommendation" in data
         assert isinstance(data["recommendation"], str)
         assert len(data["recommendation"]) > 0

@@ -65,8 +65,8 @@ async def test_mcp_list_log_entries():
         result = await mcp_list_log_entries(
             filter='severity="ERROR"', project_id="p1", tool_context=mock_context
         )
-        assert result["status"] == ToolStatus.SUCCESS
-        assert "entries" in result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        assert "entries" in result.result
         mock_call.assert_called_once()
 
 
@@ -83,8 +83,8 @@ async def test_mcp_list_timeseries():
         result = await mcp_list_timeseries(
             filter='metric.type="m1"', project_id="p1", tool_context=mock_context
         )
-        assert result["status"] == "success"
-        assert "timeSeries" in result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        assert "timeSeries" in result.result
 
 
 @pytest.mark.asyncio
@@ -100,8 +100,8 @@ async def test_mcp_query_range():
         result = await mcp_query_range(
             query="up", project_id="p1", tool_context=mock_context
         )
-        assert result["status"] == "success"
-        assert result["result"]["status"] == "success"
+        assert result.status == ToolStatus.SUCCESS
+        assert result.result["status"] == "success"
 
 
 @pytest.mark.asyncio
@@ -114,5 +114,5 @@ async def test_mcp_execute_sql():
         result = await mcp_execute_sql(
             sql_query="SELECT 1", project_id="p1", tool_context=mock_context
         )
-        assert result["status"] == "success"
-        assert "rows" in result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        assert "rows" in result.result

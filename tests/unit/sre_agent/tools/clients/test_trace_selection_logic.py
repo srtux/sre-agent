@@ -2,6 +2,7 @@ from unittest.mock import patch
 
 import pytest
 
+from sre_agent.schema import ToolStatus
 from sre_agent.tools.clients.trace import find_example_traces, get_trace_by_url
 
 
@@ -23,8 +24,8 @@ async def test_find_example_traces_hybrid(mock_pid, mock_list_traces):
     # Call function
     result = await find_example_traces(project_id="p", prefer_errors=False)
 
-    assert result["status"] == "success"
-    final_res = result["result"]
+    assert result.status == ToolStatus.SUCCESS
+    final_res = result.result
     assert "baseline" in final_res
     assert "anomaly" in final_res
     assert "stats" in final_res
@@ -72,4 +73,4 @@ async def test_get_trace_by_url_details_path(mock_fetch_trace):
 async def test_get_trace_by_url_invalid():
     url = "https://google.com"
     data = await get_trace_by_url(url)
-    assert data["status"] == "error"
+    assert data.status == ToolStatus.ERROR

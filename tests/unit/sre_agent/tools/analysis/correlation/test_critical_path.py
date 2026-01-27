@@ -6,6 +6,7 @@ in distributed traces to identify bottlenecks and optimization opportunities.
 
 from unittest.mock import patch
 
+from sre_agent.schema import ToolStatus
 from sre_agent.tools.analysis.correlation.critical_path import (
     analyze_critical_path,
     calculate_critical_path_contribution,
@@ -52,8 +53,8 @@ class TestAnalyzeCriticalPath:
                 project_id="test-project",
             )
 
-            assert result["status"] == "success"
-            data = result["result"]
+            assert result.status == ToolStatus.SUCCESS
+            data = result.result
             assert "trace_id" in data
             assert "critical_path" in data
             assert "bottleneck_span" in data
@@ -70,8 +71,8 @@ class TestAnalyzeCriticalPath:
                 project_id="test-project",
             )
 
-            assert result["status"] == "error"
-            assert result["error"] is not None
+            assert result.status == ToolStatus.ERROR
+            assert result.error is not None
 
     def test_analyze_empty_trace(self):
         """Test handling of empty trace."""
@@ -85,8 +86,8 @@ class TestAnalyzeCriticalPath:
                 project_id="test-project",
             )
 
-            assert result["status"] == "error"
-            assert result["error"] is not None
+            assert result.status == ToolStatus.ERROR
+            assert result.error is not None
 
     def test_identifies_bottleneck(self):
         """Test that bottleneck span is correctly identified."""
@@ -128,8 +129,8 @@ class TestAnalyzeCriticalPath:
                 project_id="test-project",
             )
 
-            assert result["status"] == "success"
-            data = result["result"]
+            assert result.status == ToolStatus.SUCCESS
+            data = result.result
             # The slow-db-query should be identified as bottleneck
             if data.get("bottleneck_span"):
                 assert data["bottleneck_span"]["name"] == "slow-db-query"
@@ -157,8 +158,8 @@ class TestAnalyzeCriticalPath:
                 project_id="test-project",
             )
 
-            assert result["status"] == "success"
-            assert "optimization_recommendations" in result["result"]
+            assert result.status == ToolStatus.SUCCESS
+            assert "optimization_recommendations" in result.result
 
     def test_includes_parallel_opportunities(self):
         """Test that parallelization opportunities are detected."""
@@ -200,8 +201,8 @@ class TestAnalyzeCriticalPath:
                 project_id="test-project",
             )
 
-            assert result["status"] == "success"
-            assert "parallel_opportunities" in result["result"]
+            assert result.status == ToolStatus.SUCCESS
+            assert "parallel_opportunities" in result.result
 
 
 class TestFindBottleneckServices:
@@ -213,8 +214,8 @@ class TestFindBottleneckServices:
             dataset_id="project.telemetry",
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         assert parsed["analysis_type"] == "bottleneck_services"
         assert "sql_query" in parsed
 
@@ -224,8 +225,8 @@ class TestFindBottleneckServices:
             dataset_id="proj.ds",
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         sql = parsed["sql_query"]
 
         # Should calculate contribution percentage
@@ -239,8 +240,8 @@ class TestFindBottleneckServices:
             time_window_hours=48,
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         sql = parsed["sql_query"]
 
         assert "48" in sql
@@ -252,8 +253,8 @@ class TestFindBottleneckServices:
             min_sample_size=500,
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         sql = parsed["sql_query"]
 
         assert "500" in sql
@@ -264,8 +265,8 @@ class TestFindBottleneckServices:
             dataset_id="proj.ds",
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         assert "metrics_explained" in parsed
 
         metrics = parsed["metrics_explained"]
@@ -278,8 +279,8 @@ class TestFindBottleneckServices:
             dataset_id="proj.ds",
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         assert "interpretation" in parsed
 
     def test_includes_next_steps(self):
@@ -288,8 +289,8 @@ class TestFindBottleneckServices:
             dataset_id="proj.ds",
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         assert "next_steps" in parsed
         assert len(parsed["next_steps"]) > 0
 
@@ -304,8 +305,8 @@ class TestCalculateCriticalPathContribution:
             service_name="my-service",
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         assert parsed["analysis_type"] == "critical_path_contribution"
         assert parsed["target_service"] == "my-service"
         assert "sql_query" in parsed
@@ -317,8 +318,8 @@ class TestCalculateCriticalPathContribution:
             service_name="target-service",
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         sql = parsed["sql_query"]
 
         assert "target-service" in sql
@@ -331,8 +332,8 @@ class TestCalculateCriticalPathContribution:
             operation_name="specific-operation",
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         sql = parsed["sql_query"]
 
         assert "specific-operation" in sql
@@ -344,8 +345,8 @@ class TestCalculateCriticalPathContribution:
             service_name="svc",
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         sql = parsed["sql_query"]
 
         # Should include percentile calculations
@@ -360,8 +361,8 @@ class TestCalculateCriticalPathContribution:
             service_name="svc",
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         sql = parsed["sql_query"]
 
         assert "contribution" in sql.lower()
@@ -374,8 +375,8 @@ class TestCalculateCriticalPathContribution:
             time_window_hours=72,
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         sql = parsed["sql_query"]
 
         assert "72" in sql
@@ -387,8 +388,8 @@ class TestCalculateCriticalPathContribution:
             service_name="svc",
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         assert "optimization_formula" in parsed
 
     def test_includes_metrics_explanation(self):
@@ -398,8 +399,8 @@ class TestCalculateCriticalPathContribution:
             service_name="svc",
         )
 
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
         assert "metrics_explained" in parsed
 
 
@@ -409,8 +410,8 @@ class TestCriticalPathToolsIntegration:
     def test_bottleneck_services_returns_valid_json(self):
         """Test that find_bottleneck_services returns valid JSON."""
         result = find_bottleneck_services(dataset_id="proj.ds")
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
 
         assert isinstance(parsed, dict)
         assert "sql_query" in parsed
@@ -421,8 +422,8 @@ class TestCriticalPathToolsIntegration:
             dataset_id="proj.ds",
             service_name="test-service",
         )
-        assert result["status"] == "success"
-        parsed = result["result"]
+        assert result.status == ToolStatus.SUCCESS
+        parsed = result.result
 
         assert isinstance(parsed, dict)
         assert "sql_query" in parsed
@@ -442,8 +443,8 @@ class TestCriticalPathToolsIntegration:
 
         for tool, args in sql_tools:
             result = tool(**args)
-            assert result["status"] == "success"
-            parsed = result["result"]
+            assert result.status == ToolStatus.SUCCESS
+            parsed = result.result
             sql = parsed["sql_query"]
 
             assert "SELECT" in sql
@@ -464,8 +465,8 @@ class TestCriticalPathToolsIntegration:
 
         for tool, args in sql_tools:
             result = tool(**args)
-            assert result["status"] == "success"
-            parsed = result["result"]
+            assert result.status == ToolStatus.SUCCESS
+            parsed = result.result
 
             assert "next_steps" in parsed, f"{tool.__name__} missing next_steps"
             assert len(parsed["next_steps"]) > 0

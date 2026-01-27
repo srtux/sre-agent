@@ -20,7 +20,6 @@ def test_log_telemetry_state():
     result = log_telemetry_state("test")
     assert result["context_label"] == "test"
     assert "environment" in result
-    assert "current_span" in result
 
 
 def test_log_auth_state():
