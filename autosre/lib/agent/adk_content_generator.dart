@@ -209,6 +209,21 @@ class ADKContentGenerator implements ContentGenerator {
 
                 if (type == 'text') {
                   _textController.add(data['content']);
+                } else if (type == 'error') {
+                  // Handle error events from backend
+                  final errorMessage = data['error'] as String? ?? 'Unknown error';
+                  debugPrint('⚠️ Agent error received: $errorMessage');
+
+                  // Show error in chat as text
+                  _textController.add('\n\n**Error:** $errorMessage\n');
+
+                  // Also emit to error stream for StatusToast notification
+                  _errorController.add(
+                    ContentGeneratorError(
+                      Exception(errorMessage),
+                      StackTrace.current,
+                    ),
+                  );
                 } else if (type == 'a2ui') {
                   final msgJson = data['message'] as Map<String, dynamic>;
                   final msg = A2uiMessage.fromJson(msgJson);
