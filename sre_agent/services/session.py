@@ -332,7 +332,7 @@ class ADKSessionManager:
             True if sync was successful or skipped (if disabled)
         """
         try:
-            from sre_agent.services.memory_manager import get_memory_manager
+            from sre_agent.memory.factory import get_memory_manager
 
             memory_manager = get_memory_manager()
             if not memory_manager.is_enabled:

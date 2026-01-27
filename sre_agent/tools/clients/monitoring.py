@@ -230,6 +230,12 @@ def _list_time_series_sync(
                 )
             elif "400" in error_str and "resource.type" not in filter_str:
                 suggestion = ". HINT: You MUST specify 'resource.type' in the filter string for most metrics (e.g. resource.type=\"gce_instance\")."
+            elif (
+                "400" in error_str
+                and "gce_instance" in filter_str
+                and "instance_name" in filter_str
+            ):
+                suggestion = ". HINT: GCE instance metrics (resource.type=\"gce_instance\") require 'resource.labels.instance_id', NOT 'instance_name'. Use 'list_traces' or 'list_log_entries' to find the instance ID if you only have the name."
             elif "400" in error_str and "gke_container" in filter_str:
                 suggestion = ". HINT: For GKE metrics, try using 'resource.type=\"k8s_container\"' instead of 'gke_container'."
 
@@ -440,6 +446,12 @@ def _query_promql_sync(
                     "Ensure you use valid label matchers and that the metric exists. "
                     "Try a simpler query first like '{__name__=\"metric_name\"}'."
                 )
+                if (
+                    "fetch_gcp_metric" in query
+                    and "instance_name" in query
+                    and "gce_instance" in query
+                ):
+                    suggestion += " Note: GCE metrics via fetch_gcp_metric usually require 'instance_id' if querying by resource labels."
 
             error_msg = f"Failed to execute PromQL query: {e!s}{suggestion}"
             logger.error(error_msg, exc_info=True)

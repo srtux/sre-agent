@@ -51,8 +51,9 @@ class TestMemoryManager:
 
     @pytest.mark.asyncio
     async def test_add_finding_persistence(self, mock_vertex_ai):
-        """Test adding finding persists to Vertex AI."""
+        """Test adding finding persists to compatible service."""
         mock_service = AsyncMock()
+        # mock_service has save_memory (like LocalMemoryService)
         mock_vertex_ai.return_value = mock_service
         manager = MemoryManager(project_id="test-proj")
 
@@ -62,6 +63,18 @@ class TestMemoryManager:
         call_kwargs = mock_service.save_memory.call_args.kwargs
         assert call_kwargs["session_id"] == "sess-123"
         assert "Test finding" in call_kwargs["memory_content"]
+
+    @pytest.mark.asyncio
+    async def test_add_finding_vertex_compatibility(self, mock_vertex_ai):
+        """Test that MemoryManager does NOT crash when save_memory is missing (VertexAiMemoryBankService)."""
+        mock_service = MagicMock(spec=[])  # No attributes, definitely no save_memory
+        mock_vertex_ai.return_value = mock_service
+        manager = MemoryManager(project_id="test-proj")
+
+        # This should NOT raise AttributeError
+        await manager.add_finding("Test finding", "test_tool", session_id="sess-123")
+
+        assert len(manager._findings_cache) == 1
 
     @pytest.mark.asyncio
     async def test_update_state(self, mock_vertex_ai):

@@ -595,12 +595,25 @@ class ContextAwareCredentials(google.auth.credentials.Credentials):
         try:
             adc = self.adc_creds
             t = getattr(adc, "token", None)
+
+            # Proactive refresh if token is missing or expired
+            if not t or (hasattr(adc, "expired") and adc.expired):
+                from google.auth.transport.requests import Request
+
+                logger.info(
+                    "🔑 ContextAwareCredentials: ADC token missing or expired, refreshing..."
+                )
+                adc.refresh(Request())
+                t = getattr(adc, "token", None)
+
             logger.debug(
                 f"🔑 ContextAwareCredentials: Using token from ADC (exists: {t is not None}, type: {type(adc).__name__})"
             )
             return t
         except Exception as e:
-            logger.warning(f"🔑 ContextAwareCredentials: Error getting ADC token: {e}")
+            logger.warning(
+                f"🔑 ContextAwareCredentials: Error getting/refreshing ADC token: {e}"
+            )
             return None
 
     @token.setter
