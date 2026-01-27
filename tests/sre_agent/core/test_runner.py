@@ -228,14 +228,18 @@ class TestRunner:
             ):
                 events.append(e)
 
-        # Verify: Should yield 2 events (Rejection + Dummy Response)
-        assert len(events) == 2
-        content = events[0].content.parts[0].text
+        # Verify: Should yield 3 events (Original Call + Rejection + Dummy Response)
+        assert len(events) == 3
+        # First event should be the original tool call
+        assert events[0].content == tool_call_event.content
+
+        # Second event should be the rejection message
+        content = events[1].content.parts[0].text
         assert "Policy Rejection" in content
         assert "Too dangerous" in content
 
         # Verify dummy response
-        parts = events[1].content.parts
+        parts = events[2].content.parts
         assert len(parts) == 1
         assert parts[0].function_response is not None
         assert parts[0].function_response.name == "dangerous_tool"
@@ -283,14 +287,16 @@ class TestRunner:
             ):
                 events.append(e)
 
-        # Verify
-        assert len(events) == 1
-        content = events[0].content.parts[0].text
+        # Verify: Should yield 2 events (Original Call + Approval Request)
+        assert len(events) == 2
+        assert events[0].content == tool_call_event.content
+
+        content = events[1].content.parts[0].text
         assert "Human Approval Required" in content
         assert "High risk" in content
         # Verify action state delta
-        assert events[0].actions is not None
-        assert "pending_approval" in events[0].actions.state_delta
+        assert events[1].actions is not None
+        assert "pending_approval" in events[1].actions.state_delta
 
     @pytest.mark.asyncio
     async def test_execution_context_tracking(self, runner, session):

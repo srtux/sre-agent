@@ -6,6 +6,7 @@ approval for write operations.
 """
 
 import logging
+import os
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
@@ -718,6 +719,21 @@ class PolicyEngine:
 
         # Check if project context requirement
         if policy.requires_project_context and not project_id:
+            loose_mode = (
+                os.getenv("SRE_AGENT_LOOSE_POLICIES", "false").lower() == "true"
+            )
+            if loose_mode:
+                logger.warning(
+                    f"Tool {tool_name} missing project context but allowed due to LOOSE_POLICIES=true"
+                )
+                return PolicyDecision(
+                    tool_name=tool_name,
+                    allowed=True,
+                    requires_approval=False,
+                    reason="Read-only operation - allowed (Warning: project context missing).",
+                    access_level=policy.access_level,
+                )
+
             logger.warning(
                 f"Tool {tool_name} requires project context but none provided"
             )

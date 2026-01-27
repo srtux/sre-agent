@@ -1125,19 +1125,21 @@ class _ConversationPageState extends State<ConversationPage>
       builder: (context, suggestions, _) {
         if (suggestions.isEmpty) return const SizedBox.shrink();
 
-        return SizedBox(
-          height: 32,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: suggestions.length,
-            separatorBuilder: (context, index) => const SizedBox(width: 8),
-            padding: const EdgeInsets.symmetric(
-              horizontal: 4,
-            ), // Align with input
-            itemBuilder: (context, index) {
-              final action = suggestions[index];
-              return _buildActionChip(action);
-            },
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: SizedBox(
+            height: 34,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              itemCount: suggestions.length,
+              separatorBuilder: (context, index) => const SizedBox(width: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              itemBuilder: (context, index) {
+                final action = suggestions[index];
+                return _buildActionChip(action);
+              },
+            ),
           ),
         );
       },

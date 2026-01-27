@@ -137,6 +137,21 @@ class TestPolicyEngine:
         assert decision.allowed is False
         assert "project context" in decision.reason.lower()
 
+    def test_evaluate_loose_policies_missing_project_context(
+        self, engine: PolicyEngine
+    ) -> None:
+        """Test that LOOSE_POLICIES allows missing project context."""
+        with patch.dict("os.environ", {"SRE_AGENT_LOOSE_POLICIES": "true"}):
+            decision = engine.evaluate(
+                tool_name="fetch_trace",
+                tool_args={"trace_id": "abc123"},
+                project_id=None,  # Missing project but allowed
+            )
+
+            assert decision.allowed is True
+            assert "allowed" in decision.reason.lower()
+            assert "Warning" in decision.reason
+
     def test_evaluate_tool_without_project_requirement(
         self, engine: PolicyEngine
     ) -> None:

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart' as gsi_lib;
@@ -167,6 +168,8 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  Completer<void>? _authzCompleter;
+
   /// Get current auth headers
   Future<Map<String, String>> getAuthHeaders() async {
     if (_currentUser == null) return {};
@@ -184,6 +187,16 @@ class AuthService extends ChangeNotifier {
         return headers;
       }
     }
+
+    // If another authorization is already in progress, wait for it
+    if (_authzCompleter != null) {
+      debugPrint('AuthService: Authorization already in progress, waiting...');
+      await _authzCompleter!.future;
+      // After waiting, retry recursively to use the now-cached token
+      return getAuthHeaders();
+    }
+
+    _authzCompleter = Completer<void>();
 
     try {
       debugPrint('AuthService: Requesting authorization for GCP scopes...');
@@ -211,9 +224,15 @@ class AuthService extends ChangeNotifier {
       if (_idToken != null) {
         headers['X-ID-Token'] = _idToken!;
       }
+
+      _authzCompleter!.complete();
+      _authzCompleter = null;
+
       return headers;
     } catch (e) {
       debugPrint('AuthService: Error getting auth headers: $e');
+      _authzCompleter!.completeError(e);
+      _authzCompleter = null;
       return {};
     }
   }

@@ -6,6 +6,7 @@ with context reconstruction from persistent event log.
 
 import asyncio
 import logging
+import os
 import time
 import uuid
 from collections.abc import AsyncGenerator
@@ -47,7 +48,10 @@ class RunnerConfig:
     """Configuration for the Runner."""
 
     # Enable policy enforcement
-    enforce_policy: bool = True
+    enforce_policy: bool = field(
+        default_factory=lambda: os.getenv("SRE_AGENT_ENFORCE_POLICY", "true").lower()
+        == "true"
+    )
 
     # Enable context compaction
     enable_compaction: bool = True
@@ -450,19 +454,18 @@ class Runner:
                 )
 
                 if not decision.allowed:
-                    # CRITICAL: We MUST yield a function_response to the ADK loop
-                    # even if rejected, otherwise it will crash looking for a response
-                    # to the call event it just recorded in its internal history.
-                    rejection_event = self._create_policy_rejection_event(decision)
+                    # CRITICAL: We MUST yield the original call event first,
+                    # so the client/ADK loop sees the call before the response.
+                    yield event
 
-                    # Also yield a tool response result so the agent knows it failed
-                    # and doesn't wait/hang.
+                    # Yield the rejection message
+                    rejection_event = self._create_policy_rejection_event(decision)
                     yield rejection_event
 
                     # Yield a dummy function response to satisfy the ADK event list
                     # This prevents: ValueError: No function call event found for function responses ids
                     yield Event(
-                        invocation_id=str(uuid.uuid4()),
+                        invocation_id=event.invocation_id,
                         author="system",
                         content=types.Content(
                             role="user",
@@ -483,6 +486,8 @@ class Runner:
                     return
 
                 if decision.requires_approval:
+                    # Yield the call event before the approval request
+                    yield event
                     yield await self._create_approval_request_event(
                         decision, tool_args, exec_ctx
                     )
