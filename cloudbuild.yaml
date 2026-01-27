@@ -18,7 +18,7 @@ steps:
         curl -LsSf https://astral.sh/uv/install.sh | sh
         export PATH="/builder/home/.local/bin:$$PATH"
 
-        uv python install 3.10
+        uv python install 3.12
         uv sync
 
         echo "🚀 Updating Agent Engine (Patching existing agent if found)..."

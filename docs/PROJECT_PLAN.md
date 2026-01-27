@@ -45,7 +45,7 @@ Auto SRE is an autonomous reliability engine for Google Cloud. We are transition
 - [ ] **Proactive Search Logic**: Use the Memory Bank to automatically retrieve similar past incidents at the beginning of an investigation.
 - [ ] **Investigation State Machine**: Implement a formal state tracker (Triage → Analysis → Root Cause) to guide agent reasoning.
 - [ ] **Cross-Agent Handoffs**: Refine the schema for passing context (including negative findings) between sub-agents.
-- [ ] **Automated CI/CD (Cloud Build)**: Orchestrate full-stack deployment (Agent Engine + Cloud Run) via GCP native triggers.
+- [x] **Automated CI/CD (Cloud Build)**: Orchestrate full-stack deployment (Agent Engine + Cloud Run) via GCP native triggers with parallelized tracks.
 
 ### Phase 3: Advanced Diagnostics (UPCOMING)
 **Goal**: Specialized analytical logic for complex failure modes.
@@ -59,12 +59,18 @@ Auto SRE is an autonomous reliability engine for Google Cloud. We are transition
 
 ## 🚀 Future Vision
 
-### Phase 4: Operational Safety & UX
-**Goal**: User trust and remediation verification.
-
 - [ ] **Runbook Automation**: Execute predefined "Safety-First" runbooks (Restart, Scale, Rollback) with human-in-the-loop approval.
-- [ ] **Remediation Verification**: Simulate if a suggested fix would have prevented the historical failure.
 - [ ] **Executive Reporting**: One-click "Post-Mortem" generator that synthesizes the investigation into a professional report.
+- [ ] **Structured Knowledge Extraction**: Automatic graph population based on investigation findings (e.g., auto-discovering a new API dependency).
+
+### Phase 5: Modern & World-Class Agentics (2026 Vision)
+**Goal**: Transparency, continuous quality, and elite governance.
+
+- [ ] **Streaming Reasoning (CoT)**: Real-time "Thinking" stream in the UI, exposing the agent's internal chain-of-thought before it acts.
+- [ ] **Observability-on-Self**: Fully link the agent's own trace IDs to the UI. Allow the user to "View Reasoning Trace" in Cloud Trace/Arize via deep links.
+- [ ] **CI-Driven Evaluations**: Integrate "LLM-as-a-Judge" into Cloud Build. Run regression suites on every PR to ensure reasoning accuracy never drops.
+- [ ] **Confirmation Bridge (HITL 2.0)**: Global interceptor for `IMPACT: HIGH` tool calls (e.g., Delete/Modify) that pauses the agent and requests user permission via UI banner.
+- [ ] **Zero-Trust Identity propagation**: 1:1 mapping of every tool execution to the *actual* end-user IAM identity, ensuring absolute auditability in massive GCP environments.
 
 ---
 

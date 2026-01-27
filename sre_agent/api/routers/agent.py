@@ -240,6 +240,15 @@ async def _handle_remote_agent(
                     if text:
                         yield json.dumps({"type": "text", "content": text}) + "\n"
 
+                    # Handle thought
+                    thought = part.get("thought") if isinstance(part, dict) else None
+                    if thought:
+                        formatted_thought = f"\n\n**Thought**: {thought}\n\n"
+                        yield (
+                            json.dumps({"type": "text", "content": formatted_thought})
+                            + "\n"
+                        )
+
                     # Handle function calls
                     fc = part.get("function_call") if isinstance(part, dict) else None
                     if fc:
