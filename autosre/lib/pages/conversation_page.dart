@@ -976,16 +976,18 @@ class _ConversationPageState extends State<ConversationPage>
                       builder: (context, suggestions, _) {
                         if (suggestions.isEmpty) return const SizedBox.shrink();
 
+                        final displaySuggestions = suggestions.take(4).toList();
+
                         return SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
-                            children: suggestions.asMap().entries.map((entry) {
+                            children: displaySuggestions.asMap().entries.map((entry) {
                               final index = entry.key;
                               final suggestion = entry.value;
                               return Padding(
                                 padding: EdgeInsets.only(
-                                  right: index < suggestions.length - 1
+                                  right: index < displaySuggestions.length - 1
                                       ? 12
                                       : 0,
                                 ),

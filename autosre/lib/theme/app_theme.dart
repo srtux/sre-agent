@@ -344,7 +344,7 @@ class AppTheme {
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
-        centerTitle: true,
+        centerTitle: false,
         titleTextStyle: TextStyle(
           color: AppColors.textPrimary,
           fontSize: 20,
