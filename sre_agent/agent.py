@@ -337,25 +337,59 @@ def emojify_agent(agent: LlmAgent | Any) -> LlmAgent | Any:
             from opentelemetry import trace
             from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
 
-            from .auth import SESSION_STATE_TRACE_ID_KEY, set_trace_id
+            from .auth import (
+                SESSION_STATE_SPAN_ID_KEY,
+                SESSION_STATE_TRACE_FLAGS_KEY,
+                SESSION_STATE_TRACE_ID_KEY,
+                set_trace_id,
+            )
 
             remote_trace_id = session_state.get(SESSION_STATE_TRACE_ID_KEY)
+            remote_span_id = session_state.get(SESSION_STATE_SPAN_ID_KEY)
+            remote_flags = session_state.get(SESSION_STATE_TRACE_FLAGS_KEY)
+
             token = None
             if remote_trace_id:
                 set_trace_id(remote_trace_id)
                 try:
                     # Link local operations to the global trace!
+                    # CRITICAL: span_id MUST be non-zero for the context to be valid.
+                    # We use the propagated span_id if available, or fall back to
+                    # a deterministic non-zero ID derived from the trace ID.
+                    s_id = 0
+                    if remote_span_id:
+                        try:
+                            s_id = int(remote_span_id, 16)
+                        except (ValueError, TypeError):
+                            pass
+
+                    if s_id == 0:
+                        # Deterministic fallback: use first 8 bytes of trace_id
+                        s_id = int(remote_trace_id[:16], 16)
+
+                    # Trace flags (e.g. sampled)
+                    flags = TraceFlags.SAMPLED
+                    if remote_flags:
+                        try:
+                            flags = TraceFlags(int(remote_flags, 16))
+                        except (ValueError, TypeError):
+                            pass
+
                     span_context = SpanContext(
                         trace_id=int(remote_trace_id, 16),
-                        span_id=0,
+                        span_id=s_id,
                         is_remote=True,
-                        trace_flags=TraceFlags(TraceFlags.SAMPLED),
+                        trace_flags=flags,
                     )
                     parent_ctx = trace.set_span_in_context(
                         NonRecordingSpan(span_context)
                     )
                     token = otel_context.attach(parent_ctx)
-                except Exception:
+                    logger.debug(
+                        f"📍 Restored OTel Context: trace_id={remote_trace_id}, span_id={s_id:016x}, flags={flags:02x}"
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to restore OTel context: {e}")
                     pass
 
         # 3. Run Original with Arize session context
@@ -707,6 +741,8 @@ Please:
 3. Compare the patterns to find NEW or INCREASED patterns
 4. Focus on ERROR patterns as they are most likely to indicate issues
 5. Report your findings with recommendations
+
+Note: If using `list_log_entries`, ensure GKE fields are prefixed with `resource.labels.`.
 """,
             },
             tool_context=tool_context,

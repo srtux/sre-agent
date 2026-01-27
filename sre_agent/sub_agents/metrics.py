@@ -78,7 +78,9 @@ You have access to a curated list of common Google Cloud metrics:
     - Before executing ANY `query_promql` or `list_time_series` call, you **MUST** verify the metric actually exists.
     - **Step 1**: Check the Knowledge Base (COMMON_GCP_METRICS) provided below.
     - **Step 2**: If unsure or if the metric is not in the list, use `list_metric_descriptors` to discover or verify the exact metric type.
-    - **NEVER** hallucinate metric names. For example, `kubernetes.io/container/cpu/core_usage_time` is correct, but `kubernetes.io/container/cpu/usage_time` is NOT.
+    - **NEVER** hallucinate metric names or query syntax. **THIS TOOL ONLY SUPPORTS PromQL**.
+    - **NO MQL**: Do NOT use GCM Query Language (MQL) syntax like `fetch gce_instance::...`. Use mapped PromQL names instead.
+    - **Exact Metric**: `kubernetes.io/container/cpu/core_usage_time` is correct, but `kubernetes.io/container/cpu/usage_time` is NOT.
 - **Metric Name Mapping (CRITICAL)**:
     - **Documentation**: [PromQL for Cloud Monitoring](https://cloud.google.com/monitoring/promql)
     - Cloud Monitoring metric names (e.g., `compute.googleapis.com/instance/cpu/utilization`) must be converted to PromQL names.

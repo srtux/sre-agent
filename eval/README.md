@@ -6,7 +6,7 @@ This directory contains the "Award-Winning" evaluation framework for the SRE Age
 We follow an **Evaluation-Driven Development (EDD)** model. Every release must pass a suite of semantic and structural tests before it can be deployed to production.
 
 ### 1. Model-Based Evaluation (LLM-as-a-Judge)
-We use `gemini-1.5-pro` as a "Teacher Model" to evaluate the agent's "Student" responses.
+We use `gemini-2.5-flash` as a "Teacher Model" to evaluate the agent's "Student" responses.
 *   **Metric**: `rubric_based_final_response_quality_v1`
 *   **Dimensions**: Technical Precision, Root Cause Causality, and Actionability.
 
@@ -100,8 +100,10 @@ Your setup uses the latest **Vertex AI GenAI Evaluation Service** capabilities (
     *   **Locally**: You use `adk eval` (ADK/Agent SDK) for rapid dev loops and blocking the build.
     *   **Cloud-Native**: `run_eval.py` automatically triggers the `EvalTask` SDK (GenAI Evaluation Service). This syncs your runs to the **Vertex AI > Evaluations** tab in the console.
 *   **Agent-Specific Metrics**: Includes `trajectory_exact_match` and `trajectory_precision` to grade the tool-use quality of your SRE investigations.
-*   **Semantic Rubrics**: Uses `gemini-1.5-pro` as the grading engine (Auto-SxS equivalent), supporting nuanced reasoning checks.
+*   **Semantic Rubrics**: Uses `gemini-2.5-flash` as the grading engine (Auto-SxS equivalent), supporting nuanced reasoning checks.
 *   **Quality Gates**: Automatically blocks deployments via `cloudbuild.yaml` if the agent fails the defined rubrics.
+
+For a deep dive into the technical architecture and "World-Class" standards, see [docs/EVALUATIONS.md](../docs/EVALUATIONS.md).
 
 ## �📝 Defining New Tests
 

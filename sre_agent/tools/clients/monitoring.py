@@ -448,10 +448,12 @@ def _query_promql_sync(
                 )
                 if (
                     "fetch_gcp_metric" in query
-                    and "instance_name" in query
-                    and "gce_instance" in query
+                    or "fetch gce_instance" in query
+                    or "::" in query
                 ):
-                    suggestion += " Note: GCE metrics via fetch_gcp_metric usually require 'instance_id' if querying by resource labels."
+                    suggestion += " Note: Your query looks like MQL (Monitoring Query Language). This tool ONLY supports PromQL. Convert your query to PromQL, for example: 'compute_googleapis_com:instance_cpu_utilization'."
+                elif "instance_name" in query and "gce_instance" in query:
+                    suggestion += " Note: For GCE instance metrics in PromQL, you usually need to filter by 'instance_id' instead of 'instance_name' when using resource labels (e.g., '{instance_id=\"...\"}')."
 
             error_msg = f"Failed to execute PromQL query: {e!s}{suggestion}"
             logger.error(error_msg, exc_info=True)

@@ -113,13 +113,19 @@ def main():
                     location=os.environ.get("AGENT_ENGINE_LOCATION", "us-central1"),
                 )
 
-                # trigger the cloud-native evaluation service
-                # Note: This executes the evaluation against the cloud service.
-                EvalTask(
-                    dataset=processed_eval_files[0],
-                    metrics=["trajectory_exact_match", "trajectory_precision"],
-                    experiment="sre-agent-evals",
-                ).evaluate()
+                # trigger the cloud-native evaluation service for each file
+                for processed_file in processed_eval_files:
+                    print(f"  - Syncing {Path(processed_file).name}...")
+                    EvalTask(
+                        dataset=processed_file,
+                        metrics=[
+                            "trajectory_exact_match",
+                            "trajectory_precision",
+                            "trajectory_recall",
+                            "groundedness",
+                        ],
+                        experiment="sre-agent-evals",
+                    ).evaluate()
 
                 print(
                     "✅ Cloud Evaluation complete. Results available in Vertex AI Console."

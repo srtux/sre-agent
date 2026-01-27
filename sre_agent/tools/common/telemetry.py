@@ -221,10 +221,13 @@ def setup_telemetry(level: int = logging.INFO) -> None:
     # 1. Configure Logging handlers early to capture initialization logs
     _configure_logging_handlers(level, project_id)
 
-    # 2. Check for DISABLE_TELEMETRY environment variable early
-    if os.environ.get("DISABLE_TELEMETRY", "").lower() == "true":
+    # 2. Check for DISABLE_TELEMETRY or OTEL_SDK_DISABLED environment variable early
+    if (
+        os.environ.get("DISABLE_TELEMETRY", "").lower() == "true"
+        or os.environ.get("OTEL_SDK_DISABLED", "").lower() == "true"
+    ):
         logging.getLogger(__name__).info(
-            "Telemetry setup disabled via DISABLE_TELEMETRY env var"
+            "Telemetry setup disabled via environment variable"
         )
         return
 

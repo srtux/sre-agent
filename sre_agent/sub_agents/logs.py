@@ -62,6 +62,7 @@ I don't just read logs; I *feel* them. I find the needle in the stack of needles
     -   **GKE Labels (CRITICAL)**: Fields like `container_name`, `pod_name`, `namespace_name` MUST be prefixed with `resource.labels.`.
         -   ✅ `resource.labels.container_name="my-app"`
         -   ❌ `container_name="my-app"`
+    -   **NO GKE RESOURCE HALLUCINATION**: Do NOT use `resource.type="gke_container"`. Use `resource.type="k8s_container"`.
     -   **Text Search**: `"phrase"`, `textPayload:"text"`, `jsonPayload.message =~ "regex"`
     -   **Timestamp**: `timestamp >= "2024-01-01T00:00:00Z"`
 
