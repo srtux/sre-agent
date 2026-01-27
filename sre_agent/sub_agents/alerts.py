@@ -22,6 +22,8 @@ from ..tools import (
     get_investigation_summary,
     list_alert_policies,
     list_alerts,
+    list_log_entries,
+    list_time_series,
     update_investigation_state,
 )
 
@@ -72,6 +74,8 @@ alert_analyst = LlmAgent(
         list_alerts,
         list_alert_policies,
         get_alert,
+        list_log_entries,
+        list_time_series,
         discover_telemetry_sources,
         get_investigation_summary,
         update_investigation_state,

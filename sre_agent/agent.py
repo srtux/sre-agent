@@ -168,6 +168,7 @@ from .tools import (
     # GCP direct API tools
     list_gcp_projects,
     list_log_entries,
+    list_metric_descriptors,
     # SLO listing
     list_slos,
     list_time_series,
@@ -742,6 +743,7 @@ TOOL_NAME_MAP = {
     "summarize_trace": summarize_trace,
     "get_golden_signals": get_golden_signals,
     "list_gcp_projects": list_gcp_projects,
+    "list_metric_descriptors": list_metric_descriptors,
     # Analysis
     "calculate_span_durations": calculate_span_durations,
     "find_bottleneck_services": find_bottleneck_services,
@@ -862,6 +864,7 @@ base_tools: list[Any] = [
     detect_metric_anomalies,
     detect_trend_changes,
     list_time_series,
+    list_metric_descriptors,
     # Log pattern tools
     extract_log_patterns,
     compare_log_patterns,
@@ -1121,7 +1124,7 @@ for _sa in [
 def create_configured_agent(
     use_mcp: bool = False,
     respect_config: bool = True,
-    model: str = "gemini-3-flash-preview",
+    model: str = "gemini-1.5-flash",
 ) -> LlmAgent:
     """Get the SRE agent, optionally with filtered tools based on configuration.
 

@@ -73,7 +73,7 @@ GKE metrics are split between the Kubernetes system metrics and container metric
 
 
 * **Container Metrics (`kubernetes.io/container/...`)**
-* `cpu/core_usage_time`: Cumulative CPU usage in seconds.
+* `cpu/core_usage_time`: Cumulative CPU usage in seconds. (NOTE: Use this for containers, NOT `usage_time`).
 * `cpu/limit_cores`: CPU core limit for the container.
 * `cpu/request_cores`: CPU core request for the container.
 * `memory/limit_bytes`: Memory limit for the container.
@@ -213,7 +213,7 @@ COMMON_GCP_METRICS = {
         "kubernetes.io/node/memory/allocatable_bytes",
         "kubernetes.io/node/memory/used_bytes",
         # Storage
-        "kubernetes.io/pod/volume/utilized_bytes",
+        "kubernetes.io/pod/volume/used_bytes",
     ],
     "Cloud Run": [
         "run.googleapis.com/request_count",

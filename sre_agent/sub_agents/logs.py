@@ -27,8 +27,9 @@ from ..tools import (
     discover_telemetry_sources,
     # Log tools
     extract_log_patterns,
-    # Investigation
     get_investigation_summary,
+    list_log_entries,
+    list_time_series,
     update_investigation_state,
 )
 
@@ -91,6 +92,8 @@ log_analyst = LlmAgent(
     tools=[
         analyze_bigquery_log_patterns,
         extract_log_patterns,
+        list_log_entries,
+        list_time_series,
         compare_time_periods,
         discover_telemetry_sources,
         get_investigation_summary,

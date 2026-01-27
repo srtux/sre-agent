@@ -16,7 +16,10 @@ import logging
 from typing import Any
 
 from sre_agent.schema import BaseToolResponse, ToolStatus
-from sre_agent.tools.clients.factory import get_logging_client
+from sre_agent.tools.clients.factory import (
+    get_error_reporting_client,
+    get_logging_client,
+)
 from sre_agent.tools.common import adk_tool
 from sre_agent.tools.common.telemetry import get_tracer
 
@@ -26,8 +29,8 @@ tracer = get_tracer(__name__)
 
 @adk_tool
 async def list_log_entries(
-    project_id: str,
     filter_str: str,
+    project_id: str | None = None,
     limit: int = 10,
     page_token: str | None = None,
     tool_context: Any = None,
@@ -47,6 +50,16 @@ async def list_log_entries(
         - "next_page_token": Token for the next page (if any).
     """
     from fastapi.concurrency import run_in_threadpool
+
+    from sre_agent.auth import get_current_project_id
+
+    if not project_id:
+        project_id = get_current_project_id()
+        if not project_id:
+            return BaseToolResponse(
+                status=ToolStatus.ERROR,
+                error="Project ID is required but not provided or found in context.",
+            )
 
     result = await run_in_threadpool(
         _list_log_entries_sync, project_id, filter_str, limit, page_token, tool_context
@@ -164,7 +177,7 @@ def _list_log_entries_sync(
 
 @adk_tool
 async def list_error_events(
-    project_id: str, minutes_ago: int = 60, tool_context: Any = None
+    minutes_ago: int = 60, project_id: str | None = None, tool_context: Any = None
 ) -> BaseToolResponse:
     """Lists error events from Google Cloud Error Reporting using direct API.
 
@@ -177,6 +190,16 @@ async def list_error_events(
         Standardized response with list of error events.
     """
     from fastapi.concurrency import run_in_threadpool
+
+    from sre_agent.auth import get_current_project_id
+
+    if not project_id:
+        project_id = get_current_project_id()
+        if not project_id:
+            return BaseToolResponse(
+                status=ToolStatus.ERROR,
+                error="Project ID is required but not provided or found in context.",
+            )
 
     result = await run_in_threadpool(
         _list_error_events_sync, project_id, minutes_ago, tool_context
@@ -191,9 +214,9 @@ def _list_error_events_sync(
 ) -> list[dict[str, Any]] | dict[str, Any]:
     """Synchronous implementation of list_error_events."""
     try:
-        import google.cloud.errorreporting_v1beta1 as errorreporting_v1beta1
+        from google.cloud import errorreporting_v1beta1
 
-        client = errorreporting_v1beta1.ErrorStatsServiceClient()
+        client = get_error_reporting_client(tool_context=tool_context)
         project_name = f"projects/{project_id}"
         time_range = errorreporting_v1beta1.QueryTimeRange()
         time_range.period = errorreporting_v1beta1.QueryTimeRange.Period.PERIOD_1_HOUR  # type: ignore

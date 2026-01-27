@@ -117,11 +117,12 @@ async def test_list_error_events():
 @pytest.mark.asyncio
 async def test_list_error_events_error():
     with patch(
-        "google.cloud.errorreporting_v1beta1.ErrorStatsServiceClient",
+        "sre_agent.tools.clients.logging.get_error_reporting_client",
         side_effect=Exception("API Fail"),
     ):
         result = await list_error_events("p1")
         assert result["status"] == "error"
+        assert "API Fail" in result["error"]
 
 
 def test_extract_log_payload_text():

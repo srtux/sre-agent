@@ -13,6 +13,7 @@
 [![Code Style: Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Checked with mypy](https://www.mypy-lang.org/static/mypy_badge.svg)](https://mypy-lang.org/)
 [![Tests](https://img.shields.io/badge/Tests-Passing-success)](docs/guides/testing.md)
+[![Evaluation](https://img.shields.io/badge/Eval-World--Class-gold)](docs/guides/evaluation.md)
 [![Pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
 
 <div align="center">

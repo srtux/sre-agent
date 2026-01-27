@@ -109,7 +109,11 @@ from .clients.logging import (
     list_error_events,
     list_log_entries,
 )
-from .clients.monitoring import list_time_series, query_promql
+from .clients.monitoring import (
+    list_metric_descriptors,
+    list_time_series,
+    query_promql,
+)
 from .clients.slo import (
     analyze_error_budget_burn,
     correlate_incident_with_slo_impact,
@@ -242,6 +246,7 @@ __all__ = [
     "list_error_events",
     "list_gcp_projects",
     "list_log_entries",
+    "list_metric_descriptors",
     "list_slos",
     "list_time_series",
     "list_traces",

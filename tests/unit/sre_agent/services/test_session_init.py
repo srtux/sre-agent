@@ -30,8 +30,8 @@ def test_session_manager_init_vertex_mode(mock_vertex_ai_service):
         manager = ADKSessionManager()
 
         # Verify correct service type was initialized
-        # CHANGE: We now force "sre_agent" instead of the raw ID
-        assert manager.app_name == "sre_agent"
+        # Consistency between Proxy and Backend is CRITICAL.
+        assert manager.app_name == test_agent_id
         mock_vertex_ai_service.assert_called_once_with(
             project=test_project, location="us-central1"
         )

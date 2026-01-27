@@ -1,0 +1,33 @@
+{
+  "eval_set_id": "sre_agent_incident_investigation",
+  "eval_cases": [
+    {
+      "eval_id": "latency_investigation_checkout",
+      "conversation": [
+        {
+          "user_content": {
+            "role": "user",
+            "parts": [{ "text": "The checkout-service is experiencing a 50% increase in p99 latency in project TEST_PROJECT_ID. Investigate the root cause." }]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [{ "text": "I have completed the investigation. The root cause was a cascading timeout from the payment-service causing thread exhaustion in the checkout-service. I recommend increasing the connection pool size." }]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              { "name": "discover_telemetry_sources" },
+              { "name": "run_aggregate_analysis" },
+              { "name": "run_triage_analysis" },
+              { "name": "run_deep_dive_analysis" }
+            ]
+          }
+        }
+      ],
+      "session_input": {
+        "app_name": "sre_agent",
+        "user_id": "test_user",
+        "state": {}
+      }
+    }
+  ]
+}

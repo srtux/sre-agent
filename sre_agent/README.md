@@ -14,7 +14,7 @@ This directory contains the Python backend for the Auto SRE Agent, built using t
 ## Key Components
 
 ### 1. Orchestrator (`agent.py`)
-The `sre_agent` is an `LlmAgent` using `gemini-2.5-flash`. It acts as the manager, deciding which sub-agent or tool to call based on the user's request.
+The `sre_agent` is an `LlmAgent` using `gemini-1.5-flash`. It acts as the manager, deciding which sub-agent or tool to call based on the user's request.
 
 ### 2. Council of Experts (`sub_agents/`)
 A collection of specialized agents involving:

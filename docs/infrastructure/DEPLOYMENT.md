@@ -13,20 +13,24 @@ graph TD
     A[1. Install Dependencies] --> B[2. Fetch Resource ID]
     A --> C[3. Deploy Agent Backend]
 
-    subgraph "Track A: Backend"
-    C --> |Updates Agent Engine| C_End[Backend Live]
+    subgraph "Track A: Logic & Quality"
+    C --> D[4. Run World-Class Evals]
+    D --> |Pass/Fail| C_End[Logic Verified]
     end
 
     subgraph "Track B: Frontend"
-    B --> |Provides ID| D[4. Build Docker Image]
-    D --> E[5. Push Image]
-    E --> F[6. Deploy Frontend]
+    B --> |Provides ID| E[5. Build Docker Image]
+    E --> F[6. Push Image]
+    F --> G[7. Deploy Frontend]
     end
 
-    style C fill:#d4f1f4,stroke:#333 -- Independent Track --
-    style D fill:#d4f1f4,stroke:#333
+    D -.-> |Blocks| E
+
+    style C fill:#d4f1f4,stroke:#333
+    style D fill:#f9d5e5,stroke:#e91e63
     style E fill:#d4f1f4,stroke:#333
     style F fill:#d4f1f4,stroke:#333
+    style G fill:#d4f1f4,stroke:#333
 ```
 
 ### Steps Explained
@@ -36,18 +40,16 @@ graph TD
     *   *Purpose*: This ID is needed immediately by the frontend build (Track B).
     *   *Constraint*: This step fails if no agent exists (First Deployment must be manual).
 3.  **Deploy Agent Backend (Track A)**:
-    *   **Starts Immediately**: Does not wait for "Fetch Resource ID".
-    *   **Logic**: Uses `deploy/deploy.py --create` to find the agent by name (`sre_agent`) and patch it.
-    *   **Independence**: Since it finds the agent itself, it doesn't need the ID from step 2, allowing it to run in parallel.
-4.  **Build Docker Image (Track B)**:
-    *   **Waits For**: `fetch-resource-id` (Step 2).
-    *   **Logic**: Builds the frontend container with `SRE_AGENT_ID` baked in as a build argument.
-5.  **Push Image (Track B)**:
-    *   **Waits For**: `build-image`.
-    *   **Logic**: Pushes the container to GCR.
-6.  **Deploy Frontend (Track B)**:
-    *   **Waits For**: `push-image`.
-    *   **Logic**: Deploys to Cloud Run with the `SRE_AGENT_ID` environment variable.
+    *   **Logic**: Uses `deploy/deploy.py` to update the Agent Engine logic.
+4.  **Run World-Class Evals (Track A - Quality Gate)**:
+    *   **Starts After**: `deploy-backend`.
+    *   **Logic**: Executes `uv run poe eval`. Uses the Cloud Build service account to semantically judge the agent's performance.
+    *   **Impact**: Blocks the frontend build if thresholds (trajectory/rubric) are not met.
+5.  **Build Docker Image (Track B)**:
+    *   **Waits For**: `fetch-resource-id` (Step 2) AND `run-evals` (Step 4).
+    *   **Logic**: Builds the frontend container with `SRE_AGENT_ID`.
+6.  **Push Image (Track B)**: Pushes the container to Artifact Registry.
+7.  **Deploy Frontend (Track B)**: Deploys to Cloud Run.
 
 ## First-Time Deployment
 

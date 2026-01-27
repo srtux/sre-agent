@@ -28,6 +28,8 @@ from ..tools import (
     detect_metric_anomalies,
     # Investigation
     get_investigation_summary,
+    list_log_entries,
+    list_metric_descriptors,
     # Metrics tools
     list_time_series,
     mcp_list_timeseries,
@@ -67,8 +69,10 @@ You have access to a curated list of common Google Cloud metrics:
 
 **PromQL for Cloud Monitoring (THE RULES) 🧠**:
 - **Metric Verification (MANDATORY)**:
-    - Before executing ANY `query_promql` or `list_time_series` call, you **MUST** verify the metric actually exists by researching the GCP metrics public documentation.
-    - Do not hallucinate metric names. If you are unsure, check the documentation or the Knowledge Base first.
+    - Before executing ANY `query_promql` or `list_time_series` call, you **MUST** verify the metric actually exists.
+    - **Step 1**: Check the Knowledge Base (COMMON_GCP_METRICS) provided below.
+    - **Step 2**: If unsure or if the metric is not in the list, use `list_metric_descriptors` to discover or verify the exact metric type.
+    - **NEVER** hallucinate metric names. For example, `kubernetes.io/container/cpu/core_usage_time` is correct, but `kubernetes.io/container/cpu/usage_time` is NOT.
 - **Metric Name Mapping (CRITICAL)**:
     - **Documentation**: [PromQL for Cloud Monitoring](https://cloud.google.com/monitoring/promql)
     - Cloud Monitoring metric names (e.g., `compute.googleapis.com/instance/cpu/utilization`) must be converted to PromQL names.
@@ -170,6 +174,8 @@ metrics_analyzer = LlmAgent(
     instruction=METRICS_ANALYZER_PROMPT,
     tools=[
         list_time_series,
+        list_metric_descriptors,
+        list_log_entries,
         mcp_list_timeseries,
         query_promql,
         mcp_query_range,

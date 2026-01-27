@@ -1,0 +1,24 @@
+{
+  "criteria": {
+    "tool_trajectory_avg_score": 1.0,
+    "rubric_based_final_response_quality_v1": 0.8,
+    "response_match_score": 0.6
+  },
+  "rubrics": {
+    "rubric_based_final_response_quality_v1": [
+      {
+        "criterion": "Technical Precision",
+        "description": "The response identifies specific GCP signals (Traces, Logs, or Metrics) and provides quantitative evidence for any claims made."
+      },
+      {
+        "criterion": "Root Cause Causality",
+        "description": "The response explains WHY an issue happened (e.g., 'A latency spike in service B caused a timeout in service A'), not just that it happened."
+      },
+      {
+        "criterion": "Actionability",
+        "description": "The response provides a clear recommendation or specific 'gcloud' commands for further investigation or remediation."
+      }
+    ]
+  },
+  "judge_model": "gemini-1.5-pro"
+}

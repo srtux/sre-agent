@@ -68,7 +68,7 @@ def correlate_trace_with_pod(trace_id: str, cluster_name: str) -> dict:
 # GKE Specialist - Kubernetes whisperer
 gke_analyzer = LlmAgent(
     name="gke_analyzer",
-    model="gemini-2.5-pro",
+    model="gemini-1.5-pro",
     description="GKE and Kubernetes specialist for container orchestration debugging",
     instruction=GKE_ANALYZER_PROMPT,
     tools=[get_pod_status, analyze_node_pressure, get_hpa_events, ...]

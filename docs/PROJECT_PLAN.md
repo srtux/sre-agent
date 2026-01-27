@@ -66,9 +66,9 @@ Auto SRE is an autonomous reliability engine for Google Cloud. We are transition
 ### Phase 5: Modern & World-Class Agentics (2026 Vision)
 **Goal**: Transparency, continuous quality, and elite governance.
 
-- [ ] **Streaming Reasoning (CoT)**: Real-time "Thinking" stream in the UI, exposing the agent's internal chain-of-thought before it acts.
+- [x] **Streaming Reasoning (CoT)**: Real-time "Thinking" stream in the UI, exposing the agent's internal chain-of-thought before it acts.
+- [x] **CI-Driven Evaluations**: Integrated "LLM-as-a-Judge" into Cloud Build. Regression suites run on every PR to ensure reasoning accuracy never drops.
 - [ ] **Observability-on-Self**: Fully link the agent's own trace IDs to the UI. Allow the user to "View Reasoning Trace" in Cloud Trace/Arize via deep links.
-- [ ] **CI-Driven Evaluations**: Integrate "LLM-as-a-Judge" into Cloud Build. Run regression suites on every PR to ensure reasoning accuracy never drops.
 - [ ] **Confirmation Bridge (HITL 2.0)**: Global interceptor for `IMPACT: HIGH` tool calls (e.g., Delete/Modify) that pauses the agent and requests user permission via UI banner.
 - [ ] **Zero-Trust Identity propagation**: 1:1 mapping of every tool execution to the *actual* end-user IAM identity, ensuring absolute auditability in massive GCP environments.
 

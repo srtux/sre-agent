@@ -24,7 +24,26 @@ Our philosophy is simple: **If it's not tested, it's broken.**
 | **Unit** | `tests/unit/` | `pytest` | Isolated logic, pure functions, tool implementations with mocked clients. |
 | **Integration** | `tests/integration/` | `pytest` | Interactions between services (e.g., Session Service + DB), State management. |
 | **System** | `tests/server/` | `pytest` | API endpoints, Middleware, Authentication flow, and Routing. |
+| **Agent Eval** | `eval/` | **ADK Eval** | "World-Class" reasoning validation. Uses LLM-as-a-judge and trajectory scoring. |
 | **E2E** | `tests/e2e/` | `pytest` | Full agent loops, user query to final remediation plan. |
+
+---
+
+## 🏆 Agent Evaluation (The Quality Gate)
+
+While unit tests verify the code, **Agent Evaluations** verify the **Reasoning**. We use the Vertex AI GenAI Evaluation Service to ensure the agent's logic remains "Award-Winning."
+
+### 1. Trajectory Scoring
+We measure the accuracy of the agent's tool-selection path.
+*   **Goal**: 100% Match with the "Golden Trajectory" (Aggregate → Triage → Deep Dive).
+
+### 2. LLM-as-a-Judge (Rubrics)
+We use `gemini-1.5-pro` to grade responses on:
+*   **Technical Precision**: Specificity of GCP signal evidence.
+*   **Root Cause Causality**: "Why" it happened vs just "What" happened.
+*   **Actionability**: Clear, recommended shell commands or fixes.
+
+For implementation details, see **[docs/guides/evaluation.md](evaluation.md)**.
 
 ---
 

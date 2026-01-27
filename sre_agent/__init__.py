@@ -85,4 +85,9 @@ except ImportError:
 # Avoid top-level imports of heavy agent modules to prevent early
 # initialization of OTel or ADK before telemetry.setup_telemetry() runs.
 # Modules should import from .agent directly.
-__all__ = ["agent", "auth", "prompt", "schema", "suggestions", "tools"]
+# However, for ADK CLI compatibility (e.g. adk eval), we need to expose
+# the agent module and root_agent at the package level.
+from . import agent  # noqa: E402
+from .agent import root_agent  # noqa: E402
+
+__all__ = ["agent", "auth", "prompt", "root_agent", "schema", "suggestions", "tools"]

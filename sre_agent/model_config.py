@@ -24,20 +24,19 @@ def get_model_name(capability: str = "fast") -> str:
     is_agent_engine = os.environ.get(AGENT_ENGINE_ENV_VAR, "false").lower() == "true"
 
     if is_agent_engine:
-        # Agent Engine (Cloud) Configuration
-        # User requested: gemini-2.5-flash and gemini-2.5-pro
+        # Agent Engine (Cloud) Configuration - MUST use GA models
         if capability == "fast":
-            model = "gemini-2.5-flash"
+            model = "gemini-1.5-flash"
         else:
-            model = "gemini-2.5-pro"
+            model = "gemini-1.5-pro"
         logger.info(f"Using Agent Engine model ({capability}): {model}")
         return model
     else:
         # Local Development Configuration
-        # User requested: gemini-3-flash-preview and gemini-3-pro-preview
+        # Default to GA models for reliability and symmetric behavior with Cloud
         if capability == "fast":
-            model = "gemini-3-flash-preview"
+            model = "gemini-1.5-flash"
         else:
-            model = "gemini-3-pro-preview"
+            model = "gemini-1.5-pro"
         logger.info(f"Using Local model ({capability}): {model}")
         return model

@@ -188,9 +188,108 @@ def _list_time_series_sync(
                     ". HINT: 'resource.labels.service_name' is NOT valid for GCE metrics. "
                     "Use 'resource.labels.instance_id' or use query_promql() to filter/aggregate by service."
                 )
+            elif "404" in error_str and "kubernetes.io" in filter_str:
+                suggestion = (
+                    ". HINT: For GKE container CPU usage, use 'kubernetes.io/container/cpu/core_usage_time' "
+                    "instead of 'usage_time'. For memory use 'kubernetes.io/container/memory/used_bytes'."
+                )
+            elif (
+                "404" in error_str
+                and "compute.googleapis.com" in filter_str
+                and "memory" in filter_str
+            ):
+                suggestion = (
+                    ". HINT: Direct GCE infrastructure metrics for memory are limited. "
+                    "If the Ops Agent is installed, use 'guest/memory/bytes_used'. "
+                    "Otherwise, use 'compute.googleapis.com/instance/memory/balloon/ram_used'."
+                )
+            elif "400" in error_str and "resource.type" not in filter_str:
+                suggestion = ". HINT: You MUST specify 'resource.type' in the filter string for most metrics."
 
             error_msg = f"Failed to list time series: {error_str}{suggestion}"
             logger.error(error_msg, exc_info=True)
+            span.set_status(Status(StatusCode.ERROR, error_msg))
+            return {"error": error_msg}
+
+
+@adk_tool
+async def list_metric_descriptors(
+    filter_str: str | None = None,
+    project_id: str | None = None,
+    tool_context: Any = None,
+) -> BaseToolResponse:
+    """Lists metric descriptors in the project.
+
+    Use this tool to discover available metrics or verify if a metric exists.
+
+    Args:
+        filter_str: Optional filter for metric descriptors (e.g., 'metric.type = starts_with("kubernetes.io")').
+        project_id: The Google Cloud Project ID. Defaults to current context.
+        tool_context: Context object for tool execution.
+
+    Returns:
+        Standardized response with list of metric descriptors.
+    """
+    from fastapi.concurrency import run_in_threadpool
+
+    if not project_id:
+        project_id = get_current_project_id()
+        if not project_id:
+            return BaseToolResponse(
+                status=ToolStatus.ERROR,
+                error="Project ID is required but not provided or found in context.",
+            )
+
+    result = await run_in_threadpool(
+        _list_metric_descriptors_sync, project_id, filter_str, tool_context
+    )
+    if isinstance(result, dict) and "error" in result:
+        return BaseToolResponse(status=ToolStatus.ERROR, error=result["error"])
+    return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
+
+
+def _list_metric_descriptors_sync(
+    project_id: str,
+    filter_str: str | None = None,
+    tool_context: Any = None,
+) -> list[dict[str, Any]] | dict[str, Any]:
+    """Synchronous implementation of list_metric_descriptors."""
+    with tracer.start_as_current_span("list_metric_descriptors") as span:
+        span.set_attribute("gcp.project_id", project_id)
+        if filter_str:
+            span.set_attribute("gcp.monitoring.filter", filter_str)
+
+        try:
+            client = get_monitoring_client(tool_context=tool_context)
+            project_name = f"projects/{project_id}"
+            request = {"name": project_name}
+            if filter_str:
+                request["filter"] = filter_str
+
+            results = client.list_metric_descriptors(request=request)
+
+            descriptors = []
+            for descriptor in results:
+                descriptors.append(
+                    {
+                        "name": descriptor.name,
+                        "type": descriptor.type,
+                        "metric_kind": descriptor.metric_kind.name,
+                        "value_type": descriptor.value_type.name,
+                        "unit": descriptor.unit,
+                        "description": descriptor.description,
+                        "display_name": descriptor.display_name,
+                        "labels": [
+                            {"key": label.key, "description": label.description}
+                            for label in descriptor.labels
+                        ],
+                    }
+                )
+            return descriptors
+        except Exception as e:
+            error_msg = f"Failed to list metric descriptors: {e!s}"
+            logger.error(error_msg, exc_info=True)
+            span.record_exception(e)
             span.set_status(Status(StatusCode.ERROR, error_msg))
             return {"error": error_msg}
 

@@ -1,41 +1,27 @@
-# Evaluation Guide
+# 🏆 Agent Evaluation: World-Class Quality Framework
 
-This guide explains how to benchmark the SRE Agent's performance using the evaluation harness.
+This guide explains how to benchmark the SRE Agent's reasoning quality and tool-use precision using our **Evaluation-Driven Development (EDD)** framework.
 
-## Running Evaluations
+## 🏛️ Philosophy: The Reasoning Pipeline
+Unlike standard software, an SRE Agent's "correctness" is subjective. We evaluate it on two layers:
+1.  **Trajectory Integrity**: Did it call the right tools in the right order? (Aggregate -> Triage -> Deep Dive).
+2.  **Response Quality**: Is the final answer technically precise, causal, and actionable?
 
-The project uses a custom evaluation script `deploy/run_eval.py` that executes test cases against the agent and scores the results.
+## 🚀 Running Evaluations
+
+For detailed instructions on defining test cases and configuring metrics, see the **[Evaluation README](../../eval/README.md)**.
+
+### Local Developer Loop
+Use the `poe` task to run the suite against your current local changes:
 
 ```bash
 uv run poe eval
 ```
 
-## Creating Test Cases
+## 🌉 CI/CD Quality Gate
+This suite is integrated into our `cloudbuild.yaml`. Every deployment is blocked until it passes:
+*   **100% Trajectory Score**: Ensures no regressions in the agent's diagnostic logic.
+*   **80%+ Rubric Score**: Uses `gemini-1.5-pro` as a "Teacher Model" to grade the technical quality of the response.
 
-Test cases are JSON files located in `eval/`.
-
-**Structure:**
-```json
-{
-  "id": "e2e_latency_analysis",
-  "name": "E2E Latency Analysis",
-  "query": "Analyze the latency spike in the checkout service",
-  "expected_steps": [
-    "analyze_aggregate_metrics",
-    "find_exemplar_traces",
-    "analyze_trace_comprehensive"
-  ],
-  "success_criteria": {
-    "output_contains": ["checkout-service", "db-proxy"],
-    "has_ui_event": "show_trace_waterfall"
-  }
-}
-```
-
-## Metrics
-
-The evaluation harness reports:
-*   **Success Rate**: Percentage of test cases passing all criteria.
-*   **Tool Usage**: Accuracy of tool selection.
-*   **Latency**: Time to completion.
-*   **Cost**: Token usage (if available).
+## 📈 Monitoring
+Results are exported to GCS and visualized in **Vertex AI Experiments**. See the [Monitoring Section](../../eval/README.md#📈-monitoring--historical-tracking) for details.

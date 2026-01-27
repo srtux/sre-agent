@@ -134,11 +134,20 @@ def get_monitoring_client(
 def get_alert_policy_client(
     tool_context: "ToolContext | None" = None,
 ) -> monitoring_v3.AlertPolicyServiceClient:
-    """Returns a Cloud Monitoring Alert Policy client, using user credentials if available.
-
-    Args:
-        tool_context: Optional ADK ToolContext for session-based credentials.
-    """
+    """Returns a Cloud Monitoring Alert Policy client, using user credentials if available."""
     return _get_client(
         "alert_policies", monitoring_v3.AlertPolicyServiceClient, tool_context
+    )
+
+
+def get_error_reporting_client(
+    tool_context: "ToolContext | None" = None,
+) -> Any:
+    """Returns a Cloud Error Reporting client, using user credentials if available."""
+    from google.cloud import errorreporting_v1beta1
+
+    return _get_client(
+        "error_reporting",
+        errorreporting_v1beta1.ErrorStatsServiceClient,
+        tool_context,
     )

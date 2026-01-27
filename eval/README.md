@@ -1,59 +1,88 @@
-# SRE Agent Evaluations
+# 🏆 World-Class SRE Agent Evaluations
 
-This directory contains the evaluation framework for benchmarking the SRE Agent's performance, accuracy, and tool selection capabilities.
+This directory contains the "Award-Winning" evaluation framework for the SRE Agent. It uses the **Vertex AI Agent Development Kit (ADK)** to verify both the final responses and the internal reasoning trajectories against a "Golden Dataset."
+
+## 🏛️ Architecture: The Quality Gate
+We follow an **Evaluation-Driven Development (EDD)** model. Every release must pass a suite of semantic and structural tests before it can be deployed to production.
+
+### 1. Model-Based Evaluation (LLM-as-a-Judge)
+We use `gemini-1.5-pro` as a "Teacher Model" to evaluate the agent's "Student" responses.
+*   **Metric**: `rubric_based_final_response_quality_v1`
+*   **Dimensions**: Technical Precision, Root Cause Causality, and Actionability.
+
+### 2. Trajectory Score (Tool-Use Integrity)
+We don't just care about what the agent says; we care about **how it got there**.
+*   **Metric**: `tool_trajectory_avg_score`
+*   **Goal**: Ensure the agent follows the 3-Stage Analysis Pipeline (Aggregate -> Triage -> Deep Dive).
 
 ## 🚀 Running Evaluations
 
-To run the full evaluation suite:
+To run the local evaluation suite:
 
 ```bash
 uv run poe eval
 ```
 
-Or run the script directly:
+This script (located at `deploy/run_eval.py`):
+1.  Cleans and prepares the Golden Dataset (`eval/*.test.json`).
+2.  Injects your current `GOOGLE_CLOUD_PROJECT` for live tool-connectivity checks.
+3.  Executes `adk eval` with the `test_config.json` requirements.
+
+## 📂 The Golden Dataset
+
+Each test set is a collection of "Ideal Investigations":
+
+*   **`incident_investigation.test.json`**: (NEW) Complex, multi-stage investigation scenarios.
+*   **`metrics_analysis.test.json`**: Precision PromQL and anomaly detection.
+*   **`tool_selection.test.json`**: Structural checks for tool routing.
+*   **`basic_capabilities.test.json`**: Sanity checks for the agent's "personality" and time awareness.
+
+## 🌉 CI/CD Integration
+
+This suite is integrated into `cloudbuild.yaml` as a **Mandatory Quality Gate**.
+*   **Step**: `run-evals`
+*   **Impact**: If the `trajectory_score` falls below 100% or the `rubric_score` falls below 80%, the build fails and deployment is blocked.
+
+### 🔑 IAM Setup for CI/CD
+To run evaluations in Cloud Build, the build service account must have "Observability Specialist" permissions. Run this command to configure it:
 
 ```bash
-uv run python deploy/run_eval.py
+PROJECT_ID=$(gcloud config get-value project)
+PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)')
+CB_SA="$PROJECT_NUMBER@cloudbuild.gserviceaccount.com"
+
+# Grant necessary roles for agent analysis and model-based evaluation
+for ROLE in aiplatform.user logging.viewer monitoring.viewer cloudtrace.user \
+            bigquery.jobUser bigquery.dataViewer resourcemanager.projectViewer; do
+  gcloud projects add-iam-policy-binding $PROJECT_ID \
+    --member="serviceAccount:$CB_SA" \
+    --role="roles/$ROLE"
+done
 ```
 
-## 📂 Evaluation Datasets
+## � Monitoring & Historical Tracking
 
-The evaluation cases are defined in JSON files within this directory. Each file represents a category of tests:
+### Vertex AI Experiments
+To track historic pass/fail rates and compare evaluation scores across different model versions or logic updates, we use **Vertex AI Experiments** integration.
 
-*   **`basic_capabilities.test.json`**: Basic "sanity checks" (e.g., getting time, listing projects).
-*   **`metrics_analysis.test.json`**: Tests focused on PromQL querying and metric anomaly detection.
-*   **`tool_selection.test.json`**: Tests specifically checking if the agent picks the correct tool for a given prompt (e.g., choosing `trace_analyzer` for latency issues).
+1.  **Storage**: Evaluation results are stored in Google Cloud Storage.
+2.  **Configuration**: Set the `EVAL_STORAGE_URI` environment variable in your `.env` or CI/CD pipeline:
+    ```bash
+    EVAL_STORAGE_URI="gs://YOUR_PROJECT_EVALS_BUCKET/sre-agent-evals"
+    ```
+3.  **Visualization**:
+    *   Navigate to **Vertex AI > Experiments** in the Google Cloud Console.
+    *   Select your project and look for experiment runs starting with "sre-agent". You'll see a timeline of trajectory scores and LLM-judge rubrics.
 
-## 📝 Test Case Schema
+### Latest Features (GenAI Evaluation)
+Your setup uses the latest **Vertex AI GenAI Evaluation Service** capabilities (announced Jan 2026):
+*   **Dual-Layer Evaluation**:
+    *   **Locally**: You use `adk eval` (ADK/Agent SDK) for rapid dev loops and blocking the build.
+    *   **Cloud-Native**: `run_eval.py` automatically triggers the `EvalTask` SDK (GenAI Evaluation Service). This syncs your runs to the **Vertex AI > Evaluations** tab in the console.
+*   **Agent-Specific Metrics**: Includes `trajectory_exact_match` and `trajectory_precision` to grade the tool-use quality of your SRE investigations.
+*   **Semantic Rubrics**: Uses `gemini-1.5-pro` as the grading engine (Auto-SxS equivalent), supporting nuanced reasoning checks.
+*   **Quality Gates**: Automatically blocks deployments via `cloudbuild.yaml` if the agent fails the defined rubrics.
 
-Each test file contains a list of test cases following this schema:
+## �📝 Defining New Tests
 
-```json
-[
-  {
-    "id": "unique-test-id",
-    "prompt": "The user query to simulate",
-    "expected_tools": ["tool_name_1", "tool_name_2"],
-    "forbidden_tools": ["tool_that_should_not_be_used"],
-    "expected_strings": ["phrase to look for in response"],
-    "description": "Brief description of what this tests"
-  }
-]
-```
-
-### Fields:
-
-*   **`id`**: (Required) Unique identifier for the test case.
-*   **`prompt`**: (Required) The input text sent to the agent.
-*   **`expected_tools`**: (Optional) List of tool names that *must* be called during execution.
-*   **`forbidden_tools`**: (Optional) List of tool names that must *not* be called.
-*   **`expected_strings`**: (Optional) Substrings that must appear in the agent's final text response.
-
-## 📊 Scoring
-
-The `run_eval.py` script calculates a pass/fail status for each test based on:
-1.  **Tool Selection Accuracy**: Did it call all expected tools? Did it avoid forbidden tools?
-2.  **Response Validation**: Did the final answer contain the expected keywords?
-3.  **Execution Success**: Did the agent crash or error out?
-
-A summary report is printed to the console at the end of the run.
+To define a new "Award-Winning" test case, add it to one of the `.test.json` files using the `eval_cases` format. Focus on defining the `tool_uses` in the `intermediate_data` to ensure the agent doesn't "skip steps" or halluncinate tool results.
