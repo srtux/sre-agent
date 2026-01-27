@@ -33,12 +33,12 @@ steps:
         cat deploy_output.txt
         # Extract resource name: projects/{project}/locations/{location}/reasoningEngines/{id}
         RESOURCE_NAME=$(grep -oE "projects/[^/]+/locations/[^/]+/reasoningEngines/[^/ \n]+" deploy_output.txt | head -1)
-        if [ -z "$RESOURCE_NAME" ]; then
+        if [ -z "$$RESOURCE_NAME" ]; then
           echo "❌ Failed to capture Agent Engine Resource Name"
           exit 1
         fi
-        echo "$RESOURCE_NAME" > backend_resource_name.txt
-        echo "✅ Captured Backend Resource: $RESOURCE_NAME"
+        echo "$$RESOURCE_NAME" > backend_resource_name.txt
+        echo "✅ Captured Backend Resource: $$RESOURCE_NAME"
 
   # 3. Build Unified Docker Image
   - name: 'gcr.io/cloud-builders/docker'
@@ -50,12 +50,12 @@ steps:
         RESOURCE_NAME=$(cat backend_resource_name.txt)
         # Construct the Agent URL
         # Extract location from resource name
-        LOCATION=$(echo $RESOURCE_NAME | cut -d'/' -f4)
-        AGENT_URL="https://$LOCATION-aiplatform.googleapis.com/v1/$RESOURCE_NAME:query"
+        LOCATION=$(echo $$RESOURCE_NAME | cut -d'/' -f4)
+        AGENT_URL="https://$$LOCATION-aiplatform.googleapis.com/v1/$$RESOURCE_NAME:query"
 
         docker build -t gcr.io/$PROJECT_ID/autosre:latest \
-          --build-arg SRE_AGENT_URL=$AGENT_URL \
-          --build-arg SRE_AGENT_ID=$RESOURCE_NAME .
+          --build-arg SRE_AGENT_URL=$$AGENT_URL \
+          --build-arg SRE_AGENT_ID=$$RESOURCE_NAME .
 
   # 4. Push Image
   - name: 'gcr.io/cloud-builders/docker'
@@ -70,15 +70,15 @@ steps:
       - '-c'
       - |
         RESOURCE_NAME=$(cat backend_resource_name.txt)
-        LOCATION=$(echo $RESOURCE_NAME | cut -d'/' -f4)
-        AGENT_URL="https://$LOCATION-aiplatform.googleapis.com/v1/$RESOURCE_NAME:query"
+        LOCATION=$(echo $$RESOURCE_NAME | cut -d'/' -f4)
+        AGENT_URL="https://$$LOCATION-aiplatform.googleapis.com/v1/$$RESOURCE_NAME:query"
 
         gcloud run deploy autosre \
           --image gcr.io/$PROJECT_ID/autosre:latest \
-          --region $LOCATION \
+          --region $$LOCATION \
           --platform managed \
           --allow-unauthenticated \
-          --set-env-vars="SRE_AGENT_URL=$AGENT_URL,SRE_AGENT_ID=$RESOURCE_NAME,GCP_PROJECT_ID=${PROJECT_ID},GCP_REGION=$LOCATION,LOG_FORMAT=JSON,LOG_LEVEL=INFO" \
+          --set-env-vars="SRE_AGENT_URL=$$AGENT_URL,SRE_AGENT_ID=$$RESOURCE_NAME,GCP_PROJECT_ID=$PROJECT_ID,GCP_REGION=$$LOCATION,LOG_FORMAT=JSON,LOG_LEVEL=INFO" \
           --set-secrets="GOOGLE_API_KEY=gemini-api-key:latest,GEMINI_API_KEY=gemini-api-key:latest,GOOGLE_CLIENT_ID=google-client-id:latest,SRE_AGENT_ENCRYPTION_KEY=sre-agent-encryption-key:latest"
 
 substitutions:
