@@ -84,6 +84,12 @@ class MockAuthService extends ChangeNotifier implements AuthService {
   };
 
   @override
+  set currentUser(gsi.GoogleSignInAccount? user) {}
+
+  @override
+  void reset() {}
+
+  @override
   Future<void> signIn() async {}
 
   @override

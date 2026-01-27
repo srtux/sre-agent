@@ -33,6 +33,18 @@ class AuthService extends ChangeNotifier {
   DateTime? _accessTokenExpiry;
   bool _isLoading = true;
 
+  @visibleForTesting
+  set currentUser(gsi_lib.GoogleSignInAccount? user) => _currentUser = user;
+
+  @visibleForTesting
+  void reset() {
+    _accessToken = null;
+    _accessTokenExpiry = null;
+    _idToken = null;
+    _currentUser = null;
+    _authzCompleter = null;
+  }
+
   gsi_lib.GoogleSignInAccount? get currentUser => _currentUser;
   bool get isAuthenticated => _currentUser != null;
   bool get isLoading => _isLoading;

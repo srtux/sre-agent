@@ -169,6 +169,7 @@ def deploy(env_vars: dict[str, str] | None = None) -> None:
             "LOG_FORMAT": "JSON",
             "LOG_LEVEL": os.getenv("LOG_LEVEL", "INFO"),
             "STRICT_EUC_ENFORCEMENT": os.getenv("STRICT_EUC_ENFORCEMENT", "false"),
+            "SRE_AGENT_ENFORCE_POLICY": os.getenv("SRE_AGENT_ENFORCE_POLICY", "true"),
             "SRE_AGENT_ENCRYPTION_KEY": os.getenv("SRE_AGENT_ENCRYPTION_KEY", ""),
             **env_vars,
         },

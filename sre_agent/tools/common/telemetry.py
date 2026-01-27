@@ -539,6 +539,7 @@ def _configure_logging_handlers(level: int, project_id: str | None) -> None:
                     span_id = format(span_context.span_id, "016x")
 
                 if trace_id:
+                    log_obj["trace_id"] = trace_id
                     if project_id:
                         log_obj["logging.googleapis.com/trace"] = (
                             f"projects/{project_id}/traces/{trace_id}"

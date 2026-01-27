@@ -1,5 +1,5 @@
 import 'dart:async';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
@@ -97,7 +97,14 @@ class _ConversationPageState extends State<ConversationPage>
     _typingController = AnimationController(
       duration: const Duration(milliseconds: 1200),
       vsync: this,
-    )..repeat();
+    );
+    if (!kIsWeb && !kDebugMode) {
+      _typingController.repeat();
+    } else if (kIsWeb) {
+      // In web/debug, we still want the animation unless specifically in a test environment.
+      // Since Platform.script.path isn't available on web, we'll just repeat it.
+      _typingController.repeat();
+    }
 
     _initializeConversation();
 
@@ -511,12 +518,13 @@ class _ConversationPageState extends State<ConversationPage>
           final isCompact = constraints.maxWidth < 600;
           return Row(
             crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min, // Added min to prevent expansion
             children: [
               // Logo/Icon - clickable to return to home
               _buildLogoButton(),
               const SizedBox(width: 8),
               // Title
-              if (!isCompact)
+              if (!isCompact) ...[
                 InkWell(
                   onTap: _startNewSession,
                   child: Stack(
@@ -558,11 +566,14 @@ class _ConversationPageState extends State<ConversationPage>
                     ],
                   ),
                 ),
-              const SizedBox(width: 24),
+                const SizedBox(width: 24),
+              ],
               // Project Selector (Left aligned now)
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 250),
-                child: _buildProjectSelector(),
+              Flexible( // Added Flexible
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 250),
+                  child: _buildProjectSelector(),
+                ),
               ),
             ],
           );

@@ -44,10 +44,18 @@ class MockAuthService extends ChangeNotifier implements AuthService {
   @override
   GoogleSignInAccount? get currentUser => _currentUser;
 
-  void setCurrentUser(GoogleSignInAccount? user) {
+  @override
+  set currentUser(GoogleSignInAccount? user) {
     _currentUser = user;
     notifyListeners();
   }
+
+  void setCurrentUser(GoogleSignInAccount? user) {
+    currentUser = user;
+  }
+
+  @override
+  void reset() {}
 
   // Boilerplate implementation of AuthService abstract members
   @override
@@ -95,7 +103,7 @@ void main() {
 
   group('PromptHistoryService', () {
     test('should not save if user is not logged in', () async {
-      mockAuthService.setCurrentUser(null);
+      mockAuthService.currentUser = null;
 
       await service.addPrompt('test prompt');
 

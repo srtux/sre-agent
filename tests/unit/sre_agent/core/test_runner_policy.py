@@ -48,16 +48,19 @@ async def test_intercept_tool_calls_yields_rejection_and_response():
     async for e in runner._intercept_tool_calls(event, exec_ctx):
         yielded_events.append(e)
 
-    # Should yield 2 events: Rejection message + Dummy Response
-    assert len(yielded_events) == 2
+    # Should yield 3 events: Original Call + Rejection message + Dummy Response
+    assert len(yielded_events) == 3
 
-    # 1. Rejection Event (System message)
-    assert yielded_events[0].author == "system"
-    assert "Policy Rejection" in yielded_events[0].content.parts[0].text
+    # 1. Original Event (Tool Call)
+    assert yielded_events[0] == event
 
-    # 2. Dummy Response Event (User message to satisfy ADK history)
+    # 2. Rejection Event (System message)
     assert yielded_events[1].author == "system"
-    parts = yielded_events[1].content.parts
+    assert "Policy Rejection" in yielded_events[1].content.parts[0].text
+
+    # 3. Dummy Response Event (User message to satisfy ADK history)
+    assert yielded_events[2].author == "system"
+    parts = yielded_events[2].content.parts
     assert len(parts) == 1
     assert parts[0].function_response is not None
     assert parts[0].function_response.name == "test_tool"
