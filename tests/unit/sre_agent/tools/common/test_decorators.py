@@ -61,3 +61,27 @@ async def test_adk_tool_detects_logical_error_in_json_string(caplog):
 
     assert "error" in result
     assert "❌ Tool Failed (Logical): 'failing_json_tool'" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_adk_tool_skips_instrumentation_when_enabled(caplog):
+    """Test that adk_tool skips spans/logs when native instrumentation is enabled."""
+    import os
+    from unittest.mock import patch
+
+    caplog.set_level(logging.INFO)
+
+    with patch.dict(
+        os.environ, {"OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "true"}
+    ):
+
+        @adk_tool
+        async def skip_me():
+            return "skipped"
+
+        result = await skip_me()
+
+        assert result == "skipped"
+        # Verify NO tool logs were emitted
+        assert "🛠️  Tool Call" not in caplog.text
+        assert "✅ Tool Success" not in caplog.text

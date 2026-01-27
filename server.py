@@ -10,7 +10,6 @@ from sre_agent.api import create_app  # noqa: E402
 
 # 0. SET LOG LEVEL EARLY
 os.environ["LOG_LEVEL"] = os.getenv("LOG_LEVEL", "DEBUG")
-logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # Create the modular FastAPI application

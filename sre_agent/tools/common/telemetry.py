@@ -315,6 +315,16 @@ def setup_telemetry(level: int = logging.INFO) -> None:
         # Phase 5: Advanced & Agent-specific instrumentation (if extra packages are installed)
         # These are crucial for World-Class visibility in GCP
         try:
+            from opentelemetry.instrumentation.logging import LoggingInstrumentor
+
+            LoggingInstrumentor().instrument(set_logging_format=False)
+            logging.getLogger(__name__).info(
+                "✅ Logging instrumentation enabled (context injection)."
+            )
+        except ImportError:
+            pass
+
+        try:
             from typing import Any, cast
 
             from opentelemetry.instrumentation.grpc import (

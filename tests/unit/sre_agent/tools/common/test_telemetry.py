@@ -49,6 +49,33 @@ def test_telemetry_noise_filter():
         assert filter_obj.filter(record) is True
 
 
+def test_emoji_logging_filter_skips_adk_mod():
+    """Test that EmojiLoggingFilter skips ADK log modification when enabled."""
+    import os
+
+    from sre_agent.tools.common.telemetry import EmojiLoggingFilter
+
+    filter_obj = EmojiLoggingFilter()
+    record = MagicMock()
+    record.name = "google_adk"
+    record.msg = "Sending out request"
+    record.getMessage.return_value = "Sending out request"
+
+    # Should skip mod when OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT is true
+    with patch.dict(
+        os.environ, {"OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "true"}
+    ):
+        filter_obj.filter(record)
+        assert "🧠" not in record.msg
+
+    # Should apply mod when disabled
+    with patch.dict(
+        os.environ, {"OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "false"}
+    ):
+        filter_obj.filter(record)
+        assert "🧠" in record.msg
+
+
 def test_gen_ai_attributes_constants():
     """Test that GenAI attributes constants are defined."""
     assert GenAiAttributes.SYSTEM == "gen_ai.system"
