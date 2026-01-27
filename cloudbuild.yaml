@@ -15,6 +15,14 @@ steps:
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'deploy-backend'
     entrypoint: 'bash'
+    secretEnv: ['SRE_AGENT_ENCRYPTION_KEY']
+    env:
+      - 'GOOGLE_CLOUD_PROJECT=$PROJECT_ID'
+      - 'GOOGLE_CLOUD_LOCATION=$_LOCATION'
+      - 'AGENT_ENGINE_LOCATION=$_LOCATION'
+      - 'GOOGLE_CLOUD_STORAGE_BUCKET=$_BUCKET'
+      # Ensure backend has the key to decrypt user tokens
+      - 'STRICT_EUC_ENFORCEMENT=false'
     args:
       - '-c'
       - |
@@ -72,6 +80,15 @@ steps:
           --allow-unauthenticated \
           --set-env-vars="SRE_AGENT_URL=${AGENT_URL},SRE_AGENT_ID=${RESOURCE_NAME},GCP_PROJECT_ID=${PROJECT_ID},GCP_REGION=${LOCATION},LOG_FORMAT=JSON,LOG_LEVEL=INFO" \
           --set-secrets="GOOGLE_API_KEY=gemini-api-key:latest,GEMINI_API_KEY=gemini-api-key:latest,GOOGLE_CLIENT_ID=google-client-id:latest,SRE_AGENT_ENCRYPTION_KEY=sre-agent-encryption-key:latest"
+
+substitutions:
+  _LOCATION: us-central1
+  _BUCKET: summitt-bucket
+
+availableSecrets:
+  secretManager:
+  - versionName: projects/$PROJECT_ID/secrets/sre-agent-encryption-key/versions/latest
+    env: 'SRE_AGENT_ENCRYPTION_KEY'
 
 options:
   logging: CLOUD_LOGGING_ONLY

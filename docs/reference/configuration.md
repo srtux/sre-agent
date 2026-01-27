@@ -14,7 +14,7 @@ This document details all environment variables used to configure the Auto SRE A
 ## Execution Modes
 
 | `SRE_AGENT_ID` | If set, the backend forwards requests to this Vertex AI Agent Engine resource. If unset, runs locally. | - |
-| `STRICT_EUC_ENFORCEMENT` | If `true`, fails requests if user credentials are missing. If `false`, falls back to service account (NOT RECOMMENDED for production). | `false` |
+| `STRICT_EUC_ENFORCEMENT` | If `true`, fails requests if user credentials in the context are missing. If `false`, falls back to Application Default Credentials (ADC). **Set to `false` for local `adk web` development.** | `false` |
 | `CORS_ALLOW_ALL` | If `true`, allows all origins in FastAPI middleware. Useful for development. | `false` |
 | `SECURE_COOKIES` | If `true`, session cookies are marked as `Secure`. Set to `false` for local `http` dev. | `true` |
 
