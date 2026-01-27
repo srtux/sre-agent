@@ -9,6 +9,7 @@ from pathlib import Path
 # Disable OTEL and standard exporters for the evaluation process itself
 # to prevent background threads from hanging or emitting noise.
 os.environ["OTEL_SDK_DISABLED"] = "true"
+os.environ["DISABLE_TELEMETRY"] = "true"
 os.environ["OTEL_TRACES_EXPORTER"] = "none"
 os.environ["OTEL_METRICS_EXPORTER"] = "none"
 os.environ["OTEL_LOGS_EXPORTER"] = "none"
@@ -22,13 +23,24 @@ load_dotenv()
 def main():
     # Separate flags from positional arguments
     all_args = sys.argv[1:]
-    flags = [arg for arg in all_args if arg.startswith("-")]
+    flags = []
 
     # Check if we should sync to cloud (not standard for local runs - it's slow!)
     should_sync_cloud = "--sync" in all_args
-    if should_sync_cloud:
-        # Remove --sync from flags so it doesn't break adk eval
-        flags = [f for f in flags if f != "--sync"]
+
+    i = 0
+    while i < len(all_args):
+        arg = all_args[i]
+        if arg == "--sync":
+            i += 1
+            continue
+        if arg.startswith("-"):
+            flags.append(arg)
+            # If next arg exists and doesn't start with '-', it's likely a value for this flag
+            if i + 1 < len(all_args) and not all_args[i + 1].startswith("-"):
+                flags.append(all_args[i + 1])
+                i += 1
+        i += 1
 
     # Define our standard agent
     agent_path = "sre_agent"
@@ -79,7 +91,7 @@ def main():
 
         # Construct the command with flags BEFORE positional arguments
         # adk eval [FLAGS] [AGENT] [FILES]
-        cmd = ["adk", "eval", "--otel_to_cloud", *flags]
+        cmd = ["adk", "eval", *flags]
 
         # Add config file if it exists
         config_path = "eval/test_config.json"

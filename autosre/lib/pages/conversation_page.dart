@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter/rendering.dart';
 import 'package:genui/genui.dart';
+
 import 'package:provider/provider.dart';
 
 import '../services/auth_service.dart';
@@ -50,6 +51,8 @@ class _ConversationPageState extends State<ConversationPage>
   // Prompt History State
   List<String> _promptHistory = [];
   int _historyIndex = -1; // -1 means not navigating history
+  // State for tracking UI surfaces that should be shown as message bubbles
+  final Set<String> _pendingBubbleSurfaceIds = {};
   String _tempInput = '';
 
   StreamSubscription<String>? _sessionSubscription;
@@ -60,6 +63,7 @@ class _ConversationPageState extends State<ConversationPage>
   ]);
   StreamSubscription<List<String>>? _suggestionsSubscription;
   StreamSubscription<String>? _uiMessageSubscription;
+  StreamSubscription<A2uiMessage>? _a2uiSubscription;
 
   @override
   void initState() {
@@ -200,6 +204,16 @@ class _ConversationPageState extends State<ConversationPage>
       contentGenerator: _contentGenerator,
       onSurfaceAdded: (update) {
         debugPrint('🎯 onSurfaceAdded called: surfaceId=${update.surfaceId}');
+
+        // Check if this surface was waiting for its data to arrive before showing as a bubble
+        if (_pendingBubbleSurfaceIds.contains(update.surfaceId)) {
+          debugPrint(
+            '📦 Pending surface data arrived for ${update.surfaceId}. Adding bubble.',
+          );
+          _addUiMessageBubble(update.surfaceId);
+          _pendingBubbleSurfaceIds.remove(update.surfaceId);
+        }
+
         _scrollToBottom(force: true);
       },
       onSurfaceUpdated: (update) {
@@ -208,6 +222,15 @@ class _ConversationPageState extends State<ConversationPage>
       },
       onTextResponse: (text) => _scrollToBottom(),
     );
+
+    // CRITICAL: Explicitly wire the A2UI data steam to the processor.
+    // Without this, component data is never registered in the host,
+    // and surfaces will render as empty (Ghost Bubbles).
+    _a2uiSubscription?.cancel();
+    _a2uiSubscription = _contentGenerator.a2uiMessageStream.listen((msg) {
+      debugPrint('📥 Processing A2UI message: ${msg.runtimeType}');
+      _messageProcessor.handleMessage(msg);
+    });
 
     // Subscribe to suggestions
     _suggestionsSubscription = _contentGenerator.suggestionsStream.listen((
@@ -219,34 +242,25 @@ class _ConversationPageState extends State<ConversationPage>
     });
 
     // Subscribe to new UI surfaces that we want to show as message bubbles.
-    // Use addPostFrameCallback to give the A2UI processor time to register the
-    // surface before we try to render it.
+    // We now wait for the surface data to actually exist in the processor
+    // before adding it to the message list to prevent "Ghost Bubbles".
     _uiMessageSubscription?.cancel();
     _uiMessageSubscription = _contentGenerator.uiMessageStream.listen((
       surfaceId,
     ) {
       debugPrint('📦 uiMessageStream received: surfaceId=$surfaceId');
-      // Wait for next frame to allow A2UI processing to complete
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          debugPrint('📦 Adding AiUiMessage for surfaceId=$surfaceId');
-          setState(() {
-            final messages = List<ChatMessage>.from(
-              _conversation.conversation.value,
-            );
-            messages.add(
-              AiUiMessage(
-                definition: UiDefinition(surfaceId: surfaceId),
-                surfaceId: surfaceId,
-              ),
-            );
-            (_conversation.conversation as ValueNotifier<List<ChatMessage>>)
-                    .value =
-                messages;
-          });
-          _scrollToBottom(force: true);
-        }
-      });
+
+      // Check if surface is already registered in the processor
+      final surface = _messageProcessor.surfaces[surfaceId]?.value;
+      if (surface != null) {
+        debugPrint('📦 Surface $surfaceId already registered. Adding bubble.');
+        _addUiMessageBubble(surfaceId);
+      } else {
+        debugPrint(
+          '📦 Surface $surfaceId not yet registered. Queueing for onSurfaceAdded.',
+        );
+        _pendingBubbleSurfaceIds.add(surfaceId);
+      }
     });
 
     // Initial fetch of suggestions
@@ -263,6 +277,9 @@ class _ConversationPageState extends State<ConversationPage>
     _contentGenerator.clearSession();
     // Clear current session in service
     _sessionService.startNewSession();
+
+    // Clear pending bubbles
+    _pendingBubbleSurfaceIds.clear();
 
     // Reset conversation state
     setState(() {
@@ -399,6 +416,43 @@ class _ConversationPageState extends State<ConversationPage>
     });
 
     _scrollToBottom(force: true);
+  }
+
+  /// Helper to add a specific surfaceId as a bubble in the conversation list.
+  /// This bypasses the standard GenUiConversation list to show custom UI events.
+  void _addUiMessageBubble(String surfaceId) {
+    if (!mounted) return;
+
+    // Use addPostFrameCallback to ensure we don't trigger setState during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      debugPrint('📦 Adding custom AiUiMessage for surfaceId=$surfaceId');
+      setState(() {
+        final messages = List<ChatMessage>.from(
+          _conversation.conversation.value,
+        );
+
+        // Avoid duplicate bubbles for the same surface
+        final exists = messages.any(
+          (m) => m is AiUiMessage && m.surfaceId == surfaceId,
+        );
+        if (exists) return;
+
+        messages.add(
+          AiUiMessage(
+            definition: UiDefinition(surfaceId: surfaceId),
+            surfaceId: surfaceId,
+          ),
+        );
+
+        // Update the conversation notifier
+        (_conversation.conversation as ValueNotifier<List<ChatMessage>>)
+                .value =
+            messages;
+      });
+      _scrollToBottom(force: true);
+    });
   }
 
   bool _isSidebarOpen = false;
@@ -1177,11 +1231,14 @@ class _ConversationPageState extends State<ConversationPage>
     );
   }
 
+
+
   @override
   void dispose() {
     _sessionSubscription?.cancel();
     _suggestionsSubscription?.cancel();
     _uiMessageSubscription?.cancel();
+    _a2uiSubscription?.cancel(); // Added this line
     _projectService.selectedProject.removeListener(_onProjectChanged);
     _typingController.dispose();
     _conversation.dispose();

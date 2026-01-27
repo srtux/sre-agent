@@ -517,11 +517,12 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                                     "components": [
                                         {
                                             "id": cid,
+                                            "type": "x-sre-tool-log",  # Root Level Type
                                             "component": {
-                                                "type": "tool-log",
-                                                "componentType": "tool-log",
-                                                "tool-log": {
-                                                    "type": "tool-log",
+                                                "type": "x-sre-tool-log",
+                                                "componentType": "x-sre-tool-log",
+                                                "x-sre-tool-log": {
+                                                    "type": "x-sre-tool-log",
                                                     "tool_name": "alias_test",
                                                     "status": "running",
                                                 },
@@ -535,6 +536,7 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                     + "\n"
                 )
 
+                # Sequenced: Marker AFTER data
                 yield json.dumps({"type": "ui", "surface_id": sid}) + "\n"
                 yield (
                     json.dumps(
@@ -546,13 +548,15 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                                     "components": [
                                         {
                                             "id": cid,
+                                            "type": "x-sre-tool-log",
                                             "component": {
-                                                "type": "tool-log",
-                                                "componentType": "tool-log",
-                                                "tool-log": {
-                                                    "type": "tool-log",
+                                                "type": "x-sre-tool-log",
+                                                "componentType": "x-sre-tool-log",
+                                                "x-sre-tool-log": {
+                                                    "type": "x-sre-tool-log",
                                                     "tool_name": "alias_test",
-                                                    "status": "running",
+                                                    "status": "completed",  # Update to completed
+                                                    "result": "Local UI test successful",
                                                 },
                                             },
                                         }
@@ -567,7 +571,8 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                 # Test Button (Core Catalog)
                 sid_btn = uuid.uuid4().hex
                 cid_btn = f"btn-{sid_btn[:8]}"
-                yield json.dumps({"type": "ui", "surface_id": sid_btn}) + "\n"
+
+                # Sequencing: DATA FIRST
                 yield (
                     json.dumps(
                         {
@@ -579,6 +584,7 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                                     "components": [
                                         {
                                             "id": cid_btn,
+                                            "type": "button",
                                             "component": {
                                                 "type": "button",
                                                 "label": "CORE BUTTON TEST",
@@ -592,6 +598,9 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                     )
                     + "\n"
                 )
+
+                # Sequencing: MARKER SECOND
+                yield json.dumps({"type": "ui", "surface_id": sid_btn}) + "\n"
 
                 return
             # -----------------------------

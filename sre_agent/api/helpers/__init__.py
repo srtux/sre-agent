@@ -98,9 +98,10 @@ def create_tool_call_events(
                     "components": [
                         {
                             "id": component_id,
+                            "type": "x-sre-tool-log",  # Root Level Type (v0.8+)
                             "component": {
-                                "type": "x-sre-tool-log",  # Root type for v0.8+
-                                "x-sre-tool-log": {  # Wrapper key for legacy/hybrid
+                                "type": "x-sre-tool-log",  # Component Level Type
+                                "x-sre-tool-log": {  # Named Wrapper (Hybrid Pattern)
                                     "type": "x-sre-tool-log",
                                     "componentName": "x-sre-tool-log",
                                     "tool_name": tool_name,
@@ -177,8 +178,9 @@ def create_tool_response_events(
                     "components": [
                         {
                             "id": component_id,
+                            "type": "x-sre-tool-log",  # Root Level Type (v0.8+)
                             "component": {
-                                "type": "x-sre-tool-log",
+                                "type": "x-sre-tool-log",  # Component Level Type
                                 "x-sre-tool-log": {
                                     "type": "x-sre-tool-log",
                                     "componentName": "x-sre-tool-log",
@@ -261,8 +263,9 @@ def create_widget_events(tool_name: str, result: Any) -> tuple[list[str], list[s
                             "components": [
                                 {
                                     "id": component_id,
+                                    "type": widget_type,  # Root Level Type (v0.8+)
                                     "component": {
-                                        "type": widget_type,
+                                        "type": widget_type,  # Component Level Type
                                         widget_type: widget_data,
                                     },
                                 }
@@ -281,6 +284,7 @@ def create_widget_events(tool_name: str, result: Any) -> tuple[list[str], list[s
                             "components": [
                                 {
                                     "id": component_id,
+                                    "type": widget_type,  # Root Level Type
                                     "component": {
                                         "type": widget_type,
                                         widget_type: widget_data,

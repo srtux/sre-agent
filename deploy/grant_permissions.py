@@ -48,12 +48,17 @@ def main():
 
     # 2. List of Roles to Grant
     roles = [
+        "roles/cloudtrace.agent",  # Write traces (crucial for OTel)
         "roles/cloudtrace.user",  # Read traces
+        "roles/telemetry.writer",  # Write telemetry via OTLP API (ADK native)
         "roles/logging.viewer",  # Read logs
+        "roles/logging.logWriter",  # Write logs
         "roles/monitoring.viewer",  # Read metrics
+        "roles/monitoring.metricWriter",  # Write metrics
         "roles/bigquery.dataViewer",  # Query BigQuery
         "roles/aiplatform.user",  # Access Vertex AI Agent Engine
         "roles/secretmanager.secretAccessor",  # Access keys
+        "roles/datastore.user",  # Firestore document access
     ]
 
     print("\n🔐 Granting IAM Roles...")
@@ -73,7 +78,35 @@ def main():
         )
 
     print(f"\n✅ Successfully granted permissions to {sa_email}")
-    print("🚀 You can now deploy the Unified Container.")
+
+    # 3. Grant Service Account User to Vertex AI Service Agents
+    print("\n🔐 Granting Service Account User to Vertex AI Service Agents...")
+    project_number = run_command(
+        ["gcloud", "projects", "describe", project_id, "--format=value(projectNumber)"]
+    )
+
+    service_agents = [
+        f"service-{project_number}@gcp-sa-aiplatform.iam.gserviceaccount.com",
+        f"service-{project_number}@gcp-sa-aiplatform-re.iam.gserviceaccount.com",
+    ]
+
+    for agent in service_agents:
+        print(f"   Granting roles/iam.serviceAccountUser to {agent}...")
+        run_command(
+            [
+                "gcloud",
+                "iam",
+                "service-accounts",
+                "add-iam-policy-binding",
+                sa_email,
+                f"--member=serviceAccount:{agent}",
+                "--role=roles/iam.serviceAccountUser",
+                "--condition=None",
+            ],
+            exit_on_fail=False,
+        )
+
+    print("\n🚀 You can now deploy the Unified Container.")
 
 
 if __name__ == "__main__":

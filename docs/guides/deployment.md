@@ -209,7 +209,11 @@ gcloud services enable \
   firestore.googleapis.com
 
 # Create Firestore database (Native Mode)
-gcloud firestore databases create --location=us-central1
+# If the database doesn't exist:
+gcloud firestore databases create --location=us-central1 --type=firestore-native
+
+# If the database already exists in Datastore Mode, switch it to Native Mode:
+gcloud firestore databases update --database='(default)' --type=firestore-native
 ```
 
 ### 2. Secrets
@@ -292,6 +296,24 @@ gcloud run services update sre-agent --set-env-vars STRICT_EUC_ENFORCEMENT=true
 # Check auth debug endpoint
 curl -H "Authorization: Bearer <token>" https://your-url/api/auth/info
 ```
+
+### Firestore 400: API not available for Datastore Mode
+**Symptom**: `Firestore get error: 400 The Cloud Firestore API is not available for Firestore in Datastore Mode database`
+
+**Cause**: The `(default)` database in your project was initialized in Datastore Mode, but the agent requires Firestore Native Mode.
+
+**Fix**:
+1. Convert the database to Native Mode:
+   ```bash
+   gcloud firestore databases update --database='(default)' --type=firestore-native
+   ```
+2. Ensure permissions are granted to the Reasoning Engine service account:
+   ```bash
+   gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+     --member="serviceAccount:service-YOUR_PROJECT_NUMBER@gcp-sa-aiplatform-re.iam.gserviceaccount.com" \
+     --role="roles/datastore.user" \
+     --condition=None
+   ```
 
 ### Session State Issues
 
