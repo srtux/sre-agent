@@ -20,6 +20,9 @@ import 'widgets/canvas/ai_reasoning_canvas.dart';
 
 /// Registry for all SRE-specific UI components.
 class CatalogRegistry {
+  /// Debug counter for unwrap operations
+  static int _unwrapCount = 0;
+
   /// Unwraps component data from various A2UI formats to get the actual data.
   ///
   /// Handles these formats (in order of processing):
@@ -31,51 +34,100 @@ class CatalogRegistry {
     dynamic rawData,
     String componentName,
   ) {
+    _unwrapCount++;
+    final callId = _unwrapCount;
+
+    debugPrint('🔓 [UNWRAP #$callId] ===== _unwrapComponentData START =====');
+    debugPrint('🔓 [UNWRAP #$callId] componentName: $componentName');
+    debugPrint('🔓 [UNWRAP #$callId] rawData type: ${rawData.runtimeType}');
+    debugPrint('🔓 [UNWRAP #$callId] rawData: ${rawData.toString().length > 500 ? "${rawData.toString().substring(0, 500)}..." : rawData}');
+
     var data = _ensureMap(rawData);
+
+    debugPrint('🔓 [UNWRAP #$callId] After _ensureMap, keys: ${data.keys.toList()}');
 
     // 1. Direct match (e.g. {"x-sre-tool-log": {...}})
     if (data.containsKey(componentName)) {
+      debugPrint('🔓 [UNWRAP #$callId] ✅ Strategy 1: Direct match found for key "$componentName"');
       final inner = data[componentName];
+      debugPrint('🔓 [UNWRAP #$callId] Inner type: ${inner.runtimeType}');
       if (inner is Map) {
-        return Map<String, dynamic>.from(inner);
+        final result = Map<String, dynamic>.from(inner);
+        debugPrint('🔓 [UNWRAP #$callId] Returning Map with keys: ${result.keys.toList()}');
+        debugPrint('🔓 [UNWRAP #$callId] ===== _unwrapComponentData END (Strategy 1 - Map) =====');
+        return result;
       }
       if (inner is List) {
         // Return a map wrapping the list if found directly under the key
-        return {componentName: inner};
+        final result = {componentName: inner};
+        debugPrint('🔓 [UNWRAP #$callId] Returning wrapped List, length: ${inner.length}');
+        debugPrint('🔓 [UNWRAP #$callId] ===== _unwrapComponentData END (Strategy 1 - List) =====');
+        return result;
       }
+      debugPrint('🔓 [UNWRAP #$callId] ⚠️ Inner is neither Map nor List: ${inner.runtimeType}');
+    } else {
+      debugPrint('🔓 [UNWRAP #$callId] Strategy 1: No direct match for key "$componentName"');
     }
 
     // 2. Component wrapper (e.g. {"component": {"x-sre-tool-log": {...}}})
     if (data.containsKey('component') && data['component'] is Map) {
+      debugPrint('🔓 [UNWRAP #$callId] Strategy 2: Found "component" wrapper');
       final inner = data['component'] as Map;
+      debugPrint('🔓 [UNWRAP #$callId] Component wrapper keys: ${inner.keys.toList()}');
       if (inner.containsKey(componentName)) {
-        return Map<String, dynamic>.from(inner[componentName] as Map);
+        debugPrint('🔓 [UNWRAP #$callId] ✅ Found "$componentName" inside component wrapper');
+        final result = Map<String, dynamic>.from(inner[componentName] as Map);
+        debugPrint('🔓 [UNWRAP #$callId] Returning with keys: ${result.keys.toList()}');
+        debugPrint('🔓 [UNWRAP #$callId] ===== _unwrapComponentData END (Strategy 2a) =====');
+        return result;
       }
       // If component wrapper exists but doesn't have the named key, maybe it IS the data?
       if (inner['type'] == componentName) {
-        return Map<String, dynamic>.from(inner);
+        debugPrint('🔓 [UNWRAP #$callId] ✅ Component wrapper type matches: ${inner['type']}');
+        final result = Map<String, dynamic>.from(inner);
+        debugPrint('🔓 [UNWRAP #$callId] Returning component wrapper as data, keys: ${result.keys.toList()}');
+        debugPrint('🔓 [UNWRAP #$callId] ===== _unwrapComponentData END (Strategy 2b) =====');
+        return result;
       }
+      debugPrint('🔓 [UNWRAP #$callId] Strategy 2: Component wrapper does not contain "$componentName" or matching type');
+    } else {
+      debugPrint('🔓 [UNWRAP #$callId] Strategy 2: No "component" wrapper found');
     }
 
     // 3. Root Level Match (e.g. {"type": "x-sre-tool-log", ...})
+    debugPrint('🔓 [UNWRAP #$callId] Strategy 3: Checking root type. data["type"] = ${data['type']}');
     if (data['type'] == componentName) {
+      debugPrint('🔓 [UNWRAP #$callId] ✅ Root type matches: ${data['type']}');
       // If it's a v0.8 component wrapper, unwrap the named key if present
       if (data.containsKey(componentName) && data[componentName] is Map) {
-        return Map<String, dynamic>.from(data[componentName] as Map);
+        debugPrint('🔓 [UNWRAP #$callId] Found nested $componentName key, unwrapping');
+        final result = Map<String, dynamic>.from(data[componentName] as Map);
+        debugPrint('🔓 [UNWRAP #$callId] Returning nested data, keys: ${result.keys.toList()}');
+        debugPrint('🔓 [UNWRAP #$callId] ===== _unwrapComponentData END (Strategy 3a) =====');
+        return result;
       }
+      debugPrint('🔓 [UNWRAP #$callId] Returning root data as-is, keys: ${data.keys.toList()}');
+      debugPrint('🔓 [UNWRAP #$callId] ===== _unwrapComponentData END (Strategy 3b) =====');
       return data;
     }
 
     // 4. Fallback: If we are specifically looking for tool log, try to find ANY log-like shape
     if (componentName == 'x-sre-tool-log' || componentName == 'tool-log') {
+      debugPrint('🔓 [UNWRAP #$callId] Strategy 4: Fallback for tool-log');
       // Check for common tool log fields at root or under a generic 'component' key
       if (data.containsKey('toolName') ||
           data.containsKey('tool_name') ||
           (data.containsKey('args') && data.containsKey('status'))) {
+        debugPrint('🔓 [UNWRAP #$callId] ✅ Found tool-log-like fields in data');
+        debugPrint('🔓 [UNWRAP #$callId] ===== _unwrapComponentData END (Strategy 4) =====');
         return data;
       }
+      debugPrint('🔓 [UNWRAP #$callId] Strategy 4: No tool-log-like fields found');
     }
 
+    debugPrint('🔓 [UNWRAP #$callId] ⚠️ No strategy matched, returning raw data');
+    debugPrint('🔓 [UNWRAP #$callId] Final data keys: ${data.keys.toList()}');
+    debugPrint('🔓 [UNWRAP #$callId] ===== _unwrapComponentData END (Fallback) =====');
     return data;
   }
 

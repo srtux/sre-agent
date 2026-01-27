@@ -139,9 +139,88 @@ Monitoring tools now include **Smart Error Hints**. If a query fails with a 400 
 
 ## 🔍 Debugging Techniques
 
-### 1. Debugging Backend Events (Event Loop)
+### 1. Comprehensive A2UI Debug Mode (RECOMMENDED)
 
-If events are missing from the stream, add print debugging to the main event loop in `sre_agent/api/routers/agent.py`.
+The codebase includes a comprehensive A2UI debugging system that can be enabled via environment variable. This provides detailed logging across the entire A2UI pipeline:
+
+**Enable Debug Mode:**
+
+```bash
+# Linux/Mac
+export A2UI_DEBUG=true
+uv run poe dev
+
+# Or inline
+A2UI_DEBUG=true uv run poe dev
+```
+
+**What gets logged when A2UI_DEBUG=true:**
+
+| Location | Log Prefix | What it shows |
+|----------|-----------|---------------|
+| Backend: Tool Event Helpers | `🔍 A2UI_DEBUG:` | Event creation, component structure, surface IDs |
+| Backend: Agent Router | `🔍 A2UI_ROUTER:` | Event yielding, NDJSON stream output |
+| Frontend: ContentGenerator | `📥 [A2UI #N]` | A2UI message parsing, beginRendering/surfaceUpdate details |
+| Frontend: ContentGenerator | `🖼️ [UI #N]` | UI marker reception, surface ID association |
+| Frontend: Catalog | `🔓 [UNWRAP #N]` | Component data unwrapping strategy used |
+| Frontend: ConversationPage | `🎯 [CONV]` / `📥 [CONV_A2UI]` | Message processing callbacks |
+
+**Example Debug Output (Backend):**
+
+```
+🔍 A2UI_DEBUG: [TOOL_CALL_START] Creating tool call event
+{
+  "tool_name": "fetch_trace",
+  "surface_id": "abc123-...",
+  "component_id": "tool-log-abc12345",
+  "args_preview": "{\"trace_id\": \"123\"}"
+}
+🔍 A2UI_DEBUG: [TOOL_CALL_EVENT] Created beginRendering event
+{
+  "surface_id": "abc123-...",
+  "event_type": "beginRendering",
+  "component_type": "x-sre-tool-log",
+  "event_size_bytes": 456
+}
+🔍 A2UI_ROUTER: [ROUTER_FC_YIELD_A2UI] Yielding A2UI event 1/1
+🔍 A2UI_ROUTER: [ROUTER_FC_YIELD_UI] Yielding UI marker
+```
+
+**Example Debug Output (Frontend - Browser Console/F12):**
+
+```
+📥 [LINE 5] Received: {"type":"a2ui","message":{"beginRendering":{...}}}
+📥 [LINE 5] Parsed type: a2ui
+🎯 [A2UI #1] ===== A2UI MESSAGE RECEIVED =====
+🎯 [A2UI #1] Type: beginRendering
+🎯 [A2UI #1] surfaceId: abc123-...
+🎯 [A2UI #1] Component[0] id: tool-log-abc12345
+🎯 [A2UI #1] Component[0] type: x-sre-tool-log
+🎯 [A2UI #1] ✅ Emitted to stream
+🖼️ [UI #1] ===== UI MARKER RECEIVED =====
+🖼️ [UI #1] surface_id: abc123-...
+🔓 [UNWRAP #1] ===== _unwrapComponentData START =====
+🔓 [UNWRAP #1] componentName: x-sre-tool-log
+🔓 [UNWRAP #1] ✅ Strategy 2b: Component wrapper type matches
+```
+
+**Debug Log Tags Reference:**
+
+| Tag | Meaning |
+|-----|---------|
+| `[TOOL_CALL_*]` | Tool call event creation |
+| `[TOOL_RESPONSE_*]` | Tool response event creation |
+| `[WIDGET_*]` | Visualization widget creation |
+| `[ROUTER_FC_*]` | Router function call handling |
+| `[ROUTER_FR_*]` | Router function response handling |
+| `[A2UI #N]` | Frontend A2UI message N |
+| `[UI #N]` | Frontend UI marker N |
+| `[UNWRAP #N]` | Catalog unwrap operation N |
+| `[CONV_*]` | Conversation page processing |
+
+### 2. Manual Backend Event Debugging
+
+If you need more granular control, add print debugging to the main event loop in `sre_agent/api/routers/agent.py`.
 **Note**: Use `print()` instead of `logger.debug()` if looking for immediate terminal output in `uv run poe dev`, as logging might be buffered or filtered.
 
 ```python
@@ -157,9 +236,11 @@ async for event in root_agent.run_async(inv_ctx):
              print(f"DEBUG: Part has function_call: {part.function_call}")
 ```
 
-### 2. Debugging Frontend Rendering (Catalog)
+### 3. Manual Frontend Rendering Debugging (Catalog)
 
-If the backend claims to send an event but it doesn't render, inspect the `CatalogItem` builder in `autosre/lib/catalog.dart`.
+The catalog already includes extensive debugging when widgets are built. Check the browser console (F12) for logs prefixed with `🔓 [UNWRAP]` and `🔧`.
+
+If you need additional debugging, modify the `CatalogItem` builder in `autosre/lib/catalog.dart`:
 
 ```dart
 // autosre/lib/catalog.dart
@@ -178,8 +259,53 @@ CatalogItem(
 - When running `uv run poe dev`, Flutter logs (stdout) should appear in the terminal console alongside backend logs.
 - If running in Chrome context, use `F12` DevTools Console.
 
-### 3. Restarting the Environment
+### 4. Debugging Data Flow Step-by-Step
+
+When widgets aren't rendering, follow this debugging checklist:
+
+1. **Check Backend Event Creation** (A2UI_DEBUG log):
+   - Look for `[TOOL_CALL_EVENT]` or `[WIDGET_EVENTS]` logs
+   - Verify `event_size_bytes` > 0
+   - Check that `surface_id` and `component_id` are generated
+
+2. **Check Backend Event Yielding** (A2UI_DEBUG log):
+   - Look for `[ROUTER_FC_YIELD_A2UI]` and `[ROUTER_FC_YIELD_UI]`
+   - Verify A2UI events are yielded BEFORE UI marker
+   - Confirm no exceptions during yield
+
+3. **Check Frontend Stream Reception** (Browser Console):
+   - Look for `📥 [LINE N]` logs
+   - Verify the line contains `"type":"a2ui"`
+   - Check that JSON parsing succeeds
+
+4. **Check Frontend A2UI Processing** (Browser Console):
+   - Look for `🎯 [A2UI #N]` logs
+   - Verify `surfaceId` and `components` are present
+   - Check for `✅ Emitted to stream` confirmation
+
+5. **Check Frontend UI Marker Reception** (Browser Console):
+   - Look for `🖼️ [UI #N]` logs
+   - Verify `surface_id` matches the A2UI surfaceId
+   - Check `a2ui messages received so far` count > 0
+
+6. **Check Frontend Catalog Unwrapping** (Browser Console):
+   - Look for `🔓 [UNWRAP #N]` logs
+   - Check which strategy matched (1-4)
+   - Verify final data contains expected keys (e.g., `tool_name`, `status`)
+
+### 5. Restarting the Environment
 
 The `uv run poe dev` command orchestrates both backend (Python) and frontend (Flutter).
 - **Backend Changes**: Usually require a restart if `uvicorn` reload is not active or if `agent.py` logic (which is often cached) is modified.
 - **Frontend Changes**: Dart code changes require a full rebuild/restart of the Flutter process (`kill` port 8080 and restart `poe dev`) to be absolutely sure. 'Hot Restart' (r) is available if you run `flutter run` manually, but `poe dev` wraps it.
+
+### 6. Common Failure Points
+
+| Symptom | Likely Cause | Debug Focus |
+|---------|-------------|-------------|
+| No A2UI logs in backend | Tool call not detected | Check `[ROUTER_FC_DETECTED]` |
+| A2UI logs but no UI marker | Exception during yield | Check for errors after `[ROUTER_FC_YIELD_A2UI]` |
+| Frontend receives nothing | NDJSON stream issue | Check `📥 [LINE N]` count |
+| Frontend receives but no widget | Catalog unwrap failure | Check `🔓 [UNWRAP]` strategy |
+| Widget builds but empty | Data format mismatch | Check `🔧 x-sre-tool-log unwrapped data` |
+| Ghost bubble (empty) | Race condition | Verify A2UI before UI in logs |
