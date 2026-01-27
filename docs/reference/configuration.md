@@ -13,7 +13,13 @@ This document details all environment variables used to configure the Auto SRE A
 
 ## Execution Modes
 
-| `SRE_AGENT_ID` | If set, the backend forwards requests to this Vertex AI Agent Engine resource. If unset, runs locally. | - |
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SRE_AGENT_ID` | If set, the backend forwards requests to this Vertex AI Agent Engine resource. **Note**: Used for connection only; session namespace is standardized to `sre_agent`.
+    - `SRE_AGENT_ID` is set to the Vertex Engine resource ID (for connection).
+    - `RUNNING_IN_AGENT_ENGINE=true` is set on the remote instance.
+    - **Session Consistency**: Both Proxy and Backend use `app_name="sre_agent"` for `VertexAiSessionService` to ensure they share the same session namespace, overcoming the fact that the Backend doesn't know its own `SRE_AGENT_ID`. | - |
+| `RUNNING_IN_AGENT_ENGINE` | Set to `true` by `deploy.py` on the Backend to trigger remote-mode behaviors (like using `VertexAiSessionService`) even when `SRE_AGENT_ID` is unset. | `false` |
 | `STRICT_EUC_ENFORCEMENT` | If `true`, fails requests if user credentials in the context are missing. If `false`, falls back to Application Default Credentials (ADC). **Set to `false` for local `adk web` development.** | `false` |
 | `CORS_ALLOW_ALL` | If `true`, allows all origins in FastAPI middleware. Useful for development. | `false` |
 | `SECURE_COOKIES` | If `true`, session cookies are marked as `Secure`. Set to `false` for local `http` dev. | `true` |

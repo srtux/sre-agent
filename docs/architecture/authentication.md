@@ -64,6 +64,7 @@ sequenceDiagram
 Backend sessions are managed using the ADK `SessionService`.
 - **Local Dev**: Uses `DatabaseSessionService` (SQLite) to persist sessions.
 - **Agent Engine**: Uses `VertexAiSessionService` for cloud-native persistence.
+    - **Note**: Uses a fixed `app_name="sre_agent"` to ensure consistency between the Cloud Run proxy and the Agent Engine backend (which lacks `SRE_AGENT_ID`).
 - **Session State**: Stores the **encrypted** user's `access_token`, `user_email`, and `project_id`.
 - **Encryption**: Tokens are encrypted at rest using AES-256 (Fernet).
 

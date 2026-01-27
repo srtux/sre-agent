@@ -76,31 +76,44 @@ class ADKSessionManager:
         """Create the appropriate session service based on environment.
 
         Uses:
-        - VertexAiSessionService when SRE_AGENT_ID is set (Agent Engine)
+        - VertexAiSessionService when running in Agent Engine (remote)
         - DatabaseSessionService for local development (SQLite)
         - InMemorySessionService as fallback
         """
-        # Check for Agent Engine deployment
+        # Determine if we should use Vertex AI (remote) session service
         agent_engine_id = os.getenv("SRE_AGENT_ID")
-        if agent_engine_id:
+        running_remote = os.getenv("RUNNING_IN_AGENT_ENGINE", "false").lower() == "true"
+
+        if agent_engine_id or running_remote:
             try:
-                # Use the Agent Engine ID as the app_name for Vertex AI sessions
-                self.app_name = agent_engine_id
                 from google.adk.sessions import VertexAiSessionService
 
-                project = os.getenv("GOOGLE_CLOUD_PROJECT")
+                project = os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv(
+                    "GCP_PROJECT_ID"
+                )
                 location = (
                     os.getenv("AGENT_ENGINE_LOCATION")
                     or os.getenv("GCP_LOCATION")
                     or os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
                 )
+
+                # STABLE APP NAME FOR VERTEX AI SESSIONS
+                # Consistency between Proxy and Backend is CRITICAL. We use a stable
+                # app_name "sre_agent" for all sessions in this project/location.
+                # This ensures sessions are found even if the Agent ID changes.
+                self.app_name = self.APP_NAME
+
                 if project:
                     logger.info(
-                        f"Using VertexAiSessionService for Agent Engine: {agent_engine_id}"
+                        f"Using VertexAiSessionService (app_name={self.app_name}, project={project})"
                     )
                     return VertexAiSessionService(
                         project=project,
                         location=location,
+                    )
+                else:
+                    logger.warning(
+                        "VertexAiSessionService requested but GOOGLE_CLOUD_PROJECT not set"
                     )
             except Exception as e:
                 logger.warning(f"Failed to initialize VertexAiSessionService: {e}")

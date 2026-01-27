@@ -65,7 +65,9 @@ The backend behavior shifts significantly based on environment variables:
     - Logs go to stdout.
     - Sessions stored in local SQLite.
 - **Remote (Prod)**:
-    - `SRE_AGENT_ID` is set to the Vertex Engine resource ID.
+    - `SRE_AGENT_ID` is set to the Vertex Engine resource ID (used by Proxy to connect).
+    - `RUNNING_IN_AGENT_ENGINE` is set to `true` on the Backend.
+    - **Session Namespace**: Both components use `app_name="sre_agent"` to share the same session database. This prevents "Session not found" errors caused by the Backend not knowing its own Resource ID.
     - Backend acts as a thin, stateful proxy.
     - Logs emitted to Cloud Logging with structured severity.
     - Sessions and memory stored in managed Vertex AI services.
