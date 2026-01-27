@@ -93,6 +93,7 @@ logger = logging.getLogger(__name__)
 # when calling remote agents where ContextVars aren't available.
 SESSION_STATE_ACCESS_TOKEN_KEY = "_user_access_token"
 SESSION_STATE_PROJECT_ID_KEY = "_user_project_id"
+SESSION_STATE_TRACE_ID_KEY = "_trace_id"
 
 _credentials_context: contextvars.ContextVar[Credentials | None] = (
     contextvars.ContextVar("credentials_context", default=None)
@@ -108,6 +109,10 @@ _user_id_context: contextvars.ContextVar[str | None] = contextvars.ContextVar(
 
 _correlation_id_context: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "correlation_id_context", default=None
+)
+
+_trace_id_context: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "trace_id_context", default=None
 )
 
 # Encryption key for securing tokens at rest
@@ -222,6 +227,16 @@ def set_correlation_id(correlation_id: str | None) -> None:
 def get_correlation_id() -> str | None:
     """Gets the correlation ID for the current context."""
     return _correlation_id_context.get()
+
+
+def set_trace_id(trace_id: str | None) -> None:
+    """Sets the trace ID for the current context."""
+    _trace_id_context.set(trace_id)
+
+
+def get_trace_id() -> str | None:
+    """Gets the trace ID for the current context."""
+    return _trace_id_context.get()
 
 
 def get_current_credentials() -> tuple[google.auth.credentials.Credentials, str | None]:
@@ -544,11 +559,26 @@ class ContextAwareCredentials(google.auth.credentials.Credentials):
     def __init__(self) -> None:
         """Initialize context-aware credentials."""
         self._token: str | None = None
+        self._adc_creds: google.auth.credentials.Credentials | None = None
         super().__init__()  # type: ignore[no-untyped-call]
 
     @property
+    def adc_creds(self) -> google.auth.credentials.Credentials:
+        """Lazily load Application Default Credentials."""
+        if self._adc_creds is None:
+            try:
+                self._adc_creds, _ = google.auth.default()
+            except Exception as e:
+                logger.error(f"Failed to load ADC for context-aware fallback: {e}")
+                # Create a dummy credentials object to avoid further errors if ADC is missing
+                from google.auth.credentials import AnonymousCredentials
+
+                self._adc_creds = AnonymousCredentials()
+        return self._adc_creds
+
+    @property
     def token(self) -> str | None:
-        """Dynamically retrieve the token from the current context."""
+        """Dynamically retrieve the token from the current context, or fall back to ADC."""
         creds = _credentials_context.get()
         if creds:
             t = getattr(creds, "token", None)
@@ -559,7 +589,17 @@ class ContextAwareCredentials(google.auth.credentials.Credentials):
             # logger.debug(f"🔑 ContextAwareCredentials: Using fallback token")
             return self._token
 
-        return None
+        # Fallback to ADC token
+        # NOTE: ADC credentials might need refresh to have a token
+        try:
+            adc = self.adc_creds
+            if not getattr(adc, "token", None) and hasattr(adc, "refresh"):
+                # We can't easily refresh here if it's sync and we are in async context,
+                # but google-genai will call refresh() if it finds token is None.
+                pass
+            return getattr(adc, "token", None)
+        except Exception:
+            return None
 
     @token.setter
     def token(self, value: str | None) -> None:
@@ -572,7 +612,11 @@ class ContextAwareCredentials(google.auth.credentials.Credentials):
         creds = _credentials_context.get()
         if creds:
             return cast(bool, creds.valid)
-        return False
+
+        if self._token:
+            return True
+
+        return cast(bool, self.adc_creds.valid)
 
     def apply(self, headers: dict[str, str], token: str | None = None) -> None:
         """Apply credentials to the request headers."""
@@ -616,8 +660,12 @@ class ContextAwareCredentials(google.auth.credentials.Credentials):
                 logger.warning(f"🔑 ContextAwareCredentials: Refresh failed: {e}")
         else:
             logger.debug(
-                "🔑 ContextAwareCredentials: No credentials in context to refresh"
+                "🔑 ContextAwareCredentials: No credentials in context. Falling back to ADC refresh."
             )
+            try:
+                self.adc_creds.refresh(request)
+            except Exception as e:
+                logger.warning(f"🔑 ContextAwareCredentials: ADC refresh failed: {e}")
 
     def __deepcopy__(self, memo: Any) -> "ContextAwareCredentials":
         """Dunder method to support deepcopy and pickling during deployment.

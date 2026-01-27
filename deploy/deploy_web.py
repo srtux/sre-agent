@@ -75,6 +75,8 @@ def main():
         f"AGENT_ENGINE_LOCATION={args.region}",
         f"GOOGLE_CLOUD_LOCATION={os.getenv('GOOGLE_CLOUD_LOCATION', args.region)}",
         f"STRICT_EUC_ENFORCEMENT={os.getenv('STRICT_EUC_ENFORCEMENT', 'true')}",
+        f"LOG_FORMAT={os.getenv('LOG_FORMAT', 'JSON')}",
+        f"LOG_LEVEL={os.getenv('LOG_LEVEL', 'INFO')}",
         "USE_ARIZE=false",
     ]
 

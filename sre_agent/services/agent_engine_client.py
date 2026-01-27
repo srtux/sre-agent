@@ -269,6 +269,18 @@ class AgentEngineClient:
         if project_id and session.state.get(SESSION_STATE_PROJECT_ID_KEY) != project_id:
             state_delta[SESSION_STATE_PROJECT_ID_KEY] = project_id
 
+        # PROPAGATION: Include current OTel Trace ID in session state for cross-service correlation!
+        from opentelemetry import trace
+
+        from sre_agent.auth import SESSION_STATE_TRACE_ID_KEY
+
+        span_context = trace.get_current_span().get_span_context()
+        if span_context.is_valid:
+            trace_id = format(span_context.trace_id, "032x")
+            if session.state.get(SESSION_STATE_TRACE_ID_KEY) != trace_id:
+                state_delta[SESSION_STATE_TRACE_ID_KEY] = trace_id
+                logger.debug(f"📍 Injecting Trace ID into session state: {trace_id}")
+
         if state_delta:
             logger.info(
                 f"🔄 Updating session state with EUC: {list(state_delta.keys())}"
@@ -314,23 +326,27 @@ class AgentEngineClient:
                 )
 
                 try:
-                    async for event in stream:
-                        yield process_event(event)
+                    async for chunk in stream:
+                        # Log raw chunk on debug for tracing specific protocol issues
+                        # logger.debug(f"📥 Received chunk: {chunk}")
+                        yield process_event(chunk)
                 except ValueError as e:
                     # Google API REST streaming raises ValueError when parsing
                     # malformed responses (e.g., "Can only parse array of JSON objects")
-                    # This typically happens when Agent Engine returns an error response
                     error_msg = str(e)
+
+                    # Log the actual failure to help developers identify the malformed response
                     logger.error(
-                        f"Agent Engine stream returned invalid JSON format: {error_msg}. "
-                        "This usually indicates an authentication or execution error in the deployed agent."
+                        f"❌ Agent Engine stream returned invalid JSON format: {error_msg}. "
+                        "This usually happens when the backend returns a non-protocol error (e.g. 500 HTML or raw traceback)."
                     )
+
                     yield {
                         "type": "error",
                         "error": (
                             "Agent execution failed. This is typically caused by authentication issues "
-                            "(e.g., expired/invalid token or encryption key mismatch). "
-                            "Please try signing out and back in, or check the SRE_AGENT_ENCRYPTION_KEY configuration."
+                            "(e.g., expired/invalid token or encryption key mismatch) or a backend crash. "
+                            "Please check the Agent Engine logs in GCP Console using the correlation Trace ID."
                         ),
                     }
                 except AttributeError as e:

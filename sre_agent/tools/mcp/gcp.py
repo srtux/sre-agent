@@ -29,6 +29,7 @@ from ...auth import (
 from ...schema import BaseToolResponse, ToolStatus
 from ..common import adk_tool
 from ..common.debug import log_auth_state, log_mcp_auth_state
+from ..config import get_tool_config_manager
 from .mock_mcp import MockMcpToolset
 
 logger = logging.getLogger(__name__)
@@ -174,14 +175,24 @@ def create_bigquery_mcp_toolset(project_id: str | None = None) -> Any:
         project_id, header_provider=_create_header_provider(project_id)
     )
 
+    # Dynamic Tool Filtering: Filter MCP tools based on configuration
+    manager = get_tool_config_manager()
+    default_tools = [
+        "execute_sql",
+        "list_dataset_ids",
+        "list_table_ids",
+        "get_table_info",
+    ]
+    # Check both raw name and ADK wrapper name (prefixed with mcp_)
+    applied_filter = [
+        t
+        for t in default_tools
+        if manager.is_enabled(t) or manager.is_enabled(f"mcp_{t}")
+    ]
+
     mcp_toolset = api_registry.get_toolset(
         mcp_server_name=mcp_server_name,
-        tool_filter=[
-            "execute_sql",
-            "list_dataset_ids",
-            "list_table_ids",
-            "get_table_info",
-        ],
+        tool_filter=applied_filter,
     )
 
     return mcp_toolset
@@ -226,9 +237,18 @@ def create_logging_mcp_toolset(project_id: str | None = None) -> Any:
         project_id, header_provider=_create_header_provider(project_id)
     )
 
+    # Dynamic Tool Filtering: Filter MCP tools based on configuration
+    manager = get_tool_config_manager()
+    default_tools = ["list_log_entries"]
+    applied_filter = [
+        t
+        for t in default_tools
+        if manager.is_enabled(t) or manager.is_enabled(f"mcp_{t}")
+    ]
+
     mcp_toolset = api_registry.get_toolset(
         mcp_server_name=mcp_server_name,
-        tool_filter=["list_log_entries"],
+        tool_filter=applied_filter,
     )
 
     return mcp_toolset
@@ -274,9 +294,18 @@ def create_monitoring_mcp_toolset(project_id: str | None = None) -> Any:
         project_id, header_provider=_create_header_provider(project_id)
     )
 
+    # Dynamic Tool Filtering: Filter MCP tools based on configuration
+    manager = get_tool_config_manager()
+    default_tools = ["list_timeseries", "query_range"]
+    applied_filter = [
+        t
+        for t in default_tools
+        if manager.is_enabled(t) or manager.is_enabled(f"mcp_{t}")
+    ]
+
     mcp_toolset = api_registry.get_toolset(
         mcp_server_name=mcp_server_name,
-        tool_filter=["list_timeseries", "query_range"],
+        tool_filter=applied_filter,
     )
 
     return mcp_toolset

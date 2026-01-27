@@ -70,7 +70,7 @@ steps:
           --region $LOCATION \
           --platform managed \
           --allow-unauthenticated \
-          --set-env-vars="SRE_AGENT_URL=${AGENT_URL},SRE_AGENT_ID=${RESOURCE_NAME},GCP_PROJECT_ID=${PROJECT_ID},GCP_REGION=${LOCATION}" \
+          --set-env-vars="SRE_AGENT_URL=${AGENT_URL},SRE_AGENT_ID=${RESOURCE_NAME},GCP_PROJECT_ID=${PROJECT_ID},GCP_REGION=${LOCATION},LOG_FORMAT=JSON,LOG_LEVEL=INFO" \
           --set-secrets="GOOGLE_API_KEY=gemini-api-key:latest,GEMINI_API_KEY=gemini-api-key:latest,GOOGLE_CLIENT_ID=google-client-id:latest,SRE_AGENT_ENCRYPTION_KEY=sre-agent-encryption-key:latest"
 
 options:

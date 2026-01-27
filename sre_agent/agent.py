@@ -76,9 +76,10 @@ from .sub_agents import (
     aggregate_analyzer,
     # Alert analysis sub-agents
     alert_analyst,
+    # Metrics analysis sub-agents
+    get_metrics_analyzer,
     # Log analysis sub-agents
     log_analyst,
-    # Metrics analysis sub-agents
     metrics_analyzer,
     root_cause_analyst,
     trace_analyst,
@@ -222,14 +223,31 @@ if project_id:
 
 if use_vertex and project_id:
     try:
+        from .tools.common.telemetry import setup_telemetry
+
+        setup_telemetry()
+
         vertexai.init(project=project_id, location=location)
         logger.info(f"✅ Initialized Vertex AI: {project_id} @ {location}")
     except Exception as e:
-        logger.warning(f"Failed to initialize Vertex AI: {e}")
+        logger.warning(f"Failed to initialize Vertex AI or Telemetry: {e}")
 
 
-def emojify_agent(agent: LlmAgent) -> LlmAgent:
-    """Wraps an LlmAgent to add emojis to prompts and responses in logs."""
+def emojify_agent(agent: LlmAgent | Any) -> LlmAgent | Any:
+    """Wraps an LlmAgent to add emojis to prompts and responses in logs.
+
+    If a callable is passed, it assumes it's a factory (lazy loader) and
+    wraps the factory to return emojified agents.
+    """
+    if callable(agent) and not isinstance(agent, LlmAgent):
+
+        @functools.wraps(agent)
+        def wrapped_factory(*args: Any, **kwargs: Any) -> Any:
+            instance = agent(*args, **kwargs)
+            return emojify_agent(instance)
+
+        return wrapped_factory
+
     original_run_async = agent.run_async
 
     @functools.wraps(original_run_async)
@@ -311,6 +329,31 @@ def emojify_agent(agent: LlmAgent) -> LlmAgent:
             if user_email:
                 set_current_user_id(user_email)
 
+            from opentelemetry import context as otel_context
+            from opentelemetry import trace
+            from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
+
+            from .auth import SESSION_STATE_TRACE_ID_KEY, set_trace_id
+
+            remote_trace_id = session_state.get(SESSION_STATE_TRACE_ID_KEY)
+            token = None
+            if remote_trace_id:
+                set_trace_id(remote_trace_id)
+                try:
+                    # Link local operations to the global trace!
+                    span_context = SpanContext(
+                        trace_id=int(remote_trace_id, 16),
+                        span_id=0,
+                        is_remote=True,
+                        trace_flags=TraceFlags(TraceFlags.SAMPLED),
+                    )
+                    parent_ctx = trace.set_span_in_context(
+                        NonRecordingSpan(span_context)
+                    )
+                    token = otel_context.attach(parent_ctx)
+                except Exception:
+                    pass
+
         # 3. Run Original with Arize session context
         full_response_parts = []
         try:
@@ -333,6 +376,10 @@ def emojify_agent(agent: LlmAgent) -> LlmAgent:
             if should_swap:
                 object.__setattr__(agent, "model", old_model)
                 logger.debug(f"Emojify: Restored model for {agent.name}")
+
+            # Detach OTel context if attached
+            if token is not None:
+                otel_context.detach(token)
 
         # 4. Log Response
         final_response = "".join(full_response_parts)
@@ -937,7 +984,7 @@ Direct Tools:
 - Analysis: analyze_trace_comprehensive, find_bottleneck_services, correlate_logs_with_trace
 - Platform: get_gke_cluster_health, list_alerts, detect_metric_anomalies""",
     instruction=f"{SRE_AGENT_PROMPT}\n\n## 📅 Current Time\nThe current time is: {datetime.now(timezone.utc).isoformat()}",
-    tools=base_tools,
+    tools=get_enabled_base_tools(),
     # Sub-agents for specialized analysis (automatically invoked based on task)
     sub_agents=[
         # Trace analysis sub-agents
@@ -960,8 +1007,9 @@ root_agent = emojify_agent(sre_agent)
 aggregate_analyzer = emojify_agent(aggregate_analyzer)
 trace_analyst = emojify_agent(trace_analyst)
 log_analyst = emojify_agent(log_analyst)
-metrics_analyzer = emojify_agent(metrics_analyzer)
+get_metrics_analyzer = emojify_agent(get_metrics_analyzer)  # type: ignore[assignment]
 alert_analyst = emojify_agent(alert_analyst)
+
 root_cause_analyst = emojify_agent(root_cause_analyst)
 
 
@@ -977,7 +1025,7 @@ def _inject_global_credentials(agent_to_patch: Any, force: bool = False) -> Any:
     that dynamically pick up the user's token from the request context.
 
     Args:
-        agent_to_patch: The agent to patch.
+        agent_to_patch: The agent (or lazy loader factory) to patch.
         force: If True, forces instantiation of the model if it's currently a string.
                This should be set to True at runtime (in run_async) but False at
                module level to avoid deepcopy failures during deployment.
@@ -985,6 +1033,11 @@ def _inject_global_credentials(agent_to_patch: Any, force: bool = False) -> Any:
     Returns:
         The instantiated/patched model object, or None if injection was skipped.
     """
+    # If it's a lazy loader factory, we can't easily patch it here
+    # unless we wrap the factory itself.
+    if callable(agent_to_patch) and not isinstance(agent_to_patch, LlmAgent):
+        return None
+
     try:
         if not hasattr(agent_to_patch, "model"):
             return None

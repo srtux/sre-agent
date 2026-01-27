@@ -160,6 +160,8 @@ def deploy(env_vars: dict[str, str] | None = None) -> None:
             "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "true",
             "USE_ARIZE": "false",
             "RUNNING_IN_AGENT_ENGINE": "true",
+            "LOG_FORMAT": "JSON",
+            "LOG_LEVEL": os.getenv("LOG_LEVEL", "INFO"),
             "STRICT_EUC_ENFORCEMENT": os.getenv("STRICT_EUC_ENFORCEMENT", "false"),
             "SRE_AGENT_ENCRYPTION_KEY": os.getenv("SRE_AGENT_ENCRYPTION_KEY", ""),
             **env_vars,

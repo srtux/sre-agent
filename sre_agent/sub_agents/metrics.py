@@ -41,6 +41,7 @@ from ._init_env import init_sub_agent_env
 
 init_sub_agent_env()
 
+
 # =============================================================================
 # Prompts
 # =============================================================================
@@ -181,3 +182,8 @@ metrics_analyzer = LlmAgent(
         update_investigation_state,
     ],
 )
+
+
+def get_metrics_analyzer() -> LlmAgent:
+    """Returns the metrics_analyzer sub-agent."""
+    return metrics_analyzer

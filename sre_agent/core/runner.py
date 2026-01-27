@@ -174,6 +174,19 @@ class Runner:
         self._active_executions[session_id] = exec_ctx
 
         try:
+            # Refresh agent tools from current configuration for dynamic filtering
+            try:
+                from sre_agent.agent import get_enabled_base_tools
+
+                enabled_tools = get_enabled_base_tools()
+                if hasattr(self.agent, "tools"):
+                    self.agent.tools = enabled_tools
+                    logger.debug(
+                        f"Refreshed {len(enabled_tools)} tools for agent {self.agent.name}"
+                    )
+            except (ImportError, AttributeError, Exception) as e:
+                logger.debug(f"Could not refresh agent tools dynamically: {e}")
+
             # Step 1: Get working context (with compaction if needed)
             working_context = await self._get_working_context(session)
 

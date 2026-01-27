@@ -64,31 +64,73 @@ class RunnerAgentAdapter(LlmAgent):
 
         user_id = getattr(session, "user_id", "default")
 
+        from opentelemetry import context as otel_context
+        from opentelemetry import trace
+        from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
+
+        from sre_agent.auth import SESSION_STATE_TRACE_ID_KEY, set_trace_id
+
+        # PROPAGATION: Set Trace ID from Session State for log correlation
+        remote_trace_id = session.state.get(SESSION_STATE_TRACE_ID_KEY)
+        token = None
+        if remote_trace_id:
+            set_trace_id(remote_trace_id)
+            try:
+                # Link local operations to the global trace!
+                # This ensures any spans created here are children of the frontend request.
+                span_context = SpanContext(
+                    trace_id=int(remote_trace_id, 16),
+                    span_id=0,
+                    is_remote=True,
+                    trace_flags=TraceFlags(TraceFlags.SAMPLED),
+                )
+                parent_ctx = trace.set_span_in_context(NonRecordingSpan(span_context))
+                token = otel_context.attach(parent_ctx)
+                logger.debug(
+                    f"📍 Attached OTel context with Trace ID: {remote_trace_id}"
+                )
+            except Exception as e:
+                logger.warning(f"Failed to attach OTel context: {e}")
+
         # Extract Project ID from Session State
         # The proxy ensures this is set in session state before calling Agent Engine
         project_id = session.state.get(SESSION_STATE_PROJECT_ID_KEY)
 
-        # Reconstruct DomainContext from Session State
-        # Investigation State should be in session state
-        inv_state_dict = session.state.get("investigation_state", {})
-        inv_state = (
-            InvestigationState.from_dict(inv_state_dict) if inv_state_dict else None
-        )
-
-        domain_ctx = DomainContext(
-            project_id=project_id,
-            investigation_phase=inv_state.phase.value if inv_state else None,
-        )
-
         logger.info(
-            f"🚀 RunnerAdapter starting turn: user={user_id}, project={project_id}"
+            f"🚀 RunnerAdapter starting turn: user={user_id}, project={project_id}, session={session.id}"
         )
 
-        async for event in self.runner.run_turn(
-            session=session,
-            user_message=user_message,
-            user_id=user_id,
-            project_id=project_id,
-            domain_context=domain_ctx,
-        ):
-            yield event
+        try:
+            # Reconstruct DomainContext from Session State
+            # Investigation State should be in session state
+            inv_state_dict = session.state.get("investigation_state", {})
+            inv_state = (
+                InvestigationState.from_dict(inv_state_dict) if inv_state_dict else None
+            )
+
+            domain_ctx = DomainContext(
+                project_id=project_id,
+                investigation_phase=inv_state.phase.value if inv_state else None,
+            )
+
+            async for event in self.runner.run_turn(
+                session=session,
+                user_message=user_message,
+                user_id=user_id,
+                project_id=project_id,
+                domain_context=domain_ctx,
+            ):
+                yield event
+        except Exception as e:
+            logger.error(f"🔥 RunnerAdapter failed: {e}", exc_info=True)
+            # CRITICAL: Yield an error event so the client gets valid ADK protocol response
+            # instead of a raw traceback/malformed JSON chunk.
+            try:
+                yield self.runner._create_error_event(str(e))
+            except Exception:
+                pass
+            # Re-raise to allow AdkApp to handle/return error
+            raise e
+        finally:
+            if token:
+                otel_context.detach(token)

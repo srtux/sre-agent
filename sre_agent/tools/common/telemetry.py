@@ -437,19 +437,37 @@ def _configure_logging_handlers(level: int, project_id: str | None) -> None:
                 }
 
                 # Add Trace Context if available
+                # CRITICAL: Prioritize manually propagated Trace ID for cross-service correlation!
+                from sre_agent.auth import get_trace_id
+
+                manual_trace_id = get_trace_id()
                 span_context = trace.get_current_span().get_span_context()
-                if span_context.is_valid:
+
+                trace_id = None
+                span_id = None
+
+                if manual_trace_id:
+                    trace_id = manual_trace_id
+                    # If we have a local span, keep its ID for internal search,
+                    # but it will be logically part of the global trace.
+                    if span_context.is_valid:
+                        span_id = format(span_context.span_id, "016x")
+                elif span_context.is_valid:
                     trace_id = format(span_context.trace_id, "032x")
                     span_id = format(span_context.span_id, "016x")
+
+                if trace_id:
                     log_obj["trace_id"] = trace_id
-                    log_obj["span_id"] = span_id
+                    if span_id:
+                        log_obj["span_id"] = span_id
 
                     # GCP-specific correlation fields
                     if project_id:
                         log_obj["logging.googleapis.com/trace"] = (
                             f"projects/{project_id}/traces/{trace_id}"
                         )
-                        log_obj["logging.googleapis.com/spanId"] = span_id
+                        if span_id:
+                            log_obj["logging.googleapis.com/spanId"] = span_id
 
                 # Handle exceptions
                 if record.exc_info:
@@ -457,7 +475,8 @@ def _configure_logging_handlers(level: int, project_id: str | None) -> None:
 
                 return json_dumps(log_obj)
 
-        handler = logging.StreamHandler(sys.stdout)
+        # CRITICAL: StreamHandler(sys.stderr) ensures error/info logs are on the correct stream for Cloud Run
+        handler = logging.StreamHandler(sys.stderr)
         handler.setFormatter(JsonFormatter())
         handler.addFilter(EmojiLoggingFilter())
         logging.getLogger().handlers = [handler]
@@ -509,6 +528,13 @@ def _configure_logging_handlers(level: int, project_id: str | None) -> None:
                     otel_trace_id == "0"
                     or otel_trace_id == "00000000000000000000000000000000"
                 ):
+                    from sre_agent.auth import get_trace_id
+
+                    # Use propagated trace ID if available
+                    otel_trace_id = get_trace_id() or "0"
+                    otel_span_id = "0"
+
+                if otel_trace_id == "0":
                     trace_ctx = ""
                 else:
                     trace_ctx = f" [trace_id={otel_trace_id} span_id={otel_span_id}]"

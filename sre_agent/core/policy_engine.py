@@ -710,7 +710,7 @@ class PolicyEngine:
                 access_level=ToolAccessLevel.ADMIN,
             )
 
-        # Check project context requirement
+        # Check if project context requirement
         if policy.requires_project_context and not project_id:
             logger.warning(
                 f"Tool {tool_name} requires project context but none provided"
@@ -722,6 +722,30 @@ class PolicyEngine:
                 reason="Tool requires project context but none provided.",
                 access_level=policy.access_level,
             )
+
+        # Dynamic Tool Filtering: Check if tool is disabled in config
+        try:
+            from sre_agent.tools.config import get_tool_config_manager
+
+            manager = get_tool_config_manager()
+            if not manager.is_enabled(tool_name):
+                logger.info(
+                    f"Tool {tool_name} is disabled in configuration - rejecting"
+                )
+                return PolicyDecision(
+                    tool_name=tool_name,
+                    allowed=False,
+                    requires_approval=False,
+                    reason=f"Tool '{tool_name}' is currently disabled in configuration.",
+                    access_level=policy.access_level,
+                )
+        except ImportError:
+            # Fallback if tools package is not available (e.g. minimal core tests)
+            logger.debug(
+                f"Tools config manager not available, skipping enabled check for {tool_name}"
+            )
+        except Exception as e:
+            logger.warning(f"Error checking tool configuration for {tool_name}: {e}")
 
         # Evaluate based on access level
         if policy.access_level == ToolAccessLevel.READ_ONLY:

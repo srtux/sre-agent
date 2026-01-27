@@ -19,9 +19,11 @@ from sre_agent.auth import (
     get_current_project_id_or_none,
     get_project_id_from_session,
     get_project_id_from_tool_context,
+    get_trace_id,
     has_required_scopes,
     set_current_credentials,
     set_current_project_id,
+    set_trace_id,
     validate_access_token,
     validate_access_token_sync,
 )
@@ -52,6 +54,12 @@ def test_project_id_context():
     project_id = "test-project"
     set_current_project_id(project_id)
     assert get_current_project_id() == project_id
+
+
+def test_trace_id_context():
+    trace_id = "test-trace-id"
+    set_trace_id(trace_id)
+    assert get_trace_id() == trace_id
 
 
 def test_get_current_credentials_fallback():
