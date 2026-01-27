@@ -253,6 +253,33 @@ def setup_telemetry(level: int = logging.INFO) -> None:
             "PYTEST_CURRENT_TEST"
         )  # Disable during unit tests to avoid hangs
     ):
+        # Even if running in Agent Engine, ensure we have at least one handler to capture stdout logs
+        # This is critical if logging.basicConfig was removed from entry points.
+        root_logger = logging.getLogger()
+
+        # Force the level to ensure INFO logs (like prompts) are not suppressed
+        root_logger.setLevel(level)
+
+        if not root_logger.handlers:
+            # Fallback: Add basic StreamHandler to ensuring logging reaches Agent Engine's stdout scraper
+            handler = logging.StreamHandler(sys.stdout)
+            # Use a simple format compatible with Cloud Logging (Agent Engine will likely wrap it)
+            formatter = logging.Formatter(
+                "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+            )
+            handler.setFormatter(formatter)
+            root_logger.addHandler(handler)
+            logging.getLogger(__name__).info(
+                "Initialized fallback StreamHandler for Agent Engine environment"
+            )
+
+        # Apply critical noise filters to avoid polluting Agent Engine logs with OTel warnings
+        # This is not "special instrumentation" but "basic hygiene".
+        logging.getLogger().addFilter(noise_filter)
+        logging.getLogger("opentelemetry.sdk.metrics._internal.export").addFilter(
+            noise_filter
+        )
+
         logging.getLogger(__name__).info(
             "Manual Telemetry/Logging setup skipped (disabled or running in Native ADK environment)"
         )
@@ -314,16 +341,6 @@ def setup_telemetry(level: int = logging.INFO) -> None:
 
         # Phase 5: Advanced & Agent-specific instrumentation (if extra packages are installed)
         # These are crucial for World-Class visibility in GCP
-        try:
-            from opentelemetry.instrumentation.logging import LoggingInstrumentor
-
-            LoggingInstrumentor().instrument(set_logging_format=False)
-            logging.getLogger(__name__).info(
-                "✅ Logging instrumentation enabled (context injection)."
-            )
-        except ImportError:
-            pass
-
         try:
             from typing import Any, cast
 
