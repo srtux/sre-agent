@@ -45,6 +45,7 @@ Auto SRE is an autonomous reliability engine for Google Cloud. We are transition
 - [ ] **Proactive Search Logic**: Use the Memory Bank to automatically retrieve similar past incidents at the beginning of an investigation.
 - [ ] **Investigation State Machine**: Implement a formal state tracker (Triage → Analysis → Root Cause) to guide agent reasoning.
 - [ ] **Cross-Agent Handoffs**: Refine the schema for passing context (including negative findings) between sub-agents.
+- [ ] **Automated CI/CD (Cloud Build)**: Orchestrate full-stack deployment (Agent Engine + Cloud Run) via GCP native triggers.
 
 ### Phase 3: Advanced Diagnostics (UPCOMING)
 **Goal**: Specialized analytical logic for complex failure modes.
