@@ -89,8 +89,10 @@ def runner(
     mock_approval_manager,
 ):
     """Create a Runner instance with mocks."""
+    config = RunnerConfig(enforce_policy=True)
     return Runner(
         agent=mock_agent,
+        config=config,
         policy_engine=mock_policy_engine,
         context_compactor=mock_context_compactor,
         prompt_composer=mock_prompt_composer,
