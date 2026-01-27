@@ -148,7 +148,9 @@ def _get_project_id() -> str:
     )
     if not project_id:
         raise ValueError(
-            "Project ID not found in context or environment variables (TRACE_PROJECT_ID, GOOGLE_CLOUD_PROJECT)"
+            "Project ID not found in context or environment variables (TRACE_PROJECT_ID, GOOGLE_CLOUD_PROJECT). "
+            "HINT: If you are using the Agent Engine playground, please pass the project ID "
+            "in your request (e.g., 'Analyze traces in project my-project-id') or use the project selector."
         )
     return project_id
 
@@ -193,7 +195,13 @@ def fetch_trace_data(
             pass
 
     if not project_id:
-        return {"error": "Project ID required to fetch trace."}
+        return {
+            "error": (
+                "Project ID required to fetch trace. "
+                "HINT: If you are using the Agent Engine playground, please pass the project ID "
+                "in your request (e.g., 'Analyze traces in project my-project-id') or use the project selector."
+            )
+        }
 
     user_creds = get_credentials_from_tool_context(tool_context)
     try:
@@ -336,6 +344,13 @@ def _fetch_trace_sync(project_id: str, trace_id: str) -> dict[str, Any]:
         except Exception as e:
             span.record_exception(e)
             error_msg = f"Failed to fetch trace: {e!s}"
+            if "404" in error_msg or "NotFound" in error_msg:
+                error_msg += (
+                    "\n\nHINT: Trace not found. "
+                    "Ensure the trace ID is correct. If you found this ID in a log, "
+                    "make sure it's the full 32-character hex string. "
+                    "Try listing recent traces with 'list_traces' to find valid IDs."
+                )
             logger.error(error_msg, exc_info=True)
             return {"error": error_msg}
 

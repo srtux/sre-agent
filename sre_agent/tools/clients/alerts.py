@@ -42,7 +42,7 @@ def _get_authorized_session(tool_context: Any = None) -> AuthorizedSession:
 
 @adk_tool
 async def list_alerts(
-    project_id: str,
+    project_id: str | None = None,
     filter_str: str | None = None,
     order_by: str | None = None,
     page_size: int = 100,
@@ -68,6 +68,21 @@ async def list_alerts(
         Standardized response with alert details.
     """
     from fastapi.concurrency import run_in_threadpool
+
+    from sre_agent.auth import get_current_project_id
+
+    if not project_id:
+        project_id = get_current_project_id()
+        if not project_id:
+            return BaseToolResponse(
+                status=ToolStatus.ERROR,
+                error=(
+                    "Project ID is required but not provided or found in context. "
+                    "HINT: If you are using the Agent Engine playground, please pass the project ID "
+                    "in your request (e.g., 'Analyze logs in project my-project-id') or use the project selector. "
+                    "Local users should set the GOOGLE_CLOUD_PROJECT environment variable."
+                ),
+            )
 
     result = await run_in_threadpool(
         _list_alerts_sync, project_id, filter_str, order_by, page_size, tool_context
@@ -184,13 +199,28 @@ def _get_alert_sync(name: str, tool_context: Any = None) -> dict[str, Any]:
 
 @adk_tool
 async def list_alert_policies(
-    project_id: str,
+    project_id: str | None = None,
     filter_str: str | None = None,
     page_size: int = 100,
     tool_context: Any = None,
 ) -> BaseToolResponse:
     """Lists alert policies from Google Cloud Monitoring."""
     from fastapi.concurrency import run_in_threadpool
+
+    from sre_agent.auth import get_current_project_id
+
+    if not project_id:
+        project_id = get_current_project_id()
+        if not project_id:
+            return BaseToolResponse(
+                status=ToolStatus.ERROR,
+                error=(
+                    "Project ID is required but not provided or found in context. "
+                    "HINT: If you are using the Agent Engine playground, please pass the project ID "
+                    "in your request (e.g., 'Analyze logs in project my-project-id') or use the project selector. "
+                    "Local users should set the GOOGLE_CLOUD_PROJECT environment variable."
+                ),
+            )
 
     result = await run_in_threadpool(
         _list_alert_policies_sync, project_id, filter_str, page_size, tool_context

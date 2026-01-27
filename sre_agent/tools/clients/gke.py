@@ -69,7 +69,13 @@ async def get_gke_cluster_health(
 
     if not project_id:
         return BaseToolResponse(
-            status=ToolStatus.ERROR, error="No project ID provided or detected."
+            status=ToolStatus.ERROR,
+            error=(
+                "Project ID is required but not provided or found in context. "
+                "HINT: If you are using the Agent Engine playground, please pass the project ID "
+                "in request (e.g., 'Analyze logs in project my-project-id') or use the project selector. "
+                "Local users should set the GOOGLE_CLOUD_PROJECT environment variable."
+            ),
         )
 
     result = await run_in_threadpool(
@@ -201,7 +207,13 @@ async def analyze_node_conditions(
 
     if not project_id:
         return BaseToolResponse(
-            status=ToolStatus.ERROR, error="No project ID provided or detected."
+            status=ToolStatus.ERROR,
+            error=(
+                "Project ID is required but not provided or found in context. "
+                "HINT: If you are using the Agent Engine playground, please pass the project ID "
+                "in request (e.g., 'Analyze logs in project my-project-id') or use the project selector. "
+                "Local users should set the GOOGLE_CLOUD_PROJECT environment variable."
+            ),
         )
 
     result = await run_in_threadpool(
@@ -427,7 +439,13 @@ async def get_pod_restart_events(
 
     if not project_id:
         return BaseToolResponse(
-            status=ToolStatus.ERROR, error="No project ID provided or detected."
+            status=ToolStatus.ERROR,
+            error=(
+                "Project ID is required but not provided or found in context. "
+                "HINT: If you are using the Agent Engine playground, please pass the project ID "
+                "in request (e.g., 'Analyze logs in project my-project-id') or use the project selector. "
+                "Local users should set the GOOGLE_CLOUD_PROJECT environment variable."
+            ),
         )
 
     result = await run_in_threadpool(
@@ -592,7 +610,13 @@ async def analyze_hpa_events(
 
     if not project_id:
         return BaseToolResponse(
-            status=ToolStatus.ERROR, error="No project ID provided or detected."
+            status=ToolStatus.ERROR,
+            error=(
+                "Project ID is required but not provided or found in context. "
+                "HINT: If you are using the Agent Engine playground, please pass the project ID "
+                "in request (e.g., 'Analyze logs in project my-project-id') or use the project selector. "
+                "Local users should set the GOOGLE_CLOUD_PROJECT environment variable."
+            ),
         )
 
     result = await run_in_threadpool(
@@ -771,7 +795,13 @@ async def get_container_oom_events(
 
     if not project_id:
         return BaseToolResponse(
-            status=ToolStatus.ERROR, error="No project ID provided or detected."
+            status=ToolStatus.ERROR,
+            error=(
+                "Project ID is required but not provided or found in context. "
+                "HINT: If you are using the Agent Engine playground, please pass the project ID "
+                "in request (e.g., 'Analyze logs in project my-project-id') or use the project selector. "
+                "Local users should set the GOOGLE_CLOUD_PROJECT environment variable."
+            ),
         )
 
     result = await run_in_threadpool(
@@ -1123,7 +1153,12 @@ async def get_workload_health_summary(
         if not project_id:
             return BaseToolResponse(
                 status=ToolStatus.ERROR,
-                error="Project ID is required but not provided or found in context.",
+                error=(
+                    "Project ID is required but not provided or found in context. "
+                    "HINT: If you are using the Agent Engine playground, please pass the project ID "
+                    "in request (e.g., 'Analyze logs in project my-project-id') or use the project selector. "
+                    "Local users should set the GOOGLE_CLOUD_PROJECT environment variable."
+                ),
             )
 
     result = await run_in_threadpool(

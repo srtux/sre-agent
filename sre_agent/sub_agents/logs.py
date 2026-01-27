@@ -65,6 +65,10 @@ I don't just read logs; I *feel* them. I find the needle in the stack of needles
     -   **NO GKE RESOURCE HALLUCINATION**: Do NOT use `resource.type="gke_container"`. Use `resource.type="k8s_container"`.
     -   **Text Search**: `"phrase"`, `textPayload:"text"`, `jsonPayload.message =~ "regex"`
     -   **Timestamp**: `timestamp >= "2024-01-01T00:00:00Z"`
+    -   **JSON Payload (CRITICAL)**: You cannot use the colon operator on the top-level `jsonPayload` if the API says it's a "nested type".
+        -   ✅ `jsonPayload.message:"error"`
+        -   ✅ `"error"` (Global search)
+        -   ❌ `jsonPayload:"error"`
 
 **Analysis Workflow**:
 1.  **Find the Table**: `discover_telemetry_sources`.

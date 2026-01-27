@@ -68,7 +68,12 @@ async def list_log_entries(
         if not project_id:
             return BaseToolResponse(
                 status=ToolStatus.ERROR,
-                error="Project ID is required but not provided or found in context.",
+                error=(
+                    "Project ID is required but not provided or found in context. "
+                    "HINT: If you are using the Agent Engine playground, please pass the project ID "
+                    "in request (e.g., 'Analyze logs in project my-project-id') or use the project selector. "
+                    "Local users should set the GOOGLE_CLOUD_PROJECT environment variable."
+                ),
             )
 
     result = await run_in_threadpool(
@@ -202,6 +207,12 @@ def _list_log_entries_sync(
                         "\n\nHINT: Compute Engine fields like 'instance_id' must be prefixed "
                         "with 'resource.labels.'. Try 'resource.labels.instance_id=\"...\"' instead."
                     )
+                elif "nested type" in error_msg and "jsonPayload" in error_msg:
+                    error_msg += (
+                        "\n\nHINT: You cannot use the colon operator on 'jsonPayload' itself "
+                        "if it is treated as a nested type. Try searching for specific fields like 'jsonPayload.message' "
+                        "or just use a global search string without 'jsonPayload:'."
+                    )
 
             logger.error(error_msg, exc_info=True)
             return {"error": error_msg}
@@ -230,7 +241,12 @@ async def list_error_events(
         if not project_id:
             return BaseToolResponse(
                 status=ToolStatus.ERROR,
-                error="Project ID is required but not provided or found in context.",
+                error=(
+                    "Project ID is required but not provided or found in context. "
+                    "HINT: If you are using the Agent Engine playground, please pass the project ID "
+                    "in your request (e.g., 'Analyze logs in project my-project-id') or use the project selector. "
+                    "Local users should set the GOOGLE_CLOUD_PROJECT environment variable."
+                ),
             )
 
     result = await run_in_threadpool(

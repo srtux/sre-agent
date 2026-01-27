@@ -129,6 +129,9 @@ You have access to a curated list of common Google Cloud metrics:
     - **Resource**: `resource.type`, `resource.labels.KEY`
 - **Example**:
     - `metric.type="compute.googleapis.com/instance/cpu/utilization" AND resource.labels.zone="us-central1-a"`
+- **GCE Filters (CRITICAL)**:
+    - **NO `instance_name`**: For `resource.type="gce_instance"`, you **MUST** use `resource.labels.instance_id`.
+    - **Resolution**: Use `list_log_entries` or `list_traces` to find the 19-digit numeric `instance_id` if you only have the name.
 
 **Tool Strategy (STRICT HIERARCHY) 🛠️**:
 1.  **PromQL (Primary)**:

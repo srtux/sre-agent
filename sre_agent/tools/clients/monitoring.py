@@ -71,7 +71,12 @@ async def list_time_series(
         if not project_id:
             return BaseToolResponse(
                 status=ToolStatus.ERROR,
-                error="Project ID is required but not provided or found in context.",
+                error=(
+                    "Project ID is required but not provided or found in context. "
+                    "HINT: If you are using the Agent Engine playground, please pass the project ID "
+                    "in request (e.g., 'Analyze logs in project my-project-id') or use the project selector. "
+                    "Local users should set the GOOGLE_CLOUD_PROJECT environment variable."
+                ),
             )
 
     result = await run_in_threadpool(
@@ -233,9 +238,12 @@ def _list_time_series_sync(
             elif (
                 "400" in error_str
                 and "gce_instance" in filter_str
-                and "instance_name" in filter_str
+                and (
+                    "instance_name" in filter_str
+                    or "resource.labels.name" in filter_str
+                )
             ):
-                suggestion = ". HINT: GCE instance metrics (resource.type=\"gce_instance\") require 'resource.labels.instance_id', NOT 'instance_name'. Use 'list_traces' or 'list_log_entries' to find the instance ID if you only have the name."
+                suggestion = ". HINT: GCE instance metrics (resource.type=\"gce_instance\") require 'resource.labels.instance_id', NOT 'instance_name'. You can find the instance ID by listing logs for the resource or using 'gcloud compute instances list'."
             elif "400" in error_str and "gke_container" in filter_str:
                 suggestion = ". HINT: For GKE metrics, try using 'resource.type=\"k8s_container\"' instead of 'gke_container'."
 
@@ -270,7 +278,12 @@ async def list_metric_descriptors(
         if not project_id:
             return BaseToolResponse(
                 status=ToolStatus.ERROR,
-                error="Project ID is required but not provided or found in context.",
+                error=(
+                    "Project ID is required but not provided or found in context. "
+                    "HINT: If you are using the Agent Engine playground, please pass the project ID "
+                    "in request (e.g., 'Analyze logs in project my-project-id') or use the project selector. "
+                    "Local users should set the GOOGLE_CLOUD_PROJECT environment variable."
+                ),
             )
 
     result = await run_in_threadpool(
@@ -379,7 +392,12 @@ async def query_promql(
         if not project_id:
             return BaseToolResponse(
                 status=ToolStatus.ERROR,
-                error="Project ID is required but not provided or found in context.",
+                error=(
+                    "Project ID is required but not provided or found in context. "
+                    "HINT: If you are using the Agent Engine playground, please pass the project ID "
+                    "in request (e.g., 'Analyze logs in project my-project-id') or use the project selector. "
+                    "Local users should set the GOOGLE_CLOUD_PROJECT environment variable."
+                ),
             )
 
     result = await run_in_threadpool(
@@ -434,7 +452,18 @@ def _query_promql_sync(
             params = {"query": query, "start": start, "end": end, "step": step}
 
             response = session.get(url, params=params)
-            response.raise_for_status()
+            if response.status_code != 200:
+                try:
+                    error_details = response.json()
+                    error_msg = error_details.get("error", {}).get(
+                        "message", str(error_details)
+                    )
+                    logger.error(
+                        f"PromQL API Error ({response.status_code}): {error_msg}"
+                    )
+                    raise Exception(error_msg)
+                except Exception:
+                    response.raise_for_status()
 
             return cast(dict[str, Any], response.json())
 
@@ -454,6 +483,12 @@ def _query_promql_sync(
                     suggestion += " Note: Your query looks like MQL (Monitoring Query Language). This tool ONLY supports PromQL. Convert your query to PromQL, for example: 'compute_googleapis_com:instance_cpu_utilization'."
                 elif "instance_name" in query and "gce_instance" in query:
                     suggestion += " Note: For GCE instance metrics in PromQL, you usually need to filter by 'instance_id' instead of 'instance_name' when using resource labels (e.g., '{instance_id=\"...\"}')."
+                elif "histogram_quantile" in query:
+                    suggestion += " Note: histogram_quantile requires exactly two arguments: a scalar (e.g. 0.99) and a vector of buckets. Ensure your aggregation (sum by) includes the 'le' label, as in 'sum by (le, ...) (rate(...))'."
+                elif "__name__" in query:
+                    suggestion += " Note: When using '__name__' with regex, ensure the regex is valid and matches actual metrics in your project. Try a simpler query like '{__name__=\"metric_name\"}' first to verify the metric exists."
+                elif "by (" in query:
+                    suggestion += " Note: If you are aggregating by labels (e.g., 'sum by (label_name)'), ensure those labels exist on the underlying metric. Use a raw query like 'metric_name' to see available labels."
 
             error_msg = f"Failed to execute PromQL query: {e!s}{suggestion}"
             logger.error(error_msg, exc_info=True)

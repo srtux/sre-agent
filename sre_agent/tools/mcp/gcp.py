@@ -346,7 +346,12 @@ async def call_mcp_tool_with_retry(
     if not project_id:
         return {
             "status": ToolStatus.ERROR,
-            "error": "No project ID available. Set GOOGLE_CLOUD_PROJECT environment variable.",
+            "error": (
+                "No project ID available. HINT: If you are using the Agent Engine playground, "
+                "please ensure you have selected a project or passed the project ID in your request "
+                "(e.g., 'Analyze logs in project my-project-id'). Local users should set the "
+                "GOOGLE_CLOUD_PROJECT environment variable."
+            ),
         }
 
     # DEBUG: Log auth state and MCP headers before making the call

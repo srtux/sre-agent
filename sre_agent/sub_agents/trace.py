@@ -119,7 +119,8 @@ You look at traces holistically to find what's slow, what's broken, and why.
     -   `compare_span_timings`: To find what got slower.
     -   `analyze_trace_comprehensive` with `baseline_trace_id` set.
 3.  **Resiliency**: Use `detect_all_sre_patterns` to check for retry storms, cascading timeouts, and pool exhaustion.
-4.  **Deep Dive**: Use `analyze_critical_path` or `find_bottleneck_services` if the comprehensive analysis points to complex dependency issues.
+4.  **Trace Existence (CRITICAL)**: **NEVER** guess or hallucinate trace IDs. Only fetch IDs found in logs, metrics (exemplars), or lists. If a fetch fails with 404, check if the ID was truncated or incorrectly copied.
+5.  **Deep Dive**: Use `analyze_critical_path` or `find_bottleneck_services` if the comprehensive analysis points to complex dependency issues.
 
 ### 🎯 Comparisons (Baseline vs Target)
 When asked to compare traces:

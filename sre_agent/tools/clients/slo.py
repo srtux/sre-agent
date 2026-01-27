@@ -35,7 +35,7 @@ def _get_authorized_session(tool_context: Any = None) -> AuthorizedSession:
 
 @adk_tool
 async def list_slos(
-    project_id: str,
+    project_id: str | None = None,
     service_id: str | None = None,
     tool_context: Any = None,
 ) -> BaseToolResponse:
@@ -56,6 +56,21 @@ async def list_slos(
     Example:
         list_slos("my-project", "checkout-service")
     """
+    from ...auth import get_current_project_id
+
+    if not project_id:
+        project_id = get_current_project_id()
+        if not project_id:
+            return BaseToolResponse(
+                status=ToolStatus.ERROR,
+                error=(
+                    "Project ID is required but not provided or found in context. "
+                    "HINT: If you are using the Agent Engine playground, please pass the project ID "
+                    "in your request (e.g., 'Analyze logs in project my-project-id') or use the project selector. "
+                    "Local users should set the GOOGLE_CLOUD_PROJECT environment variable."
+                ),
+            )
+
     try:
         credentials = get_credentials_from_tool_context(tool_context)
         if not credentials:
@@ -125,11 +140,26 @@ async def list_slos(
 
 @adk_tool
 async def get_slo_status(
-    project_id: str,
-    service_id: str,
-    slo_id: str,
+    project_id: str | None = None,
+    service_id: str | None = None,
+    slo_id: str | None = None,
     tool_context: Any = None,
 ) -> BaseToolResponse:
+    """Get current SLO compliance status including error budget."""
+    from ...auth import get_current_project_id
+
+    if not project_id:
+        project_id = get_current_project_id()
+        if not project_id:
+            return BaseToolResponse(
+                status=ToolStatus.ERROR,
+                error=(
+                    "Project ID is required but not provided or found in context. "
+                    "HINT: If you are using the Agent Engine playground, please pass the project ID "
+                    "in your request (e.g., 'Analyze logs in project my-project-id') or use the project selector. "
+                    "Local users should set the GOOGLE_CLOUD_PROJECT environment variable."
+                ),
+            )
     """Get current SLO compliance status including error budget.
 
     This is THE critical metric for SRE work - shows if you're meeting
