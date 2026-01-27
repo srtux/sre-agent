@@ -122,7 +122,7 @@ def test_setup_telemetry_disabled():
         ) as mock_log:
             with patch("opentelemetry.trace.set_tracer_provider") as mock_trace:
                 setup_telemetry()
-                mock_log.assert_called_once()
+                mock_log.assert_not_called()
                 mock_trace.assert_not_called()
 
 
