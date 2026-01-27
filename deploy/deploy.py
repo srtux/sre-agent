@@ -168,6 +168,11 @@ def deploy(env_vars: dict[str, str] | None = None) -> None:
         },
     }
 
+    # IMPORTANT: Propagate the stable Agent ID to the backend if we are updating.
+    # This ensures that the backend uses the correct app_name for sessions.
+    if existing_agent and not FLAGS.force_new:
+        common_kwargs["env_vars"]["SRE_AGENT_ID"] = existing_agent.resource_name
+
     print(f"Deploying with requirements: {requirements}")
 
     if existing_agent and not FLAGS.force_new:

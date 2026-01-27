@@ -98,10 +98,14 @@ class ADKSessionManager:
                 )
 
                 # STABLE APP NAME FOR VERTEX AI SESSIONS
-                # Consistency between Proxy and Backend is CRITICAL. We use a stable
-                # app_name "sre_agent" for all sessions in this project/location.
-                # This ensures sessions are found even if the Agent ID changes.
-                self.app_name = self.APP_NAME
+                # Consistency between Proxy and Backend is CRITICAL.
+                # Vertex AI SDK requires app_name to be the Reasoning Engine resource name or ID.
+                if agent_engine_id:
+                    self.app_name = agent_engine_id
+                    logger.info(f"Using stable app_name: {self.app_name}")
+                else:
+                    # Fallback to local default if somehow missing (e.g. initial dev)
+                    self.app_name = self.APP_NAME
 
                 if project:
                     logger.info(
