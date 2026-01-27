@@ -16,6 +16,7 @@ def setup_deploy_mocks():
         patch("vertexai.init"),
         patch("google.adk.features.override_feature_enabled"),
         patch("vertexai.agent_engines", create=True),
+        patch("google.auth.default", return_value=(MagicMock(), "test-project")),
     ):
         # Import as a top-level module (since no __init__.py exists)
         import deploy.deploy as deploy_mod

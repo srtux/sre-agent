@@ -3,6 +3,8 @@
 import logging
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from sre_agent.tools.common.telemetry import (
     GenAiAttributes,
     _FunctionCallWarningFilter,
@@ -151,6 +153,7 @@ def test_setup_telemetry_enabled_mocked():
 
 def test_setup_telemetry_arize_mocked():
     """Test setup_telemetry with Arize enabled using mocks."""
+    pytest.importorskip("arize")
     import os
 
     from sre_agent.tools.common.telemetry import setup_telemetry

@@ -6,6 +6,13 @@ import sys
 import tempfile
 from pathlib import Path
 
+# Disable OTEL and standard exporters for the evaluation process itself
+# to prevent background threads from hanging or emitting noise.
+os.environ["OTEL_SDK_DISABLED"] = "true"
+os.environ["OTEL_TRACES_EXPORTER"] = "none"
+os.environ["OTEL_METRICS_EXPORTER"] = "none"
+os.environ["OTEL_LOGS_EXPORTER"] = "none"
+
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -14,8 +21,14 @@ load_dotenv()
 
 def main():
     # Separate flags from positional arguments
-    # Everything starting with '-' is a flag
-    flags = [arg for arg in sys.argv[1:] if arg.startswith("-")]
+    all_args = sys.argv[1:]
+    flags = [arg for arg in all_args if arg.startswith("-")]
+
+    # Check if we should sync to cloud (not standard for local runs - it's slow!)
+    should_sync_cloud = "--sync" in all_args
+    if should_sync_cloud:
+        # Remove --sync from flags so it doesn't break adk eval
+        flags = [f for f in flags if f != "--sync"]
 
     # Define our standard agent
     agent_path = "sre_agent"
@@ -80,29 +93,20 @@ def main():
         if storage_uri:
             cmd.extend(["--eval_storage_uri", storage_uri])
 
-        # Disable OTel export for local evaluations to avoid noise/errors
-        env = os.environ.copy()
-        env["OTEL_TRACES_EXPORTER"] = "none"
-        env["OTEL_METRICS_EXPORTER"] = "none"
-        env["OTEL_LOGS_EXPORTER"] = "none"
-
         # 1. Run the local/ADK evaluation
-        print(f"Running ADK Eval: {' '.join(cmd)}")
-        result = subprocess.run(cmd, env=env)
+        print(f"🚀 Running ADK Eval: {' '.join(cmd)}")
+        sys.stdout.flush()
 
-        # 2. Trigger the cloud-native Vertex AI Agent Evaluation Service (Latest features)
-        # This makes the results appear in Vertex AI > Evaluations & Experiments console
-        try:
-            import vertexai
-            from vertexai.preview.evaluation import EvalTask
+        result = subprocess.run(cmd)
 
-            # Use the bucket from env for storage
-            bucket = os.environ.get(
-                "GOOGLE_CLOUD_STORAGE_BUCKET", os.environ.get("STAGING_BUCKET")
-            )
-            if bucket:
+        # 2. Trigger the cloud-native Vertex AI Agent Evaluation Service (Optional)
+        if should_sync_cloud:
+            try:
+                import vertexai
+                from vertexai.preview.evaluation import EvalTask
+
                 print(
-                    "📡 Triggering Vertex AI GenAI Evaluation Service (Experiment: sre-agent-evals)..."
+                    "\n📡 Triggering Vertex AI GenAI Evaluation Service for Cloud UI sync (this executes the evaluation again in the cloud)..."
                 )
                 vertexai.init(
                     project=project_id,
@@ -110,6 +114,7 @@ def main():
                 )
 
                 # trigger the cloud-native evaluation service
+                # Note: This executes the evaluation against the cloud service.
                 EvalTask(
                     dataset=processed_eval_files[0],
                     metrics=["trajectory_exact_match", "trajectory_precision"],
@@ -117,16 +122,24 @@ def main():
                 ).evaluate()
 
                 print(
-                    "✅ Cloud Evaluation request sent. Results available in Vertex AI Console."
+                    "✅ Cloud Evaluation complete. Results available in Vertex AI Console."
                 )
-        except ImportError:
+            except ImportError:
+                print(
+                    "💡 Vertex AI SDK 'preview.evaluation' not available. Skipping cloud sync."
+                )
+            except Exception as e:
+                print(f"⚠️ Could not trigger Vertex AI service: {e}")
+        else:
             print(
-                "💡 Vertex AI SDK 'preview.evaluation' not available. Skipping cloud-tab sync."
+                "\n💡 Tip: Run with --sync to upload results to Vertex AI Evaluation console (slow)."
             )
-        except Exception as e:
-            print(f"⚠️ Could not trigger Vertex AI service: {e}")
 
-        sys.exit(result.returncode)
+        # Force a hard exit. Standard sys.exit() can hang waiting for
+        # non-daemonic background threads started by cloud SDKs or gRPC.
+        print(f"\nFinal Exit Code: {result.returncode}")
+        sys.stdout.flush()
+        os._exit(result.returncode)
 
 
 if __name__ == "__main__":

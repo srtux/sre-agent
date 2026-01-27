@@ -106,7 +106,7 @@ async def test_list_error_events():
 
         mock_client.list_events.return_value = [mock_event]
 
-        result = await list_error_events("p1")
+        result = await list_error_events(project_id="p1")
         assert result["status"] == "success"
         res_list = result["result"]
         assert isinstance(res_list, list)
@@ -120,7 +120,7 @@ async def test_list_error_events_error():
         "sre_agent.tools.clients.logging.get_error_reporting_client",
         side_effect=Exception("API Fail"),
     ):
-        result = await list_error_events("p1")
+        result = await list_error_events(project_id="p1")
         assert result["status"] == "error"
         assert "API Fail" in result["error"]
 
