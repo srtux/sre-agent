@@ -41,7 +41,17 @@ class EmojiLoggingFilter(logging.Filter):
     def _apply_emojis(self, record: logging.LogRecord, msg: str) -> None:
         """Apply emojis and separators to the log record."""
         # LLM Call Starting/Completed (ADK messages)
-        if "google_adk" in record.name or "google.adk" in record.name:
+        # Skip modification if we want "uninterfered" OTel logs from ADK
+        skip_adk_mod = (
+            os.environ.get(
+                "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "false"
+            ).lower()
+            == "true"
+            or os.environ.get("RUNNING_IN_AGENT_ENGINE", "").lower() == "true"
+        )
+        if (
+            "google_adk" in record.name or "google.adk" in record.name
+        ) and not skip_adk_mod:
             if "Sending out request" in msg and "🧠" not in msg:
                 record.msg = f"🧠 LLM Call Starting | {record.msg}"
             elif "Response received" in msg and "🧠" not in msg:
