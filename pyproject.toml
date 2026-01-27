@@ -40,6 +40,9 @@ dependencies = [
     "opentelemetry-instrumentation-fastapi>=0.58b0",
     "opentelemetry-instrumentation-httpx>=0.58b0",
     "opentelemetry-instrumentation-requests>=0.58b0",
+    "opentelemetry-instrumentation-urllib3>=0.58b0",
+    "opentelemetry-instrumentation-grpc>=0.58b0",
+    "opentelemetry-instrumentation-vertexai>=0.58b0",
 ]
 
 requires-python = ">=3.10,<3.13"

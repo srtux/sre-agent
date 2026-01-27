@@ -209,7 +209,12 @@ def setup_telemetry(level: int = logging.INFO) -> None:
         level = getattr(logging, env_level)
 
     # Strictly enforce clean environment
-    project_id = os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("PROJECT_ID")
+    project_id = (
+        os.environ.get("GOOGLE_CLOUD_PROJECT")
+        or os.environ.get("PROJECT_ID")
+        or os.environ.get("GCP_PROJECT_ID")
+        or os.environ.get("TRACER_PROJECT_ID")
+    )
     if project_id and "," in project_id:
         project_id = project_id.split(",")[0].strip()
 
@@ -217,6 +222,8 @@ def setup_telemetry(level: int = logging.INFO) -> None:
         os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
         if "PROJECT_ID" in os.environ:
             os.environ["PROJECT_ID"] = project_id
+        if "GCP_PROJECT_ID" in os.environ:
+            os.environ["GCP_PROJECT_ID"] = project_id
 
     # 1. Configure Logging handlers early to capture initialization logs
     _configure_logging_handlers(level, project_id)
@@ -231,12 +238,13 @@ def setup_telemetry(level: int = logging.INFO) -> None:
         )
         return
 
-    # Priority 1: Arize AX
+    # Priority 1: Arize AX (Local Development ONLY)
     arize_enabled = False
-    if os.environ.get("USE_ARIZE", "").lower() == "true":
+    is_cloud = os.environ.get("SRE_AGENT_ID") or os.environ.get("K_SERVICE")
+
+    if os.environ.get("USE_ARIZE", "").lower() == "true" and not is_cloud:
         try:
             from arize.otel import register
-            from openinference.instrumentation.google_adk import GoogleADKInstrumentor
 
             space_id = os.environ.get("ARIZE_SPACE_ID")
             api_key = os.environ.get("ARIZE_API_KEY")
@@ -249,14 +257,11 @@ def setup_telemetry(level: int = logging.INFO) -> None:
 
             if space_id and api_key:
                 # 1. Register with Arize AX (sets global TracerProvider)
-                arize_tp = register(
+                _arize_tp = register(
                     space_id=space_id,
                     api_key=api_key,
                     project_name=project_name,
                 )
-
-                # 2. Instrument Google ADK for Arize AX
-                GoogleADKInstrumentor().instrument(tracer_provider=arize_tp)
 
                 logging.getLogger(__name__).info(
                     f"✅ Arize AX enabled (Project: {project_name}). Skipping Google Cloud Trace."
@@ -273,15 +278,51 @@ def setup_telemetry(level: int = logging.INFO) -> None:
         except Exception as e:
             logging.getLogger(__name__).error(f"Failed to setup Arize: {e}")
 
-    # 3. Initialize Log Correlation (Works with any global TracerProvider)
+    # Phase 3: Initialize Shared Instrumentation (Works with any global TracerProvider: Arize or GCP)
     try:
         from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
         from opentelemetry.instrumentation.logging import LoggingInstrumentor
         from opentelemetry.instrumentation.requests import RequestsInstrumentor
+        from opentelemetry.instrumentation.urllib3 import URLLib3Instrumentor
 
+        # Standard instrumentation
         LoggingInstrumentor().instrument(set_logging_format=False)
         RequestsInstrumentor().instrument()
         HTTPXClientInstrumentor().instrument()
+        URLLib3Instrumentor().instrument()
+
+        # Phase 5: Advanced & Agent-specific instrumentation (if extra packages are installed)
+        # These are crucial for World-Class visibility in GCP
+        try:
+            from typing import Any, cast
+
+            from opentelemetry.instrumentation.grpc import (
+                GrpcInstrumentorClient,
+                GrpcInstrumentorServer,
+            )
+
+            cast(Any, GrpcInstrumentorClient)().instrument()
+            cast(Any, GrpcInstrumentorServer)().instrument()
+            logging.getLogger(__name__).info("✅ gRPC instrumentation enabled.")
+        except ImportError:
+            pass
+
+        try:
+            from opentelemetry.instrumentation.vertexai import VertexAIInstrumentor
+
+            VertexAIInstrumentor().instrument()
+            logging.getLogger(__name__).info("✅ Vertex AI instrumentation enabled.")
+        except ImportError:
+            pass
+
+        try:
+            from openinference.instrumentation.google_adk import GoogleADKInstrumentor
+
+            GoogleADKInstrumentor().instrument()
+            logging.getLogger(__name__).info("✅ Google ADK instrumentation enabled.")
+        except ImportError:
+            pass
+
     except Exception as e:
         logging.getLogger(__name__).debug(f"Instrumentation failed: {e}")
 
@@ -302,15 +343,30 @@ def setup_telemetry(level: int = logging.INFO) -> None:
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
         from opentelemetry.semconv.resource import ResourceAttributes
 
-        resource = Resource.create(
-            {
-                ResourceAttributes.SERVICE_NAME: "sre-agent",
-                "service.namespace": "sre",
-                "service.instance.id": os.environ.get("HOSTNAME", "localhost"),
-                "cloud.region": os.environ.get("GCP_REGION", "global"),
-                "gcp.project_id": project_id,
-            }
-        )
+        # World-Class GCP Resource Attributes
+        resource_attrs = {
+            ResourceAttributes.SERVICE_NAME: "sre-agent",
+            ResourceAttributes.SERVICE_NAMESPACE: "sre",
+            ResourceAttributes.CLOUD_PROVIDER: "gcp",
+            ResourceAttributes.CLOUD_ACCOUNT_ID: project_id,
+            "gcp.project_id": project_id,
+        }
+
+        # Instance-specific metadata
+        if os.environ.get("K_SERVICE"):  # Cloud Run
+            resource_attrs[ResourceAttributes.CLOUD_PLATFORM] = "gcloud_run"
+            resource_attrs["cloud_run.service.name"] = os.environ.get("K_SERVICE") or ""
+            resource_attrs["cloud_run.service.revision"] = (
+                os.environ.get("K_REVISION") or ""
+            )
+            resource_attrs["cloud_run.service.configuration"] = (
+                os.environ.get("K_CONFIGURATION") or ""
+            )
+        elif os.environ.get("SRE_AGENT_ID"):  # Agent Engine
+            resource_attrs[ResourceAttributes.CLOUD_PLATFORM] = "vertex_ai_agent_engine"
+            resource_attrs["vertex_ai.agent.id"] = os.environ.get("SRE_AGENT_ID") or ""
+
+        resource = Resource.create(resource_attrs)
 
         # GCP OTLP Endpoint
         otlp_endpoint = "telemetry.googleapis.com:443"
@@ -345,7 +401,10 @@ def setup_telemetry(level: int = logging.INFO) -> None:
                 endpoint=otlp_endpoint,
                 credentials=composite_creds,
             )
-            span_processor = BatchSpanProcessor(span_exporter)
+            # Batch interval optimized for serverless (faster export)
+            span_processor = BatchSpanProcessor(
+                span_exporter, schedule_delay_millis=1000
+            )
 
             current_tp = trace.get_tracer_provider()
             is_proxy = "ProxyTracerProvider" in type(current_tp).__name__

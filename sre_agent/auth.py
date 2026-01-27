@@ -94,6 +94,8 @@ logger = logging.getLogger(__name__)
 SESSION_STATE_ACCESS_TOKEN_KEY = "_user_access_token"
 SESSION_STATE_PROJECT_ID_KEY = "_user_project_id"
 SESSION_STATE_TRACE_ID_KEY = "_trace_id"
+SESSION_STATE_SPAN_ID_KEY = "_span_id"
+SESSION_STATE_TRACE_FLAGS_KEY = "_trace_flags"
 
 _credentials_context: contextvars.ContextVar[Credentials | None] = (
     contextvars.ContextVar("credentials_context", default=None)
@@ -603,7 +605,9 @@ class ContextAwareCredentials(google.auth.credentials.Credentials):
                 logger.info(
                     "🔑 ContextAwareCredentials: ADC token missing or expired, refreshing..."
                 )
-                adc.refresh(Request())
+                from typing import Any
+
+                cast(Any, adc).refresh(Request())
                 t = getattr(adc, "token", None)
 
             logger.debug(

@@ -55,9 +55,6 @@ import vertexai
 from google.adk.agents import LlmAgent
 from google.adk.tools import AgentTool  # type: ignore[attr-defined]
 from google.adk.tools.base_toolset import BaseToolset
-from opentelemetry import context as otel_context
-from opentelemetry import trace
-from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
 
 from .auth import (
     GLOBAL_CONTEXT_CREDENTIALS,
@@ -225,16 +222,22 @@ if project_id:
     os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
     os.environ["GCP_PROJECT_ID"] = project_id
 
-if use_vertex and project_id:
+# 1. Initialize Telemetry and Logging as early as possible
+try:
+    from .tools.common.telemetry import setup_telemetry
+
+    setup_telemetry()
+except Exception as e:
+    # Use standard print as last resort if logging failed to initialize
+    print(f"CRITICAL: Failed to initialize telemetry/logging: {e}")
+
+# 2. Initialize Vertex AI if project and location are found
+if project_id:
     try:
-        from .tools.common.telemetry import setup_telemetry
-
-        setup_telemetry()
-
         vertexai.init(project=project_id, location=location)
         logger.info(f"✅ Initialized Vertex AI: {project_id} @ {location}")
     except Exception as e:
-        logger.warning(f"Failed to initialize Vertex AI or Telemetry: {e}")
+        logger.warning(f"Failed to initialize Vertex AI: {e}")
 
 
 def emojify_agent(agent: LlmAgent | Any) -> LlmAgent | Any:
@@ -336,6 +339,11 @@ def emojify_agent(agent: LlmAgent | Any) -> LlmAgent | Any:
             if user_email:
                 set_current_user_id(user_email)
 
+            # Import OTel components here to ensure they are available in this scope
+            from opentelemetry import context as otel_context
+            from opentelemetry import trace
+            from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
+
             from .auth import (
                 SESSION_STATE_SPAN_ID_KEY,
                 SESSION_STATE_TRACE_FLAGS_KEY,
@@ -378,7 +386,7 @@ def emojify_agent(agent: LlmAgent | Any) -> LlmAgent | Any:
                         trace_id=int(remote_trace_id, 16),
                         span_id=s_id,
                         is_remote=True,
-                        trace_flags=flags,
+                        trace_flags=TraceFlags(flags),
                     )
                     parent_ctx = trace.set_span_in_context(
                         NonRecordingSpan(span_context)

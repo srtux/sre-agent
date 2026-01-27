@@ -2,51 +2,63 @@
 
 This document explains the logging and tracing architecture of the SRE Agent, specifically designed for Google Cloud Observability.
 
-## 1. End-to-End Tracing & Correlation
+## 1. End-to-End Tracing & Correlation (Context Hijacking)
 
-The SRE Agent uses a hybrid approach to correlate logs and traces across Cloud Run (Frontend) and Agent Engine (Backend).
+The SRE Agent uses a custom "REST-Bridge" pattern to correlate logs and traces across Cloud Run (Frontend) and Agent Engine (Backend).
 
 ### How it works:
-1.  **Trace ID Capture**: When the Cloud Run frontend makes a request to the Agent Engine, it captures the current OpenTelemetry Trace ID.
-2.  **Session Propagation**: This Trace ID is injected into the ADK Session State as `_trace_id`.
-3.  **Context Injection**: The Agent Engine (via `RunnerAgentAdapter` or `emojify_agent` wrapper) extracts `_trace_id` and:
-    *   Sets it in a thread-local context (`sre_agent.auth.set_trace_id`).
-    *   Injects it into the OpenTelemetry context (`opentelemetry.context.attach`) so any internal spans become children of the frontend request.
-
-### Log Correlation:
-All logs use a custom `JsonFormatter` that automatically adds the `logging.googleapis.com/trace` field.
-*   **Field Name**: `logging.googleapis.com/trace`
-*   **Format**: `projects/{PROJECT_ID}/traces/{TRACE_ID}`
-*   **Benefit**: This allows the Logs Explorer to automatically group logs from both services when you click "View in Trace" or "Show nested logs".
+1.  **Context Capture**: In the `AgentEngineClient`, we extract the full OpenTelemetry `SpanContext` (Trace ID, Span ID, and Trace Flags) from the active request.
+2.  **Encrypted Injection**: This context is injected into the ADK Session State using internal keys (`_trace_id`, `_span_id`, `_trace_flags`).
+3.  **Context Restoration**: On the Agent Engine side (via `emojify_agent`), we:
+    *   Initialize the global `set_trace_id` for log correlation.
+    *   Reconstruct a valid `NonRecordingSpan` using the propagated IDs.
+    *   **CRITICAL**: We ensure the `span_id` is **non-zero**. If the frontend span is missing, we derive a deterministic non-zero ID from the Trace ID.
+4.  **Result**: A single, unified trace tree in **Google Cloud Trace** that spans multiple services.
 
 ## 2. Structured Logging (JSON)
 
 We use JSON logging in production to ensure severities and metadata are correctly parsed by GCP.
 
+### Log Correlation:
+All logs use a custom `JsonFormatter` that automatically adds:
+*   `logging.googleapis.com/trace`: Fully qualified GCP trace resource.
+*   `logging.googleapis.com/spanId`: The current OTel span ID.
+*   `trace_id`: The raw hex trace ID.
+
 ### Configuration
 *   **Environment Variable**: `LOG_FORMAT=JSON`
-*   **Severity**: Logs are emitted to `stderr` (standard for Cloud Run) with a `severity` field (e.g., `ERROR`, `WARNING`, `INFO`).
+*   **Severity**: Logs are emitted to `stderr` (standard for Cloud Run) with a `severity` field.
 
-### Adding Instrumentation
-When adding new tools or services, always use the standard `logging` library. If you need to access the current trace ID in your code:
+## 3. Instrumentation Layers
 
-```python
-from sre_agent.auth import get_trace_id
-current_trace = get_trace_id()
-```
+The agent uses multiple OTel instrumentors to provide full visibility into its operations:
 
-## 3. Debugging "Invalid JSON" Errors
+*   **FastAPI**: Inbound request lifecycle.
+*   **gRPC**: Outbound calls to Vertex AI and Agent Engine.
+*   **Vertex AI**: Low-level visibility into Gemini model iterations/prompts.
+*   **Google ADK**: High-level visibility into agent steps and tool calls.
+*   **Requests / HTTPX / URLLib3**: Generic network operations.
 
-If you see an error like `Agent Engine stream returned invalid JSON format`, it usually means the backend crashed before it could send valid ADK events.
+### Serverless Optimization
+In cloud environments, we set `schedule_delay_millis=1000` (1 second) in the `BatchSpanProcessor`. This ensures spans are exported quickly before serverless instances are paused or terminated.
 
-**To debug:**
-1.  Go to the **Cloud Logs Explorer**.
-2.  Filter by `resource.type="aws_lambda_function"` (used by Reasoning Engine) or search for `RunnerAdapter failed`.
-3.  Check for `ERROR` severity logs. The new `JsonFormatter` ensures these are correctly flagged.
-4.  The `RunnerAgentAdapter` now yields a proper Error Event before failing, which should resolve the malformed JSON issue by providing a protocol-compliant error message to the frontend.
+## 4. Telemetry Environments
 
-## 4. Encryption Key Configuration
+### Local Development (Arize AX)
+For local development, we prioritize **Arize AX** (Phoenix) for LLM observability.
+*   **Enabled by**: `USE_ARIZE=true`
+*   **Restriction**: Arize is **EXPLICITLY DISABLED** when running in GCP (Cloud Run or Agent Engine) to avoid performance overhead and duplicate tracing. The platform will automatically fall back to Google Cloud Trace.
+
+### Production (Google Cloud Trace)
+In production, telemetry is exported directly to Google Cloud via OTLP over gRPC.
+*   **Required Role**: `roles/cloudtrace.agent`
+*   **Project ID**: Standardized via `GOOGLE_CLOUD_PROJECT`.
+
+### Evaluations
+Telemetry is **DISABLED** by default for automated evaluations (`run_eval.py`) to prevent noise and background process hangs. This is controlled via `OTEL_SDK_DISABLED=true`.
+
+## 5. Encryption Key Configuration
 
 The `SRE_AGENT_ENCRYPTION_KEY` is critical for decrypting session state on the backend.
-*   If this key is mismatched, the backend will fail to read credentials, leading to authentication errors.
+*   If this key is mismatched, the backend will fail to read credentials and trace IDs.
 *   Always ensure the key in Cloud Secret Manager (`sre-agent-encryption-key`) matches the one used during deployment.
