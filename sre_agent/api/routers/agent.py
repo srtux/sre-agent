@@ -20,6 +20,7 @@ The mode is determined by the `SRE_AGENT_ID` environment variable:
 import asyncio
 import json
 import logging
+import os
 import re
 import time
 import uuid
@@ -58,6 +59,22 @@ from sre_agent.suggestions import generate_contextual_suggestions
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["agent"])
+
+# Enable verbose A2UI debugging with environment variable
+A2UI_DEBUG = os.environ.get("A2UI_DEBUG", "").lower() in ("true", "1", "yes")
+
+
+def _a2ui_debug(message: str, data: Any = None) -> None:
+    """Log A2UI debug messages when A2UI_DEBUG is enabled."""
+    if A2UI_DEBUG:
+        if data is not None:
+            if isinstance(data, (dict, list)):
+                formatted = json.dumps(data, indent=2, default=str)[:1000]
+                logger.info(f"🔍 A2UI_ROUTER: {message}\n{formatted}")
+            else:
+                logger.info(f"🔍 A2UI_ROUTER: {message} -> {str(data)[:500]}")
+        else:
+            logger.info(f"🔍 A2UI_ROUTER: {message}")
 
 
 class AgentMessage(BaseModel):
@@ -736,6 +753,11 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                             fc = part.get("function_call")
 
                         if fc:
+                            _a2ui_debug(
+                                "[ROUTER_FC_DETECTED] Function call detected in part",
+                                {"fc_type": type(fc).__name__, "fc": str(fc)[:300]},
+                            )
+
                             tool_name = getattr(fc, "name", None)
                             if tool_name is None and isinstance(fc, dict):
                                 tool_name = fc.get("name")
@@ -745,26 +767,60 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                                 if tool_args_raw is None and isinstance(fc, dict):
                                     tool_args_raw = fc.get("args")
                                 tool_args = normalize_tool_args(tool_args_raw)
+
+                                _a2ui_debug(
+                                    f"[ROUTER_FC_PROCESSING] Processing tool call: {tool_name}",
+                                    {
+                                        "tool_name": tool_name,
+                                        "args_preview": str(tool_args)[:200],
+                                    },
+                                )
+
                                 logger.info(
                                     f"🛠️ Tool Call Detected: {tool_name} with args: {str(tool_args)[:100]}..."
                                 )
                                 surface_id, events = create_tool_call_events(
                                     tool_name, tool_args, pending_tool_calls
                                 )
+
+                                _a2ui_debug(
+                                    f"[ROUTER_FC_EVENTS] Created {len(events)} events for tool call",
+                                    {
+                                        "surface_id": surface_id,
+                                        "event_count": len(events),
+                                    },
+                                )
+
                                 # Yield A2UI events FIRST to populate component data,
                                 # THEN yield UI marker to create the bubble.
                                 # This fixes the race condition where GenUiSurface renders
                                 # before the component data is available.
-                                for evt_str in events:
+                                for i, evt_str in enumerate(events):
+                                    _a2ui_debug(
+                                        f"[ROUTER_FC_YIELD_A2UI] Yielding A2UI event {i + 1}/{len(events)}",
+                                        {
+                                            "size_bytes": len(evt_str),
+                                            "preview": evt_str[:200],
+                                        },
+                                    )
                                     logger.info(
                                         f"📤 Yielding tool call event (Size: {len(evt_str)}): {evt_str[:100]}..."
                                     )
                                     yield evt_str + "\n"
-                                yield (
-                                    json.dumps({"type": "ui", "surface_id": surface_id})
-                                    + "\n"
+
+                                ui_marker = json.dumps(
+                                    {"type": "ui", "surface_id": surface_id}
                                 )
+                                _a2ui_debug(
+                                    "[ROUTER_FC_YIELD_UI] Yielding UI marker",
+                                    {"surface_id": surface_id, "marker": ui_marker},
+                                )
+                                yield ui_marker + "\n"
                             else:
+                                _a2ui_debug(
+                                    "[ROUTER_FC_INVALID] Tool call has invalid/missing name",
+                                    {"tool_name": tool_name, "fc": str(fc)[:200]},
+                                )
                                 logger.warning(
                                     f"⚠️ Tool call detected but name is missing or invalid: {tool_name}"
                                 )
@@ -775,6 +831,11 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                             fr = part.get("function_response")
 
                         if fr:
+                            _a2ui_debug(
+                                "[ROUTER_FR_DETECTED] Function response detected in part",
+                                {"fr_type": type(fr).__name__, "fr": str(fr)[:300]},
+                            )
+
                             tool_name = getattr(fr, "name", None)
                             if tool_name is None and isinstance(fr, dict):
                                 tool_name = fr.get("name")
@@ -789,13 +850,42 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                                     if result is None and isinstance(fr, dict):
                                         result = fr.get("result")
 
-                                logger.info(f"✅ Tool Response Received: {tool_name}")
-                                _, events = create_tool_response_events(
-                                    tool_name, result, pending_tool_calls
+                                _a2ui_debug(
+                                    f"[ROUTER_FR_PROCESSING] Processing tool response: {tool_name}",
+                                    {
+                                        "tool_name": tool_name,
+                                        "result_type": type(result).__name__,
+                                        "result_preview": str(result)[:300]
+                                        if result
+                                        else "None",
+                                    },
                                 )
-                                for evt_str in events:
+
+                                logger.info(f"✅ Tool Response Received: {tool_name}")
+                                response_surface_id, events = (
+                                    create_tool_response_events(
+                                        tool_name, result, pending_tool_calls
+                                    )
+                                )
+
+                                _a2ui_debug(
+                                    f"[ROUTER_FR_EVENTS] Created {len(events)} response events",
+                                    {
+                                        "surface_id": response_surface_id,
+                                        "event_count": len(events),
+                                    },
+                                )
+
+                                for i, evt_str in enumerate(events):
+                                    _a2ui_debug(
+                                        f"[ROUTER_FR_YIELD_A2UI] Yielding response event {i + 1}/{len(events)}",
+                                        {
+                                            "size_bytes": len(evt_str),
+                                            "preview": evt_str[:200],
+                                        },
+                                    )
                                     logger.info(
-                                        f"📤 Yielding tool response event: {evt_str}"
+                                        f"📤 Yielding tool response event: {evt_str[:100]}..."
                                     )
                                     yield evt_str + "\n"
 
@@ -804,14 +894,42 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                                 widget_events, widget_surface_ids = (
                                     create_widget_events(tool_name, result)
                                 )
-                                for evt_str in widget_events:
-                                    logger.info(f"📤 Yielding widget event: {evt_str}")
-                                    yield evt_str + "\n"
-                                for sid in widget_surface_ids:
-                                    yield (
-                                        json.dumps({"type": "ui", "surface_id": sid})
-                                        + "\n"
+
+                                _a2ui_debug(
+                                    f"[ROUTER_WIDGET] Created {len(widget_events)} widget events",
+                                    {
+                                        "surface_ids": widget_surface_ids,
+                                        "event_count": len(widget_events),
+                                    },
+                                )
+
+                                for i, evt_str in enumerate(widget_events):
+                                    _a2ui_debug(
+                                        f"[ROUTER_WIDGET_YIELD_A2UI] Yielding widget event {i + 1}/{len(widget_events)}",
+                                        {
+                                            "size_bytes": len(evt_str),
+                                            "preview": evt_str[:200],
+                                        },
                                     )
+                                    logger.info(
+                                        f"📤 Yielding widget event: {evt_str[:100]}..."
+                                    )
+                                    yield evt_str + "\n"
+
+                                for sid in widget_surface_ids:
+                                    ui_marker = json.dumps(
+                                        {"type": "ui", "surface_id": sid}
+                                    )
+                                    _a2ui_debug(
+                                        "[ROUTER_WIDGET_YIELD_UI] Yielding widget UI marker",
+                                        {"surface_id": sid, "marker": ui_marker},
+                                    )
+                                    yield ui_marker + "\n"
+                            else:
+                                _a2ui_debug(
+                                    "[ROUTER_FR_INVALID] Tool response has invalid/missing name",
+                                    {"tool_name": tool_name, "fr": str(fr)[:200]},
+                                )
 
                 # 4. Post-run Cleanup & Memory Sync
                 try:
