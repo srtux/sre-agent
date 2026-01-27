@@ -27,7 +27,8 @@
         "app_name": "sre_agent",
         "user_id": "test_user",
         "state": {}
-      }
+      },
+      "expected_outputs": []
     }
   ]
 }

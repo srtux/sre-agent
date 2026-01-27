@@ -398,14 +398,14 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                 state_updates = {}
                 if (
                     effective_project_id
-                    and session.state.get(SESSION_STATE_PROJECT_ID_KEY)
+                    and (session.state or {}).get(SESSION_STATE_PROJECT_ID_KEY)
                     != effective_project_id
                 ):
                     state_updates[SESSION_STATE_PROJECT_ID_KEY] = effective_project_id
 
                 if (
                     access_token
-                    and session.state.get(SESSION_STATE_ACCESS_TOKEN_KEY)
+                    and (session.state or {}).get(SESSION_STATE_ACCESS_TOKEN_KEY)
                     != access_token
                 ):
                     state_updates[SESSION_STATE_ACCESS_TOKEN_KEY] = access_token
@@ -432,11 +432,11 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
             is_new_session = True
 
         # 2. Prepare State & Context
-        state_dict = session.state.get("investigation_state", {})
+        state_dict = (session.state or {}).get("investigation_state", {})
         inv_state = InvestigationState.from_dict(state_dict)
-        current_project_id = (
-            session.state.get(SESSION_STATE_PROJECT_ID_KEY) or effective_project_id
-        )
+        current_project_id = (session.state or {}).get(
+            SESSION_STATE_PROJECT_ID_KEY
+        ) or effective_project_id
 
         last_msg_text = request.messages[-1].text if request.messages else ""
 
@@ -467,7 +467,7 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
             content=Content(parts=[Part(text=last_msg_text)], role="user"),
             timestamp=time.time(),
         )
-        await session_manager.session_service.append_event(session, user_event)
+        await session_manager.append_event(session, user_event)
 
         # 3. Stream Response
         async def event_generator() -> AsyncGenerator[str, None]:
@@ -660,9 +660,7 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                     logger.debug(f"📥 Received event from runner: {event}")
 
                     # Persist generated event
-                    await session_manager.session_service.append_event(
-                        active_session, event
-                    )
+                    await session_manager.append_event(active_session, event)
 
                     # 1. Extract parts from content if available
                     parts = []

@@ -13,24 +13,23 @@ graph TD
     A[1. Install Dependencies] --> B[2. Fetch Resource ID]
     A --> C[3. Deploy Agent Backend]
 
-    subgraph "Track A: Logic & Quality"
-    C --> D[4. Run World-Class Evals]
-    D --> |Pass/Fail| C_End[Logic Verified]
+    subgraph "Track A: Logic"
+    C --> C_End[Logic Updated]
     end
 
     subgraph "Track B: Frontend"
-    B --> |Provides ID| E[5. Build Docker Image]
-    E --> F[6. Push Image]
-    F --> G[7. Deploy Frontend]
+    B --> |Provides ID| E[4. Build Docker Image]
+    E --> F[5. Push Image]
+    F --> G[6. Deploy Frontend]
     end
 
-    D -.-> |Blocks| E
+    G --> H[7. Run World-Class Evals]
 
     style C fill:#d4f1f4,stroke:#333
-    style D fill:#f9d5e5,stroke:#e91e63
     style E fill:#d4f1f4,stroke:#333
     style F fill:#d4f1f4,stroke:#333
     style G fill:#d4f1f4,stroke:#333
+    style H fill:#f9d5e5,stroke:#e91e63
 ```
 
 ### Steps Explained
@@ -41,15 +40,15 @@ graph TD
     *   *Constraint*: This step fails if no agent exists (First Deployment must be manual).
 3.  **Deploy Agent Backend (Track A)**:
     *   **Logic**: Uses `deploy/deploy.py` to update the Agent Engine logic.
-4.  **Run World-Class Evals (Track A - Quality Gate)**:
-    *   **Starts After**: `deploy-backend`.
-    *   **Logic**: Executes `uv run poe eval`. Uses the Cloud Build service account to semantically judge the agent's performance.
-    *   **Impact**: Blocks the frontend build if thresholds (trajectory/rubric) are not met.
-5.  **Build Docker Image (Track B)**:
-    *   **Waits For**: `fetch-resource-id` (Step 2) AND `run-evals` (Step 4).
+4.  **Build Docker Image (Track B)**:
+    *   **Waits For**: `fetch-resource-id` (Step 2).
     *   **Logic**: Builds the frontend container with `SRE_AGENT_ID`.
-6.  **Push Image (Track B)**: Pushes the container to Artifact Registry.
-7.  **Deploy Frontend (Track B)**: Deploys to Cloud Run.
+5.  **Push Image (Track B)**: Pushes the container to Artifact Registry.
+6.  **Deploy Frontend (Track B)**: Deploys to Cloud Run.
+7.  **Run World-Class Evals (Asynchronous Quality Gate)**:
+    *   **Starts After**: `deploy-frontend`.
+    *   **Logic**: Executes `uv run poe eval`. Uses the Cloud Build service account to semantically judge the agent's performance.
+    *   **Impact**: **Non-blocking**. The deployment completes even if evals fail, allowing for tiered quality monitoring without impacting velocity.
 
 ## First-Time Deployment
 

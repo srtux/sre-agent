@@ -102,6 +102,15 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
                         pass
                 elif isinstance(result, dict) and "error" in result:
                     is_failed = True
+                elif (
+                    hasattr(result, "status")
+                    and getattr(result, "status", None) == "error"
+                ):
+                    # Handles BaseToolResponse or any object with status='error'
+                    is_failed = True
+                elif hasattr(result, "error") and getattr(result, "error", None):
+                    # Handles case where error is a non-empty string or object
+                    is_failed = True
 
                 if is_failed:
                     logger.error(
@@ -191,6 +200,13 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
                     except Exception:
                         pass
                 elif isinstance(result, dict) and "error" in result:
+                    is_failed = True
+                elif (
+                    hasattr(result, "status")
+                    and getattr(result, "status", None) == "error"
+                ):
+                    is_failed = True
+                elif hasattr(result, "error") and getattr(result, "error", None):
                     is_failed = True
 
                 if is_failed:

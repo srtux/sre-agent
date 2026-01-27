@@ -28,6 +28,7 @@ from google.cloud import trace_v1
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from sre_agent.auth import (
+    GLOBAL_CONTEXT_CREDENTIALS,
     get_credentials_from_tool_context,
     get_current_project_id,
 )
@@ -196,8 +197,9 @@ def fetch_trace_data(
 
     user_creds = get_credentials_from_tool_context(tool_context)
     try:
-        if user_creds:
-            _set_thread_credentials(user_creds)
+        # Fallback to GLOBAL_CONTEXT_CREDENTIALS for local/ADC execution
+        creds = user_creds or GLOBAL_CONTEXT_CREDENTIALS
+        _set_thread_credentials(creds)
         trace_json = _fetch_trace_sync(project_id, trace_id_or_json)
         try:
             if isinstance(trace_json, dict):
@@ -228,8 +230,9 @@ async def fetch_trace(
 
     user_creds = get_credentials_from_tool_context(tool_context)
     try:
-        if user_creds:
-            _set_thread_credentials(user_creds)
+        # Fallback to GLOBAL_CONTEXT_CREDENTIALS for local/ADC execution
+        creds = user_creds or GLOBAL_CONTEXT_CREDENTIALS
+        _set_thread_credentials(creds)
         result = await run_in_threadpool(_fetch_trace_sync, project_id, trace_id)
         if isinstance(result, dict) and "error" in result:
             return BaseToolResponse(status=ToolStatus.ERROR, error=result["error"])
@@ -240,7 +243,7 @@ async def fetch_trace(
 
 def _fetch_trace_sync(project_id: str, trace_id: str) -> dict[str, Any]:
     """Synchronous implementation of fetch_trace."""
-    thread_creds = _get_thread_credentials()
+    thread_creds = _get_thread_credentials() or GLOBAL_CONTEXT_CREDENTIALS
     cache = get_data_cache()
 
     cached = cache.get(f"trace:{trace_id}")
@@ -264,7 +267,11 @@ def _fetch_trace_sync(project_id: str, trace_id: str) -> dict[str, Any]:
             if thread_creds:
                 client = get_trace_client(credentials=thread_creds)
             else:
-                error_msg = "Authentication failed: No user credentials found in thread context."
+                # This should not be hit with GLOBAL_CONTEXT_CREDENTIALS fallback
+                error_msg = (
+                    "Authentication failed: No credentials found in context or ADC. "
+                    "Ensure GOOGLE_APPLICATION_CREDENTIALS is set."
+                )
                 logger.error(error_msg)
                 return {"error": error_msg}
 
@@ -356,8 +363,9 @@ async def list_traces(
 
     user_creds = get_credentials_from_tool_context(tool_context)
     try:
-        if user_creds:
-            _set_thread_credentials(user_creds)
+        # Fallback to GLOBAL_CONTEXT_CREDENTIALS for local/ADC execution
+        creds = user_creds or GLOBAL_CONTEXT_CREDENTIALS
+        _set_thread_credentials(creds)
         result = await run_in_threadpool(
             _list_traces_sync,
             project_id,
@@ -386,12 +394,15 @@ def _list_traces_sync(
 ) -> list[dict[str, Any]] | dict[str, Any]:
     """Synchronous implementation of list_traces."""
     with tracer.start_as_current_span("list_traces"):
-        thread_creds = _get_thread_credentials()
+        thread_creds = _get_thread_credentials() or GLOBAL_CONTEXT_CREDENTIALS
         try:
             if thread_creds:
                 client = get_trace_client(credentials=thread_creds)
             else:
-                error_msg = "Authentication failed: No user credentials found in thread context."
+                error_msg = (
+                    "Authentication failed: No credentials found in context or ADC. "
+                    "Ensure GOOGLE_APPLICATION_CREDENTIALS is set."
+                )
                 logger.error(error_msg)
                 return {"error": error_msg}
 

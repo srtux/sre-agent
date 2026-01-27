@@ -35,8 +35,11 @@ from ..tools import (
     find_exemplar_traces,
     # Investigation
     get_investigation_summary,
+    list_log_entries,
+    list_time_series,
     list_traces,
     mcp_execute_sql,
+    query_promql,
     update_investigation_state,
 )
 
@@ -171,6 +174,9 @@ Use when: You need detailed analysis of one or more traces, or need to compare t
         detect_retry_storm,
         detect_cascading_timeout,
         detect_connection_pool_issues,
+        list_log_entries,
+        list_time_series,
+        query_promql,
         get_investigation_summary,
         update_investigation_state,
     ],
@@ -196,7 +202,10 @@ aggregate_analyzer = LlmAgent(
         find_bottleneck_services,
         build_service_dependency_graph,
         discover_telemetry_sources,
+        list_log_entries,
+        list_time_series,
         list_traces,
+        query_promql,
         get_investigation_summary,
         update_investigation_state,
     ],

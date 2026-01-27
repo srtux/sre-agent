@@ -14,6 +14,7 @@ import time
 from datetime import datetime, timezone
 from typing import Any, cast
 
+from google.api import metric_pb2
 from google.auth.transport.requests import AuthorizedSession
 from google.cloud import monitoring_v3
 from opentelemetry.trace import Status, StatusCode
@@ -41,14 +42,19 @@ async def list_time_series(
 ) -> BaseToolResponse:
     """Lists time series data from Google Cloud Monitoring using direct API.
 
-    IMPORTANT: You must use valid combinations of metric and monitored resource labels.
-    - For GCE Instances (`gce_instance`), valid labels are `instance_id`, `zone`, `project_id`.
-      DO NOT use `service_name` or `service` with GCE metrics.
-    - For GKE Containers (`k8s_container`), valid labels are `namespace_name`, `pod_name`, `container_name`, `cluster_name`.
-    - To filter by service, use `query_promql` instead with a PromQL query like `metric{service="service-name"}`.
+    CRITICAL RULES:
+    1.  **EXACT Metric Type**: You MUST specify EXACTLY ONE metric type using the equality operator (e.g., `metric.type="my.metric/type"`).
+    2.  **NO `starts_with` for metrics**: You CANNOT use `starts_with` or regex on `metric.type` for time series queries. If you need to search for metrics, use `list_metric_descriptors` first.
+    3.  **Monitored Resource**: You MUST specify `resource.type` for most queries (e.g., `resource.type="gce_instance"`).
+
+    Common monitored resource labels:
+    - GCE Instances (`gce_instance`): `instance_id`, `zone`, `project_id`.
+    - GKE Containers (`k8s_container`): `namespace_name`, `pod_name`, `container_name`, `cluster_name`.
+
+    To filter by arbitrary service labels, use `query_promql` instead.
 
     Args:
-        filter_str: The filter string to use.
+        filter_str: The filter string to use. Exactly one metric type required.
         minutes_ago: The number of minutes in the past to query.
         project_id: The Google Cloud Project ID. Defaults to current context.
         tool_context: Context object for tool execution.
@@ -56,7 +62,7 @@ async def list_time_series(
     Returns:
         Standardized response with list of time series data.
 
-    Example filter_str: 'metric.type="compute.googleapis.com/instance/cpu/utilization" AND resource.labels.instance_id="123456789"'
+    Example filter_str: 'metric.type="compute.googleapis.com/instance/cpu/utilization" AND resource.type="gce_instance" AND resource.labels.instance_id="123456789"'
     """
     from fastapi.concurrency import run_in_threadpool
 
@@ -105,6 +111,16 @@ def _list_time_series_sync(
                     },
                 }
             )
+            # Detection for broad filters that cause common 400 errors
+            if (
+                "starts_with" in filter_str.lower()
+                or "has_substring" in filter_str.lower()
+            ):
+                logger.warning(
+                    f"Broad filter detected in list_time_series: {filter_str}"
+                )
+                # We don't block it, but we prepare for the error
+
             results = client.list_time_series(
                 name=project_name,
                 filter=filter_str,
@@ -203,8 +219,19 @@ def _list_time_series_sync(
                     "If the Ops Agent is installed, use 'guest/memory/bytes_used'. "
                     "Otherwise, use 'compute.googleapis.com/instance/memory/balloon/ram_used'."
                 )
+            elif "400" in error_str and (
+                "matches more than one metric" in error_str
+                or "starts_with" in filter_str
+            ):
+                suggestion = (
+                    ". HINT: 'list_time_series' only supports querying ONE metric at a time. "
+                    "Your filter uses 'starts_with' or matches multiple metrics. "
+                    'Please specify an exact metric type (e.g., metric.type="...").'
+                )
             elif "400" in error_str and "resource.type" not in filter_str:
-                suggestion = ". HINT: You MUST specify 'resource.type' in the filter string for most metrics."
+                suggestion = ". HINT: You MUST specify 'resource.type' in the filter string for most metrics (e.g. resource.type=\"gce_instance\")."
+            elif "400" in error_str and "gke_container" in filter_str:
+                suggestion = ". HINT: For GKE metrics, try using 'resource.type=\"k8s_container\"' instead of 'gke_container'."
 
             error_msg = f"Failed to list time series: {error_str}{suggestion}"
             logger.error(error_msg, exc_info=True)
@@ -270,12 +297,35 @@ def _list_metric_descriptors_sync(
 
             descriptors = []
             for descriptor in results:
+                # Use robust enum access as these can be ints depending on protobuf version
+                kind_name = str(descriptor.metric_kind)
+                if hasattr(descriptor.metric_kind, "name"):
+                    kind_name = descriptor.metric_kind.name
+                else:
+                    try:
+                        kind_name = metric_pb2.MetricDescriptor.MetricKind.Name(
+                            descriptor.metric_kind
+                        )
+                    except (ValueError, AttributeError):
+                        pass
+
+                type_name = str(descriptor.value_type)
+                if hasattr(descriptor.value_type, "name"):
+                    type_name = descriptor.value_type.name
+                else:
+                    try:
+                        type_name = metric_pb2.MetricDescriptor.ValueType.Name(
+                            descriptor.value_type
+                        )
+                    except (ValueError, AttributeError):
+                        pass
+
                 descriptors.append(
                     {
                         "name": descriptor.name,
                         "type": descriptor.type,
-                        "metric_kind": descriptor.metric_kind.name,
-                        "value_type": descriptor.value_type.name,
+                        "metric_kind": kind_name,
+                        "value_type": type_name,
                         "unit": descriptor.unit,
                         "description": descriptor.description,
                         "display_name": descriptor.display_name,
@@ -383,8 +433,16 @@ def _query_promql_sync(
             return cast(dict[str, Any], response.json())
 
         except Exception as e:
-            error_msg = f"Failed to execute PromQL query: {e!s}"
-            logger.error(error_msg)
+            suggestion = ""
+            if "400" in str(e):
+                suggestion = (
+                    ". HINT: Your PromQL query might be invalid or unsupported. "
+                    "Ensure you use valid label matchers and that the metric exists. "
+                    "Try a simpler query first like '{__name__=\"metric_name\"}'."
+                )
+
+            error_msg = f"Failed to execute PromQL query: {e!s}{suggestion}"
+            logger.error(error_msg, exc_info=True)
             span.record_exception(e)
             span.set_status(Status(StatusCode.ERROR, error_msg))
             return {"error": error_msg}

@@ -67,6 +67,12 @@ I see the Matrix code in the charts. 📉 I don't just see a line go up; I see t
 You have access to a curated list of common Google Cloud metrics:
 {SMART_METRICS_LIST}
 
+**Documentation Reference**: ALWAYS refer to the [GCP Metrics List](https://docs.cloud.google.com/monitoring/api/metrics_gcp) for valid metric/resource combinations.
+
+**Monitored Resource Types (CRITICAL)**:
+- **GKE**: Use `resource.type="k8s_container"`. **DO NOT** use `gke_container` unless explicitly required for legacy clusters.
+- **GCE**: Use `resource.type="gce_instance"`.
+- **Cloud Run**: Use `resource.type="cloud_run_revision"`.
 **PromQL for Cloud Monitoring (THE RULES) 🧠**:
 - **Metric Verification (MANDATORY)**:
     - Before executing ANY `query_promql` or `list_time_series` call, you **MUST** verify the metric actually exists.
@@ -106,6 +112,7 @@ You have access to a curated list of common Google Cloud metrics:
 **Cloud Monitoring Filter Syntax (`list_time_series` Rules) 📜**:
 - **Documentation**: [Monitoring Filters](https://docs.cloud.google.com/monitoring/api/v3/filters)
 - **Structure**: `metric.type="<METRIC>" AND resource.type="<RESOURCE>" AND ...`
+- **CRITICAL**: For `list_time_series`, you MUST use an exact match `=` for `metric.type`. Functions like `starts_with` are NOT supported for the metric type itself.
 - **Operators**:
     - `=` (Equals), `!=` (Not Equals)
     - `:` (Has substring / Has label)

@@ -26,7 +26,9 @@ from ..tools import (
     # Investigation
     get_investigation_summary,
     list_log_entries,
+    list_time_series,
     perform_causal_analysis,
+    query_promql,
     update_investigation_state,
 )
 
@@ -98,6 +100,8 @@ Use when: You need to know WHY it happened, WHO changed it, and HOW BAD it is.""
         build_service_dependency_graph,
         detect_trend_changes,
         list_log_entries,
+        list_time_series,
+        query_promql,
         compare_time_periods,
         fetch_trace,
         get_investigation_summary,

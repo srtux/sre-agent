@@ -50,9 +50,16 @@ async def list_alerts(
 ) -> BaseToolResponse:
     """Lists alerts (incidents) using the Google Cloud Monitoring API.
 
+    Common filter patterns:
+    - Active incidents: `state="OPEN"`
+    - Closed incidents: `state="CLOSED"`
+    - Specific policy: `policy_name="projects/[PROJECT_ID]/alertPolicies/[POLICY_ID]"`
+
+    Syntax is strictly `field="value"`. Complex tokens or raw proto strings are NOT supported.
+
     Args:
         project_id: The Google Cloud Project ID.
-        filter_str: Optional filter string.
+        filter_str: Optional filter string (e.g., `state="OPEN"`).
         order_by: Optional sort order field.
         page_size: Number of results to return.
         tool_context: Context object for tool execution.
@@ -123,6 +130,14 @@ def _list_alerts_sync(
         except Exception as e:
             span.record_exception(e)
             error_msg = f"Failed to list alerts: {e!s}"
+
+            # Provide smart hints for common mistakes
+            if "Restriction must have a left-hand side" in error_msg:
+                error_msg += (
+                    "\n\nHINT: Google Cloud Monitoring filters must follow the syntax 'field=\"value\"'. "
+                    "Ensure you are not passing raw proto-style filters or complex objects."
+                )
+
             logger.error(error_msg, exc_info=True)
             return {"error": error_msg}
 

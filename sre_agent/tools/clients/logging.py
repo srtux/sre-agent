@@ -37,6 +37,16 @@ async def list_log_entries(
 ) -> BaseToolResponse:
     """Lists log entries from Google Cloud Logging using direct API.
 
+    Common filter patterns:
+    - GKE Container logs: `resource.type="k8s_container" AND resource.labels.container_name="my-app" AND severity>=ERROR`
+    - GKE Pod logs: `resource.type="k8s_container" AND resource.labels.pod_name="my-pod-xyz"`
+    - Global logs: `textPayload:"error"`
+    - JSON logs: `jsonPayload.message =~ "regex"`
+    - Trace correlation: `trace="projects/[PROJECT_ID]/traces/[TRACE_ID]"`
+
+    CRITICAL: For GKE logs, fields like `container_name`, `pod_name`, `namespace_name` MUST be prefixed with `resource.labels.`.
+    Example: `resource.labels.container_name="my-app"` NOT `container_name="my-app"`.
+
     Args:
         project_id: The Google Cloud Project ID.
         filter_str: The filter string to use.
@@ -171,6 +181,28 @@ def _list_log_entries_sync(
         except Exception as e:
             span.record_exception(e)
             error_msg = f"Failed to list log entries: {e!s}"
+
+            # Provide smart hints for common mistakes
+            if "Field not found" in error_msg:
+                if any(
+                    f in error_msg
+                    for f in [
+                        "container_name",
+                        "pod_name",
+                        "namespace_name",
+                        "cluster_name",
+                    ]
+                ):
+                    error_msg += (
+                        "\n\nHINT: GKE fields like 'container_name' or 'pod_name' must be prefixed "
+                        "with 'resource.labels.'. Try 'resource.labels.container_name=\"...\"' instead."
+                    )
+                elif "instance_id" in error_msg:
+                    error_msg += (
+                        "\n\nHINT: Compute Engine fields like 'instance_id' must be prefixed "
+                        "with 'resource.labels.'. Try 'resource.labels.instance_id=\"...\"' instead."
+                    )
+
             logger.error(error_msg, exc_info=True)
             return {"error": error_msg}
 

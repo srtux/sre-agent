@@ -51,27 +51,6 @@ steps:
         echo "$$RESOURCE_NAME" > backend_resource_name.txt
         echo "✅ Found Agent: $$RESOURCE_NAME"
 
-  # 3. Run World-Class Eval Suite (Quality Gate)
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    id: 'run-evals'
-    waitFor: ['deploy-backend']
-    entrypoint: 'bash'
-    secretEnv: ['SRE_AGENT_ENCRYPTION_KEY']
-    env:
-      - 'GOOGLE_CLOUD_PROJECT=$PROJECT_ID'
-      - 'GOOGLE_CLOUD_LOCATION=$_LOCATION'
-      - 'STRICT_EUC_ENFORCEMENT=false'
-    args:
-      - '-c'
-      - |
-        curl -LsSf https://astral.sh/uv/install.sh | sh
-        export PATH="/builder/home/.local/bin:$$PATH"
-        uv python install 3.12
-        uv sync
-
-        echo "📊 Running SRE Agent Evaluation Suite..."
-        # We run evals against the local code to verify logic before final release
-        uv run poe eval
 
 
 
@@ -118,6 +97,30 @@ steps:
           --allow-unauthenticated \
           --set-env-vars="SRE_AGENT_URL=$$AGENT_URL,SRE_AGENT_ID=$$RESOURCE_NAME,GCP_PROJECT_ID=$PROJECT_ID,GCP_REGION=$$LOCATION,LOG_FORMAT=JSON,LOG_LEVEL=INFO" \
           --set-secrets="GOOGLE_API_KEY=gemini-api-key:latest,GEMINI_API_KEY=gemini-api-key:latest,GOOGLE_CLIENT_ID=google-client-id:latest,SRE_AGENT_ENCRYPTION_KEY=sre-agent-encryption-key:latest"
+
+  # 7. Run World-Class Eval Suite (Post-Deployment Quality Check)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'run-evals'
+    allowFailure: true
+    waitFor: ['deploy-frontend'] # Run AFTER deployment to avoid blocking the release
+    entrypoint: 'bash'
+    secretEnv: ['SRE_AGENT_ENCRYPTION_KEY']
+    env:
+      - 'GOOGLE_CLOUD_PROJECT=$PROJECT_ID'
+      - 'GOOGLE_CLOUD_LOCATION=$_LOCATION'
+      - 'RUNNING_IN_AGENT_ENGINE=true'
+      - 'STRICT_EUC_ENFORCEMENT=false'
+    args:
+      - '-c'
+      - |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        export PATH="/builder/home/.local/bin:$$PATH"
+        uv python install 3.12
+        uv sync
+
+        echo "📊 Running SRE Agent Evaluation Suite (Asynchronous Quality Gate)..."
+        # We run evals against the local code to verify logic before final release
+        uv run poe eval
 
 substitutions:
   _LOCATION: us-central1

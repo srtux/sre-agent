@@ -314,6 +314,30 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         testable=True,
         enabled=True,  # Enabled by default for aggregate analysis
     ),
+    ToolConfig(
+        name="list_dataset_ids",
+        display_name="List BigQuery Datasets",
+        description="List BigQuery datasets using MCP",
+        category=ToolCategory.DISCOVERY,
+        testable=False,
+        enabled=True,
+    ),
+    ToolConfig(
+        name="list_table_ids",
+        display_name="List BigQuery Tables",
+        description="List BigQuery tables using MCP",
+        category=ToolCategory.DISCOVERY,
+        testable=False,
+        enabled=True,
+    ),
+    ToolConfig(
+        name="get_table_info",
+        display_name="Get BigQuery Table Info",
+        description="Get BigQuery table schema and info using MCP",
+        category=ToolCategory.DISCOVERY,
+        testable=False,
+        enabled=True,
+    ),
     # -------------------------------------------------------------------------
     # BigQuery/OTel Tools
     # -------------------------------------------------------------------------

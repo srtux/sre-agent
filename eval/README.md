@@ -43,20 +43,40 @@ This suite is integrated into `cloudbuild.yaml` as a **Mandatory Quality Gate**.
 *   **Step**: `run-evals`
 *   **Impact**: If the `trajectory_score` falls below 100% or the `rubric_score` falls below 80%, the build fails and deployment is blocked.
 
-### 🔑 IAM Setup for CI/CD
-To run evaluations in Cloud Build, the build service account must have "Observability Specialist" permissions. Run this command to configure it:
+### 🔑 IAM Setup
+To run evaluations (either locally or in CI/CD), the executing identity must have permissions for observability data and Vertex AI.
+
+#### 1. Cloud Build Setup (CI/CD)
+Run this command to configure the build service account:
 
 ```bash
 PROJECT_ID=$(gcloud config get-value project)
 PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)')
 CB_SA="$PROJECT_NUMBER@cloudbuild.gserviceaccount.com"
 
-# Grant necessary roles for agent analysis and model-based evaluation
-for ROLE in aiplatform.user logging.viewer monitoring.viewer cloudtrace.user \
-            bigquery.jobUser bigquery.dataViewer resourcemanager.projectViewer; do
+# Grant necessary roles for agent analysis, MCP discovery, and model-based evaluation
+for ROLE in aiplatform.user aiplatform.viewer logging.viewer monitoring.viewer \
+            cloudtrace.user bigquery.jobUser bigquery.dataViewer \
+            cloudapiregistry.viewer resourcemanager.projectViewer; do
   gcloud projects add-iam-policy-binding $PROJECT_ID \
     --member="serviceAccount:$CB_SA" \
-    --role="roles/$ROLE"
+    --role="roles/$ROLE" \
+    --condition=None
+done
+```
+
+#### 2. Local Developer Setup
+Ensure your local identity (`gcloud auth application-default login`) has these roles:
+
+```bash
+# Replace with your email
+USER_EMAIL="user@google.com"
+
+for ROLE in aiplatform.user aiplatform.viewer cloudapiregistry.viewer; do
+  gcloud projects add-iam-policy-binding $PROJECT_ID \
+    --member="user:$USER_EMAIL" \
+    --role="roles/$ROLE" \
+    --condition=None
 done
 ```
 

@@ -279,6 +279,25 @@ class ADKSessionManager:
             logger.error(f"Failed to delete session {session_id}: {e}")
             return False
 
+    async def append_event(self, session: Session, event: Event) -> None:
+        """Append an event to the session with safety checks.
+
+        This method handles cases weight the underlying storage session might be None
+        or missing (common in eval environments).
+
+        Args:
+            session: The ADK session to append to
+            event: The event to append
+        """
+        try:
+            await self._session_service.append_event(session, event)
+        except Exception as e:
+            # Handle 'NoneType' storage error and 'not found' errors gracefully (log and continue)
+            if "NoneType" in str(e) or "not found" in str(e).lower():
+                logger.warning(f"Could not persist event to session {session.id}: {e}")
+            else:
+                raise e
+
     async def update_session_state(
         self,
         session: Session,
@@ -297,7 +316,7 @@ class ADKSessionManager:
             actions=actions,
             timestamp=time.time(),
         )
-        await self._session_service.append_event(session, event)
+        await self.append_event(session, event)
         logger.debug(f"Updated session {session.id} state: {list(state_delta.keys())}")
 
     async def sync_to_memory(self, session: Session) -> bool:

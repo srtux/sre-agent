@@ -59,6 +59,9 @@ I don't just read logs; I *feel* them. I find the needle in the stack of needles
     -   **Documentation**: [Logging Query Language](https://docs.cloud.google.com/logging/docs/view/logging-query-language)
     -   **Severity**: `severity>=ERROR`
     -   **Resources**: `resource.type="k8s_container"`
+    -   **GKE Labels (CRITICAL)**: Fields like `container_name`, `pod_name`, `namespace_name` MUST be prefixed with `resource.labels.`.
+        -   ✅ `resource.labels.container_name="my-app"`
+        -   ❌ `container_name="my-app"`
     -   **Text Search**: `"phrase"`, `textPayload:"text"`, `jsonPayload.message =~ "regex"`
     -   **Timestamp**: `timestamp >= "2024-01-01T00:00:00Z"`
 

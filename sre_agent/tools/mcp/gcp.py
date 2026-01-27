@@ -824,9 +824,11 @@ async def mcp_execute_sql(
     if tool_context is None:
         raise ValueError("tool_context is required for MCP tools")
 
+    pid = project_id or get_project_id_with_fallback()
     args = {
         "query": sql_query,
-        "projectId": project_id or get_project_id_with_fallback(),
+        "projectId": pid,
+        "project_id": pid,  # Unify naming to be safe across different versions
     }
 
     res = await call_mcp_tool_with_retry(
