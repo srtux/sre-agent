@@ -55,6 +55,9 @@ import vertexai
 from google.adk.agents import LlmAgent
 from google.adk.tools import AgentTool  # type: ignore[attr-defined]
 from google.adk.tools.base_toolset import BaseToolset
+from opentelemetry import context as otel_context
+from opentelemetry import trace
+from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
 
 from .auth import (
     GLOBAL_CONTEXT_CREDENTIALS,
@@ -332,10 +335,6 @@ def emojify_agent(agent: LlmAgent | Any) -> LlmAgent | Any:
             user_email = session_state.get("user_email")
             if user_email:
                 set_current_user_id(user_email)
-
-            from opentelemetry import context as otel_context
-            from opentelemetry import trace
-            from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
 
             from .auth import (
                 SESSION_STATE_SPAN_ID_KEY,
