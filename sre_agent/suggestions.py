@@ -142,7 +142,7 @@ Generate 3-6 short, actionable suggestions that help the user continue their inv
 Return ONLY a JSON array of strings."""
 
         response = client.models.generate_content(
-            model="gemini-1.5-flash",
+            model="gemini-3-flash-preview",
             contents=prompt,
             config=GenerateContentConfig(
                 system_instruction=SUGGESTIONS_SYSTEM_PROMPT,

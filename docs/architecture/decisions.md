@@ -31,15 +31,17 @@ This document records significant architectural decisions, dependency constraint
 
 ## Model Support & Deployment Constraints
 
-### Agent Engine GA Model Enforcement (Gemini 1.5)
+### Agent Engine GA Model Enforcement (Gemini 2.5) vs Local Development (Gemini 3.0)
 
 *   **Date**: January 27, 2026
-*   **Decision**: Standardize on Gemini 1.5 (Flash and Pro) for all environments (Local and Agent Engine) and prohibit the use of Gemini 3.0 or non-GA models.
+*   **Decision**: Differentiate model usage between Local Development and Agent Engine Deployment.
+    *   **Local**: Use Gemini 3.0 Preview models (`gemini-3-flash-preview` / `gemini-3-pro-preview`).
+    *   **Agent Engine**: Use Gemini 2.5 GA models (`gemini-2.5-flash` / `gemini-2.5-pro`).
 *   **Context**:
-    Agent Engine currently only supports GA (General Availability) models. Deploying an agent with Gemini 3 (e.g., `gemini-3-flash-preview`) results in a `404 NOT_FOUND` error in the cloud. Furthermore, because ADK agents are often instantiated at module import time, local settings (like `gemini-3`) can get "frozen" into the serialized agent state during deployment.
+    Agent Engine currently only supports GA (General Availability) models, which includes Gemini 2.5 but NOT Gemini 3.0 Preview models yet. Deploying an agent hardcoded with Gemini 3 results in a `404 NOT_FOUND` error. However, for local development, we want the advanced reasoning capabilities of Gemini 3.
 *   **Rationale**:
-    Using Gemini 1.5 Flash/Pro ensures seamless deployment to Agent Engine. While newer preview models may offer advanced features, they break the core deployment pipeline. By enforcing Gemini 1.5 even in local development, we maintain parity and avoid "works locally, fails in cloud" scenarios.
+    Using `sre_agent/model_config.py` allows us to dynamically switch models based on the `RUNNING_IN_AGENT_ENGINE` environment variable. This ensures the agent is compatible with Cloud Run/Agent Engine while still allowing developers to benefit from the latest previews locally.
 *   **Implementation**:
-    The `sre_agent/model_config.py` enforces `gemini-1.5-flash` for "fast" tasks and `gemini-1.5-pro` for "deep" tasks. All sub-agents and suggestions must use this configuration or hardcode 1.5 models.
+    The `get_model_name()` function in `sre_agent/model_config.py` detects the environment and returns the appropriate model string. All agents and sub-agents should use this function rather than hardcoding model IDs.
 *   **Action for Update**:
-    Review Agent Engine support for future models (Gemini 2.0/3.0). Once they are GA on Agent Engine, `model_config.py` can be updated.
+    Monitor Agent Engine support for Gemini 3.0. Once it reaches GA on the platform, the transition can be made to use Gemini 3.0 everywhere.

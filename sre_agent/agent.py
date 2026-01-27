@@ -1124,7 +1124,7 @@ for _sa in [
 def create_configured_agent(
     use_mcp: bool = False,
     respect_config: bool = True,
-    model: str = "gemini-1.5-flash",
+    model: str = "gemini-3-flash-preview",
 ) -> LlmAgent:
     """Get the SRE agent, optionally with filtered tools based on configuration.
 

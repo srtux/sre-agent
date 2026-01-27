@@ -43,7 +43,7 @@
 **Technology Stack**:
 - **Language**: Python 3.10+ (Backend), Dart/Flutter (Frontend)
 - **Agent Framework**: Google Agent Development Kit (ADK)
-- **LLM**: Gemini 1.5 Flash
+- **LLM**: Gemini 2.5 Flash
 - **Frontend**: Flutter Web + GenUI Protocol (Deep Space Theme)
 - **API Strategy**: Hybrid (MCP for heavy-lifting, Direct API for speed)
 - **Testing**: pytest (Backend), flutter test (Frontend)
@@ -411,7 +411,7 @@ You are a Latency Specialist. Your role is to...
 """
 
 latency_analyzer = LlmAgent(
-    model="gemini-1.5-flash",
+    model="gemini-2.5-flash",
     system_instruction=LATENCY_ANALYZER_PROMPT,
     tools=[
         # Only latency-relevant tools
