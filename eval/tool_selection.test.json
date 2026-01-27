@@ -36,8 +36,7 @@
       ],
       "session_input": {
         "app_name": "sre_agent",
-        "user_id": "test_user",
-        "state": {}
+        "user_id": "test_user"
       }
     },
     {
@@ -74,8 +73,7 @@
       ],
       "session_input": {
         "app_name": "sre_agent",
-        "user_id": "test_user",
-        "state": {}
+        "user_id": "test_user"
       }
     },
     {
