@@ -3,6 +3,7 @@
 import os
 import re
 import sys
+import time
 from pathlib import Path
 
 if sys.version_info >= (3, 11):
@@ -180,13 +181,37 @@ def deploy(env_vars: dict[str, str] | None = None) -> None:
         print("🚀 Updating existing agent (patching)...")
         # In the ADK/Vertex SDK, update() performs the PATCH operation
         # Note: update() requires all arguments to be keyword-only
-        remote_agent = existing_agent.update(
-            agent_engine=adk_app,
-            display_name=display_name,
-            description=description,
-            **common_kwargs,
-        )
-        print(f"Successfully updated agent: {remote_agent.resource_name}")
+
+        # Handle concurrent updates with a retry loop
+        max_retries = 12  # 12 * 60s = 12 minutes
+        retry_count = 0
+        from google.api_core import exceptions
+
+        while retry_count < max_retries:
+            try:
+                remote_agent = existing_agent.update(
+                    agent_engine=adk_app,
+                    display_name=display_name,
+                    description=description,
+                    **common_kwargs,
+                )
+                print(f"Successfully updated agent: {remote_agent.resource_name}")
+                break
+            except exceptions.InvalidArgument as e:
+                # Vertex AI often returns 400 InvalidArgument when an update is already in progress
+                retry_count += 1
+                if retry_count < max_retries:
+                    print(
+                        f"⚠️  Concurrent update detected or invalid state. Retrying in 60s ({retry_count}/{max_retries})..."
+                    )
+                    print(f"Error detail: {e}")
+                    time.sleep(60)
+                else:
+                    print("❌ Maximum retries reached. Failing deployment.")
+                    raise
+            except Exception as e:
+                print(f"❌ Unexpected error during update: {e}")
+                raise
     else:
         print(f"🚀 Creating new agent: {display_name}")
         remote_agent = agent_engines.create(
