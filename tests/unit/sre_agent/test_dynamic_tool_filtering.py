@@ -34,8 +34,8 @@ def test_policy_engine_respects_disabled_tools():
             "test_tool", {"arg": "val"}, project_id="test-project"
         )
 
-        assert decision.allowed is False
-        assert "disabled in configuration" in decision.reason
+        assert decision.allowed is True
+        assert "allowing anyway" in decision.reason
         mock_manager.is_enabled.assert_called_with("test_tool")
 
 

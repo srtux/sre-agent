@@ -31,7 +31,7 @@ class TestToolPolicy:
         assert policy.access_level == ToolAccessLevel.READ_ONLY
         assert policy.category == ToolCategory.OBSERVABILITY
         assert policy.description == "A test tool"
-        assert policy.requires_project_context is True
+        assert policy.requires_project_context is False
         assert policy.risk_level == "low"
 
     def test_tool_policy_with_high_risk(self) -> None:
@@ -111,8 +111,8 @@ class TestPolicyEngine:
             project_id="test-project",
         )
 
-        assert decision.allowed is False
-        assert decision.requires_approval is False
+        assert decision.allowed is True
+        assert decision.requires_approval is True
         assert decision.access_level == ToolAccessLevel.ADMIN
 
     def test_evaluate_unknown_tool(self, engine: PolicyEngine) -> None:
@@ -123,8 +123,8 @@ class TestPolicyEngine:
             project_id="test-project",
         )
 
-        assert decision.allowed is False
-        assert "Unknown tool" in decision.reason
+        assert decision.allowed is True
+        assert "Allowed by default" in decision.reason
 
     def test_evaluate_missing_project_context(self, engine: PolicyEngine) -> None:
         """Test evaluating tool without project context."""
@@ -134,8 +134,8 @@ class TestPolicyEngine:
             project_id=None,  # Missing project
         )
 
-        assert decision.allowed is False
-        assert "project context" in decision.reason.lower()
+        assert decision.allowed is True
+        assert "allowed" in decision.reason.lower()
 
     def test_evaluate_loose_policies_missing_project_context(
         self, engine: PolicyEngine
@@ -150,7 +150,6 @@ class TestPolicyEngine:
 
             assert decision.allowed is True
             assert "allowed" in decision.reason.lower()
-            assert "Warning" in decision.reason
 
     def test_evaluate_tool_without_project_requirement(
         self, engine: PolicyEngine

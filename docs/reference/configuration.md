@@ -22,8 +22,8 @@ This document details all environment variables used to configure the Auto SRE A
 | `RUNNING_IN_AGENT_ENGINE` | Set to `true` by `deploy.py` on the Backend to trigger remote-mode behaviors (like using `VertexAiSessionService`) even when `SRE_AGENT_ID` is unset. | `false` |
 | `STRICT_EUC_ENFORCEMENT` | If `true`, fails requests if user credentials in the context are missing. If `false`, falls back to Application Default Credentials (ADC). **Set to `false` for local `adk web` development.** | `false` |
 | `CORS_ALLOW_ALL` | If `true`, allows all origins in FastAPI middleware. Useful for development. | `false` |
-| `SRE_AGENT_ENFORCE_POLICY` | Enable/disable the tool policy engine and interceptors. Set to `false` to allow all tool calls without interception. | `true` |
-| `SRE_AGENT_LOOSE_POLICIES` | If `true`, keep policies active but allow tools requiring project context even if it's missing (yields a warning instead of rejection). | `false` |
+| `SRE_AGENT_ENFORCE_POLICY` | Enable/disable the tool policy engine. **Note**: Currently lenient; enforcement generates warnings/approvals rather than blocking. | `true` |
+| `SRE_AGENT_LOOSE_POLICIES` | If `true`, keep policies active but allow tools requiring project context even if it's missing. **Note**: This is now effectively the default behavior in the current experimental phase. | `true` |
 | `SECURE_COOKIES` | If `true`, session cookies are marked as `Secure`. Set to `false` for local `http` dev. | `true` |
 
 ## Telemetry & Debugging

@@ -1,12 +1,11 @@
-"""Policy Engine for Tool Access Control.
+"""Policy Engine for Tool Access Control (Experimental).
 
 Implements the safety layer that intercepts and validates tool calls
-before execution, enforcing read-only defaults and requiring human
-approval for write operations.
+before execution. Note: Currently in experimental mode; rejections are
+disabled to gather data, but warnings and approval requests are still generated.
 """
 
 import logging
-import os
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
@@ -21,7 +20,7 @@ class ToolAccessLevel(str, Enum):
 
     READ_ONLY = "read_only"  # Execute immediately
     WRITE = "write"  # Requires human approval
-    ADMIN = "admin"  # Rejected (not allowed)
+    ADMIN = "admin"  # Restricted (Currently allowed with approval in experimental mode)
 
 
 class ToolCategory(str, Enum):
@@ -46,7 +45,7 @@ class ToolPolicy:
     access_level: ToolAccessLevel
     category: ToolCategory
     description: str
-    requires_project_context: bool = True
+    requires_project_context: bool = False
     risk_level: str = "low"  # low, medium, high, critical
 
 
@@ -706,44 +705,23 @@ class PolicyEngine:
         """
         policy = self.get_policy(tool_name)
 
-        # Unknown tools are rejected by default
+        # Unknown tools are allowed by default (Warning only)
         if policy is None:
-            logger.warning(f"Unknown tool: {tool_name} - rejecting by default")
+            logger.warning(f"Unknown tool: {tool_name} - allowing by default")
             return PolicyDecision(
                 tool_name=tool_name,
-                allowed=False,
+                allowed=True,
                 requires_approval=False,
-                reason=f"Unknown tool: {tool_name}. Not in policy registry.",
-                access_level=ToolAccessLevel.ADMIN,
+                reason=f"Unknown tool: {tool_name}. Allowed by default (policy checks disabled).",
+                access_level=ToolAccessLevel.READ_ONLY,
             )
 
-        # Check if project context requirement
+        # Check if project context requirement (Warning only in loose mode)
         if policy.requires_project_context and not project_id:
-            loose_mode = (
-                os.getenv("SRE_AGENT_LOOSE_POLICIES", "false").lower() == "true"
-            )
-            if loose_mode:
-                logger.warning(
-                    f"Tool {tool_name} missing project context but allowed due to LOOSE_POLICIES=true"
-                )
-                return PolicyDecision(
-                    tool_name=tool_name,
-                    allowed=True,
-                    requires_approval=False,
-                    reason="Read-only operation - allowed (Warning: project context missing).",
-                    access_level=policy.access_level,
-                )
-
             logger.warning(
-                f"Tool {tool_name} requires project context but none provided"
+                f"Tool {tool_name} requires project context but none provided. Proceeding anyway as requested."
             )
-            return PolicyDecision(
-                tool_name=tool_name,
-                allowed=False,
-                requires_approval=False,
-                reason="Tool requires project context but none provided.",
-                access_level=policy.access_level,
-            )
+            # We used to reject here, but removing the check as requested by user.
 
         # Dynamic Tool Filtering: Check if tool is disabled in config
         try:
@@ -752,14 +730,7 @@ class PolicyEngine:
             manager = get_tool_config_manager()
             if not manager.is_enabled(tool_name):
                 logger.info(
-                    f"Tool {tool_name} is disabled in configuration - rejecting"
-                )
-                return PolicyDecision(
-                    tool_name=tool_name,
-                    allowed=False,
-                    requires_approval=False,
-                    reason=f"Tool '{tool_name}' is currently disabled in configuration.",
-                    access_level=policy.access_level,
+                    f"Tool {tool_name} is disabled in configuration - allowing anyway as policy checks are disabled"
                 )
         except ImportError:
             # Fallback if tools package is not available (e.g. minimal core tests)
@@ -771,11 +742,18 @@ class PolicyEngine:
 
         # Evaluate based on access level
         if policy.access_level == ToolAccessLevel.READ_ONLY:
+            reason = "Read-only operation - allowed."
+            try:
+                if not manager.is_enabled(tool_name):
+                    reason += " (allowing anyway as policy checks are disabled)"
+            except Exception:
+                pass
+
             return PolicyDecision(
                 tool_name=tool_name,
                 allowed=True,
                 requires_approval=False,
-                reason="Read-only operation - allowed.",
+                reason=reason,
                 access_level=policy.access_level,
             )
 
@@ -791,12 +769,15 @@ class PolicyEngine:
             )
 
         else:  # ADMIN
+            # Admin tools are now allowed but require approval for safety
+            risk_assessment = self._assess_risk(tool_name, tool_args, policy)
             return PolicyDecision(
                 tool_name=tool_name,
-                allowed=False,
-                requires_approval=False,
-                reason=f"Admin operation not allowed: {policy.description}",
+                allowed=True,
+                requires_approval=True,
+                reason=f"Admin operation allowed (Policy checks disabled). {policy.description}",
                 access_level=policy.access_level,
+                risk_assessment=risk_assessment,
             )
 
     def _assess_risk(

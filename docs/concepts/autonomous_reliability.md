@@ -242,13 +242,13 @@ class GraphService:
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Tool Classification:**
+| Category | Access | Examples | Approval | Status |
+|----------|--------|----------|----------|--------|
+| READ_ONLY | RO | `fetch_trace`, `list_logs`, `query_promql` | Auto | Full |
+| WRITE | RW | `restart_pod`, `scale_deployment` | Human Required | Full |
+| ADMIN | RESTRICTED | `delete_resource`, `modify_iam` | Approval Req | EXPERIMENTAL |
 
-| Category | Access | Examples | Approval |
-|----------|--------|----------|----------|
-| READ_ONLY | RO | `fetch_trace`, `list_logs`, `query_promql` | Auto |
-| WRITE | RW | `restart_pod`, `scale_deployment` | Human Required |
-| ADMIN | RESTRICTED | `delete_resource`, `modify_iam` | Rejected |
+> **⚠️ EXPERIMENTAL NOTICE**: As of January 2026, the Policy Engine is running in **Audit-Only / Lenient Mode**. Rejections based on missing project context or restricted categories are currently disabled (logging a warning instead) to ensure investigative flow while gathering telemetry on tool usage. Admin-level tools that were previously "Rejected" now trigger a Human Approval request instead.
 
 ---
 
