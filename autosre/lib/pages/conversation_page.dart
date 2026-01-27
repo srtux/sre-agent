@@ -207,23 +207,47 @@ class _ConversationPageState extends State<ConversationPage>
       a2uiMessageProcessor: _messageProcessor,
       contentGenerator: _contentGenerator,
       onSurfaceAdded: (update) {
-        debugPrint('🎯 onSurfaceAdded called: surfaceId=${update.surfaceId}');
+        debugPrint('🎯 [CONV] ===== onSurfaceAdded CALLBACK =====');
+        debugPrint('🎯 [CONV] surfaceId: ${update.surfaceId}');
+        debugPrint('🎯 [CONV] Current conversation length: ${_conversation.conversation.value.length}');
+        debugPrint('🎯 [CONV] ===== END onSurfaceAdded =====');
         _scrollToBottom(force: true);
       },
       onSurfaceUpdated: (update) {
-        debugPrint('🔄 onSurfaceUpdated called: surfaceId=${update.surfaceId}');
+        debugPrint('🔄 [CONV] ===== onSurfaceUpdated CALLBACK =====');
+        debugPrint('🔄 [CONV] surfaceId: ${update.surfaceId}');
+        debugPrint('🔄 [CONV] ===== END onSurfaceUpdated =====');
         _scrollToBottom();
       },
-      onTextResponse: (text) => _scrollToBottom(),
+      onTextResponse: (text) {
+        debugPrint('📝 [CONV] onTextResponse: ${text.length > 100 ? "${text.substring(0, 100)}..." : text}');
+        _scrollToBottom();
+      },
     );
 
     // CRITICAL: Explicitly wire the A2UI data steam to the processor.
     // NOTE: GenUiConversation ALSO does this in its constructor, but we keep it
     // here for extra clarity and debugging in the logs.
     _a2uiSubscription?.cancel();
+    var a2uiProcessCount = 0;
     _a2uiSubscription = _contentGenerator.a2uiMessageStream.listen((msg) {
-      debugPrint('📥 Processing A2UI message: ${msg.runtimeType}');
+      a2uiProcessCount++;
+      debugPrint('📥 [CONV_A2UI #$a2uiProcessCount] ===== A2UI MESSAGE RECEIVED =====');
+      debugPrint('📥 [CONV_A2UI #$a2uiProcessCount] Message type: ${msg.runtimeType}');
+      debugPrint('📥 [CONV_A2UI #$a2uiProcessCount] Calling _messageProcessor.handleMessage...');
       _messageProcessor.handleMessage(msg);
+      debugPrint('📥 [CONV_A2UI #$a2uiProcessCount] ✅ handleMessage completed');
+      debugPrint('📥 [CONV_A2UI #$a2uiProcessCount] ===== END A2UI MESSAGE =====');
+    });
+
+    // Subscribe to UI messages (surface markers)
+    var uiProcessCount = 0;
+    _contentGenerator.uiMessageStream.listen((surfaceId) {
+      uiProcessCount++;
+      debugPrint('🖼️ [CONV_UI #$uiProcessCount] ===== UI MESSAGE RECEIVED =====');
+      debugPrint('🖼️ [CONV_UI #$uiProcessCount] surfaceId: $surfaceId');
+      debugPrint('🖼️ [CONV_UI #$uiProcessCount] Current conversation length: ${_conversation.conversation.value.length}');
+      debugPrint('🖼️ [CONV_UI #$uiProcessCount] ===== END UI MESSAGE =====');
     });
 
     // Subscribe to suggestions
@@ -1491,6 +1515,25 @@ class _MessageItemState extends State<_MessageItem>
       // The host from widget.host (which is _conversation.host) should now
       // correctly resolve the surface since it's guaranteed to be registered.
       final host = widget.host;
+
+      debugPrint('🖼️ [MSG_ITEM] ===== RENDERING AiUiMessage =====');
+      debugPrint('🖼️ [MSG_ITEM] surfaceId: ${msg.surfaceId}');
+      debugPrint('🖼️ [MSG_ITEM] host: ${host.runtimeType}');
+
+      // Try to get surface data for debugging
+      try {
+        final surfaceData = host.getSurfaceData(msg.surfaceId);
+        debugPrint('🖼️ [MSG_ITEM] surfaceData: $surfaceData');
+        debugPrint('🖼️ [MSG_ITEM] surfaceData type: ${surfaceData.runtimeType}');
+        if (surfaceData != null) {
+          debugPrint('🖼️ [MSG_ITEM] surfaceData keys: ${surfaceData is Map ? (surfaceData as Map).keys.toList() : "N/A"}');
+        }
+      } catch (e) {
+        debugPrint('🖼️ [MSG_ITEM] ⚠️ Could not get surface data: $e');
+      }
+
+      debugPrint('🖼️ [MSG_ITEM] Creating GenUiSurface widget...');
+      debugPrint('🖼️ [MSG_ITEM] ===== END RENDERING AiUiMessage =====');
 
       return Align(
         alignment: Alignment.centerLeft,

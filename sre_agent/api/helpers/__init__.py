@@ -6,12 +6,38 @@ for the frontend visualization, following the GenUI A2UI protocol.
 
 import json
 import logging
+import os
 import uuid
 from typing import Any, cast
 
 from sre_agent.tools.analysis import genui_adapter
 
 logger = logging.getLogger(__name__)
+
+# Enable verbose A2UI debugging with environment variable
+A2UI_DEBUG = os.environ.get("A2UI_DEBUG", "").lower() in ("true", "1", "yes")
+
+
+def _debug_log(message: str, data: Any = None) -> None:
+    """Log A2UI debug messages when A2UI_DEBUG is enabled.
+
+    Always logs to logger.info, but adds extra detail when debugging is enabled.
+    Set A2UI_DEBUG=true environment variable for verbose output.
+    """
+    if A2UI_DEBUG:
+        if data is not None:
+            # Pretty print JSON for readability
+            if isinstance(data, (dict, list)):
+                formatted = json.dumps(data, indent=2, default=str)
+                logger.info(f"🔍 A2UI_DEBUG: {message}\n{formatted}")
+            else:
+                logger.info(f"🔍 A2UI_DEBUG: {message} -> {data}")
+        else:
+            logger.info(f"🔍 A2UI_DEBUG: {message}")
+    else:
+        # Standard logging (less verbose)
+        logger.info(f"📤 {message}")
+
 
 # Widget mapping for tools that produce visualizations
 TOOL_WIDGET_MAP = {
@@ -72,49 +98,74 @@ def create_tool_call_events(
     surface_id = str(uuid.uuid4())
     component_id = f"tool-log-{surface_id[:8]}"
 
-    # Register as pending for later matching
-    pending_tool_calls.append(
+    _debug_log(
+        "[TOOL_CALL_START] Creating tool call event",
         {
-            "call_id": surface_id,
             "tool_name": tool_name,
-            "args": args,
+            "surface_id": surface_id,
             "component_id": component_id,
-        }
+            "args_preview": str(args)[:200] if args else "{}",
+        },
     )
 
-    # Create separate events for beginRendering and surfaceUpdate for maximum compatibility
-    logger.info(f"📤 Tool Call Events: {tool_name} (surface_id={surface_id})")
+    # Register as pending for later matching
+    pending_entry = {
+        "call_id": surface_id,
+        "tool_name": tool_name,
+        "args": args,
+        "component_id": component_id,
+    }
+    pending_tool_calls.append(pending_entry)
+
+    _debug_log(
+        "[TOOL_CALL_PENDING] Registered pending call",
+        {"pending_count": len(pending_tool_calls), "entry": pending_entry},
+    )
 
     # Hybrid Initialization (Wrapper + Root Type)
     # We wrap the data in a key matching the component type to ensure GenUI matches it
     # regardless of whether it uses key-based or type-based matching.
-    begin_event = json.dumps(
-        {
-            "type": "a2ui",
-            "message": {
-                "beginRendering": {
-                    "surfaceId": surface_id,
-                    "root": component_id,
-                    "components": [
-                        {
-                            "id": component_id,
-                            "type": "x-sre-tool-log",  # Root Level Type (v0.8+)
-                            "component": {
-                                "type": "x-sre-tool-log",  # Component Level Type
-                                "x-sre-tool-log": {  # Named Wrapper (Hybrid Pattern)
-                                    "type": "x-sre-tool-log",
-                                    "componentName": "x-sre-tool-log",
-                                    "tool_name": tool_name,
-                                    "toolName": tool_name,
-                                    "args": args,
-                                    "status": "running",
-                                },
-                            },
-                        }
-                    ],
-                },
+    component_data = {
+        "type": "x-sre-tool-log",
+        "componentName": "x-sre-tool-log",
+        "tool_name": tool_name,
+        "toolName": tool_name,
+        "args": args,
+        "status": "running",
+    }
+
+    begin_event_obj = {
+        "type": "a2ui",
+        "message": {
+            "beginRendering": {
+                "surfaceId": surface_id,
+                "root": component_id,
+                "components": [
+                    {
+                        "id": component_id,
+                        "type": "x-sre-tool-log",  # Root Level Type (v0.8+)
+                        "component": {
+                            "type": "x-sre-tool-log",  # Component Level Type
+                            "x-sre-tool-log": component_data,  # Named Wrapper (Hybrid)
+                        },
+                    }
+                ],
             },
-        }
+        },
+    }
+
+    begin_event = json.dumps(begin_event_obj)
+
+    _debug_log(
+        "[TOOL_CALL_EVENT] Created beginRendering event",
+        {
+            "surface_id": surface_id,
+            "component_id": component_id,
+            "event_type": "beginRendering",
+            "component_type": "x-sre-tool-log",
+            "event_size_bytes": len(begin_event),
+            "full_event": begin_event_obj,
+        },
     )
 
     return surface_id, [begin_event]
@@ -130,6 +181,17 @@ def create_tool_response_events(
     component_id: str | None = None
     args: dict[str, Any] = {}
 
+    _debug_log(
+        "[TOOL_RESPONSE_START] Processing tool response",
+        {
+            "tool_name": tool_name,
+            "pending_count": len(pending_tool_calls),
+            "pending_tools": [p["tool_name"] for p in pending_tool_calls],
+            "result_type": type(result).__name__,
+            "result_preview": str(result)[:200] if result else "None",
+        },
+    )
+
     # Find matching pending call (FIFO)
     for i, pending in enumerate(pending_tool_calls):
         if pending["tool_name"] == tool_name:
@@ -137,17 +199,26 @@ def create_tool_response_events(
             component_id = pending.get("component_id", f"tool-log-{surface_id[:8]}")
             args = pending["args"]
             pending_tool_calls.pop(i)
+            _debug_log(
+                f"[TOOL_RESPONSE_MATCHED] Found matching pending call at index {i}",
+                {"surface_id": surface_id, "component_id": component_id},
+            )
             break
 
     if not surface_id:
+        _debug_log(
+            f"[TOOL_RESPONSE_NO_MATCH] No matching pending call found for {tool_name}",
+            {"searched_tools": [p["tool_name"] for p in pending_tool_calls]},
+        )
         return None, []
 
     # Normalize result
     if isinstance(result, str):
         try:
             result = json.loads(result)
+            _debug_log("[TOOL_RESPONSE_PARSED] Parsed JSON string result")
         except json.JSONDecodeError:
-            pass
+            _debug_log("[TOOL_RESPONSE_RAW] Keeping result as raw string")
 
     # Status determination
     status = "completed"
@@ -161,41 +232,54 @@ def create_tool_response_events(
             result = str(error_msg)
         elif error_type:
             result = str(error_type)
+        _debug_log("[TOOL_RESPONSE_ERROR] Tool returned error", {"error": result})
     elif isinstance(result, dict) and "result" in result:
         # If it's a standard tool output dict, extract the result part
         result = result["result"]
+        _debug_log("[TOOL_RESPONSE_UNWRAPPED] Extracted result from wrapper")
 
     # Create separate surfaceUpdate event (Hybrid Structure)
-    logger.info(
-        f"📤 Tool Response Event: {tool_name} (surface_id={surface_id}, status={status})"
-    )
-    event = json.dumps(
+    component_data = {
+        "type": "x-sre-tool-log",
+        "componentName": "x-sre-tool-log",
+        "tool_name": tool_name,
+        "toolName": tool_name,
+        "args": args,
+        "result": result,
+        "status": status,
+    }
+
+    event_obj = {
+        "type": "a2ui",
+        "message": {
+            "surfaceUpdate": {
+                "surfaceId": surface_id,
+                "components": [
+                    {
+                        "id": component_id,
+                        "type": "x-sre-tool-log",  # Root Level Type (v0.8+)
+                        "component": {
+                            "type": "x-sre-tool-log",  # Component Level Type
+                            "x-sre-tool-log": component_data,
+                        },
+                    }
+                ],
+            }
+        },
+    }
+
+    event = json.dumps(event_obj)
+
+    _debug_log(
+        "[TOOL_RESPONSE_EVENT] Created surfaceUpdate event",
         {
-            "type": "a2ui",
-            "message": {
-                "surfaceUpdate": {
-                    "surfaceId": surface_id,
-                    "components": [
-                        {
-                            "id": component_id,
-                            "type": "x-sre-tool-log",  # Root Level Type (v0.8+)
-                            "component": {
-                                "type": "x-sre-tool-log",  # Component Level Type
-                                "x-sre-tool-log": {
-                                    "type": "x-sre-tool-log",
-                                    "componentName": "x-sre-tool-log",
-                                    "tool_name": tool_name,
-                                    "toolName": tool_name,
-                                    "args": args,
-                                    "result": result,
-                                    "status": status,
-                                },
-                            },
-                        }
-                    ],
-                }
-            },
-        }
+            "surface_id": surface_id,
+            "component_id": component_id,
+            "status": status,
+            "event_type": "surfaceUpdate",
+            "event_size_bytes": len(event),
+            "full_event": event_obj,
+        },
     )
 
     return surface_id, [event]
@@ -211,26 +295,52 @@ def create_widget_events(tool_name: str, result: Any) -> tuple[list[str], list[s
     surface_ids: list[str] = []
 
     widget_type = TOOL_WIDGET_MAP.get(tool_name)
+
+    _debug_log(
+        "[WIDGET_START] Processing widget creation",
+        {
+            "tool_name": tool_name,
+            "widget_type": widget_type,
+            "has_mapping": widget_type is not None,
+            "result_type": type(result).__name__,
+        },
+    )
+
     if not widget_type:
+        _debug_log(f"[WIDGET_SKIP] No widget mapping for tool: {tool_name}")
         return events, surface_ids
 
     # Handle failed tool execution (None result)
     if result is None:
         result = {"error": "Tool execution failed (timeout or internal error)"}
+        _debug_log("[WIDGET_NULL_RESULT] Using error placeholder for None result")
 
     # Normalize result (handles JSON strings and objects)
+    original_result = result
     result = normalize_tool_args(result)
+
+    _debug_log(
+        "[WIDGET_NORMALIZED] Result after normalization",
+        {
+            "original_type": type(original_result).__name__,
+            "result_keys": list(result.keys()) if isinstance(result, dict) else "N/A",
+        },
+    )
 
     # Normalize result wrapper if present
     if isinstance(result, dict):
         if "status" in result and "result" in result:
             result = result["result"]
+            _debug_log("[WIDGET_UNWRAPPED] Extracted from status/result wrapper")
         elif len(result) == 1 and "result" in result:  # Handle simple {"result": [...]}
             result = result["result"]
+            _debug_log("[WIDGET_UNWRAPPED] Extracted from simple result wrapper")
 
     # Transformation mapping check
     try:
         widget_data = None
+        _debug_log(f"[WIDGET_TRANSFORM] Attempting transformation for {widget_type}")
+
         if widget_type == "x-sre-trace-waterfall":
             widget_data = genui_adapter.transform_trace(result)
         elif widget_type == "x-sre-metric-chart":
@@ -245,69 +355,99 @@ def create_widget_events(tool_name: str, result: Any) -> tuple[list[str], list[s
             widget_data = genui_adapter.transform_remediation(result)
         elif widget_type == "x-sre-incident-timeline":
             widget_data = genui_adapter.transform_alerts_to_timeline(result)
+
         if widget_data:
             surface_id = str(uuid.uuid4())
             component_id = f"widget-{surface_id[:8]}"
 
-            # Split into separate events for compatibility
-            logger.info(f"📤 Widget Events: {widget_type} (surface_id={surface_id})")
+            _debug_log(
+                "[WIDGET_TRANSFORMED] Successfully transformed data",
+                {
+                    "widget_type": widget_type,
+                    "surface_id": surface_id,
+                    "component_id": component_id,
+                    "data_keys": list(widget_data.keys())
+                    if isinstance(widget_data, dict)
+                    else "N/A",
+                    "data_preview": str(widget_data)[:300],
+                },
+            )
 
             # Atomic initialization for widgets (Root Type)
-            begin_event = json.dumps(
-                {
-                    "type": "a2ui",
-                    "message": {
-                        "beginRendering": {
-                            "surfaceId": surface_id,
-                            "root": component_id,
-                            "components": [
-                                {
-                                    "id": component_id,
-                                    "type": widget_type,  # Root Level Type (v0.8+)
-                                    "component": {
-                                        "type": widget_type,  # Component Level Type
-                                        widget_type: widget_data,
-                                    },
-                                }
-                            ],
-                        },
+            begin_event_obj = {
+                "type": "a2ui",
+                "message": {
+                    "beginRendering": {
+                        "surfaceId": surface_id,
+                        "root": component_id,
+                        "components": [
+                            {
+                                "id": component_id,
+                                "type": widget_type,  # Root Level Type (v0.8+)
+                                "component": {
+                                    "type": widget_type,  # Component Level Type
+                                    widget_type: widget_data,
+                                },
+                            }
+                        ],
                     },
-                }
+                },
+            }
+
+            update_event_obj = {
+                "type": "a2ui",
+                "message": {
+                    "surfaceUpdate": {
+                        "surfaceId": surface_id,
+                        "components": [
+                            {
+                                "id": component_id,
+                                "type": widget_type,  # Root Level Type
+                                "component": {
+                                    "type": widget_type,
+                                    widget_type: widget_data,
+                                },
+                            }
+                        ],
+                    },
+                },
+            }
+
+            begin_event = json.dumps(begin_event_obj)
+            update_event = json.dumps(update_event_obj)
+
+            _debug_log(
+                "[WIDGET_EVENTS] Created widget events",
+                {
+                    "widget_type": widget_type,
+                    "surface_id": surface_id,
+                    "begin_event_size": len(begin_event),
+                    "update_event_size": len(update_event),
+                    "begin_event": begin_event_obj,
+                    "update_event": update_event_obj,
+                },
             )
 
-            update_event = json.dumps(
-                {
-                    "type": "a2ui",
-                    "message": {
-                        "surfaceUpdate": {
-                            "surfaceId": surface_id,
-                            "components": [
-                                {
-                                    "id": component_id,
-                                    "type": widget_type,  # Root Level Type
-                                    "component": {
-                                        "type": widget_type,
-                                        widget_type: widget_data,
-                                    },
-                                }
-                            ],
-                        },
-                    },
-                }
-            )
-
-            logger.info(f"📊 Transformed data for {widget_type} (surface={surface_id})")
             events.extend([begin_event, update_event])
             surface_ids.append(surface_id)
         else:
-            logger.warning(f"⚠️ No transformed data for {widget_type}. Skipping.")
+            _debug_log(
+                f"[WIDGET_NO_DATA] Transformation returned None/empty for {widget_type}",
+                {"result_preview": str(result)[:200]},
+            )
 
     except Exception as e:
+        _debug_log(
+            "[WIDGET_ERROR] Error creating widget events",
+            {"tool_name": tool_name, "widget_type": widget_type, "error": str(e)},
+        )
         logger.error(
             f"❌ Error creating widget events for {tool_name}: {e}", exc_info=True
         )
-        # Fallback to an error notification or a generic tool-log widget?
-        # For now, just skip the specialized widget
-        pass
+
+    _debug_log(
+        "[WIDGET_COMPLETE] Widget creation finished",
+        {"events_count": len(events), "surface_ids": surface_ids},
+    )
 
     return events, surface_ids
