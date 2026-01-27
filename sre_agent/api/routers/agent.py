@@ -468,7 +468,7 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
             if access_token:
                 from google.oauth2.credentials import Credentials
 
-                set_current_credentials(Credentials(token=access_token))
+                set_current_credentials(Credentials(token=access_token))  # type: ignore[no-untyped-call]
             if effective_project_id:
                 set_current_project_id(effective_project_id)
             if effective_user_id:

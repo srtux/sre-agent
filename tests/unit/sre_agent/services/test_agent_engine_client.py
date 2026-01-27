@@ -504,3 +504,101 @@ class TestAgentEngineClient:
                 "invalid response format" in error_events[0]["error"].lower()
                 or "invalid response" in error_events[0]["error"].lower()
             )
+
+    @pytest.mark.asyncio
+    async def test_stream_query_handles_value_error(
+        self, client: AgentEngineClient
+    ) -> None:
+        """Test stream_query handles ValueError (malformed JSON from Agent Engine)."""
+        mock_session_manager = MagicMock()
+        mock_session = MagicMock()
+        mock_session.id = "test-session"
+        mock_session.state = {}
+        mock_session_manager.get_or_create_session = AsyncMock(
+            return_value=mock_session
+        )
+
+        mock_adk_app = MagicMock()
+        del mock_adk_app.async_stream_query
+
+        async def mock_value_error_generator(*args, **kwargs):
+            raise ValueError("Can only parse array of JSON objects")
+            yield {}
+
+        mock_adk_app.stream_query = MagicMock(side_effect=mock_value_error_generator)
+
+        client._initialized = True
+        client._adk_app = mock_adk_app
+
+        with patch(
+            "sre_agent.services.session.get_session_service",
+            return_value=mock_session_manager,
+        ):
+            events = []
+            async for event in client.stream_query(user_id="u", message="m"):
+                events.append(event)
+
+            error_events = [e for e in events if e.get("type") == "error"]
+            assert len(error_events) == 1
+            assert "execution failed" in error_events[0]["error"].lower()
+            assert "authentication issues" in error_events[0]["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_async_stream_query_handles_errors(
+        self, client: AgentEngineClient
+    ) -> None:
+        """Test that async_stream_query path also handles ValueError and AttributeError."""
+        mock_session_manager = MagicMock()
+        mock_session = MagicMock()
+        mock_session.id = "test-session"
+        mock_session.state = {}
+        mock_session_manager.get_or_create_session = AsyncMock(
+            return_value=mock_session
+        )
+
+        client._initialized = True
+
+        # Test path for ValueError
+        mock_adk_app_v = MagicMock()
+
+        async def mock_v_err(*args, **kwargs):
+            raise ValueError("malformed")
+            yield {}
+
+        mock_adk_app_v.async_stream_query = MagicMock(side_effect=mock_v_err)
+        client._adk_app = mock_adk_app_v
+
+        with patch(
+            "sre_agent.services.session.get_session_service",
+            return_value=mock_session_manager,
+        ):
+            events = []
+            async for event in client.stream_query(user_id="u", message="m"):
+                events.append(event)
+            assert any(
+                "agent execution failed" in e.get("error", "").lower() for e in events
+            )
+
+        # Test path for AttributeError
+        mock_adk_app_a = MagicMock()
+
+        async def mock_a_err(*args, **kwargs):
+            raise AttributeError("'list' object has no attribute 'get'")
+            yield {}
+
+        mock_adk_app_a.async_stream_query = MagicMock(side_effect=mock_a_err)
+        client._adk_app = mock_adk_app_a
+
+        with patch(
+            "sre_agent.services.session.get_session_service",
+            return_value=mock_session_manager,
+        ):
+            events = []
+            async for event in client.stream_query(user_id="u", message="m"):
+                events.append(event)
+
+            # Check for specifically yielded error in AttributeError path
+            error_events = [e for e in events if e.get("type") == "error"]
+            assert len(error_events) == 1
+            assert "invalid response" in error_events[0]["error"].lower()
+            assert "backend logs" in error_events[0]["error"].lower()

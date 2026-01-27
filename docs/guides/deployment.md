@@ -224,6 +224,11 @@ echo -n "YOUR_CLIENT_ID" | gcloud secrets create google-client-id --data-file=-
 # SRE Agent Encryption Key (for securing session tokens)
 # Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 echo -n "YOUR_ENCRYPTION_KEY" | gcloud secrets create sre-agent-encryption-key --data-file=-
+
+# IMPORTANT: You MUST also add this key to your local .env file.
+# The backend (Agent Engine) pulls this key from your local environment at deployment time.
+# The frontend (Cloud Run) pulls this key from Secret Manager at runtime.
+# If they don't match, user tokens cannot be decrypted.
 ```
 
 ### 3. OAuth Configuration

@@ -1083,7 +1083,7 @@ def create_demo_log_entries() -> dict[str, Any]:
 
 def transform_log_patterns(
     pattern_data: dict[str, Any] | list[dict[str, Any]],
-) -> list[dict[str, Any]]:
+) -> dict[str, Any]:
     """Transform log pattern data for LogPatternViewer widget.
 
     Args:

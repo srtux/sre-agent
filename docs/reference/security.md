@@ -40,12 +40,22 @@ echo -n "your-generated-key" | gcloud secrets create sre-agent-encryption-key --
 
 #### 2. Update Deployment Configuration
 
-The `deploy/deploy_web.py` script is pre-configured to pull this from Secret Manager. Ensure your Cloud Run service account has the `roles/secretmanager.secretAccessor` role (handled by `deploy/grant_permissions.py`).
+The `deploy/deploy_web.py` script (Cloud Run) pulls this key from Secret Manager at **runtime**.
 
-Once the secret exists, the deployment script automatically includes it:
+However, the `deploy/deploy.py` script (Agent Engine) pulls the key from your **local environment** at **deployment time**.
+
+> [!CAUTION]
+> **Key Synchronization Hazard**: You must ensure the key in your local `.env` file matches the key in Secret Manager *before* running any deployment scripts. If you update the secret, you must also update your `.env` and redeploy the backend.
 
 ```bash
---set-secrets=SRE_AGENT_ENCRYPTION_KEY=sre-agent-encryption-key:latest
+# 1. Update Secret Manager (if changing key)
+echo -n "new-key" | gcloud secrets versions add sre-agent-encryption-key --data-file=-
+
+# 2. Update local .env
+# SRE_AGENT_ENCRYPTION_KEY=new-key
+
+# 3. Redeploy Backend (Agent Engine)
+uv run python deploy/deploy.py --create
 ```
 
 ## End-User Credentials (EUC)
