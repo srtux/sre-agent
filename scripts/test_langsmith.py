@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from langsmith import traceable
 
 
-def test_langsmith_connection():
+def test_langsmith_connection() -> None:
     """Verify LangSmith environment variables."""
     load_dotenv()
 
@@ -34,7 +34,7 @@ def test_langsmith_connection():
 
 
 @traceable(name="LangSmith Sample Ping", run_type="chain")
-def send_sample_run():
+def send_sample_run() -> dict[str, str]:
     """Send a sample run to LangSmith."""
     print("🚀 Sending sample trace to LangSmith...")
     return {"status": "success", "message": "Hello from AutoSRE Prober!"}
