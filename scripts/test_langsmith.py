@@ -3,6 +3,7 @@
 import os
 
 from dotenv import load_dotenv
+from langsmith import traceable
 
 
 def test_langsmith_connection():
@@ -32,5 +33,19 @@ def test_langsmith_connection():
         )
 
 
+@traceable(name="LangSmith Sample Ping", run_type="chain")
+def send_sample_run():
+    """Send a sample run to LangSmith."""
+    print("🚀 Sending sample trace to LangSmith...")
+    return {"status": "success", "message": "Hello from AutoSRE Prober!"}
+
+
 if __name__ == "__main__":
     test_langsmith_connection()
+
+    # If enabled, send a sample
+    tracing_v2 = os.getenv("LANGCHAIN_TRACING_V2", "false").lower() == "true"
+    tracing_smith = os.getenv("LANGSMITH_TRACING", "false").lower() == "true"
+    if tracing_v2 or tracing_smith:
+        send_sample_run()
+        print("✨ Done! Check your LangSmith dashboard at https://smith.langchain.com/")
