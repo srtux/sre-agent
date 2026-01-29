@@ -5,6 +5,11 @@ import os
 import sys
 from typing import Any
 
+from dotenv import load_dotenv
+
+# Ensure environment variables are loaded for configuration
+load_dotenv()
+
 
 def log_tool_call(logger: logging.Logger, func_name: str, **kwargs: Any) -> None:
     """Logs a tool call with arguments, truncating long values.
