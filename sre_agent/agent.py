@@ -255,39 +255,28 @@ def emojify_agent(agent: LlmAgent | Any) -> LlmAgent | Any:
 
         return wrapped_factory
 
-    # Check if we should skip manual logging (let OTel/ADK handle it)
-    # This avoids redundant logs when OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT is true
-    skip_manual_logging = (
-        os.environ.get(
-            "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "false"
-        ).lower()
-        == "true"
-        or os.environ.get("RUNNING_IN_AGENT_ENGINE", "").lower() == "true"
-    )
-
     original_run_async = agent.run_async
 
     @functools.wraps(original_run_async)
     async def wrapped_run_async(context: Any) -> AsyncGenerator[Any, None]:
-        # 1. Log Prompt (only if not skipping manual logging)
+        # 1. Log Prompt
         user_msg = "Unknown"
-        if not skip_manual_logging:
-            try:
-                if hasattr(context, "user_content") and context.user_content:
-                    parts = getattr(context.user_content, "parts", [])
-                    if parts:
-                        # Try to get text from the first part
-                        p = parts[0]
-                        if hasattr(p, "text"):
-                            user_msg = p.text
-                        elif isinstance(p, dict) and "text" in p:
-                            user_msg = p["text"]
-                        else:
-                            user_msg = str(p)
-                elif hasattr(context, "message") and context.message:
-                    user_msg = str(context.message)
-            except Exception as e:
-                logger.warning(f"Failed to extract user message for logging: {e}")
+        try:
+            if hasattr(context, "user_content") and context.user_content:
+                parts = getattr(context.user_content, "parts", [])
+                if parts:
+                    # Try to get text from the first part
+                    p = parts[0]
+                    if hasattr(p, "text"):
+                        user_msg = p.text
+                    elif isinstance(p, dict) and "text" in p:
+                        user_msg = p["text"]
+                    else:
+                        user_msg = str(p)
+            elif hasattr(context, "message") and context.message:
+                user_msg = str(context.message)
+        except Exception as e:
+            logger.warning(f"Failed to extract user message for logging: {e}")
 
         # Determine project and session
         project_id = get_current_project_id() or "unknown"
@@ -303,17 +292,13 @@ def emojify_agent(agent: LlmAgent | Any) -> LlmAgent | Any:
             else "unknown"
         )
 
-        if not skip_manual_logging:
-            border = "⎯" * 80
-            logger.info(border)
-            logger.info("  📥 INCOMING USER REQUEST 📥")
-            logger.info(border)
-            logger.info(f"💬 User Prompt:\n{user_msg}")
-            logger.info(border)
-            logger.info(
-                f"📍 Context: Project={project_id}, Session={session_id}, User={user_id}"
-            )
-            logger.info(border)
+        logger.info(
+            "Incoming user request | project=%s | session=%s | user=%s | prompt=%s",
+            project_id,
+            session_id,
+            user_id,
+            user_msg[:500] if isinstance(user_msg, str) else user_msg,
+        )
 
         # 1a. Safety: Ensure model is context-aware for THIS request
         # We use temporary swapping to avoid poisoning the global agent object
@@ -373,18 +358,19 @@ def emojify_agent(agent: LlmAgent | Any) -> LlmAgent | Any:
 
         # 4. Log Response
         final_response = "".join(full_response_parts)
-        if final_response and not skip_manual_logging:
+        if final_response:
             preview = (
                 final_response[:500] + "..."
                 if len(final_response) > 500
                 else final_response
             )
-            border = "⎯" * 80
-            logger.info(border)
-            logger.info("  🏁 FINAL RESPONSE TO USER 🏁")
-            logger.info(border)
-            logger.info(f"{preview}")
-            logger.info(border)
+            logger.info(
+                "Agent response | project=%s | session=%s | user=%s | response=%s",
+                project_id,
+                session_id,
+                user_id,
+                preview,
+            )
 
     object.__setattr__(agent, "run_async", wrapped_run_async)
     return agent
