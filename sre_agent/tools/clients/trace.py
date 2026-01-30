@@ -158,9 +158,7 @@ def _get_ts_str(ts_proto: Any) -> str:
     """Helper to format timestamp to ISO string."""
     if hasattr(ts_proto, "isoformat"):
         return cast(str, ts_proto.isoformat())
-    return datetime.fromtimestamp(
-        _get_ts_val(ts_proto), tz=timezone.utc
-    ).isoformat()
+    return datetime.fromtimestamp(_get_ts_val(ts_proto), tz=timezone.utc).isoformat()
 
 
 def get_trace_client(credentials: Any = None) -> trace_v1.TraceServiceClient:

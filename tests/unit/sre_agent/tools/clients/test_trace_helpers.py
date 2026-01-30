@@ -1,6 +1,5 @@
-import pytest
-from datetime import datetime, timezone
-from sre_agent.tools.clients.trace import _get_ts_val, _get_ts_str
+from sre_agent.tools.clients.trace import _get_ts_str, _get_ts_val
+
 
 class MockProtoTimestamp:
     def __init__(self, seconds=0, nanos=0):
@@ -10,10 +9,12 @@ class MockProtoTimestamp:
     def timestamp(self):
         return self.seconds + self.nanos / 1e9
 
+
 class MockStructTimestamp:
     def __init__(self, seconds=0, nanos=0):
         self.seconds = seconds
         self.nanos = nanos
+
 
 class MockIsoTimestamp:
     def __init__(self, iso_str):
@@ -21,6 +22,7 @@ class MockIsoTimestamp:
 
     def isoformat(self):
         return self._iso_str
+
 
 def test_get_ts_val():
     # Test with timestamp() method
@@ -30,6 +32,7 @@ def test_get_ts_val():
     # Test with seconds/nanos attributes
     ts2 = MockStructTimestamp(1600000000, 500000000)
     assert _get_ts_val(ts2) == 1600000000.5
+
 
 def test_get_ts_str():
     # Test with isoformat() method
