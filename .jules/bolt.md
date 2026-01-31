@@ -9,3 +9,7 @@
 ## 2025-02-18 - [Single Fetch for Composite Tools]
 **Learning:** Composite "Mega-Tools" like `analyze_trace_comprehensive` often call multiple granular tools sequentially. If each granular tool fetches its own data, this results in significant redundant API calls (e.g., fetching the same trace 5 times).
 **Action:** Refactor granular tools to separate logic (into `_impl` functions that accept data objects) from I/O. Have the composite tool fetch data once and pass it to the `_impl` functions. This reduced API calls from 5 to 1 and latency from ~500ms to ~100ms in testing.
+
+## 2025-02-18 - [Avoid Nested Functions in Hot Loops]
+**Learning:** In `trace.py`, helper functions `get_ts_val` and `get_ts_str` were defined inside the `for span in trace.spans` loop. For large traces (e.g., 10k spans), this resulted in 20k unnecessary function object allocations and closure creations per request.
+**Action:** Move stateless helper functions to module scope to eliminate allocation overhead in hot loops.
