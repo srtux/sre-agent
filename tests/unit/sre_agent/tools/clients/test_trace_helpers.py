@@ -1,6 +1,5 @@
 """Unit tests for the Cloud Trace client helper functions."""
 
-from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 from sre_agent.tools.clients.trace import _get_ts_str, _get_ts_val
