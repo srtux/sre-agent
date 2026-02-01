@@ -20,6 +20,7 @@ graph TD
 
     subgraph "Cloud Run (Frontend & Proxy)"
         UI[Flutter UI]
+        Dashboard[Investigation Dashboard]
         Interceptors[Auth & Project Interceptors]
         Proxy[FastAPI Router]
         AuthSvc[Auth & Cookie Middleware]
@@ -28,7 +29,7 @@ graph TD
 
     subgraph "Vertex AI (Reasoning Engine)"
         RootAgent[SRE Root Agent]
-        SubAgents[Specialized Analysts]
+        SelfImprovement[Self-Improvement Loop]
         MemoryBank[Memory Bank]
     end
 
@@ -40,19 +41,22 @@ graph TD
     end
 
     User <--> UI
+    UI <--> Dashboard
     UI <--> Interceptors
+    Dashboard <--> Interceptors
     Interceptors <--> Proxy
     Proxy <--> AuthSvc
     Proxy <--> StoreSvc
 
     Proxy <--> RootAgent
-    RootAgent <--> SubAgents
-    SubAgents <--> MemoryBank
+    RootAgent <--> SelfImprovement
+    RootAgent <--> MemoryBank
+    SelfImprovement <--> MemoryBank
 
-    SubAgents <--> CloudTrace
-    SubAgents <--> CloudLogging
-    SubAgents <--> CloudMonitoring
-    SubAgents <--> BigQuery
+    RootAgent <--> CloudTrace
+    RootAgent <--> CloudLogging
+    RootAgent <--> CloudMonitoring
+    RootAgent <--> BigQuery
 ```
 
 ### Conceptual Topology
