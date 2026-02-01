@@ -1,15 +1,21 @@
 import json
+from unittest.mock import AsyncMock, MagicMock
+
+import httpx
 import pytest
 import pytest_asyncio
-import httpx
-from unittest.mock import MagicMock, AsyncMock
+
 from server import app
 from sre_agent.api.routers import agent
 
+
 @pytest_asyncio.fixture
 async def async_client():
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
         yield client
+
 
 @pytest.mark.asyncio
 async def test_debug_ui_test_alias_output(async_client, monkeypatch):
@@ -49,8 +55,8 @@ async def test_debug_ui_test_alias_output(async_client, monkeypatch):
         "/api/genui/chat",
         json={
             "messages": [{"role": "user", "text": "DEBUG_UI_TEST"}],
-            "user_id": "test-user"
-        }
+            "user_id": "test-user",
+        },
     )
 
     assert response.status_code == 200
@@ -71,7 +77,9 @@ async def test_debug_ui_test_alias_output(async_client, monkeypatch):
                 if "alias_test" in comp_str:
                     found_alias_test = True
                     # Assert correct type usage
-                    assert comp["type"] == "tool-log", "Component type should be 'tool-log'"
+                    assert comp["type"] == "tool-log", (
+                        "Component type should be 'tool-log'"
+                    )
                     assert comp["component"]["type"] == "tool-log"
                     assert "tool-log" in comp["component"]
                     assert "x-sre-tool-log" not in comp["component"]
