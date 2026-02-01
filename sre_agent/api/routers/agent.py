@@ -534,12 +534,12 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                                     "components": [
                                         {
                                             "id": cid,
-                                            "type": "x-sre-tool-log",  # Root Level Type
+                                            "type": "tool-log",  # Root Level Type
                                             "component": {
-                                                "type": "x-sre-tool-log",
-                                                "componentType": "x-sre-tool-log",
-                                                "x-sre-tool-log": {
-                                                    "type": "x-sre-tool-log",
+                                                "type": "tool-log",
+                                                "componentType": "tool-log",
+                                                "tool-log": {
+                                                    "type": "tool-log",
                                                     "tool_name": "alias_test",
                                                     "status": "running",
                                                 },
@@ -565,12 +565,12 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                                     "components": [
                                         {
                                             "id": cid,
-                                            "type": "x-sre-tool-log",
+                                            "type": "tool-log",
                                             "component": {
-                                                "type": "x-sre-tool-log",
-                                                "componentType": "x-sre-tool-log",
-                                                "x-sre-tool-log": {
-                                                    "type": "x-sre-tool-log",
+                                                "type": "tool-log",
+                                                "componentType": "tool-log",
+                                                "tool-log": {
+                                                    "type": "tool-log",
                                                     "tool_name": "alias_test",
                                                     "status": "completed",  # Update to completed
                                                     "result": "Local UI test successful",
