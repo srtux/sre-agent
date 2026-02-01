@@ -200,6 +200,7 @@ async def _handle_remote_agent(
         StreamingResponse with agent events
     """
     from sre_agent.api.helpers.tool_events import (
+        create_dashboard_event,
         create_tool_call_events,
         create_tool_response_events,
         create_widget_events,
@@ -306,6 +307,11 @@ async def _handle_remote_agent(
                         for sid in widget_surface_ids:
                             yield json.dumps({"type": "ui", "surface_id": sid}) + "\n"
 
+                        # Dashboard data event (separate channel)
+                        dash_evt = create_dashboard_event(tool_name, result)
+                        if dash_evt:
+                            yield dash_evt + "\n"
+
         except Exception as e:
             logger.error(f"Error streaming from Agent Engine: {e}", exc_info=True)
             yield (
@@ -381,6 +387,7 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
     # Import root_agent only in local mode to avoid loading model in proxy-only mode
     from sre_agent.agent import root_agent
     from sre_agent.api.helpers.tool_events import (
+        create_dashboard_event,
         create_tool_call_events,
         create_tool_response_events,
         create_widget_events,
@@ -925,6 +932,14 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                                         {"surface_id": sid, "marker": ui_marker},
                                     )
                                     yield ui_marker + "\n"
+
+                                # Dashboard data event (separate channel)
+                                dash_evt = create_dashboard_event(tool_name, result)
+                                if dash_evt:
+                                    logger.info(
+                                        f"📊 Yielding dashboard event for {tool_name}"
+                                    )
+                                    yield dash_evt + "\n"
                             else:
                                 _a2ui_debug(
                                     "[ROUTER_FR_INVALID] Tool response has invalid/missing name",
