@@ -134,6 +134,7 @@ uv run poe deploy-all
 *   **[System Architecture](docs/architecture/system_overview.md)**: Deep dive into the data flow and mode switching.
 *   **[Security & Identity](docs/reference/security.md)**: How we handle OAuth and EUC.
 *   **[Tools Reference](docs/reference/tools.md)**: Catalog of all analysis capabilities.
+*   **[Observability & Telemetry](docs/OBSERVABILITY.md)**: Tracing, Logging, and Debugging guide.
 *   **[Development Guide](docs/guides/development.md)**: Standards for "Vibe Coding" and agentic development.
 
 ---

@@ -41,6 +41,8 @@ In cloud environments, we rely on Google Cloud's native logging and monitoring a
 ### Local & Production
 We use standard Python `logging` which is automatically captured by Google Cloud Logging (Agent Engine) or Cloud Run's log scraper.
 
+For deep local debugging, we also support **LangSmith** tracing (configured via `LANGSMITH_TRACING=true`). This is disabled in Agent Engine to prioritize native Cloud Trace integration.
+
 ### Evaluations
 Logging is standard but can be silenced if needed via log levels.
 
