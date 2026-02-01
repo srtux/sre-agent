@@ -16,6 +16,8 @@ import '../catalog.dart';
 import '../services/project_service.dart';
 import '../services/session_service.dart';
 import '../theme/app_theme.dart';
+import '../services/dashboard_state.dart';
+import '../widgets/dashboard/dashboard_panel.dart';
 import '../widgets/session_panel.dart';
 import '../widgets/tech_grid_painter.dart';
 import '../widgets/unified_prompt_input.dart';
@@ -23,6 +25,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'tool_config_page.dart';
 import '../widgets/status_toast.dart';
 import '../widgets/glow_action_chip.dart';
+import '../models/adk_schema.dart';
 
 class ConversationPage extends StatefulWidget {
   const ConversationPage({super.key});
@@ -45,6 +48,7 @@ class _ConversationPageState extends State<ConversationPage>
   final SessionService _sessionService = SessionService();
   final GlobalKey _inputKey = GlobalKey(debugLabel: 'prompt_input');
   final PromptHistoryService _promptHistoryService = PromptHistoryService();
+  final DashboardState _dashboardState = DashboardState();
 
   late AnimationController _typingController;
 
@@ -238,6 +242,9 @@ class _ConversationPageState extends State<ConversationPage>
       _messageProcessor.handleMessage(msg);
       debugPrint('📥 [CONV_A2UI #$a2uiProcessCount] ✅ handleMessage completed');
       debugPrint('📥 [CONV_A2UI #$a2uiProcessCount] ===== END A2UI MESSAGE =====');
+
+      // Route A2UI data to the investigation dashboard
+      _routeA2uiToDashboard(msg);
     });
 
     // Subscribe to UI messages (surface markers)
@@ -273,6 +280,8 @@ class _ConversationPageState extends State<ConversationPage>
     _contentGenerator.clearSession();
     // Clear current session in service
     _sessionService.startNewSession();
+    // Clear dashboard data for fresh investigation
+    _dashboardState.clear();
 
     // Reset conversation state
     setState(() {
@@ -497,6 +506,26 @@ class _ConversationPageState extends State<ConversationPage>
                   },
                 ),
               ),
+              // Investigation Dashboard Panel
+              ListenableBuilder(
+                listenable: _dashboardState,
+                builder: (context, _) {
+                  if (!_dashboardState.isOpen) {
+                    return const SizedBox.shrink();
+                  }
+                  return SizedBox(
+                    width: constraints.maxWidth > 1400
+                        ? 500
+                        : constraints.maxWidth > 1100
+                            ? 420
+                            : 380,
+                    child: DashboardPanel(
+                      state: _dashboardState,
+                      onClose: _dashboardState.closeDashboard,
+                    ),
+                  );
+                },
+              ),
             ],
           ),
         );
@@ -604,6 +633,9 @@ class _ConversationPageState extends State<ConversationPage>
         },
       ),
       actions: [
+        // Dashboard toggle
+        _buildDashboardToggle(),
+        const SizedBox(width: 4),
         // Status indicator
         ValueListenableBuilder<bool>(
           valueListenable: _contentGenerator.isConnected,
@@ -645,6 +677,77 @@ class _ConversationPageState extends State<ConversationPage>
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildDashboardToggle() {
+    return ListenableBuilder(
+      listenable: _dashboardState,
+      builder: (context, _) {
+        final hasData = _dashboardState.hasData;
+        final isOpen = _dashboardState.isOpen;
+        final count = _dashboardState.items.length;
+
+        return Tooltip(
+          message: isOpen ? 'Close Dashboard' : 'Open Investigation Dashboard',
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _dashboardState.toggleDashboard,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isOpen
+                      ? AppColors.primaryCyan.withValues(alpha: 0.15)
+                      : hasData
+                          ? AppColors.primaryCyan.withValues(alpha: 0.08)
+                          : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isOpen
+                        ? AppColors.primaryCyan.withValues(alpha: 0.3)
+                        : Colors.transparent,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.dashboard_rounded,
+                      size: 18,
+                      color: isOpen
+                          ? AppColors.primaryCyan
+                          : hasData
+                              ? AppColors.primaryCyan
+                              : AppColors.textMuted,
+                    ),
+                    if (hasData) ...[
+                      const SizedBox(width: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryCyan.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '$count',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primaryCyan,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -1197,11 +1300,117 @@ class _ConversationPageState extends State<ConversationPage>
 
 
 
+  /// Inspects an A2UI message and routes recognized data to the dashboard.
+  void _routeA2uiToDashboard(A2uiMessage msg) {
+    try {
+      // Extract component data from the A2UI message.
+      // A2UI messages contain components in beginRendering or surfaceUpdate.
+      final raw = msg.toJson();
+      Map<String, dynamic>? componentData;
+      String? componentType;
+      String toolName = 'unknown';
+
+      // Try to extract from beginRendering or surfaceUpdate
+      for (final key in ['beginRendering', 'surfaceUpdate']) {
+        if (raw.containsKey(key) && raw[key] is Map) {
+          final rendering = raw[key] as Map;
+          final components = rendering['components'];
+          if (components is List && components.isNotEmpty) {
+            final first = components[0];
+            if (first is Map) {
+              final comp = first['component'];
+              if (comp is Map) {
+                componentType = comp['type']?.toString();
+                if (componentType != null && comp.containsKey(componentType)) {
+                  final inner = comp[componentType];
+                  if (inner is Map) {
+                    componentData = Map<String, dynamic>.from(inner);
+                    toolName = componentData['tool_name'] ??
+                        componentData['toolName'] ??
+                        componentType;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      if (componentType == null || componentData == null) return;
+
+      final dashType = classifyComponent(componentType);
+      if (dashType == null) return;
+
+      // Parse and add to dashboard based on type
+      switch (componentType) {
+        case 'x-sre-trace-waterfall':
+          final trace = Trace.fromJson(componentData);
+          if (trace.spans.isNotEmpty) {
+            _dashboardState.addTrace(trace, toolName, componentData);
+          }
+          break;
+        case 'x-sre-log-entries-viewer':
+          final data = LogEntriesData.fromJson(componentData);
+          if (data.entries.isNotEmpty) {
+            _dashboardState.addLogEntries(data, toolName, componentData);
+          }
+          break;
+        case 'x-sre-log-pattern-viewer':
+          final patterns = _parseLogPatterns(componentData);
+          if (patterns.isNotEmpty) {
+            _dashboardState.addLogPatterns(patterns, toolName, componentData);
+          }
+          break;
+        case 'x-sre-metric-chart':
+          final series = MetricSeries.fromJson(componentData);
+          if (series.points.isNotEmpty) {
+            _dashboardState.addMetricSeries(series, toolName, componentData);
+          }
+          break;
+        case 'x-sre-metrics-dashboard':
+          final data = MetricsDashboardData.fromJson(componentData);
+          if (data.metrics.isNotEmpty) {
+            _dashboardState.addMetricsDashboard(data, toolName, componentData);
+          }
+          break;
+        case 'x-sre-incident-timeline':
+          final data = IncidentTimelineData.fromJson(componentData);
+          if (data.events.isNotEmpty) {
+            _dashboardState.addAlerts(data, toolName, componentData);
+          }
+          break;
+        case 'x-sre-remediation-plan':
+          final plan = RemediationPlan.fromJson(componentData);
+          if (plan.steps.isNotEmpty) {
+            _dashboardState.addRemediation(plan, toolName, componentData);
+          }
+          break;
+      }
+    } catch (e) {
+      debugPrint('Dashboard route error: $e');
+    }
+  }
+
+  List<LogPattern> _parseLogPatterns(Map<String, dynamic> data) {
+    List<dynamic>? rawList;
+    if (data.containsKey('patterns') && data['patterns'] is List) {
+      rawList = data['patterns'] as List;
+    } else if (data.containsKey('x-sre-log-pattern-viewer') &&
+        data['x-sre-log-pattern-viewer'] is List) {
+      rawList = data['x-sre-log-pattern-viewer'] as List;
+    }
+    if (rawList == null) return [];
+    return rawList
+        .map((item) => LogPattern.fromJson(Map<String, dynamic>.from(item)))
+        .toList();
+  }
+
   @override
   void dispose() {
     _sessionSubscription?.cancel();
     _suggestionsSubscription?.cancel();
     _a2uiSubscription?.cancel();
+    _dashboardState.dispose();
     _projectService.selectedProject.removeListener(_onProjectChanged);
     _typingController.dispose();
     _conversation.dispose();

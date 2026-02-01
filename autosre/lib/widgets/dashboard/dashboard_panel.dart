@@ -1,0 +1,406 @@
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+import '../../services/dashboard_state.dart';
+import '../../theme/app_theme.dart';
+import 'live_logs_explorer.dart';
+import 'live_metrics_panel.dart';
+import 'live_trace_panel.dart';
+import 'live_alerts_panel.dart';
+import 'live_remediation_panel.dart';
+
+/// The main investigation dashboard panel.
+///
+/// Displays a tabbed interface that collects and organizes all tool call
+/// results into interactive data views: Traces, Logs, Metrics, Alerts,
+/// and Remediation plans.
+class DashboardPanel extends StatefulWidget {
+  final DashboardState state;
+  final VoidCallback onClose;
+
+  const DashboardPanel({
+    super.key,
+    required this.state,
+    required this.onClose,
+  });
+
+  @override
+  State<DashboardPanel> createState() => _DashboardPanelState();
+}
+
+class _DashboardPanelState extends State<DashboardPanel>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _entranceController;
+  late Animation<double> _slideAnimation;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _entranceController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _slideAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(parent: _entranceController, curve: Curves.easeOutCubic),
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _entranceController,
+      curve: Curves.easeOut,
+    );
+    _entranceController.forward();
+  }
+
+  @override
+  void dispose() {
+    _entranceController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _entranceController,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(_slideAnimation.value * 400, 0),
+          child: Opacity(
+            opacity: _fadeAnimation.value,
+            child: child,
+          ),
+        );
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.backgroundDark,
+          border: Border(
+            left: BorderSide(
+              color: AppColors.surfaceBorder.withValues(alpha: 0.5),
+              width: 1,
+            ),
+          ),
+        ),
+        child: Column(
+          children: [
+            _buildHeader(),
+            _buildTabBar(),
+            Expanded(child: _buildContent()),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.backgroundCard,
+        border: Border(
+          bottom: BorderSide(
+            color: AppColors.surfaceBorder.withValues(alpha: 0.5),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.primaryCyan.withValues(alpha: 0.2),
+                  AppColors.primaryTeal.withValues(alpha: 0.2),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.dashboard_rounded,
+              size: 16,
+              color: AppColors.primaryCyan,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            'Investigation Dashboard',
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+              letterSpacing: -0.2,
+            ),
+          ),
+          const Spacer(),
+          _buildItemCount(),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.close, size: 18),
+            color: AppColors.textMuted,
+            onPressed: widget.onClose,
+            style: IconButton.styleFrom(
+              padding: const EdgeInsets.all(4),
+              minimumSize: const Size(28, 28),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildItemCount() {
+    return ListenableBuilder(
+      listenable: widget.state,
+      builder: (context, _) {
+        final count = widget.state.items.length;
+        if (count == 0) return const SizedBox.shrink();
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            color: AppColors.primaryCyan.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            '$count items',
+            style: const TextStyle(
+              fontSize: 11,
+              color: AppColors.primaryCyan,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTabBar() {
+    return ListenableBuilder(
+      listenable: widget.state,
+      builder: (context, _) {
+        final counts = widget.state.typeCounts;
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppColors.backgroundCard.withValues(alpha: 0.5),
+            border: Border(
+              bottom: BorderSide(
+                color: AppColors.surfaceBorder.withValues(alpha: 0.3),
+                width: 1,
+              ),
+            ),
+          ),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: DashboardDataType.values.map((type) {
+                return _DashboardTab(
+                  type: type,
+                  isActive: widget.state.activeTab == type,
+                  count: counts[type] ?? 0,
+                  onTap: () => widget.state.setActiveTab(type),
+                );
+              }).toList(),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildContent() {
+    return ListenableBuilder(
+      listenable: widget.state,
+      builder: (context, _) {
+        if (!widget.state.hasData) {
+          return _buildEmptyState();
+        }
+
+        final items = widget.state.itemsOfType(widget.state.activeTab);
+        if (items.isEmpty) {
+          return _buildEmptyTabState(widget.state.activeTab);
+        }
+
+        switch (widget.state.activeTab) {
+          case DashboardDataType.traces:
+            return LiveTracePanel(items: items);
+          case DashboardDataType.logs:
+            return LiveLogsExplorer(items: items);
+          case DashboardDataType.metrics:
+            return LiveMetricsPanel(items: items);
+          case DashboardDataType.alerts:
+            return LiveAlertsPanel(items: items);
+          case DashboardDataType.remediation:
+            return LiveRemediationPanel(items: items);
+        }
+      },
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppColors.primaryCyan.withValues(alpha: 0.08),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.analytics_outlined,
+              size: 40,
+              color: AppColors.primaryCyan,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Waiting for data...',
+            style: GoogleFonts.inter(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Tool call results will appear here as the\nagent investigates your query.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              color: AppColors.textMuted.withValues(alpha: 0.7),
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyTabState(DashboardDataType type) {
+    final config = _tabConfig(type);
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            config.icon,
+            size: 32,
+            color: AppColors.textMuted.withValues(alpha: 0.5),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'No ${config.label.toLowerCase()} collected yet',
+            style: const TextStyle(
+              fontSize: 14,
+              color: AppColors.textMuted,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DashboardTab extends StatelessWidget {
+  final DashboardDataType type;
+  final bool isActive;
+  final int count;
+  final VoidCallback onTap;
+
+  const _DashboardTab({
+    required this.type,
+    required this.isActive,
+    required this.count,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final config = _tabConfig(type);
+    final color = isActive ? config.color : AppColors.textMuted;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: isActive
+                  ? config.color.withValues(alpha: 0.12)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isActive
+                    ? config.color.withValues(alpha: 0.3)
+                    : Colors.transparent,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(config.icon, size: 14, color: color),
+                const SizedBox(width: 6),
+                Text(
+                  config.label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                    color: color,
+                  ),
+                ),
+                if (count > 0) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: config.color.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '$count',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: config.color,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TabConfig {
+  final String label;
+  final IconData icon;
+  final Color color;
+  const _TabConfig(this.label, this.icon, this.color);
+}
+
+_TabConfig _tabConfig(DashboardDataType type) {
+  switch (type) {
+    case DashboardDataType.traces:
+      return const _TabConfig('Traces', Icons.timeline_rounded, AppColors.primaryCyan);
+    case DashboardDataType.logs:
+      return const _TabConfig('Logs', Icons.article_outlined, AppColors.success);
+    case DashboardDataType.metrics:
+      return const _TabConfig('Metrics', Icons.show_chart_rounded, AppColors.warning);
+    case DashboardDataType.alerts:
+      return const _TabConfig('Alerts', Icons.notifications_active_outlined, AppColors.error);
+    case DashboardDataType.remediation:
+      return const _TabConfig('Remediation', Icons.build_circle_outlined, AppColors.secondaryPurple);
+  }
+}
