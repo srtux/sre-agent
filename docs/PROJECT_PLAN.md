@@ -41,14 +41,22 @@ Auto SRE is an autonomous reliability engine for Google Cloud. We are transition
 
 ## 🏗️ Active Roadmap
 
-### Phase 2: Memory & Proactive State (IN PROGRESS)
+### Phase 2: Memory & Proactive State (COMPLETED)
 **Goal**: Deep context retention and guided investigations.
 
 - [x] **Vertex AI Memory Integration**: Core integration of `VertexAiMemoryBankService` for long-term incident retention.
-- [ ] **Proactive Search Logic**: Use the Memory Bank to automatically retrieve similar past incidents at the beginning of an investigation.
-- [ ] **Investigation State Machine**: Implement a formal state tracker (Triage → Analysis → Root Cause) to guide agent reasoning.
+- [x] **Proactive Search Logic**: Implemented `InvestigationPattern` system to recommend tools based on similar past incidents.
+- [x] **Investigation State Machine**: Added formal `InvestigationPhase` tracking (Initiated → Triage → Deep Dive → Remediation).
+- [x] **Self-Improvement Protocol**: Agent now reflects on investigations and reinforces successful patterns.
 - [ ] **Cross-Agent Handoffs**: Refine the schema for passing context (including negative findings) between sub-agents.
 - [x] **Automated CI/CD (Cloud Build)**: Orchestrate full-stack deployment (Agent Engine + Cloud Run) via GCP native triggers with parallelized tracks.
+
+### User Interface & Experience
+- [x] **Investigation Dashboard**: Full-featured Flutter dashboard with:
+    - **Live Traces**: Waterfall visualization of agent actions.
+    - **Log Explorer**: Real-time log filtering and analysis.
+    - **Metrics & Alerts**: Visual timeline of incidents.
+    - **Remediation**: Risk-assessed step-by-step guidance.
 
 ### Phase 3: Advanced Diagnostics (UPCOMING)
 **Goal**: Specialized analytical logic for complex failure modes.
@@ -89,4 +97,4 @@ Auto SRE is an autonomous reliability engine for Google Cloud. We are transition
 *   **Documentation**: This file (`PROJECT_PLAN.md`) must be updated after every significant change or phase transition.
 
 ---
-*Last Updated: 2026-01-25 - Auto SRE Team*
+*Last Updated: 2026-02-01 - Auto SRE Team*

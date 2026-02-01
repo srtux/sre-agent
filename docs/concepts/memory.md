@@ -58,3 +58,24 @@ CREATE TABLE memories (
 );
 CREATE INDEX idx_user_memories ON memories(user_id, created_at DESC);
 ```
+
+## Investigation Patterns & Self-Improvement
+
+The agent now includes a specific "Learning Protocol" to improve its diagnostic efficiency over time.
+
+### 1. Investigation Pattern Object
+Instead of just storing raw text, the agent crystallizes successful investigations into a structured `InvestigationPattern`:
+
+| Field | Description | Example |
+| :--- | :--- | :--- |
+| `symptom_type` | The observed issue from the user or alert. | `high_latency_checkout` |
+| `root_cause_category` | The confirmed category of the failure. | `connection_pool_saturation` |
+| `tool_sequence` | Ordered list of tools that led to the solution. | `["query_metrics", "fetch_trace_exemplar", "get_logs_for_trace"]` |
+| `confidence` | Reinforcement score (0.0-1.0). | `0.8` (boosted by repeated success) |
+
+### 2. The Learning Loop
+1.  **Reflection**: At the end of an investigation, the agent calls `learn_from_investigation` to extract the pattern.
+2.  **Reinforcement**: If the pattern already exists, its `confidence` score is boosted.
+3.  **Proactive Retrieval**: At the start of a *new* investigation, the agent calls `get_recommended_strategy` to find high-confidence tool sequences for the reported symptom.
+
+This allows the agent to skip "exploration" steps for known problems and jump straight to the correct diagnostics.
