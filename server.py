@@ -6,6 +6,14 @@ from dotenv import load_dotenv
 # Initialize telemetry and environment before anything else
 load_dotenv()
 
+# 1. Setup Telemetry (Logging + OTel) as early as possible
+try:
+    from sre_agent.tools.common.telemetry import setup_telemetry
+
+    setup_telemetry()
+except Exception as e:
+    print(f"CRITICAL: Failed to initialize telemetry in server.py: {e}")
+
 from sre_agent.api import create_app  # noqa: E402
 
 # 0. SET LOG LEVEL EARLY
@@ -24,4 +32,20 @@ if __name__ == "__main__":
     host = os.getenv("HOST", "0.0.0.0")
 
     logger.info(f"🚀 Starting SRE Agent API on {host}:{port}")
-    uvicorn.run(app, host=host, port=port)
+
+    # Identify and silence the Uvicorn access logger for health checks
+    # This filter sits "above" the handler and drops records before they are emitted
+    class HealthCheckFilter(logging.Filter):
+        """Filter out health check requests from access logs."""
+
+        def filter(self, record: logging.LogRecord) -> bool:
+            """Filter record."""
+            return record.getMessage().find("GET /health") == -1
+
+    # Get the uvicorn access logger (it's created by uvicorn.run, but we can pre-configure it)
+    logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
+
+    # We rely on our own setup_telemetry() for formatting, so we pass log_config=None
+    # However, Uvicorn will still create 'uvicorn' and 'uvicorn.access' loggers.
+    # By passing log_config=None, Uvicorn won't overwrite our root logger configuration.
+    uvicorn.run(app, host=host, port=port, log_config=None)

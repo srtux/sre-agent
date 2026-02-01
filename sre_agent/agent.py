@@ -34,9 +34,17 @@ The agent uses a "Core Squad" orchestration pattern (simplified from the previou
 """
 
 # ruff: noqa: E402
-# Enable JSON Schema for function declarations to fix Vertex AI API compatibility
-# This ensures tool schemas use camelCase (additionalProperties) instead of snake_case
-# Must be done BEFORE importing any ADK tools to ensure tools are registered correctly
+# 1. Initialize Telemetry and Logging as early as possible
+# This MUST happen before importing other modules to ensure OTel instrumentation
+# correctly patches ADK and other libraries.
+try:
+    from .tools.common.telemetry import setup_telemetry
+
+    setup_telemetry()
+except Exception as e:
+    # Use standard print as last resort if logging failed to initialize
+    print(f"CRITICAL: Failed to initialize telemetry/logging: {e}")
+
 from google.adk.features import FeatureName, override_feature_enabled
 
 override_feature_enabled(FeatureName.JSON_SCHEMA_FOR_FUNC_DECL, True)
@@ -222,16 +230,9 @@ if project_id:
     os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
     os.environ["GCP_PROJECT_ID"] = project_id
 
-# 1. Initialize Telemetry and Logging as early as possible
-try:
-    from .tools.common.telemetry import setup_telemetry
+# Determine environment settings for Agent initialization
+project_id = os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("GCP_PROJECT_ID")
 
-    setup_telemetry()
-except Exception as e:
-    # Use standard print as last resort if logging failed to initialize
-    print(f"CRITICAL: Failed to initialize telemetry/logging: {e}")
-
-# 2. Initialize Vertex AI if project and location are found
 if project_id:
     try:
         vertexai.init(project=project_id, location=location)

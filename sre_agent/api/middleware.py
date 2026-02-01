@@ -7,11 +7,13 @@ from typing import Any
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from opentelemetry import trace
 
 logger = logging.getLogger(__name__)
 
 # Track if we have already logged a successful health check to reduce log noise
-_HEALTH_SUCCESS_LOGGED = False
+# Default to True to suppress the very first health check log (unless it fails)
+_HEALTH_SUCCESS_LOGGED = True
 
 
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
@@ -38,9 +40,16 @@ async def tracing_middleware(request: Request, call_next: Any) -> Any:
     )
     set_correlation_id(correlation_id)
 
+    # 2. Get OpenTelemetry Trace ID (if available)
+    span = trace.get_current_span()
+    trace_id = None
+    if span.get_span_context().is_valid:
+        trace_id = trace.format_trace_id(span.get_span_context().trace_id)
+
     # 3. Log request start (Buffered - only logged on error)
     start_time = time.time()
-    start_msg = f"🌐 Request Start: {request.method} {request.url.path} [Correlation-ID: {correlation_id}]"
+    trace_info = f" [TraceID: {trace_id}]" if trace_id else ""
+    start_msg = f"🌐 Request Start: {request.method} {request.url.path} [Correlation-ID: {correlation_id}]{trace_info}"
 
     try:
         response = await call_next(request)
@@ -54,22 +63,26 @@ async def tracing_middleware(request: Request, call_next: Any) -> Any:
         if is_health:
             global _HEALTH_SUCCESS_LOGGED
             if response.status_code < 400:
-                if _HEALTH_SUCCESS_LOGGED:
-                    should_log = False
-                else:
+                # If we were previously failing, log the recovery
+                if not _HEALTH_SUCCESS_LOGGED:
                     _HEALTH_SUCCESS_LOGGED = True
+                else:
+                    # Healthy and previously healthy - SUPPRESS LOG
+                    should_log = False
             else:
-                # On failure, reset the flag so the next success is logged as recovery
+                # On failure, flag it so we log the next success
                 _HEALTH_SUCCESS_LOGGED = False
 
         if should_log:
             logger.info(
                 f"🌐 Request End: {request.method} {request.url.path} - {response.status_code} "
-                f"({duration:.2f}ms) [Correlation-ID: {correlation_id}]"
+                f"({duration:.2f}ms) [Correlation-ID: {correlation_id}]{trace_info}"
             )
 
         # 5. Inject back into response headers for client visibility
         response.headers["X-Correlation-ID"] = correlation_id
+        if trace_id:
+            response.headers["X-Trace-ID"] = trace_id
         return response
     except Exception as e:
         # Request failed - Log the buffered start message first to aid debugging
@@ -78,7 +91,7 @@ async def tracing_middleware(request: Request, call_next: Any) -> Any:
         duration = (time.time() - start_time) * 1000
         logger.error(
             f"🌐 Request Failed: {request.method} {request.url.path} - {e} "
-            f"({duration:.2f}ms) [Correlation-ID: {correlation_id}]"
+            f"({duration:.2f}ms) [Correlation-ID: {correlation_id}]{trace_info}"
         )
         raise
 
