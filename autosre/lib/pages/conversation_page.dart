@@ -253,6 +253,35 @@ class _ConversationPageState extends State<ConversationPage>
       uiProcessCount++;
       debugPrint('🖼️ [CONV_UI #$uiProcessCount] ===== UI MESSAGE RECEIVED =====');
       debugPrint('🖼️ [CONV_UI #$uiProcessCount] surfaceId: $surfaceId');
+
+      if (mounted) {
+        // Add the UI surface as a separate message bubble in the conversation.
+        // This is necessary because GenUiConversation doesn't naturally listen
+        // to the ui_marker events from our custom ADKContentGenerator.
+        final messenger = _conversation.conversation;
+        if (messenger is ValueNotifier<List<ChatMessage>>) {
+          final currentMessages = List<ChatMessage>.from(messenger.value);
+
+          // deduplicate: avoid adding the same surface multiple times
+          final alreadyHas =
+              currentMessages.any((m) => m is AiUiMessage && m.surfaceId == surfaceId);
+
+          if (!alreadyHas) {
+            // In genui 0.6.1, AiUiMessage requires a UiDefinition.
+            // We provide one with the surfaceId; the GenUiSurface will
+            // resolve the actual components from the host.
+            currentMessages.add(AiUiMessage(
+              definition: UiDefinition(surfaceId: surfaceId),
+              surfaceId: surfaceId,
+            ));
+            messenger.value = currentMessages;
+            debugPrint('🖼️ [CONV_UI #$uiProcessCount] ✅ Added AiUiMessage to conversation');
+          } else {
+            debugPrint('🖼️ [CONV_UI #$uiProcessCount] ⏭️ Skipping duplicate AiUiMessage');
+          }
+        }
+      }
+
       debugPrint('🖼️ [CONV_UI #$uiProcessCount] Current conversation length: ${_conversation.conversation.value.length}');
       debugPrint('🖼️ [CONV_UI #$uiProcessCount] ===== END UI MESSAGE =====');
     });
@@ -1305,10 +1334,7 @@ class _ConversationPageState extends State<ConversationPage>
     try {
       // Extract component data from the A2UI message.
       // A2UI messages contain components in beginRendering or surfaceUpdate.
-      final raw = msg.toJson();
-      Map<String, dynamic>? componentData;
-      String? componentType;
-      String toolName = 'unknown';
+      final raw = (msg as dynamic).toJson();
 
       // Try to extract from beginRendering or surfaceUpdate
       for (final key in ['beginRendering', 'surfaceUpdate']) {
@@ -1316,18 +1342,20 @@ class _ConversationPageState extends State<ConversationPage>
           final rendering = raw[key] as Map;
           final components = rendering['components'];
           if (components is List && components.isNotEmpty) {
-            final first = components[0];
-            if (first is Map) {
-              final comp = first['component'];
-              if (comp is Map) {
-                componentType = comp['type']?.toString();
-                if (componentType != null && comp.containsKey(componentType)) {
-                  final inner = comp[componentType];
-                  if (inner is Map) {
-                    componentData = Map<String, dynamic>.from(inner);
-                    toolName = componentData['tool_name'] ??
-                        componentData['toolName'] ??
-                        componentType;
+            for (final item in components) {
+              if (item is Map) {
+                final comp = item['component'] ?? item; // Handle wrapped or direct
+                if (comp is Map) {
+                  final type = comp['type']?.toString();
+                  if (type != null) {
+                    // Check if this type matches a dashboard category
+                    final possibleData = comp[type];
+                    if (possibleData is Map) {
+                      _processDashboardComponent(
+                        type,
+                        Map<String, dynamic>.from(possibleData),
+                      );
+                    }
                   }
                 }
               }
@@ -1335,59 +1363,79 @@ class _ConversationPageState extends State<ConversationPage>
           }
         }
       }
-
-      if (componentType == null || componentData == null) return;
-
-      final dashType = classifyComponent(componentType);
-      if (dashType == null) return;
-
-      // Parse and add to dashboard based on type
-      switch (componentType) {
-        case 'x-sre-trace-waterfall':
-          final trace = Trace.fromJson(componentData);
-          if (trace.spans.isNotEmpty) {
-            _dashboardState.addTrace(trace, toolName, componentData);
-          }
-          break;
-        case 'x-sre-log-entries-viewer':
-          final data = LogEntriesData.fromJson(componentData);
-          if (data.entries.isNotEmpty) {
-            _dashboardState.addLogEntries(data, toolName, componentData);
-          }
-          break;
-        case 'x-sre-log-pattern-viewer':
-          final patterns = _parseLogPatterns(componentData);
-          if (patterns.isNotEmpty) {
-            _dashboardState.addLogPatterns(patterns, toolName, componentData);
-          }
-          break;
-        case 'x-sre-metric-chart':
-          final series = MetricSeries.fromJson(componentData);
-          if (series.points.isNotEmpty) {
-            _dashboardState.addMetricSeries(series, toolName, componentData);
-          }
-          break;
-        case 'x-sre-metrics-dashboard':
-          final data = MetricsDashboardData.fromJson(componentData);
-          if (data.metrics.isNotEmpty) {
-            _dashboardState.addMetricsDashboard(data, toolName, componentData);
-          }
-          break;
-        case 'x-sre-incident-timeline':
-          final data = IncidentTimelineData.fromJson(componentData);
-          if (data.events.isNotEmpty) {
-            _dashboardState.addAlerts(data, toolName, componentData);
-          }
-          break;
-        case 'x-sre-remediation-plan':
-          final plan = RemediationPlan.fromJson(componentData);
-          if (plan.steps.isNotEmpty) {
-            _dashboardState.addRemediation(plan, toolName, componentData);
-          }
-          break;
-      }
     } catch (e) {
       debugPrint('Dashboard route error: $e');
+    }
+  }
+
+  /// Processes a single component and adds it to the dashboard if applicable.
+  void _processDashboardComponent(String type, Map<String, dynamic> data) {
+    final dashType = classifyComponent(type);
+    if (dashType == null) return;
+
+    final toolName = data['tool_name'] ?? data['toolName'] ?? type;
+    var added = false;
+
+    // Parse and add to dashboard based on type
+    switch (type) {
+      case 'x-sre-trace-waterfall':
+        final trace = Trace.fromJson(data);
+        if (trace.spans.isNotEmpty) {
+          _dashboardState.addTrace(trace, toolName, data);
+          added = true;
+        }
+        break;
+      case 'x-sre-log-entries-viewer':
+        final logData = LogEntriesData.fromJson(data);
+        if (logData.entries.isNotEmpty) {
+          _dashboardState.addLogEntries(logData, toolName, data);
+          added = true;
+        }
+        break;
+      case 'x-sre-log-pattern-viewer':
+        final patterns = _parseLogPatterns(data);
+        if (patterns.isNotEmpty) {
+          _dashboardState.addLogPatterns(patterns, toolName, data);
+          added = true;
+        }
+        break;
+      case 'x-sre-metric-chart':
+        final series = MetricSeries.fromJson(data);
+        if (series.points.isNotEmpty) {
+          _dashboardState.addMetricSeries(series, toolName, data);
+          added = true;
+        }
+        break;
+      case 'x-sre-metrics-dashboard':
+        final metricsData = MetricsDashboardData.fromJson(data);
+        if (metricsData.metrics.isNotEmpty) {
+          _dashboardState.addMetricsDashboard(metricsData, toolName, data);
+          added = true;
+        }
+        break;
+      case 'x-sre-incident-timeline':
+        final timelineData = IncidentTimelineData.fromJson(data);
+        if (timelineData.events.isNotEmpty) {
+          _dashboardState.addAlerts(timelineData, toolName, data);
+          added = true;
+        }
+        break;
+      case 'x-sre-remediation-plan':
+        final plan = RemediationPlan.fromJson(data);
+        if (plan.steps.isNotEmpty) {
+          _dashboardState.addRemediation(plan, toolName, data);
+          added = true;
+        }
+        break;
+    }
+
+    if (added) {
+      debugPrint('📊 [DASH] Successfully routed $type to dashboard');
+      // Auto-open dashboard on first data if not already open
+      if (!_dashboardState.isOpen) {
+        _dashboardState.openDashboard();
+        _dashboardState.setActiveTab(dashType);
+      }
     }
   }
 
@@ -1624,7 +1672,7 @@ class _MessageItemState extends State<_MessageItem>
                 ),
                 child: SelectionArea(
                   child: MarkdownBody(
-                    data: msg.text,
+                    data: _sanitizeMarkdown(msg.text),
                     styleSheet: MarkdownStyleSheet(
                       p: const TextStyle(
                         color: AppColors.textPrimary,
@@ -1757,6 +1805,14 @@ class _MessageItemState extends State<_MessageItem>
       );
     }
     return const SizedBox.shrink();
+  }
+  String _sanitizeMarkdown(String text) {
+    // 1. Ensure table separator rows start on a new line
+    // Matches a non-newline char followed by a pipe and separator dashes
+    final tableSeparator = RegExp(r'([^\n])\s*(\| \:?-{3,})');
+    return text.replaceAllMapped(tableSeparator, (match) {
+      return '${match.group(1)}\n${match.group(2)}';
+    });
   }
 }
 

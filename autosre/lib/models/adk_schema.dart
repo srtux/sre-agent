@@ -287,3 +287,176 @@ class LogEntriesData {
     );
   }
 }
+
+/// Model for a single metric in the dashboard
+class DashboardMetric {
+  final String id;
+  final String name;
+  final String unit;
+  final double currentValue;
+  final double? previousValue;
+  final double? threshold;
+  final List<MetricDataPoint> history;
+  final String status; // 'normal', 'warning', 'critical'
+  final String? anomalyDescription;
+
+  DashboardMetric({
+    required this.id,
+    required this.name,
+    required this.unit,
+    required this.currentValue,
+    this.previousValue,
+    this.threshold,
+    this.history = const [],
+    this.status = 'normal',
+    this.anomalyDescription,
+  });
+
+  factory DashboardMetric.fromJson(Map<String, dynamic> json) {
+    return DashboardMetric(
+      id: json['id'] ?? '',
+      name: json['name'] ?? '',
+      unit: json['unit'] ?? '',
+      currentValue: (json['current_value'] as num?)?.toDouble() ?? 0,
+      previousValue: (json['previous_value'] as num?)?.toDouble(),
+      threshold: (json['threshold'] as num?)?.toDouble(),
+      history: (json['history'] as List? ?? [])
+          .map((p) => MetricDataPoint.fromJson(Map<String, dynamic>.from(p)))
+          .toList(),
+      status: json['status'] ?? 'normal',
+      anomalyDescription: json['anomaly_description'],
+    );
+  }
+
+  double get changePercent {
+    if (previousValue == null || previousValue == 0) return 0;
+    return ((currentValue - previousValue!) / previousValue!) * 100;
+  }
+}
+
+/// Model for a metric data point
+class MetricDataPoint {
+  final DateTime timestamp;
+  final double value;
+
+  MetricDataPoint({required this.timestamp, required this.value});
+
+  factory MetricDataPoint.fromJson(Map<String, dynamic> json) {
+    return MetricDataPoint(
+      timestamp: DateTime.parse(json['timestamp']),
+      value: (json['value'] as num?)?.toDouble() ?? 0,
+    );
+  }
+}
+
+/// Model for the metrics dashboard
+class MetricsDashboardData {
+  final String title;
+  final String? serviceName;
+  final List<DashboardMetric> metrics;
+  final DateTime? lastUpdated;
+
+  MetricsDashboardData({
+    required this.title,
+    this.serviceName,
+    required this.metrics,
+    this.lastUpdated,
+  });
+
+  factory MetricsDashboardData.fromJson(Map<String, dynamic> json) {
+    return MetricsDashboardData(
+      title: json['title'] ?? 'Metrics Dashboard',
+      serviceName: json['service_name'],
+      metrics: (json['metrics'] as List? ?? [])
+          .map((m) => DashboardMetric.fromJson(Map<String, dynamic>.from(m)))
+          .toList(),
+      lastUpdated: json['last_updated'] != null
+          ? DateTime.parse(json['last_updated'])
+          : null,
+    );
+  }
+}
+
+/// Model for a timeline event
+class TimelineEvent {
+  final String id;
+  final DateTime timestamp;
+  final String
+  type; // 'alert', 'deployment', 'config_change', 'scaling', 'incident', 'recovery', 'agent_action'
+  final String title;
+  final String? description;
+  final String severity; // 'critical', 'high', 'medium', 'low', 'info'
+  final Map<String, dynamic>? metadata;
+  final bool isCorrelatedToIncident;
+
+  TimelineEvent({
+    required this.id,
+    required this.timestamp,
+    required this.type,
+    required this.title,
+    this.description,
+    this.severity = 'info',
+    this.metadata,
+    this.isCorrelatedToIncident = false,
+  });
+
+  factory TimelineEvent.fromJson(Map<String, dynamic> json) {
+    return TimelineEvent(
+      id: json['id'] ?? '',
+      timestamp: DateTime.parse(json['timestamp']),
+      type: json['type'] ?? 'info',
+      title: json['title'] ?? '',
+      description: json['description'],
+      severity: json['severity'] ?? 'info',
+      metadata: json['metadata'],
+      isCorrelatedToIncident: json['is_correlated'] ?? false,
+    );
+  }
+}
+
+/// Model for the incident timeline
+class IncidentTimelineData {
+  final String incidentId;
+  final String title;
+  final DateTime startTime;
+  final DateTime? endTime;
+  final String status; // 'ongoing', 'mitigated', 'resolved'
+  final List<TimelineEvent> events;
+  final String? rootCause;
+  final Duration? timeToDetect;
+  final Duration? timeToMitigate;
+
+  IncidentTimelineData({
+    required this.incidentId,
+    required this.title,
+    required this.startTime,
+    this.endTime,
+    required this.status,
+    required this.events,
+    this.rootCause,
+    this.timeToDetect,
+    this.timeToMitigate,
+  });
+
+  factory IncidentTimelineData.fromJson(Map<String, dynamic> json) {
+    return IncidentTimelineData(
+      incidentId: json['incident_id'] ?? '',
+      title: json['title'] ?? 'Incident',
+      startTime: DateTime.parse(json['start_time']),
+      endTime: json['end_time'] != null
+          ? DateTime.parse(json['end_time'])
+          : null,
+      status: json['status'] ?? 'ongoing',
+      events: (json['events'] as List? ?? [])
+          .map((e) => TimelineEvent.fromJson(Map<String, dynamic>.from(e)))
+          .toList(),
+      rootCause: json['root_cause'],
+      timeToDetect: json['ttd_seconds'] != null
+          ? Duration(seconds: json['ttd_seconds'])
+          : null,
+      timeToMitigate: json['ttm_seconds'] != null
+          ? Duration(seconds: json['ttm_seconds'])
+          : null,
+    );
+  }
+}

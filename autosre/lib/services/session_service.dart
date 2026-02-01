@@ -236,7 +236,9 @@ class SessionService {
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
               'user_id': effectiveUserId,
+              // ignore: use_null_aware_elements
               if (title != null) 'title': title,
+              // ignore: use_null_aware_elements
               if (projectId != null) 'project_id': projectId,
             }),
           )

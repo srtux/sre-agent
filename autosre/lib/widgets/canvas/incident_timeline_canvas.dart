@@ -2,91 +2,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../models/adk_schema.dart';
 import '../../theme/app_theme.dart';
 
-/// Model for a timeline event
-class TimelineEvent {
-  final String id;
-  final DateTime timestamp;
-  final String
-  type; // 'alert', 'deployment', 'config_change', 'scaling', 'incident', 'recovery', 'agent_action'
-  final String title;
-  final String? description;
-  final String severity; // 'critical', 'high', 'medium', 'low', 'info'
-  final Map<String, dynamic>? metadata;
-  final bool isCorrelatedToIncident;
 
-  TimelineEvent({
-    required this.id,
-    required this.timestamp,
-    required this.type,
-    required this.title,
-    this.description,
-    this.severity = 'info',
-    this.metadata,
-    this.isCorrelatedToIncident = false,
-  });
-
-  factory TimelineEvent.fromJson(Map<String, dynamic> json) {
-    return TimelineEvent(
-      id: json['id'] ?? '',
-      timestamp: DateTime.parse(json['timestamp']),
-      type: json['type'] ?? 'info',
-      title: json['title'] ?? '',
-      description: json['description'],
-      severity: json['severity'] ?? 'info',
-      metadata: json['metadata'],
-      isCorrelatedToIncident: json['is_correlated'] ?? false,
-    );
-  }
-}
-
-/// Model for the incident timeline
-class IncidentTimelineData {
-  final String incidentId;
-  final String title;
-  final DateTime startTime;
-  final DateTime? endTime;
-  final String status; // 'ongoing', 'mitigated', 'resolved'
-  final List<TimelineEvent> events;
-  final String? rootCause;
-  final Duration? timeToDetect;
-  final Duration? timeToMitigate;
-
-  IncidentTimelineData({
-    required this.incidentId,
-    required this.title,
-    required this.startTime,
-    this.endTime,
-    required this.status,
-    required this.events,
-    this.rootCause,
-    this.timeToDetect,
-    this.timeToMitigate,
-  });
-
-  factory IncidentTimelineData.fromJson(Map<String, dynamic> json) {
-    return IncidentTimelineData(
-      incidentId: json['incident_id'] ?? '',
-      title: json['title'] ?? 'Incident',
-      startTime: DateTime.parse(json['start_time']),
-      endTime: json['end_time'] != null
-          ? DateTime.parse(json['end_time'])
-          : null,
-      status: json['status'] ?? 'ongoing',
-      events: (json['events'] as List? ?? [])
-          .map((e) => TimelineEvent.fromJson(Map<String, dynamic>.from(e)))
-          .toList(),
-      rootCause: json['root_cause'],
-      timeToDetect: json['ttd_seconds'] != null
-          ? Duration(seconds: json['ttd_seconds'])
-          : null,
-      timeToMitigate: json['ttm_seconds'] != null
-          ? Duration(seconds: json['ttm_seconds'])
-          : null,
-    );
-  }
-}
 
 /// Incident Timeline Canvas - Visual timeline of incident progression
 class IncidentTimelineCanvas extends StatefulWidget {

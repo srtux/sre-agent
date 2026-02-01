@@ -2,96 +2,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../models/adk_schema.dart';
 import '../../theme/app_theme.dart';
 
-/// Model for a single metric in the dashboard
-class DashboardMetric {
-  final String id;
-  final String name;
-  final String unit;
-  final double currentValue;
-  final double? previousValue;
-  final double? threshold;
-  final List<MetricDataPoint> history;
-  final String status; // 'normal', 'warning', 'critical'
-  final String? anomalyDescription;
 
-  DashboardMetric({
-    required this.id,
-    required this.name,
-    required this.unit,
-    required this.currentValue,
-    this.previousValue,
-    this.threshold,
-    this.history = const [],
-    this.status = 'normal',
-    this.anomalyDescription,
-  });
-
-  factory DashboardMetric.fromJson(Map<String, dynamic> json) {
-    return DashboardMetric(
-      id: json['id'] ?? '',
-      name: json['name'] ?? '',
-      unit: json['unit'] ?? '',
-      currentValue: (json['current_value'] as num?)?.toDouble() ?? 0,
-      previousValue: (json['previous_value'] as num?)?.toDouble(),
-      threshold: (json['threshold'] as num?)?.toDouble(),
-      history: (json['history'] as List? ?? [])
-          .map((p) => MetricDataPoint.fromJson(Map<String, dynamic>.from(p)))
-          .toList(),
-      status: json['status'] ?? 'normal',
-      anomalyDescription: json['anomaly_description'],
-    );
-  }
-
-  double get changePercent {
-    if (previousValue == null || previousValue == 0) return 0;
-    return ((currentValue - previousValue!) / previousValue!) * 100;
-  }
-}
-
-/// Model for a metric data point
-class MetricDataPoint {
-  final DateTime timestamp;
-  final double value;
-
-  MetricDataPoint({required this.timestamp, required this.value});
-
-  factory MetricDataPoint.fromJson(Map<String, dynamic> json) {
-    return MetricDataPoint(
-      timestamp: DateTime.parse(json['timestamp']),
-      value: (json['value'] as num?)?.toDouble() ?? 0,
-    );
-  }
-}
-
-/// Model for the metrics dashboard
-class MetricsDashboardData {
-  final String title;
-  final String? serviceName;
-  final List<DashboardMetric> metrics;
-  final DateTime? lastUpdated;
-
-  MetricsDashboardData({
-    required this.title,
-    this.serviceName,
-    required this.metrics,
-    this.lastUpdated,
-  });
-
-  factory MetricsDashboardData.fromJson(Map<String, dynamic> json) {
-    return MetricsDashboardData(
-      title: json['title'] ?? 'Metrics Dashboard',
-      serviceName: json['service_name'],
-      metrics: (json['metrics'] as List? ?? [])
-          .map((m) => DashboardMetric.fromJson(Map<String, dynamic>.from(m)))
-          .toList(),
-      lastUpdated: json['last_updated'] != null
-          ? DateTime.parse(json['last_updated'])
-          : null,
-    );
-  }
-}
 
 /// Metrics Dashboard Canvas - Real-time multi-metric visualization
 class MetricsDashboardCanvas extends StatefulWidget {

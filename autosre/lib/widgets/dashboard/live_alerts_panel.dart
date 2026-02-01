@@ -48,7 +48,7 @@ class LiveAlertsPanel extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Text(
+                      const Text(
                         'Alert Timeline',
                         style: TextStyle(
                           fontSize: 12,

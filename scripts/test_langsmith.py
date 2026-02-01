@@ -83,7 +83,7 @@ async def test_thread_grouping() -> None:
         instruction="You are a helpful SRE assistant. Keep responses brief (1-2 sentences max).",
     )
 
-    session_service = InMemorySessionService()
+    session_service = InMemorySessionService()  # type: ignore[no-untyped-call]
     runner = Runner(
         app_name="langsmith_test",
         agent=agent,
@@ -138,7 +138,7 @@ async def test_thread_grouping() -> None:
 
         response = ""
         for event in events:
-            if hasattr(event, "content") and event.content:
+            if hasattr(event, "content") and event.content and event.content.parts:
                 for part in event.content.parts:
                     if hasattr(part, "text") and part.text:
                         response = part.text
