@@ -67,6 +67,28 @@ The following legacy components have been **removed**:
 
 ---
 
+## LangSmith Tracing (Local & Debugging)
+
+While we prefer native ADK tracing for production, **LangSmith** is supported for local development to visualize complex agent reasoning chains and tool use.
+
+### Enabling LangSmith
+
+1.  **Dependencies**: Ensure dev dependencies are installed (`uv sync`).
+2.  **Environment Variables**:
+    *   `LANGSMITH_TRACING=true`
+    *   `LANGSMITH_API_KEY=<your-api-key>`
+    *   `LANGSMITH_PROJECT=sre-agent` (Optional, defaults to `sre-agent`)
+
+### Features
+
+*   **Full Trace Trees**: Visualizes the complete execution path from user input -> agent reasoning -> tool calls -> final response.
+*   **Thread View**: Groups interactions by session ID, allowing you to see the full conversation history.
+*   **Metadata**: Automatically captures user ID and session tags if available.
+
+**Note**: LangSmith tracing is currently disabled when running inside Agent Engine to strictly adhere to the native ADK telemetry standard.
+
+---
+
 ## Observability Best Practices
 
 1.  **Use Logging for Context**: Instead of a manual span attribute, use `logger.info()` or `logger.debug()`. These are automatically correlated with the active trace by the Agent Engine logging service.

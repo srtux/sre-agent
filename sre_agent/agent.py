@@ -1,3 +1,4 @@
+# ruff: noqa: E402
 """SRE Agent - Google Cloud Observability Analysis Agent.
 
 This is the main orchestration agent for SRE tasks, designed to analyze telemetry data
@@ -33,7 +34,6 @@ The agent uses a "Core Squad" orchestration pattern (simplified from the previou
 -   **Kubernetes/GKE**: Cluster health and workload debugging.
 """
 
-# ruff: noqa: E402
 # 1. Initialize Telemetry and Logging as early as possible
 # This MUST happen before importing other modules to ensure OTel instrumentation
 # correctly patches ADK and other libraries.
@@ -353,6 +353,30 @@ def emojify_agent(agent: LlmAgent | Any) -> LlmAgent | Any:
             remote_trace_id = session_state.get(SESSION_STATE_TRACE_ID_KEY)
             if remote_trace_id:
                 set_trace_id(remote_trace_id)
+
+        # 2a. LangSmith: Set session and user for thread grouping
+        # This groups all traces from this session into a single "thread" in LangSmith
+        from .tools.common.telemetry import (
+            set_langsmith_metadata,
+            set_langsmith_session,
+            set_langsmith_user,
+        )
+
+        if session_id and session_id != "unknown":
+            set_langsmith_session(session_id)
+
+        if user_id and user_id != "unknown":
+            set_langsmith_user(user_id)
+        elif user_email:
+            set_langsmith_user(user_email)
+
+        # Add useful metadata for filtering and analysis
+        set_langsmith_metadata(
+            {
+                "project_id": project_id,
+                "agent_name": agent.name,
+            }
+        )
 
         # 3. Run Original
         full_response_parts = []

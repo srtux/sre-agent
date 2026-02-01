@@ -75,6 +75,19 @@ def create_app(
     register_all_test_functions()
     logger.info("Tool configuration manager initialized")
 
+    # Instrument FastAPI if tracing is enabled
+    # We check the same env var as telemetry.py
+    if os.environ.get("LANGSMITH_TRACING", "false").lower() == "true":
+        try:
+            from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
+            FastAPIInstrumentor.instrument_app(app)
+            logger.info("✨ FastAPI OpenTelemetry instrumentation applied")
+        except ImportError:
+            logger.warning(
+                "Could not import FastAPIInstrumentor. Is opentelemetry-instrumentation-fastapi installed?"
+            )
+
     # Optionally mount ADK agent routes
     if include_adk_routes:
         _mount_adk_routes(app)

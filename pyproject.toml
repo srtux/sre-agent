@@ -32,6 +32,7 @@ dependencies = [
     "tomli>=2.0.1 ; python_version < '3.11'",
     "greenlet>=3.0.3",
     "cryptography>=46.0.3",
+    "opentelemetry-instrumentation-fastapi>=0.58b0",
 ]
 
 requires-python = ">=3.10,<3.13"
@@ -58,6 +59,7 @@ dev = [
     "langsmith>=0.1.0",
     "openinference-instrumentation-google-adk>=0.1.8",
     "opentelemetry-exporter-otlp>=1.37.0",
+    "openinference-instrumentation-vertexai>=0.1.11",
 ]
 
 
