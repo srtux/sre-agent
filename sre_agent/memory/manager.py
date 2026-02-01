@@ -2,8 +2,12 @@
 
 This module provides the central interface for storing and retrieving investigation context
 using Vertex AI Memory Bank (or fallback persistence).
+
+Includes a learning pattern system that tracks successful investigation strategies
+and tool sequences to improve future investigations.
 """
 
+import json
 import logging
 from datetime import datetime, timezone
 from typing import Any
@@ -15,8 +19,70 @@ from sre_agent.schema import Confidence, InvestigationPhase, MemoryItem
 logger = logging.getLogger(__name__)
 
 
+class InvestigationPattern:
+    """A reusable pattern learned from a successful investigation.
+
+    Captures the symptom type, tool sequence that led to resolution,
+    and the root cause category for future matching.
+    """
+
+    def __init__(
+        self,
+        symptom_type: str,
+        root_cause_category: str,
+        tool_sequence: list[str],
+        resolution_summary: str,
+        confidence: float = 0.5,
+        occurrence_count: int = 1,
+    ):
+        """Initialize an investigation pattern.
+
+        Args:
+            symptom_type: Category of the initial symptom.
+            root_cause_category: Category of the root cause found.
+            tool_sequence: Ordered list of tools used in the investigation.
+            resolution_summary: Brief description of the resolution.
+            confidence: Confidence score from 0.0 to 1.0.
+            occurrence_count: Number of times this pattern has been observed.
+        """
+        self.symptom_type = symptom_type
+        self.root_cause_category = root_cause_category
+        self.tool_sequence = tool_sequence
+        self.resolution_summary = resolution_summary
+        self.confidence = confidence
+        self.occurrence_count = occurrence_count
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to dictionary for storage."""
+        return {
+            "symptom_type": self.symptom_type,
+            "root_cause_category": self.root_cause_category,
+            "tool_sequence": self.tool_sequence,
+            "resolution_summary": self.resolution_summary,
+            "confidence": self.confidence,
+            "occurrence_count": self.occurrence_count,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "InvestigationPattern":
+        """Deserialize from dictionary."""
+        return cls(
+            symptom_type=data.get("symptom_type", "unknown"),
+            root_cause_category=data.get("root_cause_category", "unknown"),
+            tool_sequence=data.get("tool_sequence", []),
+            resolution_summary=data.get("resolution_summary", ""),
+            confidence=data.get("confidence", 0.5),
+            occurrence_count=data.get("occurrence_count", 1),
+        )
+
+
 class MemoryManager:
-    """Manages investigation state and findings using Vertex AI Memory Bank."""
+    """Manages investigation state, findings, and learned patterns.
+
+    Uses Vertex AI Memory Bank for persistence with SQLite fallback.
+    Includes a learning system that captures successful investigation
+    patterns for future reuse.
+    """
 
     def __init__(self, project_id: str, location: str = "us-central1"):
         """Initialize the Memory Manager.
@@ -33,6 +99,10 @@ class MemoryManager:
         # Local state cache (for current execution)
         self._current_state = InvestigationPhase.INITIATED
         self._findings_cache: list[MemoryItem] = []
+
+        # Learning pattern cache: tracks tool calls in current session
+        self._tool_call_sequence: list[str] = []
+        self._learned_patterns: list[InvestigationPattern] = []
 
     def _check_init_memory_service(self) -> None:
         """Initialize the Vertex AI Memory Service if credentials allow."""
@@ -280,3 +350,174 @@ class MemoryManager:
     def get_state(self) -> InvestigationPhase:
         """Get the current investigation state."""
         return self._current_state
+
+    # ── Learning Pattern System ──────────────────────────────────────
+
+    def record_tool_call(self, tool_name: str) -> None:
+        """Record a tool call in the current session sequence.
+
+        Args:
+            tool_name: Name of the tool that was called.
+        """
+        self._tool_call_sequence.append(tool_name)
+
+    async def learn_from_investigation(
+        self,
+        symptom_type: str,
+        root_cause_category: str,
+        resolution_summary: str,
+        session_id: str | None = None,
+        user_id: str | None = None,
+    ) -> None:
+        """Extract a reusable pattern from a completed investigation.
+
+        Called when an investigation reaches a successful conclusion.
+        Stores the symptom-to-resolution mapping along with the tool
+        sequence that was used, so future investigations can start
+        with a better strategy.
+
+        Args:
+            symptom_type: Category of the initial symptom (e.g. "high_latency",
+                "error_rate_spike", "oom_killed").
+            root_cause_category: Category of the root cause found (e.g.
+                "connection_pool_exhaustion", "memory_leak", "config_change").
+            resolution_summary: Brief description of how it was resolved.
+            session_id: Current session ID for persistence.
+            user_id: User ID for isolation.
+        """
+        pattern = InvestigationPattern(
+            symptom_type=symptom_type,
+            root_cause_category=root_cause_category,
+            tool_sequence=list(self._tool_call_sequence),
+            resolution_summary=resolution_summary,
+        )
+
+        # Check if we've seen a similar pattern before and boost confidence
+        for existing in self._learned_patterns:
+            if (
+                existing.symptom_type == symptom_type
+                and existing.root_cause_category == root_cause_category
+            ):
+                existing.occurrence_count += 1
+                existing.confidence = min(1.0, existing.confidence + 0.1)
+                logger.info(
+                    f"📚 Reinforced existing pattern: {symptom_type} -> {root_cause_category} "
+                    f"(occurrences: {existing.occurrence_count}, confidence: {existing.confidence:.1f})"
+                )
+                return
+
+        self._learned_patterns.append(pattern)
+        logger.info(
+            f"📚 Learned new investigation pattern: {symptom_type} -> {root_cause_category}"
+        )
+
+        # Persist the pattern to memory service
+        if self.memory_service and session_id:
+            try:
+                pattern_content = (
+                    f"[PATTERN] Symptom: {symptom_type} | "
+                    f"Root Cause: {root_cause_category} | "
+                    f"Resolution: {resolution_summary} | "
+                    f"Tools: {' -> '.join(self._tool_call_sequence)}"
+                )
+                if hasattr(self.memory_service, "save_memory"):
+                    await self.memory_service.save_memory(
+                        session_id=session_id,
+                        memory_content=pattern_content,
+                        metadata={
+                            "type": "investigation_pattern",
+                            "symptom_type": symptom_type,
+                            "root_cause_category": root_cause_category,
+                            "tool_sequence": json.dumps(self._tool_call_sequence),
+                            "confidence": str(pattern.confidence),
+                            "user_id": user_id or "anonymous",
+                        },
+                    )
+            except Exception as e:
+                logger.error(f"Failed to persist learned pattern: {e}")
+
+    async def get_recommended_strategy(
+        self,
+        symptom_description: str,
+        session_id: str | None = None,
+        user_id: str | None = None,
+    ) -> list[InvestigationPattern]:
+        """Find investigation patterns that match the given symptom.
+
+        Searches both in-memory patterns and persisted memory for
+        relevant past investigation strategies.
+
+        Args:
+            symptom_description: Description of the current symptom.
+            session_id: Current session ID.
+            user_id: User ID for isolation.
+
+        Returns:
+            List of matching patterns sorted by confidence.
+        """
+        results: list[InvestigationPattern] = []
+
+        # 1. Check local pattern cache
+        symptom_lower = symptom_description.lower()
+        for pattern in self._learned_patterns:
+            if (
+                pattern.symptom_type.lower() in symptom_lower
+                or symptom_lower in pattern.symptom_type.lower()
+            ):
+                results.append(pattern)
+
+        # 2. Search persisted memory for past patterns
+        if self.memory_service:
+            try:
+                findings = await self.get_relevant_findings(
+                    query=f"investigation pattern for {symptom_description}",
+                    session_id=session_id,
+                    limit=5,
+                    user_id=user_id,
+                )
+                for finding in findings:
+                    if finding.description.startswith("[PATTERN]"):
+                        # Parse pattern from description
+                        try:
+                            parts = finding.description.split("|")
+                            symptom = parts[0].replace("[PATTERN] Symptom:", "").strip()
+                            root_cause = (
+                                parts[1].replace("Root Cause:", "").strip()
+                                if len(parts) > 1
+                                else "unknown"
+                            )
+                            resolution = (
+                                parts[2].replace("Resolution:", "").strip()
+                                if len(parts) > 2
+                                else ""
+                            )
+                            tools_str = (
+                                parts[3].replace("Tools:", "").strip()
+                                if len(parts) > 3
+                                else ""
+                            )
+                            tool_seq = [
+                                t.strip() for t in tools_str.split("->") if t.strip()
+                            ]
+
+                            results.append(
+                                InvestigationPattern(
+                                    symptom_type=symptom,
+                                    root_cause_category=root_cause,
+                                    tool_sequence=tool_seq,
+                                    resolution_summary=resolution,
+                                )
+                            )
+                        except (IndexError, ValueError):
+                            continue
+            except Exception as e:
+                logger.error(f"Failed to search patterns from memory: {e}")
+
+        # Sort by confidence (highest first), then by occurrence count
+        results.sort(key=lambda p: (p.confidence, p.occurrence_count), reverse=True)
+        return results
+
+    def reset_session_tracking(self) -> None:
+        """Reset the tool call sequence for a new session/investigation."""
+        self._tool_call_sequence = []
+        self._current_state = InvestigationPhase.INITIATED
