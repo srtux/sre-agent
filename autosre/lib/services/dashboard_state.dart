@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+
 import '../models/adk_schema.dart';
 
 /// Categorizes tool call data for dashboard display.
@@ -227,6 +228,111 @@ class DashboardState extends ChangeNotifier {
       remediationPlan: plan,
     ));
     notifyListeners();
+  }
+
+  /// Process a dashboard event received from the backend's dedicated channel.
+  ///
+  /// This is the primary way to feed data into the dashboard. Events have
+  /// the shape: `{category, widget_type, tool_name, data}`.
+  /// Returns true if data was added successfully.
+  bool addFromEvent(Map<String, dynamic> event) {
+    final category = event['category'] as String?;
+    final toolName = event['tool_name'] as String? ?? 'unknown';
+    final widgetType = event['widget_type'] as String?;
+    final data = event['data'];
+
+    if (category == null || data == null) return false;
+
+    // Convert data to a Map if needed
+    final Map<String, dynamic> dataMap;
+    if (data is Map) {
+      dataMap = Map<String, dynamic>.from(data);
+    } else {
+      return false;
+    }
+
+    try {
+      switch (widgetType) {
+        case 'x-sre-trace-waterfall':
+          final trace = Trace.fromJson(dataMap);
+          if (trace.spans.isEmpty) return false;
+          addTrace(trace, toolName, dataMap);
+
+        case 'x-sre-log-entries-viewer':
+          final logData = LogEntriesData.fromJson(dataMap);
+          if (logData.entries.isEmpty) return false;
+          addLogEntries(logData, toolName, dataMap);
+
+        case 'x-sre-log-pattern-viewer':
+          final patterns = _parseLogPatterns(dataMap);
+          if (patterns.isEmpty) return false;
+          addLogPatterns(patterns, toolName, dataMap);
+
+        case 'x-sre-metric-chart':
+          final series = MetricSeries.fromJson(dataMap);
+          if (series.points.isEmpty) return false;
+          addMetricSeries(series, toolName, dataMap);
+
+        case 'x-sre-metrics-dashboard':
+          final metricsData = MetricsDashboardData.fromJson(dataMap);
+          if (metricsData.metrics.isEmpty) return false;
+          addMetricsDashboard(metricsData, toolName, dataMap);
+
+        case 'x-sre-incident-timeline':
+          final timelineData = IncidentTimelineData.fromJson(dataMap);
+          if (timelineData.events.isEmpty) return false;
+          addAlerts(timelineData, toolName, dataMap);
+
+        case 'x-sre-remediation-plan':
+          final plan = RemediationPlan.fromJson(dataMap);
+          if (plan.steps.isEmpty) return false;
+          addRemediation(plan, toolName, dataMap);
+
+        default:
+          debugPrint('Unknown dashboard widget_type: $widgetType');
+          return false;
+      }
+
+      // Auto-open dashboard on first data
+      final dashType = _categoryFromString(category);
+      if (dashType != null && !_isOpen) {
+        openDashboard();
+        setActiveTab(dashType);
+      }
+
+      return true;
+    } catch (e) {
+      debugPrint('Error processing dashboard event: $e');
+      return false;
+    }
+  }
+
+  static DashboardDataType? _categoryFromString(String category) {
+    switch (category) {
+      case 'traces':
+        return DashboardDataType.traces;
+      case 'logs':
+        return DashboardDataType.logs;
+      case 'metrics':
+        return DashboardDataType.metrics;
+      case 'alerts':
+        return DashboardDataType.alerts;
+      case 'remediation':
+        return DashboardDataType.remediation;
+      default:
+        return null;
+    }
+  }
+
+  static List<LogPattern> _parseLogPatterns(Map<String, dynamic> data) {
+    List<dynamic>? rawList;
+    if (data.containsKey('patterns') && data['patterns'] is List) {
+      rawList = data['patterns'] as List;
+    }
+    if (rawList == null) return [];
+    return rawList
+        .map((item) => LogPattern.fromJson(Map<String, dynamic>.from(item)))
+        .toList();
   }
 
   /// Clear all collected data (e.g. on new session).

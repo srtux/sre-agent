@@ -20,6 +20,8 @@ class ADKContentGenerator implements ContentGenerator {
       StreamController<String>.broadcast();
   final StreamController<List<String>> _suggestionsController =
       StreamController<List<String>>.broadcast();
+  final StreamController<Map<String, dynamic>> _dashboardController =
+      StreamController<Map<String, dynamic>>.broadcast();
   final ValueNotifier<bool> _isProcessing = ValueNotifier(false);
   final ValueNotifier<bool> _isConnected = ValueNotifier(false);
 
@@ -46,6 +48,10 @@ class ADKContentGenerator implements ContentGenerator {
 
   /// Stream of suggested actions.
   Stream<List<String>> get suggestionsStream => _suggestionsController.stream;
+
+  /// Stream of dashboard data events (separate from A2UI).
+  Stream<Map<String, dynamic>> get dashboardStream =>
+      _dashboardController.stream;
 
   /// The base URL of the connected agent.
   String get baseUrl => _baseUrl;
@@ -208,32 +214,17 @@ class ADKContentGenerator implements ContentGenerator {
             .transform(const LineSplitter())
             .listen((line) {
               lineCount++;
-              if (line.trim().isEmpty) {
-                debugPrint('📥 [LINE $lineCount] Empty line, skipping');
-                return;
-              }
+              if (line.trim().isEmpty) return;
               try {
-                debugPrint('📥 [LINE $lineCount] Received: ${line.length > 200 ? "${line.substring(0, 200)}..." : line}');
-
                 final data = jsonDecode(line);
                 final type = data['type'];
 
-                debugPrint('📥 [LINE $lineCount] Parsed type: $type');
-
                 if (type == 'text') {
                   textCount++;
-                  final content = data['content'] as String?;
-                  debugPrint('📝 [TEXT #$textCount] Content length: ${content?.length ?? 0}');
                   _textController.add(data['content']);
                 } else if (type == 'error') {
-                  // Handle error events from backend
                   final errorMessage = data['error'] as String? ?? 'Unknown error';
-                  debugPrint('⚠️ [ERROR] Agent error received: $errorMessage');
-
-                  // Show error in chat as text
                   _textController.add('\n\n**Error:** $errorMessage\n');
-
-                  // Also emit to error stream for StatusToast notification
                   _errorController.add(
                     ContentGeneratorError(
                       Exception(errorMessage),
@@ -243,66 +234,22 @@ class ADKContentGenerator implements ContentGenerator {
                 } else if (type == 'a2ui') {
                   a2uiCount++;
                   final msgJson = data['message'] as Map<String, dynamic>;
-
-                  // Detailed A2UI debugging
-                  debugPrint('🎯 [A2UI #$a2uiCount] ===== A2UI MESSAGE RECEIVED =====');
-                  debugPrint('🎯 [A2UI #$a2uiCount] Raw message keys: ${msgJson.keys.toList()}');
-
-                  if (msgJson.containsKey('beginRendering')) {
-                    final br = msgJson['beginRendering'] as Map<String, dynamic>?;
-                    debugPrint('🎯 [A2UI #$a2uiCount] Type: beginRendering');
-                    debugPrint('🎯 [A2UI #$a2uiCount] surfaceId: ${br?['surfaceId']}');
-                    debugPrint('🎯 [A2UI #$a2uiCount] root: ${br?['root']}');
-                    final components = br?['components'] as List?;
-                    debugPrint('🎯 [A2UI #$a2uiCount] components count: ${components?.length ?? 0}');
-                    if (components != null && components.isNotEmpty) {
-                      for (var i = 0; i < components.length; i++) {
-                        final comp = components[i] as Map<String, dynamic>?;
-                        debugPrint('🎯 [A2UI #$a2uiCount] Component[$i] id: ${comp?['id']}');
-                        debugPrint('🎯 [A2UI #$a2uiCount] Component[$i] type: ${comp?['type']}');
-                        debugPrint('🎯 [A2UI #$a2uiCount] Component[$i] keys: ${comp?.keys.toList()}');
-                        if (comp?.containsKey('component') == true) {
-                          final inner = comp!['component'] as Map<String, dynamic>?;
-                          debugPrint('🎯 [A2UI #$a2uiCount] Component[$i].component keys: ${inner?.keys.toList()}');
-                          debugPrint('🎯 [A2UI #$a2uiCount] Component[$i].component.type: ${inner?['type']}');
-                        }
-                      }
-                    }
-                  } else if (msgJson.containsKey('surfaceUpdate')) {
-                    final su = msgJson['surfaceUpdate'] as Map<String, dynamic>?;
-                    debugPrint('🎯 [A2UI #$a2uiCount] Type: surfaceUpdate');
-                    debugPrint('🎯 [A2UI #$a2uiCount] surfaceId: ${su?['surfaceId']}');
-                    final components = su?['components'] as List?;
-                    debugPrint('🎯 [A2UI #$a2uiCount] components count: ${components?.length ?? 0}');
-                  }
-
-                  debugPrint('🎯 [A2UI #$a2uiCount] Parsing A2uiMessage...');
                   try {
                     final msg = A2uiMessage.fromJson(msgJson);
-                    debugPrint('🎯 [A2UI #$a2uiCount] Parsed successfully: ${msg.runtimeType}');
-                    debugPrint('🎯 [A2UI #$a2uiCount] Emitting to a2uiController...');
                     _a2uiController.add(msg);
-                    debugPrint('🎯 [A2UI #$a2uiCount] ✅ Emitted to stream');
-                  } catch (parseError, parseStack) {
-                    debugPrint('🎯 [A2UI #$a2uiCount] ❌ Parse error: $parseError');
-                    debugPrint('🎯 [A2UI #$a2uiCount] Stack: $parseStack');
+                  } catch (parseError) {
+                    debugPrint('A2UI parse error: $parseError');
                   }
-                  debugPrint('🎯 [A2UI #$a2uiCount] ===== END A2UI MESSAGE =====');
                 } else if (type == 'ui') {
                   uiCount++;
-                  // New UI component that should be added as a message bubble
                   final newSurfaceId = data['surface_id'] as String?;
-                  debugPrint('🖼️ [UI #$uiCount] ===== UI MARKER RECEIVED =====');
-                  debugPrint('🖼️ [UI #$uiCount] surface_id: $newSurfaceId');
-                  debugPrint('🖼️ [UI #$uiCount] a2ui messages received so far: $a2uiCount');
                   if (newSurfaceId != null) {
-                    debugPrint('🖼️ [UI #$uiCount] Emitting to uiMessageController...');
                     _uiMessageController.add(newSurfaceId);
-                    debugPrint('🖼️ [UI #$uiCount] ✅ Emitted to stream');
-                  } else {
-                    debugPrint('🖼️ [UI #$uiCount] ⚠️ surface_id is null, skipping');
                   }
-                  debugPrint('🖼️ [UI #$uiCount] ===== END UI MARKER =====');
+                } else if (type == 'dashboard') {
+                  // Dashboard data event (separate channel from A2UI)
+                  debugPrint('📊 [DASHBOARD] category=${data['category']}, tool=${data['tool_name']}');
+                  _dashboardController.add(Map<String, dynamic>.from(data));
                 } else if (type == 'session') {
                   // Update session ID from server
                   final newSessionId = data['session_id'] as String?;
@@ -420,6 +367,7 @@ class ADKContentGenerator implements ContentGenerator {
     _errorController.close();
     _sessionController.close();
     _suggestionsController.close();
+    _dashboardController.close();
     _isProcessing.dispose();
     _isConnected.dispose();
   }

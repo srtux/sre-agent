@@ -474,3 +474,85 @@ def create_widget_events(tool_name: str, result: Any) -> tuple[list[str], list[s
     )
 
     return events, surface_ids
+
+
+# Category mapping: widget type -> dashboard category string
+WIDGET_CATEGORY_MAP: dict[str, str] = {
+    "x-sre-trace-waterfall": "traces",
+    "x-sre-metric-chart": "metrics",
+    "x-sre-metrics-dashboard": "metrics",
+    "x-sre-log-entries-viewer": "logs",
+    "x-sre-log-pattern-viewer": "logs",
+    "x-sre-incident-timeline": "alerts",
+    "x-sre-remediation-plan": "remediation",
+}
+
+
+def create_dashboard_event(tool_name: str, result: Any) -> str | None:
+    """Create a dashboard data event for the frontend investigation panel.
+
+    This sends tool result data through a separate, simple channel that
+    does not depend on the A2UI protocol. The frontend can consume this
+    directly without any unwrapping logic.
+
+    Returns:
+        JSON string of dashboard event, or None if tool has no dashboard mapping.
+    """
+    widget_type = TOOL_WIDGET_MAP.get(tool_name)
+    if not widget_type:
+        return None
+
+    category = WIDGET_CATEGORY_MAP.get(widget_type)
+    if not category:
+        return None
+
+    # Handle failed tool execution
+    if result is None:
+        return None
+
+    # Normalize result
+    result = normalize_tool_args(result)
+
+    # Unwrap status/result wrapper
+    if isinstance(result, dict):
+        if "status" in result and "result" in result:
+            if result.get("status") == "error":
+                return None
+            result = result["result"]
+        elif len(result) == 1 and "result" in result:
+            result = result["result"]
+
+    # Transform data using the same adapter as widget events
+    try:
+        widget_data: dict[str, Any] | list[Any] | None = None
+
+        if widget_type == "x-sre-trace-waterfall":
+            widget_data = genui_adapter.transform_trace(result)
+        elif widget_type == "x-sre-metric-chart":
+            widget_data = genui_adapter.transform_metrics(result)
+        elif widget_type == "x-sre-metrics-dashboard":
+            widget_data = genui_adapter.transform_metrics_dashboard(result)
+        elif widget_type == "x-sre-log-entries-viewer":
+            widget_data = genui_adapter.transform_log_entries(result)
+        elif widget_type == "x-sre-log-pattern-viewer":
+            widget_data = genui_adapter.transform_log_patterns(result)
+        elif widget_type == "x-sre-remediation-plan":
+            widget_data = genui_adapter.transform_remediation(result)
+        elif widget_type == "x-sre-incident-timeline":
+            widget_data = genui_adapter.transform_alerts_to_timeline(result)
+
+        if not widget_data:
+            return None
+
+        event = {
+            "type": "dashboard",
+            "category": category,
+            "widget_type": widget_type,
+            "tool_name": tool_name,
+            "data": widget_data,
+        }
+        return json.dumps(event, default=str)
+
+    except Exception as e:
+        logger.error(f"Error creating dashboard event for {tool_name}: {e}")
+        return None

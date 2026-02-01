@@ -25,7 +25,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'tool_config_page.dart';
 import '../widgets/status_toast.dart';
 import '../widgets/glow_action_chip.dart';
-import '../models/adk_schema.dart';
 
 class ConversationPage extends StatefulWidget {
   const ConversationPage({super.key});
@@ -64,7 +63,7 @@ class _ConversationPageState extends State<ConversationPage>
     'Check for high latency',
   ]);
   StreamSubscription<List<String>>? _suggestionsSubscription;
-  StreamSubscription<A2uiMessage>? _a2uiSubscription;
+  StreamSubscription<Map<String, dynamic>>? _dashboardSubscription;
 
   @override
   void initState() {
@@ -210,80 +209,40 @@ class _ConversationPageState extends State<ConversationPage>
     _conversation = GenUiConversation(
       a2uiMessageProcessor: _messageProcessor,
       contentGenerator: _contentGenerator,
-      onSurfaceAdded: (update) {
-        debugPrint('🎯 [CONV] ===== onSurfaceAdded CALLBACK =====');
-        debugPrint('🎯 [CONV] surfaceId: ${update.surfaceId}');
-        debugPrint('🎯 [CONV] Current conversation length: ${_conversation.conversation.value.length}');
-        debugPrint('🎯 [CONV] ===== END onSurfaceAdded =====');
-        _scrollToBottom(force: true);
-      },
-      onSurfaceUpdated: (update) {
-        debugPrint('🔄 [CONV] ===== onSurfaceUpdated CALLBACK =====');
-        debugPrint('🔄 [CONV] surfaceId: ${update.surfaceId}');
-        debugPrint('🔄 [CONV] ===== END onSurfaceUpdated =====');
-        _scrollToBottom();
-      },
-      onTextResponse: (text) {
-        debugPrint('📝 [CONV] onTextResponse: ${text.length > 100 ? "${text.substring(0, 100)}..." : text}');
-        _scrollToBottom();
-      },
+      onSurfaceAdded: (_) => _scrollToBottom(force: true),
+      onSurfaceUpdated: (_) => _scrollToBottom(),
+      onTextResponse: (_) => _scrollToBottom(),
     );
 
-    // CRITICAL: Explicitly wire the A2UI data steam to the processor.
-    // NOTE: GenUiConversation ALSO does this in its constructor, but we keep it
-    // here for extra clarity and debugging in the logs.
-    _a2uiSubscription?.cancel();
-    var a2uiProcessCount = 0;
-    _a2uiSubscription = _contentGenerator.a2uiMessageStream.listen((msg) {
-      a2uiProcessCount++;
-      debugPrint('📥 [CONV_A2UI #$a2uiProcessCount] ===== A2UI MESSAGE RECEIVED =====');
-      debugPrint('📥 [CONV_A2UI #$a2uiProcessCount] Message type: ${msg.runtimeType}');
-      debugPrint('📥 [CONV_A2UI #$a2uiProcessCount] Calling _messageProcessor.handleMessage...');
-      _messageProcessor.handleMessage(msg);
-      debugPrint('📥 [CONV_A2UI #$a2uiProcessCount] ✅ handleMessage completed');
-      debugPrint('📥 [CONV_A2UI #$a2uiProcessCount] ===== END A2UI MESSAGE =====');
-
-      // Route A2UI data to the investigation dashboard
-      _routeA2uiToDashboard(msg);
+    // Subscribe to the dedicated dashboard data stream.
+    // This replaces the old fragile A2UI-to-dashboard routing.
+    // A2UI messages are handled solely by GenUiConversation for in-chat widgets.
+    _dashboardSubscription?.cancel();
+    _dashboardSubscription = _contentGenerator.dashboardStream.listen((event) {
+      debugPrint('📊 [DASH] Received dashboard event: category=${event['category']}, tool=${event['tool_name']}');
+      _dashboardState.addFromEvent(event);
     });
 
-    // Subscribe to UI messages (surface markers)
-    var uiProcessCount = 0;
+    // Subscribe to UI messages (surface markers) to add widget bubbles to chat
     _contentGenerator.uiMessageStream.listen((surfaceId) {
-      uiProcessCount++;
-      debugPrint('🖼️ [CONV_UI #$uiProcessCount] ===== UI MESSAGE RECEIVED =====');
-      debugPrint('🖼️ [CONV_UI #$uiProcessCount] surfaceId: $surfaceId');
+      if (!mounted) return;
 
-      if (mounted) {
-        // Add the UI surface as a separate message bubble in the conversation.
-        // This is necessary because GenUiConversation doesn't naturally listen
-        // to the ui_marker events from our custom ADKContentGenerator.
-        final messenger = _conversation.conversation;
-        if (messenger is ValueNotifier<List<ChatMessage>>) {
-          final currentMessages = List<ChatMessage>.from(messenger.value);
+      final messenger = _conversation.conversation;
+      if (messenger is ValueNotifier<List<ChatMessage>>) {
+        final currentMessages = List<ChatMessage>.from(messenger.value);
 
-          // deduplicate: avoid adding the same surface multiple times
-          final alreadyHas =
-              currentMessages.any((m) => m is AiUiMessage && m.surfaceId == surfaceId);
+        // Deduplicate: avoid adding the same surface multiple times
+        final alreadyHas =
+            currentMessages.any((m) => m is AiUiMessage && m.surfaceId == surfaceId);
 
-          if (!alreadyHas) {
-            // In genui 0.6.1, AiUiMessage requires a UiDefinition.
-            // We provide one with the surfaceId; the GenUiSurface will
-            // resolve the actual components from the host.
-            currentMessages.add(AiUiMessage(
-              definition: UiDefinition(surfaceId: surfaceId),
-              surfaceId: surfaceId,
-            ));
-            messenger.value = currentMessages;
-            debugPrint('🖼️ [CONV_UI #$uiProcessCount] ✅ Added AiUiMessage to conversation');
-          } else {
-            debugPrint('🖼️ [CONV_UI #$uiProcessCount] ⏭️ Skipping duplicate AiUiMessage');
-          }
+        if (!alreadyHas) {
+          currentMessages.add(AiUiMessage(
+            definition: UiDefinition(surfaceId: surfaceId),
+            surfaceId: surfaceId,
+          ));
+          messenger.value = currentMessages;
         }
       }
-
-      debugPrint('🖼️ [CONV_UI #$uiProcessCount] Current conversation length: ${_conversation.conversation.value.length}');
-      debugPrint('🖼️ [CONV_UI #$uiProcessCount] ===== END UI MESSAGE =====');
     });
 
     // Subscribe to suggestions
@@ -1329,135 +1288,14 @@ class _ConversationPageState extends State<ConversationPage>
 
 
 
-  /// Inspects an A2UI message and routes recognized data to the dashboard.
-  void _routeA2uiToDashboard(A2uiMessage msg) {
-    try {
-      // Extract component data from the A2UI message.
-      // A2UI messages contain components in beginRendering or surfaceUpdate.
-      final raw = (msg as dynamic).toJson();
-
-      // Try to extract from beginRendering or surfaceUpdate
-      for (final key in ['beginRendering', 'surfaceUpdate']) {
-        if (raw.containsKey(key) && raw[key] is Map) {
-          final rendering = raw[key] as Map;
-          final components = rendering['components'];
-          if (components is List && components.isNotEmpty) {
-            for (final item in components) {
-              if (item is Map) {
-                final comp = item['component'] ?? item; // Handle wrapped or direct
-                if (comp is Map) {
-                  final type = comp['type']?.toString();
-                  if (type != null) {
-                    // Check if this type matches a dashboard category
-                    final possibleData = comp[type];
-                    if (possibleData is Map) {
-                      _processDashboardComponent(
-                        type,
-                        Map<String, dynamic>.from(possibleData),
-                      );
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint('Dashboard route error: $e');
-    }
-  }
-
-  /// Processes a single component and adds it to the dashboard if applicable.
-  void _processDashboardComponent(String type, Map<String, dynamic> data) {
-    final dashType = classifyComponent(type);
-    if (dashType == null) return;
-
-    final toolName = data['tool_name'] ?? data['toolName'] ?? type;
-    var added = false;
-
-    // Parse and add to dashboard based on type
-    switch (type) {
-      case 'x-sre-trace-waterfall':
-        final trace = Trace.fromJson(data);
-        if (trace.spans.isNotEmpty) {
-          _dashboardState.addTrace(trace, toolName, data);
-          added = true;
-        }
-        break;
-      case 'x-sre-log-entries-viewer':
-        final logData = LogEntriesData.fromJson(data);
-        if (logData.entries.isNotEmpty) {
-          _dashboardState.addLogEntries(logData, toolName, data);
-          added = true;
-        }
-        break;
-      case 'x-sre-log-pattern-viewer':
-        final patterns = _parseLogPatterns(data);
-        if (patterns.isNotEmpty) {
-          _dashboardState.addLogPatterns(patterns, toolName, data);
-          added = true;
-        }
-        break;
-      case 'x-sre-metric-chart':
-        final series = MetricSeries.fromJson(data);
-        if (series.points.isNotEmpty) {
-          _dashboardState.addMetricSeries(series, toolName, data);
-          added = true;
-        }
-        break;
-      case 'x-sre-metrics-dashboard':
-        final metricsData = MetricsDashboardData.fromJson(data);
-        if (metricsData.metrics.isNotEmpty) {
-          _dashboardState.addMetricsDashboard(metricsData, toolName, data);
-          added = true;
-        }
-        break;
-      case 'x-sre-incident-timeline':
-        final timelineData = IncidentTimelineData.fromJson(data);
-        if (timelineData.events.isNotEmpty) {
-          _dashboardState.addAlerts(timelineData, toolName, data);
-          added = true;
-        }
-        break;
-      case 'x-sre-remediation-plan':
-        final plan = RemediationPlan.fromJson(data);
-        if (plan.steps.isNotEmpty) {
-          _dashboardState.addRemediation(plan, toolName, data);
-          added = true;
-        }
-        break;
-    }
-
-    if (added) {
-      debugPrint('📊 [DASH] Successfully routed $type to dashboard');
-      // Auto-open dashboard on first data if not already open
-      if (!_dashboardState.isOpen) {
-        _dashboardState.openDashboard();
-        _dashboardState.setActiveTab(dashType);
-      }
-    }
-  }
-
-  List<LogPattern> _parseLogPatterns(Map<String, dynamic> data) {
-    List<dynamic>? rawList;
-    if (data.containsKey('patterns') && data['patterns'] is List) {
-      rawList = data['patterns'] as List;
-    } else if (data.containsKey('x-sre-log-pattern-viewer') &&
-        data['x-sre-log-pattern-viewer'] is List) {
-      rawList = data['x-sre-log-pattern-viewer'] as List;
-    }
-    if (rawList == null) return [];
-    return rawList
-        .map((item) => LogPattern.fromJson(Map<String, dynamic>.from(item)))
-        .toList();
-  }
+  // Dashboard routing is now handled by the dedicated dashboard stream
+  // in _initializeConversation(). No A2UI parsing needed.
 
   @override
   void dispose() {
     _sessionSubscription?.cancel();
     _suggestionsSubscription?.cancel();
-    _a2uiSubscription?.cancel();
+    _dashboardSubscription?.cancel();
     _dashboardState.dispose();
     _projectService.selectedProject.removeListener(_onProjectChanged);
     _typingController.dispose();

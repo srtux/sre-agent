@@ -3,6 +3,7 @@
 import json
 
 from sre_agent.api.helpers import (
+    create_dashboard_event,
     create_tool_call_events,
     create_tool_response_events,
     create_widget_events,
@@ -271,3 +272,91 @@ class TestCreateWidgetEvents:
             "Tool execution failed"
             in component["component"]["x-sre-trace-waterfall"]["error"]
         )
+
+
+class TestCreateDashboardEvent:
+    """Tests for create_dashboard_event function."""
+
+    def test_creates_dashboard_event_for_trace(self) -> None:
+        """Test that dashboard event is created for trace tool."""
+        result = {
+            "trace_id": "abc123",
+            "spans": [
+                {
+                    "span_id": "s1",
+                    "name": "test-span",
+                    "start_time": "2024-01-01T00:00:00Z",
+                    "end_time": "2024-01-01T00:00:01Z",
+                }
+            ],
+        }
+
+        event_str = create_dashboard_event("fetch_trace", result)
+        assert event_str is not None
+
+        event = json.loads(event_str)
+        assert event["type"] == "dashboard"
+        assert event["category"] == "traces"
+        assert event["widget_type"] == "x-sre-trace-waterfall"
+        assert event["tool_name"] == "fetch_trace"
+        assert isinstance(event["data"], dict)
+
+    def test_creates_dashboard_event_for_alerts(self) -> None:
+        """Test that dashboard event is created for alerts tool."""
+        result = [
+            {
+                "name": "projects/p1/alertPolicies/a1",
+                "state": "OPEN",
+                "severity": "CRITICAL",
+                "openTime": "2024-01-01T10:00:00Z",
+                "policy": {"displayName": "High CPU"},
+            }
+        ]
+
+        event_str = create_dashboard_event("list_alerts", result)
+        assert event_str is not None
+
+        event = json.loads(event_str)
+        assert event["type"] == "dashboard"
+        assert event["category"] == "alerts"
+        assert event["widget_type"] == "x-sre-incident-timeline"
+
+    def test_returns_none_for_unmapped_tool(self) -> None:
+        """Test that unmapped tools return None."""
+        event = create_dashboard_event("unmapped_tool", {"data": "value"})
+        assert event is None
+
+    def test_returns_none_for_none_result(self) -> None:
+        """Test that None result returns None."""
+        event = create_dashboard_event("fetch_trace", None)
+        assert event is None
+
+    def test_returns_none_for_error_result(self) -> None:
+        """Test that error results return None."""
+        result = {"status": "error", "result": None, "error": "Failed"}
+        event = create_dashboard_event("fetch_trace", result)
+        assert event is None
+
+    def test_unwraps_status_result_wrapper(self) -> None:
+        """Test that status/result wrappers are unwrapped."""
+        result = {
+            "status": "success",
+            "result": {
+                "trace_id": "abc123",
+                "spans": [
+                    {
+                        "span_id": "s1",
+                        "name": "test",
+                        "start_time": "2024-01-01T00:00:00Z",
+                        "end_time": "2024-01-01T00:00:01Z",
+                    }
+                ],
+            },
+        }
+
+        event_str = create_dashboard_event("fetch_trace", result)
+        assert event_str is not None
+
+        event = json.loads(event_str)
+        assert event["type"] == "dashboard"
+        assert event["category"] == "traces"
