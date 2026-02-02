@@ -158,6 +158,23 @@ def setup_telemetry(level: int = logging.INFO) -> None:
 
     _TELEMETRY_INITIALIZED = True
 
+    # Attempt to instrument Google GenAI native (if available)
+    try:
+        from opentelemetry.instrumentation.google_genai import (
+            GoogleGenAiSdkInstrumentor,
+        )
+
+        # instrument() is idempotent
+        GoogleGenAiSdkInstrumentor().instrument()
+        logging.getLogger(__name__).info(
+            "✨ Google GenAI Native instrumentation enabled"
+        )
+    except ImportError:
+        # Expected if not installed or not in environment with this package
+        logging.getLogger(__name__).debug("GoogleGenAiSdkInstrumentor not found.")
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Failed to instrument Google GenAI: {e}")
+
     # Setup LangSmith OTel if enabled (local only)
     setup_langsmith_otel()
 
