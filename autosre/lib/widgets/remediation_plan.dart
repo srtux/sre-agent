@@ -122,14 +122,14 @@ class _RemediationPlanWidgetState extends State<RemediationPlanWidget>
             const SizedBox(height: 20),
 
             // Steps
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: widget.plan.steps.length,
-                itemBuilder: (context, index) {
-                  return _buildStep(widget.plan.steps[index], index, riskColor);
-                },
-              ),
+            ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: widget.plan.steps.length,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemBuilder: (context, index) {
+                return _buildStep(widget.plan.steps[index], index, riskColor);
+              },
             ),
           ],
         );
