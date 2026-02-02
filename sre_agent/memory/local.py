@@ -165,3 +165,48 @@ class LocalMemoryService:
             logger.error(f"Failed to search local memory: {e}")
 
         return results
+
+    async def add_session_to_memory(self, session: Any) -> None:
+        """Store session events in long-term memory.
+
+        This implements the sync-to-memory pattern for local development,
+        extracting textual content from session events and indexing it.
+        """
+        user_id = getattr(session, "user_id", "anonymous")
+        session_id = getattr(session, "id", "unknown")
+        events = getattr(session, "events", [])
+
+        if not events:
+            logger.debug(f"No events to index for session {session_id}")
+            return
+
+        logger.info(
+            f"Indexing {len(events)} events from session {session_id} into local memory"
+        )
+
+        for event in events:
+            content_text = ""
+            # Extract text from content parts
+            if (
+                hasattr(event, "content")
+                and event.content
+                and hasattr(event.content, "parts")
+            ):
+                for part in event.content.parts:
+                    if hasattr(part, "text") and part.text:
+                        content_text += part.text + "\n"
+
+            if content_text.strip():
+                try:
+                    await self.save_memory(
+                        session_id=session_id,
+                        memory_content=content_text.strip(),
+                        metadata={
+                            "user_id": user_id,
+                            "type": "session_event",
+                            "author": getattr(event, "author", "unknown"),
+                            "timestamp": getattr(event, "timestamp", None),
+                        },
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to index session event: {e}")

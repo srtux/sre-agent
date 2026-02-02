@@ -25,6 +25,14 @@ Telemetry is now primarily configured via environment variables that affect the 
 *   `LOG_FORMAT`: `TEXT` (default) for readable console logs, or `JSON` for structured logs in production.
 *   `DISABLE_TELEMETRY`: Set to `true` during tests to prevent unnecessary export overhead.
 
+### Log Noise Reduction
+
+To keep logs readable, the following "chatty" libraries are explicitly silenced to `WARNING` level, ignoring the global `LOG_LEVEL`:
+*   `google.auth`, `urllib3`, `grpc`, `httpx`, `httpcore`, `aiosqlite`
+*   `google_adk.google.adk.models.google_llm`
+
+**Configuration**: These overrides are defined in `sre_agent/tools/common/telemetry.py` inside `setup_telemetry()`. To see debug logs from these libraries, you must modify the list in the source code.
+
 ### ADK / Agent Engine native Tracing
 
 To enable full visibility into agent reasoning:

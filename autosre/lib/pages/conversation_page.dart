@@ -38,16 +38,16 @@ class ConversationPage extends StatefulWidget {
 class _ConversationPageState extends State<ConversationPage>
     with TickerProviderStateMixin {
   late A2uiMessageProcessor _messageProcessor;
-  late GenUiConversation _conversation;
-  late ADKContentGenerator _contentGenerator;
+  GenUiConversation? _conversation;
+  ADKContentGenerator? _contentGenerator;
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
-  final ProjectService _projectService = ProjectService();
-  final SessionService _sessionService = SessionService();
+  late ProjectService _projectService;
+  late SessionService _sessionService;
   final GlobalKey _inputKey = GlobalKey(debugLabel: 'prompt_input');
-  final PromptHistoryService _promptHistoryService = PromptHistoryService();
-  final DashboardState _dashboardState = DashboardState();
+  late PromptHistoryService _promptHistoryService;
+  late DashboardState _dashboardState;
 
   late AnimationController _typingController;
 
@@ -57,17 +57,24 @@ class _ConversationPageState extends State<ConversationPage>
   String _tempInput = '';
 
   StreamSubscription<String>? _sessionSubscription;
+  StreamSubscription<ContentGeneratorError>? _errorSubscription;
+  StreamSubscription<String>? _uiMessageSubscription;
+  StreamSubscription<List<String>>? _suggestionsSubscription;
+  StreamSubscription<Map<String, dynamic>>? _dashboardSubscription;
   final ValueNotifier<List<String>> _suggestedActions = ValueNotifier([
     "Analyze last hour's logs",
     'List active incidents',
     'Check for high latency',
   ]);
-  StreamSubscription<List<String>>? _suggestionsSubscription;
-  StreamSubscription<Map<String, dynamic>>? _dashboardSubscription;
 
   @override
   void initState() {
     super.initState();
+
+    _projectService = context.read<ProjectService>();
+    _sessionService = context.read<SessionService>();
+    _promptHistoryService = context.read<PromptHistoryService>();
+    _dashboardState = context.read<DashboardState>();
 
     // Handle Enter key behavior (Enter to send, Shift+Enter for newline)
     // Also handles History navigation (Up/Down arrows)
@@ -176,22 +183,24 @@ class _ConversationPageState extends State<ConversationPage>
       catalogs: [sreCatalog, CoreCatalogItems.asCatalog()],
     );
 
-    // Dispose previous content generator if it exists (though effectively we just replace it)
-    // We need to cancel the old subscription before creating a new one to avoid leaks/stale listeners
-    _sessionSubscription?.cancel();
+    // Dispose previous content generator and conversation
+    _conversation?.dispose();
+    _contentGenerator?.dispose();
 
-    _contentGenerator = ADKContentGenerator();
-    _contentGenerator.projectId = _projectService.selectedProjectId;
+    final newGenerator = ADKContentGenerator();
+    _contentGenerator = newGenerator;
+    newGenerator.projectId = _projectService.selectedProjectId;
 
     // Subscribe to the NEW session stream immediately
-    _sessionSubscription = _contentGenerator.sessionStream.listen((sessionId) {
+    _sessionSubscription = newGenerator.sessionStream.listen((sessionId) {
       _sessionService.setCurrentSession(sessionId);
       // Refresh sessions list after a message is sent creates a new session
       _sessionService.fetchSessions();
     });
 
     // Subscribe to errors
-    _contentGenerator.errorStream.listen((error) {
+    _errorSubscription?.cancel();
+    _errorSubscription = newGenerator.errorStream.listen((error) {
       if (mounted) {
         // Show error toast with isError=true for proper styling
         StatusToast.show(
@@ -206,28 +215,30 @@ class _ConversationPageState extends State<ConversationPage>
       }
     });
 
-    _conversation = GenUiConversation(
+    final conversation = GenUiConversation(
       a2uiMessageProcessor: _messageProcessor,
-      contentGenerator: _contentGenerator,
+      contentGenerator: newGenerator,
       onSurfaceAdded: (_) => _scrollToBottom(force: true),
       onSurfaceUpdated: (_) => _scrollToBottom(),
       onTextResponse: (_) => _scrollToBottom(),
     );
+    _conversation = conversation;
 
     // Subscribe to the dedicated dashboard data stream.
     // This replaces the old fragile A2UI-to-dashboard routing.
     // A2UI messages are handled solely by GenUiConversation for in-chat widgets.
     _dashboardSubscription?.cancel();
-    _dashboardSubscription = _contentGenerator.dashboardStream.listen((event) {
+    _dashboardSubscription = newGenerator.dashboardStream.listen((event) {
       debugPrint('📊 [DASH] Received dashboard event: category=${event['category']}, tool=${event['tool_name']}');
       _dashboardState.addFromEvent(event);
     });
 
     // Subscribe to UI messages (surface markers) to add widget bubbles to chat
-    _contentGenerator.uiMessageStream.listen((surfaceId) {
+    _uiMessageSubscription?.cancel();
+    _uiMessageSubscription = newGenerator.uiMessageStream.listen((surfaceId) {
       if (!mounted) return;
 
-      final messenger = _conversation.conversation;
+      final messenger = conversation.conversation;
       if (messenger is ValueNotifier<List<ChatMessage>>) {
         final currentMessages = List<ChatMessage>.from(messenger.value);
 
@@ -246,7 +257,8 @@ class _ConversationPageState extends State<ConversationPage>
     });
 
     // Subscribe to suggestions
-    _suggestionsSubscription = _contentGenerator.suggestionsStream.listen((
+    _suggestionsSubscription?.cancel();
+    _suggestionsSubscription = newGenerator.suggestionsStream.listen((
       suggestions,
     ) {
       if (mounted) {
@@ -255,25 +267,23 @@ class _ConversationPageState extends State<ConversationPage>
     });
 
     // Initial fetch of suggestions
-    _contentGenerator.fetchSuggestions();
+    newGenerator.fetchSuggestions();
   }
 
   void _onProjectChanged() {
-    _contentGenerator.projectId = _projectService.selectedProjectId;
-    _contentGenerator.fetchSuggestions();
+    _contentGenerator?.projectId = _projectService.selectedProjectId;
+    _contentGenerator?.fetchSuggestions();
   }
 
   void _startNewSession() {
     // Clear session in content generator (new messages will start a new backend session)
-    _contentGenerator.clearSession();
+    _contentGenerator?.clearSession();
     // Clear current session in service
     _sessionService.startNewSession();
     // Clear dashboard data for fresh investigation
     _dashboardState.clear();
 
-    // Reset conversation state
     setState(() {
-      _conversation.dispose();
       _initializeConversation();
     });
 
@@ -293,14 +303,13 @@ class _ConversationPageState extends State<ConversationPage>
     }
 
     // Set session ID in content generator
-    _contentGenerator.sessionId = sessionId;
+    _contentGenerator?.sessionId = sessionId;
     _sessionService.setCurrentSession(sessionId);
 
     if (!mounted) return;
 
     // Reset and hydrate conversation
     setState(() {
-      _conversation.dispose();
       _initializeConversation();
     });
 
@@ -320,8 +329,9 @@ class _ConversationPageState extends State<ConversationPage>
       // Inject history into conversation state
       // Note: Cast to ValueNotifier to update state directly
       try {
-        if (_conversation.conversation is ValueNotifier) {
-          (_conversation.conversation as ValueNotifier<List<ChatMessage>>)
+        final conversation = _conversation;
+        if (conversation != null && conversation.conversation is ValueNotifier) {
+          (conversation.conversation as ValueNotifier<List<ChatMessage>>)
                   .value =
               history;
           // Scroll to bottom after frame
@@ -395,7 +405,7 @@ class _ConversationPageState extends State<ConversationPage>
     _historyIndex = -1;
     _tempInput = '';
 
-    _conversation.sendRequest(UserMessage.text(text));
+    _conversation?.sendRequest(UserMessage.text(text));
 
     // Request focus after the frame to ensure that if the layout transitioned
     // from Hero to Conversation state, the new TextField is ready to receive focus.
@@ -409,6 +419,7 @@ class _ConversationPageState extends State<ConversationPage>
   }
 
   bool _isSidebarOpen = false;
+  double _dashboardWidthFactor = 0.6;
 
   @override
   Widget build(BuildContext context) {
@@ -480,16 +491,23 @@ class _ConversationPageState extends State<ConversationPage>
               // Main conversation area
               Expanded(
                 child: ValueListenableBuilder<List<ChatMessage>>(
-                  valueListenable: _conversation.conversation,
+                  valueListenable: _conversation?.conversation ?? ValueNotifier([]),
                   builder: (context, messages, _) {
-                    if (messages.isEmpty) {
-                      return _buildHeroEmptyState();
-                    }
-                    return Column(
-                      children: [
-                        Expanded(child: _buildMessageList(messages)),
-                        _buildInputArea(),
-                      ],
+                    return ValueListenableBuilder<bool>(
+                      valueListenable:
+                          _contentGenerator?.isProcessing ?? ValueNotifier(false),
+                      builder: (context, isProcessing, _) {
+                        if (messages.isEmpty) {
+                          return _buildHeroEmptyState(isProcessing);
+                        }
+                        return Column(
+                          children: [
+                            Expanded(
+                                child: _buildMessageList(messages, isProcessing)),
+                            _buildInputArea(isProcessing),
+                          ],
+                        );
+                      },
                     );
                   },
                 ),
@@ -498,19 +516,55 @@ class _ConversationPageState extends State<ConversationPage>
               ListenableBuilder(
                 listenable: _dashboardState,
                 builder: (context, _) {
-                  if (!_dashboardState.isOpen) {
-                    return const SizedBox.shrink();
-                  }
-                  return SizedBox(
-                    width: constraints.maxWidth > 1400
-                        ? 500
-                        : constraints.maxWidth > 1100
-                            ? 420
-                            : 380,
-                    child: DashboardPanel(
-                      state: _dashboardState,
-                      onClose: _dashboardState.closeDashboard,
-                    ),
+                  final isOpen = _dashboardState.isOpen;
+                  if (!isOpen) return const SizedBox.shrink();
+
+                  // Calculate width based on factor
+                  // We also clamp it to sensible min/max if needed, but 60% is critical request.
+                  final targetWidth = constraints.maxWidth * _dashboardWidthFactor;
+
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Resize Handle
+                      GestureDetector(
+                        key: const Key('dashboard_resize_handle'),
+                        behavior: HitTestBehavior.translucent,
+                        onHorizontalDragUpdate: (details) {
+                          setState(() {
+                            // Dragging left adds to dashboard width (since it's on the right)
+                            // Dragging right subtracts
+                            // Delta dx is positive when moving right -> width decreases
+                            // Delta dx is negative when moving left -> width increases
+                            final deltaFraction =
+                                details.delta.dx / constraints.maxWidth;
+                            _dashboardWidthFactor -= deltaFraction;
+                            _dashboardWidthFactor =
+                                _dashboardWidthFactor.clamp(0.2, 0.8);
+                          });
+                        },
+                        child: MouseRegion(
+                          cursor: SystemMouseCursors.resizeColumn,
+                          child: Container(
+                            width: 8, // Hit target width
+                            color: Colors.transparent,
+                            alignment: Alignment.center,
+                            child: Container(
+                              width: 1,
+                              color: AppColors.surfaceBorder,
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Dashboard Content
+                      SizedBox(
+                        width: targetWidth,
+                        child: DashboardPanel(
+                          state: _dashboardState,
+                          onClose: _dashboardState.closeDashboard,
+                        ),
+                      ),
+                    ],
                   );
                 },
               ),
@@ -626,10 +680,10 @@ class _ConversationPageState extends State<ConversationPage>
         const SizedBox(width: 4),
         // Status indicator
         ValueListenableBuilder<bool>(
-          valueListenable: _contentGenerator.isConnected,
+          valueListenable: _contentGenerator?.isConnected ?? ValueNotifier(false),
           builder: (context, isConnected, _) {
             return ValueListenableBuilder<bool>(
-              valueListenable: _contentGenerator.isProcessing,
+              valueListenable: _contentGenerator?.isProcessing ?? ValueNotifier(false),
               builder: (context, isProcessing, _) {
                 return _buildStatusIndicator(isProcessing, isConnected);
               },
@@ -702,8 +756,10 @@ class _ConversationPageState extends State<ConversationPage>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      Icons.dashboard_rounded,
-                      size: 18,
+                      isOpen
+                          ? Icons.space_dashboard_rounded
+                          : Icons.space_dashboard_outlined,
+                      size: 20,
                       color: isOpen
                           ? AppColors.primaryCyan
                           : hasData
@@ -711,19 +767,19 @@ class _ConversationPageState extends State<ConversationPage>
                               : AppColors.textMuted,
                     ),
                     if (hasData) ...[
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 5, vertical: 1),
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: AppColors.primaryCyan.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
                           '$count',
                           style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
                             color: AppColors.primaryCyan,
                           ),
                         ),
@@ -759,10 +815,13 @@ class _ConversationPageState extends State<ConversationPage>
   Widget _buildUserProfileButton() {
     final authService = Provider.of<AuthService>(context, listen: false);
     final user = authService.currentUser;
+    // Handle local dev mode where user is null but auth is disabled
+    final displayName = authService.isAuthEnabled ? (user?.displayName ?? 'User Profile') : 'Local Dev';
     final photoUrl = user?.photoUrl;
+    final isDevMode = !authService.isAuthEnabled;
 
     return Tooltip(
-      message: user?.displayName ?? 'User Profile',
+      message: displayName,
       child: Material(
         color: Colors.transparent,
         shape: const CircleBorder(),
@@ -773,45 +832,56 @@ class _ConversationPageState extends State<ConversationPage>
             showDialog(
               context: context,
               builder: (context) => AlertDialog(
-                title: Text(user?.displayName ?? 'Profile'),
+                title: Text(displayName),
                 content: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(user?.email ?? ''),
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: () async {
-                        final navigator = Navigator.of(context);
-                        await authService.signOut();
-                        navigator.pop();
+                    if (isDevMode)
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 8.0),
+                        child: Text(
+                          'Authentication is disabled in this environment (Local Dev Mode).',
+                          style: TextStyle(fontStyle: FontStyle.italic, color: AppColors.textSecondary),
+                        ),
+                      ),
+                    if (user?.email != null) Text('Email: ${user!.email}'),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Close'),
+                  ),
+                  if (authService.isAuthEnabled)
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        authService.signOut();
                       },
                       child: const Text('Sign Out'),
                     ),
-                  ],
-                ),
+                ],
               ),
             );
           },
           child: CircleAvatar(
-            backgroundColor: AppColors.primaryTeal,
-            radius: 16,
-            backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
-            child: photoUrl == null
-                ? Text(
-                    user?.displayName?.substring(0, 1).toUpperCase() ?? 'U',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  )
-                : null,
-          ),
+             radius: 16,
+             backgroundColor: isDevMode ? AppColors.warning : AppColors.surfaceGlass,
+             backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
+             child: photoUrl == null
+                 ? Icon(
+                     isDevMode ? Icons.developer_mode : Icons.person,
+                     size: 20,
+                     color: isDevMode ? Colors.white : AppColors.textSecondary,
+                   )
+                 : null,
+           ),
         ),
       ),
     );
   }
+
 
   Widget _buildStatusIndicator(
     bool isProcessing,
@@ -830,7 +900,7 @@ class _ConversationPageState extends State<ConversationPage>
     }
 
     // Get Agent URL if available
-    final agentUrl = _contentGenerator.baseUrl;
+    final agentUrl = _contentGenerator?.baseUrl ?? '';
 
     return Tooltip(
       message:
@@ -931,7 +1001,7 @@ class _ConversationPageState extends State<ConversationPage>
     );
   }
 
-  Widget _buildMessageList(List<ChatMessage> messages) {
+  Widget _buildMessageList(List<ChatMessage> messages, bool isProcessing) {
     return Stack(
       children: [
         // 1. Tech Grid Background
@@ -961,13 +1031,8 @@ class _ConversationPageState extends State<ConversationPage>
               itemBuilder: (context, index) {
                 if (index == messages.length) {
                   // Typing indicator at the end
-                  return ValueListenableBuilder<bool>(
-                    valueListenable: _contentGenerator.isProcessing,
-                    builder: (context, isProcessing, _) {
-                      if (!isProcessing) return const SizedBox.shrink();
-                      return _buildTypingIndicator();
-                    },
-                  );
+                  if (!isProcessing) return const SizedBox.shrink();
+                  return _buildTypingIndicator();
                 }
                 final msg = messages[index];
 
@@ -991,7 +1056,7 @@ class _ConversationPageState extends State<ConversationPage>
                   padding: EdgeInsets.only(top: topSpacing),
                   child: _MessageItem(
                     message: msg,
-                    host: _conversation.host,
+                    host: _conversation!.host,
                     animation: _typingController,
                   ),
                 );
@@ -1003,7 +1068,7 @@ class _ConversationPageState extends State<ConversationPage>
     );
   }
 
-  Widget _buildHeroEmptyState() {
+  Widget _buildHeroEmptyState(bool isProcessing) {
     final authService = Provider.of<AuthService>(context, listen: false);
     final user = authService.currentUser;
     // Get first name for "Hi [Name]"
@@ -1056,7 +1121,7 @@ class _ConversationPageState extends State<ConversationPage>
                     // Hero Input Field
                     ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 700),
-                      child: _buildHeroInput(),
+                      child: _buildHeroInput(isProcessing),
                     ),
 
                     const SizedBox(height: 32),
@@ -1099,19 +1164,18 @@ class _ConversationPageState extends State<ConversationPage>
     );
   }
 
-  Widget _buildHeroInput() {
-    return ValueListenableBuilder<bool>(
-      valueListenable: _contentGenerator.isProcessing,
-      builder: (context, isProcessing, _) {
-        return UnifiedPromptInput(
-          key: _inputKey,
-          controller: _textController,
-          focusNode: _focusNode,
-          isProcessing: isProcessing,
-          onSend: _sendMessage,
-          onCancel: _contentGenerator.cancelRequest,
-        );
-      },
+  Widget _buildHeroInput(bool isProcessing) {
+    return _buildUnifiedInput(isProcessing);
+  }
+
+  Widget _buildUnifiedInput(bool isProcessing) {
+    return UnifiedPromptInput(
+      key: _inputKey,
+      controller: _textController,
+      focusNode: _focusNode,
+      isProcessing: isProcessing,
+      onSend: _sendMessage,
+      onCancel: () => _contentGenerator?.cancelRequest(),
     );
   }
 
@@ -1193,7 +1257,7 @@ class _ConversationPageState extends State<ConversationPage>
     );
   }
 
-  Widget _buildInputArea() {
+  Widget _buildInputArea(bool isProcessing) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       decoration: const BoxDecoration(
@@ -1212,19 +1276,7 @@ class _ConversationPageState extends State<ConversationPage>
                 _buildSuggestedActions(),
                 const SizedBox(height: 12),
                 // Unified Input Container
-                ValueListenableBuilder<bool>(
-                  valueListenable: _contentGenerator.isProcessing,
-                  builder: (context, isProcessing, child) {
-                    return UnifiedPromptInput(
-                      key: _inputKey,
-                      controller: _textController,
-                      focusNode: _focusNode,
-                      isProcessing: isProcessing,
-                      onSend: _sendMessage,
-                      onCancel: _contentGenerator.cancelRequest,
-                    );
-                  },
-                ),
+                _buildUnifiedInput(isProcessing),
                 // Compact keyboard hint
                 Align(
                   alignment: Alignment.centerLeft,
@@ -1294,12 +1346,15 @@ class _ConversationPageState extends State<ConversationPage>
   @override
   void dispose() {
     _sessionSubscription?.cancel();
+    _errorSubscription?.cancel();
+    _uiMessageSubscription?.cancel();
     _suggestionsSubscription?.cancel();
     _dashboardSubscription?.cancel();
     _dashboardState.dispose();
     _projectService.selectedProject.removeListener(_onProjectChanged);
     _typingController.dispose();
-    _conversation.dispose();
+    _conversation?.dispose();
+    _contentGenerator?.dispose();
     _focusNode.dispose();
     super.dispose();
   }

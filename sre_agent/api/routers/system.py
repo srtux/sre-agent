@@ -31,6 +31,7 @@ async def get_config() -> dict[str, Any]:
     """Get public configuration for the frontend."""
     return {
         "google_client_id": os.getenv("GOOGLE_CLIENT_ID", ""),
+        "auth_enabled": os.getenv("ENABLE_AUTH", "true").lower() == "true",
     }
 
 

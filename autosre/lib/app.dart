@@ -4,6 +4,11 @@ import 'pages/conversation_page.dart';
 import 'pages/login_page.dart';
 import 'services/auth_service.dart';
 import 'services/connectivity_service.dart';
+import 'services/project_service.dart';
+import 'services/session_service.dart';
+import 'services/tool_config_service.dart';
+import 'services/prompt_history_service.dart';
+import 'services/dashboard_state.dart';
 import 'theme/app_theme.dart';
 
 class SreNexusApp extends StatelessWidget {
@@ -15,6 +20,11 @@ class SreNexusApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthService()..init()),
         ChangeNotifierProvider(create: (_) => ConnectivityService()),
+        Provider(create: (_) => ProjectService()),
+        Provider(create: (_) => SessionService()),
+        Provider(create: (_) => ToolConfigService()),
+        Provider(create: (_) => PromptHistoryService()),
+        ChangeNotifierProvider(create: (_) => DashboardState()),
       ],
       child: MaterialApp(
         title: 'AutoSRE',

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'auth_service.dart';
 
@@ -5,10 +6,16 @@ class PromptHistoryService {
   static const int _maxHistorySize = 50;
   static const String _keyPrefix = 'prompt_history_';
 
-  // Singleton instance
-  static final PromptHistoryService _instance =
+  static PromptHistoryService? _mockInstance;
+  static PromptHistoryService get instance => _mockInstance ?? _internalInstance;
+  static final PromptHistoryService _internalInstance =
       PromptHistoryService._internal();
-  factory PromptHistoryService() => _instance;
+
+  factory PromptHistoryService() => instance;
+
+  @visibleForTesting
+  static set mockInstance(PromptHistoryService? mock) => _mockInstance = mock;
+
   PromptHistoryService._internal();
 
   /// Save a prompt to the history for the current user

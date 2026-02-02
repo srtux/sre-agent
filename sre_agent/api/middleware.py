@@ -143,6 +143,25 @@ async def auth_middleware(request: Request, call_next: Any) -> Any:
                     )
             except Exception as e:
                 logger.warning(f"Auth Middleware: Identity check failed: {e}")
+
+        # CHECK FOR DEV MODE BYPASS
+        # If no valid auth header was found, and we are in dev context with auth disabled
+        elif os.getenv("ENABLE_AUTH", "true").lower() == "false":
+            from google.oauth2.credentials import Credentials
+
+            # Create dummy credentials
+            # we need a token-like string but it won't be validated by Google
+            dummy_token = "dev-mode-bypass-token"
+            creds = Credentials(token=dummy_token)  # type: ignore[no-untyped-call]
+            set_current_credentials(creds)
+
+            # Set a dummy user identity
+            dev_user = "dev@local.test"
+            set_current_user_id(dev_user)
+            logger.debug(
+                f"Auth Middleware: DEV MODE - Bypassed auth, set user to {dev_user}"
+            )
+
         else:
             # Fallback to session cookie
             session_id = request.cookies.get("sre_session_id")

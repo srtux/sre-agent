@@ -32,6 +32,7 @@ class AuthService extends ChangeNotifier {
   String? _accessToken;
   DateTime? _accessTokenExpiry;
   bool _isLoading = true;
+  bool _isAuthEnabled = true; // Default to true until config says otherwise
 
   @visibleForTesting
   set currentUser(gsi_lib.GoogleSignInAccount? user) => _currentUser = user;
@@ -46,8 +47,9 @@ class AuthService extends ChangeNotifier {
   }
 
   gsi_lib.GoogleSignInAccount? get currentUser => _currentUser;
-  bool get isAuthenticated => _currentUser != null;
+  bool get isAuthenticated => !_isAuthEnabled || _currentUser != null;
   bool get isLoading => _isLoading;
+  bool get isAuthEnabled => _isAuthEnabled;
   String? get idToken => _idToken;
   String? get accessToken => _accessToken;
 
@@ -67,6 +69,11 @@ class AuthService extends ChangeNotifier {
       final response = await http.get(Uri.parse('$_baseUrl/api/config'));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+
+        if (data.containsKey('auth_enabled')) {
+            _isAuthEnabled = data['auth_enabled'] as bool;
+        }
+
         runtimeClientId = data['google_client_id'] as String?;
         if (runtimeClientId != null && runtimeClientId.isNotEmpty) {
           debugPrint('AuthService: Obtained runtime Client ID from backend');
@@ -74,6 +81,13 @@ class AuthService extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('AuthService: Failed to fetch runtime config: $e');
+    }
+
+    if (!_isAuthEnabled) {
+      debugPrint('AuthService: Auth disabled by backend config. Skipping Google Sign-In init.');
+      _isLoading = false;
+      notifyListeners();
+      return;
     }
 
     final effectiveClientId = (runtimeClientId != null && runtimeClientId.isNotEmpty)
@@ -184,6 +198,15 @@ class AuthService extends ChangeNotifier {
 
   /// Get current auth headers
   Future<Map<String, String>> getAuthHeaders() async {
+    if (!_isAuthEnabled) {
+      // In dev mode with auth disabled, we send a dummy token or no token.
+      // The backend middleware is configured to accept this or bypass.
+      // We send a header to be explicit.
+      return {
+        'Authorization': 'Bearer dev-mode-bypass-token',
+      };
+    }
+
     if (_currentUser == null) return {};
 
     // Check local cache first
@@ -274,7 +297,7 @@ class AuthService extends ChangeNotifier {
 
   /// Get authenticated HTTP client
   Future<http.Client> getAuthenticatedClient() async {
-    if (_currentUser == null) {
+    if (_currentUser == null && _isAuthEnabled) {
       debugPrint('AuthService: TESTING MODE - Creating non-authenticated client');
       // throw Exception('User not authenticated'); // DISABLED FOR TESTING
     }

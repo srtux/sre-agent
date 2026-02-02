@@ -690,7 +690,9 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                     project_id=effective_project_id,
                     domain_context=domain_ctx,
                 ):
-                    logger.debug(f"📥 Received event from runner: {event}")
+                    logger.debug(
+                        f"📥 Received event from runner: {str(event)[:500]}..."
+                    )
 
                     # Persist generated event
                     await session_manager.append_event(active_session, event)
@@ -730,7 +732,7 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                         continue
 
                     for part in parts:
-                        logger.debug(f"🔍 Processing part: {part}")
+                        logger.debug(f"🔍 Processing part: {str(part)[:500]}...")
 
                         # A. Handle Text
                         text = getattr(part, "text", None)

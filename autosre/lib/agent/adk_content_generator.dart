@@ -205,9 +205,7 @@ class ADKContentGenerator implements ContentGenerator {
         // Parse stream line by line
         // Store subscription to allow cancellation
         var lineCount = 0;
-        var a2uiCount = 0;
-        var uiCount = 0;
-        var textCount = 0;
+
 
         _streamSubscription = response.stream
             .transform(utf8.decoder)
@@ -220,7 +218,7 @@ class ADKContentGenerator implements ContentGenerator {
                 final type = data['type'];
 
                 if (type == 'text') {
-                  textCount++;
+
                   _textController.add(data['content']);
                 } else if (type == 'error') {
                   final errorMessage = data['error'] as String? ?? 'Unknown error';
@@ -232,7 +230,7 @@ class ADKContentGenerator implements ContentGenerator {
                     ),
                   );
                 } else if (type == 'a2ui') {
-                  a2uiCount++;
+
                   final msgJson = data['message'] as Map<String, dynamic>;
                   try {
                     final msg = A2uiMessage.fromJson(msgJson);
@@ -241,7 +239,7 @@ class ADKContentGenerator implements ContentGenerator {
                     debugPrint('A2UI parse error: $parseError');
                   }
                 } else if (type == 'ui') {
-                  uiCount++;
+
                   final newSurfaceId = data['surface_id'] as String?;
                   if (newSurfaceId != null) {
                     _uiMessageController.add(newSurfaceId);
@@ -355,6 +353,7 @@ class ADKContentGenerator implements ContentGenerator {
 
   @override
   void dispose() {
+    if (_isDisposed) return;
     _isDisposed = true;
     _streamSubscription?.cancel();
     _streamSubscription = null;

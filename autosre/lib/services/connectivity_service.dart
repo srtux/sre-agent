@@ -5,8 +5,16 @@ enum ConnectivityStatus { connected, offline, unknown }
 
 /// A service that monitors and provides the application's connectivity status.
 class ConnectivityService extends ChangeNotifier {
-  static final ConnectivityService _instance = ConnectivityService._internal();
-  factory ConnectivityService() => _instance;
+  static ConnectivityService? _mockInstance;
+  static ConnectivityService get instance => _mockInstance ?? _internalInstance;
+  static final ConnectivityService _internalInstance =
+      ConnectivityService._internal();
+
+  factory ConnectivityService() => instance;
+
+  @visibleForTesting
+  static set mockInstance(ConnectivityService? mock) => _mockInstance = mock;
+
   ConnectivityService._internal();
 
   final ValueNotifier<ConnectivityStatus> _status = ValueNotifier(

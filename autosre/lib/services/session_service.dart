@@ -147,8 +147,15 @@ class Session {
 
 /// Service for managing conversation sessions.
 class SessionService {
-  static final SessionService _instance = SessionService._internal();
-  factory SessionService() => _instance;
+  static SessionService? _mockInstance;
+  static SessionService get instance => _mockInstance ?? _internalInstance;
+  static final SessionService _internalInstance = SessionService._internal();
+
+  factory SessionService() => instance;
+
+  @visibleForTesting
+  static set mockInstance(SessionService? mock) => _mockInstance = mock;
+
   SessionService._internal();
 
   /// HTTP request timeout duration.

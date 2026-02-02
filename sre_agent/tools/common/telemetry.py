@@ -149,12 +149,12 @@ def setup_telemetry(level: int = logging.INFO) -> None:
         "httpx",
         "opentelemetry.instrumentation.google_genai.otel_wrapper",
         "aiosqlite",
+        # Silence verbose LLM request/response logs from ADK
+        "google_adk.google.adk.models.google_llm",
     ]:
         logging.getLogger(logger_name).setLevel(logging.WARNING)
 
-    logging.getLogger(__name__).info(
-        "✅ Basic monitoring configured (Custom Telemetry/Arize removed)"
-    )
+    logging.getLogger(__name__).info("✅ Basic monitoring configured")
 
     _TELEMETRY_INITIALIZED = True
 

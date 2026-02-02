@@ -89,6 +89,7 @@ gcloud auth application-default login
 
 # Launch
 uv run poe dev
+# Tip: To disable SSO for offline testing, run: ENABLE_AUTH=false uv run poe dev
 ```
 *   **Backend**: http://localhost:8001 | **Frontend**: http://localhost:3000
 

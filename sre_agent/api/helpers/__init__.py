@@ -88,6 +88,22 @@ def normalize_tool_args(raw_args: Any) -> dict[str, Any]:
     return {"_raw_args": str(raw_args)}
 
 
+def fully_normalize(obj: Any) -> Any:
+    """Recursively normalize objects to JSON-serializable types.
+
+    Handles Pydantic models, dicts, lists, and primitives.
+    """
+    if hasattr(obj, "model_dump"):
+        return obj.model_dump(mode="json")
+    if hasattr(obj, "dict"):
+        return obj.dict()
+    if isinstance(obj, list):
+        return [fully_normalize(x) for x in obj]
+    if isinstance(obj, dict):
+        return {k: fully_normalize(v) for k, v in obj.items()}
+    return obj
+
+
 def create_tool_call_events(
     tool_name: str,
     args: dict[str, Any],
@@ -249,25 +265,13 @@ def create_tool_response_events(
         _debug_log("[TOOL_RESPONSE_UNWRAPPED] Extracted result from wrapper")
 
     # Create separate surfaceUpdate event (Hybrid Structure)
-    # Ensure all nested fields in component_data are normalized to dicts/primitives
-    def _normalize_for_json(obj: Any) -> Any:
-        if hasattr(obj, "model_dump"):
-            return obj.model_dump(mode="json")
-        if hasattr(obj, "dict"):
-            return obj.dict()
-        if isinstance(obj, list):
-            return [_normalize_for_json(x) for x in obj]
-        if isinstance(obj, dict):
-            return {k: _normalize_for_json(v) for k, v in obj.items()}
-        return obj
-
     component_data = {
         "type": "x-sre-tool-log",
         "componentName": "x-sre-tool-log",
         "tool_name": tool_name,
         "toolName": tool_name,
-        "args": _normalize_for_json(args),
-        "result": _normalize_for_json(result),
+        "args": fully_normalize(args),
+        "result": fully_normalize(result),
         "status": status,
     }
 
@@ -340,7 +344,15 @@ def create_widget_events(tool_name: str, result: Any) -> tuple[list[str], list[s
 
     # Normalize result (handles JSON strings and objects)
     original_result = result
-    result = normalize_tool_args(result)
+
+    # Pre-parse JSON strings if possible
+    if isinstance(result, str):
+        try:
+            result = json.loads(result)
+        except Exception:
+            pass
+
+    result = fully_normalize(result)
 
     _debug_log(
         "[WIDGET_NORMALIZED] Result after normalization",
@@ -511,7 +523,13 @@ def create_dashboard_event(tool_name: str, result: Any) -> str | None:
         return None
 
     # Normalize result
-    result = normalize_tool_args(result)
+    if isinstance(result, str):
+        try:
+            result = json.loads(result)
+        except Exception:
+            pass
+
+    result = fully_normalize(result)
 
     # Unwrap status/result wrapper
     if isinstance(result, dict):

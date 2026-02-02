@@ -63,6 +63,8 @@ class MockAuthService extends ChangeNotifier implements AuthService {
   @override
   String? get idToken => 'mock_id_token';
   @override
+  bool get isAuthEnabled => true;
+  @override
   bool get isAuthenticated => _currentUser != null;
   @override
   bool get isLoading => false;

@@ -211,8 +211,16 @@ class ToolConfigSummary {
 
 /// Service for managing tool configuration.
 class ToolConfigService {
-  static final ToolConfigService _instance = ToolConfigService._internal();
-  factory ToolConfigService() => _instance;
+  static ToolConfigService? _mockInstance;
+  static ToolConfigService get instance => _mockInstance ?? _internalInstance;
+  static final ToolConfigService _internalInstance =
+      ToolConfigService._internal();
+
+  factory ToolConfigService() => instance;
+
+  @visibleForTesting
+  static set mockInstance(ToolConfigService? mock) => _mockInstance = mock;
+
   ToolConfigService._internal();
 
   /// Returns the API base URL based on the runtime environment.

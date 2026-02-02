@@ -48,7 +48,7 @@ class LiveMetricsPanel extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Container(
-        height: isWide ? 280 : 220,
+        height: isWide ? 400 : 350,
         decoration: BoxDecoration(
           color: AppColors.backgroundCard,
           borderRadius: BorderRadius.circular(12),
