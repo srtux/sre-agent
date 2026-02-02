@@ -8,19 +8,38 @@
       "conversation": [
         {
           "invocation_id": "inv_001",
-          "user_content": "We're seeing 500 errors on our checkout service in project ecommerce-prod. Error rate jumped from 0.1% to 15% in the last 30 minutes. Investigate and find the root cause.",
-          "expected_tool_use": [
-            {"tool_name": "list_alert_policies"},
-            {"tool_name": "list_time_series"},
-            {"tool_name": "list_log_entries"},
-            {"tool_name": "fetch_trace"}
-          ],
-          "expected_intermediate_agent_responses": [
-            "error rate",
-            "database",
-            "connection"
-          ],
-          "reference": "The investigation should identify a database connection pool exhaustion as the root cause. The agent should correlate the error rate spike with database connection metrics, find connection timeout errors in logs, and trace the slow spans to database operations. The remediation should suggest increasing the connection pool size or fixing connection leaks."
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "We're seeing 500 errors on our checkout service in project ecommerce-prod. Error rate jumped from 0.1% to 15% in the last 30 minutes. Investigate and find the root cause."
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "list_alert_policies"
+              },
+              {
+                "name": "list_time_series"
+              },
+              {
+                "name": "list_log_entries"
+              },
+              {
+                "name": "fetch_trace"
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "The investigation should identify a database connection pool exhaustion as the root cause. The agent should correlate the error rate spike with database connection metrics, find connection timeout errors in logs, and trace the slow spans to database operations. The remediation should suggest increasing the connection pool size or fixing connection leaks. Expected keywords: error rate, database, connection"
+              }
+            ]
+          }
         }
       ]
     },
@@ -29,18 +48,35 @@
       "conversation": [
         {
           "invocation_id": "inv_002",
-          "user_content": "Users are reporting slow page loads on the frontend. The API gateway in project web-platform-prod is showing p99 latency of 12 seconds (normally 200ms). What's happening?",
-          "expected_tool_use": [
-            {"tool_name": "list_time_series"},
-            {"tool_name": "fetch_trace"},
-            {"tool_name": "list_log_entries"}
-          ],
-          "expected_intermediate_agent_responses": [
-            "latency",
-            "timeout",
-            "downstream"
-          ],
-          "reference": "The investigation should identify a cascading timeout failure originating from a downstream dependency. The agent should analyze distributed traces to find the critical path, identify which service is the bottleneck, and correlate with metrics showing resource saturation. Remediation should include circuit breaker configuration and timeout adjustment."
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "Users are reporting slow page loads on the frontend. The API gateway in project web-platform-prod is showing p99 latency of 12 seconds (normally 200ms). What's happening?"
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "list_time_series"
+              },
+              {
+                "name": "fetch_trace"
+              },
+              {
+                "name": "list_log_entries"
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "The investigation should identify a cascading timeout failure originating from a downstream dependency. The agent should analyze distributed traces to find the critical path, identify which service is the bottleneck, and correlate with metrics showing resource saturation. Remediation should include circuit breaker configuration and timeout adjustment. Expected keywords: latency, timeout, downstream"
+              }
+            ]
+          }
         }
       ]
     },
@@ -49,18 +85,35 @@
       "conversation": [
         {
           "invocation_id": "inv_003",
-          "user_content": "Our payment-processor pods in GKE cluster payments-cluster (project payments-prod) keep getting OOMKilled. It happens every 4-6 hours. Help me figure out why.",
-          "expected_tool_use": [
-            {"tool_name": "list_time_series"},
-            {"tool_name": "list_log_entries"},
-            {"tool_name": "list_gke_clusters"}
-          ],
-          "expected_intermediate_agent_responses": [
-            "memory",
-            "OOM",
-            "container"
-          ],
-          "reference": "The investigation should identify a memory leak pattern causing periodic OOMKill events. The agent should examine container memory usage metrics showing a gradual increase (sawtooth pattern), correlate with GKE events showing OOMKilled status, and examine application logs for potential leak sources (unclosed connections, growing caches). Remediation should suggest memory limit adjustment and profiling."
+          "user_content": {
+            "role": "user",
+            "parts": [
+              {
+                "text": "Our payment-processor pods in GKE cluster payments-cluster (project payments-prod) keep getting OOMKilled. It happens every 4-6 hours. Help me figure out why."
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "list_time_series"
+              },
+              {
+                "name": "list_log_entries"
+              },
+              {
+                "name": "list_gke_clusters"
+              }
+            ]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [
+              {
+                "text": "The investigation should identify a memory leak pattern causing periodic OOMKill events. The agent should examine container memory usage metrics showing a gradual increase (sawtooth pattern), correlate with GKE events showing OOMKilled status, and examine application logs for potential leak sources (unclosed connections, growing caches). Remediation should suggest memory limit adjustment and profiling. Expected keywords: memory, OOM, container"
+              }
+            ]
+          }
         }
       ]
     }
