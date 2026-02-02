@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,6 +14,7 @@ import '../services/prompt_history_service.dart';
 
 import '../agent/adk_content_generator.dart';
 import '../catalog.dart';
+import '../models/adk_schema.dart';
 import '../services/project_service.dart';
 import '../services/session_service.dart';
 import '../theme/app_theme.dart';
@@ -20,6 +22,7 @@ import '../services/dashboard_state.dart';
 import '../widgets/dashboard/dashboard_panel.dart';
 import '../widgets/session_panel.dart';
 import '../widgets/tech_grid_painter.dart';
+import '../widgets/tool_log.dart';
 import '../widgets/unified_prompt_input.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'tool_config_page.dart';
@@ -61,6 +64,11 @@ class _ConversationPageState extends State<ConversationPage>
   StreamSubscription<String>? _uiMessageSubscription;
   StreamSubscription<List<String>>? _suggestionsSubscription;
   StreamSubscription<Map<String, dynamic>>? _dashboardSubscription;
+  StreamSubscription<Map<String, dynamic>>? _toolCallSubscription;
+
+  /// Inline tool call state: call_id -> ToolLog (mutable via ValueNotifier).
+  final ValueNotifier<Map<String, ToolLog>> _toolCallState =
+      ValueNotifier({});
   final ValueNotifier<List<String>> _suggestedActions = ValueNotifier([
     "Analyze last hour's logs",
     'List active incidents',
@@ -225,15 +233,91 @@ class _ConversationPageState extends State<ConversationPage>
     _conversation = conversation;
 
     // Subscribe to the dedicated dashboard data stream.
-    // This replaces the old fragile A2UI-to-dashboard routing.
-    // A2UI messages are handled solely by GenUiConversation for in-chat widgets.
     _dashboardSubscription?.cancel();
     _dashboardSubscription = newGenerator.dashboardStream.listen((event) {
       debugPrint('📊 [DASH] Received dashboard event: category=${event['category']}, tool=${event['tool_name']}');
       _dashboardState.addFromEvent(event);
     });
 
-    // Subscribe to UI messages (surface markers) to add widget bubbles to chat
+    // Subscribe to inline tool call/response events.
+    // tool_call: Add a running ToolLog and an AiUiMessage placeholder to the chat.
+    // tool_response: Update the ToolLog with result/status (triggers rebuild).
+    _toolCallSubscription?.cancel();
+    _toolCallSubscription = newGenerator.toolCallStream.listen((event) {
+      if (!mounted) return;
+      final eventType = event['type'] as String;
+
+      if (eventType == 'tool_call') {
+        final callId = event['call_id'] as String;
+        final toolName = event['tool_name'] as String;
+        final args = Map<String, dynamic>.from(event['args'] ?? {});
+
+        // Create a running ToolLog entry
+        final toolLog = ToolLog(
+          toolName: toolName,
+          args: args,
+          status: 'running',
+        );
+
+        // Update tool call state
+        final updated = Map<String, ToolLog>.from(_toolCallState.value);
+        updated[callId] = toolLog;
+        _toolCallState.value = updated;
+
+        // Add a chat message placeholder (using call_id as surface ID)
+        final messenger = conversation.conversation;
+        if (messenger is ValueNotifier<List<ChatMessage>>) {
+          final currentMessages = List<ChatMessage>.from(messenger.value);
+          final alreadyHas = currentMessages.any(
+            (m) => m is AiUiMessage && m.surfaceId == callId,
+          );
+          if (!alreadyHas) {
+            currentMessages.add(AiUiMessage(
+              definition: UiDefinition(surfaceId: callId),
+              surfaceId: callId,
+            ));
+            messenger.value = currentMessages;
+          }
+        }
+        _scrollToBottom();
+      } else if (eventType == 'tool_response') {
+        final callId = event['call_id'] as String;
+        final toolName = event['tool_name'] as String;
+        final status = event['status'] as String? ?? 'completed';
+        final result = event['result'];
+
+        // Stringify result for display
+        String? resultStr;
+        if (result != null) {
+          if (result is String) {
+            resultStr = result;
+          } else {
+            try {
+              resultStr = const JsonEncoder.withIndent('  ').convert(result);
+            } catch (_) {
+              resultStr = result.toString();
+            }
+          }
+        }
+
+        // Get existing args from the pending tool call
+        final existing = _toolCallState.value[callId];
+        final args = existing?.args ?? {};
+
+        final toolLog = ToolLog(
+          toolName: toolName,
+          args: args,
+          status: status,
+          result: resultStr,
+        );
+
+        final updated = Map<String, ToolLog>.from(_toolCallState.value);
+        updated[callId] = toolLog;
+        _toolCallState.value = updated;
+      }
+    });
+
+    // Subscribe to UI messages (surface markers) for non-tool-call A2UI surfaces
     _uiMessageSubscription?.cancel();
     _uiMessageSubscription = newGenerator.uiMessageStream.listen((surfaceId) {
       if (!mounted) return;
@@ -242,7 +326,7 @@ class _ConversationPageState extends State<ConversationPage>
       if (messenger is ValueNotifier<List<ChatMessage>>) {
         final currentMessages = List<ChatMessage>.from(messenger.value);
 
-        // Deduplicate: avoid adding the same surface multiple times
+        // Deduplicate
         final alreadyHas =
             currentMessages.any((m) => m is AiUiMessage && m.surfaceId == surfaceId);
 
@@ -282,6 +366,8 @@ class _ConversationPageState extends State<ConversationPage>
     _sessionService.startNewSession();
     // Clear dashboard data for fresh investigation
     _dashboardState.clear();
+    // Clear inline tool call state
+    _toolCallState.value = {};
 
     setState(() {
       _initializeConversation();
@@ -1058,6 +1144,7 @@ class _ConversationPageState extends State<ConversationPage>
                     message: msg,
                     host: _conversation!.host,
                     animation: _typingController,
+                    toolCallState: _toolCallState,
                   ),
                 );
               },
@@ -1350,6 +1437,8 @@ class _ConversationPageState extends State<ConversationPage>
     _uiMessageSubscription?.cancel();
     _suggestionsSubscription?.cancel();
     _dashboardSubscription?.cancel();
+    _toolCallSubscription?.cancel();
+    _toolCallState.dispose();
     _dashboardState.dispose();
     _projectService.selectedProject.removeListener(_onProjectChanged);
     _typingController.dispose();
@@ -1392,11 +1481,13 @@ class _MessageItem extends StatefulWidget {
   final ChatMessage message;
   final GenUiHost host;
   final AnimationController animation;
+  final ValueNotifier<Map<String, ToolLog>>? toolCallState;
 
   const _MessageItem({
     required this.message,
     required this.host,
     required this.animation,
+    this.toolCallState,
   });
 
   @override
@@ -1658,35 +1749,43 @@ class _MessageItemState extends State<_MessageItem>
         ),
       );
     } else if (msg is AiUiMessage) {
-      // The host is passed from _buildMessageList via widget.host.
-      // CRITICAL: We now use onSurfaceAdded to add AiUiMessage entries, which
-      // ensures the surface is fully registered before this widget renders.
-      // This eliminates the previous race condition where the surface lookup
-      // would fail because the A2UI message hadn't been processed yet.
-      //
-      // The host from widget.host (which is _conversation.host) should now
-      // correctly resolve the surface since it's guaranteed to be registered.
+      // Check if this is an inline tool call (rendered directly, not via GenUI)
+      final toolState = widget.toolCallState;
+      if (toolState != null) {
+        final toolLog = toolState.value[msg.surfaceId];
+        if (toolLog != null) {
+          // Render as inline tool call widget (simple, no A2UI)
+          return ValueListenableBuilder<Map<String, ToolLog>>(
+            valueListenable: toolState,
+            builder: (context, state, _) {
+              final currentLog = state[msg.surfaceId];
+              if (currentLog == null) return const SizedBox.shrink();
+              return Align(
+                alignment: Alignment.centerLeft,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 44),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 700),
+                    child: ToolLogWidget(log: currentLog),
+                  ),
+                ),
+              );
+            },
+          );
+        }
+      }
+
+      // Fallback: render via GenUI surface (for non-tool-call A2UI widgets)
       final host = widget.host;
-
-      debugPrint('🖼️ [MSG_ITEM] ===== RENDERING AiUiMessage =====');
-      debugPrint('🖼️ [MSG_ITEM] surfaceId: ${msg.surfaceId}');
-      debugPrint('🖼️ [MSG_ITEM] host type: ${host.runtimeType}');
-
-      debugPrint('🖼️ [MSG_ITEM] Creating GenUiSurface widget...');
-
-      debugPrint('🖼️ [MSG_ITEM] ===== END RENDERING AiUiMessage =====');
-
       return Align(
         alignment: Alignment.centerLeft,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const AgentAvatar(),
-            // Message Bubble / Tool Surface
             Flexible(
               child: Container(
                 constraints: const BoxConstraints(maxWidth: 950),
-                // No decoration here to avoid double border - inner widgets (ToolLog) handle their own borders
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
                   child: GenUiSurface(host: host, surfaceId: msg.surfaceId),

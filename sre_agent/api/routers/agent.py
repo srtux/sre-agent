@@ -203,7 +203,6 @@ async def _handle_remote_agent(
         create_dashboard_event,
         create_tool_call_events,
         create_tool_response_events,
-        create_widget_events,
         normalize_tool_args,
     )
 
@@ -267,23 +266,18 @@ async def _handle_remote_agent(
                             + "\n"
                         )
 
-                    # Handle function calls
+                    # Handle function calls (simple inline events)
                     fc = part.get("function_call") if isinstance(part, dict) else None
                     if fc:
                         tool_name = fc.get("name", "")
                         tool_args = normalize_tool_args(fc.get("args", {}))
-                        surface_id, events = create_tool_call_events(
+                        _call_id, events = create_tool_call_events(
                             tool_name, tool_args, pending_tool_calls
                         )
-                        # Yield events first to populate component data
                         for evt_str in events:
                             yield evt_str + "\n"
-                        # Then yield UI marker to create the bubble
-                        yield (
-                            json.dumps({"type": "ui", "surface_id": surface_id}) + "\n"
-                        )
 
-                    # Handle function responses
+                    # Handle function responses (simple inline events + dashboard)
                     fr = (
                         part.get("function_response")
                         if isinstance(part, dict)
@@ -292,22 +286,13 @@ async def _handle_remote_agent(
                     if fr:
                         tool_name = fr.get("name", "")
                         result = fr.get("response") or fr.get("result")
-                        _, events = create_tool_response_events(
+                        _resp_id, events = create_tool_response_events(
                             tool_name, result, pending_tool_calls
                         )
                         for evt_str in events:
                             yield evt_str + "\n"
 
-                        # Widget events
-                        widget_events, widget_surface_ids = create_widget_events(
-                            tool_name, result
-                        )
-                        for evt_str in widget_events:
-                            yield evt_str + "\n"
-                        for sid in widget_surface_ids:
-                            yield json.dumps({"type": "ui", "surface_id": sid}) + "\n"
-
-                        # Dashboard data event (separate channel)
+                        # Dashboard data event (separate channel for right panel)
                         dash_evt = create_dashboard_event(tool_name, result)
                         if dash_evt:
                             yield dash_evt + "\n"
@@ -390,7 +375,6 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
         create_dashboard_event,
         create_tool_call_events,
         create_tool_response_events,
-        create_widget_events,
         normalize_tool_args,
     )
 
@@ -756,17 +740,12 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                                 + "\n"
                             )
 
-                        # C. Handle Tool Calls
+                        # C. Handle Tool Calls (simple inline events)
                         fc = getattr(part, "function_call", None)
                         if fc is None and isinstance(part, dict):
                             fc = part.get("function_call")
 
                         if fc:
-                            _a2ui_debug(
-                                "[ROUTER_FC_DETECTED] Function call detected in part",
-                                {"fc_type": type(fc).__name__, "fc": str(fc)[:300]},
-                            )
-
                             tool_name = getattr(fc, "name", None)
                             if tool_name is None and isinstance(fc, dict):
                                 tool_name = fc.get("name")
@@ -777,74 +756,22 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                                     tool_args_raw = fc.get("args")
                                 tool_args = normalize_tool_args(tool_args_raw)
 
-                                _a2ui_debug(
-                                    f"[ROUTER_FC_PROCESSING] Processing tool call: {tool_name}",
-                                    {
-                                        "tool_name": tool_name,
-                                        "args_preview": str(tool_args)[:200],
-                                    },
-                                )
-
                                 logger.info(
-                                    f"🛠️ Tool Call Detected: {tool_name} with args: {str(tool_args)[:100]}..."
+                                    f"🛠️ Tool Call: {tool_name} args={str(tool_args)[:100]}..."
                                 )
-                                surface_id, events = create_tool_call_events(
+                                _call_id, events = create_tool_call_events(
                                     tool_name, tool_args, pending_tool_calls
                                 )
 
-                                _a2ui_debug(
-                                    f"[ROUTER_FC_EVENTS] Created {len(events)} events for tool call",
-                                    {
-                                        "surface_id": surface_id,
-                                        "event_count": len(events),
-                                    },
-                                )
-
-                                # Yield A2UI events FIRST to populate component data,
-                                # THEN yield UI marker to create the bubble.
-                                # This fixes the race condition where GenUiSurface renders
-                                # before the component data is available.
-                                for i, evt_str in enumerate(events):
-                                    _a2ui_debug(
-                                        f"[ROUTER_FC_YIELD_A2UI] Yielding A2UI event {i + 1}/{len(events)}",
-                                        {
-                                            "size_bytes": len(evt_str),
-                                            "preview": evt_str[:200],
-                                        },
-                                    )
-                                    logger.info(
-                                        f"📤 Yielding tool call event (Size: {len(evt_str)}): {evt_str[:100]}..."
-                                    )
+                                for evt_str in events:
                                     yield evt_str + "\n"
 
-                                ui_marker = json.dumps(
-                                    {"type": "ui", "surface_id": surface_id}
-                                )
-                                _a2ui_debug(
-                                    "[ROUTER_FC_YIELD_UI] Yielding UI marker",
-                                    {"surface_id": surface_id, "marker": ui_marker},
-                                )
-                                yield ui_marker + "\n"
-                            else:
-                                _a2ui_debug(
-                                    "[ROUTER_FC_INVALID] Tool call has invalid/missing name",
-                                    {"tool_name": tool_name, "fc": str(fc)[:200]},
-                                )
-                                logger.warning(
-                                    f"⚠️ Tool call detected but name is missing or invalid: {tool_name}"
-                                )
-
-                        # D. Handle Tool Responses
+                        # D. Handle Tool Responses (simple inline events + dashboard)
                         fr = getattr(part, "function_response", None)
                         if fr is None and isinstance(part, dict):
                             fr = part.get("function_response")
 
                         if fr:
-                            _a2ui_debug(
-                                "[ROUTER_FR_DETECTED] Function response detected in part",
-                                {"fr_type": type(fr).__name__, "fr": str(fr)[:300]},
-                            )
-
                             tool_name = getattr(fr, "name", None)
                             if tool_name is None and isinstance(fr, dict):
                                 tool_name = fr.get("name")
@@ -853,100 +780,24 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                                 result = getattr(fr, "response", None)
                                 if result is None and isinstance(fr, dict):
                                     result = fr.get("response")
-                                # Fallback to 'result' or 'output' if 'response' is missing
                                 if result is None:
                                     result = getattr(fr, "result", None)
                                     if result is None and isinstance(fr, dict):
                                         result = fr.get("result")
 
-                                _a2ui_debug(
-                                    f"[ROUTER_FR_PROCESSING] Processing tool response: {tool_name}",
-                                    {
-                                        "tool_name": tool_name,
-                                        "result_type": type(result).__name__,
-                                        "result_preview": str(result)[:300]
-                                        if result
-                                        else "None",
-                                    },
+                                logger.info(f"✅ Tool Response: {tool_name}")
+                                _resp_id, events = create_tool_response_events(
+                                    tool_name, result, pending_tool_calls
                                 )
 
-                                logger.info(f"✅ Tool Response Received: {tool_name}")
-                                response_surface_id, events = (
-                                    create_tool_response_events(
-                                        tool_name, result, pending_tool_calls
-                                    )
-                                )
-
-                                _a2ui_debug(
-                                    f"[ROUTER_FR_EVENTS] Created {len(events)} response events",
-                                    {
-                                        "surface_id": response_surface_id,
-                                        "event_count": len(events),
-                                    },
-                                )
-
-                                for i, evt_str in enumerate(events):
-                                    _a2ui_debug(
-                                        f"[ROUTER_FR_YIELD_A2UI] Yielding response event {i + 1}/{len(events)}",
-                                        {
-                                            "size_bytes": len(evt_str),
-                                            "preview": evt_str[:200],
-                                        },
-                                    )
-                                    logger.info(
-                                        f"📤 Yielding tool response event: {evt_str[:100]}..."
-                                    )
+                                for evt_str in events:
                                     yield evt_str + "\n"
 
-                                # Yield specialized widget
-                                # Send A2UI events FIRST, then UI markers (same fix as tool calls)
-                                widget_events, widget_surface_ids = (
-                                    create_widget_events(tool_name, result)
-                                )
-
-                                _a2ui_debug(
-                                    f"[ROUTER_WIDGET] Created {len(widget_events)} widget events",
-                                    {
-                                        "surface_ids": widget_surface_ids,
-                                        "event_count": len(widget_events),
-                                    },
-                                )
-
-                                for i, evt_str in enumerate(widget_events):
-                                    _a2ui_debug(
-                                        f"[ROUTER_WIDGET_YIELD_A2UI] Yielding widget event {i + 1}/{len(widget_events)}",
-                                        {
-                                            "size_bytes": len(evt_str),
-                                            "preview": evt_str[:200],
-                                        },
-                                    )
-                                    logger.info(
-                                        f"📤 Yielding widget event: {evt_str[:100]}..."
-                                    )
-                                    yield evt_str + "\n"
-
-                                for sid in widget_surface_ids:
-                                    ui_marker = json.dumps(
-                                        {"type": "ui", "surface_id": sid}
-                                    )
-                                    _a2ui_debug(
-                                        "[ROUTER_WIDGET_YIELD_UI] Yielding widget UI marker",
-                                        {"surface_id": sid, "marker": ui_marker},
-                                    )
-                                    yield ui_marker + "\n"
-
-                                # Dashboard data event (separate channel)
+                                # Dashboard data event (separate channel for right panel)
                                 dash_evt = create_dashboard_event(tool_name, result)
                                 if dash_evt:
-                                    logger.info(
-                                        f"📊 Yielding dashboard event for {tool_name}"
-                                    )
+                                    logger.info(f"📊 Dashboard event for {tool_name}")
                                     yield dash_evt + "\n"
-                            else:
-                                _a2ui_debug(
-                                    "[ROUTER_FR_INVALID] Tool response has invalid/missing name",
-                                    {"tool_name": tool_name, "fr": str(fr)[:200]},
-                                )
 
                 # 4. Post-run Cleanup & Memory Sync
                 try:

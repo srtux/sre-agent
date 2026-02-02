@@ -1,8 +1,9 @@
-"""Tests for GenUI chat endpoint tool call events.
+"""Tests for chat endpoint tool call events.
 
 These tests verify that:
-1. Request validation works correctly (Fix #3)
+1. Request validation works correctly
 2. The shared tool event helper functions work correctly
+3. Tool call/response events use the simplified inline format
 """
 
 import json
@@ -15,6 +16,7 @@ import pytest_asyncio
 from server import app
 from sre_agent.api.helpers.tool_events import (
     TOOL_WIDGET_MAP,
+    create_dashboard_event,
     create_tool_call_events,
     create_tool_response_events,
     create_widget_events,
@@ -32,7 +34,7 @@ async def async_client():
         yield client
 
 
-# --- Unit Tests for Shared Helper Functions (Fix #2) ---
+# --- Unit Tests for Shared Helper Functions ---
 
 
 def test_normalize_tool_args_none():
@@ -68,7 +70,7 @@ def test_normalize_tool_args_fallback():
 
 
 def test_create_tool_call_events():
-    """Test _create_tool_call_events creates proper A2UI events."""
+    """Test create_tool_call_events creates simple inline events."""
     pending_calls: list[dict] = []
     call_id, events = create_tool_call_events(
         tool_name="test_tool",
@@ -82,42 +84,23 @@ def test_create_tool_call_events():
     assert pending_calls[0]["args"] == {"arg1": "value1"}
     assert call_id == pending_calls[0]["call_id"]
 
-    # Should have 1 event: beginRendering (Atomic Initialization)
+    # Should have 1 event
     assert len(events) == 1
 
-    # Parse and verify event: beginRendering
-    begin_event = json.loads(events[0])
-    assert begin_event["type"] == "a2ui"
-    assert "beginRendering" in begin_event["message"]
-    assert begin_event["message"]["beginRendering"]["surfaceId"] == call_id
-
-    # Verify Hybrid Structure in component
-    components = begin_event["message"]["beginRendering"]["components"]
-    assert "id" in components[0]
-    assert "component" in components[0]
-
-    # Check Hybrid Structure
-    component_data = components[0]["component"]
-    assert component_data["type"] == "x-sre-tool-log"
-    # Inner wrapper check
-    assert "x-sre-tool-log" in component_data
-    inner_data = component_data["x-sre-tool-log"]
-    assert inner_data["type"] == "x-sre-tool-log"
-    assert inner_data["tool_name"] == "test_tool"
-    assert inner_data["status"] == "running"
-    assert inner_data["args"] == {"arg1": "value1"}
-
-    # Verify beginRendering references the component
-    assert begin_event["message"]["beginRendering"]["root"] == components[0]["id"]
+    # Parse and verify the simple tool_call event
+    event = json.loads(events[0])
+    assert event["type"] == "tool_call"
+    assert event["call_id"] == call_id
+    assert event["tool_name"] == "test_tool"
+    assert event["args"] == {"arg1": "value1"}
 
 
 def test_create_tool_response_events_success():
-    """Test _create_tool_response_events with successful result."""
+    """Test create_tool_response_events with successful result."""
     pending_calls = [
         {
             "call_id": "test_tool_abc123",
             "tool_name": "test_tool",
-            "surface_id": "surface-123",
             "args": {"arg1": "value1"},
         }
     ]
@@ -132,29 +115,24 @@ def test_create_tool_response_events_success():
     assert len(pending_calls) == 0
     assert call_id == "test_tool_abc123"
 
-    # Should have 1 event: surfaceUpdate with completed status
+    # Should have 1 event
     assert len(events) == 1
 
-    update_event = json.loads(events[0])
-    assert "surfaceUpdate" in update_event["message"]
-    components = update_event["message"]["surfaceUpdate"]["components"]
-
-    # Verify Hybrid Structure
-    tool_log_wrapper = components[0]["component"]
-    assert tool_log_wrapper["type"] == "x-sre-tool-log"
-    tool_log = tool_log_wrapper["x-sre-tool-log"]
-
-    assert tool_log["status"] == "completed"
-    assert tool_log["result"] == "success"
+    # Parse and verify the simple tool_response event
+    event = json.loads(events[0])
+    assert event["type"] == "tool_response"
+    assert event["call_id"] == "test_tool_abc123"
+    assert event["tool_name"] == "test_tool"
+    assert event["status"] == "completed"
+    assert event["result"] == "success"
 
 
 def test_create_tool_response_events_error():
-    """Test _create_tool_response_events with error result."""
+    """Test create_tool_response_events with error result."""
     pending_calls = [
         {
             "call_id": "test_tool_abc123",
             "tool_name": "test_tool",
-            "surface_id": "surface-123",
             "args": {},
         }
     ]
@@ -166,35 +144,29 @@ def test_create_tool_response_events_error():
     )
 
     assert len(events) == 1
-    update_event = json.loads(events[0])
-    components = update_event["message"]["surfaceUpdate"]["components"]
-
-    # Verify Hybrid Structure
-    tool_log = components[0]["component"]["x-sre-tool-log"]
-    assert tool_log["type"] == "x-sre-tool-log"
-    assert tool_log["status"] == "error"
-    assert "RuntimeError" in tool_log["result"]
+    event = json.loads(events[0])
+    assert event["type"] == "tool_response"
+    assert event["status"] == "error"
+    assert "RuntimeError" in event["result"]
 
 
 def test_create_tool_response_events_fifo_matching():
-    """Test that FIFO matching works for multiple calls to same tool (Fix #1)."""
+    """Test that FIFO matching works for multiple calls to same tool."""
     pending_calls = [
         {
             "call_id": "fetch_trace_111",
             "tool_name": "fetch_trace",
-            "surface_id": "surface-1",
             "args": {"trace_id": "trace-1"},
         },
         {
             "call_id": "fetch_trace_222",
             "tool_name": "fetch_trace",
-            "surface_id": "surface-2",
             "args": {"trace_id": "trace-2"},
         },
     ]
 
     # First response should match first call (FIFO)
-    call_id1, events1 = create_tool_response_events(
+    call_id1, _events1 = create_tool_response_events(
         tool_name="fetch_trace",
         result={"result": "trace-1-data"},
         pending_tool_calls=pending_calls,
@@ -202,13 +174,6 @@ def test_create_tool_response_events_fifo_matching():
 
     assert call_id1 == "fetch_trace_111"
     assert len(pending_calls) == 1  # One remaining
-
-    # Verify the correct args were preserved (Hybrid Structure)
-    update_event = json.loads(events1[0])
-    components = update_event["message"]["surfaceUpdate"]["components"]
-    tool_log = components[0]["component"]["x-sre-tool-log"]
-    assert tool_log["type"] == "x-sre-tool-log"
-    assert tool_log["args"] == {"trace_id": "trace-1"}
 
     # Second response should match second call
     call_id2, _events2 = create_tool_response_events(
@@ -219,6 +184,19 @@ def test_create_tool_response_events_fifo_matching():
 
     assert call_id2 == "fetch_trace_222"
     assert len(pending_calls) == 0  # All matched
+
+
+def test_create_tool_response_events_no_match():
+    """Test tool response with no matching pending call."""
+    pending_calls: list[dict] = []
+    call_id, events = create_tool_response_events(
+        tool_name="unknown_tool",
+        result={"result": "data"},
+        pending_tool_calls=pending_calls,
+    )
+
+    assert call_id is None
+    assert len(events) == 0
 
 
 def test_tool_widget_map_exists():
@@ -234,7 +212,37 @@ def test_tool_widget_map_exists():
         assert tool in TOOL_WIDGET_MAP
 
 
-# --- API Validation Tests (Fix #3) ---
+def test_create_widget_events_returns_empty():
+    """Test that create_widget_events is now a stub returning empty lists."""
+    events, surface_ids = create_widget_events(
+        tool_name="fetch_trace", result={"trace_id": "test"}
+    )
+    assert events == []
+    assert surface_ids == []
+
+
+def test_create_dashboard_event_returns_json():
+    """Test that create_dashboard_event returns proper dashboard JSON."""
+    result = {
+        "trace_id": "test-trace",
+        "spans": [
+            {
+                "span_id": "s1",
+                "name": "root",
+                "start_time": "2023-01-01T00:00:00Z",
+                "end_time": "2023-01-01T00:00:01Z",
+            }
+        ],
+    }
+    event = create_dashboard_event("fetch_trace", result)
+    if event is not None:
+        parsed = json.loads(event)
+        assert parsed["type"] == "dashboard"
+        assert parsed["category"] == "traces"
+        assert parsed["tool_name"] == "fetch_trace"
+
+
+# --- API Validation Tests ---
 
 
 @pytest.mark.asyncio
@@ -264,8 +272,6 @@ async def test_genui_chat_malformed_request_missing_role(
 @pytest.mark.asyncio
 async def test_genui_chat_valid_request_format(async_client: httpx.AsyncClient):
     """Verify that valid request format is accepted."""
-    # This tests that the request validation accepts the correct format
-    # The actual agent execution may fail, but the request should be validated
     response = await async_client.post(
         "/api/genui/chat",
         json={"messages": [{"role": "user", "text": "Hello"}]},
@@ -273,87 +279,3 @@ async def test_genui_chat_valid_request_format(async_client: httpx.AsyncClient):
     # Should be accepted (200 OK for streaming) not a validation error (422)
     assert response.status_code == 200
     await response.aclose()
-
-
-# --- Widget Event Tests (Fix PR #78) ---
-
-
-def test_create_widget_events_structure():
-    """Test that create_widget_events returns tuple of (events, surface_ids)."""
-    # Use a known tool that produces widgets (fetch_trace -> x-sre-trace-waterfall)
-    # We need a dummy result that passes transform_trace
-    dummy_trace = {
-        "trace_id": "test-trace",
-        "spans": [
-            {
-                "span_id": "s1",
-                "name": "root",
-                "start_time": "2023-01-01T00:00:00Z",
-                "end_time": "2023-01-01T00:00:01Z",
-            }
-        ],
-    }
-
-    events, surface_ids = create_widget_events(
-        tool_name="fetch_trace", result=dummy_trace
-    )
-
-    assert isinstance(events, list)
-    assert isinstance(surface_ids, list)
-    assert len(events) == 2  # beginRendering + surfaceUpdate
-    assert len(surface_ids) == 1
-
-    # Verify surface ID matches
-    surface_id = surface_ids[0]
-    begin_event = json.loads(events[0])
-    assert begin_event["message"]["beginRendering"]["surfaceId"] == surface_id
-
-
-def test_create_widget_events_ordering_simulation():
-    """Test that yielding data events BEFORE markers works as expected.
-
-    This simulates the logic in the router to verify the fix in PR #78.
-    """
-    dummy_trace = {
-        "trace_id": "test-trace",
-        "spans": [
-            {
-                "span_id": "s1",
-                "name": "root",
-                "start_time": "2023-01-01T00:00:00Z",
-                "end_time": "2023-01-01T00:00:01Z",
-            }
-        ],
-    }
-
-    widget_events, widget_surface_ids = create_widget_events("fetch_trace", dummy_trace)
-
-    # Simulate the yield order from the router (PR #78 fix)
-    yielded_sequence = []
-
-    # 1. Widget Data Events (A2UI)
-    for evt_str in widget_events:
-        yielded_sequence.append(json.loads(evt_str))
-
-    # 2. UI Markers (Bubble creation)
-    for sid in widget_surface_ids:
-        yielded_sequence.append({"type": "ui", "surface_id": sid})
-
-    # Verify Order:
-    # Event 0: beginRendering (A2UI)
-    # Event 1: surfaceUpdate (A2UI - Data)
-    # Event 2: ui marker (Trigger Bubble)
-
-    assert len(yielded_sequence) == 3
-
-    assert yielded_sequence[0]["type"] == "a2ui"
-    assert "beginRendering" in yielded_sequence[0]["message"]
-
-    assert yielded_sequence[1]["type"] == "a2ui"
-    assert "surfaceUpdate" in yielded_sequence[1]["message"]
-
-    assert yielded_sequence[2]["type"] == "ui"
-    assert (
-        yielded_sequence[2]["surface_id"]
-        == yielded_sequence[0]["message"]["beginRendering"]["surfaceId"]
-    )
