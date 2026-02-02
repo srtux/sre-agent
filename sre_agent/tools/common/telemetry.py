@@ -178,6 +178,74 @@ def setup_telemetry(level: int = logging.INFO) -> None:
     # Setup LangSmith OTel if enabled (local only)
     setup_langsmith_otel()
 
+    # Setup Google Cloud OTel if enabled (local via OTEL_TO_CLOUD or prod via env)
+    setup_google_cloud_otel()
+
+
+def setup_google_cloud_otel() -> None:
+    """Configures OpenTelemetry for Google Cloud Trace/Logging if enabled.
+
+    Enabled via OTEL_TO_CLOUD=true.
+    """
+    if os.environ.get("OTEL_TO_CLOUD", "false").lower() != "true":
+        return
+
+    try:
+        from opentelemetry import trace
+        from opentelemetry.exporter.cloud_trace import CloudTraceSpanExporter
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+        # 1. Configure Cloud Trace
+        # Check if we already have a TracerProvider
+        tracer_provider = trace.get_tracer_provider()
+        if not isinstance(tracer_provider, TracerProvider):
+            # If default/proxy, create a new one
+            from opentelemetry.sdk.resources import Resource
+
+            resource = Resource.create(
+                {"service.name": os.environ.get("OTEL_SERVICE_NAME", "sre-agent")}
+            )
+            tracer_provider = TracerProvider(resource=resource)
+            trace.set_tracer_provider(tracer_provider)
+
+        # Add Cloud Trace exporter
+        cloud_trace_exporter = CloudTraceSpanExporter()
+        tracer_provider.add_span_processor(BatchSpanProcessor(cloud_trace_exporter))
+
+        logging.getLogger(__name__).info("✨ Google Cloud Trace enabled")
+
+        # 2. Configure Cloud Logging (Optional / via same flag for now)
+        # Note: This hijacks the python root logger to send logs to Cloud Logging
+        if (
+            os.environ.get(
+                "OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED", "false"
+            ).lower()
+            == "true"
+        ):
+            # from opentelemetry.exporter.cloud_logging import CloudLoggingHandler
+            # from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
+            # from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
+
+            # Use Google Cloud's logging handler for direct log export
+            # OR use OTel Logging (experimental).
+            # Standard practice is often just CloudLoggingHandler from google-cloud-logging
+            # But here we are looking at OTel wrapper.
+            # Let's verify imports first. opentelemetry-exporter-gcp-logging provides CloudLoggingHandler?
+            # Actually opentelemetry.exporter.cloud_logging is correct for the OTel package.
+
+            # Simpler approach: verify if we want FULL OTel logging or just Span links.
+            # For now, let's stick to Tracing as it's the primary request.
+            # Adding Logging can double-log if not careful with stdout.
+            pass
+
+    except ImportError as e:
+        logging.getLogger(__name__).warning(
+            f"Google Cloud OTel dependencies missing: {e}"
+        )
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Failed to setup Google Cloud OTel: {e}")
+
 
 def setup_langsmith_otel() -> None:
     """Configures OpenTelemetry for LangSmith tracing if enabled locally.
@@ -233,9 +301,6 @@ def setup_langsmith_otel() -> None:
         logging.getLogger(__name__).warning(f"Failed to setup LangSmith OTel: {e}")
 
 
-# ============================================================================
-# LangSmith Thread/Session Management
-# ============================================================================
 # Use these functions to group traces into conversations (threads) in LangSmith.
 # See: https://docs.langchain.com/langsmith/threads
 
