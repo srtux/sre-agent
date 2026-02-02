@@ -210,7 +210,7 @@ def setup_google_cloud_otel() -> None:
             trace.set_tracer_provider(tracer_provider)
 
         # Add Cloud Trace exporter
-        cloud_trace_exporter = CloudTraceSpanExporter()
+        cloud_trace_exporter = CloudTraceSpanExporter()  # type: ignore[no-untyped-call]
         tracer_provider.add_span_processor(BatchSpanProcessor(cloud_trace_exporter))
 
         logging.getLogger(__name__).info("✨ Google Cloud Trace enabled")
