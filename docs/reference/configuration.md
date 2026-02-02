@@ -21,7 +21,7 @@ This document details all environment variables used to configure the Auto SRE A
     - **Session Consistency**: Both Proxy and Backend use `app_name="sre_agent"` for `VertexAiSessionService` to ensure they share the same session namespace, overcoming the fact that the Backend doesn't know its own `SRE_AGENT_ID`. | - |
 | `RUNNING_IN_AGENT_ENGINE` | Set to `true` by `deploy.py` on the Backend to trigger remote-mode behaviors (like using `VertexAiSessionService`) even when `SRE_AGENT_ID` is unset. | `false` |
 | `STRICT_EUC_ENFORCEMENT` | If `true`, fails requests if user credentials in the context are missing. If `false`, falls back to Application Default Credentials (ADC). **Set to `false` for local `adk web` development.** | `false` |
-| `ENABLE_AUTH` | If `false`, disables SSO and injects dummy/dev credentials. **Set to `false` ONLY for local testing to bypass authentication.** | `true` |
+| `ENABLE_AUTH` | If `false`, disables SSO and injects dummy/dev credentials. **Set to `false` ONLY for local testing to bypass authentication.** Can also be bypassed via the "Login as Guest" button on the UI login screen in debug mode. | `true` |
 | `OTEL_TO_CLOUD` | If `true`, enables the Google Cloud Trace exporter for native OTel spans. | `false` |
 | `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` | If `true`, captures the full content of prompts and responses in traces. | `false` |
 | `CORS_ALLOW_ALL` | If `true`, allows all origins in FastAPI middleware. Useful for development. | `false` |

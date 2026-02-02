@@ -11,10 +11,19 @@ The SRE Agent uses a **Hybrid Authentication Strategy** that combines Google OAu
 
 ## Local Development Bypass
 
-For local testing, authentication can be disabled by setting `ENABLE_AUTH=false`. In this mode:
-- **Frontend**: The app skips the Google Sign-In flow and assumes a "Local Dev" user state.
-- **Environment Variable**: Run `ENABLE_AUTH=false uv run poe dev` to use this mode.
-- **Security Check**: This mode is strictly for development and should never be enabled in production environments exposed to the internet.
+For local testing, authentication can be bypassed by either:
+1. **Environment Variable**: Set `ENABLE_AUTH=false` when starting the server:
+   ```bash
+   ENABLE_AUTH=false uv run poe dev
+   ```
+2. **Login as Guest**: Use the **"Login as Guest"** button on the UI login screen.
+   - This allows you to skip the SSO flow even if `ENABLE_AUTH` is not explicitly set to false on the backend.
+   - The frontend will send a `dev-mode-bypass-token` which the backend will accept if configured for ADC fallback.
+
+In bypass/guest mode:
+- **Frontend**: The app skips the Google Sign-In flow and assumes a "Guest" user identity.
+- **Backend**: Falls back to **Application Default Credentials (ADC)** for GCP API access.
+- **Security Check**: These bypass modes are strictly for development and should never be enabled in production environments exposed to the internet.
 
 ---
 

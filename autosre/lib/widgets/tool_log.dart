@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/adk_schema.dart';
 import '../theme/app_theme.dart';
+import '../utils/ansi_parser.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class ToolLogWidget extends StatefulWidget {
   final ToolLog log;
@@ -670,13 +672,14 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
               borderRadius: BorderRadius.circular(4),
             ),
             child: SingleChildScrollView(
-              child: SelectableText(
-                errorMessage,
-                style: TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 11,
-                  color: AppColors.error.withValues(alpha: 0.9),
-                  height: 1.4,
+              child: SelectableText.rich(
+                AnsiParser.parse(
+                  errorMessage,
+                  baseStyle: GoogleFonts.jetBrainsMono(
+                    fontSize: 11,
+                    color: AppColors.error.withValues(alpha: 0.9),
+                    height: 1.4,
+                  ),
                 ),
               ),
             ),
@@ -698,13 +701,14 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
         borderRadius: BorderRadius.circular(6),
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(8),
-          child: SelectableText(
-            content,
-            style: const TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 11,
-              color: AppColors.textSecondary,
-              height: 1.4,
+          child: SelectableText.rich(
+            AnsiParser.parse(
+              content,
+              baseStyle: GoogleFonts.jetBrainsMono(
+                fontSize: 11,
+                color: AppColors.textSecondary,
+                height: 1.4,
+              ),
             ),
           ),
         ),

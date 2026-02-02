@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../models/adk_schema.dart';
 import '../../services/dashboard_state.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/ansi_parser.dart';
 
 /// Dashboard panel for exploring all collected log data.
 ///
@@ -314,15 +315,18 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
                       ),
                       // Payload preview
                       Expanded(
-                        child: Text(
-                          entry.payloadPreview,
-                          style: GoogleFonts.jetBrainsMono(
-                            fontSize: 11,
-                            color: AppColors.textSecondary,
+                        child: RichText(
+                          text: AnsiParser.parse(
+                            entry.payloadPreview,
+                            baseStyle: GoogleFonts.jetBrainsMono(
+                              fontSize: 11,
+                              color: AppColors.textSecondary,
+                            ),
                           ),
                           maxLines: isExpanded ? null : 1,
-                          overflow:
-                              isExpanded ? null : TextOverflow.ellipsis,
+                          overflow: isExpanded
+                              ? TextOverflow.visible
+                              : TextOverflow.ellipsis,
                         ),
                       ),
                     ],

@@ -28,6 +28,7 @@ class MockAuthService extends ChangeNotifier implements AuthService {
   @override Future<void> init() async {}
   @override Future<void> signIn() async {}
   @override Future<void> signOut() async {}
+  @override void loginAsGuest() {}
   @override void reset() {}
   @override set currentUser(GoogleSignInAccount? user) {}
   @override Future<Map<String, String>> getAuthHeaders() async => {};

@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../widgets/auth/google_sign_in_button.dart';
@@ -180,20 +181,30 @@ class LoginPage extends StatelessWidget {
                               );
                             }
 
-                            return GoogleSignInButton(
-                              onMobileSignIn: () async {
-                                try {
-                                  await auth.signIn();
-                                } catch (e) {
-                                  if (context.mounted) {
-                                    StatusToast.show(
-                                      context,
-                                      'Login failed: $e',
-                                      isError: true,
-                                    );
-                                  }
-                                }
-                              },
+                            return Column(
+                              children: [
+                                GoogleSignInButton(
+                                  onMobileSignIn: () async {
+                                    try {
+                                      await auth.signIn();
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        StatusToast.show(
+                                          context,
+                                          'Login failed: $e',
+                                          isError: true,
+                                        );
+                                      }
+                                    }
+                                  },
+                                ),
+                                if (kDebugMode) ...[
+                                  const SizedBox(height: 24),
+                                  _GuestLoginButton(
+                                    onPressed: () => auth.loginAsGuest(),
+                                  ),
+                                ],
+                              ],
                             );
                           },
                         ),
@@ -383,6 +394,65 @@ class _AnimatedPhysicsRobotState extends State<_AnimatedPhysicsRobot>
                 ),
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GuestLoginButton extends StatefulWidget {
+  final VoidCallback onPressed;
+
+  const _GuestLoginButton({required this.onPressed});
+
+  @override
+  State<_GuestLoginButton> createState() => _GuestLoginButtonState();
+}
+
+class _GuestLoginButtonState extends State<_GuestLoginButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        child: OutlinedButton(
+          onPressed: widget.onPressed,
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 20),
+            side: BorderSide(
+              color: _isHovered ? AppColors.primaryCyan : Colors.white24,
+              width: 1.5,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(50),
+            ),
+            backgroundColor: _isHovered
+                ? Colors.white.withValues(alpha: 0.05)
+                : Colors.transparent,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.person_outline,
+                color: _isHovered ? AppColors.primaryCyan : Colors.white70,
+                size: 20,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Login as Guest',
+                style: GoogleFonts.inter(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: _isHovered ? Colors.white : Colors.white70,
+                ),
+              ),
+            ],
           ),
         ),
       ),

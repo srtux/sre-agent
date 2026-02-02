@@ -55,6 +55,9 @@ class MockAuthService extends ChangeNotifier implements AuthService {
   }
 
   @override
+  void loginAsGuest() {}
+
+  @override
   void reset() {}
 
   // Boilerplate implementation of AuthService abstract members

@@ -288,6 +288,15 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  /// Bypasses SSO and logs in as a guest (for local development)
+  void loginAsGuest() {
+    debugPrint('AuthService: Logging in as Guest (Bypassing SSO)');
+    _isAuthEnabled = false;
+    _isLoading = false;
+    _currentUser = null;
+    notifyListeners();
+  }
+
   /// Sign out
   Future<void> signOut() async {
     await _googleSignIn.signOut();

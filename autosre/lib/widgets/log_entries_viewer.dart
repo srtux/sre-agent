@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/adk_schema.dart';
 import '../theme/app_theme.dart';
+import '../utils/ansi_parser.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 /// A Datadog-style log entries viewer with expandable JSON payloads.
 class LogEntriesViewer extends StatefulWidget {
@@ -567,15 +569,19 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
                           ),
                           const SizedBox(height: 6),
                           // Message preview
-                          Text(
-                            entry.payloadPreview,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textPrimary,
-                              height: 1.4,
+                          RichText(
+                            text: AnsiParser.parse(
+                              entry.payloadPreview,
+                              baseStyle: GoogleFonts.jetBrainsMono(
+                                fontSize: 11,
+                                color: AppColors.textPrimary,
+                                height: 1.4,
+                              ),
                             ),
                             maxLines: isExpanded ? null : 2,
-                            overflow: isExpanded ? null : TextOverflow.ellipsis,
+                            overflow: isExpanded
+                                ? TextOverflow.visible
+                                : TextOverflow.ellipsis,
                           ),
                         ],
                       ),
