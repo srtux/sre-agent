@@ -38,6 +38,7 @@ Auto SRE embraces **"Vibe Coding"**—moving at high speed with AI while maintai
     *   `dart format .`
     *   `flutter analyze .`
     *   `flutter test`
+*   **Service Access**: Use `context.read<T>()` or `context.watch<T>()`. Avoid direct singleton access (e.g., `T.instance`) to maintain testability.
 
 ### 4. Git Standards
 *   **Conventional Commits**:

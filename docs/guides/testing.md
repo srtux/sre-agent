@@ -23,6 +23,7 @@ Our philosophy is simple: **If it's not tested, it's broken.**
 | **Behavioral** | `openspec/specs/` | **OpenSpec** | "Source of Truth" specs defining behavior and acceptance criteria. |
 | **Unit** | `tests/unit/` | `pytest` | Isolated logic, pure functions, tool implementations with mocked clients. |
 | **Integration** | `tests/integration/` | `pytest` | Interactions between services (e.g., Session Service + DB), State management. |
+| **Frontend** | `autosre/test/` | `flutter test` | Widget tests, Layout verification, Service injection testing. |
 | **System** | `tests/server/` | `pytest` | API endpoints, Middleware, Authentication flow, and Routing. |
 | **Agent Eval** | `eval/` | **ADK Eval** | "World-Class" reasoning validation. Uses LLM-as-a-judge and trajectory scoring. |
 | **E2E** | `tests/e2e/` | `pytest` | Full agent loops, user query to final remediation plan. |
@@ -114,3 +115,8 @@ For detailed coverage reports:
 ```bash
 uv run pytest --cov=sre_agent --cov-report=term-missing
 ```
+
+---
+
+## 📱 Frontend Testing
+For details on how to test the Flutter dashboard and use the `test_helper.dart` utility, see **[docs/guides/frontend_testing.md](frontend_testing.md)**.

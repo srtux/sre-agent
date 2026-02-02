@@ -45,3 +45,21 @@ This document records significant architectural decisions, dependency constraint
     The `get_model_name()` function in `sre_agent/model_config.py` detects the environment and returns the appropriate model string. All agents and sub-agents should use this function rather than hardcoding model IDs.
 *   **Action for Update**:
     Monitor Agent Engine support for Gemini 3.0. Once it reaches GA on the platform, the transition can be made to use Gemini 3.0 everywhere.
+
+---
+
+## Frontend Architecture
+
+### Flutter Service Injection via Provider vs. Singletons
+
+*   **Date**: February 1, 2026
+*   **Decision**: Migrate all Flutter services (Auth, Project, Session, etc.) from direct singleton access to **Provider-based Dependency Injection**.
+*   **Context**:
+    Initially, widgets like `ConversationPage` accessed services via `Service.instance` singletons. This made writing unit/widget tests extremely difficult, as these singletons often had transitive dependencies on SDKs (like `google_sign_in`) that crashed in headless test environments.
+*   **Rationale**:
+    Using the `Provider` pattern allows widgets to consume services from the `BuildContext`. This decoupling enables test suites to inject mock services at any level of the widget tree without modifying the underlying service implementation. It also aligns with Flutter's best practices for state management and reactive updates.
+*   **Implementation**:
+    1.  All services now support a static `mockInstance` for global override in non-widget code.
+    2.  `SreNexusApp` (`lib/app.dart`) provides all services via `MultiProvider`.
+    3.  `ConversationPage` and other widgets now use `context.read<T>()` or `context.watch<T>()` instead of `T.instance`.
+    4.  A `test_helper.dart` utility provides `wrapWithProviders` for rapid setup of test environments with full mock coverage.

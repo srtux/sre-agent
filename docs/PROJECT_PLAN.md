@@ -36,6 +36,10 @@ Auto SRE is an autonomous reliability engine for Google Cloud. We are transition
     *   Removed 1000+ lines of manual OpenTelemetry and Arize instrumentation logic.
     *   Adopted ADK native tracing and Agent Engine observability for internal agent telemetry.
     *   Reduced package dependencies and resolved OTLP export warnings.
+*   **Frontend Testing & Injection Overhaul**:
+    *   Migrated 100% of frontend services to the **Provider** pattern, enabling hermetic widget testing.
+    *   Created `test_helper.dart` with a standardized `wrapWithProviders` utility.
+    *   Fixed a "Zero Broken Windows" regression where dashboard tests were failing due to direct singleton access.
 
 ---
 

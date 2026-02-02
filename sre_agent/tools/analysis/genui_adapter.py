@@ -42,9 +42,14 @@ def transform_trace(trace_data: dict[str, Any]) -> dict[str, Any]:
             "error": err_msg,
         }
 
-    trace_id = trace_data.get("trace_id", "unknown")
+    trace_id = (
+        trace_data.get("trace_id", "unknown")
+        if isinstance(trace_data, dict)
+        else "unknown"
+    )
     spans = []
-    for span in trace_data.get("spans", []):
+    raw_spans = trace_data.get("spans", []) if isinstance(trace_data, dict) else []
+    for span in raw_spans:
         # Ensure it's a dict
         if not isinstance(span, dict):
             continue
@@ -146,9 +151,15 @@ def transform_metrics(metric_data: Any) -> dict[str, Any]:
 
         # Standard ADK format
         return {
-            "metric_name": metric_data.get("metric_name", "Metric"),
-            "points": metric_data.get("points", []),
-            "labels": metric_data.get("labels", {}),
+            "metric_name": metric_data.get("metric_name", "Metric")
+            if isinstance(metric_data, dict)
+            else "Metric",
+            "points": metric_data.get("points", [])
+            if isinstance(metric_data, dict)
+            else [],
+            "labels": metric_data.get("labels", {})
+            if isinstance(metric_data, dict)
+            else {},
         }
     return {"metric_name": "Metric", "points": [], "labels": {}}
 
@@ -913,8 +924,10 @@ def transform_log_entries(
     # Handle case where log_data is the raw entries list
     if isinstance(log_data, list):
         raw_entries = log_data
-    else:
+    elif isinstance(log_data, dict):
         raw_entries = log_data.get("entries", [])
+    else:
+        raw_entries = []
 
     for entry in raw_entries:
         # Extract payload (can be text, JSON, or proto)

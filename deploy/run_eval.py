@@ -13,6 +13,7 @@ os.environ["DISABLE_TELEMETRY"] = "true"
 os.environ["OTEL_TRACES_EXPORTER"] = "none"
 os.environ["OTEL_METRICS_EXPORTER"] = "none"
 os.environ["OTEL_LOGS_EXPORTER"] = "none"
+os.environ["SRE_AGENT_EVAL_MODE"] = "true"
 
 from dotenv import load_dotenv
 

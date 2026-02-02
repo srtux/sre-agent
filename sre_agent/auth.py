@@ -264,10 +264,12 @@ def get_current_credentials() -> tuple[google.auth.credentials.Credentials, str 
             "Please ensure you are logged in via the web UI."
         )
 
-    logger.warning(
-        "⚠️ No user credentials (EUC) found in context. Falling back to Application Default Credentials (ADC). "
-        "This is expected for background tasks but may indicate an auth failure in interactive sessions."
-    )
+    is_eval = os.getenv("SRE_AGENT_EVAL_MODE", "false").lower() == "true"
+    if not is_eval:
+        logger.warning(
+            "⚠️ No user credentials (EUC) found in context. Falling back to Application Default Credentials (ADC). "
+            "This is expected for background tasks but may indicate an auth failure in interactive sessions."
+        )
     try:
         return google.auth.default()
     except Exception as e:
