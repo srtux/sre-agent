@@ -36,11 +36,10 @@ def sample_trace_dict():
     }
 
 
-@pytest.mark.asyncio
-async def test_analyze_trace_comprehensive(sample_trace_dict):
+def test_analyze_trace_comprehensive(sample_trace_dict):
     trace_json = json.dumps(sample_trace_dict)
     # We pass trace_json as trace_id because fetch_trace_data handles it
-    result = await analyze_trace_comprehensive(trace_json, project_id="test-project")
+    result = analyze_trace_comprehensive(trace_json, project_id="test-project")
 
     assert result["status"] == "success"
     assert result["trace_id"] == "test-trace-comprehensive"
@@ -58,8 +57,7 @@ async def test_analyze_trace_comprehensive(sample_trace_dict):
     assert result["structure"]["total_spans"] == 2
 
 
-@pytest.mark.asyncio
-async def test_analyze_trace_comprehensive_with_baseline(sample_trace_dict):
+def test_analyze_trace_comprehensive_with_baseline(sample_trace_dict):
     target_trace = sample_trace_dict.copy()
     target_trace["duration_ms"] = 2000.0
     # Update spans to match new duration
@@ -76,7 +74,7 @@ async def test_analyze_trace_comprehensive_with_baseline(sample_trace_dict):
     # which calls _fetch_traces_parallel, which calls fetch_trace_data...
     # passing baseline_json as baseline_trace_id SHOULD work if it's treated as a single list.
 
-    result = await analyze_trace_comprehensive(
+    result = analyze_trace_comprehensive(
         target_json, project_id="test-project", baseline_trace_id=baseline_json
     )
 
@@ -85,8 +83,7 @@ async def test_analyze_trace_comprehensive_with_baseline(sample_trace_dict):
     # Since we only have one baseline, stdev might be 0, but it should still return something.
 
 
-@pytest.mark.asyncio
-async def test_analyze_trace_comprehensive_error():
-    result = await analyze_trace_comprehensive(json.dumps({"error": "Not found"}))
+def test_analyze_trace_comprehensive_error():
+    result = analyze_trace_comprehensive(json.dumps({"error": "Not found"}))
     assert result["status"] == "error"
     assert "error" in result
