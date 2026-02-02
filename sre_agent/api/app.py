@@ -15,6 +15,7 @@ from sre_agent.api.middleware import configure_middleware
 from sre_agent.api.routers import (
     agent_router,
     health_router,
+    help_router,
     permissions_router,
     preferences_router,
     sessions_router,
@@ -70,6 +71,7 @@ def create_app(
     app.include_router(system_router)
     app.include_router(preferences_router)
     app.include_router(permissions_router)
+    app.include_router(help_router)
 
     # Register tool test functions
     register_all_test_functions()

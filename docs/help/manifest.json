@@ -1,0 +1,152 @@
+[
+  {
+    "id": "traces",
+    "title": "Traces & Spans",
+    "description": "Understand request flows and latency bottlenecks.",
+    "icon": "timeline",
+    "categories": [
+      "Observability"
+    ],
+    "content_file": "traces.md"
+  },
+  {
+    "id": "logs",
+    "title": "Logs & Patterns",
+    "description": "Analyze millions of log lines for errors and anomalies.",
+    "icon": "article",
+    "categories": [
+      "Observability"
+    ],
+    "content_file": "logs.md"
+  },
+  {
+    "id": "metrics",
+    "title": "Metrics & Burn Rate",
+    "description": "Track system health and SLO compliance.",
+    "icon": "bar_chart",
+    "categories": [
+      "Observability"
+    ],
+    "content_file": "metrics.md"
+  },
+  {
+    "id": "changes",
+    "title": "Changes & Deployments",
+    "description": "Correlate incidents with recent system changes.",
+    "icon": "history",
+    "categories": [
+      "Observability"
+    ],
+    "content_file": "changes.md"
+  },
+  {
+    "id": "rca",
+    "title": "Root Cause Analysis",
+    "description": "How the agent diagnoses complex failure modes.",
+    "icon": "psychology",
+    "categories": [
+      "Analysis"
+    ],
+    "content_file": "rca.md"
+  },
+  {
+    "id": "circuit_breaker",
+    "title": "Circuit Breakers",
+    "description": "Protecting your cloud resources during outages.",
+    "icon": "electric_bolt",
+    "categories": [
+      "Analysis"
+    ],
+    "content_file": "circuit_breaker.md"
+  },
+  {
+    "id": "postmortems",
+    "title": "Postmortems",
+    "description": "Generate blameless incident reports automatically.",
+    "icon": "assignment",
+    "categories": [
+      "Remediation"
+    ],
+    "content_file": "postmortems.md"
+  },
+  {
+    "id": "remediation",
+    "title": "Remediation Suggestions",
+    "description": "Get actionable steps to fix the issue.",
+    "icon": "build",
+    "categories": [
+      "Remediation"
+    ],
+    "content_file": "remediation.md"
+  },
+  {
+    "id": "incident_lifecycle",
+    "title": "Incident Lifecycle",
+    "description": "From alert to postmortem: the full workflow.",
+    "icon": "play_arrow",
+    "categories": [
+      "Workflows"
+    ],
+    "content_file": "incident_lifecycle.md"
+  },
+  {
+    "id": "safety",
+    "title": "Security & Safety",
+    "description": "Safety guardrails and read-only modes.",
+    "icon": "security",
+    "categories": [
+      "FAQ"
+    ],
+    "content_file": "safety.md"
+  },
+  {
+    "id": "custom_tools",
+    "title": "Adding Tools",
+    "description": "Can I add my own custom SRE tools?",
+    "icon": "build",
+    "categories": [
+      "FAQ"
+    ],
+    "content_file": "custom_tools.md"
+  },
+  {
+    "id": "model_info",
+    "title": "The Brain",
+    "description": "Which LLM powers the AutoSRE agent?",
+    "icon": "psychology",
+    "categories": [
+      "FAQ"
+    ],
+    "content_file": "model_info.md"
+  },
+  {
+    "id": "telemetry_source",
+    "title": "Data Sources",
+    "description": "Where does the agent get its data?",
+    "icon": "bar_chart",
+    "categories": [
+      "FAQ"
+    ],
+    "content_file": "telemetry_source.md"
+  },
+  {
+    "id": "deployment",
+    "title": "Cloud Run & Vertex AI",
+    "description": "How the infrastructure powers your investigation.",
+    "icon": "play_arrow",
+    "categories": [
+      "FAQ"
+    ],
+    "content_file": "deployment.md"
+  },
+  {
+    "id": "debugging_agent",
+    "title": "Fixing the Agent",
+    "description": "Troubleshoot Reasoning and Permission issues.",
+    "icon": "build",
+    "categories": [
+      "FAQ"
+    ],
+    "content_file": "debugging_agent.md"
+  }
+]
