@@ -28,8 +28,11 @@ The backend implements a multi-stage security pipeline in `sre_agent/api/middlew
 - **EUC Verification**: Regularly validates access tokens against Google's tokeninfo endpoint to ensure identity has not been revoked.
 - **Context Injection**: sets `Credentials` and `current_user_id` into `ContextVars` for downstream use by tools.
 
-### 2. Telemetry Propagation
-- Ensures that spans and traces from the backend itself are properly linked to the user's investigation if OpenTelemetry is enabled.
+### 2. Telemetry & Observability
+The backend is fully instrumented using OpenTelemetry:
+- **Native GenAI Tracing**: Uses the `GoogleGenAiSdkInstrumentor` to capture high-fidelity spans of the agent's internal reasoning.
+- **Multi-Receiver Pattern**: Supports simultaneous export to LangSmith (via `LANGSMITH_API_KEY`) and Google Cloud Trace (via `OTEL_TO_CLOUD=true`).
+- **Context Propagation**: Ensures that spans from the FastAPI proxy are correctly linked to the user's investigation trace.
 
 ---
 

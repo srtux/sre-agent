@@ -6,7 +6,7 @@ Auto SRE embraces **"Vibe Coding"**—moving at high speed with AI while maintai
 ### The 7-Step Lifecycle
 1.  **Context Loading**: Read `docs/architecture/system_overview.md` and source code to load the "vibe".
 2.  **Explicit Planning**: Review and update **`docs/PROJECT_PLAN.md`**. Never start coding without a clear roadmap entry.
-3.  **Spec-Driven TDD**: Write the test **first**. The test is the contract.
+3.  **Spec-Driven TDD**: Write the test **first**. The test is the contract. Aim for **100% code coverage** on all new tools and core logic.
 4.  **Micro-Iteration**: Make changes in small, testable chunks.
 5.  **Green-to-Fix Loop**: Make tests pass, then run `uv run poe lint-all`.
 6.  **Agentic Self-Critique**: Challenge your own design before asking for review.

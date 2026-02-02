@@ -61,6 +61,9 @@ uv run poe dev
 *   **Backend**: http://localhost:8001
 *   **Frontend**: http://localhost:3000
 
+> [!TIP]
+> To see agent logic traces in Google Cloud Trace while developing locally, set `OTEL_TO_CLOUD=true` and `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true` in your `.env`.
+
 Alternatively, run them separately:
 ```bash
 # Backend only

@@ -18,10 +18,18 @@ Use the `poe` task to run the suite against your current local changes:
 uv run poe eval
 ```
 
+### Vertex AI Synchronization
+To sync local evaluation results with the **Vertex AI GenAI Evaluation Service** (Rapid Eval), use:
+
+```bash
+uv run poe eval --sync
+```
+*   **Benefits**: Visualize historical quality trends, compare versions, and use standard Rubric-based grading in the GCP console.
+
 ## 🌉 CI/CD Quality Gate
 This suite is integrated into our `cloudbuild.yaml`. Every deployment is blocked until it passes:
-*   **100% Trajectory Score**: Ensures no regressions in the agent's diagnostic logic.
-*   **80%+ Rubric Score**: Uses `gemini-1.5-pro` as a "Teacher Model" to grade the technical quality of the response.
+*   **Trajectory Integrity**: Verified via `TrajectorEvaluator` to ensure correct tool sequence.
+*   **Technical Quality**: Graded via **Rubrics** using `gemini-1.5-pro` as the evaluator model, with optional sync to Vertex AI Experiments.
 
 ## 📈 Monitoring
 Results are exported to GCS and visualized in **Vertex AI Experiments**. See the [Monitoring Section](../../eval/README.md#📈-monitoring--historical-tracking) for details.

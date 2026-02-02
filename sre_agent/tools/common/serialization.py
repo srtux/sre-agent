@@ -24,11 +24,19 @@ def gcp_json_default(obj: Any) -> Any:
 
     # Check for Pydantic v2 models
     if hasattr(obj, "model_dump"):
-        return obj.model_dump()
+        try:
+            return obj.model_dump()
+        except Exception:
+            # Fallback for models containing un-serializable types
+            if hasattr(obj, "__dict__"):
+                return dict(obj.__dict__)
 
     # Check for proto-plus or other objects with to_dict
     if hasattr(obj, "to_dict"):
-        return obj.to_dict()
+        try:
+            return obj.to_dict()
+        except Exception:
+            pass
 
     # Handle datetime and other common types
     if hasattr(obj, "isoformat"):
@@ -85,6 +93,11 @@ def normalize_obj(obj: Any) -> Any:
     try:
         # If it's still not a basic type, try normalized default
         res = gcp_json_default(obj)
+
+        # If gcp_json_default just returned the same object, avoid infinite recursion
+        if res is obj:
+            return str(obj)
+
         # If gcp_json_default returned a container, we need to normalize its contents too
         if isinstance(res, dict | list):
             return normalize_obj(res)

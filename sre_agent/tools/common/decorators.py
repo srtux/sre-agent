@@ -99,7 +99,18 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
             from sre_agent.schema import BaseToolResponse
 
             if isinstance(result, BaseToolResponse):
-                return result
+                # Normalize the internal result and metadata of the BaseToolResponse
+                # This ensures that even when returned in an envelope, GCP types are cleaned
+                normalized_result = normalize_obj(result.result)
+                normalized_metadata = normalize_obj(result.metadata)
+
+                # BaseToolResponse is frozen, so we use model_copy
+                return result.model_copy(
+                    update={
+                        "result": normalized_result,
+                        "metadata": normalized_metadata,
+                    }
+                )
 
             # Normalize result (convert GCP types to native Python types)
             return normalize_obj(result)
@@ -172,7 +183,17 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
             from sre_agent.schema import BaseToolResponse
 
             if isinstance(result, BaseToolResponse):
-                return result
+                # Normalize the internal result and metadata of the BaseToolResponse
+                normalized_result = normalize_obj(result.result)
+                normalized_metadata = normalize_obj(result.metadata)
+
+                # BaseToolResponse is frozen, so we use model_copy
+                return result.model_copy(
+                    update={
+                        "result": normalized_result,
+                        "metadata": normalized_metadata,
+                    }
+                )
 
             return normalize_obj(result)
         except Exception as e:

@@ -31,15 +31,15 @@ The **Investigation Dashboard** is a real-time, interactive UI built into the Fl
     *   **Risk Badges**: High-risk commands (e.g., `restart`, `scale`) are highlighted with warning badges.
 
 ## 🛠️ Architecture
-
-*   **State Management**: `DashboardState` (Provider) acts as the singleton store for all telemetry data.
-*   **Data Source**: The backend streams `ToolCall` and `LogEntry` objects via the unified Server-Sent Events (SSE) or GenUI protocol.
-*   **Performance**: The dashboard uses virtualized lists to handle thousands of log entries without lag.
+-   **Decoupled Data Channel**: The dashboard is independent of the chat-based A2UI protocol. It listens to a dedicated `dashboard` event stream.
+-   **State Management**: `DashboardState` (`lib/services/dashboard_state.dart`) acting as a singleton provider.
+-   **High-Performance Canvas**: Uses `CustomPainter` (`lib/widgets/canvas/`) for flicker-free, real-time metric visualization.
+-   **State Reconstruction**: Automatically rebuilds historical dashboard state from persistent session DB during hot-restarts.
 
 ## 🚀 How to Use
 
 1.  **Open Dashboard**: Click the "Pulse" icon in the top-right app bar.
-2.  **Split View**: The dashboard opens in a split pane next to the chat.
+2.  **Split View**: Use the **Resizable Divider** to adjust the balance between chat and situational metrics.
 3.  **Drill Down**:
     *   If the agent says "I found an error", open the **Logs** tab to see the raw error.
     *   If the agent seems slow, open the **Traces** tab to see which tool is hanging.

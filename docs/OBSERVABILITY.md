@@ -2,18 +2,16 @@
 
 This document explains the logging and tracing architecture of the SRE Agent, specifically designed for Google Cloud Observability.
 
-## 1. End-to-End Tracing & Correlation (Context Hijacking)
+## 1. Hybrid Telemetry Strategy (February 2026)
 
-The SRE Agent uses a custom "REST-Bridge" pattern to correlate logs and traces across Cloud Run (Frontend) and Agent Engine (Backend).
+The SRE Agent utilizes a tiered observability approach, combining native ADK orchestration tracing with high-fidelity Google GenAI instrumentation.
 
 ### How it works:
-1.  **Context Capture**: In the `AgentEngineClient`, we extract the full OpenTelemetry `SpanContext` (Trace ID, Span ID, and Trace Flags) from the active request.
-2.  **Encrypted Injection**: This context is injected into the ADK Session State using internal keys (`_trace_id`, `_span_id`, `_trace_flags`).
-3.  **Context Restoration**: On the Agent Engine side (via `emojify_agent`), we:
-    *   Initialize the global `set_trace_id` for log correlation.
-    *   Reconstruct a valid `NonRecordingSpan` using the propagated IDs.
-    *   **CRITICAL**: We ensure the `span_id` is **non-zero**. If the frontend span is missing, we derive a deterministic non-zero ID from the Trace ID.
-4.  **Result**: A single, unified trace tree in **Google Cloud Trace** that spans multiple services.
+1.  **Native GenAI Tracing**: Uses the `GoogleGenAiSdkInstrumentor` to capture the internal reasoning process of Gemini models.
+2.  **Context Propagation**: In the `AgentEngineClient`, we extract the full OpenTelemetry `SpanContext` (Trace ID, Span ID) from the active request and propagate it to the Agent Engine.
+3.  **Encrypted Injection**: This context is securely injected into the session state using internal keys (`_trace_id`, `_span_id`).
+4.  **Multi-Receiver Coexistence**: Setting `OTEL_TO_CLOUD=true` enables simultaneous export to **Google Cloud Trace** and **LangSmith** (if configured).
+5.  **Result**: A unified, high-fidelity trace tree in GCP that captures both infrastructural flow and AI reasoning prompts/responses.
 
 ## 2. Structured Logging (JSON)
 
@@ -60,5 +58,6 @@ To maintain high signal-to-noise ratios, the agent uses standard Python logging 
 | :--- | :--- | :--- |
 | `LOG_LEVEL` | Logging level (DEBUG, INFO, etc.) | `INFO` |
 | `LOG_FORMAT` | Log output format (TEXT or JSON) | `TEXT` |
-| `DISABLE_TELEMETRY` | Disable all tracing and metrics | `false` |
+| `OTEL_TO_CLOUD` | Enable Google Cloud Trace exporter | `false` |
+| `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` | Capture prompts/responses in traces | `false` |
 | `DISABLE_TELEMETRY` | Disable all tracing and metrics | `false` |

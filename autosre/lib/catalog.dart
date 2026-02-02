@@ -9,6 +9,7 @@ import 'widgets/log_entries_viewer.dart';
 import 'widgets/log_pattern_viewer.dart';
 import 'widgets/metric_chart.dart';
 import 'widgets/remediation_plan.dart';
+import 'widgets/tool_log.dart';
 import 'widgets/trace_waterfall.dart';
 // Canvas widgets
 import 'widgets/canvas/agent_activity_canvas.dart';
@@ -312,6 +313,23 @@ class CatalogRegistry {
               child: AIReasoningCanvas(data: reasoningData),
               height: 480,
             );
+          } catch (e) {
+            return ErrorPlaceholder(error: e);
+          }
+        },
+      ),
+      CatalogItem(
+        name: 'x-sre-tool-log',
+        dataSchema: S.any(),
+        widgetBuilder: (context) {
+          try {
+            final data = _unwrapComponentData(
+              context.data,
+              'x-sre-tool-log',
+            );
+
+            final log = ToolLog.fromJson(data);
+            return ToolLogWidget(log: log);
           } catch (e) {
             return ErrorPlaceholder(error: e);
           }

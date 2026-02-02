@@ -22,9 +22,9 @@ This document details all environment variables used to configure the Auto SRE A
 | `RUNNING_IN_AGENT_ENGINE` | Set to `true` by `deploy.py` on the Backend to trigger remote-mode behaviors (like using `VertexAiSessionService`) even when `SRE_AGENT_ID` is unset. | `false` |
 | `STRICT_EUC_ENFORCEMENT` | If `true`, fails requests if user credentials in the context are missing. If `false`, falls back to Application Default Credentials (ADC). **Set to `false` for local `adk web` development.** | `false` |
 | `ENABLE_AUTH` | If `false`, disables SSO and injects dummy/dev credentials. **Set to `false` ONLY for local testing to bypass authentication.** | `true` |
+| `OTEL_TO_CLOUD` | If `true`, enables the Google Cloud Trace exporter for native OTel spans. | `false` |
+| `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` | If `true`, captures the full content of prompts and responses in traces. | `false` |
 | `CORS_ALLOW_ALL` | If `true`, allows all origins in FastAPI middleware. Useful for development. | `false` |
-| `SRE_AGENT_ENFORCE_POLICY` | Enable/disable the tool policy engine. **Note**: Currently lenient; enforcement generates warnings/approvals rather than blocking. | `true` |
-| `SRE_AGENT_LOOSE_POLICIES` | If `true`, keep policies active but allow tools requiring project context even if it's missing. **Note**: This is now effectively the default behavior in the current experimental phase. | `true` |
 | `SECURE_COOKIES` | If `true`, session cookies are marked as `Secure`. Set to `false` for local `http` dev. | `true` |
 
 ## Telemetry & Debugging
@@ -40,9 +40,11 @@ This document details all environment variables used to configure the Auto SRE A
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `USE_ARIZE` | Enable Arize AX observability. | `false` |
-| `ARIZE_SPACE_ID` | Arize Space ID. | - |
-| `ARIZE_API_KEY` | Arize API Key. | - |
+| `USE_ARIZE` | **DEPRECATED**. Replaced by native OTel + LangSmith. | `false` |
+| `ARIZE_SPACE_ID` | **DEPRECATED**. | - |
+| `ARIZE_API_KEY` | **DEPRECATED**. | - |
+| `LANGSMITH_TRACING` | Enable LangSmith tracing for local/agentic debugging. | `false` |
+| `LANGSMITH_API_KEY` | LangSmith API Key. | - |
 | `TRACE_PROJECT_ID` | Override project for Cloud Trace queries (if different from host). | `GOOGLE_CLOUD_PROJECT` |
 | `GEMINI_API_KEY` | Your Google API Key (if not using ADC/Service Account). | - |
 | `GOOGLE_API_KEY` | Alias for `GEMINI_API_KEY`. | - |

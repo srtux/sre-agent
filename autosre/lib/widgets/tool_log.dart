@@ -128,14 +128,19 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
     // Extract error message for preview if needed
     String? errorMessage;
     if (isError && widget.log.result != null) {
-      if (widget.log.result!.contains('"error"')) {
-        try {
-          final decoded = jsonDecode(widget.log.result!);
-          if (decoded is Map && decoded.containsKey('error')) {
+      try {
+        final decoded = jsonDecode(widget.log.result!);
+        if (decoded is Map) {
+          if (decoded['error'] != null) {
             errorMessage = decoded['error'].toString();
+          } else if (decoded['status'] != null &&
+              (decoded['status'] == 'error' ||
+                  decoded['status'] == 'failure' ||
+                  decoded['status'] == 'failed')) {
+            errorMessage = 'Task failed with status: ${decoded['status']}';
           }
-        } catch (_) {}
-      }
+        }
+      } catch (_) {}
       errorMessage ??= 'Output contains error'; // Fallback
     }
 
@@ -218,8 +223,8 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
                           'Input',
                         ),
                       ),
-                      // Output section
-                      if (completed && widget.log.result != null) ...[
+                      // Output section (only if not an error)
+                      if (completed && widget.log.result != null && !isError) ...[
                         const SizedBox(height: 10),
                         _buildSection(
                           title: 'Output',
@@ -235,13 +240,6 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
                         const SizedBox(height: 10),
                         _buildErrorSection(errorMessage ?? widget.log.result!),
                       ],
-                      // If strict error detection triggered but not original error status, show output as error
-                      if (isError &&
-                          !widget.log.status.contains('error') &&
-                          widget.log.result != null) ...[
-                        const SizedBox(height: 10),
-                        _buildErrorSection(widget.log.result!),
-                      ],
                     ],
                   ),
                 ),
@@ -254,18 +252,33 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
   }
 
   bool _checkForError() {
-    // 1. Check status
+    // 1. Check top-level status
     if (widget.log.status == 'error') return true;
 
-    // 2. Check result for error keys (Strict Mode)
+    // 2. Check result for error indicators (Strict Mode for JSON responses)
     if (widget.log.status == 'completed' && widget.log.result != null) {
       final result = widget.log.result!;
-      if (result.contains('"error"')) {
+      if (result.contains('"error"') || result.contains('"status"')) {
         try {
           final decoded = jsonDecode(result);
-          if (decoded is Map && decoded.containsKey('error')) return true;
+          if (decoded is Map) {
+            // Check for explicit error field that is NOT null
+            if (decoded.containsKey('error') && decoded['error'] != null) {
+              return true;
+            }
+            // Check for status-based failure
+            final status = decoded['status']?.toString().toLowerCase();
+            if (status != null &&
+                (status == 'error' || status == 'failed' || status == 'failure')) {
+              return true;
+            }
+          }
         } catch (_) {
-          if (result.contains('"error":')) return true;
+          // Fallback if decoding fails, but only if it strongly smells like error
+          if (result.contains('"error": "') ||
+              result.contains('"status": "error"')) {
+            return true;
+          }
         }
       }
     }

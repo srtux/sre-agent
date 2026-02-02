@@ -14,7 +14,8 @@
 2.  **Test First**: Create/update tests *before* implementing logic.
 3.  **Lint Always**: `uv run poe lint-all` must be clean.
 4.  **No Hallucinations**: Read `pydantic` schemas; use `extra="forbid"`.
-5.  **Compaction**: Update `PROJECT_PLAN.md` and docs when task completes.
+5.  **Coverage Target**: Aim for **100% test coverage** on all new tools and core logic.
+6.  **Compaction**: Update `PROJECT_PLAN.md` and docs when task completes.
 
 ## 🚀 Quick Start for Agents
 
@@ -284,6 +285,27 @@ SESSION_STATE_PROJECT_ID_KEY = "_user_project_id"
 
 **STRICT_EUC_ENFORCEMENT**:
 When `STRICT_EUC_ENFORCEMENT=true`, tools will raise `PermissionError` instead of falling back to Application Default Credentials.
+
+### 11. Dashboard Dedicated Data Channel Pattern (CRITICAL)
+
+To prevent brittle UI rendering, the Investigation Dashboard is decoupled from the chat-based A2UI protocol.
+
+**Backend Implementation**:
+- Instead of nesting dashboard data inside A2UI widgets, emit a flat event:
+```python
+{
+    "type": "dashboard",
+    "metrics": [...],
+    "alerts": [...],
+    "causal_graph": {...}
+}
+```
+- Emitted from `sre_agent/api/helpers/tool_events.py` via `emit_dashboard_event`.
+
+**Frontend implementation**:
+- `ADKContentGenerator` exposes a `dashboardStream`.
+- `ConversationPage` subscribes to this stream and updates `DashboardState`.
+- A2UI remains solely for in-chat tool log bubbles.
 
 ---
 

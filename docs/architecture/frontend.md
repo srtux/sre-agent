@@ -21,10 +21,11 @@ The heart of the UI is the `ConversationPage`, which orchestrates the interactio
 ### 1. NDJSON Stream Handling
 The frontend consumes a **Streaming NDJSON** API from the backend.
 - It processes events in real-time as they are emitted by the Agent Engine.
-- Events include: `text` (markdown), `thought` (reasoning), `tool_call` (step tracking), and `widget` (GenUI).
+- Events include: `text` (markdown), `thought` (reasoning), `tool_call` (step tracking), `widget` (GenUI), and **`dashboard`** (dedicated data channel).
 
 ### 2. AdkContentGenerator
 A specialized class that handles the low-level HTTP streaming and transforms the JSON stream into a high-level `GenUiConversation` model.
+- **`dashboardStream`**: A dedicated stream that emits flat metric and alert data for the Investigation Dashboard, decoupled from the chat-based A2UI protocol.
 
 ---
 
@@ -49,6 +50,17 @@ The SRE Agent uses a dynamic widget system to visualize telemetry. When the back
 | **MetricChart**| Timeseries visualization | `query_promql` |
 | **LogPatternViewer**| Cluster log visualization | `extract_log_patterns` |
 | **RemediationPlan** | Interactive fix checklists | `generate_remediation_suggestions` |
+
+---
+
+## The Investigation Dashboard (Decoupled)
+
+The SRE Agent features a dedicated Investigation Dashboard that provides real-time situational awareness. Unlike standard GenUI widgets that are nested within the chat, the dashboard data is transmitted via a **Dedicated Data Channel** (`type: dashboard` events).
+
+### Key Components:
+- **`DashboardState`**: Centralized state manager for the dashboard (`lib/services/dashboard_state.dart`).
+- **`MetricDashboardCanvas`**: Uses high-performance custom painting to visualize timeseries data without the overhead of standard Flutter chart libraries.
+- **`DashboardResizeDivider`**: Allows the user to dynamically split the screen between the investigation thread and the situational dashboard.
 
 ---
 

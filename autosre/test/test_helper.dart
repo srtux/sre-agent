@@ -11,6 +11,9 @@ import 'package:autosre/services/prompt_history_service.dart';
 import 'package:autosre/services/dashboard_state.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
+import 'package:autosre/agent/adk_content_generator.dart';
+import 'package:genui/genui.dart';
+import 'dart:async';
 
 class MockAuthService extends ChangeNotifier implements AuthService {
   final bool _authenticated;
@@ -87,6 +90,59 @@ class MockToolConfigService implements ToolConfigService {
   @override Future<bool> enableCategory(ToolCategory category) async => true;
   @override Future<bool> disableCategory(ToolCategory category) async => true;
   @override void dispose() {}
+}
+
+class MockADKContentGenerator implements ADKContentGenerator {
+  final StreamController<A2uiMessage> _a2uiController = StreamController<A2uiMessage>.broadcast();
+  final StreamController<String> _textController = StreamController<String>.broadcast();
+  final StreamController<ContentGeneratorError> _errorController = StreamController<ContentGeneratorError>.broadcast();
+  final StreamController<String> _sessionController = StreamController<String>.broadcast();
+  final StreamController<String> _uiMessageController = StreamController<String>.broadcast();
+  final StreamController<List<String>> _suggestionsController = StreamController<List<String>>.broadcast();
+  final StreamController<Map<String, dynamic>> _dashboardController = StreamController<Map<String, dynamic>>.broadcast();
+  final StreamController<Map<String, dynamic>> _toolCallController = StreamController<Map<String, dynamic>>.broadcast();
+  final ValueNotifier<bool> _isProcessing = ValueNotifier(false);
+  final ValueNotifier<bool> _isConnected = ValueNotifier(true);
+
+  @override Stream<A2uiMessage> get a2uiMessageStream => _a2uiController.stream;
+  @override Stream<String> get textResponseStream => _textController.stream;
+  @override Stream<ContentGeneratorError> get errorStream => _errorController.stream;
+  @override Stream<String> get sessionStream => _sessionController.stream;
+  @override Stream<String> get uiMessageStream => _uiMessageController.stream;
+  @override Stream<List<String>> get suggestionsStream => _suggestionsController.stream;
+  @override Stream<Map<String, dynamic>> get dashboardStream => _dashboardController.stream;
+  @override Stream<Map<String, dynamic>> get toolCallStream => _toolCallController.stream;
+  @override ValueListenable<bool> get isProcessing => _isProcessing;
+  @override ValueListenable<bool> get isConnected => _isConnected;
+
+  @override String? projectId;
+  @override String? sessionId;
+  @override String get baseUrl => 'http://mock';
+
+  void emitToolCall(Map<String, dynamic> event) => _toolCallController.add(event);
+  void emitText(String text) => _textController.add(text);
+  void emitUiMessage(String surfaceId) => _uiMessageController.add(surfaceId);
+  void setProcessing(bool value) => _isProcessing.value = value;
+
+  @override Future<void> sendRequest(ChatMessage message, {Iterable<ChatMessage>? history, A2UiClientCapabilities? clientCapabilities}) async {}
+  @override Future<void> fetchSuggestions() async {}
+  @override void cancelRequest() {}
+  @override void clearSession() {}
+  @override void dispose() {
+    _a2uiController.close();
+    _textController.close();
+    _errorController.close();
+    _sessionController.close();
+    _uiMessageController.close();
+    _suggestionsController.close();
+    _dashboardController.close();
+    _toolCallController.close();
+    // Only dispose if they haven't been disposed yet?
+    // Actually, it's safer to just catch or avoid if double-dip.
+    // In this case, ConversationPage also disposes it.
+  }
+
+  @override dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 void setupMockSingletons({

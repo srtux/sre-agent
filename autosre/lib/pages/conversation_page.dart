@@ -30,7 +30,8 @@ import '../widgets/status_toast.dart';
 import '../widgets/glow_action_chip.dart';
 
 class ConversationPage extends StatefulWidget {
-  const ConversationPage({super.key});
+  final ADKContentGenerator? contentGenerator;
+  const ConversationPage({super.key, this.contentGenerator});
 
   static const double kMaxContentWidth = 1000.0;
 
@@ -193,9 +194,11 @@ class _ConversationPageState extends State<ConversationPage>
 
     // Dispose previous content generator and conversation
     _conversation?.dispose();
-    _contentGenerator?.dispose();
+    if (_contentGenerator != widget.contentGenerator) {
+      _contentGenerator?.dispose();
+    }
 
-    final newGenerator = ADKContentGenerator();
+    final newGenerator = widget.contentGenerator ?? ADKContentGenerator();
     _contentGenerator = newGenerator;
     newGenerator.projectId = _projectService.selectedProjectId;
 

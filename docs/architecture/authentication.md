@@ -12,8 +12,8 @@ The SRE Agent uses a **Hybrid Authentication Strategy** that combines Google OAu
 ## Local Development Bypass
 
 For local testing, authentication can be disabled by setting `ENABLE_AUTH=false`. In this mode:
-- **Backend**: The `auth_middleware` injects a dummy "dev" identity (`dev@local.test`) if no valid credentials are provided.
 - **Frontend**: The app skips the Google Sign-In flow and assumes a "Local Dev" user state.
+- **Environment Variable**: Run `ENABLE_AUTH=false uv run poe dev` to use this mode.
 - **Security Check**: This mode is strictly for development and should never be enabled in production environments exposed to the internet.
 
 ---

@@ -2,16 +2,16 @@
 
 This document describes the telemetry and observability architecture for the SRE Agent.
 
-## Minimalist Telemetry Standard (January 2026)
+## Hybrid Telemetry Strategy (February 2026)
 
-As of January 2026, the SRE Agent has moved to a **Minimalist Telemetry Standard**. We have completely removed all manual/custom OpenTelemetry (OTel) and Arize instrumentation from the codebase.
+As of February 2026, the SRE Agent uses a **Hybrid Telemetry Strategy**. While we still rely on the [Google Agent Development Kit (ADK)](https://github.com/google/adk) for core orchestration, we have introduced high-fidelity native instrumentation for the underlying Gemini models.
 
 ### Core Principles
 
-1.  **Reliance on Native ADK Instrumentation**: The agent now defers entirely to the [Google Agent Development Kit (ADK)](https://github.com/google/adk) and its native integration with the **Vertex AI Agent Engine**.
-2.  **No Manual Spans**: Tools and sub-agents no longer call `tracer.start_as_current_span()` or manually set OTel attributes.
-3.  **Automatic High-Fidelity Tracing**: By setting the environment variable `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true`, the ADK automatically captures all prompts, responses, and tool calls with full fidelity, exporting them to Cloud Trace via the Agent Engine service.
-4.  **Standardized Response Logging**: Instead of manual instrumentation, the `@adk_tool` decorator and `BaseToolResponse` structure provide consistent visibility into tool execution via standard logging.
+1.  **Native GenAI Instrumentation**: We use the `GoogleGenAiSdkInstrumentor` to capture the "black box" reasoning inside Gemini calls. This captures detailed prompt/response pairs with native OTel semantics.
+2.  **Multi-Receiver Coexistence Pattern**: Supports simultaneous export to both **LangSmith** (for agentic debugging) and **Google Cloud Trace** (for production observability).
+3.  **Automatic High-Fidelity Capture**: Enabled by setting `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true`.
+4.  **Zero-Invasive Tools**: Individual tool implementations remain clean and rely on the `@adk_tool` decorator for automatic span generation.
 
 ---
 
@@ -37,7 +37,8 @@ To keep logs readable, the following "chatty" libraries are explicitly silenced 
 
 To enable full visibility into agent reasoning:
 
-*   `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true`: Enables high-fidelity prompt/response capture in Cloud Trace.
+*   `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true`: Enables high-fidelity prompt/response capture in Cloud Trace and LangSmith.
+*   `OTEL_TO_CLOUD=true`: Enables the Cloud Trace exporter for native GCP observability.
 *   `SUPPRESS_OTEL_ERRORS=true`: Suppresses non-critical OTLP export warnings to keep logs clean.
 
 ---
@@ -93,7 +94,7 @@ While we prefer native ADK tracing for production, **LangSmith** is supported fo
 *   **Thread View**: Groups interactions by session ID, allowing you to see the full conversation history.
 *   **Metadata**: Automatically captures user ID and session tags if available.
 
-**Note**: LangSmith tracing is currently disabled when running inside Agent Engine to strictly adhere to the native ADK telemetry standard.
+**Note**: In the new hybrid strategy, LangSmith tracing can coexist with Cloud Trace if `OTEL_TO_CLOUD=true` and `LANGSMITH_TRACING=true` are both set.
 
 ---
 
