@@ -22,7 +22,11 @@ from ..tools import (
     correlate_logs_with_trace,
     correlate_trace_with_metrics,
     detect_trend_changes,
+    estimate_remediation_risk,
     fetch_trace,
+    # Remediation
+    generate_remediation_suggestions,
+    get_gcloud_commands,
     # Investigation
     get_investigation_summary,
     list_log_entries,
@@ -58,6 +62,7 @@ Your job is to take the findings from Triage (Trace Analysis) and determine the 
 2.  **Correlate**: Use `build_cross_signal_timeline` or `correlate_logs_with_trace` to see if logs/metrics confirm the theory.
 3.  **The "Who" (Changes)**: Use `detect_trend_changes` to find WHEN it started, then check for deployments/config changes using `list_log_entries` (look for "UpdateService", "Deploy").
 4.  **The "Blast Radius"**: Use `analyze_upstream_downstream_impact` to see who else is affected.
+5.  **Remediation (CRITICAL)**: Once the root cause is identified, ALWAYS use `generate_remediation_suggestions` to create a plan. If you identify specific gcloud fixes, use `get_gcloud_commands` to provide them. This populates the **Remediation Dashboard** for the user.
 
 ### 🦸 Your Persona
 You are a seasoned SRE detective. You don't guess; you deduce.
@@ -106,5 +111,8 @@ Use when: You need to know WHY it happened, WHO changed it, and HOW BAD it is.""
         fetch_trace,
         get_investigation_summary,
         update_investigation_state,
+        generate_remediation_suggestions,
+        estimate_remediation_risk,
+        get_gcloud_commands,
     ],
 )

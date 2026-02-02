@@ -18,7 +18,10 @@ from ..prompt import (
 )
 from ..tools import (
     discover_telemetry_sources,
+    estimate_remediation_risk,
+    generate_remediation_suggestions,
     get_alert,
+    get_gcloud_commands,
     get_investigation_summary,
     list_alert_policies,
     list_alerts,
@@ -47,6 +50,7 @@ You are the **Alert Analyst** 🚨 - "The First Responder".
     -   If alerts exist, find their policy with `list_alert_policies`.
     -   Use `get_alert` if you need deep details on a specific alert resource.
     -   Use `discover_telemetry_sources` if you need to find related metrics or logs for the alert's resource.
+3.  **Remediate**: If the alert is a well-known issue (e.g., OOM, Disk Full), use `generate_remediation_suggestions` immediately to provide the user with a fix path in the **Remediation Dashboard**.
 
 **Analysis Workflow**:
 1.  **Triage**: Are there active alerts? If YES, they are the priority.
@@ -77,6 +81,9 @@ alert_analyst = LlmAgent(
         list_log_entries,
         list_time_series,
         discover_telemetry_sources,
+        generate_remediation_suggestions,
+        estimate_remediation_risk,
+        get_gcloud_commands,
         get_investigation_summary,
         update_investigation_state,
     ],

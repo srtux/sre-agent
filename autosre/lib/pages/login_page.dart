@@ -425,7 +425,8 @@ class _GuestLoginButtonState extends State<_GuestLoginButton> {
         child: OutlinedButton(
           onPressed: widget.onPressed,
           style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+            minimumSize: const Size(200, 54),
             side: BorderSide(
               color: _isHovered ? AppColors.primaryCyan : Colors.white24,
               width: 1.5,
@@ -443,13 +444,13 @@ class _GuestLoginButtonState extends State<_GuestLoginButton> {
               Icon(
                 Icons.person_outline,
                 color: _isHovered ? AppColors.primaryCyan : Colors.white70,
-                size: 18,
+                size: 20,
               ),
               const SizedBox(width: 8),
               Text(
                 'Guest',
                 style: GoogleFonts.inter(
-                  fontSize: 14,
+                  fontSize: 16,
                   fontWeight: FontWeight.w600,
                   color: _isHovered ? Colors.white : Colors.white70,
                 ),

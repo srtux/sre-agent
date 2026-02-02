@@ -32,8 +32,8 @@ void main() {
     expect(find.byType(ConversationPage), findsOneWidget);
 
     // Initial State: Dashboard is closed
-    final toggleFinder = find.byIcon(Icons.space_dashboard_outlined);
-    expect(toggleFinder, findsOneWidget, reason: 'Dashboard toggle should be visible (outlined icon)');
+    final toggleFinder = find.byTooltip('Dashboard');
+    expect(toggleFinder, findsOneWidget, reason: 'Dashboard toggle should be visible');
 
     // Tap to open
     await tester.tap(toggleFinder);
@@ -53,7 +53,7 @@ void main() {
     expect(containerSize.width, 600.0, reason: 'Dashboard should be 60% of screen width');
 
     // Tap to close
-    await tester.tap(find.byIcon(Icons.space_dashboard_rounded));
+    await tester.tap(find.byTooltip('Dashboard'));
     await tester.pumpAndSettle();
 
     // Verify it's closed

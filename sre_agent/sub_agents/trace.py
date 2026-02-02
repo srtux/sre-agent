@@ -33,7 +33,7 @@ from ..tools import (
     fetch_trace,
     find_bottleneck_services,
     find_exemplar_traces,
-    # Investigation
+    # Remediation
     get_investigation_summary,
     list_log_entries,
     list_time_series,
@@ -119,8 +119,9 @@ You look at traces holistically to find what's slow, what's broken, and why.
     -   `compare_span_timings`: To find what got slower.
     -   `analyze_trace_comprehensive` with `baseline_trace_id` set.
 3.  **Resiliency**: Use `detect_all_sre_patterns` to check for retry storms, cascading timeouts, and pool exhaustion.
-4.  **Trace Existence (CRITICAL)**: **NEVER** guess or hallucinate trace IDs. Only fetch IDs found in logs, metrics (exemplars), or lists. If a fetch fails with 404, check if the ID was truncated or incorrectly copied.
-5.  **Deep Dive**: Use `analyze_critical_path` or `find_bottleneck_services` if the comprehensive analysis points to complex dependency issues.
+4.  **Remediation (NEW)**: If you identify a clear bottleneck or error pattern (e.g., OOM, Timeout, Connection Pool), use `generate_remediation_suggestions` to provide a path to resolution. This populates the **Remediation Dashboard**.
+5.  **Trace Existence (CRITICAL)**: **NEVER** guess or hallucinate trace IDs. Only fetch IDs found in logs, metrics (exemplars), or lists. If a fetch fails with 404, check if the ID was truncated or incorrectly copied.
+6.  **Deep Dive**: Use `analyze_critical_path` or `find_bottleneck_services` if the comprehensive analysis points to complex dependency issues.
 
 ### 🎯 Comparisons (Baseline vs Target)
 When asked to compare traces:

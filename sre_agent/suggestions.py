@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 # Default suggestions when no conversation context is available
 DEFAULT_SUGGESTIONS = [
     "Analyze recent errors",
+    "Generate remediation plan",
     "Check Cloud Run latency",
     "List active alerts",
     "Summarize system health",
@@ -44,7 +45,7 @@ Rules:
 6. Include a mix of: investigation actions, analysis requests, and follow-up checks
 
 Output format: Return ONLY a JSON array of strings, no other text.
-Example: ["Check Cilium health in guess-game", "Analyze cluster events", "List recent deployments"]
+Example: ["Check Cilium health in guess-game", "Analyze cluster events", "Check memory usage"]
 """
 
 
@@ -280,7 +281,6 @@ async def generate_contextual_suggestions(
             "Analyze recent errors",
             "Check service latency",
             "List GKE cluster health",
-            "Show recent deployments",
             "Summarize log patterns",
         ]
 

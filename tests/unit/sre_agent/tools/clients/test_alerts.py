@@ -99,8 +99,24 @@ async def test_list_alerts_with_minutes_ago(mock_auth, mock_authorized_session):
 
     await list_alerts(project_id="test-project", minutes_ago=60)
 
-    # Verify that the filter parameter contains create_time
+    # Verify that the filter parameter contains openTime
     _, kwargs = mock_authorized_session.get.call_args
     params = kwargs.get("params", {})
     assert "filter" in params
-    assert "create_time >" in params["filter"]
+    assert "openTime >=" in params["filter"]
+
+
+@pytest.mark.asyncio
+async def test_list_alerts_with_order_by(mock_auth, mock_authorized_session):
+    mock_response = MagicMock()
+    mock_response.ok = True
+    mock_response.json.return_value = {"alerts": []}
+    mock_authorized_session.get.return_value = mock_response
+
+    await list_alerts(
+        project_id="test-project", order_by="start_time desc, endTime asc"
+    )
+
+    _, kwargs = mock_authorized_session.get.call_args
+    params = kwargs.get("params", {})
+    assert params.get("orderBy") == "openTime desc, closeTime asc"

@@ -8,7 +8,7 @@ Widget buildGoogleSignInButton({required VoidCallback onMobileSignIn}) {
       onTap: onMobileSignIn,
       borderRadius: BorderRadius.circular(50), // Fully rounded pill
       child: Container(
-        constraints: const BoxConstraints(minWidth: 280),
+        constraints: const BoxConstraints(minWidth: 280, minHeight: 54),
         padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
         decoration: BoxDecoration(
           color: Colors.indigoAccent,

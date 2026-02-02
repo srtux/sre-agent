@@ -114,7 +114,7 @@ def _list_alerts_sync(
             import time
 
             start_time = int(time.time() - (minutes_ago * 60))
-            filters.append(f"create_time > {start_time}")
+            filters.append(f"openTime >= {start_time}")
 
         if filters:
             params["filter"] = " AND ".join(filters)
@@ -122,12 +122,12 @@ def _list_alerts_sync(
         if order_by:
             mapped_order_by = order_by
             replacements = {
-                "start_time": "open_time",
-                "startTime": "open_time",
-                "openTime": "open_time",
-                "end_time": "close_time",
-                "endTime": "close_time",
-                "closeTime": "close_time",
+                "start_time": "openTime",
+                "startTime": "openTime",
+                "open_time": "openTime",
+                "end_time": "closeTime",
+                "endTime": "closeTime",
+                "close_time": "closeTime",
             }
             for k, v in replacements.items():
                 mapped_order_by = mapped_order_by.replace(k, v)

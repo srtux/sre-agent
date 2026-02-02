@@ -35,7 +35,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // 1. Open Dashboard
-    final toggleFinder = find.byTooltip('Open Investigation Dashboard');
+    final toggleFinder = find.byTooltip('Dashboard');
     expect(toggleFinder, findsOneWidget);
     await tester.tap(toggleFinder);
     await tester.pumpAndSettle();

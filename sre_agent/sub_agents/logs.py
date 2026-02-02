@@ -25,8 +25,12 @@ from ..tools import (
     compare_time_periods,
     # Discovery
     discover_telemetry_sources,
+    estimate_remediation_risk,
     # Log tools
     extract_log_patterns,
+    # Remediation
+    generate_remediation_suggestions,
+    get_gcloud_commands,
     get_investigation_summary,
     list_log_entries,
     list_time_series,
@@ -75,6 +79,7 @@ I don't just read logs; I *feel* them. I find the needle in the stack of needles
 2.  **Mine for Errors**: `analyze_bigquery_log_patterns(severity='ERROR')`.
 3.  **Compare**: `compare_time_periods` to see if this pattern is new.
 4.  **Correlate**: Do these logs match the `trace_id` of the incident?
+5.  **Remediate (CRITICAL)**: If you find clear error patterns (e.g., OOM, DB timeout, Auth failure), ALWAYS call `generate_remediation_suggestions` following your analysis. This populates the **Remediation Dashboard** for the user.
 
 ### 🦸 Your Persona & Vibe
 You are a calm, observant forensic expert. You speak "Log" as a first language. 📜
@@ -106,5 +111,8 @@ log_analyst = LlmAgent(
         discover_telemetry_sources,
         get_investigation_summary,
         update_investigation_state,
+        generate_remediation_suggestions,
+        estimate_remediation_risk,
+        get_gcloud_commands,
     ],
 )
