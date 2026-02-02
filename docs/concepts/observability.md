@@ -8,7 +8,9 @@ Observability is a measure of how well you can understand the internal state of 
 
 Unlike traditional **Monitoring** (which tells you *that* something is wrong), **Observability** gives you the granularity to understand *why* it's wrong, even for novel, "unknown-unknown" issues.
 
-### The Three Pillars of Observability
+### The Four Pillars of Observability
+
+In addition to the traditional three pillars, the SRE Agent treats **Changes** as a first-class citizen of observability.
 
 1.  **Traces**: The "narrative" of a request.
     *   **Context**: A single request often touches dozens of microservices. Tracing stitches these interactions into a single coherent story.
@@ -23,7 +25,24 @@ Unlike traditional **Monitoring** (which tells you *that* something is wrong), *
 3.  **Metrics**: The "aggregates."
     *   **Context**: Numerical data measured over time (e.g., CPU load, memory usage, request rate).
     *   **Value**: Excellent for spotting trends, setting alerts, and understanding overall system health at a glance.
-    *   **SRE Agent Tool**: `sre_agent/tools/analysis/metrics/` (Anomaly Detection, PromQL).
+    *   **SRE Agent Tool**: `sre_agent/tools/analysis/metrics/` (Anomaly Detection, PromQL, **Multi-Window Burn Rate**).
+
+4.  **Changes**: The "root cause."
+    *   **Context**: Intentional modifications to the system (Deployments, Config changes, Feature flags).
+    *   **Value**: Most incidents are preceded by a change. Correlating these temporally is the fastest path to root cause.
+    *   **SRE Agent Tool**: `sre_agent/tools/analysis/correlation/` (Change Correlation).
+
+---
+
+## Resilience and Reliability Context
+
+The SRE Agent isn't just a passive observer; it's built with engineering-grade resilience patterns:
+
+### 1. Circuit Breaker Pattern
+To protect your production GCP APIs and the agent's reasoning budget, we implement a **Circuit Breaker** (`sre_agent/core/circuit_breaker.py`). If automated tools hit repeated 403, 429, or 5xx errors from GCP, the agent "trips" the circuit, short-circuiting calls until the service recovers. This prevents cascading failures and "panic-mode" token consumption during massive GCP outages.
+
+### 2. Multi-Window SLO Burn
+Standard alerting is noisy. The agent uses Google's recommended **Multi-Window, Multi-Burn rate** strategy. It distinguishes between a "Fast Burn" (needs a page now) and a "Slow Burn" (create a ticket for tomorrow) by analyzing error budget consumption across multiple lookback windows simultaneously.
 
 ---
 

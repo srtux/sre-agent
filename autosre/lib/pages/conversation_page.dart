@@ -26,6 +26,7 @@ import '../widgets/tool_log.dart';
 import '../widgets/unified_prompt_input.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'tool_config_page.dart';
+import 'help_page.dart';
 import '../widgets/status_toast.dart';
 import '../widgets/glow_action_chip.dart';
 
@@ -788,6 +789,17 @@ class _ConversationPageState extends State<ConversationPage>
         const SizedBox(width: 12),
         // Settings / Tool Config
         _buildSettingsButton(),
+        const SizedBox(width: 8),
+        // Help Button
+        IconButton(
+          icon: const Icon(Icons.help_outline, color: AppColors.textSecondary),
+          tooltip: 'Help & Documentation',
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (context) => const HelpPage()),
+            );
+          },
+        ),
         const SizedBox(width: 8),
         // User Profile
         _buildUserProfileButton(),

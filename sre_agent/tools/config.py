@@ -760,6 +760,27 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         category=ToolCategory.REMEDIATION,
         testable=False,
     ),
+    ToolConfig(
+        name="generate_postmortem",
+        display_name="Generate Postmortem",
+        description="Generate a structured blameless postmortem report following Google SRE practices",
+        category=ToolCategory.REMEDIATION,
+        testable=False,
+    ),
+    ToolConfig(
+        name="analyze_multi_window_burn_rate",
+        display_name="Multi-Window SLO Burn Rate",
+        description="Analyze SLO burn rate using Google's multi-window alerting strategy",
+        category=ToolCategory.ANALYSIS,
+        testable=False,
+    ),
+    ToolConfig(
+        name="correlate_changes_with_incident",
+        display_name="Correlate Changes with Incident",
+        description="Find recent deployments and config changes correlated with an incident",
+        category=ToolCategory.ANALYSIS,
+        testable=False,
+    ),
     # -------------------------------------------------------------------------
     # Discovery Tools
     # -------------------------------------------------------------------------

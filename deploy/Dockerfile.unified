@@ -25,6 +25,7 @@ COPY pyproject.toml uv.lock ./
 COPY sre_agent/ ./sre_agent/
 COPY server.py .
 COPY README.md .
+COPY docs/ ./docs/
 
 # Install dependencies and the local package
 RUN uv pip install --system --no-cache . uvicorn fastapi google-adk google-cloud-aiplatform nest-asyncio mcp pydantic-core

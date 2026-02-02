@@ -105,6 +105,8 @@ from .tools import (
     # GKE tools
     analyze_hpa_events,
     analyze_log_anomalies,
+    # SLO Analysis
+    analyze_multi_window_burn_rate,
     analyze_node_conditions,
     analyze_signal_correlation_strength,
     analyze_trace_comprehensive,
@@ -122,6 +124,8 @@ from .tools import (
     compare_span_timings,
     compare_time_periods,
     compute_latency_statistics,
+    # Change Correlation
+    correlate_changes_with_incident,
     # SLO correlation
     correlate_incident_with_slo_impact,
     correlate_logs_with_trace,
@@ -153,7 +157,8 @@ from .tools import (
     find_hidden_dependencies,
     find_similar_past_incidents,
     find_structural_differences,
-    # Remediation
+    # Remediation & Postmortem
+    generate_postmortem,
     generate_remediation_suggestions,
     get_alert,
     # GKE tools
@@ -805,10 +810,15 @@ TOOL_NAME_MAP = {
     "detect_connection_pool_issues": detect_connection_pool_issues,
     "detect_circular_dependencies": detect_circular_dependencies,
     "find_similar_past_incidents": find_similar_past_incidents,
-    # Remediation
+    # Remediation & Postmortem
     "generate_remediation_suggestions": generate_remediation_suggestions,
+    "generate_postmortem": generate_postmortem,
     "estimate_remediation_risk": estimate_remediation_risk,
     "get_gcloud_commands": get_gcloud_commands,
+    # SLO Multi-Window Burn Rate
+    "analyze_multi_window_burn_rate": analyze_multi_window_burn_rate,
+    # Change Correlation
+    "correlate_changes_with_incident": correlate_changes_with_incident,
     # Specialized Analysis
     "analyze_aggregate_metrics": analyze_aggregate_metrics,
     "calculate_critical_path_contribution": calculate_critical_path_contribution,
@@ -907,10 +917,17 @@ base_tools: list[Any] = [
     add_finding_to_memory,
     search_memory,
     suggest_next_steps,
+    # Change Correlation
+    correlate_changes_with_incident,
     # Remediation tools
     generate_remediation_suggestions,
+    generate_postmortem,
     estimate_remediation_risk,
     get_gcloud_commands,
+    # SLO Multi-Window Burn Rate
+    analyze_multi_window_burn_rate,
+    # Change Correlation
+    correlate_changes_with_incident,
 ]
 
 

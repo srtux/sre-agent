@@ -15,6 +15,7 @@ High-level tools that perform multi-step analysis or statistical processing.
 - `analyze_critical_path`: Calculates which spans determine the total duration.
 - `extract_log_patterns`: Clusters millions of log lines into meaningful patterns using the Drain3 algorithm.
 - `detect_metric_anomalies`: Uses seasonality and z-scores to identify statistical outliers.
+- `analyze_multi_window_burn_rate`: Implements Google's multi-window alerting to distinguish between fast and slow burn rates.
 
 ### 3. BigQuery Fleet Analysis
 Enables fleet-wide analysis by querying telemetry data exported to BigQuery.
@@ -25,10 +26,12 @@ Enables fleet-wide analysis by querying telemetry data exported to BigQuery.
 The "Holy Grail" of observability - linking different pillars.
 - `correlate_metrics_with_traces_via_exemplars`: Jumps from a chart spike to the exact request that caused it.
 - `correlate_logs_with_trace`: Injects logs into the trace timeline.
+- `correlate_changes_with_incident`: Templets GCP Audit Logs to find and rank deployments/config changes by correlation score.
 
 ### 5. Remediation & Reporting
 Moving from "What is wrong" to "How to fix it."
 - `generate_remediation_suggestions`: Proposes GKE restarts, config changes, or rollback commands.
+- `generate_postmortem`: Generates a structured, blameless Markdown postmortem based on the investigation findings.
 - `synthesize_report`: Generates a high-level executive summary of the investigation.
 
 ---

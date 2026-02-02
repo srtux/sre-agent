@@ -19,6 +19,9 @@ from .analysis.bigquery.otel import (
     find_exemplar_traces,
 )
 
+# Analysis Tools - Change Correlation
+from .analysis.correlation.change_correlation import correlate_changes_with_incident
+
 # Analysis Tools - Correlation
 from .analysis.correlation.critical_path import (
     analyze_critical_path,
@@ -55,12 +58,16 @@ from .analysis.metrics.statistics import (
 )
 
 # Analysis Tools - Remediation
+from .analysis.remediation.postmortem import generate_postmortem
 from .analysis.remediation.suggestions import (
     estimate_remediation_risk,
     find_similar_past_incidents,
     generate_remediation_suggestions,
     get_gcloud_commands,
 )
+
+# Analysis Tools - SLO
+from .analysis.slo.burn_rate import analyze_multi_window_burn_rate
 from .analysis.trace.analysis import (
     build_call_graph,
     calculate_span_durations,
@@ -182,6 +189,7 @@ __all__ = [
     "analyze_error_budget_burn",
     "analyze_hpa_events",
     "analyze_log_anomalies",
+    "analyze_multi_window_burn_rate",
     "analyze_node_conditions",
     "analyze_signal_correlation_strength",
     "analyze_trace_comprehensive",
@@ -199,6 +207,7 @@ __all__ = [
     "compare_span_timings",
     "compare_time_periods",
     "compute_latency_statistics",
+    "correlate_changes_with_incident",
     "correlate_incident_with_slo_impact",
     "correlate_logs_with_trace",
     "correlate_metrics_with_traces_via_exemplars",
@@ -226,6 +235,7 @@ __all__ = [
     "find_hidden_dependencies",
     "find_similar_past_incidents",
     "find_structural_differences",
+    "generate_postmortem",
     "generate_remediation_suggestions",
     "get_alert",
     "get_container_oom_events",

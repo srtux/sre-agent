@@ -102,7 +102,8 @@ For critical existing modules (like the `chat_agent`), we maintain "Base Specs" 
 2.  **TDD Rule**: For all new features, you must produce a test file demonstrating the intended behavior before modifying `sre_agent/`.
 3.  **Coverage Gate**: PRs that drop the project coverage level will be rejected.
 4.  **Regression Zero**: Every bug fix must include a regression test that fails without the fix.
-5.  **No Placeholders**: Do not use `TODO` in tests. Tests must be complete and assert on all relevant fields in responses.
+5.  **Documentation Rule**: Every new feature MUST include updates to internal architecture docs and the public Help Center (`docs/help`).
+6.  **No Placeholders**: Do not use `TODO` in tests. Tests must be complete and assert on all relevant fields in responses.
 
 ## 🚀 Execution
 
