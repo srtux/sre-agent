@@ -94,8 +94,6 @@ from .sub_agents import (
 )
 from .tools import (
     add_finding_to_memory,
-    # SLO Analysis
-    analyze_multi_window_burn_rate,
     # BigQuery tools
     analyze_aggregate_metrics,
     # Additional BQ tools
@@ -107,6 +105,8 @@ from .tools import (
     # GKE tools
     analyze_hpa_events,
     analyze_log_anomalies,
+    # SLO Analysis
+    analyze_multi_window_burn_rate,
     analyze_node_conditions,
     analyze_signal_correlation_strength,
     analyze_trace_comprehensive,
@@ -124,12 +124,12 @@ from .tools import (
     compare_span_timings,
     compare_time_periods,
     compute_latency_statistics,
+    # Change Correlation
+    correlate_changes_with_incident,
     # SLO correlation
     correlate_incident_with_slo_impact,
     correlate_logs_with_trace,
     correlate_metrics_with_traces_via_exemplars,
-    # Change Correlation
-    correlate_changes_with_incident,
     # Cross-signal correlation tools
     correlate_trace_with_kubernetes,
     correlate_trace_with_metrics,

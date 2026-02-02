@@ -8,7 +8,6 @@ Validates all circuit breaker states and transitions:
 """
 
 import time
-from unittest.mock import patch
 
 import pytest
 
@@ -16,7 +15,6 @@ from sre_agent.core.circuit_breaker import (
     CircuitBreakerConfig,
     CircuitBreakerOpenError,
     CircuitBreakerRegistry,
-    CircuitState,
 )
 
 
@@ -96,9 +94,7 @@ class TestCircuitBreakerOpenTransition:
     def test_blocks_calls_when_open(self) -> None:
         """Calls should be blocked when circuit is OPEN."""
         registry = CircuitBreakerRegistry()
-        config = CircuitBreakerConfig(
-            failure_threshold=2, recovery_timeout_seconds=60
-        )
+        config = CircuitBreakerConfig(failure_threshold=2, recovery_timeout_seconds=60)
         registry.configure("my_tool", config)
 
         # Trip the circuit
@@ -115,9 +111,7 @@ class TestCircuitBreakerOpenTransition:
     def test_tracks_short_circuit_count(self) -> None:
         """Should count calls that were short-circuited."""
         registry = CircuitBreakerRegistry()
-        config = CircuitBreakerConfig(
-            failure_threshold=2, recovery_timeout_seconds=60
-        )
+        config = CircuitBreakerConfig(failure_threshold=2, recovery_timeout_seconds=60)
         registry.configure("my_tool", config)
 
         for _ in range(2):
@@ -141,9 +135,7 @@ class TestCircuitBreakerHalfOpenTransition:
     def test_transitions_to_half_open_after_timeout(self) -> None:
         """Circuit should transition to HALF_OPEN after recovery timeout."""
         registry = CircuitBreakerRegistry()
-        config = CircuitBreakerConfig(
-            failure_threshold=2, recovery_timeout_seconds=0.1
-        )
+        config = CircuitBreakerConfig(failure_threshold=2, recovery_timeout_seconds=0.1)
         registry.configure("my_tool", config)
 
         for _ in range(2):
@@ -250,9 +242,7 @@ class TestCircuitBreakerStatus:
     def test_retry_after_in_open_status(self) -> None:
         """Open circuit status should include retry_after_seconds."""
         registry = CircuitBreakerRegistry()
-        config = CircuitBreakerConfig(
-            failure_threshold=1, recovery_timeout_seconds=60
-        )
+        config = CircuitBreakerConfig(failure_threshold=1, recovery_timeout_seconds=60)
         registry.configure("my_tool", config)
 
         registry.pre_call("my_tool")

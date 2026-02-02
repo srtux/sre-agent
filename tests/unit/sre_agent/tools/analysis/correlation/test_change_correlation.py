@@ -19,9 +19,7 @@ class TestClassifyChange:
     """Tests for change classification logic."""
 
     def test_deployment_method(self) -> None:
-        result = _classify_change(
-            "google.cloud.run.v2.Services.UpdateService"
-        )
+        result = _classify_change("google.cloud.run.v2.Services.UpdateService")
         assert result["category"] == "deployment"
         assert result["risk"] == "high"
 

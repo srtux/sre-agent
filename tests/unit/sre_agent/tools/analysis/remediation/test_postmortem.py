@@ -110,9 +110,7 @@ class TestGenerateActionItems:
         assert len(fix_items) >= 1
 
     def test_deployment_root_cause_adds_canary(self) -> None:
-        items = _generate_action_items(
-            "Bad deployment caused outage", [], "deployment"
-        )
+        items = _generate_action_items("Bad deployment caused outage", [], "deployment")
         process_items = [i for i in items if "canary" in i["action"].lower()]
         assert len(process_items) >= 1
 
@@ -192,7 +190,9 @@ class TestGeneratePostmortem:
         data = result.result
         assert data["severity"]["severity"] == "critical"
         assert data["incident_details"]["affected_services"] == [
-            "payment", "checkout", "order"
+            "payment",
+            "checkout",
+            "order",
         ]
         assert data["metrics"]["time_to_detect_minutes"] == 5.0
         assert data["metrics"]["time_to_mitigate_minutes"] == 25.0

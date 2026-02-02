@@ -145,7 +145,7 @@ class _PostmortemCardState extends State<PostmortemCard>
     _animController.forward();
 
     // Pre-populate checked actions from data
-    for (int i = 0; i < widget.data.actionItems.length; i++) {
+    for (var i = 0; i < widget.data.actionItems.length; i++) {
       if (widget.data.actionItems[i].completed) {
         _checkedActions.add(i);
       }
@@ -337,7 +337,7 @@ class _PostmortemCardState extends State<PostmortemCard>
         children: [
           const Row(
             children: [
-              Icon(Icons.impact_rounded, size: 16, color: AppColors.warning),
+              Icon(Icons.bolt_rounded, size: 16, color: AppColors.warning),
               SizedBox(width: 8),
               Text(
                 'Impact Summary',

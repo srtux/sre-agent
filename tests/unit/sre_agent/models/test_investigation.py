@@ -8,14 +8,15 @@ Validates the rich investigation state tracking including:
 """
 
 import pytest
+from pydantic import ValidationError
 
 from sre_agent.models.investigation import (
+    PHASE_INSTRUCTIONS,
     ConfidenceLevel,
     InvestigationFinding,
     InvestigationPhase,
     InvestigationState,
     InvestigationTimeline,
-    PHASE_INSTRUCTIONS,
 )
 
 
@@ -57,7 +58,7 @@ class TestInvestigationFinding:
 
     def test_finding_is_frozen(self) -> None:
         finding = InvestigationFinding(description="Test")
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             finding.description = "Modified"  # type: ignore[misc]
 
 
@@ -96,7 +97,10 @@ class TestInvestigationState:
         )
         assert len(state.structured_findings) == 1
         assert len(state.findings) == 1
-        assert state.structured_findings[0]["description"] == "Connection pool exhaustion detected"
+        assert (
+            state.structured_findings[0]["description"]
+            == "Connection pool exhaustion detected"
+        )
         assert state.structured_findings[0]["confidence"] == "high"
 
     def test_add_finding_deduplicates_flat_list(self) -> None:

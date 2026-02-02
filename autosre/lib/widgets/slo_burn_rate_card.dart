@@ -430,7 +430,7 @@ class _SloBurnRateCardState extends State<SloBurnRateCard>
       timeLabel = '${hours.toStringAsFixed(1)} hours';
     }
 
-    final bool isCritical = hours < 24;
+    final isCritical = hours < 24;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),

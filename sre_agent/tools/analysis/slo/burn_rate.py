@@ -213,13 +213,6 @@ async def analyze_multi_window_burn_rate(
 
         # Mode 1: Per-window analysis with actual counts
         if error_counts_by_window and total_counts_by_window:
-            window_key_map = {
-                "1h": ("1h", "5m"),
-                "6h": ("6h", "30m"),
-                "24h": ("24h", "2h"),
-                "72h": ("72h", "6h"),
-            }
-
             for config in MULTI_WINDOW_CONFIG:
                 long_key = f"{config['long_window_hours']}h"
                 short_key_hours = config["short_window_hours"]
@@ -278,7 +271,9 @@ async def analyze_multi_window_burn_rate(
 
         # Mode 2: Single error rate estimation
         elif current_error_rate is not None:
-            primary_burn_rate = current_error_rate / max_error_rate if max_error_rate > 0 else 0.0
+            primary_burn_rate = (
+                current_error_rate / max_error_rate if max_error_rate > 0 else 0.0
+            )
 
             for config in MULTI_WINDOW_CONFIG:
                 entry = {

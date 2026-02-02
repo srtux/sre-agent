@@ -13,7 +13,7 @@ SRE Principle: "Most outages are caused by changes" - Google SRE Book
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
 from sre_agent.schema import BaseToolResponse, ToolStatus
@@ -111,9 +111,7 @@ def _build_audit_log_filter(
         Cloud Logging filter string.
     """
     parts = [
-        'logName="projects/{}/logs/cloudaudit.googleapis.com%2Factivity"'.format(
-            project_id
-        ),
+        f'logName="projects/{project_id}/logs/cloudaudit.googleapis.com%2Factivity"',
         f'timestamp>="{start_time}"',
         f'timestamp<="{end_time}"',
     ]
@@ -262,9 +260,7 @@ async def correlate_changes_with_incident(
     """
     try:
         # Calculate lookback window
-        incident_dt = datetime.fromisoformat(
-            incident_start.replace("Z", "+00:00")
-        )
+        incident_dt = datetime.fromisoformat(incident_start.replace("Z", "+00:00"))
         from datetime import timedelta
 
         lookback_start = incident_dt - timedelta(hours=lookback_hours)
@@ -280,26 +276,27 @@ async def correlate_changes_with_incident(
         # Try to query actual audit logs using the logging client
         changes: list[dict[str, Any]] = []
         try:
+            from google.cloud import logging as cloud_logging
+
             from sre_agent.auth import (
                 get_credentials_from_tool_context,
                 get_current_credentials,
             )
-            from google.cloud import logging as cloud_logging
 
             credentials = get_credentials_from_tool_context(tool_context)
             if not credentials:
                 auth_obj: Any = get_current_credentials()
                 credentials, _ = auth_obj
 
-            client = cloud_logging.Client(
-                project=project_id, credentials=credentials
-            )
+            client = cloud_logging.Client(project=project_id, credentials=credentials)  # type: ignore[no-untyped-call]
 
-            entries = list(client.list_entries(
-                filter_=log_filter,
-                order_by=cloud_logging.DESCENDING,
-                max_results=100,
-            ))
+            entries = list(
+                client.list_entries(  # type: ignore[no-untyped-call]
+                    filter_=log_filter,
+                    order_by=cloud_logging.DESCENDING,
+                    max_results=100,
+                )
+            )
 
             for entry in entries:
                 payload = entry.payload if hasattr(entry, "payload") else {}
@@ -372,7 +369,7 @@ async def correlate_changes_with_incident(
                             "Git commit history for the service",
                         ],
                         "gcloud_command": (
-                            f'gcloud logging read \'{log_filter}\' '
+                            f"gcloud logging read '{log_filter}' "
                             f"--project={project_id} --limit=50 --format=json"
                         ),
                     },
@@ -389,7 +386,8 @@ async def correlate_changes_with_incident(
         # Identify most likely culprit
         top_change = changes[0] if changes else None
         high_risk_changes = [
-            c for c in changes
+            c
+            for c in changes
             if c.get("classification", {}).get("risk") == "high"
             and c.get("correlation", {}).get("correlation_score", 0) >= 0.5
         ]

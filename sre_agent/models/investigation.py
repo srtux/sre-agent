@@ -38,7 +38,9 @@ class InvestigationFinding(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     description: str = Field(description="Human-readable description")
-    source_tool: str = Field(default="unknown", description="Tool that produced this finding")
+    source_tool: str = Field(
+        default="unknown", description="Tool that produced this finding"
+    )
     confidence: ConfidenceLevel = Field(
         default=ConfidenceLevel.MEDIUM, description="Confidence in this finding"
     )

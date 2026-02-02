@@ -65,6 +65,12 @@ class CircuitBreakerOpenError(Exception):
     """Raised when a call is blocked by an open circuit breaker."""
 
     def __init__(self, tool_name: str, retry_after_seconds: float) -> None:
+        """Initialize the open circuit error.
+
+        Args:
+            tool_name: The name of the tool being called.
+            retry_after_seconds: How long to wait before retrying.
+        """
         self.tool_name = tool_name
         self.retry_after_seconds = retry_after_seconds
         super().__init__(
@@ -85,6 +91,7 @@ class CircuitBreakerRegistry:
     _default_config: CircuitBreakerConfig
 
     def __new__(cls) -> "CircuitBreakerRegistry":
+        """Singleton constructor for the registry."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._breakers = {}
@@ -97,9 +104,7 @@ class CircuitBreakerRegistry:
         """Reset the singleton (for testing)."""
         cls._instance = None
 
-    def configure(
-        self, tool_name: str, config: CircuitBreakerConfig
-    ) -> None:
+    def configure(self, tool_name: str, config: CircuitBreakerConfig) -> None:
         """Set custom configuration for a specific tool."""
         self._configs[tool_name] = config
 
@@ -169,9 +174,7 @@ class CircuitBreakerRegistry:
                 state.failure_count = 0
                 state.success_count = 0
                 state.last_state_change = time.time()
-                logger.info(
-                    f"Circuit breaker CLOSED for '{tool_name}' (recovered)"
-                )
+                logger.info(f"Circuit breaker CLOSED for '{tool_name}' (recovered)")
         elif state.state == CircuitState.CLOSED:
             # Reset failure count on success
             if state.failure_count > 0:
@@ -233,9 +236,7 @@ class CircuitBreakerRegistry:
 
     def get_all_status(self) -> dict[str, dict[str, Any]]:
         """Get status of all tracked circuit breakers."""
-        return {
-            name: self.get_status(name) for name in sorted(self._breakers)
-        }
+        return {name: self.get_status(name) for name in sorted(self._breakers)}
 
     def get_open_circuits(self) -> list[str]:
         """Get names of all tools with open circuits."""

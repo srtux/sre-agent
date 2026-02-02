@@ -117,21 +117,15 @@ def _assess_severity(
     if error_budget_consumed_percent is not None:
         if error_budget_consumed_percent >= 50:
             severity = Severity.CRITICAL
-            factors.append(
-                f"{error_budget_consumed_percent}% of error budget consumed"
-            )
+            factors.append(f"{error_budget_consumed_percent}% of error budget consumed")
         elif error_budget_consumed_percent >= 20:
             if severity.value not in ("critical",):
                 severity = Severity.HIGH
-            factors.append(
-                f"{error_budget_consumed_percent}% of error budget consumed"
-            )
+            factors.append(f"{error_budget_consumed_percent}% of error budget consumed")
         elif error_budget_consumed_percent >= 5:
             if severity.value not in ("critical", "high"):
                 severity = Severity.MEDIUM
-            factors.append(
-                f"{error_budget_consumed_percent}% of error budget consumed"
-            )
+            factors.append(f"{error_budget_consumed_percent}% of error budget consumed")
 
     if duration_minutes is not None:
         if duration_minutes >= 240:
@@ -141,7 +135,9 @@ def _assess_severity(
         elif duration_minutes >= 60:
             if severity.value not in ("critical", "high"):
                 severity = Severity.MEDIUM
-            factors.append(f"Significant duration: {_format_duration(duration_minutes)}")
+            factors.append(
+                f"Significant duration: {_format_duration(duration_minutes)}"
+            )
 
     if not factors:
         factors.append("No specific severity factors identified")
@@ -349,9 +345,7 @@ async def generate_postmortem(
         ttd_minutes: float | None = None
         if detection_time:
             try:
-                start_dt = datetime.fromisoformat(
-                    incident_start.replace("Z", "+00:00")
-                )
+                start_dt = datetime.fromisoformat(incident_start.replace("Z", "+00:00"))
                 detect_dt = datetime.fromisoformat(
                     detection_time.replace("Z", "+00:00")
                 )
