@@ -159,7 +159,8 @@ def deploy(env_vars: dict[str, str] | None = None) -> None:
         "env_vars": {
             "GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY": "true",
             "ADK_OTEL_TO_CLOUD": "true",
-            "OTEL_TO_CLOUD": "true",
+            # We rely on ADK's native exporters in the Agent Engine runtime.
+            # Manual OTEL_TO_CLOUD is disabled to avoid duplicate span conflicts.
             "OTEL_SERVICE_NAME": "sre-agent",
             "OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED": "true",
             "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "true",

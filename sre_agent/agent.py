@@ -353,13 +353,34 @@ def emojify_agent(agent: LlmAgent | Any) -> LlmAgent | Any:
             if user_email:
                 set_current_user_id(user_email)
 
-            from .auth import SESSION_STATE_TRACE_ID_KEY, set_trace_id
+            from .auth import (
+                SESSION_STATE_SPAN_ID_KEY,
+                SESSION_STATE_TRACE_FLAGS_KEY,
+                SESSION_STATE_TRACE_ID_KEY,
+                set_trace_id,
+            )
 
             remote_trace_id = session_state.get(SESSION_STATE_TRACE_ID_KEY)
             if remote_trace_id:
                 set_trace_id(remote_trace_id)
 
-        # 2a. LangSmith: Set session and user for thread grouping
+        # 2a. Bridge OTel Context (for log correlation and SDK tracing)
+        # This occurs before LangSmith or Original Run to ensure all child spans
+        # inherit the correct parent from the proxy.
+        from .tools.common.telemetry import bridge_otel_context
+
+        remote_span_id = (
+            session_state.get(SESSION_STATE_SPAN_ID_KEY) if session_state else None
+        )
+        remote_flags = (
+            session_state.get(SESSION_STATE_TRACE_FLAGS_KEY) if session_state else "01"
+        )
+
+        otel_token = bridge_otel_context(
+            trace_id=remote_trace_id, span_id=remote_span_id, trace_flags=remote_flags
+        )
+
+        # 2b. LangSmith: Set session and user for thread grouping
         # This groups all traces from this session into a single "thread" in LangSmith
         from .tools.common.telemetry import (
             set_langsmith_metadata,
@@ -396,6 +417,15 @@ def emojify_agent(agent: LlmAgent | Any) -> LlmAgent | Any:
             logger.error(f"🔥 Agent Execution Failed: {e}", exc_info=True)
             raise e
         finally:
+            # Clean up OTel context
+            if otel_token:
+                try:
+                    from opentelemetry import context as otel_ctx
+
+                    otel_ctx.detach(otel_token)
+                except Exception:
+                    pass
+
             # Restore model to avoid breaking deepcopy for deployment
             if should_swap:
                 object.__setattr__(agent, "model", old_model)

@@ -63,17 +63,37 @@ class RunnerAgentAdapter(LlmAgent):
                 user_message = part.text or ""
 
         user_id = getattr(session, "user_id", "default")
+        session_state = session.state
 
-        from sre_agent.auth import SESSION_STATE_TRACE_ID_KEY, set_trace_id
+        from sre_agent.auth import (
+            SESSION_STATE_SPAN_ID_KEY,
+            SESSION_STATE_TRACE_FLAGS_KEY,
+            SESSION_STATE_TRACE_ID_KEY,
+            set_trace_id,
+        )
 
         # PROPAGATION: Set Trace ID from Session State for log correlation
-        remote_trace_id = session.state.get(SESSION_STATE_TRACE_ID_KEY)
+        remote_trace_id = session_state.get(SESSION_STATE_TRACE_ID_KEY)
         if remote_trace_id:
             set_trace_id(remote_trace_id)
 
+        # PROPAGATION: Bridge OTel Context for SDK tracing
+        from sre_agent.tools.common.telemetry import bridge_otel_context
+
+        remote_span_id = session_state.get(SESSION_STATE_SPAN_ID_KEY)
+        remote_flags = session_state.get(SESSION_STATE_TRACE_FLAGS_KEY, "01")
+
+        otel_token = bridge_otel_context(
+            trace_id=remote_trace_id, span_id=remote_span_id, trace_flags=remote_flags
+        )
+
         # Extract Project ID from Session State
         # The proxy ensures this is set in session state before calling Agent Engine
-        project_id = session.state.get(SESSION_STATE_PROJECT_ID_KEY)
+        project_id = session_state.get(SESSION_STATE_PROJECT_ID_KEY)
+        if project_id:
+            from sre_agent.auth import set_current_project_id
+
+            set_current_project_id(project_id)
 
         logger.info(
             f"🚀 RunnerAdapter starting turn: user={user_id}, project={project_id}, session={session.id}"
@@ -111,4 +131,11 @@ class RunnerAgentAdapter(LlmAgent):
             # Re-raise to allow AdkApp to handle/return error
             raise e
         finally:
-            pass
+            # Clean up OTel context
+            if otel_token:
+                try:
+                    from opentelemetry import context as otel_ctx
+
+                    otel_ctx.detach(otel_token)
+                except Exception:
+                    pass

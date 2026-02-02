@@ -1,10 +1,16 @@
 """Telemetry setup for SRE Agent."""
 
+from __future__ import annotations
+
+import json
 import logging
 import os
 import sys
 from contextvars import ContextVar
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
+
+if TYPE_CHECKING:
+    pass
 
 from dotenv import load_dotenv
 
@@ -118,6 +124,80 @@ class ColorFormatter(logging.Formatter):
         return formatter.format(record)
 
 
+class JsonFormatter(logging.Formatter):
+    """Custom formatter to output logs in JSON format for GCP/Agent Engine."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        """Format the log record as a structured JSON object.
+
+        Includes GCP-specific fields for log correlation with Cloud Trace.
+        """
+        # Try to get trace and span IDs from OpenTelemetry
+        trace_id = None
+        span_id = None
+        try:
+            from opentelemetry import trace
+
+            span_context = trace.get_current_span().get_span_context()
+            if span_context.is_valid:
+                trace_id = trace.format_trace_id(span_context.trace_id)
+                span_id = trace.format_span_id(span_context.span_id)
+        except Exception:
+            pass
+
+        # Fallback: Check our manual trace_id ContextVar in auth.py
+        if not trace_id:
+            try:
+                from sre_agent.auth import get_trace_id
+
+                trace_id = get_trace_id()
+            except Exception:
+                pass
+
+        # Build GCP structured log payload
+        # See: https://cloud.google.com/logging/docs/agent/logging/configuration#special-fields
+        log_data = {
+            "severity": record.levelname,
+            "message": record.getMessage(),
+            "timestamp": self.formatTime(record, self.datefmt),
+            "logging.googleapis.com/sourceLocation": {
+                "file": record.pathname,
+                "line": record.lineno,
+                "function": record.funcName,
+            },
+            "name": record.name,
+        }
+
+        # Inject trace correlation if available
+        if trace_id:
+            # Format: projects/[PROJECT_ID]/traces/[TRACE_ID]
+            # Since project_id isn't always easily known here, we often just use the hex ID
+            # and Cloud Logging often correlates it if it matches the active span.
+            # But the full URI is better.
+            project_id = os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get(
+                "GCP_PROJECT_ID"
+            )
+            if project_id:
+                log_data["logging.googleapis.com/trace"] = (
+                    f"projects/{project_id}/traces/{trace_id}"
+                )
+            else:
+                log_data["logging.googleapis.com/trace"] = trace_id
+
+        if span_id:
+            log_data["logging.googleapis.com/spanId"] = span_id
+
+        # Add all extra fields from record
+        if hasattr(record, "correlation_id"):
+            log_data["correlation_id"] = record.correlation_id
+
+        # Include exception info if present
+        if record.exc_info:
+            log_data["exception"] = self.formatException(record.exc_info)
+
+        return json.dumps(log_data)
+
+
 def setup_telemetry(level: int = logging.INFO) -> None:
     """Configures basic logging for the SRE Agent.
 
@@ -132,13 +212,23 @@ def setup_telemetry(level: int = logging.INFO) -> None:
     if env_level in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
         level = getattr(logging, env_level)
 
-    # Use ColorFormatter
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(ColorFormatter())
-
+    # 0. Check if logging is already configured to avoid double-logging
     root_logger = logging.getLogger()
-    root_logger.setLevel(level)
-    root_logger.addHandler(handler)
+    if root_logger.handlers:
+        logging.getLogger(__name__).debug(
+            "Logging already configured with handlers. Skipping root handler setup."
+        )
+    else:
+        # Use ColorFormatter or JsonFormatter based on environment
+        handler = logging.StreamHandler(sys.stdout)
+        log_format = os.environ.get("LOG_FORMAT", "COLOR").upper()
+        if log_format == "JSON":
+            handler.setFormatter(JsonFormatter())
+        else:
+            handler.setFormatter(ColorFormatter())
+
+        root_logger.setLevel(level)
+        root_logger.addHandler(handler)
 
     # Silence chatty loggers
     for logger_name in [
@@ -158,7 +248,21 @@ def setup_telemetry(level: int = logging.INFO) -> None:
 
     _TELEMETRY_INITIALIZED = True
 
-    # Attempt to instrument Google GenAI native (if available)
+    # 1. Skip expensive OTel initialization if already handled by Platform/ADK
+    # This addresses the "double-initialization" concern in Agent Engine.
+    if is_otel_initialized():
+        logging.getLogger(__name__).info(
+            "🚀 OpenTelemetry already initialized by platform/ADK. Skipping manual setup."
+        )
+    else:
+        # Setup LangSmith OTel if enabled (local only)
+        setup_langsmith_otel()
+
+        # Setup local Google Cloud OTel if enabled (via OTEL_TO_CLOUD override)
+        setup_google_cloud_otel()
+
+    # 2. Native ADK/GenAI Instrumentation: ALWAYS enable these as they are idempotent
+    # and ensure high-fidelity traces regardless of how the exporter is set up.
     try:
         from opentelemetry.instrumentation.google_genai import (
             GoogleGenAiSdkInstrumentor,
@@ -170,23 +274,38 @@ def setup_telemetry(level: int = logging.INFO) -> None:
             "✨ Google GenAI Native instrumentation enabled"
         )
     except ImportError:
-        # Expected if not installed or not in environment with this package
         logging.getLogger(__name__).debug("GoogleGenAiSdkInstrumentor not found.")
     except Exception as e:
         logging.getLogger(__name__).warning(f"Failed to instrument Google GenAI: {e}")
 
-    # Setup LangSmith OTel if enabled (local only)
-    setup_langsmith_otel()
 
-    # Setup Google Cloud OTel if enabled (local via OTEL_TO_CLOUD or prod via env)
-    setup_google_cloud_otel()
+def is_otel_initialized() -> bool:
+    """Checks if OpenTelemetry has already been initialized with a real provider."""
+    try:
+        from opentelemetry import trace
+
+        provider = trace.get_tracer_provider()
+        # Default providers are ProxyTracerProvider (SDK) or NoOpTracerProvider (API)
+        # If it's a real SDK TracerProvider, it's considered initialized.
+        from opentelemetry.sdk.trace import TracerProvider
+
+        return isinstance(provider, TracerProvider)
+    except (ImportError, Exception):
+        return False
 
 
 def setup_google_cloud_otel() -> None:
-    """Configures OpenTelemetry for Google Cloud Trace/Logging if enabled.
+    """Configures manual OpenTelemetry for Google Cloud Trace if enabled.
 
-    Enabled via OTEL_TO_CLOUD=true.
+    Used primarily for local development via OTEL_TO_CLOUD=true.
+    In production (Agent Engine), this is skipped to avoid conflicts with
+    native platform exporters.
     """
+    # 1. Skip if running in Agent Engine (where native tracing is preferred)
+    if os.environ.get("RUNNING_IN_AGENT_ENGINE", "false").lower() == "true":
+        return
+
+    # 2. Check for manual activation flag (local only)
     if os.environ.get("OTEL_TO_CLOUD", "false").lower() != "true":
         return
 
@@ -245,6 +364,76 @@ def setup_google_cloud_otel() -> None:
         )
     except Exception as e:
         logging.getLogger(__name__).warning(f"Failed to setup Google Cloud OTel: {e}")
+
+
+def bridge_otel_context(
+    trace_id: str | None = None,
+    span_id: str | None = None,
+    trace_flags: str | None = "01",
+) -> Any:
+    """Bridges a manual trace ID into the OpenTelemetry context.
+
+    This ensures that subsequent spans created by SDKs (like Vertex AI)
+    are linked to the original trace from the proxy.
+
+    Args:
+        trace_id: 32-char hex trace ID.
+        span_id: 16-char hex span ID (parent).
+        trace_flags: 2-char hex flags (default "01" for sampled).
+
+    Returns:
+        The token for the attached context, which should be detached in `finally`.
+    """
+    if not trace_id:
+        return None
+
+    try:
+        from opentelemetry import context as otel_context
+        from opentelemetry import trace as otel_trace
+        from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
+
+        # 1. Parse IDs
+        t_id = int(trace_id, 16)
+        # If span_id is missing, generate a deterministic one from trace_id
+        # to avoid OTel rejecting a zero span ID.
+        if span_id:
+            s_id = int(span_id, 16)
+        else:
+            s_id = int(trace_id[:16], 16)
+
+        # 2. Parse Flags safely
+        t_flags = TraceFlags.DEFAULT
+        if trace_flags == "01":
+            t_flags = TraceFlags.SAMPLED
+        elif trace_flags:
+            try:
+                t_flags = TraceFlags(int(trace_flags, 16))
+            except (ValueError, TypeError):
+                pass
+
+        # 3. Create SpanContext
+        span_context = SpanContext(
+            trace_id=t_id,
+            span_id=s_id,
+            is_remote=True,
+            trace_flags=t_flags,  # type: ignore[arg-type]
+        )
+
+        # 4. Wrap in a NonRecordingSpan
+        span = NonRecordingSpan(span_context)
+
+        # 5. Attach to current context
+        parent_context = otel_trace.set_span_in_context(span)
+        token = otel_context.attach(parent_context)
+
+        logging.getLogger(__name__).debug(
+            f"🌉 Bridged OTel context for trace: {trace_id}"
+        )
+        return token
+
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Failed to bridge OTel context: {e}")
+        return None
 
 
 def setup_langsmith_otel() -> None:

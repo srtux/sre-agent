@@ -104,6 +104,16 @@ class TestInvestigationState:
             "hypotheses": ["hypothesis-1"],
             "confirmed_root_cause": "root cause",
             "suggested_fix": "fix it",
+            "structured_findings": [],
+            "affected_services": [],
+            "timeline": [],
+            "incident_start": None,
+            "incident_end": None,
+            "severity": "unknown",
+            "investigation_score": 0.0,
+            "signals_analyzed": [],
+            "changes_correlated": [],
+            "slo_impact": {},
         }
 
     def test_from_dict_with_none(self) -> None:

@@ -37,6 +37,7 @@ def test_setup_telemetry_basic():
 
     with patch("logging.getLogger") as mock_get_logger:
         mock_root = MagicMock()
+        mock_root.handlers = []  # Ensure we test the path that adds a handler
         mock_get_logger.return_value = mock_root
 
         # We need to handle the case where getLogger is called with __name__ or empty
@@ -77,3 +78,42 @@ def test_langsmith_context_setters():
     add_langsmith_tags(["tag1", "tag2"])
     assert "tag1" in get_langsmith_tags()
     assert "tag2" in get_langsmith_tags()
+
+
+def test_json_formatter():
+    """Test the JsonFormatter for GCP log correlation."""
+    from sre_agent.tools.common.telemetry import JsonFormatter
+
+    formatter = JsonFormatter()
+    record = logging.LogRecord(
+        name="test_logger",
+        level=logging.INFO,
+        pathname="test_file.py",
+        lineno=10,
+        msg="test message",
+        args=(),
+        exc_info=None,
+    )
+
+    with patch("os.environ.get") as mock_env_get:
+        mock_env_get.side_effect = lambda k, default=None: (
+            "test-project" if k == "GOOGLE_CLOUD_PROJECT" else default
+        )
+        with patch("sre_agent.auth.get_trace_id") as mock_get_trace_id:
+            mock_get_trace_id.return_value = "1234567890abcdef1234567890abcdef"
+
+            import json
+
+            output = formatter.format(record)
+            log_data = json.loads(output)
+
+            assert log_data["severity"] == "INFO"
+            assert log_data["message"] == "test message"
+            assert (
+                log_data["logging.googleapis.com/trace"]
+                == "projects/test-project/traces/1234567890abcdef1234567890abcdef"
+            )
+            assert (
+                log_data["logging.googleapis.com/sourceLocation"]["file"]
+                == "test_file.py"
+            )
