@@ -60,6 +60,8 @@ async def list_log_entries(
     from fastapi.concurrency import run_in_threadpool
 
     from sre_agent.auth import get_current_project_id
+    from sre_agent.tools.config import get_tool_config_manager
+    from sre_agent.tools.mcp.gcp import mcp_list_log_entries
 
     if not project_id:
         project_id = get_current_project_id()
@@ -72,6 +74,31 @@ async def list_log_entries(
                     "in request (e.g., 'Analyze logs in project my-project-id') or use the project selector. "
                     "Local users should set the GOOGLE_CLOUD_PROJECT environment variable."
                 ),
+            )
+
+    # Prefer MCP if enabled
+    config_manager = get_tool_config_manager()
+    if config_manager.is_enabled("mcp_list_log_entries"):
+        try:
+            logger.info("Preferring MCP for list_log_entries")
+            mcp_res = await mcp_list_log_entries(
+                filter=filter_str,
+                project_id=project_id,
+                page_size=limit,
+                tool_context=tool_context,
+            )
+            if mcp_res.status == ToolStatus.SUCCESS:
+                return mcp_res
+
+            # If MCP fails with a non-retryable error, we might still want to try API fallback
+            # unless it's a clear auth error that would also fail the API.
+            logger.warning(
+                f"MCP list_log_entries failed: {mcp_res.error}. Falling back to direct API."
+            )
+        except Exception as e:
+            logger.warning(
+                f"Error calling MCP list_log_entries: {e}. Falling back to direct API.",
+                exc_info=True,
             )
 
     result = await run_in_threadpool(

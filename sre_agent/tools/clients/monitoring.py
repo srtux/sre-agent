@@ -64,6 +64,9 @@ async def list_time_series(
     """
     from fastapi.concurrency import run_in_threadpool
 
+    from sre_agent.tools.config import get_tool_config_manager
+    from sre_agent.tools.mcp.gcp import mcp_list_timeseries
+
     if not project_id:
         project_id = get_current_project_id()
         if not project_id:
@@ -75,6 +78,28 @@ async def list_time_series(
                     "in request (e.g., 'Analyze logs in project my-project-id') or use the project selector. "
                     "Local users should set the GOOGLE_CLOUD_PROJECT environment variable."
                 ),
+            )
+
+    # Prefer MCP if enabled
+    config_manager = get_tool_config_manager()
+    if config_manager.is_enabled("mcp_list_timeseries"):
+        try:
+            logger.info("Preferring MCP for list_time_series")
+            mcp_res = await mcp_list_timeseries(
+                filter=filter_str,
+                project_id=project_id,
+                minutes_ago=minutes_ago,
+                tool_context=tool_context,
+            )
+            if mcp_res.status == ToolStatus.SUCCESS:
+                return mcp_res
+            logger.warning(
+                f"MCP list_timeseries failed: {mcp_res.error}. Falling back to direct API."
+            )
+        except Exception as e:
+            logger.warning(
+                f"Error calling MCP list_timeseries: {e}. Falling back to direct API.",
+                exc_info=True,
             )
 
     result = await run_in_threadpool(
@@ -376,6 +401,9 @@ async def query_promql(
     """Executes a PromQL query using the Cloud Monitoring Prometheus API."""
     from fastapi.concurrency import run_in_threadpool
 
+    from sre_agent.tools.config import get_tool_config_manager
+    from sre_agent.tools.mcp.gcp import mcp_query_range
+
     if not project_id:
         project_id = get_current_project_id()
         if not project_id:
@@ -387,6 +415,30 @@ async def query_promql(
                     "in request (e.g., 'Analyze logs in project my-project-id') or use the project selector. "
                     "Local users should set the GOOGLE_CLOUD_PROJECT environment variable."
                 ),
+            )
+
+    # Prefer MCP if enabled
+    config_manager = get_tool_config_manager()
+    if config_manager.is_enabled("mcp_query_range"):
+        try:
+            logger.info("Preferring MCP for query_promql")
+            mcp_res = await mcp_query_range(
+                query=query,
+                project_id=project_id,
+                start_time=start,
+                end_time=end,
+                step=step,
+                tool_context=tool_context,
+            )
+            if mcp_res.status == ToolStatus.SUCCESS:
+                return mcp_res
+            logger.warning(
+                f"MCP query_range failed: {mcp_res.error}. Falling back to direct API."
+            )
+        except Exception as e:
+            logger.warning(
+                f"Error calling MCP query_range: {e}. Falling back to direct API.",
+                exc_info=True,
             )
 
     result = await run_in_threadpool(
