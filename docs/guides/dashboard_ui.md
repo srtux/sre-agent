@@ -19,16 +19,19 @@ The **Investigation Dashboard** is a real-time, interactive UI built into the Fl
     *   **Pattern Summary**: Auto-groups similar logs (e.g., "50 occurrences of Connection Refused").
     *   **Context**: Logs are correlated with the current Trace ID.
 
-### 3. Incident Timeline (Metrics & Alerts)
-*   **Purpose**: Visual correlation of triggered alerts with agent activities.
-*   **View**: A Gantt-chart style view showing when alerts fired vs. when the agent took action.
+### 3. Alerts Dashboard
+*   **Purpose**: A prioritized, scannable overview of active and historical alerts.
+*   **View**: A high-fidelity list of alert cards prioritized by severity (Critical > High > Warning).
+*   **Metadata**: Each card includes the affected service, resource type, specific metric, and precise open/close timestamps.
+*   **Correlation**: Alerts are automatically linked to the current incident context.
 
 ### 4. Remediation Plan
-*   **Purpose**: Guided resolution steps.
-*   **Mechanism**:
-    *   The agent generates a structured "Remediation Plan".
-    *   The UI renders this as a checklist.
-    *   **Risk Badges**: High-risk commands (e.g., `restart`, `scale`) are highlighted with warning badges.
+*   **Purpose**: Actionable, tool-driven resolution steps.
+*   **Features**:
+    *   **Checklists**: Steps are rendered as interactive checklists.
+    *   **Risk Assessment**: Every plan includes a risk badge (Low, Medium, High).
+    *   **One-Click Action**: Terminal commands (gcloud, kubectl) can be copied directly from the dashboard.
+    *   **Proactive**: Populates automatically when the agent calls the `generate_remediation_suggestions` tool.
 
 ## 🛠️ Architecture
 -   **Decoupled Data Channel**: The dashboard is independent of the chat-based A2UI protocol. It listens to a dedicated `dashboard` event stream.

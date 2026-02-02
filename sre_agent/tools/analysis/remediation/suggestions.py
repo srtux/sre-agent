@@ -361,6 +361,54 @@ REMEDIATION_PATTERNS: dict[str, Any] = {
             },
         ],
     },
+    # Connectivity issues
+    "connectivity_issue": {
+        "pattern": [
+            "connection refused",
+            "cannot connect",
+            "unreachable",
+            "dns resolution",
+            "failed to connect",
+            "unavailable",
+        ],
+        "category": "networking",
+        "severity": "high",
+        "suggestions": [
+            {
+                "action": "Check Service and Pod Health",
+                "description": "Ensure the target service is running and pods are ready.",
+                "steps": [
+                    "Check target service status in GKE dashboard",
+                    "Verify target pods are in READY state",
+                    "Check for crash loops or recent pod restarts in the target service",
+                ],
+                "risk": "low",
+                "effort": "low",
+            },
+            {
+                "action": "Verify Network Policies",
+                "description": "Network policies might be blocking traffic between namespaces or labels.",
+                "steps": [
+                    "List network policies in the relevant namespaces",
+                    "Check for egress/ingress rules blocking the specific ports",
+                    "Temporarily allow traffic to test connectivity",
+                ],
+                "risk": "medium",
+                "effort": "low",
+            },
+            {
+                "action": "Check DNS and Envoy Configuration",
+                "description": "Service discovery or mesh configuration might be incorrect.",
+                "steps": [
+                    "Verify DNS resolution from the source pod: 'nslookup productrecommendations'",
+                    "If using Istio/Anthos Service Mesh, check 'istioctl analyze'",
+                    "Look for Envoy sidecar errors (404/503) in the logs",
+                ],
+                "risk": "medium",
+                "effort": "medium",
+            },
+        ],
+    },
 }
 
 

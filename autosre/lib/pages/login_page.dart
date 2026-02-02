@@ -181,8 +181,16 @@ class LoginPage extends StatelessWidget {
                               );
                             }
 
-                            return Column(
+                            return Wrap(
+                              spacing: 24,
+                              runSpacing: 16,
+                              alignment: WrapAlignment.center,
+                              crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
+                                if (kDebugMode)
+                                  _GuestLoginButton(
+                                    onPressed: () => auth.loginAsGuest(),
+                                  ),
                                 GoogleSignInButton(
                                   onMobileSignIn: () async {
                                     try {
@@ -198,12 +206,6 @@ class LoginPage extends StatelessWidget {
                                     }
                                   },
                                 ),
-                                if (kDebugMode) ...[
-                                  const SizedBox(height: 24),
-                                  _GuestLoginButton(
-                                    onPressed: () => auth.loginAsGuest(),
-                                  ),
-                                ],
                               ],
                             );
                           },
@@ -423,7 +425,7 @@ class _GuestLoginButtonState extends State<_GuestLoginButton> {
         child: OutlinedButton(
           onPressed: widget.onPressed,
           style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             side: BorderSide(
               color: _isHovered ? AppColors.primaryCyan : Colors.white24,
               width: 1.5,
@@ -441,13 +443,13 @@ class _GuestLoginButtonState extends State<_GuestLoginButton> {
               Icon(
                 Icons.person_outline,
                 color: _isHovered ? AppColors.primaryCyan : Colors.white70,
-                size: 20,
+                size: 18,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               Text(
-                'Login as Guest',
+                'Guest',
                 style: GoogleFonts.inter(
-                  fontSize: 16,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: _isHovered ? Colors.white : Colors.white70,
                 ),

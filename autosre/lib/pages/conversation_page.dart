@@ -765,7 +765,7 @@ class _ConversationPageState extends State<ConversationPage>
       ),
       actions: [
         // Dashboard toggle
-        _buildDashboardToggle(),
+        _buildDashboardToggle(isMobile: isMobile),
         const SizedBox(width: 4),
         // Status indicator
         ValueListenableBuilder<bool>(
@@ -811,7 +811,7 @@ class _ConversationPageState extends State<ConversationPage>
     );
   }
 
-  Widget _buildDashboardToggle() {
+  Widget _buildDashboardToggle({required bool isMobile}) {
     return ListenableBuilder(
       listenable: _dashboardState,
       builder: (context, _) {
@@ -825,21 +825,36 @@ class _ConversationPageState extends State<ConversationPage>
             color: Colors.transparent,
             child: InkWell(
               onTap: _dashboardState.toggleDashboard,
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              borderRadius: BorderRadius.circular(10),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: EdgeInsets.symmetric(
+                  horizontal: isMobile ? 8 : 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: isOpen
                       ? AppColors.primaryCyan.withValues(alpha: 0.15)
                       : hasData
                           ? AppColors.primaryCyan.withValues(alpha: 0.08)
-                          : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
+                          : Colors.white.withValues(alpha: 0.03),
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color: isOpen
-                        ? AppColors.primaryCyan.withValues(alpha: 0.3)
-                        : Colors.transparent,
+                        ? AppColors.primaryCyan.withValues(alpha: 0.4)
+                        : hasData
+                            ? AppColors.primaryCyan.withValues(alpha: 0.2)
+                            : Colors.white.withValues(alpha: 0.08),
+                    width: 1,
                   ),
+                  boxShadow: [
+                    if (isOpen || hasData)
+                      BoxShadow(
+                        color: AppColors.primaryCyan.withValues(alpha: 0.1),
+                        blurRadius: 8,
+                        spreadRadius: -2,
+                      ),
+                  ],
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -848,27 +863,39 @@ class _ConversationPageState extends State<ConversationPage>
                       isOpen
                           ? Icons.space_dashboard_rounded
                           : Icons.space_dashboard_outlined,
-                      size: 20,
-                      color: isOpen
+                      size: 18,
+                      color: isOpen || hasData
                           ? AppColors.primaryCyan
-                          : hasData
-                              ? AppColors.primaryCyan
-                              : AppColors.textMuted,
+                          : AppColors.textPrimary,
                     ),
+                    if (!isMobile) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        'Dashboard',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: isOpen || hasData
+                              ? AppColors.primaryCyan
+                              : AppColors.textPrimary,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ],
                     if (hasData) ...[
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
+                            horizontal: 5, vertical: 1),
                         decoration: BoxDecoration(
                           color: AppColors.primaryCyan.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           '$count',
                           style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
                             color: AppColors.primaryCyan,
                           ),
                         ),
