@@ -495,40 +495,18 @@ def summarize_trace(
         spans = trace_data.get("spans", [])
         duration_ms = trace_data.get("duration_ms", 0)
 
-        # Extract errors
-        errors_resp = extract_errors(
-            trace_data, project_id=project_id, tool_context=tool_context
-        )
-        errors = (
-            errors_resp.result["errors"]
-            if errors_resp.status == ToolStatus.SUCCESS
-            else []
-        )
+        # Extract errors using internal impl to avoid tool overhead
+        errors = _extract_errors_impl(trace_data)
 
-        # Extract slow spans
-        spans_with_dur = []
-        for s in spans:
-            dur: float = 0.0
-            if "duration_ms" in s:
-                dur = s["duration_ms"]
-            elif (
-                s.get("start_time_unix") is not None
-                and s.get("end_time_unix") is not None
-            ):
-                dur = (s["end_time_unix"] - s["start_time_unix"]) * 1000
-            elif s.get("start_time") and s.get("end_time"):
-                try:
-                    start = datetime.fromisoformat(
-                        s["start_time"].replace("Z", "+00:00")
-                    )
-                    end = datetime.fromisoformat(s["end_time"].replace("Z", "+00:00"))
-                    dur = (end - start).total_seconds() * 1000
-                except (ValueError, TypeError):
-                    pass
-            spans_with_dur.append({"name": s.get("name"), "duration_ms": dur})
+        # Extract slow spans using optimized internal impl
+        durations = _calculate_span_durations_impl(trace_data)
 
-        spans_with_dur.sort(key=lambda x: x["duration_ms"], reverse=True)
-        top_slowest = spans_with_dur[:5]
+        # Map to expected format (name, duration_ms) and take top 5
+        # _calculate_span_durations_impl already sorts by duration descending
+        top_slowest = [
+            {"name": s.get("name"), "duration_ms": s.get("duration_ms", 0.0)}
+            for s in durations[:5]
+        ]
 
         return BaseToolResponse(
             status=ToolStatus.SUCCESS,

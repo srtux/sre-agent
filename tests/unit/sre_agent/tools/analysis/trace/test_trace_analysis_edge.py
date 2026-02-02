@@ -212,9 +212,9 @@ def test_summarize_trace_various_paths():
         return_value=trace_no_spans,
     ):
         with patch(
-            "sre_agent.tools.analysis.trace.analysis.extract_errors"
+            "sre_agent.tools.analysis.trace.analysis._extract_errors_impl"
         ) as mock_ext:
-            mock_ext.return_value = MagicMock(result={"errors": []})
+            mock_ext.return_value = []
             res = summarize_trace("t1")
             assert res.status == ToolStatus.SUCCESS
             mock_ext.assert_called_once()
