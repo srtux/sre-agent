@@ -21,6 +21,7 @@ from sre_agent.tools.clients.factory import (
     get_logging_client,
 )
 from sre_agent.tools.common import adk_tool
+from sre_agent.tools.config import get_tool_config_manager
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +61,6 @@ async def list_log_entries(
     from fastapi.concurrency import run_in_threadpool
 
     from sre_agent.auth import get_current_project_id
-    from sre_agent.tools.config import get_tool_config_manager
     from sre_agent.tools.mcp.gcp import mcp_list_log_entries
 
     if not project_id:
@@ -81,14 +81,16 @@ async def list_log_entries(
     if config_manager.is_enabled("mcp_list_log_entries"):
         try:
             logger.info("Preferring MCP for list_log_entries")
-            mcp_res = await mcp_list_log_entries(
+            from typing import cast
+
+            mcp_res = await cast(Any, mcp_list_log_entries)(
                 filter=filter_str,
                 project_id=project_id,
                 page_size=limit,
                 tool_context=tool_context,
             )
-            if mcp_res.status == ToolStatus.SUCCESS:
-                return mcp_res
+            if cast(BaseToolResponse, mcp_res).status == ToolStatus.SUCCESS:
+                return cast(BaseToolResponse, mcp_res)
 
             # If MCP fails with a non-retryable error, we might still want to try API fallback
             # unless it's a clear auth error that would also fail the API.

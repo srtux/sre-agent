@@ -27,6 +27,7 @@ from sre_agent.auth import (
 from sre_agent.schema import BaseToolResponse, ToolStatus
 from sre_agent.tools.clients.factory import get_monitoring_client
 from sre_agent.tools.common import adk_tool
+from sre_agent.tools.config import get_tool_config_manager
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +65,6 @@ async def list_time_series(
     """
     from fastapi.concurrency import run_in_threadpool
 
-    from sre_agent.tools.config import get_tool_config_manager
     from sre_agent.tools.mcp.gcp import mcp_list_timeseries
 
     if not project_id:
@@ -85,14 +85,16 @@ async def list_time_series(
     if config_manager.is_enabled("mcp_list_timeseries"):
         try:
             logger.info("Preferring MCP for list_time_series")
-            mcp_res = await mcp_list_timeseries(
+            from typing import cast
+
+            mcp_res = await cast(Any, mcp_list_timeseries)(
                 filter=filter_str,
                 project_id=project_id,
                 minutes_ago=minutes_ago,
                 tool_context=tool_context,
             )
-            if mcp_res.status == ToolStatus.SUCCESS:
-                return mcp_res
+            if cast(BaseToolResponse, mcp_res).status == ToolStatus.SUCCESS:
+                return cast(BaseToolResponse, mcp_res)
             logger.warning(
                 f"MCP list_timeseries failed: {mcp_res.error}. Falling back to direct API."
             )
@@ -401,7 +403,6 @@ async def query_promql(
     """Executes a PromQL query using the Cloud Monitoring Prometheus API."""
     from fastapi.concurrency import run_in_threadpool
 
-    from sre_agent.tools.config import get_tool_config_manager
     from sre_agent.tools.mcp.gcp import mcp_query_range
 
     if not project_id:
@@ -422,7 +423,9 @@ async def query_promql(
     if config_manager.is_enabled("mcp_query_range"):
         try:
             logger.info("Preferring MCP for query_promql")
-            mcp_res = await mcp_query_range(
+            from typing import cast
+
+            mcp_res = await cast(Any, mcp_query_range)(
                 query=query,
                 project_id=project_id,
                 start_time=start,
@@ -430,8 +433,8 @@ async def query_promql(
                 step=step,
                 tool_context=tool_context,
             )
-            if mcp_res.status == ToolStatus.SUCCESS:
-                return mcp_res
+            if cast(BaseToolResponse, mcp_res).status == ToolStatus.SUCCESS:
+                return cast(BaseToolResponse, mcp_res)
             logger.warning(
                 f"MCP query_range failed: {mcp_res.error}. Falling back to direct API."
             )

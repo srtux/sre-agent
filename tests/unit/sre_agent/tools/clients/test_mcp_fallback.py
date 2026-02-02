@@ -8,7 +8,7 @@ from sre_agent.tools.clients.monitoring import list_time_series, query_promql
 
 
 @pytest.mark.asyncio
-@mock.patch("sre_agent.tools.clients.logging.mcp_list_log_entries")
+@mock.patch("sre_agent.tools.mcp.gcp.mcp_list_log_entries")
 @mock.patch("sre_agent.tools.clients.logging._list_log_entries_sync")
 @mock.patch("sre_agent.tools.clients.logging.get_tool_config_manager")
 async def test_list_log_entries_mcp_priority(
@@ -36,7 +36,7 @@ async def test_list_log_entries_mcp_priority(
 
 
 @pytest.mark.asyncio
-@mock.patch("sre_agent.tools.clients.logging.mcp_list_log_entries")
+@mock.patch("sre_agent.tools.mcp.gcp.mcp_list_log_entries")
 @mock.patch("sre_agent.tools.clients.logging._list_log_entries_sync")
 @mock.patch("sre_agent.tools.clients.logging.get_tool_config_manager")
 async def test_list_log_entries_fallback_on_mcp_disabled(
@@ -58,7 +58,7 @@ async def test_list_log_entries_fallback_on_mcp_disabled(
 
 
 @pytest.mark.asyncio
-@mock.patch("sre_agent.tools.clients.logging.mcp_list_log_entries")
+@mock.patch("sre_agent.tools.mcp.gcp.mcp_list_log_entries")
 @mock.patch("sre_agent.tools.clients.logging._list_log_entries_sync")
 @mock.patch("sre_agent.tools.clients.logging.get_tool_config_manager")
 async def test_list_log_entries_fallback_on_mcp_failure(
@@ -84,7 +84,7 @@ async def test_list_log_entries_fallback_on_mcp_failure(
 
 
 @pytest.mark.asyncio
-@mock.patch("sre_agent.tools.clients.monitoring.mcp_list_timeseries")
+@mock.patch("sre_agent.tools.mcp.gcp.mcp_list_timeseries")
 @mock.patch("sre_agent.tools.clients.monitoring._list_time_series_sync")
 @mock.patch("sre_agent.tools.clients.monitoring.get_tool_config_manager")
 async def test_list_time_series_mcp_priority(
@@ -109,7 +109,7 @@ async def test_list_time_series_mcp_priority(
 
 
 @pytest.mark.asyncio
-@mock.patch("sre_agent.tools.clients.monitoring.mcp_query_range")
+@mock.patch("sre_agent.tools.mcp.gcp.mcp_query_range")
 @mock.patch("sre_agent.tools.clients.monitoring._query_promql_sync")
 @mock.patch("sre_agent.tools.clients.monitoring.get_tool_config_manager")
 async def test_query_promql_mcp_priority(
