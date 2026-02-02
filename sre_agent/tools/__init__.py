@@ -55,12 +55,19 @@ from .analysis.metrics.statistics import (
 )
 
 # Analysis Tools - Remediation
+from .analysis.remediation.postmortem import generate_postmortem
 from .analysis.remediation.suggestions import (
     estimate_remediation_risk,
     find_similar_past_incidents,
     generate_remediation_suggestions,
     get_gcloud_commands,
 )
+
+# Analysis Tools - SLO
+from .analysis.slo.burn_rate import analyze_multi_window_burn_rate
+
+# Analysis Tools - Change Correlation
+from .analysis.correlation.change_correlation import correlate_changes_with_incident
 from .analysis.trace.analysis import (
     build_call_graph,
     calculate_span_durations,
@@ -177,6 +184,9 @@ __all__ = [
     "ToolTestStatus",
     "add_finding_to_memory",
     "analyze_aggregate_metrics",
+    "analyze_multi_window_burn_rate",
+    "correlate_changes_with_incident",
+    "generate_postmortem",
     "analyze_bigquery_log_patterns",
     "analyze_critical_path",
     "analyze_error_budget_burn",

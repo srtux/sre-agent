@@ -536,6 +536,25 @@ TOOL_POLICIES: dict[str, ToolPolicy] = {
         category=ToolCategory.REMEDIATION,
         description="Estimate remediation risk",
     ),
+    "generate_postmortem": ToolPolicy(
+        name="generate_postmortem",
+        access_level=ToolAccessLevel.READ_ONLY,
+        category=ToolCategory.REMEDIATION,
+        description="Generate structured blameless postmortem report",
+    ),
+    "analyze_multi_window_burn_rate": ToolPolicy(
+        name="analyze_multi_window_burn_rate",
+        access_level=ToolAccessLevel.READ_ONLY,
+        category=ToolCategory.ANALYSIS,
+        description="Analyze SLO burn rate with multi-window alerting",
+    ),
+    "correlate_changes_with_incident": ToolPolicy(
+        name="correlate_changes_with_incident",
+        access_level=ToolAccessLevel.READ_ONLY,
+        category=ToolCategory.ANALYSIS,
+        description="Correlate recent changes with incident",
+        requires_project_context=True,
+    ),
     "get_gcloud_commands": ToolPolicy(
         name="get_gcloud_commands",
         access_level=ToolAccessLevel.READ_ONLY,
