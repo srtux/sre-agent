@@ -174,23 +174,36 @@ class _AlertsDashboardCanvasState extends State<AlertsDashboardCanvas> {
   }
 }
 
-class _AlertCard extends StatelessWidget {
+class _AlertCard extends StatefulWidget {
   final TimelineEvent event;
 
   const _AlertCard({required this.event});
 
+  @override
+  State<_AlertCard> createState() => _AlertCardState();
+}
+
+class _AlertCardState extends State<_AlertCard> {
+  bool _expanded = false;
+
   Color _getSeverityColor(String severity) {
     switch (severity.toLowerCase()) {
-      case 'critical': return AppColors.error;
-      case 'high': return const Color(0xFFFF6B6B);
-      case 'medium': return AppColors.warning;
-      case 'low': return AppColors.info;
-      default: return AppColors.textMuted;
+      case 'critical':
+        return AppColors.error;
+      case 'high':
+        return const Color(0xFFFF6B6B);
+      case 'medium':
+        return AppColors.warning;
+      case 'low':
+        return AppColors.info;
+      default:
+        return AppColors.textMuted;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final event = widget.event;
     final color = _getSeverityColor(event.severity);
     final metadata = event.metadata ?? {};
     final serviceName = metadata['service_name'] ?? 'unknown_service';
@@ -213,89 +226,164 @@ class _AlertCard extends StatelessWidget {
         ],
       ),
       clipBehavior: Clip.antiAlias,
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Severity Color Pillar
-            Container(width: 4, color: color),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            setState(() {
+              _expanded = !_expanded;
+            });
+          },
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Severity Color Pillar
+                Container(width: 4, color: color),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: color.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            event.severity.toUpperCase(),
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                              color: color,
-                              letterSpacing: 0.5,
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: color.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                event.severity.toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  color: color,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
                             ),
-                          ),
+                            const SizedBox(width: 8),
+                            Text(
+                              DateFormat('HH:mm:ss').format(event.timestamp),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textMuted,
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                            const Spacer(),
+                            if (state == 'OPEN')
+                              _buildPulseIndicator()
+                            else
+                              Text(
+                                state,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: state == 'CLOSED'
+                                      ? AppColors.success
+                                      : AppColors.textMuted,
+                                ),
+                              ),
+                          ],
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(height: 10),
                         Text(
-                          DateFormat('HH:mm:ss').format(event.timestamp),
+                          event.title,
                           style: const TextStyle(
-                            fontSize: 11,
-                            color: AppColors.textMuted,
-                            fontFamily: 'monospace',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                            height: 1.2,
                           ),
                         ),
-                        const Spacer(),
-                        if (state == 'OPEN')
-                          _buildPulseIndicator()
-                        else
-                          Text(
-                            state,
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: state == 'CLOSED' ? AppColors.success : AppColors.textMuted,
-                            ),
-                          ),
+                        const SizedBox(height: 12),
+                        // Resource & Metric Info
+                        Row(
+                          children: [
+                            _buildInfoItem(Icons.cloud_outlined, serviceName),
+                            const SizedBox(width: 16),
+                            _buildInfoItem(
+                                Icons.category_outlined, resourceType),
+                          ],
+                        ),
+                        if (metricType.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          _buildInfoItem(Icons.show_chart_rounded, metricType),
+                        ],
+                        if (_expanded) _buildExpandedContent(event),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    Text(
-                      event.title,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                        height: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    // Resource & Metric Info
-                    Row(
-                      children: [
-                        _buildInfoItem(Icons.cloud_outlined, serviceName),
-                        const SizedBox(width: 16),
-                        _buildInfoItem(Icons.category_outlined, resourceType),
-                      ],
-                    ),
-                    if (metricType.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      _buildInfoItem(Icons.show_chart_rounded, metricType),
-                    ],
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _buildExpandedContent(TimelineEvent event) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (event.description != null && event.description!.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          const Divider(height: 1, color: AppColors.surfaceBorder),
+          const SizedBox(height: 12),
+          Text(
+            event.description!,
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+              height: 1.4,
+            ),
+          ),
+        ],
+        if (event.metadata != null && event.metadata!.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          const Divider(height: 1, color: AppColors.surfaceBorder),
+          const SizedBox(height: 12),
+          ...event.metadata!.entries.where((e) {
+            final k = e.key;
+            return k != 'service_name' &&
+                k != 'resource_type' &&
+                k != 'state' &&
+                k != 'metric_type';
+          }).map((e) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 6.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${e.key}: ',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      e.value.toString(),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textMuted,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ],
     );
   }
 
