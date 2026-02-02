@@ -1,0 +1,48 @@
+{
+  "eval_set_id": "multi_signal_correlation",
+  "name": "Multi-Signal Correlation Scenarios",
+  "description": "Tests the agent's ability to correlate signals across traces, logs, and metrics to identify complex failure modes that aren't visible from a single signal.",
+  "eval_cases": [
+    {
+      "eval_id": "correlated_deploy_regression",
+      "conversation": [
+        {
+          "invocation_id": "inv_001",
+          "user_content": "Error rates across 3 services (api-gateway, user-service, order-service) in project microservices-prod all spiked simultaneously 20 minutes ago. Is this a deployment issue? Correlate the signals.",
+          "expected_tool_use": [
+            {"tool_name": "list_time_series"},
+            {"tool_name": "list_log_entries"},
+            {"tool_name": "fetch_trace"},
+            {"tool_name": "list_alert_policies"}
+          ],
+          "expected_intermediate_agent_responses": [
+            "deployment",
+            "correlat",
+            "simultaneous"
+          ],
+          "reference": "The agent should correlate the timing of error spikes across all three services, check for recent deployments or config changes in the logs, identify a shared dependency or common deployment event, and determine whether a code regression or infrastructure change caused the simultaneous failures. The analysis should include a timeline showing the cascade of events."
+        }
+      ]
+    },
+    {
+      "eval_id": "gradual_degradation_detection",
+      "conversation": [
+        {
+          "invocation_id": "inv_002",
+          "user_content": "Our SLO for the search-service in project search-prod is at risk. 99.9% availability target, currently at 99.7% over the last 7 days. The degradation seems gradual. Can you investigate what's causing the slow burn?",
+          "expected_tool_use": [
+            {"tool_name": "list_time_series"},
+            {"tool_name": "list_log_entries"},
+            {"tool_name": "fetch_trace"}
+          ],
+          "expected_intermediate_agent_responses": [
+            "SLO",
+            "gradual",
+            "trend"
+          ],
+          "reference": "The agent should analyze the SLO burn rate, identify the gradual degradation pattern in error budget consumption, correlate with metrics showing increasing latency or error rates over time, find the underlying cause (growing dataset, increasing traffic, resource contention), and suggest proactive remediation before the SLO is fully breached."
+        }
+      ]
+    }
+  ]
+}
