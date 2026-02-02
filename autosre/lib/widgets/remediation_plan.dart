@@ -424,113 +424,121 @@ class _RemediationPlanWidgetState extends State<RemediationPlanWidget>
               // Command (expanded)
               AnimatedCrossFade(
                 duration: const Duration(milliseconds: 200),
-                firstChild: Container(
-                  margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: isCopied
-                          ? AppColors.success.withValues(alpha: 0.5)
-                          : AppColors.surfaceBorder,
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Command header
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
+                firstChild: step.command.isEmpty
+                    ? const SizedBox.shrink()
+                    : Container(
+                        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.05),
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(9),
-                            topRight: Radius.circular(9),
+                          color: Colors.black.withValues(alpha: 0.4),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: isCopied
+                                ? AppColors.success.withValues(alpha: 0.5)
+                                : AppColors.surfaceBorder,
                           ),
                         ),
-                        child: Row(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(
-                              Icons.terminal,
-                              size: 14,
-                              color: AppColors.textMuted,
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Command',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: AppColors.textMuted,
+                            // Command header
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
                               ),
-                            ),
-                            const Spacer(),
-                            Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: () => _copyCommand(step.command, index),
-                                borderRadius: BorderRadius.circular(6),
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 200),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 4,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.05),
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(9),
+                                  topRight: Radius.circular(9),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.terminal,
+                                    size: 14,
+                                    color: AppColors.textMuted,
                                   ),
-                                  decoration: BoxDecoration(
-                                    color: isCopied
-                                        ? AppColors.success.withValues(
-                                            alpha: 0.2,
-                                          )
-                                        : Colors.white.withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(6),
+                                  const SizedBox(width: 8),
+                                  const Text(
+                                    'Command',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                      color: AppColors.textMuted,
+                                    ),
                                   ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        isCopied ? Icons.check : Icons.copy,
-                                        size: 12,
-                                        color: isCopied
-                                            ? AppColors.success
-                                            : AppColors.textSecondary,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        isCopied ? 'Copied!' : 'Copy',
-                                        style: TextStyle(
-                                          fontSize: 11,
+                                  const Spacer(),
+                                  Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      onTap: () =>
+                                          _copyCommand(step.command, index),
+                                      borderRadius: BorderRadius.circular(6),
+                                      child: AnimatedContainer(
+                                        duration:
+                                            const Duration(milliseconds: 200),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
                                           color: isCopied
-                                              ? AppColors.success
-                                              : AppColors.textSecondary,
+                                              ? AppColors.success.withValues(
+                                                  alpha: 0.2,
+                                                )
+                                              : Colors.white.withValues(
+                                                  alpha: 0.1),
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              isCopied
+                                                  ? Icons.check
+                                                  : Icons.copy,
+                                              size: 12,
+                                              color: isCopied
+                                                  ? AppColors.success
+                                                  : AppColors.textSecondary,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              isCopied ? 'Copied!' : 'Copy',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: isCopied
+                                                    ? AppColors.success
+                                                    : AppColors.textSecondary,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                    ],
+                                    ),
                                   ),
+                                ],
+                              ),
+                            ),
+                            // Command text
+                            Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: SelectableText(
+                                step.command,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontFamily: 'monospace',
+                                  color: AppColors.primaryTeal,
+                                  height: 1.5,
                                 ),
                               ),
                             ),
                           ],
                         ),
                       ),
-                      // Command text
-                      Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: SelectableText(
-                          step.command,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontFamily: 'monospace',
-                            color: AppColors.primaryTeal,
-                            height: 1.5,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
                 secondChild: const SizedBox.shrink(),
                 crossFadeState: isExpanded
                     ? CrossFadeState.showFirst
