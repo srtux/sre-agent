@@ -64,7 +64,9 @@ def tracing_client(tracing_app: FastAPI) -> TestClient:
 class TestTracingMiddleware:
     """Tests for the tracing/correlation middleware."""
 
-    def test_generates_correlation_id_when_missing(self, tracing_client: TestClient) -> None:
+    def test_generates_correlation_id_when_missing(
+        self, tracing_client: TestClient
+    ) -> None:
         """Middleware generates a correlation ID if none is provided."""
         response = tracing_client.get("/test")
         assert response.status_code == 200
@@ -195,7 +197,10 @@ class TestCORSConfiguration:
                 "Access-Control-Request-Method": "GET",
             },
         )
-        assert response.headers.get("access-control-allow-origin") == "http://localhost:3000"
+        assert (
+            response.headers.get("access-control-allow-origin")
+            == "http://localhost:3000"
+        )
 
     def test_unknown_origin_blocked(self) -> None:
         """Unknown origins are not allowed."""

@@ -20,6 +20,7 @@ from sre_agent.models.investigation import InvestigationPhase, InvestigationStat
 # Synthetic data generators
 # ---------------------------------------------------------------------------
 
+
 def make_trace_spans(
     trace_id: str = "abc123def456",
     root_latency_ms: int = 500,
@@ -33,36 +34,45 @@ def make_trace_spans(
     # Root span
     root_start = base_time.isoformat() + "Z"
     root_end = (base_time + timedelta(milliseconds=root_latency_ms)).isoformat() + "Z"
-    spans.append({
-        "trace_id": trace_id,
-        "span_id": "root-span-001",
-        "parent_span_id": None,
-        "name": "HTTP GET /api/checkout",
-        "kind": 2,
-        "start_time": root_start,
-        "end_time": root_end,
-        "status": {"code": 1, "message": ""},
-        "attributes": {"http.method": "GET", "http.status_code": "200"},
-        "resource": {"attributes": {"service.name": "api-gateway"}},
-    })
+    spans.append(
+        {
+            "trace_id": trace_id,
+            "span_id": "root-span-001",
+            "parent_span_id": None,
+            "name": "HTTP GET /api/checkout",
+            "kind": 2,
+            "start_time": root_start,
+            "end_time": root_end,
+            "status": {"code": 1, "message": ""},
+            "attributes": {"http.method": "GET", "http.status_code": "200"},
+            "resource": {"attributes": {"service.name": "api-gateway"}},
+        }
+    )
 
     # Child spans
     for i in range(child_count):
         child_start = (base_time + timedelta(milliseconds=i * 50)).isoformat() + "Z"
-        child_end = (base_time + timedelta(milliseconds=(i + 1) * 100)).isoformat() + "Z"
+        child_end = (
+            base_time + timedelta(milliseconds=(i + 1) * 100)
+        ).isoformat() + "Z"
         status_code = 2 if error_span_index == i else 1
-        spans.append({
-            "trace_id": trace_id,
-            "span_id": f"child-span-{i:03d}",
-            "parent_span_id": "root-span-001",
-            "name": f"DB Query {i}",
-            "kind": 3,
-            "start_time": child_start,
-            "end_time": child_end,
-            "status": {"code": status_code, "message": "error" if status_code == 2 else ""},
-            "attributes": {"db.system": "postgresql", "db.operation": "SELECT"},
-            "resource": {"attributes": {"service.name": "checkout-service"}},
-        })
+        spans.append(
+            {
+                "trace_id": trace_id,
+                "span_id": f"child-span-{i:03d}",
+                "parent_span_id": "root-span-001",
+                "name": f"DB Query {i}",
+                "kind": 3,
+                "start_time": child_start,
+                "end_time": child_end,
+                "status": {
+                    "code": status_code,
+                    "message": "error" if status_code == 2 else "",
+                },
+                "attributes": {"db.system": "postgresql", "db.operation": "SELECT"},
+                "resource": {"attributes": {"service.name": "checkout-service"}},
+            }
+        )
 
     return spans
 
@@ -84,14 +94,16 @@ def make_log_entries(
             if is_error
             else f"Request {i} completed successfully in 45ms"
         )
-        entries.append({
-            "logName": f"projects/test-project/logs/{service_name}",
-            "timestamp": (base_time + timedelta(seconds=i * 3)).isoformat() + "Z",
-            "severity": severity,
-            "textPayload": msg,
-            "resource": {"type": "k8s_container"},
-            "labels": {"k8s-pod/app": service_name},
-        })
+        entries.append(
+            {
+                "logName": f"projects/test-project/logs/{service_name}",
+                "timestamp": (base_time + timedelta(seconds=i * 3)).isoformat() + "Z",
+                "severity": severity,
+                "textPayload": msg,
+                "resource": {"type": "k8s_container"},
+                "labels": {"k8s-pod/app": service_name},
+            }
+        )
 
     return entries
 
@@ -110,13 +122,15 @@ def make_metric_points(
         value = baseline_value
         if i >= spike_index:
             value = baseline_value * spike_multiplier
-        points.append({
-            "interval": {
-                "startTime": (base_time + timedelta(minutes=i)).isoformat() + "Z",
-                "endTime": (base_time + timedelta(minutes=i + 1)).isoformat() + "Z",
-            },
-            "value": {"doubleValue": value},
-        })
+        points.append(
+            {
+                "interval": {
+                    "startTime": (base_time + timedelta(minutes=i)).isoformat() + "Z",
+                    "endTime": (base_time + timedelta(minutes=i + 1)).isoformat() + "Z",
+                },
+                "value": {"doubleValue": value},
+            }
+        )
 
     return points
 
@@ -221,7 +235,14 @@ class TestSyntheticDataGenerators:
     def test_trace_spans_have_required_fields(self) -> None:
         """Generated spans contain all required trace fields."""
         spans = make_trace_spans()
-        required_fields = {"trace_id", "span_id", "name", "kind", "start_time", "end_time"}
+        required_fields = {
+            "trace_id",
+            "span_id",
+            "name",
+            "kind",
+            "start_time",
+            "end_time",
+        }
         for span in spans:
             assert required_fields.issubset(span.keys())
 

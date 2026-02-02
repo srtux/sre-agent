@@ -63,7 +63,9 @@ class TestMCPPatch:
 
     def test_mcp_patch_handles_import_error(self) -> None:
         """MCP patch gracefully handles missing mcp package."""
-        with patch.dict("sys.modules", {"mcp": None, "mcp.client": None, "mcp.client.session": None}):
+        with patch.dict(
+            "sys.modules", {"mcp": None, "mcp.client": None, "mcp.client.session": None}
+        ):
             # Should not raise even if mcp is not available
             from sre_agent.api.app import _apply_mcp_patch
 

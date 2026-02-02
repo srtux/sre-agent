@@ -22,6 +22,7 @@ def app():
     The auth middleware has a known lazy-import issue in the dev mode path,
     so we mock it to avoid crashes in integration tests.
     """
+
     async def _noop_auth(request: Any, call_next: Any) -> Any:
         return await call_next(request)
 
@@ -89,7 +90,9 @@ class TestSessionLifecycle:
         assert response.status_code in (200, 201, 422)
 
     @patch("sre_agent.services.get_session_service")
-    def test_get_nonexistent_session(self, mock_get_svc: MagicMock, client: TestClient) -> None:
+    def test_get_nonexistent_session(
+        self, mock_get_svc: MagicMock, client: TestClient
+    ) -> None:
         """Fetching a nonexistent session returns 404."""
         mock_mgr = AsyncMock()
         mock_get_svc.return_value = mock_mgr
