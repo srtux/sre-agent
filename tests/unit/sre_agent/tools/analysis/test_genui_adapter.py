@@ -224,3 +224,48 @@ def test_transform_alerts_to_timeline():
     result_empty = transform_alerts_to_timeline([])
     assert result_empty["title"] == "No Active Alerts"
     assert result_empty["status"] == "resolved"
+
+
+def test_transform_trace_quality_analysis():
+    # Test Orphaned Span
+    trace_orphaned = {
+        "trace_id": "orp1",
+        "spans": [
+            {
+                "span_id": "child",
+                "parent_span_id": "missing_parent",
+                "name": "orphan",
+                "start_time": "2024-01-01T10:00:00Z",
+                "end_time": "2024-01-01T10:00:10Z",
+            }
+        ],
+    }
+    result_orp = transform_trace(trace_orphaned)
+    assert (
+        result_orp["spans"][0]["attributes"]["/agent/quality/type"] == "orphaned_span"
+    )
+    assert "not found" in result_orp["spans"][0]["attributes"]["/agent/quality/issue"]
+
+    # Test Clock Skew
+    trace_skew = {
+        "trace_id": "skew1",
+        "spans": [
+            {
+                "span_id": "parent",
+                "name": "parent",
+                "start_time": "2024-01-01T10:00:00Z",
+                "end_time": "2024-01-01T10:01:00Z",
+            },
+            {
+                "span_id": "child",
+                "parent_span_id": "parent",
+                "name": "child_skew",
+                "start_time": "2024-01-01T09:59:00Z",  # Starts before parent
+                "end_time": "2024-01-01T10:00:30Z",
+            },
+        ],
+    }
+    result_skew = transform_trace(trace_skew)
+    child_span = next(s for s in result_skew["spans"] if s["span_id"] == "child")
+    assert child_span["attributes"]["/agent/quality/type"] == "clock_skew"
+    assert "outside parent" in child_span["attributes"]["/agent/quality/issue"]

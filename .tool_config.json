@@ -1,10 +1,55 @@
 {
   "tools": [
     {
+      "name": "update_investigation_state",
+      "display_name": "Update Investigation State",
+      "description": "Update the current phase, findings, and hypotheses of an investigation",
+      "category": "orchestration",
+      "enabled": true,
+      "testable": false,
+      "last_test_result": null
+    },
+    {
+      "name": "get_investigation_summary",
+      "display_name": "Get Investigation Summary",
+      "description": "Get a summary of current findings and investigation progress",
+      "category": "orchestration",
+      "enabled": true,
+      "testable": false,
+      "last_test_result": null
+    },
+    {
+      "name": "add_finding_to_memory",
+      "display_name": "Add Finding to Memory",
+      "description": "Explicitly add a finding to the agent's memory",
+      "category": "memory",
+      "enabled": true,
+      "testable": false,
+      "last_test_result": null
+    },
+    {
+      "name": "search_memory",
+      "display_name": "Search Memory",
+      "description": "Search the agent's memory for relevant findings",
+      "category": "memory",
+      "enabled": true,
+      "testable": false,
+      "last_test_result": null
+    },
+    {
+      "name": "suggest_next_steps",
+      "display_name": "Suggest Next Steps",
+      "description": "Suggest the next best steps based on investigation state",
+      "category": "orchestration",
+      "enabled": true,
+      "testable": false,
+      "last_test_result": null
+    },
+    {
       "name": "fetch_trace",
       "display_name": "Fetch Trace",
       "description": "Fetch a trace from Cloud Trace API",
-      "category": "api_client",
+      "category": "trace_fetch",
       "enabled": true,
       "testable": true,
       "last_test_result": {
@@ -21,7 +66,7 @@
       "name": "list_traces",
       "display_name": "List Traces",
       "description": "List traces from Cloud Trace API",
-      "category": "api_client",
+      "category": "trace_fetch",
       "enabled": true,
       "testable": true,
       "last_test_result": {
@@ -64,7 +109,7 @@
       "name": "list_log_entries",
       "display_name": "List Log Entries",
       "description": "List log entries from Cloud Logging API",
-      "category": "api_client",
+      "category": "log_fetch",
       "enabled": true,
       "testable": true,
       "last_test_result": {
@@ -81,7 +126,7 @@
       "name": "get_logs_for_trace",
       "display_name": "Get Logs for Trace",
       "description": "Get log entries correlated with a specific trace",
-      "category": "api_client",
+      "category": "log_fetch",
       "enabled": true,
       "testable": true,
       "last_test_result": {
@@ -115,7 +160,7 @@
       "name": "list_time_series",
       "display_name": "List Time Series",
       "description": "List metrics time series from Cloud Monitoring",
-      "category": "api_client",
+      "category": "metric_fetch",
       "enabled": true,
       "testable": true,
       "last_test_result": {
@@ -132,7 +177,7 @@
       "name": "query_promql",
       "display_name": "Query PromQL",
       "description": "Execute PromQL queries against Cloud Monitoring",
-      "category": "api_client",
+      "category": "metric_fetch",
       "enabled": true,
       "testable": true,
       "last_test_result": {
@@ -149,7 +194,7 @@
       "name": "list_alerts",
       "display_name": "List Alerts",
       "description": "List active alerts from Cloud Monitoring",
-      "category": "api_client",
+      "category": "alert",
       "enabled": true,
       "testable": true,
       "last_test_result": {
@@ -172,8 +217,8 @@
       "last_test_result": {
         "status": "success",
         "message": "Alert Policy API client initialized successfully",
-        "latency_ms": 0.034415992558933794,
-        "timestamp": "2026-01-19T08:47:10.257781+00:00",
+        "latency_ms": 589.7110420009994,
+        "timestamp": "2026-02-02T07:04:28.668673+00:00",
         "details": {
           "project_id": "summitt-gcp"
         }
@@ -210,7 +255,7 @@
       "display_name": "MCP List Log Entries",
       "description": "List log entries via MCP Cloud Logging server",
       "category": "mcp",
-      "enabled": false,
+      "enabled": true,
       "testable": true,
       "last_test_result": {
         "status": "failed",
@@ -225,7 +270,7 @@
       "display_name": "MCP List Time Series",
       "description": "List metrics via MCP Cloud Monitoring server",
       "category": "mcp",
-      "enabled": false,
+      "enabled": true,
       "testable": true,
       "last_test_result": {
         "status": "failed",
@@ -240,7 +285,7 @@
       "display_name": "MCP Query Range (PromQL)",
       "description": "Execute PromQL queries via MCP Cloud Monitoring server",
       "category": "mcp",
-      "enabled": false,
+      "enabled": true,
       "testable": true,
       "last_test_result": {
         "status": "failed",
@@ -260,10 +305,37 @@
       "last_test_result": null
     },
     {
+      "name": "list_dataset_ids",
+      "display_name": "List BigQuery Datasets",
+      "description": "List BigQuery datasets using MCP",
+      "category": "discovery",
+      "enabled": true,
+      "testable": false,
+      "last_test_result": null
+    },
+    {
+      "name": "list_table_ids",
+      "display_name": "List BigQuery Tables",
+      "description": "List BigQuery tables using MCP",
+      "category": "discovery",
+      "enabled": true,
+      "testable": false,
+      "last_test_result": null
+    },
+    {
+      "name": "get_table_info",
+      "display_name": "Get BigQuery Table Info",
+      "description": "Get BigQuery table schema and info using MCP",
+      "category": "discovery",
+      "enabled": true,
+      "testable": false,
+      "last_test_result": null
+    },
+    {
       "name": "analyze_aggregate_metrics",
       "display_name": "Analyze Aggregate Metrics",
       "description": "Analyze aggregate metrics from BigQuery OpenTelemetry tables",
-      "category": "analysis",
+      "category": "metric_analyze",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -272,7 +344,7 @@
       "name": "find_exemplar_traces",
       "display_name": "Find Exemplar Traces",
       "description": "Find exemplar traces (baseline and anomaly) from BigQuery",
-      "category": "analysis",
+      "category": "trace_fetch",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -281,7 +353,7 @@
       "name": "compare_time_periods",
       "display_name": "Compare Time Periods",
       "description": "Compare metrics between two time periods",
-      "category": "analysis",
+      "category": "metric_analyze",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -290,7 +362,7 @@
       "name": "detect_trend_changes",
       "display_name": "Detect Trend Changes",
       "description": "Detect trend changes in metrics over time",
-      "category": "analysis",
+      "category": "metric_analyze",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -299,7 +371,7 @@
       "name": "correlate_logs_with_trace",
       "display_name": "Correlate Logs with Trace",
       "description": "Correlate log entries with a specific trace",
-      "category": "analysis",
+      "category": "correlation",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -308,7 +380,7 @@
       "name": "calculate_span_durations",
       "display_name": "Calculate Span Durations",
       "description": "Calculate durations for all spans in a trace",
-      "category": "analysis",
+      "category": "trace_analyze",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -317,7 +389,7 @@
       "name": "extract_errors",
       "display_name": "Extract Errors",
       "description": "Extract error information from trace spans",
-      "category": "analysis",
+      "category": "trace_analyze",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -326,7 +398,7 @@
       "name": "build_call_graph",
       "display_name": "Build Call Graph",
       "description": "Build a call graph from trace data",
-      "category": "analysis",
+      "category": "trace_analyze",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -335,7 +407,7 @@
       "name": "summarize_trace",
       "display_name": "Summarize Trace",
       "description": "Generate a summary of trace data",
-      "category": "analysis",
+      "category": "trace_analyze",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -344,7 +416,7 @@
       "name": "validate_trace_quality",
       "display_name": "Validate Trace Quality",
       "description": "Validate the quality and completeness of trace data",
-      "category": "analysis",
+      "category": "trace_analyze",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -353,7 +425,7 @@
       "name": "compare_span_timings",
       "display_name": "Compare Span Timings",
       "description": "Compare span timings between two traces",
-      "category": "analysis",
+      "category": "trace_analyze",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -362,7 +434,7 @@
       "name": "find_structural_differences",
       "display_name": "Find Structural Differences",
       "description": "Find structural differences between two traces",
-      "category": "analysis",
+      "category": "trace_analyze",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -371,7 +443,7 @@
       "name": "analyze_trace_comprehensive",
       "display_name": "Analyze Trace Comprehensive",
       "description": "Comprehensive trace analysis (mega-tool) combining validation, durations, errors, critical path, and structure",
-      "category": "analysis",
+      "category": "trace_analyze",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -416,7 +488,7 @@
       "name": "detect_retry_storm",
       "display_name": "Detect Retry Storm",
       "description": "Identify excessive retries and exponential backoff patterns",
-      "category": "analysis",
+      "category": "trace_analyze",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -425,7 +497,7 @@
       "name": "detect_cascading_timeout",
       "display_name": "Detect Cascading Timeout",
       "description": "Trace timeout propagation through the call chain",
-      "category": "analysis",
+      "category": "trace_analyze",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -434,7 +506,7 @@
       "name": "detect_connection_pool_issues",
       "display_name": "Detect Connection Pool Issues",
       "description": "Detect waits for database or HTTP connections",
-      "category": "analysis",
+      "category": "trace_analyze",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -443,7 +515,7 @@
       "name": "detect_all_sre_patterns",
       "display_name": "Detect All SRE Patterns",
       "description": "Comprehensive scan for multiple SRE anti-patterns",
-      "category": "analysis",
+      "category": "trace_analyze",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -452,7 +524,7 @@
       "name": "extract_log_patterns",
       "display_name": "Extract Log Patterns",
       "description": "Extract patterns from log entries using Drain3",
-      "category": "analysis",
+      "category": "log_analyze",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -461,7 +533,7 @@
       "name": "compare_log_patterns",
       "display_name": "Compare Log Patterns",
       "description": "Compare log patterns between two time periods",
-      "category": "analysis",
+      "category": "log_analyze",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -470,7 +542,7 @@
       "name": "analyze_log_anomalies",
       "display_name": "Analyze Log Anomalies",
       "description": "Analyze log anomalies and detect issues",
-      "category": "analysis",
+      "category": "log_analyze",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -479,7 +551,7 @@
       "name": "analyze_bigquery_log_patterns",
       "display_name": "Analyze BigQuery Log Patterns",
       "description": "Analyze log patterns using BigQuery for large-scale analysis",
-      "category": "analysis",
+      "category": "log_analyze",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -488,7 +560,7 @@
       "name": "detect_metric_anomalies",
       "display_name": "Detect Metric Anomalies",
       "description": "Detect anomalies in metric time series",
-      "category": "analysis",
+      "category": "metric_analyze",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -497,7 +569,7 @@
       "name": "compare_metric_windows",
       "display_name": "Compare Metric Windows",
       "description": "Compare metrics between two time windows",
-      "category": "analysis",
+      "category": "metric_analyze",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -506,7 +578,7 @@
       "name": "calculate_series_stats",
       "display_name": "Calculate Series Stats",
       "description": "Calculate statistical metrics for time series",
-      "category": "analysis",
+      "category": "metric_analyze",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -515,7 +587,7 @@
       "name": "correlate_trace_with_metrics",
       "display_name": "Correlate Trace with Metrics",
       "description": "Correlate trace data with metrics",
-      "category": "analysis",
+      "category": "correlation",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -524,7 +596,7 @@
       "name": "correlate_metrics_with_traces_via_exemplars",
       "display_name": "Correlate Metrics via Exemplars",
       "description": "Correlate metrics with traces using exemplars",
-      "category": "analysis",
+      "category": "correlation",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -533,7 +605,7 @@
       "name": "build_cross_signal_timeline",
       "display_name": "Build Cross-Signal Timeline",
       "description": "Build a unified timeline from multiple signal sources",
-      "category": "analysis",
+      "category": "correlation",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -542,7 +614,7 @@
       "name": "analyze_signal_correlation_strength",
       "display_name": "Analyze Signal Correlation",
       "description": "Analyze the correlation strength between signals",
-      "category": "analysis",
+      "category": "correlation",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -551,7 +623,7 @@
       "name": "analyze_critical_path",
       "display_name": "Analyze Critical Path",
       "description": "Analyze the critical path in a trace",
-      "category": "analysis",
+      "category": "trace_analyze",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -560,7 +632,7 @@
       "name": "find_bottleneck_services",
       "display_name": "Find Bottleneck Services",
       "description": "Find services that are bottlenecks in the request path",
-      "category": "analysis",
+      "category": "trace_analyze",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -569,7 +641,7 @@
       "name": "calculate_critical_path_contribution",
       "display_name": "Calculate Critical Path Contribution",
       "description": "Calculate each service's contribution to critical path",
-      "category": "analysis",
+      "category": "trace_analyze",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -578,7 +650,7 @@
       "name": "build_service_dependency_graph",
       "display_name": "Build Service Dependency Graph",
       "description": "Build a graph of service dependencies",
-      "category": "analysis",
+      "category": "discovery",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -587,7 +659,7 @@
       "name": "analyze_upstream_downstream_impact",
       "display_name": "Analyze Impact",
       "description": "Analyze upstream and downstream service impact",
-      "category": "analysis",
+      "category": "trace_analyze",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -596,7 +668,7 @@
       "name": "detect_circular_dependencies",
       "display_name": "Detect Circular Dependencies",
       "description": "Detect circular dependencies in service graph",
-      "category": "analysis",
+      "category": "trace_analyze",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -605,7 +677,7 @@
       "name": "find_hidden_dependencies",
       "display_name": "Find Hidden Dependencies",
       "description": "Find hidden or implicit service dependencies",
-      "category": "analysis",
+      "category": "trace_analyze",
       "enabled": true,
       "testable": false,
       "last_test_result": null
@@ -765,7 +837,7 @@
       "name": "correlate_trace_with_kubernetes",
       "display_name": "Correlate Trace with K8s",
       "description": "Correlate trace data with Kubernetes events",
-      "category": "gke",
+      "category": "correlation",
       "enabled": false,
       "testable": false,
       "last_test_result": null
@@ -876,15 +948,60 @@
       "last_test_result": null
     },
     {
+      "name": "transfer_to_agent",
+      "display_name": "Transfer to Agent",
+      "description": "Transfer the investigation to a specialized sub-agent",
+      "category": "orchestration",
+      "enabled": true,
+      "testable": false,
+      "last_test_result": null
+    },
+    {
+      "name": "list_metric_descriptors",
+      "display_name": "List Metric Descriptors",
+      "description": "List and filter GCP metric descriptors",
+      "category": "metric_fetch",
+      "enabled": true,
+      "testable": true,
+      "last_test_result": null
+    },
+    {
       "name": "synthesize_report",
       "display_name": "Synthesize Report",
       "description": "Synthesize a comprehensive incident report",
-      "category": "analysis",
+      "category": "orchestration",
       "enabled": true,
       "testable": false,
+      "last_test_result": null
+    },
+    {
+      "name": "restart_pod",
+      "display_name": "Restart Pod",
+      "description": "Restart a Kubernetes pod",
+      "category": "gke",
+      "enabled": true,
+      "testable": true,
+      "last_test_result": null
+    },
+    {
+      "name": "scale_deployment",
+      "display_name": "Scale Deployment",
+      "description": "Scale a Kubernetes deployment",
+      "category": "gke",
+      "enabled": true,
+      "testable": true,
+      "last_test_result": null
+    },
+    {
+      "name": "rollback_deployment",
+      "display_name": "Rollback Deployment",
+      "description": "Rollback a deployment to previous version",
+      "category": "gke",
+      "enabled": true,
+      "testable": true,
       "last_test_result": null
     }
   ],
   "version": "1.0",
-  "updated_at": "2026-01-22T17:39:25.655759+00:00"
+  "updated_at": "2026-02-02T07:04:49.312516+00:00"
 }

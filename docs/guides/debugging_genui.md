@@ -1,6 +1,6 @@
 # Debugging the GenUI/A2UI Protocol
 
-This guide documents known issues and debugging techniques for the GenUI (A2UI) protocol implementation in the Auto SRE Agent.
+This guide documents known issues and debugging techniques for the GenUI (A2UI) protocol implementation in the Auto SRE Agent. For a comprehensive overview of the architecture and component schemas, see **[Rendering Telemetry](rendering_telemetry.md)**.
 
 ## 📋 A2UI v0.8 Protocol Compliance
 

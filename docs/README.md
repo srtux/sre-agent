@@ -36,6 +36,7 @@ Practical instructions for using and developing the agent.
 - [Debugging Connectivity](guides/debugging_connectivity.md): Troubleshooting network and API issues.
 - [Debugging Telemetry](guides/debugging_telemetry_and_auth.md): Diagnosing missing traces or auth failures.
 - [Debugging GenUI](guides/debugging_genui.md): Troubleshooting visual widget issues.
+- [Rendering Telemetry](guides/rendering_telemetry.md): Guide to GenUI/A2UI architecture and widget schemas.
 
 ### [Reference](reference/)
 API specifications and tool catalogs.

@@ -734,20 +734,62 @@ class _TraceWaterfallState extends State<TraceWaterfall>
   Widget _buildSpanDetails(SpanInfo span) {
     final service = _extractServiceName(span.name);
     final serviceColor = _serviceColors[service] ?? AppColors.primaryTeal;
-    final isOnCriticalPath = _criticalPathSpanIds.contains(span.spanId);
+    final issueType = span.attributes['/agent/quality/type'];
+    final issueMessage = span.attributes['/agent/quality/issue'];
 
     return Container(
       margin: const EdgeInsets.all(12),
       padding: const EdgeInsets.all(14),
       decoration: GlassDecoration.elevated(
         borderRadius: 12,
-        withGlow: span.status == 'ERROR',
-        glowColor: span.status == 'ERROR' ? AppColors.error : serviceColor,
+        withGlow: span.status == 'ERROR' || issueType != null,
+        glowColor: span.status == 'ERROR' ? AppColors.error : (issueType != null ? AppColors.warning : serviceColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Quality Issue Banner
+          if (issueMessage != null)
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.warning.withValues(alpha: 0.1),
+                    AppColors.warning.withValues(alpha: 0.05),
+                  ],
+                  stops: const [0.0, 1.0],
+                ),
+                border: Border.all(
+                  color: AppColors.warning.withValues(alpha: 0.3),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                   const Icon(
+                    Icons.warning_amber_rounded,
+                    color: AppColors.warning,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      issueMessage,
+                      style: const TextStyle(
+                        color: AppColors.warning,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
           Row(
             children: [
               Container(
@@ -784,7 +826,7 @@ class _TraceWaterfallState extends State<TraceWaterfall>
                   ],
                 ),
               ),
-              if (isOnCriticalPath)
+              if (_criticalPathSpanIds.contains(span.spanId))
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,

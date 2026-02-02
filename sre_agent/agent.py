@@ -907,6 +907,10 @@ base_tools: list[Any] = [
     add_finding_to_memory,
     search_memory,
     suggest_next_steps,
+    # Remediation tools
+    generate_remediation_suggestions,
+    estimate_remediation_risk,
+    get_gcloud_commands,
 ]
 
 

@@ -72,6 +72,53 @@ def transform_trace(trace_data: dict[str, Any]) -> dict[str, Any]:
         status_code = span.get("attributes", {}).get("/http/status_code", "200")
         span["status"] = "ERROR" if str(status_code).startswith(("4", "5")) else "OK"
         spans.append(span)
+    span_map = {s.get("span_id"): s for s in spans if s.get("span_id")}
+
+    for span in spans:
+        # Check specific trace quality issues
+        issue_type = None
+        issue_message = None
+
+        # 1. Orphaned Span check
+        parent_id = span.get("parent_span_id")
+        if parent_id and parent_id not in span_map:
+            issue_type = "orphaned_span"
+            issue_message = f"Parent span {parent_id} not found in this trace"
+
+        # 2. Clock Skew check (if not already orphaned)
+        elif parent_id and parent_id in span_map:
+            parent = span_map[parent_id]
+            try:
+                # Parse timestamps (handling potentially different formats/types if needed,
+                # but relying on standard ISO strings from earlier parsing if available)
+                # Note: 'span' dict here might have raw strings or already parsed objects depending on earlier logic.
+                # The earlier code didn't parse them into DateTime objects in the dict, it left them as strings usually.
+                # Let's safely parse.
+                def parse_time(t):
+                    if not t:
+                        return None
+                    return datetime.fromisoformat(str(t).replace("Z", "+00:00"))
+
+                s_start = parse_time(span.get("start_time"))
+                s_end = parse_time(span.get("end_time"))
+                p_start = parse_time(parent.get("start_time"))
+                p_end = parse_time(parent.get("end_time"))
+
+                if s_start and s_end and p_start and p_end:
+                    # Allow a small buffer for precision issues if needed, but strict for now
+                    if s_start < p_start or s_end > p_end:
+                        issue_type = "clock_skew"
+                        issue_message = "Child span outside parent timespan"
+            except (ValueError, TypeError):
+                pass
+
+        # Inject attributes if issue detected
+        if issue_type:
+            if "attributes" not in span:
+                span["attributes"] = {}
+            span["attributes"]["/agent/quality/type"] = issue_type
+            span["attributes"]["/agent/quality/issue"] = issue_message
+
     return {"trace_id": trace_id, "spans": spans}
 
 
