@@ -36,7 +36,7 @@ class _TraceWaterfallState extends State<TraceWaterfall>
   late DateTime _traceStart;
   late int _totalDuration;
   final Map<String, Color> _serviceColors = {};
-  final ScrollController _scrollController = ScrollController();
+
 
   // Color palette for services
   static const List<Color> _colorPalette = [
@@ -225,7 +225,7 @@ class _TraceWaterfallState extends State<TraceWaterfall>
   @override
   void dispose() {
     _animController.dispose();
-    _scrollController.dispose();
+
     super.dispose();
   }
 
@@ -247,20 +247,19 @@ class _TraceWaterfallState extends State<TraceWaterfall>
         _buildServiceLegend(),
         const SizedBox(height: 8),
         _buildTimeRuler(),
-        Expanded(
-          child: AnimatedBuilder(
-            animation: _animation,
-            builder: (context, child) {
-              return ListView.builder(
-                controller: _scrollController,
-                padding: const EdgeInsets.only(bottom: 16),
-                itemCount: _flattenedNodes.length,
-                itemBuilder: (context, index) {
-                  return _buildSpanRow(_flattenedNodes[index], index);
-                },
-              );
-            },
-          ),
+        AnimatedBuilder(
+          animation: _animation,
+          builder: (context, child) {
+            return ListView.builder(
+              padding: const EdgeInsets.only(bottom: 16),
+              itemCount: _flattenedNodes.length,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemBuilder: (context, index) {
+                return _buildSpanRow(_flattenedNodes[index], index);
+              },
+            );
+          },
         ),
         if (_selectedSpan != null) _buildSpanDetails(_selectedSpan!),
       ],
@@ -738,7 +737,6 @@ class _TraceWaterfallState extends State<TraceWaterfall>
     final issueMessage = span.attributes['/agent/quality/issue'];
 
     return Container(
-      constraints: const BoxConstraints(maxHeight: 350),
       margin: const EdgeInsets.all(12),
       padding: const EdgeInsets.all(14),
       decoration: GlassDecoration.elevated(
@@ -748,218 +746,216 @@ class _TraceWaterfallState extends State<TraceWaterfall>
             ? AppColors.error
             : (issueType != null ? AppColors.warning : serviceColor),
       ),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Quality Issue Banner
-            if (issueMessage != null)
-              Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.warning.withValues(alpha: 0.1),
-                      AppColors.warning.withValues(alpha: 0.05),
-                    ],
-                    stops: const [0.0, 1.0],
-                  ),
-                  border: Border.all(
-                    color: AppColors.warning.withValues(alpha: 0.3),
-                    width: 1,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.warning_amber_rounded,
-                      color: AppColors.warning,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        issueMessage,
-                        style: const TextStyle(
-                          color: AppColors.warning,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Quality Issue Banner
+          if (issueMessage != null)
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.warning.withValues(alpha: 0.1),
+                    AppColors.warning.withValues(alpha: 0.05),
                   ],
+                  stops: const [0.0, 1.0],
+                ),
+                border: Border.all(
+                  color: AppColors.warning.withValues(alpha: 0.3),
+                  width: 1,
                 ),
               ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.warning_amber_rounded,
+                    color: AppColors.warning,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      issueMessage,
+                      style: const TextStyle(
+                        color: AppColors.warning,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: serviceColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Icon(
-                    span.status == 'ERROR' ? Icons.error : Icons.check_circle,
-                    size: 16,
-                    color: span.status == 'ERROR'
-                        ? AppColors.error
-                        : serviceColor,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        span.name,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      Text(
-                        service,
-                        style: TextStyle(fontSize: 10, color: serviceColor),
-                      ),
-                    ],
-                  ),
-                ),
-                if (_criticalPathSpanIds.contains(span.spanId))
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.warning.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.trending_up,
-                          size: 12,
-                          color: AppColors.warning,
-                        ),
-                        SizedBox(width: 4),
-                        Text(
-                          'Critical Path',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: AppColors.warning,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: const Icon(Icons.close, size: 16),
-                  onPressed: () => setState(() => _selectedSpan = null),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  color: AppColors.textMuted,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 12,
-              runSpacing: 6,
-              children: [
-                _buildDetailChip(
-                  'Span ID',
-                  span.spanId.substring(0, math.min(8, span.spanId.length)),
-                  serviceColor,
-                ),
-                _buildDetailChip(
-                  'Duration',
-                  '${span.duration.inMilliseconds}ms',
-                  AppColors.primaryCyan,
-                ),
-                _buildDetailChip(
-                  'Status',
-                  span.status,
-                  span.status == 'ERROR' ? AppColors.error : AppColors.success,
-                ),
-                if (span.parentSpanId != null)
-                  _buildDetailChip(
-                    'Parent',
-                    span.parentSpanId!.substring(
-                      0,
-                      math.min(8, span.parentSpanId!.length),
-                    ),
-                    AppColors.textMuted,
-                  ),
-              ],
-            ),
-            if (span.attributes.isNotEmpty) ...[
-              const SizedBox(height: 10),
+          Row(
+            children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(8),
+                  color: serviceColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
                 ),
+                child: Icon(
+                  span.status == 'ERROR' ? Icons.error : Icons.check_circle,
+                  size: 16,
+                  color: span.status == 'ERROR'
+                      ? AppColors.error
+                      : serviceColor,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Attributes',
-                      style: TextStyle(
-                        fontSize: 10,
+                    Text(
+                      span.name,
+                      style: const TextStyle(
+                        fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.textMuted,
+                        color: AppColors.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    ...span.attributes.entries
-                        .take(6)
-                        .map(
-                          (e) => Padding(
-                            padding: const EdgeInsets.only(bottom: 3),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                SizedBox(
-                                  width: 100,
-                                  child: Text(
-                                    '${e.key}:',
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      color: AppColors.textMuted,
-                                    ),
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Text(
-                                    '${e.value}',
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      color: AppColors.textSecondary,
-                                      fontFamily: 'monospace',
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
+                    Text(
+                      service,
+                      style: TextStyle(fontSize: 10, color: serviceColor),
+                    ),
                   ],
                 ),
               ),
+              if (_criticalPathSpanIds.contains(span.spanId))
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.warning.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.trending_up,
+                        size: 12,
+                        color: AppColors.warning,
+                      ),
+                      SizedBox(width: 4),
+                      Text(
+                        'Critical Path',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: AppColors.warning,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.close, size: 16),
+                onPressed: () => setState(() => _selectedSpan = null),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                color: AppColors.textMuted,
+              ),
             ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            children: [
+              _buildDetailChip(
+                'Span ID',
+                span.spanId.substring(0, math.min(8, span.spanId.length)),
+                serviceColor,
+              ),
+              _buildDetailChip(
+                'Duration',
+                '${span.duration.inMilliseconds}ms',
+                AppColors.primaryCyan,
+              ),
+              _buildDetailChip(
+                'Status',
+                span.status,
+                span.status == 'ERROR' ? AppColors.error : AppColors.success,
+              ),
+              if (span.parentSpanId != null)
+                _buildDetailChip(
+                  'Parent',
+                  span.parentSpanId!.substring(
+                    0,
+                    math.min(8, span.parentSpanId!.length),
+                  ),
+                  AppColors.textMuted,
+                ),
+            ],
+          ),
+          if (span.attributes.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Attributes',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  ...span.attributes.entries
+                      .take(6)
+                      .map(
+                        (e) => Padding(
+                          padding: const EdgeInsets.only(bottom: 3),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(
+                                width: 100,
+                                child: Text(
+                                  '${e.key}:',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: AppColors.textMuted,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  '${e.value}',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: AppColors.textSecondary,
+                                    fontFamily: 'monospace',
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                ],
+              ),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }

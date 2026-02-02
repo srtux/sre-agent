@@ -656,6 +656,10 @@ class _ConversationPageState extends State<ConversationPage>
                         child: DashboardPanel(
                           state: _dashboardState,
                           onClose: _dashboardState.closeDashboard,
+                          onPromptRequest: (prompt) {
+                            _textController.text = prompt;
+                            _sendMessage();
+                          },
                         ),
                       ),
                     ],

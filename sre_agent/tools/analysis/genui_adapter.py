@@ -94,7 +94,7 @@ def transform_trace(trace_data: dict[str, Any]) -> dict[str, Any]:
                 # Note: 'span' dict here might have raw strings or already parsed objects depending on earlier logic.
                 # The earlier code didn't parse them into DateTime objects in the dict, it left them as strings usually.
                 # Let's safely parse.
-                def parse_time(t):
+                def parse_time(t: Any) -> datetime | None:
                     if not t:
                         return None
                     return datetime.fromisoformat(str(t).replace("Z", "+00:00"))

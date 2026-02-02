@@ -17,11 +17,13 @@ import 'live_remediation_panel.dart';
 class DashboardPanel extends StatefulWidget {
   final DashboardState state;
   final VoidCallback onClose;
+  final Function(String)? onPromptRequest;
 
   const DashboardPanel({
     super.key,
     required this.state,
     required this.onClose,
+    this.onPromptRequest,
   });
 
   @override
@@ -229,7 +231,10 @@ class _DashboardPanelState extends State<DashboardPanel>
           case DashboardDataType.metrics:
             return LiveMetricsPanel(items: items);
           case DashboardDataType.alerts:
-            return LiveAlertsPanel(items: items);
+            return LiveAlertsPanel(
+              items: items,
+              onPromptRequest: widget.onPromptRequest,
+            );
           case DashboardDataType.remediation:
             return LiveRemediationPanel(items: items);
         }

@@ -6,8 +6,13 @@ import '../../theme/app_theme.dart';
 /// Alerts Dashboard Canvas - A premium, list-based view of active alerts.
 class AlertsDashboardCanvas extends StatefulWidget {
   final IncidentTimelineData data;
+  final Function(String)? onPromptRequest;
 
-  const AlertsDashboardCanvas({super.key, required this.data});
+  const AlertsDashboardCanvas({
+    super.key,
+    required this.data,
+    this.onPromptRequest,
+  });
 
   @override
   State<AlertsDashboardCanvas> createState() => _AlertsDashboardCanvasState();
@@ -41,7 +46,10 @@ class _AlertsDashboardCanvasState extends State<AlertsDashboardCanvas> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               itemCount: sortedEvents.length,
               itemBuilder: (context, index) {
-                return _AlertCard(event: sortedEvents[index]);
+                return _AlertCard(
+                  event: sortedEvents[index],
+                  onPromptRequest: widget.onPromptRequest,
+                );
               },
             ),
           ),
@@ -176,8 +184,12 @@ class _AlertsDashboardCanvasState extends State<AlertsDashboardCanvas> {
 
 class _AlertCard extends StatefulWidget {
   final TimelineEvent event;
+  final Function(String)? onPromptRequest;
 
-  const _AlertCard({required this.event});
+  const _AlertCard({
+    required this.event,
+    this.onPromptRequest,
+  });
 
   @override
   State<_AlertCard> createState() => _AlertCardState();
@@ -383,6 +395,37 @@ class _AlertCardState extends State<_AlertCard> {
             );
           }),
         ],
+        // Remediation Action Button
+        const SizedBox(height: 16),
+        const Divider(height: 1, color: AppColors.surfaceBorder),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: () {
+              if (widget.onPromptRequest != null) {
+                widget.onPromptRequest!(
+                    'Generate remediation suggestions for alert: ${event.title}');
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.secondaryPurple.withValues(alpha: 0.1),
+              foregroundColor: AppColors.secondaryPurple,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+                side: BorderSide(
+                    color: AppColors.secondaryPurple.withValues(alpha: 0.3)),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              elevation: 0,
+            ),
+            icon: const Icon(Icons.build_circle_outlined, size: 16),
+            label: const Text(
+              'Generate Remediation Plan',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ),
       ],
     );
   }

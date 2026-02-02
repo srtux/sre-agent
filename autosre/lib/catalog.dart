@@ -79,7 +79,7 @@ class CatalogRegistry {
 
             return _buildWidgetContainer(
               child: TraceWaterfall(trace: trace),
-              height: 380,
+              height: null,
             );
           } catch (e) {
             return ErrorPlaceholder(error: e);

@@ -118,7 +118,6 @@ class _LiveTracePanelState extends State<LiveTracePanel> {
                 // Expanded waterfall
                 if (isExpanded)
                   Container(
-                    height: 350,
                     padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
                     child: TraceWaterfall(trace: trace),
                   ),

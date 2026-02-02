@@ -7,7 +7,13 @@ import '../canvas/alerts_dashboard_canvas.dart';
 /// Dashboard panel showing all collected alert/incident dashboard data.
 class LiveAlertsPanel extends StatelessWidget {
   final List<DashboardItem> items;
-  const LiveAlertsPanel({super.key, required this.items});
+  final Function(String)? onPromptRequest;
+
+  const LiveAlertsPanel({
+    super.key,
+    required this.items,
+    this.onPromptRequest,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +37,10 @@ class LiveAlertsPanel extends StatelessWidget {
             children: [
               _buildHeader(item),
               Expanded(
-                child: AlertsDashboardCanvas(data: item.alertData!),
+                child: AlertsDashboardCanvas(
+                  data: item.alertData!,
+                  onPromptRequest: onPromptRequest,
+                ),
               ),
             ],
           ),
@@ -62,7 +71,10 @@ class LiveAlertsPanel extends StatelessWidget {
               children: [
                 _buildHeader(item),
                 Expanded(
-                  child: AlertsDashboardCanvas(data: item.alertData!),
+                  child: AlertsDashboardCanvas(
+                  data: item.alertData!,
+                  onPromptRequest: onPromptRequest,
+                ),
                 ),
               ],
             ),
