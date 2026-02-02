@@ -9,7 +9,6 @@ import 'widgets/log_entries_viewer.dart';
 import 'widgets/log_pattern_viewer.dart';
 import 'widgets/metric_chart.dart';
 import 'widgets/remediation_plan.dart';
-import 'widgets/tool_log.dart';
 import 'widgets/trace_waterfall.dart';
 // Canvas widgets
 import 'widgets/canvas/agent_activity_canvas.dart';
@@ -57,15 +56,6 @@ class CatalogRegistry {
         return Map<String, dynamic>.from(data[componentName] as Map);
       }
       return data;
-    }
-
-    // 4. Tool-log fallback: detect by characteristic fields
-    if (componentName == 'x-sre-tool-log' || componentName == 'tool-log') {
-      if (data.containsKey('toolName') ||
-          data.containsKey('tool_name') ||
-          (data.containsKey('args') && data.containsKey('status'))) {
-        return data;
-      }
     }
 
     return data;
@@ -207,34 +197,6 @@ class CatalogRegistry {
               child: LogEntriesViewer(data: logData),
               height: 500,
             );
-          } catch (e) {
-            return ErrorPlaceholder(error: e);
-          }
-        },
-      ),
-      CatalogItem(
-        name: 'tool-log',
-        dataSchema: S.any(),
-        widgetBuilder: (context) {
-          try {
-            final data = _unwrapComponentData(context.data, 'tool-log');
-            if (data.isEmpty) return const SizedBox.shrink();
-            final log = ToolLog.fromJson(data);
-            return ToolLogWidget(log: log);
-          } catch (e) {
-            return ErrorPlaceholder(error: e);
-          }
-        },
-      ),
-      CatalogItem(
-        name: 'x-sre-tool-log',
-        dataSchema: S.any(),
-        widgetBuilder: (context) {
-          try {
-            final data = _unwrapComponentData(context.data, 'x-sre-tool-log');
-            if (data.isEmpty) return const SizedBox.shrink();
-            final log = ToolLog.fromJson(data);
-            return ToolLogWidget(log: log);
           } catch (e) {
             return ErrorPlaceholder(error: e);
           }

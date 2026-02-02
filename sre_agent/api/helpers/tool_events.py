@@ -1,4 +1,4 @@
-"""Tool event helpers for A2UI protocol support.
+"""Tool event helpers for inline chat display.
 
 Re-exported from helpers/__init__.py for convenience.
 """

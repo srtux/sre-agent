@@ -1,7 +1,8 @@
-"""Tool event helpers for A2UI protocol support.
+"""Tool event helpers for inline tool call display.
 
-These functions handle the creation of tool call/response events
-for the frontend visualization, following the GenUI A2UI protocol.
+These functions create simple JSON events for tool calls and responses,
+displayed inline in the chat. Visualization data goes through the
+separate dashboard channel only.
 """
 
 import json
@@ -14,28 +15,22 @@ from sre_agent.tools.analysis import genui_adapter
 
 logger = logging.getLogger(__name__)
 
-# Enable verbose A2UI debugging with environment variable
+# Enable verbose tool event debugging with environment variable
 A2UI_DEBUG = os.environ.get("A2UI_DEBUG", "").lower() in ("true", "1", "yes")
 
 
 def _debug_log(message: str, data: Any = None) -> None:
-    """Log A2UI debug messages when A2UI_DEBUG is enabled.
-
-    Always logs to logger.info, but adds extra detail when debugging is enabled.
-    Set A2UI_DEBUG=true environment variable for verbose output.
-    """
+    """Log tool event debug messages when A2UI_DEBUG is enabled."""
     if A2UI_DEBUG:
         if data is not None:
-            # Pretty print JSON for readability
             if isinstance(data, (dict, list)):
                 formatted = json.dumps(data, indent=2, default=str)
-                logger.info(f"🔍 A2UI_DEBUG: {message}\n{formatted}")
+                logger.info(f"🔍 TOOL_EVENT: {message}\n{formatted}")
             else:
-                logger.info(f"🔍 A2UI_DEBUG: {message} -> {data}")
+                logger.info(f"🔍 TOOL_EVENT: {message} -> {data}")
         else:
-            logger.info(f"🔍 A2UI_DEBUG: {message}")
+            logger.info(f"🔍 TOOL_EVENT: {message}")
     else:
-        # Standard logging (less verbose)
         logger.info(f"📤 {message}")
 
 
@@ -109,86 +104,34 @@ def create_tool_call_events(
     args: dict[str, Any],
     pending_tool_calls: list[dict[str, Any]],
 ) -> tuple[str, list[str]]:
-    """Create A2UI events for a tool call (A2UI v0.8 protocol).
+    """Create a simple tool_call event for inline chat display.
 
-    The A2UI v0.8 specification requires:
-    - Components must have an 'id' field and wrap the type in a 'component' object
-    - beginRendering must include a 'root' field pointing to the root component ID
+    Returns a call_id and a list containing one JSON event string.
+    The frontend renders this directly as an expandable tool call widget.
     """
-    surface_id = str(uuid.uuid4())
-    component_id = f"tool-log-{surface_id[:8]}"
+    call_id = str(uuid.uuid4())
 
     _debug_log(
-        "[TOOL_CALL_START] Creating tool call event",
-        {
-            "tool_name": tool_name,
-            "surface_id": surface_id,
-            "component_id": component_id,
-            "args_preview": str(args)[:200] if args else "{}",
-        },
+        "[TOOL_CALL] Creating tool call event",
+        {"tool_name": tool_name, "call_id": call_id, "args_preview": str(args)[:200]},
     )
 
-    # Register as pending for later matching
+    # Register as pending for later matching with response
     pending_entry = {
-        "call_id": surface_id,
+        "call_id": call_id,
         "tool_name": tool_name,
         "args": args,
-        "component_id": component_id,
     }
     pending_tool_calls.append(pending_entry)
 
-    _debug_log(
-        "[TOOL_CALL_PENDING] Registered pending call",
-        {"pending_count": len(pending_tool_calls), "entry": pending_entry},
-    )
-
-    # Hybrid Initialization (Wrapper + Root Type)
-    # We wrap the data in a key matching the component type to ensure GenUI matches it
-    # regardless of whether it uses key-based or type-based matching.
-    component_data = {
-        "type": "x-sre-tool-log",
-        "componentName": "x-sre-tool-log",
+    event = {
+        "type": "tool_call",
+        "call_id": call_id,
         "tool_name": tool_name,
-        "toolName": tool_name,
         "args": args,
-        "status": "running",
     }
 
-    begin_event_obj = {
-        "type": "a2ui",
-        "message": {
-            "beginRendering": {
-                "surfaceId": surface_id,
-                "root": component_id,
-                "components": [
-                    {
-                        "id": component_id,
-                        "type": "x-sre-tool-log",  # Root Level Type (v0.8+)
-                        "component": {
-                            "type": "x-sre-tool-log",  # Component Level Type
-                            "x-sre-tool-log": component_data,  # Named Wrapper (Hybrid)
-                        },
-                    }
-                ],
-            },
-        },
-    }
-
-    begin_event = json.dumps(begin_event_obj)
-
-    _debug_log(
-        "[TOOL_CALL_EVENT] Created beginRendering event",
-        {
-            "surface_id": surface_id,
-            "component_id": component_id,
-            "event_type": "beginRendering",
-            "component_type": "x-sre-tool-log",
-            "event_size_bytes": len(begin_event),
-            "full_event": begin_event_obj,
-        },
-    )
-
-    return surface_id, [begin_event]
+    return call_id, [json.dumps(event, default=str)]
 
 
 def create_tool_response_events(
@@ -196,57 +139,52 @@ def create_tool_response_events(
     result: Any,
     pending_tool_calls: list[dict[str, Any]],
 ) -> tuple[str | None, list[str]]:
-    """Create A2UI events for a tool response (A2UI v0.8 protocol)."""
-    surface_id: str | None = None
-    component_id: str | None = None
-    args: dict[str, Any] = {}
+    """Create a simple tool_response event for inline chat display.
+
+    Matches the response to a pending tool call by name (FIFO) and returns
+    a call_id and a list containing one JSON event string.
+    """
+    call_id: str | None = None
 
     _debug_log(
-        "[TOOL_RESPONSE_START] Processing tool response",
+        "[TOOL_RESPONSE] Processing tool response",
         {
             "tool_name": tool_name,
             "pending_count": len(pending_tool_calls),
             "pending_tools": [p["tool_name"] for p in pending_tool_calls],
-            "result_type": type(result).__name__,
-            "result_preview": str(result)[:200] if result else "None",
         },
     )
 
     # Find matching pending call (FIFO)
     for i, pending in enumerate(pending_tool_calls):
         if pending["tool_name"] == tool_name:
-            surface_id = pending["call_id"]
-            component_id = pending.get("component_id", f"tool-log-{surface_id[:8]}")
-            args = pending["args"]
+            call_id = pending["call_id"]
             pending_tool_calls.pop(i)
             _debug_log(
-                f"[TOOL_RESPONSE_MATCHED] Found matching pending call at index {i}",
-                {"surface_id": surface_id, "component_id": component_id},
+                f"[TOOL_RESPONSE_MATCHED] Found pending call at index {i}",
+                {"call_id": call_id},
             )
             break
 
-    if not surface_id:
+    if not call_id:
         _debug_log(
-            f"[TOOL_RESPONSE_NO_MATCH] No matching pending call found for {tool_name}",
-            {"searched_tools": [p["tool_name"] for p in pending_tool_calls]},
+            f"[TOOL_RESPONSE_NO_MATCH] No pending call for {tool_name}",
         )
         return None, []
 
-    # Handle Pydantic models
+    # Normalize result
     if hasattr(result, "model_dump"):
         result = result.model_dump(mode="json")
     elif hasattr(result, "dict"):
         result = result.dict()
 
-    # Normalize result
     if isinstance(result, str):
         try:
             result = json.loads(result)
-            _debug_log("[TOOL_RESPONSE_PARSED] Parsed JSON string result")
         except json.JSONDecodeError:
-            _debug_log("[TOOL_RESPONSE_RAW] Keeping result as raw string")
+            pass
 
-    # Status determination
+    # Determine status
     status = "completed"
     if isinstance(result, dict) and (result.get("error") or result.get("error_type")):
         status = "error"
@@ -258,234 +196,28 @@ def create_tool_response_events(
             result = str(error_msg)
         elif error_type:
             result = str(error_type)
-        _debug_log("[TOOL_RESPONSE_ERROR] Tool returned error", {"error": result})
     elif isinstance(result, dict) and "result" in result:
-        # If it's a standard tool output dict, extract the result part
         result = result["result"]
-        _debug_log("[TOOL_RESPONSE_UNWRAPPED] Extracted result from wrapper")
-
-    # Create separate surfaceUpdate event (Hybrid Structure)
-    component_data = {
-        "type": "x-sre-tool-log",
-        "componentName": "x-sre-tool-log",
-        "tool_name": tool_name,
-        "toolName": tool_name,
-        "args": fully_normalize(args),
-        "result": fully_normalize(result),
-        "status": status,
-    }
-
-    event_obj = {
-        "type": "a2ui",
-        "message": {
-            "surfaceUpdate": {
-                "surfaceId": surface_id,
-                "components": [
-                    {
-                        "id": component_id,
-                        "type": "x-sre-tool-log",  # Root Level Type (v0.8+)
-                        "component": {
-                            "type": "x-sre-tool-log",  # Component Level Type
-                            "x-sre-tool-log": component_data,
-                        },
-                    }
-                ],
-            }
-        },
-    }
-
-    # json.dumps defaults explicitly set to str to handle any remaining weird types (like UUID)
-    event = json.dumps(event_obj, default=str)
-
-    _debug_log(
-        "[TOOL_RESPONSE_EVENT] Created surfaceUpdate event",
-        {
-            "surface_id": surface_id,
-            "component_id": component_id,
-            "status": status,
-            "event_type": "surfaceUpdate",
-            "event_size_bytes": len(event),
-            "full_event": event_obj,
-        },
-    )
-
-    return surface_id, [event]
-
-
-def create_widget_events(tool_name: str, result: Any) -> tuple[list[str], list[str]]:
-    """Create A2UI events for widget visualization (A2UI v0.8 protocol).
-
-    Returns:
-        tuple (list of event JSON strings, list of surface IDs created)
-    """
-    events: list[str] = []
-    surface_ids: list[str] = []
-
-    widget_type = TOOL_WIDGET_MAP.get(tool_name)
-
-    _debug_log(
-        "[WIDGET_START] Processing widget creation",
-        {
-            "tool_name": tool_name,
-            "widget_type": widget_type,
-            "has_mapping": widget_type is not None,
-            "result_type": type(result).__name__,
-        },
-    )
-
-    if not widget_type:
-        _debug_log(f"[WIDGET_SKIP] No widget mapping for tool: {tool_name}")
-        return events, surface_ids
-
-    # Handle failed tool execution (None result)
-    if result is None:
-        result = {"error": "Tool execution failed (timeout or internal error)"}
-        _debug_log("[WIDGET_NULL_RESULT] Using error placeholder for None result")
-
-    # Normalize result (handles JSON strings and objects)
-    original_result = result
-
-    # Pre-parse JSON strings if possible
-    if isinstance(result, str):
-        try:
-            result = json.loads(result)
-        except Exception:
-            pass
 
     result = fully_normalize(result)
 
-    _debug_log(
-        "[WIDGET_NORMALIZED] Result after normalization",
-        {
-            "original_type": type(original_result).__name__,
-            "result_keys": list(result.keys()) if isinstance(result, dict) else "N/A",
-        },
-    )
+    event = {
+        "type": "tool_response",
+        "call_id": call_id,
+        "tool_name": tool_name,
+        "result": result,
+        "status": status,
+    }
 
-    # Normalize result wrapper if present
-    if isinstance(result, dict):
-        if "status" in result and "result" in result:
-            result = result["result"]
-            _debug_log("[WIDGET_UNWRAPPED] Extracted from status/result wrapper")
-        elif len(result) == 1 and "result" in result:  # Handle simple {"result": [...]}
-            result = result["result"]
-            _debug_log("[WIDGET_UNWRAPPED] Extracted from simple result wrapper")
+    return call_id, [json.dumps(event, default=str)]
 
-    # Transformation mapping check
-    try:
-        widget_data = None
-        _debug_log(f"[WIDGET_TRANSFORM] Attempting transformation for {widget_type}")
 
-        if widget_type == "x-sre-trace-waterfall":
-            widget_data = genui_adapter.transform_trace(result)
-        elif widget_type == "x-sre-metric-chart":
-            widget_data = genui_adapter.transform_metrics(result)
-        elif widget_type == "x-sre-metrics-dashboard":
-            widget_data = genui_adapter.transform_metrics_dashboard(result)
-        elif widget_type == "x-sre-log-entries-viewer":
-            widget_data = genui_adapter.transform_log_entries(result)
-        elif widget_type == "x-sre-log-pattern-viewer":
-            widget_data = genui_adapter.transform_log_patterns(result)
-        elif widget_type == "x-sre-remediation-plan":
-            widget_data = genui_adapter.transform_remediation(result)
-        elif widget_type == "x-sre-incident-timeline":
-            widget_data = genui_adapter.transform_alerts_to_timeline(result)
+def create_widget_events(tool_name: str, result: Any) -> tuple[list[str], list[str]]:
+    """Legacy stub - visualization data now goes through dashboard channel only.
 
-        if widget_data:
-            surface_id = str(uuid.uuid4())
-            component_id = f"widget-{surface_id[:8]}"
-
-            _debug_log(
-                "[WIDGET_TRANSFORMED] Successfully transformed data",
-                {
-                    "widget_type": widget_type,
-                    "surface_id": surface_id,
-                    "component_id": component_id,
-                    "data_keys": list(widget_data.keys())
-                    if isinstance(widget_data, dict)
-                    else "N/A",
-                    "data_preview": str(widget_data)[:300],
-                },
-            )
-
-            # Atomic initialization for widgets (Root Type)
-            begin_event_obj = {
-                "type": "a2ui",
-                "message": {
-                    "beginRendering": {
-                        "surfaceId": surface_id,
-                        "root": component_id,
-                        "components": [
-                            {
-                                "id": component_id,
-                                "type": widget_type,  # Root Level Type (v0.8+)
-                                "component": {
-                                    "type": widget_type,  # Component Level Type
-                                    widget_type: widget_data,
-                                },
-                            }
-                        ],
-                    },
-                },
-            }
-
-            update_event_obj = {
-                "type": "a2ui",
-                "message": {
-                    "surfaceUpdate": {
-                        "surfaceId": surface_id,
-                        "components": [
-                            {
-                                "id": component_id,
-                                "type": widget_type,  # Root Level Type
-                                "component": {
-                                    "type": widget_type,
-                                    widget_type: widget_data,
-                                },
-                            }
-                        ],
-                    },
-                },
-            }
-
-            begin_event = json.dumps(begin_event_obj)
-            update_event = json.dumps(update_event_obj)
-
-            _debug_log(
-                "[WIDGET_EVENTS] Created widget events",
-                {
-                    "widget_type": widget_type,
-                    "surface_id": surface_id,
-                    "begin_event_size": len(begin_event),
-                    "update_event_size": len(update_event),
-                    "begin_event": begin_event_obj,
-                    "update_event": update_event_obj,
-                },
-            )
-
-            events.extend([begin_event, update_event])
-            surface_ids.append(surface_id)
-        else:
-            _debug_log(
-                f"[WIDGET_NO_DATA] Transformation returned None/empty for {widget_type}",
-                {"result_preview": str(result)[:200]},
-            )
-
-    except Exception as e:
-        _debug_log(
-            "[WIDGET_ERROR] Error creating widget events",
-            {"tool_name": tool_name, "widget_type": widget_type, "error": str(e)},
-        )
-        logger.error(
-            f"❌ Error creating widget events for {tool_name}: {e}", exc_info=True
-        )
-
-    _debug_log(
-        "[WIDGET_COMPLETE] Widget creation finished",
-        {"events_count": len(events), "surface_ids": surface_ids},
-    )
-
-    return events, surface_ids
+    Returns empty lists. Kept for backward compatibility with imports.
+    """
+    return [], []
 
 
 # Category mapping: widget type -> dashboard category string

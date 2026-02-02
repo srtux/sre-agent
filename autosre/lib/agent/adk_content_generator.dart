@@ -22,6 +22,8 @@ class ADKContentGenerator implements ContentGenerator {
       StreamController<List<String>>.broadcast();
   final StreamController<Map<String, dynamic>> _dashboardController =
       StreamController<Map<String, dynamic>>.broadcast();
+  final StreamController<Map<String, dynamic>> _toolCallController =
+      StreamController<Map<String, dynamic>>.broadcast();
   final ValueNotifier<bool> _isProcessing = ValueNotifier(false);
   final ValueNotifier<bool> _isConnected = ValueNotifier(false);
 
@@ -52,6 +54,10 @@ class ADKContentGenerator implements ContentGenerator {
   /// Stream of dashboard data events (separate from A2UI).
   Stream<Map<String, dynamic>> get dashboardStream =>
       _dashboardController.stream;
+
+  /// Stream of tool call/response events for inline chat display.
+  Stream<Map<String, dynamic>> get toolCallStream =>
+      _toolCallController.stream;
 
   /// The base URL of the connected agent.
   String get baseUrl => _baseUrl;
@@ -218,7 +224,6 @@ class ADKContentGenerator implements ContentGenerator {
                 final type = data['type'];
 
                 if (type == 'text') {
-
                   _textController.add(data['content']);
                 } else if (type == 'error') {
                   final errorMessage = data['error'] as String? ?? 'Unknown error';
@@ -229,8 +234,10 @@ class ADKContentGenerator implements ContentGenerator {
                       StackTrace.current,
                     ),
                   );
+                } else if (type == 'tool_call' || type == 'tool_response') {
+                  // Simple inline tool call/response events
+                  _toolCallController.add(Map<String, dynamic>.from(data));
                 } else if (type == 'a2ui') {
-
                   final msgJson = data['message'] as Map<String, dynamic>;
                   try {
                     final msg = A2uiMessage.fromJson(msgJson);
@@ -239,17 +246,14 @@ class ADKContentGenerator implements ContentGenerator {
                     debugPrint('A2UI parse error: $parseError');
                   }
                 } else if (type == 'ui') {
-
                   final newSurfaceId = data['surface_id'] as String?;
                   if (newSurfaceId != null) {
                     _uiMessageController.add(newSurfaceId);
                   }
                 } else if (type == 'dashboard') {
-                  // Dashboard data event (separate channel from A2UI)
                   debugPrint('📊 [DASHBOARD] category=${data['category']}, tool=${data['tool_name']}');
                   _dashboardController.add(Map<String, dynamic>.from(data));
                 } else if (type == 'session') {
-                  // Update session ID from server
                   final newSessionId = data['session_id'] as String?;
                   if (newSessionId != null) {
                     sessionId = newSessionId;
@@ -367,6 +371,7 @@ class ADKContentGenerator implements ContentGenerator {
     _sessionController.close();
     _suggestionsController.close();
     _dashboardController.close();
+    _toolCallController.close();
     _isProcessing.dispose();
     _isConnected.dispose();
   }
