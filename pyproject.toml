@@ -13,6 +13,7 @@ dependencies = [
     "google-adk>=1.23.0",
     "google-cloud-trace>=1.0.0",
     "google-auth>=2.18.1",
+    "pandas>=2.0.0",
     "grpcio>=1.63.0",
     # Phase 4: Extended GCP integrations
     "google-cloud-logging>=3.10.0",

@@ -115,37 +115,137 @@ def main():
         # 2. Trigger the cloud-native Vertex AI Agent Evaluation Service (Optional)
         if should_sync_cloud:
             try:
+                import pandas as pd
                 import vertexai
                 from vertexai.preview.evaluation import EvalTask
 
                 print(
-                    "\n📡 Triggering Vertex AI GenAI Evaluation Service for Cloud UI sync (this executes the evaluation again in the cloud)..."
+                    "\n📡 Triggering Vertex AI GenAI Evaluation Service for Cloud UI sync..."
                 )
                 vertexai.init(
                     project=project_id,
                     location=os.environ.get("AGENT_ENGINE_LOCATION", "us-central1"),
                 )
 
-                # trigger the cloud-native evaluation service for each file
-                for processed_file in processed_eval_files:
-                    print(f"  - Syncing {Path(processed_file).name}...")
-                    EvalTask(
-                        dataset=processed_file,
-                        metrics=[
-                            "trajectory_exact_match",
-                            "trajectory_precision",
-                            "trajectory_recall",
-                            "groundedness",
-                        ],
-                        experiment="sre-agent-evals",
-                    ).evaluate()
+                # Locate the latest ADK results
+                # ADK results are stored in .adk/<timestamp>/...
+                # We need to find the most recently created directory in .adk/ or deploy/.adk/
 
-                print(
-                    "✅ Cloud Evaluation complete. Results available in Vertex AI Console."
-                )
+                # Check possible locations
+                possible_adk_dirs = [".adk", "deploy/.adk"]
+                latest_run_dir = None
+
+                all_run_dirs = []
+                for adk_dir in possible_adk_dirs:
+                    if os.path.exists(adk_dir):
+                        run_dirs = glob.glob(os.path.join(adk_dir, "*"))
+                        all_run_dirs.extend(run_dirs)
+
+                if not all_run_dirs:
+                    print("⚠️ No ADK results found. Cannot sync to cloud.")
+                else:
+                    # Sort by modification time, newest first
+                    latest_run_dir = max(all_run_dirs, key=os.path.getmtime)
+                    print(f"  - Found latest ADK run directory: {latest_run_dir}")
+
+                    # Find .data.json files in this directory
+                    data_files = glob.glob(os.path.join(latest_run_dir, "*.data.json"))
+
+                    if not data_files:
+                        print(f"  ⚠️ No .data.json files found in {latest_run_dir}")
+
+                    for data_file in data_files:
+                        print(f"  - Processing {Path(data_file).name}...")
+
+                        try:
+                            import json
+
+                            with open(data_file) as f:
+                                adk_data = json.load(f)
+
+                            # Transform ADK data to Vertex Eval dataset format
+                            eval_dataset = []
+
+                            # Helper to extract text from generic parts structure
+                            def extract_text(parts):
+                                if isinstance(parts, str):
+                                    return parts
+                                if isinstance(parts, list):
+                                    text_parts = []
+                                    for p in parts:
+                                        if isinstance(p, dict) and "text" in p:
+                                            text_parts.append(p["text"])
+                                        elif isinstance(p, str):
+                                            text_parts.append(p)
+                                    return "".join(text_parts)
+                                return str(parts)
+
+                            for item in adk_data:
+                                prompt = "Unknown Prompt"
+                                response = ""
+
+                                # Extract prompt
+                                if "test_case" in item:
+                                    tc = item["test_case"]
+                                    if "conversation" in tc:
+                                        first_turn = tc["conversation"][0]
+                                        prompt = extract_text(
+                                            first_turn.get("user_content", {}).get(
+                                                "parts", ""
+                                            )
+                                        )
+                                    elif "input" in tc:
+                                        prompt = str(tc["input"])
+
+                                # Extract response
+                                if "result" in item:
+                                    res = item["result"]
+                                    if "return_value" in res:
+                                        response = str(res["return_value"])
+                                    elif "error" in res:
+                                        response = f"Error: {res['error']}"
+
+                                eval_dataset.append(
+                                    {
+                                        "prompt": prompt,
+                                        "response": response,
+                                    }
+                                )
+
+                            if not eval_dataset:
+                                print("    ⚠️ No valid evaluation items extracted.")
+                                continue
+
+                            df = pd.DataFrame(eval_dataset)
+
+                            # Run Vertex Eval
+                            experiment_name = "sre-agent-evals"
+                            print(
+                                f"    - Uploading named experiment: {experiment_name}"
+                            )
+
+                            eval_task = EvalTask(
+                                dataset=df,
+                                metrics=[
+                                    "instruction_following",
+                                    "text_quality",
+                                ],
+                                experiment=experiment_name,
+                            )
+
+                            eval_result = eval_task.evaluate()
+
+                            print(f"    ✅ Results for {Path(data_file).name}:")
+                            print(eval_result.summary_metrics)
+
+                        except Exception as inner_e:
+                            print(
+                                f"    ❌ Error processing file {Path(data_file).name}: {inner_e}"
+                            )
+
             except ImportError:
                 print(
-                    "💡 Vertex AI SDK 'preview.evaluation' not available. Skipping cloud sync."
+                    "💡 Vertex AI SDK 'preview.evaluation' or 'pandas' not available. Skipping cloud sync."
                 )
             except Exception as e:
                 print(f"⚠️ Could not trigger Vertex AI service: {e}")
