@@ -51,7 +51,7 @@ TOOL_WIDGET_MAP = {
     "run_log_pattern_analysis": "x-sre-log-pattern-viewer",
     "get_golden_signals": "x-sre-metrics-dashboard",
     "generate_remediation_suggestions": "x-sre-remediation-plan",
-    "list_alerts": "x-sre-incident-timeline",
+    "list_alerts": "x-sre-alerts-dashboard",
 }
 
 
@@ -227,7 +227,7 @@ WIDGET_CATEGORY_MAP: dict[str, str] = {
     "x-sre-metrics-dashboard": "metrics",
     "x-sre-log-entries-viewer": "logs",
     "x-sre-log-pattern-viewer": "logs",
-    "x-sre-incident-timeline": "alerts",
+    "x-sre-alerts-dashboard": "alerts",
     "x-sre-remediation-plan": "remediation",
 }
 
@@ -288,7 +288,7 @@ def create_dashboard_event(tool_name: str, result: Any) -> str | None:
             widget_data = genui_adapter.transform_log_patterns(result)
         elif widget_type == "x-sre-remediation-plan":
             widget_data = genui_adapter.transform_remediation(result)
-        elif widget_type == "x-sre-incident-timeline":
+        elif widget_type == "x-sre-alerts-dashboard":
             widget_data = genui_adapter.transform_alerts_to_timeline(result)
 
         if not widget_data:

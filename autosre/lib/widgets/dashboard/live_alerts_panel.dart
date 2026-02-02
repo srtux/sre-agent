@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../services/dashboard_state.dart';
 import '../../theme/app_theme.dart';
-import '../canvas/incident_timeline_canvas.dart';
+import '../canvas/alerts_dashboard_canvas.dart';
 
-/// Dashboard panel showing all collected alert/incident timeline data.
+/// Dashboard panel showing all collected alert/incident dashboard data.
 class LiveAlertsPanel extends StatelessWidget {
   final List<DashboardItem> items;
   const LiveAlertsPanel({super.key, required this.items});
@@ -21,7 +21,7 @@ class LiveAlertsPanel extends StatelessWidget {
         return Padding(
           padding: const EdgeInsets.only(bottom: 10),
           child: Container(
-            height: 380,
+            height: 450, // Increased height for better dashboard view
             decoration: BoxDecoration(
               color: AppColors.backgroundCard,
               borderRadius: BorderRadius.circular(12),
@@ -49,7 +49,7 @@ class LiveAlertsPanel extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
                       const Text(
-                        'Alert Timeline',
+                        'Active Alerts Dashboard',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -58,7 +58,7 @@ class LiveAlertsPanel extends StatelessWidget {
                       ),
                       const Spacer(),
                       Text(
-                        '${item.alertData!.events.length} events',
+                        '${item.alertData!.events.length} alerts',
                         style: const TextStyle(
                           fontSize: 10,
                           color: AppColors.textMuted,
@@ -68,7 +68,7 @@ class LiveAlertsPanel extends StatelessWidget {
                   ),
                 ),
                 Expanded(
-                  child: IncidentTimelineCanvas(data: item.alertData!),
+                  child: AlertsDashboardCanvas(data: item.alertData!),
                 ),
               ],
             ),

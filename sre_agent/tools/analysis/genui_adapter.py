@@ -53,6 +53,13 @@ def transform_trace(trace_data: dict[str, Any]) -> dict[str, Any]:
         # Ensure it's a dict
         if not isinstance(span, dict):
             continue
+
+        # Ensure IDs are strings for Flutter models (Google Cloud Trace API returns them as integers)
+        if "span_id" in span and span["span_id"] is not None:
+            span["span_id"] = str(span["span_id"])
+        if "parent_span_id" in span and span["parent_span_id"] is not None:
+            span["parent_span_id"] = str(span["parent_span_id"])
+
         # Ensure trace_id is present in each span for Flutter SpanInfo model
         span["trace_id"] = trace_id
         # Map labels to attributes (Flutter model expects 'attributes')
@@ -468,6 +475,12 @@ def transform_alerts_to_timeline(alerts_data: list[dict[str, Any]]) -> dict[str,
                     "alert_id": alert.get("name"),
                     "close_time": alert.get("closeTime"),
                     "url": alert.get("url"),
+                    "state": alert.get("state", "UNKNOWN"),
+                    "resource_type": resource.get("type", "unknown"),
+                    "service_name": resource.get("labels", {}).get(
+                        "service_name", "unknown"
+                    ),
+                    "metric_type": metric.get("type", "unknown"),
                 },
             }
         )

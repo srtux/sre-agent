@@ -38,6 +38,16 @@ def gcp_json_default(obj: Any) -> Any:
         except Exception:
             pass
 
+    # Handle standard protobuf messages (not proto-plus)
+    # Check for DESCRIPTOR which is common to all standard protobuf messages
+    if hasattr(obj, "DESCRIPTOR"):
+        try:
+            from google.protobuf.json_format import MessageToDict
+
+            return MessageToDict(obj)
+        except Exception:
+            pass
+
     # Handle datetime and other common types
     if hasattr(obj, "isoformat"):
         return obj.isoformat()

@@ -41,6 +41,29 @@ def test_transform_trace():
     # The functions return the data part directly, not wrapped in status/type/data
     assert result["trace_id"] == "t1"
     assert len(result["spans"]) == 1
+    assert result["spans"][0]["span_id"] == "s1"
+
+
+def test_transform_trace_with_int_ids():
+    trace_data = {
+        "trace_id": "t1",
+        "spans": [
+            {
+                "span_id": 12345,
+                "parent_span_id": 67890,
+                "name": "op1",
+                "start_time_unix": 1000,
+                "end_time_unix": 1001,
+                "labels": {},
+            }
+        ],
+        "duration_ms": 1000,
+    }
+    result = transform_trace(trace_data)
+    assert result["trace_id"] == "t1"
+    assert len(result["spans"]) == 1
+    assert result["spans"][0]["span_id"] == "12345"
+    assert result["spans"][0]["parent_span_id"] == "67890"
 
 
 def test_transform_metrics():
