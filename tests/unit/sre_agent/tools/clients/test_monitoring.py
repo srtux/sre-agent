@@ -3,7 +3,11 @@ from unittest import mock
 import pytest
 
 from sre_agent.schema import ToolStatus
-from sre_agent.tools.clients.monitoring import list_time_series, query_promql
+from sre_agent.tools.clients.monitoring import (
+    list_metric_descriptors,
+    list_time_series,
+    query_promql,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -83,3 +87,56 @@ async def test_list_time_series_error(mock_get_client):
 
     assert result.status == ToolStatus.ERROR
     assert "API error" in result.error
+
+
+@pytest.mark.asyncio
+@mock.patch("sre_agent.tools.clients.monitoring.get_monitoring_client")
+async def test_list_metric_descriptors_split_or(mock_get_client):
+    """Test list_metric_descriptors tool with OR splitting."""
+    mock_client = mock.Mock()
+    mock_get_client.return_value = mock_client
+
+    # Define mock return values
+    desc1 = mock.Mock()
+    desc1.type = "metric1"
+    desc1.metric_kind = mock.Mock()
+    desc1.metric_kind.name = "GAUGE"
+    desc1.value_type = mock.Mock()
+    desc1.value_type.name = "DOUBLE"
+    desc1.name = "name1"
+    desc1.unit = "unit1"
+    desc1.description = "desc1"
+    desc1.display_name = "display1"
+    desc1.labels = []
+
+    desc2 = mock.Mock()
+    desc2.type = "metric2"
+    desc2.metric_kind = mock.Mock()
+    desc2.metric_kind.name = "GAUGE"
+    desc2.value_type = mock.Mock()
+    desc2.value_type.name = "DOUBLE"
+    desc2.name = "name2"
+    desc2.unit = "unit2"
+    desc2.description = "desc2"
+    desc2.display_name = "display2"
+    desc2.labels = []
+
+    # Mock side effect to return different values for different filters
+    def side_effect(request):
+        if "metric1" in request["filter"]:
+            return [desc1]
+        elif "metric2" in request["filter"]:
+            return [desc2]
+        return []
+
+    mock_client.list_metric_descriptors.side_effect = side_effect
+
+    # This should trigger splitting
+    filter_str = 'metric.type="metric1" OR metric.type="metric2"'
+    result = await list_metric_descriptors(filter_str, project_id="p1")
+
+    assert result.status == ToolStatus.SUCCESS
+    assert len(result.result) == 2
+    assert {d["type"] for d in result.result} == {"metric1", "metric2"}
+    # Should have called twice due to OR split
+    assert mock_client.list_metric_descriptors.call_count == 2
