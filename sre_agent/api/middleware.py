@@ -105,13 +105,26 @@ async def auth_middleware(request: Request, call_next: Any) -> Any:
         decrypt_token,
         set_current_credentials,
         set_current_project_id,
+        set_guest_mode,
     )
 
     try:
         auth_header = request.headers.get("Authorization")
         project_id_header = request.headers.get("X-GCP-Project-ID")
+        guest_header = request.headers.get("X-Guest-Mode")
 
-        if auth_header and auth_header.startswith("Bearer "):
+        # Guest mode: skip real auth, set synthetic context
+        if guest_header and guest_header.lower() == "true":
+            from sre_agent.auth import set_current_user_id
+
+            set_guest_mode(True)
+            set_current_project_id("cymbal-shops-demo")
+            set_current_user_id("guest@demo.autosre.dev")
+            creds = Credentials(token="guest-mode-token")  # type: ignore[no-untyped-call]
+            set_current_credentials(creds)
+            logger.debug("Auth Middleware: GUEST MODE - Synthetic data active")
+
+        elif auth_header and auth_header.startswith("Bearer "):
             token = auth_header.split(" ")[1]
             # Create credentials from the token (Access Token)
             # Note: We trust the token format here; downstream APIs will fail if invalid.

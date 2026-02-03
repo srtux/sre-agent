@@ -63,6 +63,15 @@ async def list_time_series(
 
     Example filter_str: 'metric.type="compute.googleapis.com/instance/cpu/utilization" AND resource.type="gce_instance" AND resource.labels.instance_id="123456789"'
     """
+    from sre_agent.auth import is_guest_mode
+
+    if is_guest_mode():
+        from sre_agent.tools.synthetic.provider import SyntheticDataProvider
+
+        return SyntheticDataProvider.list_time_series(
+            filter_str=filter_str, minutes_ago=minutes_ago, project_id=project_id
+        )
+
     from fastapi.concurrency import run_in_threadpool
 
     from sre_agent.tools.mcp.gcp import mcp_list_timeseries
@@ -272,6 +281,15 @@ async def list_metric_descriptors(
     tool_context: Any = None,
 ) -> BaseToolResponse:
     """Lists metric descriptors in the project."""
+    from sre_agent.auth import is_guest_mode
+
+    if is_guest_mode():
+        from sre_agent.tools.synthetic.provider import SyntheticDataProvider
+
+        return SyntheticDataProvider.list_metric_descriptors(
+            filter_str=filter_str, project_id=project_id
+        )
+
     from fastapi.concurrency import run_in_threadpool
 
     if not project_id:
@@ -401,6 +419,13 @@ async def query_promql(
     tool_context: Any = None,
 ) -> BaseToolResponse:
     """Executes a PromQL query using the Cloud Monitoring Prometheus API."""
+    from sre_agent.auth import is_guest_mode
+
+    if is_guest_mode():
+        from sre_agent.tools.synthetic.provider import SyntheticDataProvider
+
+        return SyntheticDataProvider.query_promql(query=query, project_id=project_id)
+
     from fastapi.concurrency import run_in_threadpool
 
     from sre_agent.tools.mcp.gcp import mcp_query_range

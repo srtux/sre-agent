@@ -57,6 +57,13 @@ async def list_alerts(
         page_size: Max results per page.
         tool_context: Context object for tool execution.
     """
+    from sre_agent.auth import is_guest_mode
+
+    if is_guest_mode():
+        from sre_agent.tools.synthetic.provider import SyntheticDataProvider
+
+        return SyntheticDataProvider.list_alerts(project_id=project_id)
+
     from fastapi.concurrency import run_in_threadpool
 
     from sre_agent.auth import get_current_project_id
@@ -176,6 +183,13 @@ def _list_alerts_sync(
 @adk_tool
 async def get_alert(name: str, tool_context: Any = None) -> BaseToolResponse:
     """Gets a specific alert by its resource name."""
+    from sre_agent.auth import is_guest_mode
+
+    if is_guest_mode():
+        from sre_agent.tools.synthetic.provider import SyntheticDataProvider
+
+        return SyntheticDataProvider.get_alert(name=name)
+
     from fastapi.concurrency import run_in_threadpool
 
     result = await run_in_threadpool(_get_alert_sync, name, tool_context)
@@ -218,6 +232,13 @@ async def list_alert_policies(
     tool_context: Any = None,
 ) -> BaseToolResponse:
     """Lists alert policies from Google Cloud Monitoring."""
+    from sre_agent.auth import is_guest_mode
+
+    if is_guest_mode():
+        from sre_agent.tools.synthetic.provider import SyntheticDataProvider
+
+        return SyntheticDataProvider.list_alert_policies(project_id=project_id)
+
     from fastapi.concurrency import run_in_threadpool
 
     from sre_agent.auth import get_current_project_id

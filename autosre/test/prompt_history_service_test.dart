@@ -70,6 +70,10 @@ class MockAuthService extends ChangeNotifier implements AuthService {
   @override
   bool get isAuthenticated => _currentUser != null;
   @override
+  bool get isGuestMode => false;
+  @override
+  bool get isGuestModeEnabled => false;
+  @override
   bool get isLoading => false;
 
   @override

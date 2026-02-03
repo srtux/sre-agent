@@ -58,6 +58,15 @@ async def list_log_entries(
         - "entries": List of log entries.
         - "next_page_token": Token for the next page (if any).
     """
+    from sre_agent.auth import is_guest_mode
+
+    if is_guest_mode():
+        from sre_agent.tools.synthetic.provider import SyntheticDataProvider
+
+        return SyntheticDataProvider.list_log_entries(
+            filter_str=filter_str, project_id=project_id, limit=limit
+        )
+
     from fastapi.concurrency import run_in_threadpool
 
     from sre_agent.auth import get_current_project_id
@@ -270,6 +279,15 @@ async def list_error_events(
     Returns:
         Standardized response with list of error events.
     """
+    from sre_agent.auth import is_guest_mode
+
+    if is_guest_mode():
+        from sre_agent.tools.synthetic.provider import SyntheticDataProvider
+
+        return SyntheticDataProvider.list_error_events(
+            project_id=project_id, minutes_ago=minutes_ago
+        )
+
     from fastapi.concurrency import run_in_threadpool
 
     from sre_agent.auth import get_current_project_id
@@ -361,6 +379,15 @@ async def get_logs_for_trace(
     Returns:
         Standardized response containing the list of log entries.
     """
+    from sre_agent.auth import is_guest_mode
+
+    if is_guest_mode():
+        from sre_agent.tools.synthetic.provider import SyntheticDataProvider
+
+        return SyntheticDataProvider.get_logs_for_trace(
+            project_id=project_id, trace_id=trace_id, limit=limit
+        )
+
     filter_str = f'trace="projects/{project_id}/traces/{trace_id}"'
 
     from fastapi.concurrency import run_in_threadpool
