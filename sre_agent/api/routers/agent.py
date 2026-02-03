@@ -199,6 +199,7 @@ async def _handle_remote_agent(
     Returns:
         StreamingResponse with agent events
     """
+    from sre_agent.api.helpers import get_current_trace_info
     from sre_agent.api.helpers.tool_events import (
         create_dashboard_event,
         create_tool_call_events,
@@ -218,6 +219,11 @@ async def _handle_remote_agent(
     async def remote_event_generator() -> AsyncGenerator[str, None]:
         """Stream events from remote Agent Engine."""
         pending_tool_calls: list[dict[str, Any]] = []
+
+        # Emit trace_info so the frontend can deep-link to Cloud Trace
+        trace_info = get_current_trace_info(project_id=project_id)
+        if trace_info:
+            yield json.dumps(trace_info) + "\n"
 
         try:
             async for event in client.stream_query(
@@ -371,6 +377,7 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
 
     # Import root_agent only in local mode to avoid loading model in proxy-only mode
     from sre_agent.agent import root_agent
+    from sre_agent.api.helpers import get_current_trace_info
     from sre_agent.api.helpers.tool_events import (
         create_dashboard_event,
         create_tool_call_events,
@@ -619,6 +626,12 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
             )
             logger.info(f"📤 Initializing session stream: {session.id}")
             yield session_init_evt
+
+            # Emit trace_info so the frontend can deep-link to Cloud Trace
+            trace_info = get_current_trace_info(project_id=effective_project_id)
+            if trace_info:
+                yield json.dumps(trace_info) + "\n"
+
             # Refresh session to ensure we have the latest state
             active_session = session
             refreshed_session = await session_manager.get_session(
