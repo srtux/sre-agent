@@ -8,11 +8,11 @@ This module generates dynamic, LLM-based suggestions for the user based on:
 
 import json
 import logging
-import os
 import re
 from typing import Any
 
-from google import genai
+from google.adk.agents import LlmAgent
+from google.adk.models.google_llm import Gemini
 from google.genai.types import GenerateContentConfig
 
 from .services import get_session_service
@@ -47,19 +47,6 @@ Rules:
 Output format: Return ONLY a JSON array of strings, no other text.
 Example: ["Check Cilium health in guess-game", "Analyze cluster events", "Check memory usage"]
 """
-
-
-def _get_genai_client() -> genai.Client:
-    """Get a configured GenAI client for suggestion generation."""
-    # Use Vertex AI backend with project from environment
-    project_id = os.environ.get("GOOGLE_CLOUD_PROJECT")
-    location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
-
-    if project_id:
-        return genai.Client(vertexai=True, project=project_id, location=location)
-
-    # Fallback to API key if no project (local dev)
-    return genai.Client()
 
 
 def _extract_conversation_context(events: list[Any]) -> str:
@@ -133,8 +120,6 @@ def _extract_conversation_context(events: list[Any]) -> str:
 async def _generate_llm_suggestions(context: str) -> list[str]:
     """Use LLM to generate contextual suggestions based on conversation."""
     try:
-        client = _get_genai_client()
-
         prompt = f"""Based on this conversation context, generate actionable next step suggestions for the user:
 
 {context}
@@ -142,23 +127,30 @@ async def _generate_llm_suggestions(context: str) -> list[str]:
 Generate 3-6 short, actionable suggestions that help the user continue their investigation or take action.
 Return ONLY a JSON array of strings."""
 
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt,
-            config=GenerateContentConfig(
-                system_instruction=SUGGESTIONS_SYSTEM_PROMPT,
+        # Use ADK's LlmAgent to ensure native tracing and logging
+        agent = LlmAgent(
+            name="suggestions_generator",
+            model=Gemini(model="gemini-2.5-flash"),
+            static_instruction=SUGGESTIONS_SYSTEM_PROMPT,
+            generate_content_config=GenerateContentConfig(
                 temperature=0.7,
                 max_output_tokens=500,
             ),
         )
 
-        if not response.text:
+        response_text = ""
+        async for event in agent.run_async(prompt):
+            if hasattr(event, "content") and event.content and event.content.parts:
+                for part in event.content.parts:
+                    if hasattr(part, "text") and part.text:
+                        response_text += part.text
+
+        if not response_text:
             logger.warning("Empty response from LLM for suggestions")
             return []
 
         # Parse JSON response
-        # Handle potential markdown code blocks
-        text = response.text.strip()
+        text = response_text.strip()
         if text.startswith("```"):
             # Remove markdown code blocks
             text = re.sub(r"```(?:json)?\s*", "", text)

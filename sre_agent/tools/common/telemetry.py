@@ -237,16 +237,23 @@ def setup_telemetry(level: int = logging.INFO) -> None:
         "grpc",
         "httpcore",
         "httpx",
-        "opentelemetry.instrumentation.google_genai.otel_wrapper",
         "aiosqlite",
-        # Silence verbose LLM request/response logs from ADK
-        "google_adk.google.adk.models.google_llm",
     ]:
         logging.getLogger(logger_name).setLevel(logging.WARNING)
 
     logging.getLogger(__name__).info("✅ Basic monitoring configured")
 
     _TELEMETRY_INITIALIZED = True
+
+    # Bridge OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT to ADK internal env var
+    # This ensures that ADK's native tracing honors the standard OTEL toggle
+    if (
+        os.environ.get(
+            "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "false"
+        ).lower()
+        == "true"
+    ):
+        os.environ["ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS"] = "true"
 
     # 1. Skip expensive OTel initialization if already handled by Platform/ADK
     # This addresses the "double-initialization" concern in Agent Engine.
@@ -265,16 +272,16 @@ def setup_telemetry(level: int = logging.INFO) -> None:
     # and ensure high-fidelity traces regardless of how the exporter is set up.
     try:
         from opentelemetry.instrumentation.google_genai import (
-            GoogleGenAiSdkInstrumentor,
+            GoogleGenAiInstrumentor,
         )
 
         # instrument() is idempotent
-        GoogleGenAiSdkInstrumentor().instrument()
+        GoogleGenAiInstrumentor().instrument()
         logging.getLogger(__name__).info(
             "✨ Google GenAI Native instrumentation enabled"
         )
     except ImportError:
-        logging.getLogger(__name__).debug("GoogleGenAiSdkInstrumentor not found.")
+        logging.getLogger(__name__).debug("GoogleGenAiInstrumentor not found.")
     except Exception as e:
         logging.getLogger(__name__).warning(f"Failed to instrument Google GenAI: {e}")
 
@@ -661,7 +668,7 @@ def send_langsmith_feedback(
             comment=comment,
         )
         logging.getLogger(__name__).debug(
-            f"Sent LangSmith feedback: {key}={score or value}"
+            f"Sent LangSmith feedback: {key}={score if score is not None else value}"
         )
         return True
     except ImportError:

@@ -134,12 +134,20 @@ async def test_generate_suggestions_session_with_llm():
         '["Check Cilium pod status", "Analyze network policies", "Review CNI logs"]'
     )
 
-    mock_client = MagicMock()
-    mock_client.models.generate_content.return_value = mock_llm_response
+    mock_agent = MagicMock()
+    mock_agent.run_async = MagicMock()
+
+    async def mock_run_async(*args, **kwargs):
+        yield MockEvent(
+            author="suggestions_generator",
+            content=MockContent([MockPart(mock_llm_response.text)]),
+        )
+
+    mock_agent.run_async.side_effect = mock_run_async
 
     with (
         patch("sre_agent.suggestions.get_session_service", return_value=mock_service),
-        patch("sre_agent.suggestions._get_genai_client", return_value=mock_client),
+        patch("sre_agent.suggestions.LlmAgent", return_value=mock_agent),
     ):
         suggestions = await generate_contextual_suggestions(session_id=session_id)
         assert len(suggestions) >= MIN_SUGGESTIONS
@@ -187,12 +195,20 @@ Let me know if you need more details."""
         '["Check Cilium health", "Review cluster events", "Analyze pod logs"]'
     )
 
-    mock_client = MagicMock()
-    mock_client.models.generate_content.return_value = mock_llm_response
+    mock_agent = MagicMock()
+    mock_agent.run_async = MagicMock()
+
+    async def mock_run_async(*args, **kwargs):
+        yield MockEvent(
+            author="suggestions_generator",
+            content=MockContent([MockPart(mock_llm_response.text)]),
+        )
+
+    mock_agent.run_async.side_effect = mock_run_async
 
     with (
         patch("sre_agent.suggestions.get_session_service", return_value=mock_service),
-        patch("sre_agent.suggestions._get_genai_client", return_value=mock_client),
+        patch("sre_agent.suggestions.LlmAgent", return_value=mock_agent),
     ):
         suggestions = await generate_contextual_suggestions(session_id=session_id)
         assert len(suggestions) >= MIN_SUGGESTIONS
@@ -204,10 +220,18 @@ async def test_generate_llm_suggestions_handles_markdown_codeblocks():
     mock_llm_response = MagicMock()
     mock_llm_response.text = '```json\n["Check logs", "Analyze traces"]\n```'
 
-    mock_client = MagicMock()
-    mock_client.models.generate_content.return_value = mock_llm_response
+    mock_agent = MagicMock()
+    mock_agent.run_async = MagicMock()
 
-    with patch("sre_agent.suggestions._get_genai_client", return_value=mock_client):
+    async def mock_run_async(*args, **kwargs):
+        yield MockEvent(
+            author="suggestions_generator",
+            content=MockContent([MockPart(mock_llm_response.text)]),
+        )
+
+    mock_agent.run_async.side_effect = mock_run_async
+
+    with patch("sre_agent.suggestions.LlmAgent", return_value=mock_agent):
         suggestions = await _generate_llm_suggestions("test context")
         assert "Check logs" in suggestions
         assert "Analyze traces" in suggestions
@@ -219,10 +243,19 @@ async def test_generate_llm_suggestions_handles_empty_response():
     mock_llm_response = MagicMock()
     mock_llm_response.text = None
 
-    mock_client = MagicMock()
-    mock_client.models.generate_content.return_value = mock_llm_response
+    mock_agent = MagicMock()
+    mock_agent.run_async = MagicMock()
 
-    with patch("sre_agent.suggestions._get_genai_client", return_value=mock_client):
+    async def mock_run_async(*args, **kwargs):
+        text = getattr(mock_llm_response, "text", "") or ""
+        yield MockEvent(
+            author="suggestions_generator",
+            content=MockContent([MockPart(text)]),
+        )
+
+    mock_agent.run_async.side_effect = mock_run_async
+
+    with patch("sre_agent.suggestions.LlmAgent", return_value=mock_agent):
         suggestions = await _generate_llm_suggestions("test context")
         assert suggestions == []
 
@@ -233,10 +266,18 @@ async def test_generate_llm_suggestions_handles_invalid_json():
     mock_llm_response = MagicMock()
     mock_llm_response.text = "This is not valid JSON"
 
-    mock_client = MagicMock()
-    mock_client.models.generate_content.return_value = mock_llm_response
+    mock_agent = MagicMock()
+    mock_agent.run_async = MagicMock()
 
-    with patch("sre_agent.suggestions._get_genai_client", return_value=mock_client):
+    async def mock_run_async(*args, **kwargs):
+        yield MockEvent(
+            author="suggestions_generator",
+            content=MockContent([MockPart(mock_llm_response.text)]),
+        )
+
+    mock_agent.run_async.side_effect = mock_run_async
+
+    with patch("sre_agent.suggestions.LlmAgent", return_value=mock_agent):
         suggestions = await _generate_llm_suggestions("test context")
         assert suggestions == []
 
@@ -251,10 +292,18 @@ async def test_generate_llm_suggestions_filters_invalid_suggestions():
     mock_llm_response = MagicMock()
     mock_llm_response.text = json.dumps(suggestions_list)
 
-    mock_client = MagicMock()
-    mock_client.models.generate_content.return_value = mock_llm_response
+    mock_agent = MagicMock()
+    mock_agent.run_async = MagicMock()
 
-    with patch("sre_agent.suggestions._get_genai_client", return_value=mock_client):
+    async def mock_run_async(*args, **kwargs):
+        yield MockEvent(
+            author="suggestions_generator",
+            content=MockContent([MockPart(mock_llm_response.text)]),
+        )
+
+    mock_agent.run_async.side_effect = mock_run_async
+
+    with patch("sre_agent.suggestions.LlmAgent", return_value=mock_agent):
         suggestions = await _generate_llm_suggestions("test context")
         # Only "This is a valid suggestion" should pass the filter
         assert len(suggestions) == 1
@@ -354,12 +403,20 @@ async def test_generate_suggestions_llm_fallback_supplements_defaults():
     mock_llm_response = MagicMock()
     mock_llm_response.text = '["Check error logs", "Analyze patterns"]'
 
-    mock_client = MagicMock()
-    mock_client.models.generate_content.return_value = mock_llm_response
+    mock_agent = MagicMock()
+    mock_agent.run_async = MagicMock()
+
+    async def mock_run_async(*args, **kwargs):
+        yield MockEvent(
+            author="suggestions_generator",
+            content=MockContent([MockPart(mock_llm_response.text)]),
+        )
+
+    mock_agent.run_async.side_effect = mock_run_async
 
     with (
         patch("sre_agent.suggestions.get_session_service", return_value=mock_service),
-        patch("sre_agent.suggestions._get_genai_client", return_value=mock_client),
+        patch("sre_agent.suggestions.LlmAgent", return_value=mock_agent),
     ):
         suggestions = await generate_contextual_suggestions(session_id=session_id)
         # Should have LLM suggestions plus defaults to reach minimum
