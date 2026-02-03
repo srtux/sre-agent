@@ -40,14 +40,24 @@ This document details all environment variables used to configure the Auto SRE A
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `USE_ARIZE` | **DEPRECATED**. Replaced by native OTel + LangSmith. | `false` |
-| `ARIZE_SPACE_ID` | **DEPRECATED**. | - |
-| `ARIZE_API_KEY` | **DEPRECATED**. | - |
 | `LANGSMITH_TRACING` | Enable LangSmith tracing for local/agentic debugging. | `false` |
 | `LANGSMITH_API_KEY` | LangSmith API Key. | - |
+| `LANGSMITH_PROJECT` | LangSmith project name. | `sre-agent` |
 | `TRACE_PROJECT_ID` | Override project for Cloud Trace queries (if different from host). | `GOOGLE_CLOUD_PROJECT` |
 | `GEMINI_API_KEY` | Your Google API Key (if not using ADC/Service Account). | - |
 | `GOOGLE_API_KEY` | Alias for `GEMINI_API_KEY`. | - |
+
+### Deprecated Variables
+
+The following variables are deprecated and will be removed in a future release.
+
+| Variable | Status | Migration Path |
+|----------|--------|---------------|
+| `USE_ARIZE` | **Removed** | Delete from `.env`. Arize instrumentation has been fully replaced by native Google Cloud Trace + optional LangSmith tracing. Set `OTEL_TO_CLOUD=true` for Cloud Trace export and/or `LANGSMITH_TRACING=true` for LangSmith. |
+| `ARIZE_SPACE_ID` | **Removed** | Delete from `.env`. No replacement needed. |
+| `ARIZE_API_KEY` | **Removed** | Delete from `.env`. No replacement needed. |
+
+> **Migration**: If you were previously using Arize for observability, switch to native Cloud Trace (`OTEL_TO_CLOUD=true`) for production tracing. For local development debugging, use LangSmith (`LANGSMITH_TRACING=true`). Both can run simultaneously.
 
 ## Storage & Sessions
 
@@ -71,3 +81,6 @@ Used by `deploy/` scripts.
 | Variable | Description |
 |----------|-------------|
 | `GOOGLE_CLOUD_STORAGE_BUCKET` | Staging bucket for Agent Engine artifacts. |
+
+---
+*Last verified: 2026-02-02 — Auto SRE Team*

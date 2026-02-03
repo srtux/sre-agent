@@ -81,7 +81,7 @@ graph TD
 ### 1. Local Development
 ```bash
 # Clone and setup
-git clone https://github.com/your-org/sre-agent.git
+git clone <YOUR_REPO_URL>
 cd sre-agent
 uv sync
 
@@ -113,3 +113,5 @@ uv run poe deploy-all
 
 ---
 *Crafted with 💙 by the Auto SRE Engineering Team.*
+
+*Last verified: 2026-02-02*

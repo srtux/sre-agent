@@ -387,6 +387,10 @@ class Runner:
         # Create a minimal session service for invocation context
         session_service = InMemorySessionService()  # type: ignore[no-untyped-call]
 
+        # Wire in the ADK memory service so PreloadMemoryTool and
+        # LoadMemoryTool can function via tool_context.search_memory()
+        from sre_agent.memory.factory import get_adk_memory_service
+
         inv_ctx = InvocationContext(
             invocation_id=str(uuid.uuid4()),
             agent=self.agent,
@@ -394,6 +398,7 @@ class Runner:
             session_service=session_service,
             user_content=user_content,
             run_config=RunConfig(),
+            memory_service=get_adk_memory_service(),
         )
 
         # Run agent and intercept tool calls

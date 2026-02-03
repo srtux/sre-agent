@@ -76,3 +76,6 @@ To add a new tool:
 2.  Follow the `BaseToolResponse` pattern.
 3.  Register the tool in the `TOOL_NAME_MAP` and `base_tools` list in `sre_agent/agent.py`.
 4.  (Optional) Add a layout mapping in `genui_adapter.py` to give it a custom UI widget.
+
+---
+*Last verified: 2026-02-02 — Auto SRE Team*

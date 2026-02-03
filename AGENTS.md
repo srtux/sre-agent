@@ -14,7 +14,7 @@
 2.  **Test First**: Create/update tests *before* implementing logic.
 3.  **Lint Always**: `uv run poe lint-all` must be clean.
 4.  **No Hallucinations**: Read `pydantic` schemas; use `extra="forbid"`.
-5.  **Coverage Target**: Aim for **100% test coverage** on all new tools and core logic.
+5.  **Coverage Target**: **80% minimum gate** on all code; aim for **100% on new tools and core logic**.
 6.  **Compaction**: Update `PROJECT_PLAN.md` and docs when task completes.
 
 ## 🚀 Quick Start for Agents
@@ -163,14 +163,14 @@ return result
 
 **TTL**: 300 seconds (5 minutes)
 
-### 6. Project ID Enforcement Pattern (CRITICAL)
+### 7. Project ID Enforcement Pattern (CRITICAL)
 
 **ALL API tools and clients MUST enforce Project ID:**
 - **Interceptor Pattern**: The `ProjectContextInterceptor` automatically injects the active `X-GCP-Project-ID` header.
 - **No Hardcoding**: NEVER hardcode project IDs. Use `get_current_project_id()` if absolutely necessary in backend logic.
 - **Frontend**: The generic `ProjectService` ensures the selected project is propagated.
 
-### 7. Mission Control UI Standards (Flutter)
+### 8. Mission Control UI Standards (Flutter)
 
 **Aesthetic**: "Deep Space Command Center"
 - **Theme**: Dark mode, Glassmorphism (frosted glass), "Electric Indigo" & "Signal Cyan" accents.
@@ -180,7 +180,7 @@ return result
   - `UnifiedPromptInput`: Centered pill-shaped input.
   - **Canvas Widgets**: Dynamic visualization (e.g., `AgentActivityCanvas`).
 
-### 8. MCP vs Direct API Strategy
+### 9. MCP vs Direct API Strategy
 
 **Use MCP (`mcp/`) for**:
 - BigQuery SQL execution (fleet-wide analysis)
@@ -195,7 +195,7 @@ return result
 
 **Fallback Rule**: If MCP fails, tools MUST fall back to Direct API and document this in error messages.
 
-### 9. Dual-Mode Execution Pattern (CRITICAL)
+### 10. Dual-Mode Execution Pattern (CRITICAL)
 
 The agent supports two execution modes determined by the `SRE_AGENT_ID` environment variable:
 
@@ -228,7 +228,7 @@ if is_remote_mode():
 - `sre_agent/services/agent_engine_client.py`: Remote Agent Engine client
 - `sre_agent/api/routers/agent.py`: Dual-mode endpoint implementation
 
-### 10. End-User Credentials (EUC) Pattern (CRITICAL)
+### 11. End-User Credentials (EUC) Pattern (CRITICAL)
 
 User credentials MUST be propagated to tools for multi-tenant access:
 
@@ -286,7 +286,7 @@ SESSION_STATE_PROJECT_ID_KEY = "_user_project_id"
 **STRICT_EUC_ENFORCEMENT**:
 When `STRICT_EUC_ENFORCEMENT=true`, tools will raise `PermissionError` instead of falling back to Application Default Credentials.
 
-### 11. Dashboard Dedicated Data Channel Pattern (CRITICAL)
+### 12. Dashboard Dedicated Data Channel Pattern (CRITICAL)
 
 To prevent brittle UI rendering, the Investigation Dashboard is decoupled from the chat-based A2UI protocol.
 
@@ -413,7 +413,8 @@ async def fetch_trace(project_id: str, trace_id: str) -> str:
 ```python
 # File: sre_agent/sub_agents/latency.py
 
-from google.ai.generativelanguage import LlmAgent
+from google.adk.agents import LlmAgent
+from sre_agent.model_config import get_model_name
 
 LATENCY_ANALYZER_PROMPT = """
 You are a Latency Specialist. Your role is to...
@@ -433,13 +434,14 @@ You are a Latency Specialist. Your role is to...
 """
 
 latency_analyzer = LlmAgent(
-    model="gemini-2.5-flash",
-    system_instruction=LATENCY_ANALYZER_PROMPT,
+    name="latency_analyzer",
+    model=get_model_name("fast"),
+    instruction=LATENCY_ANALYZER_PROMPT,
     tools=[
         # Only latency-relevant tools
-        "fetch_trace",
-        "calculate_span_durations",
-        "analyze_critical_path",
+        fetch_trace,
+        calculate_span_durations,
+        analyze_critical_path,
     ]
 )
 ```
@@ -540,16 +542,18 @@ def process_trace(trace_id, project=None):  # Missing types
 
 ### Import Style
 
+**Rule**: Use **absolute imports** for cross-package references. Relative imports are acceptable within the same package for sibling/parent modules.
+
 ```python
-# Absolute imports for cross-module
+# ✅ Absolute imports (preferred for cross-package)
 from sre_agent.tools.clients.trace import fetch_trace
 from sre_agent.schema import BaseToolResponse
 
-# Relative imports for siblings/parents
-from .trace import fetch_trace
-from ..common.decorators import adk_tool
+# ✅ Relative imports (acceptable within same package)
+from .trace import fetch_trace          # sibling module
+from ..common.decorators import adk_tool  # parent package
 
-# Type checking imports (avoid circular deps)
+# ✅ Type checking imports (avoid circular deps)
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from sre_agent.agent import SREAgent
@@ -761,7 +765,7 @@ result = await fetch_trace(project, trace_id)
 
 **Solution**:
 - Check if the backend is sending nested `component` wrappers (it shouldn't).
-- See **`docs/debugging_genui.md`** for detailed debugging steps and the "wrapper issue" explanation.
+- See **[`docs/guides/debugging_genui.md`](docs/guides/debugging_genui.md)** for detailed debugging steps and the "wrapper issue" explanation.
 
 ---
 
@@ -1100,7 +1104,7 @@ Before committing code, verify:
 - [ ] Made minimal, focused changes
 - [ ] Added/updated tests for changes
 - [ ] Ran `uv run poe lint` (passed clean)
-- [ ] Ran `uv run poe test-all` (passed with 70%+ coverage)
+- [ ] Ran `uv run poe test-all` (passed with 80%+ coverage)
 - [ ] Updated docstrings if adding new functions
 - [ ] Updated README.md if adding user-facing features
 - [ ] Used conventional commit message format
@@ -1112,7 +1116,7 @@ Before committing code, verify:
 
 1. **Always read before modifying** - Never propose changes to unread code
 2. **Follow existing patterns** - Don't reinvent the wheel
-3. **Test everything** - 70% coverage minimum, no exceptions
+3. **Test everything** - 80% coverage gate, 100% target on new code
 4. **Type everything** - Strict MyPy, explicit types always
 5. **Lint before commit** - `uv run poe lint` must pass
 6. **Make minimal changes** - Avoid over-engineering
@@ -1124,3 +1128,6 @@ Before committing code, verify:
 ---
 
 **Happy Coding! 🚀**
+
+---
+*Last verified: 2026-02-02 — Auto SRE Team*

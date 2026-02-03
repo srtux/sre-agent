@@ -48,3 +48,6 @@ Evaluations automatically detect their environment:
 *   **Project ID**: The `TEST_PROJECT_ID` placeholder in `.test.json` files is dynamically replaced with the project ID active in the environment.
 *   **Identity**: In CI/CD, the evaluator falls back to the **Cloud Build Service Account**, which must have the necessary IAM roles (`roles/aiplatform.user`, `roles/logging.viewer`, etc.) to execute the trajectory.
 *   **Telemetry**: To prevent hangs at process exit, evaluations suppress background OpenTelemetry threads using `OTEL_SDK_DISABLED=true`.
+
+---
+*Last verified: 2026-02-02 — Auto SRE Team*

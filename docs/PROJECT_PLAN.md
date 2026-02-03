@@ -62,6 +62,18 @@ Auto SRE is an autonomous reliability engine for Google Cloud. We are transition
     - **Metrics & Alerts**: Visual timeline of incidents.
     - **Remediation**: Risk-assessed step-by-step guidance.
 
+### Phase 2.5: SRE Reliability Suite (COMPLETED — Feb 2026)
+**Goal**: Production-grade resilience patterns and advanced SRE tooling.
+
+- [x] **Circuit Breaker Pattern** (`sre_agent/core/circuit_breaker.py`): Three-state breaker (CLOSED/OPEN/HALF_OPEN) with per-tool configuration and singleton registry. Prevents cascading failures when GCP APIs are degraded. (20 tests)
+- [x] **Multi-Window SLO Burn Rate Analyzer** (`sre_agent/tools/analysis/slo/burn_rate.py`): Google SRE Workbook multi-window alerting (1h/6h/24h/72h windows) with error budget projection and urgency classification. (19 tests)
+- [x] **Change Correlation Tool** (`sre_agent/tools/analysis/correlation/change_correlation.py`): Queries GCP Audit Logs to find and rank recent changes by temporal proximity to incidents. (17 tests)
+- [x] **Automated Postmortem Generator** (`sre_agent/tools/analysis/remediation/postmortem.py`): Google SRE-style blameless postmortem with severity assessment, TTD/TTM metrics, and auto-generated P0-P2 action items. (21 tests)
+- [x] **Enhanced Investigation Model** (`sre_agent/models/investigation.py`): Structured findings with confidence levels, signal coverage tracking, and quality scoring (0-100). (28 tests)
+- [x] **Flutter UI Widgets**: SLO Burn Rate Card and Postmortem Card with Deep Space aesthetic.
+
+Total: **105 new tests**, all passing.
+
 ### Phase 3: Advanced Diagnostics (UPCOMING)
 **Goal**: Specialized analytical logic for complex failure modes.
 
@@ -77,8 +89,14 @@ Auto SRE is an autonomous reliability engine for Google Cloud. We are transition
 - [ ] **Runbook Automation**: Execute predefined "Safety-First" runbooks (Restart, Scale, Rollback) with human-in-the-loop approval.
 - [ ] **Executive Reporting**: One-click "Post-Mortem" generator that synthesizes the investigation into a professional report.
 - [ ] **Structured Knowledge Extraction**: Automatic graph population based on investigation findings (e.g., auto-discovering a new API dependency).
+- [ ] **LoopAgent for Iterative Refinement**: Re-examine findings across multiple passes.
+- [ ] **Knowledge Graph for RCA**: Build service dependency graphs from trace data.
+- [ ] **Chaos Engineering Sub-Agent**: Validate resilience hypotheses.
+- [ ] **Rate Limiting / Backpressure**: Complement circuit breakers with request rate limiting.
+- [ ] **Cross-Incident Learning**: Use embeddings to find similar past incidents.
+- [ ] **Proactive SLO Forecasting**: Predict violations before they happen using trend analysis.
 
-### Phase 5: Modern & World-Class Agentics (2026 Vision)
+### Phase 4: Modern & World-Class Agentics (2026 Vision)
 **Goal**: Transparency, continuous quality, and elite governance.
 
 - [x] **Streaming Reasoning (CoT)**: Real-time "Thinking" stream in the UI, exposing the agent's internal chain-of-thought before it acts.
@@ -101,4 +119,4 @@ Auto SRE is an autonomous reliability engine for Google Cloud. We are transition
 *   **Documentation**: This file (`PROJECT_PLAN.md`) must be updated after every significant change or phase transition.
 
 ---
-*Last Updated: 2026-02-01 - Auto SRE Team*
+*Last updated: 2026-02-02 — Auto SRE Team*

@@ -107,3 +107,6 @@ The backend does not just return text; it emits specialized **UI Events**. These
 - [Frontend](frontend.md): Flutter UI and GenUI implementation.
 - [Authentication](authentication.md): IAM and Session security.
 - [Technical Decisions](decisions.md): Records of dependency constraints and implementation rationale.
+
+---
+*Last verified: 2026-02-02 — Auto SRE Team*
