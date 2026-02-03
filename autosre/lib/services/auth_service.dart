@@ -33,6 +33,8 @@ class AuthService extends ChangeNotifier {
   DateTime? _accessTokenExpiry;
   bool _isLoading = true;
   bool _isAuthEnabled = true; // Default to true until config says otherwise
+  bool _isGuestMode = false;
+  bool _isGuestModeEnabled = false; // Controlled by backend ENABLE_GUEST_MODE
 
   @visibleForTesting
   set currentUser(gsi_lib.GoogleSignInAccount? user) => _currentUser = user;
@@ -50,6 +52,8 @@ class AuthService extends ChangeNotifier {
   bool get isAuthenticated => !_isAuthEnabled || _currentUser != null;
   bool get isLoading => _isLoading;
   bool get isAuthEnabled => _isAuthEnabled;
+  bool get isGuestMode => _isGuestMode;
+  bool get isGuestModeEnabled => _isGuestModeEnabled;
   String? get idToken => _idToken;
   String? get accessToken => _accessToken;
 
@@ -72,6 +76,9 @@ class AuthService extends ChangeNotifier {
 
         if (data.containsKey('auth_enabled')) {
             _isAuthEnabled = data['auth_enabled'] as bool;
+        }
+        if (data.containsKey('guest_mode_enabled')) {
+            _isGuestModeEnabled = data['guest_mode_enabled'] as bool;
         }
 
         runtimeClientId = data['google_client_id'] as String?;
@@ -199,12 +206,15 @@ class AuthService extends ChangeNotifier {
   /// Get current auth headers
   Future<Map<String, String>> getAuthHeaders() async {
     if (!_isAuthEnabled) {
-      // In dev mode with auth disabled, we send a dummy token or no token.
+      // In dev mode or guest mode, we send a dummy token.
       // The backend middleware is configured to accept this or bypass.
-      // We send a header to be explicit.
-      return {
+      final headers = {
         'Authorization': 'Bearer dev-mode-bypass-token',
       };
+      if (_isGuestMode) {
+        headers['X-Guest-Mode'] = 'true';
+      }
+      return headers;
     }
 
     if (_currentUser == null) return {};
@@ -288,10 +298,11 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  /// Bypasses SSO and logs in as a guest (for local development)
+  /// Bypasses SSO and logs in as a guest with synthetic demo data.
   void loginAsGuest() {
-    debugPrint('AuthService: Logging in as Guest (Bypassing SSO)');
+    debugPrint('AuthService: Logging in as Guest (Demo Mode with synthetic data)');
     _isAuthEnabled = false;
+    _isGuestMode = true;
     _isLoading = false;
     _currentUser = null;
     notifyListeners();

@@ -117,6 +117,10 @@ _trace_id_context: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "trace_id_context", default=None
 )
 
+_guest_mode_context: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "guest_mode_context", default=False
+)
+
 # Encryption key for securing tokens at rest
 # In production, this should be loaded from a Secret Manager
 ENCRYPTION_KEY = os.environ.get("SRE_AGENT_ENCRYPTION_KEY")
@@ -239,6 +243,16 @@ def set_trace_id(trace_id: str | None) -> None:
 def get_trace_id() -> str | None:
     """Gets the trace ID for the current context."""
     return _trace_id_context.get()
+
+
+def set_guest_mode(enabled: bool) -> None:
+    """Sets guest mode for the current request context."""
+    _guest_mode_context.set(enabled)
+
+
+def is_guest_mode() -> bool:
+    """Returns True if the current request is in guest mode."""
+    return _guest_mode_context.get()
 
 
 def get_current_credentials() -> tuple[google.auth.credentials.Credentials, str | None]:

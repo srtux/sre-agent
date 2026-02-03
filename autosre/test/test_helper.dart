@@ -21,6 +21,8 @@ class MockAuthService extends ChangeNotifier implements AuthService {
 
   @override bool get isAuthenticated => _authenticated;
   @override bool get isAuthEnabled => true;
+  @override bool get isGuestMode => false;
+  @override bool get isGuestModeEnabled => false;
   @override bool get isLoading => false;
   @override GoogleSignInAccount? get currentUser => null;
   @override String? get accessToken => null;

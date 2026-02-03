@@ -230,6 +230,13 @@ async def fetch_trace(
     tool_context: Any = None,
 ) -> BaseToolResponse:
     """Fetches a specific trace by ID from Cloud Trace API."""
+    from sre_agent.auth import is_guest_mode
+
+    if is_guest_mode():
+        from sre_agent.tools.synthetic.provider import SyntheticDataProvider
+
+        return SyntheticDataProvider.fetch_trace(trace_id, project_id)
+
     from fastapi.concurrency import run_in_threadpool
 
     if not project_id:
@@ -377,6 +384,18 @@ async def list_traces(
     tool_context: Any = None,
 ) -> BaseToolResponse:
     """Lists recent traces with advanced filtering capabilities."""
+    from sre_agent.auth import is_guest_mode
+
+    if is_guest_mode():
+        from sre_agent.tools.synthetic.provider import SyntheticDataProvider
+
+        return SyntheticDataProvider.list_traces(
+            project_id=project_id,
+            limit=limit,
+            min_latency_ms=min_latency_ms,
+            error_only=error_only,
+        )
+
     from fastapi.concurrency import run_in_threadpool
 
     if not project_id:
@@ -582,6 +601,13 @@ async def find_example_traces(
     tool_context: Any = None,
 ) -> BaseToolResponse:
     """Intelligently discovers representative baseline and anomaly traces."""
+    from sre_agent.auth import is_guest_mode
+
+    if is_guest_mode():
+        from sre_agent.tools.synthetic.provider import SyntheticDataProvider
+
+        return SyntheticDataProvider.find_example_traces(project_id=project_id)
+
     try:
         try:
             if not project_id:

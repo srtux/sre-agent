@@ -32,6 +32,7 @@ async def get_config() -> dict[str, Any]:
     return {
         "google_client_id": os.getenv("GOOGLE_CLIENT_ID", ""),
         "auth_enabled": os.getenv("ENABLE_AUTH", "true").lower() == "true",
+        "guest_mode_enabled": os.getenv("ENABLE_GUEST_MODE", "true").lower() == "true",
     }
 
 
