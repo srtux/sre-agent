@@ -88,3 +88,6 @@ See [Deployment Guide](deployment.md) for detailed production instructions.
 2. Sign in with Google.
 3. Type "Hello" to verify the agent responds.
 4. Try "Analyze traces for service X" to verify GCP connectivity.
+
+---
+*Last verified: 2026-02-02 — Auto SRE Team*

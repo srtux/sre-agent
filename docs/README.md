@@ -17,7 +17,7 @@ This is the central index for all Auto SRE documentation. Use this page to navig
 | Write or run tests                  | [Testing Strategy](guides/testing.md)                              |
 | Run or write agent evaluations      | [Evaluation Guide](guides/evaluation.md)                           |
 | Deploy to production                | [Deployment Guide](guides/deployment.md)                           |
-| Debug an issue                      | [Debugging Guides](#debugging)                                     |
+| Debug an issue                      | [Debugging Guides](#debugging-1)                                   |
 | Look up environment variables       | [Configuration Reference](reference/configuration.md)              |
 | Find available tools                | [Tools Catalog](reference/tools.md)                                |
 | Understand security model           | [Security Reference](reference/security.md)                        |
@@ -84,7 +84,7 @@ Practical how-to instructions for developers.
 |-------|-------------|
 | [Deployment](guides/deployment.md) | Cloud Run and Vertex AI Agent Engine deployment |
 
-### Debugging {#debugging}
+### Debugging
 | Guide | Description |
 |-------|-------------|
 | [Debugging Connectivity](guides/debugging_connectivity.md) | Network, API, and CORS troubleshooting |
@@ -180,5 +180,8 @@ If you are an LLM agent (Claude Code, Gemini, etc.), follow this reading order:
 4. **Relevant docs below** — Based on your task:
    - Modifying tools? Read [Tools Catalog](reference/tools.md) + [Development Guide](guides/development.md)
    - Writing tests? Read [Testing Strategy](guides/testing.md)
-   - Debugging? Read the appropriate [Debugging Guide](#debugging)
+   - Debugging? Read the appropriate [Debugging Guide](#debugging-1)
    - Deploying? Read [Deployment Guide](guides/deployment.md)
+
+---
+*Last verified: 2026-02-02 — Auto SRE Team*

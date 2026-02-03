@@ -169,7 +169,7 @@ uv run poe sync         # Install/update all dependencies
 ```
 
 ## TESTING RULES
-- Coverage gate: 80% minimum (100% target on new code)
+- Coverage: 80% minimum gate; 100% target on new tools and core logic
 - Async tests: `@pytest.mark.asyncio`
 - Mock external APIs: `patch`, `AsyncMock`, `MagicMock`
 - Test paths mirror source: `sre_agent/tools/clients/trace.py` -> `tests/unit/sre_agent/tools/clients/test_trace.py`
@@ -225,7 +225,7 @@ docs/
 2. Test first — create/update tests before implementation
 3. Lint always — `uv run poe lint` must pass clean
 4. Explicit types — mandatory on all functions, no implicit `Any`
-5. Absolute imports — `from sre_agent.X import Y`
+5. Imports — prefer absolute (`from sre_agent.X import Y`); relative OK within same package
 6. Schemas — `extra="forbid"` on all Pydantic models
 7. Async — all external I/O (GCP, DB, LLM) must be async/await
 8. Error responses — `{"status": "error", "error": "message", "non_retryable": bool}`

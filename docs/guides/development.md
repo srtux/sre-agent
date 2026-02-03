@@ -71,3 +71,6 @@ The project uses the **Core Squad** pattern (`sre_agent/sub_agents/`):
 3.  Lint: `uv run poe lint-all`
 4.  Test: `uv run poe test-all`
 5.  Docs: Update **`docs/PROJECT_PLAN.md`** and relevant architecture docs.
+
+---
+*Last verified: 2026-02-02 — Auto SRE Team*

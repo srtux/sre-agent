@@ -52,7 +52,7 @@ The `SRE_AGENT_ENCRYPTION_KEY` is critical for decrypting session state on the b
 
 To maintain high signal-to-noise ratios, the agent uses standard Python logging filters where necessary.
 
-## 7. Configuration Summary
+## 6. Configuration Summary
 
 | Variable | Description | Default |
 | :--- | :--- | :--- |
@@ -61,3 +61,6 @@ To maintain high signal-to-noise ratios, the agent uses standard Python logging 
 | `OTEL_TO_CLOUD` | Enable Google Cloud Trace exporter | `false` |
 | `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` | Capture prompts/responses in traces | `false` |
 | `DISABLE_TELEMETRY` | Disable all tracing and metrics | `false` |
+
+---
+*Last verified: 2026-02-02 — Auto SRE Team*

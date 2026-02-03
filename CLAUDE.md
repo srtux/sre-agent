@@ -1,50 +1,53 @@
-# CLAUDE.md: Auto SRE Project Guide
+# CLAUDE.md: Auto SRE — Claude Code Quick Reference
 
-## 🚀 Core Mission
-Auto SRE is an AI-powered reliability engine inspired by Google SRE practices. It uses a **Council of Experts** (specialized sub-agents) to automate incident investigation.
+> **Canonical reference**: [`AGENTS.md`](AGENTS.md) is the Single Source of Truth for all coding patterns.
+> This file provides Claude-specific shortcuts. For full details, always consult AGENTS.md.
 
-## 🛠 Tech Stack
--   **Backend**: Python 3.10+, FastAPI, Google ADK 1.23.0
--   **Frontend**: Flutter Web (Material 3 + Deep Space Aesthetic)
--   **LLM**: Gemini 2.5 Flash (via Vertex AI ADK)
--   **Storage**: SQLite (Dev) / Cloud SQL (Prod), Firestore (Configs)
--   **Telemetry**: Cloud Trace, Cloud Logging, Cloud Monitoring (Native OTel)
+## Reading Order
+1. **[llm.txt](llm.txt)** — High-density context (read first)
+2. **[AGENTS.md](AGENTS.md)** — Patterns, checklists, pitfalls
+3. **[docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md)** — Roadmap and status
+4. Task-specific docs in [`docs/`](docs/README.md)
 
-## 📋 Development Standards
+## Quick Rules
+1. **Read before modifying** — Never propose changes to unread code.
+2. **Test first** — Create/update tests *before* implementing logic.
+3. **Lint always** — `uv run poe lint-all` must be clean.
+4. **Explicit types** — Mandatory type hints, no implicit `Any`.
+5. **Coverage** — 80% minimum gate; 100% target on new tools and core logic.
+6. **Schemas** — Pydantic `frozen=True, extra="forbid"` on all models.
+7. **Async** — All external I/O (GCP, DB, LLM) must be `async/await`.
+8. **Imports** — Prefer absolute (`from sre_agent.X import Y`); relative OK within same package.
+9. **Tools** — Must use `@adk_tool` decorator and return `BaseToolResponse` JSON.
+10. **Compaction** — Update `PROJECT_PLAN.md` and docs after completing major changes.
 
-### 1. Vibe Coding Cycle
-1. **Read Docs** & Context
-2. **Plan** (with logic verification)
-3. **Test First** (Unit/Integration)
-4. **Implement** (Strict types, Lint clean)
-5. **Verify** & Self-Critique
-6. **Compact Knowledge** (Update `AGENTS.md`, `PROJECT_PLAN.md`)
+## Essential Commands
+```bash
+uv run poe dev          # Full stack (backend + frontend)
+uv run poe test         # pytest + 80% coverage gate
+uv run poe lint-all     # Ruff + MyPy + codespell + deptry
+uv run poe deploy-all   # Full stack deployment
+```
 
-### 2. Strict Coding Rules
--   **Typing**: Mandatory explicit type hints for all functions. No implicit `Any`.
--   **Schemas**: Use Pydantic `frozen=True, extra="forbid"` to catch hallucinations.
--   **Tools**: Every tool MUST use `@adk_tool` and return `BaseToolResponse`.
--   **Async**: All external I/O (GCP, DB, LLM) must be `async/await`.
--   **Imports**: Prefer absolute imports (`from sre_agent.X import Y`).
+## Tech Stack
+- **Backend**: Python 3.10+, FastAPI, Google ADK
+- **Frontend**: Flutter Web (Material 3, Deep Space aesthetic)
+- **LLM**: Gemini 2.5 Flash/Pro (via `get_model_name("fast"|"deep")`)
+- **Testing**: pytest (backend), flutter test (frontend), ADK eval (agent quality)
 
-### 3. Tool Implementation Checklist
-- [ ] Add `@adk_tool` decorator.
-- [ ] Implement `async` logic with robust error handling.
-- [ ] Register in `sre_agent/tools/__init__.py`.
-- [ ] Register in `sre_agent/agent.py` (`base_tools` & `TOOL_NAME_MAP`).
-- [ ] Define in `sre_agent/tools/config.py`.
-- [ ] 100% test coverage in `tests/unit/sre_agent/tools/`.
-
-## 🧪 Testing & Linting
--   **Run All**: `uv run poe lint-all && uv run poe test`
--   **Linting**: Ruff (Format/Lint), MyPy (Types), Codespell, Deptry
--   **Testing**: Pytest for backend, Flutter test for frontend
-
-## 🏗 Key Architectures
--   **Dashboard Data Channel**: Decoupled from A2UI. Backend emits `{"type": "dashboard", ...}` events. Frontend uses `dashboardStream`.
--   **Dual-Mode Agent**: Switch between Local Subprocess and Remote Agent Engine via `SRE_AGENT_ID`.
--   **EUC Pattern**: End-User Credentials propagated from Frontend headers to Tool Context for multi-tenant isolation.
--   **Telemetry**: Google GenAI SDK instrumentation + `OTEL_TO_CLOUD` multi-exporter pattern.
+## Key Architecture Pointers
+| Pattern | Details in AGENTS.md |
+|---------|---------------------|
+| Tool decorator (`@adk_tool`) | Section 2 |
+| Pydantic schemas (`extra="forbid"`) | Section 1 |
+| Client factory (singletons) | Section 4 |
+| EUC credential propagation | Section 11 |
+| Dual-mode execution | Section 10 |
+| Dashboard data channel | Section 12 |
+| MCP vs Direct API | Section 9 |
 
 > [!IMPORTANT]
-> **Always refer to `AGENTS.md` for the single source of truth on coding patterns.**
+> **Always refer to [`AGENTS.md`](AGENTS.md) for the single source of truth on coding patterns.**
+
+---
+*Last verified: 2026-02-02 — Auto SRE Team*

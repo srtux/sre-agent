@@ -1,10 +1,12 @@
 # 🧪 SRE Agent: World-Class Testing Strategy & Style Guide
 
-## 🎯 Global Goal: 100% Coverage, 0% Regressions
+## 🎯 Global Goal: 80% Gate, 100% Target, 0% Regressions
 
 Testing is the bedrock of the SRE Agent. Because this agent performs autonomous operations on production infrastructure, its behavior must be **fully verifiable, correct, and predictable**.
 
 Our philosophy is simple: **If it's not tested, it's broken.**
+
+> **Coverage policy**: 80% minimum gate enforced in CI. 100% target on all new tools and core logic. PRs that drop project coverage below 80% will be rejected.
 
 ### 🏛️ Core Principles
 
@@ -121,3 +123,6 @@ uv run pytest --cov=sre_agent --cov-report=term-missing
 
 ## 📱 Frontend Testing
 For details on how to test the Flutter dashboard and use the `test_helper.dart` utility, see **[docs/guides/frontend_testing.md](frontend_testing.md)**.
+
+---
+*Last verified: 2026-02-02 — Auto SRE Team*
