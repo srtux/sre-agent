@@ -41,6 +41,11 @@ async def test_list_time_series(mock_get_client):
     mock_point = mock.Mock()
     mock_point.interval.end_time.isoformat.return_value = "2023-01-01T00:00:00Z"
     mock_point.value.double_value = 100.0
+
+    # Fix: Mock objects have _pb by default, triggering the optimized path.
+    # We must configure it to return the correct type.
+    mock_point.value._pb.WhichOneof.return_value = "double_value"
+
     mock_ts.points = [mock_point]
 
     mock_client.list_time_series.return_value = [mock_ts]
@@ -51,6 +56,42 @@ async def test_list_time_series(mock_get_client):
     res_data = result.result
     assert len(res_data) == 1
     assert res_data[0]["metric"]["type"] == "metric_type"
+    assert res_data[0]["points"][0]["value"] == 100.0
+
+
+@pytest.mark.asyncio
+@mock.patch("sre_agent.tools.clients.monitoring.get_monitoring_client")
+async def test_list_time_series_fallback(mock_get_client):
+    """Test list_time_series tool fallback path (no _pb)."""
+    mock_client = mock.Mock()
+    mock_get_client.return_value = mock_client
+
+    mock_ts = mock.Mock()
+    mock_ts.metric.type = "metric_type"
+    mock_ts.metric.labels = {"l1": "v1"}
+    mock_ts.resource.type = "res_type"
+    mock_ts.resource.labels = {"l2": "v2"}
+
+    mock_point = mock.Mock()
+    mock_point.interval.end_time.isoformat.return_value = "2023-01-01T00:00:00Z"
+
+    # Create a value mock that explicitly does NOT have _pb
+    # We use spec to restrict attributes to only the ones we expect
+    value_mock = mock.Mock(
+        spec=["double_value", "int64_value", "bool_value", "string_value"]
+    )
+    value_mock.double_value = 100.0
+    mock_point.value = value_mock
+
+    mock_ts.points = [mock_point]
+
+    mock_client.list_time_series.return_value = [mock_ts]
+
+    result = await list_time_series("filter", 60, project_id="p1")
+
+    assert result.status == ToolStatus.SUCCESS
+    res_data = result.result
+    assert len(res_data) == 1
     assert res_data[0]["points"][0]["value"] == 100.0
 
 
