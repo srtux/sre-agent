@@ -480,3 +480,151 @@ class ErrorEvent(BaseModel):
     event_time: str = Field(description="ISO 8601 timestamp of event")
     message: str = Field(description="Error message or stack trace")
     service_context: dict[str, Any] = Field(description="Service and version context")
+
+
+# =============================================================================
+# Agent Trace / Debugging Schemas
+# =============================================================================
+
+
+class GenAIOperationType(str, Enum):
+    """GenAI semantic convention operation types for agent spans."""
+
+    INVOKE_AGENT = "invoke_agent"
+    EXECUTE_TOOL = "execute_tool"
+    GENERATE_CONTENT = "generate_content"
+    CHAT = "chat"
+    UNKNOWN = "unknown"
+
+
+class AgentSpanKind(str, Enum):
+    """Classification of agent trace spans."""
+
+    AGENT_INVOCATION = "agent_invocation"
+    LLM_CALL = "llm_call"
+    TOOL_EXECUTION = "tool_execution"
+    SUB_AGENT_DELEGATION = "sub_agent_delegation"
+    UNKNOWN = "unknown"
+
+
+class AgentSpanInfo(BaseModel):
+    """A span enriched with GenAI semantic convention attributes."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    span_id: str = Field(description="Unique span identifier")
+    parent_span_id: str | None = Field(
+        default=None, description="Parent span ID if nested"
+    )
+    name: str = Field(description="Span name / operation")
+    kind: AgentSpanKind = Field(description="Classified span kind")
+    operation: GenAIOperationType = Field(
+        default=GenAIOperationType.UNKNOWN, description="GenAI operation type"
+    )
+    start_time_iso: str = Field(description="Start time in ISO 8601")
+    end_time_iso: str = Field(description="End time in ISO 8601")
+    duration_ms: float = Field(description="Duration in milliseconds")
+    # GenAI attributes
+    agent_name: str | None = Field(default=None, description="gen_ai.agent.name")
+    agent_id: str | None = Field(default=None, description="gen_ai.agent.id")
+    tool_name: str | None = Field(default=None, description="gen_ai.tool.name")
+    tool_call_id: str | None = Field(default=None, description="gen_ai.tool.call.id")
+    model_requested: str | None = Field(
+        default=None, description="gen_ai.request.model"
+    )
+    model_used: str | None = Field(default=None, description="gen_ai.response.model")
+    input_tokens: int | None = Field(
+        default=None, description="gen_ai.usage.input_tokens"
+    )
+    output_tokens: int | None = Field(
+        default=None, description="gen_ai.usage.output_tokens"
+    )
+    finish_reasons: list[str] = Field(
+        default_factory=list, description="gen_ai.response.finish_reasons"
+    )
+    status_code: int = Field(
+        default=0, description="OTel status code: 0=UNSET, 1=OK, 2=ERROR"
+    )
+    error_message: str | None = Field(
+        default=None, description="Error message if status=ERROR"
+    )
+    attributes: dict[str, str] = Field(
+        default_factory=dict, description="Additional span attributes"
+    )
+    children: list["AgentSpanInfo"] = Field(
+        default_factory=list, description="Child spans in the interaction tree"
+    )
+
+
+class AgentInteractionGraph(BaseModel):
+    """Full reconstructed agent interaction graph from a single trace."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    trace_id: str = Field(description="Trace ID")
+    project_id: str = Field(description="GCP project ID")
+    reasoning_engine_id: str | None = Field(
+        default=None, description="Vertex Reasoning Engine resource ID"
+    )
+    root_agent_name: str | None = Field(
+        default=None, description="Name of the root agent"
+    )
+    root_spans: list[AgentSpanInfo] = Field(
+        default_factory=list, description="Top-level spans (tree roots)"
+    )
+    total_spans: int = Field(default=0, description="Total span count")
+    total_duration_ms: float = Field(default=0.0, description="Total trace duration")
+    total_input_tokens: int = Field(default=0, description="Sum of input tokens")
+    total_output_tokens: int = Field(default=0, description="Sum of output tokens")
+    total_llm_calls: int = Field(default=0, description="Count of LLM calls")
+    total_tool_executions: int = Field(
+        default=0, description="Count of tool executions"
+    )
+    unique_agents: list[str] = Field(
+        default_factory=list, description="Distinct agent names"
+    )
+    unique_tools: list[str] = Field(
+        default_factory=list, description="Distinct tool names"
+    )
+    unique_models: list[str] = Field(
+        default_factory=list, description="Distinct model names"
+    )
+
+
+class AgentRunSummary(BaseModel):
+    """Summary of a single agent run (one trace)."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    trace_id: str = Field(description="Trace ID")
+    root_agent_name: str | None = Field(
+        default=None, description="Root agent name"
+    )
+    start_time: str = Field(description="ISO 8601 start time")
+    duration_ms: float = Field(description="Total duration in ms")
+    total_input_tokens: int = Field(default=0, description="Total input tokens")
+    total_output_tokens: int = Field(default=0, description="Total output tokens")
+    tool_call_count: int = Field(default=0, description="Number of tool calls")
+    llm_call_count: int = Field(default=0, description="Number of LLM calls")
+    sub_agent_count: int = Field(default=0, description="Number of sub-agent delegations")
+    has_error: bool = Field(default=False, description="Whether any span had an error")
+    span_count: int = Field(default=0, description="Total span count")
+
+
+class AgentAntiPattern(BaseModel):
+    """An anti-pattern detected in agent interaction traces."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    pattern_type: str = Field(
+        description="Type: excessive_retries, token_waste, long_chain, redundant_tool_calls"
+    )
+    severity: Severity = Field(description="Severity of the anti-pattern")
+    description: str = Field(description="Human-readable description")
+    affected_spans: list[str] = Field(
+        default_factory=list, description="Span IDs affected"
+    )
+    recommendation: str = Field(description="Actionable recommendation")
+    metric_value: float | None = Field(
+        default=None, description="Quantitative metric for the pattern"
+    )

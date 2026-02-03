@@ -1,5 +1,6 @@
 """Sub-agents for the SRE Agent."""
 
+from .agent_debugger import agent_debugger
 from .alerts import alert_analyst
 from .logs import log_analyst
 from .metrics import get_metrics_analyzer, metrics_analyzer
@@ -10,6 +11,7 @@ from .trace import (
 )
 
 __all__ = [
+    "agent_debugger",
     "aggregate_analyzer",
     "alert_analyst",
     "get_metrics_analyzer",

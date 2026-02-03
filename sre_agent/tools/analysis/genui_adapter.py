@@ -20,6 +20,8 @@ COMPONENT_SERVICE_TOPOLOGY = "x-sre-service-topology"
 COMPONENT_INCIDENT_TIMELINE = "x-sre-incident-timeline"
 COMPONENT_METRICS_DASHBOARD = "x-sre-metrics-dashboard"
 COMPONENT_AI_REASONING = "x-sre-ai-reasoning"
+COMPONENT_AGENT_TRACE = "x-sre-agent-trace"
+COMPONENT_AGENT_GRAPH = "x-sre-agent-graph"
 
 
 def transform_trace(trace_data: dict[str, Any]) -> dict[str, Any]:
@@ -1236,3 +1238,279 @@ def create_demo_log_patterns() -> list[dict[str, Any]]:
             "sample_messages": ["Request processed in 125ms"],
         },
     ]
+
+
+# =============================================================================
+# Agent Trace / Graph Transforms
+# =============================================================================
+
+
+def transform_agent_trace(data: dict[str, Any]) -> dict[str, Any]:
+    """Transform AgentInteractionGraph into a flattened timeline for the widget.
+
+    Flattens the span tree into an ordered list with depth, suitable for
+    the waterfall-style agent trace widget. Each node carries kind, operation,
+    agent_name, tool_name, model, tokens, duration, and depth.
+
+    Args:
+        data: AgentInteractionGraph dict (or wrapped in status/result).
+
+    Returns:
+        Dict with trace metadata and flattened node list.
+    """
+    # Unwrap if wrapped in status/result (MCP format)
+    if "status" in data and "result" in data:
+        data = data["result"]
+
+    if isinstance(data, dict) and (
+        "error" in data or data.get("status") == "error"
+    ):
+        return {
+            "trace_id": data.get("trace_id", "unknown"),
+            "nodes": [],
+            "error": data.get("error") or data.get("message") or "Unknown error",
+        }
+
+    trace_id = data.get("trace_id", "unknown")
+    root_agent = data.get("root_agent_name")
+    root_spans = data.get("root_spans", [])
+
+    # Compute the earliest start time for offset calculation
+    min_start_iso: str | None = None
+
+    def _find_min_start(spans: list[dict]) -> None:
+        nonlocal min_start_iso
+        for span in spans:
+            start = span.get("start_time_iso", "")
+            if start and (min_start_iso is None or start < min_start_iso):
+                min_start_iso = start
+            _find_min_start(span.get("children", []))
+
+    _find_min_start(root_spans)
+
+    # Flatten the tree with depth
+    nodes: list[dict[str, Any]] = []
+
+    def _flatten(span: dict, depth: int) -> None:
+        start_iso = span.get("start_time_iso", "")
+        start_offset_ms = 0.0
+        if min_start_iso and start_iso:
+            try:
+                from datetime import datetime
+
+                s0 = datetime.fromisoformat(
+                    min_start_iso.replace("Z", "+00:00")
+                )
+                s1 = datetime.fromisoformat(start_iso.replace("Z", "+00:00"))
+                start_offset_ms = (s1 - s0).total_seconds() * 1000
+            except (ValueError, AttributeError):
+                pass
+
+        nodes.append(
+            {
+                "span_id": span.get("span_id", ""),
+                "parent_span_id": span.get("parent_span_id"),
+                "name": span.get("name", ""),
+                "kind": span.get("kind", "unknown"),
+                "operation": span.get("operation", "unknown"),
+                "agent_name": span.get("agent_name"),
+                "tool_name": span.get("tool_name"),
+                "model_used": span.get("model_used") or span.get("model_requested"),
+                "input_tokens": span.get("input_tokens"),
+                "output_tokens": span.get("output_tokens"),
+                "duration_ms": span.get("duration_ms", 0),
+                "start_offset_ms": start_offset_ms,
+                "depth": depth,
+                "has_error": span.get("status_code", 0) == 2,
+                "status_code": span.get("status_code", 0),
+            }
+        )
+        for child in span.get("children", []):
+            _flatten(child, depth + 1)
+
+    for root in root_spans:
+        _flatten(root, 0)
+
+    return {
+        "trace_id": trace_id,
+        "root_agent_name": root_agent,
+        "nodes": nodes,
+        "total_input_tokens": data.get("total_input_tokens", 0),
+        "total_output_tokens": data.get("total_output_tokens", 0),
+        "total_duration_ms": data.get("total_duration_ms", 0),
+        "llm_call_count": data.get("total_llm_calls", 0),
+        "tool_call_count": data.get("total_tool_executions", 0),
+        "unique_agents": data.get("unique_agents", []),
+        "unique_tools": data.get("unique_tools", []),
+        "anti_patterns": [],
+    }
+
+
+def transform_agent_graph(data: dict[str, Any]) -> dict[str, Any]:
+    """Transform AgentInteractionGraph into nodes + edges for the graph widget.
+
+    Deduplicates agents, tools, and models into graph nodes, and extracts
+    relationships from the span tree into directed edges.
+
+    Args:
+        data: AgentInteractionGraph dict (or wrapped in status/result).
+
+    Returns:
+        Dict with nodes and edges lists for the graph widget.
+    """
+    # Unwrap
+    if "status" in data and "result" in data:
+        data = data["result"]
+
+    if isinstance(data, dict) and (
+        "error" in data or data.get("status") == "error"
+    ):
+        return {"nodes": [], "edges": [], "error": data.get("error")}
+
+    root_spans = data.get("root_spans", [])
+    root_agent = data.get("root_agent_name")
+
+    # Collect unique entities and relationships
+    node_map: dict[str, dict[str, Any]] = {}
+    edge_map: dict[str, dict[str, Any]] = {}
+
+    # Always add a "user" node
+    node_map["user"] = {
+        "id": "user",
+        "label": "User",
+        "type": "user",
+        "total_tokens": None,
+        "call_count": None,
+        "has_error": False,
+    }
+
+    def _ensure_node(
+        node_id: str, label: str, node_type: str
+    ) -> dict[str, Any]:
+        if node_id not in node_map:
+            node_map[node_id] = {
+                "id": node_id,
+                "label": label,
+                "type": node_type,
+                "total_tokens": 0,
+                "call_count": 0,
+                "has_error": False,
+            }
+        return node_map[node_id]
+
+    def _add_edge(
+        source: str,
+        target: str,
+        label: str,
+        duration_ms: float = 0.0,
+        tokens: int = 0,
+        has_error: bool = False,
+    ) -> None:
+        key = f"{source}->{target}"
+        if key not in edge_map:
+            edge_map[key] = {
+                "source_id": source,
+                "target_id": target,
+                "label": label,
+                "call_count": 0,
+                "avg_duration_ms": 0.0,
+                "total_tokens": 0,
+                "has_error": False,
+                "_total_duration": 0.0,
+            }
+        edge = edge_map[key]
+        edge["call_count"] += 1
+        edge["_total_duration"] += duration_ms
+        edge["avg_duration_ms"] = edge["_total_duration"] / edge["call_count"]
+        edge["total_tokens"] += tokens
+        if has_error:
+            edge["has_error"] = True
+
+    def _walk(span: dict, parent_agent: str | None = None) -> None:
+        kind = span.get("kind", "unknown")
+        agent_name = span.get("agent_name")
+        tool_name = span.get("tool_name")
+        model = span.get("model_used") or span.get("model_requested")
+        tokens = (span.get("input_tokens") or 0) + (span.get("output_tokens") or 0)
+        has_error = span.get("status_code", 0) == 2
+        duration = span.get("duration_ms", 0)
+
+        if kind in ("agent_invocation", "sub_agent_delegation") and agent_name:
+            node = _ensure_node(f"agent:{agent_name}", agent_name, "agent")
+            node["total_tokens"] = (node["total_tokens"] or 0) + tokens
+            node["call_count"] = (node["call_count"] or 0) + 1
+            if has_error:
+                node["has_error"] = True
+
+            if parent_agent:
+                _add_edge(
+                    f"agent:{parent_agent}",
+                    f"agent:{agent_name}",
+                    "delegates_to",
+                    duration,
+                    tokens,
+                    has_error,
+                )
+            elif span.get("parent_span_id") is None:
+                # Root agent invoked by user
+                _add_edge("user", f"agent:{agent_name}", "invokes", duration, tokens, has_error)
+
+            parent_agent = agent_name
+
+        elif kind == "tool_execution" and tool_name:
+            node = _ensure_node(f"tool:{tool_name}", tool_name, "tool")
+            node["call_count"] = (node["call_count"] or 0) + 1
+            if has_error:
+                node["has_error"] = True
+
+            if parent_agent:
+                _add_edge(
+                    f"agent:{parent_agent}",
+                    f"tool:{tool_name}",
+                    "calls",
+                    duration,
+                    tokens,
+                    has_error,
+                )
+
+        elif kind == "llm_call" and model:
+            node = _ensure_node(f"model:{model}", model, "llm_model")
+            node["total_tokens"] = (node["total_tokens"] or 0) + tokens
+            node["call_count"] = (node["call_count"] or 0) + 1
+
+            if parent_agent:
+                _add_edge(
+                    f"agent:{parent_agent}",
+                    f"model:{model}",
+                    "generates",
+                    duration,
+                    tokens,
+                    has_error,
+                )
+
+        for child in span.get("children", []):
+            _walk(child, parent_agent)
+
+    for root in root_spans:
+        _walk(root)
+
+    # Clean up internal tracking fields from edges
+    edges = []
+    for edge in edge_map.values():
+        edges.append(
+            {
+                "source_id": edge["source_id"],
+                "target_id": edge["target_id"],
+                "label": edge["label"],
+                "call_count": edge["call_count"],
+                "avg_duration_ms": round(edge["avg_duration_ms"], 2),
+                "total_tokens": edge["total_tokens"],
+                "has_error": edge["has_error"],
+            }
+        )
+
+    return {
+        "nodes": list(node_map.values()),
+        "edges": edges,
+        "root_agent_name": root_agent,
+    }

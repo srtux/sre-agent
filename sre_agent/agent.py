@@ -80,6 +80,8 @@ from .schema import BaseToolResponse, InvestigationPhase, ToolStatus
 
 # Import sub-agents
 from .sub_agents import (
+    # Agent debugging sub-agent
+    agent_debugger,
     # Trace analysis sub-agents
     aggregate_analyzer,
     # Alert analysis sub-agents
@@ -94,6 +96,8 @@ from .sub_agents import (
 )
 from .tools import (
     add_finding_to_memory,
+    # Agent Trace Analysis
+    analyze_agent_token_usage,
     # BigQuery tools
     analyze_aggregate_metrics,
     # Additional BQ tools
@@ -133,6 +137,7 @@ from .tools import (
     # Cross-signal correlation tools
     correlate_trace_with_kubernetes,
     correlate_trace_with_metrics,
+    detect_agent_anti_patterns,
     detect_all_sre_patterns,
     detect_cascading_timeout,
     detect_circular_dependencies,
@@ -174,6 +179,7 @@ from .tools import (
     get_slo_status,
     get_trace_by_url,
     get_workload_health_summary,
+    list_agent_traces,
     list_alert_policies,
     # Alerting tools
     list_alerts,
@@ -190,6 +196,7 @@ from .tools import (
     # SLO prediction
     predict_slo_violation,
     query_promql,
+    reconstruct_agent_interaction,
     search_memory,
     suggest_next_steps,
     summarize_trace,
@@ -866,6 +873,11 @@ TOOL_NAME_MAP = {
     "list_error_events": list_error_events,
     "validate_trace_quality": validate_trace_quality,
     "analyze_trace_comprehensive": analyze_trace_comprehensive,
+    # Agent Debugging
+    "list_agent_traces": list_agent_traces,
+    "reconstruct_agent_interaction": reconstruct_agent_interaction,
+    "analyze_agent_token_usage": analyze_agent_token_usage,
+    "detect_agent_anti_patterns": detect_agent_anti_patterns,
     # MCP Tools
     "mcp_execute_sql": mcp_execute_sql,
     "mcp_list_log_entries": mcp_list_log_entries,
@@ -1093,6 +1105,8 @@ Direct Tools:
         alert_analyst,
         # Deep Dive
         root_cause_analyst,
+        # Agent Debugging
+        agent_debugger,
     ],
 )
 
@@ -1107,6 +1121,7 @@ get_metrics_analyzer = emojify_agent(get_metrics_analyzer)  # type: ignore[assig
 alert_analyst = emojify_agent(alert_analyst)
 
 root_cause_analyst = emojify_agent(root_cause_analyst)
+agent_debugger = emojify_agent(agent_debugger)
 
 
 # ============================================================================

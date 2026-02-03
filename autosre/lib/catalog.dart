@@ -16,6 +16,8 @@ import 'widgets/canvas/agent_activity_canvas.dart';
 import 'widgets/canvas/service_topology_canvas.dart';
 import 'widgets/canvas/incident_timeline_canvas.dart';
 import 'widgets/canvas/metrics_dashboard_canvas.dart';
+import 'widgets/canvas/agent_graph_canvas.dart';
+import 'widgets/canvas/agent_trace_canvas.dart';
 import 'widgets/canvas/ai_reasoning_canvas.dart';
 
 /// Registry for all SRE-specific UI components.
@@ -312,6 +314,50 @@ class CatalogRegistry {
             return _buildWidgetContainer(
               child: AIReasoningCanvas(data: reasoningData),
               height: 480,
+            );
+          } catch (e) {
+            return ErrorPlaceholder(error: e);
+          }
+        },
+      ),
+      CatalogItem(
+        name: 'x-sre-agent-trace',
+        dataSchema: S.any(),
+        widgetBuilder: (context) {
+          try {
+            final data = _unwrapComponentData(
+              context.data,
+              'x-sre-agent-trace',
+            );
+
+            final traceData = AgentTraceData.fromJson(data);
+            if (traceData.nodes.isEmpty) return const SizedBox.shrink();
+
+            return _buildWidgetContainer(
+              child: AgentTraceCanvas(data: traceData),
+              height: 550,
+            );
+          } catch (e) {
+            return ErrorPlaceholder(error: e);
+          }
+        },
+      ),
+      CatalogItem(
+        name: 'x-sre-agent-graph',
+        dataSchema: S.any(),
+        widgetBuilder: (context) {
+          try {
+            final data = _unwrapComponentData(
+              context.data,
+              'x-sre-agent-graph',
+            );
+
+            final graphData = AgentGraphData.fromJson(data);
+            if (graphData.nodes.isEmpty) return const SizedBox.shrink();
+
+            return _buildWidgetContainer(
+              child: AgentGraphCanvas(data: graphData),
+              height: 500,
             );
           } catch (e) {
             return ErrorPlaceholder(error: e);

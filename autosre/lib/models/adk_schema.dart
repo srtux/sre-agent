@@ -460,3 +460,203 @@ class IncidentTimelineData {
     );
   }
 }
+
+// =============================================================================
+// Agent Trace / Graph Models
+// =============================================================================
+
+/// A single node in the flattened agent trace timeline.
+class AgentTraceNode {
+  final String spanId;
+  final String? parentSpanId;
+  final String name;
+  final String kind; // agent_invocation, llm_call, tool_execution, sub_agent_delegation
+  final String operation; // invoke_agent, execute_tool, generate_content
+  final double startOffsetMs;
+  final double durationMs;
+  final int depth;
+  final int? inputTokens;
+  final int? outputTokens;
+  final String? modelUsed;
+  final String? toolName;
+  final String? agentName;
+  final bool hasError;
+
+  AgentTraceNode({
+    required this.spanId,
+    this.parentSpanId,
+    required this.name,
+    required this.kind,
+    required this.operation,
+    required this.startOffsetMs,
+    required this.durationMs,
+    required this.depth,
+    this.inputTokens,
+    this.outputTokens,
+    this.modelUsed,
+    this.toolName,
+    this.agentName,
+    required this.hasError,
+  });
+
+  factory AgentTraceNode.fromJson(Map<String, dynamic> json) {
+    return AgentTraceNode(
+      spanId: json['span_id'] ?? '',
+      parentSpanId: json['parent_span_id'],
+      name: json['name'] ?? '',
+      kind: json['kind'] ?? 'unknown',
+      operation: json['operation'] ?? 'unknown',
+      startOffsetMs: (json['start_offset_ms'] as num?)?.toDouble() ?? 0,
+      durationMs: (json['duration_ms'] as num?)?.toDouble() ?? 0,
+      depth: (json['depth'] as num?)?.toInt() ?? 0,
+      inputTokens: (json['input_tokens'] as num?)?.toInt(),
+      outputTokens: (json['output_tokens'] as num?)?.toInt(),
+      modelUsed: json['model_used'],
+      toolName: json['tool_name'],
+      agentName: json['agent_name'],
+      hasError: json['has_error'] ?? false,
+    );
+  }
+}
+
+/// Data model for the agent trace timeline widget.
+class AgentTraceData {
+  final String traceId;
+  final String? rootAgentName;
+  final List<AgentTraceNode> nodes;
+  final int totalInputTokens;
+  final int totalOutputTokens;
+  final double totalDurationMs;
+  final int llmCallCount;
+  final int toolCallCount;
+  final List<String> uniqueAgents;
+  final List<String> uniqueTools;
+  final List<Map<String, dynamic>> antiPatterns;
+
+  AgentTraceData({
+    required this.traceId,
+    this.rootAgentName,
+    required this.nodes,
+    required this.totalInputTokens,
+    required this.totalOutputTokens,
+    required this.totalDurationMs,
+    required this.llmCallCount,
+    required this.toolCallCount,
+    required this.uniqueAgents,
+    required this.uniqueTools,
+    required this.antiPatterns,
+  });
+
+  factory AgentTraceData.fromJson(Map<String, dynamic> json) {
+    return AgentTraceData(
+      traceId: json['trace_id'] ?? '',
+      rootAgentName: json['root_agent_name'],
+      nodes: (json['nodes'] as List? ?? [])
+          .map((n) => AgentTraceNode.fromJson(Map<String, dynamic>.from(n)))
+          .toList(),
+      totalInputTokens: (json['total_input_tokens'] as num?)?.toInt() ?? 0,
+      totalOutputTokens: (json['total_output_tokens'] as num?)?.toInt() ?? 0,
+      totalDurationMs:
+          (json['total_duration_ms'] as num?)?.toDouble() ?? 0,
+      llmCallCount: (json['llm_call_count'] as num?)?.toInt() ?? 0,
+      toolCallCount: (json['tool_call_count'] as num?)?.toInt() ?? 0,
+      uniqueAgents: (json['unique_agents'] as List? ?? [])
+          .map((e) => e.toString())
+          .toList(),
+      uniqueTools: (json['unique_tools'] as List? ?? [])
+          .map((e) => e.toString())
+          .toList(),
+      antiPatterns: (json['anti_patterns'] as List? ?? [])
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList(),
+    );
+  }
+}
+
+/// A node in the agent dependency graph.
+class AgentGraphNode {
+  final String id;
+  final String label;
+  final String type; // user, agent, tool, llm_model, sub_agent
+  final int? totalTokens;
+  final int? callCount;
+  final bool hasError;
+
+  AgentGraphNode({
+    required this.id,
+    required this.label,
+    required this.type,
+    this.totalTokens,
+    this.callCount,
+    required this.hasError,
+  });
+
+  factory AgentGraphNode.fromJson(Map<String, dynamic> json) {
+    return AgentGraphNode(
+      id: json['id'] ?? '',
+      label: json['label'] ?? '',
+      type: json['type'] ?? 'unknown',
+      totalTokens: (json['total_tokens'] as num?)?.toInt(),
+      callCount: (json['call_count'] as num?)?.toInt(),
+      hasError: json['has_error'] ?? false,
+    );
+  }
+}
+
+/// An edge in the agent dependency graph.
+class AgentGraphEdge {
+  final String sourceId;
+  final String targetId;
+  final String label; // invokes, calls, delegates_to, generates
+  final int callCount;
+  final double avgDurationMs;
+  final int? totalTokens;
+  final bool hasError;
+
+  AgentGraphEdge({
+    required this.sourceId,
+    required this.targetId,
+    required this.label,
+    required this.callCount,
+    required this.avgDurationMs,
+    this.totalTokens,
+    required this.hasError,
+  });
+
+  factory AgentGraphEdge.fromJson(Map<String, dynamic> json) {
+    return AgentGraphEdge(
+      sourceId: json['source_id'] ?? '',
+      targetId: json['target_id'] ?? '',
+      label: json['label'] ?? '',
+      callCount: (json['call_count'] as num?)?.toInt() ?? 0,
+      avgDurationMs: (json['avg_duration_ms'] as num?)?.toDouble() ?? 0,
+      totalTokens: (json['total_tokens'] as num?)?.toInt(),
+      hasError: json['has_error'] ?? false,
+    );
+  }
+}
+
+/// Data model for the agent dependency graph widget.
+class AgentGraphData {
+  final List<AgentGraphNode> nodes;
+  final List<AgentGraphEdge> edges;
+  final String? rootAgentName;
+
+  AgentGraphData({
+    required this.nodes,
+    required this.edges,
+    this.rootAgentName,
+  });
+
+  factory AgentGraphData.fromJson(Map<String, dynamic> json) {
+    return AgentGraphData(
+      nodes: (json['nodes'] as List? ?? [])
+          .map((n) => AgentGraphNode.fromJson(Map<String, dynamic>.from(n)))
+          .toList(),
+      edges: (json['edges'] as List? ?? [])
+          .map((e) => AgentGraphEdge.fromJson(Map<String, dynamic>.from(e)))
+          .toList(),
+      rootAgentName: json['root_agent_name'],
+    );
+  }
+}

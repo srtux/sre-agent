@@ -172,6 +172,14 @@ from .memory import add_finding_to_memory, search_memory
 # Proactive Tools
 from .proactive import suggest_next_steps
 
+# Agent Trace Analysis
+from .analysis.agent_trace.tools import (
+    analyze_agent_token_usage,
+    detect_agent_anti_patterns,
+    list_agent_traces,
+    reconstruct_agent_interaction,
+)
+
 # Reporting Tools
 from .reporting import synthesize_report
 
@@ -183,6 +191,7 @@ __all__ = [
     "ToolTestResult",
     "ToolTestStatus",
     "add_finding_to_memory",
+    "analyze_agent_token_usage",
     "analyze_aggregate_metrics",
     "analyze_bigquery_log_patterns",
     "analyze_critical_path",
@@ -216,6 +225,7 @@ __all__ = [
     "create_bigquery_mcp_toolset",
     "create_logging_mcp_toolset",
     "create_monitoring_mcp_toolset",
+    "detect_agent_anti_patterns",
     "detect_all_sre_patterns",
     "detect_cascading_timeout",
     "detect_circular_dependencies",
@@ -251,6 +261,7 @@ __all__ = [
     "get_tool_config_manager",
     "get_trace_by_url",
     "get_workload_health_summary",
+    "list_agent_traces",
     "list_alert_policies",
     "list_alerts",
     "list_error_events",
@@ -267,6 +278,7 @@ __all__ = [
     "perform_causal_analysis",
     "predict_slo_violation",
     "query_promql",
+    "reconstruct_agent_interaction",
     "search_memory",
     "select_traces_from_statistical_outliers",
     "select_traces_manually",
