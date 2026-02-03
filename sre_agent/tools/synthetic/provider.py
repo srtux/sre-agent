@@ -871,3 +871,90 @@ class SyntheticDataProvider:
             status=ToolStatus.ERROR,
             error=f"Alert not found: {name}",
         )
+
+    @staticmethod
+    def explore_project_health(
+        project_id: str | None = None,
+        minutes_ago: int = 15,
+        **kwargs: Any,
+    ) -> BaseToolResponse:
+        """Return a combined synthetic health scan for all signal types."""
+        pid = project_id or DEMO_PROJECT_ID
+
+        alerts_resp = SyntheticDataProvider.list_alerts(project_id=pid)
+        logs_resp = SyntheticDataProvider.list_log_entries(
+            filter_str="severity>=WARNING",
+            project_id=pid,
+            limit=50,
+        )
+        traces_resp = SyntheticDataProvider.list_traces(
+            project_id=pid,
+            limit=10,
+        )
+        metrics_resp = SyntheticDataProvider.list_time_series(
+            filter_str="latency checkout",
+            minutes_ago=minutes_ago,
+            project_id=pid,
+        )
+
+        # Build summary
+        alerts_data = alerts_resp.result if isinstance(alerts_resp.result, list) else []
+        total_alerts = len(alerts_data)
+        open_alerts = sum(
+            1
+            for a in alerts_data
+            if isinstance(a, dict) and a.get("state", "").upper() == "OPEN"
+        )
+
+        entries: list[dict[str, Any]] = []
+        if isinstance(logs_resp.result, dict):
+            entries = logs_resp.result.get("entries", [])
+        elif isinstance(logs_resp.result, list):
+            entries = logs_resp.result
+
+        error_log_count = sum(
+            1
+            for e in entries
+            if isinstance(e, dict)
+            and str(e.get("severity", "")).upper()
+            in ("ERROR", "CRITICAL", "ALERT", "EMERGENCY")
+        )
+        warning_log_count = sum(
+            1
+            for e in entries
+            if isinstance(e, dict) and str(e.get("severity", "")).upper() == "WARNING"
+        )
+
+        trace_count = (
+            len(traces_resp.result) if isinstance(traces_resp.result, list) else 0
+        )
+
+        has_issues = open_alerts > 0 or error_log_count > 0
+        if open_alerts >= 3 or error_log_count >= 10:
+            health_status = "critical"
+        elif has_issues:
+            health_status = "degraded"
+        else:
+            health_status = "healthy"
+
+        return BaseToolResponse(
+            status=ToolStatus.SUCCESS,
+            result={
+                "project_id": pid,
+                "scan_window_minutes": minutes_ago,
+                "timestamp": _iso(_now()),
+                "alerts": alerts_resp.result,
+                "logs": logs_resp.result,
+                "traces": traces_resp.result,
+                "metrics": metrics_resp.result,
+                "summary": {
+                    "total_alerts": total_alerts,
+                    "open_alerts": open_alerts,
+                    "error_log_count": error_log_count,
+                    "warning_log_count": warning_log_count,
+                    "trace_count": trace_count,
+                    "has_issues": has_issues,
+                    "health_status": health_status,
+                },
+            },
+        )

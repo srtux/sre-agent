@@ -310,6 +310,93 @@ def create_dashboard_event(tool_name: str, result: Any) -> str | None:
         return None
 
 
+def create_exploration_dashboard_events(result: Any) -> list[str]:
+    """Create multiple dashboard events from an exploration result.
+
+    The exploration tool returns data for every signal type at once.
+    This function unpacks that into individual dashboard events so the
+    frontend can populate all tabs simultaneously.
+
+    Args:
+        result: The raw tool result (may be a JSON string, dict, or wrapped
+                in a status/result envelope).
+
+    Returns:
+        List of JSON-encoded dashboard event strings.
+    """
+    # Normalize
+    if isinstance(result, str):
+        try:
+            result = json.loads(result)
+        except Exception:
+            return []
+
+    result = fully_normalize(result)
+
+    # Unwrap status/result envelope
+    if isinstance(result, dict):
+        if "status" in result and "result" in result:
+            if result.get("status") == "error":
+                return []
+            result = result["result"]
+        elif len(result) == 1 and "result" in result:
+            result = result["result"]
+
+    if not isinstance(result, dict):
+        return []
+
+    # Signal key -> (widget_type, category, transform_fn)
+    signal_map: list[tuple[str, str, str, Any]] = [
+        (
+            "alerts",
+            "x-sre-incident-timeline",
+            "alerts",
+            genui_adapter.transform_alerts_to_timeline,
+        ),
+        (
+            "logs",
+            "x-sre-log-entries-viewer",
+            "logs",
+            genui_adapter.transform_log_entries,
+        ),
+        ("traces", "x-sre-trace-waterfall", "traces", None),  # pass-through list
+        ("metrics", "x-sre-metric-chart", "metrics", genui_adapter.transform_metrics),
+    ]
+
+    events: list[str] = []
+    for signal_key, widget_type, category, transform_fn in signal_map:
+        signal_data = result.get(signal_key)
+        if not signal_data:
+            continue
+
+        try:
+            if transform_fn is not None:
+                widget_data = transform_fn(signal_data)
+            else:
+                # Traces: pass through as-is (list of trace summaries)
+                widget_data = signal_data
+
+            if not widget_data:
+                continue
+
+            event = {
+                "type": "dashboard",
+                "category": category,
+                "widget_type": widget_type,
+                "tool_name": "explore_project_health",
+                "data": widget_data,
+            }
+            events.append(json.dumps(event, default=str))
+        except Exception as e:
+            logger.warning(
+                "Exploration dashboard event failed for %s: %s",
+                signal_key,
+                e,
+            )
+
+    return events
+
+
 # ---------------------------------------------------------------------------
 # Trace deep-link utilities
 # ---------------------------------------------------------------------------

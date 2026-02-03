@@ -151,6 +151,8 @@ from .tools import (
     discover_telemetry_sources,
     # Remediation tools
     estimate_remediation_risk,
+    # Exploration tools
+    explore_project_health,
     extract_errors,
     # Log pattern analysis tools
     extract_log_patterns,
@@ -883,6 +885,8 @@ TOOL_NAME_MAP = {
     "mcp_list_log_entries": mcp_list_log_entries,
     "mcp_list_timeseries": mcp_list_timeseries,
     "mcp_query_range": mcp_query_range,
+    # Exploration
+    "explore_project_health": explore_project_health,
     # Discovery
     "discover_telemetry_sources": discover_telemetry_sources,
     # Reporting
@@ -904,6 +908,7 @@ TOOL_NAME_MAP = {
 # Common tools for all agents
 base_tools: list[Any] = [
     # Observability
+    explore_project_health,
     fetch_trace,
     list_traces,
     list_log_entries,

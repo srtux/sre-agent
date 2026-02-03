@@ -202,6 +202,7 @@ async def _handle_remote_agent(
     from sre_agent.api.helpers import get_current_trace_info
     from sre_agent.api.helpers.tool_events import (
         create_dashboard_event,
+        create_exploration_dashboard_events,
         create_tool_call_events,
         create_tool_response_events,
         normalize_tool_args,
@@ -299,9 +300,13 @@ async def _handle_remote_agent(
                             yield evt_str + "\n"
 
                         # Dashboard data event (separate channel for right panel)
-                        dash_evt = create_dashboard_event(tool_name, result)
-                        if dash_evt:
-                            yield dash_evt + "\n"
+                        if tool_name == "explore_project_health":
+                            for evt in create_exploration_dashboard_events(result):
+                                yield evt + "\n"
+                        else:
+                            dash_evt = create_dashboard_event(tool_name, result)
+                            if dash_evt:
+                                yield dash_evt + "\n"
 
         except Exception as e:
             logger.error(f"Error streaming from Agent Engine: {e}", exc_info=True)
@@ -380,6 +385,7 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
     from sre_agent.api.helpers import get_current_trace_info
     from sre_agent.api.helpers.tool_events import (
         create_dashboard_event,
+        create_exploration_dashboard_events,
         create_tool_call_events,
         create_tool_response_events,
         normalize_tool_args,
@@ -810,10 +816,21 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                                     yield evt_str + "\n"
 
                                 # Dashboard data event (separate channel for right panel)
-                                dash_evt = create_dashboard_event(tool_name, result)
-                                if dash_evt:
-                                    logger.info(f"📊 Dashboard event for {tool_name}")
-                                    yield dash_evt + "\n"
+                                if tool_name == "explore_project_health":
+                                    for evt in create_exploration_dashboard_events(
+                                        result
+                                    ):
+                                        logger.info(
+                                            f"📊 Exploration dashboard event for {tool_name}"
+                                        )
+                                        yield evt + "\n"
+                                else:
+                                    dash_evt = create_dashboard_event(tool_name, result)
+                                    if dash_evt:
+                                        logger.info(
+                                            f"📊 Dashboard event for {tool_name}"
+                                        )
+                                        yield dash_evt + "\n"
 
                 # 4. Post-run Cleanup & Memory Sync
                 try:

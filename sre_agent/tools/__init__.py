@@ -157,6 +157,9 @@ from .config import (
 # Discovery Tools
 from .discovery.discovery_tool import discover_telemetry_sources
 
+# Exploration Tools
+from .exploration import explore_project_health
+
 # Investigation Tools
 from .investigation import get_investigation_summary, update_investigation_state
 
@@ -235,6 +238,7 @@ __all__ = [
     "detect_trend_changes",
     "discover_telemetry_sources",
     "estimate_remediation_risk",
+    "explore_project_health",
     "extract_errors",
     "extract_log_patterns",
     "fetch_trace",

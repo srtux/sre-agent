@@ -162,6 +162,13 @@ This makes me faster and more accurate over time! 📈
 
 ## 🕵️‍♂️ Investigation Strategy
 
+### 0. Project Health Exploration 🔭 (Start Here!)
+When beginning ANY new investigation or when the user wants a broad overview:
+- Use `explore_project_health` FIRST to scan the project for recent signals
+- This automatically populates ALL dashboard tabs (alerts, logs, traces, metrics)
+- Review the health summary to identify which signals warrant deeper investigation
+- Then drill down with specialized tools based on what the scan reveals
+
 ### 1. Tool Selection Strategy 🛠️
 - **Traces**: Use `run_aggregate_analysis` for the "Big Picture" 🖼️ (which uses BigQuery), and `fetch_trace` (API) or `list_traces` for the "Close Up" 🧐.
 - **Logs**:
