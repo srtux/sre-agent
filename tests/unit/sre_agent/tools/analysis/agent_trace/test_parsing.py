@@ -17,13 +17,19 @@ class TestClassifySpan:
     """Tests for the classify_span function."""
 
     def test_classify_span_invoke_agent(self) -> None:
-        attrs = {"gen_ai.operation.name": "invoke_agent", "gen_ai.agent.name": "sre_agent"}
+        attrs = {
+            "gen_ai.operation.name": "invoke_agent",
+            "gen_ai.agent.name": "sre_agent",
+        }
         kind, op = classify_span(attrs)
         assert kind == AgentSpanKind.AGENT_INVOCATION
         assert op == GenAIOperationType.INVOKE_AGENT
 
     def test_classify_span_execute_tool(self) -> None:
-        attrs = {"gen_ai.operation.name": "execute_tool", "gen_ai.tool.name": "fetch_trace"}
+        attrs = {
+            "gen_ai.operation.name": "execute_tool",
+            "gen_ai.tool.name": "fetch_trace",
+        }
         kind, op = classify_span(attrs)
         assert kind == AgentSpanKind.TOOL_EXECUTION
         assert op == GenAIOperationType.EXECUTE_TOOL
@@ -65,19 +71,23 @@ class TestParseBqRow:
             "end_time": "2025-01-15T10:00:05Z",
             "duration_nano": 5000000000,
             "status": json.dumps({"code": 0}),
-            "attributes": json.dumps({
-                "gen_ai.operation.name": "invoke_agent",
-                "gen_ai.agent.name": "sre_agent",
-                "gen_ai.usage.input_tokens": "1500",
-                "gen_ai.usage.output_tokens": "500",
-                "gen_ai.request.model": "gemini-2.5-flash",
-                "gen_ai.response.model": "gemini-2.5-flash-001",
-            }),
-            "resource": json.dumps({
-                "attributes": {
-                    "cloud.resource_id": "projects/my-proj/reasoningEngines/123",
+            "attributes": json.dumps(
+                {
+                    "gen_ai.operation.name": "invoke_agent",
+                    "gen_ai.agent.name": "sre_agent",
+                    "gen_ai.usage.input_tokens": "1500",
+                    "gen_ai.usage.output_tokens": "500",
+                    "gen_ai.request.model": "gemini-2.5-flash",
+                    "gen_ai.response.model": "gemini-2.5-flash-001",
                 }
-            }),
+            ),
+            "resource": json.dumps(
+                {
+                    "attributes": {
+                        "cloud.resource_id": "projects/my-proj/reasoningEngines/123",
+                    }
+                }
+            ),
         }
         base.update(overrides)
         return base
@@ -302,7 +312,9 @@ class TestComputeGraphAggregates:
 class TestDetectAntiPatterns:
     """Tests for anti-pattern detection."""
 
-    def _make_tool_span(self, span_id: str, parent_id: str, tool_name: str) -> AgentSpanInfo:
+    def _make_tool_span(
+        self, span_id: str, parent_id: str, tool_name: str
+    ) -> AgentSpanInfo:
         return AgentSpanInfo(
             span_id=span_id,
             parent_span_id=parent_id,
@@ -316,7 +328,11 @@ class TestDetectAntiPatterns:
         )
 
     def _make_llm_span(
-        self, span_id: str, parent_id: str, input_tokens: int = 100, output_tokens: int = 100
+        self,
+        span_id: str,
+        parent_id: str,
+        input_tokens: int = 100,
+        output_tokens: int = 100,
     ) -> AgentSpanInfo:
         return AgentSpanInfo(
             span_id=span_id,
@@ -340,8 +356,7 @@ class TestDetectAntiPatterns:
             end_time_iso="2025-01-15T10:00:10Z",
             duration_ms=10000.0,
             children=[
-                self._make_tool_span(f"t{i}", "root", "fetch_trace")
-                for i in range(5)
+                self._make_tool_span(f"t{i}", "root", "fetch_trace") for i in range(5)
             ],
         )
         patterns = detect_anti_patterns([root])
@@ -360,8 +375,12 @@ class TestDetectAntiPatterns:
             end_time_iso="2025-01-15T10:00:10Z",
             duration_ms=10000.0,
             children=[
-                self._make_llm_span("llm1", "root", input_tokens=100, output_tokens=1000),
-                self._make_llm_span("llm2", "root", input_tokens=100, output_tokens=100),
+                self._make_llm_span(
+                    "llm1", "root", input_tokens=100, output_tokens=1000
+                ),
+                self._make_llm_span(
+                    "llm2", "root", input_tokens=100, output_tokens=100
+                ),
             ],
         )
         patterns = detect_anti_patterns([root])
@@ -378,10 +397,7 @@ class TestDetectAntiPatterns:
             start_time_iso="2025-01-15T10:00:00Z",
             end_time_iso="2025-01-15T10:00:10Z",
             duration_ms=10000.0,
-            children=[
-                self._make_llm_span(f"llm{i}", "root")
-                for i in range(10)
-            ],
+            children=[self._make_llm_span(f"llm{i}", "root") for i in range(10)],
         )
         patterns = detect_anti_patterns([root])
 
@@ -406,5 +422,7 @@ class TestDetectAntiPatterns:
         patterns = detect_anti_patterns([root])
 
         # Should have no serious anti-patterns (may have redundant if tool is called once)
-        serious = [p for p in patterns if p.severity in (Severity.HIGH, Severity.CRITICAL)]
+        serious = [
+            p for p in patterns if p.severity in (Severity.HIGH, Severity.CRITICAL)
+        ]
         assert len(serious) == 0

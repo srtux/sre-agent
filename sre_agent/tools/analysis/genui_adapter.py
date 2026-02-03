@@ -1262,9 +1262,7 @@ def transform_agent_trace(data: dict[str, Any]) -> dict[str, Any]:
     if "status" in data and "result" in data:
         data = data["result"]
 
-    if isinstance(data, dict) and (
-        "error" in data or data.get("status") == "error"
-    ):
+    if isinstance(data, dict) and ("error" in data or data.get("status") == "error"):
         return {
             "trace_id": data.get("trace_id", "unknown"),
             "nodes": [],
@@ -1278,7 +1276,7 @@ def transform_agent_trace(data: dict[str, Any]) -> dict[str, Any]:
     # Compute the earliest start time for offset calculation
     min_start_iso: str | None = None
 
-    def _find_min_start(spans: list[dict]) -> None:
+    def _find_min_start(spans: list[dict[str, Any]]) -> None:
         nonlocal min_start_iso
         for span in spans:
             start = span.get("start_time_iso", "")
@@ -1291,16 +1289,14 @@ def transform_agent_trace(data: dict[str, Any]) -> dict[str, Any]:
     # Flatten the tree with depth
     nodes: list[dict[str, Any]] = []
 
-    def _flatten(span: dict, depth: int) -> None:
+    def _flatten(span: dict[str, Any], depth: int) -> None:
         start_iso = span.get("start_time_iso", "")
         start_offset_ms = 0.0
         if min_start_iso and start_iso:
             try:
                 from datetime import datetime
 
-                s0 = datetime.fromisoformat(
-                    min_start_iso.replace("Z", "+00:00")
-                )
+                s0 = datetime.fromisoformat(min_start_iso.replace("Z", "+00:00"))
                 s1 = datetime.fromisoformat(start_iso.replace("Z", "+00:00"))
                 start_offset_ms = (s1 - s0).total_seconds() * 1000
             except (ValueError, AttributeError):
@@ -1362,9 +1358,7 @@ def transform_agent_graph(data: dict[str, Any]) -> dict[str, Any]:
     if "status" in data and "result" in data:
         data = data["result"]
 
-    if isinstance(data, dict) and (
-        "error" in data or data.get("status") == "error"
-    ):
+    if isinstance(data, dict) and ("error" in data or data.get("status") == "error"):
         return {"nodes": [], "edges": [], "error": data.get("error")}
 
     root_spans = data.get("root_spans", [])
@@ -1384,9 +1378,7 @@ def transform_agent_graph(data: dict[str, Any]) -> dict[str, Any]:
         "has_error": False,
     }
 
-    def _ensure_node(
-        node_id: str, label: str, node_type: str
-    ) -> dict[str, Any]:
+    def _ensure_node(node_id: str, label: str, node_type: str) -> dict[str, Any]:
         if node_id not in node_map:
             node_map[node_id] = {
                 "id": node_id,
@@ -1426,7 +1418,7 @@ def transform_agent_graph(data: dict[str, Any]) -> dict[str, Any]:
         if has_error:
             edge["has_error"] = True
 
-    def _walk(span: dict, parent_agent: str | None = None) -> None:
+    def _walk(span: dict[str, Any], parent_agent: str | None = None) -> None:
         kind = span.get("kind", "unknown")
         agent_name = span.get("agent_name")
         tool_name = span.get("tool_name")
@@ -1453,7 +1445,14 @@ def transform_agent_graph(data: dict[str, Any]) -> dict[str, Any]:
                 )
             elif span.get("parent_span_id") is None:
                 # Root agent invoked by user
-                _add_edge("user", f"agent:{agent_name}", "invokes", duration, tokens, has_error)
+                _add_edge(
+                    "user",
+                    f"agent:{agent_name}",
+                    "invokes",
+                    duration,
+                    tokens,
+                    has_error,
+                )
 
             parent_agent = agent_name
 

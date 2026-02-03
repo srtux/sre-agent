@@ -157,7 +157,7 @@ class TestCreateConfiguredAgent:
     def test_has_sub_agents(self) -> None:
         """Test that the agent has sub-agents configured."""
         agent = create_configured_agent()
-        assert len(agent.sub_agents) == 6  # 6 sub-agents
+        assert len(agent.sub_agents) == 7  # 7 sub-agents
 
     def test_has_tools(self) -> None:
         """Test that the agent has tools configured."""

@@ -6,8 +6,8 @@ void main() {
   group('UnifiedPromptInput Functionality Tests', () {
     late TextEditingController controller;
     late FocusNode focusNode;
-    bool sendCalled = false;
-    bool cancelCalled = false;
+    var sendCalled = false;
+    var cancelCalled = false;
 
     setUp(() {
       controller = TextEditingController();

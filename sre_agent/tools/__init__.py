@@ -10,6 +10,13 @@ This module provides tools for interacting with GCP Observability services:
 
 # Client Tools
 # Analysis Tools - BigQuery
+# Agent Trace Analysis
+from .analysis.agent_trace.tools import (
+    analyze_agent_token_usage,
+    detect_agent_anti_patterns,
+    list_agent_traces,
+    reconstruct_agent_interaction,
+)
 from .analysis.bigquery.logs import analyze_bigquery_log_patterns
 from .analysis.bigquery.otel import (
     analyze_aggregate_metrics,
@@ -171,14 +178,6 @@ from .memory import add_finding_to_memory, search_memory
 
 # Proactive Tools
 from .proactive import suggest_next_steps
-
-# Agent Trace Analysis
-from .analysis.agent_trace.tools import (
-    analyze_agent_token_usage,
-    detect_agent_anti_patterns,
-    list_agent_traces,
-    reconstruct_agent_interaction,
-)
 
 # Reporting Tools
 from .reporting import synthesize_report

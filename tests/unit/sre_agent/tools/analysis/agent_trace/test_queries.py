@@ -72,9 +72,20 @@ class TestGetAgentTraceSpansQuery:
 
     def test_includes_all_fields(self) -> None:
         sql = get_agent_trace_spans_query("t")
-        for field in ["trace_id", "span_id", "parent_span_id", "name",
-                       "start_time", "end_time", "duration_nano",
-                       "status", "kind", "attributes", "resource", "events"]:
+        for field in [
+            "trace_id",
+            "span_id",
+            "parent_span_id",
+            "name",
+            "start_time",
+            "end_time",
+            "duration_nano",
+            "status",
+            "kind",
+            "attributes",
+            "resource",
+            "events",
+        ]:
             assert field in sql
 
 

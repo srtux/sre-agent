@@ -597,16 +597,16 @@ class AgentRunSummary(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     trace_id: str = Field(description="Trace ID")
-    root_agent_name: str | None = Field(
-        default=None, description="Root agent name"
-    )
+    root_agent_name: str | None = Field(default=None, description="Root agent name")
     start_time: str = Field(description="ISO 8601 start time")
     duration_ms: float = Field(description="Total duration in ms")
     total_input_tokens: int = Field(default=0, description="Total input tokens")
     total_output_tokens: int = Field(default=0, description="Total output tokens")
     tool_call_count: int = Field(default=0, description="Number of tool calls")
     llm_call_count: int = Field(default=0, description="Number of LLM calls")
-    sub_agent_count: int = Field(default=0, description="Number of sub-agent delegations")
+    sub_agent_count: int = Field(
+        default=0, description="Number of sub-agent delegations"
+    )
     has_error: bool = Field(default=False, description="Whether any span had an error")
     span_count: int = Field(default=0, description="Total span count")
 

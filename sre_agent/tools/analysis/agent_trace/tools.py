@@ -230,12 +230,8 @@ async def analyze_agent_token_usage(
     # Generate queries for each trace
     queries: list[dict[str, str]] = []
     for tid in trace_ids:
-        token_sql = get_agent_token_usage_query(table).replace(
-            "@trace_id", f"'{tid}'"
-        )
-        tool_sql = get_agent_tool_usage_query(table).replace(
-            "@trace_id", f"'{tid}'"
-        )
+        token_sql = get_agent_token_usage_query(table).replace("@trace_id", f"'{tid}'")
+        tool_sql = get_agent_tool_usage_query(table).replace("@trace_id", f"'{tid}'")
         queries.append(
             {
                 "trace_id": str(tid),

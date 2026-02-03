@@ -97,7 +97,9 @@ def _safe_float(value: str | int | float | None) -> float:
         return 0.0
 
 
-def _extract_attrs_from_json(raw_attributes: str | dict[str, Any] | None) -> dict[str, str]:
+def _extract_attrs_from_json(
+    raw_attributes: str | dict[str, Any] | None,
+) -> dict[str, str]:
     """Extract a flat string->string dict from JSON attributes.
 
     BigQuery stores attributes as a JSON string with nested structure.
@@ -168,12 +170,10 @@ def parse_bq_row_to_agent_span(row: dict[str, Any]) -> AgentSpanInfo:
             raw_status = json.loads(raw_status)
         except (json.JSONDecodeError, TypeError):
             raw_status = {}
-    status_code = _safe_int(
-        raw_status.get("code") if isinstance(raw_status, dict) else None
-    ) or 0
-    error_message = (
-        raw_status.get("message") if isinstance(raw_status, dict) else None
+    status_code = (
+        _safe_int(raw_status.get("code") if isinstance(raw_status, dict) else None) or 0
     )
+    error_message = raw_status.get("message") if isinstance(raw_status, dict) else None
 
     # Parse timestamps
     start_time = row.get("start_time", "")
@@ -183,7 +183,9 @@ def parse_bq_row_to_agent_span(row: dict[str, Any]) -> AgentSpanInfo:
 
     return AgentSpanInfo(
         span_id=str(row.get("span_id", "")),
-        parent_span_id=str(row["parent_span_id"]) if row.get("parent_span_id") else None,
+        parent_span_id=str(row["parent_span_id"])
+        if row.get("parent_span_id")
+        else None,
         name=str(row.get("name", "")),
         kind=kind,
         operation=operation,
@@ -441,9 +443,7 @@ def detect_anti_patterns(
 
     def _check_token_waste(span: AgentSpanInfo) -> None:
         """Check for output >> input tokens on non-final LLM calls."""
-        llm_children = [
-            c for c in span.children if c.kind == AgentSpanKind.LLM_CALL
-        ]
+        llm_children = [c for c in span.children if c.kind == AgentSpanKind.LLM_CALL]
         # Non-final = all except the last LLM call
         for llm_span in llm_children[:-1] if len(llm_children) > 1 else []:
             inp = llm_span.input_tokens or 0

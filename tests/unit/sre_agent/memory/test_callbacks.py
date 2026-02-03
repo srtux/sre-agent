@@ -25,7 +25,10 @@ class TestIsLearnableFailure:
         assert _is_learnable_failure(response) is True
 
     def test_learnable_resource_type(self) -> None:
-        response = {"status": "error", "error": "resource.type 'gke_container' is not valid"}
+        response = {
+            "status": "error",
+            "error": "resource.type 'gke_container' is not valid",
+        }
         assert _is_learnable_failure(response) is True
 
     def test_learnable_parse_error(self) -> None:
@@ -60,7 +63,10 @@ class TestExtractFailureLesson:
         lesson = _extract_failure_lesson(
             tool_name="list_log_entries",
             tool_args={"filter": 'container_name="app"', "project_id": "my-proj"},
-            tool_response={"status": "error", "error": "Invalid filter: use resource.labels.container_name"},
+            tool_response={
+                "status": "error",
+                "error": "Invalid filter: use resource.labels.container_name",
+            },
         )
         assert "[TOOL FAILURE LESSON]" in lesson
         assert "list_log_entries" in lesson
@@ -161,7 +167,10 @@ class TestAfterToolMemoryCallback:
         tool_context = MagicMock()
 
         result = await after_tool_memory_callback(
-            tool, {}, tool_context, "string response"  # type: ignore[arg-type]
+            tool,
+            {},
+            tool_context,
+            "string response",  # type: ignore[arg-type]
         )
         assert result is None
 
@@ -221,9 +230,7 @@ class TestOnToolErrorMemoryCallback:
         error = ConnectionError("Connection refused")
 
         with patch("sre_agent.memory.factory.get_memory_manager") as mock_mgr:
-            result = await on_tool_error_memory_callback(
-                tool, {}, tool_context, error
-            )
+            result = await on_tool_error_memory_callback(tool, {}, tool_context, error)
             assert result is None
             mock_mgr.return_value.add_finding.assert_not_called()
 
@@ -240,7 +247,5 @@ class TestOnToolErrorMemoryCallback:
             "sre_agent.memory.factory.get_memory_manager",
             side_effect=RuntimeError("boom"),
         ):
-            result = await on_tool_error_memory_callback(
-                tool, {}, tool_context, error
-            )
+            result = await on_tool_error_memory_callback(tool, {}, tool_context, error)
             assert result is None
