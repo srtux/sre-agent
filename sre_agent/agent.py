@@ -1031,6 +1031,27 @@ def is_tool_enabled(tool_name: str) -> bool:
 # ============================================================================
 
 
+# ── Memory Integration: ADK Memory Tools & Callbacks ────────────────────────
+# PreloadMemoryTool: Automatically retrieves relevant past context (tool failures,
+#   API syntax lessons, investigation patterns) at the start of every agent turn.
+# LoadMemoryTool: Allows the agent to explicitly search memory on-demand.
+# Callbacks: Automatically record tool failures and API syntax errors to memory
+#   so the agent avoids repeating the same mistakes across sessions.
+from google.adk.tools.load_memory_tool import load_memory_tool
+from google.adk.tools.preload_memory_tool import preload_memory_tool
+
+from .memory.callbacks import (
+    after_tool_memory_callback,
+    on_tool_error_memory_callback,
+)
+
+# Build the full tool set: base tools + ADK memory tools
+_agent_tools: list[Any] = [
+    *get_enabled_base_tools(),
+    preload_memory_tool,
+    load_memory_tool,
+]
+
 # Create the main SRE Agent
 sre_agent = LlmAgent(
     name="sre_agent",
@@ -1043,6 +1064,7 @@ Capabilities:
 - Analyzes SLO/SLI status, error budgets, and predicts violations
 - Debugs Kubernetes/GKE clusters (Node pressure, Pod crash loops, OOMs)
 - Provides automated remediation suggestions with risk assessment
+- Long-term memory: Remembers past tool failures, API syntax, and investigation patterns
 
 Structure:
 - Stage 0 (Aggregate): Analyze fleet-wide trends using BigQuery
@@ -1052,9 +1074,13 @@ Structure:
 Direct Tools:
 - Observability: fetch_trace, list_log_entries, query_promql, list_time_series, list_slos
 - Analysis: analyze_trace_comprehensive, find_bottleneck_services, correlate_logs_with_trace
-- Platform: get_gke_cluster_health, list_alerts, detect_metric_anomalies""",
+- Platform: get_gke_cluster_health, list_alerts, detect_metric_anomalies
+- Memory: preload_memory (auto), load_memory (on-demand), search_memory, add_finding_to_memory""",
     instruction=f"{SRE_AGENT_PROMPT}\n\n## 📅 Current Time\nThe current time is: {datetime.now(timezone.utc).isoformat()}",
-    tools=get_enabled_base_tools(),
+    tools=_agent_tools,
+    # Callbacks for automatic memory-driven learning
+    after_tool_callback=after_tool_memory_callback,
+    on_tool_error_callback=on_tool_error_memory_callback,
     # Sub-agents for specialized analysis (automatically invoked based on task)
     sub_agents=[
         # Trace analysis sub-agents

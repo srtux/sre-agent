@@ -458,13 +458,16 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
         )
         user_content = Content(parts=[Part(text=enhanced_text)], role="user")
 
-        # Create InvocationContext
+        # Create InvocationContext with memory service for PreloadMemoryTool
+        from sre_agent.memory.factory import get_adk_memory_service
+
         inv_ctx = InvocationContext(
             session=session,
             agent=root_agent,
             invocation_id=uuid.uuid4().hex,
             session_service=session_manager.session_service,
             run_config=RunConfig(),
+            memory_service=get_adk_memory_service(),
         )
         inv_ctx.user_content = user_content
 
