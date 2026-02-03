@@ -24,6 +24,8 @@ class ADKContentGenerator implements ContentGenerator {
       StreamController<Map<String, dynamic>>.broadcast();
   final StreamController<Map<String, dynamic>> _toolCallController =
       StreamController<Map<String, dynamic>>.broadcast();
+  final StreamController<Map<String, dynamic>> _traceInfoController =
+      StreamController<Map<String, dynamic>>.broadcast();
   final ValueNotifier<bool> _isProcessing = ValueNotifier(false);
   final ValueNotifier<bool> _isConnected = ValueNotifier(false);
 
@@ -58,6 +60,10 @@ class ADKContentGenerator implements ContentGenerator {
   /// Stream of tool call/response events for inline chat display.
   Stream<Map<String, dynamic>> get toolCallStream =>
       _toolCallController.stream;
+
+  /// Stream of trace_info events for Cloud Trace deep linking.
+  Stream<Map<String, dynamic>> get traceInfoStream =>
+      _traceInfoController.stream;
 
   /// The base URL of the connected agent.
   String get baseUrl => _baseUrl;
@@ -250,6 +256,9 @@ class ADKContentGenerator implements ContentGenerator {
                   if (newSurfaceId != null) {
                     _uiMessageController.add(newSurfaceId);
                   }
+                } else if (type == 'trace_info') {
+                  debugPrint('🔗 [TRACE_INFO] trace_id=${data['trace_id']}');
+                  _traceInfoController.add(Map<String, dynamic>.from(data));
                 } else if (type == 'dashboard') {
                   debugPrint('📊 [DASHBOARD] category=${data['category']}, tool=${data['tool_name']}');
                   _dashboardController.add(Map<String, dynamic>.from(data));
@@ -372,6 +381,7 @@ class ADKContentGenerator implements ContentGenerator {
     _suggestionsController.close();
     _dashboardController.close();
     _toolCallController.close();
+    _traceInfoController.close();
     _isProcessing.dispose();
     _isConnected.dispose();
   }

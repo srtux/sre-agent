@@ -5,6 +5,8 @@ displayed inline in the chat. Visualization data goes through the
 separate dashboard channel only.
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import os
@@ -306,3 +308,80 @@ def create_dashboard_event(tool_name: str, result: Any) -> str | None:
     except Exception as e:
         logger.error(f"Error creating dashboard event for {tool_name}: {e}")
         return None
+
+
+# ---------------------------------------------------------------------------
+# Trace deep-link utilities
+# ---------------------------------------------------------------------------
+
+_CLOUD_TRACE_URL_TEMPLATE = (
+    "https://console.cloud.google.com/traces/list?tid={trace_id}&project={project_id}"
+)
+
+
+def build_cloud_trace_url(trace_id: str, project_id: str) -> str:
+    """Build a Google Cloud Trace console deep-link URL.
+
+    Args:
+        trace_id: 32-character hex trace ID.
+        project_id: GCP project ID.
+
+    Returns:
+        Full Cloud Trace console URL.
+    """
+    return _CLOUD_TRACE_URL_TEMPLATE.format(trace_id=trace_id, project_id=project_id)
+
+
+def get_current_trace_info(project_id: str | None = None) -> dict[str, Any] | None:
+    """Extract the current OTel trace ID and build a trace_info event payload.
+
+    Returns None if no valid trace context is available.
+
+    Args:
+        project_id: GCP project ID for deep-link construction.
+
+    Returns:
+        A dict suitable for JSON serialization as a ``trace_info`` event,
+        or None when trace context is unavailable.
+    """
+    trace_id: str | None = None
+
+    # 1. Try OpenTelemetry current span
+    try:
+        from opentelemetry import trace
+
+        span_context = trace.get_current_span().get_span_context()
+        if span_context.is_valid:
+            trace_id = trace.format_trace_id(span_context.trace_id)
+    except Exception:
+        pass
+
+    # 2. Fallback to manual ContextVar
+    if not trace_id:
+        try:
+            from sre_agent.auth import get_trace_id
+
+            trace_id = get_trace_id()
+        except Exception:
+            pass
+
+    if not trace_id:
+        return None
+
+    # Resolve project_id if not provided
+    effective_project_id = project_id
+    if not effective_project_id:
+        effective_project_id = os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get(
+            "GCP_PROJECT_ID"
+        )
+
+    payload: dict[str, Any] = {
+        "type": "trace_info",
+        "trace_id": trace_id,
+    }
+
+    if effective_project_id:
+        payload["project_id"] = effective_project_id
+        payload["trace_url"] = build_cloud_trace_url(trace_id, effective_project_id)
+
+    return payload

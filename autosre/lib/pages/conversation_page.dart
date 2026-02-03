@@ -25,6 +25,7 @@ import '../widgets/tech_grid_painter.dart';
 import '../widgets/tool_log.dart';
 import '../widgets/unified_prompt_input.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'tool_config_page.dart';
 import 'help_page.dart';
 import '../widgets/status_toast.dart';
@@ -67,6 +68,11 @@ class _ConversationPageState extends State<ConversationPage>
   StreamSubscription<List<String>>? _suggestionsSubscription;
   StreamSubscription<Map<String, dynamic>>? _dashboardSubscription;
   StreamSubscription<Map<String, dynamic>>? _toolCallSubscription;
+  StreamSubscription<Map<String, dynamic>>? _traceInfoSubscription;
+
+  /// Current agent trace info for Cloud Trace deep linking.
+  String? _currentTraceUrl;
+  String? _currentTraceId;
 
   /// Inline tool call state: call_id -> ToolLog (mutable via ValueNotifier).
   final ValueNotifier<Map<String, ToolLog>> _toolCallState =
@@ -236,6 +242,16 @@ class _ConversationPageState extends State<ConversationPage>
     );
     _conversation = conversation;
 
+    // Subscribe to trace_info events for Cloud Trace deep linking.
+    _traceInfoSubscription?.cancel();
+    _traceInfoSubscription = newGenerator.traceInfoStream.listen((event) {
+      if (!mounted) return;
+      setState(() {
+        _currentTraceId = event['trace_id'] as String?;
+        _currentTraceUrl = event['trace_url'] as String?;
+      });
+    });
+
     // Subscribe to the dedicated dashboard data stream.
     _dashboardSubscription?.cancel();
     _dashboardSubscription = newGenerator.dashboardStream.listen((event) {
@@ -372,6 +388,9 @@ class _ConversationPageState extends State<ConversationPage>
     _dashboardState.clear();
     // Clear inline tool call state
     _toolCallState.value = {};
+    // Clear trace deep-link state
+    _currentTraceUrl = null;
+    _currentTraceId = null;
 
     setState(() {
       _initializeConversation();
@@ -774,6 +793,8 @@ class _ConversationPageState extends State<ConversationPage>
         },
       ),
       actions: [
+        // View Trace deep link (visible when trace context is available)
+        if (_currentTraceUrl != null) _buildViewTraceChip(),
         // Status indicator
         ValueListenableBuilder<bool>(
           valueListenable: _contentGenerator?.isConnected ?? ValueNotifier(false),
@@ -830,6 +851,44 @@ class _ConversationPageState extends State<ConversationPage>
   }
 
 
+
+  Widget _buildViewTraceChip() {
+    final traceId = _currentTraceId ?? '';
+    final shortId = traceId.length > 8 ? traceId.substring(0, 8) : traceId;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Tooltip(
+        message: 'View agent reasoning trace in Cloud Trace\nTrace: $traceId',
+        child: ActionChip(
+          avatar: Icon(
+            Icons.timeline_rounded,
+            size: 14,
+            color: AppColors.primaryCyan.withValues(alpha: 0.9),
+          ),
+          label: Text(
+            'Trace $shortId',
+            style: GoogleFonts.jetBrainsMono(
+              fontSize: 11,
+              color: AppColors.primaryCyan,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          side: BorderSide(
+            color: AppColors.primaryCyan.withValues(alpha: 0.3),
+          ),
+          backgroundColor: AppColors.primaryCyan.withValues(alpha: 0.08),
+          onPressed: () async {
+            final url = _currentTraceUrl;
+            if (url == null) return;
+            final uri = Uri.parse(url);
+            if (await canLaunchUrl(uri)) {
+              await launchUrl(uri, mode: LaunchMode.externalApplication);
+            }
+          },
+        ),
+      ),
+    );
+  }
 
   Widget _buildSettingsButton() {
     return Tooltip(
@@ -1388,6 +1447,7 @@ class _ConversationPageState extends State<ConversationPage>
     _suggestionsSubscription?.cancel();
     _dashboardSubscription?.cancel();
     _toolCallSubscription?.cancel();
+    _traceInfoSubscription?.cancel();
     _toolCallState.dispose();
     _dashboardState.dispose();
     _projectService.selectedProject.removeListener(_onProjectChanged);

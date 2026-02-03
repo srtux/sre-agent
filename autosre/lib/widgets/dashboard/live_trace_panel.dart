@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../services/dashboard_state.dart';
+import '../../services/project_service.dart';
 import '../../theme/app_theme.dart';
 import '../trace_waterfall.dart';
 
@@ -104,6 +106,8 @@ class _LiveTracePanelState extends State<LiveTracePanel> {
                             ],
                           ),
                         ),
+                        _buildCloudTraceButton(trace.traceId),
+                        const SizedBox(width: 4),
                         Icon(
                           isExpanded
                               ? Icons.keyboard_arrow_up
@@ -126,6 +130,35 @@ class _LiveTracePanelState extends State<LiveTracePanel> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildCloudTraceButton(String traceId) {
+    return Tooltip(
+      message: 'Open in Cloud Trace',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(4),
+        onTap: () async {
+          final projectId =
+              ProjectService.instance.selectedProject.value?.projectId;
+          if (projectId == null) return;
+          final url = Uri.parse(
+            'https://console.cloud.google.com/traces/list'
+            '?tid=$traceId&project=$projectId',
+          );
+          if (await canLaunchUrl(url)) {
+            await launchUrl(url, mode: LaunchMode.externalApplication);
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: Icon(
+            Icons.open_in_new_rounded,
+            size: 14,
+            color: AppColors.primaryCyan.withValues(alpha: 0.7),
+          ),
+        ),
+      ),
     );
   }
 
