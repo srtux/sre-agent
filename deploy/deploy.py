@@ -247,15 +247,15 @@ def deploy(env_vars: dict[str, str] | None = None) -> None:
                     )
                     remote_agent = agent_engines_api.update(
                         name=existing_agent.resource_name,
-                        agent=adk_app,
+                        agent_engine=adk_app,
                         config=update_config,
                     )
                 else:
                     # ReasoningEngine.update uses top-level arguments
                     # Standard ReasoningEngine.update does NOT accept staging_bucket.
-                    # Use 'agent' instead of 'agent_engine' for modern SDK compatibility.
+                    # Use 'agent_engine' matching the current SDK signature
                     remote_agent = existing_agent.update(
-                        agent=adk_app,
+                        agent_engine=adk_app,
                         display_name=display_name,
                         description=description,
                         **common_kwargs,
@@ -301,15 +301,15 @@ def deploy(env_vars: dict[str, str] | None = None) -> None:
                 }
             )
             remote_agent = agent_engines_api.create(
-                agent=adk_app,
+                agent_engine=adk_app,
                 config=create_config,
             )
         else:
             # ReasoningEngine.create uses top-level arguments
             # We don't pass staging_bucket to ReasoningEngine.create directly as it uses vertexai.init
-            # Use 'agent' instead of 'agent_engine' for modern SDK compatibility.
+            # Use 'agent_engine' instead of 'agent' for modern SDK compatibility.
             remote_agent = agent_engines_api.create(
-                agent=adk_app,
+                agent_engine=adk_app,
                 display_name=display_name,
                 description=description,
                 **common_kwargs,
