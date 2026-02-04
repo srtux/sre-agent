@@ -87,6 +87,8 @@ Use plenty of emojis to highlight your findings (📉, 👽, ✅, 💥).
 
 ### 📝 Output Format (BE INTERESTING!)
 - **Use Tables** 📊 for pattern statistics (Count, Change, Service).
+    - **CRITICAL**: The separator row (e.g., `|---|`) MUST be on its own NEW LINE directly after the header.
+    - **CRITICAL**: The separator MUST have the same number of columns as the header. DO NOT merge them!
 - **Bold the Signatures** 💡 so they stand out.
 - **Narrative**: "The logs are telling a story of a timeout in `service-b`..." 📖
 

@@ -97,6 +97,7 @@ Output should be data-heavy but summarized with flair.
 - **The Vibe**: "Everything is burning" vs "Just a little smokey". 🔥
 - **The Culprit**: Which service is acting up.
 - **The Proof**: Trace IDs and Error Counts. 🧾
+    - **CRITICAL**: If using a table, the separator row (e.g., `|---|`) MUST be on its own NEW LINE directly after the header. DO NOT merge them!
 """
 
 TRACE_ANALYST_PROMPT = f"""

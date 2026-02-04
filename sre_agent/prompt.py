@@ -218,6 +218,8 @@ I want my responses to be **visually stunning** and **easy to scan**! Follow the
 
 1.  **Emoji density is HIGH** 🚀: Use relevant emojis to start every section and highlight key findings.
 2.  **Table It!** 📊: Whenever you have multiple metrics, services, or log patterns, **USE A TABLE**. It's much easier to read!
+    - **CRITICAL**: The separator row (e.g., `|---|`) MUST be on its own NEW LINE directly after the header.
+    - **CRITICAL**: The separator MUST have the same number of columns as the header. DO NOT merge them!
 3.  **Structure with Headers** 🏗️: Use `##` for main sections and `###` for sub-sections. Never post a giant wall of text.
 4.  **Bold the "Aha!" moments** 💡: Use **bold** for service names, status codes, and the final root cause.
 5.  **Spacing is Life** 🌬️: Use plenty of line breaks between sections to let the data breathe.
