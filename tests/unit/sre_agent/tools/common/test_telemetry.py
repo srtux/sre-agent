@@ -53,31 +53,31 @@ def test_setup_telemetry_basic():
         mock_root.addHandler.assert_called()
 
 
-def test_langsmith_context_setters():
-    """Test LangSmith context variable setters."""
+def test_langfuse_context_setters():
+    """Test Langfuse context variable setters."""
     from sre_agent.tools.common.telemetry import (
-        add_langsmith_tags,
-        get_langsmith_metadata,
-        get_langsmith_session,
-        get_langsmith_tags,
-        get_langsmith_user,
-        set_langsmith_metadata,
-        set_langsmith_session,
-        set_langsmith_user,
+        add_langfuse_tags,
+        get_langfuse_metadata,
+        get_langfuse_session,
+        get_langfuse_tags,
+        get_langfuse_user,
+        set_langfuse_metadata,
+        set_langfuse_session,
+        set_langfuse_user,
     )
 
-    set_langsmith_session("test-session")
-    assert get_langsmith_session() == "test-session"
+    set_langfuse_session("test-session")
+    assert get_langfuse_session() == "test-session"
 
-    set_langsmith_user("test-user")
-    assert get_langsmith_user() == "test-user"
+    set_langfuse_user("test-user")
+    assert get_langfuse_user() == "test-user"
 
-    set_langsmith_metadata({"key": "value"})
-    assert get_langsmith_metadata() == {"key": "value"}
+    set_langfuse_metadata({"key": "value"})
+    assert get_langfuse_metadata() == {"key": "value"}
 
-    add_langsmith_tags(["tag1", "tag2"])
-    assert "tag1" in get_langsmith_tags()
-    assert "tag2" in get_langsmith_tags()
+    add_langfuse_tags(["tag1", "tag2"])
+    assert "tag1" in get_langfuse_tags()
+    assert "tag2" in get_langfuse_tags()
 
 
 def test_json_formatter():

@@ -31,7 +31,7 @@ The backend implements a multi-stage security pipeline in `sre_agent/api/middlew
 ### 2. Telemetry & Observability
 The backend is fully instrumented using OpenTelemetry:
 - **Native GenAI Tracing**: Uses the `GoogleGenAiSdkInstrumentor` to capture high-fidelity spans of the agent's internal reasoning.
-- **Multi-Receiver Pattern**: Supports simultaneous export to LangSmith (via `LANGSMITH_API_KEY`) and Google Cloud Trace (via `OTEL_TO_CLOUD=true`).
+- **Multi-Receiver Pattern**: Supports simultaneous export to Langfuse (via `LANGFUSE_TRACING=true`) and Google Cloud Trace (via `OTEL_TO_CLOUD=true`).
 - **Context Propagation**: Ensures that spans from the FastAPI proxy are correctly linked to the user's investigation trace.
 
 ---

@@ -381,7 +381,7 @@ def emojify_agent(agent: LlmAgent | Any) -> LlmAgent | Any:
                 set_trace_id(remote_trace_id)
 
         # 2a. Bridge OTel Context (for log correlation and SDK tracing)
-        # This occurs before LangSmith or Original Run to ensure all child spans
+        # This occurs before Langfuse or Original Run to ensure all child spans
         # inherit the correct parent from the proxy.
         from .tools.common.telemetry import bridge_otel_context
 
@@ -396,24 +396,24 @@ def emojify_agent(agent: LlmAgent | Any) -> LlmAgent | Any:
             trace_id=remote_trace_id, span_id=remote_span_id, trace_flags=remote_flags
         )
 
-        # 2b. LangSmith: Set session and user for thread grouping
-        # This groups all traces from this session into a single "thread" in LangSmith
+        # 2b. Langfuse: Set session and user for trace grouping
+        # This groups all traces from this session in Langfuse
         from .tools.common.telemetry import (
-            set_langsmith_metadata,
-            set_langsmith_session,
-            set_langsmith_user,
+            set_langfuse_metadata,
+            set_langfuse_session,
+            set_langfuse_user,
         )
 
         if session_id and session_id != "unknown":
-            set_langsmith_session(session_id)
+            set_langfuse_session(session_id)
 
         if user_id and user_id != "unknown":
-            set_langsmith_user(user_id)
+            set_langfuse_user(user_id)
         elif user_email:
-            set_langsmith_user(user_email)
+            set_langfuse_user(user_email)
 
         # Add useful metadata for filtering and analysis
-        set_langsmith_metadata(
+        set_langfuse_metadata(
             {
                 "project_id": project_id,
                 "agent_name": agent.name,

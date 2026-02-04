@@ -40,9 +40,10 @@ This document details all environment variables used to configure the Auto SRE A
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `LANGSMITH_TRACING` | Enable LangSmith tracing for local/agentic debugging. | `false` |
-| `LANGSMITH_API_KEY` | LangSmith API Key. | - |
-| `LANGSMITH_PROJECT` | LangSmith project name. | `sre-agent` |
+| `LANGFUSE_TRACING` | Enable Langfuse tracing for local/agentic debugging. | `false` |
+| `LANGFUSE_PUBLIC_KEY` | Langfuse public key. | - |
+| `LANGFUSE_SECRET_KEY` | Langfuse secret key. | - |
+| `LANGFUSE_HOST` | Langfuse host URL (self-hosted or cloud). | `http://localhost:3000` |
 | `TRACE_PROJECT_ID` | Override project for Cloud Trace queries (if different from host). | `GOOGLE_CLOUD_PROJECT` |
 | `GEMINI_API_KEY` | Your Google API Key (if not using ADC/Service Account). | - |
 | `GOOGLE_API_KEY` | Alias for `GEMINI_API_KEY`. | - |
@@ -53,11 +54,11 @@ The following variables are deprecated and will be removed in a future release.
 
 | Variable | Status | Migration Path |
 |----------|--------|---------------|
-| `USE_ARIZE` | **Removed** | Delete from `.env`. Arize instrumentation has been fully replaced by native Google Cloud Trace + optional LangSmith tracing. Set `OTEL_TO_CLOUD=true` for Cloud Trace export and/or `LANGSMITH_TRACING=true` for LangSmith. |
+| `USE_ARIZE` | **Removed** | Delete from `.env`. Arize instrumentation has been fully replaced by native Google Cloud Trace + optional Langfuse tracing. Set `OTEL_TO_CLOUD=true` for Cloud Trace export and/or `LANGFUSE_TRACING=true` for Langfuse. |
 | `ARIZE_SPACE_ID` | **Removed** | Delete from `.env`. No replacement needed. |
 | `ARIZE_API_KEY` | **Removed** | Delete from `.env`. No replacement needed. |
 
-> **Migration**: If you were previously using Arize for observability, switch to native Cloud Trace (`OTEL_TO_CLOUD=true`) for production tracing. For local development debugging, use LangSmith (`LANGSMITH_TRACING=true`). Both can run simultaneously.
+> **Migration**: If you were previously using Arize for observability, switch to native Cloud Trace (`OTEL_TO_CLOUD=true`) for production tracing. For local development debugging, use Langfuse (`LANGFUSE_TRACING=true`). Both can run simultaneously.
 
 ## Storage & Sessions
 

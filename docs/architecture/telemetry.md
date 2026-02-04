@@ -9,7 +9,7 @@ As of February 2026, the SRE Agent uses a **Hybrid Telemetry Strategy**. While w
 ### Core Principles
 
 1.  **Native GenAI Instrumentation**: We use the `GoogleGenAiSdkInstrumentor` to capture the "black box" reasoning inside Gemini calls. This captures detailed prompt/response pairs with native OTel semantics.
-2.  **Multi-Receiver Coexistence Pattern**: Supports simultaneous export to both **LangSmith** (for agentic debugging) and **Google Cloud Trace** (for production observability).
+2.  **Multi-Receiver Coexistence Pattern**: Supports simultaneous export to both **Langfuse** (for agentic debugging) and **Google Cloud Trace** (for production observability).
 3.  **Automatic High-Fidelity Capture**: Enabled by setting `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true`.
 4.  **Zero-Invasive Tools**: Individual tool implementations remain clean and rely on the `@adk_tool` decorator for automatic span generation.
 
@@ -37,7 +37,7 @@ To keep logs readable, the following "chatty" libraries are explicitly silenced 
 
 To enable full visibility into agent reasoning:
 
-*   `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true`: Enables high-fidelity prompt/response capture in Cloud Trace and LangSmith.
+*   `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true`: Enables high-fidelity prompt/response capture in Cloud Trace and Langfuse.
 *   `OTEL_TO_CLOUD=true`: Enables the Cloud Trace exporter for native GCP observability.
 *   `SUPPRESS_OTEL_ERRORS=true`: Suppresses non-critical OTLP export warnings to keep logs clean.
 
@@ -76,25 +76,28 @@ The following legacy components have been **removed**:
 
 ---
 
-## LangSmith Tracing (Local & Debugging)
+## Langfuse Tracing (Local & Debugging)
 
-While we prefer native ADK tracing for production, **LangSmith** is supported for local development to visualize complex agent reasoning chains and tool use.
+While we prefer native ADK tracing for production, **Langfuse** is supported for local development to visualize complex agent reasoning chains and tool use.
 
-### Enabling LangSmith
+### Enabling Langfuse
 
 1.  **Dependencies**: Ensure dev dependencies are installed (`uv sync`).
-2.  **Environment Variables**:
-    *   `LANGSMITH_TRACING=true`
-    *   `LANGSMITH_API_KEY=<your-api-key>`
-    *   `LANGSMITH_PROJECT=sre-agent` (Optional, defaults to `sre-agent`)
+2.  **Run Langfuse locally**: `docker compose up` (see [Langfuse self-hosting docs](https://langfuse.com/docs/deployment/self-host)).
+3.  **Environment Variables**:
+    *   `LANGFUSE_TRACING=true`
+    *   `LANGFUSE_PUBLIC_KEY=<your-public-key>`
+    *   `LANGFUSE_SECRET_KEY=<your-secret-key>`
+    *   `LANGFUSE_HOST=http://localhost:3000` (default for local self-hosted)
 
 ### Features
 
 *   **Full Trace Trees**: Visualizes the complete execution path from user input -> agent reasoning -> tool calls -> final response.
-*   **Thread View**: Groups interactions by session ID, allowing you to see the full conversation history.
+*   **Session View**: Groups interactions by session ID, allowing you to see the full conversation history.
 *   **Metadata**: Automatically captures user ID and session tags if available.
+*   **Scores & Evaluations**: Built-in support for LLM-as-Judge and custom evaluators.
 
-**Note**: In the new hybrid strategy, LangSmith tracing can coexist with Cloud Trace if `OTEL_TO_CLOUD=true` and `LANGSMITH_TRACING=true` are both set.
+**Note**: In the new hybrid strategy, Langfuse tracing can coexist with Cloud Trace if `OTEL_TO_CLOUD=true` and `LANGFUSE_TRACING=true` are both set.
 
 ---
 

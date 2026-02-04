@@ -79,7 +79,7 @@ def create_app(
 
     # Instrument FastAPI if tracing is enabled
     # We check the same env var as telemetry.py
-    if os.environ.get("LANGSMITH_TRACING", "false").lower() == "true":
+    if os.environ.get("LANGFUSE_TRACING", "false").lower() == "true":
         try:
             from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 

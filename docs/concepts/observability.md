@@ -89,30 +89,31 @@ An "N+1 Query" problem happens when an application makes a database call for *ev
 
 ---
 
-## LangSmith Integration (Development & Regression)
+## Langfuse Integration (Development & Debugging)
 
-For developers, the SRE Agent integrates with [LangSmith](https://smith.langchain.com/) to provide high-fidelity tracing of LLM reasoning, tool calls, and session flows. This is primarily used in **Local Development Mode** for debugging and performance tuning.
+For developers, the SRE Agent integrates with [Langfuse](https://langfuse.com/) to provide high-fidelity tracing of LLM reasoning, tool calls, and session flows. This is primarily used in **Local Development Mode** for debugging and performance tuning.
 
 ### Key Features
-*   **Thread Grouping**: Investigations are grouped into "Threads" in LangSmith using the `session_id`.
+*   **Session Grouping**: Investigations are grouped into sessions in Langfuse using the `session_id`.
 *   **Prompt Analytics**: View the exact system instructions and few-shot examples sent to the LLM.
 *   **Tool Tracing**: See the latency and output of every tool called by the agent.
-*   **Feedback & Eval**: Send "Thumbs Up/Down" feedback to LangSmith for online evaluation.
+*   **Scores & Eval**: Send feedback scores to Langfuse for evaluations.
 
 ### Configuration
-Enable LangSmith by setting the following environment variables:
+Run Langfuse locally via Docker, then set the following environment variables:
 ```bash
-LANGSMITH_TRACING=true
-LANGSMITH_API_KEY=your_api_key
-LANGSMITH_PROJECT=sre-agent  # Optional
+LANGFUSE_TRACING=true
+LANGFUSE_PUBLIC_KEY=your_public_key
+LANGFUSE_SECRET_KEY=your_secret_key
+LANGFUSE_HOST=http://localhost:3000  # Default for self-hosted
 ```
 
-### LangSmith Context Utilities
+### Langfuse Context Utilities
 The agent provides several utilities in `sre_agent.tools.common.telemetry` to enhance traces:
-*   `set_langsmith_session(session_id)`: Groups all following traces into a single thread.
-*   `set_langsmith_user(user_id)`: Tags traces with the current user.
-*   `add_langsmith_tags(tags)`: Adds custom labels for filtering.
-*   `send_langsmith_feedback(...)`: Programmatically submits evaluation scores.
+*   `set_langfuse_session(session_id)`: Groups all following traces into a single session.
+*   `set_langfuse_user(user_id)`: Tags traces with the current user.
+*   `add_langfuse_tags(tags)`: Adds custom labels for filtering.
+*   `send_langfuse_score(...)`: Programmatically submits evaluation scores.
 
 ---
 
@@ -121,4 +122,4 @@ The agent provides several utilities in `sre_agent.tools.common.telemetry` to en
 *   [OpenTelemetry Documentation](https://opentelemetry.io/docs/)
 *   [Google Cloud Trace Concepts](https://cloud.google.com/trace/docs/overview)
 *   [Google SRE Book - Monitoring Distributed Systems](https://sre.google/sre-book/monitoring-distributed-systems/)
-*   [LangSmith - Trace with OpenTelemetry](https://docs.smith.langchain.com/how_to_guides/tracing/trace_with_otel)
+*   [Langfuse - OpenTelemetry Integration](https://langfuse.com/integrations/native/opentelemetry)

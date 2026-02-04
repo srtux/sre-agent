@@ -18,25 +18,25 @@ from dotenv import load_dotenv
 load_dotenv()
 
 _TELEMETRY_INITIALIZED = False
-_LANGSMITH_OTEL_INITIALIZED = False
+_LANGFUSE_OTEL_INITIALIZED = False
 
 # ============================================================================
-# LangSmith Context Variables for Thread/Session Tracking
+# Langfuse Context Variables for Thread/Session Tracking
 # ============================================================================
 # These ContextVars allow thread-safe tracking of session/thread info
-# which get added to OTel spans for LangSmith thread grouping.
+# which get added to OTel spans for Langfuse session grouping.
 
-_langsmith_session_id: ContextVar[str | None] = ContextVar(
-    "langsmith_session_id", default=None
+_langfuse_session_id: ContextVar[str | None] = ContextVar(
+    "langfuse_session_id", default=None
 )
-_langsmith_user_id: ContextVar[str | None] = ContextVar(
-    "langsmith_user_id", default=None
+_langfuse_user_id: ContextVar[str | None] = ContextVar(
+    "langfuse_user_id", default=None
 )
-_langsmith_metadata: ContextVar[dict[str, Any] | None] = ContextVar(
-    "langsmith_metadata", default=None
+_langfuse_metadata: ContextVar[dict[str, Any] | None] = ContextVar(
+    "langfuse_metadata", default=None
 )
-_langsmith_tags: ContextVar[list[str] | None] = ContextVar(
-    "langsmith_tags", default=None
+_langfuse_tags: ContextVar[list[str] | None] = ContextVar(
+    "langfuse_tags", default=None
 )
 
 
@@ -262,8 +262,8 @@ def setup_telemetry(level: int = logging.INFO) -> None:
             "🚀 OpenTelemetry already initialized by platform/ADK. Skipping manual setup."
         )
     else:
-        # Setup LangSmith OTel if enabled (local only)
-        setup_langsmith_otel()
+        # Setup Langfuse OTel if enabled (local only)
+        setup_langfuse_otel()
 
         # Setup local Google Cloud OTel if enabled (via OTEL_TO_CLOUD override)
         setup_google_cloud_otel()
@@ -443,17 +443,17 @@ def bridge_otel_context(
         return None
 
 
-def setup_langsmith_otel() -> None:
-    """Configures OpenTelemetry for LangSmith tracing if enabled locally.
+def setup_langfuse_otel() -> None:
+    """Configures OpenTelemetry for Langfuse tracing if enabled locally.
 
-    Uses the official langsmith.integrations.otel.configure() approach
-    per https://docs.langchain.com/langsmith/trace-with-google-adk
+    Uses the OTLP exporter pointed at the Langfuse OTLP endpoint.
+    See: https://langfuse.com/integrations/native/opentelemetry
     """
-    global _LANGSMITH_OTEL_INITIALIZED
-    if _LANGSMITH_OTEL_INITIALIZED:
+    global _LANGFUSE_OTEL_INITIALIZED
+    if _LANGFUSE_OTEL_INITIALIZED:
         return
 
-    val = os.environ.get("LANGSMITH_TRACING", "false").lower()
+    val = os.environ.get("LANGFUSE_TRACING", "false").lower()
     if val != "true":
         return
 
@@ -461,22 +461,51 @@ def setup_langsmith_otel() -> None:
     if os.environ.get("RUNNING_IN_AGENT_ENGINE", "false").lower() == "true":
         return
 
-    # Validate API key exists
-    api_key = os.environ.get("LANGSMITH_API_KEY") or os.environ.get("LANGCHAIN_API_KEY")
-    if not api_key:
+    # Validate keys exist
+    public_key = os.environ.get("LANGFUSE_PUBLIC_KEY")
+    secret_key = os.environ.get("LANGFUSE_SECRET_KEY")
+    if not public_key or not secret_key:
         logging.getLogger(__name__).warning(
-            "⚠️ LANGSMITH_TRACING is true but no API key found (LANGSMITH_API_KEY)."
+            "⚠️ LANGFUSE_TRACING is true but LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY not set."
         )
         return
 
-    project_name = os.environ.get("LANGSMITH_PROJECT", "sre-agent")
+    # Default to local self-hosted Langfuse; override for cloud
+    base_url = os.environ.get("LANGFUSE_HOST", "http://localhost:3000")
 
     try:
-        # Use the official LangSmith OTEL integration - this handles everything
-        from langsmith.integrations.otel import configure
+        import base64
 
-        # Configure LangSmith tracing - this sets up TracerProvider and exporters
-        configure(project_name=project_name)
+        from opentelemetry import trace
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+            OTLPSpanExporter,
+        )
+        from opentelemetry.sdk.resources import Resource
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+
+        # Build Basic auth header for Langfuse OTLP endpoint
+        auth_token = base64.b64encode(
+            f"{public_key}:{secret_key}".encode()
+        ).decode()
+        endpoint = f"{base_url.rstrip('/')}/api/public/otel/v1/traces"
+        headers = {"Authorization": f"Basic {auth_token}"}
+
+        # Create TracerProvider (or reuse existing SDK one)
+        tracer_provider = trace.get_tracer_provider()
+        if not isinstance(tracer_provider, TracerProvider):
+            resource = Resource.create(
+                {"service.name": os.environ.get("OTEL_SERVICE_NAME", "sre-agent")}
+            )
+            tracer_provider = TracerProvider(resource=resource)
+            trace.set_tracer_provider(tracer_provider)
+
+        # Add Langfuse OTLP exporter
+        langfuse_exporter = OTLPSpanExporter(
+            endpoint=endpoint,
+            headers=headers,
+        )
+        tracer_provider.add_span_processor(SimpleSpanProcessor(langfuse_exporter))
 
         # Instrument Google ADK to emit OpenTelemetry spans
         from openinference.instrumentation.google_adk import GoogleADKInstrumentor
@@ -484,64 +513,64 @@ def setup_langsmith_otel() -> None:
         GoogleADKInstrumentor().instrument()
 
         logging.getLogger(__name__).info(
-            f"✨ LangSmith OpenTelemetry tracing enabled (Project: {project_name})"
+            f"✨ Langfuse OpenTelemetry tracing enabled (Host: {base_url})"
         )
-        _LANGSMITH_OTEL_INITIALIZED = True
+        _LANGFUSE_OTEL_INITIALIZED = True
 
     except ImportError as e:
         logging.getLogger(__name__).warning(
-            f"LangSmith OTel dependencies missing: {e}. "
-            "Install with: pip install langsmith openinference-instrumentation-google-adk"
+            f"Langfuse OTel dependencies missing: {e}. "
+            "Install with: pip install langfuse opentelemetry-exporter-otlp "
+            "openinference-instrumentation-google-adk"
         )
     except Exception as e:
-        logging.getLogger(__name__).warning(f"Failed to setup LangSmith OTel: {e}")
+        logging.getLogger(__name__).warning(f"Failed to setup Langfuse OTel: {e}")
 
 
-# Use these functions to group traces into conversations (threads) in LangSmith.
-# See: https://docs.langchain.com/langsmith/threads
+# Use these functions to group traces into sessions in Langfuse.
+# See: https://langfuse.com/docs/tracing-features/sessions
 
 
-def set_langsmith_session(session_id: str) -> None:
-    """Set the current LangSmith session/thread ID.
+def set_langfuse_session(session_id: str) -> None:
+    """Set the current Langfuse session ID.
 
-    All subsequent traces will be grouped under this session ID in LangSmith,
-    appearing as a single "thread" or "conversation".
+    All subsequent traces will be grouped under this session ID in Langfuse.
 
     Args:
-        session_id: Unique identifier for the conversation/thread.
+        session_id: Unique identifier for the conversation/session.
                    Use your ADK session_id for natural grouping.
     """
-    _langsmith_session_id.set(session_id)
+    _langfuse_session_id.set(session_id)
     _add_session_to_current_span(session_id)
 
 
-def set_langsmith_user(user_id: str) -> None:
-    """Set the current user ID for LangSmith traces.
+def set_langfuse_user(user_id: str) -> None:
+    """Set the current user ID for Langfuse traces.
 
-    This enables user-level analytics and filtering in LangSmith.
+    This enables user-level analytics and filtering in Langfuse.
 
     Args:
         user_id: Unique identifier for the user (email, UUID, etc.)
     """
-    _langsmith_user_id.set(user_id)
+    _langfuse_user_id.set(user_id)
     _add_user_to_current_span(user_id)
 
 
-def set_langsmith_metadata(metadata: dict[str, Any]) -> None:
-    """Set custom metadata for LangSmith traces.
+def set_langfuse_metadata(metadata: dict[str, Any]) -> None:
+    """Set custom metadata for Langfuse traces.
 
-    Metadata can be used for filtering, grouping, and online evaluations.
+    Metadata can be used for filtering, grouping, and evaluations.
 
     Args:
         metadata: Dictionary of key-value pairs to attach to traces.
                  Example: {"environment": "production", "version": "1.2.3"}
     """
-    _langsmith_metadata.set(metadata)
+    _langfuse_metadata.set(metadata)
     _add_metadata_to_current_span(metadata)
 
 
-def add_langsmith_tags(tags: list[str]) -> None:
-    """Add tags to LangSmith traces.
+def add_langfuse_tags(tags: list[str]) -> None:
+    """Add tags to Langfuse traces.
 
     Tags are useful for categorizing and filtering traces.
 
@@ -549,30 +578,30 @@ def add_langsmith_tags(tags: list[str]) -> None:
         tags: List of string tags to attach.
              Example: ["production", "high-priority", "user-reported"]
     """
-    current_tags = _langsmith_tags.get() or []
+    current_tags = _langfuse_tags.get() or []
     new_tags = list(set(current_tags + tags))
-    _langsmith_tags.set(new_tags)
+    _langfuse_tags.set(new_tags)
     _add_tags_to_current_span(new_tags)
 
 
-def get_langsmith_session() -> str | None:
-    """Get the current LangSmith session ID."""
-    return _langsmith_session_id.get()
+def get_langfuse_session() -> str | None:
+    """Get the current Langfuse session ID."""
+    return _langfuse_session_id.get()
 
 
-def get_langsmith_user() -> str | None:
-    """Get the current LangSmith user ID."""
-    return _langsmith_user_id.get()
+def get_langfuse_user() -> str | None:
+    """Get the current Langfuse user ID."""
+    return _langfuse_user_id.get()
 
 
-def get_langsmith_metadata() -> dict[str, Any]:
-    """Get the current LangSmith metadata."""
-    return _langsmith_metadata.get() or {}
+def get_langfuse_metadata() -> dict[str, Any]:
+    """Get the current Langfuse metadata."""
+    return _langfuse_metadata.get() or {}
 
 
-def get_langsmith_tags() -> list[str]:
-    """Get the current LangSmith tags."""
-    return _langsmith_tags.get() or []
+def get_langfuse_tags() -> list[str]:
+    """Get the current Langfuse tags."""
+    return _langfuse_tags.get() or []
 
 
 def _add_session_to_current_span(session_id: str) -> None:
@@ -582,10 +611,9 @@ def _add_session_to_current_span(session_id: str) -> None:
 
         span = trace.get_current_span()
         if span.is_recording():
-            # LangSmith recognizes these metadata keys for thread grouping
+            # Langfuse recognizes these attribute keys for session grouping
             span.set_attribute("session_id", session_id)
-            span.set_attribute("thread_id", session_id)
-            span.set_attribute("langsmith.session_id", session_id)
+            span.set_attribute("langfuse.session.id", session_id)
     except Exception:
         pass  # Silently fail if OTel is not available
 
@@ -598,7 +626,7 @@ def _add_user_to_current_span(user_id: str) -> None:
         span = trace.get_current_span()
         if span.is_recording():
             span.set_attribute("user_id", user_id)
-            span.set_attribute("langsmith.user_id", user_id)
+            span.set_attribute("langfuse.user.id", user_id)
     except Exception:
         pass
 
@@ -611,8 +639,7 @@ def _add_metadata_to_current_span(metadata: dict[str, Any]) -> None:
         span = trace.get_current_span()
         if span.is_recording():
             for key, value in metadata.items():
-                # Prefix with langsmith. for clarity
-                span.set_attribute(f"langsmith.metadata.{key}", str(value))
+                span.set_attribute(f"langfuse.metadata.{key}", str(value))
     except Exception:
         pass
 
@@ -624,60 +651,58 @@ def _add_tags_to_current_span(tags: list[str]) -> None:
 
         span = trace.get_current_span()
         if span.is_recording():
-            span.set_attribute("langsmith.tags", tags)
+            span.set_attribute("langfuse.tags", tags)
     except Exception:
         pass
 
 
 # ============================================================================
-# LangSmith Feedback Utilities
+# Langfuse Score/Feedback Utilities
 # ============================================================================
-# Use these to send user feedback to LangSmith for online evaluations.
+# Use these to send user feedback to Langfuse for evaluations.
 
 
-def send_langsmith_feedback(
-    run_id: str,
-    key: str,
-    score: float | None = None,
-    value: str | None = None,
+def send_langfuse_score(
+    trace_id: str,
+    name: str,
+    value: float | str,
     comment: str | None = None,
 ) -> bool:
-    """Send feedback to LangSmith for a specific run.
+    """Send a score to Langfuse for a specific trace.
 
-    This enables online evaluations and user feedback tracking.
+    This enables evaluations and user feedback tracking.
 
     Args:
-        run_id: The LangSmith run ID to attach feedback to.
-        key: Feedback category (e.g., "user_rating", "correctness", "helpfulness")
-        score: Numeric score (0-1 scale recommended)
-        value: Categorical value (e.g., "thumbs_up", "thumbs_down")
+        trace_id: The trace ID to attach the score to.
+        name: Score category (e.g., "user_rating", "correctness", "helpfulness")
+        value: Numeric score (0-1 scale) or categorical string value
         comment: Optional text feedback
 
     Returns:
-        True if feedback was sent successfully, False otherwise.
+        True if score was sent successfully, False otherwise.
     """
     try:
-        from langsmith import Client
+        from langfuse import Langfuse
 
-        client = Client()
-        client.create_feedback(
-            run_id=run_id,
-            key=key,
-            score=score,
+        client = Langfuse()
+        client.score(
+            trace_id=trace_id,
+            name=name,
             value=value,
             comment=comment,
         )
+        client.flush()
         logging.getLogger(__name__).debug(
-            f"Sent LangSmith feedback: {key}={score if score is not None else value}"
+            f"Sent Langfuse score: {name}={value}"
         )
         return True
     except ImportError:
         logging.getLogger(__name__).warning(
-            "langsmith not installed, cannot send feedback"
+            "langfuse not installed, cannot send score"
         )
         return False
     except Exception as e:
-        logging.getLogger(__name__).warning(f"Failed to send LangSmith feedback: {e}")
+        logging.getLogger(__name__).warning(f"Failed to send Langfuse score: {e}")
         return False
 
 
