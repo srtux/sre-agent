@@ -62,7 +62,7 @@ from typing import Any
 # Determine environment settings for Agent initialization
 import google.auth
 import vertexai
-from google.adk.agents import LlmAgent
+from google.adk.agents import BaseAgent, LlmAgent
 from google.adk.tools import AgentTool  # type: ignore[attr-defined]
 from google.adk.tools.base_toolset import BaseToolset
 
@@ -75,6 +75,9 @@ from .auth import (
     set_current_project_id,
     set_current_user_id,
 )
+
+# Council tools
+from .council.mode_router import classify_investigation_mode
 from .memory.factory import get_memory_manager
 from .model_config import get_model_name
 from .prompt import SRE_AGENT_PROMPT
@@ -262,13 +265,16 @@ if project_id and os.environ.get("SRE_AGENT_DEPLOYMENT_MODE") != "true":
         logger.warning(f"Failed to initialize Vertex AI: {e}")
 
 
-def emojify_agent(agent: LlmAgent | Any) -> LlmAgent | Any:
-    """Wraps an LlmAgent to add emojis to prompts and responses in logs.
+def emojify_agent(agent: LlmAgent | BaseAgent | Any) -> LlmAgent | BaseAgent | Any:
+    """Wraps an LlmAgent or BaseAgent to add logging, credential injection, and OTel bridging.
 
     If a callable is passed, it assumes it's a factory (lazy loader) and
     wraps the factory to return emojified agents.
+
+    Supports both LlmAgent (with model swapping) and BaseAgent subclasses
+    (without model swapping, since they don't have a model attribute).
     """
-    if callable(agent) and not isinstance(agent, LlmAgent):
+    if callable(agent) and not isinstance(agent, (LlmAgent, BaseAgent)):
 
         @functools.wraps(agent)
         def wrapped_factory(*args: Any, **kwargs: Any) -> Any:
@@ -340,8 +346,10 @@ def emojify_agent(agent: LlmAgent | Any) -> LlmAgent | Any:
         # 1a. Safety: Ensure model is context-aware for THIS request
         # We use temporary swapping to avoid poisoning the global agent object
         # with unpickleable model clients, which would break deployment/deepcopy.
-        model_obj = _inject_global_credentials(agent, force=True)
-        old_model = agent.model
+        # Note: BaseAgent subclasses (e.g., CouncilOrchestrator) don't have a model.
+        has_model = hasattr(agent, "model") and isinstance(agent, LlmAgent)
+        model_obj = _inject_global_credentials(agent, force=True) if has_model else None
+        old_model = agent.model if has_model else None  # type: ignore[union-attr]
         should_swap = model_obj is not None and model_obj is not old_model
 
         if should_swap:
@@ -793,6 +801,100 @@ Note: If using `list_log_entries`, ensure GKE fields are prefixed with `resource
 
 
 # ============================================================================
+# Council Investigation
+# ============================================================================
+
+
+@adk_tool
+async def run_council_investigation(
+    query: str,
+    mode: str = "standard",
+    project_id: str | None = None,
+    tool_context: Any | None = None,
+) -> BaseToolResponse:
+    """Run a parallel council investigation with multiple specialist panels.
+
+    This launches 3 specialist panels (Trace, Metrics, Logs/Alerts) that analyze
+    telemetry data in parallel, then synthesizes their findings into a unified
+    assessment with severity and confidence scores.
+
+    Args:
+        query: The investigation query or question to analyze.
+        mode: Investigation mode - 'fast' (single panel), 'standard' (parallel),
+              or 'debate' (parallel + critique loop). Defaults to 'standard'.
+        project_id: GCP project ID. Auto-detected if not provided.
+        tool_context: ADK tool context (required).
+    """
+    from sre_agent.council.parallel_council import create_council_pipeline
+    from sre_agent.council.schemas import CouncilConfig, InvestigationMode
+
+    if tool_context is None:
+        raise ValueError("tool_context is required")
+
+    if not project_id:
+        project_id = get_project_id_with_fallback()
+
+    # Parse and validate mode
+    try:
+        investigation_mode = InvestigationMode(mode.lower())
+    except ValueError:
+        investigation_mode = InvestigationMode.STANDARD
+        logger.warning(f"Invalid investigation mode '{mode}', defaulting to STANDARD")
+
+    config = CouncilConfig(mode=investigation_mode)
+
+    logger.info(
+        f"🏛️ Starting council investigation (mode={investigation_mode.value}, "
+        f"project={project_id})"
+    )
+
+    try:
+        # Create the appropriate pipeline based on mode
+        if investigation_mode == InvestigationMode.DEBATE:
+            from sre_agent.council.debate import create_debate_pipeline
+
+            pipeline = create_debate_pipeline(config)
+        else:
+            pipeline = create_council_pipeline(config)
+
+        # Build the investigation prompt with project context
+        investigation_prompt = f"""
+[CURRENT PROJECT: {project_id}]
+
+Investigation Query: {query}
+
+Please analyze the relevant telemetry data and provide your findings as a structured JSON.
+"""
+
+        # Run the pipeline via AgentTool
+        result = await AgentTool(pipeline).run_async(
+            args={"request": investigation_prompt},
+            tool_context=tool_context,
+        )
+
+        return BaseToolResponse(
+            status=ToolStatus.SUCCESS,
+            result=result,
+            metadata={
+                "stage": "council",
+                "mode": investigation_mode.value,
+                "project_id": project_id,
+            },
+        )
+
+    except Exception as e:
+        logger.error(f"Council investigation failed: {e}", exc_info=True)
+        return BaseToolResponse(
+            status=ToolStatus.ERROR,
+            error=str(e),
+            metadata={
+                "stage": "council",
+                "mode": investigation_mode.value,
+            },
+        )
+
+
+# ============================================================================
 # Tool Registry for Configuration
 # ============================================================================
 
@@ -971,6 +1073,8 @@ base_tools: list[Any] = [
     run_triage_analysis,
     run_deep_dive_analysis,
     run_log_pattern_analysis,
+    run_council_investigation,
+    classify_investigation_mode,
     synthesize_report,
     list_gcp_projects,
     # Investigation tools
@@ -1014,15 +1118,55 @@ def get_enabled_tools() -> list[Any]:
     return enabled_tools
 
 
+# Slim orchestrator tool set — used when SRE_AGENT_SLIM_TOOLS=true
+# These are the only tools the root agent needs when council mode is active.
+# All specialist tools are delegated to panel agents.
+slim_tools: list[Any] = [
+    # Council orchestration
+    run_council_investigation,
+    classify_investigation_mode,
+    # Legacy orchestration (kept for backward compat)
+    run_aggregate_analysis,
+    run_triage_analysis,
+    run_deep_dive_analysis,
+    run_log_pattern_analysis,
+    synthesize_report,
+    # Project management
+    list_gcp_projects,
+    explore_project_health,
+    get_current_time,
+    # Investigation state
+    update_investigation_state,
+    get_investigation_summary,
+    # Memory
+    add_finding_to_memory,
+    search_memory,
+    suggest_next_steps,
+    # Discovery
+    discover_telemetry_sources,
+]
+
+
 def get_enabled_base_tools() -> list[Any]:
     """Get base_tools filtered by configuration.
 
-    This function maintains the same tool selection as base_tools but respects
-    the enable/disable configuration.
+    When SRE_AGENT_SLIM_TOOLS=true, returns a reduced ~20-tool set focused
+    on orchestration. All specialist tools are available via panel agents.
+
+    When false (default), returns the full base_tools list filtered by
+    the tool configuration manager.
 
     Returns:
         List of enabled base tools.
     """
+    # Check for slim tools mode
+    if os.environ.get("SRE_AGENT_SLIM_TOOLS", "false").lower() == "true":
+        logger.info(
+            f"Slim tools mode enabled: {len(slim_tools)} orchestration tools "
+            f"(down from {len(base_tools)} full tools)"
+        )
+        return list(slim_tools)
+
     manager = get_tool_config_manager()
     enabled_tool_names = set(manager.get_enabled_tools())
 
@@ -1135,14 +1279,14 @@ Direct Tools:
 root_agent = emojify_agent(sre_agent)
 
 # Emojify all sub-agents as well
-aggregate_analyzer = emojify_agent(aggregate_analyzer)
-trace_analyst = emojify_agent(trace_analyst)
-log_analyst = emojify_agent(log_analyst)
+aggregate_analyzer = emojify_agent(aggregate_analyzer)  # type: ignore[assignment]
+trace_analyst = emojify_agent(trace_analyst)  # type: ignore[assignment]
+log_analyst = emojify_agent(log_analyst)  # type: ignore[assignment]
 get_metrics_analyzer = emojify_agent(get_metrics_analyzer)  # type: ignore[assignment]
-alert_analyst = emojify_agent(alert_analyst)
+alert_analyst = emojify_agent(alert_analyst)  # type: ignore[assignment]
 
-root_cause_analyst = emojify_agent(root_cause_analyst)
-agent_debugger = emojify_agent(agent_debugger)
+root_cause_analyst = emojify_agent(root_cause_analyst)  # type: ignore[assignment]
+agent_debugger = emojify_agent(agent_debugger)  # type: ignore[assignment]
 
 
 # ============================================================================
@@ -1251,8 +1395,11 @@ def create_configured_agent(
     use_mcp: bool = False,
     respect_config: bool = True,
     model: str = "gemini-3-flash-preview",
-) -> LlmAgent:
+) -> LlmAgent | BaseAgent:
     """Get the SRE agent, optionally with filtered tools based on configuration.
+
+    When SRE_AGENT_COUNCIL_ORCHESTRATOR=true, returns a CouncilOrchestrator
+    (BaseAgent subclass) instead of the default LlmAgent root agent.
 
     Note: Due to ADK's design, sub-agents can only be bound to one parent agent.
     This function returns the existing root_agent which already has all sub-agents
@@ -1268,14 +1415,27 @@ def create_configured_agent(
         model: Ignored (for API compatibility). Model is set at agent creation time.
 
     Returns:
-        The configured root_agent instance.
+        The configured agent instance (LlmAgent or CouncilOrchestrator).
     """
+    # Check for council orchestrator mode
+    if os.environ.get("SRE_AGENT_COUNCIL_ORCHESTRATOR", "false").lower() == "true":
+        from sre_agent.council.orchestrator import create_council_orchestrator
+
+        logger.info("🏛️ Council orchestrator mode enabled")
+        # Note: We don't pass existing sub-agents because ADK enforces
+        # single-parent binding and they're already bound to the default sre_agent.
+        # The orchestrator creates its own panel agents via council pipelines.
+        orchestrator = create_council_orchestrator()
+        return emojify_agent(orchestrator)
+
     # Return the existing root_agent since sub-agents are already bound to it.
     # Tool filtering is applied at runtime through get_enabled_base_tools().
     return root_agent
 
 
-async def get_agent_with_mcp_tools(use_enabled_tools: bool = True) -> LlmAgent:
+async def get_agent_with_mcp_tools(
+    use_enabled_tools: bool = True,
+) -> LlmAgent | BaseAgent:
     """Get the SRE agent with MCP toolsets initialized.
 
     Note: Due to ADK's design, sub-agents can only be bound to one parent agent.

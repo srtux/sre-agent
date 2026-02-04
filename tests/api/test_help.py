@@ -43,6 +43,27 @@ def test_get_help_content_traversal_protection(client):
     assert response.json()["detail"] == "Invalid content ID"
 
 
+def test_get_help_content_council(client):
+    """Council help content should be accessible and contain key information."""
+    response = client.get("/api/help/content/council")
+    assert response.status_code == 200
+    assert "### Council Investigation" in response.text
+    assert "Fast" in response.text
+    assert "Standard" in response.text
+    assert "Debate" in response.text
+
+
+def test_get_help_manifest_includes_council(client):
+    """Manifest should include the council help topic."""
+    response = client.get("/api/help/manifest")
+    assert response.status_code == 200
+    manifest = response.json()
+    council_entries = [t for t in manifest if t["id"] == "council"]
+    assert len(council_entries) == 1
+    assert council_entries[0]["title"] == "Council Investigation"
+    assert "Analysis" in council_entries[0]["categories"]
+
+
 def test_get_help_content_sanitization(client):
     # Test that it handles dots safely if they aren't traversal
     # Actually our router currently rejects ANY / or \ or ..

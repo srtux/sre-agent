@@ -74,6 +74,22 @@ Auto SRE is an autonomous reliability engine for Google Cloud. We are transition
 
 Total: **105 new tests**, all passing.
 
+### Phase 2.75: Parallel Council & Debate Architecture (COMPLETED — Feb 2026)
+**Goal**: Parallel multi-signal investigation with adversarial refinement.
+
+- [x] **Council of Experts Architecture**: Four parallel specialist panels (Trace, Metrics, Logs, Alerts) running simultaneously via ADK `ParallelAgent`. Each panel has domain-specific tools and prompts.
+- [x] **Debate Pipeline**: Critic cross-examination loop using ADK `LoopAgent`. The critic challenges panel findings, identifies contradictions, and drives iterative refinement until confidence gating thresholds are met.
+- [x] **Investigation Modes**: Rule-based `IntentClassifier` selects from three modes:
+    - **Fast**: Single-panel dispatch for narrowly scoped queries.
+    - **Standard**: Four parallel panels followed by synthesizer merge.
+    - **Debate**: Panels + critic loop + confidence gating for high-severity incidents.
+- [x] **Slim Tools Feature Flag** (`SRE_AGENT_SLIM_TOOLS`): Reduces root agent from ~50 to ~20 orchestration tools. Council panels retain full domain-specific tool sets.
+- [x] **CouncilOrchestrator** (`sre_agent/council/orchestrator.py`): `BaseAgent` subclass managing mode selection, panel dispatch, debate loops, and synthesis. Activated via `SRE_AGENT_COUNCIL_ORCHESTRATOR` feature flag.
+- [x] **Council Tab in Investigation Dashboard**: Flutter UI panel displaying council panel findings, debate rounds, and synthesized results.
+- [x] **Schemas**: `InvestigationMode`, `PanelFinding`, `CriticReport`, `CouncilResult` Pydantic models with `frozen=True, extra="forbid"`.
+
+Total: **174 new council tests**, all passing. Grand total: **1512 tests**.
+
 ### Phase 3: Advanced Diagnostics (UPCOMING)
 **Goal**: Specialized analytical logic for complex failure modes.
 

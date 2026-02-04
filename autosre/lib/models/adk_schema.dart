@@ -174,6 +174,40 @@ class RemediationPlan {
   }
 }
 
+/// Represents a council investigation synthesis result.
+class CouncilSynthesisData {
+  final String synthesis;
+  final String overallSeverity;
+  final double overallConfidence;
+  final String mode;
+  final int rounds;
+  final Map<String, dynamic> rawData;
+
+  CouncilSynthesisData({
+    required this.synthesis,
+    required this.overallSeverity,
+    required this.overallConfidence,
+    required this.mode,
+    required this.rounds,
+    required this.rawData,
+  });
+
+  factory CouncilSynthesisData.fromJson(Map<String, dynamic> json) {
+    // The result may be nested under 'result' key from BaseToolResponse
+    final data = json.containsKey('result') && json['result'] is Map
+        ? Map<String, dynamic>.from(json['result'] as Map)
+        : json;
+    return CouncilSynthesisData(
+      synthesis: data['synthesis'] as String? ?? '',
+      overallSeverity: data['overall_severity'] as String? ?? 'info',
+      overallConfidence: (data['overall_confidence'] as num?)?.toDouble() ?? 0.0,
+      mode: data['mode'] as String? ?? 'standard',
+      rounds: data['rounds'] as int? ?? 1,
+      rawData: json,
+    );
+  }
+}
+
 class ToolLog {
   final String toolName;
   final Map<String, dynamic> args;

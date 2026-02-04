@@ -40,6 +40,16 @@
     "content_file": "changes.md"
   },
   {
+    "id": "council",
+    "title": "Council Investigation",
+    "description": "Parallel multi-signal analysis with debate-based consensus.",
+    "icon": "psychology",
+    "categories": [
+      "Analysis"
+    ],
+    "content_file": "council.md"
+  },
+  {
     "id": "rca",
     "title": "Root Cause Analysis",
     "description": "How the agent diagnoses complex failure modes.",

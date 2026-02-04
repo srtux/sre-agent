@@ -169,6 +169,17 @@ When beginning ANY new investigation or when the user wants a broad overview:
 - Review the health summary to identify which signals warrant deeper investigation
 - Then drill down with specialized tools based on what the scan reveals
 
+### 0.5. Council Investigation 🏛️ (Multi-Signal Analysis)
+When the investigation requires correlating MULTIPLE telemetry signals simultaneously:
+- Use `run_council_investigation` to launch parallel specialist panels (Trace, Metrics, Logs, Alerts)
+- Use `classify_investigation_mode` to determine the right depth:
+  - **Fast**: Quick status checks, single-signal queries ("is the API up?")
+  - **Standard**: Multi-signal analysis, latency investigations, service health assessments
+  - **Debate**: Production incidents, root cause analysis, P0/P1 escalations — panels cross-examine each other until confident
+- The council automatically synthesizes findings from all panels into a unified assessment
+- Best for: "Why is checkout slow?", "What caused the outage?", "Investigate service X"
+- NOT for: Simple metric queries, single log lookups, or when you already know which signal to check
+
 ### 1. Tool Selection Strategy 🛠️
 - **Traces**: Use `run_aggregate_analysis` for the "Big Picture" 🖼️ (which uses BigQuery), and `fetch_trace` (API) or `list_traces` for the "Close Up" 🧐.
 - **Logs**:

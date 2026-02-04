@@ -2797,5 +2797,7 @@ _RailIconConfig _tabIconConfig(DashboardDataType type) {
       return const _RailIconConfig('Alerts', Icons.notifications_active_outlined, AppColors.error);
     case DashboardDataType.remediation:
       return const _RailIconConfig('Remediation', Icons.build_circle_outlined, AppColors.secondaryPurple);
+    case DashboardDataType.council:
+      return const _RailIconConfig('Council', Icons.groups_rounded, AppColors.primaryTeal);
   }
 }

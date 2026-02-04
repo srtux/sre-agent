@@ -72,6 +72,18 @@ sre_agent/                  # Backend source
     agent_engine_client.py  # Remote Agent Engine client (dual-mode)
     memory_manager.py       # Memory service
   memory/                   # Memory subsystem (manager, factory, local)
+  council/                  # Parallel Council architecture
+    schemas.py              # InvestigationMode, PanelFinding, CriticReport, CouncilResult
+    panels.py               # 4 specialist panel factories (trace, metrics, logs, alerts)
+    parallel_council.py     # Standard mode: ParallelAgent → Synthesizer
+    debate.py               # Debate mode: panels → critic loop → confidence gating
+    critic.py               # Cross-examination of panel findings
+    synthesizer.py          # Unified assessment from all panels
+    orchestrator.py         # CouncilOrchestrator BaseAgent subclass
+    intent_classifier.py    # Rule-based mode selection (Fast/Standard/Debate)
+    mode_router.py          # @adk_tool wrapper for intent classification
+    tool_registry.py        # Panel tool assignments
+    prompts.py              # Panel, critic, synthesizer prompts
   models/
     investigation.py        # InvestigationPhase enum, InvestigationState model
   resources/
@@ -83,7 +95,7 @@ autosre/                    # Flutter frontend
     services/               # Auth, API client, session, dashboard state, connectivity
     widgets/                # Dashboard panels, trace waterfall, charts, remediation plan
       canvas/               # Agent activity, AI reasoning, alerts, incident timeline, metrics, topology
-      dashboard/            # Live panels (alerts, logs, metrics, remediation, traces)
+      dashboard/            # Live panels (alerts, council, logs, metrics, remediation, traces)
     models/                 # ADK schema definitions
     theme/                  # Material 3 deep space theme
 
@@ -151,6 +163,12 @@ Frontend subscribes via `dashboardStream`, decoupled from chat A2UI.
 ### 7. MCP vs Direct API
 MCP (mcp/): BigQuery SQL, complex aggregations. Direct (clients/): single fetches, low-latency.
 Fallback rule: MCP fails -> Direct API.
+
+### 8. Council Architecture
+Parallel investigation via 4 specialist panels (Trace, Metrics, Logs, Alerts) running in ADK `ParallelAgent`.
+Three modes: **Fast** (single panel), **Standard** (4 panels + synthesizer), **Debate** (panels + critic `LoopAgent` + confidence gating).
+`CouncilOrchestrator` (`BaseAgent` subclass) manages the lifecycle. Feature flags: `SRE_AGENT_COUNCIL_ORCHESTRATOR` (enable orchestrator), `SRE_AGENT_SLIM_TOOLS` (reduce root agent to ~20 tools).
+Schemas: `InvestigationMode`, `PanelFinding`, `CriticReport`, `CouncilResult` in `council/schemas.py`.
 
 ## COMMANDS
 ```bash

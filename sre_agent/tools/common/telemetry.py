@@ -679,7 +679,7 @@ def send_langfuse_score(
         from langfuse import Langfuse
 
         client = Langfuse()
-        client.score(
+        client.score(  # type: ignore[attr-defined]
             trace_id=trace_id,
             name=name,
             value=value,

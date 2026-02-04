@@ -9,6 +9,7 @@ enum DashboardDataType {
   traces,
   alerts,
   remediation,
+  council,
 }
 
 /// A single item collected from a tool call for dashboard display.
@@ -27,6 +28,7 @@ class DashboardItem {
   final Trace? traceData;
   final IncidentTimelineData? alertData;
   final RemediationPlan? remediationPlan;
+  final CouncilSynthesisData? councilData;
 
   DashboardItem({
     required this.id,
@@ -41,6 +43,7 @@ class DashboardItem {
     this.traceData,
     this.alertData,
     this.remediationPlan,
+    this.councilData,
   });
 }
 
@@ -59,6 +62,8 @@ DashboardDataType? classifyComponent(String componentType) {
       return DashboardDataType.alerts;
     case 'x-sre-remediation-plan':
       return DashboardDataType.remediation;
+    case 'x-sre-council-synthesis':
+      return DashboardDataType.council;
     default:
       return null;
   }
@@ -230,6 +235,21 @@ class DashboardState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Add a council synthesis result to the dashboard.
+  void addCouncilSynthesis(
+      CouncilSynthesisData data, String toolName, Map<String, dynamic> raw) {
+    _itemCounter++;
+    _items.add(DashboardItem(
+      id: 'council-$_itemCounter',
+      type: DashboardDataType.council,
+      toolName: toolName,
+      timestamp: DateTime.now(),
+      rawData: raw,
+      councilData: data,
+    ));
+    notifyListeners();
+  }
+
   /// Process a dashboard event received from the backend's dedicated channel.
   ///
   /// This is the primary way to feed data into the dashboard. Events have
@@ -288,6 +308,10 @@ class DashboardState extends ChangeNotifier {
           if (plan.steps.isEmpty) return false;
           addRemediation(plan, toolName, dataMap);
 
+        case 'x-sre-council-synthesis':
+          final council = CouncilSynthesisData.fromJson(dataMap);
+          addCouncilSynthesis(council, toolName, dataMap);
+
         default:
           debugPrint('Unknown dashboard widget_type: $widgetType');
           return false;
@@ -319,6 +343,8 @@ class DashboardState extends ChangeNotifier {
         return DashboardDataType.alerts;
       case 'remediation':
         return DashboardDataType.remediation;
+      case 'council':
+        return DashboardDataType.council;
       default:
         return null;
     }

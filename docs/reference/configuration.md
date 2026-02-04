@@ -60,6 +60,13 @@ The following variables are deprecated and will be removed in a future release.
 
 > **Migration**: If you were previously using Arize for observability, switch to native Cloud Trace (`OTEL_TO_CLOUD=true`) for production tracing. For local development debugging, use Langfuse (`LANGFUSE_TRACING=true`). Both can run simultaneously.
 
+## Council Architecture
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SRE_AGENT_SLIM_TOOLS` | Reduce root agent to ~20 orchestration tools. Council panels retain full tool sets. | `false` |
+| `SRE_AGENT_COUNCIL_ORCHESTRATOR` | Replace root LlmAgent with CouncilOrchestrator. Routes queries to parallel panels with debate support. | `false` |
+
 ## Storage & Sessions
 
 | Variable | Description | Default |

@@ -13,7 +13,7 @@ from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 from typing import Any
 
-from google.adk.agents import LlmAgent
+from google.adk.agents import BaseAgent, LlmAgent
 from google.adk.events import Event, EventActions
 from google.adk.sessions import Session
 
@@ -106,7 +106,7 @@ class Runner:
 
     def __init__(
         self,
-        agent: LlmAgent,
+        agent: LlmAgent | BaseAgent,
         config: RunnerConfig | None = None,
         policy_engine: PolicyEngine | None = None,
         context_compactor: ContextCompactor | None = None,
@@ -642,7 +642,7 @@ Please approve or reject this operation to continue.
 
 # Factory function for creating runners
 def create_runner(
-    agent: LlmAgent,
+    agent: LlmAgent | BaseAgent,
     enforce_policy: bool = True,
     enable_compaction: bool = True,
     use_three_tier_prompts: bool = True,
