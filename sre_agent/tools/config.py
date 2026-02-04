@@ -315,24 +315,24 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         enabled=True,  # Enabled by default for aggregate analysis
     ),
     ToolConfig(
-        name="list_dataset_ids",
-        display_name="List BigQuery Datasets",
+        name="mcp_list_dataset_ids",
+        display_name="MCP List BigQuery Datasets",
         description="List BigQuery datasets using MCP",
         category=ToolCategory.DISCOVERY,
         testable=False,
         enabled=True,
     ),
     ToolConfig(
-        name="list_table_ids",
-        display_name="List BigQuery Tables",
+        name="mcp_list_table_ids",
+        display_name="MCP List BigQuery Tables",
         description="List BigQuery tables using MCP",
         category=ToolCategory.DISCOVERY,
         testable=False,
         enabled=True,
     ),
     ToolConfig(
-        name="get_table_info",
-        display_name="Get BigQuery Table Info",
+        name="mcp_get_table_info",
+        display_name="MCP Get BigQuery Table Info",
         description="Get BigQuery table schema and info using MCP",
         category=ToolCategory.DISCOVERY,
         testable=False,
@@ -605,6 +605,20 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         testable=False,
     ),
     ToolConfig(
+        name="perform_causal_analysis",
+        display_name="Perform Causal Analysis",
+        description="Perform causal analysis on trace data to identify root cause",
+        category=ToolCategory.TRACE_ANALYZE,
+        testable=False,
+    ),
+    ToolConfig(
+        name="detect_latency_anomalies",
+        display_name="Detect Latency Anomalies",
+        description="Detect statistical latency anomalies in traces",
+        category=ToolCategory.TRACE_ANALYZE,
+        testable=False,
+    ),
+    ToolConfig(
         name="build_service_dependency_graph",
         display_name="Build Service Dependency Graph",
         description="Build a graph of service dependencies",
@@ -798,6 +812,44 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         category=ToolCategory.DISCOVERY,
         testable=True,
     ),
+    ToolConfig(
+        name="explore_project_health",
+        display_name="Explore Project Health",
+        description="Broad project health exploration across all signals",
+        category=ToolCategory.DISCOVERY,
+        testable=False,
+    ),
+    # -------------------------------------------------------------------------
+    # Agent Debugging Tools
+    # -------------------------------------------------------------------------
+    ToolConfig(
+        name="list_agent_traces",
+        display_name="List Agent Traces",
+        description="List traces of agent execution for debugging",
+        category=ToolCategory.ANALYSIS,
+        testable=False,
+    ),
+    ToolConfig(
+        name="analyze_agent_token_usage",
+        display_name="Analyze Agent Token Usage",
+        description="Analyze token usage patterns for the agent",
+        category=ToolCategory.ANALYSIS,
+        testable=False,
+    ),
+    ToolConfig(
+        name="detect_agent_anti_patterns",
+        display_name="Detect Agent Anti-Patterns",
+        description="Detect common anti-patterns in agent execution",
+        category=ToolCategory.ANALYSIS,
+        testable=False,
+    ),
+    ToolConfig(
+        name="reconstruct_agent_interaction",
+        display_name="Reconstruct Agent Interaction",
+        description="Reconstruct the interaction history of the agent",
+        category=ToolCategory.ANALYSIS,
+        testable=False,
+    ),
     # -------------------------------------------------------------------------
     # Orchestration Tools
     # -------------------------------------------------------------------------
@@ -830,13 +882,6 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         testable=False,
     ),
     ToolConfig(
-        name="transfer_to_agent",
-        display_name="Transfer to Agent",
-        description="Transfer the investigation to a specialized sub-agent",
-        category=ToolCategory.ORCHESTRATION,
-        testable=False,
-    ),
-    ToolConfig(
         name="list_metric_descriptors",
         display_name="List Metric Descriptors",
         description="List and filter GCP metric descriptors",
@@ -853,30 +898,8 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         category=ToolCategory.ORCHESTRATION,
         testable=False,
     ),
-    # -------------------------------------------------------------------------
-    # Mutation Tools (Write)
-    # -------------------------------------------------------------------------
-    ToolConfig(
-        name="restart_pod",
-        display_name="Restart Pod",
-        description="Restart a Kubernetes pod",
-        category=ToolCategory.GKE,
-        testable=True,
-    ),
-    ToolConfig(
-        name="scale_deployment",
-        display_name="Scale Deployment",
-        description="Scale a Kubernetes deployment",
-        category=ToolCategory.GKE,
-        testable=True,
-    ),
-    ToolConfig(
-        name="rollback_deployment",
-        display_name="Rollback Deployment",
-        description="Rollback a deployment to previous version",
-        category=ToolCategory.GKE,
-        testable=True,
-    ),
+    # Mutation tools (restart_pod, scale_deployment, rollback_deployment) are
+    # currently unimplemented placeholders and have been removed.
 ]
 
 

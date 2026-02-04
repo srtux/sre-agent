@@ -64,18 +64,38 @@ async def analyze_trace_patterns(
 
 ---
 
-## GenUI Integration
+## Tool Configuration Registry
 
-A special class of tools integrates with the **GenUI Adapter** (`sre_agent/tools/analysis/genui_adapter.py`).
-This adapter intercepts tool outputs and transforms them into JSON schemas recognized by the Flutter frontend. This is how a "Log Pattern" tool becomes a "Log Pattern Viewer widget" in the UI.
+The SRE Agent uses a dynamic configuration registry to manage the visibility and status of tools without requiring a full redeploy.
+
+### Master Manifest (`sre_agent/tools/config.py`)
+The `TOOL_DEFINITIONS` list is the definitive source of truth for tool metadata. Every configurable tool must have a `ToolConfig` entry here, defining its:
+- **Name**: The unique identifier used by the LLM.
+- **Display Name**: The human-readable name shown in the UI.
+- **Category**: Helps the agent organize its "Superpower" catalog.
+- **Enabled Status**: Tools can be toggled on/off at runtime via the management API.
+
+### Registry Synchronization
+Tools must be synchronized across three locations:
+1. **Metadata Registry**: `sre_agent/tools/config.py` (`TOOL_DEFINITIONS`)
+2. **Logic Mapping**: `sre_agent/agent.py` (`TOOL_NAME_MAP`)
+3. **Availability List**: `sre_agent/agent.py` (`base_tools`)
+
+---
+
 
 ## Extending the Catalog
 
 To add a new tool:
-1.  Implement the logic in a new file under `sre_agent/tools/analysis/`.
-2.  Follow the `BaseToolResponse` pattern.
-3.  Register the tool in the `TOOL_NAME_MAP` and `base_tools` list in `sre_agent/agent.py`.
-4.  (Optional) Add a layout mapping in `genui_adapter.py` to give it a custom UI widget.
+1.  **Implement**: Write the logic in a specialized module (e.g., under `sre_agent/tools/analysis/`).
+2.  **Decorate**: Use the `@adk_tool` decorator and return a `BaseToolResponse`.
+3.  **Register (Metadata)**: Add a `ToolConfig` entry to `TOOL_DEFINITIONS` in `sre_agent/tools/config.py`.
+4.  **Register (Logic)**: Map the tool name in `TOOL_NAME_MAP` and add the function to `base_tools` in `sre_agent/agent.py`.
+5.  **Verify Sync**: Run the consistency test to ensure all registries are aligned:
+    ```bash
+    pytest tests/unit/sre_agent/test_tool_map_consistency.py
+    ```
+6.  **(Optional)**: Add a layout mapping in `genui_adapter.py` to enable a custom GenUI widget.
 
 ---
 *Last verified: 2026-02-02 — Auto SRE Team*

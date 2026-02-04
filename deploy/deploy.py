@@ -252,12 +252,12 @@ def deploy(env_vars: dict[str, str] | None = None) -> None:
                     )
                 else:
                     # ReasoningEngine.update uses top-level arguments
-                    # Passing staging_bucket as kwarg is usually okay for ReasoningEngine.update
+                    # Standard ReasoningEngine.update does NOT accept staging_bucket.
+                    # Use 'agent' instead of 'agent_engine' for modern SDK compatibility.
                     remote_agent = existing_agent.update(
-                        agent_engine=adk_app,
+                        agent=adk_app,
                         display_name=display_name,
                         description=description,
-                        staging_bucket=staging_bucket,
                         **common_kwargs,
                     )
                 remote_resource_name = getattr(
@@ -307,8 +307,9 @@ def deploy(env_vars: dict[str, str] | None = None) -> None:
         else:
             # ReasoningEngine.create uses top-level arguments
             # We don't pass staging_bucket to ReasoningEngine.create directly as it uses vertexai.init
+            # Use 'agent' instead of 'agent_engine' for modern SDK compatibility.
             remote_agent = agent_engines_api.create(
-                agent_engine=adk_app,
+                agent=adk_app,
                 display_name=display_name,
                 description=description,
                 **common_kwargs,

@@ -202,6 +202,8 @@ from .tools import (
     query_promql,
     reconstruct_agent_interaction,
     search_memory,
+    select_traces_from_statistical_outliers,
+    select_traces_manually,
     suggest_next_steps,
     summarize_trace,
     update_investigation_state,
@@ -215,7 +217,10 @@ from .tools.mcp.gcp import (
     create_monitoring_mcp_toolset,
     get_project_id_with_fallback,
     mcp_execute_sql,
+    mcp_get_table_info,
+    mcp_list_dataset_ids,
     mcp_list_log_entries,
+    mcp_list_table_ids,
     mcp_list_timeseries,
     mcp_query_range,
 )
@@ -884,6 +889,9 @@ TOOL_NAME_MAP = {
     "detect_agent_anti_patterns": detect_agent_anti_patterns,
     # MCP Tools
     "mcp_execute_sql": mcp_execute_sql,
+    "mcp_list_dataset_ids": mcp_list_dataset_ids,
+    "mcp_list_table_ids": mcp_list_table_ids,
+    "mcp_get_table_info": mcp_get_table_info,
     "mcp_list_log_entries": mcp_list_log_entries,
     "mcp_list_timeseries": mcp_list_timeseries,
     "mcp_query_range": mcp_query_range,
@@ -897,6 +905,8 @@ TOOL_NAME_MAP = {
     "run_aggregate_analysis": run_aggregate_analysis,
     "run_triage_analysis": run_triage_analysis,
     "run_deep_dive_analysis": run_deep_dive_analysis,
+    "select_traces_manually": select_traces_manually,
+    "select_traces_from_statistical_outliers": select_traces_from_statistical_outliers,
     "run_log_pattern_analysis": run_log_pattern_analysis,
     # Investigation
     "update_investigation_state": update_investigation_state,
@@ -945,6 +955,9 @@ base_tools: list[Any] = [
     discover_telemetry_sources,
     # MCP Tools
     mcp_execute_sql,
+    mcp_list_dataset_ids,
+    mcp_list_table_ids,
+    mcp_get_table_info,
     mcp_list_log_entries,
     mcp_list_timeseries,
     mcp_query_range,

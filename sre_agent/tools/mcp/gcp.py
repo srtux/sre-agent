@@ -848,3 +848,118 @@ async def mcp_execute_sql(
         result=res.get("result"),
         error=res.get("error"),
     )
+
+
+@adk_tool
+async def mcp_list_dataset_ids(
+    project_id: str | None = None,
+    tool_context: Any | None = None,
+) -> BaseToolResponse:
+    """List available BigQuery datasets via MCP.
+
+    Use this to explore available data sources for analytical queries.
+
+    Args:
+        project_id: GCP project ID. If not provided, uses default credentials.
+        tool_context: ADK tool context (required).
+
+    Returns:
+        List of dataset IDs.
+    """
+    if tool_context is None:
+        raise ValueError("tool_context is required for MCP tools")
+
+    pid = project_id or get_project_id_with_fallback()
+    args = {"projectId": pid, "project_id": pid}
+
+    res = await call_mcp_tool_with_retry(
+        create_bigquery_mcp_toolset,
+        "list_dataset_ids",
+        args,
+        tool_context,
+        project_id=project_id,
+    )
+    return BaseToolResponse(
+        status=res.get("status", ToolStatus.SUCCESS),
+        result=res.get("result"),
+        error=res.get("error"),
+    )
+
+
+@adk_tool
+async def mcp_list_table_ids(
+    dataset_id: str,
+    project_id: str | None = None,
+    tool_context: Any | None = None,
+) -> BaseToolResponse:
+    """List tables in a specific BigQuery dataset via MCP.
+
+    Args:
+        dataset_id: The ID of the dataset to list tables from.
+        project_id: GCP project ID. If not provided, uses default credentials.
+        tool_context: ADK tool context (required).
+
+    Returns:
+        List of table IDs.
+    """
+    if tool_context is None:
+        raise ValueError("tool_context is required for MCP tools")
+
+    pid = project_id or get_project_id_with_fallback()
+    args = {"datasetId": dataset_id, "projectId": pid, "project_id": pid}
+
+    res = await call_mcp_tool_with_retry(
+        create_bigquery_mcp_toolset,
+        "list_table_ids",
+        args,
+        tool_context,
+        project_id=project_id,
+    )
+    return BaseToolResponse(
+        status=res.get("status", ToolStatus.SUCCESS),
+        result=res.get("result"),
+        error=res.get("error"),
+    )
+
+
+@adk_tool
+async def mcp_get_table_info(
+    dataset_id: str,
+    table_id: str,
+    project_id: str | None = None,
+    tool_context: Any | None = None,
+) -> BaseToolResponse:
+    """Get BigQuery table schema and metadata via MCP.
+
+    Args:
+        dataset_id: The ID of the dataset.
+        table_id: The ID of the table.
+        project_id: GCP project ID. If not provided, uses default credentials.
+        tool_context: ADK tool context (required).
+
+    Returns:
+        Table information including schema.
+    """
+    if tool_context is None:
+        raise ValueError("tool_context is required for MCP tools")
+
+    pid = project_id or get_project_id_with_fallback()
+    args = {
+        "datasetId": dataset_id,
+        "tableId": table_id,
+        "projectId": pid,
+        "project_id": pid,
+    }
+
+    res = await call_mcp_tool_with_retry(
+        create_bigquery_mcp_toolset,
+        "get_table_info",
+        args,
+        tool_context,
+        project_id=project_id,
+    )
+    return BaseToolResponse(
+        status=res.get("status", ToolStatus.SUCCESS),
+        result=res.get("result"),
+        error=res.get("error"),
+    )
