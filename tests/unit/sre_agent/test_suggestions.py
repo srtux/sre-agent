@@ -148,6 +148,7 @@ async def test_generate_suggestions_session_with_llm():
     with (
         patch("sre_agent.suggestions.get_session_service", return_value=mock_service),
         patch("sre_agent.suggestions.LlmAgent", return_value=mock_agent),
+        patch("sre_agent.suggestions.InvocationContext"),
     ):
         suggestions = await generate_contextual_suggestions(session_id=session_id)
         assert len(suggestions) >= MIN_SUGGESTIONS
@@ -209,6 +210,7 @@ Let me know if you need more details."""
     with (
         patch("sre_agent.suggestions.get_session_service", return_value=mock_service),
         patch("sre_agent.suggestions.LlmAgent", return_value=mock_agent),
+        patch("sre_agent.suggestions.InvocationContext"),
     ):
         suggestions = await generate_contextual_suggestions(session_id=session_id)
         assert len(suggestions) >= MIN_SUGGESTIONS
@@ -231,7 +233,10 @@ async def test_generate_llm_suggestions_handles_markdown_codeblocks():
 
     mock_agent.run_async.side_effect = mock_run_async
 
-    with patch("sre_agent.suggestions.LlmAgent", return_value=mock_agent):
+    with (
+        patch("sre_agent.suggestions.LlmAgent", return_value=mock_agent),
+        patch("sre_agent.suggestions.InvocationContext"),
+    ):
         suggestions = await _generate_llm_suggestions("test context")
         assert "Check logs" in suggestions
         assert "Analyze traces" in suggestions
@@ -255,7 +260,10 @@ async def test_generate_llm_suggestions_handles_empty_response():
 
     mock_agent.run_async.side_effect = mock_run_async
 
-    with patch("sre_agent.suggestions.LlmAgent", return_value=mock_agent):
+    with (
+        patch("sre_agent.suggestions.LlmAgent", return_value=mock_agent),
+        patch("sre_agent.suggestions.InvocationContext"),
+    ):
         suggestions = await _generate_llm_suggestions("test context")
         assert suggestions == []
 
@@ -277,7 +285,10 @@ async def test_generate_llm_suggestions_handles_invalid_json():
 
     mock_agent.run_async.side_effect = mock_run_async
 
-    with patch("sre_agent.suggestions.LlmAgent", return_value=mock_agent):
+    with (
+        patch("sre_agent.suggestions.LlmAgent", return_value=mock_agent),
+        patch("sre_agent.suggestions.InvocationContext"),
+    ):
         suggestions = await _generate_llm_suggestions("test context")
         assert suggestions == []
 
@@ -303,7 +314,10 @@ async def test_generate_llm_suggestions_filters_invalid_suggestions():
 
     mock_agent.run_async.side_effect = mock_run_async
 
-    with patch("sre_agent.suggestions.LlmAgent", return_value=mock_agent):
+    with (
+        patch("sre_agent.suggestions.LlmAgent", return_value=mock_agent),
+        patch("sre_agent.suggestions.InvocationContext"),
+    ):
         suggestions = await _generate_llm_suggestions("test context")
         # Only "This is a valid suggestion" should pass the filter
         assert len(suggestions) == 1
@@ -417,6 +431,7 @@ async def test_generate_suggestions_llm_fallback_supplements_defaults():
     with (
         patch("sre_agent.suggestions.get_session_service", return_value=mock_service),
         patch("sre_agent.suggestions.LlmAgent", return_value=mock_agent),
+        patch("sre_agent.suggestions.InvocationContext"),
     ):
         suggestions = await generate_contextual_suggestions(session_id=session_id)
         # Should have LLM suggestions plus defaults to reach minimum

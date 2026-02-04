@@ -12,8 +12,12 @@ import re
 from typing import Any
 
 from google.adk.agents import LlmAgent
+from google.adk.agents.invocation_context import InvocationContext
+from google.adk.agents.run_config import RunConfig
 from google.adk.models.google_llm import Gemini
-from google.genai.types import GenerateContentConfig
+from google.adk.sessions.in_memory_session_service import InMemorySessionService
+from google.adk.sessions.session import Session
+from google.genai.types import Content, GenerateContentConfig, Part
 
 from .services import get_session_service
 
@@ -139,7 +143,21 @@ Return ONLY a JSON array of strings."""
         )
 
         response_text = ""
-        async for event in agent.run_async(prompt):
+
+        # Create a dummy invocation context
+        dummy_session = Session(
+            app_name="sre_agent", user_id="system", id="suggestions-gen"
+        )
+        inv_ctx = InvocationContext(
+            session=dummy_session,
+            agent=agent,
+            invocation_id="suggestions-inv",
+            session_service=InMemorySessionService(),  # type: ignore
+            run_config=RunConfig(),
+        )
+        inv_ctx.user_content = Content(parts=[Part(text=prompt)], role="user")
+
+        async for event in agent.run_async(inv_ctx):
             if hasattr(event, "content") and event.content and event.content.parts:
                 for part in event.content.parts:
                     if hasattr(part, "text") and part.text:
