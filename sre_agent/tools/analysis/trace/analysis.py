@@ -308,14 +308,14 @@ def _validate_trace_quality_impl(trace: TraceData) -> dict[str, Any]:
                         p_end_str = parent.get("end_time")
 
                         if p_start_str and p_end_str:
-                            p_start = datetime.fromisoformat(
+                            p_start_ts = datetime.fromisoformat(
                                 p_start_str.replace("Z", "+00:00")
                             ).timestamp()
-                            p_end = datetime.fromisoformat(
+                            p_end_ts = datetime.fromisoformat(
                                 p_end_str.replace("Z", "+00:00")
                             ).timestamp()
 
-                            if start_unix < p_start or end_unix > p_end:
+                            if start_unix < p_start_ts or end_unix > p_end_ts:
                                 issues.append(
                                     {
                                         "type": "clock_skew",
