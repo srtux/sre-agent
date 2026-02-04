@@ -356,6 +356,7 @@ def emojify_agent(agent: LlmAgent | Any) -> LlmAgent | Any:
             if session_state is None and isinstance(context.session, dict):
                 session_state = context.session.get("state")
 
+        remote_trace_id = None
         if session_state:
             user_creds = get_credentials_from_session(session_state)
             if user_creds:
