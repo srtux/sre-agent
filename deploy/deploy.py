@@ -245,9 +245,10 @@ def deploy(env_vars: dict[str, str] | None = None) -> None:
                             "staging_bucket": staging_bucket,
                         }
                     )
+
                     remote_agent = agent_engines_api.update(
                         name=existing_agent.resource_name,
-                        agent_engine=adk_app,
+                        agent=adk_app,
                         config=update_config,
                     )
                 else:
@@ -294,14 +295,14 @@ def deploy(env_vars: dict[str, str] | None = None) -> None:
                     "requirements": common_kwargs.get("requirements"),
                     "extra_packages": common_kwargs.get("extra_packages"),
                     "env_vars": common_kwargs.get("env_vars"),
-                    "service_account": FLAGS.service_account,
+                    # Service account must be unset when using AGENT_IDENTITY
                     "min_instances": FLAGS.min_instances,
                     "max_instances": FLAGS.max_instances,
                     "staging_bucket": staging_bucket,
                 }
             )
             remote_agent = agent_engines_api.create(
-                agent_engine=adk_app,
+                agent=adk_app,
                 config=create_config,
             )
         else:

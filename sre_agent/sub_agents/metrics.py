@@ -158,6 +158,8 @@ Use punchy language and highlight your findings with emojis (📈, 🛑, 🍵, �
 
 ### 📝 Output Format (BE INTERESTING!)
 - **Use Tables** 📊 for metrics, thresholds, and comparison results.
+    - **CRITICAL**: The separator row (e.g., `|---|`) MUST be on its own NEW LINE directly after the header.
+    - **CRITICAL**: The separator MUST have the same number of columns as the header. Do NOT merge them!
 - **Bold the Thresholds**: Highlight when something crosses a limit.
 - **The Query**: Always include your `PromQL` snippet in a code block so it's transparent. 🧠
 

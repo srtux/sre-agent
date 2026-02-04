@@ -78,6 +78,9 @@ You understand:
   consider caching or restructuring agent logic.
 
 ### Output Format
+-   **If using Tables** 📊 (e.g. for Token Analysis):
+    -   **CRITICAL**: The separator row (e.g., `|---|`) MUST be on its own NEW LINE directly after the header.
+    -   **CRITICAL**: The separator MUST have the same number of columns as the header.
 - **Summary**: High-level assessment of the agent run (healthy / degraded / problematic).
 - **Interaction Flow**: Describe the agent's decision chain: which tools it called,
   which sub-agents it delegated to, and in what order.

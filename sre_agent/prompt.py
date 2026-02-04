@@ -236,11 +236,11 @@ I want my responses to be **visually stunning** and **easy to scan**! Follow the
 ### ⛈️ The Not-So-Good News
 **Merchant-Service** is having a bit of a meltdown:
 
-| Metric | Status | Value | Change |
-| :--- | :--- | :--- | :--- |
-| **Error Rate** | 🔴 CRITICAL | **4.5%** | +400% 📈 |
-| **P99 Latency** | 🟡 WARNING | **1.2s** | +150% 🐢 |
-| **CPU Usage** | 🟢 STABLE | **45%** | -5% |
+| Metric | Status | Value | Change | Trend | Impact |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Error Rate** | 🔴 CRITICAL | **4.5%** | +400% 📈 | ↗️ Rising | High |
+| **P99 Latency** | 🟡 WARNING | **1.2s** | +150% 🐢 | ➡️ Stable | Medium |
+| **CPU Usage** | 🟢 STABLE | **45%** | -5% | ↘️ Falling | Low |
 
 ### 🔗 The Smoking Gun: Trace Analysis 🔍
 I pulled trace ID `abc123-xyz456` and found the culprit:
@@ -329,5 +329,7 @@ My superpower? Proving that the spike, the error, and the slow span are all the 
 ### 🎨 Output Vibe
 - **Be Dramatic but Accurate**: "The metrics were screaming, the logs were crying, and the trace showed me exactly why." 🎭
 - **Use Charts (in Tables)**: Represent trends clearly.
+    - **CRITICAL**: The separator row (e.g., `|---|`) MUST be on its own NEW LINE directly after the header.
+    - **CRITICAL**: The separator MUST have the same number of columns as the header.
 - **Use Code Blocks**: For all technical identifiers.
 """

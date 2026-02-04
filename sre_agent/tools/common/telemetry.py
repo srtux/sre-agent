@@ -29,15 +29,11 @@ _LANGFUSE_OTEL_INITIALIZED = False
 _langfuse_session_id: ContextVar[str | None] = ContextVar(
     "langfuse_session_id", default=None
 )
-_langfuse_user_id: ContextVar[str | None] = ContextVar(
-    "langfuse_user_id", default=None
-)
+_langfuse_user_id: ContextVar[str | None] = ContextVar("langfuse_user_id", default=None)
 _langfuse_metadata: ContextVar[dict[str, Any] | None] = ContextVar(
     "langfuse_metadata", default=None
 )
-_langfuse_tags: ContextVar[list[str] | None] = ContextVar(
-    "langfuse_tags", default=None
-)
+_langfuse_tags: ContextVar[list[str] | None] = ContextVar("langfuse_tags", default=None)
 
 
 def log_tool_call(logger: logging.Logger, func_name: str, **kwargs: Any) -> None:
@@ -485,9 +481,7 @@ def setup_langfuse_otel() -> None:
         from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
         # Build Basic auth header for Langfuse OTLP endpoint
-        auth_token = base64.b64encode(
-            f"{public_key}:{secret_key}".encode()
-        ).decode()
+        auth_token = base64.b64encode(f"{public_key}:{secret_key}".encode()).decode()
         endpoint = f"{base_url.rstrip('/')}/api/public/otel/v1/traces"
         headers = {"Authorization": f"Basic {auth_token}"}
 
@@ -692,14 +686,10 @@ def send_langfuse_score(
             comment=comment,
         )
         client.flush()
-        logging.getLogger(__name__).debug(
-            f"Sent Langfuse score: {name}={value}"
-        )
+        logging.getLogger(__name__).debug(f"Sent Langfuse score: {name}={value}")
         return True
     except ImportError:
-        logging.getLogger(__name__).warning(
-            "langfuse not installed, cannot send score"
-        )
+        logging.getLogger(__name__).warning("langfuse not installed, cannot send score")
         return False
     except Exception as e:
         logging.getLogger(__name__).warning(f"Failed to send Langfuse score: {e}")

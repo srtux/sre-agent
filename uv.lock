@@ -2350,7 +2350,7 @@ wheels = [
 
 [[package]]
 name = "opentelemetry-instrumentation-google-genai"
-version = "0.5b0"
+version = "0.6b0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "opentelemetry-api" },
@@ -2358,9 +2358,9 @@ dependencies = [
     { name = "opentelemetry-semantic-conventions" },
     { name = "opentelemetry-util-genai" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/8f/62/b2506d74f50d4d0f150293d171dc1196c9334ba02c51d6ed19d64d0f76c4/opentelemetry_instrumentation_google_genai-0.5b0.tar.gz", hash = "sha256:1986cd1a69dafdcccee15ae9f114e45ff04954951af0fef8b5482e2930fc0b17", size = 47840, upload-time = "2025-12-11T14:50:48.641Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/60/59/a0d3da1679c056db45fa6338b332f9add8544c5afe9f7643d37062617c9a/opentelemetry_instrumentation_google_genai-0.6b0.tar.gz", hash = "sha256:76229c51a166d53e58e0376487f420562f1ab155511fe932110b4ea9c5718aad", size = 48433, upload-time = "2026-01-27T22:15:13.906Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/90/9f/a55591e2b41f6c29c4cf4b459617b03318e6d1e9c06f3b3ce7f22b7da8fc/opentelemetry_instrumentation_google_genai-0.5b0-py3-none-any.whl", hash = "sha256:20467a96d7407affc975e63d1175c21a4d33dd83f5ec162dddde6cea9e8f3995", size = 29531, upload-time = "2025-12-11T14:50:47.323Z" },
+    { url = "https://files.pythonhosted.org/packages/71/fd/5da48a5efef82034b6c0e20d5d293f4ade223bb2ec54101c1f7c81206577/opentelemetry_instrumentation_google_genai-0.6b0-py3-none-any.whl", hash = "sha256:bc5cf5957b697f05ffb765f59bb9e08aae457f1d08967753966e9d8a49b1b79f", size = 29861, upload-time = "2026-01-27T22:15:12.912Z" },
 ]
 
 [[package]]
@@ -3402,6 +3402,7 @@ dependencies = [
     { name = "mcp" },
     { name = "nest-asyncio" },
     { name = "opentelemetry-instrumentation-fastapi" },
+    { name = "opentelemetry-instrumentation-google-genai" },
     { name = "pandas" },
     { name = "pydantic" },
     { name = "pydantic-core" },
@@ -3454,6 +3455,7 @@ requires-dist = [
     { name = "mcp", specifier = ">=0.1.0" },
     { name = "nest-asyncio", specifier = ">=1.6.0" },
     { name = "opentelemetry-instrumentation-fastapi", specifier = ">=0.58b0" },
+    { name = "opentelemetry-instrumentation-google-genai", specifier = ">=0.5.0" },
     { name = "pandas", specifier = ">=2.0.0" },
     { name = "pydantic", specifier = ">=2.10.6" },
     { name = "pydantic-core", specifier = ">=2.10.0" },

@@ -97,7 +97,12 @@ Output should be data-heavy but summarized with flair.
 - **The Vibe**: "Everything is burning" vs "Just a little smokey". 🔥
 - **The Culprit**: Which service is acting up.
 - **The Proof**: Trace IDs and Error Counts. 🧾
-    - **CRITICAL**: If using a table, the separator row (e.g., `|---|`) MUST be on its own NEW LINE directly after the header. DO NOT merge them!
+    - **CRITICAL**: If using a table, the separator row (e.g., `|---|`) MUST be on its own NEW LINE directly after the header.
+    - **CRITICAL**: The separator row MUST have the EXACT SAME number of columns as the header row.
+    - **Example**:
+      | Service | Operation | Count | Error Rate | P50 (ms) | P95 (ms) |
+      | :--- | :--- | :--- | :--- | :--- | :--- |
+      | `checkout` | `/pay` | 1500 | 5.2% | 45 | 120 |
 """
 
 TRACE_ANALYST_PROMPT = f"""
