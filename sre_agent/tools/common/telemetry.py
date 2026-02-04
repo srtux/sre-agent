@@ -272,11 +272,11 @@ def setup_telemetry(level: int = logging.INFO) -> None:
     # and ensure high-fidelity traces regardless of how the exporter is set up.
     try:
         from opentelemetry.instrumentation.google_genai import (
-            GoogleGenAiInstrumentor,
+            GoogleGenAiSdkInstrumentor,
         )
 
         # instrument() is idempotent
-        GoogleGenAiInstrumentor().instrument()
+        GoogleGenAiSdkInstrumentor().instrument()
         logging.getLogger(__name__).info(
             "✨ Google GenAI Native instrumentation enabled"
         )

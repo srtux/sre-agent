@@ -54,6 +54,10 @@ def mock_flags():
         mock.service_account = "test-sa@project.iam.gserviceaccount.com"
         mock.min_instances = 1
         mock.max_instances = 2
+        mock.bucket = "test-bucket"
+        mock.use_agent_identity = False
+        mock.project_id = "test-project"
+        mock.location = "us-central1"
         yield mock
 
 

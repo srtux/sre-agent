@@ -113,6 +113,7 @@ The `--create` command is now "smart" by default. It will:
 - The `sre_agent` package with all dependencies
 - Environment variables for telemetry and EUC handling
 - Tracing enabled (`GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY=true`)
+- **Deployment Mode**: Sets `SRE_AGENT_DEPLOYMENT_MODE=true` during creation to prevent unpickleable objects (like active model clients or telemetry handlers) from being initialized during pickling.
 
 ### `deploy_web.py` - Frontend (Cloud Run)
 
@@ -157,6 +158,44 @@ uv run python deploy/grant_permissions.py
 | `roles/aiplatform.user` | Call Agent Engine |
 | `roles/secretmanager.secretAccessor` | Access secrets |
 | `roles/datastore.user` | Session persistence |
+
+### 1.1 Establish Agent Identity (Optional but Recommended)
+
+Agent Identity allows the Reasoning Engine to act as its own security principal, enabling background tasks and system-level operations without requiring active user token propagation.
+
+#### 1. Enable Identity during Deployment:
+Enable the `--use_agent_identity` flag. This initializes the `vertexai.Client` with the `v1beta1` API version required for identity features.
+
+```bash
+uv run python deploy/deploy.py --create --use_agent_identity
+```
+
+#### 2. Grant Permissions to the Identity:
+The agent requires a broad set of "Viewer" roles to analyze incident signals, plus "Writer" roles for its own telemetry. Use the automation script:
+
+```bash
+# Run the setup script
+bash deploy/setup_agent_identity_iam.sh \
+  --project-id $(gcloud config get-value project) \
+  --org-id YOUR_ORG_ID \
+  --agent-id YOUR_ENGINE_ID
+```
+
+The script grants the following roles to the `principal://agents.global.org-...` URI:
+- `roles/aiplatform.expressUser`, `roles/serviceusage.serviceUsageConsumer`
+- `roles/cloudtrace.agent`, `roles/cloudtrace.user`
+- `roles/logging.viewer`, `roles/logging.logWriter`
+- `roles/monitoring.viewer`, `roles/monitoring.metricWriter`
+- `roles/bigquery.dataViewer`, `roles/bigquery.jobUser` (for Phase 0 analysis)
+- `roles/secretmanager.secretAccessor`, `roles/datastore.user` (for memory)
+- `roles/container.viewer`, `roles/container.clusterViewer` (for GKE discovery)
+
+#### 3. Verify the Identity:
+You can verify that the identity is active and has correct bindings:
+
+```bash
+uv run python deploy/verify_agent_identity.py --agent-id YOUR_ENGINE_ID
+```
 
 ## End-User Credentials (EUC) Flow
 

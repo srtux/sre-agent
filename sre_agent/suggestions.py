@@ -11,8 +11,10 @@ import logging
 import re
 from typing import Any
 
-from google.adk.agents import LlmAgent
+from google.adk.agents import InvocationContext, LlmAgent, RunConfig
 from google.adk.models.google_llm import Gemini
+from google.adk.sessions import InMemorySessionService, Session
+from google.genai import types
 from google.genai.types import GenerateContentConfig
 
 from .services import get_session_service
@@ -139,7 +141,28 @@ Return ONLY a JSON array of strings."""
         )
 
         response_text = ""
-        async for event in agent.run_async(prompt):
+        import uuid
+
+        # Create a minimal InvocationContext to satisfy ADK BaseAgent
+        user_content = types.Content(
+            role="user",
+            parts=[types.Part.from_text(text=prompt)],
+        )
+
+        inv_ctx = InvocationContext(
+            invocation_id=str(uuid.uuid4()),
+            agent=agent,
+            session=Session(
+                id="suggestions-session",
+                user_id="suggestions-user",
+                app_name="sre-agent",
+            ),
+            session_service=InMemorySessionService(),  # type: ignore[no-untyped-call]
+            user_content=user_content,
+            run_config=RunConfig(),
+        )
+
+        async for event in agent.run_async(inv_ctx):
             if hasattr(event, "content") and event.content and event.content.parts:
                 for part in event.content.parts:
                     if hasattr(part, "text") and part.text:

@@ -26,6 +26,9 @@ from dotenv import load_dotenv
 from vertexai import agent_engines
 from vertexai.agent_engines import AdkApp
 
+# Guard against global objects being initialized during pickling
+os.environ["SRE_AGENT_DEPLOYMENT_MODE"] = "true"
+
 from sre_agent.agent import root_agent
 from sre_agent.core.runner import create_runner
 from sre_agent.core.runner_adapter import RunnerAgentAdapter
@@ -40,6 +43,9 @@ flags.DEFINE_string("description", None, "Description for the agent.")
 flags.DEFINE_string("service_account", None, "Service account for the agent.")
 flags.DEFINE_integer("min_instances", 1, "Minimum instances.")
 flags.DEFINE_integer("max_instances", None, "Maximum instances.")
+flags.DEFINE_bool(
+    "use_agent_identity", False, "Enable Agent Identity for the Reasoning Engine."
+)
 
 
 flags.DEFINE_bool("list", False, "List all agents.")
@@ -133,19 +139,48 @@ def deploy(env_vars: dict[str, str] | None = None) -> None:
     display_name = FLAGS.display_name if FLAGS.display_name else root_agent.name
     description = FLAGS.description if FLAGS.description else root_agent.description
 
+    # Re-initialize display_name/description if they weren't set correctly above
+    # (Cleaning up a previous small edit error)
+
+    # Ensure staging bucket has gs:// prefix for the client-scoped API
+    staging_bucket = (
+        FLAGS.bucket if FLAGS.bucket else os.getenv("GOOGLE_CLOUD_STORAGE_BUCKET")
+    )
+    if staging_bucket and not staging_bucket.startswith("gs://"):
+        staging_bucket = f"gs://{staging_bucket}"
+
+    # Identify the API and identity settings
+    if getattr(FLAGS, "use_agent_identity", False) is True:
+        from vertexai import types
+
+        client = vertexai.Client(
+            project=FLAGS.project_id or os.getenv("GOOGLE_CLOUD_PROJECT"),
+            location=FLAGS.location
+            or os.getenv("AGENT_ENGINE_LOCATION")
+            or os.getenv("GOOGLE_CLOUD_LOCATION"),
+            http_options=dict(api_version="v1beta1"),
+        )
+        agent_engines_api = client.agent_engines
+        print("✅ Using v1beta1 client for Agent Identity")
+        print("🔐 Agent Identity enabled for this deployment.")
+        identity_config = {"identity_type": types.IdentityType.AGENT_IDENTITY}
+    else:
+        agent_engines_api = agent_engines
+        identity_config = {}
+
     # Find existing agent by Resource ID or Display Name
     existing_agent = None
     if FLAGS.resource_id:
         print(f"Checking for existing agent with ID: {FLAGS.resource_id}")
         try:
-            existing_agent = agent_engines.get(FLAGS.resource_id)
+            existing_agent = agent_engines_api.get(FLAGS.resource_id)
         except Exception:
             print(f"Agent with ID {FLAGS.resource_id} not found.")
 
-    if not existing_agent and not FLAGS.force_new:
+    if not existing_agent and not getattr(FLAGS, "force_new", False):
         print(f"Searching for existing agent with display name '{display_name}'...")
         try:
-            all_agents = agent_engines.list()
+            all_agents = agent_engines_api.list()
             for agent in all_agents:
                 if agent.display_name == display_name:
                     existing_agent = agent
@@ -176,18 +211,22 @@ def deploy(env_vars: dict[str, str] | None = None) -> None:
         },
     }
 
+    if identity_config:
+        common_kwargs["config"] = identity_config
+
     # IMPORTANT: Propagate the stable Agent ID to the backend if we are updating.
     # This ensures that the backend uses the correct app_name for sessions.
     if existing_agent and not FLAGS.force_new:
-        common_kwargs["env_vars"]["SRE_AGENT_ID"] = existing_agent.resource_name
+        existing_resource_name = getattr(
+            existing_agent, "resource_name", None
+        ) or getattr(getattr(existing_agent, "api_resource", None), "name", "unknown")
+        common_kwargs["env_vars"]["SRE_AGENT_ID"] = existing_resource_name
 
     print(f"Deploying with requirements: {requirements}")
 
     if existing_agent and not FLAGS.force_new:
         print(f"✅ Found existing agent: {existing_agent.resource_name}")
         print("🚀 Updating existing agent (patching)...")
-        # In the ADK/Vertex SDK, update() performs the PATCH operation
-        # Note: update() requires all arguments to be keyword-only
 
         # Handle concurrent updates with a retry loop
         max_retries = 12  # 12 * 60s = 12 minutes
@@ -196,13 +235,37 @@ def deploy(env_vars: dict[str, str] | None = None) -> None:
 
         while retry_count < max_retries:
             try:
-                remote_agent = existing_agent.update(
-                    agent_engine=adk_app,
-                    display_name=display_name,
-                    description=description,
-                    **common_kwargs,
+                if getattr(FLAGS, "use_agent_identity", False) is True:
+                    # Packaging for client.agent_engines.update
+                    update_config = common_kwargs.get("config", {}).copy()
+                    update_config.update(
+                        {
+                            "display_name": display_name,
+                            "description": description,
+                            "staging_bucket": staging_bucket,
+                        }
+                    )
+                    remote_agent = agent_engines_api.update(
+                        name=existing_agent.resource_name,
+                        agent=adk_app,
+                        config=update_config,
+                    )
+                else:
+                    # ReasoningEngine.update uses top-level arguments
+                    # Passing staging_bucket as kwarg is usually okay for ReasoningEngine.update
+                    remote_agent = existing_agent.update(
+                        agent_engine=adk_app,
+                        display_name=display_name,
+                        description=description,
+                        staging_bucket=staging_bucket,
+                        **common_kwargs,
+                    )
+                remote_resource_name = getattr(
+                    remote_agent, "resource_name", None
+                ) or getattr(
+                    getattr(remote_agent, "api_resource", None), "name", "unknown"
                 )
-                print(f"Successfully updated agent: {remote_agent.resource_name}")
+                print(f"Successfully updated agent: {remote_resource_name}")
                 break
             except exceptions.InvalidArgument as e:
                 # Vertex AI often returns 400 InvalidArgument when an update is already in progress
@@ -221,21 +284,48 @@ def deploy(env_vars: dict[str, str] | None = None) -> None:
                 raise
     else:
         print(f"🚀 Creating new agent: {display_name}")
-        remote_agent = agent_engines.create(
-            agent_engine=adk_app,
-            display_name=display_name,
-            description=description,
-            **common_kwargs,
-            service_account=FLAGS.service_account,
-            min_instances=FLAGS.min_instances,
-            max_instances=FLAGS.max_instances,
-        )
-        print(f"Successfully created agent: {remote_agent.resource_name}")
+        if getattr(FLAGS, "use_agent_identity", False) is True:
+            # Packaging for client.agent_engines.create
+            create_config = common_kwargs.get("config", {}).copy()
+            create_config.update(
+                {
+                    "display_name": display_name,
+                    "description": description,
+                    "requirements": common_kwargs.get("requirements"),
+                    "extra_packages": common_kwargs.get("extra_packages"),
+                    "env_vars": common_kwargs.get("env_vars"),
+                    "service_account": FLAGS.service_account,
+                    "min_instances": FLAGS.min_instances,
+                    "max_instances": FLAGS.max_instances,
+                    "staging_bucket": staging_bucket,
+                }
+            )
+            remote_agent = agent_engines_api.create(
+                agent=adk_app,
+                config=create_config,
+            )
+        else:
+            # ReasoningEngine.create uses top-level arguments
+            # We don't pass staging_bucket to ReasoningEngine.create directly as it uses vertexai.init
+            remote_agent = agent_engines_api.create(
+                agent_engine=adk_app,
+                display_name=display_name,
+                description=description,
+                **common_kwargs,
+                service_account=FLAGS.service_account,
+                min_instances=FLAGS.min_instances,
+                max_instances=FLAGS.max_instances,
+            )
+        print(f"Successfully created agent: {display_name}")
 
-    print(f"Resource name: {remote_agent.resource_name}")
+    remote_resource_name = getattr(remote_agent, "resource_name", None) or getattr(
+        getattr(remote_agent, "api_resource", None), "name", "unknown"
+    )
+    print(f"Resource name: {remote_resource_name}")
 
 
 def delete(resource_id: str) -> None:
+    # Use global agent_engines for delete unless we want to scope it too
     remote_agent = agent_engines.get(resource_id)
     remote_agent.delete(force=True)
     print(f"Deleted remote agent: {resource_id}")
@@ -292,6 +382,11 @@ def main(argv: list[str]) -> None:
         location=location,
         staging_bucket=bucket if bucket.startswith("gs://") else f"gs://{bucket}",
     )
+
+    # Re-initialize client if Agent Identity is requested to ensure v1beta1 support
+    if FLAGS.use_agent_identity:
+        # Client initialization moved inside deploy() for cleaner scoping
+        pass
 
     if FLAGS.list:
         list_agents()

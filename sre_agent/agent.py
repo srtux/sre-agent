@@ -34,16 +34,19 @@ The agent uses a "Core Squad" orchestration pattern (simplified from the previou
 -   **Kubernetes/GKE**: Cluster health and workload debugging.
 """
 
+import os
+
 # 1. Initialize Telemetry and Logging as early as possible
 # This MUST happen before importing other modules to ensure OTel instrumentation
 # correctly patches ADK and other libraries.
-try:
-    from .tools.common.telemetry import setup_telemetry
+if os.environ.get("SRE_AGENT_DEPLOYMENT_MODE") != "true":
+    try:
+        from .tools.common.telemetry import setup_telemetry
 
-    setup_telemetry()
-except Exception as e:
-    # Use standard print as last resort if logging failed to initialize
-    print(f"CRITICAL: Failed to initialize telemetry/logging: {e}")
+        setup_telemetry()
+    except Exception as e:
+        # Use standard print as last resort if logging failed to initialize
+        print(f"CRITICAL: Failed to initialize telemetry/logging: {e}")
 
 from google.adk.features import FeatureName, override_feature_enabled
 
@@ -52,7 +55,6 @@ override_feature_enabled(FeatureName.JSON_SCHEMA_FOR_FUNC_DECL, True)
 import asyncio
 import functools
 import logging
-import os
 from collections.abc import AsyncGenerator
 from datetime import datetime, timezone
 from typing import Any
@@ -247,7 +249,7 @@ if project_id:
 # Determine environment settings for Agent initialization
 project_id = os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("GCP_PROJECT_ID")
 
-if project_id:
+if project_id and os.environ.get("SRE_AGENT_DEPLOYMENT_MODE") != "true":
     try:
         vertexai.init(project=project_id, location=location)
         logger.info(f"✅ Initialized Vertex AI: {project_id} @ {location}")

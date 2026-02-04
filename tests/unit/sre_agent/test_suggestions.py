@@ -114,7 +114,13 @@ async def test_generate_suggestions_with_long_alert_name():
 
 
 @pytest.mark.asyncio
-async def test_generate_suggestions_session_with_llm():
+@patch("sre_agent.suggestions.InvocationContext", return_value=MagicMock())
+@patch("sre_agent.suggestions.Session", return_value=MagicMock())
+@patch("sre_agent.suggestions.RunConfig", return_value=MagicMock())
+@patch("sre_agent.suggestions.InMemorySessionService", return_value=MagicMock())
+async def test_generate_suggestions_session_with_llm(
+    mock_is_service, mock_rc, mock_sess, mock_inv
+):
     """Test suggestions generation with session history using LLM."""
     session_id = "sess-123"
 
@@ -155,7 +161,13 @@ async def test_generate_suggestions_session_with_llm():
 
 
 @pytest.mark.asyncio
-async def test_generate_suggestions_session_with_recommended_steps():
+@patch("sre_agent.suggestions.InvocationContext", return_value=MagicMock())
+@patch("sre_agent.suggestions.Session", return_value=MagicMock())
+@patch("sre_agent.suggestions.RunConfig", return_value=MagicMock())
+@patch("sre_agent.suggestions.InMemorySessionService", return_value=MagicMock())
+async def test_generate_suggestions_session_with_recommended_steps(
+    mock_is_service, mock_rc, mock_sess, mock_inv
+):
     """Test that agent's Recommended Next Steps are extracted and used."""
     session_id = "sess-123"
 
@@ -215,7 +227,13 @@ Let me know if you need more details."""
 
 
 @pytest.mark.asyncio
-async def test_generate_llm_suggestions_handles_markdown_codeblocks():
+@patch("sre_agent.suggestions.InvocationContext", return_value=MagicMock())
+@patch("sre_agent.suggestions.Session", return_value=MagicMock())
+@patch("sre_agent.suggestions.RunConfig", return_value=MagicMock())
+@patch("sre_agent.suggestions.InMemorySessionService", return_value=MagicMock())
+async def test_generate_llm_suggestions_handles_markdown_codeblocks(
+    mock_is_service, mock_rc, mock_sess, mock_inv
+):
     """Test that LLM responses with markdown code blocks are parsed correctly."""
     mock_llm_response = MagicMock()
     mock_llm_response.text = '```json\n["Check logs", "Analyze traces"]\n```'
@@ -238,7 +256,13 @@ async def test_generate_llm_suggestions_handles_markdown_codeblocks():
 
 
 @pytest.mark.asyncio
-async def test_generate_llm_suggestions_handles_empty_response():
+@patch("sre_agent.suggestions.InvocationContext", return_value=MagicMock())
+@patch("sre_agent.suggestions.Session", return_value=MagicMock())
+@patch("sre_agent.suggestions.RunConfig", return_value=MagicMock())
+@patch("sre_agent.suggestions.InMemorySessionService", return_value=MagicMock())
+async def test_generate_llm_suggestions_handles_empty_response(
+    mock_is_service, mock_rc, mock_sess, mock_inv
+):
     """Test that empty LLM responses are handled gracefully."""
     mock_llm_response = MagicMock()
     mock_llm_response.text = None
@@ -261,7 +285,13 @@ async def test_generate_llm_suggestions_handles_empty_response():
 
 
 @pytest.mark.asyncio
-async def test_generate_llm_suggestions_handles_invalid_json():
+@patch("sre_agent.suggestions.InvocationContext", return_value=MagicMock())
+@patch("sre_agent.suggestions.Session", return_value=MagicMock())
+@patch("sre_agent.suggestions.RunConfig", return_value=MagicMock())
+@patch("sre_agent.suggestions.InMemorySessionService", return_value=MagicMock())
+async def test_generate_llm_suggestions_handles_invalid_json(
+    mock_is_service, mock_rc, mock_sess, mock_inv
+):
     """Test that invalid JSON responses are handled gracefully."""
     mock_llm_response = MagicMock()
     mock_llm_response.text = "This is not valid JSON"
@@ -283,7 +313,13 @@ async def test_generate_llm_suggestions_handles_invalid_json():
 
 
 @pytest.mark.asyncio
-async def test_generate_llm_suggestions_filters_invalid_suggestions():
+@patch("sre_agent.suggestions.InvocationContext", return_value=MagicMock())
+@patch("sre_agent.suggestions.Session", return_value=MagicMock())
+@patch("sre_agent.suggestions.RunConfig", return_value=MagicMock())
+@patch("sre_agent.suggestions.InMemorySessionService", return_value=MagicMock())
+async def test_generate_llm_suggestions_filters_invalid_suggestions(
+    mock_is_service, mock_rc, mock_sess, mock_inv
+):
     """Test that suggestions that are too short or too long are filtered."""
     import json
 
@@ -384,7 +420,13 @@ async def test_generate_suggestions_alerts_error():
 
 
 @pytest.mark.asyncio
-async def test_generate_suggestions_llm_fallback_supplements_defaults():
+@patch("sre_agent.suggestions.InvocationContext", return_value=MagicMock())
+@patch("sre_agent.suggestions.Session", return_value=MagicMock())
+@patch("sre_agent.suggestions.RunConfig", return_value=MagicMock())
+@patch("sre_agent.suggestions.InMemorySessionService", return_value=MagicMock())
+async def test_generate_suggestions_llm_fallback_supplements_defaults(
+    mock_is_service, mock_rc, mock_sess, mock_inv
+):
     """Test that when LLM returns too few suggestions, defaults are added."""
     session_id = "sess-123"
 
