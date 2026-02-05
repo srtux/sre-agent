@@ -174,6 +174,118 @@ class RemediationPlan {
   }
 }
 
+/// Represents a finding from a specialist panel in the council.
+class PanelFinding {
+  final String panel; // trace, metrics, logs, alerts
+  final String summary;
+  final String severity; // critical, warning, info, healthy
+  final double confidence;
+  final List<String> evidence;
+  final List<String> recommendedActions;
+
+  PanelFinding({
+    required this.panel,
+    required this.summary,
+    required this.severity,
+    required this.confidence,
+    required this.evidence,
+    required this.recommendedActions,
+  });
+
+  factory PanelFinding.fromJson(Map<String, dynamic> json) {
+    return PanelFinding(
+      panel: json['panel'] as String? ?? 'unknown',
+      summary: json['summary'] as String? ?? '',
+      severity: json['severity'] as String? ?? 'info',
+      confidence: (json['confidence'] as num?)?.toDouble() ?? 0.0,
+      evidence: (json['evidence'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      recommendedActions: (json['recommended_actions'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+    );
+  }
+
+  /// Returns the display name for the panel
+  String get displayName {
+    switch (panel.toLowerCase()) {
+      case 'trace':
+        return 'Trace Analysis';
+      case 'metrics':
+        return 'Metrics Analysis';
+      case 'logs':
+        return 'Logs Analysis';
+      case 'alerts':
+        return 'Alerts Analysis';
+      default:
+        return panel;
+    }
+  }
+
+  /// Returns the icon name for the panel
+  String get iconName {
+    switch (panel.toLowerCase()) {
+      case 'trace':
+        return 'timeline';
+      case 'metrics':
+        return 'analytics';
+      case 'logs':
+        return 'description';
+      case 'alerts':
+        return 'notifications_active';
+      default:
+        return 'help';
+    }
+  }
+}
+
+/// Represents a critic's cross-examination report in debate mode.
+class CriticReport {
+  final List<String> agreements;
+  final List<String> contradictions;
+  final List<String> gaps;
+  final double revisedConfidence;
+
+  CriticReport({
+    required this.agreements,
+    required this.contradictions,
+    required this.gaps,
+    required this.revisedConfidence,
+  });
+
+  factory CriticReport.fromJson(Map<String, dynamic> json) {
+    return CriticReport(
+      agreements: (json['agreements'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      contradictions: (json['contradictions'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      gaps: (json['gaps'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      revisedConfidence:
+          (json['revised_confidence'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+
+  /// Whether there are any contradictions
+  bool get hasContradictions => contradictions.isNotEmpty;
+
+  /// Whether there are any gaps
+  bool get hasGaps => gaps.isNotEmpty;
+
+  /// Whether there is strong agreement
+  bool get hasStrongAgreement =>
+      agreements.length >= 2 && contradictions.isEmpty;
+}
+
 /// Represents a council investigation synthesis result.
 class CouncilSynthesisData {
   final String synthesis;
@@ -181,6 +293,8 @@ class CouncilSynthesisData {
   final double overallConfidence;
   final String mode;
   final int rounds;
+  final List<PanelFinding> panels;
+  final CriticReport? criticReport;
   final Map<String, dynamic> rawData;
 
   CouncilSynthesisData({
@@ -189,6 +303,8 @@ class CouncilSynthesisData {
     required this.overallConfidence,
     required this.mode,
     required this.rounds,
+    required this.panels,
+    this.criticReport,
     required this.rawData,
   });
 
@@ -197,14 +313,48 @@ class CouncilSynthesisData {
     final data = json.containsKey('result') && json['result'] is Map
         ? Map<String, dynamic>.from(json['result'] as Map)
         : json;
+
+    // Parse panels
+    List<PanelFinding> panels = [];
+    if (data['panels'] != null && data['panels'] is List) {
+      panels = (data['panels'] as List)
+          .map((p) => PanelFinding.fromJson(Map<String, dynamic>.from(p)))
+          .toList();
+    }
+
+    // Parse critic report
+    CriticReport? criticReport;
+    if (data['critic_report'] != null && data['critic_report'] is Map) {
+      criticReport = CriticReport.fromJson(
+          Map<String, dynamic>.from(data['critic_report'] as Map));
+    }
+
     return CouncilSynthesisData(
       synthesis: data['synthesis'] as String? ?? '',
       overallSeverity: data['overall_severity'] as String? ?? 'info',
-      overallConfidence: (data['overall_confidence'] as num?)?.toDouble() ?? 0.0,
+      overallConfidence:
+          (data['overall_confidence'] as num?)?.toDouble() ?? 0.0,
       mode: data['mode'] as String? ?? 'standard',
       rounds: data['rounds'] as int? ?? 1,
+      panels: panels,
+      criticReport: criticReport,
       rawData: json,
     );
+  }
+
+  /// Whether this is a debate mode investigation
+  bool get isDebateMode => mode.toLowerCase() == 'debate';
+
+  /// Whether critic report is available
+  bool get hasCriticReport => criticReport != null;
+
+  /// Get panel by type
+  PanelFinding? getPanelByType(String type) {
+    try {
+      return panels.firstWhere((p) => p.panel.toLowerCase() == type.toLowerCase());
+    } catch (_) {
+      return null;
+    }
   }
 }
 
