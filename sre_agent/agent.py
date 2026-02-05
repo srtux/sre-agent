@@ -105,6 +105,8 @@ from .tools import (
     analyze_agent_token_usage,
     # BigQuery tools
     analyze_aggregate_metrics,
+    # Self-improvement tools
+    analyze_and_learn_from_traces,
     # Additional BQ tools
     analyze_bigquery_log_patterns,
     # Critical path analysis tools
@@ -132,6 +134,8 @@ from .tools import (
     compare_metric_windows,
     compare_span_timings,
     compare_time_periods,
+    # Investigation completion
+    complete_investigation,
     compute_latency_statistics,
     # Change Correlation
     correlate_changes_with_incident,
@@ -183,6 +187,7 @@ from .tools import (
     get_investigation_summary,
     get_logs_for_trace,
     get_pod_restart_events,
+    get_recommended_investigation_strategy,
     get_slo_status,
     get_trace_by_url,
     get_workload_health_summary,
@@ -1014,9 +1019,12 @@ TOOL_NAME_MAP = {
     # Investigation
     "update_investigation_state": update_investigation_state,
     "get_investigation_summary": get_investigation_summary,
-    # Memory
+    # Memory & Self-Improvement
     "add_finding_to_memory": add_finding_to_memory,
     "search_memory": search_memory,
+    "complete_investigation": complete_investigation,
+    "get_recommended_investigation_strategy": get_recommended_investigation_strategy,
+    "analyze_and_learn_from_traces": analyze_and_learn_from_traces,
     "suggest_next_steps": suggest_next_steps,
 }
 
@@ -1080,9 +1088,12 @@ base_tools: list[Any] = [
     # Investigation tools
     update_investigation_state,
     get_investigation_summary,
-    # Memory tools
+    # Memory & Self-Improvement tools
     add_finding_to_memory,
     search_memory,
+    complete_investigation,
+    get_recommended_investigation_strategy,
+    analyze_and_learn_from_traces,
     suggest_next_steps,
     # Change Correlation
     correlate_changes_with_incident,
@@ -1138,9 +1149,12 @@ slim_tools: list[Any] = [
     # Investigation state
     update_investigation_state,
     get_investigation_summary,
-    # Memory
+    # Memory & Self-Improvement
     add_finding_to_memory,
     search_memory,
+    complete_investigation,
+    get_recommended_investigation_strategy,
+    analyze_and_learn_from_traces,
     suggest_next_steps,
     # Discovery
     discover_telemetry_sources,
@@ -1212,13 +1226,17 @@ def is_tool_enabled(tool_name: str) -> bool:
 # PreloadMemoryTool: Automatically retrieves relevant past context (tool failures,
 #   API syntax lessons, investigation patterns) at the start of every agent turn.
 # LoadMemoryTool: Allows the agent to explicitly search memory on-demand.
-# Callbacks: Automatically record tool failures and API syntax errors to memory
-#   so the agent avoids repeating the same mistakes across sessions.
+# Callbacks: Automatically record tool successes and failures to memory for
+#   continuous learning across sessions:
+#   - before_tool_memory_callback: Tracks tool call sequences for pattern learning
+#   - after_tool_memory_callback: Records failures AND significant successes
+#   - on_tool_error_memory_callback: Records tool exceptions
 from google.adk.tools.load_memory_tool import load_memory_tool
 from google.adk.tools.preload_memory_tool import preload_memory_tool
 
 from .memory.callbacks import (
     after_tool_memory_callback,
+    before_tool_memory_callback,
     on_tool_error_memory_callback,
 )
 
@@ -1242,6 +1260,7 @@ Capabilities:
 - Debugs Kubernetes/GKE clusters (Node pressure, Pod crash loops, OOMs)
 - Provides automated remediation suggestions with risk assessment
 - Long-term memory: Remembers past tool failures, API syntax, and investigation patterns
+- Self-improvement: Learns from successful investigations to get faster over time
 
 Structure:
 - Stage 0 (Aggregate): Analyze fleet-wide trends using BigQuery
@@ -1252,10 +1271,12 @@ Direct Tools:
 - Observability: fetch_trace, list_log_entries, query_promql, list_time_series, list_slos
 - Analysis: analyze_trace_comprehensive, find_bottleneck_services, correlate_logs_with_trace
 - Platform: get_gke_cluster_health, list_alerts, detect_metric_anomalies
-- Memory: preload_memory (auto), load_memory (on-demand), search_memory, add_finding_to_memory""",
+- Memory: preload_memory (auto), load_memory (on-demand), search_memory, add_finding_to_memory
+- Self-improvement: analyze_and_learn_from_traces, complete_investigation""",
     instruction=f"{SRE_AGENT_PROMPT}\n\n## 📅 Current Time\nThe current time is: {datetime.now(timezone.utc).isoformat()}",
     tools=_agent_tools,
     # Callbacks for automatic memory-driven learning
+    before_tool_callback=before_tool_memory_callback,
     after_tool_callback=after_tool_memory_callback,
     on_tool_error_callback=on_tool_error_memory_callback,
     # Sub-agents for specialized analysis (automatically invoked based on task)

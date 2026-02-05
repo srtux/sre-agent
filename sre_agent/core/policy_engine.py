@@ -625,6 +625,24 @@ TOOL_POLICIES: dict[str, ToolPolicy] = {
         category=ToolCategory.MEMORY,
         description="Search memory",
     ),
+    "complete_investigation": ToolPolicy(
+        name="complete_investigation",
+        access_level=ToolAccessLevel.READ_ONLY,
+        category=ToolCategory.MEMORY,
+        description="Complete investigation and learn from pattern",
+    ),
+    "get_recommended_investigation_strategy": ToolPolicy(
+        name="get_recommended_investigation_strategy",
+        access_level=ToolAccessLevel.READ_ONLY,
+        category=ToolCategory.MEMORY,
+        description="Get recommended investigation strategy",
+    ),
+    "analyze_and_learn_from_traces": ToolPolicy(
+        name="analyze_and_learn_from_traces",
+        access_level=ToolAccessLevel.READ_ONLY,
+        category=ToolCategory.MEMORY,
+        description="Analyze past traces to self-improve",
+    ),
     "suggest_next_steps": ToolPolicy(
         name="suggest_next_steps",
         access_level=ToolAccessLevel.READ_ONLY,

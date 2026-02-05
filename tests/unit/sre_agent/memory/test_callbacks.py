@@ -1,4 +1,4 @@
-"""Tests for memory callbacks that auto-record tool failures."""
+"""Tests for memory callbacks that auto-record tool failures and successes."""
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -7,8 +7,11 @@ import pytest
 from sre_agent.memory.callbacks import (
     _extract_error_lesson,
     _extract_failure_lesson,
+    _extract_success_finding,
     _is_learnable_failure,
+    _is_significant_success,
     after_tool_memory_callback,
+    before_tool_memory_callback,
     on_tool_error_memory_callback,
 )
 
@@ -249,3 +252,171 @@ class TestOnToolErrorMemoryCallback:
         ):
             result = await on_tool_error_memory_callback(tool, {}, tool_context, error)
             assert result is None
+
+
+class TestIsSignificantSuccess:
+    """Tests for _is_significant_success detection."""
+
+    def test_significant_bottleneck_finding(self) -> None:
+        response = {
+            "status": "success",
+            "result": {"bottlenecks": [{"service": "db-proxy", "latency_ms": 500}]},
+        }
+        assert _is_significant_success("find_bottleneck_services", response) is True
+
+    def test_significant_anomaly_detection(self) -> None:
+        response = {
+            "status": "success",
+            "result": {"anomalies": [{"metric": "cpu", "severity": "high"}]},
+        }
+        assert _is_significant_success("detect_metric_anomalies", response) is True
+
+    def test_significant_root_cause(self) -> None:
+        response = {
+            "status": "success",
+            "result": {"root_cause": "Connection pool exhaustion"},
+        }
+        assert _is_significant_success("perform_causal_analysis", response) is True
+
+    def test_not_significant_empty_result(self) -> None:
+        response = {"status": "success", "result": {}}
+        assert _is_significant_success("find_bottleneck_services", response) is False
+
+    def test_not_significant_unknown_tool(self) -> None:
+        response = {
+            "status": "success",
+            "result": {"bottlenecks": [{"service": "db"}]},
+        }
+        assert _is_significant_success("unknown_tool", response) is False
+
+    def test_not_significant_error_status(self) -> None:
+        response = {"status": "error", "error": "something failed"}
+        assert _is_significant_success("find_bottleneck_services", response) is False
+
+
+class TestExtractSuccessFinding:
+    """Tests for success finding extraction."""
+
+    def test_basic_extraction(self) -> None:
+        finding = _extract_success_finding(
+            tool_name="find_bottleneck_services",
+            tool_args={"trace_id": "abc123", "project_id": "my-proj"},
+            tool_response={
+                "status": "success",
+                "result": {"bottlenecks": [{"service": "db-proxy", "latency_ms": 500}]},
+            },
+        )
+        assert "[SUCCESSFUL FINDING]" in finding
+        assert "find_bottleneck_services" in finding
+        assert "Discovered service bottleneck" in finding
+
+    def test_sensitive_args_filtered(self) -> None:
+        finding = _extract_success_finding(
+            tool_name="detect_metric_anomalies",
+            tool_args={"access_token": "secret123", "query": "test"},
+            tool_response={
+                "status": "success",
+                "result": {"anomalies": [{"metric": "cpu"}]},
+            },
+        )
+        assert "secret123" not in finding
+
+    def test_extracts_summary_from_result(self) -> None:
+        finding = _extract_success_finding(
+            tool_name="perform_causal_analysis",
+            tool_args={},
+            tool_response={
+                "status": "success",
+                "result": {"root_cause": "Database connection leak"},
+            },
+        )
+        assert "Database connection leak" in finding
+
+
+class TestBeforeToolMemoryCallback:
+    """Tests for the before_tool_callback integration."""
+
+    @pytest.mark.asyncio
+    async def test_records_tool_call(self) -> None:
+        tool = MagicMock()
+        tool.name = "fetch_trace"
+        tool_context = MagicMock()
+
+        with patch("sre_agent.memory.factory.get_memory_manager") as mock_mgr:
+            mock_manager = MagicMock()
+            mock_manager.record_tool_call = MagicMock()
+            mock_mgr.return_value = mock_manager
+
+            result = await before_tool_memory_callback(
+                tool, {"trace_id": "abc123"}, tool_context
+            )
+
+            assert result is None
+            mock_manager.record_tool_call.assert_called_once_with("fetch_trace")
+
+    @pytest.mark.asyncio
+    async def test_never_breaks_on_error(self) -> None:
+        """Callback must never raise, even if recording fails."""
+        tool = MagicMock()
+        tool.name = "some_tool"
+        tool_context = MagicMock()
+
+        with patch(
+            "sre_agent.memory.factory.get_memory_manager",
+            side_effect=RuntimeError("boom"),
+        ):
+            result = await before_tool_memory_callback(tool, {}, tool_context)
+            assert result is None
+
+
+class TestAfterToolMemoryCallbackSuccesses:
+    """Tests for after_tool_callback recording significant successes."""
+
+    @pytest.mark.asyncio
+    async def test_records_significant_success(self) -> None:
+        tool = MagicMock()
+        tool.name = "find_bottleneck_services"
+
+        tool_context = MagicMock()
+        inv_ctx = MagicMock()
+        inv_ctx.session.id = "sess-123"
+        inv_ctx.user_id = "user@test.com"
+        tool_context.invocation_context = inv_ctx
+
+        tool_response = {
+            "status": "success",
+            "result": {"bottlenecks": [{"service": "db-proxy", "latency_ms": 500}]},
+        }
+
+        with patch("sre_agent.memory.factory.get_memory_manager") as mock_mgr:
+            mock_manager = MagicMock()
+            mock_manager.add_finding = AsyncMock()
+            mock_mgr.return_value = mock_manager
+
+            result = await after_tool_memory_callback(
+                tool, {"trace_id": "abc"}, tool_context, tool_response
+            )
+
+            assert result is None
+            mock_manager.add_finding.assert_called_once()
+            call_args = mock_manager.add_finding.call_args
+            assert "SUCCESSFUL FINDING" in call_args.kwargs["description"]
+
+    @pytest.mark.asyncio
+    async def test_ignores_non_significant_success(self) -> None:
+        tool = MagicMock()
+        tool.name = "fetch_trace"  # Not in significant tools list
+        tool_context = MagicMock()
+        tool_response = {"status": "success", "result": {"trace_id": "abc"}}
+
+        with patch("sre_agent.memory.factory.get_memory_manager") as mock_mgr:
+            mock_manager = MagicMock()
+            mock_manager.add_finding = AsyncMock()
+            mock_mgr.return_value = mock_manager
+
+            result = await after_tool_memory_callback(
+                tool, {}, tool_context, tool_response
+            )
+
+            assert result is None
+            mock_manager.add_finding.assert_not_called()

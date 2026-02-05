@@ -61,7 +61,7 @@ CREATE INDEX idx_user_memories ON memories(user_id, created_at DESC);
 
 ## Investigation Patterns & Self-Improvement
 
-The agent now includes a specific "Learning Protocol" to improve its diagnostic efficiency over time.
+The agent now includes a comprehensive "Learning Protocol" to improve its diagnostic efficiency over time. The system automatically tracks tool sequences, records significant findings, and learns from both successes and failures.
 
 ### 1. Investigation Pattern Object
 Instead of just storing raw text, the agent crystallizes successful investigations into a structured `InvestigationPattern`:
@@ -72,10 +72,84 @@ Instead of just storing raw text, the agent crystallizes successful investigatio
 | `root_cause_category` | The confirmed category of the failure. | `connection_pool_saturation` |
 | `tool_sequence` | Ordered list of tools that led to the solution. | `["query_metrics", "fetch_trace_exemplar", "get_logs_for_trace"]` |
 | `confidence` | Reinforcement score (0.0-1.0). | `0.8` (boosted by repeated success) |
+| `resolution_summary` | Brief description of the resolution. | `Increased pool size from 10 to 50` |
+| `occurrence_count` | Number of times this pattern was observed. | `3` |
 
 ### 2. The Learning Loop
-1.  **Reflection**: At the end of an investigation, the agent calls `learn_from_investigation` to extract the pattern.
-2.  **Reinforcement**: If the pattern already exists, its `confidence` score is boosted.
-3.  **Proactive Retrieval**: At the start of a *new* investigation, the agent calls `get_recommended_strategy` to find high-confidence tool sequences for the reported symptom.
+1.  **Tool Tracking**: The `before_tool_callback` automatically records every tool call during an investigation.
+2.  **Success Recording**: The `after_tool_callback` detects significant successful findings (bottlenecks, anomalies, root causes) and records them to memory.
+3.  **Failure Learning**: The `on_tool_error_callback` records API syntax errors and invalid parameters to avoid repeating mistakes.
+4.  **Pattern Extraction**: At investigation completion, call `complete_investigation` to persist the learned pattern.
+5.  **Reinforcement**: If the pattern already exists, its `confidence` score is boosted (min 1.0).
+6.  **Proactive Retrieval**: At the start of a *new* investigation, use `get_recommended_investigation_strategy` to find high-confidence tool sequences.
 
 This allows the agent to skip "exploration" steps for known problems and jump straight to the correct diagnostics.
+
+### 3. Automatic Memory Callbacks
+
+The agent uses three callbacks for automatic learning:
+
+| Callback | Trigger | What It Records |
+| :--- | :--- | :--- |
+| `before_tool_memory_callback` | Before every tool call | Tool name for sequence tracking |
+| `after_tool_memory_callback` | After every tool call | API syntax failures AND significant successful findings |
+| `on_tool_error_memory_callback` | On tool exceptions | Exception details and parameter mistakes |
+
+**Significant Finding Tools**: The system automatically records successful results from these analysis tools:
+- `analyze_critical_path` - Critical path bottleneck identification
+- `find_bottleneck_services` - Service bottleneck discovery
+- `detect_metric_anomalies` - Metric anomaly detection
+- `detect_latency_anomalies` - Latency anomaly detection
+- `detect_cascading_timeout` - Cascading timeout patterns
+- `detect_retry_storm` - Retry storm detection
+- `detect_connection_pool_issues` - Connection pool problems
+- `perform_causal_analysis` - Root cause analysis
+- `generate_remediation_suggestions` - Remediation plans
+
+### 4. Memory Tools for the Agent
+
+| Tool | Purpose | When to Use |
+| :--- | :--- | :--- |
+| `search_memory` | Semantic search over past findings | "Have we seen this before?" |
+| `add_finding_to_memory` | Explicitly store a discovery | Important insights, correct API syntax |
+| `complete_investigation` | Mark investigation complete and learn | After resolving a root cause |
+| `get_recommended_investigation_strategy` | Get proven tool sequences | Starting a new investigation |
+| `analyze_and_learn_from_traces` | Self-analyze past agent traces | Periodic self-improvement |
+
+## Cloud Trace Self-Analysis
+
+The agent can analyze its own past execution traces from Cloud Trace/BigQuery to learn and self-improve.
+
+### How It Works
+
+1. **Query Past Traces**: Use `analyze_and_learn_from_traces` to generate SQL for finding agent traces
+2. **Execute Query**: Run the SQL via `mcp_execute_sql` to list recent agent executions
+3. **Analyze Patterns**: Use `detect_agent_anti_patterns` to find inefficiencies
+4. **Store Lessons**: Use `add_finding_to_memory` to record insights
+
+### Example Workflow
+
+```
+User: "Analyze your traces from the last 24 hours and learn from them"
+Agent:
+1. analyze_and_learn_from_traces(trace_project_id="my-agent-project", hours_back=24)
+2. mcp_execute_sql(sql_query) → List of trace IDs
+3. For interesting traces:
+   - detect_agent_anti_patterns(trace_id) → Inefficiencies found
+   - add_finding_to_memory(description="Avoid calling X before Y...")
+```
+
+### Anti-Patterns Detected
+
+The system can identify these common agent inefficiencies:
+- **Excessive Retries**: Same tool called >3 times under one parent span
+- **Token Waste**: Output tokens >5x input tokens on intermediate LLM calls
+- **Long Chains**: >8 consecutive LLM calls without tool use
+- **Redundant Tool Calls**: Same tool invoked >3 times across the trace
+
+### Prerequisites
+
+For self-analysis to work:
+1. Agent traces must be exported to BigQuery (OpenTelemetry format)
+2. User must have access to the trace project
+3. The `otel._AllSpans` table must exist in the project
