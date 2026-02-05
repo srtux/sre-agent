@@ -185,6 +185,17 @@ from .proactive import suggest_next_steps
 # Reporting Tools
 from .reporting import synthesize_report
 
+# Sandbox Processing Tools
+from .sandbox import (
+    execute_custom_analysis_in_sandbox,
+    get_sandbox_status,
+    is_sandbox_enabled,
+    summarize_log_entries_in_sandbox,
+    summarize_metric_descriptors_in_sandbox,
+    summarize_time_series_in_sandbox,
+    summarize_traces_in_sandbox,
+)
+
 __all__ = [
     # Configuration
     "ToolCategory",
@@ -238,6 +249,8 @@ __all__ = [
     "detect_trend_changes",
     "discover_telemetry_sources",
     "estimate_remediation_risk",
+    # Sandbox Processing Tools
+    "execute_custom_analysis_in_sandbox",
     "explore_project_health",
     "extract_errors",
     "extract_log_patterns",
@@ -260,10 +273,12 @@ __all__ = [
     "get_logs_for_trace",
     "get_pod_restart_events",
     "get_project_id_with_fallback",
+    "get_sandbox_status",
     "get_slo_status",
     "get_tool_config_manager",
     "get_trace_by_url",
     "get_workload_health_summary",
+    "is_sandbox_enabled",
     "list_agent_traces",
     "list_alert_policies",
     "list_alerts",
@@ -286,7 +301,11 @@ __all__ = [
     "select_traces_from_statistical_outliers",
     "select_traces_manually",
     "suggest_next_steps",
+    "summarize_log_entries_in_sandbox",
+    "summarize_metric_descriptors_in_sandbox",
+    "summarize_time_series_in_sandbox",
     "summarize_trace",
+    "summarize_traces_in_sandbox",
     "synthesize_report",
     "update_investigation_state",
     "validate_trace_quality",

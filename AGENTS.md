@@ -307,6 +307,77 @@ To prevent brittle UI rendering, the Investigation Dashboard is decoupled from t
 - `ConversationPage` subscribes to this stream and updates `DashboardState`.
 - A2UI remains solely for in-chat tool log bubbles.
 
+### 13. Sandbox Code Execution Pattern (Large Data Processing)
+
+When tools return large volumes of data (e.g., `list_metric_descriptors` with 1000+ metrics),
+use sandbox processing to analyze and summarize data without exceeding LLM context windows.
+
+**Path**: `sre_agent/tools/sandbox/`
+
+**Environment Variables**:
+```bash
+SRE_AGENT_SANDBOX_ENABLED=true   # Enable sandbox execution
+SRE_AGENT_SANDBOX_RESOURCE_NAME  # Optional: Pre-created sandbox resource
+SRE_AGENT_SANDBOX_TTL            # Sandbox TTL in seconds (default: 3600)
+```
+
+**When to Use Sandbox Processing**:
+- Tool returns >50 items or >50KB of data
+- You need statistical analysis of large datasets
+- You want to filter/rank results before presenting to user
+
+**Available Processing Tools**:
+```python
+from sre_agent.tools.sandbox import (
+    summarize_metric_descriptors_in_sandbox,  # For list_metric_descriptors output
+    summarize_time_series_in_sandbox,         # For list_time_series output
+    summarize_log_entries_in_sandbox,         # For list_log_entries output
+    summarize_traces_in_sandbox,              # For list_traces output
+    execute_custom_analysis_in_sandbox,       # For ad-hoc Python analysis
+    get_sandbox_status,                       # Check sandbox availability
+)
+```
+
+**Usage Example**:
+```python
+# When list_metric_descriptors returns too many results:
+raw_result = await list_metric_descriptors(filter_str="compute")
+
+# Process in sandbox if large
+if len(raw_result.result) > 50:
+    summary = await summarize_metric_descriptors_in_sandbox(raw_result.result)
+    # summary contains: total_count, by_metric_kind, top_metrics, summary text
+```
+
+**Custom Analysis Example**:
+```python
+result = await execute_custom_analysis_in_sandbox(
+    data=large_dataset,
+    analysis_code='''
+import json
+result = {
+    "count": len(data),
+    "top_errors": sorted(
+        [d for d in data if d.get("severity") == "ERROR"],
+        key=lambda x: x.get("count", 0),
+        reverse=True
+    )[:10]
+}
+print(json.dumps(result))
+'''
+)
+```
+
+**Key Points**:
+- Sandboxes provide process-level isolation
+- State persists across executions within a session
+- Automatic fallback to basic summarization if sandbox unavailable
+- Pre-built templates for common data types (metrics, logs, traces, time series)
+
+**Reference Documentation**:
+- https://docs.cloud.google.com/agent-builder/agent-engine/code-execution/overview
+- https://google.github.io/adk-docs/tools/google-cloud/code-exec-agent-engine/
+
 ---
 
 ## 💻 Frontend Architecture (Flutter/GenUI)
