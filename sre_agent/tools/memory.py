@@ -5,11 +5,19 @@ This module provides tools for:
 - Explicitly adding discoveries to memory
 - Completing investigations and learning patterns
 - Analyzing past agent traces for self-improvement
+
+All memory actions emit events for UI visibility (toasts).
 """
 
 import logging
 from typing import Annotated, Any
 
+from sre_agent.api.helpers.memory_events import (
+    create_memory_search_event,
+    create_pattern_applied_event,
+    create_pattern_learned_event,
+    get_memory_event_bus,
+)
 from sre_agent.memory.factory import get_memory_manager
 from sre_agent.schema import (
     BaseToolResponse,
@@ -56,6 +64,13 @@ async def search_memory(
     results = await manager.get_relevant_findings(
         query, session_id=session_id, limit=limit, user_id=user_id
     )
+
+    # Emit event for UI visibility
+    result_count = len(results) if isinstance(results, list) else 0
+    event_bus = get_memory_event_bus()
+    event = create_memory_search_event(query, result_count)
+    await event_bus.emit(session_id, event)
+
     return BaseToolResponse(status=ToolStatus.SUCCESS, result=results)
 
 
@@ -129,6 +144,7 @@ async def complete_investigation(
     await manager.update_state(InvestigationPhase.RESOLVED, session_id=session_id)
 
     # Learn from the investigation
+    tool_sequence = list(manager._current_tool_sequence)
     await manager.learn_from_investigation(
         symptom_type=symptom_type,
         root_cause_category=root_cause_category,
@@ -136,6 +152,11 @@ async def complete_investigation(
         session_id=session_id,
         user_id=user_id,
     )
+
+    # Emit event for UI visibility
+    event_bus = get_memory_event_bus()
+    event = create_pattern_learned_event(symptom_type, root_cause_category, tool_sequence)
+    await event_bus.emit(session_id, event)
 
     # Sync session to long-term memory
     inv_ctx = getattr(tool_context, "invocation_context", None) or getattr(
@@ -214,6 +235,17 @@ async def get_recommended_investigation_strategy(
                 "occurrence_count": p.occurrence_count,
             }
         )
+
+    # Emit event for UI visibility (best matching pattern)
+    if patterns:
+        best_pattern = patterns[0]
+        event_bus = get_memory_event_bus()
+        event = create_pattern_applied_event(
+            best_pattern.symptom_type,
+            best_pattern.confidence,
+            best_pattern.tool_sequence,
+        )
+        await event_bus.emit(session_id, event)
 
     return BaseToolResponse(
         status=ToolStatus.SUCCESS,

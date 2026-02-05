@@ -153,3 +153,91 @@ For self-analysis to work:
 1. Agent traces must be exported to BigQuery (OpenTelemetry format)
 2. User must have access to the trace project
 3. The `otel._AllSpans` table must exist in the project
+
+## Memory Event Visibility
+
+The agent provides real-time visibility into memory actions through an event streaming system. Users can see when the agent is learning from failures, recording findings, or applying past patterns.
+
+### Memory Event Types
+
+| Action | Category | Description |
+| :--- | :--- | :--- |
+| `stored` | `failure` | Learning from a tool failure (API syntax error, invalid parameters) |
+| `stored` | `success` | Recording a significant successful finding |
+| `searched` | `search` | Memory search was performed |
+| `pattern_learned` | `pattern` | New investigation pattern learned after resolution |
+| `pattern_applied` | `pattern` | Past pattern being used to guide investigation |
+| `tool_tracked` | `tracking` | Tool call recorded for sequence tracking |
+
+### Event Schema
+
+Memory events are streamed as NDJSON with the following structure:
+
+```json
+{
+  "type": "memory",
+  "action": "stored|searched|pattern_learned|pattern_applied|tool_tracked",
+  "category": "failure|success|pattern|search|tracking",
+  "title": "Short title for toast notification",
+  "description": "Detailed description of the event",
+  "tool_name": "The tool that triggered this (optional)",
+  "metadata": { "additional": "data" },
+  "timestamp": "2024-01-15T10:30:00Z"
+}
+```
+
+### Frontend Integration
+
+The Flutter frontend subscribes to memory events and displays toast notifications for significant actions:
+
+- **Stored (Failure)**: Shows when the agent learns from a mistake
+- **Stored (Success)**: Shows when a significant finding is recorded
+- **Pattern Learned**: Shows when a new investigation pattern is crystallized
+
+Toast notifications appear in the bottom-right corner with the format:
+```
+🧠 [Title from event]
+```
+
+### Backend Event Emission
+
+Memory events are emitted through the `MemoryEventBus` singleton:
+
+```python
+from sre_agent.api.helpers.memory_events import (
+    get_memory_event_bus,
+    create_failure_learning_event,
+    create_success_finding_event,
+    create_pattern_learned_event,
+)
+
+# Get the singleton event bus
+event_bus = get_memory_event_bus()
+
+# Create and emit an event
+event = create_failure_learning_event(
+    tool_name="query_metrics",
+    error_summary="invalid filter: resource.type required",
+    lesson="Always specify resource.type in metric filters",
+)
+await event_bus.emit(session_id, event)
+```
+
+### Disabling Memory Events
+
+Memory events can be disabled if needed:
+
+```python
+event_bus = get_memory_event_bus()
+event_bus.set_enabled(False)  # Disable all memory event emission
+```
+
+### Event Flow
+
+1. **Callback triggers**: Memory callbacks detect learnable moments
+2. **Event creation**: Helper functions create structured `MemoryEvent` objects
+3. **Event emission**: `MemoryEventBus.emit()` queues the event for the session
+4. **Stream delivery**: Agent router drains events and yields them as NDJSON
+5. **Frontend display**: Flutter parses events and shows toasts for significant actions
+
+This visibility helps users understand when and what the agent is learning, building trust in the adaptive behavior of the system

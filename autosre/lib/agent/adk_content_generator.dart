@@ -26,6 +26,8 @@ class ADKContentGenerator implements ContentGenerator {
       StreamController<Map<String, dynamic>>.broadcast();
   final StreamController<Map<String, dynamic>> _traceInfoController =
       StreamController<Map<String, dynamic>>.broadcast();
+  final StreamController<Map<String, dynamic>> _memoryController =
+      StreamController<Map<String, dynamic>>.broadcast();
   final ValueNotifier<bool> _isProcessing = ValueNotifier(false);
   final ValueNotifier<bool> _isConnected = ValueNotifier(false);
 
@@ -64,6 +66,9 @@ class ADKContentGenerator implements ContentGenerator {
   /// Stream of trace_info events for Cloud Trace deep linking.
   Stream<Map<String, dynamic>> get traceInfoStream =>
       _traceInfoController.stream;
+
+  /// Stream of memory events (memorizing, searching, pattern learning).
+  Stream<Map<String, dynamic>> get memoryStream => _memoryController.stream;
 
   /// The base URL of the connected agent.
   String get baseUrl => _baseUrl;
@@ -262,6 +267,11 @@ class ADKContentGenerator implements ContentGenerator {
                 } else if (type == 'dashboard') {
                   debugPrint('📊 [DASHBOARD] category=${data['category']}, tool=${data['tool_name']}');
                   _dashboardController.add(Map<String, dynamic>.from(data));
+                } else if (type == 'memory') {
+                  debugPrint(
+                    '🧠 [MEMORY] action=${data['action']}, title=${data['title']}',
+                  );
+                  _memoryController.add(Map<String, dynamic>.from(data));
                 } else if (type == 'session') {
                   final newSessionId = data['session_id'] as String?;
                   if (newSessionId != null) {
@@ -382,6 +392,7 @@ class ADKContentGenerator implements ContentGenerator {
     _dashboardController.close();
     _toolCallController.close();
     _traceInfoController.close();
+    _memoryController.close();
     _isProcessing.dispose();
     _isConnected.dispose();
   }

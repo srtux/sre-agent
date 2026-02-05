@@ -9,11 +9,19 @@ Key Features:
 - after_tool_memory_callback: Records learnable failures (API syntax errors)
 - after_tool_success_callback: Records significant successful findings
 - on_tool_error_memory_callback: Records tool exceptions
+- Real-time event emission for UI visibility (toasts)
 """
 
 import json
 import logging
 from typing import Any
+
+from sre_agent.api.helpers.memory_events import (
+    create_failure_learning_event,
+    create_success_finding_event,
+    create_tool_tracking_event,
+    get_memory_event_bus,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -218,6 +226,17 @@ def _extract_success_finding(
     )
 
 
+def _get_session_id_from_context(tool_context: Any) -> str | None:
+    """Extract session_id from tool context for event routing."""
+    inv_ctx = getattr(tool_context, "invocation_context", None) or getattr(
+        tool_context, "_invocation_context", None
+    )
+    if inv_ctx:
+        session = getattr(inv_ctx, "session", None)
+        return getattr(session, "id", None) if session else None
+    return None
+
+
 async def before_tool_memory_callback(
     tool: Any,
     args: dict[str, Any],
@@ -246,7 +265,17 @@ async def before_tool_memory_callback(
 
         # Record the tool call for pattern tracking
         manager.record_tool_call(tool_name)
-        logger.debug(f"Recorded tool call: {tool_name}")
+        sequence_length = len(manager._current_tool_sequence)
+        logger.debug(f"Recorded tool call: {tool_name} (#{sequence_length})")
+
+        # Emit tracking event for UI visibility (only for significant tools)
+        # Skip common/noisy tools to avoid toast spam
+        noisy_tools = {"get_current_time", "preload_memory", "load_memory"}
+        if tool_name not in noisy_tools:
+            session_id = _get_session_id_from_context(tool_context)
+            event_bus = get_memory_event_bus()
+            event = create_tool_tracking_event(tool_name, sequence_length)
+            await event_bus.emit(session_id, event)
 
     except Exception as e:
         # Never let memory recording break tool execution
@@ -309,6 +338,7 @@ async def after_tool_memory_callback(
         # Check for learnable failure
         if _is_learnable_failure(tool_response):
             lesson = _extract_failure_lesson(tool_name, args, tool_response)
+            error_msg = str(tool_response.get("error", ""))[:100]
             logger.info(f"Recording tool failure lesson for {tool_name}")
 
             from sre_agent.memory.factory import get_memory_manager
@@ -325,11 +355,20 @@ async def after_tool_memory_callback(
                 session_id=session_id,
                 user_id=user_id,
             )
+
+            # Emit event for UI visibility
+            event_bus = get_memory_event_bus()
+            event = create_failure_learning_event(tool_name, error_msg, lesson)
+            await event_bus.emit(session_id, event)
+
             return None
 
         # Check for significant success
         if _is_significant_success(tool_name, tool_response):
             finding = _extract_success_finding(tool_name, args, tool_response)
+            finding_type = _SIGNIFICANT_FINDING_TOOLS.get(
+                tool_name, "Investigation finding"
+            )
             logger.info(f"Recording successful finding from {tool_name}")
 
             from sre_agent.memory.factory import get_memory_manager
@@ -346,6 +385,22 @@ async def after_tool_memory_callback(
                 session_id=session_id,
                 user_id=user_id,
             )
+
+            # Emit event for UI visibility
+            event_bus = get_memory_event_bus()
+            # Extract a short summary for the toast
+            result = tool_response.get("result", {})
+            if isinstance(result, dict):
+                summary = str(
+                    result.get("summary")
+                    or result.get("root_cause")
+                    or result.get("conclusion")
+                    or str(result)[:100]
+                )
+            else:
+                summary = str(result)[:100]
+            event = create_success_finding_event(tool_name, finding_type, summary)
+            await event_bus.emit(session_id, event)
 
     except Exception as e:
         # Never let memory recording break tool execution
@@ -419,6 +474,12 @@ async def on_tool_error_memory_callback(
             session_id=session_id,
             user_id=user_id,
         )
+
+        # Emit event for UI visibility
+        event_bus = get_memory_event_bus()
+        error_summary = f"{type(error).__name__}: {error!s}"[:100]
+        event = create_failure_learning_event(tool_name, error_summary, lesson)
+        await event_bus.emit(session_id, event)
 
     except Exception as e:
         # Never let memory recording break tool execution

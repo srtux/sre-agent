@@ -69,6 +69,7 @@ class _ConversationPageState extends State<ConversationPage>
   StreamSubscription<Map<String, dynamic>>? _dashboardSubscription;
   StreamSubscription<Map<String, dynamic>>? _toolCallSubscription;
   StreamSubscription<Map<String, dynamic>>? _traceInfoSubscription;
+  StreamSubscription<Map<String, dynamic>>? _memorySubscription;
 
   /// Current agent trace info for Cloud Trace deep linking.
   String? _currentTraceUrl;
@@ -250,6 +251,26 @@ class _ConversationPageState extends State<ConversationPage>
         _currentTraceId = event['trace_id'] as String?;
         _currentTraceUrl = event['trace_url'] as String?;
       });
+    });
+
+    // Subscribe to memory events (memorizing findings, learning patterns).
+    _memorySubscription?.cancel();
+    _memorySubscription = newGenerator.memoryStream.listen((event) {
+      if (!mounted) return;
+      final action = event['action'] as String? ?? '';
+      final title = event['title'] as String? ?? 'Memory event';
+      final category = event['category'] as String? ?? '';
+
+      debugPrint('🧠 [MEMORY] action=$action, title=$title, category=$category');
+
+      // Show toast for significant memory actions
+      if (action == 'stored' || action == 'pattern_learned') {
+        StatusToast.show(
+          context,
+          '🧠 $title',
+          duration: const Duration(seconds: 3),
+        );
+      }
     });
 
     // Subscribe to the dedicated dashboard data stream.
@@ -1448,6 +1469,7 @@ class _ConversationPageState extends State<ConversationPage>
     _dashboardSubscription?.cancel();
     _toolCallSubscription?.cancel();
     _traceInfoSubscription?.cancel();
+    _memorySubscription?.cancel();
     _toolCallState.dispose();
     _dashboardState.dispose();
     _projectService.selectedProject.removeListener(_onProjectChanged);
