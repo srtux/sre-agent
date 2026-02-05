@@ -95,6 +95,8 @@ def main():
                 "roles/logging.logWriter",
                 "roles/monitoring.metricWriter",
                 "roles/cloudtrace.agent",
+                "roles/cloudapiregistry.viewer",
+                "roles/mcp.toolUser",
             }
 
             missing = required_roles - set(roles)

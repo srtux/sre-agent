@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: autosre
+  labels:
+    app: autosre
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: autosre
+  template:
+    metadata:
+      labels:
+        app: autosre
+    spec:
+      containers:
+      - name: autosre
+        image: gcr.io/PROJECT_ID/autosre:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: PORT
+          value: "8080"
+        - name: GCP_PROJECT_ID
+          valueFrom:
+            configMapKeyRef:
+              name: autosre-config
+              key: project_id
+        - name: SRE_AGENT_ID
+          valueFrom:
+            configMapKeyRef:
+              name: autosre-config
+              key: agent_id
+        - name: GEMINI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: autosre-secrets
+              key: gemini_api_key
+        - name: SRE_AGENT_ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: autosre-secrets
+              key: encryption_key
+        - name: GOOGLE_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: autosre-secrets
+              key: google_client_id

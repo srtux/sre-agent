@@ -59,6 +59,8 @@ ROLES=(
     "roles/datastore.user"
     "roles/container.viewer"
     "roles/container.clusterViewer"
+    "roles/cloudapiregistry.viewer"
+    "roles/mcp.toolUser"
 )
 
 echo "🔐 Granting IAM Roles to Agent Identity..."

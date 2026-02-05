@@ -171,6 +171,8 @@ deploy-web = { help = "Deploy web frontend to Cloud Run", cmd = "python deploy/d
 
 deploy-all = { help = "Deploy both backend (Vertex) and frontend (Cloud Run)", cmd = "python deploy/deploy_all.py", envfile = ".env" }
 
+deploy-gke = { help = "Deploy full stack to GKE", cmd = "python deploy/deploy_gke.py", envfile = ".env" }
+
 delete = { help = "Delete agent (usage: uv run poe delete --resource_id ID)", cmd = "python deploy/deploy.py --delete", envfile = ".env" }
 
 pre-commit = { help = "Run all pre-commit hooks", cmd = "pre-commit run --all-files", envfile = ".env" }

@@ -371,6 +371,47 @@ uv run poe eval
 
 This loads test cases from `eval/` and reports success/failure rates.
 
+## GKE Deployment (Kubernetes)
+
+AutoSRE can be deployed to GKE using the provided Kubernetes manifests and orchestration script. This runs the **Unified Container** (Frontend + Proxy Backend) in your cluster.
+
+### 1. Prerequisites
+- A running GKE cluster.
+- `kubectl` and `gcloud` configured.
+- Docker image built and pushed to a registry (GCR/AR). Use `cloudbuild.yaml` or `gcloud builds submit`.
+
+### 2. Deploy via Script
+```bash
+uv run poe deploy-gke --cluster <CLUSTER_NAME> --region <REGION>
+```
+
+**Options:**
+- `--cluster`: Name of your GKE cluster.
+- `--zone` or `--region`: Location of your cluster.
+- `--agent-id`: (Optional) Connect to a deployed Vertex Agent Engine resource. If omitted, the agent runs in **Local Mode** inside the pod.
+
+### 3. Manual Deployment
+Manifests are located in `deploy/k8s/`:
+- `deployment.yaml`: Deployment spec with ConfigMap/Secret references.
+- `service.yaml`: LoadBalancer service to expose the dashboard.
+
+## Cloud Run Deployment (Unified)
+
+While `deploy-all` is the recommended way to use Vertex AI Agent Engine, you can also run the **entire agent stack** inside a single Cloud Run service (Local Mode).
+
+### 1. Build and Deploy
+```bash
+# Build and push image
+gcloud builds submit --tag gcr.io/$GOOGLE_CLOUD_PROJECT/autosre:latest
+
+# Deploy to Cloud Run without SRE_AGENT_ID (Default to Local Mode)
+uv run python deploy/deploy_web.py --service-name autosre-unified
+```
+
+### 2. Why run on Cloud Run/GKE vs Agent Engine?
+- **Agent Engine**: Best for background tasks, production stability, and native Vertex AI integrations.
+- **GKE/Cloud Run (Local Mode)**: Lower latency for chat interactions, easier to debug, and simplified networking for local tools.
+
 ## Related Documentation
 
 - [Main README](../README.md): Architecture overview
