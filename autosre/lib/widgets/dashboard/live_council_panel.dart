@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../models/adk_schema.dart';
 import '../../services/dashboard_state.dart';
 import '../../theme/app_theme.dart';
+import 'council_activity_graph.dart';
 
 /// Dashboard panel showing council investigation results with expert panel visualization.
 ///
@@ -11,6 +12,7 @@ import '../../theme/app_theme.dart';
 /// - Investigation mode and overall status
 /// - Individual expert panel findings (Trace, Metrics, Logs, Alerts)
 /// - Critic's debate analysis (for debate mode)
+/// - Activity graph showing agent hierarchy and tool calls
 /// - Synthesized conclusion
 class LiveCouncilPanel extends StatefulWidget {
   final List<DashboardItem> items;
@@ -24,6 +26,7 @@ class _LiveCouncilPanelState extends State<LiveCouncilPanel> {
   // Track expanded panels
   final Set<String> _expandedPanels = {};
   bool _showCriticReport = false;
+  bool _showActivityGraph = false;
 
   @override
   Widget build(BuildContext context) {
@@ -55,11 +58,116 @@ class _LiveCouncilPanelState extends State<LiveCouncilPanel> {
         children: [
           _buildHeader(council),
           _buildMetricsRow(council),
-          if (council.panels.isNotEmpty) _buildExpertPanelsSection(council),
-          if (council.hasCriticReport) _buildCriticSection(council),
+          _buildViewToggle(council),
+          if (_showActivityGraph && council.hasActivityGraph)
+            _buildActivityGraphSection(council)
+          else ...[
+            if (council.panels.isNotEmpty) _buildExpertPanelsSection(council),
+            if (council.hasCriticReport) _buildCriticSection(council),
+          ],
           _buildSynthesisSection(council),
         ],
       ),
+    );
+  }
+
+  Widget _buildViewToggle(CouncilSynthesisData council) {
+    if (!council.hasActivityGraph && council.panels.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      child: Row(
+        children: [
+          _buildToggleButton(
+            label: 'Expert Findings',
+            icon: Icons.psychology_rounded,
+            isSelected: !_showActivityGraph,
+            onTap: () => setState(() => _showActivityGraph = false),
+          ),
+          const SizedBox(width: 8),
+          if (council.hasActivityGraph)
+            _buildToggleButton(
+              label: 'Activity Graph',
+              icon: Icons.account_tree_rounded,
+              isSelected: _showActivityGraph,
+              onTap: () => setState(() => _showActivityGraph = true),
+              badge: '${council.totalToolCalls}',
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToggleButton({
+    required String label,
+    required IconData icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+    String? badge,
+  }) {
+    final color = isSelected ? AppColors.primaryTeal : AppColors.textMuted;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.primaryTeal.withValues(alpha: 0.15)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isSelected
+                ? AppColors.primaryTeal.withValues(alpha: 0.3)
+                : AppColors.surfaceBorder,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 12, color: color),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: color,
+              ),
+            ),
+            if (badge != null) ...[
+              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  badge,
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActivityGraphSection(CouncilSynthesisData council) {
+    if (council.activityGraph == null) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+      height: 400, // Fixed height for the graph
+      child: CouncilActivityGraphWidget(graph: council.activityGraph!),
     );
   }
 

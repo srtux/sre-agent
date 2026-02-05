@@ -26,6 +26,27 @@ AutoSRE can investigate incidents using a **Council of Experts** — four specia
 - **Council tab** in the Investigation Dashboard shows the synthesized result with severity, confidence, and debate rounds.
 - **Signal tabs** (Traces, Metrics, Logs, Alerts) populate with data from each panel's analysis.
 
+### Expert Dashboard Visualization
+
+The Council tab provides two views you can toggle between:
+
+**Expert Findings View**:
+- Shows each panel's assessment with severity indicators (Critical, Warning, Info, Healthy)
+- Displays confidence scores and key evidence points
+- In Debate mode, shows the critic's report highlighting agreements, contradictions, and gaps
+- Expandable sections for detailed evidence and recommended actions
+
+**Activity Graph View**:
+- **Graph Mode**: Visualizes the agent hierarchy from root agent to council panels and sub-agents
+- **Timeline Mode**: Shows a chronological sequence of all tool calls and LLM invocations
+- Each agent card shows:
+  - Agent type (Orchestrator, Panel, Critic, Synthesizer)
+  - Status (Running, Completed, Error)
+  - List of tool calls with duration and results
+  - LLM calls with token counts
+- Expand any agent to see detailed tool call arguments and results
+- Tool calls that produce dashboard data (traces, logs, metrics, alerts) are highlighted
+
 ### Tips
 
 - The agent auto-selects the right mode based on your question. You can also ask explicitly: "use debate mode" or "do a quick check."

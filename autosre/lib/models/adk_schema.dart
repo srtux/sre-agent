@@ -295,6 +295,7 @@ class CouncilSynthesisData {
   final int rounds;
   final List<PanelFinding> panels;
   final CriticReport? criticReport;
+  final CouncilActivityGraph? activityGraph;
   final Map<String, dynamic> rawData;
 
   CouncilSynthesisData({
@@ -305,6 +306,7 @@ class CouncilSynthesisData {
     required this.rounds,
     required this.panels,
     this.criticReport,
+    this.activityGraph,
     required this.rawData,
   });
 
@@ -329,6 +331,13 @@ class CouncilSynthesisData {
           Map<String, dynamic>.from(data['critic_report'] as Map));
     }
 
+    // Parse activity graph
+    CouncilActivityGraph? activityGraph;
+    if (data['activity_graph'] != null && data['activity_graph'] is Map) {
+      activityGraph = CouncilActivityGraph.fromJson(
+          Map<String, dynamic>.from(data['activity_graph'] as Map));
+    }
+
     return CouncilSynthesisData(
       synthesis: data['synthesis'] as String? ?? '',
       overallSeverity: data['overall_severity'] as String? ?? 'info',
@@ -338,6 +347,7 @@ class CouncilSynthesisData {
       rounds: data['rounds'] as int? ?? 1,
       panels: panels,
       criticReport: criticReport,
+      activityGraph: activityGraph,
       rawData: json,
     );
   }
@@ -348,6 +358,9 @@ class CouncilSynthesisData {
   /// Whether critic report is available
   bool get hasCriticReport => criticReport != null;
 
+  /// Whether activity graph is available
+  bool get hasActivityGraph => activityGraph != null;
+
   /// Get panel by type
   PanelFinding? getPanelByType(String type) {
     try {
@@ -356,6 +369,12 @@ class CouncilSynthesisData {
       return null;
     }
   }
+
+  /// Get total tool calls from activity graph
+  int get totalToolCalls => activityGraph?.totalToolCalls ?? 0;
+
+  /// Get total LLM calls from activity graph
+  int get totalLLMCalls => activityGraph?.totalLLMCalls ?? 0;
 }
 
 class ToolLog {
@@ -842,5 +861,312 @@ class AgentGraphData {
           .toList(),
       rootAgentName: json['root_agent_name'],
     );
+  }
+}
+
+// =============================================================================
+// Council Agent Activity Tracking Models
+// =============================================================================
+
+/// Enum for agent types in the council hierarchy.
+enum CouncilAgentType {
+  root,
+  orchestrator,
+  panel,
+  critic,
+  synthesizer,
+  subAgent;
+
+  static CouncilAgentType fromString(String value) {
+    switch (value.toLowerCase()) {
+      case 'root':
+        return CouncilAgentType.root;
+      case 'orchestrator':
+        return CouncilAgentType.orchestrator;
+      case 'panel':
+        return CouncilAgentType.panel;
+      case 'critic':
+        return CouncilAgentType.critic;
+      case 'synthesizer':
+        return CouncilAgentType.synthesizer;
+      case 'sub_agent':
+      case 'subagent':
+        return CouncilAgentType.subAgent;
+      default:
+        return CouncilAgentType.subAgent;
+    }
+  }
+
+  String get displayName {
+    switch (this) {
+      case CouncilAgentType.root:
+        return 'Root Agent';
+      case CouncilAgentType.orchestrator:
+        return 'Orchestrator';
+      case CouncilAgentType.panel:
+        return 'Expert Panel';
+      case CouncilAgentType.critic:
+        return 'Critic';
+      case CouncilAgentType.synthesizer:
+        return 'Synthesizer';
+      case CouncilAgentType.subAgent:
+        return 'Sub-Agent';
+    }
+  }
+}
+
+/// Record of a single tool call made by an agent.
+class ToolCallRecord {
+  final String callId;
+  final String toolName;
+  final String argsSummary;
+  final String resultSummary;
+  final String status; // pending, completed, error
+  final int durationMs;
+  final String timestamp;
+  final String? dashboardCategory; // traces, metrics, logs, alerts, etc.
+
+  ToolCallRecord({
+    required this.callId,
+    required this.toolName,
+    this.argsSummary = '',
+    this.resultSummary = '',
+    this.status = 'completed',
+    this.durationMs = 0,
+    this.timestamp = '',
+    this.dashboardCategory,
+  });
+
+  factory ToolCallRecord.fromJson(Map<String, dynamic> json) {
+    return ToolCallRecord(
+      callId: json['call_id'] ?? '',
+      toolName: json['tool_name'] ?? '',
+      argsSummary: json['args_summary'] ?? '',
+      resultSummary: json['result_summary'] ?? '',
+      status: json['status'] ?? 'completed',
+      durationMs: (json['duration_ms'] as num?)?.toInt() ?? 0,
+      timestamp: json['timestamp'] ?? '',
+      dashboardCategory: json['dashboard_category'],
+    );
+  }
+
+  bool get isError => status == 'error';
+  bool get isPending => status == 'pending';
+  bool get isCompleted => status == 'completed';
+  bool get hasDashboardData => dashboardCategory != null;
+}
+
+/// Record of an LLM inference call made by an agent.
+class LLMCallRecord {
+  final String callId;
+  final String model;
+  final int inputTokens;
+  final int outputTokens;
+  final int durationMs;
+  final String timestamp;
+
+  LLMCallRecord({
+    required this.callId,
+    required this.model,
+    this.inputTokens = 0,
+    this.outputTokens = 0,
+    this.durationMs = 0,
+    this.timestamp = '',
+  });
+
+  factory LLMCallRecord.fromJson(Map<String, dynamic> json) {
+    return LLMCallRecord(
+      callId: json['call_id'] ?? '',
+      model: json['model'] ?? '',
+      inputTokens: (json['input_tokens'] as num?)?.toInt() ?? 0,
+      outputTokens: (json['output_tokens'] as num?)?.toInt() ?? 0,
+      durationMs: (json['duration_ms'] as num?)?.toInt() ?? 0,
+      timestamp: json['timestamp'] ?? '',
+    );
+  }
+
+  int get totalTokens => inputTokens + outputTokens;
+}
+
+/// Activity record for a single agent in the council hierarchy.
+class CouncilAgentActivity {
+  final String agentId;
+  final String agentName;
+  final CouncilAgentType agentType;
+  final String? parentId;
+  final String status; // pending, running, completed, error
+  final String startedAt;
+  final String completedAt;
+  final List<ToolCallRecord> toolCalls;
+  final List<LLMCallRecord> llmCalls;
+  final String outputSummary;
+
+  CouncilAgentActivity({
+    required this.agentId,
+    required this.agentName,
+    required this.agentType,
+    this.parentId,
+    this.status = 'pending',
+    this.startedAt = '',
+    this.completedAt = '',
+    this.toolCalls = const [],
+    this.llmCalls = const [],
+    this.outputSummary = '',
+  });
+
+  factory CouncilAgentActivity.fromJson(Map<String, dynamic> json) {
+    return CouncilAgentActivity(
+      agentId: json['agent_id'] ?? '',
+      agentName: json['agent_name'] ?? '',
+      agentType: CouncilAgentType.fromString(json['agent_type'] ?? 'sub_agent'),
+      parentId: json['parent_id'],
+      status: json['status'] ?? 'pending',
+      startedAt: json['started_at'] ?? '',
+      completedAt: json['completed_at'] ?? '',
+      toolCalls: (json['tool_calls'] as List? ?? [])
+          .map((t) => ToolCallRecord.fromJson(Map<String, dynamic>.from(t)))
+          .toList(),
+      llmCalls: (json['llm_calls'] as List? ?? [])
+          .map((l) => LLMCallRecord.fromJson(Map<String, dynamic>.from(l)))
+          .toList(),
+      outputSummary: json['output_summary'] ?? '',
+    );
+  }
+
+  bool get isRoot => parentId == null;
+  bool get isRunning => status == 'running';
+  bool get isCompleted => status == 'completed';
+  bool get hasError => status == 'error';
+
+  int get totalToolCalls => toolCalls.length;
+  int get totalLLMCalls => llmCalls.length;
+  int get errorCount => toolCalls.where((t) => t.isError).length;
+
+  /// Get tool calls that produced dashboard data for a specific category.
+  List<ToolCallRecord> getToolCallsForCategory(String category) {
+    return toolCalls.where((t) => t.dashboardCategory == category).toList();
+  }
+
+  /// Get the display icon for this agent type.
+  String get iconName {
+    switch (agentType) {
+      case CouncilAgentType.root:
+        return 'account_tree';
+      case CouncilAgentType.orchestrator:
+        return 'hub';
+      case CouncilAgentType.panel:
+        return 'psychology';
+      case CouncilAgentType.critic:
+        return 'forum';
+      case CouncilAgentType.synthesizer:
+        return 'summarize';
+      case CouncilAgentType.subAgent:
+        return 'smart_toy';
+    }
+  }
+}
+
+/// Complete activity graph for a council investigation.
+class CouncilActivityGraph {
+  final String investigationId;
+  final String mode;
+  final String startedAt;
+  final String completedAt;
+  final List<CouncilAgentActivity> agents;
+  final int totalToolCalls;
+  final int totalLLMCalls;
+  final int debateRounds;
+
+  CouncilActivityGraph({
+    required this.investigationId,
+    required this.mode,
+    required this.startedAt,
+    this.completedAt = '',
+    this.agents = const [],
+    this.totalToolCalls = 0,
+    this.totalLLMCalls = 0,
+    this.debateRounds = 1,
+  });
+
+  factory CouncilActivityGraph.fromJson(Map<String, dynamic> json) {
+    final agents = (json['agents'] as List? ?? [])
+        .map((a) => CouncilAgentActivity.fromJson(Map<String, dynamic>.from(a)))
+        .toList();
+
+    return CouncilActivityGraph(
+      investigationId: json['investigation_id'] ?? '',
+      mode: json['mode'] ?? 'standard',
+      startedAt: json['started_at'] ?? '',
+      completedAt: json['completed_at'] ?? '',
+      agents: agents,
+      totalToolCalls: (json['total_tool_calls'] as num?)?.toInt() ??
+          agents.fold(0, (sum, a) => sum + a.totalToolCalls),
+      totalLLMCalls: (json['total_llm_calls'] as num?)?.toInt() ??
+          agents.fold(0, (sum, a) => sum + a.totalLLMCalls),
+      debateRounds: (json['debate_rounds'] as num?)?.toInt() ?? 1,
+    );
+  }
+
+  /// Find an agent by its ID.
+  CouncilAgentActivity? getAgentById(String agentId) {
+    try {
+      return agents.firstWhere((a) => a.agentId == agentId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Get all direct children of an agent.
+  List<CouncilAgentActivity> getChildren(String parentId) {
+    return agents.where((a) => a.parentId == parentId).toList();
+  }
+
+  /// Get root agents (no parent).
+  List<CouncilAgentActivity> get rootAgents {
+    return agents.where((a) => a.isRoot).toList();
+  }
+
+  /// Get all panel agents.
+  List<CouncilAgentActivity> get panelAgents {
+    return agents.where((a) => a.agentType == CouncilAgentType.panel).toList();
+  }
+
+  /// Get the critic agent if present.
+  CouncilAgentActivity? get criticAgent {
+    try {
+      return agents.firstWhere((a) => a.agentType == CouncilAgentType.critic);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Get the synthesizer agent if present.
+  CouncilAgentActivity? get synthesizerAgent {
+    try {
+      return agents
+          .firstWhere((a) => a.agentType == CouncilAgentType.synthesizer);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Get all tool calls across all agents, sorted by timestamp.
+  List<ToolCallRecord> get allToolCallsSorted {
+    final allCalls = agents.expand((a) => a.toolCalls).toList();
+    allCalls.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    return allCalls;
+  }
+
+  /// Get tool calls that produced dashboard data.
+  Map<String, List<ToolCallRecord>> get toolCallsByDashboardCategory {
+    final Map<String, List<ToolCallRecord>> result = {};
+    for (final agent in agents) {
+      for (final call in agent.toolCalls) {
+        if (call.dashboardCategory != null) {
+          result.putIfAbsent(call.dashboardCategory!, () => []).add(call);
+        }
+      }
+    }
+    return result;
   }
 }

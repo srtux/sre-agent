@@ -26,6 +26,10 @@ class ADKContentGenerator implements ContentGenerator {
       StreamController<Map<String, dynamic>>.broadcast();
   final StreamController<Map<String, dynamic>> _traceInfoController =
       StreamController<Map<String, dynamic>>.broadcast();
+  final StreamController<Map<String, dynamic>> _agentActivityController =
+      StreamController<Map<String, dynamic>>.broadcast();
+  final StreamController<Map<String, dynamic>> _councilGraphController =
+      StreamController<Map<String, dynamic>>.broadcast();
   final ValueNotifier<bool> _isProcessing = ValueNotifier(false);
   final ValueNotifier<bool> _isConnected = ValueNotifier(false);
 
@@ -64,6 +68,14 @@ class ADKContentGenerator implements ContentGenerator {
   /// Stream of trace_info events for Cloud Trace deep linking.
   Stream<Map<String, dynamic>> get traceInfoStream =>
       _traceInfoController.stream;
+
+  /// Stream of agent_activity events for council dashboard visualization.
+  Stream<Map<String, dynamic>> get agentActivityStream =>
+      _agentActivityController.stream;
+
+  /// Stream of council_graph events for full investigation visualization.
+  Stream<Map<String, dynamic>> get councilGraphStream =>
+      _councilGraphController.stream;
 
   /// The base URL of the connected agent.
   String get baseUrl => _baseUrl;
@@ -269,6 +281,12 @@ class ADKContentGenerator implements ContentGenerator {
                     _sessionController.add(newSessionId);
                     debugPrint('🔑 [SESSION] Session ID updated: $newSessionId');
                   }
+                } else if (type == 'agent_activity') {
+                  debugPrint('🤖 [AGENT_ACTIVITY] agent=${data['agent']?['agent_name']}');
+                  _agentActivityController.add(Map<String, dynamic>.from(data));
+                } else if (type == 'council_graph') {
+                  debugPrint('🏛️ [COUNCIL_GRAPH] investigation=${data['investigation_id']}, agents=${(data['agents'] as List?)?.length ?? 0}');
+                  _councilGraphController.add(Map<String, dynamic>.from(data));
                 } else {
                   debugPrint('❓ [UNKNOWN] Unknown event type: $type');
                 }
@@ -382,6 +400,8 @@ class ADKContentGenerator implements ContentGenerator {
     _dashboardController.close();
     _toolCallController.close();
     _traceInfoController.close();
+    _agentActivityController.close();
+    _councilGraphController.close();
     _isProcessing.dispose();
     _isConnected.dispose();
   }
