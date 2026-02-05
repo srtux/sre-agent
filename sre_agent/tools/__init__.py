@@ -177,7 +177,13 @@ from .mcp.gcp import (
 )
 
 # Memory Tools
-from .memory import add_finding_to_memory, search_memory
+from .memory import (
+    add_finding_to_memory,
+    analyze_and_learn_from_traces,
+    complete_investigation,
+    get_recommended_investigation_strategy,
+    search_memory,
+)
 
 # Proactive Tools
 from .proactive import suggest_next_steps
@@ -211,6 +217,7 @@ __all__ = [
     "add_finding_to_memory",
     "analyze_agent_token_usage",
     "analyze_aggregate_metrics",
+    "analyze_and_learn_from_traces",
     "analyze_bigquery_log_patterns",
     "analyze_critical_path",
     "analyze_error_budget_burn",
@@ -233,6 +240,7 @@ __all__ = [
     "compare_metric_windows",
     "compare_span_timings",
     "compare_time_periods",
+    "complete_investigation",
     "compute_latency_statistics",
     "correlate_changes_with_incident",
     "correlate_incident_with_slo_impact",
@@ -279,6 +287,7 @@ __all__ = [
     "get_logs_for_trace",
     "get_pod_restart_events",
     "get_project_id_with_fallback",
+    "get_recommended_investigation_strategy",
     "get_sandbox_status",
     "get_slo_status",
     "get_tool_config_manager",

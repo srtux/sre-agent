@@ -36,6 +36,7 @@ from google.adk.sessions.session import Session as AdkSession
 from google.genai.types import Content, Part
 from pydantic import BaseModel, ConfigDict
 
+from sre_agent.api.helpers.memory_events import get_memory_event_bus
 from sre_agent.auth import (
     encrypt_token,
     get_current_credentials_or_none,
@@ -307,6 +308,13 @@ async def _handle_remote_agent(
                             dash_evt = create_dashboard_event(tool_name, result)
                             if dash_evt:
                                 yield dash_evt + "\n"
+
+                        # Memory events for UI visibility (toasts)
+                        event_bus = get_memory_event_bus()
+                        async for mem_event in event_bus.drain_events(
+                            request.session_id or "global"
+                        ):
+                            yield mem_event.to_json() + "\n"
 
         except Exception as e:
             logger.error(f"Error streaming from Agent Engine: {e}", exc_info=True)
@@ -831,6 +839,16 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                                             f"📊 Dashboard event for {tool_name}"
                                         )
                                         yield dash_evt + "\n"
+
+                                # Memory events for UI visibility (toasts)
+                                event_bus = get_memory_event_bus()
+                                async for mem_event in event_bus.drain_events(
+                                    session.id or "global"
+                                ):
+                                    logger.info(
+                                        f"🧠 Memory event: {mem_event.action.value}"
+                                    )
+                                    yield mem_event.to_json() + "\n"
 
                 # 4. Post-run Cleanup & Memory Sync
                 try:

@@ -182,6 +182,27 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         testable=False,
     ),
     ToolConfig(
+        name="complete_investigation",
+        display_name="Complete Investigation",
+        description="Mark an investigation as complete and learn from the pattern",
+        category=ToolCategory.MEMORY,
+        testable=False,
+    ),
+    ToolConfig(
+        name="get_recommended_investigation_strategy",
+        display_name="Get Recommended Strategy",
+        description="Get recommended investigation strategies based on past learnings",
+        category=ToolCategory.MEMORY,
+        testable=False,
+    ),
+    ToolConfig(
+        name="analyze_and_learn_from_traces",
+        display_name="Analyze & Learn from Traces",
+        description="Analyze past agent traces to learn and self-improve",
+        category=ToolCategory.MEMORY,
+        testable=False,
+    ),
+    ToolConfig(
         name="suggest_next_steps",
         display_name="Suggest Next Steps",
         description="Suggest the next best steps based on investigation state",
