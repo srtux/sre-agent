@@ -17,6 +17,27 @@ logger = logging.getLogger(__name__)
 MAX_WORKERS = 10  # Max concurrent fetches
 
 
+def _get_span_duration_ms(span: dict[str, Any]) -> float | None:
+    """Helper to calculate span duration using optimized timestamps if available."""
+    d = span.get("duration_ms")
+    if d is not None:
+        return float(d)
+
+    s_start_unix = span.get("start_time_unix")
+    s_end_unix = span.get("end_time_unix")
+    if s_start_unix is not None and s_end_unix is not None:
+        return (s_end_unix - s_start_unix) * 1000
+
+    if span.get("start_time") and span.get("end_time"):
+        try:
+            start = datetime.fromisoformat(span["start_time"].replace("Z", "+00:00"))
+            end = datetime.fromisoformat(span["end_time"].replace("Z", "+00:00"))
+            return (end - start).total_seconds() * 1000
+        except Exception:
+            pass
+    return None
+
+
 def _fetch_traces_parallel(
     trace_ids: list[str],
     project_id: str | None = None,
@@ -95,19 +116,7 @@ def _compute_latency_statistics_impl(
             if "spans" in trace_data:
                 for s in trace_data["spans"]:
                     # Try to get duration from span
-                    d = s.get("duration_ms")
-                    if d is None and s.get("start_time") and s.get("end_time"):
-                        try:
-                            start = datetime.fromisoformat(
-                                s["start_time"].replace("Z", "+00:00")
-                            )
-                            end = datetime.fromisoformat(
-                                s["end_time"].replace("Z", "+00:00")
-                            )
-                            d = (end - start).total_seconds() * 1000
-                        except Exception:
-                            pass
-
+                    d = _get_span_duration_ms(s)
                     if d is not None:
                         span_durations[s.get("name", "unknown")].append(d)
 
@@ -207,16 +216,7 @@ def _detect_latency_anomalies_impl(
         for s in target_data["spans"]:
             name = s.get("name")
             # Calc duration
-            dur = s.get("duration_ms")
-            if dur is None and s.get("start_time"):
-                try:
-                    start = datetime.fromisoformat(
-                        s["start_time"].replace("Z", "+00:00")
-                    )
-                    end = datetime.fromisoformat(s["end_time"].replace("Z", "+00:00"))
-                    dur = (end - start).total_seconds() * 1000
-                except Exception:
-                    pass
+            dur = _get_span_duration_ms(s)
 
             if name in span_stats and dur is not None:
                 b_span = span_stats[name]
@@ -322,16 +322,26 @@ def _analyze_critical_path_impl(trace_data: dict[str, Any]) -> dict[str, Any]:
     parsed_spans = {}
     for s in spans:
         try:
-            start = (
-                datetime.fromisoformat(
-                    s["start_time"].replace("Z", "+00:00")
-                ).timestamp()
-                * 1000
-            )
-            end = (
-                datetime.fromisoformat(s["end_time"].replace("Z", "+00:00")).timestamp()
-                * 1000
-            )
+            s_start_unix = s.get("start_time_unix")
+            s_end_unix = s.get("end_time_unix")
+
+            if s_start_unix is not None and s_end_unix is not None:
+                start = s_start_unix * 1000
+                end = s_end_unix * 1000
+            else:
+                start = (
+                    datetime.fromisoformat(
+                        s["start_time"].replace("Z", "+00:00")
+                    ).timestamp()
+                    * 1000
+                )
+                end = (
+                    datetime.fromisoformat(
+                        s["end_time"].replace("Z", "+00:00")
+                    ).timestamp()
+                    * 1000
+                )
+
             parsed_spans[s["span_id"]] = {
                 "id": s["span_id"],
                 "name": s.get("name"),
@@ -552,34 +562,15 @@ def perform_causal_analysis(
         if not baseline_instances:
             continue
 
-        target_duration = target_span.get("duration_ms")
+        target_duration = _get_span_duration_ms(target_span)
         if target_duration is None:
-            try:
-                start = datetime.fromisoformat(
-                    target_span["start_time"].replace("Z", "+00:00")
-                )
-                end = datetime.fromisoformat(
-                    target_span["end_time"].replace("Z", "+00:00")
-                )
-                target_duration = (end - start).total_seconds() * 1000
-            except Exception:
-                continue
+            continue
 
         baseline_durations = []
         for b_span in baseline_instances:
-            b_dur = b_span.get("duration_ms")
-            if b_dur is None:
-                try:
-                    start = datetime.fromisoformat(
-                        b_span["start_time"].replace("Z", "+00:00")
-                    )
-                    end = datetime.fromisoformat(
-                        b_span["end_time"].replace("Z", "+00:00")
-                    )
-                    b_dur = (end - start).total_seconds() * 1000
-                except Exception:
-                    continue
-            baseline_durations.append(b_dur)
+            b_dur = _get_span_duration_ms(b_span)
+            if b_dur is not None:
+                baseline_durations.append(b_dur)
 
         if not baseline_durations:
             continue
@@ -672,18 +663,7 @@ def analyze_trace_patterns(
 
         for span in trace.get("spans", []):
             name = span.get("name", "unknown")
-            dur = span.get("duration_ms")
-            if dur is None and span.get("start_time") and span.get("end_time"):
-                try:
-                    start = datetime.fromisoformat(
-                        span["start_time"].replace("Z", "+00:00")
-                    )
-                    end = datetime.fromisoformat(
-                        span["end_time"].replace("Z", "+00:00")
-                    )
-                    dur = (end - start).total_seconds() * 1000
-                except Exception:
-                    continue
+            dur = _get_span_duration_ms(span)
 
             if dur is not None:
                 perf = span_performance[name]
@@ -778,16 +758,7 @@ def compute_service_level_stats(
             labels = s.get("labels", {})
             svc = labels.get("service.name") or labels.get("service") or "unknown"
 
-            dur = 0.0
-            if s.get("start_time") and s.get("end_time"):
-                try:
-                    start = datetime.fromisoformat(
-                        s["start_time"].replace("Z", "+00:00")
-                    )
-                    end = datetime.fromisoformat(s["end_time"].replace("Z", "+00:00"))
-                    dur = (end - start).total_seconds() * 1000
-                except Exception:
-                    pass
+            dur = _get_span_duration_ms(s) or 0.0
 
             stats = service_stats[svc]
             stats["count"] += 1
