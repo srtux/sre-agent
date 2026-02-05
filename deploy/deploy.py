@@ -6,6 +6,11 @@ import sys
 import time
 from pathlib import Path
 
+try:
+    import cloudpickle
+except ImportError:
+    cloudpickle = None
+
 if sys.version_info >= (3, 11):
     import tomllib
 else:
@@ -61,7 +66,7 @@ flags.mark_bool_flags_as_mutual_exclusive(["create", "delete"])
 
 
 def get_requirements() -> list[str]:
-    """Reads requirements from pyproject.toml with robust merging."""
+    """Reads requirements from pyproject.toml with robust merging and sanitization."""
     pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
     with open(pyproject_path, "rb") as f:
         pyproject = tomllib.load(f)
@@ -70,34 +75,84 @@ def get_requirements() -> list[str]:
     dependencies = pyproject.get("project", {}).get("dependencies", [])
 
     # Ensure crucial deployment dependencies are present
-    # These are required by the Reasoning Engine runtime itself
+    # Pinned to exact versions found in local environment/lock file for stability
     required_for_deploy = [
-        "google-adk>=1.23.0",
-        "google-cloud-aiplatform[adk,agent-engines]>=1.93.0",
+        "google-adk==1.23.0",
+        "google-cloud-aiplatform==1.134.0",
+        "google-genai==1.59.0",
+        "opentelemetry-instrumentation-google-genai==0.6b0",
+        "pydantic==2.12.5",
         "requests>=2.31.0",
+        "mcp==1.25.0",
+        "python-dotenv>=1.0.1",
     ]
 
     # Map of package name (lowercase) to full requirement string
     req_map = {}
 
+    # List of dependencies to exclude from Agent Engine deployment
+    exclude_from_deploy = {
+        "fastapi",
+        "uvicorn",
+        "opentelemetry-instrumentation-fastapi",
+        "starlette",
+        "anyio",
+        "sniffio",
+        "deptry",
+        "ruff",
+        "mypy",
+        "pydantic-core",  # Let pydantic handle its core
+        "pydantic-settings",
+    }
+
     def add_req(req_str: str):
-        # Extract package name for comparison (e.g., 'google-adk>=1.0' -> 'google-adk')
         import re
 
-        name = re.split(r"[>=<~!\[]", req_str)[0].lower().strip()
-        req_map[name] = req_str
+        # Handle markers if present
+        cleaned_req = req_str
+        if ";" in req_str:
+            base, marker = req_str.split(";", 1)
+            if "python_version < '3.11'" in marker and sys.version_info >= (3, 11):
+                return
+            cleaned_req = base.strip()
 
-    # Process existing dependencies first
+        # Extract name
+        name = re.split(r"[>=<~!\[]", cleaned_req)[0].lower().strip()
+
+        if name in exclude_from_deploy:
+            return
+
+        req_map[name] = cleaned_req
+
+    # Process existing dependencies
     for d in dependencies:
         add_req(d)
 
-    # Merge required deployment packages if not already present
+    # Merge/Override with pinned deployment packages
     for r in required_for_deploy:
         name = re.split(r"[>=<~!\[]", r)[0].lower().strip()
-        if name not in req_map:
-            req_map[name] = r
+        req_map[name] = r
 
-    return list(req_map.values())
+    # Explicitly add cloudpickle
+    if "cloudpickle" not in req_map and cloudpickle:
+        req_map["cloudpickle"] = f"cloudpickle=={cloudpickle.__version__}"
+
+    return sorted(list(req_map.values()))
+
+
+def clean_package_folders():
+    """Removes __pycache__ and .pyc files recursively to avoid build/loading issues."""
+    print("Cleaning __pycache__ and stale build artifacts...")
+    base_dir = Path(__file__).parent.parent / "sre_agent"
+    import shutil
+
+    for path in base_dir.rglob("__pycache__"):
+        if path.is_dir():
+            shutil.rmtree(path)
+    for path in base_dir.rglob("*.pyc"):
+        path.unlink()
+    for path in base_dir.rglob("*.pyo"):
+        path.unlink()
 
 
 def verify_local_import():
@@ -269,13 +324,22 @@ def deploy(env_vars: dict[str, str] | None = None) -> None:
                 print(f"Successfully updated agent: {remote_resource_name}")
                 break
             except exceptions.InvalidArgument as e:
+                error_msg = str(e)
+                if "Build failed" in error_msg:
+                    print(f"❌ Permanent Build Failure detected: {error_msg}")
+                    print(
+                        "Hint: This often means a requirement is missing or incompatible."
+                    )
+                    print("Review requirements.txt and code for errors.")
+                    raise
+
                 # Vertex AI often returns 400 InvalidArgument when an update is already in progress
                 retry_count += 1
                 if retry_count < max_retries:
                     print(
                         f"⚠️  Concurrent update detected or invalid state. Retrying in 60s ({retry_count}/{max_retries})..."
                     )
-                    print(f"Error detail: {e}")
+                    print(f"Error detail: {error_msg}")
                     time.sleep(60)
                 else:
                     print("❌ Maximum retries reached. Failing deployment.")
