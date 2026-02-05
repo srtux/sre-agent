@@ -26,7 +26,7 @@ def _get_span_duration_ms(span: dict[str, Any]) -> float | None:
     s_start_unix = span.get("start_time_unix")
     s_end_unix = span.get("end_time_unix")
     if s_start_unix is not None and s_end_unix is not None:
-        return (s_end_unix - s_start_unix) * 1000
+        return (float(s_end_unix) - float(s_start_unix)) * 1000
 
     if span.get("start_time") and span.get("end_time"):
         try:

@@ -1,11 +1,13 @@
+from unittest.mock import patch
 
 import pytest
+
 from sre_agent.schema import ToolStatus
 from sre_agent.tools.analysis.trace.statistical_analysis import (
-    compute_latency_statistics,
     analyze_critical_path,
+    compute_latency_statistics,
 )
-from unittest.mock import patch, MagicMock
+
 
 @pytest.fixture
 def optimized_trace_data():
@@ -25,8 +27,9 @@ def optimized_trace_data():
                 "parent_span_id": None,
                 # duration_ms missing to force calculation
             }
-        ]
+        ],
     }
+
 
 @patch("sre_agent.tools.analysis.trace.statistical_analysis._fetch_traces_parallel")
 def test_compute_latency_statistics_optimized(mock_fetch, optimized_trace_data):
@@ -36,9 +39,7 @@ def test_compute_latency_statistics_optimized(mock_fetch, optimized_trace_data):
     """
     mock_fetch.return_value = [optimized_trace_data]
 
-    response = compute_latency_statistics(
-        ["optimized-trace"], project_id="test-p"
-    )
+    response = compute_latency_statistics(["optimized-trace"], project_id="test-p")
 
     assert response.status == ToolStatus.SUCCESS
     stats = response.result
@@ -51,6 +52,7 @@ def test_compute_latency_statistics_optimized(mock_fetch, optimized_trace_data):
     # Duration should be 100ms (1600000000.1 - 1600000000.0) * 1000
     # Floating point precision might vary slightly
     assert abs(span_stats["fast-span"]["mean"] - 100.0) < 0.01
+
 
 @patch("sre_agent.tools.analysis.trace.statistical_analysis.fetch_trace_data")
 def test_analyze_critical_path_optimized(mock_fetch, optimized_trace_data):
