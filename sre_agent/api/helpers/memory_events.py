@@ -148,7 +148,9 @@ class MemoryEventBus:
             if loop.is_running():
                 # Store task reference to prevent GC (per ruff RUF006)
                 task = asyncio.create_task(self.emit(session_id, event))
-                task.add_done_callback(lambda t: None)  # Prevent unhandled exception warning
+                task.add_done_callback(
+                    lambda t: None
+                )  # Prevent unhandled exception warning
             else:
                 loop.run_until_complete(self.emit(session_id, event))
         except RuntimeError:

@@ -155,7 +155,9 @@ async def complete_investigation(
 
     # Emit event for UI visibility
     event_bus = get_memory_event_bus()
-    event = create_pattern_learned_event(symptom_type, root_cause_category, tool_sequence)
+    event = create_pattern_learned_event(
+        symptom_type, root_cause_category, tool_sequence
+    )
     await event_bus.emit(session_id, event)
 
     # Sync session to long-term memory
