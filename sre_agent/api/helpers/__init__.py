@@ -424,6 +424,174 @@ def build_cloud_trace_url(trace_id: str, project_id: str) -> str:
     return _CLOUD_TRACE_URL_TEMPLATE.format(trace_id=trace_id, project_id=project_id)
 
 
+# ---------------------------------------------------------------------------
+# Agent Activity Event Helpers (Council Dashboard)
+# ---------------------------------------------------------------------------
+
+
+def create_agent_activity_event(
+    investigation_id: str,
+    agent_id: str,
+    agent_name: str,
+    agent_type: str,
+    status: str,
+    parent_id: str | None = None,
+    tool_calls: list[dict[str, Any]] | None = None,
+    llm_calls: list[dict[str, Any]] | None = None,
+    output_summary: str = "",
+    started_at: str = "",
+    completed_at: str = "",
+) -> str:
+    """Create an agent_activity event for the council dashboard.
+
+    This event tracks the activity of a single agent in the council hierarchy,
+    including its tool calls, LLM calls, and relationships to other agents.
+
+    Args:
+        investigation_id: Unique ID for the overall investigation.
+        agent_id: Unique ID for this agent instance.
+        agent_name: Human-readable name of the agent.
+        agent_type: Type of agent (root, orchestrator, panel, critic, synthesizer).
+        status: Current status (pending, running, completed, error).
+        parent_id: ID of the parent agent, or None for root.
+        tool_calls: List of tool call records.
+        llm_calls: List of LLM call records.
+        output_summary: Brief summary of the agent's output.
+        started_at: ISO timestamp when agent started.
+        completed_at: ISO timestamp when agent completed.
+
+    Returns:
+        JSON string of the agent_activity event.
+    """
+    event = {
+        "type": "agent_activity",
+        "investigation_id": investigation_id,
+        "agent": {
+            "agent_id": agent_id,
+            "agent_name": agent_name,
+            "agent_type": agent_type,
+            "parent_id": parent_id,
+            "status": status,
+            "started_at": started_at,
+            "completed_at": completed_at,
+            "tool_calls": tool_calls or [],
+            "llm_calls": llm_calls or [],
+            "output_summary": output_summary,
+        },
+    }
+    return json.dumps(event, default=str)
+
+
+def create_council_graph_event(
+    investigation_id: str,
+    mode: str,
+    agents: list[dict[str, Any]],
+    started_at: str,
+    completed_at: str = "",
+    debate_rounds: int = 1,
+) -> str:
+    """Create a council_graph event with the complete agent hierarchy.
+
+    This event contains the full graph of all agents that participated
+    in a council investigation, suitable for rendering as a visualization.
+
+    Args:
+        investigation_id: Unique ID for this investigation.
+        mode: Investigation mode (fast, standard, debate).
+        agents: List of all agent activity records.
+        started_at: ISO timestamp when investigation started.
+        completed_at: ISO timestamp when investigation completed.
+        debate_rounds: Number of debate rounds completed.
+
+    Returns:
+        JSON string of the council_graph event.
+    """
+    # Calculate totals
+    total_tool_calls = sum(len(a.get("tool_calls", [])) for a in agents)
+    total_llm_calls = sum(len(a.get("llm_calls", [])) for a in agents)
+
+    event = {
+        "type": "council_graph",
+        "investigation_id": investigation_id,
+        "mode": mode,
+        "started_at": started_at,
+        "completed_at": completed_at,
+        "debate_rounds": debate_rounds,
+        "total_tool_calls": total_tool_calls,
+        "total_llm_calls": total_llm_calls,
+        "agents": agents,
+    }
+    return json.dumps(event, default=str)
+
+
+def create_tool_call_record(
+    call_id: str,
+    tool_name: str,
+    args: dict[str, Any] | None = None,
+    result: Any = None,
+    status: str = "completed",
+    duration_ms: int = 0,
+    timestamp: str = "",
+) -> dict[str, Any]:
+    """Create a tool call record for agent activity tracking.
+
+    Args:
+        call_id: Unique identifier for this tool call.
+        tool_name: Name of the tool that was called.
+        args: Arguments passed to the tool.
+        result: Result from the tool (will be summarized).
+        status: Status of the call (pending, completed, error).
+        duration_ms: Time taken for the call in milliseconds.
+        timestamp: ISO timestamp when the tool was called.
+
+    Returns:
+        Dictionary suitable for inclusion in an agent_activity event.
+    """
+    # Create args summary
+    args_summary = ""
+    if args:
+        # Limit to first 200 chars of string representation
+        args_str = str(args)
+        args_summary = args_str[:200] + "..." if len(args_str) > 200 else args_str
+
+    # Create result summary
+    result_summary = ""
+    if result is not None:
+        if isinstance(result, dict):
+            if "error" in result:
+                result_summary = f"Error: {result['error']}"
+            elif "result" in result:
+                result_str = str(result["result"])
+                result_summary = (
+                    result_str[:200] + "..." if len(result_str) > 200 else result_str
+                )
+            else:
+                result_str = str(result)
+                result_summary = (
+                    result_str[:200] + "..." if len(result_str) > 200 else result_str
+                )
+        else:
+            result_str = str(result)
+            result_summary = (
+                result_str[:200] + "..." if len(result_str) > 200 else result_str
+            )
+
+    # Determine dashboard category from tool name
+    widget_type = TOOL_WIDGET_MAP.get(tool_name)
+    dashboard_category = WIDGET_CATEGORY_MAP.get(widget_type) if widget_type else None
+
+    return {
+        "call_id": call_id,
+        "tool_name": tool_name,
+        "args_summary": args_summary,
+        "result_summary": result_summary,
+        "status": status,
+        "duration_ms": duration_ms,
+        "timestamp": timestamp,
+        "dashboard_category": dashboard_category,
+    }
+
+
 def get_current_trace_info(project_id: str | None = None) -> dict[str, Any] | None:
     """Extract the current OTel trace ID and build a trace_info event payload.
 

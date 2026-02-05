@@ -307,6 +307,197 @@ To prevent brittle UI rendering, the Investigation Dashboard is decoupled from t
 - `ConversationPage` subscribes to this stream and updates `DashboardState`.
 - A2UI remains solely for in-chat tool log bubbles.
 
+<<<<<<< HEAD
+### 13. Sandbox Code Execution Pattern (Large Data Processing)
+
+When tools return large volumes of data (e.g., `list_metric_descriptors` with 1000+ metrics),
+use sandbox processing to analyze and summarize data without exceeding LLM context windows.
+
+**Path**: `sre_agent/tools/sandbox/`
+
+**Execution Modes**:
+
+| Mode | Auto-Enabled When | Description |
+|------|-------------------|-------------|
+| Agent Engine | `SRE_AGENT_ID` is set | Cloud-based sandboxes with process isolation |
+| Local | `SRE_AGENT_LOCAL_EXECUTION=true` | Python `exec()` for local development |
+| Disabled | Neither condition met | Fallback to basic summarization |
+
+**Environment Variables**:
+```bash
+SRE_AGENT_SANDBOX_ENABLED=true     # Explicit enable (overrides auto-detection)
+SRE_AGENT_SANDBOX_ENABLED=false    # Explicit disable (overrides auto-detection)
+SRE_AGENT_LOCAL_EXECUTION=true     # Enable local Python execution mode
+SRE_AGENT_SANDBOX_RESOURCE_NAME    # Optional: Pre-created sandbox resource
+SRE_AGENT_SANDBOX_TTL              # Sandbox TTL in seconds (default: 3600)
+SRE_AGENT_ID                       # When set, auto-enables Agent Engine sandbox
+```
+
+**When to Use Sandbox Processing**:
+- Tool returns >50 items or >50KB of data
+- You need statistical analysis of large datasets
+- You want to filter/rank results before presenting to user
+
+**Available Processing Tools**:
+```python
+from sre_agent.tools.sandbox import (
+    summarize_metric_descriptors_in_sandbox,  # For list_metric_descriptors output
+    summarize_time_series_in_sandbox,         # For list_time_series output
+    summarize_log_entries_in_sandbox,         # For list_log_entries output
+    summarize_traces_in_sandbox,              # For list_traces output
+    execute_custom_analysis_in_sandbox,       # For ad-hoc Python analysis
+    get_sandbox_status,                       # Check sandbox availability
+    # Utilities
+    is_sandbox_enabled,                       # Check if sandbox is available
+    is_local_execution_enabled,               # Check if local mode is enabled
+    is_remote_mode,                           # Check if running in Agent Engine
+    get_code_executor,                        # Get appropriate executor
+    LocalCodeExecutor,                        # Local execution class
+)
+```
+
+**Usage Example**:
+```python
+# When list_metric_descriptors returns too many results:
+raw_result = await list_metric_descriptors(filter_str="compute")
+
+# Process in sandbox if large
+if len(raw_result.result) > 50:
+    summary = await summarize_metric_descriptors_in_sandbox(raw_result.result)
+    # summary contains: total_count, by_metric_kind, top_metrics, summary text
+```
+
+**Custom Analysis Example**:
+```python
+result = await execute_custom_analysis_in_sandbox(
+    data=large_dataset,
+    analysis_code='''
+import json
+result = {
+    "count": len(data),
+    "top_errors": sorted(
+        [d for d in data if d.get("severity") == "ERROR"],
+        key=lambda x: x.get("count", 0),
+        reverse=True
+    )[:10]
+}
+print(json.dumps(result))
+'''
+)
+```
+
+**Local Development Mode**:
+```python
+# Enable local execution for development
+import os
+os.environ["SRE_AGENT_LOCAL_EXECUTION"] = "true"
+
+# Use the same processing tools - they automatically select LocalCodeExecutor
+from sre_agent.tools.sandbox import execute_custom_analysis_in_sandbox
+
+result = await execute_custom_analysis_in_sandbox(
+    data=my_data,
+    analysis_code="print(len(data))"
+)
+```
+
+**Event Visibility (Transparency)**:
+The sandbox provides full visibility into execution for user trust:
+
+```python
+from sre_agent.tools.sandbox import (
+    set_sandbox_event_callback,
+    get_recent_execution_logs,
+    clear_execution_logs,
+)
+from sre_agent.tools.sandbox.schemas import SandboxExecutionEvent, SandboxEventType
+
+# Register callback to receive real-time events
+def on_sandbox_event(event: SandboxExecutionEvent) -> None:
+    print(f"[{event.event_type}] {event.code_snippet[:50] if event.code_snippet else ''}")
+
+set_sandbox_event_callback(on_sandbox_event)
+
+# Available event types:
+# - SANDBOX_CREATED, SANDBOX_DELETED
+# - CODE_EXECUTION_STARTED, CODE_EXECUTION_COMPLETED, CODE_EXECUTION_FAILED
+# - DATA_LOADED, OUTPUT_GENERATED
+
+# Retrieve execution history for audit trail
+logs = get_recent_execution_logs(limit=10)
+for log in logs:
+    print(f"{log.timestamp}: {log.template_name} - {'OK' if log.success else 'FAILED'}")
+```
+
+**Key Points**:
+- Auto-detection: Sandbox is automatically enabled in Agent Engine (SRE_AGENT_ID set)
+- Local mode: Set `SRE_AGENT_LOCAL_EXECUTION=true` for development without cloud
+- Sandboxes provide process-level isolation (Agent Engine) or restricted exec (local)
+- State persists across executions within a session
+- Automatic fallback to basic summarization if sandbox unavailable
+- Pre-built templates for common data types (metrics, logs, traces, time series)
+- Full event visibility for transparency and user trust
+
+**Reference Documentation**:
+- https://docs.cloud.google.com/agent-builder/agent-engine/code-execution/overview
+- https://google.github.io/adk-docs/tools/google-cloud/code-exec-agent-engine/
+=======
+### 12.1 Council Activity Graph Events
+
+For visualizing multi-agent council investigations, additional event types track agent hierarchy and activity:
+
+**Agent Activity Event** (emitted when an agent's status changes):
+```python
+{
+    "type": "agent_activity",
+    "investigation_id": "inv-123",
+    "agent": {
+        "agent_id": "panel-trace-001",
+        "agent_name": "Trace Panel",
+        "agent_type": "panel",  # root|orchestrator|panel|critic|synthesizer|sub_agent
+        "parent_id": "orchestrator-001",
+        "status": "completed",  # pending|running|completed|error
+        "started_at": "2025-01-15T10:30:00Z",
+        "completed_at": "2025-01-15T10:30:15Z",
+        "tool_calls": [...],    # List of ToolCallRecord
+        "llm_calls": [...],     # List of LLMCallRecord
+        "output_summary": "High latency in checkout service"
+    }
+}
+```
+
+**Council Graph Event** (emitted at investigation completion):
+```python
+{
+    "type": "council_graph",
+    "investigation_id": "inv-123",
+    "mode": "debate",           # fast|standard|debate
+    "started_at": "...",
+    "completed_at": "...",
+    "debate_rounds": 2,
+    "total_tool_calls": 12,
+    "total_llm_calls": 8,
+    "agents": [...]             # Full agent hierarchy
+}
+```
+
+**Backend helpers** (`sre_agent/api/helpers/__init__.py`):
+- `create_agent_activity_event()`: Creates agent_activity event JSON
+- `create_council_graph_event()`: Creates council_graph event JSON
+- `create_tool_call_record()`: Creates tool call record dict
+
+**Frontend streams** (`ADKContentGenerator`):
+- `agentActivityStream`: Stream of agent activity events
+- `councilGraphStream`: Stream of complete council graphs
+
+**Schemas** (`sre_agent/council/schemas.py`):
+- `AgentType`: Enum for agent types in hierarchy
+- `ToolCallRecord`: Records individual tool invocations
+- `LLMCallRecord`: Records LLM inference calls
+- `AgentActivity`: Complete activity for one agent
+- `CouncilActivityGraph`: Full investigation graph
+>>>>>>> origin/main
+
 ---
 
 ## 💻 Frontend Architecture (Flutter/GenUI)

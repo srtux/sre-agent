@@ -57,6 +57,9 @@ class ToolCategory(str, Enum):
     ANALYSIS = "analysis"  # Generic analysis tools
     MEMORY = "memory"  # Memory and context tools
 
+    # Sandbox Processing
+    SANDBOX = "sandbox"  # Code execution sandbox for large data processing
+
 
 class ToolTestStatus(str, Enum):
     """Status of tool connectivity test."""
@@ -918,6 +921,57 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         description="Synthesize a comprehensive incident report",
         category=ToolCategory.ORCHESTRATION,
         testable=False,
+    ),
+    # -------------------------------------------------------------------------
+    # Sandbox Processing Tools (Agent Engine Code Execution)
+    # -------------------------------------------------------------------------
+    ToolConfig(
+        name="summarize_metric_descriptors_in_sandbox",
+        display_name="Summarize Metric Descriptors (Sandbox)",
+        description="Process large lists of metric descriptors in sandbox to avoid context overflow",
+        category=ToolCategory.SANDBOX,
+        testable=False,
+        enabled=True,
+    ),
+    ToolConfig(
+        name="summarize_time_series_in_sandbox",
+        display_name="Summarize Time Series (Sandbox)",
+        description="Process large lists of time series data in sandbox with statistical analysis",
+        category=ToolCategory.SANDBOX,
+        testable=False,
+        enabled=True,
+    ),
+    ToolConfig(
+        name="summarize_log_entries_in_sandbox",
+        display_name="Summarize Log Entries (Sandbox)",
+        description="Process large lists of log entries in sandbox with severity analysis",
+        category=ToolCategory.SANDBOX,
+        testable=False,
+        enabled=True,
+    ),
+    ToolConfig(
+        name="summarize_traces_in_sandbox",
+        display_name="Summarize Traces (Sandbox)",
+        description="Process large lists of traces in sandbox with latency analysis",
+        category=ToolCategory.SANDBOX,
+        testable=False,
+        enabled=True,
+    ),
+    ToolConfig(
+        name="execute_custom_analysis_in_sandbox",
+        display_name="Execute Custom Analysis (Sandbox)",
+        description="Execute custom Python analysis code in isolated sandbox",
+        category=ToolCategory.SANDBOX,
+        testable=False,
+        enabled=True,
+    ),
+    ToolConfig(
+        name="get_sandbox_status",
+        display_name="Get Sandbox Status",
+        description="Check sandbox execution availability and configuration",
+        category=ToolCategory.SANDBOX,
+        testable=False,
+        enabled=True,
     ),
     # Mutation tools (restart_pod, scale_deployment, rollback_deployment) are
     # currently unimplemented placeholders and have been removed.

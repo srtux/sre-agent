@@ -234,6 +234,16 @@ from .tools.mcp.gcp import (
 )
 from .tools.reporting import synthesize_report
 
+# Sandbox Processing Tools
+from .tools.sandbox import (
+    execute_custom_analysis_in_sandbox,
+    get_sandbox_status,
+    summarize_log_entries_in_sandbox,
+    summarize_metric_descriptors_in_sandbox,
+    summarize_time_series_in_sandbox,
+    summarize_traces_in_sandbox,
+)
+
 # Initialize logger for this module
 logger = logging.getLogger(__name__)
 
@@ -1026,6 +1036,13 @@ TOOL_NAME_MAP = {
     "get_recommended_investigation_strategy": get_recommended_investigation_strategy,
     "analyze_and_learn_from_traces": analyze_and_learn_from_traces,
     "suggest_next_steps": suggest_next_steps,
+    # Sandbox Processing
+    "summarize_metric_descriptors_in_sandbox": summarize_metric_descriptors_in_sandbox,
+    "summarize_time_series_in_sandbox": summarize_time_series_in_sandbox,
+    "summarize_log_entries_in_sandbox": summarize_log_entries_in_sandbox,
+    "summarize_traces_in_sandbox": summarize_traces_in_sandbox,
+    "execute_custom_analysis_in_sandbox": execute_custom_analysis_in_sandbox,
+    "get_sandbox_status": get_sandbox_status,
 }
 
 # Common tools for all agents
@@ -1106,6 +1123,13 @@ base_tools: list[Any] = [
     analyze_multi_window_burn_rate,
     # Change Correlation
     correlate_changes_with_incident,
+    # Sandbox Processing Tools
+    summarize_metric_descriptors_in_sandbox,
+    summarize_time_series_in_sandbox,
+    summarize_log_entries_in_sandbox,
+    summarize_traces_in_sandbox,
+    execute_custom_analysis_in_sandbox,
+    get_sandbox_status,
 ]
 
 
