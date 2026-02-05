@@ -159,3 +159,165 @@ class CouncilConfig(BaseModel):
         le=600,
         description="Maximum wall-clock time for the investigation.",
     )
+
+
+# =============================================================================
+# Agent Activity Tracking Schemas
+# =============================================================================
+
+
+class AgentType(str, Enum):
+    """Types of agents in the council hierarchy."""
+
+    ROOT = "root"
+    ORCHESTRATOR = "orchestrator"
+    PANEL = "panel"
+    CRITIC = "critic"
+    SYNTHESIZER = "synthesizer"
+    SUB_AGENT = "sub_agent"
+
+
+class ToolCallRecord(BaseModel):
+    """Record of a single tool call made by an agent.
+
+    Tracks the tool name, arguments, result summary, timing,
+    and whether it produced dashboard-visualizable data.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    call_id: str = Field(description="Unique identifier for this tool call.")
+    tool_name: str = Field(description="Name of the tool that was called.")
+    args_summary: str = Field(
+        default="",
+        description="Brief summary of the arguments passed to the tool.",
+    )
+    result_summary: str = Field(
+        default="",
+        description="Brief summary of the tool result.",
+    )
+    status: str = Field(
+        default="completed",
+        description="Status: 'pending', 'completed', or 'error'.",
+    )
+    duration_ms: int = Field(
+        default=0,
+        ge=0,
+        description="Time taken for the tool call in milliseconds.",
+    )
+    timestamp: str = Field(
+        default="",
+        description="ISO timestamp when the tool was called.",
+    )
+    dashboard_category: str | None = Field(
+        default=None,
+        description="Dashboard category if this tool produces visualization data.",
+    )
+
+
+class LLMCallRecord(BaseModel):
+    """Record of an LLM inference call made by an agent.
+
+    Tracks the model used, token counts, and timing.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    call_id: str = Field(description="Unique identifier for this LLM call.")
+    model: str = Field(description="Model identifier used for this call.")
+    input_tokens: int = Field(default=0, ge=0, description="Number of input tokens.")
+    output_tokens: int = Field(default=0, ge=0, description="Number of output tokens.")
+    duration_ms: int = Field(
+        default=0,
+        ge=0,
+        description="Time taken for the LLM call in milliseconds.",
+    )
+    timestamp: str = Field(
+        default="",
+        description="ISO timestamp when the LLM was called.",
+    )
+
+
+class AgentActivity(BaseModel):
+    """Activity record for a single agent in the council hierarchy.
+
+    Tracks the agent's identity, status, tool calls, LLM calls,
+    and relationships to other agents.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    agent_id: str = Field(description="Unique identifier for this agent instance.")
+    agent_name: str = Field(description="Human-readable name of the agent.")
+    agent_type: AgentType = Field(description="Type of agent in the hierarchy.")
+    parent_id: str | None = Field(
+        default=None,
+        description="ID of the parent agent, or None for root.",
+    )
+    status: str = Field(
+        default="pending",
+        description="Status: 'pending', 'running', 'completed', 'error'.",
+    )
+    started_at: str = Field(default="", description="ISO timestamp when agent started.")
+    completed_at: str = Field(
+        default="", description="ISO timestamp when agent completed."
+    )
+    tool_calls: list[ToolCallRecord] = Field(
+        default_factory=list,
+        description="List of tool calls made by this agent.",
+    )
+    llm_calls: list[LLMCallRecord] = Field(
+        default_factory=list,
+        description="List of LLM inference calls made by this agent.",
+    )
+    output_summary: str = Field(
+        default="",
+        description="Brief summary of the agent's output or findings.",
+    )
+
+
+class CouncilActivityGraph(BaseModel):
+    """Complete activity graph for a council investigation.
+
+    Contains all agent activities, their relationships, and
+    aggregated statistics for visualization.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    investigation_id: str = Field(
+        description="Unique identifier for this investigation."
+    )
+    mode: InvestigationMode = Field(description="Investigation mode used.")
+    started_at: str = Field(description="ISO timestamp when investigation started.")
+    completed_at: str = Field(
+        default="", description="ISO timestamp when investigation completed."
+    )
+    agents: list[AgentActivity] = Field(
+        default_factory=list,
+        description="All agents that participated in the investigation.",
+    )
+    total_tool_calls: int = Field(
+        default=0, ge=0, description="Total number of tool calls across all agents."
+    )
+    total_llm_calls: int = Field(
+        default=0, ge=0, description="Total number of LLM calls across all agents."
+    )
+    debate_rounds: int = Field(
+        default=1, ge=1, description="Number of debate rounds completed."
+    )
+
+    def get_agent_by_id(self, agent_id: str) -> AgentActivity | None:
+        """Find an agent by its ID."""
+        for agent in self.agents:
+            if agent.agent_id == agent_id:
+                return agent
+        return None
+
+    def get_children(self, parent_id: str) -> list[AgentActivity]:
+        """Get all direct children of an agent."""
+        return [a for a in self.agents if a.parent_id == parent_id]
+
+    def get_root_agents(self) -> list[AgentActivity]:
+        """Get agents with no parent (root level)."""
+        return [a for a in self.agents if a.parent_id is None]

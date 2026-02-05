@@ -33,6 +33,20 @@ The **Investigation Dashboard** is a real-time, interactive UI built into the Fl
     *   **One-Click Action**: Terminal commands (gcloud, kubectl) can be copied directly from the dashboard.
     *   **Proactive**: Populates automatically when the agent calls the `generate_remediation_suggestions` tool.
 
+### 5. Council of Experts Dashboard
+*   **Purpose**: Visualize multi-agent investigations with full transparency into expert decision-making.
+*   **Expert Findings View**:
+    *   **Panel Summaries**: Each specialist panel (Trace, Metrics, Logs, Alerts) displays its assessment.
+    *   **Severity Indicators**: Visual badges for Critical, Warning, Info, Healthy assessments.
+    *   **Confidence Scores**: Per-panel confidence with supporting evidence.
+    *   **Critic Report**: In Debate mode, shows agreements, contradictions, and identified gaps.
+*   **Activity Graph View**:
+    *   **Graph Mode**: Tree visualization of agent hierarchy (Root → Orchestrator → Panels → Sub-agents).
+    *   **Timeline Mode**: Chronological sequence of all tool calls and LLM invocations across agents.
+    *   **Agent Cards**: Show status, duration, tool calls, and LLM token counts per agent.
+    *   **Tool Call Details**: Expandable view showing arguments, results, and dashboard category links.
+*   **Integration**: Tool calls from panels automatically populate other dashboard tabs (Traces, Logs, Metrics, Alerts).
+
 ## 🛠️ Architecture
 -   **Decoupled Data Channel**: The dashboard is independent of the chat-based A2UI protocol. It listens to a dedicated `dashboard` event stream.
 -   **State Management**: `DashboardState` (`lib/services/dashboard_state.dart`) acting as a singleton provider.

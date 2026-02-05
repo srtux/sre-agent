@@ -1,7 +1,8 @@
 """Integration tests for the council investigation pipeline.
 
 Validates end-to-end pipeline assembly and routing logic
-for all investigation modes (Fast, Standard, Debate).
+for all investigation modes (Fast, Standard, Debate), and
+agent activity tracking functionality.
 """
 
 import os
@@ -15,10 +16,21 @@ from google.adk.agents import (
     SequentialAgent,
 )
 
+from sre_agent.api.helpers import (
+    create_agent_activity_event,
+    create_council_graph_event,
+    create_tool_call_record,
+)
 from sre_agent.council.debate import create_debate_pipeline
 from sre_agent.council.intent_classifier import classify_intent
 from sre_agent.council.parallel_council import create_council_pipeline
-from sre_agent.council.schemas import CouncilConfig, InvestigationMode
+from sre_agent.council.schemas import (
+    AgentActivity,
+    AgentType,
+    CouncilActivityGraph,
+    CouncilConfig,
+    InvestigationMode,
+)
 
 
 class TestCouncilPipelineIntegration:
@@ -195,3 +207,315 @@ class TestPanelToolIsolation:
         # Should NOT have log-analysis-only tools
         assert "analyze_bigquery_log_patterns" not in tool_names
         assert "extract_log_patterns" not in tool_names
+
+
+# =============================================================================
+# Agent Activity Tracking Integration Tests
+# =============================================================================
+
+
+class TestAgentActivityTracking:
+    """Integration tests for agent activity tracking and event generation."""
+
+    def test_agent_activity_event_structure(self) -> None:
+        """Agent activity events should have required fields."""
+        import json
+
+        event_str = create_agent_activity_event(
+            investigation_id="inv-123",
+            agent_id="panel-trace-001",
+            agent_name="Trace Panel",
+            agent_type="panel",
+            status="running",
+            parent_id="orchestrator-001",
+        )
+
+        event = json.loads(event_str)
+        assert event["type"] == "agent_activity"
+        assert event["investigation_id"] == "inv-123"
+        # Agent data is in the "agent" field, not "data"
+        agent = event["agent"]
+        assert agent["agent_id"] == "panel-trace-001"
+        assert agent["agent_name"] == "Trace Panel"
+        assert agent["agent_type"] == "panel"
+        assert agent["status"] == "running"
+        assert agent["parent_id"] == "orchestrator-001"
+
+    def test_agent_activity_event_with_tool_calls(self) -> None:
+        """Agent activity events should include tool call records."""
+        import json
+
+        tool_call = create_tool_call_record(
+            call_id="tc-001",
+            tool_name="get_traces",
+            args={"service": "checkout"},
+            result={"spans": []},
+            status="completed",
+            duration_ms=150,
+            timestamp="2025-01-15T10:30:00Z",
+        )
+
+        event_str = create_agent_activity_event(
+            investigation_id="inv-123",
+            agent_id="panel-trace-001",
+            agent_name="Trace Panel",
+            agent_type="panel",
+            status="completed",
+            tool_calls=[tool_call],
+        )
+
+        event = json.loads(event_str)
+        agent = event["agent"]
+        assert len(agent["tool_calls"]) == 1
+        tc = agent["tool_calls"][0]
+        assert tc["call_id"] == "tc-001"
+        assert tc["tool_name"] == "get_traces"
+        assert tc["status"] == "completed"
+        assert tc["duration_ms"] == 150
+
+    def test_council_graph_event_structure(self) -> None:
+        """Council graph events should have complete structure."""
+        import json
+
+        # Create agent as a dict (as expected by the helper function)
+        agent_activity = {
+            "agent_id": "root-001",
+            "agent_name": "Root Agent",
+            "agent_type": "root",
+            "parent_id": None,
+            "status": "completed",
+            "tool_calls": [],
+            "llm_calls": [],
+        }
+
+        event_str = create_council_graph_event(
+            investigation_id="inv-123",
+            mode="standard",
+            agents=[agent_activity],
+            started_at="2025-01-15T10:30:00Z",
+            completed_at="2025-01-15T10:30:30Z",
+        )
+
+        event = json.loads(event_str)
+        assert event["type"] == "council_graph"
+        assert event["investigation_id"] == "inv-123"
+        # Council graph event has fields directly on the event
+        assert event["mode"] == "standard"
+        assert len(event["agents"]) == 1
+        assert event["started_at"] == "2025-01-15T10:30:00Z"
+        assert event["completed_at"] == "2025-01-15T10:30:30Z"
+
+    def test_tool_call_record_structure(self) -> None:
+        """Tool call records should have expected fields."""
+        record = create_tool_call_record(
+            call_id="tc-001",
+            tool_name="get_traces",
+            args={"service": "checkout"},
+            result={"spans": [{"trace_id": "abc123"}]},
+            status="completed",
+            duration_ms=200,
+            timestamp="2025-01-15T10:30:00Z",
+        )
+
+        assert record["call_id"] == "tc-001"
+        assert record["tool_name"] == "get_traces"
+        assert record["status"] == "completed"
+        assert record["duration_ms"] == 200
+        assert "args_summary" in record
+        assert "result_summary" in record
+
+    def test_activity_graph_model_from_event(self) -> None:
+        """CouncilActivityGraph should be constructable from event data."""
+        # Simulate event data as it would come from the backend
+        event_data = {
+            "investigation_id": "inv-456",
+            "mode": "debate",
+            "started_at": "2025-01-15T10:30:00Z",
+            "completed_at": "2025-01-15T10:31:00Z",
+            "debate_rounds": 2,
+            "total_tool_calls": 12,
+            "total_llm_calls": 8,
+            "agents": [
+                {
+                    "agent_id": "root-001",
+                    "agent_name": "Root Agent",
+                    "agent_type": "root",
+                    "parent_id": None,
+                    "status": "completed",
+                    "started_at": "2025-01-15T10:30:00Z",
+                    "completed_at": "2025-01-15T10:31:00Z",
+                    "tool_calls": [],
+                    "llm_calls": [],
+                    "output_summary": "Investigation complete",
+                },
+                {
+                    "agent_id": "panel-trace-001",
+                    "agent_name": "Trace Panel",
+                    "agent_type": "panel",
+                    "parent_id": "root-001",
+                    "status": "completed",
+                    "started_at": "2025-01-15T10:30:05Z",
+                    "completed_at": "2025-01-15T10:30:20Z",
+                    "tool_calls": [
+                        {
+                            "call_id": "tc-001",
+                            "tool_name": "get_traces",
+                            "args_summary": "service=checkout",
+                            "result_summary": "Found 5 traces",
+                            "status": "completed",
+                            "duration_ms": 150,
+                            "timestamp": "2025-01-15T10:30:06Z",
+                            "dashboard_category": "traces",
+                        }
+                    ],
+                    "llm_calls": [
+                        {
+                            "call_id": "llm-001",
+                            "model": "gemini-2.5-flash",
+                            "input_tokens": 500,
+                            "output_tokens": 200,
+                            "duration_ms": 800,
+                            "timestamp": "2025-01-15T10:30:07Z",
+                        }
+                    ],
+                    "output_summary": "High latency in checkout service",
+                },
+            ],
+        }
+
+        # Parse the event data into the model
+        graph = CouncilActivityGraph.model_validate(event_data)
+
+        assert graph.investigation_id == "inv-456"
+        assert graph.mode == InvestigationMode.DEBATE
+        assert graph.debate_rounds == 2
+        assert graph.total_tool_calls == 12
+        assert len(graph.agents) == 2
+
+        # Verify agent relationships
+        root_agents = graph.get_root_agents()
+        assert len(root_agents) == 1
+        assert root_agents[0].agent_id == "root-001"
+
+        children = graph.get_children("root-001")
+        assert len(children) == 1
+        assert children[0].agent_name == "Trace Panel"
+
+        # Verify tool calls on panel agent
+        panel = graph.get_agent_by_id("panel-trace-001")
+        assert panel is not None
+        assert len(panel.tool_calls) == 1
+        assert panel.tool_calls[0].tool_name == "get_traces"
+        assert panel.tool_calls[0].dashboard_category == "traces"
+
+        # Verify LLM calls on panel agent
+        assert len(panel.llm_calls) == 1
+        assert panel.llm_calls[0].model == "gemini-2.5-flash"
+        assert panel.llm_calls[0].input_tokens == 500
+
+
+class TestActivityGraphPipelineIntegration:
+    """Integration tests for activity graph with pipeline structure."""
+
+    def test_standard_pipeline_agent_hierarchy(self) -> None:
+        """Standard pipeline structure should map to activity graph hierarchy."""
+        config = CouncilConfig(mode=InvestigationMode.STANDARD)
+        pipeline = create_council_pipeline(config)
+
+        # Extract expected agent structure from pipeline
+        parallel = pipeline.sub_agents[0]
+
+        # Create corresponding activity graph
+        agents = [
+            AgentActivity(
+                agent_id="orchestrator-001",
+                agent_name="council_pipeline",
+                agent_type=AgentType.ORCHESTRATOR,
+                status="completed",
+            )
+        ]
+
+        for i, panel in enumerate(parallel.sub_agents):
+            agents.append(
+                AgentActivity(
+                    agent_id=f"panel-{i:03d}",
+                    agent_name=panel.name,
+                    agent_type=AgentType.PANEL,
+                    parent_id="orchestrator-001",
+                    status="completed",
+                )
+            )
+
+        # Add synthesizer
+        agents.append(
+            AgentActivity(
+                agent_id="synthesizer-001",
+                agent_name="council_synthesizer",
+                agent_type=AgentType.SYNTHESIZER,
+                parent_id="orchestrator-001",
+                status="completed",
+            )
+        )
+
+        graph = CouncilActivityGraph(
+            investigation_id="inv-standard-001",
+            mode=InvestigationMode.STANDARD,
+            started_at="2025-01-15T10:30:00Z",
+            agents=agents,
+            debate_rounds=1,
+        )
+
+        # Verify structure matches pipeline
+        assert (
+            len(graph.get_children("orchestrator-001")) == 5
+        )  # 4 panels + synthesizer
+
+        panel_agents = [a for a in graph.agents if a.agent_type == AgentType.PANEL]
+        assert len(panel_agents) == 4
+
+        synth_agents = [
+            a for a in graph.agents if a.agent_type == AgentType.SYNTHESIZER
+        ]
+        assert len(synth_agents) == 1
+
+    def test_debate_pipeline_agent_hierarchy(self) -> None:
+        """Debate pipeline structure should include critic in activity graph."""
+        config = CouncilConfig(
+            mode=InvestigationMode.DEBATE,
+            max_debate_rounds=2,
+        )
+        pipeline = create_debate_pipeline(config)
+
+        # Verify debate loop has critic
+        debate_loop = pipeline.sub_agents[2]
+        assert debate_loop.sub_agents[0].name == "council_critic"
+
+        # Create activity graph with critic
+        agents = [
+            AgentActivity(
+                agent_id="orchestrator-001",
+                agent_name="debate_pipeline",
+                agent_type=AgentType.ORCHESTRATOR,
+                status="completed",
+            ),
+            AgentActivity(
+                agent_id="critic-001",
+                agent_name="council_critic",
+                agent_type=AgentType.CRITIC,
+                parent_id="orchestrator-001",
+                status="completed",
+            ),
+        ]
+
+        graph = CouncilActivityGraph(
+            investigation_id="inv-debate-001",
+            mode=InvestigationMode.DEBATE,
+            started_at="2025-01-15T10:30:00Z",
+            agents=agents,
+            debate_rounds=2,
+        )
+
+        assert graph.debate_rounds == 2
+        critic_agents = [a for a in graph.agents if a.agent_type == AgentType.CRITIC]
+        assert len(critic_agents) == 1
+        assert critic_agents[0].agent_name == "council_critic"
