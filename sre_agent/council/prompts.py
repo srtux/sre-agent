@@ -231,11 +231,33 @@ You will find the following in the session state:
 You MUST output a valid JSON object matching this schema:
 ```json
 {{
+  "mode": "standard|fast|debate",
   "synthesis": "<unified narrative>",
   "overall_severity": "critical|warning|info|healthy",
-  "overall_confidence": 0.0-1.0
+  "overall_confidence": 0.0-1.0,
+  "rounds": 1,
+  "panels": [
+    {{
+      "panel": "trace|metrics|logs|alerts",
+      "summary": "<panel finding summary>",
+      "severity": "critical|warning|info|healthy",
+      "confidence": 0.0-1.0,
+      "evidence": ["<evidence items>"],
+      "recommended_actions": ["<actions>"]
+    }}
+  ],
+  "critic_report": {{
+    "agreements": ["<points of agreement>"],
+    "contradictions": ["<conflicting findings>"],
+    "gaps": ["<missing analysis>"],
+    "revised_confidence": 0.0-1.0
+  }}
 }}
 ```
+
+IMPORTANT: You MUST include ALL panel findings you can read from state in the `panels` array.
+Include `critic_report` only if you find one in state (DEBATE mode).
+Set `rounds` from `council_round` state value (default 1).
 
 Be decisive. The user needs a clear answer, not hedging.
 """

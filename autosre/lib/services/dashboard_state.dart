@@ -250,6 +250,42 @@ class DashboardState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Update the most recent council item with an activity graph.
+  ///
+  /// This is called when a council_graph event arrives after the synthesis.
+  void updateCouncilWithActivityGraph(CouncilActivityGraph graph) {
+    // Find the most recent council item
+    for (var i = _items.length - 1; i >= 0; i--) {
+      final item = _items[i];
+      if (item.type == DashboardDataType.council && item.councilData != null) {
+        // Create updated council data with the activity graph
+        final updatedCouncil = CouncilSynthesisData(
+          synthesis: item.councilData!.synthesis,
+          overallSeverity: item.councilData!.overallSeverity,
+          overallConfidence: item.councilData!.overallConfidence,
+          mode: item.councilData!.mode,
+          rounds: item.councilData!.rounds,
+          panels: item.councilData!.panels,
+          criticReport: item.councilData!.criticReport,
+          activityGraph: graph,
+          rawData: item.councilData!.rawData,
+        );
+
+        // Replace the item with updated data
+        _items[i] = DashboardItem(
+          id: item.id,
+          type: item.type,
+          toolName: item.toolName,
+          timestamp: item.timestamp,
+          rawData: item.rawData,
+          councilData: updatedCouncil,
+        );
+        notifyListeners();
+        return;
+      }
+    }
+  }
+
   /// Process a dashboard event received from the backend's dedicated channel.
   ///
   /// This is the primary way to feed data into the dashboard. Events have

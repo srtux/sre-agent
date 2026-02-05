@@ -35,6 +35,7 @@ dependencies = [
     "greenlet>=3.0.3",
     "cryptography>=46.0.3",
     "opentelemetry-instrumentation-fastapi>=0.58b0",
+    "cloudpickle>=3.1.2",
 ]
 
 requires-python = ">=3.10,<3.13"

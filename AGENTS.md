@@ -307,6 +307,7 @@ To prevent brittle UI rendering, the Investigation Dashboard is decoupled from t
 - `ConversationPage` subscribes to this stream and updates `DashboardState`.
 - A2UI remains solely for in-chat tool log bubbles.
 
+<<<<<<< HEAD
 ### 13. Sandbox Code Execution Pattern (Large Data Processing)
 
 When tools return large volumes of data (e.g., `list_metric_descriptors` with 1000+ metrics),
@@ -440,6 +441,62 @@ for log in logs:
 **Reference Documentation**:
 - https://docs.cloud.google.com/agent-builder/agent-engine/code-execution/overview
 - https://google.github.io/adk-docs/tools/google-cloud/code-exec-agent-engine/
+=======
+### 12.1 Council Activity Graph Events
+
+For visualizing multi-agent council investigations, additional event types track agent hierarchy and activity:
+
+**Agent Activity Event** (emitted when an agent's status changes):
+```python
+{
+    "type": "agent_activity",
+    "investigation_id": "inv-123",
+    "agent": {
+        "agent_id": "panel-trace-001",
+        "agent_name": "Trace Panel",
+        "agent_type": "panel",  # root|orchestrator|panel|critic|synthesizer|sub_agent
+        "parent_id": "orchestrator-001",
+        "status": "completed",  # pending|running|completed|error
+        "started_at": "2025-01-15T10:30:00Z",
+        "completed_at": "2025-01-15T10:30:15Z",
+        "tool_calls": [...],    # List of ToolCallRecord
+        "llm_calls": [...],     # List of LLMCallRecord
+        "output_summary": "High latency in checkout service"
+    }
+}
+```
+
+**Council Graph Event** (emitted at investigation completion):
+```python
+{
+    "type": "council_graph",
+    "investigation_id": "inv-123",
+    "mode": "debate",           # fast|standard|debate
+    "started_at": "...",
+    "completed_at": "...",
+    "debate_rounds": 2,
+    "total_tool_calls": 12,
+    "total_llm_calls": 8,
+    "agents": [...]             # Full agent hierarchy
+}
+```
+
+**Backend helpers** (`sre_agent/api/helpers/__init__.py`):
+- `create_agent_activity_event()`: Creates agent_activity event JSON
+- `create_council_graph_event()`: Creates council_graph event JSON
+- `create_tool_call_record()`: Creates tool call record dict
+
+**Frontend streams** (`ADKContentGenerator`):
+- `agentActivityStream`: Stream of agent activity events
+- `councilGraphStream`: Stream of complete council graphs
+
+**Schemas** (`sre_agent/council/schemas.py`):
+- `AgentType`: Enum for agent types in hierarchy
+- `ToolCallRecord`: Records individual tool invocations
+- `LLMCallRecord`: Records LLM inference calls
+- `AgentActivity`: Complete activity for one agent
+- `CouncilActivityGraph`: Full investigation graph
+>>>>>>> origin/main
 
 ---
 
