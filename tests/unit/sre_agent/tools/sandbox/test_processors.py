@@ -1,6 +1,5 @@
 """Tests for sandbox processors."""
 
-import json
 import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -19,7 +18,7 @@ from sre_agent.tools.sandbox.processors import (
     summarize_time_series_in_sandbox,
     summarize_traces_in_sandbox,
 )
-from sre_agent.tools.sandbox.schemas import CodeExecutionOutput, DataProcessingResult
+from sre_agent.tools.sandbox.schemas import CodeExecutionOutput
 
 
 class TestShouldUseSandbox:

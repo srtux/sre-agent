@@ -168,7 +168,10 @@ async def summarize_metric_descriptors_in_sandbox(
             return BaseToolResponse(
                 status=ToolStatus.SUCCESS,
                 result=result,
-                metadata={"processed_in_sandbox": True, "input_count": len(descriptors)},
+                metadata={
+                    "processed_in_sandbox": True,
+                    "input_count": len(descriptors),
+                },
             )
         except Exception as e:
             logger.warning(
@@ -229,7 +232,10 @@ async def summarize_time_series_in_sandbox(
             return BaseToolResponse(
                 status=ToolStatus.SUCCESS,
                 result=result,
-                metadata={"processed_in_sandbox": True, "input_count": len(time_series)},
+                metadata={
+                    "processed_in_sandbox": True,
+                    "input_count": len(time_series),
+                },
             )
         except Exception as e:
             logger.warning(
@@ -292,7 +298,10 @@ async def summarize_log_entries_in_sandbox(
             return BaseToolResponse(
                 status=ToolStatus.SUCCESS,
                 result=result,
-                metadata={"processed_in_sandbox": True, "input_count": len(log_entries)},
+                metadata={
+                    "processed_in_sandbox": True,
+                    "input_count": len(log_entries),
+                },
             )
         except Exception as e:
             logger.warning(
@@ -411,7 +420,13 @@ async def execute_custom_analysis_in_sandbox(
         )
 
     # Validate basic safety (this is defense in depth, sandbox provides isolation)
-    dangerous_patterns = ["import os", "import subprocess", "__import__", "eval(", "exec("]
+    dangerous_patterns = [
+        "import os",
+        "import subprocess",
+        "__import__",
+        "eval(",
+        "exec(",
+    ]
     for pattern in dangerous_patterns:
         if pattern in analysis_code:
             return BaseToolResponse(

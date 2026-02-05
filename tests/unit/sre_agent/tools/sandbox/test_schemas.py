@@ -176,7 +176,10 @@ class TestLogEntrySummary:
             severity_counts={"ERROR": 10, "WARNING": 50, "INFO": 940},
             resource_type_counts={"gce_instance": 500, "k8s_container": 500},
             top_error_messages=["Connection refused", "Timeout exceeded"],
-            time_range={"earliest": "2024-01-15T00:00:00Z", "latest": "2024-01-15T23:59:59Z"},
+            time_range={
+                "earliest": "2024-01-15T00:00:00Z",
+                "latest": "2024-01-15T23:59:59Z",
+            },
             sample_entries=[{"severity": "ERROR", "message": "test error"}],
         )
         assert summary.severity_counts["ERROR"] == 10

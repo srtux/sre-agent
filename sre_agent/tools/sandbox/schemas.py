@@ -4,6 +4,7 @@ This module defines schemas for Agent Engine Code Execution sandbox operations,
 used for processing large volumes of data in isolated environments.
 """
 
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -160,4 +161,91 @@ class LogEntrySummary(BaseModel):
     )
     sample_entries: list[dict[str, Any]] = Field(
         default_factory=list, description="Representative sample entries"
+    )
+
+
+# =============================================================================
+# Sandbox Execution Events (for visibility/transparency)
+# =============================================================================
+
+
+class SandboxEventType(str, Enum):
+    """Types of sandbox execution events."""
+
+    SANDBOX_CREATED = "sandbox_created"
+    SANDBOX_DELETED = "sandbox_deleted"
+    CODE_EXECUTION_STARTED = "code_execution_started"
+    CODE_EXECUTION_COMPLETED = "code_execution_completed"
+    CODE_EXECUTION_FAILED = "code_execution_failed"
+    DATA_LOADED = "data_loaded"
+    OUTPUT_GENERATED = "output_generated"
+
+
+class SandboxExecutionEvent(BaseModel):
+    """Event emitted during sandbox execution for visibility.
+
+    These events allow users to see what the sandbox is doing,
+    providing transparency and building trust in the agent's actions.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    event_type: SandboxEventType = Field(description="Type of sandbox event")
+    timestamp: str = Field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat(),
+        description="ISO 8601 timestamp of the event",
+    )
+    execution_mode: str = Field(
+        description="Execution mode: 'agent_engine', 'local', or 'fallback'"
+    )
+    sandbox_name: str | None = Field(
+        default=None, description="Sandbox resource name (if applicable)"
+    )
+    code_snippet: str | None = Field(
+        default=None, description="First 500 chars of code being executed"
+    )
+    input_data_summary: str | None = Field(
+        default=None, description="Summary of input data (type, size)"
+    )
+    output_summary: str | None = Field(
+        default=None, description="Summary of output (success/error, size)"
+    )
+    duration_ms: float | None = Field(
+        default=None, description="Execution duration in milliseconds"
+    )
+    error_message: str | None = Field(
+        default=None, description="Error message if execution failed"
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict, description="Additional event metadata"
+    )
+
+
+class SandboxExecutionLog(BaseModel):
+    """Complete log of sandbox execution for a single processing request.
+
+    This provides a full audit trail of what happened during sandbox processing.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    request_id: str = Field(description="Unique identifier for this execution request")
+    template_name: str | None = Field(
+        default=None, description="Name of processing template used"
+    )
+    execution_mode: str = Field(
+        description="Execution mode: 'agent_engine', 'local', or 'fallback'"
+    )
+    events: list[SandboxExecutionEvent] = Field(
+        default_factory=list, description="Sequence of events during execution"
+    )
+    total_duration_ms: float = Field(
+        default=0, description="Total execution duration in milliseconds"
+    )
+    success: bool = Field(default=False, description="Whether execution succeeded")
+    input_item_count: int = Field(
+        default=0, description="Number of items in input data"
+    )
+    output_item_count: int = Field(
+        default=0, description="Number of items in output data"
     )

@@ -314,11 +314,22 @@ use sandbox processing to analyze and summarize data without exceeding LLM conte
 
 **Path**: `sre_agent/tools/sandbox/`
 
+**Execution Modes**:
+
+| Mode | Auto-Enabled When | Description |
+|------|-------------------|-------------|
+| Agent Engine | `SRE_AGENT_ID` is set | Cloud-based sandboxes with process isolation |
+| Local | `SRE_AGENT_LOCAL_EXECUTION=true` | Python `exec()` for local development |
+| Disabled | Neither condition met | Fallback to basic summarization |
+
 **Environment Variables**:
 ```bash
-SRE_AGENT_SANDBOX_ENABLED=true   # Enable sandbox execution
-SRE_AGENT_SANDBOX_RESOURCE_NAME  # Optional: Pre-created sandbox resource
-SRE_AGENT_SANDBOX_TTL            # Sandbox TTL in seconds (default: 3600)
+SRE_AGENT_SANDBOX_ENABLED=true     # Explicit enable (overrides auto-detection)
+SRE_AGENT_SANDBOX_ENABLED=false    # Explicit disable (overrides auto-detection)
+SRE_AGENT_LOCAL_EXECUTION=true     # Enable local Python execution mode
+SRE_AGENT_SANDBOX_RESOURCE_NAME    # Optional: Pre-created sandbox resource
+SRE_AGENT_SANDBOX_TTL              # Sandbox TTL in seconds (default: 3600)
+SRE_AGENT_ID                       # When set, auto-enables Agent Engine sandbox
 ```
 
 **When to Use Sandbox Processing**:
@@ -335,6 +346,12 @@ from sre_agent.tools.sandbox import (
     summarize_traces_in_sandbox,              # For list_traces output
     execute_custom_analysis_in_sandbox,       # For ad-hoc Python analysis
     get_sandbox_status,                       # Check sandbox availability
+    # Utilities
+    is_sandbox_enabled,                       # Check if sandbox is available
+    is_local_execution_enabled,               # Check if local mode is enabled
+    is_remote_mode,                           # Check if running in Agent Engine
+    get_code_executor,                        # Get appropriate executor
+    LocalCodeExecutor,                        # Local execution class
 )
 ```
 
@@ -368,11 +385,57 @@ print(json.dumps(result))
 )
 ```
 
+**Local Development Mode**:
+```python
+# Enable local execution for development
+import os
+os.environ["SRE_AGENT_LOCAL_EXECUTION"] = "true"
+
+# Use the same processing tools - they automatically select LocalCodeExecutor
+from sre_agent.tools.sandbox import execute_custom_analysis_in_sandbox
+
+result = await execute_custom_analysis_in_sandbox(
+    data=my_data,
+    analysis_code="print(len(data))"
+)
+```
+
+**Event Visibility (Transparency)**:
+The sandbox provides full visibility into execution for user trust:
+
+```python
+from sre_agent.tools.sandbox import (
+    set_sandbox_event_callback,
+    get_recent_execution_logs,
+    clear_execution_logs,
+)
+from sre_agent.tools.sandbox.schemas import SandboxExecutionEvent, SandboxEventType
+
+# Register callback to receive real-time events
+def on_sandbox_event(event: SandboxExecutionEvent) -> None:
+    print(f"[{event.event_type}] {event.code_snippet[:50] if event.code_snippet else ''}")
+
+set_sandbox_event_callback(on_sandbox_event)
+
+# Available event types:
+# - SANDBOX_CREATED, SANDBOX_DELETED
+# - CODE_EXECUTION_STARTED, CODE_EXECUTION_COMPLETED, CODE_EXECUTION_FAILED
+# - DATA_LOADED, OUTPUT_GENERATED
+
+# Retrieve execution history for audit trail
+logs = get_recent_execution_logs(limit=10)
+for log in logs:
+    print(f"{log.timestamp}: {log.template_name} - {'OK' if log.success else 'FAILED'}")
+```
+
 **Key Points**:
-- Sandboxes provide process-level isolation
+- Auto-detection: Sandbox is automatically enabled in Agent Engine (SRE_AGENT_ID set)
+- Local mode: Set `SRE_AGENT_LOCAL_EXECUTION=true` for development without cloud
+- Sandboxes provide process-level isolation (Agent Engine) or restricted exec (local)
 - State persists across executions within a session
 - Automatic fallback to basic summarization if sandbox unavailable
 - Pre-built templates for common data types (metrics, logs, traces, time series)
+- Full event visibility for transparency and user trust
 
 **Reference Documentation**:
 - https://docs.cloud.google.com/agent-builder/agent-engine/code-execution/overview

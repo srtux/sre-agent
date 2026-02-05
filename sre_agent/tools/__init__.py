@@ -187,8 +187,12 @@ from .reporting import synthesize_report
 
 # Sandbox Processing Tools
 from .sandbox import (
+    LocalCodeExecutor,
     execute_custom_analysis_in_sandbox,
+    get_code_executor,
     get_sandbox_status,
+    is_local_execution_enabled,
+    is_remote_mode,
     is_sandbox_enabled,
     summarize_log_entries_in_sandbox,
     summarize_metric_descriptors_in_sandbox,
@@ -197,6 +201,7 @@ from .sandbox import (
 )
 
 __all__ = [
+    "LocalCodeExecutor",
     # Configuration
     "ToolCategory",
     "ToolConfig",
@@ -264,6 +269,7 @@ __all__ = [
     "generate_postmortem",
     "generate_remediation_suggestions",
     "get_alert",
+    "get_code_executor",
     "get_container_oom_events",
     "get_current_time",
     "get_gcloud_commands",
@@ -278,6 +284,8 @@ __all__ = [
     "get_tool_config_manager",
     "get_trace_by_url",
     "get_workload_health_summary",
+    "is_local_execution_enabled",
+    "is_remote_mode",
     "is_sandbox_enabled",
     "list_agent_traces",
     "list_alert_policies",

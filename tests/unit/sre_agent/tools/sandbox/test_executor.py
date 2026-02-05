@@ -8,16 +8,24 @@ import pytest
 
 from sre_agent.tools.sandbox.executor import (
     DATA_PROCESSING_TEMPLATES,
+    LocalCodeExecutor,
     SandboxExecutor,
+    clear_execution_logs,
     get_agent_engine_resource_name,
+    get_code_executor,
+    get_recent_execution_logs,
     get_sandbox_resource_name,
+    is_local_execution_enabled,
+    is_remote_mode,
     is_sandbox_enabled,
     process_data_in_sandbox,
+    set_sandbox_event_callback,
 )
 from sre_agent.tools.sandbox.schemas import (
     CodeExecutionOutput,
     MachineConfig,
     SandboxConfig,
+    SandboxExecutionEvent,
     SandboxFile,
     SandboxLanguage,
 )
@@ -71,7 +79,10 @@ class TestGetAgentEngineResourceName:
             },
         ):
             result = get_agent_engine_resource_name()
-            assert result == "projects/my-project/locations/us-central1/reasoningEngines/engine-123"
+            assert (
+                result
+                == "projects/my-project/locations/us-central1/reasoningEngines/engine-123"
+            )
 
     def test_uses_default_location(self) -> None:
         with patch.dict(
@@ -110,9 +121,7 @@ class TestSandboxExecutor:
 
     @pytest.mark.asyncio
     async def test_create_with_existing_sandbox(self) -> None:
-        executor = await SandboxExecutor.create(
-            sandbox_name="existing-sandbox"
-        )
+        executor = await SandboxExecutor.create(sandbox_name="existing-sandbox")
         assert executor.sandbox_name == "existing-sandbox"
 
     @pytest.mark.asyncio
@@ -309,3 +318,156 @@ class TestProcessDataInSandbox:
         )
 
         assert result["from_file"] is True
+
+
+# Tests for new functionality (auto-detection, local execution, events)
+
+
+class TestIsRemoteMode:
+    def test_returns_false_when_agent_id_not_set(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            assert is_remote_mode() is False
+
+    def test_returns_true_when_agent_id_set(self) -> None:
+        with patch.dict(os.environ, {"SRE_AGENT_ID": "test-agent-123"}):
+            assert is_remote_mode() is True
+
+
+class TestIsLocalExecutionEnabled:
+    def test_returns_false_by_default(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            assert is_local_execution_enabled() is False
+
+    def test_returns_true_when_enabled(self) -> None:
+        with patch.dict(os.environ, {"SRE_AGENT_LOCAL_EXECUTION": "true"}):
+            assert is_local_execution_enabled() is True
+
+
+class TestAutoDetectSandbox:
+    def test_sandbox_auto_enabled_in_agent_engine(self) -> None:
+        """Sandbox should be auto-enabled when SRE_AGENT_ID is set."""
+        with patch.dict(os.environ, {"SRE_AGENT_ID": "agent-123"}, clear=True):
+            assert is_sandbox_enabled() is True
+
+    def test_sandbox_auto_enabled_with_local_execution(self) -> None:
+        """Sandbox should be auto-enabled when local execution is enabled."""
+        with patch.dict(os.environ, {"SRE_AGENT_LOCAL_EXECUTION": "true"}, clear=True):
+            assert is_sandbox_enabled() is True
+
+    def test_explicit_false_overrides_auto_detect(self) -> None:
+        """Explicit SRE_AGENT_SANDBOX_ENABLED=false should override auto-detect."""
+        with patch.dict(
+            os.environ,
+            {"SRE_AGENT_ID": "agent-123", "SRE_AGENT_SANDBOX_ENABLED": "false"},
+        ):
+            assert is_sandbox_enabled() is False
+
+
+class TestLocalCodeExecutor:
+    @pytest.mark.asyncio
+    async def test_execute_simple_code(self) -> None:
+        executor = LocalCodeExecutor()
+        output = await executor.execute_code("print('Hello, World!')")
+
+        assert "Hello, World!" in output.stdout
+        assert output.execution_error is None
+
+    @pytest.mark.asyncio
+    async def test_execute_with_input_files(self) -> None:
+        executor = LocalCodeExecutor()
+        input_file = SandboxFile(name="data.txt", content=b"test data")
+
+        output = await executor.execute_code(
+            'with open("data.txt", "r") as f: print(f.read())',
+            input_files=[input_file],
+        )
+
+        assert "test data" in output.stdout
+        assert output.execution_error is None
+
+    @pytest.mark.asyncio
+    async def test_execute_generates_output_file(self) -> None:
+        executor = LocalCodeExecutor()
+        output = await executor.execute_code(
+            'with open("output.json", "w") as f: f.write(\'{"result": 42}\')'
+        )
+
+        assert output.execution_error is None
+        assert len(output.output_files) == 1
+        assert output.output_files[0].name == "output.json"
+        assert b'"result": 42' in output.output_files[0].content
+
+    @pytest.mark.asyncio
+    async def test_execute_handles_syntax_error(self) -> None:
+        executor = LocalCodeExecutor()
+        output = await executor.execute_code("this is not valid python")
+
+        assert output.execution_error is not None
+        assert "syntax" in output.execution_error.lower()
+
+    @pytest.mark.asyncio
+    async def test_execute_data_processing(self) -> None:
+        executor = LocalCodeExecutor()
+        output = await executor.execute_data_processing(
+            data=[{"id": 1}, {"id": 2}, {"id": 3}],
+            processing_code='import json; print(json.dumps({"count": len(data)}))',
+        )
+
+        assert output.execution_error is None
+        result = json.loads(output.stdout)
+        assert result["count"] == 3
+
+
+class TestEventCallback:
+    def test_set_and_clear_callback(self) -> None:
+        events: list[SandboxExecutionEvent] = []
+
+        def callback(event: SandboxExecutionEvent) -> None:
+            events.append(event)
+
+        set_sandbox_event_callback(callback)
+        # Clear callback
+        set_sandbox_event_callback(None)
+
+        # Verify callback is cleared (no exception)
+        assert True
+
+
+class TestExecutionLogs:
+    def test_clear_execution_logs(self) -> None:
+        clear_execution_logs()
+        logs = get_recent_execution_logs()
+        assert logs == []
+
+    @pytest.mark.asyncio
+    async def test_execution_logs_stored(self) -> None:
+        """Test that execution logs are stored after processing."""
+        clear_execution_logs()
+
+        mock_executor = MagicMock(spec=LocalCodeExecutor)
+        mock_executor.execute_data_processing = AsyncMock(
+            return_value=CodeExecutionOutput(
+                stdout='{"result": "test"}',
+                stderr="",
+            )
+        )
+
+        with patch.dict(os.environ, {"SRE_AGENT_LOCAL_EXECUTION": "true"}):
+            await process_data_in_sandbox(
+                data=[{"id": 1}],
+                template_name="summarize_metrics",
+                sandbox_executor=mock_executor,
+            )
+
+        logs = get_recent_execution_logs(limit=1)
+        assert len(logs) == 1
+        assert logs[0].template_name == "summarize_metrics"
+        assert logs[0].success is True
+
+
+class TestGetCodeExecutor:
+    @pytest.mark.asyncio
+    async def test_returns_local_executor_when_local_enabled(self) -> None:
+        with patch.dict(os.environ, {"SRE_AGENT_LOCAL_EXECUTION": "true"}, clear=True):
+            executor = await get_code_executor()
+            assert isinstance(executor, LocalCodeExecutor)
