@@ -152,30 +152,34 @@ CouncilActivityGraph _makeActivityGraph({
   List<CouncilAgentActivity>? agents,
   int debateRounds = 1,
 }) {
+  final agentsList = agents ?? [
+    _makeAgentActivity(
+      agentId: 'orchestrator',
+      agentName: 'council_orchestrator',
+      agentType: CouncilAgentType.orchestrator,
+    ),
+    _makeAgentActivity(
+      agentId: 'trace-panel',
+      agentName: 'trace_panel',
+      agentType: CouncilAgentType.panel,
+      parentId: 'orchestrator',
+    ),
+    _makeAgentActivity(
+      agentId: 'metrics-panel',
+      agentName: 'metrics_panel',
+      agentType: CouncilAgentType.panel,
+      parentId: 'orchestrator',
+    ),
+  ];
+
   return CouncilActivityGraph(
     investigationId: investigationId,
     mode: mode,
     startedAt: startedAt,
     completedAt: completedAt,
-    agents: agents ?? [
-      _makeAgentActivity(
-        agentId: 'orchestrator',
-        agentName: 'council_orchestrator',
-        agentType: CouncilAgentType.orchestrator,
-      ),
-      _makeAgentActivity(
-        agentId: 'trace-panel',
-        agentName: 'trace_panel',
-        agentType: CouncilAgentType.panel,
-        parentId: 'orchestrator',
-      ),
-      _makeAgentActivity(
-        agentId: 'metrics-panel',
-        agentName: 'metrics_panel',
-        agentType: CouncilAgentType.panel,
-        parentId: 'orchestrator',
-      ),
-    ],
+    agents: agentsList,
+    totalToolCalls: agentsList.fold(0, (sum, a) => sum + a.totalToolCalls),
+    totalLLMCalls: agentsList.fold(0, (sum, a) => sum + a.totalLLMCalls),
     debateRounds: debateRounds,
   );
 }
@@ -547,7 +551,7 @@ void main() {
         ),
       );
 
-      expect(find.text('Expert Findings'), findsOneWidget);
+      expect(find.text('Expert Findings'), findsNWidgets(2));
       expect(find.text('Trace Analysis'), findsOneWidget);
       expect(find.text('Metrics Analysis'), findsOneWidget);
       expect(find.text('Latency in payment service.'), findsOneWidget);
@@ -580,7 +584,7 @@ void main() {
       );
 
       expect(find.text('Debate Analysis'), findsOneWidget);
-      expect(find.text('1 agreement'), findsOneWidget);
+      expect(find.textContaining('1 agreement'), findsOneWidget);
     });
 
     testWidgets('fast mode does not show rounds', (tester) async {

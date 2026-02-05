@@ -435,7 +435,7 @@ class _CouncilActivityGraphWidgetState
               if (call.hasDashboardData)
                 Tooltip(
                   message: 'Data visible in ${call.dashboardCategory} tab',
-                  child: Icon(
+                  child: const Icon(
                     Icons.dashboard_rounded,
                     size: 10,
                     color: AppColors.primaryCyan,
@@ -637,7 +637,7 @@ class _CouncilActivityGraphWidgetState
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.dashboard_rounded,
                             size: 10,
                             color: AppColors.primaryCyan,

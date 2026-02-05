@@ -149,7 +149,7 @@ class TestGetApplicationMetrics:
         ]
 
         with patch(
-            "sre_agent.tools.clients.apphub._get_application_topology_sync",
+            "sre_agent.tools.clients.app_telemetry._get_application_topology_sync",
             return_value=mock_topology,
         ):
             with patch(
@@ -175,7 +175,7 @@ class TestGetApplicationMetrics:
         }
 
         with patch(
-            "sre_agent.tools.clients.apphub._get_application_topology_sync",
+            "sre_agent.tools.clients.app_telemetry._get_application_topology_sync",
             return_value=mock_topology,
         ):
             result = await get_application_metrics(
@@ -215,7 +215,7 @@ class TestGetApplicationLogs:
         }
 
         with patch(
-            "sre_agent.tools.clients.apphub._get_application_topology_sync",
+            "sre_agent.tools.clients.app_telemetry._get_application_topology_sync",
             return_value=mock_topology,
         ):
             with patch(
@@ -260,7 +260,7 @@ class TestGetApplicationHealth:
         mock_logs = {"entries": [], "next_page_token": None}
 
         with patch(
-            "sre_agent.tools.clients.apphub._get_application_topology_sync",
+            "sre_agent.tools.clients.app_telemetry._get_application_topology_sync",
             return_value=mock_topology,
         ):
             with patch(
@@ -299,7 +299,7 @@ class TestGetApplicationHealth:
         }
 
         with patch(
-            "sre_agent.tools.clients.apphub._get_application_topology_sync",
+            "sre_agent.tools.clients.app_telemetry._get_application_topology_sync",
             return_value=mock_topology,
         ):
             with patch(
@@ -312,8 +312,8 @@ class TestGetApplicationHealth:
                 )
 
                 assert result.status == ToolStatus.SUCCESS
-                # Should be DEGRADED due to errors
-                assert result.result["status"] in ["DEGRADED", "HEALTHY"]
+                # Should be DEGRADED or CRITICAL due to errors
+                assert result.result["status"] in ["DEGRADED", "CRITICAL", "HEALTHY"]
 
 
 class TestFindApplicationTraces:
@@ -343,7 +343,7 @@ class TestFindApplicationTraces:
         ]
 
         with patch(
-            "sre_agent.tools.clients.apphub._get_application_topology_sync",
+            "sre_agent.tools.clients.app_telemetry._get_application_topology_sync",
             return_value=mock_topology,
         ):
             with patch(

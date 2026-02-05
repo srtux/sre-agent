@@ -312,7 +312,7 @@ class _LiveCouncilPanelState extends State<LiveCouncilPanel> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
+          const Icon(
             Icons.loop_rounded,
             size: 12,
             color: AppColors.secondaryPurple,
@@ -339,7 +339,7 @@ class _LiveCouncilPanelState extends State<LiveCouncilPanel> {
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
           child: Row(
             children: [
-              Icon(
+              const Icon(
                 Icons.psychology_rounded,
                 size: 14,
                 color: AppColors.primaryCyan,
@@ -580,7 +580,7 @@ class _LiveCouncilPanelState extends State<LiveCouncilPanel> {
                       color: AppColors.secondaryPurple.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: Icon(
+                    child: const Icon(
                       Icons.forum_rounded,
                       size: 14,
                       color: AppColors.secondaryPurple,
@@ -655,7 +655,7 @@ class _LiveCouncilPanelState extends State<LiveCouncilPanel> {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.analytics_rounded,
                         size: 11,
                         color: AppColors.primaryCyan,
@@ -776,7 +776,7 @@ class _LiveCouncilPanelState extends State<LiveCouncilPanel> {
         children: [
           Row(
             children: [
-              Icon(
+              const Icon(
                 Icons.summarize_rounded,
                 size: 12,
                 color: AppColors.primaryTeal,

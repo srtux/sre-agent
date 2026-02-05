@@ -248,22 +248,20 @@ class TestBuildDependencyGraph:
         mock_assets = {"assets": []}
 
         with patch(
-            "sre_agent.tools.clients.dependency_graph._list_traces_sync",
+            "sre_agent.tools.clients.trace._list_traces_sync",
             return_value=mock_traces,
         ):
             with patch(
-                "sre_agent.tools.clients.dependency_graph._fetch_trace_sync",
+                "sre_agent.tools.clients.trace._fetch_trace_sync",
                 return_value=mock_full_trace,
             ):
                 with patch(
-                    "sre_agent.tools.clients.dependency_graph._search_assets_sync",
+                    "sre_agent.tools.clients.asset_inventory._search_assets_sync",
                     return_value=mock_assets,
                 ):
-                    with patch(
-                        "sre_agent.tools.clients.dependency_graph._set_thread_credentials"
-                    ):
+                    with patch("sre_agent.tools.clients.trace._set_thread_credentials"):
                         with patch(
-                            "sre_agent.tools.clients.dependency_graph._clear_thread_credentials"
+                            "sre_agent.tools.clients.trace._clear_thread_credentials"
                         ):
                             result = await build_dependency_graph(
                                 project_id="test-project",

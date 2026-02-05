@@ -317,7 +317,7 @@ class CouncilSynthesisData {
         : json;
 
     // Parse panels
-    List<PanelFinding> panels = [];
+    var panels = <PanelFinding>[];
     if (data['panels'] != null && data['panels'] is List) {
       panels = (data['panels'] as List)
           .map((p) => PanelFinding.fromJson(Map<String, dynamic>.from(p)))
@@ -1159,7 +1159,7 @@ class CouncilActivityGraph {
 
   /// Get tool calls that produced dashboard data.
   Map<String, List<ToolCallRecord>> get toolCallsByDashboardCategory {
-    final Map<String, List<ToolCallRecord>> result = {};
+    final result = <String, List<ToolCallRecord>>{};
     for (final agent in agents) {
       for (final call in agent.toolCalls) {
         if (call.dashboardCategory != null) {
