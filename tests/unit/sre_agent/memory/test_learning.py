@@ -18,10 +18,10 @@ async def test_record_tool_call(manager):
     """Test recording tool calls."""
     manager.record_tool_call("tool1")
     manager.record_tool_call("tool2")
-    assert manager._tool_call_sequence == ["tool1", "tool2"]
+    assert manager._current_tool_sequence == ["tool1", "tool2"]
 
     manager.reset_session_tracking()
-    assert manager._tool_call_sequence == []
+    assert manager._current_tool_sequence == []
 
 
 @pytest.mark.asyncio

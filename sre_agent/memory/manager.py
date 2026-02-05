@@ -101,7 +101,7 @@ class MemoryManager:
         self._findings_cache: list[MemoryItem] = []
 
         # Learning pattern cache: tracks tool calls in current session
-        self._tool_call_sequence: list[str] = []
+        self._current_tool_sequence: list[str] = []
         self._learned_patterns: list[InvestigationPattern] = []
 
     def _check_init_memory_service(self) -> None:
@@ -359,7 +359,7 @@ class MemoryManager:
         Args:
             tool_name: Name of the tool that was called.
         """
-        self._tool_call_sequence.append(tool_name)
+        self._current_tool_sequence.append(tool_name)
 
     async def learn_from_investigation(
         self,
@@ -388,7 +388,7 @@ class MemoryManager:
         pattern = InvestigationPattern(
             symptom_type=symptom_type,
             root_cause_category=root_cause_category,
-            tool_sequence=list(self._tool_call_sequence),
+            tool_sequence=list(self._current_tool_sequence),
             resolution_summary=resolution_summary,
         )
 
@@ -418,7 +418,7 @@ class MemoryManager:
                     f"[PATTERN] Symptom: {symptom_type} | "
                     f"Root Cause: {root_cause_category} | "
                     f"Resolution: {resolution_summary} | "
-                    f"Tools: {' -> '.join(self._tool_call_sequence)}"
+                    f"Tools: {' -> '.join(self._current_tool_sequence)}"
                 )
                 if hasattr(self.memory_service, "save_memory"):
                     await self.memory_service.save_memory(
@@ -428,7 +428,7 @@ class MemoryManager:
                             "type": "investigation_pattern",
                             "symptom_type": symptom_type,
                             "root_cause_category": root_cause_category,
-                            "tool_sequence": json.dumps(self._tool_call_sequence),
+                            "tool_sequence": json.dumps(self._current_tool_sequence),
                             "confidence": str(pattern.confidence),
                             "user_id": user_id or "anonymous",
                         },
@@ -519,5 +519,5 @@ class MemoryManager:
 
     def reset_session_tracking(self) -> None:
         """Reset the tool call sequence for a new session/investigation."""
-        self._tool_call_sequence = []
+        self._current_tool_sequence = []
         self._current_state = InvestigationPhase.INITIATED
