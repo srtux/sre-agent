@@ -18,8 +18,13 @@ from google.adk.events import Event
 from google.genai import types as genai_types
 
 from .debate import create_debate_pipeline
-from .intent_classifier import classify_intent
-from .panels import create_trace_panel
+from .intent_classifier import SignalType, classify_intent_with_signal
+from .panels import (
+    create_alerts_panel,
+    create_logs_panel,
+    create_metrics_panel,
+    create_trace_panel,
+)
 from .parallel_council import create_council_pipeline
 from .schemas import CouncilConfig, InvestigationMode
 
@@ -57,9 +62,14 @@ class CouncilOrchestrator(BaseAgent):
             )
             return
 
-        # Classify intent
-        mode = classify_intent(query)
-        logger.info(f"🏛️ Council orchestrator: mode={mode.value}, query={query[:80]}...")
+        # Classify intent with signal type detection
+        classification = classify_intent_with_signal(query)
+        mode = classification.mode
+        signal_type = classification.signal_type
+        logger.info(
+            f"🏛️ Council orchestrator: mode={mode.value}, "
+            f"signal={signal_type.value}, query={query[:80]}..."
+        )
 
         # Emit a status event
         yield self._make_text_event(
@@ -76,7 +86,7 @@ class CouncilOrchestrator(BaseAgent):
         )
 
         if mode == InvestigationMode.FAST:
-            pipeline = self._create_fast_pipeline()
+            pipeline = self._create_fast_pipeline(signal_type)
         elif mode == InvestigationMode.DEBATE:
             pipeline = create_debate_pipeline(config)
         else:
@@ -124,13 +134,30 @@ class CouncilOrchestrator(BaseAgent):
             ),
         )
 
-    def _create_fast_pipeline(self) -> BaseAgent:
+    def _create_fast_pipeline(
+        self, signal_type: SignalType = SignalType.TRACE
+    ) -> BaseAgent:
         """Create a single-panel pipeline for fast mode.
 
-        Uses the trace panel as the default single panel for quick checks.
-        The panel still writes to output_key so results are in session state.
+        Routes to the best-fit panel based on the detected signal type
+        from the user's query. Falls back to the trace panel if no
+        specific signal type is detected.
+
+        Args:
+            signal_type: The detected signal type from intent classification.
+
+        Returns:
+            A single specialist panel agent.
         """
-        return create_trace_panel()
+        panel_factories = {
+            SignalType.TRACE: create_trace_panel,
+            SignalType.METRICS: create_metrics_panel,
+            SignalType.LOGS: create_logs_panel,
+            SignalType.ALERTS: create_alerts_panel,
+        }
+        factory = panel_factories.get(signal_type, create_trace_panel)
+        logger.info(f"🏛️ Fast mode: routing to {signal_type.value} panel")
+        return factory()
 
 
 def create_council_orchestrator(

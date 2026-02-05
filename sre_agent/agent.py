@@ -269,9 +269,6 @@ if project_id:
     os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
     os.environ["GCP_PROJECT_ID"] = project_id
 
-# Determine environment settings for Agent initialization
-project_id = os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("GCP_PROJECT_ID")
-
 if project_id and os.environ.get("SRE_AGENT_DEPLOYMENT_MODE") != "true":
     try:
         vertexai.init(project=project_id, location=location)
@@ -1026,6 +1023,9 @@ TOOL_NAME_MAP = {
     "select_traces_manually": select_traces_manually,
     "select_traces_from_statistical_outliers": select_traces_from_statistical_outliers,
     "run_log_pattern_analysis": run_log_pattern_analysis,
+    # Council
+    "run_council_investigation": run_council_investigation,
+    "classify_investigation_mode": classify_investigation_mode,
     # Investigation
     "update_investigation_state": update_investigation_state,
     "get_investigation_summary": get_investigation_summary,
@@ -1121,8 +1121,6 @@ base_tools: list[Any] = [
     get_gcloud_commands,
     # SLO Multi-Window Burn Rate
     analyze_multi_window_burn_rate,
-    # Change Correlation
-    correlate_changes_with_incident,
     # Sandbox Processing Tools
     summarize_metric_descriptors_in_sandbox,
     summarize_time_series_in_sandbox,

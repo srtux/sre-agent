@@ -9,7 +9,12 @@ This package implements the Parallel Council architecture for the SRE Agent:
 
 from .critic import create_critic
 from .debate import create_debate_pipeline
-from .intent_classifier import classify_intent
+from .intent_classifier import (
+    ClassificationResult,
+    SignalType,
+    classify_intent,
+    classify_intent_with_signal,
+)
 from .mode_router import classify_investigation_mode
 from .panels import (
     create_alerts_panel,
@@ -28,12 +33,15 @@ from .schemas import (
 from .synthesizer import create_synthesizer
 
 __all__ = [
+    "ClassificationResult",
     "CouncilConfig",
     "CouncilResult",
     "CriticReport",
     "InvestigationMode",
     "PanelFinding",
+    "SignalType",
     "classify_intent",
+    "classify_intent_with_signal",
     "classify_investigation_mode",
     "create_alerts_panel",
     "create_council_pipeline",
