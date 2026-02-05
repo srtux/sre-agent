@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from google.adk.tools.tool_context import ToolContext
 
-from sre_agent.agent import root_agent
 from sre_agent.services import get_session_service
 from sre_agent.services.session import ADKSessionManager
 
@@ -28,6 +27,8 @@ async def get_tool_context() -> "ToolContext":
     from google.adk.sessions.in_memory_session_service import InMemorySessionService
     from google.adk.sessions.session import Session
     from google.adk.tools.tool_context import ToolContext
+
+    from sre_agent.agent import root_agent
 
     # Create a minimal session
     session = Session(app_name="sre_agent", user_id="system", id="api-session")
