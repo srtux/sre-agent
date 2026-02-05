@@ -291,13 +291,17 @@ def deploy(env_vars: dict[str, str] | None = None) -> None:
         while retry_count < max_retries:
             try:
                 if getattr(FLAGS, "use_agent_identity", False) is True:
-                    # Packaging for client.agent_engines.update
+                    # Packaging for client.agent_engines.update (v1beta1)
+                    # For v1beta1, env_vars must be inside the spec
                     update_config = common_kwargs.get("config", {}).copy()
                     update_config.update(
                         {
                             "display_name": display_name,
                             "description": description,
                             "staging_bucket": staging_bucket,
+                            "requirements": requirements,
+                            "extra_packages": ["./sre_agent"],
+                            "env_vars": common_kwargs.get("env_vars"),
                         }
                     )
 
@@ -307,14 +311,17 @@ def deploy(env_vars: dict[str, str] | None = None) -> None:
                         config=update_config,
                     )
                 else:
-                    # ReasoningEngine.update uses top-level arguments
-                    # Standard ReasoningEngine.update does NOT accept staging_bucket.
-                    # Use 'agent_engine' matching the current SDK signature
+                    # ReasoningEngine.update
+                    # We pass env_vars and other settings.
+                    # Explicitly pass env_vars as they might be ignored if passed via **common_kwargs
+                    # depending on SDK version.
                     remote_agent = existing_agent.update(
                         agent_engine=adk_app,
                         display_name=display_name,
                         description=description,
-                        **common_kwargs,
+                        requirements=requirements,
+                        extra_packages=["./sre_agent"],
+                        env_vars=common_kwargs.get("env_vars"),
                     )
                 remote_resource_name = getattr(
                     remote_agent, "resource_name", None

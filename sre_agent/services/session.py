@@ -102,7 +102,14 @@ class ADKSessionManager:
                 # Vertex AI SDK requires app_name to be the Reasoning Engine resource name or ID.
                 if agent_engine_id:
                     self.app_name = agent_engine_id
-                    logger.info(f"Using stable app_name: {self.app_name}")
+                    logger.info(
+                        f"Using stable app_name from SRE_AGENT_ID: {self.app_name}"
+                    )
+                elif os.getenv("REASONING_ENGINE_RESOURCE_NAME"):
+                    self.app_name = os.getenv("REASONING_ENGINE_RESOURCE_NAME", "")
+                    logger.info(
+                        f"Using auto-discovered app_name from REASONING_ENGINE_RESOURCE_NAME: {self.app_name}"
+                    )
                 else:
                     # Fallback to local default if somehow missing (e.g. initial dev)
                     self.app_name = self.APP_NAME
