@@ -13,6 +13,22 @@ from .serialization import normalize_obj
 
 logger = logging.getLogger(__name__)
 
+# Optional dashboard queue integration.
+# The import is conditional so tools work even when the API layer is absent
+# (e.g. during ``adk run``, tests, or standalone scripts).
+try:
+    from sre_agent.api.helpers.dashboard_queue import (
+        queue_tool_result as _queue_tool_result,
+    )
+
+    _HAS_DASHBOARD_QUEUE = True
+except Exception:  # pragma: no cover - import may fail in minimal envs
+    _HAS_DASHBOARD_QUEUE = False
+
+    def _queue_tool_result(tool_name: str, result: Any) -> None:
+        """No-op fallback when dashboard queue is unavailable."""
+
+
 # Tools that interact with external GCP APIs and should be circuit-protected.
 # Pure analysis tools (no I/O) are excluded to avoid unnecessary overhead.
 _CIRCUIT_BREAKER_TOOL_PREFIXES: frozenset[str] = frozenset(
@@ -213,15 +229,23 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
                 normalized_metadata = normalize_obj(result.metadata)
 
                 # BaseToolResponse is frozen, so we use model_copy
-                return result.model_copy(
+                final_result = result.model_copy(
                     update={
                         "result": normalized_result,
                         "metadata": normalized_metadata,
                     }
                 )
+                # Queue for dashboard event creation (captures sub-agent tool calls)
+                if not is_failed:
+                    _queue_tool_result(tool_name, final_result)
+                return final_result
 
             # Normalize result (convert GCP types to native Python types)
-            return normalize_obj(result)
+            final_result = normalize_obj(result)
+            # Queue for dashboard event creation (captures sub-agent tool calls)
+            if not is_failed:
+                _queue_tool_result(tool_name, final_result)
+            return final_result
         except Exception as e:
             duration_ms = (time.time() - start_time) * 1000
             logger.error(
@@ -281,14 +305,20 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
                 normalized_metadata = normalize_obj(result.metadata)
 
                 # BaseToolResponse is frozen, so we use model_copy
-                return result.model_copy(
+                final_result = result.model_copy(
                     update={
                         "result": normalized_result,
                         "metadata": normalized_metadata,
                     }
                 )
+                if not is_failed:
+                    _queue_tool_result(tool_name, final_result)
+                return final_result
 
-            return normalize_obj(result)
+            final_result = normalize_obj(result)
+            if not is_failed:
+                _queue_tool_result(tool_name, final_result)
+            return final_result
         except Exception as e:
             duration_ms = (time.time() - start_time) * 1000
             logger.error(
