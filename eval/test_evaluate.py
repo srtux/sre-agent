@@ -56,7 +56,24 @@ def _load_eval_set(file_path: str) -> EvalSet:
         Parsed EvalSet object.
     """
     with open(file_path) as f:
-        eval_data = json.load(f)
+        eval_data_raw = f.read()
+
+    # Dynamic project ID replacement
+    actual_project_id = os.environ.get("GOOGLE_CLOUD_PROJECT")
+    if actual_project_id:
+        # List of synthetic/placeholder project IDs to replace
+        placeholders = [
+            "TEST_PROJECT_ID",
+            "microservices-prod",
+            "search-prod",
+            "ecommerce-prod",
+            "web-platform-prod",
+            "payments-prod",
+        ]
+        for placeholder in placeholders:
+            eval_data_raw = eval_data_raw.replace(placeholder, actual_project_id)
+
+    eval_data = json.loads(eval_data_raw)
 
     # Handle different Pydantic versions
     try:

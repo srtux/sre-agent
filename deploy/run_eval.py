@@ -75,7 +75,17 @@ def main():
                     content = f.read()
 
                 # key substitution
-                modified_content = content.replace("TEST_PROJECT_ID", project_id)
+                modified_content = content
+                placeholders = [
+                    "TEST_PROJECT_ID",
+                    "microservices-prod",
+                    "search-prod",
+                    "ecommerce-prod",
+                    "web-platform-prod",
+                    "payments-prod",
+                ]
+                for placeholder in placeholders:
+                    modified_content = modified_content.replace(placeholder, project_id)
 
                 # Write to temp dir
                 file_name = Path(file_path).name

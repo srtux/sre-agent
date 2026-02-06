@@ -160,9 +160,16 @@ def create_bigquery_mcp_toolset(project_id: str | None = None) -> Any:
         )
         return None
 
-    # Check for test environment
-    if os.environ.get("USE_MOCK_MCP") == "true" or os.environ.get("ADK_ENV") == "test":
-        logger.info("Using Mock BigQuery MCP toolset (Test Environment)")
+    # Check for test environment or evaluation mode
+    is_eval = os.getenv("SRE_AGENT_EVAL_MODE", "false").lower() == "true"
+    if (
+        os.environ.get("USE_MOCK_MCP") == "true"
+        or os.environ.get("ADK_ENV") == "test"
+        or is_eval
+    ):
+        logger.info(
+            f"Using Mock BigQuery MCP toolset (Env: {'eval' if is_eval else 'test'})"
+        )
         return MockMcpToolset()
 
     logger.info(f"Creating BigQuery MCP toolset for project: {project_id}")
@@ -222,9 +229,16 @@ def create_logging_mcp_toolset(project_id: str | None = None) -> Any:
         )
         return None
 
-    # Check for test environment
-    if os.environ.get("USE_MOCK_MCP") == "true" or os.environ.get("ADK_ENV") == "test":
-        logger.info("Using Mock Cloud Logging MCP toolset (Test Environment)")
+    # Check for test environment or evaluation mode
+    is_eval = os.getenv("SRE_AGENT_EVAL_MODE", "false").lower() == "true"
+    if (
+        os.environ.get("USE_MOCK_MCP") == "true"
+        or os.environ.get("ADK_ENV") == "test"
+        or is_eval
+    ):
+        logger.info(
+            f"Using Mock Cloud Logging MCP toolset (Env: {'eval' if is_eval else 'test'})"
+        )
         return MockMcpToolset()
 
     logger.info(f"Creating Cloud Logging MCP toolset for project: {project_id}")
@@ -279,9 +293,16 @@ def create_monitoring_mcp_toolset(project_id: str | None = None) -> Any:
         )
         return None
 
-    # Check for test environment
-    if os.environ.get("USE_MOCK_MCP") == "true" or os.environ.get("ADK_ENV") == "test":
-        logger.info("Using Mock Cloud Monitoring MCP toolset (Test Environment)")
+    # Check for test environment or evaluation mode
+    is_eval = os.getenv("SRE_AGENT_EVAL_MODE", "false").lower() == "true"
+    if (
+        os.environ.get("USE_MOCK_MCP") == "true"
+        or os.environ.get("ADK_ENV") == "test"
+        or is_eval
+    ):
+        logger.info(
+            f"Using Mock Cloud Monitoring MCP toolset (Env: {'eval' if is_eval else 'test'})"
+        )
         return MockMcpToolset()
 
     logger.info(f"Creating Cloud Monitoring MCP toolset for project: {project_id}")

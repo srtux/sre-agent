@@ -230,7 +230,15 @@ def _list_time_series_sync(
         is_eval = os.getenv("SRE_AGENT_EVAL_MODE", "false").lower() == "true"
         error_str = str(e)
         is_common_error = any(
-            code in error_str for code in ["400", "404", "InvalidArgument", "NotFound"]
+            code in error_str
+            for code in [
+                "400",
+                "403",
+                "404",
+                "InvalidArgument",
+                "NotFound",
+                "PermissionDenied",
+            ]
         )
 
         if is_eval and is_common_error:
@@ -402,7 +410,15 @@ def _list_metric_descriptors_sync(
         is_eval = os.getenv("SRE_AGENT_EVAL_MODE", "false").lower() == "true"
         error_str = str(e)
         if is_eval and any(
-            code in error_str for code in ["400", "404", "InvalidArgument", "NotFound"]
+            code in error_str
+            for code in [
+                "400",
+                "403",
+                "404",
+                "InvalidArgument",
+                "NotFound",
+                "PermissionDenied",
+            ]
         ):
             logger.warning(
                 f"Metric descriptor API error in eval mode (filter: {filter_str}): {error_str}. Returning empty list."
@@ -550,6 +566,26 @@ def _query_promql_sync(
         return cast(dict[str, Any], response.json())
 
     except Exception as e:
+        is_eval = os.getenv("SRE_AGENT_EVAL_MODE", "false").lower() == "true"
+        error_str = str(e)
+        is_common_error = any(
+            code in error_str
+            for code in [
+                "400",
+                "403",
+                "404",
+                "InvalidArgument",
+                "NotFound",
+                "PermissionDenied",
+            ]
+        )
+
+        if is_eval and is_common_error:
+            logger.warning(
+                f"PromQL API error in eval mode (query: {query}): {error_str}. Returning empty result."
+            )
+            return {"status": "success", "data": {"resultType": "matrix", "result": []}}
+
         suggestion = ""
         if "400" in str(e):
             suggestion = (

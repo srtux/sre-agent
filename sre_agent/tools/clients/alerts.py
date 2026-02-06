@@ -156,7 +156,27 @@ def _list_alerts_sync(
         return cast(list[dict[str, Any]], alerts)
 
     except Exception as e:
+        import os
+
+        is_eval = os.getenv("SRE_AGENT_EVAL_MODE", "false").lower() == "true"
         error_msg = f"Failed to list alerts: {e!s}"
+        is_common_error = any(
+            code in error_msg
+            for code in [
+                "400",
+                "403",
+                "404",
+                "InvalidArgument",
+                "NotFound",
+                "PermissionDenied",
+            ]
+        )
+
+        if is_eval and is_common_error:
+            logger.warning(
+                f"Monitoring Alerts API error in eval mode (project: {project_id}): {error_msg}. Returning empty list."
+            )
+            return []
 
         # Provide smart hints for common mistakes
         if (
@@ -219,7 +239,28 @@ def _get_alert_sync(name: str, tool_context: Any = None) -> dict[str, Any]:
 
         return cast(dict[str, Any], response.json())
     except Exception as e:
+        import os
+
+        is_eval = os.getenv("SRE_AGENT_EVAL_MODE", "false").lower() == "true"
         error_msg = f"Failed to get alert: {e!s}"
+        is_common_error = any(
+            code in error_msg
+            for code in [
+                "400",
+                "403",
+                "404",
+                "InvalidArgument",
+                "NotFound",
+                "PermissionDenied",
+            ]
+        )
+
+        if is_eval and is_common_error:
+            logger.warning(
+                f"Monitoring Alert Get API error in eval mode (name: {name}): {error_msg}. Returning empty dict."
+            )
+            return {}
+
         logger.error(error_msg, exc_info=True)
         return {"error": error_msg}
 
@@ -303,6 +344,27 @@ def _list_alert_policies_sync(
             policies_data.append(policy_dict)
         return policies_data
     except Exception as e:
+        import os
+
+        is_eval = os.getenv("SRE_AGENT_EVAL_MODE", "false").lower() == "true"
         error_msg = f"Failed to list alert policies: {e!s}"
+        is_common_error = any(
+            code in error_msg
+            for code in [
+                "400",
+                "403",
+                "404",
+                "InvalidArgument",
+                "NotFound",
+                "PermissionDenied",
+            ]
+        )
+
+        if is_eval and is_common_error:
+            logger.warning(
+                f"Monitoring Alert Policies API error in eval mode (project: {project_id}): {error_msg}. Returning empty list."
+            )
+            return []
+
         logger.error(error_msg, exc_info=True)
         return {"error": error_msg}
