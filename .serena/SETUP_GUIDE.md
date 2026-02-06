@@ -81,3 +81,25 @@ openspec spec list
 - **Symbol Search**: Quickly find functions, classes, and variables across Python and Dart.
 - **Memories**: Serena stores project-specific knowledge in `.serena/memories/`. These help future agents (like this one) understand the architecture and patterns of SRE Agent.
 - **Language Servers**: Serena automatically starts language servers for Python and Dart to provide deep code understanding.
+
+## Claude Code Agent Teams (Experimental)
+
+This project is configured to use **Agent Teams**, allowing you to orchestrate multiple Claude sessions to work together on complex tasks.
+
+### Status
+- **Experimental Flag**: Enabled in `.claude/settings.json`.
+- **Display Mode**: `auto` (currently using `split-pane` via `tmux`).
+
+### How to Use
+To start a team, simply ask Claude to create one in your prompt:
+```bash
+# Example prompt:
+"I want to refactor the core engine. Create a team with an architect, a tester, and a developer to handle this in parallel."
+```
+
+**Controls**:
+- **Shift + Up/Down**: Switch between teammate sessions.
+- **Ctrl + T**: Toggle the shared task list.
+- **Escape**: Interrupt a teammate's turn.
+- **Enter**: Deep dive into a teammate's session.
+- **Cleanup**: "Clean up the team" to shut down all teammates.
