@@ -40,12 +40,15 @@ class MockAuthService extends ChangeNotifier implements AuthService {
 class MockProjectService implements ProjectService {
   @override ValueListenable<List<GcpProject>> get projects => ValueNotifier([]);
   @override ValueListenable<List<GcpProject>> get recentProjects => ValueNotifier([]);
+  @override ValueListenable<List<GcpProject>> get starredProjects => ValueNotifier([]);
   @override ValueListenable<GcpProject?> get selectedProject => ValueNotifier(null);
   @override ValueListenable<bool> get isLoading => ValueNotifier(false);
   @override ValueListenable<String?> get error => ValueNotifier(null);
   @override String? get selectedProjectId => null;
   @override Future<void> fetchProjects({String? query}) async {}
   @override Future<void> loadSavedProject() async {}
+  @override bool isStarred(String projectId) => false;
+  @override Future<void> toggleStar(GcpProject project) async {}
   @override void selectProject(String projectId) {}
   @override void selectProjectInstance(GcpProject? project) {}
   @override void clearSelection() {}

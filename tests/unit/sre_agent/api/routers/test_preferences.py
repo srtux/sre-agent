@@ -114,9 +114,7 @@ async def test_get_starred_projects(mock_storage):
     ]
     response = client.get("/api/preferences/projects/starred")
     assert response.status_code == 200
-    assert response.json() == {
-        "projects": [{"project_id": "p1", "display_name": "P1"}]
-    }
+    assert response.json() == {"projects": [{"project_id": "p1", "display_name": "P1"}]}
 
 
 @pytest.mark.asyncio

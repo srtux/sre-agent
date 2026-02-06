@@ -119,7 +119,7 @@ class _ChartCardState extends State<_ChartCard> {
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
               child: Text(
                 answer,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 12,
                   color: AppColors.textSecondary,
                   height: 1.5,
@@ -192,7 +192,7 @@ class _ChartCardState extends State<_ChartCard> {
                   ),
                   Text(
                     markType.toString(),
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 10,
                       color: AppColors.textMuted,
                     ),
@@ -200,7 +200,7 @@ class _ChartCardState extends State<_ChartCard> {
                   const SizedBox(width: 8),
                   InkWell(
                     onTap: () => _copySpec(spec),
-                    child: Icon(
+                    child: const Icon(
                       Icons.copy_rounded,
                       size: 14,
                       color: AppColors.textMuted,

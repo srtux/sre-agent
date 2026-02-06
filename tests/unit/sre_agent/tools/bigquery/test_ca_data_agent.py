@@ -17,7 +17,6 @@ from sre_agent.tools.bigquery.ca_data_agent import (
     query_data_agent,
 )
 
-
 # ---------------------------------------------------------------------------
 # Unit tests for helper functions
 # ---------------------------------------------------------------------------

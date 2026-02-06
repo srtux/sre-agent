@@ -48,7 +48,7 @@ When answering questions:
 
 def run_gcloud(cmd: list[str], exit_on_fail: bool = True) -> str:
     """Run a gcloud command and return stdout."""
-    full = ["gcloud"] + cmd
+    full = ["gcloud", *cmd]
     logger.info(f"  $ {' '.join(full)}")
     result = subprocess.run(full, capture_output=True, text=True)
     if result.returncode != 0:
@@ -62,7 +62,14 @@ def discover_bq_tables(project_id: str) -> list[dict[str, str]]:
     """Discover _AllSpans and _AllLogs tables via bq CLI."""
     logger.info("Discovering BigQuery telemetry tables...")
     datasets_raw = run_gcloud(
-        ["alpha", "bq", "datasets", "list", f"--project={project_id}", "--format=value(datasetId)"],
+        [
+            "alpha",
+            "bq",
+            "datasets",
+            "list",
+            f"--project={project_id}",
+            "--format=value(datasetId)",
+        ],
         exit_on_fail=False,
     )
     if not datasets_raw:
