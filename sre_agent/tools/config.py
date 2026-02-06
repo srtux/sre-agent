@@ -209,6 +209,20 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         category=ToolCategory.ORCHESTRATION,
         testable=False,
     ),
+    ToolConfig(
+        name="run_council_investigation",
+        display_name="Run Council Investigation",
+        description="Run a multi-panel council investigation with parallel analysis and debate",
+        category=ToolCategory.ORCHESTRATION,
+        testable=False,
+    ),
+    ToolConfig(
+        name="classify_investigation_mode",
+        display_name="Classify Investigation Mode",
+        description="Classify user query into investigation mode (FAST/STANDARD/DEBATE)",
+        category=ToolCategory.ORCHESTRATION,
+        testable=False,
+    ),
     # -------------------------------------------------------------------------
     # API Client Tools (Direct GCP APIs) - TESTABLE
     # -------------------------------------------------------------------------

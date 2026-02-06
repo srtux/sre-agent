@@ -269,9 +269,6 @@ if project_id:
     os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
     os.environ["GCP_PROJECT_ID"] = project_id
 
-# Determine environment settings for Agent initialization
-project_id = os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("GCP_PROJECT_ID")
-
 if project_id and os.environ.get("SRE_AGENT_DEPLOYMENT_MODE") != "true":
     try:
         vertexai.init(project=project_id, location=location)
@@ -1026,6 +1023,9 @@ TOOL_NAME_MAP = {
     "select_traces_manually": select_traces_manually,
     "select_traces_from_statistical_outliers": select_traces_from_statistical_outliers,
     "run_log_pattern_analysis": run_log_pattern_analysis,
+    # Council
+    "run_council_investigation": run_council_investigation,
+    "classify_investigation_mode": classify_investigation_mode,
     # Investigation
     "update_investigation_state": update_investigation_state,
     "get_investigation_summary": get_investigation_summary,
@@ -1121,8 +1121,6 @@ base_tools: list[Any] = [
     get_gcloud_commands,
     # SLO Multi-Window Burn Rate
     analyze_multi_window_burn_rate,
-    # Change Correlation
-    correlate_changes_with_incident,
     # Sandbox Processing Tools
     summarize_metric_descriptors_in_sandbox,
     summarize_time_series_in_sandbox,
@@ -1258,6 +1256,7 @@ def is_tool_enabled(tool_name: str) -> bool:
 from google.adk.tools.load_memory_tool import load_memory_tool
 from google.adk.tools.preload_memory_tool import preload_memory_tool
 
+from .core.model_callbacks import after_model_callback, before_model_callback
 from .memory.callbacks import (
     after_tool_memory_callback,
     before_tool_memory_callback,
@@ -1299,7 +1298,10 @@ Direct Tools:
 - Self-improvement: analyze_and_learn_from_traces, complete_investigation""",
     instruction=f"{SRE_AGENT_PROMPT}\n\n## 📅 Current Time\nThe current time is: {datetime.now(timezone.utc).isoformat()}",
     tools=_agent_tools,
-    # Callbacks for automatic memory-driven learning
+    # Model callbacks for cost tracking and token budget enforcement
+    before_model_callback=before_model_callback,
+    after_model_callback=after_model_callback,
+    # Tool callbacks for automatic memory-driven learning
     before_tool_callback=before_tool_memory_callback,
     after_tool_callback=after_tool_memory_callback,
     on_tool_error_callback=on_tool_error_memory_callback,

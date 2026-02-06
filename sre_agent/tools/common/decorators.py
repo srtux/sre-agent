@@ -1,7 +1,8 @@
-"""Decorators for SRE Agent tools with OpenTelemetry instrumentation."""
+"""Decorators for SRE Agent tools with OpenTelemetry instrumentation and resilience."""
 
 import functools
 import inspect
+import json
 import logging
 import os
 import time
@@ -12,6 +13,82 @@ from .serialization import normalize_obj
 
 logger = logging.getLogger(__name__)
 
+# Tools that interact with external GCP APIs and should be circuit-protected.
+# Pure analysis tools (no I/O) are excluded to avoid unnecessary overhead.
+_CIRCUIT_BREAKER_TOOL_PREFIXES: frozenset[str] = frozenset(
+    {
+        "fetch_trace",
+        "list_traces",
+        "find_example_traces",
+        "get_trace_by_url",
+        "list_log_entries",
+        "get_logs_for_trace",
+        "list_error_events",
+        "list_time_series",
+        "query_promql",
+        "list_alerts",
+        "get_alert",
+        "list_alert_policies",
+        "list_metric_descriptors",
+        "list_slos",
+        "get_slo_status",
+        "get_gke_cluster_health",
+        "analyze_node_conditions",
+        "get_pod_restart_events",
+        "analyze_hpa_events",
+        "get_container_oom_events",
+        "get_workload_health_summary",
+        "list_gcp_projects",
+        "mcp_execute_sql",
+        "mcp_list_log_entries",
+        "mcp_list_timeseries",
+        "mcp_query_range",
+        "mcp_list_dataset_ids",
+        "mcp_list_table_ids",
+        "mcp_get_table_info",
+    }
+)
+
+
+def _is_circuit_breaker_enabled() -> bool:
+    """Check if circuit breaker integration is enabled."""
+    return os.environ.get("SRE_AGENT_CIRCUIT_BREAKER", "true").lower() != "false"
+
+
+def _should_use_circuit_breaker(tool_name: str) -> bool:
+    """Determine if a tool should use circuit breaker protection."""
+    return _is_circuit_breaker_enabled() and tool_name in _CIRCUIT_BREAKER_TOOL_PREFIXES
+
+
+def _is_tool_failure(result: Any) -> bool:
+    """Check if a tool result indicates a failure.
+
+    Examines the result in multiple formats:
+    - JSON string with "error" key
+    - Dict with "error" key
+    - BaseToolResponse with status="error" or non-None error field
+
+    Args:
+        result: The tool's return value.
+
+    Returns:
+        True if the result indicates a logical failure.
+    """
+    if isinstance(result, str) and '"error":' in result:
+        try:
+            data = json.loads(result)
+            if isinstance(data, dict) and "error" in data:
+                return True
+        except Exception:
+            pass
+    elif isinstance(result, dict) and "error" in result:
+        return True
+    elif hasattr(result, "status") and str(getattr(result, "status", "")) == "error":
+        return True
+    elif hasattr(result, "error") and getattr(result, "error", None):
+        return True
+    return False
+
 
 def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
     """Decorator to mark a function as an ADK tool.
@@ -21,6 +98,8 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
     - OTel Metrics (count and duration)
     - Standardized Logging of args and results/errors
     - Error handling (ensures errors are logged before raising/returning)
+    - Circuit breaker integration for external API tools
+    - Tool result validation (BaseToolResponse normalization)
 
     Example:
         @adk_tool
@@ -60,40 +139,69 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
         if not should_skip_logging():
             logger.info(f"🛠️  Tool Call: '{tool_name}' | Args: {arg_str}")
 
+        # Circuit breaker pre-call check
+        use_cb = _should_use_circuit_breaker(tool_name)
+        registry = None
+        if use_cb:
+            try:
+                from sre_agent.core.circuit_breaker import (
+                    CircuitBreakerOpenError,
+                    get_circuit_breaker_registry,
+                )
+
+                registry = get_circuit_breaker_registry()
+                registry.pre_call(tool_name)
+            except CircuitBreakerOpenError as e:
+                duration_ms = (time.time() - start_time) * 1000
+                logger.warning(
+                    f"⚡ Circuit OPEN for '{tool_name}' | "
+                    f"Retry after {e.retry_after_seconds:.1f}s | "
+                    f"Duration: {duration_ms:.2f}ms"
+                )
+                from sre_agent.schema import BaseToolResponse, ToolStatus
+
+                return BaseToolResponse(
+                    status=ToolStatus.ERROR,
+                    error=(
+                        f"Circuit breaker OPEN for '{tool_name}'. "
+                        f"The service appears degraded. "
+                        f"Retry after {e.retry_after_seconds:.0f}s. "
+                        "DO NOT retry immediately — use an alternative tool or wait."
+                    ),
+                    metadata={
+                        "circuit_breaker": True,
+                        "retry_after_seconds": e.retry_after_seconds,
+                        "non_retryable": True,
+                    },
+                )
+            except Exception as cb_err:
+                # Circuit breaker itself should never block tool execution
+                logger.debug(
+                    f"Circuit breaker check failed for '{tool_name}': {cb_err}"
+                )
+
         try:
             result = await func(*args, **kwargs)
             duration_ms = (time.time() - start_time) * 1000
 
-            # Check if the result indicates a tool-level error (e.g. JSON with "error" key)
-            is_failed = False
-            if isinstance(result, str) and '"error":' in result:
-                try:
-                    import json
-
-                    data = json.loads(result)
-                    if isinstance(data, dict) and "error" in data:
-                        is_failed = True
-                except Exception:
-                    pass
-            elif isinstance(result, dict) and "error" in result:
-                is_failed = True
-            elif (
-                hasattr(result, "status")
-                and str(getattr(result, "status", "")) == "error"
-            ):
-                # Handle both string status and Enum status
-                is_failed = True
-            elif hasattr(result, "error") and getattr(result, "error", None):
-                is_failed = True
+            # Check if the result indicates a tool-level error
+            is_failed = _is_tool_failure(result)
 
             if is_failed:
                 logger.error(
                     f"❌ Tool Failed (Logical): '{tool_name}' | Result contains error | Duration: {duration_ms:.2f}ms"
                 )
-            elif not should_skip_logging():
-                logger.info(
-                    f"✅ Tool Success: '{tool_name}' | Duration: {duration_ms:.2f}ms"
-                )
+                # Record failure in circuit breaker
+                if use_cb and registry:
+                    registry.record_failure(tool_name)
+            else:
+                if not should_skip_logging():
+                    logger.info(
+                        f"✅ Tool Success: '{tool_name}' | Duration: {duration_ms:.2f}ms"
+                    )
+                # Record success in circuit breaker
+                if use_cb and registry:
+                    registry.record_success(tool_name)
 
             # Do NOT normalize BaseToolResponse objects, legacy to keep for others
             from sre_agent.schema import BaseToolResponse
@@ -120,6 +228,9 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
                 f"❌ Tool Failed: '{tool_name}' | Duration: {duration_ms:.2f}ms | Error: {e}",
                 exc_info=True,
             )
+            # Record exception in circuit breaker
+            if use_cb and registry:
+                registry.record_failure(tool_name)
             raise e
 
     @functools.wraps(func)
@@ -150,25 +261,7 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
             duration_ms = (time.time() - start_time) * 1000
 
             # Check if the result indicates a tool-level error
-            is_failed = False
-            if isinstance(result, str) and '"error":' in result:
-                try:
-                    import json
-
-                    data = json.loads(result)
-                    if isinstance(data, dict) and "error" in data:
-                        is_failed = True
-                except Exception:
-                    pass
-            elif isinstance(result, dict) and "error" in result:
-                is_failed = True
-            elif (
-                hasattr(result, "status")
-                and str(getattr(result, "status", "")) == "error"
-            ):
-                is_failed = True
-            elif hasattr(result, "error") and getattr(result, "error", None):
-                is_failed = True
+            is_failed = _is_tool_failure(result)
 
             if is_failed:
                 logger.error(

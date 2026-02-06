@@ -1,0 +1,86 @@
+{
+  "eval_set_id": "sre_agent_kubernetes_debugging",
+  "eval_cases": [
+    {
+      "eval_id": "pod_crashloop_investigation",
+      "conversation": [
+        {
+          "user_content": {
+            "role": "user",
+            "parts": [{ "text": "Pods in the payment-service deployment are crash-looping in project TEST_PROJECT_ID, GKE cluster 'prod-cluster-1'. Investigate why." }]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [{ "text": "Investigation complete. The pods are crash-looping due to OOMKilled events — container memory limit is 512Mi but the service requires ~700Mi under load due to a memory leak in the connection pool. I recommend increasing the memory limit to 1Gi and investigating the connection pool leak." }]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              { "name": "get_gke_cluster_health" },
+              { "name": "get_pod_restart_events" },
+              { "name": "get_container_oom_events" },
+              { "name": "list_log_entries" },
+              { "name": "get_workload_health_summary" }
+            ]
+          }
+        }
+      ],
+      "session_input": {
+        "app_name": "sre_agent",
+        "user_id": "test_user"
+      }
+    },
+    {
+      "eval_id": "node_pressure_investigation",
+      "conversation": [
+        {
+          "user_content": {
+            "role": "user",
+            "parts": [{ "text": "Several nodes in cluster 'prod-cluster-1' are showing memory pressure conditions. What's happening and which workloads are affected?" }]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [{ "text": "Analysis complete. 3 of 8 nodes are under memory pressure due to the batch-processor DaemonSet consuming 80% of available memory. The eviction threshold has been reached, causing lower-priority pods to be evicted. I recommend adding a resource quota and implementing horizontal pod autoscaling." }]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              { "name": "get_gke_cluster_health" },
+              { "name": "analyze_node_conditions" },
+              { "name": "query_promql" },
+              { "name": "get_workload_health_summary" }
+            ]
+          }
+        }
+      ],
+      "session_input": {
+        "app_name": "sre_agent",
+        "user_id": "test_user"
+      }
+    },
+    {
+      "eval_id": "hpa_scaling_failure",
+      "conversation": [
+        {
+          "user_content": {
+            "role": "user",
+            "parts": [{ "text": "The HPA for frontend-service isn't scaling up despite high CPU usage. The pods are maxing out at 3 replicas. Can you check?" }]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [{ "text": "I found the issue. The HPA maxReplicas is set to 3 but the current CPU utilization target (80%) is exceeded across all pods. Additionally, the cluster autoscaler has been unable to provision new nodes due to a resource quota limit. I recommend raising the HPA maxReplicas and adjusting the cluster's node pool quota." }]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              { "name": "analyze_hpa_events" },
+              { "name": "query_promql" },
+              { "name": "get_gke_cluster_health" }
+            ]
+          }
+        }
+      ],
+      "session_input": {
+        "app_name": "sre_agent",
+        "user_id": "test_user"
+      }
+    }
+  ]
+}
