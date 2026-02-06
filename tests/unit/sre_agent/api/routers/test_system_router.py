@@ -26,6 +26,19 @@ def mock_suggestions():
 
 
 @pytest.mark.asyncio
+async def test_get_version():
+    response = client.get("/api/version")
+    assert response.status_code == 200
+    data = response.json()
+    assert "version" in data
+    assert "git_sha" in data
+    assert "build_timestamp" in data
+    # version should be a non-empty string
+    assert isinstance(data["version"], str)
+    assert len(data["version"]) > 0
+
+
+@pytest.mark.asyncio
 async def test_get_suggestions(mock_suggestions):
     response = client.get("/api/suggestions?project_id=p1")
     assert response.status_code == 200

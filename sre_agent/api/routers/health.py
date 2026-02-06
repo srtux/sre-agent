@@ -10,6 +10,7 @@ from sre_agent.tools.common.debug import (
     log_auth_state,
     log_telemetry_state,
 )
+from sre_agent.version import VERSION
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["health"])
@@ -18,7 +19,7 @@ router = APIRouter(tags=["health"])
 @router.get("/health")
 async def health_check() -> dict[str, str]:
     """Health check endpoint for connectivity testing."""
-    return {"status": "ok"}
+    return {"status": "ok", "version": VERSION}
 
 
 @router.get("/api/debug")

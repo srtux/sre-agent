@@ -19,6 +19,7 @@ import '../services/project_service.dart';
 import '../services/session_service.dart';
 import '../theme/app_theme.dart';
 import '../services/dashboard_state.dart';
+import '../services/version_service.dart';
 import '../widgets/dashboard/dashboard_panel.dart';
 import '../widgets/session_panel.dart';
 import '../widgets/tech_grid_painter.dart';
@@ -92,6 +93,9 @@ class _ConversationPageState extends State<ConversationPage>
     _sessionService = context.read<SessionService>();
     _promptHistoryService = context.read<PromptHistoryService>();
     _dashboardState = context.read<DashboardState>();
+
+    // Fetch version info from backend (fire-and-forget)
+    VersionService.instance.fetch();
 
     // Handle Enter key behavior (Enter to send, Shift+Enter for newline)
     // Also handles History navigation (Up/Down arrows)
@@ -962,6 +966,27 @@ class _ConversationPageState extends State<ConversationPage>
                         ),
                       ),
                     if (user?.email != null) Text('Email: ${user!.email}'),
+                    const SizedBox(height: 16),
+                    const Divider(),
+                    const SizedBox(height: 8),
+                    Text(
+                      'AutoSRE ${VersionService.instance.displayString}',
+                      style: const TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 12,
+                      ),
+                    ),
+                    if (VersionService.instance.buildTimestamp.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          'Built: ${VersionService.instance.buildTimestamp}',
+                          style: const TextStyle(
+                            color: AppColors.textMuted,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
                   ],
                 ),
                 actions: [
