@@ -59,6 +59,41 @@ async def test_list_projects(mock_tools):
 
 
 @pytest.mark.asyncio
+async def test_list_projects_unwraps_base_tool_response(mock_tools):
+    """When list_gcp_projects returns a BaseToolResponse, the endpoint unwraps it."""
+    from sre_agent.schema import BaseToolResponse, ToolStatus
+
+    mock_tools["list_gcp_projects"].return_value = BaseToolResponse(
+        status=ToolStatus.SUCCESS,
+        result={"projects": [{"project_id": "p1", "display_name": "P1"}]},
+    )
+    response = client.get("/api/tools/projects/list")
+    assert response.status_code == 200
+    data = response.json()
+    # Should get the unwrapped result, not the envelope
+    assert "projects" in data
+    assert data["projects"][0]["project_id"] == "p1"
+    # Must NOT contain BaseToolResponse envelope keys
+    assert "status" not in data
+    assert "metadata" not in data
+
+
+@pytest.mark.asyncio
+async def test_list_projects_error_returns_502(mock_tools):
+    """When list_gcp_projects returns an error BaseToolResponse, endpoint returns 502."""
+    from sre_agent.schema import BaseToolResponse, ToolStatus
+
+    mock_tools["list_gcp_projects"].return_value = BaseToolResponse(
+        status=ToolStatus.ERROR,
+        error="EUC not found",
+        result={"projects": []},
+    )
+    response = client.get("/api/tools/projects/list")
+    assert response.status_code == 502
+    assert "EUC not found" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
 async def test_analyze_logs(mock_tools):
     payload = {"filter": "severity=ERROR", "project_id": "test-proj"}
     response = client.post("/api/tools/logs/analyze", json=payload)

@@ -57,10 +57,25 @@ async def get_trace(trace_id: str, project_id: Any | None = None) -> Response:
 
 @router.get("/projects/list")
 async def list_projects(query: str | None = None) -> Any:
-    """List accessible GCP projects."""
+    """List accessible GCP projects using the caller's EUC.
+
+    Returns ``{"projects": [{"project_id": "...", "display_name": "..."}, ...]}``
+    """
+    from sre_agent.schema import BaseToolResponse
+
     try:
         result = await list_gcp_projects(query=query)
+
+        # The @adk_tool decorator returns a BaseToolResponse envelope.
+        # HTTP callers expect the unwrapped result dict directly.
+        if isinstance(result, BaseToolResponse):
+            if result.error:
+                raise HTTPException(status_code=502, detail=result.error)
+            return result.result  # e.g. {"projects": [...]}
+
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         import traceback
 

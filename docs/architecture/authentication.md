@@ -107,8 +107,28 @@ The `auth_middleware` acts as the primary gatekeeper:
 ### 1. Authentication Service (`autosre/lib/services/auth_service.dart`)
 The `AuthService` manages the user lifecycle:
 - **Google Sign-In**: Wraps the `google_sign_in` library.
-- **Credential Caching**: Stores the `accessToken` and `expiryTime` in memory.
+- **Credential Caching**: Stores the `accessToken` and `expiryTime` both in memory and in `SharedPreferences` for cross-refresh persistence.
 - **Backend Sync**: Proactively calls `/api/auth/login` whenever a new token is obtained to ensure the backend session stays in sync with the frontend credentials.
+
+### SSO Single-Popup Flow
+
+The auth flow is designed so users see **at most one** consent screen:
+
+1. **`init()`** fetches backend config, initialises `GoogleSignIn`, and calls `attemptLightweightAuthentication()` for silent session restoration.
+2. On silent restore: cached tokens from `SharedPreferences` are loaded. If still valid, no popup is shown.
+3. On fresh sign-in: the `authenticationEvents` listener fires, and **`_proactivelyAuthorizeScopes()`** is called immediately -- this requests both `email` and `cloud-platform` scopes in the same interaction, preventing a second popup.
+4. Access tokens are cached in `SharedPreferences` (`auth_access_token`, `auth_access_token_expiry`, `auth_id_token`) so page refreshes restore the session without any popup.
+5. On sign-out, cached tokens are cleared.
+
+### Session Persistence on Refresh
+
+| Layer | Mechanism |
+|-------|-----------|
+| Browser | `attemptLightweightAuthentication()` restores `GoogleSignInAccount` from browser storage |
+| Frontend | `SharedPreferences` stores access/ID tokens with expiry |
+| Backend | `sre_session_id` HTTP-only cookie carries the session across requests |
+
+This three-layer strategy ensures the user stays logged in across page refreshes as long as tokens haven't expired.
 
 ### 2. HTTP Interceptor (`autosre/lib/services/api_client.dart`)
 The `ProjectInterceptorClient` ensures every request is properly decorated:
@@ -134,8 +154,17 @@ To maintain compatibility between Flutter Web (production) and VM (unit tests):
 
 ---
 
+## Project Selector & User Preferences
+
+See [Project Selector Guide](../guides/project_selector.md) for details on:
+- How the project picker lists, searches, and selects GCP projects.
+- How starred and recent projects are persisted per-user in Firestore.
+- How the selected project propagates into agent prompts and tool invocations.
+
 ## Troubleshooting
 
 - **401 Unauthorized**: Check if the browser is blocking third-party cookies or if the Google Access Token has expired.
+- **Two Login Popups**: This was caused by scopes being requested in two steps. The fix consolidates scope authorization into `_proactivelyAuthorizeScopes()` which runs right after sign-in.
+- **Session Lost on Refresh**: Ensure `SharedPreferences` is working (check browser localStorage). The `auth_access_token` key should be present after login.
 - **Missing Projects**: Ensure the token was generated with the `cloud-platform` scope.
 - **CORS Issues**: In development, ensure `SECURE_COOKIES=false` is set if running on `http://localhost`.
