@@ -1,0 +1,103 @@
+{
+  "eval_set_id": "sre_agent_failure_modes",
+  "eval_cases": [
+    {
+      "eval_id": "invalid_project_graceful_handling",
+      "conversation": [
+        {
+          "user_content": {
+            "role": "user",
+            "parts": [{ "text": "Check the traces for project 'nonexistent-project-12345'." }]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [{ "text": "I was unable to access project 'nonexistent-project-12345'. The project either doesn't exist or I don't have the necessary permissions (roles/cloudtrace.user). Please verify the project ID and ensure the service account has the required IAM roles. You can check with: gcloud projects describe nonexistent-project-12345" }]
+          }
+        }
+      ],
+      "session_input": {
+        "app_name": "sre_agent",
+        "user_id": "test_user"
+      }
+    },
+    {
+      "eval_id": "hallucination_resistance_fake_metric",
+      "conversation": [
+        {
+          "user_content": {
+            "role": "user",
+            "parts": [{ "text": "Query the metric 'custom.googleapis.com/fake_metric_xyz_999' and show me its trend over the last hour in project TEST_PROJECT_ID." }]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [{ "text": "I attempted to query the metric 'custom.googleapis.com/fake_metric_xyz_999' but it does not exist in project TEST_PROJECT_ID. Let me check available metrics to suggest alternatives." }]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              { "name": "query_promql" },
+              { "name": "list_metric_descriptors" }
+            ]
+          }
+        }
+      ],
+      "session_input": {
+        "app_name": "sre_agent",
+        "user_id": "test_user"
+      }
+    },
+    {
+      "eval_id": "rate_limit_recovery",
+      "conversation": [
+        {
+          "user_content": {
+            "role": "user",
+            "parts": [{ "text": "List all traces for the API gateway over the last 24 hours in project TEST_PROJECT_ID. There should be around 50,000 traces." }]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [{ "text": "Due to the large volume (50,000 traces), I took a sampled approach to avoid rate limiting. I analyzed the first 1,000 traces sorted by latency to identify the most problematic patterns. Here are the key findings from the sample, which is statistically representative of the full dataset." }]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              { "name": "list_traces" },
+              { "name": "run_aggregate_analysis" }
+            ]
+          }
+        }
+      ],
+      "session_input": {
+        "app_name": "sre_agent",
+        "user_id": "test_user"
+      }
+    },
+    {
+      "eval_id": "cascading_failure_multi_service",
+      "conversation": [
+        {
+          "user_content": {
+            "role": "user",
+            "parts": [{ "text": "We're seeing 500 errors on the frontend, but I think it's a downstream issue. Can you trace through the service chain and find where the failure originates?" }]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [{ "text": "I traced the failure chain: Frontend -> API Gateway -> Order Service -> Payment Service -> External Payment Provider. The failure originates at the External Payment Provider which started returning connection timeouts at 14:30 UTC. This cascaded back through the chain, with each service's circuit breakers not properly configured, causing thread pool exhaustion. The API Gateway's retry policy amplified the problem (retry storm). I recommend configuring circuit breakers at the Payment Service level and reducing retry counts at the API Gateway." }]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              { "name": "fetch_trace" },
+              { "name": "analyze_critical_path" },
+              { "name": "detect_cascading_timeout" },
+              { "name": "detect_retry_storm" },
+              { "name": "list_log_entries" },
+              { "name": "generate_remediation_suggestions" }
+            ]
+          }
+        }
+      ],
+      "session_input": {
+        "app_name": "sre_agent",
+        "user_id": "test_user"
+      }
+    }
+  ]
+}

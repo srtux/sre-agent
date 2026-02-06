@@ -90,9 +90,53 @@ Total: **105 new tests**, all passing.
 
 Total: **174 new council tests**, all passing. Grand total: **1512 tests**.
 
-### Phase 3: Advanced Diagnostics (UPCOMING)
-**Goal**: Specialized analytical logic for complex failure modes.
+### Phase 3: Observability & Advanced Diagnostics (IN PROGRESS — Feb 2026)
+**Goal**: ADK-native observability, tool discovery, eval coverage, and resilience patterns.
 
+#### Completed
+- [x] **ADK Model Callbacks for Cost/Token Tracking** (`sre_agent/core/model_callbacks.py`):
+    - `UsageTracker` with thread-safe singleton accumulator for per-agent and aggregate usage.
+    - `before_model_callback` enforces configurable token budget (`SRE_AGENT_TOKEN_BUDGET` env var).
+    - `after_model_callback` records input/output tokens, duration, and estimated USD cost per model call.
+    - Model-specific pricing for Gemini 2.5 Flash/Pro, with prefix-matching for versioned model IDs.
+    - Integrated into root `LlmAgent` via `before_model_callback` and `after_model_callback` parameters.
+    - (25 tests)
+- [x] **Tool Categorization Registry** (`sre_agent/tools/registry.py`):
+    - `ToolRegistry` class wrapping `ToolConfigManager` for higher-level tool queries.
+    - Signal-type-based discovery (`get_tools_for_signal("trace" | "metrics" | "logs" | "alerts")`).
+    - Keyword search across tool names and descriptions.
+    - Category summary statistics and agent instruction generation.
+    - Module-level singleton with `get_tool_registry()` accessor.
+    - (24 tests)
+- [x] **Debate Convergence Tracking** (`sre_agent/council/debate.py`):
+    - `_build_convergence_tracker()` ADK `after_agent_callback` on debate `LoopAgent`.
+    - Tracks per-round: confidence progression, confidence delta, critic gaps/contradictions, round duration.
+    - Records convergence history in session state (`debate_convergence_history` key).
+    - (16 tests)
+- [x] **MCP-to-Direct-API Fallback Chain** (`sre_agent/tools/mcp/fallback.py`):
+    - `with_fallback()` async function for transparent MCP-to-direct-API degradation.
+    - `_is_mcp_failure()` distinguishes infrastructure errors (connection, session, transport) from user errors (invalid filter, permission denied).
+    - Adds `fallback_used` metadata to responses when fallback is triggered.
+    - (19 tests)
+- [x] **Signal-Type-Aware Intent Classifier** (`sre_agent/council/intent_classifier.py`):
+    - `classify_intent_with_signal()` returns `ClassificationResult` with both mode and signal type.
+    - `_detect_signal_type()` uses keyword scoring to route FAST queries to the correct panel (TRACE/METRICS/LOGS/ALERTS).
+    - Backward-compatible `classify_intent()` wrapper preserved.
+    - (28 tests)
+- [x] **New Eval Scenarios** (9 cases across 3 files):
+    - `eval/kubernetes_debugging.test.json`: Pod CrashLoopBackOff, node pressure, HPA scaling failure.
+    - `eval/slo_burn_rate.test.json`: Error budget exhaustion, multi-window SLO violation.
+    - `eval/failure_modes.test.json`: Invalid project handling, hallucination resistance, rate limit recovery, cascading multi-service failure.
+- [x] **Bug Fixes & Consistency**:
+    - Fixed AGENTS.md merge conflict markers (Section 12.1/13).
+    - Removed duplicate `correlate_changes_with_incident` from `base_tools`.
+    - Removed duplicate project_id discovery in `agent.py`.
+    - Added `run_council_investigation` and `classify_investigation_mode` to both `TOOL_NAME_MAP` and `TOOL_DEFINITIONS`.
+    - Integrated circuit breaker into `@adk_tool` decorator (was dead code).
+
+Total: **112 new tests** in this phase. Grand total: **1909+ tests** passing.
+
+#### Remaining
 - [ ] **Anomaly Correlation Engine**: Automate "Z-score comparison" across metrics and logs simultaneously.
 - [ ] **Microservice Dependency Mapping**: Add graph analysis tools to detect circular dependencies in OTel trace trees.
 - [ ] **Resource Saturation Suite**: Deep dive tools for OOMKilled, CPU Throttling, and Connection Pool exhaustion detection.
@@ -105,7 +149,6 @@ Total: **174 new council tests**, all passing. Grand total: **1512 tests**.
 - [ ] **Runbook Automation**: Execute predefined "Safety-First" runbooks (Restart, Scale, Rollback) with human-in-the-loop approval.
 - [ ] **Executive Reporting**: One-click "Post-Mortem" generator that synthesizes the investigation into a professional report.
 - [ ] **Structured Knowledge Extraction**: Automatic graph population based on investigation findings (e.g., auto-discovering a new API dependency).
-- [ ] **LoopAgent for Iterative Refinement**: Re-examine findings across multiple passes.
 - [ ] **Knowledge Graph for RCA**: Build service dependency graphs from trace data.
 - [ ] **Chaos Engineering Sub-Agent**: Validate resilience hypotheses.
 - [ ] **Rate Limiting / Backpressure**: Complement circuit breakers with request rate limiting.
@@ -135,4 +178,4 @@ Total: **174 new council tests**, all passing. Grand total: **1512 tests**.
 *   **Documentation**: This file (`PROJECT_PLAN.md`) must be updated after every significant change or phase transition.
 
 ---
-*Last updated: 2026-02-02 — Auto SRE Team*
+*Last updated: 2026-02-06 — Auto SRE Team*

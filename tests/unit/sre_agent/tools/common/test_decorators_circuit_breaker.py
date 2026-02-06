@@ -94,9 +94,7 @@ class TestCircuitBreakerDecoratorIntegration:
         """When circuit is open, tool should return BaseToolResponse error."""
         # Configure circuit with low threshold
         registry = CircuitBreakerRegistry()
-        config = CircuitBreakerConfig(
-            failure_threshold=1, recovery_timeout_seconds=60
-        )
+        config = CircuitBreakerConfig(failure_threshold=1, recovery_timeout_seconds=60)
         registry.configure("fetch_trace", config)
 
         @adk_tool
@@ -145,9 +143,7 @@ class TestCircuitBreakerDecoratorIntegration:
 
         @adk_tool
         async def list_log_entries() -> BaseToolResponse:
-            return BaseToolResponse(
-                status=ToolStatus.ERROR, error="Permission denied"
-            )
+            return BaseToolResponse(status=ToolStatus.ERROR, error="Permission denied")
 
         with patch.dict(os.environ, disable_logging_skip):
             await list_log_entries()

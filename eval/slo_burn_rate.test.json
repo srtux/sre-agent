@@ -1,0 +1,61 @@
+{
+  "eval_set_id": "sre_agent_slo_burn_rate",
+  "eval_cases": [
+    {
+      "eval_id": "error_budget_exhaustion",
+      "conversation": [
+        {
+          "user_content": {
+            "role": "user",
+            "parts": [{ "text": "The checkout-service SLO error budget is nearly exhausted. We have a 99.9% availability SLO and we're at 99.85% for this month. Investigate what's burning the budget." }]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [{ "text": "Investigation complete. The error budget burn rate spiked 4x on Feb 3 due to a deployment that introduced a null pointer exception in the payment validation path. This single event consumed 60% of the remaining monthly budget. The deployment was rolled back on Feb 4 but the damage was done. I recommend implementing a canary deployment strategy and adding pre-deployment SLO impact checks." }]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              { "name": "list_slos" },
+              { "name": "get_slo_status" },
+              { "name": "analyze_error_budget_burn" },
+              { "name": "list_log_entries" },
+              { "name": "correlate_changes_with_incident" }
+            ]
+          }
+        }
+      ],
+      "session_input": {
+        "app_name": "sre_agent",
+        "user_id": "test_user"
+      }
+    },
+    {
+      "eval_id": "multi_window_slo_violation",
+      "conversation": [
+        {
+          "user_content": {
+            "role": "user",
+            "parts": [{ "text": "Multiple SLOs are showing violations in the last 24 hours across 3 services. Give me a unified analysis." }]
+          },
+          "final_response": {
+            "role": "model",
+            "parts": [{ "text": "Unified SLO analysis complete. The root cause is shared: a degraded Cloud SQL instance caused cascading latency violations across the API gateway (latency SLO), order-service (availability SLO), and notification-service (throughput SLO). All three depend on the same database tier. I recommend implementing circuit breakers for database calls and provisioning read replicas." }]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              { "name": "list_slos" },
+              { "name": "get_slo_status" },
+              { "name": "query_promql" },
+              { "name": "fetch_trace" },
+              { "name": "correlate_metrics_with_trace" }
+            ]
+          }
+        }
+      ],
+      "session_input": {
+        "app_name": "sre_agent",
+        "user_id": "test_user"
+      }
+    }
+  ]
+}

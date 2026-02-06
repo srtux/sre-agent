@@ -176,7 +176,9 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
                 )
             except Exception as cb_err:
                 # Circuit breaker itself should never block tool execution
-                logger.debug(f"Circuit breaker check failed for '{tool_name}': {cb_err}")
+                logger.debug(
+                    f"Circuit breaker check failed for '{tool_name}': {cb_err}"
+                )
 
         try:
             result = await func(*args, **kwargs)

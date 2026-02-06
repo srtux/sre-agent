@@ -1256,6 +1256,7 @@ def is_tool_enabled(tool_name: str) -> bool:
 from google.adk.tools.load_memory_tool import load_memory_tool
 from google.adk.tools.preload_memory_tool import preload_memory_tool
 
+from .core.model_callbacks import after_model_callback, before_model_callback
 from .memory.callbacks import (
     after_tool_memory_callback,
     before_tool_memory_callback,
@@ -1297,7 +1298,10 @@ Direct Tools:
 - Self-improvement: analyze_and_learn_from_traces, complete_investigation""",
     instruction=f"{SRE_AGENT_PROMPT}\n\n## 📅 Current Time\nThe current time is: {datetime.now(timezone.utc).isoformat()}",
     tools=_agent_tools,
-    # Callbacks for automatic memory-driven learning
+    # Model callbacks for cost tracking and token budget enforcement
+    before_model_callback=before_model_callback,
+    after_model_callback=after_model_callback,
+    # Tool callbacks for automatic memory-driven learning
     before_tool_callback=before_tool_memory_callback,
     after_tool_callback=after_tool_memory_callback,
     on_tool_error_callback=on_tool_error_memory_callback,

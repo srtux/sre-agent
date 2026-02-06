@@ -37,9 +37,7 @@ class TestClassifyIntentWithSignal:
 
     def test_standard_mode_defaults_to_trace_signal(self) -> None:
         """STANDARD mode should default signal_type to TRACE."""
-        result = classify_intent_with_signal(
-            "analyze the error rates across services"
-        )
+        result = classify_intent_with_signal("analyze the error rates across services")
         assert result.mode == InvestigationMode.STANDARD
         assert result.signal_type == SignalType.TRACE
 
@@ -92,10 +90,7 @@ class TestClassifyIntentBackwardCompatibility:
 
     def test_standard_mode(self) -> None:
         """STANDARD mode should still work."""
-        assert (
-            classify_intent("show me the error rates")
-            == InvestigationMode.STANDARD
-        )
+        assert classify_intent("show me the error rates") == InvestigationMode.STANDARD
 
 
 class TestSignalTypeDetection:
