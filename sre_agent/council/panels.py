@@ -13,6 +13,7 @@ from sre_agent.model_config import get_model_name
 
 from .prompts import (
     ALERTS_PANEL_PROMPT,
+    DATA_PANEL_PROMPT,
     LOGS_PANEL_PROMPT,
     METRICS_PANEL_PROMPT,
     TRACE_PANEL_PROMPT,
@@ -20,6 +21,7 @@ from .prompts import (
 from .schemas import PanelFinding
 from .tool_registry import (
     ALERTS_PANEL_TOOLS,
+    DATA_PANEL_TOOLS,
     LOGS_PANEL_TOOLS,
     METRICS_PANEL_TOOLS,
     TRACE_PANEL_TOOLS,
@@ -123,6 +125,32 @@ def create_alerts_panel() -> LlmAgent:
         instruction=ALERTS_PANEL_PROMPT,
         tools=list(ALERTS_PANEL_TOOLS),
         output_key="alerts_finding",
+        output_schema=PanelFinding,
+        before_model_callback=before_model_callback,
+        after_model_callback=after_model_callback,
+    )
+
+
+def create_data_panel() -> LlmAgent:
+    """Create the Data specialist panel agent.
+
+    Uses the Conversational Analytics Data Agent to run analytical
+    queries against BigQuery telemetry tables (_AllSpans, _AllLogs).
+    Writes findings to session state under 'data_finding'.
+
+    Returns:
+        Configured LlmAgent for BigQuery data analysis.
+    """
+    return LlmAgent(
+        name="data_panel",
+        model=get_model_name("fast"),
+        description=(
+            "Data specialist panel. Runs analytical queries against "
+            "BigQuery telemetry tables using the CA Data Agent."
+        ),
+        instruction=DATA_PANEL_PROMPT,
+        tools=list(DATA_PANEL_TOOLS),
+        output_key="data_finding",
         output_schema=PanelFinding,
         before_model_callback=before_model_callback,
         after_model_callback=after_model_callback,

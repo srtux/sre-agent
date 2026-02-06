@@ -834,6 +834,17 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         testable=False,
     ),
     # -------------------------------------------------------------------------
+    # CA Data Agent Tools
+    # -------------------------------------------------------------------------
+    ToolConfig(
+        name="query_data_agent",
+        display_name="Query CA Data Agent",
+        description="Query BigQuery telemetry using Conversational Analytics Data Agent",
+        category=ToolCategory.ANALYSIS,
+        testable=False,
+        enabled=True,
+    ),
+    # -------------------------------------------------------------------------
     # Discovery Tools
     # -------------------------------------------------------------------------
     ToolConfig(

@@ -1,7 +1,7 @@
 """Parallel council pipeline using ADK primitives.
 
 Composes a SequentialAgent that:
-1. Runs 4 specialist panels in parallel (via ParallelAgent)
+1. Runs 5 specialist panels in parallel (via ParallelAgent)
 2. Synthesizes their findings into a unified result
 
 The pipeline writes structured findings to session state via output_key,
@@ -12,6 +12,7 @@ from google.adk.agents import ParallelAgent, SequentialAgent
 
 from .panels import (
     create_alerts_panel,
+    create_data_panel,
     create_logs_panel,
     create_metrics_panel,
     create_trace_panel,
@@ -23,32 +24,33 @@ from .synthesizer import create_synthesizer
 def create_council_pipeline(config: CouncilConfig | None = None) -> SequentialAgent:
     """Create the parallel council pipeline.
 
-    The pipeline runs 4 specialist panels concurrently, then a synthesizer
+    The pipeline runs 5 specialist panels concurrently, then a synthesizer
     that merges their findings into a CouncilResult.
 
     Args:
         config: Council configuration. Uses defaults if not provided.
 
     Returns:
-        A SequentialAgent composing ParallelAgent(panels) → Synthesizer.
+        A SequentialAgent composing ParallelAgent(panels) -> Synthesizer.
     """
     if config is None:
         config = CouncilConfig()
 
-    # Create the 4 specialist panels
+    # Create the 5 specialist panels
     trace_panel = create_trace_panel()
     metrics_panel = create_metrics_panel()
     logs_panel = create_logs_panel()
     alerts_panel = create_alerts_panel()
+    data_panel = create_data_panel()
 
     # Run all panels in parallel
     parallel_panels = ParallelAgent(
         name="parallel_panels",
         description=(
-            "Runs Trace, Metrics, Logs, and Alerts panels concurrently. "
+            "Runs Trace, Metrics, Logs, Alerts, and Data panels concurrently. "
             "Each panel writes its PanelFinding to session state."
         ),
-        sub_agents=[trace_panel, metrics_panel, logs_panel, alerts_panel],
+        sub_agents=[trace_panel, metrics_panel, logs_panel, alerts_panel, data_panel],
     )
 
     # Synthesize findings
@@ -58,7 +60,7 @@ def create_council_pipeline(config: CouncilConfig | None = None) -> SequentialAg
     return SequentialAgent(
         name="council_pipeline",
         description=(
-            "Parallel council investigation pipeline. Runs 4 specialist "
+            "Parallel council investigation pipeline. Runs 5 specialist "
             "panels concurrently, then synthesizes their findings."
         ),
         sub_agents=[parallel_panels, synthesizer],

@@ -55,6 +55,7 @@ TOOL_WIDGET_MAP = {
     "generate_remediation_suggestions": "x-sre-remediation-plan",
     "list_alerts": "x-sre-incident-timeline",
     "run_council_investigation": "x-sre-council-synthesis",
+    "query_data_agent": "x-sre-vega-chart",
 }
 
 
@@ -233,6 +234,7 @@ WIDGET_CATEGORY_MAP: dict[str, str] = {
     "x-sre-incident-timeline": "alerts",
     "x-sre-remediation-plan": "remediation",
     "x-sre-council-synthesis": "council",
+    "x-sre-vega-chart": "charts",
 }
 
 
@@ -297,6 +299,11 @@ def create_dashboard_event(tool_name: str, result: Any) -> str | None:
         elif widget_type == "x-sre-council-synthesis":
             # Council synthesis results pass through as-is (already structured)
             widget_data = result if isinstance(result, dict) else {"raw": result}
+        elif widget_type == "x-sre-vega-chart":
+            # CA Data Agent results: text answer + optional Vega-Lite charts
+            widget_data = (
+                result if isinstance(result, dict) else {"answer": str(result)}
+            )
 
         if not widget_data:
             return None

@@ -665,6 +665,41 @@ class IncidentTimelineData {
 }
 
 // =============================================================================
+// Vega-Lite Chart Models (CA Data Agent)
+// =============================================================================
+
+/// Represents a Vega-Lite chart returned by the CA Data Agent.
+class VegaChartData {
+  final String question;
+  final String answer;
+  final String? agentId;
+  final String? projectId;
+  final List<Map<String, dynamic>> vegaLiteCharts;
+
+  VegaChartData({
+    required this.question,
+    required this.answer,
+    this.agentId,
+    this.projectId,
+    this.vegaLiteCharts = const [],
+  });
+
+  factory VegaChartData.fromJson(Map<String, dynamic> json) {
+    return VegaChartData(
+      question: json['question'] as String? ?? '',
+      answer: json['answer'] as String? ?? '',
+      agentId: json['agent_id'] as String?,
+      projectId: json['project_id'] as String?,
+      vegaLiteCharts: (json['vega_lite_charts'] as List? ?? [])
+          .map((c) => Map<String, dynamic>.from(c as Map))
+          .toList(),
+    );
+  }
+
+  bool get hasCharts => vegaLiteCharts.isNotEmpty;
+}
+
+// =============================================================================
 // Agent Trace / Graph Models
 // =============================================================================
 

@@ -44,12 +44,13 @@ class TestCouncilPipelineIntegration:
         assert isinstance(pipeline, SequentialAgent)
         assert pipeline.name == "council_pipeline"
 
-        # Stage 1: ParallelAgent with 4 panels
+        # Stage 1: ParallelAgent with 5 panels
         parallel = pipeline.sub_agents[0]
         assert isinstance(parallel, ParallelAgent)
         panel_names = sorted(a.name for a in parallel.sub_agents)
         assert panel_names == [
             "alerts_panel",
+            "data_panel",
             "logs_panel",
             "metrics_panel",
             "trace_panel",
@@ -83,7 +84,7 @@ class TestCouncilPipelineIntegration:
         # Stage 1: Initial parallel panels
         initial_panels = pipeline.sub_agents[0]
         assert isinstance(initial_panels, ParallelAgent)
-        assert len(initial_panels.sub_agents) == 4
+        assert len(initial_panels.sub_agents) == 5
 
         # Stage 2: Initial synthesizer
         synthesizer = pipeline.sub_agents[1]
@@ -100,7 +101,7 @@ class TestCouncilPipelineIntegration:
         assert len(debate_loop.sub_agents) == 3
         assert debate_loop.sub_agents[0].name == "council_critic"
         assert isinstance(debate_loop.sub_agents[1], ParallelAgent)
-        assert len(debate_loop.sub_agents[1].sub_agents) == 4
+        assert len(debate_loop.sub_agents[1].sub_agents) == 5
         assert debate_loop.sub_agents[2].name == "council_synthesizer"
 
 
@@ -467,11 +468,11 @@ class TestActivityGraphPipelineIntegration:
 
         # Verify structure matches pipeline
         assert (
-            len(graph.get_children("orchestrator-001")) == 5
-        )  # 4 panels + synthesizer
+            len(graph.get_children("orchestrator-001")) == 6
+        )  # 5 panels + synthesizer
 
         panel_agents = [a for a in graph.agents if a.agent_type == AgentType.PANEL]
-        assert len(panel_agents) == 4
+        assert len(panel_agents) == 5
 
         synth_agents = [
             a for a in graph.agents if a.agent_type == AgentType.SYNTHESIZER
