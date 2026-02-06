@@ -102,3 +102,99 @@ async def test_set_recent_projects(mock_storage):
     assert response.status_code == 200
     assert response.json() == {"success": True}
     mock_storage.set_recent_projects.assert_called_once_with(projects, "test-user")
+
+
+# ========== Starred Projects ==========
+
+
+@pytest.mark.asyncio
+async def test_get_starred_projects(mock_storage):
+    mock_storage.get_starred_projects.return_value = [
+        {"project_id": "p1", "display_name": "P1"}
+    ]
+    response = client.get("/api/preferences/projects/starred")
+    assert response.status_code == 200
+    assert response.json() == {
+        "projects": [{"project_id": "p1", "display_name": "P1"}]
+    }
+
+
+@pytest.mark.asyncio
+async def test_get_starred_projects_empty(mock_storage):
+    mock_storage.get_starred_projects.return_value = None
+    response = client.get("/api/preferences/projects/starred")
+    assert response.status_code == 200
+    assert response.json() == {"projects": []}
+
+
+@pytest.mark.asyncio
+async def test_set_starred_projects(mock_storage):
+    projects = [{"project_id": "p1", "display_name": "P1"}]
+    response = client.post(
+        "/api/preferences/projects/starred",
+        json={"projects": projects, "user_id": "test-user"},
+    )
+    assert response.status_code == 200
+    assert response.json() == {"success": True}
+    mock_storage.set_starred_projects.assert_called_once_with(projects, "test-user")
+
+
+@pytest.mark.asyncio
+async def test_toggle_star_add(mock_storage):
+    mock_storage.get_starred_projects.return_value = []
+    response = client.post(
+        "/api/preferences/projects/starred/toggle",
+        json={
+            "project_id": "new-proj",
+            "display_name": "New Project",
+            "starred": True,
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    assert data["starred"] is True
+    assert any(p["project_id"] == "new-proj" for p in data["projects"])
+
+
+@pytest.mark.asyncio
+async def test_toggle_star_remove(mock_storage):
+    mock_storage.get_starred_projects.return_value = [
+        {"project_id": "old-proj", "display_name": "Old"}
+    ]
+    response = client.post(
+        "/api/preferences/projects/starred/toggle",
+        json={"project_id": "old-proj", "starred": False},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    assert data["starred"] is False
+    assert not any(p["project_id"] == "old-proj" for p in data["projects"])
+
+
+@pytest.mark.asyncio
+async def test_toggle_star_idempotent_add(mock_storage):
+    """Adding a project that is already starred should not duplicate it."""
+    mock_storage.get_starred_projects.return_value = [
+        {"project_id": "p1", "display_name": "P1"}
+    ]
+    response = client.post(
+        "/api/preferences/projects/starred/toggle",
+        json={"project_id": "p1", "display_name": "P1", "starred": True},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    count = sum(1 for p in data["projects"] if p["project_id"] == "p1")
+    assert count == 1
+
+
+@pytest.mark.asyncio
+async def test_preferences_uses_auth_user_id(mock_storage):
+    """When an authenticated user is present, preferences use their ID."""
+    mock_storage.get_selected_project.return_value = "auth-proj"
+    with patch("sre_agent.api.routers.preferences.get_current_user_id") as mock_uid:
+        mock_uid.return_value = "alice@example.com"
+        response = client.get("/api/preferences/project")
+    assert response.status_code == 200
+    mock_storage.get_selected_project.assert_called_once_with("alice@example.com")

@@ -1089,20 +1089,29 @@ class _ConversationPageState extends State<ConversationPage>
                     return ValueListenableBuilder<List<GcpProject>>(
                       valueListenable: _projectService.recentProjects,
                       builder: (context, recentProjects, _) {
-                        return _ProjectSelectorDropdown(
-                          projects: projects,
-                          recentProjects: recentProjects,
-                          selectedProject: selectedProject,
-                          isLoading: isLoading,
-                          error: error,
-                          onProjectSelected: (project) {
-                            _projectService.selectProjectInstance(project);
-                          },
-                          onRefresh: () {
-                            _projectService.fetchProjects();
-                          },
-                          onSearch: (query) {
-                            _projectService.fetchProjects(query: query);
+                        return ValueListenableBuilder<List<GcpProject>>(
+                          valueListenable: _projectService.starredProjects,
+                          builder: (context, starredProjects, _) {
+                            return _ProjectSelectorDropdown(
+                              projects: projects,
+                              recentProjects: recentProjects,
+                              starredProjects: starredProjects,
+                              selectedProject: selectedProject,
+                              isLoading: isLoading,
+                              error: error,
+                              onProjectSelected: (project) {
+                                _projectService.selectProjectInstance(project);
+                              },
+                              onRefresh: () {
+                                _projectService.fetchProjects();
+                              },
+                              onSearch: (query) {
+                                _projectService.fetchProjects(query: query);
+                              },
+                              onToggleStar: (project) {
+                                _projectService.toggleStar(project);
+                              },
+                            );
                           },
                         );
                       },
@@ -1844,22 +1853,26 @@ class _MessageItemState extends State<_MessageItem>
 class _ProjectSelectorDropdown extends StatefulWidget {
   final List<GcpProject> projects;
   final List<GcpProject> recentProjects;
+  final List<GcpProject> starredProjects;
   final GcpProject? selectedProject;
   final bool isLoading;
   final String? error;
   final ValueChanged<GcpProject?> onProjectSelected;
   final VoidCallback onRefresh;
   final ValueChanged<String> onSearch;
+  final ValueChanged<GcpProject> onToggleStar;
 
   const _ProjectSelectorDropdown({
     required this.projects,
     required this.recentProjects,
+    required this.starredProjects,
     required this.selectedProject,
     required this.isLoading,
     this.error,
     required this.onProjectSelected,
     required this.onRefresh,
     required this.onSearch,
+    required this.onToggleStar,
   });
 
   @override
@@ -2243,6 +2256,45 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                       ),
                     )
                   else ...[
+                    // Starred Projects
+                    if (widget.starredProjects.isNotEmpty) ...[
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.star,
+                              size: 12,
+                              color: Colors.amber.withValues(alpha: 0.8),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'STARRED',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textMuted.withValues(alpha: 0.7),
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        itemCount: widget.starredProjects.length,
+                        itemBuilder: (context, index) {
+                          final project = widget.starredProjects[index];
+                          final isSelected =
+                              widget.selectedProject?.projectId ==
+                              project.projectId;
+                          return _buildProjectItem(project, isSelected, showStar: true);
+                        },
+                      ),
+                      const Divider(height: 1, color: Colors.white10),
+                    ],
                     // Recent Projects
                     if (widget.recentProjects.isNotEmpty) ...[
                       Padding(
@@ -2442,7 +2494,8 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
     );
   }
 
-  Widget _buildProjectItem(GcpProject project, bool isSelected) {
+  Widget _buildProjectItem(GcpProject project, bool isSelected, {bool showStar = false}) {
+    final isStarred = widget.starredProjects.any((p) => p.projectId == project.projectId);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       child: Material(
@@ -2523,6 +2576,22 @@ class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
                           overflow: TextOverflow.ellipsis,
                         ),
                     ],
+                  ),
+                ),
+                // Star toggle button
+                GestureDetector(
+                  onTap: () {
+                    widget.onToggleStar(project);
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Icon(
+                      isStarred ? Icons.star : Icons.star_border,
+                      size: 16,
+                      color: isStarred
+                          ? Colors.amber
+                          : AppColors.textMuted.withValues(alpha: 0.5),
+                    ),
                   ),
                 ),
                 if (isSelected)

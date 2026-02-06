@@ -32,7 +32,6 @@ class GcpProject {
   };
 
   /// Returns display name if available, otherwise project ID.
-  /// Returns display name if available, otherwise project ID.
   String get name => displayName ?? projectId;
 
   @override
@@ -95,8 +94,15 @@ class ProjectService {
   /// Returns the recent projects API URL.
   String get _recentProjectsUrl => '$_baseUrl/api/preferences/projects/recent';
 
+  /// Returns the starred projects API URL.
+  String get _starredProjectsUrl => '$_baseUrl/api/preferences/projects/starred';
+
+  /// Returns the starred toggle API URL.
+  String get _starredToggleUrl => '$_baseUrl/api/preferences/projects/starred/toggle';
+
   final ValueNotifier<List<GcpProject>> _projects = ValueNotifier([]);
   final ValueNotifier<List<GcpProject>> _recentProjects = ValueNotifier([]);
+  final ValueNotifier<List<GcpProject>> _starredProjects = ValueNotifier([]);
 
   final ValueNotifier<GcpProject?> _selectedProject = ValueNotifier(null);
   final ValueNotifier<bool> _isLoading = ValueNotifier(false);
@@ -107,6 +113,9 @@ class ProjectService {
 
   /// List of recent projects.
   ValueListenable<List<GcpProject>> get recentProjects => _recentProjects;
+
+  /// List of starred (pinned) projects.
+  ValueListenable<List<GcpProject>> get starredProjects => _starredProjects;
 
   /// Currently selected project.
   ValueListenable<GcpProject?> get selectedProject => _selectedProject;
@@ -225,6 +234,67 @@ class ProjectService {
     }
   }
 
+  /// Loads starred projects from backend storage.
+  Future<void> _loadStarredProjects() async {
+    try {
+      final client = await _clientFactory();
+      final response = await client
+          .get(Uri.parse(_starredProjectsUrl))
+          .timeout(_requestTimeout);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is Map && data['projects'] != null) {
+          final list = (data['projects'] as List)
+              .map((p) => GcpProject.fromJson(p as Map<String, dynamic>))
+              .toList();
+          _starredProjects.value = list;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading starred projects: $e');
+    }
+  }
+
+  /// Returns true if the given project is starred.
+  bool isStarred(String projectId) {
+    return _starredProjects.value.any((p) => p.projectId == projectId);
+  }
+
+  /// Toggles the starred state of a project.
+  Future<void> toggleStar(GcpProject project) async {
+    final wasStarred = isStarred(project.projectId);
+
+    // Optimistic local update
+    if (wasStarred) {
+      _starredProjects.value = _starredProjects.value
+          .where((p) => p.projectId != project.projectId)
+          .toList();
+    } else {
+      _starredProjects.value = [..._starredProjects.value, project];
+    }
+
+    // Persist to backend
+    try {
+      final client = await _clientFactory();
+      await client
+          .post(
+            Uri.parse(_starredToggleUrl),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'project_id': project.projectId,
+              'display_name': project.displayName ?? project.projectId,
+              'starred': !wasStarred,
+            }),
+          )
+          .timeout(_requestTimeout);
+    } catch (e) {
+      debugPrint('Error toggling star: $e');
+      // Revert on failure
+      await _loadStarredProjects();
+    }
+  }
+
   /// Fetches the list of available GCP projects from the backend.
   Future<void> fetchProjects({String? query}) async {
     debugPrint('🔄 ProjectService: Fetching projects... query=$query');
@@ -257,14 +327,24 @@ class ProjectService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        debugPrint('📦 ProjectService: Parsed data: $data');
+        debugPrint('📦 ProjectService: Parsed data type=${data.runtimeType}');
 
-        // Handle different response formats
+        // Handle different response formats:
+        // 1. Plain list: [{"project_id": ...}, ...]
+        // 2. Wrapped: {"projects": [...]}
+        // 3. BaseToolResponse envelope: {"status": "success", "result": {"projects": [...]}}
         List<dynamic> projectList;
         if (data is List) {
           projectList = data;
-        } else if (data is Map && data['projects'] != null) {
-          projectList = data['projects'] as List;
+        } else if (data is Map) {
+          if (data['projects'] != null) {
+            projectList = data['projects'] as List;
+          } else if (data['result'] is Map && data['result']['projects'] != null) {
+            // Unwrap BaseToolResponse envelope
+            projectList = data['result']['projects'] as List;
+          } else {
+            projectList = [];
+          }
         } else {
           projectList = [];
         }
@@ -279,8 +359,9 @@ class ProjectService {
         // Load saved project preference first
         await loadSavedProject();
 
-        // Load recent projects
+        // Load recent and starred projects
         await _loadRecentProjects();
+        await _loadStarredProjects();
 
         // Auto-select first project if still none selected
         if (_selectedProject.value == null && projects.isNotEmpty) {
@@ -344,6 +425,7 @@ class ProjectService {
 
     _projects.dispose();
     _recentProjects.dispose();
+    _starredProjects.dispose();
     _selectedProject.dispose();
     _isLoading.dispose();
     _error.dispose();
