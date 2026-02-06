@@ -29,15 +29,15 @@ class TestCreateCouncilPipeline:
         assert len(pipeline.sub_agents) == 2
 
     def test_first_stage_is_parallel(self) -> None:
-        """First stage should be a ParallelAgent with 4 panels."""
+        """First stage should be a ParallelAgent with 5 panels."""
         pipeline = create_council_pipeline()
         parallel_stage = pipeline.sub_agents[0]
         assert isinstance(parallel_stage, ParallelAgent)
         assert parallel_stage.name == "parallel_panels"
-        assert len(parallel_stage.sub_agents) == 4
+        assert len(parallel_stage.sub_agents) == 5
 
     def test_panel_names_in_parallel(self) -> None:
-        """Parallel stage should contain all 4 specialist panels."""
+        """Parallel stage should contain all 5 specialist panels."""
         pipeline = create_council_pipeline()
         parallel_stage = pipeline.sub_agents[0]
         panel_names = {agent.name for agent in parallel_stage.sub_agents}
@@ -46,6 +46,7 @@ class TestCreateCouncilPipeline:
             "metrics_panel",
             "logs_panel",
             "alerts_panel",
+            "data_panel",
         }
 
     def test_second_stage_is_synthesizer(self) -> None:

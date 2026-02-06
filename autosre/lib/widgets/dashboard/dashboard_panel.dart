@@ -9,6 +9,7 @@ import 'live_trace_panel.dart';
 import 'live_alerts_panel.dart';
 import 'live_remediation_panel.dart';
 import 'live_council_panel.dart';
+import 'live_charts_panel.dart';
 
 /// The main investigation dashboard panel.
 ///
@@ -240,6 +241,8 @@ class _DashboardPanelState extends State<DashboardPanel>
             return LiveRemediationPanel(items: items);
           case DashboardDataType.council:
             return LiveCouncilPanel(items: items);
+          case DashboardDataType.charts:
+            return LiveChartsPanel(items: items);
         }
       },
     );
@@ -412,5 +415,7 @@ _TabConfig _tabConfig(DashboardDataType type) {
       return const _TabConfig('Remediation', Icons.build_circle_outlined, AppColors.secondaryPurple);
     case DashboardDataType.council:
       return const _TabConfig('Council', Icons.groups_rounded, AppColors.primaryTeal);
+    case DashboardDataType.charts:
+      return const _TabConfig('Charts', Icons.bar_chart_rounded, AppColors.warning);
   }
 }

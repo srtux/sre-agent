@@ -107,6 +107,9 @@ from .analysis.trace.statistical_analysis import (
     perform_causal_analysis,
 )
 from .analysis.trace_comprehensive import analyze_trace_comprehensive
+
+# BigQuery CA Data Agent
+from .bigquery.ca_data_agent import query_data_agent
 from .clients.alerts import get_alert, list_alert_policies, list_alerts
 from .clients.gcp_projects import list_gcp_projects
 from .clients.gke import (
@@ -312,6 +315,7 @@ __all__ = [
     "mcp_query_range",
     "perform_causal_analysis",
     "predict_slo_violation",
+    "query_data_agent",
     "query_promql",
     "reconstruct_agent_interaction",
     "search_memory",

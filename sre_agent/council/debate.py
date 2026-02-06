@@ -19,6 +19,7 @@ from google.genai import types as genai_types
 from .critic import create_critic
 from .panels import (
     create_alerts_panel,
+    create_data_panel,
     create_logs_panel,
     create_metrics_panel,
     create_trace_panel,
@@ -216,6 +217,7 @@ def create_debate_pipeline(config: CouncilConfig | None = None) -> SequentialAge
             create_metrics_panel(),
             create_logs_panel(),
             create_alerts_panel(),
+            create_data_panel(),
         ],
     )
     initial_synthesizer = create_synthesizer()
@@ -239,6 +241,7 @@ def create_debate_pipeline(config: CouncilConfig | None = None) -> SequentialAge
                     create_metrics_panel(),
                     create_logs_panel(),
                     create_alerts_panel(),
+                    create_data_panel(),
                 ],
             ),
             create_synthesizer(),

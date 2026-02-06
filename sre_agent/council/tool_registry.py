@@ -58,6 +58,7 @@ from sre_agent.tools import (
     query_promql,
     update_investigation_state,
 )
+from sre_agent.tools.bigquery.ca_data_agent import query_data_agent
 
 # =============================================================================
 # Panel Tool Sets
@@ -143,6 +144,19 @@ ALERTS_PANEL_TOOLS: list[Any] = [
     generate_remediation_suggestions,
     estimate_remediation_risk,
     get_gcloud_commands,
+    # State
+    get_investigation_summary,
+    update_investigation_state,
+]
+
+DATA_PANEL_TOOLS: list[Any] = [
+    # CA Data Agent (primary)
+    query_data_agent,
+    # Fallback: direct BigQuery
+    mcp_execute_sql,
+    discover_telemetry_sources,
+    # Context
+    list_time_series,
     # State
     get_investigation_summary,
     update_investigation_state,

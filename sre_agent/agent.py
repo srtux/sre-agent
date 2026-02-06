@@ -208,6 +208,7 @@ from .tools import (
     perform_causal_analysis,
     # SLO prediction
     predict_slo_violation,
+    query_data_agent,
     query_promql,
     reconstruct_agent_interaction,
     search_memory,
@@ -896,6 +897,7 @@ def _extract_council_result(
         "metrics_finding",
         "logs_finding",
         "alerts_finding",
+        "data_finding",
     ]
     panels: list[dict[str, Any]] = []
     for key in panel_keys:
@@ -1165,6 +1167,8 @@ TOOL_NAME_MAP = {
     "explore_project_health": explore_project_health,
     # Discovery
     "discover_telemetry_sources": discover_telemetry_sources,
+    # CA Data Agent
+    "query_data_agent": query_data_agent,
     # Reporting
     "synthesize_report": synthesize_report,
     # Orchestration
@@ -1244,6 +1248,8 @@ base_tools: list[Any] = [
     analyze_aggregate_metrics,
     find_exemplar_traces,
     analyze_bigquery_log_patterns,
+    # CA Data Agent
+    query_data_agent,
     # Orchestration tools
     run_aggregate_analysis,
     run_triage_analysis,

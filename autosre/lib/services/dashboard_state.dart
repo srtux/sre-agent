@@ -10,6 +10,7 @@ enum DashboardDataType {
   alerts,
   remediation,
   council,
+  charts,
 }
 
 /// A single item collected from a tool call for dashboard display.
@@ -29,6 +30,7 @@ class DashboardItem {
   final IncidentTimelineData? alertData;
   final RemediationPlan? remediationPlan;
   final CouncilSynthesisData? councilData;
+  final VegaChartData? chartData;
 
   DashboardItem({
     required this.id,
@@ -44,6 +46,7 @@ class DashboardItem {
     this.alertData,
     this.remediationPlan,
     this.councilData,
+    this.chartData,
   });
 }
 
@@ -64,6 +67,8 @@ DashboardDataType? classifyComponent(String componentType) {
       return DashboardDataType.remediation;
     case 'x-sre-council-synthesis':
       return DashboardDataType.council;
+    case 'x-sre-vega-chart':
+      return DashboardDataType.charts;
     default:
       return null;
   }
@@ -235,6 +240,21 @@ class DashboardState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Add a chart (Vega-Lite) result to the dashboard.
+  void addChart(
+      VegaChartData data, String toolName, Map<String, dynamic> raw) {
+    _itemCounter++;
+    _items.add(DashboardItem(
+      id: 'chart-$_itemCounter',
+      type: DashboardDataType.charts,
+      toolName: toolName,
+      timestamp: DateTime.now(),
+      rawData: raw,
+      chartData: data,
+    ));
+    notifyListeners();
+  }
+
   /// Add a council synthesis result to the dashboard.
   void addCouncilSynthesis(
       CouncilSynthesisData data, String toolName, Map<String, dynamic> raw) {
@@ -348,6 +368,10 @@ class DashboardState extends ChangeNotifier {
           final council = CouncilSynthesisData.fromJson(dataMap);
           addCouncilSynthesis(council, toolName, dataMap);
 
+        case 'x-sre-vega-chart':
+          final chart = VegaChartData.fromJson(dataMap);
+          addChart(chart, toolName, dataMap);
+
         default:
           debugPrint('Unknown dashboard widget_type: $widgetType');
           return false;
@@ -381,6 +405,8 @@ class DashboardState extends ChangeNotifier {
         return DashboardDataType.remediation;
       case 'council':
         return DashboardDataType.council;
+      case 'charts':
+        return DashboardDataType.charts;
       default:
         return null;
     }

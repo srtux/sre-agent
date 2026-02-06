@@ -122,7 +122,7 @@ class TestCreateDebatePipeline:
         first_stage = pipeline.sub_agents[0]
         assert isinstance(first_stage, ParallelAgent)
         assert first_stage.name == "initial_panels"
-        assert len(first_stage.sub_agents) == 4
+        assert len(first_stage.sub_agents) == 5
 
     def test_second_stage_is_synthesizer(self) -> None:
         """Second stage should be initial synthesizer."""

@@ -145,6 +145,57 @@ Prioritize FIRING alerts. Note alert duration and escalation status.
 """
 
 # =============================================================================
+# Data Panel Prompt (BQ-CA Data Agent)
+# =============================================================================
+
+DATA_PANEL_PROMPT = f"""
+{STRICT_ENGLISH_INSTRUCTION}
+{PROJECT_CONTEXT_INSTRUCTION}
+{REACT_PATTERN_INSTRUCTION}
+Role: You are the **Data Panel** of the SRE Council - the BigQuery analytics specialist.
+
+### Your Mission
+Use the Conversational Analytics Data Agent to run analytical queries against
+BigQuery telemetry tables (_AllSpans, _AllLogs). Your job is to find statistical
+patterns, anomalies, and trends that the other panels might miss because they
+work with sampled API data. You work with the full dataset.
+
+### Time Window
+Unless the user specifies otherwise, always analyse the **last 1 hour** of data.
+
+### Tool Strategy
+1. **Primary**: `query_data_agent` - ask natural-language questions about the data.
+   The CA agent will generate SQL and optionally produce charts.
+2. **Fallback**: If `query_data_agent` fails (agent not provisioned), use
+   `mcp_execute_sql` for direct SQL queries against BigQuery.
+3. **Discovery**: Use `discover_telemetry_sources` if you need to find the
+   correct table names first.
+
+### Example Questions to Ask
+- "What are the top 10 services by error count in the last hour?"
+- "Show me p50, p95, p99 latency by service as a bar chart"
+- "What new error log patterns appeared in the last hour vs the previous hour?"
+- "Which trace spans have the highest duration variance?"
+- "Show error rate over time for the last hour, grouped by 5-minute buckets"
+
+### Output Requirements
+You MUST output a valid JSON object matching this schema:
+```json
+{{{{
+  "panel": "data",
+  "summary": "<concise finding from BigQuery analysis>",
+  "severity": "critical|warning|info|healthy",
+  "confidence": 0.0-1.0,
+  "evidence": ["<SQL results, counts, percentiles, chart descriptions>"],
+  "recommended_actions": ["<specific actions based on data patterns>"]
+}}}}
+```
+
+Be data-driven. Include specific numbers, percentiles, and row counts.
+If you received charts from the CA agent, mention them in evidence.
+"""
+
+# =============================================================================
 # Critic Prompt
 # =============================================================================
 
@@ -154,7 +205,7 @@ CRITIC_PROMPT = f"""
 Role: You are the **Council Critic** — the cross-examination specialist.
 
 ### Your Mission
-You receive findings from multiple specialist panels (Trace, Metrics, Logs, Alerts).
+You receive findings from multiple specialist panels (Trace, Metrics, Logs, Alerts, Data).
 Your job is to cross-examine these findings to identify:
 
 1. **Agreements**: Where do multiple panels point to the same root cause?
@@ -173,6 +224,7 @@ You will find panel findings in the session state:
 - `metrics_finding`: Metrics panel's JSON finding
 - `logs_finding`: Logs panel's JSON finding
 - `alerts_finding`: Alerts panel's JSON finding
+- `data_finding`: Data panel's JSON finding (BigQuery analytics)
 
 ### Output Requirements
 You MUST output a valid JSON object matching this schema:
@@ -212,6 +264,7 @@ You will find the following in the session state:
 - `metrics_finding`: Metrics panel's JSON finding
 - `logs_finding`: Logs panel's JSON finding
 - `alerts_finding`: Alerts panel's JSON finding
+- `data_finding`: Data panel's JSON finding (BigQuery analytics)
 - `critic_report`: Critic's cross-examination (if in DEBATE mode)
 - `council_round`: Current debate round number
 
