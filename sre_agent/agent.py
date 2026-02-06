@@ -54,6 +54,7 @@ override_feature_enabled(FeatureName.JSON_SCHEMA_FOR_FUNC_DECL, True)
 
 import asyncio
 import functools
+import json
 import logging
 from collections.abc import AsyncGenerator
 from datetime import datetime, timezone
@@ -841,6 +842,121 @@ Note: If using `list_log_entries`, ensure GKE fields are prefixed with `resource
 # ============================================================================
 
 
+def _parse_panel_finding(raw: Any) -> dict[str, Any] | None:
+    """Parse a panel finding from session state into a dict.
+
+    Session state values written by ``output_key`` may be a JSON string,
+    a dict, or a Pydantic model.  This helper normalises to a plain dict
+    or returns ``None`` if the value is missing / unparsable.
+    """
+    if raw is None:
+        return None
+    if isinstance(raw, dict):
+        return raw
+    if hasattr(raw, "model_dump"):
+        dumped: dict[str, Any] = raw.model_dump(mode="json")
+        return dumped
+    if isinstance(raw, str):
+        try:
+            parsed = json.loads(raw)
+            if isinstance(parsed, dict):
+                return parsed
+        except (json.JSONDecodeError, TypeError):
+            pass
+    return None
+
+
+def _extract_council_result(
+    tool_context: Any,
+    raw_result: Any,
+    investigation_mode: Any,
+) -> dict[str, Any]:
+    """Build a structured CouncilResult dict from session state.
+
+    After the council pipeline runs, panel findings and the synthesis are
+    stored in the session state under well-known keys.  This function reads
+    them and assembles a dict that the frontend's
+    ``CouncilSynthesisData.fromJson`` can directly consume.
+
+    Falls back to embedding *raw_result* in the ``synthesis`` field when
+    session state is not accessible.
+    """
+    # Attempt to access session state via tool_context
+    state: dict[str, Any] = {}
+    try:
+        inv_ctx = getattr(tool_context, "invocation_context", None)
+        session = getattr(inv_ctx, "session", None) if inv_ctx else None
+        state = (getattr(session, "state", None) or {}) if session else {}
+    except Exception:
+        logger.debug("Could not access session state for council result extraction")
+
+    # ── Collect panel findings ───────────────────────────────────────────
+    panel_keys = [
+        "trace_finding",
+        "metrics_finding",
+        "logs_finding",
+        "alerts_finding",
+    ]
+    panels: list[dict[str, Any]] = []
+    for key in panel_keys:
+        finding = _parse_panel_finding(state.get(key))
+        if finding:
+            panels.append(finding)
+
+    # ── Synthesis text ───────────────────────────────────────────────────
+    synthesis_raw = state.get("council_synthesis")
+    synthesis = ""
+    if isinstance(synthesis_raw, str):
+        synthesis = synthesis_raw
+    elif isinstance(synthesis_raw, dict):
+        synthesis = synthesis_raw.get("synthesis", str(synthesis_raw))
+    elif synthesis_raw is not None and hasattr(synthesis_raw, "model_dump"):
+        synthesis = str(synthesis_raw.model_dump(mode="json"))
+    elif synthesis_raw is not None:
+        synthesis = str(synthesis_raw)
+
+    # Fall back to raw pipeline output if synthesis is empty
+    if not synthesis and raw_result:
+        synthesis = str(raw_result) if not isinstance(raw_result, str) else raw_result
+
+    # ── Derive severity & confidence from panels ─────────────────────────
+    severity_rank = {"critical": 4, "warning": 3, "info": 2, "healthy": 1}
+    overall_severity = "info"
+    max_severity = 0
+    confidences: list[float] = []
+    for p in panels:
+        sev = str(p.get("severity", "info")).lower()
+        if severity_rank.get(sev, 0) > max_severity:
+            max_severity = severity_rank[sev]
+            overall_severity = sev
+        conf = p.get("confidence")
+        if isinstance(conf, (int, float)):
+            confidences.append(float(conf))
+
+    overall_confidence = sum(confidences) / len(confidences) if confidences else 0.0
+
+    # ── Critic report (debate mode) ──────────────────────────────────────
+    critic_report = _parse_panel_finding(state.get("critic_report"))
+
+    # ── Debate rounds ────────────────────────────────────────────────────
+    rounds = 1
+    convergence = state.get("debate_convergence_history")
+    if isinstance(convergence, list):
+        rounds = max(len(convergence), 1)
+
+    return {
+        "synthesis": synthesis,
+        "overall_severity": overall_severity,
+        "overall_confidence": round(overall_confidence, 3),
+        "mode": investigation_mode.value
+        if hasattr(investigation_mode, "value")
+        else str(investigation_mode),
+        "rounds": rounds,
+        "panels": panels,
+        "critic_report": critic_report,
+    }
+
+
 @adk_tool
 async def run_council_investigation(
     query: str,
@@ -908,9 +1024,20 @@ Please analyze the relevant telemetry data and provide your findings as a struct
             tool_context=tool_context,
         )
 
+        # ── Extract structured council findings from session state ───────
+        # Panel agents write their PanelFinding to session state via
+        # output_key; the synthesizer writes to 'council_synthesis'.
+        # We reconstruct a CouncilResult dict that the frontend's
+        # CouncilSynthesisData.fromJson can parse.
+        structured_result = _extract_council_result(
+            tool_context=tool_context,
+            raw_result=result,
+            investigation_mode=investigation_mode,
+        )
+
         return BaseToolResponse(
             status=ToolStatus.SUCCESS,
-            result=result,
+            result=structured_result,
             metadata={
                 "stage": "council",
                 "mode": investigation_mode.value,

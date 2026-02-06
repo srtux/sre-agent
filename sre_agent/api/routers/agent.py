@@ -391,6 +391,10 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
     # Import root_agent only in local mode to avoid loading model in proxy-only mode
     from sre_agent.agent import root_agent
     from sre_agent.api.helpers import get_current_trace_info
+    from sre_agent.api.helpers.dashboard_queue import (
+        drain_dashboard_queue,
+        init_dashboard_queue,
+    )
     from sre_agent.api.helpers.tool_events import (
         create_dashboard_event,
         create_exploration_dashboard_events,
@@ -514,6 +518,12 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                 set_current_project_id(effective_project_id)
             if effective_user_id:
                 set_current_user_id(effective_user_id)
+
+            # Initialise the dashboard event queue for this request.
+            # Tools decorated with @adk_tool enqueue their results here so
+            # that sub-agent tool calls (hidden inside AgentTool) also
+            # produce dashboard events.
+            init_dashboard_queue()
 
             # Track pending tool calls for FIFO matching
             pending_tool_calls: list[dict[str, Any]] = []
@@ -823,23 +833,6 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                                 for evt_str in events:
                                     yield evt_str + "\n"
 
-                                # Dashboard data event (separate channel for right panel)
-                                if tool_name == "explore_project_health":
-                                    for evt in create_exploration_dashboard_events(
-                                        result
-                                    ):
-                                        logger.info(
-                                            f"📊 Exploration dashboard event for {tool_name}"
-                                        )
-                                        yield evt + "\n"
-                                else:
-                                    dash_evt = create_dashboard_event(tool_name, result)
-                                    if dash_evt:
-                                        logger.info(
-                                            f"📊 Dashboard event for {tool_name}"
-                                        )
-                                        yield dash_evt + "\n"
-
                                 # Memory events for UI visibility (toasts)
                                 event_bus = get_memory_event_bus()
                                 async for mem_event in event_bus.drain_events(
@@ -849,6 +842,30 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                                         f"🧠 Memory event: {mem_event.action.value}"
                                     )
                                     yield mem_event.to_json() + "\n"
+
+                    # ── Drain dashboard event queue ──────────────────────
+                    # The @adk_tool decorator queues dashboard-relevant
+                    # results (including from sub-agent tool calls hidden
+                    # inside AgentTool).  Drain them after each runner event
+                    # so the frontend receives dashboard updates promptly.
+                    for queued_name, queued_result in drain_dashboard_queue():
+                        if queued_name == "explore_project_health":
+                            for evt in create_exploration_dashboard_events(
+                                queued_result
+                            ):
+                                logger.info(
+                                    f"📊 Dashboard event (queued) for {queued_name}"
+                                )
+                                yield evt + "\n"
+                        else:
+                            dash_evt = create_dashboard_event(
+                                queued_name, queued_result
+                            )
+                            if dash_evt:
+                                logger.info(
+                                    f"📊 Dashboard event (queued) for {queued_name}"
+                                )
+                                yield dash_evt + "\n"
 
                 # 4. Post-run Cleanup & Memory Sync
                 try:
