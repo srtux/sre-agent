@@ -8,6 +8,7 @@ Each panel is a focused LlmAgent with:
 
 from google.adk.agents import LlmAgent
 
+from sre_agent.core.model_callbacks import after_model_callback, before_model_callback
 from sre_agent.model_config import get_model_name
 
 from .prompts import (
@@ -46,6 +47,8 @@ def create_trace_panel() -> LlmAgent:
         tools=list(TRACE_PANEL_TOOLS),
         output_key="trace_finding",
         output_schema=PanelFinding,
+        before_model_callback=before_model_callback,
+        after_model_callback=after_model_callback,
     )
 
 
@@ -70,6 +73,8 @@ def create_metrics_panel() -> LlmAgent:
         tools=list(METRICS_PANEL_TOOLS),
         output_key="metrics_finding",
         output_schema=PanelFinding,
+        before_model_callback=before_model_callback,
+        after_model_callback=after_model_callback,
     )
 
 
@@ -94,6 +99,8 @@ def create_logs_panel() -> LlmAgent:
         tools=list(LOGS_PANEL_TOOLS),
         output_key="logs_finding",
         output_schema=PanelFinding,
+        before_model_callback=before_model_callback,
+        after_model_callback=after_model_callback,
     )
 
 
@@ -117,4 +124,6 @@ def create_alerts_panel() -> LlmAgent:
         tools=list(ALERTS_PANEL_TOOLS),
         output_key="alerts_finding",
         output_schema=PanelFinding,
+        before_model_callback=before_model_callback,
+        after_model_callback=after_model_callback,
     )

@@ -307,6 +307,30 @@ def emojify_agent(agent: LlmAgent | BaseAgent | Any) -> LlmAgent | BaseAgent | A
 
     original_run_async = agent.run_async
 
+    # 0. Add standard callbacks if missing (for telemetry and budget)
+    if isinstance(agent, LlmAgent):
+        from .core.model_callbacks import after_model_callback, before_model_callback
+
+        if not getattr(agent, "before_model_callback", None):
+            object.__setattr__(agent, "before_model_callback", before_model_callback)
+        if not getattr(agent, "after_model_callback", None):
+            object.__setattr__(agent, "after_model_callback", after_model_callback)
+
+        # Also add tool callbacks if missing
+        if not getattr(agent, "after_tool_callback", None):
+            # We use the composite version for safety
+            object.__setattr__(
+                agent, "after_tool_callback", composite_after_tool_callback
+            )
+        if not getattr(agent, "before_tool_callback", None):
+            object.__setattr__(
+                agent, "before_tool_callback", before_tool_memory_callback
+            )
+        if not getattr(agent, "on_tool_error_callback", None):
+            object.__setattr__(
+                agent, "on_tool_error_callback", on_tool_error_memory_callback
+            )
+
     @functools.wraps(original_run_async)
     async def wrapped_run_async(context: Any) -> AsyncGenerator[Any, None]:
         # 1. Log Prompt (only if not skipping manual logging)
@@ -1257,11 +1281,34 @@ from google.adk.tools.load_memory_tool import load_memory_tool
 from google.adk.tools.preload_memory_tool import preload_memory_tool
 
 from .core.model_callbacks import after_model_callback, before_model_callback
+from .core.tool_callbacks import truncate_tool_output_callback
 from .memory.callbacks import (
     after_tool_memory_callback,
     before_tool_memory_callback,
     on_tool_error_memory_callback,
 )
+
+
+async def composite_after_tool_callback(
+    tool: Any,
+    args: dict[str, Any],
+    tool_context: Any,
+    tool_response: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Combines truncation safety and memory recording."""
+    # 1. Truncate if too large (Safety)
+    truncated_response = await truncate_tool_output_callback(
+        tool, args, tool_context, tool_response
+    )
+    final_response = (
+        truncated_response if truncated_response is not None else tool_response
+    )
+
+    # 2. Record to memory (Learning)
+    await after_tool_memory_callback(tool, args, tool_context, final_response)
+
+    return final_response
+
 
 # Build the full tool set: base tools + ADK memory tools
 _agent_tools: list[Any] = [
@@ -1301,9 +1348,9 @@ Direct Tools:
     # Model callbacks for cost tracking and token budget enforcement
     before_model_callback=before_model_callback,
     after_model_callback=after_model_callback,
-    # Tool callbacks for automatic memory-driven learning
+    # Tool callbacks for automatic memory-driven learning and safety truncation
     before_tool_callback=before_tool_memory_callback,
-    after_tool_callback=after_tool_memory_callback,
+    after_tool_callback=composite_after_tool_callback,
     on_tool_error_callback=on_tool_error_memory_callback,
     # Sub-agents for specialized analysis (automatically invoked based on task)
     sub_agents=[

@@ -41,4 +41,4 @@ async def test_mock_toolset():
     assert "list_log_entries" in names
     assert "list_timeseries" in names
     assert "query_range" in names
-    assert len(tools) == 3
+    assert len(tools) == 7

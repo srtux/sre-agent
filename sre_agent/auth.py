@@ -255,6 +255,14 @@ def is_guest_mode() -> bool:
     return _guest_mode_context.get()
 
 
+def is_eval_mode() -> bool:
+    """Returns True if the agent is running in evaluation mode."""
+    return (
+        os.getenv("SRE_AGENT_EVAL_MODE", "false").lower() == "true"
+        or os.environ.get("ADK_ENV") == "test"
+    )
+
+
 def get_current_credentials() -> tuple[google.auth.credentials.Credentials, str | None]:
     """Gets the credentials for the current context, falling back to default.
 

@@ -33,6 +33,8 @@ from google.adk.models.llm_request import LlmRequest
 from google.adk.models.llm_response import LlmResponse
 from google.genai import types as genai_types
 
+from sre_agent.core.summarizer import get_summarizer
+
 logger = logging.getLogger(__name__)
 
 # Token budget environment variable (0 = unlimited)
@@ -271,7 +273,157 @@ def before_model_callback(
     if hasattr(callback_context, "state"):
         callback_context.state["_model_call_start_time"] = time.time()
 
+    # EMERGENCY CONTEXT WINDOWING: Prevent 400 INVALID_ARGUMENT (Token Limit)
+    # The Gemini Flash 2.5 limit is ~1.04M tokens.
+    # We use a conservative estimate to trigger compaction well before the hard limit.
+    SAFE_TRIGGER_TOKENS = 750_000  # Start compacting at 750k to be safe
+    CHARS_PER_TOKEN = 2.5  # More realistic for logs and code (English text is ~4)
+
+    total_chars = 0
+    # 1. Count System Instructions
+    if hasattr(llm_request, "system_instructions") and llm_request.system_instructions:
+        for content in llm_request.system_instructions:
+            if content.parts:
+                for part in content.parts:
+                    text = getattr(part, "text", None)
+                    if text:
+                        total_chars += len(text)
+
+    # 2. Count History and Current Content
+    for content in llm_request.contents:
+        if content.parts:
+            for part in content.parts:
+                text = getattr(part, "text", None)
+                if text:
+                    total_chars += len(text)
+                elif hasattr(part, "function_call") and part.function_call:
+                    # Function call has name and args
+                    fc_name = part.function_call.name or "unknown"
+                    fc_args = (
+                        str(part.function_call.args) if part.function_call.args else ""
+                    )
+                    total_chars += len(str(fc_name)) + len(fc_args)
+                elif hasattr(part, "function_response") and part.function_response:
+                    # Function response can be huge (e.g. log list).
+                    # We use the length of the string representation of the response object.
+                    resp = getattr(part.function_response, "response", None)
+                    total_chars += len(str(resp)) if resp is not None else 0
+                else:
+                    # Default for other types
+                    total_chars += 500
+
+    estimated_tokens = int(total_chars / CHARS_PER_TOKEN)
+
+    if estimated_tokens > SAFE_TRIGGER_TOKENS:
+        agent_name = getattr(callback_context, "agent_name", "unknown")
+        logger.warning(
+            f"⚠️ Emergency context compaction triggered for {agent_name}: "
+            f"Estimated {estimated_tokens:,} tokens > {SAFE_TRIGGER_TOKENS:,}."
+        )
+
+        # Strategy: Keep system/first message, last few messages, and compact middle.
+        # We enforce this if history is long enough, otherwise we might need to truncate individual messages.
+        if len(llm_request.contents) > 2:
+            first_msg = llm_request.contents[0]
+            # Keep last 6 messages (3 turns) to clear more space if we're very full
+            num_recent = 6 if estimated_tokens > 900_000 else 10
+            recent_msgs = llm_request.contents[-num_recent:]
+            middle_msgs = llm_request.contents[1:-num_recent]
+
+            if middle_msgs:
+                # COMPACT the middle turns
+                middle_summary = _compact_llm_contents(middle_msgs)
+
+                compacted_indicator = genai_types.Content(
+                    role="user",
+                    parts=[
+                        genai_types.Part(
+                            text=(
+                                f"\n\n[SRE AGENT: Middle {len(middle_msgs)} turns compacted to stay within context limits]\n"
+                                f"SUMMARY OF PREVIOUS HISTORY:\n{middle_summary}\n\n"
+                            )
+                        )
+                    ],
+                )
+
+                # Reconstruct contents
+                new_contents = [first_msg, compacted_indicator, *recent_msgs]
+                llm_request.contents = new_contents
+
+                # Recalculate and log
+                new_chars = sum(
+                    len(p.text) if hasattr(p, "text") and p.text else 500
+                    for c in new_contents
+                    for p in (c.parts or [])
+                )
+                logger.info(
+                    f"✅ Compacted context for {agent_name}: ~{int(new_chars / CHARS_PER_TOKEN):,} tokens."
+                )
+            else:
+                logger.warning(
+                    f"⚠️ Context too large ({estimated_tokens:,} tokens) but contains only {len(llm_request.contents)} messages. "
+                    "Individual messages might be exceeding tool truncation limits."
+                )
+
     return None
+
+
+def _compact_llm_contents(contents: list[genai_types.Content]) -> str:
+    """Heuristically compact LLM contents into a summary string.
+
+    Args:
+        contents: List of Content objects to compact.
+
+    Returns:
+        A condensed string representation.
+    """
+    summarizer = get_summarizer()
+    summaries = []
+
+    for content in contents:
+        # Determine event type and content for the summarizer
+        if content.role == "model":
+            # Assistant turns: check for tool calls or thoughts
+            has_tool_call = False
+            if content.parts:
+                for part in content.parts:
+                    if hasattr(part, "function_call") and part.function_call:
+                        summaries.append(f"• Called tool: {part.function_call.name}")
+                        has_tool_call = True
+
+            if not has_tool_call and content.parts:
+                text = "".join(
+                    p.text for p in content.parts if hasattr(p, "text") and p.text
+                )
+                if text:
+                    summaries.append(f"• Thought: {text[:100]}...")
+
+        elif content.role == "user":
+            # User turns: check for tool responses or messages
+            has_tool_res = False
+            if content.parts:
+                for part in content.parts:
+                    if hasattr(part, "function_response") and part.function_response:
+                        name = part.function_response.name or "unknown"
+                        resp = part.function_response.response
+                        summaries.append(
+                            f"  └ Result: {summarizer._summarize_tool_output(name, resp)}"
+                        )
+                        has_tool_res = True
+
+            if not has_tool_res and content.parts:
+                text = "".join(
+                    p.text for p in content.parts if hasattr(p, "text") and p.text
+                )
+                if text:
+                    summaries.append(f"• User: {text[:100]}...")
+
+    # Join and truncate the whole summary if it's still too long
+    result = "\n".join(summaries)
+    if len(result) > 4000:
+        result = result[:4000] + "\n... [summary further truncated]"
+
+    return result
 
 
 def after_model_callback(

@@ -7,6 +7,7 @@ overall severity and confidence scores.
 
 from google.adk.agents import LlmAgent
 
+from sre_agent.core.model_callbacks import after_model_callback, before_model_callback
 from sre_agent.model_config import get_model_name
 
 from .prompts import SYNTHESIZER_PROMPT
@@ -36,4 +37,6 @@ def create_synthesizer() -> LlmAgent:
         ),
         instruction=SYNTHESIZER_PROMPT,
         output_key="council_synthesis",
+        before_model_callback=before_model_callback,
+        after_model_callback=after_model_callback,
     )

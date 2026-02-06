@@ -16,9 +16,12 @@ import json
 import os
 
 import pytest
+from dotenv import load_dotenv
 from google.adk.evaluation.agent_evaluator import AgentEvaluator
 from google.adk.evaluation.eval_config import EvalConfig
 from google.adk.evaluation.eval_set import EvalSet
+
+load_dotenv()
 
 
 def _has_api_credentials() -> bool:
