@@ -193,3 +193,54 @@ def test_compare_span_timings(sample_trace_dict):
     assert slower["span_name"] == "root_span"
     assert slower["diff_ms"] == 1000.0
     assert slower["diff_percent"] == 100.0
+
+
+def test_validate_trace_quality_unix_timestamps():
+    """Test trace validation using optimized unix timestamps."""
+    # This trace has negative duration and clock skew, but only detectable via unix timestamps
+    # if we were to ignore strings. Here we provide both but rely on the logic preferring unix.
+    trace = {
+        "spans": [
+            {
+                "span_id": "root",
+                "name": "root",
+                "start_time_unix": 1000.0,
+                "end_time_unix": 1001.0,
+                # Provide valid strings to ensure fallback isn't used
+                "start_time": "2023-01-01T00:00:00Z",
+                "end_time": "2023-01-01T00:00:01Z",
+            },
+            {
+                "span_id": "child_skew",
+                "name": "child_skew",
+                "parent_span_id": "root",
+                "start_time_unix": 1002.0,  # Starts after parent ends
+                "end_time_unix": 1003.0,
+                "start_time": "2023-01-01T00:00:00.100Z",  # These strings would be valid (no skew)
+                "end_time": "2023-01-01T00:00:00.200Z",
+            },
+            {
+                "span_id": "child_neg",
+                "name": "child_neg",
+                "parent_span_id": "root",
+                "start_time_unix": 1000.5,
+                "end_time_unix": 1000.4,  # Negative duration
+                "start_time": "2023-01-01T00:00:00.500Z",  # These strings would be valid
+                "end_time": "2023-01-01T00:00:00.600Z",
+            },
+        ]
+    }
+    result = validate_trace_quality(trace)
+    assert result.status == ToolStatus.SUCCESS
+    res_data = result.result
+    assert not res_data["valid"]
+
+    issues = res_data["issues"]
+    skew_issue = next((i for i in issues if i.get("span_id") == "child_skew"), None)
+    neg_issue = next((i for i in issues if i.get("span_id") == "child_neg"), None)
+
+    assert skew_issue is not None
+    assert skew_issue["type"] == "clock_skew"
+
+    assert neg_issue is not None
+    assert neg_issue["type"] == "negative_duration"

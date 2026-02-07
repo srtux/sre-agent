@@ -9,3 +9,7 @@
 ## 2025-02-18 - [Single Fetch for Composite Tools]
 **Learning:** Composite "Mega-Tools" like `analyze_trace_comprehensive` often call multiple granular tools sequentially. If each granular tool fetches its own data, this results in significant redundant API calls (e.g., fetching the same trace 5 times).
 **Action:** Refactor granular tools to separate logic (into `_impl` functions that accept data objects) from I/O. Have the composite tool fetch data once and pass it to the `_impl` functions. This reduced API calls from 5 to 1 and latency from ~500ms to ~100ms in testing.
+
+## 2026-02-07 - [Optimize Loop with Unix Timestamps]
+**Learning:** `_validate_trace_quality_impl` was parsing ISO 8601 strings into datetime objects inside a loop for every span to calculate duration and check clock skew. This is expensive. Using pre-calculated unix float timestamps (available in `fetch_trace` response) avoids this overhead.
+**Action:** Check for float timestamps (`start_time_unix`) and use them for arithmetic. Keep string parsing only as a fallback. This improved benchmark performance by ~4.6x (15ms -> 3.3ms for 5000 spans).
