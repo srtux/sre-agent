@@ -1,7 +1,6 @@
 """Tests for the MistakeAdvisor — pre-tool guidance and prompt lessons."""
 
-import os
-import tempfile
+from unittest.mock import patch
 
 import pytest
 
@@ -17,21 +16,14 @@ from sre_agent.schema import MistakeCategory, MistakeRecord
 
 
 @pytest.fixture
-def store(tmp_path: object) -> MistakeMemoryStore:
-    """Create a temporary store."""
-    fd, path = tempfile.mkstemp(suffix=".db")
-    os.close(fd)
-    s = MistakeMemoryStore(db_path=path)
-    yield s  # type: ignore[misc]
-    try:
-        os.unlink(path)
-    except OSError:
-        pass
+def store() -> MistakeMemoryStore:
+    """Create a fresh in-memory MistakeMemoryStore."""
+    return MistakeMemoryStore()
 
 
 @pytest.fixture
 def advisor(store: MistakeMemoryStore) -> MistakeAdvisor:
-    """Create an advisor backed by the temporary store."""
+    """Create an advisor backed by the store."""
     return MistakeAdvisor(store=store)
 
 
@@ -119,11 +111,12 @@ class TestGetToolAdvice:
     async def test_returns_advice_for_known_tool(
         self, advisor: MistakeAdvisor, store: MistakeMemoryStore
     ) -> None:
-        await store.record_mistake(
-            "list_log_entries",
-            "Invalid filter: use resource.labels",
-            {"filter": 'container_name="app"'},
-        )
+        with patch("sre_agent.memory.factory.get_memory_manager"):
+            await store.record_mistake(
+                "list_log_entries",
+                "Invalid filter: use prefix",
+                {"filter": 'container_name="app"'},
+            )
 
         advice = await advisor.get_tool_advice("list_log_entries")
         assert "list_log_entries" in advice
@@ -144,22 +137,23 @@ class TestGetPromptLessons:
     async def test_returns_lessons_block(
         self, advisor: MistakeAdvisor, store: MistakeMemoryStore
     ) -> None:
-        await store.record_mistake(
-            "list_log_entries",
-            "Invalid filter: missing prefix",
-            {"filter": "bad"},
-        )
-        await store.record_correction(
-            "list_log_entries",
-            "Invalid filter: missing prefix",
-            "Use resource.labels prefix",
-            {"filter": "good"},
-        )
-        await store.record_mistake(
-            "query_promql",
-            "syntax error in expression",
-            {"query": "bad("},
-        )
+        with patch("sre_agent.memory.factory.get_memory_manager"):
+            await store.record_mistake(
+                "list_log_entries",
+                "Invalid filter: missing prefix",
+                {"filter": "bad"},
+            )
+            await store.record_correction(
+                "list_log_entries",
+                "Invalid filter: missing prefix",
+                "Use resource.labels prefix",
+                {"filter": "good"},
+            )
+            await store.record_mistake(
+                "query_promql",
+                "syntax error in expression",
+                {"query": "bad("},
+            )
 
         lessons = await advisor.get_prompt_lessons()
         assert "Learned Lessons" in lessons
@@ -170,22 +164,23 @@ class TestGetPromptLessons:
     async def test_prioritizes_corrected_mistakes(
         self, advisor: MistakeAdvisor, store: MistakeMemoryStore
     ) -> None:
-        # Record many uncorrected mistakes
-        for i in range(10):
-            await store.record_mistake(f"tool_{i}", f"invalid filter #{i}", {})
+        with patch("sre_agent.memory.factory.get_memory_manager"):
+            # Record many uncorrected mistakes
+            for i in range(10):
+                await store.record_mistake(f"tool_{i}", f"invalid filter #{i}", {})
 
-        # Record one corrected mistake
-        await store.record_mistake(
-            "important_tool",
-            "invalid filter: critical lesson",
-            {"f": "bad"},
-        )
-        await store.record_correction(
-            "important_tool",
-            "invalid filter: critical lesson",
-            "This is the fix",
-            {"f": "good"},
-        )
+            # Record one corrected mistake
+            await store.record_mistake(
+                "important_tool",
+                "invalid filter: critical lesson",
+                {"f": "bad"},
+            )
+            await store.record_correction(
+                "important_tool",
+                "invalid filter: critical lesson",
+                "This is the fix",
+                {"f": "good"},
+            )
 
         lessons = await advisor.get_prompt_lessons(limit=3)
         assert "important_tool" in lessons
@@ -210,10 +205,11 @@ class TestGetMistakeSummary:
     async def test_summary_with_data(
         self, advisor: MistakeAdvisor, store: MistakeMemoryStore
     ) -> None:
-        await store.record_mistake("tool_a", "invalid filter", {})
-        await store.record_mistake("tool_a", "invalid filter", {})
-        await store.record_mistake("tool_b", "syntax error", {})
-        await store.record_correction("tool_a", "invalid filter", "fix", {})
+        with patch("sre_agent.memory.factory.get_memory_manager"):
+            await store.record_mistake("tool_a", "invalid filter", {})
+            await store.record_mistake("tool_a", "invalid filter", {})
+            await store.record_mistake("tool_b", "syntax error", {})
+            await store.record_correction("tool_a", "invalid filter", "fix", {})
 
         summary = await advisor.get_mistake_summary()
         assert summary["total_mistakes"] == 2

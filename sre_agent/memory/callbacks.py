@@ -366,6 +366,7 @@ async def after_tool_memory_callback(
                     args=args,
                     error_message=error_msg,
                     session_id=session_id,
+                    user_id=user_id,
                 )
             except Exception:
                 logger.debug("Failed to record structured mistake", exc_info=True)
@@ -384,11 +385,12 @@ async def after_tool_memory_callback(
                 from sre_agent.memory.mistake_learner import get_mistake_learner
 
                 learner = get_mistake_learner()
-                session_id = _get_session_id_from_context(tool_context)
+                _, session_id, user_id = get_context()
                 await learner.on_tool_success(
                     tool_name=tool_name,
                     args=args,
                     session_id=session_id,
+                    user_id=user_id,
                 )
             except Exception:
                 logger.debug("Failed to check self-correction", exc_info=True)
@@ -515,6 +517,7 @@ async def on_tool_error_memory_callback(
                 args=args,
                 error=error,
                 session_id=session_id,
+                user_id=user_id,
             )
         except Exception:
             logger.debug("Failed to record structured exception mistake", exc_info=True)

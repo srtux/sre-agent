@@ -120,6 +120,7 @@ class MistakeLearner:
         args: dict[str, Any],
         error_message: str,
         session_id: str | None = None,
+        user_id: str | None = None,
     ) -> None:
         """Handle a tool failure: record the mistake and buffer for correction.
 
@@ -127,7 +128,8 @@ class MistakeLearner:
             tool_name: Name of the tool that failed.
             args: Arguments that caused the failure.
             error_message: The error message received.
-            session_id: Session ID for event routing.
+            session_id: Session ID for Memory Bank persistence and event routing.
+            user_id: Authenticated user ID for Memory Bank isolation.
         """
         if not self._is_learnable(error_message):
             return
@@ -135,12 +137,14 @@ class MistakeLearner:
         try:
             category = _classify_mistake(error_message)
 
-            # Record to persistent store
+            # Record to persistent store (backed by MemoryManager)
             record = await self.store.record_mistake(
                 tool_name=tool_name,
                 error_message=error_message,
                 failed_args=args,
                 category=category,
+                session_id=session_id,
+                user_id=user_id,
             )
 
             # Buffer for correction detection
@@ -183,6 +187,7 @@ class MistakeLearner:
         tool_name: str,
         args: dict[str, Any],
         session_id: str | None = None,
+        user_id: str | None = None,
     ) -> None:
         """Handle a tool success: check for self-correction opportunity.
 
@@ -191,7 +196,8 @@ class MistakeLearner:
         Args:
             tool_name: Name of the tool that succeeded.
             args: Arguments used in the successful call.
-            session_id: Session ID for event routing.
+            session_id: Session ID for Memory Bank persistence and event routing.
+            user_id: Authenticated user ID for Memory Bank isolation.
         """
         recent = self._recent_failures.get(tool_name)
         if not recent:
@@ -205,13 +211,15 @@ class MistakeLearner:
             # Build a human-readable correction description
             correction = self._describe_correction(failure, safe_args)
 
-            # Record the correction in persistent store
+            # Record the correction in persistent store (backed by MemoryManager)
             updated = await self.store.record_correction(
                 tool_name=tool_name,
                 error_message=failure.error_message,
                 correction=correction,
                 corrected_args=args,
                 category=failure.category,
+                session_id=session_id,
+                user_id=user_id,
             )
 
             if updated:
@@ -285,6 +293,7 @@ class MistakeLearner:
         args: dict[str, Any],
         error: Exception,
         session_id: str | None = None,
+        user_id: str | None = None,
     ) -> None:
         """Handle a tool exception (raised, not returned as error response).
 
@@ -292,7 +301,8 @@ class MistakeLearner:
             tool_name: Name of the tool that raised.
             args: Arguments passed to the tool.
             error: The exception that was raised.
-            session_id: Session ID for event routing.
+            session_id: Session ID for Memory Bank persistence and event routing.
+            user_id: Authenticated user ID for Memory Bank isolation.
         """
         error_message = f"{type(error).__name__}: {error!s}"
         await self.on_tool_failure(
@@ -300,6 +310,7 @@ class MistakeLearner:
             args=args,
             error_message=error_message,
             session_id=session_id,
+            user_id=user_id,
         )
 
 
