@@ -106,24 +106,28 @@ class ExplorerQueryService {
       }
 
       final client = _clientFactory();
-      final response = await client.get(Uri.parse(url)).timeout(
-        const Duration(seconds: 30),
-      );
-
-      if (response.statusCode != 200) {
-        throw Exception('Trace fetch failed: ${response.statusCode}');
-      }
-
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final trace = Trace.fromJson(data);
-
-      if (trace.spans.isNotEmpty) {
-        _dashboardState.addTrace(
-          trace, 'manual_query', data,
-          source: DataSource.manual,
+      try {
+        final response = await client.get(Uri.parse(url)).timeout(
+          const Duration(seconds: 30),
         );
-        _dashboardState.openDashboard();
-        _dashboardState.setActiveTab(DashboardDataType.traces);
+
+        if (response.statusCode != 200) {
+          throw Exception('Trace fetch failed: ${response.statusCode}');
+        }
+
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final trace = Trace.fromJson(data);
+
+        if (trace.spans.isNotEmpty) {
+          _dashboardState.addTrace(
+            trace, 'manual_query', data,
+            source: DataSource.manual,
+          );
+          _dashboardState.openDashboard();
+          _dashboardState.setActiveTab(DashboardDataType.traces);
+        }
+      } finally {
+        client.close();
       }
     } catch (e) {
       _dashboardState.setError(
@@ -172,14 +176,18 @@ class ExplorerQueryService {
 
   Future<http.Response> _post(String path, String body) async {
     final client = _clientFactory();
-    final response = await client.post(
-      Uri.parse('$_baseUrl$path'),
-      headers: {'Content-Type': 'application/json'},
-      body: body,
-    ).timeout(const Duration(seconds: 30));
-    if (response.statusCode != 200) {
-      throw Exception('API error ${response.statusCode}: ${response.body}');
+    try {
+      final response = await client.post(
+        Uri.parse('$_baseUrl$path'),
+        headers: {'Content-Type': 'application/json'},
+        body: body,
+      ).timeout(const Duration(seconds: 30));
+      if (response.statusCode != 200) {
+        throw Exception('API error ${response.statusCode}: ${response.body}');
+      }
+      return response;
+    } finally {
+      client.close();
     }
-    return response;
   }
 }

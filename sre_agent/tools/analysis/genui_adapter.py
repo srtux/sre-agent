@@ -51,10 +51,13 @@ def transform_trace(trace_data: dict[str, Any]) -> dict[str, Any]:
     )
     spans = []
     raw_spans = trace_data.get("spans", []) if isinstance(trace_data, dict) else []
-    for span in raw_spans:
+    for raw_span in raw_spans:
         # Ensure it's a dict
-        if not isinstance(span, dict):
+        if not isinstance(raw_span, dict):
             continue
+
+        # Work on a copy to avoid mutating the input
+        span = dict(raw_span)
 
         # Ensure IDs are strings for Flutter models (Google Cloud Trace API returns them as integers)
         if "span_id" in span and span["span_id"] is not None:
@@ -69,12 +72,20 @@ def transform_trace(trace_data: dict[str, Any]) -> dict[str, Any]:
             span["attributes"] = span.pop("labels", {})
         elif "attributes" not in span:
             span["attributes"] = {}
+        else:
+            # Copy attributes dict to avoid mutating the original
+            span["attributes"] = dict(span["attributes"])
 
         # Derive status (Flutter model expects 'OK' or 'ERROR')
         status_code = span.get("attributes", {}).get("/http/status_code", "200")
         span["status"] = "ERROR" if str(status_code).startswith(("4", "5")) else "OK"
         spans.append(span)
     span_map = {s.get("span_id"): s for s in spans if s.get("span_id")}
+
+    def parse_time(t: Any) -> datetime | None:
+        if not t:
+            return None
+        return datetime.fromisoformat(str(t).replace("Z", "+00:00"))
 
     for span in spans:
         # Check specific trace quality issues
@@ -91,23 +102,12 @@ def transform_trace(trace_data: dict[str, Any]) -> dict[str, Any]:
         elif parent_id and parent_id in span_map:
             parent = span_map[parent_id]
             try:
-                # Parse timestamps (handling potentially different formats/types if needed,
-                # but relying on standard ISO strings from earlier parsing if available)
-                # Note: 'span' dict here might have raw strings or already parsed objects depending on earlier logic.
-                # The earlier code didn't parse them into DateTime objects in the dict, it left them as strings usually.
-                # Let's safely parse.
-                def parse_time(t: Any) -> datetime | None:
-                    if not t:
-                        return None
-                    return datetime.fromisoformat(str(t).replace("Z", "+00:00"))
-
                 s_start = parse_time(span.get("start_time"))
                 s_end = parse_time(span.get("end_time"))
                 p_start = parse_time(parent.get("start_time"))
                 p_end = parse_time(parent.get("end_time"))
 
                 if s_start and s_end and p_start and p_end:
-                    # Allow a small buffer for precision issues if needed, but strict for now
                     if s_start < p_start or s_end > p_end:
                         issue_type = "clock_skew"
                         issue_message = "Child span outside parent timespan"
@@ -116,8 +116,6 @@ def transform_trace(trace_data: dict[str, Any]) -> dict[str, Any]:
 
         # Inject attributes if issue detected
         if issue_type:
-            if "attributes" not in span:
-                span["attributes"] = {}
             span["attributes"]["/agent/quality/type"] = issue_type
             span["attributes"]["/agent/quality/issue"] = issue_message
 
@@ -544,7 +542,7 @@ def transform_alerts_to_timeline(alerts_data: list[dict[str, Any]]) -> dict[str,
             overall_status = "resolved"
 
     return {
-        "incident_id": f"ALERTS-{datetime.now().strftime('%Y%m%d')}",
+        "incident_id": f"ALERTS-{datetime.now(timezone.utc).strftime('%Y%m%d')}",
         "title": "Active Alerts Timeline",
         "start_time": (
             sorted_alerts[-1].get("openTime")

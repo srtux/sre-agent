@@ -5,6 +5,7 @@ with clear separation between System, Developer, and User roles.
 """
 
 import logging
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -325,11 +326,14 @@ Remember:
 
 # Singleton instance
 _prompt_composer: PromptComposer | None = None
+_prompt_composer_lock = threading.Lock()
 
 
 def get_prompt_composer() -> PromptComposer:
     """Get the singleton prompt composer instance."""
     global _prompt_composer
     if _prompt_composer is None:
-        _prompt_composer = PromptComposer()
+        with _prompt_composer_lock:
+            if _prompt_composer is None:
+                _prompt_composer = PromptComposer()
     return _prompt_composer

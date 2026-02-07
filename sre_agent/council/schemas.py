@@ -184,7 +184,7 @@ class ToolCallRecord(BaseModel):
     and whether it produced dashboard-visualizable data.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     call_id: str = Field(description="Unique identifier for this tool call.")
     tool_name: str = Field(description="Name of the tool that was called.")
@@ -221,7 +221,7 @@ class LLMCallRecord(BaseModel):
     Tracks the model used, token counts, and timing.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     call_id: str = Field(description="Unique identifier for this LLM call.")
     model: str = Field(description="Model identifier used for this call.")
@@ -245,7 +245,7 @@ class AgentActivity(BaseModel):
     and relationships to other agents.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     agent_id: str = Field(description="Unique identifier for this agent instance.")
     agent_name: str = Field(description="Human-readable name of the agent.")
@@ -283,7 +283,7 @@ class CouncilActivityGraph(BaseModel):
     aggregated statistics for visualization.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     investigation_id: str = Field(
         description="Unique identifier for this investigation."

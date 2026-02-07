@@ -134,7 +134,7 @@ Total: **174 new council tests**, all passing. Grand total: **1512 tests**.
     - Added `run_council_investigation` and `classify_investigation_mode` to both `TOOL_NAME_MAP` and `TOOL_DEFINITIONS`.
     - Integrated circuit breaker into `@adk_tool` decorator (was dead code).
 
-Total: **112 new tests** in this phase. Grand total: **1909+ tests** passing.
+Total: **112 new tests** in this phase. Grand total: **1909+** tests passing.
 
 - [x] **Observability Explorer Dashboard Refactor** (Phase 3.5 — Feb 2026):
     Transformed the passive "agent-only" dashboard into an active GCP-style Observability Explorer
@@ -149,11 +149,32 @@ Total: **112 new tests** in this phase. Grand total: **1909+ tests** passing.
     - **Centralized Chart Theme**: Created `chart_theme.dart` with Deep Space palette integration for all Syncfusion chart elements.
     - 6 new backend API tests, updated existing tests to use `BaseToolResponse` mocks. Grand total: **1989 backend tests**, **129 Flutter tests** passing.
 
+- [x] **Full-Stack Code Audit & Hardening** (Phase 3.6 — Feb 2026):
+    Comprehensive 6-layer audit across backend, frontend, council, tools, and tests. Applied 15 fixes across 12 files.
+    - **Thread Safety**: Added `threading.Lock` to `CircuitBreakerRegistry` state mutations and double-checked locking to `get_policy_engine()` / `get_prompt_composer()` singletons.
+    - **Input Validation**: Replaced raw `dict[str, Any]` payloads with 5 Pydantic request models (`MetricsQueryRequest`, `PromQLQueryRequest`, `AlertsQueryRequest`, `LogsQueryRequest`, `LogAnalyzeRequest`) on query endpoints.
+    - **Security Hardening**: Replaced 7 `traceback.print_exc()` calls with `logger.exception()`, hardened help router path traversal with `Path.resolve()` verification, upgraded dev-mode auth bypass log from DEBUG to WARNING.
+    - **Schema Compliance**: Added `extra="forbid"` to `InvestigationState`, `frozen=True` to 4 council activity tracking models (`ToolCallRecord`, `LLMCallRecord`, `AgentActivity`, `CouncilActivityGraph`).
+    - **Resource Leaks**: Fixed timer leak in `DashboardState.toggleAutoRefresh()`, added `client.close()` to `ExplorerQueryService` HTTP calls.
+    - **Data Integrity**: Fixed `genui_adapter.transform_trace()` input mutation (copy-on-write), fixed `datetime.now()` → `datetime.now(timezone.utc)` inconsistency, cleared stale closure in debate convergence tracker, narrowed `_is_tool_failure()` exception catch to `JSONDecodeError/ValueError`.
+    - Grand total: **1989 backend tests**, **129 Flutter tests** passing. Lint clean.
+
 #### Remaining
 - [ ] **Anomaly Correlation Engine**: Automate "Z-score comparison" across metrics and logs simultaneously.
 - [ ] **Microservice Dependency Mapping**: Add graph analysis tools to detect circular dependencies in OTel trace trees.
 - [ ] **Resource Saturation Suite**: Deep dive tools for OOMKilled, CPU Throttling, and Connection Pool exhaustion detection.
 - [ ] **Messaging & Pub/Sub Tracing**: Extend investigation to dead-letter queues and message lag.
+
+#### Audit Follow-Up Items
+- [ ] **Council Intent Classifier**: Deterministic tie-breaking for signal type detection; word-boundary keyword matching to reduce false positives.
+- [ ] **Council Debate Validation**: Confidence bounds checking (clamp 0.0-1.0); panel completion validation after `ParallelAgent`; critic output schema enforcement (`CriticReport`).
+- [ ] **API Rate Limiting**: Add `slowapi` middleware with per-endpoint rate limits; request size limits on POST endpoints.
+- [ ] **CORS Tightening**: Replace `allow_headers=["*"]` with explicit header allowlist; disable `allow_credentials` when `allow_origins=["*"]`.
+- [ ] **Sync Tool Circuit Breaker**: Add circuit breaker logic to `sync_wrapper` in `decorators.py` to match async wrapper protection.
+- [ ] **Test Quality**: Replace `time.sleep()` in circuit breaker tests with `freezegun`; add health router tests; add playbook module tests; add error/exception fixture suite to `conftest.py`.
+- [ ] **genui_adapter Robustness**: Guard `transform_metrics()` PromQL path against `IndexError` on empty results; add `isinstance` check on nested `attributes` dict access.
+- [ ] **Token Estimation Consistency**: Align `CHARS_PER_TOKEN` between `context_compactor.py` (4) and `model_callbacks.py` (2.5).
+- [ ] **Session State Cleanup**: Add TTL-based cleanup for `_compaction_state` dict in `context_compactor.py` and `_active_executions` in `runner.py`.
 
 ---
 

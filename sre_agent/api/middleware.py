@@ -171,8 +171,10 @@ async def auth_middleware(request: Request, call_next: Any) -> Any:
             # Set a dummy user identity
             dev_user = "dev@local.test"
             set_current_user_id(dev_user)
-            logger.debug(
-                f"Auth Middleware: DEV MODE - Bypassed auth, set user to {dev_user}"
+            logger.warning(
+                "Auth Middleware: DEV MODE - Authentication bypassed (ENABLE_AUTH=false). "
+                "Do not use in production. Set user to %s",
+                dev_user,
             )
 
         else:

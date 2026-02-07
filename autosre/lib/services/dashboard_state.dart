@@ -499,14 +499,14 @@ class DashboardState extends ChangeNotifier {
   /// Toggle auto-refresh. Call [setAutoRefreshCallback] first.
   void toggleAutoRefresh() {
     _autoRefresh = !_autoRefresh;
+    // Always cancel existing timer first to prevent leaks.
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
     if (_autoRefresh) {
       _refreshTimer = Timer.periodic(
         const Duration(seconds: 30),
         (_) => _onAutoRefresh?.call(),
       );
-    } else {
-      _refreshTimer?.cancel();
-      _refreshTimer = null;
     }
     notifyListeners();
   }

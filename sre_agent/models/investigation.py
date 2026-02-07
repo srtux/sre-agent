@@ -76,6 +76,8 @@ class InvestigationState(BaseModel):
     - Scores for investigation quality
     """
 
+    model_config = ConfigDict(extra="forbid")
+
     phase: InvestigationPhase = InvestigationPhase.TRIAGE
     findings: list[str] = Field(default_factory=list)
     hypotheses: list[str] = Field(default_factory=list)
