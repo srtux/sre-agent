@@ -143,9 +143,12 @@ class AuthService extends ChangeNotifier {
             _currentUser = event.user;
             await _refreshTokens();
 
-            // Proactively authorize GCP scopes right after sign-in so the user
-            // only sees one consent/popup flow instead of two.
-            await _proactivelyAuthorizeScopes();
+            // Proactively authorize GCP scopes right after sign-in.
+            // We pass interactive: false here so that if the tokens weren't
+            // already obtained in the first popup, we don't annoy the user
+            // with an immediate second popup. The first API call will trigger
+            // the second popup if still needed.
+            await _proactivelyAuthorizeScopes(interactive: false);
 
             notifyListeners();
           } else if (event is gsi_lib.GoogleSignInAuthenticationEventSignOut) {
@@ -168,7 +171,7 @@ class AuthService extends ChangeNotifier {
     );
 
     try {
-      // Initialize configuration
+      // Initialize configuration with required scopes upfront
       await _googleSignIn.initialize(
         clientId: effectiveClientId,
       );
@@ -188,8 +191,9 @@ class AuthService extends ChangeNotifier {
       if (_currentUser != null) {
         final restored = await _restoreCachedTokens();
         if (!restored) {
-          // Cached tokens expired or missing — authorize scopes silently
-          await _proactivelyAuthorizeScopes();
+          // Cached tokens expired or missing — authorize scopes SILENTLY.
+          // Never trigger a popup automatically on page load.
+          await _proactivelyAuthorizeScopes(interactive: false);
         }
       }
     } catch (e) {
@@ -203,6 +207,9 @@ class AuthService extends ChangeNotifier {
   // ---------------------------------------------------------------------------
   // Token management
   // ---------------------------------------------------------------------------
+
+  @visibleForTesting
+  Future<void> refreshTokensForTesting() async => _refreshTokens();
 
   /// Refresh ID token from the GoogleSignIn authentication object.
   Future<void> _refreshTokens() async {
@@ -223,21 +230,37 @@ class AuthService extends ChangeNotifier {
   /// Proactively authorize GCP scopes after sign-in to avoid a second popup.
   ///
   /// This consolidates the two-step flow (sign-in + scope authorization) into
-  /// one seamless experience. The user sees at most one consent screen.
-  Future<void> _proactivelyAuthorizeScopes() async {
+  /// one seamless experience. If [interactive] is true, it will trigger a popup
+  /// if silent authorization fails.
+  Future<void> _proactivelyAuthorizeScopes({bool interactive = true}) async {
     if (_currentUser == null) return;
 
+    // 1. If we already have a valid access token (e.g. from _refreshTokens), skip this.
+    if (_accessToken != null && _accessTokenExpiry != null) {
+      if (DateTime.now().isBefore(_accessTokenExpiry!.subtract(const Duration(minutes: 5)))) {
+        debugPrint('AuthService: Already have a valid access token, skipping redundant authorization.');
+        return;
+      }
+    }
+
     try {
-      debugPrint('AuthService: Proactively authorizing GCP scopes...');
+      debugPrint('AuthService: Proactively authorizing GCP scopes (interactive: $interactive)...');
       final authzClient = _currentUser!.authorizationClient;
 
       // Try silent first
       var authz = await authzClient.authorizationForScopes(_scopes);
 
-      // If silent fails, request interactive authorization
+      // If silent fails, request interactive authorization ONLY if requested.
+      // In the initial sign-in flow, we want this to be silent because the
+      // signIn() call should have already handled the interactive part.
       if (authz == null) {
-        debugPrint('AuthService: Silent scope authorization failed, trying interactive...');
-        authz = await authzClient.authorizeScopes(_scopes);
+        if (interactive) {
+          debugPrint('AuthService: Silent scope authorization failed, trying interactive...');
+          authz = await authzClient.authorizeScopes(_scopes);
+        } else {
+          debugPrint('AuthService: Silent scope authorization failed, skipping interactive to avoid annoying the user.');
+          return;
+        }
       }
 
       _accessToken = authz.accessToken;
@@ -456,12 +479,9 @@ class AuthService extends ChangeNotifier {
   Future<void> signIn() async {
     try {
       debugPrint('AuthService: Starting sign in flow (signIn())...');
-      if (kIsWeb) {
-        debugPrint('AuthService: On web, the GIS button handles the flow via renderButton.');
-        return;
-      }
-      final account = await _googleSignIn.authenticate(scopeHint: _scopes);
-      debugPrint('AuthService: Sign in successful for ${account.email}');
+      // On web and mobile, calling authenticate with scopes handles the flow.
+      await _googleSignIn.authenticate(scopeHint: _scopes);
+      debugPrint('AuthService: Sign in successful');
     } catch (e) {
       debugPrint('Error signing in: $e');
       rethrow;

@@ -5,12 +5,12 @@ import 'google_sign_in_button_stub.dart'
     if (dart.library.io) 'google_sign_in_button_mobile.dart';
 
 class GoogleSignInButton extends StatelessWidget {
-  final VoidCallback onMobileSignIn;
+  final VoidCallback onSignIn;
 
-  const GoogleSignInButton({super.key, required this.onMobileSignIn});
+  const GoogleSignInButton({super.key, required this.onSignIn});
 
   @override
   Widget build(BuildContext context) {
-    return buildGoogleSignInButton(onMobileSignIn: onMobileSignIn);
+    return buildGoogleSignInButton(onSignIn: onSignIn);
   }
 }

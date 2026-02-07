@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-Widget buildGoogleSignInButton({required VoidCallback onMobileSignIn}) {
+Widget buildGoogleSignInButton({required VoidCallback onSignIn}) {
   return Material(
     color: Colors.transparent,
     child: InkWell(
-      onTap: onMobileSignIn,
+      onTap: onSignIn,
       borderRadius: BorderRadius.circular(50), // Fully rounded pill
       child: Container(
         constraints: const BoxConstraints(minWidth: 280, minHeight: 54),

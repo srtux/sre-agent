@@ -191,7 +191,7 @@ class LoginPage extends StatelessWidget {
                                     onPressed: () => auth.loginAsGuest(),
                                   ),
                                 GoogleSignInButton(
-                                  onMobileSignIn: () async {
+                                  onSignIn: () async {
                                     try {
                                       await auth.signIn();
                                     } catch (e) {

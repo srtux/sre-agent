@@ -35,6 +35,7 @@ class MockAuthService extends ChangeNotifier implements AuthService {
   @override set currentUser(GoogleSignInAccount? user) {}
   @override Future<Map<String, String>> getAuthHeaders() async => {};
   @override Future<http.Client> getAuthenticatedClient() async => http.Client();
+  @override Future<void> refreshTokensForTesting() async {}
 }
 
 class MockProjectService implements ProjectService {
