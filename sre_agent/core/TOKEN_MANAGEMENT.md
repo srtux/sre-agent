@@ -21,9 +21,21 @@ In `model_callbacks.py`, we implement an "Emergency Brake" to prevent `400 INVAL
     3. Condense the entire "middle" history into a bulleted summary of tool calls and key thoughts.
 - **Benefit**: Prevents the agent from crashing while retaining the high-level progress of the investigation.
 
-## 2. Tool Output Truncation
+## 2. Large Payload Sandbox Handler (NEW)
 
-Massive tool outputs (e.g., 2MB of unfiltered logs) are the primary cause of context explosions. The `truncate_tool_output_callback` in `tool_callbacks.py` provides a safety guard.
+The `large_payload_handler.py` in `core/` intercepts oversized tool results **before** they reach the LLM context window and processes them through the sandbox (local or cloud). This is the primary defense against token limit exceedance from tool outputs.
+
+- **Trigger**: >50 items or >100k characters (configurable via env vars).
+- **Pipeline** (in `composite_after_tool_callback`):
+    1. **Known tools** (metrics, logs, traces, time series): Automatically routed to pre-built sandbox templates that compute statistical summaries.
+    2. **Unknown tools** with sandbox enabled: Processed via a generic summarization template that discovers data shape, field distribution, and samples.
+    3. **No sandbox available**: Returns a compact data sample + schema hint + code-generation prompt. The LLM can then write analysis code and call `execute_custom_analysis_in_sandbox` to process the full dataset without it ever entering the context window.
+- **Graceful degradation**: On any failure, falls through to the truncation guard below.
+- **Metadata**: All processed results include `large_payload_handled`, `handling_mode`, `original_items`, `original_chars`, and `processing_ms` for observability.
+
+## 3. Tool Output Truncation (Safety Net)
+
+Massive tool outputs (e.g., 2MB of unfiltered logs) that slip past the Large Payload Handler are caught by the `truncate_tool_output_callback` in `tool_callbacks.py`.
 
 - **Limit**: 200,000 characters (~50k tokens) per tool result.
 - **Behaviors**:
@@ -31,7 +43,7 @@ Massive tool outputs (e.g., 2MB of unfiltered logs) are the primary cause of con
     - **Lists**: Capped at the first 500 items.
     - **Dicts**: If too large, replaced with a preview and an error message suggesting better filtering.
 
-## 3. Usage & Cost Tracking
+## 4. Usage & Cost Tracking
 
 All agents are wrapped with `before_model_callback` and `after_model_callback` to track telemetry:
 
@@ -46,6 +58,9 @@ All agents are wrapped with `before_model_callback` and `after_model_callback` t
 | `SRE_AGENT_TOKEN_BUDGET` | `0` (unlimited) | Max total tokens per session before halting. |
 | `SAFE_TRIGGER_TOKENS` | `850,000` | Token count at which emergency compaction starts. |
 | `MAX_RESULT_CHARS` | `200,000` | Max characters for a single tool output result. |
+| `SRE_AGENT_LARGE_PAYLOAD_ENABLED` | `true` | Enable/disable automatic large payload sandbox processing. |
+| `SRE_AGENT_LARGE_PAYLOAD_THRESHOLD_ITEMS` | `50` | Item count above which sandbox processing triggers. |
+| `SRE_AGENT_LARGE_PAYLOAD_THRESHOLD_CHARS` | `100,000` | Character count above which sandbox processing triggers. |
 
 ---
 *Zero Broken Markdown & Zero Crashed Contexts.*
