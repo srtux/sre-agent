@@ -8,6 +8,8 @@ Key Features:
 - Automatic recording of significant successful findings
 - Investigation pattern learning (symptom -> tool sequence -> resolution)
 - Session-to-memory sync for long-term searchability
+- Structured mistake memory with self-correction detection
+- Pre-tool advice injection from past mistakes
 """
 
 from .callbacks import (
@@ -17,12 +19,21 @@ from .callbacks import (
 )
 from .factory import get_adk_memory_service, get_memory_manager
 from .manager import MemoryManager
+from .mistake_advisor import MistakeAdvisor, get_mistake_advisor
+from .mistake_learner import MistakeLearner, get_mistake_learner
+from .mistake_store import MistakeMemoryStore, get_mistake_store
 
 __all__ = [
     "MemoryManager",
+    "MistakeAdvisor",
+    "MistakeLearner",
+    "MistakeMemoryStore",
     "after_tool_memory_callback",
     "before_tool_memory_callback",
     "get_adk_memory_service",
     "get_memory_manager",
+    "get_mistake_advisor",
+    "get_mistake_learner",
+    "get_mistake_store",
     "on_tool_error_memory_callback",
 ]

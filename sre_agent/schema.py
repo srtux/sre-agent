@@ -65,6 +65,56 @@ class Confidence(str, Enum):
     LOW = "low"
 
 
+class MistakeCategory(str, Enum):
+    """Category of a mistake made during tool execution.
+
+    Used to classify errors for targeted retrieval and advice generation.
+    """
+
+    INVALID_FILTER = "invalid_filter"
+    INVALID_METRIC = "invalid_metric"
+    WRONG_RESOURCE_TYPE = "wrong_resource_type"
+    SYNTAX_ERROR = "syntax_error"
+    INVALID_ARGUMENT = "invalid_argument"
+    UNSUPPORTED_OPERATION = "unsupported_operation"
+    OTHER = "other"
+
+
+class MistakeRecord(BaseModel):
+    """A structured record of a mistake made during tool execution.
+
+    Captures the exact context of what went wrong, enabling the agent to
+    avoid repeating the same mistake. When a correction is discovered,
+    it is stored alongside the original error to form a complete
+    mistake-to-correction mapping.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    tool_name: str = Field(description="Tool that produced the error")
+    category: MistakeCategory = Field(description="Classified mistake category")
+    error_message: str = Field(description="The error message received")
+    failed_args: dict[str, Any] = Field(
+        description="Sanitized arguments that caused the failure"
+    )
+    correction: str | None = Field(
+        default=None,
+        description="The corrected approach that worked (populated on self-correction)",
+    )
+    corrected_args: dict[str, Any] | None = Field(
+        default=None,
+        description="Sanitized arguments that succeeded after the failure",
+    )
+    occurrence_count: int = Field(
+        default=1, description="Number of times this mistake has been observed"
+    )
+    first_seen: str = Field(description="ISO 8601 timestamp of first occurrence")
+    last_seen: str = Field(description="ISO 8601 timestamp of most recent occurrence")
+    fingerprint: str = Field(
+        description="Unique hash for deduplication (tool_name + category + error_signature)"
+    )
+
+
 # =============================================================================
 # Trace Analysis Schemas
 # =============================================================================

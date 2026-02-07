@@ -144,10 +144,13 @@ class TestAfterToolMemoryCallback:
             )
 
             assert result is None
-            mock_manager.add_finding.assert_called_once()
-            call_args = mock_manager.add_finding.call_args
-            assert "TOOL FAILURE LESSON" in call_args.kwargs["description"]
-            assert call_args.kwargs["source_tool"] == "list_log_entries"
+            # Called twice: once for TOOL FAILURE LESSON, once for [MISTAKE]
+            assert mock_manager.add_finding.call_count == 2
+            first_call = mock_manager.add_finding.call_args_list[0]
+            assert "TOOL FAILURE LESSON" in first_call.kwargs["description"]
+            assert first_call.kwargs["source_tool"] == "list_log_entries"
+            second_call = mock_manager.add_finding.call_args_list[1]
+            assert "[MISTAKE]" in second_call.kwargs["description"]
 
     @pytest.mark.asyncio
     async def test_ignores_success_response(self) -> None:
@@ -223,7 +226,8 @@ class TestOnToolErrorMemoryCallback:
             )
 
             assert result is None
-            mock_manager.add_finding.assert_called_once()
+            # Called twice: once for TOOL ERROR LESSON, once for [MISTAKE]
+            assert mock_manager.add_finding.call_count == 2
 
     @pytest.mark.asyncio
     async def test_ignores_transient_exception(self) -> None:

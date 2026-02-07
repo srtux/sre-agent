@@ -153,6 +153,33 @@ class TestPromptComposer:
         assert "Custom Constraints" in text
         assert "production pods" in text
 
+    def test_compose_developer_role_with_mistake_lessons(
+        self, composer: PromptComposer
+    ) -> None:
+        """Test composing developer role with mistake lessons."""
+        lessons = (
+            "### Learned Lessons from Past Mistakes\n"
+            "- [list_log_entries] (invalid_filter, seen 5x): "
+            "Use resource.labels.container_name instead of container_name"
+        )
+        domain_context = DomainContext(mistake_lessons=lessons)
+        content = composer.compose_developer_role(domain_context)
+
+        text = content.parts[0].text
+        assert "Learned Lessons" in text
+        assert "list_log_entries" in text
+        assert "resource.labels" in text
+
+    def test_compose_developer_role_without_mistake_lessons(
+        self, composer: PromptComposer
+    ) -> None:
+        """Test that None mistake_lessons don't inject anything."""
+        domain_context = DomainContext(mistake_lessons=None)
+        content = composer.compose_developer_role(domain_context)
+
+        text = content.parts[0].text
+        assert "Learned Lessons" not in text
+
     def test_compose_user_role_simple(self, composer: PromptComposer) -> None:
         """Test composing user role with simple message."""
         content = composer.compose_user_role(
