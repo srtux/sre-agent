@@ -34,6 +34,14 @@ sre-agent/
 │   │   ├── clients/          # Direct GCP API clients
 │   │   ├── common/           # Telemetry, cache, and shared utilities
 │   │   └── mcp/              # Model Context Protocol implementations
+│   ├── memory/               # Memory subsystem
+│   │   ├── manager.py        # MemoryManager (Vertex AI / Local dual-backend)
+│   │   ├── factory.py        # Singleton factories (get_memory_manager, etc.)
+│   │   ├── local.py          # LocalMemoryService (SQLite fallback)
+│   │   ├── callbacks.py      # Auto-learning callbacks (before/after/error)
+│   │   ├── mistake_store.py  # Persistent mistake store (MemoryManager-backed)
+│   │   ├── mistake_learner.py # Mistake capture & self-correction detection
+│   │   └── mistake_advisor.py # Pre-tool advice & prompt lesson injection
 │   └── services/             # Session and storage services
 ├── tests/                    # Comprehensive test suite
 │   ├── unit/                 # Isolated logic tests

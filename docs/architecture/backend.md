@@ -52,6 +52,13 @@ The backend logic is decoupled into services found in `sre_agent/services/`.
 - **Firestore Backend**: Used in Cloud Run for production-grade persistence.
 - **File Backend**: Local `.json` file for dev-mode simplicity.
 
+### Memory Manager (`sre_agent/memory/`)
+- Provides the `MemoryManager` facade for all memory operations (findings, tool tracking, investigation patterns).
+- **Dual Backend**: `VertexAiMemoryBankService` (production) with `LocalMemoryService` (SQLite fallback).
+- **Mistake Memory Subsystem**: `MistakeMemoryStore` captures and deduplicates tool failures, `MistakeLearner` detects self-corrections, and `MistakeAdvisor` injects lessons into the agent prompt. All persistence flows through `MemoryManager` — no separate database.
+- **User Isolation**: Every write operation requires `user_id` for strict partition enforcement.
+- **Callbacks**: `before_tool_memory_callback`, `after_tool_memory_callback`, and `on_tool_error_memory_callback` auto-record tool usage, failures, and significant findings.
+
 ### Agent Engine Client (`agent_engine_client.py`)
 - Acts as the bridge to Vertex AI reasoning engines.
 - **Credential Splicing**: It is responsible for taking the user's OAuth token (from the request) and injecting it into the remote session state just-in-time for analysis.

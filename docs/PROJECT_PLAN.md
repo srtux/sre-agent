@@ -134,7 +134,17 @@ Total: **174 new council tests**, all passing. Grand total: **1512 tests**.
     - Added `run_council_investigation` and `classify_investigation_mode` to both `TOOL_NAME_MAP` and `TOOL_DEFINITIONS`.
     - Integrated circuit breaker into `@adk_tool` decorator (was dead code).
 
-Total: **112 new tests** in this phase. Grand total: **1909+** tests passing.
+- [x] **Mistake Memory & Self-Improving Loop** (`sre_agent/memory/mistake_store.py`, `mistake_learner.py`, `mistake_advisor.py`):
+    - `MistakeMemoryStore`: Fingerprint-based deduplication, in-memory session cache, persistence through `MemoryManager` (Vertex AI Memory Bank / LocalMemoryService).
+    - `MistakeLearner`: Captures tool failures from callbacks, detects self-corrections when a tool succeeds after a recent failure, buffers recent failures per tool (FIFO, capped at 5).
+    - `MistakeAdvisor`: Formats lessons for prompt injection (`DomainContext.mistake_lessons`), pre-tool advice, and diagnostic summaries.
+    - `MistakeCategory` enum: 7 classification categories (INVALID_FILTER, INVALID_METRIC, WRONG_RESOURCE_TYPE, SYNTAX_ERROR, INVALID_ARGUMENT, UNSUPPORTED_OPERATION, OTHER).
+    - Cross-session bootstrap via `load_from_memory_bank()` with `[MISTAKE]`/`[CORRECTION]` prefixed entries.
+    - Integrated into existing memory callbacks (`after_tool_memory_callback`, `on_tool_error_memory_callback`).
+    - User isolation via `user_id` propagation through entire pipeline.
+    - (70 new tests)
+
+Total: **182 new tests** in this phase. Grand total: **1909+** tests passing.
 
 - [x] **Observability Explorer Dashboard Refactor** (Phase 3.5 — Feb 2026):
     Transformed the passive "agent-only" dashboard into an active GCP-style Observability Explorer

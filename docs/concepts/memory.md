@@ -116,6 +116,84 @@ The agent uses three callbacks for automatic learning:
 | `get_recommended_investigation_strategy` | Get proven tool sequences | Starting a new investigation |
 | `analyze_and_learn_from_traces` | Self-analyze past agent traces | Periodic self-improvement |
 
+## Mistake Memory & Self-Improving Loop
+
+Beyond recording investigation patterns and significant findings, the agent includes a dedicated **Mistake Memory** subsystem that captures, classifies, deduplicates, and learns from tool failures. This enables a concrete self-improving loop: the agent avoids repeating the same API syntax errors, invalid filters, and incorrect arguments across sessions.
+
+### Architecture
+
+The mistake memory is composed of three cooperating components:
+
+| Component | Module | Responsibility |
+| :--- | :--- | :--- |
+| **MistakeMemoryStore** | `sre_agent/memory/mistake_store.py` | Fingerprint-based dedup, in-memory cache, Memory Bank persistence |
+| **MistakeLearner** | `sre_agent/memory/mistake_learner.py` | Captures mistakes from callbacks, detects self-corrections |
+| **MistakeAdvisor** | `sre_agent/memory/mistake_advisor.py` | Formats lessons for prompt injection and pre-tool advice |
+
+All persistence flows through the existing `MemoryManager` pipeline — Vertex AI Memory Bank in production, `LocalMemoryService` (SQLite) in dev. There is no separate database. User isolation is enforced via `user_id` on every write.
+
+### Mistake Classification
+
+Errors are automatically classified into one of seven categories:
+
+| Category | Trigger Patterns |
+| :--- | :--- |
+| `INVALID_FILTER` | "invalid filter", "filter must", "could not parse filter" |
+| `INVALID_METRIC` | "unknown metric", "metric.type", "invalid metric" |
+| `WRONG_RESOURCE_TYPE` | "resource.type", "resource.labels" |
+| `SYNTAX_ERROR` | "syntax error", "parse error", "malformed" |
+| `UNSUPPORTED_OPERATION` | "unsupported", "not supported" |
+| `INVALID_ARGUMENT` | "invalid_argument", "unrecognized field", "400" |
+| `OTHER` | Anything that doesn't match above |
+
+### Deduplication & Fingerprinting
+
+Each mistake is assigned a SHA-256 fingerprint derived from `(tool_name, category, normalised_error)`. When the same mistake recurs, its `occurrence_count` is incremented rather than creating a duplicate. Only the first occurrence is persisted to the Memory Bank; subsequent hits update the in-memory session cache.
+
+### Self-Correction Detection
+
+The `MistakeLearner` buffers recent failures per tool (FIFO, capped at 5). When a tool succeeds after a recent failure, it compares the arguments and records the correction:
+
+```
+Failure: list_log_entries(filter='container_name="app"')  → "Invalid filter"
+Success: list_log_entries(filter='resource.labels.container_name="app"')  → OK
+Correction: "Changed filter from 'container_name' to 'resource.labels.container_name'"
+```
+
+Corrections are the most valuable entries — they provide concrete "don't do X, do Y instead" guidance.
+
+### Prompt Integration
+
+The `MistakeAdvisor` injects lessons into the agent's system prompt via `DomainContext.mistake_lessons` in `PromptComposer`. Corrected mistakes are prioritised over uncorrected ones. Lessons appear in the developer role section:
+
+```
+## Learned Lessons from Past Mistakes
+- [list_log_entries] invalid_filter (seen 3x): Use resource.labels.container_name instead of container_name
+- [query_promql] syntax_error (seen 2x): AVOID — syntax error in PromQL expression
+```
+
+### Cross-Session Bootstrap
+
+At session start, `MistakeMemoryStore.load_from_memory_bank()` searches the Memory Bank for previously stored `[MISTAKE]` and `[CORRECTION]` entries and pre-populates the session cache. This ensures the agent starts each session with full awareness of past mistakes.
+
+### Memory Bank Entry Format
+
+Mistakes and corrections are stored with structured prefixes:
+
+```
+[MISTAKE] Tool: list_log_entries
+Category: invalid_filter
+Error: Invalid filter expression
+Args: {"filter": "container_name=app"}
+```
+
+```
+[CORRECTION] Tool: list_log_entries
+Original error: Invalid filter expression
+Correction: Use resource.labels.container_name prefix
+Corrected args: {"filter": "resource.labels.container_name=app"}
+```
+
 ## Cloud Trace Self-Analysis
 
 The agent can analyze its own past execution traces from Cloud Trace/BigQuery to learn and self-improve.
