@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 
 import '../../models/adk_schema.dart';
 import '../../services/dashboard_state.dart';
+import '../../services/explorer_query_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/ansi_parser.dart';
+import '../common/error_banner.dart';
+import '../common/explorer_empty_state.dart';
+import '../common/shimmer_loading.dart';
+import 'manual_query_bar.dart';
 
 /// Dashboard panel for exploring all collected log data.
 ///
@@ -15,7 +21,12 @@ import '../../utils/ansi_parser.dart';
 /// - Aggregated view across multiple tool calls
 class LiveLogsExplorer extends StatefulWidget {
   final List<DashboardItem> items;
-  const LiveLogsExplorer({super.key, required this.items});
+  final DashboardState dashboardState;
+  const LiveLogsExplorer({
+    super.key,
+    required this.items,
+    required this.dashboardState,
+  });
 
   @override
   State<LiveLogsExplorer> createState() => _LiveLogsExplorerState();
@@ -64,17 +75,49 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
 
   @override
   Widget build(BuildContext context) {
+    final isLoading =
+        widget.dashboardState.isLoading(DashboardDataType.logs);
+    final error = widget.dashboardState.errorFor(DashboardDataType.logs);
     final hasPatterns =
         widget.items.any((i) => i.logPatterns != null && i.logPatterns!.isNotEmpty);
+    final hasData = _allEntries.isNotEmpty || hasPatterns;
 
     return Column(
       children: [
-        // Search and filters
-        _buildFilterBar(),
-        // Pattern summary (if any)
-        if (hasPatterns) _buildPatternSummary(),
-        // Log entries list
-        Expanded(child: _buildLogList()),
+        // Manual query bar
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          child: ManualQueryBar(
+            hintText: 'severity>=ERROR AND resource.type="..."',
+            isLoading: isLoading,
+            onSubmit: (filter) {
+              final explorer = context.read<ExplorerQueryService>();
+              explorer.queryLogs(filter: filter);
+            },
+          ),
+        ),
+        if (error != null) ErrorBanner(message: error),
+        // Content
+        if (isLoading && !hasData)
+          const Expanded(child: ShimmerLoading())
+        else if (!hasData)
+          const Expanded(
+            child: ExplorerEmptyState(
+              icon: Icons.article_outlined,
+              title: 'Logs Explorer',
+              description:
+                  'Query Cloud Logging entries by entering a\nlog filter expression above.',
+              queryHint: 'severity>=ERROR AND resource.type="gce_instance"',
+            ),
+          )
+        else ...[
+          // Search and filters
+          _buildFilterBar(),
+          // Pattern summary (if any)
+          if (hasPatterns) _buildPatternSummary(),
+          // Log entries list
+          Expanded(child: _buildLogList()),
+        ],
       ],
     );
   }

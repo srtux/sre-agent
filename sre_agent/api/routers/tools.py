@@ -3,15 +3,20 @@
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from sre_agent.schema import BaseToolResponse
 from sre_agent.tools import (
     extract_log_patterns,
     fetch_trace,
+    list_alerts,
     list_gcp_projects,
     list_log_entries,
+    list_time_series,
+    query_promql,
 )
+from sre_agent.tools.analysis import genui_adapter
 from sre_agent.tools.config import (
     ToolCategory,
     get_tool_config_manager,
@@ -19,6 +24,18 @@ from sre_agent.tools.config import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/tools", tags=["tools"])
+
+
+def _unwrap_tool_result(result: Any) -> Any:
+    """Unwrap BaseToolResponse envelope to raw result dict/list.
+
+    Raises HTTPException(502) if the tool reported an error.
+    """
+    if isinstance(result, BaseToolResponse):
+        if result.error:
+            raise HTTPException(status_code=502, detail=result.error)
+        return result.result
+    return result
 
 
 class ToolConfigUpdate(BaseModel):
@@ -39,15 +56,17 @@ class ToolTestRequest(BaseModel):
 
 
 @router.get("/trace/{trace_id}")
-async def get_trace(trace_id: str, project_id: Any | None = None) -> Response:
+async def get_trace(trace_id: str, project_id: Any | None = None) -> Any:
     """Fetch and summarize a trace."""
     try:
         result = await fetch_trace(
             trace_id=trace_id,
             project_id=project_id,
         )
-        # Optimized: return pre-serialized JSON to avoid double serialization
-        return Response(content=result, media_type="application/json")
+        raw = _unwrap_tool_result(result)
+        return genui_adapter.transform_trace(raw)
+    except HTTPException:
+        raise
     except Exception as e:
         import traceback
 
@@ -86,29 +105,116 @@ async def list_projects(query: str | None = None) -> Any:
 @router.post("/logs/analyze")
 async def analyze_logs(payload: dict[str, Any]) -> Any:
     """Fetch logs and extract patterns."""
-    import json as json_lib
-
     try:
         # 1. Fetch logs from Cloud Logging
-        entries_json = await list_log_entries(
+        result = await list_log_entries(
             filter_str=payload.get("filter"),
             project_id=payload.get("project_id"),
         )
+        entries_data = _unwrap_tool_result(result)
 
-        # Parse JSON result from list_log_entries since it returns a string
-        entries_data = json_lib.loads(entries_json)
-
-        # Handle potential error response
-        if "error" in entries_data:
-            raise HTTPException(status_code=500, detail=entries_data["error"])
+        # entries_data is a dict with "entries" key
+        if not isinstance(entries_data, dict):
+            entries_data = {
+                "entries": entries_data if isinstance(entries_data, list) else []
+            }
 
         log_entries = entries_data.get("entries", [])
 
         # 2. Extract patterns from the fetched entries
-        result = await extract_log_patterns(
+        pattern_result = await extract_log_patterns(
             log_entries=log_entries,
         )
-        return result
+        return _unwrap_tool_result(pattern_result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.post("/metrics/query")
+async def query_metrics_endpoint(payload: dict[str, Any]) -> Any:
+    """Query time series metrics for the explorer.
+
+    Returns data in MetricSeries-compatible format (metric_name, points, labels).
+    """
+    try:
+        result = await list_time_series(
+            filter_str=payload.get("filter", ""),
+            minutes_ago=payload.get("minutes_ago", 60),
+            project_id=payload.get("project_id"),
+        )
+        raw = _unwrap_tool_result(result)
+        return genui_adapter.transform_metrics(raw)
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.post("/metrics/promql")
+async def query_promql_endpoint(payload: dict[str, Any]) -> Any:
+    """Execute a PromQL query for the explorer.
+
+    Returns data in MetricSeries-compatible format (metric_name, points, labels).
+    """
+    try:
+        result = await query_promql(
+            query=payload.get("query", ""),
+            project_id=payload.get("project_id"),
+        )
+        raw = _unwrap_tool_result(result)
+        return genui_adapter.transform_metrics(raw)
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.post("/alerts/query")
+async def query_alerts_endpoint(payload: dict[str, Any]) -> Any:
+    """Query alerts/incidents for the explorer.
+
+    Returns data in IncidentTimelineData-compatible format.
+    """
+    try:
+        result = await list_alerts(
+            project_id=payload.get("project_id"),
+            filter_str=payload.get("filter"),
+        )
+        raw = _unwrap_tool_result(result)
+        return genui_adapter.transform_alerts_to_timeline(raw)
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.post("/logs/query")
+async def query_logs_endpoint(payload: dict[str, Any]) -> Any:
+    """Fetch raw log entries without pattern extraction (faster for explorer).
+
+    Returns data in LogEntriesData-compatible format.
+    """
+    try:
+        result = await list_log_entries(
+            filter_str=payload.get("filter"),
+            project_id=payload.get("project_id"),
+        )
+        raw = _unwrap_tool_result(result)
+        return genui_adapter.transform_log_entries(raw)
     except HTTPException:
         raise
     except Exception as e:

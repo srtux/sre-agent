@@ -1,6 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../models/adk_schema.dart';
+import '../models/time_range.dart';
+
+/// Tracks whether data came from the agent or a manual user query.
+enum DataSource { agent, manual }
 
 /// Categorizes tool call data for dashboard display.
 enum DashboardDataType {
@@ -32,12 +38,16 @@ class DashboardItem {
   final CouncilSynthesisData? councilData;
   final VegaChartData? chartData;
 
+  // Track data origin for dual-stream architecture
+  final DataSource source;
+
   DashboardItem({
     required this.id,
     required this.type,
     required this.toolName,
     required this.timestamp,
     required this.rawData,
+    this.source = DataSource.agent,
     this.logData,
     this.logPatterns,
     this.metricSeries,
@@ -90,6 +100,22 @@ class DashboardState extends ChangeNotifier {
   DashboardDataType _activeTab = DashboardDataType.traces;
   DashboardDataType get activeTab => _activeTab;
 
+  /// Time range for manual queries.
+  TimeRange _timeRange = TimeRange.fromPreset(TimeRangePreset.oneHour);
+  TimeRange get timeRange => _timeRange;
+
+  /// Loading states per panel type.
+  final Map<DashboardDataType, bool> _loadingStates = {};
+
+  /// Error messages per panel type.
+  final Map<DashboardDataType, String?> _errorStates = {};
+
+  /// Auto-refresh toggle.
+  bool _autoRefresh = false;
+  bool get autoRefresh => _autoRefresh;
+  Timer? _refreshTimer;
+  VoidCallback? _onAutoRefresh;
+
   /// All collected items.
   List<DashboardItem> get items => List.unmodifiable(_items);
 
@@ -137,7 +163,8 @@ class DashboardState extends ChangeNotifier {
   }
 
   /// Add a trace result to the dashboard.
-  void addTrace(Trace trace, String toolName, Map<String, dynamic> raw) {
+  void addTrace(Trace trace, String toolName, Map<String, dynamic> raw,
+      {DataSource source = DataSource.agent}) {
     _itemCounter++;
     _items.add(DashboardItem(
       id: 'trace-$_itemCounter',
@@ -145,14 +172,16 @@ class DashboardState extends ChangeNotifier {
       toolName: toolName,
       timestamp: DateTime.now(),
       rawData: raw,
+      source: source,
       traceData: trace,
     ));
     notifyListeners();
   }
 
   /// Add a log entries result to the dashboard.
-  void addLogEntries(
-      LogEntriesData data, String toolName, Map<String, dynamic> raw) {
+  void addLogEntries(LogEntriesData data, String toolName,
+      Map<String, dynamic> raw,
+      {DataSource source = DataSource.agent}) {
     _itemCounter++;
     _items.add(DashboardItem(
       id: 'logs-$_itemCounter',
@@ -160,14 +189,16 @@ class DashboardState extends ChangeNotifier {
       toolName: toolName,
       timestamp: DateTime.now(),
       rawData: raw,
+      source: source,
       logData: data,
     ));
     notifyListeners();
   }
 
   /// Add log patterns to the dashboard.
-  void addLogPatterns(
-      List<LogPattern> patterns, String toolName, Map<String, dynamic> raw) {
+  void addLogPatterns(List<LogPattern> patterns, String toolName,
+      Map<String, dynamic> raw,
+      {DataSource source = DataSource.agent}) {
     _itemCounter++;
     _items.add(DashboardItem(
       id: 'log-patterns-$_itemCounter',
@@ -175,14 +206,16 @@ class DashboardState extends ChangeNotifier {
       toolName: toolName,
       timestamp: DateTime.now(),
       rawData: raw,
+      source: source,
       logPatterns: patterns,
     ));
     notifyListeners();
   }
 
   /// Add a metric series result to the dashboard.
-  void addMetricSeries(
-      MetricSeries series, String toolName, Map<String, dynamic> raw) {
+  void addMetricSeries(MetricSeries series, String toolName,
+      Map<String, dynamic> raw,
+      {DataSource source = DataSource.agent}) {
     _itemCounter++;
     _items.add(DashboardItem(
       id: 'metric-$_itemCounter',
@@ -190,14 +223,16 @@ class DashboardState extends ChangeNotifier {
       toolName: toolName,
       timestamp: DateTime.now(),
       rawData: raw,
+      source: source,
       metricSeries: series,
     ));
     notifyListeners();
   }
 
   /// Add a metrics dashboard result.
-  void addMetricsDashboard(
-      MetricsDashboardData data, String toolName, Map<String, dynamic> raw) {
+  void addMetricsDashboard(MetricsDashboardData data, String toolName,
+      Map<String, dynamic> raw,
+      {DataSource source = DataSource.agent}) {
     _itemCounter++;
     _items.add(DashboardItem(
       id: 'metrics-dashboard-$_itemCounter',
@@ -205,14 +240,16 @@ class DashboardState extends ChangeNotifier {
       toolName: toolName,
       timestamp: DateTime.now(),
       rawData: raw,
+      source: source,
       metricsDashboard: data,
     ));
     notifyListeners();
   }
 
   /// Add an alert/incident timeline result.
-  void addAlerts(
-      IncidentTimelineData data, String toolName, Map<String, dynamic> raw) {
+  void addAlerts(IncidentTimelineData data, String toolName,
+      Map<String, dynamic> raw,
+      {DataSource source = DataSource.agent}) {
     _itemCounter++;
     _items.add(DashboardItem(
       id: 'alert-$_itemCounter',
@@ -220,14 +257,16 @@ class DashboardState extends ChangeNotifier {
       toolName: toolName,
       timestamp: DateTime.now(),
       rawData: raw,
+      source: source,
       alertData: data,
     ));
     notifyListeners();
   }
 
   /// Add a remediation plan result.
-  void addRemediation(
-      RemediationPlan plan, String toolName, Map<String, dynamic> raw) {
+  void addRemediation(RemediationPlan plan, String toolName,
+      Map<String, dynamic> raw,
+      {DataSource source = DataSource.agent}) {
     _itemCounter++;
     _items.add(DashboardItem(
       id: 'remediation-$_itemCounter',
@@ -235,14 +274,15 @@ class DashboardState extends ChangeNotifier {
       toolName: toolName,
       timestamp: DateTime.now(),
       rawData: raw,
+      source: source,
       remediationPlan: plan,
     ));
     notifyListeners();
   }
 
   /// Add a chart (Vega-Lite) result to the dashboard.
-  void addChart(
-      VegaChartData data, String toolName, Map<String, dynamic> raw) {
+  void addChart(VegaChartData data, String toolName, Map<String, dynamic> raw,
+      {DataSource source = DataSource.agent}) {
     _itemCounter++;
     _items.add(DashboardItem(
       id: 'chart-$_itemCounter',
@@ -250,14 +290,16 @@ class DashboardState extends ChangeNotifier {
       toolName: toolName,
       timestamp: DateTime.now(),
       rawData: raw,
+      source: source,
       chartData: data,
     ));
     notifyListeners();
   }
 
   /// Add a council synthesis result to the dashboard.
-  void addCouncilSynthesis(
-      CouncilSynthesisData data, String toolName, Map<String, dynamic> raw) {
+  void addCouncilSynthesis(CouncilSynthesisData data, String toolName,
+      Map<String, dynamic> raw,
+      {DataSource source = DataSource.agent}) {
     _itemCounter++;
     _items.add(DashboardItem(
       id: 'council-$_itemCounter',
@@ -265,6 +307,7 @@ class DashboardState extends ChangeNotifier {
       toolName: toolName,
       timestamp: DateTime.now(),
       rawData: raw,
+      source: source,
       councilData: data,
     ));
     notifyListeners();
@@ -298,6 +341,7 @@ class DashboardState extends ChangeNotifier {
           toolName: item.toolName,
           timestamp: item.timestamp,
           rawData: item.rawData,
+          source: item.source,
           councilData: updatedCouncil,
         );
         notifyListeners();
@@ -423,10 +467,76 @@ class DashboardState extends ChangeNotifier {
         .toList();
   }
 
+  // =========================================================================
+  // Time Range & Loading State Management
+  // =========================================================================
+
+  /// Whether a panel type is currently loading data.
+  bool isLoading(DashboardDataType type) => _loadingStates[type] ?? false;
+
+  /// Error message for a panel type, or null if no error.
+  String? errorFor(DashboardDataType type) => _errorStates[type];
+
+  /// Set the time range for manual queries.
+  void setTimeRange(TimeRange range) {
+    _timeRange = range;
+    notifyListeners();
+  }
+
+  /// Set loading state for a panel type.
+  void setLoading(DashboardDataType type, bool loading) {
+    _loadingStates[type] = loading;
+    if (loading) _errorStates[type] = null;
+    notifyListeners();
+  }
+
+  /// Set error state for a panel type.
+  void setError(DashboardDataType type, String? error) {
+    _errorStates[type] = error;
+    notifyListeners();
+  }
+
+  /// Toggle auto-refresh. Call [setAutoRefreshCallback] first.
+  void toggleAutoRefresh() {
+    _autoRefresh = !_autoRefresh;
+    if (_autoRefresh) {
+      _refreshTimer = Timer.periodic(
+        const Duration(seconds: 30),
+        (_) => _onAutoRefresh?.call(),
+      );
+    } else {
+      _refreshTimer?.cancel();
+      _refreshTimer = null;
+    }
+    notifyListeners();
+  }
+
+  /// Register the callback invoked on each auto-refresh tick.
+  void setAutoRefreshCallback(VoidCallback callback) {
+    _onAutoRefresh = callback;
+  }
+
+  /// Remove only manually-queried items (preserve agent data).
+  void clearManualItems() {
+    _items.removeWhere((i) => i.source == DataSource.manual);
+    notifyListeners();
+  }
+
   /// Clear all collected data (e.g. on new session).
   void clear() {
     _items.clear();
     _itemCounter = 0;
+    _loadingStates.clear();
+    _errorStates.clear();
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+    _autoRefresh = false;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 }

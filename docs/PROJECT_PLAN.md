@@ -136,6 +136,19 @@ Total: **174 new council tests**, all passing. Grand total: **1512 tests**.
 
 Total: **112 new tests** in this phase. Grand total: **1909+ tests** passing.
 
+- [x] **Observability Explorer Dashboard Refactor** (Phase 3.5 — Feb 2026):
+    Transformed the passive "agent-only" dashboard into an active GCP-style Observability Explorer
+    where users can directly query telemetry data alongside agent-provided insights.
+    - **Syncfusion Chart Migration**: Replaced `fl_chart` with Syncfusion Community Edition charts (`syncfusion_flutter_charts`, `syncfusion_flutter_datepicker`) for interactive zoom, pan, and trackball tooltips. Created `SyncfusionMetricChart` (line chart with anomaly overlays, trend lines, and stats row) and `SyncfusionTraceWaterfall` (horizontal range bar chart with service color mapping and span detail panel). Deleted 1,935 lines of old FL Chart and custom painter widgets.
+    - **Manual Query Capability**: Added `ManualQueryBar` input widget to every dashboard panel (metrics, logs, traces, alerts) so users can directly query GCP telemetry without going through the AI agent.
+    - **Backend Query Endpoints**: Added 4 new REST endpoints (`POST /api/tools/metrics/query`, `POST /api/tools/metrics/promql`, `POST /api/tools/alerts/query`, `POST /api/tools/logs/query`) to `sre_agent/api/routers/tools.py`. Fixed all endpoints to properly unwrap `BaseToolResponse` envelopes and apply `genui_adapter.transform_*()` transformations.
+    - **Dual Data Source Architecture**: Extended `DashboardState` with `DataSource.agent` / `DataSource.manual` tracking, per-panel loading/error states, `TimeRange` model with preset selectors (1H/6H/1D/1W/Custom), and auto-refresh timer. Created `ExplorerQueryService` as the HTTP client for manual queries.
+    - **GCP-Style Toolbar**: Added `SreToolbar` with time range preset chips, custom date range picker, refresh button, and auto-refresh toggle.
+    - **Shared UI Components**: Extracted reusable `ErrorBanner`, `SourceBadge`, `ExplorerEmptyState`, and `ShimmerLoading` widgets.
+    - **JSON Parsing Hardening**: Applied null-safe defaults (`?? []`, `?? {}`, try-catch on `DateTime.parse`) to 12+ `fromJson` factories in `adk_schema.dart`.
+    - **Centralized Chart Theme**: Created `chart_theme.dart` with Deep Space palette integration for all Syncfusion chart elements.
+    - 6 new backend API tests, updated existing tests to use `BaseToolResponse` mocks. Grand total: **1989 backend tests**, **129 Flutter tests** passing.
+
 #### Remaining
 - [ ] **Anomaly Correlation Engine**: Automate "Z-score comparison" across metrics and logs simultaneously.
 - [ ] **Microservice Dependency Mapping**: Add graph analysis tools to detect circular dependencies in OTel trace trees.
@@ -178,4 +191,4 @@ Total: **112 new tests** in this phase. Grand total: **1909+ tests** passing.
 *   **Documentation**: This file (`PROJECT_PLAN.md`) must be updated after every significant change or phase transition.
 
 ---
-*Last updated: 2026-02-06 — Auto SRE Team*
+*Last updated: 2026-02-07 — Auto SRE Team*
