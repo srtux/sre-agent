@@ -1413,6 +1413,7 @@ def is_tool_enabled(tool_name: str) -> bool:
 from google.adk.tools.load_memory_tool import load_memory_tool
 from google.adk.tools.preload_memory_tool import preload_memory_tool
 
+from .core.large_payload_handler import handle_large_payload
 from .core.model_callbacks import after_model_callback, before_model_callback
 from .core.tool_callbacks import truncate_tool_output_callback
 from .memory.callbacks import (
@@ -1428,19 +1429,34 @@ async def composite_after_tool_callback(
     tool_context: Any,
     tool_response: dict[str, Any],
 ) -> dict[str, Any] | None:
-    """Combines truncation safety and memory recording."""
-    # 1. Truncate if too large (Safety)
+    """Combines large-payload sandbox processing, truncation safety, and memory recording.
+
+    Pipeline order:
+        1. Large payload handler — summarises oversized results via sandbox
+           *before* they consume context window space.
+        2. Truncation guard — hard safety net for anything that slipped through.
+        3. Memory recording — persists tool outcomes for continuous learning.
+    """
+    working_response = tool_response
+
+    # 1. Large payload handler — process oversized results in sandbox (Smart)
+    handled_response = await handle_large_payload(
+        tool, args, tool_context, working_response
+    )
+    if handled_response is not None:
+        working_response = handled_response
+
+    # 2. Truncate if still too large (Safety net)
     truncated_response = await truncate_tool_output_callback(
-        tool, args, tool_context, tool_response
+        tool, args, tool_context, working_response
     )
-    final_response = (
-        truncated_response if truncated_response is not None else tool_response
-    )
+    if truncated_response is not None:
+        working_response = truncated_response
 
-    # 2. Record to memory (Learning)
-    await after_tool_memory_callback(tool, args, tool_context, final_response)
+    # 3. Record to memory (Learning)
+    await after_tool_memory_callback(tool, args, tool_context, working_response)
 
-    return final_response
+    return working_response
 
 
 # Build the full tool set: base tools + ADK memory tools
