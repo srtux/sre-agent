@@ -63,7 +63,7 @@ async def get_gke_cluster_health(
         Dictionary with cluster status, node pool health, and any active issues.
 
     Example:
-        get_gke_cluster_health("my-project", "prod-cluster", "us-central1")
+        get_gke_cluster_health("prod-cluster", "us-central1", "my-project")
     """
     from fastapi.concurrency import run_in_threadpool
 

@@ -757,7 +757,7 @@
       "display_name": "Get GKE Cluster Health",
       "description": "Get health status of a GKE cluster",
       "category": "gke",
-      "enabled": false,
+      "enabled": true,
       "testable": true,
       "last_test_result": {
         "status": "failed",
@@ -772,7 +772,7 @@
       "display_name": "Analyze Node Conditions",
       "description": "Analyze GKE node conditions",
       "category": "gke",
-      "enabled": false,
+      "enabled": true,
       "testable": true,
       "last_test_result": {
         "status": "failed",
@@ -787,7 +787,7 @@
       "display_name": "Get Pod Restart Events",
       "description": "Get pod restart events from GKE",
       "category": "gke",
-      "enabled": false,
+      "enabled": true,
       "testable": true,
       "last_test_result": {
         "status": "success",
@@ -804,7 +804,7 @@
       "display_name": "Analyze HPA Events",
       "description": "Analyze Horizontal Pod Autoscaler events",
       "category": "gke",
-      "enabled": false,
+      "enabled": true,
       "testable": true,
       "last_test_result": {
         "status": "success",
@@ -821,7 +821,7 @@
       "display_name": "Get Container OOM Events",
       "description": "Get container Out-of-Memory events",
       "category": "gke",
-      "enabled": false,
+      "enabled": true,
       "testable": true,
       "last_test_result": {
         "status": "success",
@@ -847,7 +847,7 @@
       "display_name": "Get Workload Health",
       "description": "Get health summary of GKE workloads",
       "category": "gke",
-      "enabled": false,
+      "enabled": true,
       "testable": true,
       "last_test_result": {
         "status": "failed",

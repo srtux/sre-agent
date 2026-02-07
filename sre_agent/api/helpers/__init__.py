@@ -39,14 +39,19 @@ def _debug_log(message: str, data: Any = None) -> None:
 # Widget mapping for tools that produce visualizations
 TOOL_WIDGET_MAP = {
     "fetch_trace": "x-sre-trace-waterfall",
+    "list_traces": "x-sre-trace-waterfall",
+    "find_example_traces": "x-sre-trace-waterfall",
+    "summarize_traces_in_sandbox": "x-sre-trace-waterfall",
     "analyze_critical_path": "x-sre-trace-waterfall",
     "analyze_trace_comprehensive": "x-sre-trace-waterfall",
     "list_time_series": "x-sre-metric-chart",
     "mcp_list_timeseries": "x-sre-metric-chart",
+    "summarize_time_series_in_sandbox": "x-sre-metric-chart",
     "query_promql": "x-sre-metric-chart",
     "mcp_query_range": "x-sre-metric-chart",
     "list_log_entries": "x-sre-log-entries-viewer",
     "mcp_list_log_entries": "x-sre-log-entries-viewer",
+    "summarize_log_entries_in_sandbox": "x-sre-log-entries-viewer",
     "extract_log_patterns": "x-sre-log-pattern-viewer",
     "compare_log_patterns": "x-sre-log-pattern-viewer",
     "analyze_log_anomalies": "x-sre-log-pattern-viewer",
@@ -54,6 +59,7 @@ TOOL_WIDGET_MAP = {
     "get_golden_signals": "x-sre-metrics-dashboard",
     "generate_remediation_suggestions": "x-sre-remediation-plan",
     "list_alerts": "x-sre-incident-timeline",
+    "get_alert": "x-sre-incident-timeline",
     "run_council_investigation": "x-sre-council-synthesis",
     "query_data_agent": "x-sre-vega-chart",
 }
@@ -280,6 +286,12 @@ def create_dashboard_event(tool_name: str, result: Any) -> str | None:
 
     # Transform data using the same adapter as widget events
     try:
+        logger.info(
+            f"📊 Dashboard event requested for tool: {tool_name}, widget: {widget_type}, result_type: {type(result)}"
+        )
+        if isinstance(result, dict):
+            logger.info(f"📊 Result keys: {list(result.keys())}")
+
         widget_data: dict[str, Any] | list[Any] | None = None
 
         if widget_type == "x-sre-trace-waterfall":
@@ -289,7 +301,14 @@ def create_dashboard_event(tool_name: str, result: Any) -> str | None:
         elif widget_type == "x-sre-metrics-dashboard":
             widget_data = genui_adapter.transform_metrics_dashboard(result)
         elif widget_type == "x-sre-log-entries-viewer":
+            logger.info(f"📋 Transforming log entries for tool: {tool_name}")
             widget_data = genui_adapter.transform_log_entries(result)
+            if widget_data:
+                logger.info(
+                    f"✅ Transformed {len(widget_data.get('entries', []))} log entries"
+                )
+            else:
+                logger.warning(f"❌ Log transformation failed for tool: {tool_name}")
         elif widget_type == "x-sre-log-pattern-viewer":
             widget_data = genui_adapter.transform_log_patterns(result)
         elif widget_type == "x-sre-remediation-plan":
@@ -384,21 +403,45 @@ def create_exploration_dashboard_events(result: Any) -> list[str]:
         try:
             if transform_fn is not None:
                 widget_data = transform_fn(signal_data)
+                if not widget_data:
+                    continue
+
+                event = {
+                    "type": "dashboard",
+                    "category": category,
+                    "widget_type": widget_type,
+                    "tool_name": "explore_project_health",
+                    "data": widget_data,
+                }
+                events.append(json.dumps(event, default=str))
+            elif signal_key == "traces" and isinstance(signal_data, list):
+                # Special handling for multiple traces: yield one event per trace
+                for trace in signal_data:
+                    widget_data = genui_adapter.transform_trace(trace)
+                    if not widget_data or not widget_data.get("spans"):
+                        continue
+
+                    event = {
+                        "type": "dashboard",
+                        "category": category,
+                        "widget_type": widget_type,
+                        "tool_name": "explore_project_health",
+                        "data": widget_data,
+                    }
+                    events.append(json.dumps(event, default=str))
             else:
-                # Traces: pass through as-is (list of trace summaries)
-                widget_data = signal_data
+                # Fallback for other signals (pass through)
+                if not signal_data:
+                    continue
 
-            if not widget_data:
-                continue
-
-            event = {
-                "type": "dashboard",
-                "category": category,
-                "widget_type": widget_type,
-                "tool_name": "explore_project_health",
-                "data": widget_data,
-            }
-            events.append(json.dumps(event, default=str))
+                event = {
+                    "type": "dashboard",
+                    "category": category,
+                    "widget_type": widget_type,
+                    "tool_name": "explore_project_health",
+                    "data": signal_data,
+                }
+                events.append(json.dumps(event, default=str))
         except Exception as e:
             logger.warning(
                 "Exploration dashboard event failed for %s: %s",
