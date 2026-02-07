@@ -45,6 +45,6 @@ class VersionService {
   String get displayString {
     final sha = _gitSha ?? 'unknown';
     final short = sha.length > 7 ? sha.substring(0, 7) : sha;
-    return 'v${version} ($short)';
+    return 'v$version ($short)';
   }
 }

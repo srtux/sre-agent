@@ -2,8 +2,6 @@
 
 from unittest.mock import patch
 
-import pytest
-
 
 class TestGetPackageVersion:
     def test_returns_installed_version(self) -> None:
@@ -65,9 +63,7 @@ class TestGetGitSha:
 
 class TestGetBuildTimestamp:
     def test_prefers_build_timestamp_env(self) -> None:
-        with patch.dict(
-            "os.environ", {"BUILD_TIMESTAMP": "2025-01-15T12:00:00Z"}
-        ):
+        with patch.dict("os.environ", {"BUILD_TIMESTAMP": "2025-01-15T12:00:00Z"}):
             from sre_agent.version import _get_build_timestamp
 
             assert _get_build_timestamp() == "2025-01-15T12:00:00Z"
