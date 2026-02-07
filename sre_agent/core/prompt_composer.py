@@ -32,6 +32,7 @@ class DomainContext:
     runbook_content: str | None = None
     investigation_phase: str | None = None
     custom_constraints: list[str] = field(default_factory=list)
+    mistake_lessons: str | None = None
 
 
 @dataclass
@@ -180,6 +181,10 @@ For every investigation step:
                     f"- {c}" for c in domain_context.custom_constraints
                 )
                 context_parts.append(f"### Custom Constraints\n{constraints_text}")
+
+            # Mistake lessons from past sessions
+            if domain_context.mistake_lessons:
+                context_parts.append(domain_context.mistake_lessons)
 
         domain_context_text = (
             "\n\n".join(context_parts)

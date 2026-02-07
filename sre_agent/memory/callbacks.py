@@ -356,12 +356,42 @@ async def after_tool_memory_callback(
                 user_id=user_id,
             )
 
+            # Record structured mistake for self-improving loop
+            try:
+                from sre_agent.memory.mistake_learner import get_mistake_learner
+
+                learner = get_mistake_learner()
+                await learner.on_tool_failure(
+                    tool_name=tool_name,
+                    args=args,
+                    error_message=error_msg,
+                    session_id=session_id,
+                )
+            except Exception:
+                logger.debug("Failed to record structured mistake", exc_info=True)
+
             # Emit event for UI visibility
             event_bus = get_memory_event_bus()
             event = create_failure_learning_event(tool_name, error_msg, lesson)
             await event_bus.emit(session_id, event)
 
             return None
+
+        # Check for significant success — also track self-corrections
+        status = tool_response.get("status", "")
+        if isinstance(status, str) and status.lower() == "success":
+            try:
+                from sre_agent.memory.mistake_learner import get_mistake_learner
+
+                learner = get_mistake_learner()
+                session_id = _get_session_id_from_context(tool_context)
+                await learner.on_tool_success(
+                    tool_name=tool_name,
+                    args=args,
+                    session_id=session_id,
+                )
+            except Exception:
+                logger.debug("Failed to check self-correction", exc_info=True)
 
         # Check for significant success
         if _is_significant_success(tool_name, tool_response):
@@ -474,6 +504,20 @@ async def on_tool_error_memory_callback(
             session_id=session_id,
             user_id=user_id,
         )
+
+        # Record structured mistake for self-improving loop
+        try:
+            from sre_agent.memory.mistake_learner import get_mistake_learner
+
+            learner = get_mistake_learner()
+            await learner.on_tool_exception(
+                tool_name=tool_name,
+                args=args,
+                error=error,
+                session_id=session_id,
+            )
+        except Exception:
+            logger.debug("Failed to record structured exception mistake", exc_info=True)
 
         # Emit event for UI visibility
         event_bus = get_memory_event_bus()
