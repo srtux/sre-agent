@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -16,7 +17,7 @@ _SRE_AGENT_DIR = os.path.dirname(_API_DIR)
 _ROOT_DIR = os.path.dirname(_SRE_AGENT_DIR)
 
 DOCS_DIR = os.path.join(_ROOT_DIR, "docs", "help")
-# print(f"DEBUG: DOCS_DIR is {DOCS_DIR}")
+_DOCS_RESOLVED = Path(DOCS_DIR).resolve()
 
 
 @router.get("/manifest")
@@ -34,26 +35,29 @@ async def get_help_manifest() -> Any:
 @router.get("/content/{content_id}")
 async def get_help_content(content_id: str) -> PlainTextResponse:
     """Retrieve the markdown content for a specific help topic."""
-    # Prevent directory traversal
+    # Prevent directory traversal with resolve-and-verify
     safe_id = content_id.replace("..", "").replace("/", "").replace("\\", "")
     if safe_id != content_id:
         raise HTTPException(status_code=400, detail="Invalid content ID")
 
     # The manifest maps content_id to filenames, but for simplicity,
     # we'll check common extensions if id doesn't match exactly.
-    content_path = os.path.join(DOCS_DIR, "content", f"{safe_id}.md")
+    content_path = Path(DOCS_DIR, "content", f"{safe_id}.md")
 
-    if not os.path.exists(content_path):
+    if not content_path.exists():
         # Check if it was passed with .md already
         if content_id.endswith(".md"):
-            content_path = os.path.join(DOCS_DIR, "content", safe_id)
+            content_path = Path(DOCS_DIR, "content", safe_id)
 
-        if not os.path.exists(content_path):
-            raise HTTPException(
-                status_code=404, detail=f"Content for {content_id} not found"
-            )
+    # Resolve symlinks and verify the path is within DOCS_DIR
+    resolved = content_path.resolve()
+    if not str(resolved).startswith(str(_DOCS_RESOLVED)):
+        raise HTTPException(status_code=400, detail="Invalid content ID")
 
-    with open(content_path, encoding="utf-8") as f:
-        content = f.read()
+    if not resolved.exists():
+        raise HTTPException(
+            status_code=404, detail=f"Content for {content_id} not found"
+        )
 
+    content = resolved.read_text(encoding="utf-8")
     return PlainTextResponse(content)

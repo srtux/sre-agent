@@ -18,7 +18,9 @@ void main() {
   group('A2UI Catalog Renderer Tests', () {
     final catalog = CatalogRegistry.createSreCatalog();
 
-    // Helper to pump widget with proper environment
+    // Helper to pump widget with proper environment.
+    // Pumps 2 seconds to allow Syncfusion chart animations to complete
+    // and avoid "Timer is still pending" teardown errors.
     Future<void> pumpTestWidget(WidgetTester tester, Widget widget) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -27,7 +29,7 @@ void main() {
           ),
         ),
       );
-      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
     }
 
     final testData = {

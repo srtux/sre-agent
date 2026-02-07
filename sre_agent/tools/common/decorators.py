@@ -95,7 +95,7 @@ def _is_tool_failure(result: Any) -> bool:
             data = json.loads(result)
             if isinstance(data, dict) and "error" in data:
                 return True
-        except Exception:
+        except (json.JSONDecodeError, ValueError):
             pass
     elif isinstance(result, dict) and "error" in result:
         return True

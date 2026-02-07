@@ -311,20 +311,27 @@ async def check_get_gke_cluster_health() -> ToolTestResult:
                 message="No project ID configured. Set GOOGLE_CLOUD_PROJECT environment variable.",
             )
 
-        from google.cloud import container_v1  # type: ignore
+        from .clients.gke import _get_authorized_session
 
-        client = container_v1.ClusterManagerClient()
+        session = _get_authorized_session()
 
-        if hasattr(client, "list_clusters") and hasattr(client, "get_cluster"):
+        # Try a minimal REST call to verify connectivity
+        # We just check the discovery doc or a simple endpoint if possible,
+        # but for a connectivity check, just verifying the session is often enough.
+        # To be more thorough, we'll try to hit the API root.
+        url = "https://container.googleapis.com/$discovery/rest?version=v1"
+        response = session.get(url)
+
+        if response.status_code == 200:
             return ToolTestResult(
                 status=ToolTestStatus.SUCCESS,
-                message="GKE Cluster Manager API client initialized successfully",
+                message="GKE Container API connectivity verified via REST",
                 details={"project_id": project_id},
             )
         else:
             return ToolTestResult(
                 status=ToolTestStatus.FAILED,
-                message="GKE Cluster Manager API client missing expected methods",
+                message=f"GKE Container API returned status {response.status_code}",
             )
     except Exception as e:
         return ToolTestResult(

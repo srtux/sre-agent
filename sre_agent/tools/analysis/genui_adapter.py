@@ -24,10 +24,16 @@ COMPONENT_AGENT_TRACE = "x-sre-agent-trace"
 COMPONENT_AGENT_GRAPH = "x-sre-agent-graph"
 
 
-def transform_trace(trace_data: dict[str, Any]) -> dict[str, Any]:
+def transform_trace(trace_data: Any) -> dict[str, Any]:
     """Transform Trace data for TraceWaterfall widget."""
+    logger.info(f"📊 Transforming trace data, type: {type(trace_data)}")
+
     # Unwrap if wrapped in status/result (MCP format)
-    if "status" in trace_data and "result" in trace_data:
+    if (
+        isinstance(trace_data, dict)
+        and "status" in trace_data
+        and "result" in trace_data
+    ):
         trace_data = trace_data["result"]
 
     # Handle error state
@@ -39,42 +45,134 @@ def transform_trace(trace_data: dict[str, Any]) -> dict[str, Any]:
         )
         logger.warning(f"❌ Trace transformation error: {err_msg}")
         return {
-            "trace_id": trace_data.get("trace_id", "unknown"),
+            "trace_id": trace_data.get("trace_id", "unknown")
+            if isinstance(trace_data, dict)
+            else "unknown",
             "spans": [],
             "error": err_msg,
         }
 
-    trace_id = (
-        trace_data.get("trace_id", "unknown")
-        if isinstance(trace_data, dict)
-        else "unknown"
-    )
+    # Handle sandbox results or single trace nested in a result dict
+    if isinstance(trace_data, dict):
+        if "top_items" in trace_data or "items" in trace_data:
+            trace_data = trace_data.get("top_items") or trace_data.get("items")
+            logger.info("📊 Extracted traces from sandbox result")
+        elif "anomaly" in trace_data or "baseline" in trace_data:
+            # find_example_traces returns both, pick anomaly for visualization
+            trace_data = trace_data.get("anomaly") or trace_data.get("baseline")
+            logger.info("📊 Selected anomaly/baseline trace from discovery result")
+
+    # If it's a list (from list_traces), pick the first one for now
+    # TODO: Add a TracesData model to support multiple traces in one tool call
+    if isinstance(trace_data, list) and trace_data:
+        logger.info(
+            f"📊 Received list of {len(trace_data)} traces, picking the first one"
+        )
+        trace_data = trace_data[0]
+
+    if not isinstance(trace_data, dict):
+        return {"trace_id": "unknown", "spans": []}
+
+    trace_id = trace_data.get("trace_id", "unknown")
     spans = []
+    # If we have spans, use them
     raw_spans = trace_data.get("spans", []) if isinstance(trace_data, dict) else []
-    for span in raw_spans:
-        # Ensure it's a dict
-        if not isinstance(span, dict):
-            continue
+    if not raw_spans and isinstance(trace_data, dict) and "critical_path" in trace_data:
+        # analyze_critical_path returns spans under critical_path.spans
+        raw_spans = trace_data.get("critical_path", {}).get("spans", [])
+        logger.info("📊 Extracted spans from critical_path result")
 
-        # Ensure IDs are strings for Flutter models (Google Cloud Trace API returns them as integers)
-        if "span_id" in span and span["span_id"] is not None:
-            span["span_id"] = str(span["span_id"])
-        if "parent_span_id" in span and span["parent_span_id"] is not None:
-            span["parent_span_id"] = str(span["parent_span_id"])
+    if isinstance(raw_spans, list) and raw_spans:
+        for raw_span in raw_spans:
+            if not isinstance(raw_span, dict):
+                continue
 
-        # Ensure trace_id is present in each span for Flutter SpanInfo model
-        span["trace_id"] = trace_id
-        # Map labels to attributes (Flutter model expects 'attributes')
-        if "labels" in span:
-            span["attributes"] = span.pop("labels", {})
-        elif "attributes" not in span:
-            span["attributes"] = {}
+            # Work on a copy to avoid mutating the input
+            span = dict(raw_span)
 
-        # Derive status (Flutter model expects 'OK' or 'ERROR')
-        status_code = span.get("attributes", {}).get("/http/status_code", "200")
-        span["status"] = "ERROR" if str(status_code).startswith(("4", "5")) else "OK"
-        spans.append(span)
+            # Ensure IDs are strings for Flutter models (Google Cloud Trace API returns them as integers)
+            if "span_id" in span and span["span_id"] is not None:
+                span["span_id"] = str(span["span_id"])
+            if "parent_span_id" in span and span["parent_span_id"] is not None:
+                span["parent_span_id"] = str(span["parent_span_id"])
+
+            # Ensure trace_id is present in each span for Flutter SpanInfo model
+            span["trace_id"] = trace_id
+
+            # Map labels to attributes (Flutter model expects 'attributes')
+            if "labels" in span:
+                span["attributes"] = span.pop("labels", {})
+            elif "attributes" not in span:
+                span["attributes"] = {}
+            else:
+                # Copy attributes dict to avoid mutating the original
+                span["attributes"] = dict(span["attributes"])
+
+            # Normalize fields
+            span_id = str(span.get("span_id", uuid.uuid4().hex[:16]))
+            parent_id = span.get("parent_span_id")
+            if parent_id is not None:
+                parent_id = str(parent_id)
+
+            spans.append(
+                {
+                    "span_id": span_id,
+                    "trace_id": trace_id,
+                    "name": span.get("name", "unnamed-span"),
+                    "start_time": span.get("start_time"),
+                    "end_time": span.get("end_time"),
+                    "parent_span_id": parent_id,
+                    "attributes": span.get("attributes", {}),
+                    "status": "ERROR"
+                    if str(
+                        span.get("attributes", {}).get("/http/status_code", "200")
+                    ).startswith(("4", "5"))
+                    else "OK",
+                }
+            )
+    else:
+        # Synthesize a root span for trace summaries (list_traces output)
+        logger.info(f"📊 Synthesizing root span for summary trace {trace_id}")
+        start_time = trace_data.get("start_time")
+        duration_ms = trace_data.get("duration_ms") or 0
+
+        if start_time and duration_ms >= 0:
+            try:
+                # Calculate end_time
+                s_dt = datetime.fromisoformat(str(start_time).replace("Z", "+00:00"))
+                from datetime import timedelta
+
+                e_dt = s_dt + timedelta(milliseconds=float(duration_ms))
+                end_time = e_dt.isoformat()
+
+                spans.append(
+                    {
+                        "span_id": "root-" + trace_id[:8],
+                        "trace_id": trace_id,
+                        "name": trace_data.get("name", "Summary Trace"),
+                        "start_time": start_time,
+                        "end_time": end_time,
+                        "parent_span_id": None,
+                        "attributes": {
+                            "/http/url": trace_data.get("url", ""),
+                            "/http/status_code": str(trace_data.get("status", "200")),
+                            "is_summary": "true",
+                        },
+                        "status": "ERROR"
+                        if str(trace_data.get("status", "200")).startswith(("4", "5"))
+                        else "OK",
+                    }
+                )
+            except Exception as e:
+                logger.warning(f"Failed to synthesize span: {e}")
+
+    # Add Trace Quality Analysis
     span_map = {s.get("span_id"): s for s in spans if s.get("span_id")}
+
+    def parse_time(t: Any) -> datetime | None:
+        if not t:
+            return None
+        return datetime.fromisoformat(str(t).replace("Z", "+00:00"))
 
     for span in spans:
         # Check specific trace quality issues
@@ -91,23 +189,12 @@ def transform_trace(trace_data: dict[str, Any]) -> dict[str, Any]:
         elif parent_id and parent_id in span_map:
             parent = span_map[parent_id]
             try:
-                # Parse timestamps (handling potentially different formats/types if needed,
-                # but relying on standard ISO strings from earlier parsing if available)
-                # Note: 'span' dict here might have raw strings or already parsed objects depending on earlier logic.
-                # The earlier code didn't parse them into DateTime objects in the dict, it left them as strings usually.
-                # Let's safely parse.
-                def parse_time(t: Any) -> datetime | None:
-                    if not t:
-                        return None
-                    return datetime.fromisoformat(str(t).replace("Z", "+00:00"))
-
                 s_start = parse_time(span.get("start_time"))
                 s_end = parse_time(span.get("end_time"))
                 p_start = parse_time(parent.get("start_time"))
                 p_end = parse_time(parent.get("end_time"))
 
                 if s_start and s_end and p_start and p_end:
-                    # Allow a small buffer for precision issues if needed, but strict for now
                     if s_start < p_start or s_end > p_end:
                         issue_type = "clock_skew"
                         issue_message = "Child span outside parent timespan"
@@ -116,8 +203,6 @@ def transform_trace(trace_data: dict[str, Any]) -> dict[str, Any]:
 
         # Inject attributes if issue detected
         if issue_type:
-            if "attributes" not in span:
-                span["attributes"] = {}
             span["attributes"]["/agent/quality/type"] = issue_type
             span["attributes"]["/agent/quality/issue"] = issue_message
 
@@ -126,6 +211,8 @@ def transform_trace(trace_data: dict[str, Any]) -> dict[str, Any]:
 
 def transform_metrics(metric_data: Any) -> dict[str, Any]:
     """Transform Metric data for MetricCorrelationChart widget."""
+    logger.info(f"📊 Transforming metric data, type: {type(metric_data)}")
+
     # Unwrap if wrapped in status/result (MCP format)
     if (
         isinstance(metric_data, dict)
@@ -149,14 +236,63 @@ def transform_metrics(metric_data: Any) -> dict[str, Any]:
             "error": err_msg,
         }
 
-    # If it's a list from list_time_series, take the first one
+    # Handle sandbox results (DataProcessingResult) or standard dict with top_items/items
+    if isinstance(metric_data, dict):
+        if "top_items" in metric_data or "items" in metric_data:
+            metric_data = metric_data.get("top_items") or metric_data.get("items")
+            logger.info("📊 Extracted metric series from sandbox result")
+
+    # If it's a list from list_time_series or extracted from sandbox, take the first one
     if isinstance(metric_data, list) and metric_data:
-        series = metric_data[0]
+        # Find first series with points
+        series = None
+        for s in metric_data:
+            if isinstance(s, dict) and s.get("points"):
+                series = s
+                break
+
+        if not series and metric_data:
+            series = metric_data[0]
+
         if not isinstance(series, dict):
             return {"metric_name": "Metric", "points": [], "labels": {}}
+
+        raw_points = series.get("points", [])
+        points = []
+        for p in raw_points:
+            if not isinstance(p, dict):
+                continue
+
+            # Handle standard format: {"timestamp": "...", "value": ...}
+            if "timestamp" in p and "value" in p:
+                points.append(p)
+            # Handle raw Cloud Monitoring API format: {"interval": {"endTime": "..."}, "value": {"doubleValue": ...}}
+            elif "interval" in p and "value" in p:
+                try:
+                    ts = p["interval"].get("endTime")
+                    v_dict = p["value"]
+                    # Support different value types in Monitoring API
+                    v = (
+                        v_dict.get("doubleValue")
+                        or v_dict.get("int64Value")
+                        or v_dict.get(
+                            "distributionValue"
+                        )  # Not fully supported but avoid crash
+                        or 0.0
+                    )
+                    if ts:
+                        points.append(
+                            {
+                                "timestamp": ts,
+                                "value": float(v) if not isinstance(v, dict) else 0.0,
+                            }
+                        )
+                except (ValueError, TypeError, KeyError):
+                    continue
+
         return {
             "metric_name": series.get("metric", {}).get("type", "Metric"),
-            "points": series.get("points", []),
+            "points": points,
             "labels": {
                 **series.get("metric", {}).get("labels", {}),
                 **series.get("resource", {}).get("labels", {}),
@@ -462,12 +598,16 @@ def transform_alerts_to_timeline(alerts_data: list[dict[str, Any]]) -> dict[str,
 
     # Handle error or empty
     if not isinstance(alerts_data, list):
-        return {
-            "title": "Alerts Analysis",
-            "status": "unknown",
-            "events": [],
-            "error": "Invalid alerts data format",
-        }
+        if isinstance(alerts_data, dict):
+            # Probably a single alert from get_alert, wrap in a list
+            alerts_data = [alerts_data]
+        else:
+            return {
+                "title": "Alerts Analysis",
+                "status": "unknown",
+                "events": [],
+                "error": "Invalid alerts data format",
+            }
 
     events = []
     # If no alerts, return empty timeline
@@ -544,7 +684,7 @@ def transform_alerts_to_timeline(alerts_data: list[dict[str, Any]]) -> dict[str,
             overall_status = "resolved"
 
     return {
-        "incident_id": f"ALERTS-{datetime.now().strftime('%Y%m%d')}",
+        "incident_id": f"ALERTS-{datetime.now(timezone.utc).strftime('%Y%m%d')}",
         "title": "Active Alerts Timeline",
         "start_time": (
             sorted_alerts[-1].get("openTime")
@@ -987,11 +1127,23 @@ def transform_log_entries(
     if isinstance(log_data, list):
         raw_entries = log_data
     elif isinstance(log_data, dict):
+        # Regular list_log_entries result
         raw_entries = log_data.get("entries", [])
+
+        # Handle sandbox results (DataProcessingResult)
+        if not raw_entries:
+            raw_entries = log_data.get("top_items") or log_data.get("items") or []
+
+        # Handle case where result is a single log entry
+        if not raw_entries and log_data.get("insert_id"):
+            raw_entries = [log_data]
     else:
         raw_entries = []
 
     for entry in raw_entries:
+        if not isinstance(entry, dict):
+            continue
+
         # Extract payload (can be text, JSON, or proto)
         payload = entry.get("payload")
         if payload is None:

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'pages/conversation_page.dart';
 import 'pages/login_page.dart';
@@ -9,6 +10,7 @@ import 'services/session_service.dart';
 import 'services/tool_config_service.dart';
 import 'services/prompt_history_service.dart';
 import 'services/dashboard_state.dart';
+import 'services/explorer_query_service.dart';
 import 'theme/app_theme.dart';
 
 class SreNexusApp extends StatelessWidget {
@@ -25,6 +27,12 @@ class SreNexusApp extends StatelessWidget {
         Provider(create: (_) => ToolConfigService()),
         Provider(create: (_) => PromptHistoryService()),
         ChangeNotifierProvider(create: (_) => DashboardState()),
+        ProxyProvider<DashboardState, ExplorerQueryService>(
+          update: (_, dashState, _) => ExplorerQueryService(
+            dashboardState: dashState,
+            clientFactory: () => http.Client(),
+          ),
+        ),
       ],
       child: MaterialApp(
         title: 'AutoSRE',

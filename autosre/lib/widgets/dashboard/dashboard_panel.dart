@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../services/dashboard_state.dart';
 import '../../theme/app_theme.dart';
+import '../common/explorer_empty_state.dart';
 import 'live_logs_explorer.dart';
 import 'live_metrics_panel.dart';
 import 'live_trace_panel.dart';
@@ -10,6 +11,7 @@ import 'live_alerts_panel.dart';
 import 'live_remediation_panel.dart';
 import 'live_council_panel.dart';
 import 'live_charts_panel.dart';
+import 'sre_toolbar.dart';
 
 /// The main investigation dashboard panel.
 ///
@@ -87,6 +89,10 @@ class _DashboardPanelState extends State<DashboardPanel>
         child: Column(
           children: [
             _buildHeader(),
+            SreToolbar(
+              dashboardState: widget.state,
+              onRefresh: () {},
+            ),
             _buildTabBar(),
             Expanded(child: _buildContent()),
           ],
@@ -227,14 +233,24 @@ class _DashboardPanelState extends State<DashboardPanel>
 
         switch (widget.state.activeTab) {
           case DashboardDataType.traces:
-            return LiveTracePanel(items: items);
+            return LiveTracePanel(
+              items: items,
+              dashboardState: widget.state,
+            );
           case DashboardDataType.logs:
-            return LiveLogsExplorer(items: items);
+            return LiveLogsExplorer(
+              items: items,
+              dashboardState: widget.state,
+            );
           case DashboardDataType.metrics:
-            return LiveMetricsPanel(items: items);
+            return LiveMetricsPanel(
+              items: items,
+              dashboardState: widget.state,
+            );
           case DashboardDataType.alerts:
             return LiveAlertsPanel(
               items: items,
+              dashboardState: widget.state,
               onPromptRequest: widget.onPromptRequest,
             );
           case DashboardDataType.remediation:
@@ -249,67 +265,20 @@ class _DashboardPanelState extends State<DashboardPanel>
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AppColors.primaryCyan.withValues(alpha: 0.08),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.analytics_outlined,
-              size: 40,
-              color: AppColors.primaryCyan,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Waiting for data...',
-            style: GoogleFonts.inter(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: AppColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Tool call results will appear here as the\nagent investigates your query.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13,
-              color: AppColors.textMuted.withValues(alpha: 0.7),
-              height: 1.5,
-            ),
-          ),
-        ],
-      ),
+    return const ExplorerEmptyState(
+      icon: Icons.analytics_outlined,
+      title: 'Observability Explorer',
+      description: 'Use the query bars above each panel to explore telemetry data,\nor start an agent investigation to auto-populate results.',
+      queryHint: 'metric.type="compute.googleapis.com/instance/cpu/utilization"',
     );
   }
 
   Widget _buildEmptyTabState(DashboardDataType type) {
     final config = _tabConfig(type);
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            config.icon,
-            size: 32,
-            color: AppColors.textMuted.withValues(alpha: 0.5),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'No ${config.label.toLowerCase()} collected yet',
-            style: const TextStyle(
-              fontSize: 14,
-              color: AppColors.textMuted,
-            ),
-          ),
-        ],
-      ),
+    return ExplorerEmptyState(
+      icon: config.icon,
+      title: 'No ${config.label} Yet',
+      description: 'Use the query bar to search for ${config.label.toLowerCase()},\nor wait for the agent to collect data.',
     );
   }
 }

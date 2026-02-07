@@ -100,7 +100,7 @@ class TestCreateExplorationDashboardEvents:
         ]
         assert len(trace_events) == 1
         assert trace_events[0]["widget_type"] == "x-sre-trace-waterfall"
-        assert isinstance(trace_events[0]["data"], list)
+        assert isinstance(trace_events[0]["data"], dict)
 
     def test_handles_json_string_input(self) -> None:
         result = _make_exploration_result()

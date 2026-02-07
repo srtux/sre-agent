@@ -1,20 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../services/dashboard_state.dart';
+import '../../services/explorer_query_service.dart';
 import '../../services/project_service.dart';
 import '../../theme/app_theme.dart';
-import '../trace_waterfall.dart';
+import '../common/error_banner.dart';
+import '../common/explorer_empty_state.dart';
+import '../common/shimmer_loading.dart';
+import '../common/source_badge.dart';
+import '../syncfusion_trace_waterfall.dart';
+import 'manual_query_bar.dart';
 
 /// Dashboard panel that displays all collected trace results.
 ///
 /// Shows traces in a scrollable list with expandable waterfall views.
 /// Each trace shows a summary header with span count and duration,
-/// and can be expanded to reveal the full waterfall visualization.
+/// and can be expanded to reveal the full Syncfusion waterfall visualization.
+/// Includes a manual query bar for fetching traces by ID.
 class LiveTracePanel extends StatefulWidget {
   final List<DashboardItem> items;
-  const LiveTracePanel({super.key, required this.items});
+  final DashboardState dashboardState;
+  const LiveTracePanel({
+    super.key,
+    required this.items,
+    required this.dashboardState,
+  });
 
   @override
   State<LiveTracePanel> createState() => _LiveTracePanelState();
@@ -25,8 +38,44 @@ class _LiveTracePanelState extends State<LiveTracePanel> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.items.isEmpty) return const SizedBox.shrink();
+    final isLoading =
+        widget.dashboardState.isLoading(DashboardDataType.traces);
+    final error = widget.dashboardState.errorFor(DashboardDataType.traces);
 
+    return Column(
+      children: [
+        // Manual query bar
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          child: ManualQueryBar(
+            hintText: 'Enter Trace ID...',
+            isLoading: isLoading,
+            onSubmit: (traceId) {
+              final explorer = context.read<ExplorerQueryService>();
+              explorer.queryTrace(traceId: traceId);
+            },
+          ),
+        ),
+        if (error != null) ErrorBanner(message: error),
+        // Content
+        Expanded(
+          child: isLoading && widget.items.isEmpty
+              ? const ShimmerLoading(showChart: true)
+              : widget.items.isEmpty
+                  ? const ExplorerEmptyState(
+                      icon: Icons.timeline_rounded,
+                      title: 'Trace Explorer',
+                      description:
+                          'Enter a Cloud Trace ID above to visualize\nthe distributed trace waterfall.',
+                      queryHint: 'e.g. abc123def456789...',
+                    )
+                  : _buildTraceList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTraceList() {
     return ListView.builder(
       padding: const EdgeInsets.all(12),
       itemCount: widget.items.length,
@@ -96,12 +145,18 @@ class _LiveTracePanelState extends State<LiveTracePanel> {
                                 ),
                               ),
                               const SizedBox(height: 2),
-                              Text(
-                                '${trace.spans.length} spans  |  ${totalDuration}ms  |  ${item.toolName}',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: AppColors.textMuted,
-                                ),
+                              Row(
+                                children: [
+                                  Text(
+                                    '${trace.spans.length} spans  |  ${totalDuration}ms  |  ${item.toolName}',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: AppColors.textMuted,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  SourceBadge(source: item.source),
+                                ],
                               ),
                             ],
                           ),
@@ -123,7 +178,7 @@ class _LiveTracePanelState extends State<LiveTracePanel> {
                 if (isExpanded)
                   Container(
                     padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-                    child: TraceWaterfall(trace: trace),
+                    child: SyncfusionTraceWaterfall(trace: trace),
                   ),
               ],
             ),

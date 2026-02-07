@@ -1,22 +1,73 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 
 import '../../services/dashboard_state.dart';
+import '../../services/explorer_query_service.dart';
 import '../../theme/app_theme.dart';
-import '../metric_chart.dart';
+import '../common/error_banner.dart';
+import '../common/explorer_empty_state.dart';
+import '../common/shimmer_loading.dart';
+import '../common/source_badge.dart';
+import '../syncfusion_metric_chart.dart';
 import '../canvas/metrics_dashboard_canvas.dart';
+import 'manual_query_bar.dart';
 
 /// Dashboard panel displaying all collected metric data.
 ///
 /// Shows metrics in a responsive grid of charts, each rendered
-/// with the MetricCorrelationChart widget. Dashboard-type metrics
-/// use the MetricsDashboardCanvas.
+/// with the SyncfusionMetricChart widget. Dashboard-type metrics
+/// use the MetricsDashboardCanvas. Includes a manual query bar
+/// for directly querying metrics.
 class LiveMetricsPanel extends StatelessWidget {
   final List<DashboardItem> items;
-  const LiveMetricsPanel({super.key, required this.items});
+  final DashboardState dashboardState;
+  const LiveMetricsPanel({
+    super.key,
+    required this.items,
+    required this.dashboardState,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final isLoading = dashboardState.isLoading(DashboardDataType.metrics);
+    final error = dashboardState.errorFor(DashboardDataType.metrics);
+
+    return Column(
+      children: [
+        // Manual query bar
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          child: ManualQueryBar(
+            hintText: 'metric.type="compute.googleapis.com/..."',
+            isLoading: isLoading,
+            onSubmit: (filter) {
+              final explorer = context.read<ExplorerQueryService>();
+              explorer.queryMetrics(filter: filter);
+            },
+          ),
+        ),
+        if (error != null) ErrorBanner(message: error),
+        // Content
+        Expanded(
+          child: isLoading && items.isEmpty
+              ? const ShimmerLoading(showChart: true)
+              : items.isEmpty
+                  ? const ExplorerEmptyState(
+                      icon: Icons.show_chart_rounded,
+                      title: 'Metrics Explorer',
+                      description:
+                          'Query GCP Cloud Monitoring metrics by entering a\nmetric filter above.',
+                      queryHint:
+                          'metric.type="compute.googleapis.com/instance/cpu/utilization"',
+                    )
+                  : _buildMetricsList(context),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMetricsList(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth > 500;
@@ -77,6 +128,8 @@ class LiveMetricsPanel extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  SourceBadge(source: item.source),
+                  const SizedBox(width: 6),
                   Text(
                     '${series.points.length} pts',
                     style: const TextStyle(
@@ -91,7 +144,7 @@ class LiveMetricsPanel extends StatelessWidget {
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(8),
-                child: MetricCorrelationChart(series: series),
+                child: SyncfusionMetricChart(series: series),
               ),
             ),
           ],
@@ -130,6 +183,8 @@ class LiveMetricsPanel extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
+                  SourceBadge(source: item.source),
+                  const SizedBox(width: 6),
                   Text(
                     item.toolName,
                     style: const TextStyle(
@@ -148,4 +203,5 @@ class LiveMetricsPanel extends StatelessWidget {
       ),
     );
   }
+
 }

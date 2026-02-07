@@ -22,12 +22,21 @@ class SpanInfo {
   Duration get duration => endTime.difference(startTime);
 
   factory SpanInfo.fromJson(Map<String, dynamic> json) {
+    DateTime parseTimeSafe(String? raw) {
+      if (raw == null) return DateTime.now();
+      try {
+        return DateTime.parse(raw);
+      } catch (_) {
+        return DateTime.now();
+      }
+    }
+
     return SpanInfo(
-      spanId: json['span_id'],
-      traceId: json['trace_id'],
-      name: json['name'],
-      startTime: DateTime.parse(json['start_time']),
-      endTime: DateTime.parse(json['end_time']),
+      spanId: json['span_id'] ?? '',
+      traceId: json['trace_id'] ?? '',
+      name: json['name'] ?? '',
+      startTime: parseTimeSafe(json['start_time']),
+      endTime: parseTimeSafe(json['end_time']),
       attributes: Map<String, dynamic>.from(json['attributes'] ?? {}),
       status: json['status'] ?? 'OK',
       parentSpanId: json['parent_span_id'],
@@ -84,9 +93,15 @@ class MetricPoint {
   });
 
   factory MetricPoint.fromJson(Map<String, dynamic> json) {
+    DateTime ts;
+    try {
+      ts = DateTime.parse(json['timestamp'] ?? '');
+    } catch (_) {
+      ts = DateTime.now();
+    }
     return MetricPoint(
-      timestamp: DateTime.parse(json['timestamp']),
-      value: (json['value'] as num).toDouble(),
+      timestamp: ts,
+      value: (json['value'] as num?)?.toDouble() ?? 0.0,
       isAnomaly: json['is_anomaly'] ?? false,
     );
   }
@@ -104,12 +119,11 @@ class MetricSeries {
   });
 
   factory MetricSeries.fromJson(Map<String, dynamic> json) {
-    var list = json['points'] as List;
-    var pointsList = list
-        .map((i) => MetricPoint.fromJson(i))
+    final pointsList = (json['points'] as List? ?? [])
+        .map((i) => MetricPoint.fromJson(Map<String, dynamic>.from(i)))
         .toList();
     return MetricSeries(
-      metricName: json['metric_name'],
+      metricName: json['metric_name'] ?? '',
       points: pointsList,
       labels: Map<String, dynamic>.from(json['labels'] ?? {}),
     );
@@ -129,8 +143,8 @@ class LogPattern {
 
   factory LogPattern.fromJson(Map<String, dynamic> json) {
     return LogPattern(
-      template: json['template'],
-      count: json['count'],
+      template: json['template'] ?? '',
+      count: (json['count'] as num?)?.toInt() ?? 0,
       severityCounts: Map<String, int>.from(json['severity_counts'] ?? {}),
     );
   }
@@ -144,8 +158,8 @@ class RemediationStep {
 
   factory RemediationStep.fromJson(Map<String, dynamic> json) {
     return RemediationStep(
-      command: json['command'],
-      description: json['description'],
+      command: json['command'] ?? '',
+      description: json['description'] ?? '',
     );
   }
 }
@@ -162,13 +176,12 @@ class RemediationPlan {
   });
 
   factory RemediationPlan.fromJson(Map<String, dynamic> json) {
-    var list = json['steps'] as List;
-    var stepsList = list
-        .map((i) => RemediationStep.fromJson(i))
+    final stepsList = (json['steps'] as List? ?? [])
+        .map((i) => RemediationStep.fromJson(Map<String, dynamic>.from(i)))
         .toList();
     return RemediationPlan(
-      issue: json['issue'],
-      risk: json['risk'],
+      issue: json['issue'] ?? '',
+      risk: json['risk'] ?? 'low',
       steps: stepsList,
     );
   }
@@ -448,9 +461,15 @@ class LogEntry {
   }
 
   factory LogEntry.fromJson(Map<String, dynamic> json) {
+    DateTime ts;
+    try {
+      ts = DateTime.parse(json['timestamp'] ?? '');
+    } catch (_) {
+      ts = DateTime.now();
+    }
     return LogEntry(
       insertId: json['insert_id'] ?? '',
-      timestamp: DateTime.parse(json['timestamp']),
+      timestamp: ts,
       severity: json['severity'] ?? 'INFO',
       payload: json['payload'],
       resourceLabels: Map<String, String>.from(json['resource_labels'] ?? {}),
@@ -545,8 +564,14 @@ class MetricDataPoint {
   MetricDataPoint({required this.timestamp, required this.value});
 
   factory MetricDataPoint.fromJson(Map<String, dynamic> json) {
+    DateTime ts;
+    try {
+      ts = DateTime.parse(json['timestamp'] ?? '');
+    } catch (_) {
+      ts = DateTime.now();
+    }
     return MetricDataPoint(
-      timestamp: DateTime.parse(json['timestamp']),
+      timestamp: ts,
       value: (json['value'] as num?)?.toDouble() ?? 0,
     );
   }
@@ -604,9 +629,15 @@ class TimelineEvent {
   });
 
   factory TimelineEvent.fromJson(Map<String, dynamic> json) {
+    DateTime ts;
+    try {
+      ts = DateTime.parse(json['timestamp'] ?? '');
+    } catch (_) {
+      ts = DateTime.now();
+    }
     return TimelineEvent(
       id: json['id'] ?? '',
-      timestamp: DateTime.parse(json['timestamp']),
+      timestamp: ts,
       type: json['type'] ?? 'info',
       title: json['title'] ?? '',
       description: json['description'],
@@ -642,23 +673,35 @@ class IncidentTimelineData {
   });
 
   factory IncidentTimelineData.fromJson(Map<String, dynamic> json) {
+    DateTime startTs;
+    try {
+      startTs = DateTime.parse(json['start_time'] ?? '');
+    } catch (_) {
+      startTs = DateTime.now();
+    }
+    DateTime? endTs;
+    if (json['end_time'] != null) {
+      try {
+        endTs = DateTime.parse(json['end_time']);
+      } catch (_) {
+        endTs = null;
+      }
+    }
     return IncidentTimelineData(
       incidentId: json['incident_id'] ?? '',
       title: json['title'] ?? 'Incident',
-      startTime: DateTime.parse(json['start_time']),
-      endTime: json['end_time'] != null
-          ? DateTime.parse(json['end_time'])
-          : null,
+      startTime: startTs,
+      endTime: endTs,
       status: json['status'] ?? 'ongoing',
       events: (json['events'] as List? ?? [])
           .map((e) => TimelineEvent.fromJson(Map<String, dynamic>.from(e)))
           .toList(),
       rootCause: json['root_cause'],
       timeToDetect: json['ttd_seconds'] != null
-          ? Duration(seconds: json['ttd_seconds'])
+          ? Duration(seconds: (json['ttd_seconds'] as num).toInt())
           : null,
       timeToMitigate: json['ttm_seconds'] != null
-          ? Duration(seconds: json['ttm_seconds'])
+          ? Duration(seconds: (json['ttm_seconds'] as num).toInt())
           : null,
     );
   }

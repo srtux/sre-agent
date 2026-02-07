@@ -1,7 +1,6 @@
 from fastapi.testclient import TestClient
 
 from server import app
-
 from sre_agent.version import VERSION
 
 client = TestClient(app)

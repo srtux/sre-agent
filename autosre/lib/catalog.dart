@@ -7,10 +7,10 @@ import 'theme/app_theme.dart';
 import 'widgets/error_placeholder.dart';
 import 'widgets/log_entries_viewer.dart';
 import 'widgets/log_pattern_viewer.dart';
-import 'widgets/metric_chart.dart';
 import 'widgets/remediation_plan.dart';
+import 'widgets/syncfusion_metric_chart.dart';
+import 'widgets/syncfusion_trace_waterfall.dart';
 import 'widgets/tool_log.dart';
-import 'widgets/trace_waterfall.dart';
 // Canvas widgets
 import 'widgets/canvas/agent_activity_canvas.dart';
 import 'widgets/canvas/service_topology_canvas.dart';
@@ -80,7 +80,7 @@ class CatalogRegistry {
             if (trace.spans.isEmpty) return const SizedBox.shrink();
 
             return _buildWidgetContainer(
-              child: TraceWaterfall(trace: trace),
+              child: SyncfusionTraceWaterfall(trace: trace),
               height: null,
             );
           } catch (e) {
@@ -102,7 +102,7 @@ class CatalogRegistry {
             if (series.points.isEmpty) return const SizedBox.shrink();
 
             return _buildWidgetContainer(
-              child: MetricCorrelationChart(series: series),
+              child: SyncfusionMetricChart(series: series),
               height: 380,
             );
           } catch (e) {

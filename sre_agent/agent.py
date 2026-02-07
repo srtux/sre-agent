@@ -1222,6 +1222,11 @@ base_tools: list[Any] = [
     summarize_trace,
     # GKE / Infrastructure
     get_gke_cluster_health,
+    analyze_node_conditions,
+    analyze_hpa_events,
+    get_pod_restart_events,
+    get_container_oom_events,
+    get_workload_health_summary,
     # Alerts
     list_alerts,
     get_alert,

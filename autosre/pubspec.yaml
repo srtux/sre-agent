@@ -37,7 +37,10 @@ dependencies:
   genui: ^0.6.1
   genui_a2ui: ^0.6.1
   provider: ^6.1.5+1
-  fl_chart: ^1.1.1
+  syncfusion_flutter_charts: ^29.1.69
+  syncfusion_flutter_datepicker: ^29.1.69
+  fluentui_system_icons: ^1.1.270
+  shimmer: ^3.0.0
   intl: ^0.20.2
   http: ^1.6.0
   json_schema_builder: ^0.1.3
