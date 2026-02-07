@@ -1,6 +1,6 @@
 """Services module for SRE Agent."""
 
-from sre_agent.services import session  # noqa: F401
+from sre_agent.services import agent_engine_client, session  # noqa: F401
 from sre_agent.services.agent_engine_client import (
     AgentEngineClient,
     AgentEngineConfig,
