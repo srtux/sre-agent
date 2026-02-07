@@ -13,6 +13,7 @@ Based on: https://martinfowler.com/bliki/CircuitBreaker.html
 """
 
 import logging
+import threading
 import time
 from dataclasses import dataclass, field
 from enum import Enum
@@ -89,6 +90,7 @@ class CircuitBreakerRegistry:
     _breakers: dict[str, CircuitBreakerState]
     _configs: dict[str, CircuitBreakerConfig]
     _default_config: CircuitBreakerConfig
+    _lock: threading.Lock
 
     def __new__(cls) -> "CircuitBreakerRegistry":
         """Singleton constructor for the registry."""
@@ -97,6 +99,7 @@ class CircuitBreakerRegistry:
             cls._instance._breakers = {}
             cls._instance._configs = {}
             cls._instance._default_config = CircuitBreakerConfig()
+            cls._instance._lock = threading.Lock()
         return cls._instance
 
     @classmethod
@@ -124,89 +127,92 @@ class CircuitBreakerRegistry:
         Raises:
             CircuitBreakerOpenError: If the circuit is open and not ready to retry.
         """
-        state = self._get_state(tool_name)
-        config = self._get_config(tool_name)
-        now = time.time()
+        with self._lock:
+            state = self._get_state(tool_name)
+            config = self._get_config(tool_name)
+            now = time.time()
 
-        state.total_calls += 1
+            state.total_calls += 1
 
-        if state.state == CircuitState.CLOSED:
+            if state.state == CircuitState.CLOSED:
+                return True
+
+            if state.state == CircuitState.OPEN:
+                elapsed = now - state.last_failure_time
+                if elapsed >= config.recovery_timeout_seconds:
+                    # Transition to half-open
+                    state.state = CircuitState.HALF_OPEN
+                    state.half_open_calls = 0
+                    state.success_count = 0
+                    state.last_state_change = now
+                    logger.info(
+                        f"Circuit breaker HALF_OPEN for '{tool_name}' "
+                        f"(after {elapsed:.1f}s recovery timeout)"
+                    )
+                    return True
+                else:
+                    remaining = config.recovery_timeout_seconds - elapsed
+                    state.total_short_circuits += 1
+                    raise CircuitBreakerOpenError(tool_name, remaining)
+
+            if state.state == CircuitState.HALF_OPEN:
+                if state.half_open_calls < config.half_open_max_calls:
+                    state.half_open_calls += 1
+                    return True
+                else:
+                    raise CircuitBreakerOpenError(
+                        tool_name, config.recovery_timeout_seconds
+                    )
+
             return True
-
-        if state.state == CircuitState.OPEN:
-            elapsed = now - state.last_failure_time
-            if elapsed >= config.recovery_timeout_seconds:
-                # Transition to half-open
-                state.state = CircuitState.HALF_OPEN
-                state.half_open_calls = 0
-                state.success_count = 0
-                state.last_state_change = now
-                logger.info(
-                    f"Circuit breaker HALF_OPEN for '{tool_name}' "
-                    f"(after {elapsed:.1f}s recovery timeout)"
-                )
-                return True
-            else:
-                remaining = config.recovery_timeout_seconds - elapsed
-                state.total_short_circuits += 1
-                raise CircuitBreakerOpenError(tool_name, remaining)
-
-        if state.state == CircuitState.HALF_OPEN:
-            if state.half_open_calls < config.half_open_max_calls:
-                state.half_open_calls += 1
-                return True
-            else:
-                raise CircuitBreakerOpenError(
-                    tool_name, config.recovery_timeout_seconds
-                )
-
-        return True
 
     def record_success(self, tool_name: str) -> None:
         """Record a successful call."""
-        state = self._get_state(tool_name)
+        with self._lock:
+            state = self._get_state(tool_name)
 
-        if state.state == CircuitState.HALF_OPEN:
-            state.success_count += 1
-            config = self._get_config(tool_name)
-            if state.success_count >= config.success_threshold:
-                state.state = CircuitState.CLOSED
-                state.failure_count = 0
-                state.success_count = 0
-                state.last_state_change = time.time()
-                logger.info(f"Circuit breaker CLOSED for '{tool_name}' (recovered)")
-        elif state.state == CircuitState.CLOSED:
-            # Reset failure count on success
-            if state.failure_count > 0:
-                state.failure_count = max(0, state.failure_count - 1)
+            if state.state == CircuitState.HALF_OPEN:
+                state.success_count += 1
+                config = self._get_config(tool_name)
+                if state.success_count >= config.success_threshold:
+                    state.state = CircuitState.CLOSED
+                    state.failure_count = 0
+                    state.success_count = 0
+                    state.last_state_change = time.time()
+                    logger.info(f"Circuit breaker CLOSED for '{tool_name}' (recovered)")
+            elif state.state == CircuitState.CLOSED:
+                # Reset failure count on success
+                if state.failure_count > 0:
+                    state.failure_count = max(0, state.failure_count - 1)
 
     def record_failure(self, tool_name: str) -> None:
         """Record a failed call."""
-        state = self._get_state(tool_name)
-        config = self._get_config(tool_name)
-        now = time.time()
+        with self._lock:
+            state = self._get_state(tool_name)
+            config = self._get_config(tool_name)
+            now = time.time()
 
-        state.total_failures += 1
+            state.total_failures += 1
 
-        if state.state == CircuitState.HALF_OPEN:
-            # Recovery failed, re-open the circuit
-            state.state = CircuitState.OPEN
-            state.last_failure_time = now
-            state.last_state_change = now
-            logger.warning(
-                f"Circuit breaker re-OPENED for '{tool_name}' "
-                "(failed during half-open recovery)"
-            )
-        elif state.state == CircuitState.CLOSED:
-            state.failure_count += 1
-            state.last_failure_time = now
-            if state.failure_count >= config.failure_threshold:
+            if state.state == CircuitState.HALF_OPEN:
+                # Recovery failed, re-open the circuit
                 state.state = CircuitState.OPEN
+                state.last_failure_time = now
                 state.last_state_change = now
                 logger.warning(
-                    f"Circuit breaker OPENED for '{tool_name}' "
-                    f"({state.failure_count} consecutive failures)"
+                    f"Circuit breaker re-OPENED for '{tool_name}' "
+                    "(failed during half-open recovery)"
                 )
+            elif state.state == CircuitState.CLOSED:
+                state.failure_count += 1
+                state.last_failure_time = now
+                if state.failure_count >= config.failure_threshold:
+                    state.state = CircuitState.OPEN
+                    state.last_state_change = now
+                    logger.warning(
+                        f"Circuit breaker OPENED for '{tool_name}' "
+                        f"({state.failure_count} consecutive failures)"
+                    )
 
     def get_status(self, tool_name: str) -> dict[str, Any]:
         """Get current status of a circuit breaker."""

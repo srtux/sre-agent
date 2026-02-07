@@ -50,13 +50,49 @@ class ToolTestRequest(BaseModel):
     tool_name: str
 
 
+class LogAnalyzeRequest(BaseModel):
+    """Request model for log analysis endpoint."""
+
+    filter: str | None = None
+    project_id: str | None = None
+
+
+class MetricsQueryRequest(BaseModel):
+    """Request model for metrics query endpoint."""
+
+    filter: str = ""
+    minutes_ago: int = 60
+    project_id: str | None = None
+
+
+class PromQLQueryRequest(BaseModel):
+    """Request model for PromQL query endpoint."""
+
+    query: str = ""
+    project_id: str | None = None
+
+
+class AlertsQueryRequest(BaseModel):
+    """Request model for alerts query endpoint."""
+
+    filter: str | None = None
+    project_id: str | None = None
+
+
+class LogsQueryRequest(BaseModel):
+    """Request model for logs query endpoint."""
+
+    filter: str | None = None
+    project_id: str | None = None
+
+
 # =============================================================================
 # TOOL EXECUTION ENDPOINTS
 # =============================================================================
 
 
 @router.get("/trace/{trace_id}")
-async def get_trace(trace_id: str, project_id: Any | None = None) -> Any:
+async def get_trace(trace_id: str, project_id: str | None = None) -> Any:
     """Fetch and summarize a trace."""
     try:
         result = await fetch_trace(
@@ -68,9 +104,7 @@ async def get_trace(trace_id: str, project_id: Any | None = None) -> Any:
     except HTTPException:
         raise
     except Exception as e:
-        import traceback
-
-        traceback.print_exc()
+        logger.exception("Error fetching trace %s", trace_id)
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
@@ -80,36 +114,24 @@ async def list_projects(query: str | None = None) -> Any:
 
     Returns ``{"projects": [{"project_id": "...", "display_name": "..."}, ...]}``
     """
-    from sre_agent.schema import BaseToolResponse
-
     try:
         result = await list_gcp_projects(query=query)
-
-        # The @adk_tool decorator returns a BaseToolResponse envelope.
-        # HTTP callers expect the unwrapped result dict directly.
-        if isinstance(result, BaseToolResponse):
-            if result.error:
-                raise HTTPException(status_code=502, detail=result.error)
-            return result.result  # e.g. {"projects": [...]}
-
-        return result
+        return _unwrap_tool_result(result)
     except HTTPException:
         raise
     except Exception as e:
-        import traceback
-
-        traceback.print_exc()
+        logger.exception("Error listing projects")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/logs/analyze")
-async def analyze_logs(payload: dict[str, Any]) -> Any:
+async def analyze_logs(payload: LogAnalyzeRequest) -> Any:
     """Fetch logs and extract patterns."""
     try:
         # 1. Fetch logs from Cloud Logging
         result = await list_log_entries(
-            filter_str=payload.get("filter"),
-            project_id=payload.get("project_id"),
+            filter_str=payload.filter,
+            project_id=payload.project_id,
         )
         entries_data = _unwrap_tool_result(result)
 
@@ -129,98 +151,88 @@ async def analyze_logs(payload: dict[str, Any]) -> Any:
     except HTTPException:
         raise
     except Exception as e:
-        import traceback
-
-        traceback.print_exc()
+        logger.exception("Error analyzing logs")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/metrics/query")
-async def query_metrics_endpoint(payload: dict[str, Any]) -> Any:
+async def query_metrics_endpoint(payload: MetricsQueryRequest) -> Any:
     """Query time series metrics for the explorer.
 
     Returns data in MetricSeries-compatible format (metric_name, points, labels).
     """
     try:
         result = await list_time_series(
-            filter_str=payload.get("filter", ""),
-            minutes_ago=payload.get("minutes_ago", 60),
-            project_id=payload.get("project_id"),
+            filter_str=payload.filter,
+            minutes_ago=payload.minutes_ago,
+            project_id=payload.project_id,
         )
         raw = _unwrap_tool_result(result)
         return genui_adapter.transform_metrics(raw)
     except HTTPException:
         raise
     except Exception as e:
-        import traceback
-
-        traceback.print_exc()
+        logger.exception("Error querying metrics")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/metrics/promql")
-async def query_promql_endpoint(payload: dict[str, Any]) -> Any:
+async def query_promql_endpoint(payload: PromQLQueryRequest) -> Any:
     """Execute a PromQL query for the explorer.
 
     Returns data in MetricSeries-compatible format (metric_name, points, labels).
     """
     try:
         result = await query_promql(
-            query=payload.get("query", ""),
-            project_id=payload.get("project_id"),
+            query=payload.query,
+            project_id=payload.project_id,
         )
         raw = _unwrap_tool_result(result)
         return genui_adapter.transform_metrics(raw)
     except HTTPException:
         raise
     except Exception as e:
-        import traceback
-
-        traceback.print_exc()
+        logger.exception("Error executing PromQL query")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/alerts/query")
-async def query_alerts_endpoint(payload: dict[str, Any]) -> Any:
+async def query_alerts_endpoint(payload: AlertsQueryRequest) -> Any:
     """Query alerts/incidents for the explorer.
 
     Returns data in IncidentTimelineData-compatible format.
     """
     try:
         result = await list_alerts(
-            project_id=payload.get("project_id"),
-            filter_str=payload.get("filter"),
+            project_id=payload.project_id,
+            filter_str=payload.filter,
         )
         raw = _unwrap_tool_result(result)
         return genui_adapter.transform_alerts_to_timeline(raw)
     except HTTPException:
         raise
     except Exception as e:
-        import traceback
-
-        traceback.print_exc()
+        logger.exception("Error querying alerts")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/logs/query")
-async def query_logs_endpoint(payload: dict[str, Any]) -> Any:
+async def query_logs_endpoint(payload: LogsQueryRequest) -> Any:
     """Fetch raw log entries without pattern extraction (faster for explorer).
 
     Returns data in LogEntriesData-compatible format.
     """
     try:
         result = await list_log_entries(
-            filter_str=payload.get("filter"),
-            project_id=payload.get("project_id"),
+            filter_str=payload.filter,
+            project_id=payload.project_id,
         )
         raw = _unwrap_tool_result(result)
         return genui_adapter.transform_log_entries(raw)
     except HTTPException:
         raise
     except Exception as e:
-        import traceback
-
-        traceback.print_exc()
+        logger.exception("Error querying logs")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 

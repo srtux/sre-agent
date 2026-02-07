@@ -75,18 +75,38 @@ def transform_trace(trace_data: Any) -> dict[str, Any]:
 
     trace_id = trace_data.get("trace_id", "unknown")
     spans = []
-
     # If we have spans, use them
-    raw_spans = trace_data.get("spans", [])
-    if not raw_spans and "critical_path" in trace_data:
+    raw_spans = trace_data.get("spans", []) if isinstance(trace_data, dict) else []
+    if not raw_spans and isinstance(trace_data, dict) and "critical_path" in trace_data:
         # analyze_critical_path returns spans under critical_path.spans
         raw_spans = trace_data.get("critical_path", {}).get("spans", [])
         logger.info("📊 Extracted spans from critical_path result")
 
     if isinstance(raw_spans, list) and raw_spans:
-        for span in raw_spans:
-            if not isinstance(span, dict):
+        for raw_span in raw_spans:
+            if not isinstance(raw_span, dict):
                 continue
+
+            # Work on a copy to avoid mutating the input
+            span = dict(raw_span)
+
+            # Ensure IDs are strings for Flutter models (Google Cloud Trace API returns them as integers)
+            if "span_id" in span and span["span_id"] is not None:
+                span["span_id"] = str(span["span_id"])
+            if "parent_span_id" in span and span["parent_span_id"] is not None:
+                span["parent_span_id"] = str(span["parent_span_id"])
+
+            # Ensure trace_id is present in each span for Flutter SpanInfo model
+            span["trace_id"] = trace_id
+
+            # Map labels to attributes (Flutter model expects 'attributes')
+            if "labels" in span:
+                span["attributes"] = span.pop("labels", {})
+            elif "attributes" not in span:
+                span["attributes"] = {}
+            else:
+                # Copy attributes dict to avoid mutating the original
+                span["attributes"] = dict(span["attributes"])
 
             # Normalize fields
             span_id = str(span.get("span_id", uuid.uuid4().hex[:16]))
@@ -102,10 +122,10 @@ def transform_trace(trace_data: Any) -> dict[str, Any]:
                     "start_time": span.get("start_time"),
                     "end_time": span.get("end_time"),
                     "parent_span_id": parent_id,
-                    "attributes": span.get("labels") or span.get("attributes", {}),
+                    "attributes": span.get("attributes", {}),
                     "status": "ERROR"
                     if str(
-                        span.get("labels", {}).get("/http/status_code", "200")
+                        span.get("attributes", {}).get("/http/status_code", "200")
                     ).startswith(("4", "5"))
                     else "OK",
                 }
@@ -149,6 +169,11 @@ def transform_trace(trace_data: Any) -> dict[str, Any]:
     # Add Trace Quality Analysis
     span_map = {s.get("span_id"): s for s in spans if s.get("span_id")}
 
+    def parse_time(t: Any) -> datetime | None:
+        if not t:
+            return None
+        return datetime.fromisoformat(str(t).replace("Z", "+00:00"))
+
     for span in spans:
         # Check specific trace quality issues
         issue_type = None
@@ -164,12 +189,6 @@ def transform_trace(trace_data: Any) -> dict[str, Any]:
         elif parent_id and parent_id in span_map:
             parent = span_map[parent_id]
             try:
-
-                def parse_time(t: Any) -> datetime | None:
-                    if not t:
-                        return None
-                    return datetime.fromisoformat(str(t).replace("Z", "+00:00"))
-
                 s_start = parse_time(span.get("start_time"))
                 s_end = parse_time(span.get("end_time"))
                 p_start = parse_time(parent.get("start_time"))
@@ -184,8 +203,6 @@ def transform_trace(trace_data: Any) -> dict[str, Any]:
 
         # Inject attributes if issue detected
         if issue_type:
-            if "attributes" not in span:
-                span["attributes"] = {}
             span["attributes"]["/agent/quality/type"] = issue_type
             span["attributes"]["/agent/quality/issue"] = issue_message
 
@@ -667,7 +684,7 @@ def transform_alerts_to_timeline(alerts_data: list[dict[str, Any]]) -> dict[str,
             overall_status = "resolved"
 
     return {
-        "incident_id": f"ALERTS-{datetime.now().strftime('%Y%m%d')}",
+        "incident_id": f"ALERTS-{datetime.now(timezone.utc).strftime('%Y%m%d')}",
         "title": "Active Alerts Timeline",
         "start_time": (
             sorted_alerts[-1].get("openTime")

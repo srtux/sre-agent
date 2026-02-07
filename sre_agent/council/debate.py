@@ -118,6 +118,8 @@ def _build_convergence_tracker(
         # Initialize convergence history in state if needed
         if CONVERGENCE_STATE_KEY not in callback_context.state:
             callback_context.state[CONVERGENCE_STATE_KEY] = []
+            # Clear closure state for a fresh debate session
+            round_start_times.clear()
 
         history = callback_context.state[CONVERGENCE_STATE_KEY]
         current_round = len(history) + 1

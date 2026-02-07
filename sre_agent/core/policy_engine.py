@@ -6,6 +6,7 @@ disabled to gather data, but warnings and approval requests are still generated.
 """
 
 import logging
+import threading
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
@@ -880,11 +881,14 @@ Risk Assessment for {tool_name}:
 
 # Singleton instance
 _policy_engine: PolicyEngine | None = None
+_policy_engine_lock = threading.Lock()
 
 
 def get_policy_engine() -> PolicyEngine:
     """Get the singleton policy engine instance."""
     global _policy_engine
     if _policy_engine is None:
-        _policy_engine = PolicyEngine()
+        with _policy_engine_lock:
+            if _policy_engine is None:
+                _policy_engine = PolicyEngine()
     return _policy_engine
