@@ -71,7 +71,9 @@ steps:
 
         docker build -t gcr.io/$PROJECT_ID/autosre:latest \
           --build-arg SRE_AGENT_URL=$$AGENT_URL \
-          --build-arg SRE_AGENT_ID=$$RESOURCE_NAME .
+          --build-arg SRE_AGENT_ID=$$RESOURCE_NAME \
+          --build-arg BUILD_SHA=$SHORT_SHA \
+          --build-arg BUILD_TIMESTAMP=$$(date -u +%Y-%m-%dT%H:%M:%SZ) .
 
   # 5. Push Image
   - name: 'gcr.io/cloud-builders/docker'

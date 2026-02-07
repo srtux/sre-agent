@@ -37,6 +37,12 @@ COPY --from=builder /app/autosre/build/web ./web/
 COPY scripts/start_unified.sh .
 RUN chmod +x start_unified.sh
 
+# Build metadata (injected by Cloud Build / docker build --build-arg)
+ARG BUILD_SHA="unknown"
+ARG BUILD_TIMESTAMP=""
+ENV BUILD_SHA=${BUILD_SHA}
+ENV BUILD_TIMESTAMP=${BUILD_TIMESTAMP}
+
 # Environment variables
 ENV PORT=8080
 ENV HOSTNAME="0.0.0.0"

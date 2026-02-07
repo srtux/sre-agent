@@ -21,6 +21,7 @@ from sre_agent.tools.common.debug import (
     log_auth_state,
     log_telemetry_state,
 )
+from sre_agent.version import get_version_info
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["system"])
@@ -34,6 +35,12 @@ async def get_config() -> dict[str, Any]:
         "auth_enabled": os.getenv("ENABLE_AUTH", "true").lower() == "true",
         "guest_mode_enabled": os.getenv("ENABLE_GUEST_MODE", "true").lower() == "true",
     }
+
+
+@router.get("/api/version")
+async def get_version() -> dict[str, str]:
+    """Return build version metadata (version, git SHA, build timestamp)."""
+    return get_version_info()
 
 
 class LoginRequest(BaseModel):
