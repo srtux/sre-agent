@@ -2,16 +2,18 @@ from fastapi.testclient import TestClient
 
 from server import app
 
+from sre_agent.version import VERSION
+
 client = TestClient(app)
 
 
-def test_health_check():
+def test_health_check() -> None:
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    assert response.json() == {"status": "ok", "version": VERSION}
 
 
-def test_list_tool_configs():
+def test_list_tool_configs() -> None:
     response = client.get("/api/tools/config")
     # We might get 200 or 500 depending on if config manager is mocked or real and requires files
     # The real server loads from .tool_config.json. If it exists, 200.
