@@ -76,6 +76,7 @@ from .auth import (
     set_current_project_id,
     set_current_user_id,
 )
+from .core.router import route_request
 
 # Council tools
 from .council.mode_router import classify_investigation_mode
@@ -1181,6 +1182,8 @@ TOOL_NAME_MAP = {
     # Council
     "run_council_investigation": run_council_investigation,
     "classify_investigation_mode": classify_investigation_mode,
+    # Router
+    "route_request": route_request,
     # Investigation
     "update_investigation_state": update_investigation_state,
     "get_investigation_summary": get_investigation_summary,
@@ -1255,6 +1258,8 @@ base_tools: list[Any] = [
     analyze_bigquery_log_patterns,
     # CA Data Agent
     query_data_agent,
+    # Router (call FIRST to determine handling strategy)
+    route_request,
     # Orchestration tools
     run_aggregate_analysis,
     run_triage_analysis,
@@ -1317,6 +1322,8 @@ def get_enabled_tools() -> list[Any]:
 # These are the only tools the root agent needs when council mode is active.
 # All specialist tools are delegated to panel agents.
 slim_tools: list[Any] = [
+    # Router (call FIRST to determine handling strategy)
+    route_request,
     # Council orchestration
     run_council_investigation,
     classify_investigation_mode,

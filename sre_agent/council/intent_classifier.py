@@ -8,13 +8,18 @@ Classifies user queries into investigation modes without an LLM call:
 Also determines the best signal type for FAST mode panel selection,
 so the orchestrator routes to the most relevant panel (trace, metrics,
 logs, or alerts) rather than always defaulting to traces.
+
+Additionally provides routing classification for the 3-tier orchestrator:
+- DIRECT: Simple data retrieval — call individual tools
+- SUB_AGENT: Analysis — delegate to specialist sub-agents
+- COUNCIL: Complex multi-signal investigation — council meeting
 """
 
 import re
 from dataclasses import dataclass
 from enum import Enum
 
-from .schemas import InvestigationMode
+from .schemas import InvestigationMode, RoutingDecision
 
 # Keywords that suggest a quick, lightweight check
 _FAST_KEYWORDS: set[str] = {
@@ -294,3 +299,229 @@ def classify_intent_with_signal(query: str) -> ClassificationResult:
 
     # Default to standard
     return ClassificationResult(mode=InvestigationMode.STANDARD)
+
+
+# =============================================================================
+# 3-Tier Routing Classification
+# =============================================================================
+
+# Keywords indicating simple data retrieval (DIRECT tier)
+# These suggest the user wants to fetch/list/show raw data, not analyze it.
+_DIRECT_KEYWORDS: set[str] = {
+    "show",
+    "list",
+    "get",
+    "fetch",
+    "display",
+    "give",
+    "pull",
+    "view",
+    "see",
+    "look up",
+    "lookup",
+    "find",
+    "retrieve",
+}
+
+# Patterns for direct data retrieval queries
+_DIRECT_PATTERNS: list[re.Pattern[str]] = [
+    # "show me the logs", "get the traces", "list all alerts"
+    re.compile(
+        r"\b(show|list|get|fetch|display|give|pull|view|see)\b.*\b(logs?|traces?|alerts?|metrics?|time.?series)\b",
+        re.IGNORECASE,
+    ),
+    # "what alerts are firing", "what metrics are available"
+    re.compile(
+        r"\bwhat\b.*\b(alerts?|metrics?|logs?|traces?)\b.*\b(are|is|available|firing|active|exist)\b",
+        re.IGNORECASE,
+    ),
+    # Explicit trace ID or URL fetch
+    re.compile(r"\b(trace|span)\b.*\b[0-9a-f]{16,32}\b", re.IGNORECASE),
+    # "logs for service X", "metrics for project Y"
+    re.compile(
+        r"\b(logs?|metrics?|alerts?|traces?)\b\s+(for|from|of|in)\b",
+        re.IGNORECASE,
+    ),
+]
+
+# Keywords indicating analysis (SUB_AGENT tier)
+# These suggest the user wants interpretation, not raw data.
+_ANALYSIS_KEYWORDS: set[str] = {
+    "analyze",
+    "analyse",
+    "analysis",
+    "detect",
+    "find pattern",
+    "find patterns",
+    "anomaly",
+    "anomalies",
+    "bottleneck",
+    "bottlenecks",
+    "compare",
+    "comparison",
+    "correlate",
+    "correlation",
+    "diagnose",
+    "diagnosis",
+    "explain",
+    "identify",
+    "inspect",
+    "pattern",
+    "patterns",
+    "trend",
+    "trends",
+    "debug",
+    "troubleshoot",
+}
+
+# Patterns for analysis queries (SUB_AGENT tier)
+_ANALYSIS_PATTERNS: list[re.Pattern[str]] = [
+    # "analyze the trace", "detect anomalies in metrics"
+    re.compile(
+        r"\b(analyz|analys|detect|diagnos|inspect|debug|troubleshoot)\w*\b",
+        re.IGNORECASE,
+    ),
+    # "what's causing", "why is X slow" (single-signal scope)
+    re.compile(r"\bwhat'?s?\b.*\b(wrong|happening|going on)\b", re.IGNORECASE),
+    # "find the bottleneck", "identify the pattern"
+    re.compile(
+        r"\b(find|identify)\b.*\b(bottleneck|pattern|anomal|trend|issue)\w*\b",
+        re.IGNORECASE,
+    ),
+    # "compare logs from X to Y", "correlate traces with metrics"
+    re.compile(
+        r"\b(compare|correlate)\b.*\b(logs?|traces?|metrics?|alerts?)\b",
+        re.IGNORECASE,
+    ),
+]
+
+
+@dataclass(frozen=True)
+class RoutingResult:
+    """Result of the 3-tier routing classification.
+
+    Attributes:
+        decision: The routing tier (DIRECT, SUB_AGENT, COUNCIL).
+        signal_type: Best-fit signal type for tool/sub-agent selection.
+        investigation_mode: Council investigation mode (only meaningful for COUNCIL).
+        suggested_tools: Tool names suggested for DIRECT routing.
+        suggested_agent: Sub-agent name suggested for SUB_AGENT routing.
+    """
+
+    decision: RoutingDecision
+    signal_type: SignalType = SignalType.TRACE
+    investigation_mode: InvestigationMode = InvestigationMode.STANDARD
+    suggested_tools: tuple[str, ...] = ()
+    suggested_agent: str = ""
+
+
+# Mapping from signal type to suggested direct tools
+_SIGNAL_TO_TOOLS: dict[SignalType, tuple[str, ...]] = {
+    SignalType.TRACE: ("fetch_trace", "list_traces", "get_trace_by_url"),
+    SignalType.METRICS: (
+        "list_time_series",
+        "query_promql",
+        "list_metric_descriptors",
+    ),
+    SignalType.LOGS: ("list_log_entries", "get_logs_for_trace"),
+    SignalType.ALERTS: ("list_alerts", "list_alert_policies", "get_alert"),
+}
+
+# Mapping from signal type to suggested sub-agent
+_SIGNAL_TO_AGENT: dict[SignalType, str] = {
+    SignalType.TRACE: "trace_analyst",
+    SignalType.METRICS: "metrics_analyzer",
+    SignalType.LOGS: "log_analyst",
+    SignalType.ALERTS: "alert_analyst",
+}
+
+
+def classify_routing(query: str) -> RoutingResult:
+    """Classify a user query into a 3-tier routing decision.
+
+    Determines whether a query should be handled by:
+    - DIRECT: Individual tools for simple data retrieval
+    - SUB_AGENT: Specialist sub-agents for focused analysis
+    - COUNCIL: Council meeting for complex multi-signal investigation
+
+    Rules (applied in priority order):
+    1. Council keywords/patterns (root cause, incident, etc.) -> COUNCIL
+    2. Analysis keywords/patterns (analyze, detect, compare, etc.) -> SUB_AGENT
+    3. Direct retrieval keywords/patterns (show, list, get, etc.) -> DIRECT
+    4. Default -> SUB_AGENT (analysis is a safe default)
+
+    Args:
+        query: The user's query string.
+
+    Returns:
+        RoutingResult with decision, signal_type, and routing guidance.
+    """
+    query_lower = query.lower().strip()
+    signal_type = _detect_signal_type(query_lower)
+
+    # 1. Check for council-level queries (highest priority — complex investigations)
+    for keyword in _DEBATE_KEYWORDS:
+        if keyword in query_lower:
+            # Classify the council mode
+            intent = classify_intent_with_signal(query)
+            return RoutingResult(
+                decision=RoutingDecision.COUNCIL,
+                signal_type=signal_type,
+                investigation_mode=intent.mode,
+            )
+
+    for pattern in _DEBATE_PATTERNS:
+        if pattern.search(query_lower):
+            intent = classify_intent_with_signal(query)
+            return RoutingResult(
+                decision=RoutingDecision.COUNCIL,
+                signal_type=signal_type,
+                investigation_mode=intent.mode,
+            )
+
+    # 2. Check for analysis queries (SUB_AGENT tier)
+    query_words = set(re.findall(r"\b\w+\b", query_lower))
+    if query_words & _ANALYSIS_KEYWORDS:
+        return RoutingResult(
+            decision=RoutingDecision.SUB_AGENT,
+            signal_type=signal_type,
+            suggested_agent=_SIGNAL_TO_AGENT.get(signal_type, "trace_analyst"),
+        )
+
+    for pattern in _ANALYSIS_PATTERNS:
+        if pattern.search(query_lower):
+            return RoutingResult(
+                decision=RoutingDecision.SUB_AGENT,
+                signal_type=signal_type,
+                suggested_agent=_SIGNAL_TO_AGENT.get(signal_type, "trace_analyst"),
+            )
+
+    # 3. Check for direct retrieval queries
+    if query_words & _DIRECT_KEYWORDS:
+        for pattern in _DIRECT_PATTERNS:
+            if pattern.search(query_lower):
+                return RoutingResult(
+                    decision=RoutingDecision.DIRECT,
+                    signal_type=signal_type,
+                    suggested_tools=_SIGNAL_TO_TOOLS.get(
+                        signal_type, ("fetch_trace", "list_traces")
+                    ),
+                )
+
+    # Also check direct patterns without requiring a direct keyword
+    for pattern in _DIRECT_PATTERNS:
+        if pattern.search(query_lower):
+            return RoutingResult(
+                decision=RoutingDecision.DIRECT,
+                signal_type=signal_type,
+                suggested_tools=_SIGNAL_TO_TOOLS.get(
+                    signal_type, ("fetch_trace", "list_traces")
+                ),
+            )
+
+    # 4. Default: SUB_AGENT (analysis is the safest default for an SRE agent)
+    return RoutingResult(
+        decision=RoutingDecision.SUB_AGENT,
+        signal_type=signal_type,
+        suggested_agent=_SIGNAL_TO_AGENT.get(signal_type, "trace_analyst"),
+    )

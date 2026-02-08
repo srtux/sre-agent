@@ -9,6 +9,20 @@ from enum import Enum
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class RoutingDecision(str, Enum):
+    """Top-level routing decision for the SRE agent orchestrator.
+
+    Determines how to handle a user query:
+    - DIRECT: Simple data retrieval — call individual tools (logs, metrics, traces, alerts).
+    - SUB_AGENT: Analysis tasks — delegate to a specialist sub-agent.
+    - COUNCIL: Complex multi-signal investigation — start a council meeting.
+    """
+
+    DIRECT = "direct"
+    SUB_AGENT = "sub_agent"
+    COUNCIL = "council"
+
+
 class InvestigationMode(str, Enum):
     """Investigation mode controlling depth and parallelism.
 
