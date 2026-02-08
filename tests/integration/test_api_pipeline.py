@@ -8,11 +8,17 @@ These tests exercise the real middleware stack, router registration, and
 dependency injection — only external GCP APIs are mocked.
 """
 
+import importlib
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
+
+# Load modules explicitly to avoid AttributeError on package attribute access
+# in CI environment (Python 3.10)
+middleware_module = importlib.import_module("sre_agent.api.middleware")
+services_module = importlib.import_module("sre_agent.services")
 
 
 @pytest.fixture
@@ -29,7 +35,7 @@ def app():
     with (
         patch("sre_agent.tools.common.telemetry.setup_telemetry"),
         patch("sre_agent.tools.test_functions.register_all_test_functions"),
-        patch("sre_agent.api.middleware.auth_middleware", _noop_auth),
+        patch.object(middleware_module, "auth_middleware", side_effect=_noop_auth),
     ):
         from sre_agent.api.app import create_app
 
@@ -71,35 +77,35 @@ class TestHealthEndpoints:
 class TestSessionLifecycle:
     """Integration tests for the full session CRUD lifecycle."""
 
-    @patch("sre_agent.services.get_session_service")
-    def test_create_session(self, mock_get_svc: MagicMock, client: TestClient) -> None:
+    def test_create_session(self, client: TestClient) -> None:
         """Create a session via POST."""
         mock_mgr = AsyncMock()
-        mock_get_svc.return_value = mock_mgr
-
         mock_session = MagicMock()
         mock_session.id = "test-session-001"
         mock_session.state = {"title": "Test", "created_at": "2025-01-01T00:00:00Z"}
         mock_mgr.create_session.return_value = mock_session
 
-        response = client.post(
-            "/api/sessions",
-            json={"title": "Test", "project_id": "test-project"},
-        )
-        # Session creation should succeed or return validation error
-        assert response.status_code in (200, 201, 422)
+        # Use patch.object on services_module for get_session_service
+        with patch.object(
+            services_module, "get_session_service", return_value=mock_mgr
+        ):
+            response = client.post(
+                "/api/sessions",
+                json={"title": "Test", "project_id": "test-project"},
+            )
+            # Session creation should succeed or return validation error
+            assert response.status_code in (200, 201, 422)
 
-    @patch("sre_agent.services.get_session_service")
-    def test_get_nonexistent_session(
-        self, mock_get_svc: MagicMock, client: TestClient
-    ) -> None:
+    def test_get_nonexistent_session(self, client: TestClient) -> None:
         """Fetching a nonexistent session returns 404."""
         mock_mgr = AsyncMock()
-        mock_get_svc.return_value = mock_mgr
         mock_mgr.get_session.return_value = None
 
-        response = client.get("/sessions/nonexistent-id")
-        assert response.status_code in (404, 422, 500)
+        with patch.object(
+            services_module, "get_session_service", return_value=mock_mgr
+        ):
+            response = client.get("/sessions/nonexistent-id")
+            assert response.status_code in (404, 422, 500)
 
 
 # ---------------------------------------------------------------------------
