@@ -184,12 +184,28 @@ class MemoryManager:
                         },
                     )
                 elif hasattr(self.memory_service, "add_session_to_memory"):
-                    # ADK VertexAiMemoryBankService syncs via sessions.
-                    # Explicit finding storage is not directly supported;
-                    # we rely on session persistence instead.
-                    logger.debug(
-                        "VertexAiMemoryBankService detected: individual 'save_memory' skipped in favor of session sync."
-                    )
+                    # explicitly add finding if VertexAiMemoryBankService provides client/engine id
+                    if hasattr(self.memory_service, "_get_api_client") and getattr(
+                        self.memory_service, "_agent_engine_id", None
+                    ):
+                        from sre_agent.services.session import ADKSessionManager
+
+                        client = self.memory_service._get_api_client()
+                        app_name = ADKSessionManager.APP_NAME
+                        safe_user_id = user_id or "anonymous"
+
+                        client.agent_engines.memories.create(
+                            name=f"reasoningEngines/{self.memory_service._agent_engine_id}",
+                            fact=f"[{source_tool}] {description}",
+                            scope={"app_name": app_name, "user_id": safe_user_id},
+                        )
+                        logger.info(
+                            f"Explicitly added finding to Vertex AI Memory Bank for {safe_user_id}"
+                        )
+                    else:
+                        logger.debug(
+                            "VertexAiMemoryBankService detected but unable to write directly. Relying on session sync."
+                        )
                 else:
                     logger.warning(
                         f"Memory service {type(self.memory_service).__name__} does not support save_memory"
@@ -433,6 +449,24 @@ class MemoryManager:
                             "user_id": user_id or "anonymous",
                         },
                     )
+                elif hasattr(self.memory_service, "add_session_to_memory"):
+                    if hasattr(self.memory_service, "_get_api_client") and getattr(
+                        self.memory_service, "_agent_engine_id", None
+                    ):
+                        from sre_agent.services.session import ADKSessionManager
+
+                        client = self.memory_service._get_api_client()
+                        app_name = ADKSessionManager.APP_NAME
+                        safe_user_id = user_id or "anonymous"
+
+                        client.agent_engines.memories.create(
+                            name=f"reasoningEngines/{self.memory_service._agent_engine_id}",
+                            fact=pattern_content,
+                            scope={"app_name": app_name, "user_id": safe_user_id},
+                        )
+                        logger.info(
+                            f"Explicitly added pattern to Vertex AI Memory Bank for {safe_user_id}"
+                        )
             except Exception as e:
                 logger.error(f"Failed to persist learned pattern: {e}")
 
