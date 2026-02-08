@@ -1,9 +1,13 @@
+import importlib
 import os
 from unittest.mock import patch
 
 import pytest
 
 from sre_agent.services.session import ADKSessionManager
+
+# Load module explicitly to avoid AttributeError on package attribute access
+session_module = importlib.import_module("sre_agent.services.session")
 
 
 @pytest.fixture
@@ -14,7 +18,7 @@ def mock_vertex_ai_service():
 
 @pytest.fixture
 def mock_db_service():
-    with patch("sre_agent.services.session.DatabaseSessionService") as mock:
+    with patch.object(session_module, "DatabaseSessionService") as mock:
         yield mock
 
 

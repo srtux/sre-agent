@@ -1,5 +1,6 @@
 """Tests for Agent Engine client."""
 
+import importlib
 import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -10,6 +11,12 @@ from sre_agent.services.agent_engine_client import (
     AgentEngineConfig,
     get_agent_engine_client,
     is_remote_mode,
+)
+
+# Load modules explicitly to avoid AttributeError on package attribute access
+session_module = importlib.import_module("sre_agent.services.session")
+agent_engine_client_module = importlib.import_module(
+    "sre_agent.services.agent_engine_client"
 )
 
 
@@ -169,8 +176,9 @@ class TestAgentEngineClient:
             return_value=mock_session
         )
 
-        with patch(
-            "sre_agent.services.session.get_session_service",
+        with patch.object(
+            session_module,
+            "get_session_service",
             return_value=mock_session_manager,
         ):
             session_id = await client.get_or_create_session(
@@ -198,8 +206,9 @@ class TestAgentEngineClient:
             return_value=mock_session
         )
 
-        with patch(
-            "sre_agent.services.session.get_session_service",
+        with patch.object(
+            session_module,
+            "get_session_service",
             return_value=mock_session_manager,
         ):
             session_id = await client.get_or_create_session(
@@ -249,8 +258,9 @@ class TestAgentEngineClient:
         )
 
         with (
-            patch(
-                "sre_agent.services.session.get_session_service",
+            patch.object(
+                session_module,
+                "get_session_service",
                 return_value=mock_session_manager,
             ),
             patch.object(
@@ -307,12 +317,14 @@ class TestAgentEngineClient:
         client._adk_app = mock_adk_app
 
         with (
-            patch(
-                "sre_agent.services.session.get_session_service",
+            patch.object(
+                session_module,
+                "get_session_service",
                 return_value=mock_session_manager,
             ),
-            patch(
-                "sre_agent.services.agent_engine_client.encrypt_token",
+            patch.object(
+                agent_engine_client_module,
+                "encrypt_token",
                 side_effect=lambda x: x,
             ),
         ):
@@ -379,8 +391,9 @@ class TestAgentEngineClient:
         client._initialized = True
         client._adk_app = mock_adk_app
 
-        with patch(
-            "sre_agent.services.session.get_session_service",
+        with patch.object(
+            session_module,
+            "get_session_service",
             return_value=mock_session_manager,
         ):
             events: list[dict] = []
@@ -488,8 +501,9 @@ class TestAgentEngineClient:
         client._initialized = True
         client._adk_app = mock_adk_app
 
-        with patch(
-            "sre_agent.services.session.get_session_service",
+        with patch.object(
+            session_module,
+            "get_session_service",
             return_value=mock_session_manager,
         ):
             events = []
@@ -531,8 +545,9 @@ class TestAgentEngineClient:
         client._initialized = True
         client._adk_app = mock_adk_app
 
-        with patch(
-            "sre_agent.services.session.get_session_service",
+        with patch.object(
+            session_module,
+            "get_session_service",
             return_value=mock_session_manager,
         ):
             events = []
@@ -569,8 +584,9 @@ class TestAgentEngineClient:
         mock_adk_app_v.async_stream_query = MagicMock(side_effect=mock_v_err)
         client._adk_app = mock_adk_app_v
 
-        with patch(
-            "sre_agent.services.session.get_session_service",
+        with patch.object(
+            session_module,
+            "get_session_service",
             return_value=mock_session_manager,
         ):
             events = []
@@ -590,8 +606,9 @@ class TestAgentEngineClient:
         mock_adk_app_a.async_stream_query = MagicMock(side_effect=mock_a_err)
         client._adk_app = mock_adk_app_a
 
-        with patch(
-            "sre_agent.services.session.get_session_service",
+        with patch.object(
+            session_module,
+            "get_session_service",
             return_value=mock_session_manager,
         ):
             events = []
