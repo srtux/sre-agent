@@ -40,8 +40,10 @@ class LiveMetricsPanel extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
           child: ManualQueryBar(
             hintText: 'metric.type="compute.googleapis.com/..."',
+            initialValue: dashboardState.getLastQueryFilter(DashboardDataType.metrics),
             isLoading: isLoading,
             onSubmit: (filter) {
+              dashboardState.setLastQueryFilter(DashboardDataType.metrics, filter);
               final explorer = context.read<ExplorerQueryService>();
               explorer.queryMetrics(filter: filter);
             },
@@ -99,7 +101,7 @@ class LiveMetricsPanel extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Container(
-        height: isWide ? 400 : 350,
+        height: isWide ? 550 : 450,
         decoration: BoxDecoration(
           color: AppColors.backgroundCard,
           borderRadius: BorderRadius.circular(12),
@@ -157,7 +159,7 @@ class LiveMetricsPanel extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Container(
-        height: 350,
+        height: isWide ? 550 : 450,
         decoration: BoxDecoration(
           color: AppColors.backgroundCard,
           borderRadius: BorderRadius.circular(12),

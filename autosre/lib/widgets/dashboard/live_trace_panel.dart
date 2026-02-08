@@ -49,8 +49,10 @@ class _LiveTracePanelState extends State<LiveTracePanel> {
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
           child: ManualQueryBar(
             hintText: 'Enter Trace ID...',
+            initialValue: widget.dashboardState.getLastQueryFilter(DashboardDataType.traces),
             isLoading: isLoading,
             onSubmit: (traceId) {
+              widget.dashboardState.setLastQueryFilter(DashboardDataType.traces, traceId);
               final explorer = context.read<ExplorerQueryService>();
               explorer.queryTrace(traceId: traceId);
             },

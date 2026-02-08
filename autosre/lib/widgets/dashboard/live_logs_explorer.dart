@@ -89,8 +89,10 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
           child: ManualQueryBar(
             hintText: 'severity>=ERROR AND resource.type="..."',
+            initialValue: widget.dashboardState.getLastQueryFilter(DashboardDataType.logs),
             isLoading: isLoading,
             onSubmit: (filter) {
+              widget.dashboardState.setLastQueryFilter(DashboardDataType.logs, filter);
               final explorer = context.read<ExplorerQueryService>();
               explorer.queryLogs(filter: filter);
             },

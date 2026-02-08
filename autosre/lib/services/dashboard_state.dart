@@ -110,6 +110,16 @@ class DashboardState extends ChangeNotifier {
   /// Error messages per panel type.
   final Map<DashboardDataType, String?> _errorStates = {};
 
+  /// Last manual query filters per panel type.
+  final Map<DashboardDataType, String> _lastQueryFilters = {};
+
+  String? getLastQueryFilter(DashboardDataType type) => _lastQueryFilters[type];
+  void setLastQueryFilter(DashboardDataType type, String filter) {
+    _lastQueryFilters[type] = filter;
+    // We don't necessarily need to notifyListeners just for text updates,
+    // but the text field could read it to retain state.
+  }
+
   /// Auto-refresh toggle.
   bool _autoRefresh = false;
   bool get autoRefresh => _autoRefresh;
@@ -528,6 +538,7 @@ class DashboardState extends ChangeNotifier {
     _itemCounter = 0;
     _loadingStates.clear();
     _errorStates.clear();
+    _lastQueryFilters.clear();
     _refreshTimer?.cancel();
     _refreshTimer = null;
     _autoRefresh = false;

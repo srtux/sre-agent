@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 
 import '../../services/dashboard_state.dart';
+import '../../services/explorer_query_service.dart';
 import '../../theme/app_theme.dart';
 import '../common/explorer_empty_state.dart';
 import 'live_logs_explorer.dart';
@@ -91,7 +93,29 @@ class _DashboardPanelState extends State<DashboardPanel>
             _buildHeader(),
             SreToolbar(
               dashboardState: widget.state,
-              onRefresh: () {},
+              onRefresh: () {
+                final activeType = widget.state.activeTab;
+                final filter = widget.state.getLastQueryFilter(activeType);
+                if (filter != null && filter.isNotEmpty) {
+                  final explorer = context.read<ExplorerQueryService>();
+                  switch (activeType) {
+                    case DashboardDataType.metrics:
+                      explorer.queryMetrics(filter: filter);
+                      break;
+                    case DashboardDataType.logs:
+                      explorer.queryLogs(filter: filter);
+                      break;
+                    case DashboardDataType.alerts:
+                      explorer.queryAlerts(filter: filter);
+                      break;
+                    case DashboardDataType.traces:
+                      explorer.queryTrace(traceId: filter); // Assuming filter holds trace ID
+                      break;
+                    default:
+                      break;
+                  }
+                }
+              },
             ),
             _buildTabBar(),
             Expanded(child: _buildContent()),

@@ -13,16 +13,16 @@ import 'dashboard_state.dart';
 /// with [DataSource.manual] tracking.
 class ExplorerQueryService {
   final DashboardState _dashboardState;
-  final http.Client Function() _clientFactory;
+  final Future<http.Client> Function() _clientFactory;
   final String _baseUrl;
 
   ExplorerQueryService({
     required DashboardState dashboardState,
-    required http.Client Function() clientFactory,
-    String baseUrl = 'http://127.0.0.1:8001',
+    required Future<http.Client> Function() clientFactory,
+    String? baseUrl,
   })  : _dashboardState = dashboardState,
         _clientFactory = clientFactory,
-        _baseUrl = baseUrl;
+        _baseUrl = baseUrl ?? (kDebugMode ? 'http://127.0.0.1:8001' : '');
 
   /// Query time-series metrics.
   Future<void> queryMetrics({
@@ -105,7 +105,7 @@ class ExplorerQueryService {
         url += '?project_id=${Uri.encodeComponent(projectId)}';
       }
 
-      final client = _clientFactory();
+      final client = await _clientFactory();
       try {
         final response = await client.get(Uri.parse(url)).timeout(
           const Duration(seconds: 30),
@@ -175,7 +175,7 @@ class ExplorerQueryService {
   }
 
   Future<http.Response> _post(String path, String body) async {
-    final client = _clientFactory();
+    final client = await _clientFactory();
     try {
       final response = await client.post(
         Uri.parse('$_baseUrl$path'),

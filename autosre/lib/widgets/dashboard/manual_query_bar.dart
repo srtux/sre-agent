@@ -13,6 +13,7 @@ class ManualQueryBar extends StatefulWidget {
   final ValueChanged<String> onSubmit;
   final bool isLoading;
   final VoidCallback? onClear;
+  final String? initialValue;
 
   const ManualQueryBar({
     super.key,
@@ -20,6 +21,7 @@ class ManualQueryBar extends StatefulWidget {
     required this.onSubmit,
     this.isLoading = false,
     this.onClear,
+    this.initialValue,
   });
 
   @override
@@ -34,7 +36,8 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController();
+    _controller = TextEditingController(text: widget.initialValue);
+    _hasText = _controller.text.isNotEmpty;
     _focusNode = FocusNode();
     _controller.addListener(_onTextChanged);
   }

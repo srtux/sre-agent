@@ -125,6 +125,7 @@ class SreToolbar extends StatelessWidget {
                   onSelected: (_) {
                     dashboardState
                         .setTimeRange(TimeRange.fromPreset(preset));
+                    onRefresh?.call();
                   },
                   labelStyle: TextStyle(
                     fontSize: 11,

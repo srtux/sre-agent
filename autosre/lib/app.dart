@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'pages/conversation_page.dart';
 import 'pages/login_page.dart';
@@ -30,7 +29,7 @@ class SreNexusApp extends StatelessWidget {
         ProxyProvider<DashboardState, ExplorerQueryService>(
           update: (_, dashState, _) => ExplorerQueryService(
             dashboardState: dashState,
-            clientFactory: () => http.Client(),
+            clientFactory: () => AuthService.instance.getAuthenticatedClient(),
           ),
         ),
       ],

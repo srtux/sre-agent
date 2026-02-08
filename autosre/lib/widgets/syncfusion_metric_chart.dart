@@ -95,8 +95,6 @@ class _SyncfusionMetricChartState extends State<SyncfusionMetricChart> {
       children: [
         _buildHeader(),
         const SizedBox(height: 8),
-        _buildToggleRow(),
-        const SizedBox(height: 8),
         Expanded(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(4, 4, 12, 4),
@@ -194,25 +192,16 @@ class _SyncfusionMetricChartState extends State<SyncfusionMetricChart> {
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildToggleRow() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
+          const SizedBox(width: 8),
           _buildToggle(
-            'Show Trend',
+            'Trend',
             _showTrendLine,
             (v) => setState(() => _showTrendLine = v),
             AppColors.warning,
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           _buildToggle(
-            'Show Threshold',
+            'Threshold',
             _showThreshold,
             (v) => setState(() => _showThreshold = v),
             AppColors.primaryCyan,
@@ -409,34 +398,30 @@ class _SyncfusionMetricChartState extends State<SyncfusionMetricChart> {
   ) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(6),
           border: Border.all(color: color.withValues(alpha: 0.15)),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Row(
-              children: [
-                Icon(icon, size: 10, color: color),
-                const SizedBox(width: 4),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.textMuted,
-                  ),
-                ),
-              ],
+            Icon(icon, size: 10, color: color),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w500,
+                color: AppColors.textMuted,
+              ),
             ),
-            const SizedBox(height: 2),
+            const SizedBox(width: 6),
             Text(
               value,
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
                 color: color,
                 fontFamily: 'monospace',
