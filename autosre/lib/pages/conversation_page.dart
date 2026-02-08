@@ -1865,12 +1865,8 @@ class _MessageItemState extends State<_MessageItem>
     return const SizedBox.shrink();
   }
   String _sanitizeMarkdown(String text) {
-    // 1. Ensure table separator rows start on a new line
-    // Matches a non-newline char followed by one or two pipes and separator dashes/colons
-    final tableSeparator = RegExp(r'([^\n])\s*(\|{1,2}\s*[\:\-]{3,})');
-    return text.replaceAllMapped(tableSeparator, (match) {
-      return '${match.group(1)}\n${match.group(2)}';
-    });
+    // The previous sanitization regex incorrectly split valid table columns.
+    return text;
   }
 }
 

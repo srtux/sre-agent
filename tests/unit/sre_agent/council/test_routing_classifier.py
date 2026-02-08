@@ -9,7 +9,6 @@ Validates that queries are correctly routed to the appropriate tier:
 import pytest
 
 from sre_agent.council.intent_classifier import (
-    RoutingResult,
     SignalType,
     classify_routing,
 )
@@ -56,14 +55,20 @@ class TestDirectRouting:
         result = classify_routing("get the traces for the API gateway")
         assert result.decision == RoutingDecision.DIRECT
         assert result.signal_type == SignalType.TRACE
-        assert "fetch_trace" in result.suggested_tools or "list_traces" in result.suggested_tools
+        assert (
+            "fetch_trace" in result.suggested_tools
+            or "list_traces" in result.suggested_tools
+        )
 
     def test_direct_metrics_suggests_metric_tools(self) -> None:
         """Metric retrieval queries should suggest metric-related tools."""
         result = classify_routing("list the time series for CPU utilization")
         assert result.decision == RoutingDecision.DIRECT
         assert result.signal_type == SignalType.METRICS
-        assert "list_time_series" in result.suggested_tools or "query_promql" in result.suggested_tools
+        assert (
+            "list_time_series" in result.suggested_tools
+            or "query_promql" in result.suggested_tools
+        )
 
     def test_direct_alerts_suggests_alert_tools(self) -> None:
         """Alert retrieval queries should suggest alert-related tools."""

@@ -88,9 +88,7 @@ class TestRouteRequestCouncil:
     @pytest.mark.asyncio
     async def test_council_tier_for_incident(self) -> None:
         """Incident investigation should return COUNCIL tier."""
-        result = await route_request(
-            query="P0 incident: payment service is down"
-        )
+        result = await route_request(query="P0 incident: payment service is down")
         assert result.status.value == "success"
         assert result.result["decision"] == "council"
 
@@ -100,7 +98,10 @@ class TestRouteRequestCouncil:
         result = await route_request(query="root cause of the outage")
         assert result.status.value == "success"
         assert "guidance" in result.result
-        assert "council investigation" in result.result["guidance"].lower() or "run_council_investigation" in result.result["guidance"]
+        assert (
+            "council investigation" in result.result["guidance"].lower()
+            or "run_council_investigation" in result.result["guidance"]
+        )
 
 
 class TestRouteRequestMetadata:
