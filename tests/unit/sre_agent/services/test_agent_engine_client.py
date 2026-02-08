@@ -13,8 +13,11 @@ from sre_agent.services.agent_engine_client import (
     is_remote_mode,
 )
 
-# Load module explicitly to avoid AttributeError on package attribute access
+# Load modules explicitly to avoid AttributeError on package attribute access
 session_module = importlib.import_module("sre_agent.services.session")
+agent_engine_client_module = importlib.import_module(
+    "sre_agent.services.agent_engine_client"
+)
 
 
 class TestAgentEngineConfig:
@@ -319,8 +322,9 @@ class TestAgentEngineClient:
                 "get_session_service",
                 return_value=mock_session_manager,
             ),
-            patch(
-                "sre_agent.services.agent_engine_client.encrypt_token",
+            patch.object(
+                agent_engine_client_module,
+                "encrypt_token",
                 side_effect=lambda x: x,
             ),
         ):
