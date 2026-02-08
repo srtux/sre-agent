@@ -6,6 +6,6 @@ description: Agent Development Kit from Google
 
 ## Instructions
 
-1. Open <repository root>/adk-python to learn how to use Python SDK of google-adk library
-2. Open <repository root>/adk-docs/docs/streaming/custom-streaming-ws.md to learn how to write an ADK bidi-streaming app
-3. Open <repository root>/adk-docs/docs to find other relevant documentation on ADK concepts and patterns
+1. Read the source code in `./adk-python` to learn how to use the Google ADK Python SDK.
+2. Read `./adk-docs/docs/streaming/index.md` and `./adk-docs/docs/streaming/dev-guide/part1.md` to learn how to write an ADK bidi-streaming app.
+3. Read documentation in `./adk-docs/docs` to find other relevant patterns and concepts.
