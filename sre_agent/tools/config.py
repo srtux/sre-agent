@@ -164,6 +164,13 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         category=ToolCategory.ORCHESTRATION,
         testable=False,
     ),
+    ToolConfig(
+        name="route_request",
+        display_name="Route Request",
+        description="Route a user query to the appropriate handling tier (direct tools, sub-agent, or council)",
+        category=ToolCategory.ORCHESTRATION,
+        testable=False,
+    ),
     # -------------------------------------------------------------------------
     # Memory Tools
     # -------------------------------------------------------------------------

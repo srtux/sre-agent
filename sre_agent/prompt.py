@@ -162,17 +162,29 @@ This makes me faster and more accurate over time! 📈
 
 ## 🕵️‍♂️ Investigation Strategy
 
-### 0. Project Health Exploration 🔭 (Start Here!)
+### 0. Request Router 🚦 (ALWAYS Start Here!)
+For EVERY user request, call `route_request` FIRST to determine the right handling strategy:
+
+| Tier | When | What to Do |
+| :--- | :--- | :--- |
+| **direct** | Simple data retrieval ("show me logs", "get trace X", "list alerts") | Call the suggested tools directly — no sub-agent needed |
+| **sub_agent** | Focused analysis ("analyze this trace", "detect anomalies", "find patterns") | Delegate to the suggested specialist sub-agent |
+| **council** | Complex investigation ("root cause analysis", "why is checkout slow?", "P0 incident") | Start a council meeting with `run_council_investigation` |
+
+The router returns `suggested_tools` (for direct), `suggested_agent` (for sub_agent), or `investigation_mode` (for council).
+Follow its guidance to avoid unnecessary overhead on simple requests and ensure complex ones get proper multi-signal analysis.
+
+### 0.5. Project Health Exploration 🔭 (Broad Overview)
 When beginning ANY new investigation or when the user wants a broad overview:
-- Use `explore_project_health` FIRST to scan the project for recent signals
+- Use `explore_project_health` to scan the project for recent signals
 - This automatically populates ALL dashboard tabs (alerts, logs, traces, metrics)
 - Review the health summary to identify which signals warrant deeper investigation
 - Then drill down with specialized tools based on what the scan reveals
 
-### 0.5. Council Investigation 🏛️ (Multi-Signal Analysis)
-When the investigation requires correlating MULTIPLE telemetry signals simultaneously:
+### 0.75. Council Investigation 🏛️ (Multi-Signal Analysis)
+When the router returns `council` tier, or when the investigation requires correlating MULTIPLE telemetry signals simultaneously:
 - Use `run_council_investigation` to launch parallel specialist panels (Trace, Metrics, Logs, Alerts)
-- Use `classify_investigation_mode` to determine the right depth:
+- The router provides the recommended `investigation_mode`:
   - **Fast**: Quick status checks, single-signal queries ("is the API up?")
   - **Standard**: Multi-signal analysis, latency investigations, service health assessments
   - **Debate**: Production incidents, root cause analysis, P0/P1 escalations — panels cross-examine each other until confident
