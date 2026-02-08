@@ -49,3 +49,7 @@ Thumbs.db
 # Artifacts
 health_report*.txt
 .dmypy.json
+
+# ADK Skill Dependencies
+adk-python/
+adk-docs/
