@@ -241,6 +241,9 @@ def transform_metrics(metric_data: Any) -> dict[str, Any]:
         if "top_items" in metric_data or "items" in metric_data:
             metric_data = metric_data.get("top_items") or metric_data.get("items")
             logger.info("📊 Extracted metric series from sandbox result")
+        elif "timeSeries" in metric_data:
+            metric_data = metric_data.get("timeSeries")
+            logger.info("📊 Extracted timeSeries from MCP result")
 
     # If it's a list from list_time_series or extracted from sandbox, take the first one
     if isinstance(metric_data, list) and metric_data:
@@ -272,14 +275,13 @@ def transform_metrics(metric_data: Any) -> dict[str, Any]:
                     ts = p["interval"].get("endTime")
                     v_dict = p["value"]
                     # Support different value types in Monitoring API
-                    v = (
-                        v_dict.get("doubleValue")
-                        or v_dict.get("int64Value")
-                        or v_dict.get(
-                            "distributionValue"
-                        )  # Not fully supported but avoid crash
-                        or 0.0
-                    )
+                    if "doubleValue" in v_dict:
+                        v = v_dict["doubleValue"]
+                    elif "int64Value" in v_dict:
+                        v = v_dict["int64Value"]
+                    else:
+                        v = 0.0
+
                     if ts:
                         points.append(
                             {
