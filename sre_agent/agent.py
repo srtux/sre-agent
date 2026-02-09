@@ -62,7 +62,6 @@ from typing import Any
 
 # Determine environment settings for Agent initialization
 import google.auth
-import vertexai
 from google.adk.agents import BaseAgent, LlmAgent
 from google.adk.tools import AgentTool  # type: ignore[attr-defined]
 from google.adk.tools.base_toolset import BaseToolset
@@ -274,6 +273,8 @@ if project_id:
 
 if project_id and os.environ.get("SRE_AGENT_DEPLOYMENT_MODE") != "true":
     try:
+        import vertexai  # Deferred: saves ~40 s when agent.py is imported in tests
+
         vertexai.init(project=project_id, location=location)
         logger.info(f"✅ Initialized Vertex AI: {project_id} @ {location}")
     except Exception as e:

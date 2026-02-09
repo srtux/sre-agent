@@ -82,12 +82,23 @@ try:
 except ImportError:
     pass
 
-# Avoid top-level imports of heavy agent modules to prevent early
-# initialization of OTel or ADK before telemetry.setup_telemetry() runs.
-# Modules should import from .agent directly.
-# However, for ADK CLI compatibility (e.g. adk eval), we need to expose
-# the agent module and root_agent at the package level.
-from . import agent  # noqa: E402
-from .agent import root_agent  # noqa: E402
+# Lazy-load heavy agent module to avoid importing vertexai (~40s) on every
+# `import sre_agent.*`.  ADK CLI compatibility (adk run/eval) is preserved
+# because accessing `sre_agent.agent` or `sre_agent.root_agent` triggers
+# the deferred import via __getattr__ (PEP 562).
+
+
+def __getattr__(name: str) -> object:
+    """Lazy-load heavy submodules on first access (PEP 562)."""
+    if name == "agent":
+        from . import agent
+
+        return agent
+    if name == "root_agent":
+        from .agent import root_agent
+
+        return root_agent
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = ["agent", "auth", "prompt", "root_agent", "schema", "suggestions", "tools"]

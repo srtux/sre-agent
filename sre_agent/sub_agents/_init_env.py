@@ -7,7 +7,6 @@ duplicating vertexai.init() and project ID discovery across sub-agents.
 import os
 
 import google.auth
-import vertexai
 
 # Module-level flag to track initialization status
 _initialized: bool = False
@@ -53,6 +52,8 @@ def init_sub_agent_env() -> tuple[str | None, str]:
 
     if use_vertex and project_id:
         try:
+            import vertexai  # Deferred: saves ~40 s at module import time
+
             vertexai.init(project=project_id, location=location)
         except Exception:
             pass
