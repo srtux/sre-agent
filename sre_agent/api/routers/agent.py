@@ -260,13 +260,19 @@ async def _handle_remote_agent(
                 parts = content.get("parts", []) if isinstance(content, dict) else []
 
                 for part in parts:
-                    # Handle text
-                    text = part.get("text") if isinstance(part, dict) else None
+                    # Robust extraction: part can be a dict or a structured object (ADK Part)
+                    text = getattr(part, "text", None)
+                    if text is None and isinstance(part, dict):
+                        text = part.get("text")
+
                     if text:
                         yield json.dumps({"type": "text", "content": text}) + "\n"
 
                     # Handle thought
-                    thought = part.get("thought") if isinstance(part, dict) else None
+                    thought = getattr(part, "thought", None)
+                    if thought is None and isinstance(part, dict):
+                        thought = part.get("thought")
+
                     if thought:
                         formatted_thought = f"\n\n**Thought**: {thought}\n\n"
                         yield (
@@ -274,40 +280,62 @@ async def _handle_remote_agent(
                             + "\n"
                         )
 
-                    # Handle function calls (simple inline events)
-                    fc = part.get("function_call") if isinstance(part, dict) else None
+                    # Handle function calls
+                    fc = getattr(part, "function_call", None)
+                    if fc is None and isinstance(part, dict):
+                        fc = part.get("function_call")
+
                     if fc:
-                        tool_name = fc.get("name", "")
-                        tool_args = normalize_tool_args(fc.get("args", {}))
-                        _call_id, events = create_tool_call_events(
-                            tool_name, tool_args, pending_tool_calls
+                        tool_name = (
+                            getattr(fc, "name", None)
+                            if not isinstance(fc, dict)
+                            else fc.get("name", "")
                         )
-                        for evt_str in events:
-                            yield evt_str + "\n"
+                        if tool_name and isinstance(tool_name, str):
+                            tool_args_raw = (
+                                getattr(fc, "args", None)
+                                if not isinstance(fc, dict)
+                                else fc.get("args", {})
+                            )
+                            tool_args = normalize_tool_args(tool_args_raw)
+                            _call_id, events = create_tool_call_events(
+                                tool_name, tool_args, pending_tool_calls
+                            )
+                            for evt_str in events:
+                                yield evt_str + "\n"
 
-                    # Handle function responses (simple inline events + dashboard)
-                    fr = (
-                        part.get("function_response")
-                        if isinstance(part, dict)
-                        else None
-                    )
+                    # Handle function responses
+                    fr = getattr(part, "function_response", None)
+                    if fr is None and isinstance(part, dict):
+                        fr = part.get("function_response")
+
                     if fr:
-                        tool_name = fr.get("name", "")
-                        result = fr.get("response") or fr.get("result")
-                        _resp_id, events = create_tool_response_events(
-                            tool_name, result, pending_tool_calls
+                        tool_name = (
+                            getattr(fr, "name", None)
+                            if not isinstance(fr, dict)
+                            else fr.get("name", "")
                         )
-                        for evt_str in events:
-                            yield evt_str + "\n"
+                        if tool_name and isinstance(tool_name, str):
+                            result = (
+                                getattr(fr, "response", None)
+                                or getattr(fr, "result", None)
+                                if not isinstance(fr, dict)
+                                else (fr.get("response") or fr.get("result"))
+                            )
+                            _resp_id, events = create_tool_response_events(
+                                tool_name, result, pending_tool_calls
+                            )
+                            for evt_str in events:
+                                yield evt_str + "\n"
 
-                        # Dashboard data event (separate channel for right panel)
-                        if tool_name == "explore_project_health":
-                            for evt in create_exploration_dashboard_events(result):
-                                yield evt + "\n"
-                        else:
-                            dash_evt = create_dashboard_event(tool_name, result)
-                            if dash_evt:
-                                yield dash_evt + "\n"
+                            # Dashboard data event (separate channel for right panel)
+                            if tool_name == "explore_project_health":
+                                for evt in create_exploration_dashboard_events(result):
+                                    yield evt + "\n"
+                            else:
+                                dash_evt = create_dashboard_event(tool_name, result)
+                                if dash_evt:
+                                    yield dash_evt + "\n"
 
                         # Memory events for UI visibility (toasts)
                         event_bus = get_memory_event_bus()
@@ -762,6 +790,7 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                         text = getattr(part, "text", None)
                         if text is None and isinstance(part, dict):
                             text = part.get("text")
+
                         if text and isinstance(text, str):
                             logger.info(f"📤 Yielding text: {str(text)[:50]}...")
                             yield json.dumps({"type": "text", "content": text}) + "\n"
@@ -770,6 +799,7 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                         thought = getattr(part, "thought", None)
                         if thought is None and isinstance(part, dict):
                             thought = part.get("thought")
+
                         if thought and isinstance(thought, str):
                             # logger.info(f"🧠 Yielding reasoning thought: {str(thought)[:50]}...")
                             formatted_thought = f"\n\n**Thought**: {thought}\n\n"
@@ -780,20 +810,23 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                                 + "\n"
                             )
 
-                        # C. Handle Tool Calls (simple inline events)
+                        # C. Handle Tool Calls
                         fc = getattr(part, "function_call", None)
                         if fc is None and isinstance(part, dict):
                             fc = part.get("function_call")
 
                         if fc:
-                            tool_name = getattr(fc, "name", None)
-                            if tool_name is None and isinstance(fc, dict):
-                                tool_name = fc.get("name")
-
+                            tool_name = (
+                                getattr(fc, "name", None)
+                                if not isinstance(fc, dict)
+                                else fc.get("name")
+                            )
                             if tool_name and isinstance(tool_name, str):
-                                tool_args_raw = getattr(fc, "args", None)
-                                if tool_args_raw is None and isinstance(fc, dict):
-                                    tool_args_raw = fc.get("args")
+                                tool_args_raw = (
+                                    getattr(fc, "args", None)
+                                    if not isinstance(fc, dict)
+                                    else fc.get("args")
+                                )
                                 tool_args = normalize_tool_args(tool_args_raw)
 
                                 logger.info(
@@ -806,32 +839,41 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                                 for evt_str in events:
                                     yield evt_str + "\n"
 
-                        # D. Handle Tool Responses (simple inline events + dashboard)
+                        # D. Handle Tool Responses
                         fr = getattr(part, "function_response", None)
                         if fr is None and isinstance(part, dict):
                             fr = part.get("function_response")
 
                         if fr:
-                            tool_name = getattr(fr, "name", None)
-                            if tool_name is None and isinstance(fr, dict):
-                                tool_name = fr.get("name")
-
+                            tool_name = (
+                                getattr(fr, "name", None)
+                                if not isinstance(fr, dict)
+                                else fr.get("name")
+                            )
                             if tool_name and isinstance(tool_name, str):
-                                result = getattr(fr, "response", None)
-                                if result is None and isinstance(fr, dict):
-                                    result = fr.get("response")
-                                if result is None:
-                                    result = getattr(fr, "result", None)
-                                    if result is None and isinstance(fr, dict):
-                                        result = fr.get("result")
+                                result = (
+                                    getattr(fr, "response", None)
+                                    or getattr(fr, "result", None)
+                                    if not isinstance(fr, dict)
+                                    else (fr.get("response") or fr.get("result"))
+                                )
 
                                 logger.info(f"✅ Tool Response: {tool_name}")
                                 _resp_id, events = create_tool_response_events(
                                     tool_name, result, pending_tool_calls
                                 )
-
                                 for evt_str in events:
                                     yield evt_str + "\n"
+
+                                # Separate dashboard data event
+                                if tool_name == "explore_project_health":
+                                    for evt in create_exploration_dashboard_events(
+                                        result
+                                    ):
+                                        logger.info(
+                                            f"📊 Dashboard event (inline) for {tool_name}"
+                                        )
+                                        yield evt + "\n"
 
                                 # Memory events for UI visibility (toasts)
                                 event_bus = get_memory_event_bus()

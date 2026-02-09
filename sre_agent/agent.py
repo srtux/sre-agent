@@ -455,6 +455,7 @@ def emojify_agent(agent: LlmAgent | BaseAgent | Any) -> LlmAgent | BaseAgent | A
         if session_id and session_id != "unknown":
             set_langfuse_session(session_id)
 
+        user_email = session_state.get("user_email") if session_state else None
         if user_id and user_id != "unknown":
             set_langfuse_user(user_id)
         elif user_email:

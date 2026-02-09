@@ -48,4 +48,4 @@ if __name__ == "__main__":
     # We rely on our own setup_telemetry() for formatting, so we pass log_config=None
     # However, Uvicorn will still create 'uvicorn' and 'uvicorn.access' loggers.
     # By passing log_config=None, Uvicorn won't overwrite our root logger configuration.
-    uvicorn.run(app, host=host, port=port, log_config=None)
+    uvicorn.run("server:app", host=host, port=port, log_config=None, workers=4)

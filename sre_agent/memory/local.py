@@ -44,7 +44,7 @@ class LocalMemoryService:
     def _init_db(self) -> None:
         """Initialize the database schema."""
         try:
-            with sqlite3.connect(self.db_path) as conn:
+            with sqlite3.connect(self.db_path, timeout=10.0) as conn:
                 conn.execute("""
                     CREATE TABLE IF NOT EXISTS memories (
                         id TEXT PRIMARY KEY,
@@ -94,7 +94,7 @@ class LocalMemoryService:
         memory_id = str(uuid.uuid4())
 
         try:
-            with sqlite3.connect(self.db_path) as conn:
+            with sqlite3.connect(self.db_path, timeout=10.0) as conn:
                 conn.execute(
                     "INSERT INTO memories (id, user_id, session_id, content, metadata) VALUES (?, ?, ?, ?, ?)",
                     (
@@ -134,7 +134,7 @@ class LocalMemoryService:
         """
         results = []
         try:
-            with sqlite3.connect(self.db_path) as conn:
+            with sqlite3.connect(self.db_path, timeout=10.0) as conn:
                 # Simple keyword search
                 cursor = conn.execute(
                     """
