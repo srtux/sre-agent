@@ -422,6 +422,7 @@ async def list_traces(
             start_time,
             end_time,
             attributes_json,
+            filter_str,
         )
         if isinstance(result, dict) and "error" in result:
             return BaseToolResponse(status=ToolStatus.ERROR, error=result["error"])
@@ -438,6 +439,7 @@ def _list_traces_sync(
     start_time: str | None = None,
     end_time: str | None = None,
     attributes_json: str | None = None,
+    extra_filter: str = "",
 ) -> list[dict[str, Any]] | dict[str, Any]:
     """Synchronous implementation of list_traces."""
     thread_creds = _get_thread_credentials() or GLOBAL_CONTEXT_CREDENTIALS
@@ -457,6 +459,8 @@ def _list_traces_sync(
             filters.append(f"latency:{min_latency_ms}ms")
         if error_only:
             filters.append("error:true")
+        if extra_filter:
+            filters.append(extra_filter)
         filter_str = " ".join(filters)
 
         start_timestamp = None
@@ -655,33 +659,49 @@ async def find_example_traces(
                 status=ToolStatus.ERROR, error="GOOGLE_CLOUD_PROJECT not set"
             )
 
-        tasks: list[Coroutine[Any, Any, Any]] = []
-        slow_filter = TraceFilterBuilder().add_latency(1000).build()
-        tasks.append(
-            list_traces(
-                project_id, limit=20, filter_str=slow_filter, tool_context=tool_context
-            )
-        )
-        tasks.append(list_traces(project_id, limit=50, tool_context=tool_context))
-        if prefer_errors:
+        user_creds = get_credentials_from_tool_context(tool_context)
+        try:
+            # Fallback to GLOBAL_CONTEXT_CREDENTIALS for local/ADC execution
+            creds = user_creds or GLOBAL_CONTEXT_CREDENTIALS
+            _set_thread_credentials(creds)
+
+            tasks: list[Coroutine[Any, Any, Any]] = []
+            slow_filter = TraceFilterBuilder().add_latency(1000).build()
+
+            # Optimization: Call _list_traces_sync directly to avoid @adk_tool overhead
+            # and redundant credential setup/teardown.
             tasks.append(
-                list_traces(
-                    project_id, limit=10, error_only=True, tool_context=tool_context
+                run_in_threadpool(
+                    _list_traces_sync,
+                    project_id=project_id,
+                    limit=20,
+                    extra_filter=slow_filter,
                 )
             )
-
-        results = await asyncio.gather(*tasks)
-
-        # Helper to extract from normalized dict response (from adk_tool)
-        def extract(resp: dict[str, Any] | Any) -> list[dict[str, Any]]:
-            if isinstance(resp, dict) and "status" in resp:
-                return (
-                    cast(list[dict[str, Any]], resp.get("result"))
-                    if resp.get("status") == "success"
-                    and isinstance(resp.get("result"), list)
-                    else []
+            tasks.append(
+                run_in_threadpool(_list_traces_sync, project_id=project_id, limit=50)
+            )
+            if prefer_errors:
+                tasks.append(
+                    run_in_threadpool(
+                        _list_traces_sync,
+                        project_id=project_id,
+                        limit=10,
+                        error_only=True,
+                    )
                 )
-            return cast(list[dict[str, Any]], resp if isinstance(resp, list) else [])
+
+            results = await asyncio.gather(*tasks)
+        finally:
+            _clear_thread_credentials()
+
+        # Helper to extract from raw response (list or dict with error)
+        def extract(
+            resp: list[dict[str, Any]] | dict[str, Any],
+        ) -> list[dict[str, Any]]:
+            if isinstance(resp, list):
+                return resp
+            return []
 
         slow_traces = extract(results[0])
         traces = extract(results[1])
@@ -689,9 +709,9 @@ async def find_example_traces(
 
         if not traces:
             # Check if traces_resp exists and has error
-            if isinstance(results[1], dict) and results[1].get("status") == "error":
+            if isinstance(results[1], dict) and "error" in results[1]:
                 return BaseToolResponse(
-                    status=ToolStatus.ERROR, error=results[1].get("error")
+                    status=ToolStatus.ERROR, error=results[1]["error"]
                 )
             return BaseToolResponse(
                 status=ToolStatus.ERROR, error="No traces found in the last hour."
