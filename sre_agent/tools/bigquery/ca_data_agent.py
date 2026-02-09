@@ -36,7 +36,7 @@ def _get_ca_clients() -> tuple[Any, Any]:
 
     Raises ImportError if the SDK is not installed.
     """
-    from google.cloud import geminidataanalytics  # type: ignore[attr-defined]
+    from google.cloud import geminidataanalytics
 
     agent_client = geminidataanalytics.DataAgentServiceClient()
     chat_client = geminidataanalytics.DataChatServiceClient()
@@ -152,7 +152,7 @@ async def query_data_agent(
     parent = f"projects/{pid}/locations/{location}"
 
     try:
-        from google.cloud import geminidataanalytics  # type: ignore[attr-defined]
+        from google.cloud import geminidataanalytics
 
         # Build the stateless chat request
         msg = geminidataanalytics.Message()
