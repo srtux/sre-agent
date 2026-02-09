@@ -144,11 +144,11 @@ class AuthService extends ChangeNotifier {
             await _refreshTokens();
 
             // Proactively authorize GCP scopes right after sign-in.
-            // We pass interactive: false here so that if the tokens weren't
-            // already obtained in the first popup, we don't annoy the user
-            // with an immediate second popup. The first API call will trigger
-            // the second popup if still needed.
-            await _proactivelyAuthorizeScopes(interactive: false);
+            // On web, renderButton() only handles authentication (identity),
+            // not authorization (scopes). We must request scopes interactively
+            // here so the user sees one combined flow while still on the login
+            // page, rather than a second surprise popup after navigation.
+            await _proactivelyAuthorizeScopes(interactive: true);
 
             notifyListeners();
           } else if (event is gsi_lib.GoogleSignInAuthenticationEventSignOut) {
