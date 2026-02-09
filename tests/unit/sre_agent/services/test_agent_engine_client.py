@@ -11,6 +11,7 @@ from sre_agent.services.agent_engine_client import (
     get_agent_engine_client,
     is_remote_mode,
 )
+import sre_agent.services.session  # noqa: F401
 
 
 class TestAgentEngineConfig:
