@@ -556,6 +556,11 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
             # Track pending tool calls for FIFO matching
             pending_tool_calls: list[dict[str, Any]] = []
 
+            # Track inline-emitted dashboard events to avoid duplicates
+            # when the same tool result appears in both the event stream
+            # (inline) and the dashboard queue (from @adk_tool decorator).
+            inline_emitted_counts: dict[str, int] = {}
+
             # --- DEBUG UI TEST PATTERN ---
             if "DEBUG_UI_TEST" in last_msg_text:
                 logger.info("🧪 Triggering DEBUG_UI_TEST mock sequence")
@@ -874,6 +879,19 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                                             f"📊 Dashboard event (inline) for {tool_name}"
                                         )
                                         yield evt + "\n"
+                                    inline_emitted_counts[tool_name] = (
+                                        inline_emitted_counts.get(tool_name, 0) + 1
+                                    )
+                                else:
+                                    dash_evt = create_dashboard_event(tool_name, result)
+                                    if dash_evt:
+                                        logger.info(
+                                            f"📊 Dashboard event (inline) for {tool_name}"
+                                        )
+                                        yield dash_evt + "\n"
+                                        inline_emitted_counts[tool_name] = (
+                                            inline_emitted_counts.get(tool_name, 0) + 1
+                                        )
 
                                 # Memory events for UI visibility (toasts)
                                 event_bus = get_memory_event_bus()
@@ -890,7 +908,11 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                     # results (including from sub-agent tool calls hidden
                     # inside AgentTool).  Drain them after each runner event
                     # so the frontend receives dashboard updates promptly.
+                    # Skip entries already emitted inline to avoid duplicates.
                     for queued_name, queued_result in drain_dashboard_queue():
+                        if inline_emitted_counts.get(queued_name, 0) > 0:
+                            inline_emitted_counts[queued_name] -= 1
+                            continue
                         if queued_name == "explore_project_health":
                             for evt in create_exploration_dashboard_events(
                                 queued_result
