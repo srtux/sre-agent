@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+import sre_agent.services.session  # noqa: F401
 from sre_agent.services.agent_engine_client import (
     AgentEngineClient,
     AgentEngineConfig,
