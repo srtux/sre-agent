@@ -223,6 +223,113 @@ class TestCreateDashboardEvent:
         event = create_dashboard_event("fetch_trace", result)
         assert event is None
 
+    def test_creates_dashboard_event_for_get_trace_by_url(self) -> None:
+        """Test that get_trace_by_url produces a trace dashboard event."""
+        result = {
+            "trace_id": "def456",
+            "spans": [
+                {
+                    "span_id": "s2",
+                    "name": "url-span",
+                    "start_time": "2024-01-01T00:00:00Z",
+                    "end_time": "2024-01-01T00:00:01Z",
+                }
+            ],
+        }
+        event_str = create_dashboard_event("get_trace_by_url", result)
+        assert event_str is not None
+        event = json.loads(event_str)
+        assert event["type"] == "dashboard"
+        assert event["category"] == "traces"
+        assert event["widget_type"] == "x-sre-trace-waterfall"
+        assert event["tool_name"] == "get_trace_by_url"
+
+    def test_creates_dashboard_event_for_get_logs_for_trace(self) -> None:
+        """Test that get_logs_for_trace produces a log dashboard event."""
+        result = {
+            "entries": [
+                {
+                    "insertId": "log-1",
+                    "timestamp": "2024-01-01T00:00:00Z",
+                    "severity": "ERROR",
+                    "payload": "Trace-correlated log entry",
+                    "resource": {"type": "k8s_container", "labels": {}},
+                }
+            ],
+        }
+        event_str = create_dashboard_event("get_logs_for_trace", result)
+        assert event_str is not None
+        event = json.loads(event_str)
+        assert event["type"] == "dashboard"
+        assert event["category"] == "logs"
+        assert event["widget_type"] == "x-sre-log-entries-viewer"
+        assert event["tool_name"] == "get_logs_for_trace"
+
+    def test_creates_dashboard_event_for_list_error_events(self) -> None:
+        """Test that list_error_events produces a log dashboard event."""
+        result = {
+            "entries": [
+                {
+                    "insertId": "err-1",
+                    "timestamp": "2024-01-01T00:00:00Z",
+                    "severity": "ERROR",
+                    "payload": {"message": "Error event"},
+                    "resource": {"type": "k8s_container", "labels": {}},
+                }
+            ],
+        }
+        event_str = create_dashboard_event("list_error_events", result)
+        assert event_str is not None
+        event = json.loads(event_str)
+        assert event["type"] == "dashboard"
+        assert event["category"] == "logs"
+        assert event["widget_type"] == "x-sre-log-entries-viewer"
+        assert event["tool_name"] == "list_error_events"
+
+    def test_creates_dashboard_event_for_list_alert_policies(self) -> None:
+        """Test that list_alert_policies produces an alerts dashboard event."""
+        result = [
+            {
+                "name": "projects/p1/alertPolicies/pol1",
+                "state": "OPEN",
+                "severity": "HIGH",
+                "openTime": "2024-01-01T12:00:00Z",
+                "policy": {"displayName": "CPU Alert Policy"},
+            }
+        ]
+        event_str = create_dashboard_event("list_alert_policies", result)
+        assert event_str is not None
+        event = json.loads(event_str)
+        assert event["type"] == "dashboard"
+        assert event["category"] == "alerts"
+        assert event["widget_type"] == "x-sre-incident-timeline"
+        assert event["tool_name"] == "list_alert_policies"
+
+    def test_unwraps_status_result_with_null_error(self) -> None:
+        """Test that status/result wrappers with null error are unwrapped correctly."""
+        result = {
+            "status": "success",
+            "result": {
+                "trace_id": "abc123",
+                "spans": [
+                    {
+                        "span_id": "s1",
+                        "name": "test",
+                        "start_time": "2024-01-01T00:00:00Z",
+                        "end_time": "2024-01-01T00:00:01Z",
+                    }
+                ],
+            },
+            "error": None,
+        }
+
+        event_str = create_dashboard_event("fetch_trace", result)
+        assert event_str is not None
+
+        event = json.loads(event_str)
+        assert event["type"] == "dashboard"
+        assert event["category"] == "traces"
+
     def test_unwraps_status_result_wrapper(self) -> None:
         """Test that status/result wrappers are unwrapped."""
         result = {
