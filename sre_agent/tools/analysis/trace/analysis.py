@@ -281,9 +281,13 @@ def _validate_trace_quality_impl(trace: TraceData) -> dict[str, Any]:
 
             # Fallback to parsing if unix timestamps are missing
             if start_unix is None and span.get("start_time"):
-                start_unix = datetime.fromisoformat(span["start_time"].replace("Z", "+00:00")).timestamp()
+                start_unix = datetime.fromisoformat(
+                    span["start_time"].replace("Z", "+00:00")
+                ).timestamp()
             if end_unix is None and span.get("end_time"):
-                end_unix = datetime.fromisoformat(span["end_time"].replace("Z", "+00:00")).timestamp()
+                end_unix = datetime.fromisoformat(
+                    span["end_time"].replace("Z", "+00:00")
+                ).timestamp()
 
             if start_unix is not None and end_unix is not None:
                 duration = end_unix - start_unix
@@ -304,9 +308,13 @@ def _validate_trace_quality_impl(trace: TraceData) -> dict[str, Any]:
                     p_end_unix = parent.get("end_time_unix")
 
                     if p_start_unix is None and parent.get("start_time"):
-                        p_start_unix = datetime.fromisoformat(parent["start_time"].replace("Z", "+00:00")).timestamp()
+                        p_start_unix = datetime.fromisoformat(
+                            parent["start_time"].replace("Z", "+00:00")
+                        ).timestamp()
                     if p_end_unix is None and parent.get("end_time"):
-                        p_end_unix = datetime.fromisoformat(parent["end_time"].replace("Z", "+00:00")).timestamp()
+                        p_end_unix = datetime.fromisoformat(
+                            parent["end_time"].replace("Z", "+00:00")
+                        ).timestamp()
 
                     if p_start_unix is not None and p_end_unix is not None:
                         if start_unix < p_start_unix or end_unix > p_end_unix:
