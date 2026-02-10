@@ -1357,17 +1357,18 @@ slim_tools: list[Any] = [
 def get_enabled_base_tools() -> list[Any]:
     """Get base_tools filtered by configuration.
 
-    When SRE_AGENT_SLIM_TOOLS=true, returns a reduced ~20-tool set focused
-    on orchestration. All specialist tools are available via panel agents.
+    Returns the slim ~20-tool orchestration set by default (OPT-1).
+    All specialist tools are available via panel/sub-agent agents.
 
-    When false (default), returns the full base_tools list filtered by
-    the tool configuration manager.
+    Set SRE_AGENT_SLIM_TOOLS=false to restore the full ~90-tool set
+    for backward compatibility or single-agent mode.
 
     Returns:
         List of enabled base tools.
     """
-    # Check for slim tools mode
-    if os.environ.get("SRE_AGENT_SLIM_TOOLS", "false").lower() == "true":
+    # OPT-1: Slim tools is now the DEFAULT. Full tools require explicit opt-in.
+    # Research shows LLM tool selection accuracy degrades above ~30 tools.
+    if os.environ.get("SRE_AGENT_SLIM_TOOLS", "true").lower() != "false":
         logger.info(
             f"Slim tools mode enabled: {len(slim_tools)} orchestration tools "
             f"(down from {len(base_tools)} full tools)"
@@ -1506,7 +1507,13 @@ Direct Tools:
 - Platform: get_gke_cluster_health, list_alerts, detect_metric_anomalies
 - Memory: preload_memory (auto), load_memory (on-demand), search_memory, add_finding_to_memory
 - Self-improvement: analyze_and_learn_from_traces, complete_investigation""",
-    instruction=f"{SRE_AGENT_PROMPT}\n\n## 📅 Current Time\nThe current time is: {datetime.now(timezone.utc).isoformat()}",
+    # OPT-7: Dynamic prompt assembly — timestamp is injected per-turn
+    # instead of being baked in at import time. ADK LlmAgent supports
+    # callable instructions that receive ReadonlyContext.
+    instruction=lambda ctx: (
+        f"{SRE_AGENT_PROMPT}\n\n"
+        f"<current_time>{datetime.now(timezone.utc).isoformat()}</current_time>"
+    ),
     tools=_agent_tools,
     # Model callbacks for cost tracking and token budget enforcement
     before_model_callback=before_model_callback,
