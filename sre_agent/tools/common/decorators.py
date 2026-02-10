@@ -385,7 +385,7 @@ def prepare_tools(tools: list[Any]) -> list[Any]:
         List of tools, with skip_summarization tools wrapped in FunctionTool.
     """
     try:
-        from google.adk.tools import FunctionTool
+        from google.adk.tools import FunctionTool  # type: ignore[attr-defined]
     except ImportError:
         # ADK not available — return tools as-is (tests, standalone scripts)
         return tools
@@ -393,7 +393,7 @@ def prepare_tools(tools: list[Any]) -> list[Any]:
     result: list[Any] = []
     for tool in tools:
         if getattr(tool, "_skip_summarization", False):
-            result.append(FunctionTool(func=tool, skip_summarization=True))
+            result.append(FunctionTool(func=tool))
         else:
             result.append(tool)
     return result

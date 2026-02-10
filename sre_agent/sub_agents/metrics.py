@@ -8,6 +8,9 @@ Responsible for all time-series analysis:
 
 from google.adk.agents import LlmAgent
 
+# OPT-4: Import shared tool set from council/tool_registry (single source of truth)
+from ..council.tool_registry import METRICS_ANALYZER_TOOLS
+
 # Initialize environment (shared across sub-agents)
 from ..model_config import get_model_name
 from ..prompt import (
@@ -16,8 +19,6 @@ from ..prompt import (
     STRICT_ENGLISH_INSTRUCTION,
 )
 from ..resources.gcp_metrics import COMMON_GCP_METRICS
-# OPT-4: Import shared tool set from council/tool_registry (single source of truth)
-from ..council.tool_registry import METRICS_ANALYZER_TOOLS
 
 # Initialize environment (shared across sub-agents)
 from ._init_env import init_sub_agent_env

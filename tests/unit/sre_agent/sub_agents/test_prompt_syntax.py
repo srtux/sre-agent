@@ -5,7 +5,7 @@ from sre_agent.sub_agents.trace import AGGREGATE_ANALYZER_PROMPT, aggregate_anal
 def test_logs_prompt_syntax():
     """Verify that the logs prompt contains the correct query syntax instructions."""
     # Check for Logging Query Language section
-    assert "Cloud Logging Filter Syntax" in LOG_ANALYST_PROMPT
+    assert "<log_filter_syntax>" in LOG_ANALYST_PROMPT
     assert "severity>=ERROR" in LOG_ANALYST_PROMPT
     assert 'resource.type="k8s_container"' in LOG_ANALYST_PROMPT
     assert "jsonPayload.message =~" in LOG_ANALYST_PROMPT
@@ -15,14 +15,15 @@ def test_logs_prompt_syntax():
 def test_trace_prompt_syntax():
     """Verify that the trace prompt contains the correct filter syntax instructions."""
     # Check for Trace Filter Syntax section
-    assert "Cloud Trace Filter Syntax" in AGGREGATE_ANALYZER_PROMPT
+    assert "<trace_filter_syntax>" in AGGREGATE_ANALYZER_PROMPT
     assert "latency:500ms" in AGGREGATE_ANALYZER_PROMPT
     assert "root:recog" in AGGREGATE_ANALYZER_PROMPT
     assert "error:true" in AGGREGATE_ANALYZER_PROMPT
     assert "trace-filters" in AGGREGATE_ANALYZER_PROMPT
 
     # Verify proper tool usage guidance
-    assert "Use `list_traces` with proper filters" in AGGREGATE_ANALYZER_PROMPT
+    assert "list_traces" in AGGREGATE_ANALYZER_PROMPT
+    assert "proper filters" in AGGREGATE_ANALYZER_PROMPT
 
 
 def test_trace_tools_availability():

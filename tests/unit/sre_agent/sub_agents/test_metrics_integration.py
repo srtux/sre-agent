@@ -3,7 +3,7 @@ from sre_agent.sub_agents.metrics import COMMON_GCP_METRICS, METRICS_ANALYZER_PR
 
 def test_metrics_prompt_integration():
     """Verify that common GCP metrics are integrated into the metrics prompt."""
-    assert "Knowledge Base (GCP Metrics)" in METRICS_ANALYZER_PROMPT
+    assert "<knowledge_base>" in METRICS_ANALYZER_PROMPT
     assert "kubernetes.io/container/cpu/core_usage_time" in METRICS_ANALYZER_PROMPT
     assert "run.googleapis.com/request_count" in METRICS_ANALYZER_PROMPT
     assert (
@@ -12,8 +12,8 @@ def test_metrics_prompt_integration():
     )
     assert "logging.googleapis.com/log_entry_count" in METRICS_ANALYZER_PROMPT
 
-    # Verify strict hierarchy is preserved
-    assert "**Tool Strategy (STRICT HIERARCHY) 🛠️**:" in METRICS_ANALYZER_PROMPT
+    # Verify tool strategy is present (XML tag)
+    assert "<tool_strategy>" in METRICS_ANALYZER_PROMPT
     assert "PromQL (Primary)" in METRICS_ANALYZER_PROMPT
 
 

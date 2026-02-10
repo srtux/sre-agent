@@ -69,8 +69,9 @@ class TestGetEnabledBaseTools:
         for tool in filtered_tools:
             assert tool in base_tools
 
-    def test_respects_disabled_tools(self) -> None:
+    def test_respects_disabled_tools(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test that disabled tools are filtered from base_tools."""
+        monkeypatch.setenv("SRE_AGENT_SLIM_TOOLS", "false")
         manager = get_tool_config_manager()
 
         # Find a tool that's both in base_tools and TOOL_NAME_MAP

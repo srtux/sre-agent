@@ -1,3 +1,4 @@
+import os
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -86,8 +87,11 @@ def test_get_enabled_base_tools_filtering():
 
     with patch("sre_agent.agent.TOOL_NAME_MAP", test_tool_map):
         with patch("sre_agent.agent.base_tools", test_base_tools):
-            with patch(
-                "sre_agent.agent.get_tool_config_manager", return_value=mock_manager
+            with (
+                patch(
+                    "sre_agent.agent.get_tool_config_manager", return_value=mock_manager
+                ),
+                patch.dict(os.environ, {"SRE_AGENT_SLIM_TOOLS": "false"}),
             ):
                 enabled = get_enabled_base_tools()
 

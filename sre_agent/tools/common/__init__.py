@@ -16,7 +16,6 @@ from .telemetry import log_tool_call
 __all__ = [
     "DataCache",
     "adk_tool",
-    "prepare_tools",
     "enable_debug_mode",
     "gcp_json_default",
     "get_data_cache",
@@ -27,4 +26,5 @@ __all__ = [
     "log_mcp_auth_state",
     "log_telemetry_state",
     "log_tool_call",
+    "prepare_tools",
 ]

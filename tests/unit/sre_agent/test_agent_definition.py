@@ -11,6 +11,12 @@ def test_sre_agent_has_list_time_series():
     # Note: sre_agent.tools might be a list of functions or tool objects depending on LlmAgent implementation
     # The LlmAgent usually wraps tools, but let's check if we can find it.
 
-    # In agent.py: tools=base_tools
-    # So checking base_tools is the most direct way to verify configuration
-    assert list_time_series in sre_agent.tools
+    # In agent.py: tools=get_enabled_base_tools() (which defaults to slim_tools)
+    import os
+
+    if os.environ.get("SRE_AGENT_SLIM_TOOLS", "true").lower() != "false":
+        # In slim mode (default), list_time_series is delegated to metrics_analyzer panel
+        assert list_time_series not in sre_agent.tools
+    else:
+        # In full mode, it's present
+        assert list_time_series in sre_agent.tools
