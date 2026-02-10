@@ -27,7 +27,7 @@ def create_critic() -> LlmAgent:
     """
     return LlmAgent(
         name="council_critic",
-        model=get_model_name("deep"),
+        model=get_model_name("fast"),  # OPT-5: Comparison/checklist task — Flash is sufficient
         description=(
             "Cross-examines findings from all specialist panels to identify "
             "agreements, contradictions, and gaps in the analysis."

@@ -14,27 +14,8 @@ from ..prompt import (
     REACT_PATTERN_INSTRUCTION,
     STRICT_ENGLISH_INSTRUCTION,
 )
-from ..tools import (
-    analyze_upstream_downstream_impact,
-    build_cross_signal_timeline,
-    build_service_dependency_graph,
-    compare_time_periods,
-    correlate_logs_with_trace,
-    correlate_trace_with_metrics,
-    detect_trend_changes,
-    estimate_remediation_risk,
-    fetch_trace,
-    # Remediation
-    generate_remediation_suggestions,
-    get_gcloud_commands,
-    # Investigation
-    get_investigation_summary,
-    list_log_entries,
-    list_time_series,
-    perform_causal_analysis,
-    query_promql,
-    update_investigation_state,
-)
+# OPT-4: Import shared tool set from council/tool_registry (single source of truth)
+from ..council.tool_registry import ROOT_CAUSE_ANALYST_TOOLS
 
 # Initialize environment (shared across sub-agents)
 from ._init_env import init_sub_agent_env
@@ -49,36 +30,29 @@ ROOT_CAUSE_ANALYST_PROMPT = f"""
 {STRICT_ENGLISH_INSTRUCTION}
 {PROJECT_CONTEXT_INSTRUCTION}
 {REACT_PATTERN_INSTRUCTION}
-Role: You are the **Root Cause Analyst** 🕵️‍♂️🧩 - The Investigator.
 
-You combine the skills of a Causality Expert, Impact Assessor, and Change Detective.
-Your job is to take the findings from Triage (Trace Analysis) and determine the Ultimate Root Cause.
+<role>Root Cause Analyst — multi-signal synthesis for causality, impact, and change detection.</role>
 
-### 🧠 Your Core Logic
-**Objective**: Synthesize Traces, Logs, Metrics, and Changes to find the "Smoking Gun".
+<objective>
+Synthesize Traces, Logs, Metrics, and Changes to identify the root cause.
+Answer: WHAT happened, WHO/WHAT changed, and HOW BAD is the impact.
+</objective>
 
-**Investigation Steps**:
-1.  **Causality**: Use `perform_causal_analysis` to find the specific span/service responsible for latency/errors.
-2.  **Correlate**: Use `build_cross_signal_timeline` or `correlate_logs_with_trace` to see if logs/metrics confirm the theory.
-3.  **The "Who" (Changes)**: Use `detect_trend_changes` to find WHEN it started, then check for deployments/config changes using `list_log_entries` (look for "UpdateService", "Deploy").
-4.  **The "Blast Radius"**: Use `analyze_upstream_downstream_impact` to see who else is affected.
-5.  **Remediation (CRITICAL)**: Once the root cause is identified, ALWAYS use `generate_remediation_suggestions` to create a plan. If you identify specific gcloud fixes, use `get_gcloud_commands` to provide them. This populates the **Remediation Dashboard** for the user.
+<tool_strategy>
+1. **Causality**: `perform_causal_analysis` — identify the specific span/service responsible.
+2. **Correlate**: `build_cross_signal_timeline` or `correlate_logs_with_trace` — confirm with other signals.
+3. **Changes**: `detect_trend_changes` for timing, then `list_log_entries` (search "UpdateService", "Deploy").
+4. **Blast Radius**: `analyze_upstream_downstream_impact` — identify affected downstream services.
+5. **Remediation**: After root cause, call `generate_remediation_suggestions` and `get_gcloud_commands`.
+</tool_strategy>
 
-### 🦸 Your Persona
-You are a seasoned SRE detective. You don't guess; you deduce.
-You are looking for the "First Domino".
-
-### 📝 Output Format
--   **If using Tables** 📊:
-    -   **CRITICAL**: The separator row (e.g., `|---|`) MUST be on its own NEW LINE directly after the header.
-    -   **CRITICAL**: The separator MUST have the same number of columns as the header.
--   **Root Cause**: "Deployment v2.3 caused a retry storm in Service A." 🎯
--   **Evidence**:
-    -   Trace: "Service A latency +500ms."
-    -   Log: "Connection Pool Exhausted."
-    -   Change: "Deploy at 14:00."
--   **Impact**: "5 downstream services affected." 🌋
--   **Recommendation**: "Rollback v2.3 immediately." 🔙
+<output_format>
+- **Root Cause**: The trigger (e.g., "Deployment v2.3 caused retry storm in Service A").
+- **Evidence**: Trace, Log, and Metric data supporting the conclusion.
+- **Impact**: Number and names of affected services.
+- **Recommended Actions**: Specific remediation steps.
+Tables: separator row on own line, matching column count.
+</output_format>
 """
 
 # =============================================================================
@@ -99,23 +73,5 @@ Tools: perform_causal_analysis, build_cross_signal_timeline, detect_trend_change
 
 Use when: You need to know WHY it happened, WHO changed it, and HOW BAD it is.""",
     instruction=ROOT_CAUSE_ANALYST_PROMPT,
-    tools=[
-        perform_causal_analysis,
-        build_cross_signal_timeline,
-        correlate_logs_with_trace,
-        correlate_trace_with_metrics,
-        analyze_upstream_downstream_impact,
-        build_service_dependency_graph,
-        detect_trend_changes,
-        list_log_entries,
-        list_time_series,
-        query_promql,
-        compare_time_periods,
-        fetch_trace,
-        get_investigation_summary,
-        update_investigation_state,
-        generate_remediation_suggestions,
-        estimate_remediation_risk,
-        get_gcloud_commands,
-    ],
+    tools=list(ROOT_CAUSE_ANALYST_TOOLS),  # OPT-4: shared tool set from tool_registry
 )
