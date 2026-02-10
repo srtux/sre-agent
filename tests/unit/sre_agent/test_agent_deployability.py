@@ -56,8 +56,21 @@ def test_agent_is_deepcopyable():
         )
 
 
-def test_adk_app_is_deepcopyable():
+def test_adk_app_is_deepcopyable(monkeypatch):
     """Verify that AdkApp containing the agent is deepcopyable."""
+    import vertexai
+    from unittest.mock import MagicMock
+
+    # Mock vertexai.init to avoid GCP credential checks
+    vertexai.init = MagicMock()
+    # Manually set the global config project to avoid property lookup failure
+    from google.cloud.aiplatform import initializer
+    initializer.global_config._project = "test-project"
+
+    # Mock GCP project ID
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "test-project")
+    monkeypatch.setenv("PROJECT_ID", "test-project")
+
     try:
         app = AdkApp(agent=root_agent)
         copied_app = copy.deepcopy(app)
