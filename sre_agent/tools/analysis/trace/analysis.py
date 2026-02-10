@@ -52,7 +52,10 @@ def _calculate_span_durations_impl(trace: TraceData) -> list[SpanData]:
             try:
                 start_dt = datetime.fromisoformat(s_start.replace("Z", "+00:00"))
                 end_dt = datetime.fromisoformat(s_end.replace("Z", "+00:00"))
-                duration_ms = (end_dt - start_dt).total_seconds() * 1000
+                # Calculate unix timestamps for downstream tools
+                s_start_unix = start_dt.timestamp()
+                s_end_unix = end_dt.timestamp()
+                duration_ms = (s_end_unix - s_start_unix) * 1000
             except (ValueError, TypeError) as e:
                 logger.warning(
                     f"Failed to parse timestamps for span {s.get('span_id')}: {e}"
@@ -65,6 +68,8 @@ def _calculate_span_durations_impl(trace: TraceData) -> list[SpanData]:
                 "duration_ms": duration_ms,
                 "start_time": s_start,
                 "end_time": s_end,
+                "start_time_unix": s_start_unix,
+                "end_time_unix": s_end_unix,
                 "parent_span_id": s.get("parent_span_id"),
                 "labels": s.get("labels", {}),
             }
@@ -271,13 +276,17 @@ def _validate_trace_quality_impl(trace: TraceData) -> dict[str, Any]:
 
         # Check for negative durations and clock skew
         try:
-            start_str = span.get("start_time")
-            end_str = span.get("end_time")
+            start_unix = span.get("start_time_unix")
+            end_unix = span.get("end_time_unix")
 
-            if start_str and end_str:
-                start = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
-                end = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
-                duration = (end - start).total_seconds()
+            # Fallback to parsing if unix timestamps are missing
+            if start_unix is None and span.get("start_time"):
+                start_unix = datetime.fromisoformat(span["start_time"].replace("Z", "+00:00")).timestamp()
+            if end_unix is None and span.get("end_time"):
+                end_unix = datetime.fromisoformat(span["end_time"].replace("Z", "+00:00")).timestamp()
+
+            if start_unix is not None and end_unix is not None:
+                duration = end_unix - start_unix
 
                 if duration < 0:
                     issues.append(
@@ -291,16 +300,16 @@ def _validate_trace_quality_impl(trace: TraceData) -> dict[str, Any]:
                 # Check clock skew
                 if parent_id and parent_id in span_map:
                     parent = span_map[parent_id]
-                    p_start_str = parent.get("start_time")
-                    p_end_str = parent.get("end_time")
+                    p_start_unix = parent.get("start_time_unix")
+                    p_end_unix = parent.get("end_time_unix")
 
-                    if p_start_str and p_end_str:
-                        p_start = datetime.fromisoformat(
-                            p_start_str.replace("Z", "+00:00")
-                        )
-                        p_end = datetime.fromisoformat(p_end_str.replace("Z", "+00:00"))
+                    if p_start_unix is None and parent.get("start_time"):
+                        p_start_unix = datetime.fromisoformat(parent["start_time"].replace("Z", "+00:00")).timestamp()
+                    if p_end_unix is None and parent.get("end_time"):
+                        p_end_unix = datetime.fromisoformat(parent["end_time"].replace("Z", "+00:00")).timestamp()
 
-                        if start < p_start or end > p_end:
+                    if p_start_unix is not None and p_end_unix is not None:
+                        if start_unix < p_start_unix or end_unix > p_end_unix:
                             issues.append(
                                 {
                                     "type": "clock_skew",

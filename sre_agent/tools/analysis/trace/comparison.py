@@ -59,7 +59,7 @@ def compare_span_timings(
         if target_timings:
             sorted_spans = sorted(
                 [s for s in target_timings if s.get("start_time")],
-                key=lambda x: x["start_time"],
+                key=lambda x: x.get("start_time_unix") or x["start_time"],
             )
 
             if sorted_spans:
@@ -119,18 +119,25 @@ def compare_span_timings(
                     continue
 
                 try:
-                    curr_end = (
-                        datetime.fromisoformat(
-                            curr_span["end_time"].replace("Z", "+00:00")
-                        ).timestamp()
-                        * 1000
-                    )
-                    next_start = (
-                        datetime.fromisoformat(
-                            next_span["start_time"].replace("Z", "+00:00")
-                        ).timestamp()
-                        * 1000
-                    )
+                    if curr_span.get("end_time_unix"):
+                        curr_end = curr_span["end_time_unix"] * 1000
+                    else:
+                        curr_end = (
+                            datetime.fromisoformat(
+                                curr_span["end_time"].replace("Z", "+00:00")
+                            ).timestamp()
+                            * 1000
+                        )
+
+                    if next_span.get("start_time_unix"):
+                        next_start = next_span["start_time_unix"] * 1000
+                    else:
+                        next_start = (
+                            datetime.fromisoformat(
+                                next_span["start_time"].replace("Z", "+00:00")
+                            ).timestamp()
+                            * 1000
+                        )
 
                     is_parent_child = curr_span.get("span_id") == next_span.get(
                         "parent_span_id"
