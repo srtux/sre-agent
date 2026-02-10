@@ -14,27 +14,8 @@ from ..prompt import (
     REACT_PATTERN_INSTRUCTION,
     STRICT_ENGLISH_INSTRUCTION,
 )
-from ..tools import (
-    analyze_upstream_downstream_impact,
-    build_cross_signal_timeline,
-    build_service_dependency_graph,
-    compare_time_periods,
-    correlate_logs_with_trace,
-    correlate_trace_with_metrics,
-    detect_trend_changes,
-    estimate_remediation_risk,
-    fetch_trace,
-    # Remediation
-    generate_remediation_suggestions,
-    get_gcloud_commands,
-    # Investigation
-    get_investigation_summary,
-    list_log_entries,
-    list_time_series,
-    perform_causal_analysis,
-    query_promql,
-    update_investigation_state,
-)
+# OPT-4: Import shared tool set from council/tool_registry (single source of truth)
+from ..council.tool_registry import ROOT_CAUSE_ANALYST_TOOLS
 
 # Initialize environment (shared across sub-agents)
 from ._init_env import init_sub_agent_env
@@ -92,23 +73,5 @@ Tools: perform_causal_analysis, build_cross_signal_timeline, detect_trend_change
 
 Use when: You need to know WHY it happened, WHO changed it, and HOW BAD it is.""",
     instruction=ROOT_CAUSE_ANALYST_PROMPT,
-    tools=[
-        perform_causal_analysis,
-        build_cross_signal_timeline,
-        correlate_logs_with_trace,
-        correlate_trace_with_metrics,
-        analyze_upstream_downstream_impact,
-        build_service_dependency_graph,
-        detect_trend_changes,
-        list_log_entries,
-        list_time_series,
-        query_promql,
-        compare_time_periods,
-        fetch_trace,
-        get_investigation_summary,
-        update_investigation_state,
-        generate_remediation_suggestions,
-        estimate_remediation_risk,
-        get_gcloud_commands,
-    ],
+    tools=list(ROOT_CAUSE_ANALYST_TOOLS),  # OPT-4: shared tool set from tool_registry
 )

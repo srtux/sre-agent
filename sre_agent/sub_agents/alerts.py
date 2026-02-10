@@ -15,19 +15,8 @@ from ..prompt import (
     REACT_PATTERN_INSTRUCTION,
     STRICT_ENGLISH_INSTRUCTION,
 )
-from ..tools import (
-    discover_telemetry_sources,
-    estimate_remediation_risk,
-    generate_remediation_suggestions,
-    get_alert,
-    get_gcloud_commands,
-    get_investigation_summary,
-    list_alert_policies,
-    list_alerts,
-    list_log_entries,
-    list_time_series,
-    update_investigation_state,
-)
+# OPT-4: Import shared tool set from council/tool_registry (single source of truth)
+from ..council.tool_registry import ALERT_ANALYST_TOOLS
 
 # Initialize environment (shared across sub-agents)
 from ._init_env import init_sub_agent_env
@@ -68,17 +57,5 @@ alert_analyst = LlmAgent(
     model=get_model_name("fast"),
     description="Analyzes active alerts and incidents from Cloud Monitoring.",
     instruction=ALERT_ANALYST_PROMPT,
-    tools=[
-        list_alerts,
-        list_alert_policies,
-        get_alert,
-        list_log_entries,
-        list_time_series,
-        discover_telemetry_sources,
-        generate_remediation_suggestions,
-        estimate_remediation_risk,
-        get_gcloud_commands,
-        get_investigation_summary,
-        update_investigation_state,
-    ],
+    tools=list(ALERT_ANALYST_TOOLS),  # OPT-4: shared tool set from tool_registry
 )

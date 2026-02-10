@@ -9,13 +9,14 @@ from .debug import (
     log_mcp_auth_state,
     log_telemetry_state,
 )
-from .decorators import adk_tool
+from .decorators import adk_tool, prepare_tools
 from .serialization import gcp_json_default, json_dumps
 from .telemetry import log_tool_call
 
 __all__ = [
     "DataCache",
     "adk_tool",
+    "prepare_tools",
     "enable_debug_mode",
     "gcp_json_default",
     "get_data_cache",

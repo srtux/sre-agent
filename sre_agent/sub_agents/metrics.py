@@ -16,25 +16,8 @@ from ..prompt import (
     STRICT_ENGLISH_INSTRUCTION,
 )
 from ..resources.gcp_metrics import COMMON_GCP_METRICS
-from ..tools import (
-    calculate_series_stats,
-    compare_metric_windows,
-    correlate_metrics_with_traces_via_exemplars,
-    # Cross-signal correlation
-    correlate_trace_with_metrics,
-    # Analysis tools
-    detect_metric_anomalies,
-    # Investigation
-    get_investigation_summary,
-    list_log_entries,
-    list_metric_descriptors,
-    # Metrics tools
-    list_time_series,
-    mcp_list_timeseries,
-    mcp_query_range,
-    query_promql,
-    update_investigation_state,
-)
+# OPT-4: Import shared tool set from council/tool_registry (single source of truth)
+from ..council.tool_registry import METRICS_ANALYZER_TOOLS
 
 # Initialize environment (shared across sub-agents)
 from ._init_env import init_sub_agent_env
@@ -115,21 +98,7 @@ metrics_analyzer = LlmAgent(
         "specific traces corresponding to metric spikes."
     ),
     instruction=METRICS_ANALYZER_PROMPT,
-    tools=[
-        list_time_series,
-        list_metric_descriptors,
-        list_log_entries,
-        mcp_list_timeseries,
-        query_promql,
-        mcp_query_range,
-        detect_metric_anomalies,
-        compare_metric_windows,
-        calculate_series_stats,
-        correlate_trace_with_metrics,
-        correlate_metrics_with_traces_via_exemplars,
-        get_investigation_summary,
-        update_investigation_state,
-    ],
+    tools=list(METRICS_ANALYZER_TOOLS),  # OPT-4: shared tool set from tool_registry
 )
 
 

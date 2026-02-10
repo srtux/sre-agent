@@ -106,7 +106,11 @@ def _is_tool_failure(result: Any) -> bool:
     return False
 
 
-def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
+def adk_tool(
+    func: Callable[..., Any] | None = None,
+    *,
+    skip_summarization: bool = False,
+) -> Callable[..., Any]:
     """Decorator to mark a function as an ADK tool.
 
     This decorator provides:
@@ -116,12 +120,41 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
     - Error handling (ensures errors are logged before raising/returning)
     - Circuit breaker integration for external API tools
     - Tool result validation (BaseToolResponse normalization)
+    - Optional skip_summarization flag (OPT-8)
+
+    Args:
+        func: The function to decorate (when used without parentheses).
+        skip_summarization: If True, marks the tool to skip LLM summarization
+            of its output. Use for tools returning structured data intended for
+            agent consumption rather than user display. The flag is stored as
+            ``_skip_summarization`` on the wrapper and consumed by
+            ``prepare_tools()`` when building agent tool lists.
 
     Example:
         @adk_tool
         async def fetch_trace(trace_id: str) -> dict:
             ...
+
+        @adk_tool(skip_summarization=True)
+        async def list_time_series(filter_str: str) -> dict:
+            ...
     """
+
+    def _decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
+        return _build_adk_tool_wrapper(fn, skip_summarization=skip_summarization)
+
+    # Support both @adk_tool and @adk_tool(skip_summarization=True)
+    if func is not None:
+        # Called as @adk_tool without parentheses
+        return _build_adk_tool_wrapper(func, skip_summarization=False)
+    # Called as @adk_tool(...) with parentheses
+    return _decorator
+
+
+def _build_adk_tool_wrapper(
+    func: Callable[..., Any], *, skip_summarization: bool = False
+) -> Callable[..., Any]:
+    """Internal: build the actual wrapper for @adk_tool."""
 
     def should_skip_logging() -> bool:
         """Check if we should skip logging due to native instrumentation."""
@@ -328,6 +361,39 @@ def adk_tool(func: Callable[..., Any]) -> Callable[..., Any]:
             raise e
 
     if inspect.iscoroutinefunction(func):
+        async_wrapper._skip_summarization = skip_summarization  # type: ignore[attr-defined]
         return async_wrapper
     else:
+        sync_wrapper._skip_summarization = skip_summarization  # type: ignore[attr-defined]
         return sync_wrapper
+
+
+def prepare_tools(tools: list[Any]) -> list[Any]:
+    """Convert tool functions to FunctionTool objects, respecting skip_summarization.
+
+    Tools decorated with ``@adk_tool(skip_summarization=True)`` will be wrapped
+    in ``google.adk.tools.FunctionTool`` with ``skip_summarization=True``, which
+    tells ADK to pass the tool output directly to the agent without an
+    intermediate LLM summarization call.
+
+    Tools without the flag are returned as-is (ADK auto-wraps them).
+
+    Args:
+        tools: List of tool functions (decorated with @adk_tool).
+
+    Returns:
+        List of tools, with skip_summarization tools wrapped in FunctionTool.
+    """
+    try:
+        from google.adk.tools import FunctionTool
+    except ImportError:
+        # ADK not available — return tools as-is (tests, standalone scripts)
+        return tools
+
+    result: list[Any] = []
+    for tool in tools:
+        if getattr(tool, "_skip_summarization", False):
+            result.append(FunctionTool(func=tool, skip_summarization=True))
+        else:
+            result.append(tool)
+    return result

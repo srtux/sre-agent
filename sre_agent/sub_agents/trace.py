@@ -13,35 +13,8 @@ from ..prompt import (
     REACT_PATTERN_INSTRUCTION,
     STRICT_ENGLISH_INSTRUCTION,
 )
-from ..tools import (
-    analyze_aggregate_metrics,
-    analyze_critical_path,
-    analyze_trace_comprehensive,
-    build_service_dependency_graph,
-    calculate_critical_path_contribution,
-    compare_span_timings,
-    compare_time_periods,
-    correlate_logs_with_trace,
-    correlate_metrics_with_traces_via_exemplars,
-    detect_all_sre_patterns,
-    detect_cascading_timeout,
-    detect_connection_pool_issues,
-    detect_latency_anomalies,
-    detect_retry_storm,
-    detect_trend_changes,
-    discover_telemetry_sources,
-    fetch_trace,
-    find_bottleneck_services,
-    find_exemplar_traces,
-    # Remediation
-    get_investigation_summary,
-    list_log_entries,
-    list_time_series,
-    list_traces,
-    mcp_execute_sql,
-    query_promql,
-    update_investigation_state,
-)
+# OPT-4: Import shared tool sets from council/tool_registry (single source of truth)
+from ..council.tool_registry import AGGREGATE_ANALYZER_TOOLS, TRACE_ANALYST_TOOLS
 
 # Initialize environment (shared across sub-agents)
 from ._init_env import init_sub_agent_env
@@ -142,25 +115,7 @@ Tools: analyze_trace_comprehensive, compare_span_timings, analyze_critical_path
 
 Use when: You need detailed analysis of one or more traces, or need to compare them.""",
     instruction=TRACE_ANALYST_PROMPT,
-    tools=[
-        analyze_trace_comprehensive,
-        compare_span_timings,
-        analyze_critical_path,
-        calculate_critical_path_contribution,
-        find_bottleneck_services,
-        fetch_trace,  # Kept as fallback
-        compare_time_periods,  # For context
-        detect_latency_anomalies,
-        detect_all_sre_patterns,
-        detect_retry_storm,
-        detect_cascading_timeout,
-        detect_connection_pool_issues,
-        list_log_entries,
-        list_time_series,
-        query_promql,
-        get_investigation_summary,
-        update_investigation_state,
-    ],
+    tools=list(TRACE_ANALYST_TOOLS),  # OPT-4: shared tool set from tool_registry
 )
 
 # Stage 0: Aggregate Analyzer
@@ -172,22 +127,5 @@ aggregate_analyzer = LlmAgent(
         "and select exemplar traces for investigation. Includes cross-signal correlation."
     ),
     instruction=AGGREGATE_ANALYZER_PROMPT,
-    tools=[
-        mcp_execute_sql,
-        analyze_aggregate_metrics,
-        find_exemplar_traces,
-        compare_time_periods,
-        detect_trend_changes,
-        correlate_logs_with_trace,
-        correlate_metrics_with_traces_via_exemplars,
-        find_bottleneck_services,
-        build_service_dependency_graph,
-        discover_telemetry_sources,
-        list_log_entries,
-        list_time_series,
-        list_traces,
-        query_promql,
-        get_investigation_summary,
-        update_investigation_state,
-    ],
+    tools=list(AGGREGATE_ANALYZER_TOOLS),  # OPT-4: shared tool set from tool_registry
 )

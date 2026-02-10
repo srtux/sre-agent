@@ -18,24 +18,8 @@ from ..prompt import (
     REACT_PATTERN_INSTRUCTION,
     STRICT_ENGLISH_INSTRUCTION,
 )
-from ..tools import (
-    # BigQuery tools
-    analyze_bigquery_log_patterns,
-    # Time period comparison
-    compare_time_periods,
-    # Discovery
-    discover_telemetry_sources,
-    estimate_remediation_risk,
-    # Log tools
-    extract_log_patterns,
-    # Remediation
-    generate_remediation_suggestions,
-    get_gcloud_commands,
-    get_investigation_summary,
-    list_log_entries,
-    list_time_series,
-    update_investigation_state,
-)
+# OPT-4: Import shared tool set from council/tool_registry (single source of truth)
+from ..council.tool_registry import LOG_ANALYST_TOOLS
 
 # Initialize environment (shared across sub-agents)
 from ._init_env import init_sub_agent_env
@@ -87,17 +71,5 @@ log_analyst = LlmAgent(
     model=get_model_name("fast"),  # OPT-5: Flash handles log pattern extraction well
     description="Analyzes log patterns to find anomalies and new errors.",
     instruction=LOG_ANALYST_PROMPT,
-    tools=[
-        analyze_bigquery_log_patterns,
-        extract_log_patterns,
-        list_log_entries,
-        list_time_series,
-        compare_time_periods,
-        discover_telemetry_sources,
-        get_investigation_summary,
-        update_investigation_state,
-        generate_remediation_suggestions,
-        estimate_remediation_risk,
-        get_gcloud_commands,
-    ],
+    tools=list(LOG_ANALYST_TOOLS),  # OPT-4: shared tool set from tool_registry
 )
