@@ -44,9 +44,8 @@ if __name__ == "__main__":
     # We rely on our own setup_telemetry() for formatting, so we pass log_config=None
     # However, Uvicorn will still create 'uvicorn' and 'uvicorn.access' loggers.
     # By passing log_config=None, Uvicorn won't overwrite our root logger configuration.
-    # Cloud Run default: 1 vCPU, 1Gi memory.  Each worker forks a full copy of
-    # the Python process (~250-350 MB with GCP SDKs, ADK, OTel, etc.).
-    # workers=4 on 1Gi causes OOM kills → 503 "Service Unavailable".
-    # Use 1 worker for Cloud Run; scale horizontally via Cloud Run instances.
-    workers = int(os.getenv("WEB_CONCURRENCY", "1"))
+    # Each worker forks a full copy of the Python process (~250-350 MB with
+    # GCP SDKs, ADK, OTel, etc.).  Match workers to allocated CPUs.
+    # Cloud Run deploy allocates 4 CPUs / 16Gi — 4 workers fits comfortably.
+    workers = int(os.getenv("WEB_CONCURRENCY", "4"))
     uvicorn.run("server:app", host=host, port=port, log_config=None, workers=workers)
