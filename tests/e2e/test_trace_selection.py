@@ -37,18 +37,17 @@ def test_statistical_outlier_tool():
 
 
 @pytest.mark.asyncio
-@patch("sre_agent.tools.clients.trace.list_traces")
+@patch("sre_agent.tools.clients.trace._list_traces_sync")
 async def test_hybrid_selection_includes_stats(mock_list_traces):
     """Test hybrid selection returns statistics."""
     # Mock return values for async list_traces
-    mock_list_traces.return_value = {
-        "status": "success",
-        "result": [
-            {"trace_id": "t1", "duration_ms": 100, "project_id": "p1"},
-            {"trace_id": "t2", "duration_ms": 110, "project_id": "p1"},
-            {"trace_id": "t3", "duration_ms": 105, "project_id": "p1"},
-        ],
-    }
+    # Since we refactored find_example_traces to call _list_traces_sync directly,
+    # we must mock the internal function and return a list, not a ToolResponse dict.
+    mock_list_traces.return_value = [
+        {"trace_id": "t1", "duration_ms": 100, "project_id": "p1"},
+        {"trace_id": "t2", "duration_ms": 110, "project_id": "p1"},
+        {"trace_id": "t3", "duration_ms": 105, "project_id": "p1"},
+    ]
 
     # Call function
     # Note: We need to mock _get_project_id or set env var
