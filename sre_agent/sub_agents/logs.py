@@ -11,6 +11,9 @@ of analysis tools:
 
 from google.adk.agents import LlmAgent
 
+# OPT-4: Import shared tool set from council/tool_registry (single source of truth)
+from ..council.tool_registry import LOG_ANALYST_TOOLS
+
 # Initialize environment (shared across sub-agents)
 from ..model_config import get_model_name
 from ..prompt import (
@@ -18,8 +21,6 @@ from ..prompt import (
     REACT_PATTERN_INSTRUCTION,
     STRICT_ENGLISH_INSTRUCTION,
 )
-# OPT-4: Import shared tool set from council/tool_registry (single source of truth)
-from ..council.tool_registry import LOG_ANALYST_TOOLS
 
 # Initialize environment (shared across sub-agents)
 from ._init_env import init_sub_agent_env
