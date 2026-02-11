@@ -211,7 +211,12 @@ class AuthService extends ChangeNotifier {
   @visibleForTesting
   Future<void> refreshTokensForTesting() async => _refreshTokens();
 
-  /// Refresh ID token from the GoogleSignIn authentication object.
+  /// Refresh tokens from the GoogleSignIn authentication object.
+  ///
+  /// Extracts both ID token and access token. When [signIn] uses
+  /// [authenticate(scopeHint: scopes)], the access token is already
+  /// available here, so [_proactivelyAuthorizeScopes] can skip the
+  /// redundant scope authorization popup.
   Future<void> _refreshTokens() async {
     if (_currentUser == null) {
       debugPrint('AuthService: Skip _refreshTokens because _currentUser is null');
@@ -222,6 +227,18 @@ class AuthService extends ChangeNotifier {
       final auth = _currentUser!.authentication;
       _idToken = auth.idToken;
       debugPrint('AuthService: Successfully extracted idToken');
+
+      // If authenticate() was called with scopeHint, the access token
+      // may already be available. Extract it to avoid a redundant
+      // scope authorization popup.
+      final accessToken = auth.accessToken;
+      if (accessToken != null && _accessToken == null) {
+        debugPrint('AuthService: Access token already available from authentication, caching it.');
+        _accessToken = accessToken;
+        _accessTokenExpiry = DateTime.now().add(const Duration(minutes: 55));
+        await _cacheTokens();
+        await _loginToBackend(accessToken, _idToken);
+      }
     } catch (e, stack) {
       debugPrint('Error refreshing tokens: $e\n$stack');
     }
