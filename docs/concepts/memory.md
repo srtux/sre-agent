@@ -43,6 +43,36 @@ Agents must be personalizable but secure. Data leaks between users are unaccepta
   `filter: (user_id == current_user) AND (outcome == success)`
 * **Result**: The agent "learns" the user's preferred triage style over time.
 
+## Configuration Requirements
+
+For Memory Bank to work correctly in production, the following must be set:
+
+| Environment Variable | Purpose | Required |
+| :--- | :--- | :--- |
+| `SRE_AGENT_ID` | Agent Engine ID — passed as `agent_engine_id` to `VertexAiMemoryBankService`. Without this, memory falls back to local SQLite. | Yes (production) |
+| `GOOGLE_CLOUD_PROJECT` | GCP project ID for Vertex AI APIs | Yes |
+| `GOOGLE_CLOUD_LOCATION` | GCP region (default: `us-central1`) | No |
+
+### How Memory Bank Is Wired
+
+1. **`MemoryManager`** (`sre_agent/memory/manager.py`): Custom manager that wraps `VertexAiMemoryBankService` (or `LocalMemoryService` fallback). Requires `agent_engine_id` from `SRE_AGENT_ID` env var.
+2. **`get_adk_memory_service()`** (`sre_agent/memory/factory.py`): Returns the raw `VertexAiMemoryBankService` instance (with `agent_engine_id`) for ADK's built-in `PreloadMemoryTool` and `LoadMemoryTool`.
+3. **`InvocationContext.memory_service`**: Set in both `api/routers/agent.py` (local mode) and `core/runner.py` (policy runner). Enables `tool_context.search_memory()`.
+4. **`after_agent_callback`**: Automatically calls `add_session_to_memory()` after each agent turn to trigger asynchronous memory extraction and consolidation.
+
+### IAM Permissions
+
+The service account running the agent must have:
+- `aiplatform.reasoningEngines.get` on the Agent Engine resource
+- `aiplatform.memoryBanks.*` permissions for memory read/write
+
+### Common Troubleshooting
+
+- **No memories generated**: Ensure `SRE_AGENT_ID` is set and the session contains populated events before memory generation is triggered.
+- **"Agent Engine ID missing" errors**: The `agent_engine_id` parameter was not passed to `VertexAiMemoryBankService`. Check that `SRE_AGENT_ID` is set.
+- **Non-meaningful content**: Memory Bank uses topics to identify persistable information. If conversation content doesn't align with configured topics, no memories are generated. Customize memory topics in the Agent Engine configuration.
+- **Operation errors**: Check for `Failed to extract memories: Please use a valid role: user, model` — this indicates session events have incorrect roles.
+
 ## Recommended Schema
 For local fallback or new memory implementations, adhere to this schema:
 
@@ -87,13 +117,16 @@ This allows the agent to skip "exploration" steps for known problems and jump st
 
 ### 3. Automatic Memory Callbacks
 
-The agent uses three callbacks for automatic learning:
+The agent uses four callbacks for automatic learning and persistence:
 
 | Callback | Trigger | What It Records |
 | :--- | :--- | :--- |
 | `before_tool_memory_callback` | Before every tool call | Tool name for sequence tracking |
 | `after_tool_memory_callback` | After every tool call | API syntax failures AND significant successful findings |
 | `on_tool_error_memory_callback` | On tool exceptions | Exception details and parameter mistakes |
+| `after_agent_memory_callback` | After each agent turn | Triggers `add_session_to_memory` for asynchronous memory extraction |
+
+The `after_agent_memory_callback` follows the [ADK-recommended pattern](https://google.github.io/adk-docs/sessions/memory/) for automatic memory persistence, ensuring that session conversations are continuously extracted into long-term memory without requiring explicit `complete_investigation` calls.
 
 **Significant Finding Tools**: The system automatically records successful results from these analysis tools:
 - `analyze_critical_path` - Critical path bottleneck identification

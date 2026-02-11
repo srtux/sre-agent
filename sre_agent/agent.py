@@ -1450,6 +1450,7 @@ from .core.large_payload_handler import handle_large_payload
 from .core.model_callbacks import after_model_callback, before_model_callback
 from .core.tool_callbacks import truncate_tool_output_callback
 from .memory.callbacks import (
+    after_agent_memory_callback,
     after_tool_memory_callback,
     before_tool_memory_callback,
     on_tool_error_memory_callback,
@@ -1540,6 +1541,8 @@ Direct Tools:
     before_tool_callback=before_tool_memory_callback,
     after_tool_callback=composite_after_tool_callback,
     on_tool_error_callback=on_tool_error_memory_callback,
+    # Agent callback for automatic memory persistence after each turn
+    after_agent_callback=after_agent_memory_callback,
     # Sub-agents for specialized analysis (automatically invoked based on task)
     sub_agents=[
         # Trace analysis sub-agents

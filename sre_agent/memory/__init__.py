@@ -13,6 +13,7 @@ Key Features:
 """
 
 from .callbacks import (
+    after_agent_memory_callback,
     after_tool_memory_callback,
     before_tool_memory_callback,
     on_tool_error_memory_callback,
@@ -28,6 +29,7 @@ __all__ = [
     "MistakeAdvisor",
     "MistakeLearner",
     "MistakeMemoryStore",
+    "after_agent_memory_callback",
     "after_tool_memory_callback",
     "before_tool_memory_callback",
     "get_adk_memory_service",

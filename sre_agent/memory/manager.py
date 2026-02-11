@@ -84,15 +84,22 @@ class MemoryManager:
     patterns for future reuse.
     """
 
-    def __init__(self, project_id: str, location: str = "us-central1"):
+    def __init__(
+        self,
+        project_id: str,
+        location: str = "us-central1",
+        agent_engine_id: str | None = None,
+    ):
         """Initialize the Memory Manager.
 
         Args:
             project_id: GCP Project ID.
             location: GCP Location (default: us-central1).
+            agent_engine_id: Agent Engine ID (required for Vertex AI Memory Bank).
         """
         self.project_id = project_id
         self.location = location
+        self.agent_engine_id = agent_engine_id
         self.memory_service: Any | None = None
         self._check_init_memory_service()
 
@@ -111,18 +118,21 @@ class MemoryManager:
             # If not set, we skip and fallback to local memory immediately to avoid "Agent Engine ID missing" errors.
             import os
 
-            if not os.environ.get("SRE_AGENT_ID"):
+            agent_engine_id = self.agent_engine_id or os.environ.get("SRE_AGENT_ID")
+            if not agent_engine_id:
                 raise ValueError(
                     "SRE_AGENT_ID not set. Skipping Vertex AI Memory Bank setup in local mode."
                 )
 
-            # We use a specific corpus for SRE investigations if configured,
-            # otherwise allow it to separate by session_id automatically.
             self.memory_service = VertexAiMemoryBankService(
                 project=self.project_id,
                 location=self.location,
+                agent_engine_id=agent_engine_id,
             )
-            logger.info(f"✅ Memory Manager initialized for project {self.project_id}")
+            logger.info(
+                f"✅ Memory Manager initialized for project {self.project_id} "
+                f"(agent_engine_id={agent_engine_id})"
+            )
         except Exception as e:
             logger.warning(
                 f"⚠️ Failed to initialize Vertex AI Memory Service: {e}. "
