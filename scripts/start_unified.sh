@@ -6,4 +6,4 @@ set -e
 echo "🚀 Starting Unified SRE Agent on port $PORT..."
 
 # The Google Client ID is now fetched dynamically via /api/config
-python server.py
+exec python server.py
