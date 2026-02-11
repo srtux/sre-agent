@@ -12,7 +12,7 @@
 4. [Complete Tool Inventory](#complete-tool-inventory)
 5. [Tool-to-Agent Assignment Matrix](#tool-to-agent-assignment-matrix)
 6. [Data Flow Diagrams](#data-flow-diagrams)
-7. [Architecture Analysis & Optimization Recommendations](#architecture-analysis--optimization-recommendations)
+7. [Architecture Analysis & Optimization Status](#architecture-analysis--optimization-status)
 
 ---
 
@@ -38,7 +38,7 @@
     │  MODE A: LlmAgent   │  │  MODE B: BaseAgent       │
     │  (Default Root)      │  │  (CouncilOrchestrator)   │
     │  sre_agent/agent.py  │  │  council/orchestrator.py │
-    │  :1484               │  │  :34                     │
+    │  :1485               │  │  :34                     │
     └─────────┬───────────┘  └────────────┬─────────────┘
               │                            │
               ▼                            ▼
@@ -60,9 +60,9 @@
 │                     sre_agent (LlmAgent)                            │
 │                     Model: gemini-flash                              │
 │                     Prompt: SRE_AGENT_PROMPT                        │
-│                     Tools: ~90 base_tools + preload_memory +        │
-│                            load_memory                              │
-│                     Code: sre_agent/agent.py:1484                   │
+│                     Tools: ~20 slim (default) or ~72 full           │
+│                            + preload_memory + load_memory           │
+│                     Code: sre_agent/agent.py:1485                   │
 │                                                                     │
 │  ┌─────────────────────────────────────────────────────────────┐    │
 │  │              3-Tier Router (route_request)                   │    │
@@ -79,7 +79,7 @@
 │    ┌────▼─────┐   ┌──────▼──────┐  ┌─────▼────┐  ┌─────▼────┐    │
 │    │aggregate │   │trace_analyst│  │log_      │  │metrics_  │    │
 │    │_analyzer │   │             │  │analyst   │  │analyzer  │    │
-│    │(deep)    │   │(fast)       │  │(deep)    │  │(deep)    │    │
+│    │(deep)    │   │(fast)       │  │(fast)    │  │(fast)    │    │
 │    └──────────┘   └─────────────┘  └──────────┘  └──────────┘    │
 │                                                                     │
 │    ┌──────────┐   ┌─────────────┐  ┌──────────────┐               │
@@ -183,7 +183,7 @@
                                    │
                                    ▼
                     ┌──────────────────────────────┐
-                    │    Critic (deep)              │
+                    │    Critic (fast)              │
                     │    Reads all *_finding keys   │
                     │    Writes: critic_report      │
                     │    council/critic.py:14       │
@@ -198,37 +198,37 @@
 
 | Agent | Type | Model | Code | Prompt | Description |
 |:------|:-----|:------|:-----|:-------|:------------|
-| **sre_agent** | `LlmAgent` | `fast` (Gemini Flash) | [`agent.py:1484`](../../sre_agent/agent.py#L1484) | [`SRE_AGENT_PROMPT`](../../sre_agent/prompt.py#L30) | Default root agent. Slim tool set (~20, OPT-1), 7 sub-agents, 3-tier router |
+| **sre_agent** | `LlmAgent` | `fast` (Gemini Flash) | [`agent.py:1485`](../../sre_agent/agent.py#L1485) | [`SRE_AGENT_PROMPT`](../../sre_agent/prompt.py#L31) | Default root agent. Slim tool set (~20, OPT-1), 7 sub-agents, 3-tier router |
 | **CouncilOrchestrator** | `BaseAgent` | None (no LLM) | [`council/orchestrator.py:34`](../../sre_agent/council/orchestrator.py#L34) | None | Alternative root. Pure routing to Fast/Standard/Debate pipelines |
 
 ### Sub-Agents (children of sre_agent)
 
 | Agent | Model | Code | Prompt Location | Tools | Purpose |
 |:------|:------|:-----|:----------------|:------|:--------|
-| **aggregate_analyzer** | `deep` (Gemini Pro) | [`sub_agents/trace.py`](../../sre_agent/sub_agents/trace.py) | [`AGGREGATE_ANALYZER_PROMPT`](../../sre_agent/sub_agents/trace.py#L55) | via `AGGREGATE_ANALYZER_TOOLS` | Stage 0: Fleet-wide BigQuery analysis |
-| **trace_analyst** | `fast` (Gemini Flash) | [`sub_agents/trace.py`](../../sre_agent/sub_agents/trace.py) | [`TRACE_ANALYST_PROMPT`](../../sre_agent/sub_agents/trace.py#L108) | via `TRACE_ANALYST_TOOLS` | Stage 1: Individual trace analysis (latency, errors, structure) |
-| **log_analyst** | `fast` (Gemini Flash) | [`sub_agents/logs.py`](../../sre_agent/sub_agents/logs.py) | [`LOG_ANALYST_PROMPT`](../../sre_agent/sub_agents/logs.py#L29) | via `LOG_ANALYST_TOOLS` | Log pattern mining via BigQuery/Drain3 (OPT-5: downgraded to Flash) |
-| **metrics_analyzer** | `fast` (Gemini Flash) | [`sub_agents/metrics.py`](../../sre_agent/sub_agents/metrics.py) | [`METRICS_ANALYZER_PROMPT`](../../sre_agent/sub_agents/metrics.py#L53) | via `METRICS_ANALYZER_TOOLS` | Time-series/PromQL/exemplar correlation (OPT-5: downgraded to Flash) |
-| **alert_analyst** | `fast` (Gemini Flash) | [`sub_agents/alerts.py`](../../sre_agent/sub_agents/alerts.py) | [`ALERT_ANALYST_PROMPT`](../../sre_agent/sub_agents/alerts.py#L26) | via `ALERT_ANALYST_TOOLS` | Alert triage and incident classification |
-| **root_cause_analyst** | `deep` (Gemini Pro) | [`sub_agents/root_cause.py`](../../sre_agent/sub_agents/root_cause.py) | [`ROOT_CAUSE_ANALYST_PROMPT`](../../sre_agent/sub_agents/root_cause.py#L48) | via `ROOT_CAUSE_ANALYST_TOOLS` | Stage 2: Multi-signal root cause synthesis |
-| **agent_debugger** | `fast` (Gemini Flash) | [`sub_agents/agent_debugger.py`](../../sre_agent/sub_agents/agent_debugger.py) | [`AGENT_DEBUGGER_PROMPT`](../../sre_agent/sub_agents/agent_debugger.py#L41) | 12 | Debugs Vertex Agent Engine interactions |
+| **aggregate_analyzer** | `deep` (Gemini Pro) | [`sub_agents/trace.py:122`](../../sre_agent/sub_agents/trace.py#L122) | [`AGGREGATE_ANALYZER_PROMPT`](../../sre_agent/sub_agents/trace.py#L28) | via `AGGREGATE_ANALYZER_TOOLS` (15) | Stage 0: Fleet-wide BigQuery analysis |
+| **trace_analyst** | `fast` (Gemini Flash) | [`sub_agents/trace.py:103`](../../sre_agent/sub_agents/trace.py#L103) | [`TRACE_ANALYST_PROMPT`](../../sre_agent/sub_agents/trace.py#L68) | via `TRACE_ANALYST_TOOLS` (16) | Stage 1: Individual trace analysis (latency, errors, structure) |
+| **log_analyst** | `fast` (Gemini Flash) | [`sub_agents/logs.py:69`](../../sre_agent/sub_agents/logs.py#L69) | [`LOG_ANALYST_PROMPT`](../../sre_agent/sub_agents/logs.py#L29) | via `LOG_ANALYST_TOOLS` (13) | Log pattern mining via BigQuery/Drain3 (OPT-5: downgraded to Flash) |
+| **metrics_analyzer** | `fast` (Gemini Flash) | [`sub_agents/metrics.py:92`](../../sre_agent/sub_agents/metrics.py#L92) | [`METRICS_ANALYZER_PROMPT`](../../sre_agent/sub_agents/metrics.py#L36) | via `METRICS_ANALYZER_TOOLS` (14) | Time-series/PromQL/exemplar correlation (OPT-5: downgraded to Flash) |
+| **alert_analyst** | `fast` (Gemini Flash) | [`sub_agents/alerts.py:55`](../../sre_agent/sub_agents/alerts.py#L55) | [`ALERT_ANALYST_PROMPT`](../../sre_agent/sub_agents/alerts.py#L26) | via `ALERT_ANALYST_TOOLS` (11) | Alert triage and incident classification |
+| **root_cause_analyst** | `deep` (Gemini Pro) | [`sub_agents/root_cause.py:62`](../../sre_agent/sub_agents/root_cause.py#L62) | [`ROOT_CAUSE_ANALYST_PROMPT`](../../sre_agent/sub_agents/root_cause.py#L29) | via `ROOT_CAUSE_ANALYST_TOOLS` (18) | Stage 2: Multi-signal root cause synthesis |
+| **agent_debugger** | `fast` (Gemini Flash) | [`sub_agents/agent_debugger.py:89`](../../sre_agent/sub_agents/agent_debugger.py#L89) | [`AGENT_DEBUGGER_PROMPT`](../../sre_agent/sub_agents/agent_debugger.py#L40) | 12 | Debugs Vertex Agent Engine interactions |
 
 ### Council Panel Agents (created dynamically by pipeline factories)
 
 | Panel Agent | Model | Factory | Prompt | output_key | Tools |
 |:------------|:------|:--------|:-------|:-----------|:------|
-| **trace_panel** | `fast` | [`panels.py:31`](../../sre_agent/council/panels.py#L31) | [`TRACE_PANEL_PROMPT`](../../sre_agent/council/prompts.py#L18) | `trace_finding` | 22 |
-| **metrics_panel** | `fast` | [`panels.py:57`](../../sre_agent/council/panels.py#L57) | [`METRICS_PANEL_PROMPT`](../../sre_agent/council/prompts.py#L51) | `metrics_finding` | 13 |
-| **logs_panel** | `fast` | [`panels.py:83`](../../sre_agent/council/panels.py#L83) | [`LOGS_PANEL_PROMPT`](../../sre_agent/council/prompts.py#L83) | `logs_finding` | 8 |
-| **alerts_panel** | `fast` | [`panels.py:109`](../../sre_agent/council/panels.py#L109) | [`ALERTS_PANEL_PROMPT`](../../sre_agent/council/prompts.py#L115) | `alerts_finding` | 10 |
-| **data_panel** | `fast` | [`panels.py:134`](../../sre_agent/council/panels.py#L134) | [`DATA_PANEL_PROMPT`](../../sre_agent/council/prompts.py#L151) | `data_finding` | 6 |
+| **trace_panel** | `fast` | [`panels.py:31`](../../sre_agent/council/panels.py#L31) | [`TRACE_PANEL_PROMPT`](../../sre_agent/council/prompts.py#L30) | `trace_finding` | 23 |
+| **metrics_panel** | `fast` | [`panels.py:57`](../../sre_agent/council/panels.py#L57) | [`METRICS_PANEL_PROMPT`](../../sre_agent/council/prompts.py#L64) | `metrics_finding` | 13 |
+| **logs_panel** | `fast` | [`panels.py:83`](../../sre_agent/council/panels.py#L83) | [`LOGS_PANEL_PROMPT`](../../sre_agent/council/prompts.py#L98) | `logs_finding` | 8 |
+| **alerts_panel** | `fast` | [`panels.py:109`](../../sre_agent/council/panels.py#L109) | [`ALERTS_PANEL_PROMPT`](../../sre_agent/council/prompts.py#L132) | `alerts_finding` | 11 |
+| **data_panel** | `fast` | [`panels.py:134`](../../sre_agent/council/panels.py#L134) | [`DATA_PANEL_PROMPT`](../../sre_agent/council/prompts.py#L170) | `data_finding` | 6 |
 
 ### Council Meta-Agents (created dynamically)
 
 | Agent | Model | Factory | Prompt | output_key | Purpose |
 |:------|:------|:--------|:-------|:-----------|:--------|
-| **council_synthesizer** | `deep` | [`synthesizer.py:16`](../../sre_agent/council/synthesizer.py#L16) | [`SYNTHESIZER_PROMPT`](../../sre_agent/council/prompts.py#L248) | `council_synthesis` | Merges all panel findings into unified assessment (OPT-9: cross-referencing) |
-| **council_critic** | `fast` | [`critic.py:14`](../../sre_agent/council/critic.py#L14) | [`CRITIC_PROMPT`](../../sre_agent/council/prompts.py#L202) | `critic_report` | Cross-examines panel findings (OPT-5: downgraded to Flash) |
+| **council_synthesizer** | `deep` | [`synthesizer.py:16`](../../sre_agent/council/synthesizer.py#L16) | [`SYNTHESIZER_PROMPT`](../../sre_agent/council/prompts.py#L260) | `council_synthesis` | Merges all panel findings into unified assessment (OPT-9: cross-referencing) |
+| **council_critic** | `fast` | [`critic.py:14`](../../sre_agent/council/critic.py#L14) | [`CRITIC_PROMPT`](../../sre_agent/council/prompts.py#L218) | `critic_report` | Cross-examines panel findings (OPT-5: downgraded to Flash) |
 
 ### Workflow Agents (ADK primitives, no LLM)
 
@@ -237,7 +237,7 @@
 | **parallel_panels** | `ParallelAgent` | [`parallel_council.py:47`](../../sre_agent/council/parallel_council.py#L47) | Runs 5 panels concurrently |
 | **council_pipeline** | `SequentialAgent` | [`parallel_council.py:60`](../../sre_agent/council/parallel_council.py#L60) | Panels → Synthesizer |
 | **initial_panels** | `ParallelAgent` | [`debate.py:214`](../../sre_agent/council/debate.py#L214) | Initial parallel analysis (debate) |
-| **debate_panels** | `ParallelAgent` | [`debate.py:238`](../../sre_agent/council/debate.py#L238) | Re-run panels with critic feedback |
+| **debate_panels** | `ParallelAgent` | [`debate.py:238`](../../sre_agent/council/debate.py#L238) | Re-run panels with critic feedback (inside loop) |
 | **debate_loop** | `LoopAgent` | [`debate.py:230`](../../sre_agent/council/debate.py#L230) | Critic → Panels → Synthesizer loop (max 3 iters) |
 | **debate_pipeline** | `SequentialAgent` | [`debate.py:257`](../../sre_agent/council/debate.py#L257) | Initial analysis → Debate loop |
 
@@ -249,25 +249,25 @@ Every prompt in the system, with location and approximate token count.
 
 | Prompt Constant | Used By | File | Line | Est. Tokens |
 |:----------------|:--------|:-----|:-----|:------------|
-| [`SRE_AGENT_PROMPT`](../../sre_agent/prompt.py#L30) | `sre_agent` (root) | `prompt.py` | 30 | ~1,000 (OPT-2: compressed from ~2,500) |
-| [`STRICT_ENGLISH_INSTRUCTION`](../../sre_agent/prompt.py#L3) | All agents (via inclusion) | `prompt.py` | 3 | ~50 |
-| [`REACT_PATTERN_INSTRUCTION`](../../sre_agent/prompt.py#L8) | Root agent only (OPT-3) | `prompt.py` | 8 | ~150 |
-| [`PROJECT_CONTEXT_INSTRUCTION`](../../sre_agent/prompt.py#L23) | All agents (via inclusion) | `prompt.py` | 23 | ~60 |
-| [`CROSS_SIGNAL_CORRELATOR_PROMPT`](../../sre_agent/prompt.py#L323) | (Unused — legacy) | `prompt.py` | 323 | ~300 |
-| [`AGGREGATE_ANALYZER_PROMPT`](../../sre_agent/sub_agents/trace.py#L55) | `aggregate_analyzer` | `sub_agents/trace.py` | 55 | ~400 (OPT-6: XML tags) |
-| [`TRACE_ANALYST_PROMPT`](../../sre_agent/sub_agents/trace.py#L108) | `trace_analyst` | `sub_agents/trace.py` | 108 | ~400 (OPT-6: XML tags) |
+| [`SRE_AGENT_PROMPT`](../../sre_agent/prompt.py#L31) | `sre_agent` (root) | `prompt.py` | 31 | ~1,000 (OPT-2: compressed from ~2,500) |
+| [`STRICT_ENGLISH_INSTRUCTION`](../../sre_agent/prompt.py#L7) | All agents (via inclusion) | `prompt.py` | 7 | ~50 |
+| [`REACT_PATTERN_INSTRUCTION`](../../sre_agent/prompt.py#L20) | Root agent only (OPT-3) | `prompt.py` | 20 | ~150 |
+| [`PROJECT_CONTEXT_INSTRUCTION`](../../sre_agent/prompt.py#L11) | All agents (via inclusion) | `prompt.py` | 11 | ~60 |
+| [`CROSS_SIGNAL_CORRELATOR_PROMPT`](../../sre_agent/prompt.py#L100) | (Unused — legacy) | `prompt.py` | 100 | ~300 |
+| [`AGGREGATE_ANALYZER_PROMPT`](../../sre_agent/sub_agents/trace.py#L28) | `aggregate_analyzer` | `sub_agents/trace.py` | 28 | ~400 (OPT-6: XML tags) |
+| [`TRACE_ANALYST_PROMPT`](../../sre_agent/sub_agents/trace.py#L68) | `trace_analyst` | `sub_agents/trace.py` | 68 | ~400 (OPT-6: XML tags) |
 | [`LOG_ANALYST_PROMPT`](../../sre_agent/sub_agents/logs.py#L29) | `log_analyst` | `sub_agents/logs.py` | 29 | ~400 (OPT-6: compressed from ~700) |
-| [`METRICS_ANALYZER_PROMPT`](../../sre_agent/sub_agents/metrics.py#L53) | `metrics_analyzer` | `sub_agents/metrics.py` | 53 | ~700 (OPT-6: compressed from ~1,200) |
+| [`METRICS_ANALYZER_PROMPT`](../../sre_agent/sub_agents/metrics.py#L36) | `metrics_analyzer` | `sub_agents/metrics.py` | 36 | ~700 (OPT-6: compressed from ~1,200) |
 | [`ALERT_ANALYST_PROMPT`](../../sre_agent/sub_agents/alerts.py#L26) | `alert_analyst` | `sub_agents/alerts.py` | 26 | ~250 (OPT-6: compressed) |
-| [`ROOT_CAUSE_ANALYST_PROMPT`](../../sre_agent/sub_agents/root_cause.py#L48) | `root_cause_analyst` | `sub_agents/root_cause.py` | 48 | ~300 (OPT-6: compressed) |
-| [`AGENT_DEBUGGER_PROMPT`](../../sre_agent/sub_agents/agent_debugger.py#L41) | `agent_debugger` | `sub_agents/agent_debugger.py` | 41 | ~350 (OPT-6: compressed from ~500) |
-| [`TRACE_PANEL_PROMPT`](../../sre_agent/council/prompts.py#L18) | `trace_panel` | `council/prompts.py` | 18 | ~200 (OPT-3: no ReAct) |
-| [`METRICS_PANEL_PROMPT`](../../sre_agent/council/prompts.py#L51) | `metrics_panel` | `council/prompts.py` | 51 | ~150 (OPT-3: no ReAct) |
-| [`LOGS_PANEL_PROMPT`](../../sre_agent/council/prompts.py#L83) | `logs_panel` | `council/prompts.py` | 83 | ~150 (OPT-3: no ReAct) |
-| [`ALERTS_PANEL_PROMPT`](../../sre_agent/council/prompts.py#L115) | `alerts_panel` | `council/prompts.py` | 115 | ~150 (OPT-3: no ReAct) |
-| [`DATA_PANEL_PROMPT`](../../sre_agent/council/prompts.py#L151) | `data_panel` | `council/prompts.py` | 151 | ~200 (OPT-3: no ReAct) |
-| [`CRITIC_PROMPT`](../../sre_agent/council/prompts.py#L202) | `council_critic` | `council/prompts.py` | 202 | ~300 |
-| [`SYNTHESIZER_PROMPT`](../../sre_agent/council/prompts.py#L248) | `council_synthesizer` | `council/prompts.py` | 248 | ~600 (OPT-9: cross-referencing added) |
+| [`ROOT_CAUSE_ANALYST_PROMPT`](../../sre_agent/sub_agents/root_cause.py#L29) | `root_cause_analyst` | `sub_agents/root_cause.py` | 29 | ~300 (OPT-6: compressed) |
+| [`AGENT_DEBUGGER_PROMPT`](../../sre_agent/sub_agents/agent_debugger.py#L40) | `agent_debugger` | `sub_agents/agent_debugger.py` | 40 | ~350 (OPT-6: compressed from ~500) |
+| [`TRACE_PANEL_PROMPT`](../../sre_agent/council/prompts.py#L30) | `trace_panel` | `council/prompts.py` | 30 | ~200 (OPT-3: no ReAct) |
+| [`METRICS_PANEL_PROMPT`](../../sre_agent/council/prompts.py#L64) | `metrics_panel` | `council/prompts.py` | 64 | ~150 (OPT-3: no ReAct) |
+| [`LOGS_PANEL_PROMPT`](../../sre_agent/council/prompts.py#L98) | `logs_panel` | `council/prompts.py` | 98 | ~150 (OPT-3: no ReAct) |
+| [`ALERTS_PANEL_PROMPT`](../../sre_agent/council/prompts.py#L132) | `alerts_panel` | `council/prompts.py` | 132 | ~150 (OPT-3: no ReAct) |
+| [`DATA_PANEL_PROMPT`](../../sre_agent/council/prompts.py#L170) | `data_panel` | `council/prompts.py` | 170 | ~200 (OPT-3: no ReAct) |
+| [`CRITIC_PROMPT`](../../sre_agent/council/prompts.py#L218) | `council_critic` | `council/prompts.py` | 218 | ~300 |
+| [`SYNTHESIZER_PROMPT`](../../sre_agent/council/prompts.py#L260) | `council_synthesizer` | `council/prompts.py` | 260 | ~600 (OPT-9: cross-referencing added) |
 
 ### Shared Prompt Fragments
 
@@ -284,17 +284,17 @@ Both sub-agents and council panels import from this single registry to prevent t
 
 | Tool Set Constant | Used By | Tool Count |
 |:-----------------|:--------|:-----------|
-| `TRACE_PANEL_TOOLS` | `trace_panel` | 22 |
+| `TRACE_PANEL_TOOLS` | `trace_panel` | 23 |
 | `METRICS_PANEL_TOOLS` | `metrics_panel` | 13 |
 | `LOGS_PANEL_TOOLS` | `logs_panel` | 8 |
-| `ALERTS_PANEL_TOOLS` | `alerts_panel` | 10 |
+| `ALERTS_PANEL_TOOLS` | `alerts_panel` | 11 |
 | `DATA_PANEL_TOOLS` | `data_panel` | 6 |
-| `TRACE_ANALYST_TOOLS` | `trace_analyst` sub-agent | 15 |
-| `AGGREGATE_ANALYZER_TOOLS` | `aggregate_analyzer` sub-agent | 14 |
-| `LOG_ANALYST_TOOLS` | `log_analyst` sub-agent | 12 |
+| `TRACE_ANALYST_TOOLS` | `trace_analyst` sub-agent | 16 |
+| `AGGREGATE_ANALYZER_TOOLS` | `aggregate_analyzer` sub-agent | 15 |
+| `LOG_ANALYST_TOOLS` | `log_analyst` sub-agent | 13 |
 | `ALERT_ANALYST_TOOLS` | `alert_analyst` sub-agent | 11 |
-| `METRICS_ANALYZER_TOOLS` | `metrics_analyzer` sub-agent | 13 |
-| `ROOT_CAUSE_ANALYST_TOOLS` | `root_cause_analyst` sub-agent | 16 |
+| `METRICS_ANALYZER_TOOLS` | `metrics_analyzer` sub-agent | 14 |
+| `ROOT_CAUSE_ANALYST_TOOLS` | `root_cause_analyst` sub-agent | 18 |
 | `SHARED_STATE_TOOLS` | All agents (cross-cutting) | 2 |
 | `SHARED_REMEDIATION_TOOLS` | Alert/Log/Root Cause agents | 3 |
 
@@ -399,7 +399,7 @@ Both sub-agents and council panels import from this single registry to prevent t
 | [`detect_circular_dependencies`](../../sre_agent/tools/analysis/correlation/dependencies.py) | `tools/analysis/correlation/` | Root |
 | [`analyze_upstream_downstream_impact`](../../sre_agent/tools/analysis/correlation/impact.py) | `tools/analysis/correlation/` | Root, Root Cause |
 
-### GKE / Infrastructure (5 tools)
+### GKE / Infrastructure (6 tools)
 
 | Tool | Code Path | Used By |
 |:-----|:----------|:--------|
@@ -438,13 +438,13 @@ Both sub-agents and council panels import from this single registry to prevent t
 
 | Tool | Code Path | Invokes |
 |:-----|:----------|:--------|
-| [`run_aggregate_analysis`](../../sre_agent/agent.py#L558) | `agent.py:558` | `aggregate_analyzer` via `AgentTool` |
-| [`run_triage_analysis`](../../sre_agent/agent.py#L637) | `agent.py:637` | `trace_analyst` + `log_analyst` in parallel |
-| [`run_deep_dive_analysis`](../../sre_agent/agent.py#L715) | `agent.py:715` | `root_cause_analyst` via `AgentTool` |
-| [`run_log_pattern_analysis`](../../sre_agent/agent.py#L780) | `agent.py:780` | `log_analyst` via `AgentTool` |
-| [`run_council_investigation`](../../sre_agent/agent.py#L965) | `agent.py:965` | Council pipeline (Standard or Debate) |
-| [`classify_investigation_mode`](../../sre_agent/council/mode_router.py#L19) | `council/mode_router.py:19` | Rule-based classifier (no LLM) |
-| [`route_request`](../../sre_agent/core/router.py#L44) | `core/router.py:44` | Rule-based 3-tier router (no LLM) |
+| [`run_aggregate_analysis`](../../sre_agent/agent.py#L559) | `agent.py:559` | `aggregate_analyzer` via `AgentTool` |
+| [`run_triage_analysis`](../../sre_agent/agent.py#L638) | `agent.py:638` | `trace_analyst` + `log_analyst` in parallel |
+| [`run_deep_dive_analysis`](../../sre_agent/agent.py#L716) | `agent.py:716` | `root_cause_analyst` via `AgentTool` |
+| [`run_log_pattern_analysis`](../../sre_agent/agent.py#L781) | `agent.py:781` | `log_analyst` via `AgentTool` |
+| [`run_council_investigation`](../../sre_agent/agent.py#L966) | `agent.py:966` | Council pipeline (Standard or Debate) |
+| [`classify_investigation_mode`](../../sre_agent/council/mode_router.py#L20) | `council/mode_router.py:20` | Rule-based classifier (no LLM) |
+| [`route_request`](../../sre_agent/core/router.py#L45) | `core/router.py:45` | Rule-based 3-tier router (no LLM) |
 
 ### Discovery & Exploration (2 tools)
 
@@ -486,7 +486,7 @@ Both sub-agents and council panels import from this single registry to prevent t
 | [`analyze_agent_token_usage`](../../sre_agent/tools/analysis/agent_trace/tools.py) | `tools/analysis/agent_trace/tools.py` | Root, Agent Debugger |
 | [`detect_agent_anti_patterns`](../../sre_agent/tools/analysis/agent_trace/tools.py) | `tools/analysis/agent_trace/tools.py` | Root, Agent Debugger |
 
-### Miscellaneous (6 tools)
+### Miscellaneous (10 tools)
 
 | Tool | Code Path | Used By |
 |:-----|:----------|:--------|
@@ -723,4 +723,4 @@ All 10 identified optimizations have been implemented or scaffolded. Here is the
 
 ---
 
-*Last updated: 2026-02-10 — All 10 optimizations applied*
+*Last updated: 2026-02-11 — All 10 optimizations applied, line numbers verified*
