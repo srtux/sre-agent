@@ -65,7 +65,7 @@ def test_validate_trace_comprehensive():
 
 @pytest.mark.asyncio
 async def test_find_example_traces_complex():
-    with patch("sre_agent.tools.clients.trace.list_traces") as mock_list:
+    with patch("sre_agent.tools.clients.trace._list_traces_sync") as mock_list:
         with patch(
             "sre_agent.tools.clients.trace.get_current_project_id", return_value="proj"
         ):
@@ -89,11 +89,13 @@ async def test_find_example_traces_complex():
                 )
 
             # Mock list_traces for 3 calls (slow, all, errors)
+            # Since we use asyncio.gather, the order of execution is generally the order of submission
+            # but theoretically could race. For unit test with mocks, it's usually deterministic.
             mock_list.side_effect = [
-                {"status": ToolStatus.SUCCESS, "result": traces[20:]},  # slow
-                {"status": ToolStatus.SUCCESS, "result": traces},  # all
-                {"status": ToolStatus.SUCCESS, "result": [traces[5]]},  # errors
-                {"status": ToolStatus.SUCCESS, "result": []},  # root name search
+                traces[20:],  # slow
+                traces,       # all
+                [traces[5]],  # errors
+                [],           # extra
             ]
 
             result = await find_example_traces(project_id="proj")

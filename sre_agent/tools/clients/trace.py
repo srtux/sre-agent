@@ -655,33 +655,36 @@ async def find_example_traces(
                 status=ToolStatus.ERROR, error="GOOGLE_CLOUD_PROJECT not set"
             )
 
-        tasks: list[Coroutine[Any, Any, Any]] = []
-        slow_filter = TraceFilterBuilder().add_latency(1000).build()
-        tasks.append(
-            list_traces(
-                project_id, limit=20, filter_str=slow_filter, tool_context=tool_context
-            )
-        )
-        tasks.append(list_traces(project_id, limit=50, tool_context=tool_context))
-        if prefer_errors:
+        # PERFORMANCE: Bypass adk_tool wrapper overhead by calling _sync implementation directly
+        user_creds = get_credentials_from_tool_context(tool_context)
+        creds = user_creds or GLOBAL_CONTEXT_CREDENTIALS
+        _set_thread_credentials(creds)
+        try:
+            tasks: list[Coroutine[Any, Any, Any]] = []
+            # We use min_latency_ms=1000 which corresponds to latency:1000ms filter
             tasks.append(
-                list_traces(
-                    project_id, limit=10, error_only=True, tool_context=tool_context
+                run_in_threadpool(
+                    _list_traces_sync, project_id, limit=20, min_latency_ms=1000
                 )
             )
-
-        results = await asyncio.gather(*tasks)
-
-        # Helper to extract from normalized dict response (from adk_tool)
-        def extract(resp: dict[str, Any] | Any) -> list[dict[str, Any]]:
-            if isinstance(resp, dict) and "status" in resp:
-                return (
-                    cast(list[dict[str, Any]], resp.get("result"))
-                    if resp.get("status") == "success"
-                    and isinstance(resp.get("result"), list)
-                    else []
+            tasks.append(run_in_threadpool(_list_traces_sync, project_id, limit=50))
+            if prefer_errors:
+                tasks.append(
+                    run_in_threadpool(
+                        _list_traces_sync, project_id, limit=10, error_only=True
+                    )
                 )
-            return cast(list[dict[str, Any]], resp if isinstance(resp, list) else [])
+
+            results = await asyncio.gather(*tasks)
+        finally:
+            _clear_thread_credentials()
+
+        # Helper to extract from raw list response
+        def extract(resp: list[dict[str, Any]] | dict[str, Any]) -> list[dict[str, Any]]:
+            if isinstance(resp, list):
+                return resp
+            # If it's a dict, it's an error object ({"error": ...})
+            return []
 
         slow_traces = extract(results[0])
         traces = extract(results[1])

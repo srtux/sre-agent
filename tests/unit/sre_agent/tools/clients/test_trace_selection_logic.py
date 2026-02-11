@@ -7,7 +7,7 @@ from sre_agent.tools.clients.trace import find_example_traces, get_trace_by_url
 
 
 @pytest.mark.asyncio
-@patch("sre_agent.tools.clients.trace.list_traces")
+@patch("sre_agent.tools.clients.trace._list_traces_sync")
 @patch("sre_agent.tools.clients.trace._get_project_id", return_value="p")
 async def test_find_example_traces_hybrid(mock_pid, mock_list_traces):
     # Setup mock traces
@@ -19,7 +19,7 @@ async def test_find_example_traces_hybrid(mock_pid, mock_list_traces):
     # Add one valid anomaly (500ms)
     traces.append({"trace_id": "t_slow", "duration_ms": 500, "project_id": "p"})
 
-    mock_list_traces.return_value = {"status": "success", "result": traces}
+    mock_list_traces.return_value = traces
 
     # Call function
     result = await find_example_traces(project_id="p", prefer_errors=False)
