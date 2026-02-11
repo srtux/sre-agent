@@ -21,7 +21,7 @@ class SandboxLanguage(str, Enum):
 class MachineConfig(str, Enum):
     """Machine configurations for sandbox execution."""
 
-    DEFAULT = "MACHINE_CONFIG_DEFAULT"  # 2 vCPU, 1.5 GB RAM
+    DEFAULT = "MACHINE_CONFIG_UNSPECIFIED"  # Server default (2 vCPU, 1.5 GB RAM)
     VCPU4_RAM4GIB = "MACHINE_CONFIG_VCPU4_RAM4GIB"  # 4 vCPU, 4 GB RAM
 
 
@@ -32,6 +32,10 @@ class SandboxFile(BaseModel):
 
     name: str = Field(description="File name within the sandbox")
     content: bytes = Field(description="File content as bytes")
+    mime_type: str = Field(
+        default="application/octet-stream",
+        description="MIME type of the file",
+    )
 
 
 class SandboxConfig(BaseModel):

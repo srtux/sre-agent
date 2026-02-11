@@ -144,11 +144,17 @@ class TestSandboxExecutor:
     async def test_execute_code_success(self) -> None:
         executor = SandboxExecutor(sandbox_name="test-sandbox")
 
-        # Mock the vertexai module
+        # Mock the vertexai SDK response: ExecuteSandboxEnvironmentResponse
+        # has .outputs (list of Chunk).  stdout/stderr arrive in a JSON chunk.
+        mock_stdout_chunk = MagicMock()
+        mock_stdout_chunk.mime_type = "application/json"
+        mock_stdout_chunk.data = json.dumps(
+            {"stdout": '{"result": "success"}', "stderr": ""}
+        ).encode("utf-8")
+        mock_stdout_chunk.metadata = None  # No file_name → stdout/stderr
+
         mock_response = MagicMock()
-        mock_response.stdout = b'{"result": "success"}'
-        mock_response.stderr = b""
-        mock_response.files = []
+        mock_response.outputs = [mock_stdout_chunk]
 
         mock_client = MagicMock()
         mock_client.agent_engines.sandboxes.execute_code.return_value = mock_response
@@ -166,6 +172,46 @@ class TestSandboxExecutor:
         assert output.stdout == '{"result": "success"}'
         assert output.stderr == ""
         assert output.execution_error is None
+
+    @pytest.mark.asyncio
+    async def test_execute_code_with_output_files(self) -> None:
+        """Output file chunks are returned as SandboxFile objects."""
+        executor = SandboxExecutor(sandbox_name="test-sandbox")
+
+        # stdout/stderr chunk
+        mock_stdout_chunk = MagicMock()
+        mock_stdout_chunk.mime_type = "application/json"
+        mock_stdout_chunk.data = json.dumps({"stdout": "done", "stderr": ""}).encode(
+            "utf-8"
+        )
+        mock_stdout_chunk.metadata = None
+
+        # File chunk with file_name in metadata.attributes
+        mock_file_chunk = MagicMock()
+        mock_file_chunk.mime_type = "application/json"
+        mock_file_chunk.data = b'{"from_file": true}'
+        mock_file_chunk.metadata = MagicMock()
+        mock_file_chunk.metadata.attributes = {"file_name": b"output.json"}
+
+        mock_response = MagicMock()
+        mock_response.outputs = [mock_stdout_chunk, mock_file_chunk]
+
+        mock_client = MagicMock()
+        mock_client.agent_engines.sandboxes.execute_code.return_value = mock_response
+
+        with patch.dict("sys.modules", {"vertexai": MagicMock()}):
+            import sys
+
+            sys.modules["vertexai"].Client.return_value = mock_client
+            with patch("fastapi.concurrency.run_in_threadpool") as mock_threadpool:
+                mock_threadpool.side_effect = lambda fn: fn()
+
+                output = await executor.execute_code("print('done')")
+
+        assert output.stdout == "done"
+        assert len(output.output_files) == 1
+        assert output.output_files[0].name == "output.json"
+        assert output.output_files[0].content == b'{"from_file": true}'
 
     @pytest.mark.asyncio
     async def test_execute_code_handles_error(self) -> None:
