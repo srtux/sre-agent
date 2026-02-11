@@ -122,7 +122,8 @@ def main():
             [
                 "--region",
                 args.region,
-                "--memory=1Gi",
+                "--memory=16Gi",
+                "--cpu=4",
                 "--timeout=300",
                 f"--set-env-vars={','.join(env_vars)}",
                 # Mount the secrets as environment variables to be safe

@@ -3,16 +3,12 @@ import os
 
 from dotenv import load_dotenv
 
-# Initialize telemetry and environment before anything else
+# Initialize environment before anything else
 load_dotenv()
 
-# 1. Setup Telemetry (Logging + OTel) as early as possible
-try:
-    from sre_agent.tools.common.telemetry import setup_telemetry
-
-    setup_telemetry()
-except Exception as e:
-    print(f"CRITICAL: Failed to initialize telemetry in server.py: {e}")
+# Telemetry is initialized inside create_app() — no need to duplicate here.
+# Previously, setup_telemetry() was called both here and in create_app(),
+# doubling the initialization overhead per worker process.
 
 from sre_agent.api import create_app  # noqa: E402
 
@@ -48,4 +44,8 @@ if __name__ == "__main__":
     # We rely on our own setup_telemetry() for formatting, so we pass log_config=None
     # However, Uvicorn will still create 'uvicorn' and 'uvicorn.access' loggers.
     # By passing log_config=None, Uvicorn won't overwrite our root logger configuration.
-    uvicorn.run("server:app", host=host, port=port, log_config=None, workers=4)
+    # Each worker forks a full copy of the Python process (~250-350 MB with
+    # GCP SDKs, ADK, OTel, etc.).  Match workers to allocated CPUs.
+    # Cloud Run deploy allocates 4 CPUs / 16Gi — 4 workers fits comfortably.
+    workers = int(os.getenv("WEB_CONCURRENCY", "4"))
+    uvicorn.run("server:app", host=host, port=port, log_config=None, workers=workers)
