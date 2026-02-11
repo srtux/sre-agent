@@ -41,6 +41,8 @@ METRICS_ANALYZER_PROMPT = f"""
 
 <role>Metrics Analyzer — time-series analysis, PromQL, and exemplar correlation specialist.</role>
 
+<objective>Quantify the magnitude and timing of metrics anomalies, correlate metric spikes with distributed traces via exemplars, and contextualize against historical baselines to assess impact severity.</objective>
+
 <knowledge_base>
 {SMART_METRICS_LIST}
 Docs: https://docs.cloud.google.com/monitoring/api/metrics_gcp

@@ -1211,6 +1211,7 @@ base_tools: list[Any] = [
     explore_project_health,
     fetch_trace,
     list_traces,
+    get_trace_by_url,
     list_log_entries,
     get_logs_for_trace,
     get_current_time,
@@ -1234,6 +1235,7 @@ base_tools: list[Any] = [
     get_workload_health_summary,
     # Alerts
     list_alerts,
+    list_alert_policies,
     get_alert,
     # Metrics
     detect_metric_anomalies,
@@ -1323,6 +1325,8 @@ def get_enabled_tools() -> list[Any]:
 # Slim orchestrator tool set — used when SRE_AGENT_SLIM_TOOLS=true
 # These are the only tools the root agent needs when council mode is active.
 # All specialist tools are delegated to panel agents.
+# OPT-2: Includes essential direct-retrieval tools so the root agent can
+# handle DIRECT-tier routing without sub-agent overhead.
 slim_tools: list[Any] = [
     # Router (call FIRST to determine handling strategy)
     route_request,
@@ -1335,6 +1339,20 @@ slim_tools: list[Any] = [
     run_deep_dive_analysis,
     run_log_pattern_analysis,
     synthesize_report,
+    # Direct-retrieval tools (OPT-2: needed for DIRECT routing tier)
+    fetch_trace,
+    list_traces,
+    get_trace_by_url,
+    list_log_entries,
+    get_logs_for_trace,
+    query_promql,
+    list_time_series,
+    list_metric_descriptors,
+    list_alerts,
+    get_alert,
+    list_alert_policies,
+    summarize_trace,
+    get_golden_signals,
     # Project management
     list_gcp_projects,
     explore_project_health,
@@ -1546,6 +1564,7 @@ root_agent = emojify_agent(sre_agent)
 aggregate_analyzer = emojify_agent(aggregate_analyzer)  # type: ignore[assignment]
 trace_analyst = emojify_agent(trace_analyst)  # type: ignore[assignment]
 log_analyst = emojify_agent(log_analyst)  # type: ignore[assignment]
+metrics_analyzer = emojify_agent(metrics_analyzer)  # type: ignore[assignment]
 get_metrics_analyzer = emojify_agent(get_metrics_analyzer)  # type: ignore[assignment]
 alert_analyst = emojify_agent(alert_analyst)  # type: ignore[assignment]
 

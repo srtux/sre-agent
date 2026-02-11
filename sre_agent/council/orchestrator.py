@@ -108,9 +108,27 @@ class CouncilOrchestrator(BaseAgent):
             run_config=ctx.run_config,
         )
 
-        # Stream events from the pipeline
+        # Stream events from the pipeline with deadline enforcement (OPT-4)
+        # Compatible with Python 3.10+ (asyncio.timeout requires 3.11+).
+        import time
+
+        deadline = time.monotonic() + config.timeout_seconds
+        timed_out = False
         async for event in pipeline.run_async(child_ctx):
             yield event
+            if time.monotonic() > deadline:
+                timed_out = True
+                break
+        if timed_out:
+            logger.warning(
+                f"Council pipeline timed out after {config.timeout_seconds}s "
+                f"(mode={mode.value})"
+            )
+            yield self._make_text_event(
+                ctx,
+                f"Investigation timed out after {config.timeout_seconds}s. "
+                "Returning partial results collected so far.",
+            )
 
     def _extract_query(self, ctx: InvocationContext) -> str:
         """Extract the user query text from the invocation context."""

@@ -302,7 +302,22 @@ ROOT_CAUSE_ANALYST_TOOLS: list[Any] = [
     *SHARED_STATE_TOOLS,
 ]
 
-# Orchestrator-level tools (for slim root agent - Phase 4)
-# These are the only tools the root agent needs when council is active.
-# Populated in Phase 4 when the slim tool set is implemented.
-ORCHESTRATOR_TOOLS: list[Any] = []
+# Orchestrator-level tools (for slim root agent — OPT-3)
+# Direct-retrieval tools the root agent needs for DIRECT routing tier.
+# Mirrors the direct-retrieval subset of slim_tools in agent.py.
+ORCHESTRATOR_TOOLS: list[Any] = [
+    # Direct-retrieval (DIRECT routing tier)
+    fetch_trace,
+    list_traces,
+    list_log_entries,
+    list_time_series,
+    list_metric_descriptors,
+    query_promql,
+    list_alerts,
+    list_alert_policies,
+    get_alert,
+    # Discovery
+    discover_telemetry_sources,
+    # State
+    *SHARED_STATE_TOOLS,
+]

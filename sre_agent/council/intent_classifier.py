@@ -18,6 +18,7 @@ Additionally provides routing classification for the 3-tier orchestrator:
 import re
 from dataclasses import dataclass
 from enum import Enum
+from functools import lru_cache
 
 from .schemas import InvestigationMode, RoutingDecision
 
@@ -182,6 +183,72 @@ _ALERTS_KEYWORDS: set[str] = {
 }
 
 
+# ── Precompiled keyword patterns for word-boundary matching ──────────────
+
+
+@lru_cache(maxsize=1)
+def _compile_keyword_patterns() -> dict[str, list[re.Pattern[str]]]:
+    r"""Compile all keyword sets into word-boundary regex patterns.
+
+    Uses \b word boundaries so "rate" won't match inside "correlate".
+    Multi-word phrases (e.g. "critical path") are matched as-is.
+
+    Returns:
+        Dict mapping category name to list of compiled patterns.
+    """
+    categories: dict[str, set[str]] = {
+        "fast": _FAST_KEYWORDS,
+        "debate": _DEBATE_KEYWORDS,
+        "trace": _TRACE_KEYWORDS,
+        "metrics": _METRICS_KEYWORDS,
+        "logs": _LOGS_KEYWORDS,
+        "alerts": _ALERTS_KEYWORDS,
+        "direct": _DIRECT_KEYWORDS,
+        "analysis": _ANALYSIS_KEYWORDS,
+    }
+    compiled: dict[str, list[re.Pattern[str]]] = {}
+    for name, keywords in categories.items():
+        patterns = []
+        for kw in keywords:
+            # Use word boundaries; for hyphenated keywords use raw match
+            if "-" in kw or " " in kw:
+                patterns.append(
+                    re.compile(rf"(?:^|\s){re.escape(kw)}(?:\s|$)", re.IGNORECASE)
+                )
+            else:
+                patterns.append(re.compile(rf"\b{re.escape(kw)}\b", re.IGNORECASE))
+        compiled[name] = patterns
+    return compiled
+
+
+def _count_keyword_matches(query: str, category: str) -> int:
+    """Count keyword matches for a category using word-boundary patterns.
+
+    Args:
+        query: The lowercased user query.
+        category: Category name (e.g. 'trace', 'metrics', 'logs', 'alerts').
+
+    Returns:
+        Number of keyword matches found.
+    """
+    patterns = _compile_keyword_patterns().get(category, [])
+    return sum(1 for p in patterns if p.search(query))
+
+
+def _has_keyword_match(query: str, category: str) -> bool:
+    """Check if any keyword in the category matches the query.
+
+    Args:
+        query: The lowercased user query.
+        category: Category name.
+
+    Returns:
+        True if at least one keyword matches.
+    """
+    patterns = _compile_keyword_patterns().get(category, [])
+    return any(p.search(query) for p in patterns)
+
+
 @dataclass(frozen=True)
 class ClassificationResult:
     """Result of intent classification.
@@ -200,9 +267,9 @@ class ClassificationResult:
 def _detect_signal_type(query_lower: str) -> SignalType:
     """Detect the dominant signal type in a query.
 
-    Counts keyword matches for each signal type and returns the
-    one with the most hits. Defaults to TRACE if no signal-specific
-    keywords are found.
+    Uses word-boundary matching to count keyword hits for each signal type
+    and returns the one with the most matches. Defaults to TRACE if no
+    signal-specific keywords are found.
 
     Args:
         query_lower: Lowercased user query.
@@ -210,28 +277,16 @@ def _detect_signal_type(query_lower: str) -> SignalType:
     Returns:
         The best-fit signal type.
     """
-    scores: dict[SignalType, int] = {
-        SignalType.TRACE: 0,
-        SignalType.METRICS: 0,
-        SignalType.LOGS: 0,
-        SignalType.ALERTS: 0,
+    signal_categories: dict[SignalType, str] = {
+        SignalType.TRACE: "trace",
+        SignalType.METRICS: "metrics",
+        SignalType.LOGS: "logs",
+        SignalType.ALERTS: "alerts",
     }
-
-    for keyword in _TRACE_KEYWORDS:
-        if keyword in query_lower:
-            scores[SignalType.TRACE] += 1
-
-    for keyword in _METRICS_KEYWORDS:
-        if keyword in query_lower:
-            scores[SignalType.METRICS] += 1
-
-    for keyword in _LOGS_KEYWORDS:
-        if keyword in query_lower:
-            scores[SignalType.LOGS] += 1
-
-    for keyword in _ALERTS_KEYWORDS:
-        if keyword in query_lower:
-            scores[SignalType.ALERTS] += 1
+    scores = {
+        signal: _count_keyword_matches(query_lower, category)
+        for signal, category in signal_categories.items()
+    }
 
     max_score = max(scores.values())
     if max_score == 0:
@@ -280,17 +335,15 @@ def classify_intent_with_signal(query: str) -> ClassificationResult:
     query_lower = query.lower().strip()
 
     # Check for debate mode first (highest priority)
-    for keyword in _DEBATE_KEYWORDS:
-        if keyword in query_lower:
-            return ClassificationResult(mode=InvestigationMode.DEBATE)
+    if _has_keyword_match(query_lower, "debate"):
+        return ClassificationResult(mode=InvestigationMode.DEBATE)
 
     for pattern in _DEBATE_PATTERNS:
         if pattern.search(query_lower):
             return ClassificationResult(mode=InvestigationMode.DEBATE)
 
     # Check for fast mode (short queries with status-like keywords)
-    query_words = set(re.findall(r"\b\w+\b", query_lower))
-    if query_words & _FAST_KEYWORDS and len(query_lower) < 100:
+    if _has_keyword_match(query_lower, "fast") and len(query_lower) < 100:
         signal_type = _detect_signal_type(query_lower)
         return ClassificationResult(
             mode=InvestigationMode.FAST,
@@ -460,28 +513,17 @@ def classify_routing(query: str) -> RoutingResult:
     signal_type = _detect_signal_type(query_lower)
 
     # 1. Check for council-level queries (highest priority — complex investigations)
-    for keyword in _DEBATE_KEYWORDS:
-        if keyword in query_lower:
-            # Classify the council mode
-            intent = classify_intent_with_signal(query)
-            return RoutingResult(
-                decision=RoutingDecision.COUNCIL,
-                signal_type=signal_type,
-                investigation_mode=intent.mode,
-            )
-
-    for pattern in _DEBATE_PATTERNS:
-        if pattern.search(query_lower):
-            intent = classify_intent_with_signal(query)
-            return RoutingResult(
-                decision=RoutingDecision.COUNCIL,
-                signal_type=signal_type,
-                investigation_mode=intent.mode,
-            )
+    # Reuse classify_intent_with_signal to avoid duplicate keyword checks.
+    intent = classify_intent_with_signal(query)
+    if intent.mode == InvestigationMode.DEBATE:
+        return RoutingResult(
+            decision=RoutingDecision.COUNCIL,
+            signal_type=signal_type,
+            investigation_mode=intent.mode,
+        )
 
     # 2. Check for analysis queries (SUB_AGENT tier)
-    query_words = set(re.findall(r"\b\w+\b", query_lower))
-    if query_words & _ANALYSIS_KEYWORDS:
+    if _has_keyword_match(query_lower, "analysis"):
         return RoutingResult(
             decision=RoutingDecision.SUB_AGENT,
             signal_type=signal_type,
@@ -496,19 +538,7 @@ def classify_routing(query: str) -> RoutingResult:
                 suggested_agent=_SIGNAL_TO_AGENT.get(signal_type, "trace_analyst"),
             )
 
-    # 3. Check for direct retrieval queries
-    if query_words & _DIRECT_KEYWORDS:
-        for pattern in _DIRECT_PATTERNS:
-            if pattern.search(query_lower):
-                return RoutingResult(
-                    decision=RoutingDecision.DIRECT,
-                    signal_type=signal_type,
-                    suggested_tools=_SIGNAL_TO_TOOLS.get(
-                        signal_type, ("fetch_trace", "list_traces")
-                    ),
-                )
-
-    # Also check direct patterns without requiring a direct keyword
+    # 3. Check for direct retrieval queries (keyword + pattern, or pattern alone)
     for pattern in _DIRECT_PATTERNS:
         if pattern.search(query_lower):
             return RoutingResult(
