@@ -680,7 +680,9 @@ async def find_example_traces(
             _clear_thread_credentials()
 
         # Helper to extract from raw list response
-        def extract(resp: list[dict[str, Any]] | dict[str, Any]) -> list[dict[str, Any]]:
+        def extract(
+            resp: list[dict[str, Any]] | dict[str, Any],
+        ) -> list[dict[str, Any]]:
             if isinstance(resp, list):
                 return resp
             # If it's a dict, it's an error object ({"error": ...})

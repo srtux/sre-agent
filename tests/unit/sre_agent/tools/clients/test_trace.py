@@ -93,9 +93,9 @@ async def test_find_example_traces_complex():
             # but theoretically could race. For unit test with mocks, it's usually deterministic.
             mock_list.side_effect = [
                 traces[20:],  # slow
-                traces,       # all
+                traces,  # all
                 [traces[5]],  # errors
-                [],           # extra
+                [],  # extra
             ]
 
             result = await find_example_traces(project_id="proj")
