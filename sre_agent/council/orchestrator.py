@@ -17,6 +17,7 @@ from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events import Event
 from google.genai import types as genai_types
 
+from .adaptive_classifier import adaptive_classify, is_adaptive_classifier_enabled
 from .debate import create_debate_pipeline
 from .intent_classifier import SignalType, classify_intent_with_signal
 from .panels import (
@@ -26,7 +27,11 @@ from .panels import (
     create_trace_panel,
 )
 from .parallel_council import create_council_pipeline
-from .schemas import CouncilConfig, InvestigationMode
+from .schemas import (
+    ClassificationContext,
+    CouncilConfig,
+    InvestigationMode,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -62,14 +67,27 @@ class CouncilOrchestrator(BaseAgent):
             )
             return
 
-        # Classify intent with signal type detection
-        classification = classify_intent_with_signal(query)
-        mode = classification.mode
-        signal_type = classification.signal_type
-        logger.info(
-            f"🏛️ Council orchestrator: mode={mode.value}, "
-            f"signal={signal_type.value}, query={query[:80]}..."
-        )
+        # Classify intent — adaptive (LLM) or rule-based
+        if is_adaptive_classifier_enabled():
+            context = self._build_classification_context(ctx)
+            adaptive_result = await adaptive_classify(query, context)
+            mode = adaptive_result.mode
+            signal_type_str = adaptive_result.signal_type
+            # Map string back to SignalType enum for panel routing
+            signal_type = _str_to_signal_type(signal_type_str)
+            logger.info(
+                f"🏛️ Adaptive classifier: mode={mode.value}, "
+                f"signal={signal_type.value}, confidence={adaptive_result.confidence:.2f}, "
+                f"classifier={adaptive_result.classifier_used}, query={query[:80]}..."
+            )
+        else:
+            classification = classify_intent_with_signal(query)
+            mode = classification.mode
+            signal_type = classification.signal_type
+            logger.info(
+                f"🏛️ Council orchestrator: mode={mode.value}, "
+                f"signal={signal_type.value}, query={query[:80]}..."
+            )
 
         # Emit a status event
         yield self._make_text_event(
@@ -158,6 +176,46 @@ class CouncilOrchestrator(BaseAgent):
         factory = panel_factories.get(signal_type, create_trace_panel)
         logger.info(f"🏛️ Fast mode: routing to {signal_type.value} panel")
         return factory()
+
+    def _build_classification_context(
+        self, ctx: InvocationContext
+    ) -> ClassificationContext:
+        """Build classification context from session state.
+
+        Extracts investigation history, alert severity, and token budget
+        from the session state for adaptive classification.
+        """
+        state = ctx.session.state if ctx.session else {}
+
+        # Extract recent queries from session
+        session_history: list[str] = list(state.get("investigation_queries", []))[-5:]
+
+        # Extract alert severity if available
+        alert_severity: str | None = state.get("current_alert_severity")
+
+        # Extract remaining token budget
+        remaining_budget: int | None = state.get("remaining_token_budget")
+
+        # Extract previous investigation modes
+        previous_modes: list[str] = list(state.get("previous_investigation_modes", []))
+
+        return ClassificationContext(
+            session_history=session_history,
+            alert_severity=alert_severity,
+            remaining_token_budget=remaining_budget,
+            previous_modes=previous_modes,
+        )
+
+
+def _str_to_signal_type(signal_str: str) -> SignalType:
+    """Convert a signal type string to the SignalType enum."""
+    mapping = {
+        "trace": SignalType.TRACE,
+        "metrics": SignalType.METRICS,
+        "logs": SignalType.LOGS,
+        "alerts": SignalType.ALERTS,
+    }
+    return mapping.get(signal_str.lower(), SignalType.TRACE)
 
 
 def create_council_orchestrator(

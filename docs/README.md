@@ -48,6 +48,9 @@ System design documents explaining how Auto SRE is built.
 | [Authentication](architecture/authentication.md) | OAuth2, session management, EUC propagation |
 | [Telemetry](architecture/telemetry.md) | OpenTelemetry instrumentation, Cloud Trace export |
 | [Architectural Decisions](architecture/decisions.md) | Historic record of design choices and rationale |
+| [Help System](architecture/help_system.md) | Context-aware help system architecture |
+| [Agents & Tools](architecture/AGENTS_AND_TOOLS.md) | Agent hierarchy and tool registration catalog |
+| [System Instruction Snapshot](architecture/system_instruction_snapshot_v1.md) | Captured system instruction baseline for comparison |
 
 ---
 
@@ -78,6 +81,9 @@ Practical how-to instructions for developers.
 | [Testing Strategy](guides/testing.md) | Test levels, style guide, coverage requirements |
 | [Linting Rules](guides/linting.md) | Ruff, MyPy, codespell, deptry configuration |
 | [Evaluation Guide](guides/evaluation.md) | Agent quality benchmarking with ADK eval |
+| [Dashboard UI](guides/dashboard_ui.md) | Observability Explorer dashboard usage and architecture |
+| [Frontend Testing](guides/frontend_testing.md) | Flutter test strategy with Provider-based injection |
+| [Project Selector](guides/project_selector.md) | GCP project picker implementation and data flow |
 
 ### Deployment
 | Guide | Description |
@@ -184,4 +190,4 @@ If you are an LLM agent (Claude Code, Gemini, etc.), follow this reading order:
    - Deploying? Read [Deployment Guide](guides/deployment.md)
 
 ---
-*Last verified: 2026-02-02 — Auto SRE Team*
+*Last verified: 2026-02-11 — Auto SRE Team*

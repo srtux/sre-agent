@@ -77,7 +77,7 @@ Total: **105 new tests**, all passing.
 ### Phase 2.75: Parallel Council & Debate Architecture (COMPLETED — Feb 2026)
 **Goal**: Parallel multi-signal investigation with adversarial refinement.
 
-- [x] **Council of Experts Architecture**: Four parallel specialist panels (Trace, Metrics, Logs, Alerts) running simultaneously via ADK `ParallelAgent`. Each panel has domain-specific tools and prompts.
+- [x] **Council of Experts Architecture**: Five parallel specialist panels (Trace, Metrics, Logs, Alerts, Data) running simultaneously via ADK `ParallelAgent`. Each panel has domain-specific tools and prompts.
 - [x] **Debate Pipeline**: Critic cross-examination loop using ADK `LoopAgent`. The critic challenges panel findings, identifies contradictions, and drives iterative refinement until confidence gating thresholds are met.
 - [x] **Investigation Modes**: Rule-based `IntentClassifier` selects from three modes:
     - **Fast**: Single-panel dispatch for narrowly scoped queries.
@@ -203,6 +203,30 @@ Total: **112 new tests** in this phase. Grand total: **1909+** tests passing.
     - [ ] **Token Efficiency**: Move critical invariants (constraints) to the end of the prompt to combat "lost in the middle" phenomenon.
     - [ ] **Documentation Snapshot**: [Captured current state](../docs/architecture/system_instruction_snapshot_v1.md) for future comparison.
 
+### Phase 5: Proactive SRE (Q2 2026)
+**Goal**: The agent anticipates problems before users ask.
+
+- [ ] **Proactive Anomaly Detection**: Background monitoring mode — continuously poll key SLO metrics, run Z-score and seasonal decomposition, surface pre-incident warnings, auto-create investigations when thresholds breach.
+- [ ] **Cross-Incident Knowledge Graph**: Persistent graph (services, APIs, error types, deployments) auto-populated from investigation findings. Queryable: "What usually causes checkout-service latency?"
+- [ ] **Adaptive Panel Selection (Council 2.0)**: Replace rule-based IntentClassifier with LLM-augmented classifier considering investigation history, incident severity, and token budget.
+- [ ] **Panel Self-Assessment & Re-Dispatch**: Confidence-aware feedback loop — low-confidence panels get re-dispatched with refined queries; contradicting panels auto-escalate to Debate mode.
+- [ ] **Investigation Quality Scoring**: Post-investigation report with signal coverage, aggregate confidence, evidence strength, and suggestions for deeper investigation.
+- [ ] **Investigation History & Replay**: Past investigations with timestamps, ability to replay against current data, diff view for "what changed since last investigation."
+- [ ] **Graceful Degradation Hierarchy**: Multi-level fallback — Full MCP → Simplified MCP → Direct API → Cached results → Synthetic estimates.
+- [ ] **Cost Attribution & Chargeback**: Per-team/per-project cost tracking for LLM tokens and GCP API calls, monthly reports, budget alerts.
+
+### Phase 6: Enterprise & Scale (Q3-Q4 2026)
+**Goal**: Multi-team, multi-cloud, production-grade governance.
+
+- [ ] **Confirmation Bridge (HITL 2.0)**: Global interceptor for `IMPACT: HIGH` tool calls that pauses the agent and requests user permission via UI banner.
+- [ ] **Zero-Trust Identity Propagation**: 1:1 mapping of every tool execution to the end-user IAM identity for absolute auditability.
+- [ ] **Collaborative Investigations**: Multi-user investigation sessions — shared links, real-time cursors, comments/annotations, escalation workflow.
+- [ ] **Canary Deployment Pipeline**: Deploy new agent version to 5% of traffic, run automated eval suite, compare quality metrics, auto-promote or rollback.
+- [ ] **Prompt A/B Testing**: Track investigation quality per prompt variant, auto-select higher-performing prompts, few-shot examples from memory bank (RAG).
+- [ ] **Mobile-Responsive Dashboard**: Responsive breakpoints for tablet/mobile — collapsible sidebar, swipeable panel cards, push notifications.
+- [ ] **Chaos Engineering Sub-Agent**: Validate resilience hypotheses with controlled fault injection.
+- [ ] **Multi-Cloud Support**: Extend investigation to AWS CloudWatch and Azure Monitor via new client factories.
+
 ---
 
 ## 🧪 Engineering Standards
@@ -212,4 +236,4 @@ Total: **112 new tests** in this phase. Grand total: **1909+** tests passing.
 *   **Documentation**: This file (`PROJECT_PLAN.md`) must be updated after every significant change or phase transition.
 
 ---
-*Last updated: 2026-02-07 — Auto SRE Team*
+*Last updated: 2026-02-11 — Auto SRE Team*

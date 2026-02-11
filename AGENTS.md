@@ -57,14 +57,22 @@ sre_agent/
 ├── agent.py              # Main orchestrator with 3-stage analysis pipeline
 ├── prompt.py             # Agent personality and instructions
 ├── schema.py             # Pydantic models (all with extra="forbid")
-├── sub_agents/           # Specialist agents (trace, logs, metrics, alerts)
+├── model_config.py       # Model configuration (get_model_name("fast"|"deep"))
+├── api/                  # FastAPI application layer (app factory, middleware, routers)
+├── core/                 # Agent engine (runner, circuit breaker, model callbacks, policy)
+├── council/              # Parallel Council of Experts (orchestrator, panels, debate, critic)
+├── sub_agents/           # Specialist agents (trace, logs, metrics, alerts, root_cause)
 ├── tools/                # Tool implementations
 │   ├── mcp/              # Model Context Protocol (heavy SQL/queries)
 │   ├── clients/          # Direct GCP API clients (low-latency)
 │   ├── analysis/         # Pure analysis functions
+│   ├── playbooks/        # Runbook execution (GKE, Cloud Run, SQL, Pub/Sub, GCE, BigQuery)
+│   ├── sandbox/          # Sandboxed code execution (large data processing)
 │   └── common/           # Shared utilities (decorators, cache, telemetry)
 ├── services/             # Infrastructure (session management, storage)
-└── server.py             # FastAPI server
+├── memory/               # Memory subsystem (manager, factory, local)
+├── models/               # Data models (InvestigationPhase, InvestigationState)
+└── resources/            # GCP resources catalog (metrics by service)
 ```
 
 ---
@@ -641,7 +649,7 @@ latency_analyzer = LlmAgent(
 
 ### Coverage Requirement
 
-**Target**: **100% test coverage**. Every branch and error condition must be verified.
+**Target**: **80% minimum gate** on all code. **100% coverage target** on new tools and core logic.
 
 **Test-First Policy**: Coding agents MUST translate specs to tests **before** writing implementation code.
 
@@ -1319,4 +1327,4 @@ Before committing code, verify:
 **Happy Coding! 🚀**
 
 ---
-*Last verified: 2026-02-02 — Auto SRE Team*
+*Last verified: 2026-02-11 — Auto SRE Team*
