@@ -10,6 +10,7 @@ from typing import Any
 from sre_agent.schema import BaseToolResponse, ToolStatus
 from sre_agent.tools.common import adk_tool
 
+from .adaptive_classifier import adaptive_classify, is_adaptive_classifier_enabled
 from .intent_classifier import classify_intent
 from .schemas import InvestigationMode
 
@@ -33,6 +34,27 @@ async def classify_investigation_mode(
         tool_context: ADK tool context.
     """
     try:
+        if is_adaptive_classifier_enabled():
+            adaptive_result = await adaptive_classify(query)
+            logger.info(
+                f"🏛️ Adaptive classified: {adaptive_result.mode.value} "
+                f"(classifier={adaptive_result.classifier_used}) "
+                f"for query: {query[:50]}..."
+            )
+
+            return BaseToolResponse(
+                status=ToolStatus.SUCCESS,
+                result={
+                    "mode": adaptive_result.mode.value,
+                    "description": _MODE_DESCRIPTIONS[adaptive_result.mode],
+                    "query": query,
+                    "confidence": adaptive_result.confidence,
+                    "reasoning": adaptive_result.reasoning,
+                    "signal_type": adaptive_result.signal_type,
+                },
+                metadata={"classifier": adaptive_result.classifier_used},
+            )
+
         mode = classify_intent(query)
         logger.info(
             f"🏛️ Classified investigation mode: {mode.value} for query: {query[:50]}..."

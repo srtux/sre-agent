@@ -335,3 +335,61 @@ class CouncilActivityGraph(BaseModel):
     def get_root_agents(self) -> list[AgentActivity]:
         """Get agents with no parent (root level)."""
         return [a for a in self.agents if a.parent_id is None]
+
+
+class ClassificationContext(BaseModel):
+    """Optional context for adaptive classification.
+
+    Provides investigation history, alert severity, and resource
+    budget to help the LLM classifier make better routing decisions.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    session_history: list[str] = Field(
+        default_factory=list,
+        description="Recent investigation queries from this session.",
+    )
+    alert_severity: str | None = Field(
+        default=None,
+        description="Alert severity if triggered by an alert (e.g., 'critical', 'warning').",
+    )
+    remaining_token_budget: int | None = Field(
+        default=None,
+        description="Remaining token budget for the session, if tracked.",
+    )
+    previous_modes: list[str] = Field(
+        default_factory=list,
+        description="Investigation modes used in previous turns this session.",
+    )
+
+
+class AdaptiveClassificationResult(BaseModel):
+    """Result from the adaptive classifier.
+
+    Extends the basic classification with reasoning and provenance tracking.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    mode: InvestigationMode = Field(
+        description="The recommended investigation mode.",
+    )
+    signal_type: str = Field(
+        default="trace",
+        description="Best-fit signal type for FAST mode panel routing.",
+    )
+    confidence: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Classifier confidence in the mode selection.",
+    )
+    reasoning: str = Field(
+        default="",
+        description="Explanation of why this mode was selected.",
+    )
+    classifier_used: str = Field(
+        default="rule_based",
+        description="Which classifier produced this result: 'rule_based', 'llm_augmented', or 'fallback'.",
+    )
