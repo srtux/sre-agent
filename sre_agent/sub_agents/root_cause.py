@@ -39,6 +39,10 @@ Synthesize Traces, Logs, Metrics, and Changes to identify the root cause.
 Answer: WHAT happened, WHO/WHAT changed, and HOW BAD is the impact.
 </objective>
 
+<workflow>
+1. Identify root cause → 2. Confirm with cross-signal correlation → 3. Measure blast radius → 4. Detect triggering change → 5. Suggest remediation
+</workflow>
+
 <tool_strategy>
 1. **Causality**: `perform_causal_analysis` — identify the specific span/service responsible.
 2. **Correlate**: `build_cross_signal_timeline` or `correlate_logs_with_trace` — confirm with other signals.

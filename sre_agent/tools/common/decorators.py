@@ -170,18 +170,16 @@ def _build_adk_tool_wrapper(
         tool_name = func.__name__
         start_time = time.time()
 
-        # Log calling
+        # Log calling — OPT-8: single-pass argument inspection, skip tool_context
         try:
             sig = inspect.signature(func)
             bound = sig.bind(*args, **kwargs)
             bound.apply_defaults()
             arg_str = ", ".join(
-                f"{k}={repr(v)[:200]}" for k, v in bound.arguments.items()
+                f"{k}={repr(v)[:200]}"
+                for k, v in bound.arguments.items()
+                if k != "tool_context"
             )
-
-            # Full args for debug
-            full_arg_str = ", ".join(f"{k}={v!r}" for k, v in bound.arguments.items())
-            logger.debug(f"Tool '{tool_name}' FULL ARGS: {full_arg_str}")
         except Exception:
             arg_str = f"args={args}, kwargs={kwargs}"
 
@@ -295,18 +293,16 @@ def _build_adk_tool_wrapper(
         tool_name = func.__name__
         start_time = time.time()
 
-        # Log calling
+        # Log calling — OPT-8: single-pass argument inspection, skip tool_context
         try:
             sig = inspect.signature(func)
             bound = sig.bind(*args, **kwargs)
             bound.apply_defaults()
             arg_str = ", ".join(
-                f"{k}={repr(v)[:200]}" for k, v in bound.arguments.items()
+                f"{k}={repr(v)[:200]}"
+                for k, v in bound.arguments.items()
+                if k != "tool_context"
             )
-
-            # Full args for debug
-            full_arg_str = ", ".join(f"{k}={v!r}" for k, v in bound.arguments.items())
-            logger.debug(f"Tool '{tool_name}' FULL ARGS: {full_arg_str}")
         except Exception:
             arg_str = f"args={args}, kwargs={kwargs}"
 
