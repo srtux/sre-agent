@@ -91,13 +91,14 @@ except ImportError:
 def __getattr__(name: str) -> object:
     """Lazy-load heavy submodules on first access (PEP 562)."""
     if name == "agent":
-        from . import agent
+        import importlib
 
-        return agent
+        return importlib.import_module("sre_agent.agent")
     if name == "root_agent":
-        from .agent import root_agent
+        import importlib
 
-        return root_agent
+        agent_module = importlib.import_module("sre_agent.agent")
+        return agent_module.root_agent
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 

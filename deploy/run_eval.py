@@ -29,12 +29,19 @@ def main():
     # Check if we should sync to cloud (not standard for local runs - it's slow!)
     should_sync_cloud = "--sync" in all_args
 
+    project_id_from_flag = None
+
     i = 0
     while i < len(all_args):
         arg = all_args[i]
         if arg == "--sync":
             i += 1
             continue
+        if arg == "--project":
+            if i + 1 < len(all_args):
+                project_id_from_flag = all_args[i + 1]
+                i += 2
+                continue
         if arg.startswith("-"):
             flags.append(arg)
             # If next arg exists and doesn't start with '-', it's likely a value for this flag
@@ -46,8 +53,8 @@ def main():
     # Define our standard agent
     agent_path = "sre_agent"
 
-    # Get project ID from env
-    project_id = os.environ.get("GOOGLE_CLOUD_PROJECT")
+    # Get project ID from flag or env
+    project_id = project_id_from_flag or os.environ.get("GOOGLE_CLOUD_PROJECT")
 
     # Sanitize if it's comma-separated
     if project_id and "," in project_id:
@@ -59,6 +66,10 @@ def main():
             "WARNING: GOOGLE_CLOUD_PROJECT not set in .env. Using 'my-test-project' as fallback."
         )
         project_id = "my-test-project"
+
+    # Ensure subprocess inherits the correct project
+    os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
+    os.environ["GCP_PROJECT_ID"] = project_id
 
     print(f"Using Google Cloud Project ID: {project_id}")
 

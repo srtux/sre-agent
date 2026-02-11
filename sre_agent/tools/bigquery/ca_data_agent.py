@@ -133,8 +133,21 @@ async def query_data_agent(
             error="No project ID detected. Set GOOGLE_CLOUD_PROJECT.",
         )
 
-    # Resolve agent ID
+    # Resolution agent ID
     aid = agent_id or os.environ.get(CA_AGENT_ENV) or DEFAULT_CA_AGENT_ID
+
+    # Mock in eval mode to prevent 404s and real API calls
+    if os.environ.get("SRE_AGENT_EVAL_MODE", "").lower() == "true":
+        logger.info(f"Using Mock CA Data Agent (Env: eval) for project {pid}")
+        return BaseToolResponse(
+            status=ToolStatus.SUCCESS,
+            result={
+                "question": question,
+                "answer": f"Mock CA Data Agent response. The data indicates elevated error rates in checkout-service related to {question}.",
+                "agent_id": aid,
+                "project_id": pid,
+            },
+        )
 
     try:
         _, chat_client = _get_ca_clients()
