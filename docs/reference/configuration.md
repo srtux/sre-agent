@@ -64,8 +64,10 @@ The following variables are deprecated and will be removed in a future release.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `SRE_AGENT_SLIM_TOOLS` | Reduce root agent to ~20 orchestration tools. Council panels retain full tool sets. | `false` |
+| `SRE_AGENT_SLIM_TOOLS` | Reduce root agent to ~20 orchestration tools. Council panels retain full tool sets. | `true` |
 | `SRE_AGENT_COUNCIL_ORCHESTRATOR` | Replace root LlmAgent with CouncilOrchestrator. Routes queries to parallel panels with debate support. | `false` |
+| `SRE_AGENT_CONTEXT_CACHING` | Enable Vertex AI context caching for static prompt prefixes (75% cost reduction). | `false` |
+| `SRE_AGENT_CONTEXT_CACHE_TTL` | TTL in seconds for cached context. | `3600` |
 
 ## Storage & Sessions
 

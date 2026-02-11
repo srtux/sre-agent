@@ -74,7 +74,7 @@ sre_agent/
 ├── auth.py               # Authentication, EUC, token validation, ContextVars
 ├── schema.py             # Pydantic models (all frozen=True, extra="forbid")
 ├── prompt.py             # Agent system instruction / personality
-├── model_config.py       # Model configuration (get_model_name("fast"|"deep"))
+├── model_config.py       # Model configuration (get_model_name("fast"|"deep"), context caching)
 ├── suggestions.py        # Follow-up suggestion generation
 │
 ├── api/                  # FastAPI application layer
@@ -99,11 +99,12 @@ sre_agent/
 │   ├── orchestrator.py    #   CouncilOrchestrator (BaseAgent subclass)
 │   ├── parallel_council.py#   Standard mode: ParallelAgent → Synthesizer
 │   ├── debate.py          #   Debate mode: LoopAgent for critic feedback
-│   ├── panels.py          #   4 specialist panel factories (trace, metrics, logs, alerts)
+│   ├── panels.py          #   5 specialist panel factories (trace, metrics, logs, alerts, data)
 │   ├── synthesizer.py     #   Unified assessment from all panels
 │   ├── critic.py          #   Cross-examination of panel findings
 │   ├── intent_classifier.py # Rule-based investigation mode selection
 │   ├── mode_router.py    #   @adk_tool wrapper for intent classification
+│   ├── tool_registry.py   #   Single source of truth for all domain tool sets (OPT-4)
 │   ├── schemas.py         #   InvestigationMode, PanelFinding, CriticReport, CouncilResult
 │   └── prompts.py         #   Panel, critic, synthesizer prompts
 │
@@ -189,10 +190,10 @@ tests/
 | Mode | Trigger | Behavior |
 |------|---------|----------|
 | **Fast** | Narrow-scope queries | Single-panel dispatch |
-| **Standard** | Normal investigations | 4 parallel panels → Synthesizer merge |
+| **Standard** | Normal investigations | 5 parallel panels → Synthesizer merge |
 | **Debate** | High-severity incidents | Panels → Critic LoopAgent → Confidence gating |
 
-Feature flags: `SRE_AGENT_COUNCIL_ORCHESTRATOR` (enable), `SRE_AGENT_SLIM_TOOLS` (reduce root to ~20 tools).
+Feature flags: `SRE_AGENT_COUNCIL_ORCHESTRATOR` (enable council), `SRE_AGENT_SLIM_TOOLS` (default `true`, reduces root to ~20 tools).
 
 ### Tool Implementation
 ```python
@@ -259,11 +260,12 @@ Backend emits `{"type": "dashboard", ...}` events via `api/helpers/tool_events.p
 | `GOOGLE_CLOUD_LOCATION` | GCP region | us-central1 |
 | `SRE_AGENT_ID` | Enables remote mode (Agent Engine) | unset = local |
 | `SRE_AGENT_COUNCIL_ORCHESTRATOR` | Enables Council architecture | unset |
-| `SRE_AGENT_SLIM_TOOLS` | Reduces root agent tools to ~20 | unset |
+| `SRE_AGENT_SLIM_TOOLS` | Reduces root agent tools to ~20 | true |
 | `SRE_AGENT_TOKEN_BUDGET` | Max token budget per request | unset |
 | `STRICT_EUC_ENFORCEMENT` | Blocks ADC fallback | false |
 | `SRE_AGENT_LOCAL_EXECUTION` | Sandbox local mode | false |
 | `LOG_LEVEL` | Logging level | INFO |
+| `SRE_AGENT_CONTEXT_CACHING` | Enable Vertex AI context caching (OPT-10) | false |
 | `USE_MOCK_MCP` | Use mock MCP in tests | false |
 
 See `.env.example` for full list and `docs/reference/configuration.md` for details.
@@ -287,19 +289,20 @@ See `.env.example` for full list and `docs/reference/configuration.md` for detai
 
 ## Adding a New Tool (Checklist)
 1. Create function in `sre_agent/tools/` (appropriate subdirectory)
-2. Add `@adk_tool` decorator
+2. Add `@adk_tool` decorator (use `@adk_tool(skip_summarization=True)` for structured data tools)
 3. Add docstring with clear description
 4. Add to `__all__` in `sre_agent/tools/__init__.py`
 5. Add to `base_tools` list in `sre_agent/agent.py`
 6. Add to `TOOL_NAME_MAP` in `sre_agent/agent.py`
 7. Add `ToolConfig` entry in `sre_agent/tools/config.py`
-8. Add test in `tests/` (mirror source path)
-9. Run `uv run poe lint && uv run poe test`
+8. If used by sub-agents/panels: add to relevant tool set in `council/tool_registry.py`
+9. Add test in `tests/` (mirror source path)
+10. Run `uv run poe lint && uv run poe test`
 
 ## Adding a New Sub-Agent (Checklist)
 1. Create file in `sre_agent/sub_agents/<name>.py`
-2. Define prompt with persona, workflow steps, tool guidelines, output format
-3. Select curated tool subset (only what's needed)
+2. Define prompt with XML tags (`<role>`, `<tool_strategy>`, `<output_format>`), positive framing
+3. Define tool set in `council/tool_registry.py` and import from there
 4. Export in `sre_agent/sub_agents/__init__.py`
 5. Add to `sub_agents` list in `sre_agent/agent.py`
 6. Add test in `tests/`
@@ -317,4 +320,4 @@ See `.env.example` for full list and `docs/reference/configuration.md` for detai
 > **Always refer to [`AGENTS.md`](AGENTS.md) for the single source of truth on coding patterns.**
 
 ---
-*Last verified: 2026-02-06 — Auto SRE Team*
+*Last verified: 2026-02-11 — Auto SRE Team*

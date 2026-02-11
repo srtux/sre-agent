@@ -71,7 +71,7 @@ The `CouncilOrchestrator` is a `BaseAgent` subclass that manages the full counci
 | Flag | Description | Default |
 | :--- | :--- | :--- |
 | `SRE_AGENT_COUNCIL_ORCHESTRATOR` | Replace root LlmAgent with CouncilOrchestrator. Routes queries to parallel panels with debate support. | `false` |
-| `SRE_AGENT_SLIM_TOOLS` | Reduce root agent to ~20 orchestration tools. Council panels retain full tool sets. | `false` |
+| `SRE_AGENT_SLIM_TOOLS` | Reduce root agent to ~20 orchestration tools. Council panels retain full tool sets. | `true` |
 
 ### Relationship to the 3-Stage Pipeline
 

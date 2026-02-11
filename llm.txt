@@ -74,7 +74,7 @@ sre_agent/                  # Backend source
   memory/                   # Memory subsystem (manager, factory, local)
   council/                  # Parallel Council architecture
     schemas.py              # InvestigationMode, PanelFinding, CriticReport, CouncilResult
-    panels.py               # 4 specialist panel factories (trace, metrics, logs, alerts)
+    panels.py               # 5 specialist panel factories (trace, metrics, logs, alerts, data)
     parallel_council.py     # Standard mode: ParallelAgent → Synthesizer
     debate.py               # Debate mode: panels → critic loop → confidence gating
     critic.py               # Cross-examination of panel findings
@@ -82,7 +82,7 @@ sre_agent/                  # Backend source
     orchestrator.py         # CouncilOrchestrator BaseAgent subclass
     intent_classifier.py    # Rule-based mode selection (Fast/Standard/Debate)
     mode_router.py          # @adk_tool wrapper for intent classification
-    tool_registry.py        # Panel tool assignments
+    tool_registry.py        # Single source of truth for all domain tool sets (OPT-4)
     prompts.py              # Panel, critic, synthesizer prompts
   models/
     investigation.py        # InvestigationPhase enum, InvestigationState model
