@@ -350,7 +350,12 @@ class SandboxExecutor:
 
             if input_files:
                 input_data["files"] = [
-                    {"name": f.name, "content": f.content} for f in input_files
+                    {
+                        "name": f.name,
+                        "content": f.content,
+                        "mimeType": f.mime_type,
+                    }
+                    for f in input_files
                 ]
 
             # Execute code
@@ -361,33 +366,48 @@ class SandboxExecutor:
                 )
             )
 
-            # Parse response
+            # Parse response — outputs is a list of Chunk objects with
+            # .data (bytes), .mime_type (str), and .metadata (.attributes).
+            # stdout/stderr arrive as a JSON chunk (application/json, no
+            # file_name in metadata).  Output files arrive as separate
+            # chunks with file_name in metadata.attributes.
             stdout = ""
             stderr = ""
             output_files: list[SandboxFile] = []
 
-            if hasattr(response, "stdout") and response.stdout:
-                stdout = (
-                    response.stdout.decode("utf-8")
-                    if isinstance(response.stdout, bytes)
-                    else str(response.stdout)
-                )
-
-            if hasattr(response, "stderr") and response.stderr:
-                stderr = (
-                    response.stderr.decode("utf-8")
-                    if isinstance(response.stderr, bytes)
-                    else str(response.stderr)
-                )
-
-            if hasattr(response, "files") and response.files:
-                for file_info in response.files:
-                    output_files.append(
-                        SandboxFile(
-                            name=file_info.get("name", "output"),
-                            content=file_info.get("content", b""),
-                        )
+            if hasattr(response, "outputs") and response.outputs:
+                for output_chunk in response.outputs:
+                    has_file_name = (
+                        output_chunk.metadata is not None
+                        and output_chunk.metadata.attributes is not None
+                        and "file_name" in output_chunk.metadata.attributes
                     )
+
+                    if (
+                        output_chunk.mime_type == "application/json"
+                        and not has_file_name
+                    ):
+                        # stdout/stderr JSON envelope
+                        json_output = json.loads(output_chunk.data.decode("utf-8"))
+                        stdout = json_output.get("stdout", "")
+                        stderr = json_output.get("stderr", "")
+                    else:
+                        # Output file
+                        file_name = ""
+                        if has_file_name:
+                            raw = output_chunk.metadata.attributes.get("file_name", b"")
+                            file_name = (
+                                raw.decode("utf-8")
+                                if isinstance(raw, bytes)
+                                else str(raw)
+                            )
+                        output_files.append(
+                            SandboxFile(
+                                name=file_name,
+                                content=output_chunk.data or b"",
+                                mime_type=output_chunk.mime_type or "",
+                            )
+                        )
 
             return CodeExecutionOutput(
                 stdout=stdout,
@@ -424,7 +444,11 @@ class SandboxExecutor:
         """
         # Serialize data to JSON file
         json_bytes = json.dumps(data, default=str).encode("utf-8")
-        input_file = SandboxFile(name="input_data.json", content=json_bytes)
+        input_file = SandboxFile(
+            name="input_data.json",
+            content=json_bytes,
+            mime_type="application/json",
+        )
 
         # Wrap code to load data first
         full_code = f"""
@@ -655,7 +679,11 @@ class LocalCodeExecutor:
             CodeExecutionOutput with processing results.
         """
         json_bytes = json.dumps(data, default=str).encode("utf-8")
-        input_file = SandboxFile(name="input_data.json", content=json_bytes)
+        input_file = SandboxFile(
+            name="input_data.json",
+            content=json_bytes,
+            mime_type="application/json",
+        )
 
         full_code = f"""
 import json

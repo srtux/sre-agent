@@ -27,7 +27,7 @@ class TestSandboxLanguage:
 
 class TestMachineConfig:
     def test_default_value(self) -> None:
-        assert MachineConfig.DEFAULT.value == "MACHINE_CONFIG_DEFAULT"
+        assert MachineConfig.DEFAULT.value == "MACHINE_CONFIG_UNSPECIFIED"
 
     def test_vcpu4_ram4gib_value(self) -> None:
         assert MachineConfig.VCPU4_RAM4GIB.value == "MACHINE_CONFIG_VCPU4_RAM4GIB"
@@ -38,6 +38,15 @@ class TestSandboxFile:
         file = SandboxFile(name="test.txt", content=b"Hello, World!")
         assert file.name == "test.txt"
         assert file.content == b"Hello, World!"
+        assert file.mime_type == "application/octet-stream"
+
+    def test_create_sandbox_file_with_mime_type(self) -> None:
+        file = SandboxFile(
+            name="data.json",
+            content=b'{"key": "value"}',
+            mime_type="application/json",
+        )
+        assert file.mime_type == "application/json"
 
     def test_sandbox_file_immutable(self) -> None:
         file = SandboxFile(name="test.txt", content=b"content")
@@ -46,7 +55,7 @@ class TestSandboxFile:
 
     def test_sandbox_file_extra_forbid(self) -> None:
         with pytest.raises(ValidationError):
-            SandboxFile(name="test.txt", content=b"content", extra_field="value")  # type: ignore[call-arg]
+            SandboxFile(name="test.txt", content=b"content", unknown_field="value")  # type: ignore[call-arg]
 
 
 class TestSandboxConfig:
