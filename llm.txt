@@ -99,7 +99,7 @@ autosre/                    # Flutter frontend
     models/                 # ADK schema definitions
     theme/                  # Material 3 deep space theme
 
-tests/                      # Test suite (~138 files)
+tests/                      # Test suite (~210+ files)
   conftest.py               # Shared fixtures (log entries, trace spans, mock clients)
   fixtures/                 # Synthetic OTel data generator (27KB)
   unit/                     # Unit tests — mirrors sre_agent/ structure exactly
@@ -169,6 +169,19 @@ Parallel investigation via 4 specialist panels (Trace, Metrics, Logs, Alerts) ru
 Three modes: **Fast** (single panel), **Standard** (4 panels + synthesizer), **Debate** (panels + critic `LoopAgent` + confidence gating).
 `CouncilOrchestrator` (`BaseAgent` subclass) manages the lifecycle. Feature flags: `SRE_AGENT_COUNCIL_ORCHESTRATOR` (enable orchestrator), `SRE_AGENT_SLIM_TOOLS` (reduce root agent to ~20 tools).
 Schemas: `InvestigationMode`, `PanelFinding`, `CriticReport`, `CouncilResult` in `council/schemas.py`.
+
+### 9. Session Persistence (CRITICAL)
+The `session` object passed to an async generator creates a stale closure.
+ALWAYS refresh the session from the DB inside the loop after `await` calls.
+Anti-pattern: Using the initial session object after `await session_service.append_event(...)`.
+
+### 10. Circuit Breaker
+Three-state breaker (CLOSED/OPEN/HALF_OPEN) in `core/circuit_breaker.py`.
+Per-tool configuration via singleton registry. Prevents cascading GCP API failures.
+
+### 11. Model Callbacks
+`core/model_callbacks.py` tracks per-agent token usage, estimated USD cost,
+and enforces configurable budget (`SRE_AGENT_TOKEN_BUDGET` env var).
 
 ## COMMANDS
 ```bash

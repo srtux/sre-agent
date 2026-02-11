@@ -13,7 +13,7 @@
 
 Auto SRE is an AI-powered Site Reliability Engineering agent that automates incident investigation on Google Cloud Platform. It uses a **"Council of Experts"** pattern — specialized sub-agents for traces, logs, metrics, alerts, and root cause analysis.
 
-**Version**: 0.2.0 | **License**: Apache-2.0 | **Status**: Phase 3 active (1909+ tests passing)
+**Version**: 0.2.0 | **License**: Apache-2.0 | **Status**: Phase 3 active (1989+ backend tests, 129 Flutter tests passing)
 
 ## Tech Stack
 - **Backend**: Python 3.10+ (<3.13), FastAPI, Google ADK 1.23.0, Pydantic 2
@@ -81,7 +81,7 @@ sre_agent/
 │   ├── app.py            #   Factory (create_app), Pydantic monkeypatch
 │   ├── middleware.py      #   Auth + tracing + CORS middleware
 │   ├── dependencies.py    #   Dependency injection (session, tool context)
-│   ├── routers/           #   HTTP handlers: agent, sessions, tools, health, system, permissions, help
+│   ├── routers/           #   HTTP handlers: agent, sessions, tools, health, system, permissions, preferences, help
 │   └── helpers/           #   Tool event streaming (emit_dashboard_event)
 │
 ├── core/                 # Agent execution engine
@@ -113,7 +113,8 @@ sre_agent/
 │   ├── logs.py            #   Log pattern analysis (Drain3)
 │   ├── metrics.py         #   Metrics anomaly detection
 │   ├── alerts.py          #   Alert investigation
-│   └── root_cause.py     #   Multi-signal synthesis for RCA
+│   ├── root_cause.py     #   Multi-signal synthesis for RCA
+│   └── agent_debugger.py #   Agent execution debugging and inspection
 │
 ├── tools/                # Tool ecosystem (158+ files)
 │   ├── common/            #   Shared utilities (@adk_tool, cache, telemetry, serialization)
@@ -130,7 +131,7 @@ sre_agent/
 │   ├── bigquery/          #   BigQuery client, schemas, query builders
 │   ├── sandbox/           #   Sandboxed code execution (large data processing)
 │   ├── discovery/         #   GCP resource discovery
-│   ├── playbooks/         #   Runbook execution (GKE, Cloud Run, SQL, Pub/Sub, GCE)
+│   ├── playbooks/         #   Runbook execution (GKE, Cloud Run, SQL, Pub/Sub, GCE, BigQuery)
 │   ├── proactive/         #   Proactive signal analysis
 │   ├── exploration/       #   Health check exploration
 │   ├── synthetic/         #   Synthetic data generation for testing

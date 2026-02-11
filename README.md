@@ -51,16 +51,34 @@ graph TD
     end
 
     subgraph "Vertex AI (Reasoning Engine)"
-        Backend <-->|ADK Stream| Agent[SRE Agent Core]
-        subgraph "Core Squad"
+        Backend <-->|ADK Stream| Agent[SRE Orchestrator]
+
+        subgraph "Council of Experts"
+            Agent --> Orchestrator[Council Orchestrator]
+            Orchestrator --> TracePanel[Trace Panel]
+            Orchestrator --> MetricsPanel[Metrics Panel]
+            Orchestrator --> LogsPanel[Logs Panel]
+            Orchestrator --> AlertsPanel[Alerts Panel]
+            Orchestrator --> DataPanel[Data Panel]
+            TracePanel & MetricsPanel & LogsPanel & AlertsPanel & DataPanel --> Synthesizer[Synthesizer]
+            Synthesizer -.->|Debate Mode| Critic[Critic Loop]
+            Critic -.-> Synthesizer
+        end
+
+        subgraph "Sub-Agents"
             Agent --> Trace[Trace Analyst]
             Agent --> Log[Log Analyst]
+            Agent --> Metrics[Metrics Analyst]
             Agent --> RCA[Root Cause Analyst]
         end
     end
 
     subgraph "Google Cloud APIs"
-        Trace & Log & RCA --> Ops[Cloud Trace / Logs / Monitoring]
+        TracePanel & Trace --> TraceAPI[Cloud Trace]
+        LogsPanel & Log --> LogAPI[Cloud Logging]
+        MetricsPanel & Metrics --> MonAPI[Cloud Monitoring]
+        AlertsPanel --> AlertAPI[Alert Policies]
+        DataPanel --> BQAPI[BigQuery]
         Backend -->|Dashboard Sync| DashDB[Firestore / Memory Bank]
     end
 
@@ -199,4 +217,4 @@ uv run poe deploy-all
 
 _Crafted with 💙 by the Auto SRE Engineering Team._
 
-_Last verified: 2026-02-02_
+_Last verified: 2026-02-11_
