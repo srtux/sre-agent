@@ -117,25 +117,39 @@ def create_tool_call_events(
     tool_name: str,
     args: dict[str, Any],
     pending_tool_calls: list[dict[str, Any]],
+    fc_id: str | None = None,
 ) -> tuple[str, list[str]]:
     """Create a simple tool_call event for inline chat display.
 
     Returns a call_id and a list containing one JSON event string.
     The frontend renders this directly as an expandable tool call widget.
+
+    Args:
+        tool_name: Name of the tool being called.
+        args: Tool arguments.
+        pending_tool_calls: Mutable list tracking pending calls for FIFO matching.
+        fc_id: Optional function_call.id from the ADK event for robust matching.
     """
     call_id = str(uuid.uuid4())
 
     _debug_log(
         "[TOOL_CALL] Creating tool call event",
-        {"tool_name": tool_name, "call_id": call_id, "args_preview": str(args)[:200]},
+        {
+            "tool_name": tool_name,
+            "call_id": call_id,
+            "fc_id": fc_id,
+            "args_preview": str(args)[:200],
+        },
     )
 
     # Register as pending for later matching with response
-    pending_entry = {
+    pending_entry: dict[str, Any] = {
         "call_id": call_id,
         "tool_name": tool_name,
         "args": args,
     }
+    if fc_id:
+        pending_entry["fc_id"] = fc_id
     pending_tool_calls.append(pending_entry)
 
     event = {
@@ -152,11 +166,19 @@ def create_tool_response_events(
     tool_name: str,
     result: Any,
     pending_tool_calls: list[dict[str, Any]],
+    fr_id: str | None = None,
 ) -> tuple[str | None, list[str]]:
     """Create a simple tool_response event for inline chat display.
 
-    Matches the response to a pending tool call by name (FIFO) and returns
-    a call_id and a list containing one JSON event string.
+    Matches the response to a pending tool call. When ``fr_id`` (the
+    function_response.id from the ADK event) is provided, matching is
+    exact. Otherwise falls back to FIFO name-based matching.
+
+    Args:
+        tool_name: Name of the tool that responded.
+        result: Tool result data.
+        pending_tool_calls: Mutable list tracking pending calls.
+        fr_id: Optional function_response.id for exact matching.
     """
     call_id: str | None = None
 
@@ -164,21 +186,35 @@ def create_tool_response_events(
         "[TOOL_RESPONSE] Processing tool response",
         {
             "tool_name": tool_name,
+            "fr_id": fr_id,
             "pending_count": len(pending_tool_calls),
             "pending_tools": [p["tool_name"] for p in pending_tool_calls],
         },
     )
 
-    # Find matching pending call (FIFO)
-    for i, pending in enumerate(pending_tool_calls):
-        if pending["tool_name"] == tool_name:
-            call_id = pending["call_id"]
-            pending_tool_calls.pop(i)
-            _debug_log(
-                f"[TOOL_RESPONSE_MATCHED] Found pending call at index {i}",
-                {"call_id": call_id},
-            )
-            break
+    # Prefer exact match by fc_id when available
+    if fr_id:
+        for i, pending in enumerate(pending_tool_calls):
+            if pending.get("fc_id") == fr_id:
+                call_id = pending["call_id"]
+                pending_tool_calls.pop(i)
+                _debug_log(
+                    f"[TOOL_RESPONSE_MATCHED_BY_ID] Exact fc_id match at index {i}",
+                    {"call_id": call_id, "fc_id": fr_id},
+                )
+                break
+
+    # Fallback: FIFO name-based matching
+    if not call_id:
+        for i, pending in enumerate(pending_tool_calls):
+            if pending["tool_name"] == tool_name:
+                call_id = pending["call_id"]
+                pending_tool_calls.pop(i)
+                _debug_log(
+                    f"[TOOL_RESPONSE_MATCHED] Found pending call at index {i}",
+                    {"call_id": call_id},
+                )
+                break
 
     if not call_id:
         _debug_log(

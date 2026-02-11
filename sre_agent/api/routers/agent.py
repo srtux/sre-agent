@@ -298,8 +298,16 @@ async def _handle_remote_agent(
                                 else fc.get("args", {})
                             )
                             tool_args = normalize_tool_args(tool_args_raw)
+                            remote_fc_id = (
+                                getattr(fc, "id", None)
+                                if not isinstance(fc, dict)
+                                else fc.get("id")
+                            )
                             _call_id, events = create_tool_call_events(
-                                tool_name, tool_args, pending_tool_calls
+                                tool_name,
+                                tool_args,
+                                pending_tool_calls,
+                                fc_id=remote_fc_id,
                             )
                             for evt_str in events:
                                 yield evt_str + "\n"
@@ -322,8 +330,16 @@ async def _handle_remote_agent(
                                 if not isinstance(fr, dict)
                                 else (fr.get("response") or fr.get("result"))
                             )
+                            remote_fr_id = (
+                                getattr(fr, "id", None)
+                                if not isinstance(fr, dict)
+                                else fr.get("id")
+                            )
                             _resp_id, events = create_tool_response_events(
-                                tool_name, result, pending_tool_calls
+                                tool_name,
+                                result,
+                                pending_tool_calls,
+                                fr_id=remote_fr_id,
                             )
                             for evt_str in events:
                                 yield evt_str + "\n"
@@ -833,12 +849,21 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                                     else fc.get("args")
                                 )
                                 tool_args = normalize_tool_args(tool_args_raw)
+                                # Extract function call id for robust matching
+                                fc_id = (
+                                    getattr(fc, "id", None)
+                                    if not isinstance(fc, dict)
+                                    else fc.get("id")
+                                )
 
                                 logger.info(
                                     f"🛠️ Tool Call: {tool_name} args={str(tool_args)[:100]}..."
                                 )
                                 _call_id, events = create_tool_call_events(
-                                    tool_name, tool_args, pending_tool_calls
+                                    tool_name,
+                                    tool_args,
+                                    pending_tool_calls,
+                                    fc_id=fc_id,
                                 )
 
                                 for evt_str in events:
@@ -862,10 +887,16 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                                     if not isinstance(fr, dict)
                                     else (fr.get("response") or fr.get("result"))
                                 )
+                                # Extract function response id for robust matching
+                                fr_id = (
+                                    getattr(fr, "id", None)
+                                    if not isinstance(fr, dict)
+                                    else fr.get("id")
+                                )
 
                                 logger.info(f"✅ Tool Response: {tool_name}")
                                 _resp_id, events = create_tool_response_events(
-                                    tool_name, result, pending_tool_calls
+                                    tool_name, result, pending_tool_calls, fr_id=fr_id
                                 )
                                 for evt_str in events:
                                     yield evt_str + "\n"
