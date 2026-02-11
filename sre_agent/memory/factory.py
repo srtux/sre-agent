@@ -26,12 +26,17 @@ def get_memory_manager() -> MemoryManager:
             "GCP_PROJECT_ID"
         )
         location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
+        agent_engine_id = os.environ.get("SRE_AGENT_ID")
 
         if not project_id:
             # Fallback for tests or local dev without env vars
             project_id = "unknown-project"
 
-        _memory_manager = MemoryManager(project_id=project_id, location=location)
+        _memory_manager = MemoryManager(
+            project_id=project_id,
+            location=location,
+            agent_engine_id=agent_engine_id,
+        )
 
     return _memory_manager
 
@@ -74,10 +79,12 @@ def get_adk_memory_service() -> Any | None:
         _adk_memory_service = VertexAiMemoryBankService(
             project=project_id,
             location=location,
+            agent_engine_id=agent_engine_id,
         )
         logger.info(
             f"ADK memory service initialized for InvocationContext "
-            f"(project={project_id}, location={location})"
+            f"(project={project_id}, location={location}, "
+            f"agent_engine_id={agent_engine_id})"
         )
         return _adk_memory_service
     except Exception as e:

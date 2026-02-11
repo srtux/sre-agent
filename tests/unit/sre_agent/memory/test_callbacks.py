@@ -10,6 +10,7 @@ from sre_agent.memory.callbacks import (
     _extract_success_finding,
     _is_learnable_failure,
     _is_significant_success,
+    after_agent_memory_callback,
     after_tool_memory_callback,
     before_tool_memory_callback,
     on_tool_error_memory_callback,
@@ -424,3 +425,71 @@ class TestAfterToolMemoryCallbackSuccesses:
 
             assert result is None
             mock_manager.add_finding.assert_not_called()
+
+
+class TestAfterAgentMemoryCallback:
+    """Tests for the after_agent_callback that persists session to memory."""
+
+    @pytest.mark.asyncio
+    async def test_triggers_add_session_to_memory(self) -> None:
+        """Callback should call add_session_to_memory when service is available."""
+        mock_memory_service = AsyncMock()
+        mock_session = MagicMock()
+        mock_session.id = "sess-123"
+        mock_session.events = [MagicMock(), MagicMock()]  # >=2 events
+
+        callback_ctx = MagicMock()
+        inv_ctx = MagicMock()
+        inv_ctx.memory_service = mock_memory_service
+        inv_ctx.session = mock_session
+        callback_ctx._invocation_context = inv_ctx
+
+        await after_agent_memory_callback(callback_ctx)
+
+        mock_memory_service.add_session_to_memory.assert_awaited_once_with(mock_session)
+
+    @pytest.mark.asyncio
+    async def test_skips_when_no_memory_service(self) -> None:
+        """Callback should skip gracefully when memory_service is None."""
+        callback_ctx = MagicMock()
+        inv_ctx = MagicMock()
+        inv_ctx.memory_service = None
+        inv_ctx.session = MagicMock()
+        callback_ctx._invocation_context = inv_ctx
+
+        # Should not raise
+        await after_agent_memory_callback(callback_ctx)
+
+    @pytest.mark.asyncio
+    async def test_skips_when_too_few_events(self) -> None:
+        """Callback should skip when session has fewer than 2 events."""
+        mock_memory_service = AsyncMock()
+        mock_session = MagicMock()
+        mock_session.events = [MagicMock()]  # Only 1 event
+
+        callback_ctx = MagicMock()
+        inv_ctx = MagicMock()
+        inv_ctx.memory_service = mock_memory_service
+        inv_ctx.session = mock_session
+        callback_ctx._invocation_context = inv_ctx
+
+        await after_agent_memory_callback(callback_ctx)
+
+        mock_memory_service.add_session_to_memory.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_never_breaks_on_error(self) -> None:
+        """Callback must never raise, even if memory service fails."""
+        mock_memory_service = AsyncMock()
+        mock_memory_service.add_session_to_memory.side_effect = RuntimeError("boom")
+        mock_session = MagicMock()
+        mock_session.events = [MagicMock(), MagicMock()]
+
+        callback_ctx = MagicMock()
+        inv_ctx = MagicMock()
+        inv_ctx.memory_service = mock_memory_service
+        inv_ctx.session = mock_session
+        callback_ctx._invocation_context = inv_ctx
+
+        # Should not raise
+        await after_agent_memory_callback(callback_ctx)

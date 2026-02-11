@@ -9,7 +9,10 @@ from sre_agent.memory.manager import InvestigationPattern, MemoryManager
 
 @pytest.fixture
 def manager():
-    with patch("sre_agent.memory.manager.VertexAiMemoryBankService"):
+    with (
+        patch.dict("os.environ", {"SRE_AGENT_ID": "test-agent"}),
+        patch("sre_agent.memory.manager.VertexAiMemoryBankService"),
+    ):
         return MemoryManager(project_id="test-project")
 
 

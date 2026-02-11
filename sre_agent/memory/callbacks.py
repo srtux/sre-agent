@@ -533,3 +533,48 @@ async def on_tool_error_memory_callback(
         logger.debug(f"Failed to record tool error lesson: {e}")
 
     return None
+
+
+async def after_agent_memory_callback(callback_context: Any) -> None:
+    """Automatically persist session to memory after each agent turn.
+
+    This callback fires after the agent completes a turn and triggers
+    ``VertexAiMemoryBankService.add_session_to_memory`` so that the
+    Memory Bank asynchronously extracts and consolidates memories from
+    the conversation.  Without this, memories are only generated when
+    ``complete_investigation`` is explicitly called by the agent.
+
+    Follows the ADK-recommended pattern:
+    https://google.github.io/adk-docs/sessions/memory/
+
+    Args:
+        callback_context: The ADK CallbackContext for this invocation.
+    """
+    try:
+        inv_ctx = getattr(callback_context, "_invocation_context", None) or getattr(
+            callback_context, "invocation_context", None
+        )
+        if not inv_ctx:
+            return
+
+        memory_service = getattr(inv_ctx, "memory_service", None)
+        if not memory_service:
+            return
+
+        session = getattr(inv_ctx, "session", None)
+        if not session:
+            return
+
+        # Only trigger if the session has events worth persisting
+        events = getattr(session, "events", None)
+        if not events or len(events) < 2:
+            return
+
+        await memory_service.add_session_to_memory(session)
+        logger.debug(
+            f"After-agent callback: triggered memory generation for session "
+            f"{getattr(session, 'id', 'unknown')}"
+        )
+    except Exception as e:
+        # Never let memory persistence break agent execution
+        logger.debug(f"After-agent memory callback failed (non-fatal): {e}")

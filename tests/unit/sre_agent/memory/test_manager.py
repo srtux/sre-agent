@@ -28,10 +28,14 @@ class TestMemoryManager:
 
     @pytest.mark.asyncio
     async def test_init_success(self, mock_vertex_ai):
-        """Test successful initialization."""
+        """Test successful initialization with agent_engine_id."""
         manager = MemoryManager(project_id="test-proj")
         assert manager.project_id == "test-proj"
-        mock_vertex_ai.assert_called_once()
+        mock_vertex_ai.assert_called_once_with(
+            project="test-proj",
+            location="us-central1",
+            agent_engine_id="test-agent",
+        )
         assert manager.memory_service is not None
 
     @pytest.mark.asyncio

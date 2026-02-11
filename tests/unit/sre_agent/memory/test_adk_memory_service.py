@@ -43,6 +43,7 @@ class TestGetAdkMemoryService:
             mock_cls.assert_called_once_with(
                 project="test-project",
                 location="us-central1",
+                agent_engine_id="projects/test/locations/us/agents/123",
             )
 
     def test_caches_result(self) -> None:
