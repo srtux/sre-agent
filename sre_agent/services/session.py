@@ -116,6 +116,17 @@ class ADKSessionManager:
                     self.app_name = self.APP_NAME
 
                 if project:
+                    # google-genai SDK fails if both project/location AND API key are present.
+                    # We prioritize project-based auth for VertexAiSessionService.
+                    if os.environ.get("GOOGLE_API_KEY") or os.environ.get(
+                        "GEMINI_API_KEY"
+                    ):
+                        logger.info(
+                            "Unsetting API keys in environment to favor project-based authentication for Vertex AI"
+                        )
+                        os.environ.pop("GOOGLE_API_KEY", None)
+                        os.environ.pop("GEMINI_API_KEY", None)
+
                     logger.info(
                         f"Using VertexAiSessionService (app_name={self.app_name}, project={project})"
                     )

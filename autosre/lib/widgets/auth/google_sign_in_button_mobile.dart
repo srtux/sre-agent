@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../services/auth_service.dart';
 
 Widget buildGoogleSignInButton({required VoidCallback onSignIn}) {
   return Material(
@@ -21,6 +22,7 @@ Widget buildGoogleSignInButton({required VoidCallback onSignIn}) {
             ),
           ],
         ),
+        alignment: Alignment.center,
         child: Row(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
@@ -31,16 +33,7 @@ Widget buildGoogleSignInButton({required VoidCallback onSignIn}) {
                 color: Colors.white,
                 shape: BoxShape.circle,
               ),
-              child: Image.network(
-                'https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg',
-                height: 20,
-                width: 20,
-                errorBuilder: (c, o, s) => const Icon(
-                  Icons.login,
-                  size: 20,
-                  color: Colors.indigoAccent,
-                ),
-              ),
+              child: _buildButtonIcon(),
             ),
             const SizedBox(width: 16),
             Text(
@@ -55,6 +48,36 @@ Widget buildGoogleSignInButton({required VoidCallback onSignIn}) {
           ],
         ),
       ),
+    ),
+  );
+}
+
+Widget _buildButtonIcon() {
+  // Use profile pic if available (e.g. from a previous successful lightweight auth)
+  final user = AuthService.instance.currentUser;
+  if (user?.photoUrl != null) {
+    return ClipOval(
+      child: Image.network(
+        user!.photoUrl!,
+        height: 24,
+        width: 24,
+        fit: BoxFit.cover,
+        errorBuilder: (c, o, s) => _googleLogo(),
+      ),
+    );
+  }
+  return _googleLogo();
+}
+
+Widget _googleLogo() {
+  return Image.network(
+    'https://www.gstatic.com/images/branding/googleg/1x/googleg_standard_color_128dp.png',
+    height: 20,
+    width: 20,
+    errorBuilder: (c, o, s) => const Icon(
+      Icons.account_circle,
+      size: 20,
+      color: Colors.indigoAccent,
     ),
   );
 }

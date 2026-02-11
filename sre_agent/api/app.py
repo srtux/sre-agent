@@ -57,6 +57,9 @@ def create_app(
     # Enable JSON Schema for Vertex AI compatibility
     _enable_json_schema_feature()
 
+    # Initialize Vertex AI globally if needed
+    _initialize_vertex_ai()
+
     # Create application
     app = FastAPI(title=title)
 
@@ -204,6 +207,14 @@ def _initialize_vertex_ai() -> None:
             )
 
             if project_id:
+                # google-genai SDK fails if both project/location AND API key are present.
+                if os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY"):
+                    logger.info(
+                        "Unsetting API keys to favor project-based authentication"
+                    )
+                    os.environ.pop("GOOGLE_API_KEY", None)
+                    os.environ.pop("GEMINI_API_KEY", None)
+
                 vertexai.init(project=project_id, location=location)
                 logger.info(
                     f"Initialized Vertex AI for project {project_id} in {location}"

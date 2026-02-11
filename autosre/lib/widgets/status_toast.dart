@@ -127,90 +127,95 @@ class _AnimatedToastState extends State<_AnimatedToast>
   Widget build(BuildContext context) {
     return Positioned(
       bottom: 48,
-      right: 24,
-      child: SlideTransition(
-        position: _exitAnimation,
+      left: 16,
+      right: 16,
+      child: Align(
+        alignment: Alignment.bottomRight,
         child: SlideTransition(
-          position: _entranceAnimation,
-          child: AnimatedBuilder(
-            animation: _shakeAnimation,
-            builder: (context, child) {
-              return Transform.translate(
-                offset: Offset(_shakeAnimation.value, 0),
-                child: child,
-              );
-            },
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                constraints: const BoxConstraints(maxWidth: 350),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.backgroundCard.withValues(
-                    alpha: 0.9,
-                  ), // High opacity for readability
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: AppColors.surfaceBorder.withValues(alpha: 0.5),
-                    width: 1,
+          position: _exitAnimation,
+          child: SlideTransition(
+            position: _entranceAnimation,
+            child: AnimatedBuilder(
+              animation: _shakeAnimation,
+              builder: (context, child) {
+                return Transform.translate(
+                  offset: Offset(_shakeAnimation.value, 0),
+                  child: child,
+                );
+              },
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 600),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
+                  decoration: BoxDecoration(
+                    color: AppColors.backgroundCard.withValues(
+                      alpha: 0.9,
+                    ), // High opacity for readability
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.surfaceBorder.withValues(alpha: 0.5),
+                      width: 1,
                     ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      widget.isError
-                          ? Icons.error_outline
-                          : Icons.check_circle_outline,
-                      color: widget.isError
-                          ? AppColors.error
-                          : AppColors.primaryCyan,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 12),
-                    Flexible(
-                      child: Text(
-                        widget.message,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          decoration: TextDecoration.none,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () {
-                          _exitController.forward().then(
-                            (_) => widget.onDismissed(),
-                          );
-                        },
-                        borderRadius: BorderRadius.circular(4),
-                        child: const Padding(
-                          padding: EdgeInsets.all(4.0),
-                          child: Icon(
-                            Icons.close,
-                            color: Colors.white54,
-                            size: 16,
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        widget.isError
+                            ? Icons.error_outline
+                            : Icons.check_circle_outline,
+                        color: widget.isError
+                            ? AppColors.error
+                            : AppColors.primaryCyan,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 12),
+                      Flexible(
+                        child: Text(
+                          widget.message,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w400,
+                            decoration: TextDecoration.none,
+                          ),
+                          softWrap: true,
+                          maxLines: null,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () {
+                            _exitController.forward().then(
+                                  (_) => widget.onDismissed(),
+                                );
+                          },
+                          borderRadius: BorderRadius.circular(4),
+                          child: const Padding(
+                            padding: EdgeInsets.all(4.0),
+                            child: Icon(
+                              Icons.close,
+                              color: Colors.white54,
+                              size: 16,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

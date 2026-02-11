@@ -71,7 +71,7 @@ class TestHealthEndpoints:
 class TestSessionLifecycle:
     """Integration tests for the full session CRUD lifecycle."""
 
-    @patch("sre_agent.services.get_session_service")
+    @patch("sre_agent.api.routers.sessions.get_session_service")
     def test_create_session(self, mock_get_svc: MagicMock, client: TestClient) -> None:
         """Create a session via POST."""
         mock_mgr = AsyncMock()
@@ -89,7 +89,7 @@ class TestSessionLifecycle:
         # Session creation should succeed or return validation error
         assert response.status_code in (200, 201, 422)
 
-    @patch("sre_agent.services.get_session_service")
+    @patch("sre_agent.api.routers.sessions.get_session_service")
     def test_get_nonexistent_session(
         self, mock_get_svc: MagicMock, client: TestClient
     ) -> None:

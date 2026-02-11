@@ -135,6 +135,13 @@ class AgentEngineClient:
         import vertexai
         from vertexai import agent_engines
 
+        # google-genai SDK fails if both project/location AND API key are present.
+        # We prioritize project-based auth (ADC/EUC) for Agent Engine.
+        if os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY"):
+            logger.info("Unsetting API keys to favor project-based authentication")
+            os.environ.pop("GOOGLE_API_KEY", None)
+            os.environ.pop("GEMINI_API_KEY", None)
+
         # Initialize Vertex AI
         vertexai.init(
             project=self.config.project_id,
@@ -316,8 +323,14 @@ class AgentEngineClient:
                 try:
                     async for chunk in stream:
                         # Log raw chunk on debug for tracing specific protocol issues
-                        # logger.debug(f"📥 Received chunk: {chunk}")
-                        yield process_event(chunk)
+                        try:
+                            # logger.debug(f"📥 Received chunk: {chunk}")
+                            yield process_event(chunk)
+                        except Exception as chunk_err:
+                            logger.error(
+                                f"❌ Error processing remote chunk: {chunk_err}. Raw chunk: {chunk}"
+                            )
+                            raise chunk_err
                 except ValueError as e:
                     # Google API REST streaming raises ValueError when parsing
                     # malformed responses (e.g., "Can only parse array of JSON objects")
@@ -364,7 +377,13 @@ class AgentEngineClient:
                 if hasattr(stream, "__aiter__"):
                     try:
                         async for event in stream:
-                            yield process_event(event)
+                            try:
+                                yield process_event(event)
+                            except Exception as chunk_err:
+                                logger.error(
+                                    f"❌ Error processing remote event (async): {chunk_err}. Raw event: {event}"
+                                )
+                                raise chunk_err
                     except ValueError as e:
                         # Google API REST streaming raises ValueError when parsing
                         # malformed responses (e.g., "Can only parse array of JSON objects")
@@ -400,7 +419,13 @@ class AgentEngineClient:
                     # what the SDK provides by default in most versions.
                     try:
                         for event in stream:
-                            yield process_event(event)
+                            try:
+                                yield process_event(event)
+                            except Exception as chunk_err:
+                                logger.error(
+                                    f"❌ Error processing remote event (sync): {chunk_err}. Raw event: {event}"
+                                )
+                                raise chunk_err
                     except ValueError as e:
                         # Google API REST streaming raises ValueError when parsing
                         # malformed responses (e.g., "Can only parse array of JSON objects")

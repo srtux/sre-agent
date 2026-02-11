@@ -21,6 +21,9 @@ def sanitize_environment():
     if os.environ.get("GOOGLE_GENAI_USE_VERTEXAI") == "1":
         os.environ.pop("GOOGLE_API_KEY", None)
         os.environ.pop("GEMINI_API_KEY", None)
+
+    # Ensure tests don't accidentally use remote agent engine mode
+    os.environ.pop("SRE_AGENT_ID", None)
     yield
 
 

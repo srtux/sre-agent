@@ -99,6 +99,18 @@ class ApprovalManager:
         self._states: dict[str, ApprovalState] = {}
         self._lock = threading.Lock()
 
+    def __getstate__(self) -> dict[str, Any]:
+        """Exclude lock from pickling."""
+        state = self.__dict__.copy()
+        if "_lock" in state:
+            del state["_lock"]
+        return state
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        """Restore state and re-initialize lock."""
+        self.__dict__.update(state)
+        self._lock = threading.Lock()
+
     def get_state(self, session_id: str) -> ApprovalState:
         """Get or create approval state for a session (thread-safe)."""
         with self._lock:

@@ -439,9 +439,10 @@ class _GuestLoginButtonState extends State<_GuestLoginButton> {
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
-                Icons.person_outline,
+                Icons.login, // Door icon
                 color: _isHovered ? AppColors.primaryCyan : Colors.white70,
                 size: 20,
               ),

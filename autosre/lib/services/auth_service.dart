@@ -224,21 +224,23 @@ class AuthService extends ChangeNotifier {
     }
     try {
       debugPrint('AuthService: Refreshing tokens for ${_currentUser!.email}');
-      final auth = _currentUser!.authentication;
-      _idToken = auth.idToken;
-      debugPrint('AuthService: Successfully extracted idToken');
 
-      // If authenticate() was called with scopeHint, the access token
-      // may already be available. Extract it to avoid a redundant
-      // scope authorization popup.
-      final accessToken = auth.accessToken;
-      if (accessToken != null && _accessToken == null) {
-        debugPrint('AuthService: Access token already available from authentication, caching it.');
-        _accessToken = accessToken;
-        _accessTokenExpiry = DateTime.now().add(const Duration(minutes: 55));
-        await _cacheTokens();
-        await _loginToBackend(accessToken, _idToken);
+      // On web, the .authentication getter may throw UnimplementedError.
+      // We try to catch it and fall back to the authzClient flow.
+      try {
+        final auth = _currentUser!.authentication;
+        _idToken = auth.idToken;
+        debugPrint('AuthService: Successfully extracted idToken');
+      } on UnimplementedError {
+        debugPrint('AuthService: .authentication getter unimplemented on this platform. idToken may be missing.');
+      } catch (e) {
+        debugPrint('AuthService: Unexpected error getting authentication: $e');
       }
+
+      // In newer versions of google_sign_in, accessToken is not
+      // available on GoogleSignInAuthentication. Use authzClient instead.
+      // Since we already authorize scopes in _proactivelyAuthorizeScopes,
+      // we don't need to try to extract it here.
     } catch (e, stack) {
       debugPrint('Error refreshing tokens: $e\n$stack');
     }
@@ -496,12 +498,28 @@ class AuthService extends ChangeNotifier {
   Future<void> signIn() async {
     try {
       debugPrint('AuthService: Starting sign in flow (signIn())...');
-      // On web and mobile, calling authenticate with scopes handles the flow.
-      await _googleSignIn.authenticate(scopeHint: _scopes);
+
+      if (kIsWeb) {
+        // On web, authenticate is typically unimplemented in the standard plugin.
+        // We use the button to trigger sign-in, and AuthService listens to events.
+        // If we reach here, we attempt to refresh the session silently.
+        await _googleSignIn.attemptLightweightAuthentication();
+        if (_currentUser != null) {
+          debugPrint('AuthService: Already signed in on web');
+          return;
+        }
+        debugPrint('AuthService: signIn() on web depends on the interactive button flow.');
+      } else {
+        await _googleSignIn.authenticate(scopeHint: _scopes);
+      }
       debugPrint('AuthService: Sign in successful');
     } catch (e) {
-      debugPrint('Error signing in: $e');
-      rethrow;
+      if (e.toString().contains('UnimplementedError')) {
+        debugPrint('AuthService: signIn() hit UnimplementedError (expected on web for .authenticate()). Please use the interactive button.');
+      } else {
+        debugPrint('Error signing in: $e');
+        rethrow;
+      }
     }
   }
 

@@ -863,7 +863,9 @@ class TestEndToEndLocalExecution:
     @pytest.mark.asyncio
     async def test_e2e_metrics_template(self) -> None:
         """Process large metric descriptors end-to-end in local sandbox."""
-        with patch.dict(os.environ, {"SRE_AGENT_LOCAL_EXECUTION": "true"}):
+        with patch.dict(
+            os.environ, {"SRE_AGENT_LOCAL_EXECUTION": "true", "SRE_AGENT_ID": ""}
+        ):
             from sre_agent.core.large_payload_handler import _process_with_template
 
             data = [
@@ -890,7 +892,9 @@ class TestEndToEndLocalExecution:
     @pytest.mark.asyncio
     async def test_e2e_logs_template(self) -> None:
         """Process large log entries end-to-end in local sandbox."""
-        with patch.dict(os.environ, {"SRE_AGENT_LOCAL_EXECUTION": "true"}):
+        with patch.dict(
+            os.environ, {"SRE_AGENT_LOCAL_EXECUTION": "true", "SRE_AGENT_ID": ""}
+        ):
             from sre_agent.core.large_payload_handler import _process_with_template
 
             data = [
@@ -916,7 +920,9 @@ class TestEndToEndLocalExecution:
     @pytest.mark.asyncio
     async def test_e2e_traces_template(self) -> None:
         """Process large traces end-to-end in local sandbox."""
-        with patch.dict(os.environ, {"SRE_AGENT_LOCAL_EXECUTION": "true"}):
+        with patch.dict(
+            os.environ, {"SRE_AGENT_LOCAL_EXECUTION": "true", "SRE_AGENT_ID": ""}
+        ):
             from sre_agent.core.large_payload_handler import _process_with_template
 
             data = [
@@ -946,7 +952,9 @@ class TestEndToEndLocalExecution:
     @pytest.mark.asyncio
     async def test_e2e_generic_template(self) -> None:
         """Process unknown data end-to-end with the generic template."""
-        with patch.dict(os.environ, {"SRE_AGENT_LOCAL_EXECUTION": "true"}):
+        with patch.dict(
+            os.environ, {"SRE_AGENT_LOCAL_EXECUTION": "true", "SRE_AGENT_ID": ""}
+        ):
             from sre_agent.core.large_payload_handler import (
                 _process_with_generic_template,
             )

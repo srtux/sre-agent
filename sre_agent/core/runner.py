@@ -136,6 +136,19 @@ class Runner:
         self._active_executions: dict[str, ExecutionContext] = {}
         self._executions_lock = asyncio.Lock()
 
+    def __getstate__(self) -> dict[str, Any]:
+        """Exclude runtime state from pickling."""
+        state = self.__dict__.copy()
+        state.pop("_active_executions", None)
+        state.pop("_executions_lock", None)
+        return state
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        """Restore state and re-initialize runtime state."""
+        self.__dict__.update(state)
+        self._active_executions = {}
+        self._executions_lock = asyncio.Lock()
+
     async def run_turn(
         self,
         session: Session,
