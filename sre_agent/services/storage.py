@@ -12,6 +12,7 @@ ADK sessions should be used for conversation history, not preferences.
 import json
 import logging
 import os
+import threading
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
@@ -50,9 +51,10 @@ class FilePreferencesBackend(PreferencesBackend):
         self._file_path = Path(file_path)
         self._cache: dict[str, Any] = {}
         self._loaded = False
+        self._lock = threading.Lock()
 
     def _load(self) -> None:
-        """Load preferences from file."""
+        """Load preferences from file (caller must hold self._lock)."""
         if self._loaded:
             return
         if self._file_path.exists():
@@ -64,7 +66,7 @@ class FilePreferencesBackend(PreferencesBackend):
         self._loaded = True
 
     def _save(self) -> None:
-        """Save preferences to file."""
+        """Save preferences to file (caller must hold self._lock)."""
         try:
             self._file_path.write_text(json_dumps(self._cache, indent=2))
         except OSError as e:
@@ -72,20 +74,23 @@ class FilePreferencesBackend(PreferencesBackend):
 
     async def get(self, key: str) -> Any | None:
         """Get a preference value from file cache."""
-        self._load()
-        return self._cache.get(key)
+        with self._lock:
+            self._load()
+            return self._cache.get(key)
 
     async def set(self, key: str, value: Any) -> None:
         """Set a preference value in file cache."""
-        self._load()
-        self._cache[key] = value
-        self._save()
+        with self._lock:
+            self._load()
+            self._cache[key] = value
+            self._save()
 
     async def delete(self, key: str) -> None:
         """Delete a preference value from file cache."""
-        self._load()
-        self._cache.pop(key, None)
-        self._save()
+        with self._lock:
+            self._load()
+            self._cache.pop(key, None)
+            self._save()
 
 
 class FirestorePreferencesBackend(PreferencesBackend):
@@ -254,11 +259,14 @@ class StorageService:
 # ============================================================================
 
 _storage_service: StorageService | None = None
+_storage_service_lock = threading.Lock()
 
 
 def get_storage_service() -> StorageService:
-    """Get the singleton StorageService instance."""
+    """Get the singleton StorageService instance (thread-safe)."""
     global _storage_service
     if _storage_service is None:
-        _storage_service = StorageService()
+        with _storage_service_lock:
+            if _storage_service is None:
+                _storage_service = StorageService()
     return _storage_service

@@ -134,6 +134,7 @@ class Runner:
 
         # Track execution state
         self._active_executions: dict[str, ExecutionContext] = {}
+        self._executions_lock = asyncio.Lock()
 
     async def run_turn(
         self,
@@ -175,7 +176,8 @@ class Runner:
             start_time=start_time,
             domain_context=domain_context,
         )
-        self._active_executions[session_id] = exec_ctx
+        async with self._executions_lock:
+            self._active_executions[session_id] = exec_ctx
 
         try:
             # Refresh agent tools from current configuration for dynamic filtering
@@ -223,8 +225,8 @@ class Runner:
             yield self._create_error_event(str(e))
 
         finally:
-            if session_id in self._active_executions:
-                del self._active_executions[session_id]
+            async with self._executions_lock:
+                self._active_executions.pop(session_id, None)
 
             duration = (time.time() - start_time) * 1000
             logger.info(f"Turn completed in {duration:.0f}ms")

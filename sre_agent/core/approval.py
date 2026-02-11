@@ -4,6 +4,7 @@ Implements the approval mechanism for write operations that require
 human confirmation before execution.
 """
 
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -96,12 +97,14 @@ class ApprovalManager:
         """
         self.expiration_seconds = expiration_seconds
         self._states: dict[str, ApprovalState] = {}
+        self._lock = threading.Lock()
 
     def get_state(self, session_id: str) -> ApprovalState:
-        """Get or create approval state for a session."""
-        if session_id not in self._states:
-            self._states[session_id] = ApprovalState()
-        return self._states[session_id]
+        """Get or create approval state for a session (thread-safe)."""
+        with self._lock:
+            if session_id not in self._states:
+                self._states[session_id] = ApprovalState()
+            return self._states[session_id]
 
     def create_request(
         self,
@@ -240,11 +243,14 @@ class ApprovalManager:
 
 # Singleton instance
 _approval_manager: ApprovalManager | None = None
+_approval_manager_lock = threading.Lock()
 
 
 def get_approval_manager() -> ApprovalManager:
-    """Get the singleton approval manager instance."""
+    """Get the singleton approval manager instance (thread-safe)."""
     global _approval_manager
     if _approval_manager is None:
-        _approval_manager = ApprovalManager()
+        with _approval_manager_lock:
+            if _approval_manager is None:
+                _approval_manager = ApprovalManager()
     return _approval_manager

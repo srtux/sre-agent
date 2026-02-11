@@ -114,8 +114,10 @@ class ADKContentGenerator implements ContentGenerator {
       await http.get(Uri.parse(_healthUrl)).timeout(_healthCheckTimeout);
       if (_isDisposed) return;
       // Any response from the server means we are connected
-      _isConnected.value = true;
-      ConnectivityService().updateStatus(true);
+      if (!_isDisposed) {
+        _isConnected.value = true;
+        ConnectivityService().updateStatus(true);
+      }
     } catch (e) {
       if (!_isDisposed) {
         _isConnected.value = false;
@@ -167,6 +169,11 @@ class ADKContentGenerator implements ContentGenerator {
     A2UiClientCapabilities? clientCapabilities,
   }) async {
     if (message is! UserMessage) return;
+
+    // Prevent concurrent requests: cancel in-flight request before starting new one
+    if (_isProcessing.value) {
+      cancelRequest();
+    }
 
     _isProcessing.value = true;
 

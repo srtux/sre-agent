@@ -21,6 +21,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import threading
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -89,6 +90,7 @@ class MemoryEventBus:
     """
 
     _instance: MemoryEventBus | None = None
+    _instance_lock: threading.Lock = threading.Lock()
     _lock: asyncio.Lock
 
     def __init__(self) -> None:
@@ -99,9 +101,11 @@ class MemoryEventBus:
 
     @classmethod
     def get_instance(cls) -> MemoryEventBus:
-        """Get the singleton instance."""
+        """Get the singleton instance (thread-safe)."""
         if cls._instance is None:
-            cls._instance = MemoryEventBus()
+            with cls._instance_lock:
+                if cls._instance is None:
+                    cls._instance = MemoryEventBus()
         return cls._instance
 
     @property

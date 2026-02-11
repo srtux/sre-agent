@@ -214,6 +214,8 @@ class _ConversationPageState extends State<ConversationPage>
     _contentGenerator = newGenerator;
     newGenerator.projectId = _projectService.selectedProjectId;
 
+    // Cancel previous session subscription to prevent leaked listeners
+    _sessionSubscription?.cancel();
     // Subscribe to the NEW session stream immediately
     _sessionSubscription = newGenerator.sessionStream.listen((sessionId) {
       _sessionService.setCurrentSession(sessionId);

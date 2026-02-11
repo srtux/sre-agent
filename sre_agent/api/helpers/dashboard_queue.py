@@ -61,10 +61,13 @@ def drain_dashboard_queue() -> list[tuple[str, Any]]:
     """Drain all queued tool results and return them.
 
     Returns an empty list if the queue was never initialised or is empty.
+    Uses atomic swap to prevent losing events added between copy and clear.
     """
     q = _dashboard_queue.get(None)
     if not q:
         return []
-    items = list(q)
-    q.clear()
-    return items
+    # Atomic swap: replace the list with a fresh one so concurrent
+    # queue_tool_result() calls append to the new list, not the one
+    # we are about to return.
+    _dashboard_queue.set([])
+    return q

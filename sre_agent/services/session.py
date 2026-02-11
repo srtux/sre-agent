@@ -10,6 +10,7 @@ User preferences are handled separately by StorageService.
 
 import logging
 import os
+import threading
 import time
 from dataclasses import dataclass
 from typing import Any, cast
@@ -384,11 +385,14 @@ class ADKSessionManager:
 # ============================================================================
 
 _session_manager: ADKSessionManager | None = None
+_session_manager_lock = threading.Lock()
 
 
 def get_session_service() -> ADKSessionManager:
-    """Get the singleton ADKSessionManager instance."""
+    """Get the singleton ADKSessionManager instance (thread-safe)."""
     global _session_manager
     if _session_manager is None:
-        _session_manager = ADKSessionManager()
+        with _session_manager_lock:
+            if _session_manager is None:
+                _session_manager = ADKSessionManager()
     return _session_manager
