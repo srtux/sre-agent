@@ -330,7 +330,9 @@ def _validate_trace_quality_impl(trace: TraceData) -> dict[str, Any]:
                             p_start = datetime.fromisoformat(
                                 p_start_str.replace("Z", "+00:00")
                             )
-                            p_end = datetime.fromisoformat(p_end_str.replace("Z", "+00:00"))
+                            p_end = datetime.fromisoformat(
+                                p_end_str.replace("Z", "+00:00")
+                            )
 
                             if start < p_start or end > p_end:
                                 issues.append(
