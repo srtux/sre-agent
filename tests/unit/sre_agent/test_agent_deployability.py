@@ -1,5 +1,5 @@
 import copy
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from vertexai.preview.reasoning_engines import AdkApp
@@ -62,7 +62,7 @@ def test_adk_app_is_deepcopyable():
     try:
         # Mock vertexai.init and manually set the project to bypass DefaultCredentialsError
         # in CI environments where credentials might not be available.
-        with patch("vertexai.init") as mock_init:
+        with patch("vertexai.init"):
             import google.cloud.aiplatform.initializer
 
             # Manually set the project ID in the global config.
@@ -71,11 +71,13 @@ def test_adk_app_is_deepcopyable():
             # Based on common patterns, this is often `_project` or `project_id`.
             # Let's try setting `_project` directly as `project` property likely has no setter.
             if hasattr(google.cloud.aiplatform.initializer.global_config, "_project"):
-                 google.cloud.aiplatform.initializer.global_config._project = "test-project"
+                google.cloud.aiplatform.initializer.global_config._project = (
+                    "test-project"
+                )
             else:
-                 # Fallback: try to mock the property itself on the class if instance modification fails
-                 # But first let's assume `_project` exists as it is standard in google libs.
-                 pass
+                # Fallback: try to mock the property itself on the class if instance modification fails
+                # But first let's assume `_project` exists as it is standard in google libs.
+                pass
 
             app = AdkApp(agent=root_agent)
             copied_app = copy.deepcopy(app)
