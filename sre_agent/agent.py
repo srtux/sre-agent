@@ -1612,20 +1612,26 @@ def _inject_global_credentials(agent_to_patch: Any, force: bool = False) -> Any:
                 )
                 return None
 
-            from google.adk.models import LLMRegistry
-
-            # Ensure environment is ready for google-genai discovery
-            curr_project = get_current_project_id() or project_id
-            curr_location = location or "us-central1"
-            if curr_project:
-                os.environ["GOOGLE_CLOUD_PROJECT"] = curr_project
-            if curr_location:
-                os.environ["GOOGLE_CLOUD_LOCATION"] = curr_location
+            # Use the Base Agent project for Vertex AI Generation (to avoid 403s on cross-projects)
+            # The SRE analysis context (logs/traces) will independently use get_current_project_id()
+            base_project = (
+                project_id  # The one initialized at module scope, usually summitt-gcp
+            )
+            base_location = location or "us-central1"
 
             # Use Vertex AI by default for these models
             os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "true"
 
             try:
+                from google.adk.models import LLMRegistry
+
+                # Provide explicit fallback just in case LLMRegistry looks at environment
+                # but we prefer direct Gemini instantiation for explicit control below.
+                if base_project:
+                    os.environ["GOOGLE_CLOUD_PROJECT"] = base_project
+                if base_location:
+                    os.environ["GOOGLE_CLOUD_LOCATION"] = base_location
+
                 model_obj = LLMRegistry.new_llm(model_obj)
             except Exception as e:
                 logger.warning(
@@ -1636,8 +1642,8 @@ def _inject_global_credentials(agent_to_patch: Any, force: bool = False) -> Any:
                 model_obj = Gemini(
                     model=model_obj,
                     vertexai=True,
-                    project=curr_project,
-                    location=curr_location,
+                    project=base_project,
+                    location=base_location,
                 )  # type: ignore[call-arg]
 
         # Check for google-genai client structure (used by ADK's GoogleLLM/Gemini)
