@@ -424,8 +424,8 @@ class _GuestLoginButtonState extends State<_GuestLoginButton> {
         child: OutlinedButton(
           onPressed: widget.onPressed,
           style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-            minimumSize: const Size(200, 54),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            minimumSize: const Size(200, 44),
             side: BorderSide(
               color: _isHovered ? AppColors.primaryCyan : Colors.white24,
               width: 1.5,

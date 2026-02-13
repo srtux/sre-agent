@@ -13,8 +13,8 @@ Widget buildGoogleSignInButton({required VoidCallback onSignIn}) {
       onTap: onSignIn,
       borderRadius: BorderRadius.circular(50),
       child: Container(
-        constraints: const BoxConstraints(minWidth: 280, minHeight: 54),
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+        constraints: const BoxConstraints(minWidth: 200, minHeight: 44),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         decoration: BoxDecoration(
           color: Colors.indigoAccent,
           borderRadius: BorderRadius.circular(50),

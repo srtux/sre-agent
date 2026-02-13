@@ -18,8 +18,13 @@ Widget buildGoogleSignInButton({required VoidCallback onSignIn}) {
   final webPlugin = GoogleSignInPlatform.instance as GoogleSignInPlugin;
 
   return SizedBox(
-    width: 300,
-    height: 50,
-    child: webPlugin.renderButton(),
+    height: 44, // Match GSI large button height approximately
+    child: webPlugin.renderButton(
+      configuration: GSIButtonConfiguration(
+        shape: GSIButtonShape.pill,
+        theme: GSIButtonTheme.filledBlack,
+        size: GSIButtonSize.large,
+      ),
+    ),
   );
 }
