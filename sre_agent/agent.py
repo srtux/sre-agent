@@ -67,7 +67,6 @@ from google.adk.tools import AgentTool  # type: ignore[attr-defined]
 from google.adk.tools.base_toolset import BaseToolset
 
 from .auth import (
-    GLOBAL_CONTEXT_CREDENTIALS,
     get_credentials_from_session,
     get_current_project_id,
     get_project_id_from_session,
@@ -1642,16 +1641,22 @@ def _inject_global_credentials(agent_to_patch: Any, force: bool = False) -> Any:
                 )  # type: ignore[call-arg]
 
         # Check for google-genai client structure (used by ADK's GoogleLLM/Gemini)
-        if hasattr(model_obj, "api_client"):
-            # Older google-genai versions
-            if hasattr(model_obj.api_client, "config"):
-                model_obj.api_client.config.credentials = GLOBAL_CONTEXT_CREDENTIALS
-
-            # Newer google-genai versions (like 1.59.0+)
-            if hasattr(model_obj.api_client, "_api_client"):
-                model_obj.api_client._api_client._credentials = (
-                    GLOBAL_CONTEXT_CREDENTIALS
-                )
+        # 🚨 DO NOT INJECT USER CREDENTIALS INTO VERTEX AI GEMINI CLIENT 🚨
+        # Vertex AI GenerateContent API rejects Google Sign-In (Web Client) access tokens
+        # with 401 ACCESS_TOKEN_TYPE_UNSUPPORTED.
+        # Gemini must execute using the Service Account (ADC).
+        # Tools will still use EUC because they explicitly call get_credentials_from_tool_context()
+        #
+        # if hasattr(model_obj, "api_client"):
+        #     # Older google-genai versions
+        #     if hasattr(model_obj.api_client, "config"):
+        #         model_obj.api_client.config.credentials = GLOBAL_CONTEXT_CREDENTIALS
+        #
+        #     # Newer google-genai versions (like 1.59.0+)
+        #     if hasattr(model_obj.api_client, "_api_client"):
+        #         model_obj.api_client._api_client._credentials = (
+        #             GLOBAL_CONTEXT_CREDENTIALS
+        #         )
 
         return model_obj
     except Exception as e:
