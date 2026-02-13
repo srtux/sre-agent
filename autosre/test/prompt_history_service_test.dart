@@ -6,16 +6,6 @@ import 'package:autosre/services/auth_service.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 
-// Mock GoogleSignInAuthentication
-class MockGoogleSignInAuthentication implements GoogleSignInAuthentication {
-  @override
-  String? get idToken => 'mock_id_token';
-
-  // ignore: deprecated_member_use
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
 // Mock GoogleSignInAccount
 class MockGoogleSignInAccount implements GoogleSignInAccount {
   @override
@@ -64,7 +54,9 @@ class MockAuthService extends ChangeNotifier implements AuthService {
   @override
   String? get accessToken => 'mock_token';
   @override
-  String? get idToken => 'mock_id_token';
+  bool get isInitialized => true;
+  @override
+  GoogleSignIn get googleSignIn => throw UnimplementedError();
   @override
   bool get isAuthEnabled => true;
   @override
@@ -87,8 +79,6 @@ class MockAuthService extends ChangeNotifier implements AuthService {
   @override
   Future<void> signOut() async {}
 
-  @override
-  Future<void> refreshTokensForTesting() async {}
 }
 
 void main() {
