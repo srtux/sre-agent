@@ -59,6 +59,11 @@ def test_agent_is_deepcopyable():
 def test_adk_app_is_deepcopyable():
     """Verify that AdkApp containing the agent is deepcopyable."""
     try:
+        # Mock vertexai initialization to bypass project ID check in CI/Sandbox
+        import vertexai
+
+        vertexai.init(project="test-project", location="us-central1")
+
         app = AdkApp(agent=root_agent)
         copied_app = copy.deepcopy(app)
         assert copied_app is not None
