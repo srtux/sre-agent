@@ -47,6 +47,7 @@ def test_build_call_graph_dict(sample_trace_dict):
     assert len(res_data["span_tree"][0]["children"]) == 1
     assert res_data["span_tree"][0]["children"][0]["span_id"] == "child1"
     assert res_data["total_spans"] == 2
+    assert res_data["max_depth"] == 1
 
 
 def test_build_call_graph_str(sample_trace_dict):
@@ -57,6 +58,7 @@ def test_build_call_graph_str(sample_trace_dict):
     assert res_data["root_spans"] == ["root"]
     assert len(res_data["span_tree"]) == 1
     assert res_data["total_spans"] == 2
+    assert res_data["max_depth"] == 1
 
 
 def test_build_call_graph_invalid_json():
