@@ -26,7 +26,8 @@ class MockAuthService extends ChangeNotifier implements AuthService {
   @override bool get isLoading => false;
   @override GoogleSignInAccount? get currentUser => null;
   @override String? get accessToken => null;
-  @override String? get idToken => null;
+  @override bool get isInitialized => true;
+  @override GoogleSignIn get googleSignIn => throw UnimplementedError();
   @override Future<void> init() async {}
   @override Future<void> signIn() async {}
   @override Future<void> signOut() async {}
@@ -35,7 +36,6 @@ class MockAuthService extends ChangeNotifier implements AuthService {
   @override set currentUser(GoogleSignInAccount? user) {}
   @override Future<Map<String, String>> getAuthHeaders() async => {};
   @override Future<http.Client> getAuthenticatedClient() async => http.Client();
-  @override Future<void> refreshTokensForTesting() async {}
 }
 
 class MockProjectService implements ProjectService {

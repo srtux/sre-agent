@@ -9,16 +9,14 @@ import 'project_service.dart';
 
 /// Service to handle authentication with Google Sign-In.
 ///
-/// SSO flow:
+/// Flow:
 /// 1. [init] fetches backend config, initialises GoogleSignIn, and attempts
-///    silent re-authentication (lightweight authentication).
-/// 2. If the user is already signed in (or silent auth succeeds), we
-///    immediately authorize the required GCP scopes so the first API call
-///    doesn't trigger a second popup.
-/// 3. On fresh sign-in, the [authenticationEvents] listener picks up the
-///    event, authorizes scopes, and caches the access token.
-/// 4. Access tokens are cached in [SharedPreferences] so page refreshes can
-///    restore them without any popup.
+///    silent re-authentication.
+/// 2. On web, the user clicks the GIS-rendered button (via [renderButton])
+///    which triggers authentication. On mobile, [signIn] calls [authenticate].
+/// 3. After authentication, [_ensureAccessToken] authorizes GCP scopes to
+///    obtain an access token for calling Google Cloud APIs (EUC).
+/// 4. The access token is sent as a Bearer header on every API request.
 class AuthService extends ChangeNotifier {
   static AuthService? _mockInstance;
   static AuthService get instance => _mockInstance ?? _internalInstance;
@@ -31,8 +29,7 @@ class AuthService extends ChangeNotifier {
 
   AuthService._internal();
 
-  /// OAuth 2.0 scopes requested upfront so the user only sees ONE consent
-  /// screen that includes the GCP cloud-platform permission.
+  /// OAuth 2.0 scopes needed for GCP access.
   static final List<String> _scopes = [
     'email',
     'https://www.googleapis.com/auth/cloud-platform',
@@ -41,19 +38,20 @@ class AuthService extends ChangeNotifier {
   /// SharedPreferences keys for token persistence across page refreshes.
   static const String _prefKeyAccessToken = 'auth_access_token';
   static const String _prefKeyAccessTokenExpiry = 'auth_access_token_expiry';
-  static const String _prefKeyIdToken = 'auth_id_token';
 
-  static const String _buildTimeClientId = String.fromEnvironment('GOOGLE_CLIENT_ID');
+  static const String _buildTimeClientId =
+      String.fromEnvironment('GOOGLE_CLIENT_ID');
+
   late final gsi_lib.GoogleSignIn _googleSignIn;
+  bool _initialized = false;
 
   gsi_lib.GoogleSignInAccount? _currentUser;
-  String? _idToken;
   String? _accessToken;
   DateTime? _accessTokenExpiry;
   bool _isLoading = true;
-  bool _isAuthEnabled = true; // Default to true until config says otherwise
+  bool _isAuthEnabled = true;
   bool _isGuestMode = false;
-  bool _isGuestModeEnabled = false; // Controlled by backend ENABLE_GUEST_MODE
+  bool _isGuestModeEnabled = false;
 
   @visibleForTesting
   set currentUser(gsi_lib.GoogleSignInAccount? user) => _currentUser = user;
@@ -62,9 +60,7 @@ class AuthService extends ChangeNotifier {
   void reset() {
     _accessToken = null;
     _accessTokenExpiry = null;
-    _idToken = null;
     _currentUser = null;
-    _authzCompleter = null;
   }
 
   gsi_lib.GoogleSignInAccount? get currentUser => _currentUser;
@@ -73,8 +69,13 @@ class AuthService extends ChangeNotifier {
   bool get isAuthEnabled => _isAuthEnabled;
   bool get isGuestMode => _isGuestMode;
   bool get isGuestModeEnabled => _isGuestModeEnabled;
-  String? get idToken => _idToken;
   String? get accessToken => _accessToken;
+
+  /// Whether GoogleSignIn has been initialized (safe to call renderButton).
+  bool get isInitialized => _initialized;
+
+  /// The GoogleSignIn instance, exposed for web's renderButton().
+  gsi_lib.GoogleSignIn get googleSignIn => _googleSignIn;
 
   String get _baseUrl {
     if (kDebugMode) {
@@ -87,13 +88,6 @@ class AuthService extends ChangeNotifier {
   // Initialization
   // ---------------------------------------------------------------------------
 
-  /// Initialize auth state.
-  ///
-  /// 1. Fetches runtime config from the backend (client ID, auth/guest flags).
-  /// 2. Initialises the GoogleSignIn plugin.
-  /// 3. Attempts silent (lightweight) authentication.
-  /// 4. If the user was restored silently, proactively authorizes GCP scopes
-  ///    so no second popup appears when the first API call is made.
   Future<void> init() async {
     String? runtimeClientId;
 
@@ -102,104 +96,93 @@ class AuthService extends ChangeNotifier {
       final response = await http.get(Uri.parse('$_baseUrl/api/config'));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-
         if (data.containsKey('auth_enabled')) {
           _isAuthEnabled = data['auth_enabled'] as bool;
         }
         if (data.containsKey('guest_mode_enabled')) {
           _isGuestModeEnabled = data['guest_mode_enabled'] as bool;
         }
-
         runtimeClientId = data['google_client_id'] as String?;
-        if (runtimeClientId != null && runtimeClientId.isNotEmpty) {
-          debugPrint('AuthService: Obtained runtime Client ID from backend');
-        }
       }
     } catch (e) {
       debugPrint('AuthService: Failed to fetch runtime config: $e');
     }
 
     if (!_isAuthEnabled) {
-      debugPrint('AuthService: Auth disabled by backend config. Skipping Google Sign-In init.');
+      debugPrint('AuthService: Auth disabled by backend config.');
       _isLoading = false;
       notifyListeners();
       return;
     }
 
-    final effectiveClientId = (runtimeClientId != null && runtimeClientId.isNotEmpty)
-        ? runtimeClientId
-        : _buildTimeClientId;
+    final effectiveClientId =
+        (runtimeClientId != null && runtimeClientId.isNotEmpty)
+            ? runtimeClientId
+            : _buildTimeClientId;
 
-    // 2. Initialize GoogleSignIn using singleton
+    // 2. Initialize GoogleSignIn
     _googleSignIn = gsi_lib.GoogleSignIn.instance;
 
-    // 3. Listen to auth state changes via authenticationEvents.
-    //    This fires for interactive sign-in, NOT for silent/lightweight auth.
+    // 3. Listen to auth state changes
     _googleSignIn.authenticationEvents.listen(
-      (gsi_lib.GoogleSignInAuthenticationEvent event) async {
-        try {
-          if (event is gsi_lib.GoogleSignInAuthenticationEventSignIn) {
-            debugPrint('AuthService: User signed in: ${event.user.email}');
-            _currentUser = event.user;
-            await _refreshTokens();
-
-            // Proactively authorize GCP scopes right after sign-in.
-            // On web, renderButton() only handles authentication (identity),
-            // not authorization (scopes). We must request scopes interactively
-            // here so the user sees one combined flow while still on the login
-            // page, rather than a second surprise popup after navigation.
-            await _proactivelyAuthorizeScopes(interactive: true);
-
-            notifyListeners();
-          } else if (event is gsi_lib.GoogleSignInAuthenticationEventSignOut) {
-            debugPrint('AuthService: User signed out');
-            _currentUser = null;
-            _idToken = null;
-            _accessToken = null;
-            _accessTokenExpiry = null;
-            await _clearCachedTokens();
-            notifyListeners();
-          }
-        } catch (e, stack) {
-          debugPrint('Error handling auth event: $e\n$stack');
-          notifyListeners();
-        }
-      },
-      onError: (e) {
-        debugPrint('Auth stream error: $e');
-      },
+      _handleAuthEvent,
+      onError: (e) => debugPrint('Auth stream error: $e'),
     );
 
     try {
-      // Initialize configuration with required scopes upfront
-      await _googleSignIn.initialize(
-        clientId: effectiveClientId,
-      );
+      await _googleSignIn.initialize(clientId: effectiveClientId);
+      _initialized = true;
 
-      // Attempt silent sign-in (restores session from browser credentials)
+      // 4. Attempt silent sign-in (restores session from browser)
       await _googleSignIn.attemptLightweightAuthentication();
 
-      // If silent auth succeeded, _currentUser is set via the event listener.
-      // However, the event listener is asynchronous and may not have fired yet.
-      // Give it a short window to settle, then check.
+      // Give the event listener a short window to fire
       if (_currentUser == null) {
-        // Wait briefly for the event listener to fire
         await Future.delayed(const Duration(milliseconds: 300));
       }
 
-      // If user was restored, try to load cached tokens first to avoid any popup
+      // If user was restored, try to get access token silently
       if (_currentUser != null) {
         final restored = await _restoreCachedTokens();
         if (!restored) {
-          // Cached tokens expired or missing — authorize scopes SILENTLY.
-          // Never trigger a popup automatically on page load.
-          await _proactivelyAuthorizeScopes(interactive: false);
+          await _ensureAccessToken(interactive: false);
         }
       }
     } catch (e) {
-      debugPrint('Silent sign-in failed: $e');
+      debugPrint('AuthService: Init error: $e');
     } finally {
       _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Auth event handling
+  // ---------------------------------------------------------------------------
+
+  Future<void> _handleAuthEvent(
+    gsi_lib.GoogleSignInAuthenticationEvent event,
+  ) async {
+    try {
+      if (event is gsi_lib.GoogleSignInAuthenticationEventSignIn) {
+        debugPrint('AuthService: User signed in: ${event.user.email}');
+        _currentUser = event.user;
+
+        // Authorize GCP scopes to get an access token.
+        // Interactive=true because the user just signed in and expects a
+        // consent screen if needed.
+        await _ensureAccessToken(interactive: true);
+        notifyListeners();
+      } else if (event is gsi_lib.GoogleSignInAuthenticationEventSignOut) {
+        debugPrint('AuthService: User signed out');
+        _currentUser = null;
+        _accessToken = null;
+        _accessTokenExpiry = null;
+        await _clearCachedTokens();
+        notifyListeners();
+      }
+    } catch (e, stack) {
+      debugPrint('AuthService: Error handling auth event: $e\n$stack');
       notifyListeners();
     }
   }
@@ -208,95 +191,50 @@ class AuthService extends ChangeNotifier {
   // Token management
   // ---------------------------------------------------------------------------
 
-  @visibleForTesting
-  Future<void> refreshTokensForTesting() async => _refreshTokens();
-
-  /// Refresh tokens from the GoogleSignIn authentication object.
+  /// Ensure we have a valid access token with the required GCP scopes.
   ///
-  /// Extracts both ID token and access token. When [signIn] uses
-  /// [authenticate(scopeHint: scopes)], the access token is already
-  /// available here, so [_proactivelyAuthorizeScopes] can skip the
-  /// redundant scope authorization popup.
-  Future<void> _refreshTokens() async {
-    if (_currentUser == null) {
-      debugPrint('AuthService: Skip _refreshTokens because _currentUser is null');
-      return;
-    }
-    try {
-      debugPrint('AuthService: Refreshing tokens for ${_currentUser!.email}');
-
-      // On web, the .authentication getter may throw UnimplementedError.
-      // We try to catch it and fall back to the authzClient flow.
-      try {
-        final auth = _currentUser!.authentication;
-        _idToken = auth.idToken;
-        debugPrint('AuthService: Successfully extracted idToken');
-      } on UnimplementedError {
-        debugPrint('AuthService: .authentication getter unimplemented on this platform. idToken may be missing.');
-      } catch (e) {
-        debugPrint('AuthService: Unexpected error getting authentication: $e');
-      }
-
-      // In newer versions of google_sign_in, accessToken is not
-      // available on GoogleSignInAuthentication. Use authzClient instead.
-      // Since we already authorize scopes in _proactivelyAuthorizeScopes,
-      // we don't need to try to extract it here.
-    } catch (e, stack) {
-      debugPrint('Error refreshing tokens: $e\n$stack');
-    }
-  }
-
-  /// Proactively authorize GCP scopes after sign-in to avoid a second popup.
-  ///
-  /// This consolidates the two-step flow (sign-in + scope authorization) into
-  /// one seamless experience. If [interactive] is true, it will trigger a popup
-  /// if silent authorization fails.
-  Future<void> _proactivelyAuthorizeScopes({bool interactive = true}) async {
+  /// Tries silent authorization first. If [interactive] is true, falls back
+  /// to an interactive consent popup if silent auth fails.
+  Future<void> _ensureAccessToken({bool interactive = false}) async {
     if (_currentUser == null) return;
 
-    // 1. If we already have a valid access token (e.g. from _refreshTokens), skip this.
+    // Already have a valid token?
     if (_accessToken != null && _accessTokenExpiry != null) {
-      if (DateTime.now().isBefore(_accessTokenExpiry!.subtract(const Duration(minutes: 5)))) {
-        debugPrint('AuthService: Already have a valid access token, skipping redundant authorization.');
+      final buffer = _accessTokenExpiry!.subtract(const Duration(minutes: 5));
+      if (DateTime.now().isBefore(buffer)) {
         return;
       }
     }
 
     try {
-      debugPrint('AuthService: Proactively authorizing GCP scopes (interactive: $interactive)...');
+      debugPrint(
+        'AuthService: Authorizing GCP scopes (interactive: $interactive)...',
+      );
       final authzClient = _currentUser!.authorizationClient;
 
       // Try silent first
       var authz = await authzClient.authorizationForScopes(_scopes);
 
-      // If silent fails, request interactive authorization ONLY if requested.
-      // In the initial sign-in flow, we want this to be silent because the
-      // signIn() call should have already handled the interactive part.
-      if (authz == null) {
-        if (interactive) {
-          debugPrint('AuthService: Silent scope authorization failed, trying interactive...');
-          authz = await authzClient.authorizeScopes(_scopes);
-        } else {
-          debugPrint('AuthService: Silent scope authorization failed, skipping interactive to avoid annoying the user.');
-          return;
-        }
+      // Fall back to interactive if needed
+      if (authz == null && interactive) {
+        debugPrint('AuthService: Silent auth failed, trying interactive...');
+        authz = await authzClient.authorizeScopes(_scopes);
       }
 
-      _accessToken = authz.accessToken;
-      _accessTokenExpiry = DateTime.now().add(const Duration(minutes: 55));
-      debugPrint('AuthService: GCP scopes authorized successfully');
-
-      // Cache tokens for page-refresh persistence
-      await _cacheTokens();
-
-      // Establish backend session cookie
-      await _loginToBackend(_accessToken!, _idToken);
+      if (authz != null) {
+        _accessToken = authz.accessToken;
+        _accessTokenExpiry = DateTime.now().add(const Duration(minutes: 55));
+        debugPrint('AuthService: Access token obtained successfully');
+        await _cacheTokens();
+      } else {
+        debugPrint('AuthService: Could not obtain access token');
+      }
     } catch (e) {
-      debugPrint('AuthService: Error proactively authorizing scopes: $e');
+      debugPrint('AuthService: Error authorizing scopes: $e');
     }
   }
 
-  /// Cache access and ID tokens in SharedPreferences for cross-refresh persistence.
+  /// Cache access token in SharedPreferences for page-refresh persistence.
   Future<void> _cacheTokens() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -309,35 +247,27 @@ class AuthService extends ChangeNotifier {
           _accessTokenExpiry!.toIso8601String(),
         );
       }
-      if (_idToken != null) {
-        await prefs.setString(_prefKeyIdToken, _idToken!);
-      }
     } catch (e) {
       debugPrint('AuthService: Error caching tokens: $e');
     }
   }
 
-  /// Attempt to restore cached tokens from SharedPreferences.
-  ///
+  /// Restore cached tokens from SharedPreferences.
   /// Returns true if valid (non-expired) tokens were restored.
   Future<bool> _restoreCachedTokens() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final cachedToken = prefs.getString(_prefKeyAccessToken);
       final cachedExpiry = prefs.getString(_prefKeyAccessTokenExpiry);
-      final cachedIdToken = prefs.getString(_prefKeyIdToken);
 
       if (cachedToken != null && cachedExpiry != null) {
         final expiry = DateTime.parse(cachedExpiry);
-        // Only use cached token if it expires more than 5 minutes from now
-        if (DateTime.now().isBefore(expiry.subtract(const Duration(minutes: 5)))) {
+        final buffer = expiry.subtract(const Duration(minutes: 5));
+        if (DateTime.now().isBefore(buffer)) {
           _accessToken = cachedToken;
           _accessTokenExpiry = expiry;
-          _idToken = cachedIdToken ?? _idToken;
-          debugPrint('AuthService: Restored cached access token (expires at $expiry)');
+          debugPrint('AuthService: Restored cached token (expires $expiry)');
           return true;
-        } else {
-          debugPrint('AuthService: Cached token expired, will re-authorize');
         }
       }
     } catch (e) {
@@ -346,74 +276,27 @@ class AuthService extends ChangeNotifier {
     return false;
   }
 
-  /// Clear cached tokens (on sign-out).
+  /// Clear cached tokens on sign-out.
   Future<void> _clearCachedTokens() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_prefKeyAccessToken);
       await prefs.remove(_prefKeyAccessTokenExpiry);
-      await prefs.remove(_prefKeyIdToken);
     } catch (e) {
       debugPrint('AuthService: Error clearing cached tokens: $e');
     }
   }
 
   // ---------------------------------------------------------------------------
-  // Backend session
+  // Auth headers (injected by ProjectInterceptorClient on every API request)
   // ---------------------------------------------------------------------------
 
-  /// Call backend login endpoint to establish session cookie.
-  Future<void> _loginToBackend(String accessToken, String? idToken) async {
-    try {
-      debugPrint('AuthService: Logging in to backend...');
-      final client = http.Client();
-      if (kIsWeb) {
-        try {
-          // On web, http.Client() is a BrowserClient
-          (client as dynamic).withCredentials = true;
-        } catch (e) {
-          debugPrint('AuthService: could not set withCredentials (not a BrowserClient?)');
-        }
-      }
-      final response = await client.post(
-        Uri.parse('$_baseUrl/api/auth/login'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'access_token': accessToken,
-          'id_token': idToken,
-          'project_id': ProjectService.instance.selectedProjectId,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        debugPrint('AuthService: Successfully logged in to backend and established session cookie');
-      } else {
-        debugPrint('AuthService: Backend login failed with status ${response.statusCode}: ${response.body}');
-      }
-      client.close();
-    } catch (e) {
-      debugPrint('AuthService: Error calling backend login: $e');
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Auth headers (used by ProjectInterceptorClient for every API request)
-  // ---------------------------------------------------------------------------
-
-  Completer<void>? _authzCompleter;
-
-  /// Get current auth headers with a valid access token.
+  /// Get auth headers with a valid access token.
   ///
-  /// This method:
-  /// 1. Returns cached token if still valid.
-  /// 2. Tries silent scope authorization.
-  /// 3. Falls back to interactive authorization if silent fails.
-  /// 4. Caches the new token for future use and page refreshes.
+  /// Refreshes the token if expired (silent first, then interactive).
   Future<Map<String, String>> getAuthHeaders() async {
     if (!_isAuthEnabled) {
-      final headers = {
-        'Authorization': 'Bearer dev-mode-bypass-token',
-      };
+      final headers = {'Authorization': 'Bearer dev-mode-bypass-token'};
       if (_isGuestMode) {
         headers['X-Guest-Mode'] = 'true';
       }
@@ -422,68 +305,12 @@ class AuthService extends ChangeNotifier {
 
     if (_currentUser == null) return {};
 
-    // Check local cache first
-    if (_accessToken != null && _accessTokenExpiry != null) {
-      if (DateTime.now().isBefore(_accessTokenExpiry!.subtract(const Duration(minutes: 5)))) {
-        final headers = {
-          'Authorization': 'Bearer $_accessToken',
-        };
-        if (_idToken != null) {
-          headers['X-ID-Token'] = _idToken!;
-        }
-        return headers;
-      }
-    }
+    // Refresh token if needed
+    await _ensureAccessToken(interactive: true);
 
-    // If another authorization is already in progress, wait for it
-    if (_authzCompleter != null) {
-      debugPrint('AuthService: Authorization already in progress, waiting...');
-      await _authzCompleter!.future;
-      // After waiting, retry recursively to use the now-cached token
-      return getAuthHeaders();
-    }
+    if (_accessToken == null) return {};
 
-    _authzCompleter = Completer<void>();
-
-    try {
-      debugPrint('AuthService: Requesting authorization for GCP scopes...');
-      final authzClient = _currentUser!.authorizationClient;
-
-      // Try to get tokens silently first
-      var authz = await authzClient.authorizationForScopes(_scopes);
-
-      // If null, we need interaction (e.g. first time or expired)
-      if (authz == null) {
-        debugPrint('AuthService: Silent authorization failed, trying interactive...');
-        authz = await authzClient.authorizeScopes(_scopes);
-      }
-
-      _accessToken = authz.accessToken;
-      _accessTokenExpiry = DateTime.now().add(const Duration(minutes: 55));
-
-      // Cache for page-refresh persistence
-      await _cacheTokens();
-
-      // Establish backend session
-      await _loginToBackend(_accessToken!, _idToken);
-
-      final headers = {
-        'Authorization': 'Bearer $_accessToken',
-      };
-      if (_idToken != null) {
-        headers['X-ID-Token'] = _idToken!;
-      }
-
-      _authzCompleter!.complete();
-      _authzCompleter = null;
-
-      return headers;
-    } catch (e) {
-      debugPrint('AuthService: Error getting auth headers: $e');
-      _authzCompleter!.completeError(e);
-      _authzCompleter = null;
-      return {};
-    }
+    return {'Authorization': 'Bearer $_accessToken'};
   }
 
   // ---------------------------------------------------------------------------
@@ -492,40 +319,28 @@ class AuthService extends ChangeNotifier {
 
   /// Sign in with Google.
   ///
-  /// On web, the GIS renderButton handles the flow. On mobile, we call
-  /// [authenticate] with a [scopeHint] so the consent screen shows all
-  /// required permissions upfront.
+  /// On web, interactive sign-in is handled by the GIS-rendered button
+  /// (see [google_sign_in_button_web.dart]). This method only does silent auth.
+  /// On mobile, calls [authenticate] with scopes for a single consent screen.
   Future<void> signIn() async {
     try {
-      debugPrint('AuthService: Starting sign in flow (signIn())...');
-
       if (kIsWeb) {
-        // On web, authenticate is typically unimplemented in the standard plugin.
-        // We use the button to trigger sign-in, and AuthService listens to events.
-        // If we reach here, we attempt to refresh the session silently.
+        // On web, authenticate() is not supported.
+        // Interactive sign-in is handled by renderButton() in the UI.
+        // This path is only reached as a fallback for silent re-auth.
         await _googleSignIn.attemptLightweightAuthentication();
-        if (_currentUser != null) {
-          debugPrint('AuthService: Already signed in on web');
-          return;
-        }
-        debugPrint('AuthService: signIn() on web depends on the interactive button flow.');
       } else {
         await _googleSignIn.authenticate(scopeHint: _scopes);
       }
-      debugPrint('AuthService: Sign in successful');
     } catch (e) {
-      if (e.toString().contains('UnimplementedError')) {
-        debugPrint('AuthService: signIn() hit UnimplementedError (expected on web for .authenticate()). Please use the interactive button.');
-      } else {
-        debugPrint('Error signing in: $e');
-        rethrow;
-      }
+      debugPrint('AuthService: Error in signIn: $e');
+      rethrow;
     }
   }
 
-  /// Bypasses SSO and logs in as a guest with synthetic demo data.
+  /// Bypass SSO and log in as a guest with synthetic demo data.
   void loginAsGuest() {
-    debugPrint('AuthService: Logging in as Guest (Demo Mode with synthetic data)');
+    debugPrint('AuthService: Logging in as Guest (Demo Mode)');
     _isAuthEnabled = false;
     _isGuestMode = true;
     _isLoading = false;
@@ -537,7 +352,9 @@ class AuthService extends ChangeNotifier {
   Future<void> signOut() async {
     await _clearCachedTokens();
     await _googleSignIn.signOut();
-    // State clearing handled by event listener
+    _currentUser = null;
+    _accessToken = null;
+    _accessTokenExpiry = null;
     notifyListeners();
   }
 
@@ -547,16 +364,14 @@ class AuthService extends ChangeNotifier {
 
   /// Get authenticated HTTP client with project ID injection.
   Future<http.Client> getAuthenticatedClient() async {
-    if (_currentUser == null && _isAuthEnabled) {
-      debugPrint('AuthService: TESTING MODE - Creating non-authenticated client');
-    }
-
     final client = http.Client();
     if (kIsWeb) {
       try {
         (client as dynamic).withCredentials = true;
       } catch (e) {
-        debugPrint('AuthService: could not set withCredentials on authenticated client');
+        debugPrint(
+          'AuthService: could not set withCredentials on authenticated client',
+        );
       }
     }
 
