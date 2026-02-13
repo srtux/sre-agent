@@ -14,7 +14,7 @@ Key Functions:
 import logging
 import time
 from datetime import datetime
-from typing import Any, cast
+from typing import Any
 
 from sre_agent.schema import BaseToolResponse, ToolStatus
 
@@ -390,7 +390,13 @@ def _build_call_graph_impl(trace: TraceData) -> dict[str, Any]:
         else:
             root_spans.append(span_id)
 
+    max_depth_seen = 0
+
     def build_subtree(span_id: str, depth: int = 0) -> dict[str, Any]:
+        nonlocal max_depth_seen
+        if depth > max_depth_seen:
+            max_depth_seen = depth
+
         s = span_by_id.get(span_id, {})
         children_ids = children_by_parent.get(span_id, [])
 
@@ -406,20 +412,13 @@ def _build_call_graph_impl(trace: TraceData) -> dict[str, Any]:
 
     span_tree = [build_subtree(root_id) for root_id in root_spans]
 
-    def get_max_depth(node: dict[str, Any]) -> int:
-        if not node.get("children"):
-            return cast(int, node.get("depth", 0))
-        return max(get_max_depth(child) for child in node["children"])
-
-    max_depth = max((get_max_depth(tree) for tree in span_tree), default=0)
-
     result = {
         "trace_id": trace.get("trace_id"),
         "root_spans": root_spans,
         "span_tree": span_tree,
         "span_names": list(span_names),
         "total_spans": len(spans),
-        "max_depth": max_depth,
+        "max_depth": max_depth_seen,
     }
     return result
 
