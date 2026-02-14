@@ -47,6 +47,8 @@ This document details all environment variables used to configure the Auto SRE A
 | `TRACE_PROJECT_ID` | Override project for Cloud Trace queries (if different from host). | `GOOGLE_CLOUD_PROJECT` |
 | `GEMINI_API_KEY` | Your Google API Key (if not using ADC/Service Account). | - |
 | `GOOGLE_API_KEY` | Alias for `GEMINI_API_KEY`. | - |
+| `GOOGLE_CUSTOM_SEARCH_API_KEY` | API key for Google Custom Search (enables `search_google` tool). Create at: GCP Console > APIs & Services > Credentials. | - |
+| `GOOGLE_CUSTOM_SEARCH_ENGINE_ID` | Programmable Search Engine ID (cx) for the `search_google` tool. Create at: [programmablesearchengine.google.com](https://programmablesearchengine.google.com/). | - |
 
 ### Deprecated Variables
 

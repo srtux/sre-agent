@@ -65,6 +65,7 @@ sre_agent/                  # Backend source
     bigquery/               # BigQuery client, schemas, query builders
     discovery/              # GCP resource discovery
     proactive/              # Proactive signal analysis
+    research.py             # Online research (search_google, fetch_web_page)
     config.py               # Tool configuration registry
   services/
     session.py              # Session CRUD (ADKSessionManager)
@@ -231,6 +232,7 @@ docs/
     agent_orchestration.md     <- Council of Experts design
     observability.md           <- Traces, spans, metrics deep dive
     memory.md                  <- State management across sessions
+    online_research_and_self_healing.md <- Web search tools + self-healing architecture
     auth_learnings.md          <- Auth system evolution
     gcp_enhancements.md        <- Future roadmap
   guides/

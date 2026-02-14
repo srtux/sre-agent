@@ -34,6 +34,29 @@ Moving from "What is wrong" to "How to fix it."
 - `generate_postmortem`: Generates a structured, blameless Markdown postmortem based on the investigation findings.
 - `synthesize_report`: Generates a high-level executive summary of the investigation.
 
+### 6. Online Research
+Augments the agent's knowledge with up-to-date information from the web. Results are automatically saved to memory.
+- `search_google`: Search Google via Custom Search JSON API. Supports site restriction (e.g., `cloud.google.com` for GCP docs only). Requires `GOOGLE_CUSTOM_SEARCH_API_KEY` and `GOOGLE_CUSTOM_SEARCH_ENGINE_ID`.
+- `fetch_web_page`: Fetch a URL and extract readable text. Automatically strips HTML (scripts, styles, navigation). Supports HTML, JSON, and plain text.
+
+See [Online Research & Self-Healing Architecture](../concepts/online_research_and_self_healing.md) for full documentation.
+
+### 7. Memory & Self-Improvement
+Tools for the agent's learning system. See [Memory Best Practices](../concepts/memory.md).
+- `search_memory`: Semantic search over past findings and patterns.
+- `add_finding_to_memory`: Explicitly store a discovery or insight.
+- `record_tool_failure_pattern`: Share a corrected tool usage globally.
+- `complete_investigation`: Mark investigation complete and learn the pattern.
+- `get_recommended_investigation_strategy`: Retrieve proven tool sequences.
+- `analyze_and_learn_from_traces`: Self-analyze past agent traces from BigQuery.
+
+### 8. Agent Self-Analysis
+Tools for inspecting the agent's own execution behavior.
+- `list_agent_traces`: List recent agent runs from Vertex AI traces.
+- `reconstruct_agent_interaction`: Rebuild the full span tree for an agent trace.
+- `analyze_agent_token_usage`: Token usage breakdown by agent/model.
+- `detect_agent_anti_patterns`: Find excessive retries, token waste, long chains, and redundant tool calls.
+
 ---
 
 ## Tool Implementation Pattern

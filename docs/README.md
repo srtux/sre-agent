@@ -64,6 +64,7 @@ Philosophical and design documents explaining the "why" behind the architecture.
 | [Agent Orchestration](concepts/agent_orchestration.md) | Council of Experts design — how sub-agents collaborate |
 | [Observability Deep Dive](concepts/observability.md) | Traces, spans, metrics analysis theory |
 | [Memory & State](concepts/memory.md) | How the agent persists context across sessions |
+| [Online Research & Self-Healing](concepts/online_research_and_self_healing.md) | Web search tools and autonomous self-improvement architecture |
 | [Auth Learnings](concepts/auth_learnings.md) | Evolution of the authentication system |
 | [GCP Enhancements Roadmap](concepts/gcp_enhancements.md) | Vision for future capabilities |
 
