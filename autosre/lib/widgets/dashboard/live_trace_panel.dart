@@ -16,6 +16,7 @@ import '../syncfusion_trace_waterfall.dart';
 import 'manual_query_bar.dart';
 import 'dashboard_card_wrapper.dart';
 import 'query_language_badge.dart';
+import 'query_helpers.dart';
 
 /// Dashboard panel that displays all collected trace results.
 ///
@@ -26,6 +27,7 @@ import 'query_language_badge.dart';
 /// Supports two query modes:
 /// - **Trace ID**: Direct lookup by trace ID
 /// - **Cloud Trace Filter**: Cloud Trace Query language filter expressions
+/// - **Natural Language**: Describe what you want to find in plain English
 class LiveTracePanel extends StatefulWidget {
   final List<DashboardItem> items;
   final DashboardState dashboardState;
@@ -80,6 +82,23 @@ class _LiveTracePanelState extends State<LiveTracePanel> {
                   initialValue: widget.dashboardState
                       .getLastQueryFilter(DashboardDataType.traces),
                   isLoading: isLoading,
+                  snippets: traceSnippets,
+                  templates: traceTemplates,
+                  enableNaturalLanguage: true,
+                  naturalLanguageHint:
+                      'Show me the slowest API calls in the last hour...',
+                  naturalLanguageExamples: traceNaturalLanguageExamples,
+                  onSubmitWithMode: (query, isNl) {
+                    widget.dashboardState
+                        .setLastQueryFilter(DashboardDataType.traces, query);
+                    final explorer = context.read<ExplorerQueryService>();
+                    if (isNl) {
+                      explorer.queryNaturalLanguage(
+                          query: query, domain: 'traces');
+                    } else {
+                      explorer.queryTraceFilter(filter: query);
+                    }
+                  },
                   onSubmit: (filter) {
                     widget.dashboardState
                         .setLastQueryFilter(DashboardDataType.traces, filter);
@@ -115,8 +134,8 @@ class _LiveTracePanelState extends State<LiveTracePanel> {
                       icon: Icons.timeline_rounded,
                       title: 'No Traces Yet',
                       description: _queryMode == 0
-                          ? 'Enter a Cloud Trace filter expression above to search\nfor traces, or wait for the agent to find traces.'
-                          : 'Enter a Cloud Trace ID above to visualize\nthe distributed trace waterfall, or wait for the agent to find traces.',
+                          ? 'Enter a Cloud Trace filter expression above to search\nfor traces, or switch to natural language mode.'
+                          : 'Enter a Cloud Trace ID above to visualize\nthe distributed trace waterfall.',
                       queryHint: _queryMode == 0
                           ? 'e.g. +span:name:my_service MinDuration:100ms'
                           : 'e.g. abc123def456789...',
@@ -197,6 +216,7 @@ class _LiveTracePanelState extends State<LiveTracePanel> {
           const SizedBox(width: 6),
           Expanded(
             child: Text(
+              'Tab to autocomplete  |  '
               'Syntax: +span:name:<value>  RootSpan:<path>  '
               'MinDuration:<dur>  HasLabel:<key>:<value>',
               style: GoogleFonts.jetBrainsMono(
@@ -224,7 +244,7 @@ class _LiveTracePanelState extends State<LiveTracePanel> {
         final totalDuration = _calcTotalDuration(trace);
 
         return DashboardCardWrapper(
-          initiallyExpanded: index == 0, // Expand first one by default
+          initiallyExpanded: index == 0,
           onClose: () => widget.dashboardState.removeItem(item.id),
           dataToCopy: const JsonEncoder.withIndent('  ').convert(item.rawData),
           header: Row(
