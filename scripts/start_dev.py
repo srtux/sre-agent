@@ -49,6 +49,9 @@ def start_backend() -> bool:
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
 
+    # Run only a single worker for local dev to avoid interleaved logs in stdout
+    env["WEB_CONCURRENCY"] = "1"
+
     backend_proc = subprocess.Popen(
         ["uv", "run", "poe", "web"],
         cwd=os.getcwd(),
