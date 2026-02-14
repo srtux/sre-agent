@@ -41,6 +41,7 @@ from sre_agent.tools import (
     estimate_remediation_risk,
     extract_log_patterns,
     fetch_trace,
+    fetch_web_page,
     find_bottleneck_services,
     find_exemplar_traces,
     generate_remediation_suggestions,
@@ -64,6 +65,7 @@ from sre_agent.tools import (
     # Root cause / causal analysis
     perform_causal_analysis,
     query_promql,
+    search_google,
     update_investigation_state,
 )
 from sre_agent.tools.bigquery.ca_data_agent import query_data_agent
@@ -75,6 +77,11 @@ from sre_agent.tools.bigquery.ca_data_agent import query_data_agent
 SHARED_STATE_TOOLS: list[Any] = [
     get_investigation_summary,
     update_investigation_state,
+]
+
+SHARED_RESEARCH_TOOLS: list[Any] = [
+    search_google,
+    fetch_web_page,
 ]
 
 SHARED_REMEDIATION_TOOLS: list[Any] = [
@@ -298,6 +305,8 @@ ROOT_CAUSE_ANALYST_TOOLS: list[Any] = [
     fetch_trace,
     # Remediation
     *SHARED_REMEDIATION_TOOLS,
+    # Online Research
+    *SHARED_RESEARCH_TOOLS,
     # State
     *SHARED_STATE_TOOLS,
 ]
@@ -318,6 +327,8 @@ ORCHESTRATOR_TOOLS: list[Any] = [
     get_alert,
     # Discovery
     discover_telemetry_sources,
+    # Online Research
+    *SHARED_RESEARCH_TOOLS,
     # State
     *SHARED_STATE_TOOLS,
 ]
