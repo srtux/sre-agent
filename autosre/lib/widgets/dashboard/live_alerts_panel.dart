@@ -10,6 +10,7 @@ import '../common/explorer_empty_state.dart';
 import '../common/shimmer_loading.dart';
 import '../common/source_badge.dart';
 import 'manual_query_bar.dart';
+import 'dashboard_card_wrapper.dart';
 
 /// Dashboard panel showing all collected alert/incident dashboard data.
 ///
@@ -55,9 +56,9 @@ class LiveAlertsPanel extends StatelessWidget {
               : items.isEmpty
                   ? const ExplorerEmptyState(
                       icon: Icons.notifications_active_outlined,
-                      title: 'Alerts Explorer',
+                      title: 'No Alerts Yet',
                       description:
-                          'Query active alerts and incidents by entering\na filter expression above.',
+                          'Query active alerts and incidents by entering\na filter expression above, or wait for the agent to find them.',
                       queryHint: 'state="OPEN" AND severity="CRITICAL"',
                     )
                   : _buildAlertContent(),
@@ -67,37 +68,6 @@ class LiveAlertsPanel extends StatelessWidget {
   }
 
   Widget _buildAlertContent() {
-    // If there is only one item, allow it to expand to fill the available space.
-    if (items.length == 1) {
-      final item = items.first;
-      if (item.alertData == null) return const SizedBox.shrink();
-
-      return Padding(
-        padding: const EdgeInsets.all(12),
-        child: Container(
-          decoration: BoxDecoration(
-            color: AppColors.backgroundCard,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.surfaceBorder),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(item),
-              Expanded(
-                child: AlertsDashboardCanvas(
-                  data: item.alertData!,
-                  onPromptRequest: onPromptRequest,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // For multiple items, keep the list view with fixed height
     return ListView.builder(
       padding: const EdgeInsets.all(12),
       itemCount: items.length,
@@ -105,27 +75,40 @@ class LiveAlertsPanel extends StatelessWidget {
         final item = items[index];
         if (item.alertData == null) return const SizedBox.shrink();
 
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: Container(
-            height: 450,
-            decoration: BoxDecoration(
-              color: AppColors.backgroundCard,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.surfaceBorder),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(item),
-                Expanded(
-                  child: AlertsDashboardCanvas(
-                    data: item.alertData!,
-                    onPromptRequest: onPromptRequest,
-                  ),
+        return DashboardCardWrapper(
+          onClose: () => dashboardState.removeItem(item.id),
+          header: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
                 ),
-              ],
+                child: const Icon(
+                  Icons.notifications_active_outlined,
+                  size: 14,
+                  color: AppColors.error,
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Active Alerts Dashboard',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const Spacer(),
+              SourceBadge(source: item.source),
+            ],
+          ),
+          child: SizedBox(
+            height: 450,
+            child: AlertsDashboardCanvas(
+              data: item.alertData!,
+              onPromptRequest: onPromptRequest,
             ),
           ),
         );
@@ -133,46 +116,5 @@ class LiveAlertsPanel extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(DashboardItem item) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: AppColors.error.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: const Icon(
-              Icons.notifications_active_outlined,
-              size: 14,
-              color: AppColors.error,
-            ),
-          ),
-          const SizedBox(width: 8),
-          const Text(
-            'Active Alerts Dashboard',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const Spacer(),
-          Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: SourceBadge(source: item.source),
-            ),
-          Text(
-            '${item.alertData!.events.length} alerts',
-            style: const TextStyle(
-              fontSize: 10,
-              color: AppColors.textMuted,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+
 }

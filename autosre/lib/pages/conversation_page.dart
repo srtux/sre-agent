@@ -556,6 +556,24 @@ class _ConversationPageState extends State<ConversationPage>
 
   bool _isSidebarOpen = false;
   double _dashboardWidthFactor = 0.6;
+  bool _isDashboardMaximized = false;
+  double _lastDashboardWidth = 0.6;
+  bool _isResizeHovered = false;
+
+  void _toggleDashboardMaximize() {
+    setState(() {
+      if (_isDashboardMaximized) {
+        // Restore
+        _isDashboardMaximized = false;
+        _dashboardWidthFactor = _lastDashboardWidth;
+      } else {
+        // Maximize
+        _lastDashboardWidth = _dashboardWidthFactor;
+        _isDashboardMaximized = true;
+        _dashboardWidthFactor = 0.95;
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -675,34 +693,49 @@ class _ConversationPageState extends State<ConversationPage>
                           setState(() {
                             // Dragging left adds to dashboard width (since it's on the right)
                             // Dragging right subtracts
-                            // Delta dx is positive when moving right -> width decreases
-                            // Delta dx is negative when moving left -> width increases
                             final deltaFraction =
                                 details.delta.dx / constraints.maxWidth;
                             _dashboardWidthFactor -= deltaFraction;
                             _dashboardWidthFactor =
-                                _dashboardWidthFactor.clamp(0.2, 0.8);
+                                _dashboardWidthFactor.clamp(0.2, 0.95);
+
+                            // If user drags back from maximized, update state
+                            if (_isDashboardMaximized && _dashboardWidthFactor < 0.9) {
+                              _isDashboardMaximized = false;
+                            }
                           });
                         },
                         child: MouseRegion(
                           cursor: SystemMouseCursors.resizeColumn,
+                          onEnter: (_) => setState(() => _isResizeHovered = true),
+                          onExit: (_) => setState(() => _isResizeHovered = false),
                           child: Container(
-                            width: 8, // Hit target width
+                            width: 12, // Larger hit target
                             color: Colors.transparent,
                             alignment: Alignment.center,
                             child: Container(
-                              width: 1,
-                              color: AppColors.surfaceBorder,
+                              width: 4,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: _isResizeHovered
+                                    ? AppColors.primaryCyan
+                                    : AppColors.surfaceBorder,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
                             ),
                           ),
                         ),
                       ),
                       // Dashboard Content
-                      SizedBox(
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOutCubic,
                         width: targetWidth,
                         child: DashboardPanel(
                           state: _dashboardState,
                           onClose: _dashboardState.closeDashboard,
+                          onToggleMaximize: _toggleDashboardMaximize,
+                          isMaximized: _isDashboardMaximized,
                           onPromptRequest: (prompt) {
                             _textController.text = prompt;
                             _sendMessage();
@@ -1732,21 +1765,21 @@ class _MessageItemState extends State<_MessageItem>
                         height:
                             1.6, // Increased line height for better readability
                       ),
-                      pPadding: const EdgeInsets.only(bottom: 12),
+                      pPadding: const EdgeInsets.only(bottom: 16),
                       h1: const TextStyle(
                         color: AppColors.primaryTeal,
-                        fontSize: 22,
+                        fontSize: 24,
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.5,
                       ),
-                      h1Padding: const EdgeInsets.only(top: 16, bottom: 8),
+                      h1Padding: const EdgeInsets.only(top: 24, bottom: 12),
                       h2: const TextStyle(
                         color: AppColors.primaryCyan,
-                        fontSize: 18,
+                        fontSize: 20,
                         fontWeight: FontWeight.w600,
                         letterSpacing: -0.3,
                       ),
-                      h2Padding: const EdgeInsets.only(top: 14, bottom: 6),
+                      h2Padding: const EdgeInsets.only(top: 20, bottom: 10),
                       h3: const TextStyle(
                         color: Colors.white,
                         fontSize: 16,

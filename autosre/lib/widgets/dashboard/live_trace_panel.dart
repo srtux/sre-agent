@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -13,6 +14,7 @@ import '../common/shimmer_loading.dart';
 import '../common/source_badge.dart';
 import '../syncfusion_trace_waterfall.dart';
 import 'manual_query_bar.dart';
+import 'dashboard_card_wrapper.dart';
 
 /// Dashboard panel that displays all collected trace results.
 ///
@@ -34,8 +36,6 @@ class LiveTracePanel extends StatefulWidget {
 }
 
 class _LiveTracePanelState extends State<LiveTracePanel> {
-  int? _expandedIndex;
-
   @override
   Widget build(BuildContext context) {
     final isLoading =
@@ -66,9 +66,9 @@ class _LiveTracePanelState extends State<LiveTracePanel> {
               : widget.items.isEmpty
                   ? const ExplorerEmptyState(
                       icon: Icons.timeline_rounded,
-                      title: 'Trace Explorer',
+                      title: 'No Traces Yet',
                       description:
-                          'Enter a Cloud Trace ID above to visualize\nthe distributed trace waterfall.',
+                          'Enter a Cloud Trace ID above to visualize\nthe distributed trace waterfall, or wait for the agent to find traces.',
                       queryHint: 'e.g. abc123def456789...',
                     )
                   : _buildTraceList(),
@@ -86,104 +86,64 @@ class _LiveTracePanelState extends State<LiveTracePanel> {
         final trace = item.traceData;
         if (trace == null) return const SizedBox.shrink();
 
-        final isExpanded = _expandedIndex == index;
         final totalDuration = _calcTotalDuration(trace);
 
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            decoration: BoxDecoration(
-              color: isExpanded
-                  ? AppColors.primaryCyan.withValues(alpha: 0.05)
-                  : AppColors.backgroundCard,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isExpanded
-                    ? AppColors.primaryCyan.withValues(alpha: 0.3)
-                    : AppColors.surfaceBorder,
+        return DashboardCardWrapper(
+          initiallyExpanded: index == 0, // Expand first one by default
+          onClose: () => widget.dashboardState.removeItem(item.id),
+          dataToCopy: const JsonEncoder.withIndent('  ').convert(item.rawData),
+          header: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryCyan.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(
+                  Icons.timeline_rounded,
+                  size: 14,
+                  color: AppColors.primaryCyan,
+                ),
               ),
-            ),
-            child: Column(
-              children: [
-                // Header
-                InkWell(
-                  onTap: () {
-                    setState(() {
-                      _expandedIndex = isExpanded ? null : index;
-                    });
-                  },
-                  borderRadius: BorderRadius.circular(12),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      trace.traceId.length > 16
+                          ? '${trace.traceId.substring(0, 16)}...'
+                          : trace.traceId,
+                      style: GoogleFonts.jetBrainsMono(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color:
-                                AppColors.primaryCyan.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Icon(
-                            Icons.timeline_rounded,
-                            size: 14,
-                            color: AppColors.primaryCyan,
+                        Text(
+                          '${trace.spans.length} spans  |  ${totalDuration}ms  |  ${item.toolName}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textMuted,
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                trace.traceId.length > 16
-                                    ? '${trace.traceId.substring(0, 16)}...'
-                                    : trace.traceId,
-                                style: GoogleFonts.jetBrainsMono(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  color: AppColors.textPrimary,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Row(
-                                children: [
-                                  Text(
-                                    '${trace.spans.length} spans  |  ${totalDuration}ms  |  ${item.toolName}',
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      color: AppColors.textMuted,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  SourceBadge(source: item.source),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        _buildCloudTraceButton(trace.traceId),
-                        const SizedBox(width: 4),
-                        Icon(
-                          isExpanded
-                              ? Icons.keyboard_arrow_up
-                              : Icons.keyboard_arrow_down,
-                          size: 18,
-                          color: AppColors.textMuted,
-                        ),
+                        const SizedBox(width: 6),
+                        SourceBadge(source: item.source),
                       ],
                     ),
-                  ),
+                  ],
                 ),
-                // Expanded waterfall
-                if (isExpanded)
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-                    child: SyncfusionTraceWaterfall(trace: trace),
-                  ),
-              ],
-            ),
+              ),
+              _buildCloudTraceButton(trace.traceId),
+            ],
+          ),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+            child: SyncfusionTraceWaterfall(trace: trace),
           ),
         );
       },

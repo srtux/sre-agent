@@ -12,23 +12,86 @@ import '../../theme/app_theme.dart';
 /// Vega-Lite chart specs returned. Charts are shown as JSON specs
 /// that can be copied for external rendering (full Vega-Lite rendering
 /// can be added via a WebView or JS interop in a future iteration).
+import 'manual_query_bar.dart';
+import 'dashboard_card_wrapper.dart';
+import '../common/explorer_empty_state.dart';
+
+/// Dashboard panel showing Vega-Lite charts from the CA Data Agent.
 class LiveChartsPanel extends StatelessWidget {
   final List<DashboardItem> items;
-  const LiveChartsPanel({super.key, required this.items});
+  final DashboardState dashboardState;
+  const LiveChartsPanel({
+    super.key,
+    required this.items,
+    required this.dashboardState,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(12),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final item = items[index];
-        if (item.chartData == null) return const SizedBox.shrink();
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: _ChartCard(data: item.chartData!, toolName: item.toolName),
-        );
-      },
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          child: ManualQueryBar(
+            hintText: 'Search data answers...',
+            initialValue: dashboardState.getLastQueryFilter(DashboardDataType.charts),
+            isLoading: dashboardState.isLoading(DashboardDataType.charts),
+            onSubmit: (query) {
+              dashboardState.setLastQueryFilter(DashboardDataType.charts, query);
+            },
+          ),
+        ),
+        Expanded(
+          child: items.isEmpty
+              ? const ExplorerEmptyState(
+                  icon: Icons.bar_chart_rounded,
+                  title: 'No Charts Yet',
+                  description:
+                      'The analytics agent generates charts and data answers\nduring investigations.',
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.all(12),
+                  itemCount: items.length,
+                  itemBuilder: (context, index) {
+                    final item = items[index];
+                    if (item.chartData == null) return const SizedBox.shrink();
+                    return DashboardCardWrapper(
+                      onClose: () => dashboardState.removeItem(item.id),
+                      header: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: AppColors.warning.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Icon(
+                              Icons.bar_chart_rounded,
+                              size: 14,
+                              color: AppColors.warning,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              item.chartData?.question ?? 'Data Analysis',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textPrimary,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      child: _ChartCard(data: item.chartData!, toolName: item.toolName),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 }
@@ -48,72 +111,15 @@ class _ChartCardState extends State<_ChartCard> {
   @override
   Widget build(BuildContext context) {
     final data = widget.data;
-    final question = data.question as String? ?? '';
     final answer = data.answer as String? ?? '';
     final hasCharts = data.hasCharts as bool? ?? false;
     final charts = hasCharts ? data.vegaLiteCharts as List : [];
 
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.backgroundCard,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.surfaceBorder),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: AppColors.warning.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Icon(
-                    Icons.bar_chart_rounded,
-                    size: 14,
-                    color: AppColors.warning,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    question.isNotEmpty ? question : 'Data Query',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                if (charts.isNotEmpty)
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppColors.warning.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      '${charts.length} chart${charts.length > 1 ? 's' : ''}',
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.warning,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          // Answer text
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header info from CardWrapper is enough for the title row
+        // Question text
           if (answer.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
@@ -140,9 +146,22 @@ class _ChartCardState extends State<_ChartCard> {
                 ],
               ),
             ),
-          const SizedBox(height: 4),
-        ],
-      ),
+        // Question text
+        if (answer.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            child: Text(
+              answer,
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+                height: 1.5,
+              ),
+              maxLines: 10,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+      ],
     );
   }
 

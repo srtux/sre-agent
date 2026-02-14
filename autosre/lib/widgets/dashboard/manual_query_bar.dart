@@ -39,15 +39,21 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
     _controller = TextEditingController(text: widget.initialValue);
     _hasText = _controller.text.isNotEmpty;
     _focusNode = FocusNode();
+    _focusNode.addListener(_onFocusChanged);
     _controller.addListener(_onTextChanged);
   }
 
   @override
   void dispose() {
+    _focusNode.removeListener(_onFocusChanged);
     _controller.removeListener(_onTextChanged);
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  void _onFocusChanged() {
+    setState(() {});
   }
 
   void _onTextChanged() {
@@ -72,14 +78,30 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final isFocused = _focusNode.hasFocus;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
       height: 40,
       decoration: BoxDecoration(
-        color: AppColors.backgroundCard.withValues(alpha: 0.8),
-        borderRadius: BorderRadius.circular(8),
+        color: isFocused
+            ? AppColors.backgroundDark
+            : AppColors.backgroundCard.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: AppColors.surfaceBorder.withValues(alpha: 0.5),
+          color: isFocused
+              ? AppColors.primaryCyan.withValues(alpha: 0.6)
+              : AppColors.surfaceBorder.withValues(alpha: 0.5),
+          width: 1,
         ),
+        boxShadow: [
+          if (isFocused)
+            BoxShadow(
+              color: AppColors.primaryCyan.withValues(alpha: 0.15),
+              blurRadius: 10,
+              spreadRadius: 1,
+            ),
+        ],
       ),
       child: Row(
         children: [

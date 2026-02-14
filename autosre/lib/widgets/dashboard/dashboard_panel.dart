@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import '../../services/dashboard_state.dart';
 import '../../services/explorer_query_service.dart';
 import '../../theme/app_theme.dart';
-import '../common/explorer_empty_state.dart';
 import 'live_logs_explorer.dart';
 import 'live_metrics_panel.dart';
 import 'live_trace_panel.dart';
@@ -23,12 +22,16 @@ import 'sre_toolbar.dart';
 class DashboardPanel extends StatefulWidget {
   final DashboardState state;
   final VoidCallback onClose;
+  final VoidCallback? onToggleMaximize;
+  final bool isMaximized;
   final Function(String)? onPromptRequest;
 
   const DashboardPanel({
     super.key,
     required this.state,
     required this.onClose,
+    this.onToggleMaximize,
+    this.isMaximized = false,
     this.onPromptRequest,
   });
 
@@ -118,7 +121,11 @@ class _DashboardPanelState extends State<DashboardPanel>
               },
             ),
             _buildTabBar(),
-            Expanded(child: _buildContent()),
+            Expanded(
+              child: SelectionArea(
+                child: _buildContent(),
+              ),
+            ),
           ],
         ),
       ),
@@ -169,10 +176,25 @@ class _DashboardPanelState extends State<DashboardPanel>
           const Spacer(),
           _buildItemCount(),
           const SizedBox(width: 8),
+          if (widget.onToggleMaximize != null)
+            IconButton(
+              icon: Icon(
+                widget.isMaximized ? Icons.fullscreen_exit : Icons.fullscreen,
+                size: 20,
+              ),
+              color: AppColors.textMuted,
+              onPressed: widget.onToggleMaximize,
+              tooltip: widget.isMaximized ? 'Restore' : 'Maximize',
+              style: IconButton.styleFrom(
+                padding: const EdgeInsets.all(4),
+                minimumSize: const Size(28, 28),
+              ),
+            ),
           IconButton(
             icon: const Icon(Icons.close, size: 18),
             color: AppColors.textMuted,
             onPressed: widget.onClose,
+            tooltip: 'Close Dashboard',
             style: IconButton.styleFrom(
               padding: const EdgeInsets.all(4),
               minimumSize: const Size(28, 28),
@@ -246,14 +268,7 @@ class _DashboardPanelState extends State<DashboardPanel>
     return ListenableBuilder(
       listenable: widget.state,
       builder: (context, _) {
-        if (!widget.state.hasData) {
-          return _buildEmptyState();
-        }
-
         final items = widget.state.itemsOfType(widget.state.activeTab);
-        if (items.isEmpty) {
-          return _buildEmptyTabState(widget.state.activeTab);
-        }
 
         switch (widget.state.activeTab) {
           case DashboardDataType.traces:
@@ -278,33 +293,26 @@ class _DashboardPanelState extends State<DashboardPanel>
               onPromptRequest: widget.onPromptRequest,
             );
           case DashboardDataType.remediation:
-            return LiveRemediationPanel(items: items);
+            return LiveRemediationPanel(
+              items: items,
+              dashboardState: widget.state,
+            );
           case DashboardDataType.council:
-            return LiveCouncilPanel(items: items);
+            return LiveCouncilPanel(
+              items: items,
+              dashboardState: widget.state,
+            );
           case DashboardDataType.charts:
-            return LiveChartsPanel(items: items);
+            return LiveChartsPanel(
+              items: items,
+              dashboardState: widget.state,
+            );
         }
       },
     );
   }
 
-  Widget _buildEmptyState() {
-    return const ExplorerEmptyState(
-      icon: Icons.analytics_outlined,
-      title: 'Observability Explorer',
-      description: 'Use the query bars above each panel to explore telemetry data,\nor start an agent investigation to auto-populate results.',
-      queryHint: 'metric.type="compute.googleapis.com/instance/cpu/utilization"',
-    );
-  }
 
-  Widget _buildEmptyTabState(DashboardDataType type) {
-    final config = _tabConfig(type);
-    return ExplorerEmptyState(
-      icon: config.icon,
-      title: 'No ${config.label} Yet',
-      description: 'Use the query bar to search for ${config.label.toLowerCase()},\nor wait for the agent to collect data.',
-    );
-  }
 }
 
 class _DashboardTab extends StatelessWidget {

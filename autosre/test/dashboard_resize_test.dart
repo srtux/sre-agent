@@ -49,15 +49,15 @@ void main() {
     expect(dashboardFinder, findsOneWidget);
 
     // Initial width should be 60% of 1920 = 1152
-    final initialSize = tester.getSize(find.ancestor(of: dashboardFinder, matching: find.byType(SizedBox)).first);
+    final initialSize = tester.getSize(dashboardFinder);
     expect(initialSize.width, 1152.0);
 
     // Drag handle to the LEFT by 192 (10% of width)
     // New width should be 70% of 1920 = 1344
     await tester.drag(handleFinder, const Offset(-192.0, 0));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    final expandedSize = tester.getSize(find.ancestor(of: dashboardFinder, matching: find.byType(SizedBox)).first);
+    final expandedSize = tester.getSize(dashboardFinder);
     expect(expandedSize.width, 1344.0);
   });
 }

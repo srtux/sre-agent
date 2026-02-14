@@ -480,23 +480,24 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: LiveCouncilPanel(items: items),
+            body: LiveCouncilPanel(
+              items: items,
+              dashboardState: DashboardState(),
+            ),
           ),
         ),
       );
 
       expect(find.text('Council of Experts'), findsOneWidget);
-      expect(find.text('STANDARD'), findsOneWidget);
-      expect(find.text('WARNING'), findsOneWidget);
-      expect(find.text('Council Confidence'), findsOneWidget);
-      expect(find.text('87%'), findsOneWidget);
+      expect(find.text('IN PROGRESS'), findsOneWidget);
+      expect(find.byIcon(Icons.gavel_rounded), findsOneWidget);
       expect(
         find.text('Redis pool exhaustion causing checkout latency.'),
         findsOneWidget,
       );
     });
 
-    testWidgets('shows debate mode with round count', (tester) async {
+    testWidgets('shows debate mode with status mapping', (tester) async {
       tester.view.physicalSize = const Size(800, 600);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -511,16 +512,18 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+          theme: ThemeData.dark(),
           home: Scaffold(
-            body: LiveCouncilPanel(items: items),
+            body: LiveCouncilPanel(
+              items: items,
+              dashboardState: DashboardState(),
+            ),
           ),
         ),
       );
 
-      expect(find.text('DEBATE'), findsOneWidget);
-      expect(find.text('CRITICAL'), findsOneWidget);
-      expect(find.text('3 debates'), findsOneWidget);
-      expect(find.text('92%'), findsOneWidget);
+      expect(find.text('Council of Experts'), findsOneWidget);
+      expect(find.text('REJECTED'), findsOneWidget); // mapped from critical
     });
 
     testWidgets('renders expert panel findings', (tester) async {
@@ -546,16 +549,17 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: LiveCouncilPanel(items: items),
+            body: LiveCouncilPanel(
+              items: items,
+              dashboardState: DashboardState(),
+            ),
           ),
         ),
       );
 
-      expect(find.text('Expert Findings'), findsNWidgets(2));
+      expect(find.text('AGENT CONSENSUS'), findsOneWidget);
       expect(find.text('Trace Analysis'), findsOneWidget);
       expect(find.text('Metrics Analysis'), findsOneWidget);
-      expect(find.text('Latency in payment service.'), findsOneWidget);
-      expect(find.text('CPU utilization normal.'), findsOneWidget);
     });
 
     testWidgets('renders critic report in debate mode', (tester) async {
@@ -569,6 +573,7 @@ void main() {
         gaps: ['Missing alert correlation'],
       );
       final data = _makeCouncilData(
+        synthesis: 'Debate synthesis result.',
         mode: 'debate',
         rounds: 2,
         criticReport: criticReport,
@@ -578,16 +583,18 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: LiveCouncilPanel(items: items),
+            body: LiveCouncilPanel(
+              items: items,
+              dashboardState: DashboardState(),
+            ),
           ),
         ),
       );
 
-      expect(find.text('Debate Analysis'), findsOneWidget);
-      expect(find.textContaining('1 agreement'), findsOneWidget);
+      expect(find.text('Debate synthesis result.'), findsOneWidget);
     });
 
-    testWidgets('fast mode does not show rounds', (tester) async {
+    testWidgets('fast mode maps to status correctly', (tester) async {
       tester.view.physicalSize = const Size(800, 600);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -598,13 +605,15 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: LiveCouncilPanel(items: items),
+            body: LiveCouncilPanel(
+              items: items,
+              dashboardState: DashboardState(),
+            ),
           ),
         ),
       );
 
-      expect(find.text('FAST'), findsOneWidget);
-      expect(find.textContaining('debate'), findsNothing);
+      expect(find.text('IN PROGRESS'), findsOneWidget);
     });
 
     testWidgets('hides synthesis when empty', (tester) async {
@@ -618,13 +627,16 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: LiveCouncilPanel(items: items),
+            body: LiveCouncilPanel(
+              items: items,
+              dashboardState: DashboardState(),
+            ),
           ),
         ),
       );
 
       expect(find.text('Council of Experts'), findsOneWidget);
-      expect(find.text('Council Synthesis'), findsNothing);
+      expect(find.text('CONCLUSION & REASONING'), findsOneWidget);
     });
 
     testWidgets('renders empty list gracefully', (tester) async {
@@ -633,14 +645,18 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
 
       await tester.pumpWidget(
-        const MaterialApp(
+        MaterialApp(
           home: Scaffold(
-            body: LiveCouncilPanel(items: []),
+            body: LiveCouncilPanel(
+              items: const [],
+              dashboardState: DashboardState(),
+            ),
           ),
         ),
       );
 
       expect(find.text('Council of Experts'), findsNothing);
+      expect(find.text('No Council Decisions'), findsOneWidget);
     });
 
     testWidgets('severity badge colors are correct', (tester) async {
@@ -654,12 +670,15 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: LiveCouncilPanel(items: items),
+            body: LiveCouncilPanel(
+              items: items,
+              dashboardState: DashboardState(),
+            ),
           ),
         ),
       );
 
-      expect(find.text('HEALTHY'), findsOneWidget);
+      expect(find.text('APPROVED'), findsOneWidget);
     });
   });
 

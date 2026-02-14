@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -12,6 +13,7 @@ import '../common/source_badge.dart';
 import '../syncfusion_metric_chart.dart';
 import '../canvas/metrics_dashboard_canvas.dart';
 import 'manual_query_bar.dart';
+import 'dashboard_card_wrapper.dart';
 
 /// Dashboard panel displaying all collected metric data.
 ///
@@ -57,9 +59,9 @@ class LiveMetricsPanel extends StatelessWidget {
               : items.isEmpty
                   ? const ExplorerEmptyState(
                       icon: Icons.show_chart_rounded,
-                      title: 'Metrics Explorer',
+                      title: 'No Metrics Yet',
                       description:
-                          'Query GCP Cloud Monitoring metrics by entering a\nmetric filter above.',
+                          'Query GCP Cloud Monitoring metrics by entering a\nmetric filter above, or wait for the agent to collect data.',
                       queryHint:
                           'metric.type="compute.googleapis.com/instance/cpu/utilization"',
                     )
@@ -98,110 +100,79 @@ class LiveMetricsPanel extends StatelessWidget {
 
   Widget _buildMetricCard(DashboardItem item, bool isWide) {
     final series = item.metricSeries!;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Container(
-        height: isWide ? 550 : 450,
-        decoration: BoxDecoration(
-          color: AppColors.backgroundCard,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.surfaceBorder),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-              child: Row(
-                children: [
-                  const Icon(Icons.show_chart_rounded,
-                      size: 14, color: AppColors.warning),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      series.metricName,
-                      style: GoogleFonts.jetBrainsMono(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.textPrimary,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  SourceBadge(source: item.source),
-                  const SizedBox(width: 6),
-                  Text(
-                    '${series.points.length} pts',
-                    style: const TextStyle(
-                      fontSize: 10,
-                      color: AppColors.textMuted,
-                    ),
-                  ),
-                ],
+    return DashboardCardWrapper(
+      onClose: () => dashboardState.removeItem(item.id),
+      dataToCopy: const JsonEncoder.withIndent('  ').convert(item.rawData),
+      header: Row(
+        children: [
+          const Icon(Icons.show_chart_rounded,
+              size: 14, color: AppColors.warning),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              series.metricName,
+              style: GoogleFonts.jetBrainsMono(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: AppColors.textPrimary,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            // Chart
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: SyncfusionMetricChart(series: series),
-              ),
+          ),
+          const SizedBox(width: 8),
+          SourceBadge(source: item.source),
+          const SizedBox(width: 8),
+          Text(
+            '${series.points.length} pts',
+            style: const TextStyle(
+              fontSize: 10,
+              color: AppColors.textMuted,
             ),
-          ],
+          ),
+        ],
+      ),
+      child: SizedBox(
+        height: isWide ? 450 : 350,
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: SyncfusionMetricChart(series: series),
         ),
       ),
     );
   }
 
   Widget _buildDashboardCard(DashboardItem item, bool isWide) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Container(
-        height: isWide ? 550 : 450,
-        decoration: BoxDecoration(
-          color: AppColors.backgroundCard,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.surfaceBorder),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-              child: Row(
-                children: [
-                  const Icon(Icons.dashboard_rounded,
-                      size: 14, color: AppColors.warning),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Golden Signals Dashboard',
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const Spacer(),
-                  SourceBadge(source: item.source),
-                  const SizedBox(width: 6),
-                  Text(
-                    item.toolName,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      color: AppColors.textMuted,
-                    ),
-                  ),
-                ],
-              ),
+    return DashboardCardWrapper(
+      onClose: () => dashboardState.removeItem(item.id),
+      header: Row(
+        children: [
+          const Icon(Icons.dashboard_rounded,
+              size: 14, color: AppColors.warning),
+          const SizedBox(width: 8),
+          Text(
+            'Golden Signals Dashboard',
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
             ),
-            Expanded(
-              child: MetricsDashboardCanvas(data: item.metricsDashboard!),
+          ),
+          const Spacer(),
+          SourceBadge(source: item.source),
+          const SizedBox(width: 8),
+          Text(
+            item.toolName,
+            style: const TextStyle(
+              fontSize: 10,
+              color: AppColors.textMuted,
             ),
-          ],
-        ),
+          ),
+        ],
+      ),
+      child: SizedBox(
+        height: isWide ? 450 : 350,
+        child: MetricsDashboardCanvas(data: item.metricsDashboard!),
       ),
     );
   }

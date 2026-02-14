@@ -165,6 +165,12 @@ class DashboardState extends ChangeNotifier {
     }
   }
 
+  /// Remove a specific item by ID.
+  void removeItem(String itemId) {
+    _items.removeWhere((item) => item.id == itemId);
+    notifyListeners();
+  }
+
   void setActiveTab(DashboardDataType tab) {
     if (_activeTab != tab) {
       _activeTab = tab;
