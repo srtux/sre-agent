@@ -1,4 +1,5 @@
 import copy
+from unittest.mock import patch
 
 import pytest
 from vertexai.preview.reasoning_engines import AdkApp
@@ -59,9 +60,23 @@ def test_agent_is_deepcopyable():
 def test_adk_app_is_deepcopyable():
     """Verify that AdkApp containing the agent is deepcopyable."""
     try:
-        app = AdkApp(agent=root_agent)
-        copied_app = copy.deepcopy(app)
-        assert copied_app is not None
+        # Patch the _project attribute directly on the global_config singleton
+        # We patch at the module level where it's instantiated if possible, but here
+        # we can modify the instance directly as it's a singleton.
+        import google.cloud.aiplatform.initializer
+
+        # Temporarily set the project ID to avoid auth checks during AdkApp init
+        original_project = google.cloud.aiplatform.initializer.global_config._project
+        google.cloud.aiplatform.initializer.global_config._project = "mock-project"
+
+        try:
+            app = AdkApp(agent=root_agent)
+            copied_app = copy.deepcopy(app)
+            assert copied_app is not None
+        finally:
+            # Restore original state
+            google.cloud.aiplatform.initializer.global_config._project = original_project
+
     except Exception as e:
         locks = find_lock_in_obj(root_agent)
         lock_info = "\n".join(locks)
