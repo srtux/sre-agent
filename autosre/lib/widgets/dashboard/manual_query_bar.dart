@@ -20,6 +20,7 @@ class ManualQueryBar extends StatefulWidget {
   final bool isLoading;
   final VoidCallback? onClear;
   final String? initialValue;
+  final TextEditingController? controller;
 
   /// Optional label shown as a leading badge (e.g. "SQL", "PromQL").
   final String? languageLabel;
@@ -57,6 +58,7 @@ class ManualQueryBar extends StatefulWidget {
     this.isLoading = false,
     this.onClear,
     this.initialValue,
+    this.controller,
     this.languageLabel,
     this.languageLabelColor = AppColors.primaryCyan,
     this.multiLine = false,
@@ -76,6 +78,7 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
   late final TextEditingController _controller;
   late final FocusNode _focusNode;
   bool _hasText = false;
+  bool _ownsController = false;
 
   /// Whether autocomplete overlay is visible.
   bool _showAutocomplete = false;
@@ -101,7 +104,15 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController(text: widget.initialValue);
+    if (widget.controller != null) {
+      _controller = widget.controller!;
+      if (widget.initialValue != null && _controller.text.isEmpty) {
+        _controller.text = widget.initialValue!;
+      }
+    } else {
+      _controller = TextEditingController(text: widget.initialValue);
+      _ownsController = true;
+    }
     _hasText = _controller.text.isNotEmpty;
     _focusNode = FocusNode();
     _focusNode.addListener(_onFocusChanged);
@@ -114,7 +125,9 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
     _removeTemplatesOverlay();
     _focusNode.removeListener(_onFocusChanged);
     _controller.removeListener(_onTextChanged);
-    _controller.dispose();
+    if (_ownsController) {
+      _controller.dispose();
+    }
     _focusNode.dispose();
     super.dispose();
   }
@@ -163,10 +176,21 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
     }
 
     final query = currentWord.toLowerCase();
-    _filteredSnippets = widget.snippets
-        .where((s) => s.label.toLowerCase().contains(query))
-        .take(8)
-        .toList();
+    _filteredSnippets = widget.snippets.where((s) {
+      final label = s.label.toLowerCase();
+      if (label.contains(query)) return true;
+
+      // Special handling for key="value" style autocompletes (MQL/Logs)
+      const prefixes = ['metric.type="', 'resource.type="', 'metric.labels.', 'resource.labels.'];
+      for (final p in prefixes) {
+        if (query.startsWith(p) && label.startsWith(p)) {
+          final queryVal = query.substring(p.length);
+          final labelVal = label.substring(p.length);
+          return labelVal.contains(queryVal);
+        }
+      }
+      return false;
+    }).take(8).toList();
 
     if (_filteredSnippets.isEmpty) {
       _removeOverlay();

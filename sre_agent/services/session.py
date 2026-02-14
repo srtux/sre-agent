@@ -337,7 +337,7 @@ class ADKSessionManager:
             author="system",
             content=types.Content(
                 role="model",
-                parts=[types.Part.from_text(text="State update")],
+                parts=[types.Part.from_text(text="Session state updated.")],
             ),
             actions=actions,
             timestamp=time.time(),

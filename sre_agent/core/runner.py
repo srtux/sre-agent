@@ -278,6 +278,17 @@ class Runner:
         """
         events = []
         for event in session.events or []:
+            # Skip internal system state updates to avoid confusing the model
+            if event.author == "system" and hasattr(event.content, "parts"):
+                parts = getattr(event.content, "parts", [])
+                if parts and any(
+                    hasattr(p, "text")
+                    and p.text
+                    and ("Session state updated" in p.text or "State update" in p.text)
+                    for p in parts
+                ):
+                    continue
+
             event_dict: dict[str, Any] = {
                 "type": "unknown",
                 "timestamp": getattr(event, "timestamp", ""),
@@ -347,31 +358,44 @@ class Runner:
         recent_formatted = []
         for event in working_context.recent_events[-5:]:
             event_type = event.get("type", "unknown")
-            content = event.get("content", "")[:200]
-            recent_formatted.append(f"[{event_type}]: {content}")
+            content = event.get("content", "").strip()
+
+            # Skip if this is exactly the current user message to avoid duplication
+            if event_type == "user_message" and content == user_message.strip():
+                continue
+
+            if content:
+                content_preview = content[:200] + ("..." if len(content) > 200 else "")
+                recent_formatted.append(f"[{event_type}]: {content_preview}")
 
         # Compose the message with context
         parts = []
 
         # Add domain context if available
         if domain_context:
+            context_block = []
             if domain_context.project_id:
-                parts.append(f"[CURRENT PROJECT: {domain_context.project_id}]")
+                context_block.append(f"Project: {domain_context.project_id}")
             if domain_context.investigation_phase:
-                parts.append(f"[PHASE: {domain_context.investigation_phase}]")
+                context_block.append(f"Phase: {domain_context.investigation_phase}")
+            if context_block:
+                parts.append("[DOMAIN CONTEXT]\n" + "\n".join(context_block))
 
         # Add session summary
-        if session_summary.summary_text:
-            parts.append(f"[SESSION CONTEXT]\n{session_summary.summary_text}")
+        if (
+            session_summary.summary_text
+            and session_summary.summary_text != "Full history mode."
+        ):
+            parts.append(f"[SESSION SUMMARY]\n{session_summary.summary_text}")
 
         # Add recent events
         if recent_formatted:
-            parts.append("[RECENT EVENTS]\n" + "\n".join(recent_formatted))
+            parts.append("[CONVERSATION HISTORY]\n" + "\n".join(recent_formatted))
 
         # Add user message
-        parts.append(f"[USER REQUEST]\n{user_message}")
+        parts.append(f"[CURRENT USER REQUEST]\n{user_message}")
 
-        return "\n\n".join(parts)
+        return "\n\n---\n\n".join(parts)
 
     async def _run_with_policy(
         self,

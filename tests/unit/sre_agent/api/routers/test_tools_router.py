@@ -336,3 +336,67 @@ async def test_get_trace_error_returns_502(mock_tools) -> None:
     response = client.get("/api/tools/trace/missing-id")
     assert response.status_code == 502
     assert "Trace not found" in response.json()["detail"]
+
+
+# =============================================================================
+# BIGQUERY ENDPOINT TESTS
+# =============================================================================
+
+
+@pytest.fixture
+def mock_bigquery_client():
+    with patch("sre_agent.api.routers.tools.BigQueryClient") as mock_class:
+        mock_instance = AsyncMock()
+        mock_class.return_value = mock_instance
+
+        mock_instance.execute_query.return_value = [{"col1": "val1", "col2": 2}]
+        mock_instance.list_datasets.return_value = ["dataset1", "dataset2"]
+        mock_instance.list_tables.return_value = ["table1", "table2"]
+        mock_instance.get_table_schema.return_value = [
+            {"name": "col1", "type": "STRING"},
+            {"name": "col2", "type": "INTEGER"},
+        ]
+
+        yield mock_instance
+
+
+@pytest.mark.asyncio
+async def test_query_bigquery_endpoint(mock_bigquery_client) -> None:
+    payload = {"sql": "SELECT * FROM t", "project_id": "test-proj"}
+    response = client.post("/api/tools/bigquery/query", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["columns"] == ["col1", "col2"]
+    assert len(data["rows"]) == 1
+    assert data["rows"][0]["col1"] == "val1"
+    mock_bigquery_client.execute_query.assert_awaited_once_with("SELECT * FROM t")
+
+
+@pytest.mark.asyncio
+async def test_list_bigquery_datasets(mock_bigquery_client) -> None:
+    response = client.get("/api/tools/bigquery/datasets?project_id=test-proj")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["datasets"] == ["dataset1", "dataset2"]
+    mock_bigquery_client.list_datasets.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_list_bigquery_tables(mock_bigquery_client) -> None:
+    response = client.get("/api/tools/bigquery/datasets/d1/tables?project_id=test-proj")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["tables"] == ["table1", "table2"]
+    mock_bigquery_client.list_tables.assert_awaited_once_with("d1")
+
+
+@pytest.mark.asyncio
+async def test_get_bigquery_table_schema(mock_bigquery_client) -> None:
+    response = client.get(
+        "/api/tools/bigquery/datasets/d1/tables/t1/schema?project_id=test-proj"
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["schema"]) == 2
+    assert data["schema"][0]["name"] == "col1"
+    mock_bigquery_client.get_table_schema.assert_awaited_once_with("d1", "t1")

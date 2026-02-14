@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import '../../../theme/app_theme.dart';
 import '../../../services/dashboard_state.dart';
+import '../../../models/adk_schema.dart';
 
 /// A premium card widget for displaying council decisions and debate outcomes.
 ///
@@ -106,6 +107,22 @@ class CouncilDecisionCard extends StatelessWidget {
 
           const SizedBox(height: 20),
 
+          // Detailed Findings Section
+          if (council != null && council.panels.isNotEmpty) ...[
+            Text(
+              'FINDINGS BY PANEL',
+              style: GoogleFonts.inter(
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textMuted,
+                letterSpacing: 1.2,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ...council.panels.map((panel) => _buildPanelFinding(panel)),
+            const SizedBox(height: 16),
+          ],
+
           // Technical Details (ExpansionTile)
           Theme(
             data: Theme.of(context).copyWith(
@@ -152,6 +169,176 @@ class CouncilDecisionCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Widget _buildPanelFinding(PanelFinding finding) {
+    final severityColor = _getSeverityColor(finding.severity);
+    final icon = _getPanelIcon(finding.panel);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: AppColors.backgroundDark.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: AppColors.surfaceBorder.withValues(alpha: 0.5),
+        ),
+      ),
+      child: ExpansionTile(
+        key: PageStorageKey<String>(finding.panel),
+        leading: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: severityColor.withValues(alpha: 0.15),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, size: 14, color: severityColor),
+        ),
+        title: Text(
+          finding.displayName.toUpperCase(),
+          style: GoogleFonts.inter(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+            letterSpacing: 0.5,
+          ),
+        ),
+        subtitle: Text(
+          finding.summary,
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            color: AppColors.textSecondary,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: severityColor.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: severityColor.withValues(alpha: 0.2)),
+          ),
+          child: Text(
+            finding.severity.toUpperCase(),
+            style: TextStyle(
+              fontSize: 8,
+              fontWeight: FontWeight.w800,
+              color: severityColor,
+            ),
+          ),
+        ),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        expandedCrossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Divider(height: 1, color: AppColors.surfaceBorder),
+          const SizedBox(height: 12),
+          Text(
+            'SUMMARY',
+            style: GoogleFonts.inter(
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textMuted,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            finding.summary,
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+              height: 1.5,
+            ),
+          ),
+          if (finding.evidence.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Text(
+              'EVIDENCE',
+              style: GoogleFonts.inter(
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textMuted,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...finding.evidence.map((e) => _buildBulletItem(e)),
+          ],
+          if (finding.recommendedActions.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Text(
+              'RECOMMENDED ACTIONS',
+              style: GoogleFonts.inter(
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textMuted,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...finding.recommendedActions.map((a) => _buildBulletItem(a, isAction: true)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBulletItem(String text, {bool isAction = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 5),
+            child: Icon(
+              isAction ? Icons.bolt_rounded : Icons.circle,
+              size: isAction ? 12 : 6,
+              color: isAction ? AppColors.warning : AppColors.textMuted.withValues(alpha: 0.5),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getSeverityColor(String severity) {
+    switch (severity.toLowerCase()) {
+      case 'critical':
+        return AppColors.error;
+      case 'warning':
+        return AppColors.warning;
+      case 'info':
+        return AppColors.info;
+      case 'healthy':
+        return AppColors.success;
+      default:
+        return AppColors.textMuted;
+    }
+  }
+
+  IconData _getPanelIcon(String panel) {
+    switch (panel.toLowerCase()) {
+      case 'trace':
+        return Icons.timeline_rounded;
+      case 'metrics':
+        return Icons.show_chart_rounded;
+      case 'logs':
+        return Icons.article_outlined;
+      case 'alerts':
+        return Icons.notifications_active_outlined;
+      default:
+        return Icons.psychology_rounded;
+    }
   }
 
   /// Builds the header row meant to be used in [DashboardCardWrapper.header].

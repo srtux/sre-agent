@@ -81,7 +81,7 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
     _categoricalColumns = {};
 
     for (final col in widget.columns) {
-      bool isNumeric = false;
+      var isNumeric = false;
       // Check first few non-null values
       for (final row in widget.rows.take(20)) {
         final val = row[col];
@@ -590,7 +590,7 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
 
   void _showAggregateMenu(
       int index, Function(int, AggregateFunction) onUpdate) {
-    final RenderBox box = context.findRenderObject() as RenderBox;
+    final box = context.findRenderObject() as RenderBox;
     final position = box.localToGlobal(Offset.zero);
 
     showMenu<AggregateFunction>(
@@ -886,7 +886,7 @@ class _ExplorerChartPainter extends CustomPainter {
       ..strokeWidth = 0.5;
 
     const gridLines = 5;
-    for (int i = 0; i <= gridLines; i++) {
+    for (var i = 0; i <= gridLines; i++) {
       final y = area.top + (area.height * i / gridLines);
       canvas.drawLine(Offset(area.left, y), Offset(area.right, y), paint);
 
@@ -911,7 +911,7 @@ class _ExplorerChartPainter extends CustomPainter {
     final barWidth = (area.width / values.length) * 0.7;
     final gap = (area.width / values.length) * 0.15;
 
-    for (int i = 0; i < values.length; i++) {
+    for (var i = 0; i < values.length; i++) {
       final x = area.left + (area.width * i / values.length) + gap;
       final barHeight = (values[i] / maxVal) * area.height;
       final y = area.bottom - barHeight;
@@ -937,7 +937,7 @@ class _ExplorerChartPainter extends CustomPainter {
     if (values.length < 2 || range == 0) return;
 
     final points = <Offset>[];
-    for (int i = 0; i < values.length; i++) {
+    for (var i = 0; i < values.length; i++) {
       final x = area.left + (area.width * i / (values.length - 1));
       final normalized = (values[i] - minVal) / range;
       final y = area.bottom - (normalized * area.height);
@@ -990,7 +990,7 @@ class _ExplorerChartPainter extends CustomPainter {
   void _drawScatterChart(Canvas canvas, Rect area, List<double> values,
       List<String> labels, double minVal, double range) {
     if (range == 0) return;
-    for (int i = 0; i < values.length; i++) {
+    for (var i = 0; i < values.length; i++) {
       final x = area.left + (area.width * i / values.length) + (area.width / values.length / 2);
       final normalized = (values[i] - minVal) / range;
       final y = area.bottom - (normalized * area.height);
@@ -1006,7 +1006,7 @@ class _ExplorerChartPainter extends CustomPainter {
 
     final center = Offset(size.width / 2, size.height / 2);
     final radius = min(size.width, size.height) / 2.5;
-    double startAngle = -pi / 2;
+    var startAngle = -pi / 2;
 
     final colors = [
       AppColors.primaryCyan,
@@ -1019,7 +1019,7 @@ class _ExplorerChartPainter extends CustomPainter {
       AppColors.primaryTeal,
     ];
 
-    for (int i = 0; i < values.length; i++) {
+    for (var i = 0; i < values.length; i++) {
       final sweep = (values[i] / total) * 2 * pi;
       final paint = Paint()
         ..color = colors[i % colors.length].withValues(alpha: 0.7)
@@ -1059,7 +1059,7 @@ class _ExplorerChartPainter extends CustomPainter {
   }
 
   void _drawAxisLabels(Canvas canvas, Rect area, List<String> labels) {
-    for (int i = 0; i < labels.length; i++) {
+    for (var i = 0; i < labels.length; i++) {
       final x = area.left + (area.width * i / labels.length) + (area.width / labels.length / 2);
       final label = labels[i].length > 8
           ? '${labels[i].substring(0, 8)}..'

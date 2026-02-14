@@ -414,46 +414,55 @@ class AgentEngineClient:
                         else:
                             raise
                 else:
-                    # Fallback for sync iterator. We iterate manually.
-                    # Note: for-loop on a sync generator is fine here as it's
-                    # what the SDK provides by default in most versions.
-                    try:
-                        for event in stream:
-                            try:
-                                yield process_event(event)
-                            except Exception as chunk_err:
-                                logger.error(
-                                    f"❌ Error processing remote event (sync): {chunk_err}. Raw event: {event}"
-                                )
-                                raise chunk_err
-                    except ValueError as e:
-                        # Google API REST streaming raises ValueError when parsing
-                        # malformed responses (e.g., "Can only parse array of JSON objects")
-                        error_msg = str(e)
-                        logger.error(
-                            f"Agent Engine stream returned invalid JSON format: {error_msg}. "
-                            "This usually indicates an authentication or execution error."
-                        )
-                        yield {
-                            "type": "error",
-                            "error": (
-                                "Agent execution failed. This is typically caused by authentication issues "
-                                "(e.g., expired/invalid token or encryption key mismatch). "
-                                "Please try signing out and back in."
-                            ),
-                        }
-                    except AttributeError as e:
-                        if "'list' object has no attribute 'get'" in str(e):
+                    # Fallback for sync iterator. We iterate in a threadpool
+                    # to avoid blocking the event loop.
+                    def get_next(iterator: Any) -> Any:
+                        try:
+                            return next(iterator)
+                        except StopIteration:
+                            return None
+
+                    while True:
+                        try:
+                            event = await asyncio.to_thread(get_next, stream)
+                            if event is None:
+                                break
+                            yield process_event(event)
+                        except ValueError as e:
+                            # Google API REST streaming raises ValueError when parsing
+                            # malformed responses (e.g., "Can only parse array of JSON objects")
+                            error_msg = str(e)
                             logger.error(
-                                "Agent Engine backend returned an invalid response format (List instead of Dict). "
-                                "This usually indicates an upstream error that the SDK cannot parse."
+                                f"Agent Engine stream returned invalid JSON format: {error_msg}. "
+                                "This usually indicates an authentication or execution error."
                             )
                             yield {
                                 "type": "error",
-                                "error": "Agent Engine returned an invalid response. Please check backend logs.",
+                                "error": (
+                                    "Agent execution failed. This is typically caused by authentication issues "
+                                    "(e.g., expired/invalid token or encryption key mismatch). "
+                                    "Please try signing out and back in."
+                                ),
                             }
-                        else:
-                            raise
+                            break
+                        except AttributeError as e:
+                            if "'list' object has no attribute 'get'" in str(e):
+                                logger.error(
+                                    "Agent Engine backend returned an invalid response format (List instead of Dict). "
+                                    "This usually indicates an upstream error that the SDK cannot parse."
+                                )
+                                yield {
+                                    "type": "error",
+                                    "error": "Agent Engine returned an invalid response. Please check backend logs.",
+                                }
+                            else:
+                                raise
+                            break
+                        except Exception as chunk_err:
+                            logger.error(
+                                f"❌ Error processing remote event (sync): {chunk_err}. Raw event: {event if 'event' in locals() else 'unretrieved'}"
+                            )
+                            raise chunk_err
 
             # Fallback to sync query in thread if streaming methods are somehow missing
             elif hasattr(self._adk_app, "query"):

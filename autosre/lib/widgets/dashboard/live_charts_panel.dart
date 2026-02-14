@@ -18,6 +18,7 @@ import 'query_language_badge.dart';
 import 'query_helpers.dart';
 import 'sql_results_table.dart';
 import 'visual_data_explorer.dart';
+import 'bigquery_sidebar.dart';
 
 /// Dashboard panel showing BigQuery SQL results and Vega-Lite charts.
 ///
@@ -45,6 +46,22 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
 
   /// 0 = Table view, 1 = Visual Explorer
   int _resultsView = 0;
+
+  late final TextEditingController _sqlController;
+
+  @override
+  void initState() {
+    super.initState();
+    _sqlController = TextEditingController(
+      text: widget.dashboardState.getLastQueryFilter(DashboardDataType.charts),
+    );
+  }
+
+  @override
+  void dispose() {
+    _sqlController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -148,24 +165,45 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
         widget.dashboardState.isLoading(DashboardDataType.charts);
     final error = widget.dashboardState.errorFor(DashboardDataType.charts);
 
-    return ListenableBuilder(
-      listenable: widget.dashboardState,
-      builder: (context, _) {
-        final hasResults = widget.dashboardState.bigQueryColumns.isNotEmpty;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Left sidebar for schemas
+        BigQuerySidebar(
+          onInsertTable: (tableName) {
+            final current = _sqlController.text;
+            final prefix = current.isEmpty || current.endsWith(' ') || current.endsWith('\n') ? '' : ' ';
+            _sqlController.text = current + prefix + tableName;
+            widget.dashboardState.setLastQueryFilter(DashboardDataType.charts, _sqlController.text);
+          },
+          onInsertColumn: (columnName) {
+            final current = _sqlController.text;
+            final prefix = current.isEmpty || current.endsWith(' ') || current.endsWith('\n') ? '' : ', ';
+            _sqlController.text = current + prefix + columnName;
+            widget.dashboardState.setLastQueryFilter(DashboardDataType.charts, _sqlController.text);
+          },
+        ),
+        // Main query and results area
+        Expanded(
+          child: ListenableBuilder(
+            listenable: widget.dashboardState,
+            builder: (context, _) {
+              final hasResults = widget.dashboardState.bigQueryColumns.isNotEmpty;
 
-        return Column(
-          children: [
-            // SQL editor
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
-              child: ManualQueryBar(
-                hintText:
-                    'SELECT column1, column2\nFROM `project.dataset.table`\nWHERE condition\nLIMIT 1000',
-                languageLabel: 'SQL',
-                languageLabelColor: AppColors.warning,
-                multiLine: true,
-                initialValue: widget.dashboardState
-                    .getLastQueryFilter(DashboardDataType.charts),
+              return Column(
+                children: [
+                  // SQL editor
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+                    child: ManualQueryBar(
+                      controller: _sqlController,
+                      hintText:
+                          'SELECT column1, column2\nFROM `project.dataset.table`\nWHERE condition\nLIMIT 1000',
+                      languageLabel: 'SQL',
+                      languageLabelColor: AppColors.warning,
+                      multiLine: true,
+                      initialValue: widget.dashboardState
+                          .getLastQueryFilter(DashboardDataType.charts),
                 isLoading: isLoading,
                 snippets: sqlSnippets,
                 templates: sqlTemplates,
@@ -190,46 +228,49 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
                   final explorer = context.read<ExplorerQueryService>();
                   explorer.queryBigQuery(sql: sql);
                 },
-              ),
-            ),
-            // Syntax help
-            _buildSqlSyntaxHelp(),
-            if (error != null) ErrorBanner(message: error),
-            // Results area
-            if (isLoading && !hasResults)
-              const Expanded(child: ShimmerLoading())
-            else if (!hasResults)
-              const Expanded(
-                child: ExplorerEmptyState(
-                  icon: Icons.storage_rounded,
-                  title: 'BigQuery SQL Explorer',
-                  description:
-                      'Write a BigQuery SQL query above to explore data,\n'
-                      'or switch to natural language mode.\n'
-                      'Try the lightbulb for common SQL templates.',
-                  queryHint:
-                      'SELECT * FROM `project.dataset.table` LIMIT 100',
-                ),
-              )
-            else ...[
-              // Results view toggle (Table vs Visual Explorer)
-              _buildResultsViewToggle(),
-              // Results content
-              Expanded(
-                child: _resultsView == 0
-                    ? SqlResultsTable(
-                        columns: widget.dashboardState.bigQueryColumns,
-                        rows: widget.dashboardState.bigQueryResults,
-                      )
-                    : VisualDataExplorer(
-                        columns: widget.dashboardState.bigQueryColumns,
-                        rows: widget.dashboardState.bigQueryResults,
+                    ),
+                  ),
+                  // Syntax help
+                  _buildSqlSyntaxHelp(),
+                  if (error != null) ErrorBanner(message: error),
+                  // Results area
+                  if (isLoading && !hasResults)
+                    const Expanded(child: ShimmerLoading())
+                  else if (!hasResults)
+                    const Expanded(
+                      child: ExplorerEmptyState(
+                        icon: Icons.storage_rounded,
+                        title: 'BigQuery SQL Explorer',
+                        description:
+                            'Write a BigQuery SQL query above to explore data,\n'
+                            'or switch to natural language mode.\n'
+                            'Try the lightbulb for common SQL templates.',
+                        queryHint:
+                            'SELECT * FROM `project.dataset.table` LIMIT 100',
                       ),
-              ),
-            ],
-          ],
-        );
-      },
+                    )
+                  else ...[
+                    // Results view toggle (Table vs Visual Explorer)
+                    _buildResultsViewToggle(),
+                    // Results content
+                    Expanded(
+                      child: _resultsView == 0
+                          ? SqlResultsTable(
+                              columns: widget.dashboardState.bigQueryColumns,
+                              rows: widget.dashboardState.bigQueryResults,
+                            )
+                          : VisualDataExplorer(
+                              columns: widget.dashboardState.bigQueryColumns,
+                              rows: widget.dashboardState.bigQueryResults,
+                            ),
+                    ),
+                  ],
+                ],
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 

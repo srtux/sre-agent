@@ -204,7 +204,7 @@ class LiveMetricsPanel extends StatelessWidget {
                     SizedBox(
                       width: 220,
                       child: Text(
-                        (e as (String, String)).$1,
+                        (e).$1,
                         style: GoogleFonts.jetBrainsMono(
                           fontSize: 9,
                           color: AppColors.warning.withValues(alpha: 0.9),

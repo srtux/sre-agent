@@ -122,3 +122,61 @@ class BigQueryClient:
         # result['result'] should contain 'schema'
         info = result.get("result", {})
         return cast(list[dict[str, Any]], info.get("schema", {}).get("fields", []))
+
+    async def list_datasets(self) -> list[str]:
+        """List BigQuery dataset IDs.
+
+        Returns:
+            List of dataset IDs.
+        """
+        if not self.project_id:
+            raise ValueError("No project ID")
+
+        assert self.tool_context is not None, "ToolContext required"
+
+        result = await call_mcp_tool_with_retry(
+            create_bigquery_mcp_toolset,
+            "list_dataset_ids",
+            {
+                "projectId": self.project_id,
+            },
+            self.tool_context,
+            project_id=self.project_id,
+        )
+
+        if result.get("status") != "success":
+            logger.warning(f"Failed to list datasets: {result.get('error')}")
+            return []
+
+        return cast(list[str], result.get("result", {}).get("datasets", []))
+
+    async def list_tables(self, dataset_id: str) -> list[str]:
+        """List BigQuery table IDs for a dataset.
+
+        Args:
+            dataset_id: Dataset ID.
+
+        Returns:
+            List of table IDs.
+        """
+        if not self.project_id:
+            raise ValueError("No project ID")
+
+        assert self.tool_context is not None, "ToolContext required"
+
+        result = await call_mcp_tool_with_retry(
+            create_bigquery_mcp_toolset,
+            "list_table_ids",
+            {
+                "datasetId": dataset_id,
+                "projectId": self.project_id,
+            },
+            self.tool_context,
+            project_id=self.project_id,
+        )
+
+        if result.get("status") != "success":
+            logger.warning(f"Failed to list tables: {result.get('error')}")
+            return []
+
+        return cast(list[str], result.get("result", {}).get("tables", []))

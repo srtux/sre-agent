@@ -387,4 +387,76 @@ class ExplorerQueryService {
       client.close();
     }
   }
+
+  Future<http.Response> _get(String path, {String? projectId}) async {
+    final client = await _clientFactory();
+    try {
+      var url = '$_baseUrl$path';
+      if (projectId != null) {
+        final sep = url.contains('?') ? '&' : '?';
+        url = '$url${sep}project_id=${Uri.encodeComponent(projectId)}';
+      }
+      final response = await client.get(
+        Uri.parse(url),
+      ).timeout(const Duration(seconds: 30));
+      if (response.statusCode != 200) {
+        throw Exception('API error ${response.statusCode}: ${response.body}');
+      }
+      return response;
+    } finally {
+      client.close();
+    }
+  }
+
+  /// Fetch datasets for the project.
+  Future<List<String>> getDatasets({String? projectId}) async {
+    try {
+      final response = await _get('/api/tools/bigquery/datasets', projectId: projectId);
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final items = data['datasets'] as List?;
+      return items?.map((e) => e.toString()).toList() ?? [];
+    } catch (e) {
+      debugPrint('ExplorerQueryService.getDatasets error: $e');
+      return [];
+    }
+  }
+
+  /// Fetch tables in a dataset.
+  Future<List<String>> getTables({
+    required String datasetId,
+    String? projectId,
+  }) async {
+    try {
+      final response = await _get(
+        '/api/tools/bigquery/datasets/${Uri.encodeComponent(datasetId)}/tables',
+        projectId: projectId,
+      );
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final items = data['tables'] as List?;
+      return items?.map((e) => e.toString()).toList() ?? [];
+    } catch (e) {
+      debugPrint('ExplorerQueryService.getTables error: $e');
+      return [];
+    }
+  }
+
+  /// Fetch schema for a table.
+  Future<List<Map<String, dynamic>>> getTableSchema({
+    required String datasetId,
+    required String tableId,
+    String? projectId,
+  }) async {
+    try {
+      final response = await _get(
+        '/api/tools/bigquery/datasets/${Uri.encodeComponent(datasetId)}/tables/${Uri.encodeComponent(tableId)}/schema',
+        projectId: projectId,
+      );
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final items = data['schema'] as List?;
+      return items?.map((e) => Map<String, dynamic>.from(e as Map)).toList() ?? [];
+    } catch (e) {
+      debugPrint('ExplorerQueryService.getTableSchema error: $e');
+      return [];
+    }
+  }
 }

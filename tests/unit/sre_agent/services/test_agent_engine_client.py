@@ -369,10 +369,12 @@ class TestAgentEngineClient:
 
         # Mock sync stream_query returning a direct list (which is an iterator)
         def mock_sync_stream(*args, **kwargs):
-            return [
-                {"content": {"parts": [{"text": "Sync response 1"}]}},
-                {"content": {"parts": [{"text": "Sync response 2"}]}},
-            ]
+            return iter(
+                [
+                    {"content": {"parts": [{"text": "Sync response 1"}]}},
+                    {"content": {"parts": [{"text": "Sync response 2"}]}},
+                ]
+            )
 
         mock_adk_app.stream_query = MagicMock(side_effect=mock_sync_stream)
 
