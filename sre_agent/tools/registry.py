@@ -51,7 +51,8 @@ _CATEGORY_DESCRIPTIONS: dict[ToolCategory, str] = {
     ToolCategory.ANALYSIS: "General analysis utilities",
     ToolCategory.MEMORY: "Memory search, recall, and pattern storage",
     ToolCategory.SANDBOX: "Sandbox code execution for large data processing",
-    ToolCategory.RESEARCH: "Search Google and fetch web documentation",
+    ToolCategory.RESEARCH: "Online research via Google search and web page fetching",
+    ToolCategory.GITHUB: "Source code access and pull request creation for self-healing",
 }
 
 

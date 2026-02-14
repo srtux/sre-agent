@@ -192,6 +192,11 @@ from .tools import (
     get_slo_status,
     get_trace_by_url,
     get_workload_health_summary,
+    # GitHub Self-Healing tools
+    github_create_pull_request,
+    github_list_recent_commits,
+    github_read_file,
+    github_search_code,
     list_agent_traces,
     list_alert_policies,
     # Alerting tools
@@ -1201,6 +1206,11 @@ TOOL_NAME_MAP = {
     # Online Research
     "search_google": search_google,
     "fetch_web_page": fetch_web_page,
+    # GitHub Self-Healing
+    "github_read_file": github_read_file,
+    "github_search_code": github_search_code,
+    "github_list_recent_commits": github_list_recent_commits,
+    "github_create_pull_request": github_create_pull_request,
     # Sandbox Processing
     "summarize_metric_descriptors_in_sandbox": summarize_metric_descriptors_in_sandbox,
     "summarize_time_series_in_sandbox": summarize_time_series_in_sandbox,
@@ -1300,6 +1310,11 @@ base_tools: list[Any] = [
     # Online Research
     search_google,
     fetch_web_page,
+    # GitHub Self-Healing
+    github_read_file,
+    github_search_code,
+    github_list_recent_commits,
+    github_create_pull_request,
     # Sandbox Processing Tools
     summarize_metric_descriptors_in_sandbox,
     summarize_time_series_in_sandbox,
@@ -1380,6 +1395,11 @@ slim_tools: list[Any] = [
     # Online Research
     search_google,
     fetch_web_page,
+    # GitHub Self-Healing
+    github_read_file,
+    github_search_code,
+    github_list_recent_commits,
+    github_create_pull_request,
 ]
 
 

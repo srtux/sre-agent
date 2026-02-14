@@ -63,6 +63,9 @@ class ToolCategory(str, Enum):
     # Online Research
     RESEARCH = "research"  # Web search and page fetching
 
+    # GitHub (Self-Healing)
+    GITHUB = "github"  # Source code access and PR creation
+
 
 class ToolTestStatus(str, Enum):
     """Status of tool connectivity test."""
@@ -1024,6 +1027,41 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         display_name="Fetch Web Page",
         description="Fetch and extract readable text content from a web page",
         category=ToolCategory.RESEARCH,
+        testable=False,
+        enabled=True,
+    ),
+    # -------------------------------------------------------------------------
+    # GitHub Self-Healing Tools
+    # -------------------------------------------------------------------------
+    ToolConfig(
+        name="github_read_file",
+        display_name="GitHub Read File",
+        description="Read a file from the agent's own GitHub repository",
+        category=ToolCategory.GITHUB,
+        testable=False,
+        enabled=True,
+    ),
+    ToolConfig(
+        name="github_search_code",
+        display_name="GitHub Search Code",
+        description="Search the agent's codebase for patterns and definitions",
+        category=ToolCategory.GITHUB,
+        testable=False,
+        enabled=True,
+    ),
+    ToolConfig(
+        name="github_list_recent_commits",
+        display_name="GitHub List Commits",
+        description="List recent commits from the agent's repository",
+        category=ToolCategory.GITHUB,
+        testable=False,
+        enabled=True,
+    ),
+    ToolConfig(
+        name="github_create_pull_request",
+        display_name="GitHub Create PR",
+        description="Create a pull request with proposed changes to the agent's code",
+        category=ToolCategory.GITHUB,
         testable=False,
         enabled=True,
     ),

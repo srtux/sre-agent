@@ -135,6 +135,7 @@ sre_agent/
 │   ├── proactive/         #   Proactive signal analysis
 │   ├── exploration/       #   Health check exploration
 │   ├── synthetic/         #   Synthetic data generation for testing
+│   ├── research.py        #   Online research (search_google, fetch_web_page)
 │   ├── config.py          #   Tool configuration registry
 │   ├── registry.py        #   Tool registration and discovery system
 │   ├── memory.py          #   Memory management
@@ -268,6 +269,8 @@ Backend emits `{"type": "dashboard", ...}` events via `api/helpers/tool_events.p
 | `LOG_LEVEL` | Logging level | INFO |
 | `SRE_AGENT_CONTEXT_CACHING` | Enable Vertex AI context caching (OPT-10) | false |
 | `USE_MOCK_MCP` | Use mock MCP in tests | false |
+| `GOOGLE_CUSTOM_SEARCH_API_KEY` | API key for Google Custom Search (research tools) | unset |
+| `GOOGLE_CUSTOM_SEARCH_ENGINE_ID` | Programmable Search Engine ID (research tools) | unset |
 
 See `.env.example` for full list and `docs/reference/configuration.md` for details.
 
