@@ -212,10 +212,10 @@ class PlaybookRegistry:
 
     def load_all_playbooks(self) -> None:
         """Load all built-in playbooks."""
-        from . import bigquery, cloud_run, cloud_sql, gce, gke, pubsub
+        from . import bigquery, cloud_run, cloud_sql, gce, gke, pubsub, self_healing
 
         # Register playbooks from each module
-        for module in [gke, cloud_run, cloud_sql, gce, bigquery, pubsub]:
+        for module in [gke, cloud_run, cloud_sql, gce, bigquery, pubsub, self_healing]:
             if hasattr(module, "get_playbook"):
                 playbook = module.get_playbook()
                 self.register(playbook)

@@ -64,6 +64,10 @@ _CIRCUIT_BREAKER_TOOL_PREFIXES: frozenset[str] = frozenset(
         "mcp_get_table_info",
         "search_google",
         "fetch_web_page",
+        "github_read_file",
+        "github_search_code",
+        "github_list_recent_commits",
+        "github_create_pull_request",
     }
 )
 

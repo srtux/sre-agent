@@ -279,6 +279,11 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     # Research (Online)
     "search_google": (".research", "search_google"),
     "fetch_web_page": (".research", "fetch_web_page"),
+    # GitHub (Self-Healing)
+    "github_read_file": (".github.tools", "github_read_file"),
+    "github_search_code": (".github.tools", "github_search_code"),
+    "github_list_recent_commits": (".github.tools", "github_list_recent_commits"),
+    "github_create_pull_request": (".github.tools", "github_create_pull_request"),
     # Reporting
     "synthesize_report": (".reporting", "synthesize_report"),
     # Sandbox

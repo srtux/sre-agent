@@ -49,6 +49,11 @@ from sre_agent.tools import (
     get_gcloud_commands,
     # Cross-cutting tools
     get_investigation_summary,
+    # GitHub Self-Healing tools
+    github_create_pull_request,
+    github_list_recent_commits,
+    github_read_file,
+    github_search_code,
     list_alert_policies,
     # Alerts panel tools
     list_alerts,
@@ -82,6 +87,13 @@ SHARED_STATE_TOOLS: list[Any] = [
 SHARED_RESEARCH_TOOLS: list[Any] = [
     search_google,
     fetch_web_page,
+]
+
+SHARED_GITHUB_TOOLS: list[Any] = [
+    github_read_file,
+    github_search_code,
+    github_list_recent_commits,
+    github_create_pull_request,
 ]
 
 SHARED_REMEDIATION_TOOLS: list[Any] = [
@@ -307,6 +319,8 @@ ROOT_CAUSE_ANALYST_TOOLS: list[Any] = [
     *SHARED_REMEDIATION_TOOLS,
     # Online Research
     *SHARED_RESEARCH_TOOLS,
+    # GitHub Self-Healing
+    *SHARED_GITHUB_TOOLS,
     # State
     *SHARED_STATE_TOOLS,
 ]
