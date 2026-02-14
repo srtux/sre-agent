@@ -16,6 +16,8 @@ from google.adk.memory import VertexAiMemoryBankService
 
 from sre_agent.schema import Confidence, InvestigationPhase, MemoryItem
 
+from .sanitizer import MemorySanitizer
+
 logger = logging.getLogger(__name__)
 
 
@@ -204,8 +206,9 @@ class MemoryManager:
                         app_name = ADKSessionManager.APP_NAME
                         safe_user_id = user_id or "anonymous"
 
+                        engine_id = self.memory_service._agent_engine_id.split("/")[-1]
                         client.agent_engines.memories.create(
-                            name=f"reasoningEngines/{self.memory_service._agent_engine_id}",
+                            name=f"reasoningEngines/{engine_id}",
                             fact=f"[{source_tool}] {description}",
                             scope={"app_name": app_name, "user_id": safe_user_id},
                         )
@@ -447,6 +450,7 @@ class MemoryManager:
                     f"Tools: {' -> '.join(self._current_tool_sequence)}"
                 )
                 if hasattr(self.memory_service, "save_memory"):
+                    # Save to user's scope
                     await self.memory_service.save_memory(
                         session_id=session_id,
                         memory_content=pattern_content,
@@ -459,6 +463,22 @@ class MemoryManager:
                             "user_id": user_id or "anonymous",
                         },
                     )
+                    # Also save to global scope with sanitization
+                    global_content = MemorySanitizer.sanitize_global_record(
+                        pattern_content, user_id, self.project_id
+                    )
+                    await self.memory_service.save_memory(
+                        session_id=session_id,
+                        memory_content=global_content,
+                        metadata={
+                            "type": "investigation_pattern",
+                            "symptom_type": symptom_type,
+                            "root_cause_category": root_cause_category,
+                            "tool_sequence": json.dumps(self._current_tool_sequence),
+                            "confidence": str(pattern.confidence),
+                            "user_id": "system_shared_patterns",
+                        },
+                    )
                 elif hasattr(self.memory_service, "add_session_to_memory"):
                     if hasattr(self.memory_service, "_get_api_client") and getattr(
                         self.memory_service, "_agent_engine_id", None
@@ -469,13 +489,32 @@ class MemoryManager:
                         app_name = ADKSessionManager.APP_NAME
                         safe_user_id = user_id or "anonymous"
 
+                        engine_id = self.memory_service._agent_engine_id.split("/")[-1]
                         client.agent_engines.memories.create(
-                            name=f"reasoningEngines/{self.memory_service._agent_engine_id}",
+                            name=f"reasoningEngines/{engine_id}",
                             fact=pattern_content,
                             scope={"app_name": app_name, "user_id": safe_user_id},
                         )
                         logger.info(
                             f"Explicitly added pattern to Vertex AI Memory Bank for {safe_user_id}"
+                        )
+
+                        # Also persist to a globally shared scope for cross-user learning
+                        # SANITIZATION: Redact user-specific data before global sharing
+                        global_content = MemorySanitizer.sanitize_global_record(
+                            pattern_content, user_id, self.project_id
+                        )
+
+                        client.agent_engines.memories.create(
+                            name=f"reasoningEngines/{engine_id}",
+                            fact=global_content,
+                            scope={
+                                "app_name": app_name,
+                                "user_id": "system_shared_patterns",
+                            },
+                        )
+                        logger.info(
+                            "Explicitly added pattern to system_shared_patterns for cross-user learning"
                         )
             except Exception as e:
                 logger.error(f"Failed to persist learned pattern: {e}")
@@ -513,12 +552,23 @@ class MemoryManager:
         # 2. Search persisted memory for past patterns
         if self.memory_service:
             try:
-                findings = await self.get_relevant_findings(
-                    query=f"investigation pattern for {symptom_description}",
-                    session_id=session_id,
-                    limit=5,
-                    user_id=user_id,
+                # Search user's own memory and the globally shared pattern memory
+                search_scopes = (
+                    [user_id, "system_shared_patterns"]
+                    if user_id and user_id != "system_shared_patterns"
+                    else [user_id or "anonymous"]
                 )
+
+                findings = []
+                for scope_id in search_scopes:
+                    scope_findings = await self.get_relevant_findings(
+                        query=f"investigation pattern for {symptom_description}",
+                        session_id=session_id,
+                        limit=5,
+                        user_id=scope_id,
+                    )
+                    findings.extend(scope_findings)
+
                 for finding in findings:
                     if finding.description.startswith("[PATTERN]"):
                         # Parse pattern from description
@@ -544,14 +594,25 @@ class MemoryManager:
                                 t.strip() for t in tools_str.split("->") if t.strip()
                             ]
 
-                            results.append(
-                                InvestigationPattern(
-                                    symptom_type=symptom,
-                                    root_cause_category=root_cause,
-                                    tool_sequence=tool_seq,
-                                    resolution_summary=resolution,
-                                )
+                            # Deduplicate patterns with same symptom + root cause
+                            existing = next(
+                                (
+                                    p
+                                    for p in results
+                                    if p.symptom_type == symptom
+                                    and p.root_cause_category == root_cause
+                                ),
+                                None,
                             )
+                            if not existing:
+                                results.append(
+                                    InvestigationPattern(
+                                        symptom_type=symptom,
+                                        root_cause_category=root_cause,
+                                        tool_sequence=tool_seq,
+                                        resolution_summary=resolution,
+                                    )
+                                )
                         except (IndexError, ValueError):
                             continue
             except Exception as e:
@@ -565,3 +626,80 @@ class MemoryManager:
         """Reset the tool call sequence for a new session/investigation."""
         self._current_tool_sequence = []
         self._current_state = InvestigationPhase.INITIATED
+
+    async def learn_tool_error_pattern(
+        self,
+        tool_name: str,
+        error_message: str,
+        wrong_input: str,
+        correct_input: str,
+        resolution_summary: str,
+        session_id: str | None = None,
+    ) -> None:
+        """Record a tool failure and its fix to global memory so all users avoid it.
+
+        Args:
+            tool_name: The name of the tool that failed.
+            error_message: The error message that was returned.
+            wrong_input: The input that caused the error.
+            correct_input: The correct input/syntax to use instead.
+            resolution_summary: Explanation of why it failed.
+            session_id: Current session ID.
+        """
+        logger.info(
+            f"🚫 Learning tool error pattern for {tool_name}: {error_message[:50]}..."
+        )
+        if not self.memory_service:
+            return
+
+        pattern_content = (
+            f"[TOOL_ERROR_PATTERN] Tool: {tool_name} | "
+            f"Error: {error_message} | "
+            f"Wrong Input: {wrong_input} | "
+            f"Correct Input: {correct_input} | "
+            f"Resolution: {resolution_summary}"
+        )
+
+        try:
+            if hasattr(self.memory_service, "save_memory"):
+                # SANITIZATION: Redact user-specific data before global sharing
+                global_content = MemorySanitizer.sanitize_global_record(
+                    pattern_content, None, self.project_id
+                )
+                await self.memory_service.save_memory(
+                    session_id=session_id,
+                    memory_content=global_content,
+                    metadata={
+                        "type": "tool_error_pattern",
+                        "tool_name": tool_name,
+                        "user_id": "system_shared_patterns",
+                    },
+                )
+            elif hasattr(self.memory_service, "add_session_to_memory"):
+                if hasattr(self.memory_service, "_get_api_client") and getattr(
+                    self.memory_service, "_agent_engine_id", None
+                ):
+                    from sre_agent.services.session import ADKSessionManager
+
+                    client = self.memory_service._get_api_client()
+                    app_name = ADKSessionManager.APP_NAME
+                    engine_id = self.memory_service._agent_engine_id.split("/")[-1]
+
+                    # SANITIZATION: Redact user-specific data before global sharing
+                    global_content = MemorySanitizer.sanitize_global_record(
+                        pattern_content, None, self.project_id
+                    )
+
+                    client.agent_engines.memories.create(
+                        name=f"reasoningEngines/{engine_id}",
+                        fact=global_content,
+                        scope={
+                            "app_name": app_name,
+                            "user_id": "system_shared_patterns",
+                        },
+                    )
+                    logger.info(
+                        "Explicitly added tool error pattern to system_shared_patterns"
+                    )
+        except Exception as e:
+            logger.error(f"Failed to persist tool error pattern: {e}")

@@ -3,7 +3,8 @@ import asyncio
 import httpx
 
 
-async def run():
+async def run() -> None:
+    """Run the FastAPI agent test."""
     async with httpx.AsyncClient() as client:
         resp = await client.post(
             "http://127.0.0.1:8001/agent",

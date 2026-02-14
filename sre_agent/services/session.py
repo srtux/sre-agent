@@ -12,6 +12,7 @@ import logging
 import os
 import threading
 import time
+import uuid
 from dataclasses import dataclass
 from typing import Any, cast
 
@@ -328,10 +329,16 @@ class ADKSessionManager:
             session: The session to update
             state_delta: Dictionary of state changes
         """
+        from google.genai import types
+
         actions = EventActions(state_delta=state_delta)
         event = Event(
-            invocation_id=f"state-update-{time.time()}",
+            invocation_id=str(uuid.uuid4()),
             author="system",
+            content=types.Content(
+                role="model",
+                parts=[types.Part.from_text(text="State update")],
+            ),
             actions=actions,
             timestamp=time.time(),
         )

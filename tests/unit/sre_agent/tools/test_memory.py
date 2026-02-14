@@ -14,6 +14,7 @@ from sre_agent.tools.memory import (
     analyze_and_learn_from_traces,
     complete_investigation,
     get_recommended_investigation_strategy,
+    record_tool_failure_pattern,
     search_memory,
 )
 
@@ -188,3 +189,33 @@ async def test_analyze_and_learn_from_traces_no_project_id():
         assert isinstance(response, BaseToolResponse)
         assert response.status == ToolStatus.ERROR
         assert "trace_project_id is required" in response.error
+
+
+@pytest.mark.asyncio
+async def test_record_tool_failure_pattern(mock_memory_manager, mock_tool_context):
+    """Verify record_tool_failure_pattern calls manager correctly."""
+    mock_manager = AsyncMock()
+    mock_manager.learn_tool_error_pattern = AsyncMock()
+    mock_memory_manager.return_value = mock_manager
+
+    with patch("sre_agent.tools.memory._get_context") as mock_get_ctx:
+        mock_get_ctx.return_value = ("test-sess-1", "user@test.com")
+
+        response = await record_tool_failure_pattern(
+            tool_name="bad_tool",
+            error_message="Syntax Error",
+            wrong_input="SELECT",
+            correct_input="SELECT * FROM",
+            resolution_summary="Added missing FROM clause",
+            tool_context=mock_tool_context,
+        )
+
+    assert isinstance(response, BaseToolResponse)
+    assert response.status == ToolStatus.SUCCESS
+
+    mock_manager.learn_tool_error_pattern.assert_called_once()
+    call_kwargs = mock_manager.learn_tool_error_pattern.call_args.kwargs
+    assert call_kwargs["tool_name"] == "bad_tool"
+    assert call_kwargs["error_message"] == "Syntax Error"
+    assert call_kwargs["wrong_input"] == "SELECT"
+    assert call_kwargs["session_id"] == "test-sess-1"

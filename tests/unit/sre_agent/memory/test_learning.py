@@ -69,3 +69,25 @@ async def test_get_recommended_strategy(manager):
     assert len(recommendations) > 0
     assert recommendations[0].root_cause_category == "dns"
     assert recommendations[0].tool_sequence == ["check_dns"]
+
+
+@pytest.mark.asyncio
+async def test_learn_tool_error_pattern(manager):
+    """Test recording a tool error pattern."""
+    manager.memory_service.save_memory = AsyncMock()
+
+    await manager.learn_tool_error_pattern(
+        tool_name="test_tool",
+        error_message="Test error",
+        wrong_input="wrong",
+        correct_input="right",
+        resolution_summary="Fixed typo",
+        session_id="sess-1",
+    )
+
+    manager.memory_service.save_memory.assert_called_once()
+    _, kwargs = manager.memory_service.save_memory.call_args
+    assert kwargs["session_id"] == "sess-1"
+    assert "Test error" in kwargs["memory_content"]
+    assert kwargs["metadata"]["type"] == "tool_error_pattern"
+    assert kwargs["metadata"]["user_id"] == "system_shared_patterns"

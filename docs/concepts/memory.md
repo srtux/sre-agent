@@ -14,7 +14,8 @@ Effective memory in ReAct (Reasoning + Acting) agents relies on three distinct l
 * **Mechanism**: `MemoryManager` backed by Vertex AI Vector Search (Production) or SQLite (Local).
 * **Content**: Confirmed findings, successful tool sequences, and state transitions.
 * **Indexing**: Semantic (embedding-based) and Metadata (Time, User, Tool).
-* **Lifecycle**: Persistent; survives restart. strictly isolated by `user_id`.
+* **Shared Scope**: Patterns and tool errors are mirrored to a global `system_shared_patterns` scope for collective learning across all users.
+* **Lifecycle**: Persistent; survives restart. Findings are isolated by `user_id`, while patterns are shared.
 
 ### 3. Procedural Memory (Tools & RAG)
 * **Purpose**: "How-to" knowledge and static documentation.
@@ -38,12 +39,27 @@ Agents must be personalizable but secure. Data leaks between users are unaccepta
 * **Execution**: Tools extract `user_id` from `ToolContext` before accessing memory.
 
 ### 3. Adaptive Suggestions
-* **Goal**: Tailor "Next Steps" based on *this specific user's* past successful investigations.
+* **Goal**: Tailor "Next Steps" based on *this specific user's* past successful investigations and global best practices.
 * **Mechanism**: When generating suggestions, query Memory Bank for:
-  `filter: (user_id == current_user) AND (outcome == success)`
-* **Result**: The agent "learns" the user's preferred triage style over time.
+  `filter: (user_id == current_user OR user_id == "system_shared_patterns") AND (type == "investigation_pattern")`
+* **Result**: The agent "learns" the user's preferred triage style while benefiting from globally discovered tool sequences.
 
-## Configuration Requirements
+## Cross-User Learning & Privacy
+
+The SRE Agent balances collective intelligence with strict privacy requirements. While findings and session history are private to each user, **strategies** and **tool usage patterns** are shared to enable self-improvement for the entire team.
+
+### 1. Global Pattern Sharing
+* **Mechanism**: When `complete_investigation` or `record_tool_failure_pattern` is called, two copies are persisted:
+  1. **Private Copy**: Stored under the user's `user_id`. Contains full context, including specific project IDs.
+  2. **Global Copy**: Stored under the `system_shared_patterns` ID. This copy is automatically **sanitized** before storage.
+
+### 2. Automatic Sanitization (`MemorySanitizer`)
+To prevent data leaks, the `MemorySanitizer` utility scrubs all data destined for the global scope:
+* **Context Identifiers**: Automatically redacts the current user's email and project ID (e.g., `my-secret-project` -> `<PROJECT_ID>`).
+* **General PII**: Redacts IP addresses, standard email formats, and authentication tokens.
+* **Infrastructure Patterns**: Anonymizes environment-specific strings like GKE cluster names (`gke_proj_us-central1_cluster` -> `gke_<PROJECT>_<ZONE>_<CLUSTER>`).
+
+This ensures that User A can benefit from User B's realization that "Tool X requires flag Y," without ever seeing User B's project name or sensitive data.
 
 For Memory Bank to work correctly in production, the following must be set:
 
@@ -110,8 +126,9 @@ Instead of just storing raw text, the agent crystallizes successful investigatio
 2.  **Success Recording**: The `after_tool_callback` detects significant successful findings (bottlenecks, anomalies, root causes) and records them to memory.
 3.  **Failure Learning**: The `on_tool_error_callback` records API syntax errors and invalid parameters to avoid repeating mistakes.
 4.  **Pattern Extraction**: At investigation completion, call `complete_investigation` to persist the learned pattern.
-5.  **Reinforcement**: If the pattern already exists, its `confidence` score is boosted (min 1.0).
-6.  **Proactive Retrieval**: At the start of a *new* investigation, use `get_recommended_investigation_strategy` to find high-confidence tool sequences.
+5.  **Tool Failure Patterns**: Use `record_tool_failure_pattern` when a tool syntax or logic error is corrected. This is shared globally so no other agent repeats the same tool-calling mistake.
+6.  **Reinforcement**: If the pattern already exists, its `confidence` score is boosted (min 1.0).
+7.  **Proactive Retrieval**: At the start of a *new* investigation, use `get_recommended_investigation_strategy` to find high-confidence tool sequences (both private and global).
 
 This allows the agent to skip "exploration" steps for known problems and jump straight to the correct diagnostics.
 
@@ -146,6 +163,7 @@ The `after_agent_memory_callback` follows the [ADK-recommended pattern](https://
 | `search_memory` | Semantic search over past findings | "Have we seen this before?" |
 | `add_finding_to_memory` | Explicitly store a discovery | Important insights, correct API syntax |
 | `complete_investigation` | Mark investigation complete and learn | After resolving a root cause |
+| `record_tool_failure_pattern` | Share tool syntax correction globally | After figuring out correct tool usage |
 | `get_recommended_investigation_strategy` | Get proven tool sequences | Starting a new investigation |
 | `analyze_and_learn_from_traces` | Self-analyze past agent traces | Periodic self-improvement |
 

@@ -106,6 +106,42 @@ async def add_finding_to_memory(
 
 
 @adk_tool
+async def record_tool_failure_pattern(
+    tool_name: Annotated[
+        str, "Name of the tool that failed (e.g. mcp_execute_sql, logs_search)"
+    ],
+    error_message: Annotated[str, "The exact error message returned by the tool"],
+    wrong_input: Annotated[str, "The input or syntax that caused the error"],
+    correct_input: Annotated[str, "The correct input or syntax to use instead"],
+    resolution_summary: Annotated[
+        str, "A brief explanation of why it failed and how to fix it"
+    ],
+    tool_context: Any = None,
+) -> BaseToolResponse:
+    """Record a tool failure pattern so the agent doesn't repeat the mistake in the future.
+
+    Use this proactively when you realize you called a tool incorrectly, got an error,
+    and then figured out the right way to call it. Storing this pattern ensures
+    other agents (and future you) will avoid the same mistake.
+    """
+    manager = get_memory_manager()
+    session_id, _ = _get_context(tool_context)
+
+    await manager.learn_tool_error_pattern(
+        tool_name=tool_name,
+        error_message=error_message,
+        wrong_input=wrong_input,
+        correct_input=correct_input,
+        resolution_summary=resolution_summary,
+        session_id=session_id,
+    )
+    return BaseToolResponse(
+        status=ToolStatus.SUCCESS,
+        result="Tool error pattern learned and shared globally.",
+    )
+
+
+@adk_tool
 async def complete_investigation(
     symptom_type: Annotated[
         str,
@@ -220,7 +256,7 @@ async def get_recommended_investigation_strategy(
             result={
                 "message": "No matching patterns found. Use standard investigation workflow.",
                 "patterns": [],
-                "suggestion": "Start with explore_project_health, then follow the symptom to the appropriate tool.",
+                "suggestion": "Start with explore_project_health, then follow the symptom to the appropriate tool. If you get a tool error, consider using search_memory to check for known 'tool_error_pattern' resolutions.",
             },
         )
 
