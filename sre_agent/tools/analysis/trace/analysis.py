@@ -271,14 +271,24 @@ def _validate_trace_quality_impl(trace: TraceData) -> dict[str, Any]:
 
         # Check for negative durations and clock skew
         try:
-            start_str = span.get("start_time")
-            end_str = span.get("end_time")
+            start_unix = span.get("start_time_unix")
+            end_unix = span.get("end_time_unix")
 
-            if start_str and end_str:
-                start = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
-                end = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
-                duration = (end - start).total_seconds()
+            # Check if we can proceed entirely with floats (Fast Path)
+            # We need current span AND parent span (if exists) to have unix timestamps
+            can_use_fast_path = start_unix is not None and end_unix is not None
 
+            if can_use_fast_path and parent_id and parent_id in span_map:
+                parent = span_map[parent_id]
+                if (
+                    parent.get("start_time_unix") is None
+                    or parent.get("end_time_unix") is None
+                ):
+                    can_use_fast_path = False
+
+            if can_use_fast_path:
+                # FAST PATH: Float arithmetic
+                duration = end_unix - start_unix  # type: ignore
                 if duration < 0:
                     issues.append(
                         {
@@ -288,26 +298,61 @@ def _validate_trace_quality_impl(trace: TraceData) -> dict[str, Any]:
                         }
                     )
 
-                # Check clock skew
                 if parent_id and parent_id in span_map:
                     parent = span_map[parent_id]
-                    p_start_str = parent.get("start_time")
-                    p_end_str = parent.get("end_time")
+                    p_start_unix = parent.get("start_time_unix")
+                    p_end_unix = parent.get("end_time_unix")
 
-                    if p_start_str and p_end_str:
-                        p_start = datetime.fromisoformat(
-                            p_start_str.replace("Z", "+00:00")
+                    if start_unix < p_start_unix or end_unix > p_end_unix:  # type: ignore
+                        issues.append(
+                            {
+                                "type": "clock_skew",
+                                "span_id": span_id,
+                                "message": "Child span outside parent timespan",
+                            }
                         )
-                        p_end = datetime.fromisoformat(p_end_str.replace("Z", "+00:00"))
 
-                        if start < p_start or end > p_end:
-                            issues.append(
-                                {
-                                    "type": "clock_skew",
-                                    "span_id": span_id,
-                                    "message": "Child span outside parent timespan",
-                                }
+            else:
+                # SLOW PATH: String parsing
+                start_str = span.get("start_time")
+                end_str = span.get("end_time")
+
+                if start_str and end_str:
+                    start = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
+                    end = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
+                    duration = (end - start).total_seconds()
+
+                    if duration < 0:
+                        issues.append(
+                            {
+                                "type": "negative_duration",
+                                "span_id": span_id,
+                                "duration_s": duration,
+                            }
+                        )
+
+                    # Check clock skew
+                    if parent_id and parent_id in span_map:
+                        parent = span_map[parent_id]
+                        p_start_str = parent.get("start_time")
+                        p_end_str = parent.get("end_time")
+
+                        if p_start_str and p_end_str:
+                            p_start = datetime.fromisoformat(
+                                p_start_str.replace("Z", "+00:00")
                             )
+                            p_end = datetime.fromisoformat(
+                                p_end_str.replace("Z", "+00:00")
+                            )
+
+                            if start < p_start or end > p_end:
+                                issues.append(
+                                    {
+                                        "type": "clock_skew",
+                                        "span_id": span_id,
+                                        "message": "Child span outside parent timespan",
+                                    }
+                                )
         except (ValueError, TypeError, KeyError) as e:
             issues.append(
                 {"type": "timestamp_error", "span_id": span_id, "error": str(e)}
