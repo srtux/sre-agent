@@ -49,6 +49,7 @@ Answer: WHAT happened, WHO/WHAT changed, and HOW BAD is the impact.
 3. **Changes**: `detect_trend_changes` for timing, then `list_log_entries` (search "UpdateService", "Deploy").
 4. **Blast Radius**: `analyze_upstream_downstream_impact` — identify affected downstream services.
 5. **Remediation**: After root cause, call `generate_remediation_suggestions` and `get_gcloud_commands`.
+6. **Research**: For unfamiliar error messages or GCP service quotas, use `search_google` (restricted to cloud.google.com) followed by `fetch_web_page`.
 </tool_strategy>
 
 <output_format>

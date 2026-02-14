@@ -1535,6 +1535,7 @@ Direct Tools:
 - Observability: fetch_trace, list_log_entries, query_promql, list_time_series, list_slos
 - Analysis: analyze_trace_comprehensive, find_bottleneck_services, correlate_logs_with_trace
 - Platform: get_gke_cluster_health, list_alerts, detect_metric_anomalies
+- Research: search_google, fetch_web_page
 - Memory: preload_memory (auto), load_memory (on-demand), search_memory, add_finding_to_memory
 - Self-improvement: analyze_and_learn_from_traces, complete_investigation""",
     # OPT-7: Dynamic prompt assembly — timestamp is injected per-turn

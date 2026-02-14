@@ -34,6 +34,11 @@ Moving from "What is wrong" to "How to fix it."
 - `generate_postmortem`: Generates a structured, blameless Markdown postmortem based on the investigation findings.
 - `synthesize_report`: Generates a high-level executive summary of the investigation.
 
+### 6. Research (Online Intelligence)
+Accessing documentation and external technical proof points.
+- `search_google`: Perform web searches (default restricted to cloud.google.com).
+- `fetch_web_page`: Extract readable content from documentation and forums.
+
 ---
 
 ## Tool Implementation Pattern
