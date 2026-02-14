@@ -112,7 +112,8 @@ class _DashboardPanelState extends State<DashboardPanel>
                       explorer.queryAlerts(filter: filter);
                       break;
                     case DashboardDataType.traces:
-                      explorer.queryTrace(traceId: filter); // Assuming filter holds trace ID
+                      // Could be a trace ID or filter; send as filter for flexibility
+                      explorer.queryTraceFilter(filter: filter);
                       break;
                     default:
                       break;
