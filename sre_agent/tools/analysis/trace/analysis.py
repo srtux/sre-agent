@@ -305,9 +305,9 @@ def _validate_trace_quality_impl(trace: TraceData) -> dict[str, Any]:
                     p_start_unix = parent.get("start_time_unix")
                     p_end_unix = parent.get("end_time_unix")
 
-                    if cast(float, start_unix) < cast(float, p_start_unix) or cast(
-                        float, end_unix
-                    ) > cast(float, p_end_unix):
+                    if float(start_unix) < float(p_start_unix) or float(
+                        end_unix
+                    ) > float(p_end_unix):
                         issues.append(
                             {
                                 "type": "clock_skew",
