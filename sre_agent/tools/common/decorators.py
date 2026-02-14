@@ -62,6 +62,8 @@ _CIRCUIT_BREAKER_TOOL_PREFIXES: frozenset[str] = frozenset(
         "mcp_list_dataset_ids",
         "mcp_list_table_ids",
         "mcp_get_table_info",
+        "search_google",
+        "fetch_web_page",
     }
 )
 

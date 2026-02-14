@@ -276,6 +276,9 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     "search_memory": (".memory", "search_memory"),
     # Proactive
     "suggest_next_steps": (".proactive", "suggest_next_steps"),
+    # Research (Online)
+    "search_google": (".research", "search_google"),
+    "fetch_web_page": (".research", "fetch_web_page"),
     # Reporting
     "synthesize_report": (".reporting", "synthesize_report"),
     # Sandbox

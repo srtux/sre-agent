@@ -167,6 +167,7 @@ from .tools import (
     extract_log_patterns,
     # Trace tools
     fetch_trace,
+    fetch_web_page,
     find_bottleneck_services,
     find_example_traces,
     find_exemplar_traces,
@@ -210,6 +211,8 @@ from .tools import (
     query_data_agent,
     query_promql,
     reconstruct_agent_interaction,
+    # Research tools
+    search_google,
     search_memory,
     select_traces_from_statistical_outliers,
     select_traces_manually,
@@ -1195,6 +1198,9 @@ TOOL_NAME_MAP = {
     "get_recommended_investigation_strategy": get_recommended_investigation_strategy,
     "analyze_and_learn_from_traces": analyze_and_learn_from_traces,
     "suggest_next_steps": suggest_next_steps,
+    # Online Research
+    "search_google": search_google,
+    "fetch_web_page": fetch_web_page,
     # Sandbox Processing
     "summarize_metric_descriptors_in_sandbox": summarize_metric_descriptors_in_sandbox,
     "summarize_time_series_in_sandbox": summarize_time_series_in_sandbox,
@@ -1291,6 +1297,9 @@ base_tools: list[Any] = [
     get_gcloud_commands,
     # SLO Multi-Window Burn Rate
     analyze_multi_window_burn_rate,
+    # Online Research
+    search_google,
+    fetch_web_page,
     # Sandbox Processing Tools
     summarize_metric_descriptors_in_sandbox,
     summarize_time_series_in_sandbox,
@@ -1368,6 +1377,9 @@ slim_tools: list[Any] = [
     suggest_next_steps,
     # Discovery
     discover_telemetry_sources,
+    # Online Research
+    search_google,
+    fetch_web_page,
 ]
 
 
