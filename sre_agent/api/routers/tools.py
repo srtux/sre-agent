@@ -6,6 +6,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from sre_agent.api.dependencies import get_tool_context
 from sre_agent.schema import BaseToolResponse
 from sre_agent.tools import (
     extract_log_patterns,
@@ -17,6 +18,7 @@ from sre_agent.tools import (
     query_promql,
 )
 from sre_agent.tools.analysis import genui_adapter
+from sre_agent.tools.bigquery.client import BigQueryClient
 from sre_agent.tools.config import (
     ToolCategory,
     get_tool_config_manager,
@@ -83,6 +85,13 @@ class LogsQueryRequest(BaseModel):
     """Request model for logs query endpoint."""
 
     filter: str | None = None
+    project_id: str | None = None
+
+
+class BigQueryQueryRequest(BaseModel):
+    """Request model for BigQuery SQL execution."""
+
+    sql: str
     project_id: str | None = None
 
 
@@ -233,6 +242,65 @@ async def query_logs_endpoint(payload: LogsQueryRequest) -> Any:
         raise
     except Exception as e:
         logger.exception("Error querying logs")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.post("/bigquery/query")
+async def query_bigquery_endpoint(payload: BigQueryQueryRequest) -> Any:
+    """Execute a BigQuery SQL query and return tabular results.
+
+    Returns data in BigQueryQueryResponse-compatible format (columns, rows).
+    """
+    try:
+        ctx = await get_tool_context()
+        client = BigQueryClient(project_id=payload.project_id, tool_context=ctx)
+        rows = await client.execute_query(payload.sql)
+        # Transform rows to columns + rows list format
+        columns = list(rows[0].keys()) if rows else []
+        return {"columns": columns, "rows": rows}
+    except Exception as e:
+        logger.exception("Error querying BigQuery")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.get("/bigquery/datasets")
+async def list_bigquery_datasets(project_id: str | None = None) -> Any:
+    """List datasets in the BigQuery project."""
+    try:
+        ctx = await get_tool_context()
+        client = BigQueryClient(project_id=project_id, tool_context=ctx)
+        datasets = await client.list_datasets()
+        return {"datasets": datasets}
+    except Exception as e:
+        logger.exception("Error listing BigQuery datasets")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.get("/bigquery/datasets/{dataset_id}/tables")
+async def list_bigquery_tables(dataset_id: str, project_id: str | None = None) -> Any:
+    """List tables in a BigQuery dataset."""
+    try:
+        ctx = await get_tool_context()
+        client = BigQueryClient(project_id=project_id, tool_context=ctx)
+        tables = await client.list_tables(dataset_id)
+        return {"tables": tables}
+    except Exception as e:
+        logger.exception(f"Error listing tables for dataset {dataset_id}")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.get("/bigquery/datasets/{dataset_id}/tables/{table_id}/schema")
+async def get_bigquery_table_schema(
+    dataset_id: str, table_id: str, project_id: str | None = None
+) -> Any:
+    """Get the schema of a BigQuery table."""
+    try:
+        ctx = await get_tool_context()
+        client = BigQueryClient(project_id=project_id, tool_context=ctx)
+        schema = await client.get_table_schema(dataset_id, table_id)
+        return {"schema": schema}
+    except Exception as e:
+        logger.exception(f"Error getting schema for table {dataset_id}.{table_id}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 

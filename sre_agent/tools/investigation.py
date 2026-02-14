@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 async def update_investigation_state(
     phase: Annotated[
         str | None,
-        "The current phase of investigation (triage, deep_dive, remediation, resolved)",
+        "The current phase of investigation. MUST be one of: initiated, triage, deep_dive, remediation, resolved.",
     ] = None,
     new_findings: Annotated[list[str] | None, "New factual findings discovered"] = None,
     hypothesis: Annotated[str | None, "New hypothesis being tested"] = None,
@@ -48,9 +48,10 @@ async def update_investigation_state(
                 new_phase = InvestigationPhase(phase.lower())
                 await memory_manager.update_state(new_phase, session_id=session_id)
             except ValueError:
-                return BaseToolResponse(
-                    status=ToolStatus.ERROR, error=f"Invalid phase {phase}"
+                logger.warning(
+                    f"Invalid phase provided: {phase}. Ignoring phase update."
                 )
+                phase = None  # Reset phase so it doesn't pollute session state below
         except Exception as e:
             logger.warning(f"Failed to update memory manager state: {e}")
 
