@@ -113,6 +113,39 @@ class DashboardState extends ChangeNotifier {
   /// Last manual query filters per panel type.
   final Map<DashboardDataType, String> _lastQueryFilters = {};
 
+  /// Selected metrics query language index (0 = MQL/ListTimeSeries, 1 = PromQL).
+  int _metricsQueryLanguage = 0;
+  int get metricsQueryLanguage => _metricsQueryLanguage;
+
+  void setMetricsQueryLanguage(int index) {
+    if (_metricsQueryLanguage != index) {
+      _metricsQueryLanguage = index;
+      notifyListeners();
+    }
+  }
+
+  /// BigQuery SQL query results stored as tabular data.
+  List<Map<String, dynamic>> _bigQueryResults = [];
+  List<Map<String, dynamic>> get bigQueryResults =>
+      List.unmodifiable(_bigQueryResults);
+
+  /// Column names from the most recent BigQuery result set.
+  List<String> _bigQueryColumns = [];
+  List<String> get bigQueryColumns => List.unmodifiable(_bigQueryColumns);
+
+  void setBigQueryResults(
+      List<String> columns, List<Map<String, dynamic>> rows) {
+    _bigQueryColumns = columns;
+    _bigQueryResults = rows;
+    notifyListeners();
+  }
+
+  void clearBigQueryResults() {
+    _bigQueryColumns = [];
+    _bigQueryResults = [];
+    notifyListeners();
+  }
+
   String? getLastQueryFilter(DashboardDataType type) => _lastQueryFilters[type];
   void setLastQueryFilter(DashboardDataType type, String filter) {
     _lastQueryFilters[type] = filter;
@@ -545,6 +578,9 @@ class DashboardState extends ChangeNotifier {
     _loadingStates.clear();
     _errorStates.clear();
     _lastQueryFilters.clear();
+    _bigQueryColumns = [];
+    _bigQueryResults = [];
+    _metricsQueryLanguage = 0;
     _refreshTimer?.cancel();
     _refreshTimer = null;
     _autoRefresh = false;

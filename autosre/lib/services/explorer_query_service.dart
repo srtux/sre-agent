@@ -139,6 +139,119 @@ class ExplorerQueryService {
     }
   }
 
+  /// Query traces using Cloud Trace filter syntax.
+  ///
+  /// Accepts Cloud Trace Query language filters such as:
+  /// `+span:name:my_span`, `RootSpan:/api/v1`, `MinDuration:500ms`.
+  Future<void> queryTraceFilter({
+    required String filter,
+    String? projectId,
+    TimeRange? timeRange,
+  }) async {
+    final range = timeRange ?? _dashboardState.timeRange;
+    _dashboardState.setLoading(DashboardDataType.traces, true);
+    try {
+      final body = jsonEncode({
+        'filter': filter,
+        'project_id': projectId,
+        'minutes_ago': range.minutesAgo,
+      });
+      final response = await _post('/api/tools/traces/query', body);
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+      final trace = Trace.fromJson(data);
+      if (trace.spans.isNotEmpty) {
+        _dashboardState.addTrace(
+          trace, 'manual_query', data,
+          source: DataSource.manual,
+        );
+      }
+
+      _dashboardState.openDashboard();
+      _dashboardState.setActiveTab(DashboardDataType.traces);
+    } catch (e) {
+      _dashboardState.setError(
+        DashboardDataType.traces, e.toString(),
+      );
+      debugPrint('ExplorerQueryService.queryTraceFilter error: $e');
+    } finally {
+      _dashboardState.setLoading(DashboardDataType.traces, false);
+    }
+  }
+
+  /// Query metrics using PromQL.
+  Future<void> queryMetricsPromQL({
+    required String query,
+    String? projectId,
+    TimeRange? timeRange,
+  }) async {
+    final range = timeRange ?? _dashboardState.timeRange;
+    _dashboardState.setLoading(DashboardDataType.metrics, true);
+    try {
+      final body = jsonEncode({
+        'query': query,
+        'language': 'promql',
+        'project_id': projectId,
+        'minutes_ago': range.minutesAgo,
+      });
+      final response = await _post('/api/tools/metrics/query', body);
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+      final series = MetricSeries.fromJson(data);
+      _dashboardState.addMetricSeries(
+        series, 'manual_query_promql', data,
+        source: DataSource.manual,
+      );
+
+      _dashboardState.openDashboard();
+      _dashboardState.setActiveTab(DashboardDataType.metrics);
+    } catch (e) {
+      _dashboardState.setError(
+        DashboardDataType.metrics, e.toString(),
+      );
+      debugPrint('ExplorerQueryService.queryMetricsPromQL error: $e');
+    } finally {
+      _dashboardState.setLoading(DashboardDataType.metrics, false);
+    }
+  }
+
+  /// Execute a BigQuery SQL query and return tabular results.
+  Future<void> queryBigQuery({
+    required String sql,
+    String? projectId,
+  }) async {
+    _dashboardState.setLoading(DashboardDataType.charts, true);
+    try {
+      final body = jsonEncode({
+        'sql': sql,
+        'project_id': projectId,
+      });
+      final response = await _post('/api/tools/bigquery/query', body);
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+      // Parse column names and row data from response
+      final columns = (data['columns'] as List?)
+              ?.map((c) => c.toString())
+              .toList() ??
+          [];
+      final rows = (data['rows'] as List?)
+              ?.map((r) => Map<String, dynamic>.from(r as Map))
+              .toList() ??
+          [];
+
+      _dashboardState.setBigQueryResults(columns, rows);
+      _dashboardState.openDashboard();
+      _dashboardState.setActiveTab(DashboardDataType.charts);
+    } catch (e) {
+      _dashboardState.setError(
+        DashboardDataType.charts, e.toString(),
+      );
+      debugPrint('ExplorerQueryService.queryBigQuery error: $e');
+    } finally {
+      _dashboardState.setLoading(DashboardDataType.charts, false);
+    }
+  }
+
   /// Query alerts/incidents.
   Future<void> queryAlerts({
     String? filter,

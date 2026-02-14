@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/adk_schema.dart';
 import '../../services/dashboard_state.dart';
@@ -11,10 +12,12 @@ import '../common/error_banner.dart';
 import '../common/explorer_empty_state.dart';
 import '../common/shimmer_loading.dart';
 import 'manual_query_bar.dart';
+import 'query_language_badge.dart';
 
 /// Dashboard panel for exploring all collected log data.
 ///
 /// Provides a mini logs explorer with:
+/// - Cloud Logging query language support with syntax reference
 /// - Severity filter chips with counts
 /// - Search across all collected log entries
 /// - Expandable JSON payload viewer
@@ -36,6 +39,7 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
   String _searchQuery = '';
   String? _severityFilter;
   int? _expandedEntry;
+  bool _showSyntaxHelp = false;
 
   /// Aggregate all log entries across all tool calls.
   List<LogEntry> get _allEntries {
@@ -84,20 +88,72 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
 
     return Column(
       children: [
-        // Manual query bar
+        // Query language header + query bar
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-          child: ManualQueryBar(
-            hintText: 'severity>=ERROR AND resource.type="..."',
-            initialValue: widget.dashboardState.getLastQueryFilter(DashboardDataType.logs),
-            isLoading: isLoading,
-            onSubmit: (filter) {
-              widget.dashboardState.setLastQueryFilter(DashboardDataType.logs, filter);
-              final explorer = context.read<ExplorerQueryService>();
-              explorer.queryLogs(filter: filter);
-            },
+          child: Column(
+            children: [
+              // Language badge row
+              Row(
+                children: [
+                  QueryLanguageBadge(
+                    language: 'Cloud Logging',
+                    icon: Icons.article_outlined,
+                    color: AppColors.success,
+                    onHelpTap: () => _openDocs(),
+                  ),
+                  const Spacer(),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(4),
+                    onTap: () =>
+                        setState(() => _showSyntaxHelp = !_showSyntaxHelp),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _showSyntaxHelp
+                                ? Icons.expand_less_rounded
+                                : Icons.expand_more_rounded,
+                            size: 14,
+                            color: AppColors.textMuted,
+                          ),
+                          const SizedBox(width: 2),
+                          Text(
+                            'Syntax',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: AppColors.textMuted.withValues(alpha: 0.8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              ManualQueryBar(
+                hintText:
+                    'severity>=ERROR AND resource.type="gce_instance"',
+                languageLabel: 'LOG FILTER',
+                languageLabelColor: AppColors.success,
+                initialValue: widget.dashboardState
+                    .getLastQueryFilter(DashboardDataType.logs),
+                isLoading: isLoading,
+                onSubmit: (filter) {
+                  widget.dashboardState
+                      .setLastQueryFilter(DashboardDataType.logs, filter);
+                  final explorer = context.read<ExplorerQueryService>();
+                  explorer.queryLogs(filter: filter);
+                },
+              ),
+            ],
           ),
         ),
+        // Syntax reference panel
+        if (_showSyntaxHelp) _buildSyntaxReference(),
         if (error != null) ErrorBanner(message: error),
         // Content
         if (isLoading && !hasData)
@@ -108,7 +164,7 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
               icon: Icons.article_outlined,
               title: 'Logs Explorer',
               description:
-                  'Query Cloud Logging entries by entering a\nlog filter expression above.',
+                  'Query Cloud Logging entries using the Cloud Logging\nquery language. Supports boolean operators, comparisons,\nand resource/label filters.',
               queryHint: 'severity>=ERROR AND resource.type="gce_instance"',
             ),
           )
@@ -121,6 +177,93 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
           Expanded(child: _buildLogList()),
         ],
       ],
+    );
+  }
+
+  Widget _buildSyntaxReference() {
+    const examples = [
+      ('severity>=ERROR', 'Filter by severity level'),
+      ('resource.type="gce_instance"', 'Filter by resource type'),
+      ('textPayload:"error message"', 'Search text payloads'),
+      ('jsonPayload.status=500', 'Filter JSON payload fields'),
+      ('labels.key="value"', 'Filter by user-defined labels'),
+      ('timestamp>="2024-01-01T00:00:00Z"', 'Filter by timestamp'),
+      ('logName="projects/p/logs/l"', 'Filter by log name'),
+      ('AND / OR / NOT', 'Boolean operators'),
+    ];
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppColors.success.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: AppColors.success.withValues(alpha: 0.1),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.menu_book_rounded,
+                  size: 12, color: AppColors.success),
+              const SizedBox(width: 6),
+              const Text(
+                'Cloud Logging Query Syntax',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.success,
+                ),
+              ),
+              const Spacer(),
+              InkWell(
+                onTap: () => _openDocs(),
+                child: Text(
+                  'Full docs',
+                  style: TextStyle(
+                    fontSize: 9,
+                    color: AppColors.primaryCyan.withValues(alpha: 0.8),
+                    decoration: TextDecoration.underline,
+                    decorationColor:
+                        AppColors.primaryCyan.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ...examples.map((e) => Padding(
+                padding: const EdgeInsets.only(bottom: 3),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 220,
+                      child: Text(
+                        e.$1,
+                        style: GoogleFonts.jetBrainsMono(
+                          fontSize: 9,
+                          color: AppColors.success.withValues(alpha: 0.9),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        e.$2,
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: AppColors.textMuted.withValues(alpha: 0.8),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              )),
+        ],
+      ),
     );
   }
 
@@ -404,6 +547,15 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
         );
       },
     );
+  }
+
+  Future<void> _openDocs() async {
+    final url = Uri.parse(
+      'https://cloud.google.com/logging/docs/view/logging-query-language',
+    );
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    }
   }
 
   Color _severityColor(String severity) {

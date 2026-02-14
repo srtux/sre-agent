@@ -2,22 +2,30 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../services/dashboard_state.dart';
+import '../../services/explorer_query_service.dart';
 import '../../theme/app_theme.dart';
-
-/// Dashboard panel showing Vega-Lite charts from the CA Data Agent.
-///
-/// Each item displays the question asked, the text answer, and any
-/// Vega-Lite chart specs returned. Charts are shown as JSON specs
-/// that can be copied for external rendering (full Vega-Lite rendering
-/// can be added via a WebView or JS interop in a future iteration).
+import '../common/error_banner.dart';
+import '../common/explorer_empty_state.dart';
+import '../common/shimmer_loading.dart';
 import 'manual_query_bar.dart';
 import 'dashboard_card_wrapper.dart';
-import '../common/explorer_empty_state.dart';
+import 'query_language_badge.dart';
+import 'sql_results_table.dart';
+import 'visual_data_explorer.dart';
 
-/// Dashboard panel showing Vega-Lite charts from the CA Data Agent.
-class LiveChartsPanel extends StatelessWidget {
+/// Dashboard panel showing BigQuery SQL results and Vega-Lite charts.
+///
+/// Provides:
+/// - **SQL Editor**: Multi-line BigQuery SQL query input
+/// - **Tabular Results**: Sortable, exportable data table for SQL results
+/// - **Visual Data Explorer**: Tableau-like interactive visualization builder
+/// - **Agent Charts**: Vega-Lite chart specs from the CA Data Agent
+class LiveChartsPanel extends StatefulWidget {
   final List<DashboardItem> items;
   final DashboardState dashboardState;
   const LiveChartsPanel({
@@ -27,22 +35,318 @@ class LiveChartsPanel extends StatelessWidget {
   });
 
   @override
+  State<LiveChartsPanel> createState() => _LiveChartsPanelState();
+}
+
+class _LiveChartsPanelState extends State<LiveChartsPanel> {
+  /// 0 = SQL Query, 1 = Agent Charts
+  int _viewMode = 0;
+
+  /// 0 = Table view, 1 = Visual Explorer
+  int _resultsView = 0;
+
+  @override
   Widget build(BuildContext context) {
     return Column(
       children: [
+        // Header with view mode toggle
+        _buildHeader(),
+        // Content based on view mode
+        Expanded(
+          child: _viewMode == 0 ? _buildSqlView() : _buildAgentChartsView(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      child: Row(
+        children: [
+          QueryLanguageBadge(
+            language: _viewMode == 0 ? 'BigQuery SQL' : 'Agent Charts',
+            icon: _viewMode == 0
+                ? Icons.storage_rounded
+                : Icons.bar_chart_rounded,
+            color: AppColors.warning,
+            onHelpTap: _viewMode == 0 ? () => _openDocs() : null,
+          ),
+          const Spacer(),
+          // View mode toggle
+          Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: AppColors.surfaceBorder.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildViewModeChip('SQL Query', Icons.code_rounded, 0),
+                _buildViewModeChip(
+                    'Agent Charts', Icons.auto_awesome_rounded, 1),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildViewModeChip(String label, IconData icon, int index) {
+    final isActive = _viewMode == index;
+    return GestureDetector(
+      onTap: () => setState(() => _viewMode = index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: isActive
+              ? AppColors.warning.withValues(alpha: 0.15)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isActive
+                ? AppColors.warning.withValues(alpha: 0.3)
+                : Colors.transparent,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 12,
+              color: isActive ? AppColors.warning : AppColors.textMuted,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                color: isActive ? AppColors.warning : AppColors.textMuted,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // SQL Query View
+  // ===========================================================================
+
+  Widget _buildSqlView() {
+    final isLoading =
+        widget.dashboardState.isLoading(DashboardDataType.charts);
+    final error = widget.dashboardState.errorFor(DashboardDataType.charts);
+
+    return ListenableBuilder(
+      listenable: widget.dashboardState,
+      builder: (context, _) {
+        final hasResults = widget.dashboardState.bigQueryColumns.isNotEmpty;
+
+        return Column(
+          children: [
+            // SQL editor
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+              child: ManualQueryBar(
+                hintText:
+                    'SELECT column1, column2\nFROM `project.dataset.table`\nWHERE condition\nLIMIT 1000',
+                languageLabel: 'SQL',
+                languageLabelColor: AppColors.warning,
+                multiLine: true,
+                initialValue: widget.dashboardState
+                    .getLastQueryFilter(DashboardDataType.charts),
+                isLoading: isLoading,
+                onSubmit: (sql) {
+                  widget.dashboardState
+                      .setLastQueryFilter(DashboardDataType.charts, sql);
+                  final explorer = context.read<ExplorerQueryService>();
+                  explorer.queryBigQuery(sql: sql);
+                },
+              ),
+            ),
+            // Syntax help
+            _buildSqlSyntaxHelp(),
+            if (error != null) ErrorBanner(message: error),
+            // Results area
+            if (isLoading && !hasResults)
+              const Expanded(child: ShimmerLoading())
+            else if (!hasResults)
+              const Expanded(
+                child: ExplorerEmptyState(
+                  icon: Icons.storage_rounded,
+                  title: 'BigQuery SQL Explorer',
+                  description:
+                      'Write a BigQuery SQL query above to explore data.\n'
+                      'Results are displayed as a sortable table or\n'
+                      'as interactive visualizations.',
+                  queryHint:
+                      'SELECT * FROM `project.dataset.table` LIMIT 100',
+                ),
+              )
+            else ...[
+              // Results view toggle (Table vs Visual Explorer)
+              _buildResultsViewToggle(),
+              // Results content
+              Expanded(
+                child: _resultsView == 0
+                    ? SqlResultsTable(
+                        columns: widget.dashboardState.bigQueryColumns,
+                        rows: widget.dashboardState.bigQueryResults,
+                      )
+                    : VisualDataExplorer(
+                        columns: widget.dashboardState.bigQueryColumns,
+                        rows: widget.dashboardState.bigQueryResults,
+                      ),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildSqlSyntaxHelp() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: AppColors.warning.withValues(alpha: 0.1),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline_rounded,
+              size: 12,
+              color: AppColors.textMuted.withValues(alpha: 0.7)),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              'BigQuery Standard SQL  |  Ctrl+Enter to run  |  '
+              'Tables: OTel spans, logs, metrics',
+              style: GoogleFonts.jetBrainsMono(
+                fontSize: 9,
+                color: AppColors.textMuted.withValues(alpha: 0.8),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResultsViewToggle() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.backgroundCard.withValues(alpha: 0.5),
+        border: Border(
+          bottom: BorderSide(
+            color: AppColors.surfaceBorder.withValues(alpha: 0.3),
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          _buildResultsViewChip('Table', Icons.table_chart_rounded, 0),
+          const SizedBox(width: 4),
+          _buildResultsViewChip('Visual Explorer', Icons.analytics_rounded, 1),
+          const Spacer(),
+          // Row count
+          ListenableBuilder(
+            listenable: widget.dashboardState,
+            builder: (context, _) {
+              return Text(
+                '${widget.dashboardState.bigQueryResults.length} rows',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: AppColors.textMuted.withValues(alpha: 0.7),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResultsViewChip(String label, IconData icon, int index) {
+    final isActive = _resultsView == index;
+    return GestureDetector(
+      onTap: () => setState(() => _resultsView = index),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: isActive
+              ? AppColors.primaryCyan.withValues(alpha: 0.15)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isActive
+                ? AppColors.primaryCyan.withValues(alpha: 0.3)
+                : AppColors.surfaceBorder.withValues(alpha: 0.2),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 12,
+              color: isActive ? AppColors.primaryCyan : AppColors.textMuted,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                color: isActive ? AppColors.primaryCyan : AppColors.textMuted,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // Agent Charts View (original Vega-Lite charts)
+  // ===========================================================================
+
+  Widget _buildAgentChartsView() {
+    return Column(
+      children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
           child: ManualQueryBar(
             hintText: 'Search data answers...',
-            initialValue: dashboardState.getLastQueryFilter(DashboardDataType.charts),
-            isLoading: dashboardState.isLoading(DashboardDataType.charts),
+            initialValue: widget.dashboardState
+                .getLastQueryFilter(DashboardDataType.charts),
+            isLoading:
+                widget.dashboardState.isLoading(DashboardDataType.charts),
             onSubmit: (query) {
-              dashboardState.setLastQueryFilter(DashboardDataType.charts, query);
+              widget.dashboardState
+                  .setLastQueryFilter(DashboardDataType.charts, query);
             },
           ),
         ),
         Expanded(
-          child: items.isEmpty
+          child: widget.items.isEmpty
               ? const ExplorerEmptyState(
                   icon: Icons.bar_chart_rounded,
                   title: 'No Charts Yet',
@@ -51,18 +355,20 @@ class LiveChartsPanel extends StatelessWidget {
                 )
               : ListView.builder(
                   padding: const EdgeInsets.all(12),
-                  itemCount: items.length,
+                  itemCount: widget.items.length,
                   itemBuilder: (context, index) {
-                    final item = items[index];
+                    final item = widget.items[index];
                     if (item.chartData == null) return const SizedBox.shrink();
                     return DashboardCardWrapper(
-                      onClose: () => dashboardState.removeItem(item.id),
+                      onClose: () =>
+                          widget.dashboardState.removeItem(item.id),
                       header: Row(
                         children: [
                           Container(
                             padding: const EdgeInsets.all(4),
                             decoration: BoxDecoration(
-                              color: AppColors.warning.withValues(alpha: 0.15),
+                              color:
+                                  AppColors.warning.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: const Icon(
@@ -86,13 +392,23 @@ class LiveChartsPanel extends StatelessWidget {
                           ),
                         ],
                       ),
-                      child: _ChartCard(data: item.chartData!, toolName: item.toolName),
+                      child: _ChartCard(
+                          data: item.chartData!, toolName: item.toolName),
                     );
                   },
                 ),
         ),
       ],
     );
+  }
+
+  Future<void> _openDocs() async {
+    final url = Uri.parse(
+      'https://cloud.google.com/bigquery/docs/reference/standard-sql/query-syntax',
+    );
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    }
   }
 }
 
@@ -118,35 +434,7 @@ class _ChartCardState extends State<_ChartCard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Header info from CardWrapper is enough for the title row
-        // Question text
-          if (answer.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-              child: Text(
-                answer,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textSecondary,
-                  height: 1.5,
-                ),
-                maxLines: 10,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          // Chart placeholders
-          if (charts.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  for (var i = 0; i < charts.length; i++)
-                    _buildChartPreview(charts[i] as Map<String, dynamic>, i),
-                ],
-              ),
-            ),
-        // Question text
+        // Answer text
         if (answer.isNotEmpty)
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
@@ -159,6 +447,18 @@ class _ChartCardState extends State<_ChartCard> {
               ),
               maxLines: 10,
               overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        // Chart previews
+        if (charts.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var i = 0; i < charts.length; i++)
+                  _buildChartPreview(charts[i] as Map<String, dynamic>, i),
+              ],
             ),
           ),
       ],
