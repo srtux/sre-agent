@@ -288,7 +288,9 @@ def _validate_trace_quality_impl(trace: TraceData) -> dict[str, Any]:
 
             if can_use_fast_path:
                 # FAST PATH: Float arithmetic
-                duration = end_unix - start_unix  # type: ignore
+                # We use float() cast for safety and type satisfaction, as start_unix/end_unix
+                # are typed as Any in the dict but guaranteed not None by can_use_fast_path check.
+                duration = float(end_unix) - float(start_unix)
                 if duration < 0:
                     issues.append(
                         {
@@ -303,7 +305,9 @@ def _validate_trace_quality_impl(trace: TraceData) -> dict[str, Any]:
                     p_start_unix = parent.get("start_time_unix")
                     p_end_unix = parent.get("end_time_unix")
 
-                    if start_unix < p_start_unix or end_unix > p_end_unix:  # type: ignore
+                    if cast(float, start_unix) < cast(float, p_start_unix) or cast(
+                        float, end_unix
+                    ) > cast(float, p_end_unix):
                         issues.append(
                             {
                                 "type": "clock_skew",
