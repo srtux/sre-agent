@@ -15,6 +15,7 @@ import '../common/shimmer_loading.dart';
 import 'manual_query_bar.dart';
 import 'dashboard_card_wrapper.dart';
 import 'query_language_badge.dart';
+import 'query_helpers.dart';
 import 'sql_results_table.dart';
 import 'visual_data_explorer.dart';
 
@@ -166,6 +167,23 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
                 initialValue: widget.dashboardState
                     .getLastQueryFilter(DashboardDataType.charts),
                 isLoading: isLoading,
+                snippets: sqlSnippets,
+                templates: sqlTemplates,
+                enableNaturalLanguage: true,
+                naturalLanguageHint:
+                    'Show me the top 10 most expensive queries by slot usage...',
+                naturalLanguageExamples: sqlNaturalLanguageExamples,
+                onSubmitWithMode: (query, isNl) {
+                  widget.dashboardState
+                      .setLastQueryFilter(DashboardDataType.charts, query);
+                  final explorer = context.read<ExplorerQueryService>();
+                  if (isNl) {
+                    explorer.queryNaturalLanguage(
+                        query: query, domain: 'bigquery');
+                  } else {
+                    explorer.queryBigQuery(sql: query);
+                  }
+                },
                 onSubmit: (sql) {
                   widget.dashboardState
                       .setLastQueryFilter(DashboardDataType.charts, sql);
@@ -186,9 +204,9 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
                   icon: Icons.storage_rounded,
                   title: 'BigQuery SQL Explorer',
                   description:
-                      'Write a BigQuery SQL query above to explore data.\n'
-                      'Results are displayed as a sortable table or\n'
-                      'as interactive visualizations.',
+                      'Write a BigQuery SQL query above to explore data,\n'
+                      'or switch to natural language mode.\n'
+                      'Try the lightbulb for common SQL templates.',
                   queryHint:
                       'SELECT * FROM `project.dataset.table` LIMIT 100',
                 ),
@@ -226,23 +244,46 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
           color: AppColors.warning.withValues(alpha: 0.1),
         ),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.info_outline_rounded,
-              size: 12,
-              color: AppColors.textMuted.withValues(alpha: 0.7)),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              'BigQuery Standard SQL  |  Ctrl+Enter to run  |  '
-              'Tables: OTel spans, logs, metrics',
-              style: GoogleFonts.jetBrainsMono(
-                fontSize: 9,
-                color: AppColors.textMuted.withValues(alpha: 0.8),
+          Row(
+            children: [
+              Icon(Icons.keyboard_rounded,
+                  size: 11,
+                  color: AppColors.textMuted.withValues(alpha: 0.6)),
+              const SizedBox(width: 5),
+              Text(
+                'Tab to autocomplete  |  '
+                'Lightbulb for templates  |  '
+                'NL toggle for natural language',
+                style: TextStyle(
+                  fontSize: 9,
+                  color: AppColors.textMuted.withValues(alpha: 0.7),
+                ),
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Icon(Icons.info_outline_rounded,
+                  size: 11,
+                  color: AppColors.textMuted.withValues(alpha: 0.6)),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  'BigQuery Standard SQL  |  Ctrl+Enter to run  |  '
+                  'Tables: OTel spans, logs, metrics',
+                  style: GoogleFonts.jetBrainsMono(
+                    fontSize: 9,
+                    color: AppColors.textMuted.withValues(alpha: 0.8),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
         ],
       ),

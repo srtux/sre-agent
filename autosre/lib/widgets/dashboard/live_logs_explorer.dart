@@ -13,11 +13,13 @@ import '../common/explorer_empty_state.dart';
 import '../common/shimmer_loading.dart';
 import 'manual_query_bar.dart';
 import 'query_language_badge.dart';
+import 'query_helpers.dart';
 
 /// Dashboard panel for exploring all collected log data.
 ///
 /// Provides a mini logs explorer with:
-/// - Cloud Logging query language support with syntax reference
+/// - Cloud Logging query language support with autocomplete & templates
+/// - Natural language mode for plain-English queries
 /// - Severity filter chips with counts
 /// - Search across all collected log entries
 /// - Expandable JSON payload viewer
@@ -142,6 +144,23 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
                 initialValue: widget.dashboardState
                     .getLastQueryFilter(DashboardDataType.logs),
                 isLoading: isLoading,
+                snippets: loggingSnippets,
+                templates: loggingTemplates,
+                enableNaturalLanguage: true,
+                naturalLanguageHint:
+                    'Show me all errors from the payment service...',
+                naturalLanguageExamples: loggingNaturalLanguageExamples,
+                onSubmitWithMode: (query, isNl) {
+                  widget.dashboardState
+                      .setLastQueryFilter(DashboardDataType.logs, query);
+                  final explorer = context.read<ExplorerQueryService>();
+                  if (isNl) {
+                    explorer.queryNaturalLanguage(
+                        query: query, domain: 'logs');
+                  } else {
+                    explorer.queryLogs(filter: query);
+                  }
+                },
                 onSubmit: (filter) {
                   widget.dashboardState
                       .setLastQueryFilter(DashboardDataType.logs, filter);
@@ -152,6 +171,8 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
             ],
           ),
         ),
+        // Inline autocomplete hint
+        _buildInlineHint(),
         // Syntax reference panel
         if (_showSyntaxHelp) _buildSyntaxReference(),
         if (error != null) ErrorBanner(message: error),
@@ -164,19 +185,53 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
               icon: Icons.article_outlined,
               title: 'Logs Explorer',
               description:
-                  'Query Cloud Logging entries using the Cloud Logging\nquery language. Supports boolean operators, comparisons,\nand resource/label filters.',
+                  'Query Cloud Logging entries using the query language,\n'
+                  'or switch to natural language mode.\n'
+                  'Try the lightbulb button for pre-built templates.',
               queryHint: 'severity>=ERROR AND resource.type="gce_instance"',
             ),
           )
         else ...[
-          // Search and filters
           _buildFilterBar(),
-          // Pattern summary (if any)
           if (hasPatterns) _buildPatternSummary(),
-          // Log entries list
           Expanded(child: _buildLogList()),
         ],
       ],
+    );
+  }
+
+  Widget _buildInlineHint() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: AppColors.success.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: AppColors.success.withValues(alpha: 0.1),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.keyboard_rounded,
+              size: 11,
+              color: AppColors.textMuted.withValues(alpha: 0.6)),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              'Tab to autocomplete  |  '
+              'Click lightbulb for templates  |  '
+              'Toggle NL for natural language',
+              style: TextStyle(
+                fontSize: 9,
+                color: AppColors.textMuted.withValues(alpha: 0.7),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -281,7 +336,6 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
       ),
       child: Column(
         children: [
-          // Search
           SizedBox(
             height: 34,
             child: TextField(
@@ -304,7 +358,6 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
             ),
           ),
           const SizedBox(height: 8),
-          // Severity chips
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -355,7 +408,6 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
     }
     if (patterns.isEmpty) return const SizedBox.shrink();
 
-    // Show top 3 patterns
     patterns.sort((a, b) => b.count.compareTo(a.count));
     final top = patterns.take(3).toList();
 
@@ -468,7 +520,6 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Severity badge
                       Container(
                         width: 50,
                         padding: const EdgeInsets.symmetric(
@@ -490,7 +541,6 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
                         ),
                       ),
                       const SizedBox(width: 6),
-                      // Timestamp
                       SizedBox(
                         width: 70,
                         child: Text(
@@ -501,7 +551,6 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
                           ),
                         ),
                       ),
-                      // Payload preview
                       Expanded(
                         child: RichText(
                           text: AnsiParser.parse(
@@ -519,7 +568,6 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
                       ),
                     ],
                   ),
-                  // Expanded payload
                   if (isExpanded && entry.isJsonPayload)
                     Container(
                       margin: const EdgeInsets.only(top: 6, left: 56),

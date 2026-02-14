@@ -17,16 +17,14 @@ import 'manual_query_bar.dart';
 import 'dashboard_card_wrapper.dart';
 import 'query_language_badge.dart';
 import 'query_language_toggle.dart';
+import 'query_helpers.dart';
 
 /// Dashboard panel displaying all collected metric data.
 ///
-/// Shows metrics in a responsive grid of charts, each rendered
-/// with the SyncfusionMetricChart widget. Dashboard-type metrics
-/// use the MetricsDashboardCanvas.
-///
-/// Supports two query languages with a toggle:
-/// - **ListTimeSeries** (MQL filter): Standard Cloud Monitoring filter syntax
+/// Supports two query languages with a toggle plus natural language:
+/// - **MQL Filter** (ListTimeSeries): Standard Cloud Monitoring filter syntax
 /// - **PromQL**: Prometheus Query Language for metric queries
+/// - **Natural Language**: Describe the metric you want to find
 class LiveMetricsPanel extends StatelessWidget {
   final List<DashboardItem> items;
   final DashboardState dashboardState;
@@ -44,14 +42,12 @@ class LiveMetricsPanel extends StatelessWidget {
   ];
 
   static const _syntaxExamples = [
-    // MQL / ListTimeSeries filter examples
     [
       ('metric.type="..."', 'Required metric type filter'),
       ('metric.labels.key="value"', 'Filter by metric label'),
       ('resource.type="gce_instance"', 'Filter by resource type'),
       ('resource.labels.zone="us-c1-a"', 'Filter by resource label'),
     ],
-    // PromQL examples
     [
       ('metric_name{label="val"}', 'Instant vector selector'),
       ('rate(metric[5m])', 'Per-second rate over 5 min'),
@@ -77,7 +73,6 @@ class LiveMetricsPanel extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
               child: Column(
                 children: [
-                  // Language badge + toggle row
                   Row(
                     children: [
                       QueryLanguageBadge(
@@ -97,7 +92,6 @@ class LiveMetricsPanel extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 6),
-                  // Query bar
                   ManualQueryBar(
                     hintText: _hints[langIndex],
                     languageLabel: langIndex == 0 ? 'MQL' : 'PromQL',
@@ -105,6 +99,27 @@ class LiveMetricsPanel extends StatelessWidget {
                     initialValue: dashboardState
                         .getLastQueryFilter(DashboardDataType.metrics),
                     isLoading: isLoading,
+                    snippets:
+                        langIndex == 0 ? mqlSnippets : promqlSnippets,
+                    templates:
+                        langIndex == 0 ? metricsTemplates : promqlTemplates,
+                    enableNaturalLanguage: true,
+                    naturalLanguageHint:
+                        'What is the CPU utilization across all instances?',
+                    naturalLanguageExamples: metricsNaturalLanguageExamples,
+                    onSubmitWithMode: (query, isNl) {
+                      dashboardState.setLastQueryFilter(
+                          DashboardDataType.metrics, query);
+                      final explorer = context.read<ExplorerQueryService>();
+                      if (isNl) {
+                        explorer.queryNaturalLanguage(
+                            query: query, domain: 'metrics');
+                      } else if (langIndex == 0) {
+                        explorer.queryMetrics(filter: query);
+                      } else {
+                        explorer.queryMetricsPromQL(query: query);
+                      }
+                    },
                     onSubmit: (filter) {
                       dashboardState.setLastQueryFilter(
                           DashboardDataType.metrics, filter);
@@ -119,10 +134,9 @@ class LiveMetricsPanel extends StatelessWidget {
                 ],
               ),
             ),
-            // Syntax reference
+            // Syntax reference + inline help
             _buildSyntaxHelp(langIndex),
             if (error != null) ErrorBanner(message: error),
-            // Content
             Expanded(
               child: isLoading && items.isEmpty
                   ? const ShimmerLoading(showChart: true)
@@ -131,8 +145,12 @@ class LiveMetricsPanel extends StatelessWidget {
                           icon: Icons.show_chart_rounded,
                           title: 'No Metrics Yet',
                           description: langIndex == 0
-                              ? 'Query Cloud Monitoring metrics using ListTimeSeries\nfilter syntax, or wait for the agent to collect data.'
-                              : 'Query Cloud Monitoring metrics using PromQL\nexpressions, or wait for the agent to collect data.',
+                              ? 'Query metrics using ListTimeSeries filter syntax,\n'
+                                  'or switch to natural language mode.\n'
+                                  'Try the lightbulb for common metric templates.'
+                              : 'Query metrics using PromQL expressions,\n'
+                                  'or switch to natural language mode.\n'
+                                  'Try the lightbulb for common PromQL templates.',
                           queryHint: _hints[langIndex],
                         )
                       : _buildMetricsList(context),
@@ -158,6 +176,26 @@ class LiveMetricsPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Inline help hint
+          Row(
+            children: [
+              Icon(Icons.keyboard_rounded,
+                  size: 11,
+                  color: AppColors.textMuted.withValues(alpha: 0.6)),
+              const SizedBox(width: 5),
+              Text(
+                'Tab to autocomplete  |  '
+                'Lightbulb for templates  |  '
+                'NL toggle for natural language',
+                style: TextStyle(
+                  fontSize: 9,
+                  color: AppColors.textMuted.withValues(alpha: 0.7),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          // Syntax examples
           ...examples.map((e) => Padding(
                 padding: const EdgeInsets.only(bottom: 2),
                 child: Row(
@@ -199,17 +237,12 @@ class LiveMetricsPanel extends StatelessWidget {
           itemCount: items.length,
           itemBuilder: (context, index) {
             final item = items[index];
-
-            // Metrics dashboard canvas
             if (item.metricsDashboard != null) {
               return _buildDashboardCard(item, isWide);
             }
-
-            // Single metric series chart
             if (item.metricSeries != null) {
               return _buildMetricCard(item, isWide);
             }
-
             return const SizedBox.shrink();
           },
         );
@@ -244,10 +277,7 @@ class LiveMetricsPanel extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             '${series.points.length} pts',
-            style: const TextStyle(
-              fontSize: 10,
-              color: AppColors.textMuted,
-            ),
+            style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
           ),
         ],
       ),
@@ -282,10 +312,7 @@ class LiveMetricsPanel extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             item.toolName,
-            style: const TextStyle(
-              fontSize: 10,
-              color: AppColors.textMuted,
-            ),
+            style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
           ),
         ],
       ),

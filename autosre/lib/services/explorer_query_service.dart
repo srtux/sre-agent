@@ -252,6 +252,90 @@ class ExplorerQueryService {
     }
   }
 
+  /// Submit a natural language query, letting the backend translate it
+  /// into the appropriate structured query language.
+  ///
+  /// [domain] identifies which dashboard panel the query targets
+  /// (e.g. "traces", "logs", "metrics", "bigquery").
+  Future<void> queryNaturalLanguage({
+    required String query,
+    required String domain,
+    String? projectId,
+    TimeRange? timeRange,
+  }) async {
+    final range = timeRange ?? _dashboardState.timeRange;
+    final dataType = _domainToType(domain);
+    _dashboardState.setLoading(dataType, true);
+    try {
+      final body = jsonEncode({
+        'query': query,
+        'domain': domain,
+        'natural_language': true,
+        'project_id': projectId,
+        'minutes_ago': range.minutesAgo,
+      });
+      final response = await _post('/api/tools/nl/query', body);
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+      // The backend returns the same shape as the domain-specific endpoint.
+      switch (domain) {
+        case 'traces':
+          final trace = Trace.fromJson(data);
+          if (trace.spans.isNotEmpty) {
+            _dashboardState.addTrace(
+              trace, 'natural_language_query', data,
+              source: DataSource.manual,
+            );
+          }
+        case 'logs':
+          final logData = LogEntriesData.fromJson(data);
+          _dashboardState.addLogEntries(
+            logData, 'natural_language_query', data,
+            source: DataSource.manual,
+          );
+        case 'metrics':
+          final series = MetricSeries.fromJson(data);
+          _dashboardState.addMetricSeries(
+            series, 'natural_language_query', data,
+            source: DataSource.manual,
+          );
+        case 'bigquery':
+          final columns = (data['columns'] as List?)
+                  ?.map((c) => c.toString())
+                  .toList() ??
+              [];
+          final rows = (data['rows'] as List?)
+                  ?.map((r) => Map<String, dynamic>.from(r as Map))
+                  .toList() ??
+              [];
+          _dashboardState.setBigQueryResults(columns, rows);
+      }
+
+      _dashboardState.openDashboard();
+      _dashboardState.setActiveTab(dataType);
+    } catch (e) {
+      _dashboardState.setError(dataType, e.toString());
+      debugPrint('ExplorerQueryService.queryNaturalLanguage error: $e');
+    } finally {
+      _dashboardState.setLoading(dataType, false);
+    }
+  }
+
+  static DashboardDataType _domainToType(String domain) {
+    switch (domain) {
+      case 'traces':
+        return DashboardDataType.traces;
+      case 'logs':
+        return DashboardDataType.logs;
+      case 'metrics':
+        return DashboardDataType.metrics;
+      case 'bigquery':
+        return DashboardDataType.charts;
+      default:
+        return DashboardDataType.charts;
+    }
+  }
+
   /// Query alerts/incidents.
   Future<void> queryAlerts({
     String? filter,
