@@ -14,11 +14,27 @@ import asyncio
 import contextvars
 import logging
 import os
+import sys
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from typing import Any, cast
 
 import httpx
+
+# Compatibility for ExceptionGroup/BaseExceptionGroup in Python < 3.11
+if sys.version_info >= (3, 11):
+    _BaseExceptionGroup = BaseExceptionGroup  # type: ignore # noqa: F821
+    _ExceptionGroup = ExceptionGroup  # type: ignore # noqa: F821
+else:
+    try:
+        from anyio import (  # type: ignore
+            BaseExceptionGroup as _BaseExceptionGroup,
+        )
+        from anyio import ExceptionGroup as _ExceptionGroup  # type: ignore
+    except ImportError:
+        # Fallback if anyio not available (though it usually is in this project)
+        _BaseExceptionGroup = Exception
+        _ExceptionGroup = Exception
 from google.adk.tools import ToolContext  # type: ignore[attr-defined]
 from google.adk.tools.api_registry import ApiRegistry
 
@@ -434,7 +450,7 @@ async def call_mcp_tool_with_retry(
 
             try:
                 tools = await mcp_toolset.get_tools()
-            except BaseExceptionGroup as eg:  # type: ignore  # noqa: F821
+            except _BaseExceptionGroup as eg:
                 for sub_err in eg.exceptions:
                     if isinstance(
                         sub_err, httpx.HTTPStatusError
@@ -455,9 +471,9 @@ async def call_mcp_tool_with_retry(
                                 tool.run_async(args=args, tool_context=tool_context),
                                 timeout=180.0,  # 180s timeout for tool execution
                             )
-                        except BaseExceptionGroup as eg:  # type: ignore  # noqa: F821
+                        except _BaseExceptionGroup as eg:
                             # streamable_http_client throws an ExceptionGroup if the network request fails due to 401
-                            actual_error = eg
+                            actual_error: Exception = eg
                             for sub_err in eg.exceptions:
                                 if isinstance(
                                     sub_err, httpx.HTTPStatusError
@@ -516,7 +532,7 @@ async def call_mcp_tool_with_retry(
         except (httpx.HTTPStatusError, Exception) as e:
             # Unwrap ExceptionGroup from AnyIO TaskGroup (e.g., from streamable_http_client)
             actual_error = e
-            if isinstance(e, BaseExceptionGroup):  # type: ignore  # noqa: F821
+            if isinstance(e, _BaseExceptionGroup):
                 for sub_err in e.exceptions:
                     if isinstance(
                         sub_err, httpx.HTTPStatusError

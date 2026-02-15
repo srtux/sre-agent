@@ -35,6 +35,16 @@ def find_lock_in_obj(obj, path="root", seen=None):
     return results
 
 
+@pytest.fixture(autouse=True)
+def setup_vertex_project(monkeypatch):
+    """Ensure vertexai is initialized for tests."""
+    import vertexai
+
+    vertexai.init(project="test-project", location="us-central1")
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "test-project")
+    monkeypatch.setenv("GCP_PROJECT_ID", "test-project")
+
+
 def test_agent_is_deepcopyable():
     """Verify that the root_agent can be deepcopied.
 
