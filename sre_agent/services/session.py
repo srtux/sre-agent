@@ -225,41 +225,77 @@ class ADKSessionManager:
             List of SessionInfo objects
         """
         try:
-            sessions = await self._session_service.list_sessions(
+            sessions_resp = await self._session_service.list_sessions(
                 app_name=self.app_name,
                 user_id=user_id,
             )
 
+            # Handle different return formats (paginated object vs. direct list)
+            if hasattr(sessions_resp, "sessions"):
+                sessions_list = sessions_resp.sessions
+            elif isinstance(sessions_resp, list):
+                sessions_list = sessions_resp
+            else:
+                logger.warning(
+                    f"Unexpected return type from list_sessions: {type(sessions_resp)}"
+                )
+                sessions_list = []
+
             result = []
-            for session in sessions.sessions:
-                # Extract info from session
-                state = session.state or {}
-                events = session.events or []
+            for session in sessions_list:
+                # Extract info from session (handle both object and dict)
+                state = getattr(session, "state", {}) or (
+                    session.get("state", {}) if isinstance(session, dict) else {}
+                )
+                events = getattr(session, "events", []) or (
+                    session.get("events", []) if isinstance(session, dict) else []
+                )
 
                 # Get preview from first user message
                 preview = None
                 message_count = 0
                 for event in events:
-                    if event.content and event.content.parts:
-                        for part in event.content.parts:
-                            if hasattr(part, "text") and part.text:
-                                if event.author == "user":
-                                    if not preview:
-                                        preview = (
-                                            part.text[:100] + "..."
-                                            if len(part.text) > 100
-                                            else part.text
-                                        )
-                                message_count += 1
+                    # Handle event as either object or dictionary
+                    author = getattr(event, "author", None) or (
+                        event.get("author") if isinstance(event, dict) else None
+                    )
+                    content = getattr(event, "content", None) or (
+                        event.get("content") if isinstance(event, dict) else None
+                    )
+
+                    if content:
+                        parts = getattr(content, "parts", None) or (
+                            content.get("parts") if isinstance(content, dict) else None
+                        )
+                        if parts:
+                            for part in parts:
+                                text = getattr(part, "text", None) or (
+                                    part.get("text") if isinstance(part, dict) else None
+                                )
+                                if text:
+                                    if author == "user":
+                                        if not preview:
+                                            preview = (
+                                                text[:100] + "..."
+                                                if len(text) > 100
+                                                else text
+                                            )
+                                    message_count += 1
 
                 info = SessionInfo(
-                    id=session.id,
+                    id=getattr(session, "id", "")
+                    or (session.get("id", "") if isinstance(session, dict) else ""),
                     user_id=user_id,
                     app_name=self.app_name,
                     title=state.get("title"),
                     project_id=state.get("project_id"),
                     created_at=state.get("created_at"),
-                    updated_at=session.last_update_time,
+                    updated_at=getattr(session, "last_update_time", None)
+                    or (
+                        session.get("last_update_time")
+                        if isinstance(session, dict)
+                        else None
+                    ),
                     message_count=message_count,
                     preview=preview,
                 )

@@ -84,19 +84,38 @@ async def get_session(session_id: str, user_id: str = "default") -> Any:
             raise HTTPException(status_code=404, detail="Session not found")
 
         # Convert ADK session to response format
-        events = session.events or []
+        events = getattr(session, "events", []) or []
         messages = []
         for event in events:
-            if event.content and event.content.parts:
-                for part in event.content.parts:
-                    if hasattr(part, "text") and part.text:
-                        messages.append(
-                            {
-                                "role": event.author,
-                                "content": part.text,
-                                "timestamp": event.timestamp,
-                            }
+            # Handle event as either object or dictionary
+            author = getattr(event, "author", None) or (
+                event.get("author") if isinstance(event, dict) else None
+            )
+            content = getattr(event, "content", None) or (
+                event.get("content") if isinstance(event, dict) else None
+            )
+            timestamp = getattr(event, "timestamp", None) or (
+                event.get("timestamp") if isinstance(event, dict) else None
+            )
+
+            if content:
+                # Content may have parts as attribute or dictionary key
+                parts = getattr(content, "parts", None) or (
+                    content.get("parts") if isinstance(content, dict) else None
+                )
+                if parts:
+                    for part in parts:
+                        text = getattr(part, "text", None) or (
+                            part.get("text") if isinstance(part, dict) else None
                         )
+                        if text:
+                            messages.append(
+                                {
+                                    "role": author,
+                                    "content": text,
+                                    "timestamp": timestamp,
+                                }
+                            )
 
         return {
             "id": session.id,
@@ -166,19 +185,38 @@ async def get_session_history(session_id: str, user_id: str = "default") -> Any:
             raise HTTPException(status_code=404, detail="Session not found")
 
         # Extract messages from ADK events
-        events = session.events or []
+        events = getattr(session, "events", []) or []
         messages = []
         for event in events:
-            if event.content and event.content.parts:
-                for part in event.content.parts:
-                    if hasattr(part, "text") and part.text:
-                        messages.append(
-                            {
-                                "role": event.author,
-                                "content": part.text,
-                                "timestamp": event.timestamp,
-                            }
+            # Handle event as either object or dictionary
+            author = getattr(event, "author", None) or (
+                event.get("author") if isinstance(event, dict) else None
+            )
+            content = getattr(event, "content", None) or (
+                event.get("content") if isinstance(event, dict) else None
+            )
+            timestamp = getattr(event, "timestamp", None) or (
+                event.get("timestamp") if isinstance(event, dict) else None
+            )
+
+            if content:
+                # Content may have parts as attribute or dictionary key
+                parts = getattr(content, "parts", None) or (
+                    content.get("parts") if isinstance(content, dict) else None
+                )
+                if parts:
+                    for part in parts:
+                        text = getattr(part, "text", None) or (
+                            part.get("text") if isinstance(part, dict) else None
                         )
+                        if text:
+                            messages.append(
+                                {
+                                    "role": author,
+                                    "content": text,
+                                    "timestamp": timestamp,
+                                }
+                            )
 
         return {"session_id": session_id, "messages": messages}
     except HTTPException:
