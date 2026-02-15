@@ -94,20 +94,16 @@ class TestToolOrchestrationErrors:
     async def test_toolset_creation_timeout_is_non_retryable(self, mock_tool_context):
         """Test that toolset creation timeout returns non-retryable error."""
 
-        async def slow_create(project_id):
-            await asyncio.sleep(100)  # Will be cancelled by timeout
+        def timeout_create(project_id):
+            raise asyncio.TimeoutError("Connection timed out")
 
-        with patch(
-            "fastapi.concurrency.run_in_threadpool",
-            side_effect=asyncio.TimeoutError(),
-        ):
-            result = await call_mcp_tool_with_retry(
-                lambda pid: None,  # Won't be called
-                "test_tool",
-                {},
-                mock_tool_context,
-                project_id="test-project",
-            )
+        result = await call_mcp_tool_with_retry(
+            timeout_create,
+            "test_tool",
+            {},
+            mock_tool_context,
+            project_id="test-project",
+        )
 
         assert result["status"] == ToolStatus.ERROR
         assert result["non_retryable"] is True

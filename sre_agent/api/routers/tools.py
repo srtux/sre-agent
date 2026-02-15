@@ -67,6 +67,14 @@ class LogAnalyzeRequest(BaseModel):
     project_id: str | None = None
 
 
+class TracesQueryRequest(BaseModel):
+    """Request model for traces query endpoint."""
+
+    filter: str | None = None
+    project_id: str | None = None
+    minutes_ago: int | None = 60
+
+
 class MetricsQueryRequest(BaseModel):
     """Request model for metrics query endpoint."""
 
@@ -145,6 +153,51 @@ async def get_trace(trace_id: str, project_id: str | None = None) -> Any:
         raise
     except Exception as e:
         logger.exception("Error fetching trace %s", trace_id)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.post("/traces/query")
+async def query_traces_endpoint(payload: TracesQueryRequest) -> Any:
+    """Query traces by filter."""
+    import asyncio
+
+    try:
+        # First get a list of traces matching the filter
+        result_list = await list_traces(
+            project_id=payload.project_id,
+            limit=5,  # Limit to avoid fetching too many full traces at once
+            filter_str=payload.filter or "",
+        )
+
+        traces_summary = _unwrap_tool_result(result_list)
+        if not traces_summary:
+            return []
+
+        tasks = []
+        for summary in traces_summary:
+            if isinstance(summary, dict) and "trace_id" in summary:
+                tasks.append(
+                    fetch_trace(
+                        trace_id=summary["trace_id"], project_id=payload.project_id
+                    )
+                )
+
+        full_traces_responses = await asyncio.gather(*tasks)
+
+        full_traces = []
+        for r in full_traces_responses:
+            try:
+                raw_trace = _unwrap_tool_result(r)
+                if isinstance(raw_trace, dict) and "error" not in raw_trace:
+                    full_traces.append(genui_adapter.transform_trace(raw_trace))
+            except Exception as e:
+                logger.warning("Error fetching full trace details: %s", e)
+
+        return full_traces
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error querying traces")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 

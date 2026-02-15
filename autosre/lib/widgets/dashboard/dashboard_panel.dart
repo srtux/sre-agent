@@ -276,16 +276,19 @@ class _DashboardPanelState extends State<DashboardPanel>
             return LiveTracePanel(
               items: items,
               dashboardState: widget.state,
+              onPromptRequest: widget.onPromptRequest,
             );
           case DashboardDataType.logs:
             return LiveLogsExplorer(
               items: items,
               dashboardState: widget.state,
+              onPromptRequest: widget.onPromptRequest,
             );
           case DashboardDataType.metrics:
             return LiveMetricsPanel(
               items: items,
               dashboardState: widget.state,
+              onPromptRequest: widget.onPromptRequest,
             );
           case DashboardDataType.alerts:
             return LiveAlertsPanel(
@@ -307,6 +310,7 @@ class _DashboardPanelState extends State<DashboardPanel>
             return LiveChartsPanel(
               items: items,
               dashboardState: widget.state,
+              onPromptRequest: widget.onPromptRequest,
             );
         }
       },

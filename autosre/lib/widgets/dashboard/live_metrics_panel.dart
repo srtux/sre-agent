@@ -28,10 +28,12 @@ import 'query_helpers.dart';
 class LiveMetricsPanel extends StatelessWidget {
   final List<DashboardItem> items;
   final DashboardState dashboardState;
+  final Function(String)? onPromptRequest;
   const LiveMetricsPanel({
     super.key,
     required this.items,
     required this.dashboardState,
+    this.onPromptRequest,
   });
 
   static const _languages = ['MQL Filter', 'PromQL'];
@@ -112,8 +114,9 @@ class LiveMetricsPanel extends StatelessWidget {
                           DashboardDataType.metrics, query);
                       final explorer = context.read<ExplorerQueryService>();
                       if (isNl) {
-                        explorer.queryNaturalLanguage(
-                            query: query, domain: 'metrics');
+                        if (onPromptRequest != null) {
+                          onPromptRequest!(query);
+                        }
                       } else if (langIndex == 0) {
                         explorer.queryMetrics(filter: query);
                       } else {

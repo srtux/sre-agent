@@ -27,10 +27,12 @@ import 'query_helpers.dart';
 class LiveLogsExplorer extends StatefulWidget {
   final List<DashboardItem> items;
   final DashboardState dashboardState;
+  final Function(String)? onPromptRequest;
   const LiveLogsExplorer({
     super.key,
     required this.items,
     required this.dashboardState,
+    this.onPromptRequest,
   });
 
   @override
@@ -155,8 +157,9 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
                       .setLastQueryFilter(DashboardDataType.logs, query);
                   final explorer = context.read<ExplorerQueryService>();
                   if (isNl) {
-                    explorer.queryNaturalLanguage(
-                        query: query, domain: 'logs');
+                    if (widget.onPromptRequest != null) {
+                      widget.onPromptRequest!(query);
+                    }
                   } else {
                     explorer.queryLogs(filter: query);
                   }

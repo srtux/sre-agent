@@ -31,10 +31,12 @@ import 'query_helpers.dart';
 class LiveTracePanel extends StatefulWidget {
   final List<DashboardItem> items;
   final DashboardState dashboardState;
+  final Function(String)? onPromptRequest;
   const LiveTracePanel({
     super.key,
     required this.items,
     required this.dashboardState,
+    this.onPromptRequest,
   });
 
   @override
@@ -93,8 +95,9 @@ class _LiveTracePanelState extends State<LiveTracePanel> {
                         .setLastQueryFilter(DashboardDataType.traces, query);
                     final explorer = context.read<ExplorerQueryService>();
                     if (isNl) {
-                      explorer.queryNaturalLanguage(
-                          query: query, domain: 'traces');
+                      if (widget.onPromptRequest != null) {
+                        widget.onPromptRequest!(query);
+                      }
                     } else {
                       explorer.queryTraceFilter(filter: query);
                     }

@@ -30,10 +30,12 @@ import 'bigquery_sidebar.dart';
 class LiveChartsPanel extends StatefulWidget {
   final List<DashboardItem> items;
   final DashboardState dashboardState;
+  final Function(String)? onPromptRequest;
   const LiveChartsPanel({
     super.key,
     required this.items,
     required this.dashboardState,
+    this.onPromptRequest,
   });
 
   @override
@@ -216,8 +218,9 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
                       .setLastQueryFilter(DashboardDataType.charts, query);
                   final explorer = context.read<ExplorerQueryService>();
                   if (isNl) {
-                    explorer.queryNaturalLanguage(
-                        query: query, domain: 'bigquery');
+                    if (widget.onPromptRequest != null) {
+                      widget.onPromptRequest!(query);
+                    }
                   } else {
                     explorer.queryBigQuery(sql: query);
                   }

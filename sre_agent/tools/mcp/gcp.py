@@ -355,8 +355,6 @@ async def call_mcp_tool_with_retry(
     Returns:
         Tool result or error dict.
     """
-    from fastapi.concurrency import run_in_threadpool
-
     # Set tool context for header provider to access session state
     # This enables EIC (End User Identity Credential) propagation in Agent Engine
     set_mcp_tool_context(tool_context)
@@ -385,13 +383,10 @@ async def call_mcp_tool_with_retry(
             logger.debug(
                 f"DEBUG: Calling create_toolset_fn for {tool_name} (project_id={project_id})"
             )
-            # Offload blocking synchronous toolset creation to threadpool
-            # Wrap in timeout to prevent hanging during initialization
+            # Create toolset directly in the current event loop. It only does HTTP
+            # calls or builds objects, so it doesn't need to be offloaded.
             try:
-                mcp_toolset = await asyncio.wait_for(
-                    run_in_threadpool(create_toolset_fn, project_id),
-                    timeout=60.0,  # 60s timeout for toolset creation
-                )
+                mcp_toolset = create_toolset_fn(project_id)
             except ValueError as e:
                 # Catch "MCP server ... not found" error from api_registry.get_toolset
                 logger.error(f"MCP server configuration error for {tool_name}: {e}")
@@ -437,7 +432,16 @@ async def call_mcp_tool_with_retry(
                     "error_type": "MCP_UNAVAILABLE",
                 }
 
-            tools = await mcp_toolset.get_tools()
+            try:
+                tools = await mcp_toolset.get_tools()
+            except BaseExceptionGroup as eg:  # type: ignore  # noqa: F821
+                for sub_err in eg.exceptions:
+                    if isinstance(
+                        sub_err, httpx.HTTPStatusError
+                    ) or "Session terminated" in str(sub_err):
+                        actual_error = sub_err
+                        break
+                raise actual_error from eg
 
             for tool in tools:
                 if tool.name == tool_name:
@@ -446,10 +450,21 @@ async def call_mcp_tool_with_retry(
                         logger.info(
                             f"🔗 MCP Call: '{tool_name}' (Project: {project_id}) | Args: {args}"
                         )
-                        result = await asyncio.wait_for(
-                            tool.run_async(args=args, tool_context=tool_context),
-                            timeout=180.0,  # 180s timeout for tool execution
-                        )
+                        try:
+                            result = await asyncio.wait_for(
+                                tool.run_async(args=args, tool_context=tool_context),
+                                timeout=180.0,  # 180s timeout for tool execution
+                            )
+                        except BaseExceptionGroup as eg:  # type: ignore  # noqa: F821
+                            # streamable_http_client throws an ExceptionGroup if the network request fails due to 401
+                            actual_error = eg
+                            for sub_err in eg.exceptions:
+                                if isinstance(
+                                    sub_err, httpx.HTTPStatusError
+                                ) or "Session terminated" in str(sub_err):
+                                    actual_error = sub_err
+                                    break
+                            raise actual_error from eg
                         logger.info(f"✨ MCP Success: '{tool_name}'")
                         clear_mcp_tool_context()
                         return {
@@ -499,13 +514,26 @@ async def call_mcp_tool_with_retry(
             }
 
         except (httpx.HTTPStatusError, Exception) as e:
-            logger.error(
-                f"MCP Tool execution failed: {tool_name} error={e!s}", exc_info=True
-            )
-            if hasattr(e, "response") and hasattr(e.response, "text"):
-                logger.error(f"HTTP Response Body: {e.response.text}")
+            # Unwrap ExceptionGroup from AnyIO TaskGroup (e.g., from streamable_http_client)
+            actual_error = e
+            if isinstance(e, BaseExceptionGroup):  # type: ignore  # noqa: F821
+                for sub_err in e.exceptions:
+                    if isinstance(
+                        sub_err, httpx.HTTPStatusError
+                    ) or "Session terminated" in str(sub_err):
+                        actual_error = sub_err
+                        break
 
-            error_str = str(e)
+            logger.error(
+                f"MCP Tool execution failed: {tool_name} error={actual_error!s}",
+                exc_info=True,
+            )
+            if hasattr(actual_error, "response") and hasattr(
+                actual_error.response, "text"
+            ):
+                logger.error(f"HTTP Response Body: {actual_error.response.text}")
+
+            error_str = str(actual_error)
             is_session_error = "Session terminated" in error_str or (
                 "session" in error_str.lower() and "error" in error_str.lower()
             )
