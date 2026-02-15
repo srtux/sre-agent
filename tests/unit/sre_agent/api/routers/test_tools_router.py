@@ -35,6 +35,9 @@ def mock_tools():
         patch(
             "sre_agent.api.routers.tools.list_alerts", new_callable=AsyncMock
         ) as l_alerts,
+        patch(
+            "sre_agent.api.routers.tools.list_traces", new_callable=AsyncMock
+        ) as l_traces,
     ):
         # Return BaseToolResponse objects matching real @adk_tool behavior
         f_trace.return_value = BaseToolResponse(
@@ -98,6 +101,25 @@ def mock_tools():
             status=ToolStatus.SUCCESS,
             result=[],
         )
+        l_traces.return_value = BaseToolResponse(
+            status=ToolStatus.SUCCESS,
+            result={
+                "traces": [
+                    {
+                        "trace_id": "trace-123",
+                        "spans": [
+                            {
+                                "span_id": "s1",
+                                "name": "/api/v1/test",
+                                "start_time": "2024-01-01T00:00:00Z",
+                                "end_time": "2024-01-01T00:00:01Z",
+                                "attributes": {},
+                            }
+                        ],
+                    }
+                ],
+            },
+        )
 
         yield {
             "fetch_trace": f_trace,
@@ -107,6 +129,7 @@ def mock_tools():
             "list_time_series": l_metrics,
             "query_promql": q_promql,
             "list_alerts": l_alerts,
+            "list_traces": l_traces,
         }
 
 
@@ -400,3 +423,132 @@ async def test_get_bigquery_table_schema(mock_bigquery_client) -> None:
     assert len(data["schema"]) == 2
     assert data["schema"][0]["name"] == "col1"
     mock_bigquery_client.get_table_schema.assert_awaited_once_with("d1", "t1")
+
+
+# =============================================================================
+# TRACES QUERY ENDPOINT TESTS
+# =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_query_traces_endpoint(mock_tools) -> None:
+    """Test querying traces by Cloud Trace filter."""
+    payload = {"filter": "RootSpan:/api/v1", "minutes_ago": 30, "project_id": "p1"}
+    response = client.post("/api/tools/traces/query", json=payload)
+    assert response.status_code == 200
+    mock_tools["list_traces"].assert_awaited_once()
+    # Verify the call included filter and time params
+    call_kwargs = mock_tools["list_traces"].call_args.kwargs
+    assert call_kwargs["filter_str"] == "RootSpan:/api/v1"
+    assert call_kwargs["project_id"] == "p1"
+    assert call_kwargs["limit"] == 10
+
+
+@pytest.mark.asyncio
+async def test_query_traces_endpoint_error_returns_502(mock_tools) -> None:
+    """When list_traces returns an error, the endpoint returns 502."""
+    mock_tools["list_traces"].return_value = BaseToolResponse(
+        status=ToolStatus.ERROR,
+        error="Permission denied",
+        result={},
+    )
+    payload = {"filter": "test"}
+    response = client.post("/api/tools/traces/query", json=payload)
+    assert response.status_code == 502
+    assert "Permission denied" in response.json()["detail"]
+
+
+# =============================================================================
+# ALERTS WITH MINUTES_AGO
+# =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_query_alerts_passes_minutes_ago(mock_tools) -> None:
+    """Verify alerts endpoint forwards minutes_ago to list_alerts."""
+    payload = {"filter": "state=open", "minutes_ago": 120, "project_id": "p1"}
+    response = client.post("/api/tools/alerts/query", json=payload)
+    assert response.status_code == 200
+    call_kwargs = mock_tools["list_alerts"].call_args.kwargs
+    assert call_kwargs["minutes_ago"] == 120
+
+
+# =============================================================================
+# LOGS WITH LIMIT
+# =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_query_logs_passes_limit(mock_tools) -> None:
+    """Verify logs endpoint forwards limit to list_log_entries."""
+    payload = {"filter": "severity>=WARNING", "limit": 25, "project_id": "p1"}
+    response = client.post("/api/tools/logs/query", json=payload)
+    assert response.status_code == 200
+    call_kwargs = mock_tools["list_log_entries"].call_args.kwargs
+    assert call_kwargs["limit"] == 25
+
+
+# =============================================================================
+# NATURAL LANGUAGE QUERY ENDPOINT TESTS
+# =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_nl_query_invalid_domain() -> None:
+    """NL query with unsupported domain returns 400."""
+    payload = {"query": "show me errors", "domain": "unknown"}
+    response = client.post("/api/tools/nl/query", json=payload)
+    assert response.status_code == 400
+    assert "Unsupported domain" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_nl_query_logs(mock_tools) -> None:
+    """NL query for logs domain translates and executes."""
+    mock_response = MagicMock()
+    mock_response.text = '{"filter": "severity>=ERROR", "limit": 20}'
+
+    mock_client_instance = MagicMock()
+    mock_aio = MagicMock()
+    mock_models = MagicMock()
+    mock_models.generate_content = AsyncMock(return_value=mock_response)
+    mock_aio.models = mock_models
+    mock_client_instance.aio = mock_aio
+
+    mock_genai = MagicMock()
+    mock_genai.Client.return_value = mock_client_instance
+
+    with patch.dict("sys.modules", {"google.genai": mock_genai, "google": MagicMock()}):
+        # Patch the local import target
+        with patch(
+            "sre_agent.api.routers.tools._translate_nl_query",
+            new_callable=AsyncMock,
+            return_value={"filter": "severity>=ERROR", "limit": 20},
+        ):
+            payload = {
+                "query": "show me error logs",
+                "domain": "logs",
+                "project_id": "test-proj",
+            }
+            response = client.post("/api/tools/nl/query", json=payload)
+            assert response.status_code == 200
+            # Should have called list_log_entries with the translated filter
+            mock_tools["list_log_entries"].assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_nl_query_metrics_promql(mock_tools) -> None:
+    """NL query for metrics with promql translation."""
+    with patch(
+        "sre_agent.api.routers.tools._translate_nl_query",
+        new_callable=AsyncMock,
+        return_value={"language": "promql", "query": "up", "minutes_ago": 30},
+    ):
+        payload = {
+            "query": "show me service health",
+            "domain": "metrics",
+            "project_id": "test-proj",
+        }
+        response = client.post("/api/tools/nl/query", json=payload)
+        assert response.status_code == 200
+        mock_tools["query_promql"].assert_awaited()
