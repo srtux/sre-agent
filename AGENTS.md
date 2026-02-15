@@ -44,7 +44,7 @@
 **Technology Stack**:
 - **Language**: Python 3.10+ (Backend), Dart/Flutter (Frontend)
 - **Agent Framework**: Google Agent Development Kit (ADK)
-- **LLM**: Gemini 2.5 Flash
+- **LLM**: Gemini 2.5 Flash/Pro (via `get_model_name("fast"|"deep")`)
 - **Frontend**: Flutter Web + GenUI Protocol (Deep Space Theme)
 - **API Strategy**: Hybrid (MCP for heavy-lifting, Direct API for speed)
 - **Testing**: pytest (Backend), flutter test (Frontend)
@@ -59,15 +59,17 @@ sre_agent/
 ├── schema.py             # Pydantic models (all with extra="forbid")
 ├── model_config.py       # Model configuration (get_model_name("fast"|"deep"))
 ├── api/                  # FastAPI application layer (app factory, middleware, routers)
-├── core/                 # Agent engine (runner, circuit breaker, model callbacks, policy)
-├── council/              # Parallel Council of Experts (orchestrator, panels, debate, critic)
+├── core/                 # Agent engine (runner, router, circuit breaker, large payload handler)
+├── council/              # Parallel Council of Experts (orchestrator, 5 panels, debate, critic)
 ├── sub_agents/           # Specialist agents (trace, logs, metrics, alerts, root_cause)
-├── tools/                # Tool implementations
+├── tools/                # Tool implementations (~95 Python files)
 │   ├── mcp/              # Model Context Protocol (heavy SQL/queries)
 │   ├── clients/          # Direct GCP API clients (low-latency)
 │   ├── analysis/         # Pure analysis functions
 │   ├── playbooks/        # Runbook execution (GKE, Cloud Run, SQL, Pub/Sub, GCE, BigQuery)
 │   ├── sandbox/          # Sandboxed code execution (large data processing)
+│   ├── github/           # GitHub integration (read, search, PR creation)
+│   ├── research.py       # Online research (Google search, web page fetching)
 │   └── common/           # Shared utilities (decorators, cache, telemetry)
 ├── services/             # Infrastructure (session management, storage)
 ├── memory/               # Memory subsystem (manager, factory, local)
@@ -503,6 +505,140 @@ for log in logs:
 **Reference Documentation**:
 - https://docs.cloud.google.com/agent-builder/agent-engine/code-execution/overview
 - https://google.github.io/adk-docs/tools/google-cloud/code-exec-agent-engine/
+
+### 14. 3-Tier Request Router Pattern
+
+**Path**: `sre_agent/core/router.py`
+
+The root agent calls `route_request` as the **first tool** on every user turn to decide the optimal handling strategy. The router classifies queries into three tiers:
+
+| Tier | When | Behaviour |
+|------|------|-----------|
+| **DIRECT** | Simple data retrieval (show me logs, fetch trace X) | Calls individual tools directly — no sub-agent overhead |
+| **SUB_AGENT** | Focused analysis (anomaly detection, pattern analysis) | Delegates to a specialist sub-agent (trace_analyst, log_analyst, etc.) |
+| **COUNCIL** | Complex multi-signal investigation (RCA, incident investigation) | Starts a council meeting with the recommended mode (fast/standard/debate) |
+
+```python
+from sre_agent.core.router import route_request
+
+# The root agent calls this first:
+result = await route_request(query="Why is checkout latency spiking?")
+# Returns: {"decision": "council", "mode": "standard", ...}
+```
+
+The router uses `classify_routing()` from `council/intent_classifier.py` (rule-based) and can be augmented with the adaptive classifier (see Section 19).
+
+### 15. Large Payload Handler Pattern
+
+**Path**: `sre_agent/core/large_payload_handler.py`
+
+Intercepts tool outputs that exceed token-safe thresholds and processes them through the sandbox **before** they reach the LLM, preventing context window overflow while preserving data insights.
+
+**Architecture** (sits in the `after_tool_callback` chain):
+```
+Tool execution → @adk_tool decorator → composite_after_tool_callback()
+  ├→ large_payload_handler()          ← auto-summarise or code-gen prompt
+  ├→ truncate_tool_output_callback()  ← safety net
+  └→ after_tool_memory_callback()     ← learning
+```
+
+**Thresholds** (configurable via env vars):
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SRE_AGENT_LARGE_PAYLOAD_THRESHOLD_ITEMS` | 50 | List-item count above which processing triggers |
+| `SRE_AGENT_LARGE_PAYLOAD_THRESHOLD_CHARS` | 100,000 | Serialised JSON char count (~25-40k tokens) |
+| `SRE_AGENT_LARGE_PAYLOAD_ENABLED` | `true` | Explicit enable/disable |
+
+**Tool-to-template mapping**: Known large-output tools (e.g., `list_metric_descriptors`, `list_log_entries`, `list_traces`) map to pre-built sandbox templates. Unknown data shapes get a compact sample + code-generation prompt for the LLM.
+
+### 16. Research Tools Pattern
+
+**Path**: `sre_agent/tools/research.py`
+
+Provides online research capabilities during investigations:
+
+| Tool | Description |
+|------|-------------|
+| `search_google` | Search Google via Custom Search JSON API |
+| `fetch_web_page` | Fetch and extract text content from a web page |
+
+**Configuration** (env vars):
+```bash
+GOOGLE_CUSTOM_SEARCH_API_KEY=...      # API key for Google Custom Search
+GOOGLE_CUSTOM_SEARCH_ENGINE_ID=...    # Programmable Search Engine ID (cx)
+```
+
+Results are automatically persisted to memory for future reference. Useful for looking up error codes, known issues, or documentation during incident investigation.
+
+### 17. GitHub Self-Healing Pattern
+
+**Path**: `sre_agent/tools/github/`
+
+Enables the agent to read, search, and modify its **own source code** on GitHub. This supports self-healing and introspection workflows.
+
+**Tools**:
+| Tool | Description |
+|------|-------------|
+| `github_read_file` | Read a file from the agent's own repository |
+| `github_search_code` | Search the codebase for functions, classes, or patterns |
+| `github_list_recent_commits` | List recent commits for context |
+| `github_create_pull_request` | Create a PR with proposed changes |
+
+**Use cases**:
+- Agent detects an anti-pattern in its own tool output and proposes a fix.
+- Agent reads its own prompt or tool config to understand behaviour.
+- Agent creates a PR to add a new playbook or fix a bug.
+
+All results are saved to memory. The client (`github/client.py`) uses `GITHUB_TOKEN` for auth and the repo is configured via `GITHUB_REPO` (defaults to the agent's own repo).
+
+### 18. Context Caching Pattern (OPT-10)
+
+**Path**: `sre_agent/model_config.py`
+
+Vertex AI context caching stores static system prompt prefixes on the server, reducing input token costs by up to **75%** for repeated calls.
+
+**Configuration**:
+```bash
+SRE_AGENT_CONTEXT_CACHING=true       # Enable context caching
+SRE_AGENT_CONTEXT_CACHE_TTL=3600     # TTL in seconds (default: 1 hour)
+```
+
+**Usage**:
+```python
+from sre_agent.model_config import is_context_caching_enabled, get_context_cache_config
+
+if is_context_caching_enabled():
+    config = get_context_cache_config()
+    # config = {"enabled": True, "ttl_seconds": 3600, "system_instruction": None}
+    # Caller sets system_instruction to the static prompt prefix
+```
+
+**Key constraints**:
+- Only **static** portions of the system prompt should be cached (not timestamps or session-specific context).
+- One hour TTL covers most investigation sessions.
+- Disabled by default; opt-in via environment variable.
+
+### 19. Adaptive Intent Classifier Pattern (Council 2.0)
+
+**Path**: `sre_agent/council/adaptive_classifier.py`
+
+Augments the rule-based `IntentClassifier` with an LLM-based classifier that considers investigation history, alert severity, and token budget.
+
+**Feature flag**: `SRE_AGENT_ADAPTIVE_CLASSIFIER=true`
+
+**How it works**:
+1. If enabled, sends a classification prompt to `get_model_name("fast")` with context (session history, alert severity, remaining token budget, previous modes used).
+2. LLM returns `{"mode": "fast|standard|debate", "signal_type": "trace|metrics|logs|alerts", "confidence": 0.0-1.0}`.
+3. On any LLM failure, falls back to the rule-based classifier transparently.
+
+**When to prefer adaptive over rule-based**:
+- Ambiguous queries where keywords alone are insufficient.
+- Budget-constrained sessions (adaptive can steer away from debate mode when tokens are low).
+- Multi-step investigations where session history changes the optimal mode.
+
+**Schemas** (`council/schemas.py`):
+- `ClassificationContext`: Session history, alert severity, token budget, previous modes.
+- `AdaptiveClassificationResult`: Mode, signal type, confidence, and whether LLM was used.
 
 ---
 
@@ -1327,4 +1463,4 @@ Before committing code, verify:
 **Happy Coding! 🚀**
 
 ---
-*Last verified: 2026-02-11 — Auto SRE Team*
+*Last verified: 2026-02-15 — Auto SRE Team*
