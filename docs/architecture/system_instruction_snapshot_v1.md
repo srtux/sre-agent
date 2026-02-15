@@ -247,6 +247,64 @@ Detailed list of tools available to the agent at the time of snapshot.
 - **find_bottleneck_services**: Identify services that consistently appear on critical paths.
 - **mcp_execute_sql**: Execute raw SQL for custom analysis.
 
-### Memory
+### Memory & Self-Improvement
 - **add_finding_to_memory**: Persist a key insight to the Vertex AI Memory Bank.
 - **search_memory**: Retrieve past incidents or patterns similar to the current one.
+- **complete_investigation**: Mark an investigation as completed and record outcomes.
+- **get_recommended_investigation_strategy**: Get memory-informed strategy recommendations.
+- **analyze_and_learn_from_traces**: Learn from successful investigation traces.
+- **preload_memory_tool**: (ADK built-in) Auto-loads relevant past context at each turn.
+- **load_memory_tool**: (ADK built-in) On-demand memory search.
+
+### Routing & Council
+- **route_request**: 3-tier request router (DIRECT/SUB_AGENT/COUNCIL). Call FIRST on every user turn.
+- **classify_investigation_mode**: Rule-based council mode classifier (fast/standard/debate).
+- **run_council_investigation**: Start a parallel council investigation with specialist panels.
+
+### Online Research
+- **search_google**: Search Google via Custom Search JSON API.
+- **fetch_web_page**: Fetch and extract text content from a web page.
+
+### GitHub Self-Healing
+- **github_read_file**: Read a file from a GitHub repository.
+- **github_search_code**: Search for code patterns across repositories.
+- **github_list_recent_commits**: List recent commits for a repository.
+- **github_create_pull_request**: Create a pull request for automated remediation.
+
+### Sandbox Processing
+- **summarize_metric_descriptors_in_sandbox**: Summarize large metric descriptor sets.
+- **summarize_time_series_in_sandbox**: Summarize large time series datasets.
+- **summarize_log_entries_in_sandbox**: Summarize large log entry sets.
+- **summarize_traces_in_sandbox**: Summarize large trace datasets.
+- **execute_custom_analysis_in_sandbox**: Execute custom analysis code in sandbox.
+- **get_sandbox_status**: Check sandbox availability and status.
+
+### GKE / Infrastructure
+- **get_gke_cluster_health**: Check GKE cluster health status.
+- **analyze_node_conditions**: Analyze node pressure and conditions.
+- **analyze_hpa_events**: Analyze HorizontalPodAutoscaler events.
+- **get_pod_restart_events**: Get pod restart and crash loop events.
+- **get_container_oom_events**: Get container OOMKilled events.
+- **get_workload_health_summary**: Get workload health overview.
+
+### Exploration
+- **explore_project_health**: Automated project health exploration.
+
+---
+
+## Changes Since v1 Snapshot
+
+The following significant changes have occurred since this snapshot was captured (2026-02-01):
+
+1. **3-Tier Request Router**: Added `route_request` tool (`core/router.py`) that classifies queries into DIRECT, SUB_AGENT, or COUNCIL tiers. The agent now calls this first on every turn.
+2. **Council 2.0**: Added adaptive panel selection with LLM-augmented classifier (`council/adaptive_classifier.py`). Feature flag: `SRE_AGENT_ADAPTIVE_CLASSIFIER=true`.
+3. **Tool Registry Centralization**: All domain tool sets moved to `council/tool_registry.py` as the single source of truth (OPT-4).
+4. **Slim Tools Default**: Root agent now defaults to ~35 orchestration tools instead of ~90 (`SRE_AGENT_SLIM_TOOLS=true` default).
+5. **Online Research Tools**: Added `search_google` and `fetch_web_page` (`tools/research.py`).
+6. **GitHub Self-Healing**: Added `github_read_file`, `github_search_code`, `github_list_recent_commits`, `github_create_pull_request` (`tools/github/`).
+7. **Large Payload Handler**: Added automatic sandbox processing for oversized tool outputs (`core/large_payload_handler.py`).
+8. **Sandbox Processing Tools**: Added 6 sandbox tools for processing large datasets.
+9. **LLM Credential Injection Disabled**: Gemini now uses ADC (Service Account) instead of user tokens.
+10. **Model Standardization**: Both local and production now use Gemini 2.5 Flash/Pro (no longer Gemini 3.0 Preview locally).
+11. **Dashboard Query Language**: Frontend now supports structured queries and natural language query translation via the Visual Data Explorer.
+12. **Memory Callbacks**: Added composite callback pipeline with mistake learning and pattern advising.

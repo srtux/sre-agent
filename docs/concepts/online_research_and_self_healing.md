@@ -1,7 +1,7 @@
 # Online Research & Self-Healing Agent Architecture
 
 > **Status**: Online Research tools — **Implemented** (Phase 3.7).
-> Self-Healing Loop — **Proposed Architecture** (Phase 4+).
+> Self-Healing Loop — **Implemented** (Phases 4.1-4.2 Complete). GitHub read/write tools, PR creation, and self-healing playbook are fully operational.
 
 This document covers two interconnected capabilities:
 
@@ -170,9 +170,9 @@ This architecture follows the [OODA loop](docs/concepts/autonomous_reliability.m
 | Phase | What Happens | Tools Used |
 |-------|-------------|------------|
 | **OBSERVE** | Analyze own traces, logs, metrics. Detect anti-patterns, failures, regressions. | `analyze_and_learn_from_traces`, `detect_agent_anti_patterns`, `list_agent_traces`, `mcp_execute_sql` |
-| **ORIENT** | Correlate failures with source code. Identify which file/function is responsible. | `search_google`, `fetch_web_page`, `github_read_file` (proposed), `github_search_code` (proposed) |
-| **DECIDE** | Generate a fix strategy. Draft code changes. Determine if human review is needed. | `search_memory`, `get_recommended_investigation_strategy`, LLM reasoning |
-| **ACT** | Create a branch, commit changes, open a PR. CI/CD pipeline validates and deploys. | `github_create_pr` (proposed), `github_commit_file` (proposed) |
+| **ORIENT** | Correlate failures with source code. Identify which file/function is responsible. | `search_google`, `fetch_web_page`, `github_read_file`, `github_search_code` |
+| **DECIDE** | Generate a fix strategy. Draft code changes. Determine if human review is needed. | `search_memory`, `get_recommended_investigation_strategy`, `github_list_recent_commits`, LLM reasoning |
+| **ACT** | Create a branch, commit changes, open a PR. CI/CD pipeline validates and deploys. | `github_create_pull_request` |
 
 ### What Already Exists (Foundations)
 
@@ -191,71 +191,75 @@ The project already has strong foundations for each OODA phase:
 | Tool error pattern sharing | `record_tool_failure_pattern` | Implemented |
 | Agent debugger sub-agent | `agent_debugger` | Implemented |
 
-#### ORIENT — Knowledge Augmentation (Partially Implemented)
+#### ORIENT -- Knowledge Augmentation (Implemented)
 
 | Capability | Tool/Module | Status |
 |-----------|-------------|--------|
 | Search Google for context | `search_google` | **Implemented** |
 | Fetch documentation pages | `fetch_web_page` | **Implemented** |
-| Read own source code from GitHub | — | **Proposed** |
-| Search code for patterns | — | **Proposed** |
-| Correlate failures with code changes | `correlate_changes_with_incident` | Implemented (GCP Audit Logs) |
+| Read own source code from GitHub | `github_read_file` | **Implemented** |
+| Search code for patterns | `github_search_code` | **Implemented** |
+| List recent commits | `github_list_recent_commits` | **Implemented** |
+| Correlate failures with code changes | `correlate_changes_with_incident` | **Implemented** (GCP Audit Logs) |
 
-#### DECIDE — Strategy (Implemented)
-
-| Capability | Tool/Module | Status |
-|-----------|-------------|--------|
-| Recall past investigation patterns | `get_recommended_investigation_strategy` | Implemented |
-| Search memory for similar issues | `search_memory` | Implemented |
-| Pattern reinforcement learning | `complete_investigation` | Implemented |
-| Human approval workflow | `core/approval.py` | Implemented |
-
-#### ACT — GitHub Integration (Proposed)
+#### DECIDE -- Strategy (Implemented)
 
 | Capability | Tool/Module | Status |
 |-----------|-------------|--------|
-| Read files from GitHub | `github_read_file` | **Proposed** |
-| Search code in repository | `github_search_code` | **Proposed** |
-| Create branches | `github_create_branch` | **Proposed** |
-| Create/update files | `github_commit_file` | **Proposed** |
-| Open pull requests | `github_create_pr` | **Proposed** |
-| CI/CD auto-deploy on merge | Cloud Build pipeline | **Exists** |
+| Recall past investigation patterns | `get_recommended_investigation_strategy` | **Implemented** |
+| Search memory for similar issues | `search_memory` | **Implemented** |
+| Pattern reinforcement learning | `complete_investigation` | **Implemented** |
+| Human approval workflow | `core/approval.py` | **Implemented** |
 
-### Proposed GitHub Tool Set
+#### ACT -- GitHub Integration (Implemented)
 
-A new `sre_agent/tools/github/` module with tools for interacting with the agent's own repository.
+| Capability | Tool/Module | Status |
+|-----------|-------------|--------|
+| Read files from GitHub | `github_read_file` | **Implemented** |
+| Search code in repository | `github_search_code` | **Implemented** |
+| List recent commits | `github_list_recent_commits` | **Implemented** |
+| Create branch + commit + PR | `github_create_pull_request` | **Implemented** |
+| CI/CD auto-deploy on merge | Cloud Build pipeline | **Implemented** |
+
+### GitHub Tool Set (Implemented)
+
+The `sre_agent/tools/github/` module provides four tools for interacting with the agent's own repository. All tools use the `@adk_tool(skip_summarization=True)` decorator and return `BaseToolResponse`.
 
 #### Tool: `github_read_file`
 
 Read a file from the agent's own GitHub repository.
 
 ```python
-@adk_tool
+@adk_tool(skip_summarization=True)
 async def github_read_file(
-    file_path: str,
-    ref: str = "main",
-    repo: str = "srtux/sre-agent",
+    file_path: Annotated[str, "Path to the file in the repository"],
+    ref: Annotated[str, "Git ref (branch, tag, or commit SHA)"] = "main",
+    tool_context: Any = None,
 ) -> BaseToolResponse:
-    """Read a file from the agent's GitHub repository."""
+    """Read a file from the SRE Agent's own GitHub repository."""
 ```
 
 **Use cases:**
 - Reading own source code to understand a tool's implementation.
 - Checking current prompt configuration.
 - Reviewing test files for a module under investigation.
+- Preparing a fix by reading the current implementation.
+
+**Memory integration:** File content is automatically saved to memory for future reference.
 
 #### Tool: `github_search_code`
 
 Search the agent's codebase for patterns.
 
 ```python
-@adk_tool
+@adk_tool(skip_summarization=True)
 async def github_search_code(
-    query: str,
-    file_extension: str | None = None,
-    repo: str = "srtux/sre-agent",
+    query: Annotated[str, "Search query"],
+    file_extension: Annotated[str | None, "Filter by extension"] = None,
+    max_results: Annotated[int, "Max results (1-30, default 10)"] = 10,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
-    """Search the agent's codebase for code patterns."""
+    """Search the SRE Agent's GitHub repository for code patterns."""
 ```
 
 **Use cases:**
@@ -263,23 +267,42 @@ async def github_search_code(
 - Locating configuration for a feature flag.
 - Searching for similar patterns to guide a fix.
 
-#### Tool: `github_create_pr`
+#### Tool: `github_list_recent_commits`
 
-Create a pull request with proposed changes.
+List recent commits from the repository.
 
 ```python
-@adk_tool
-async def github_create_pr(
-    title: str,
-    body: str,
-    branch_name: str,
-    file_changes: list[dict],  # [{path, content, message}]
-    base: str = "main",
-    repo: str = "srtux/sre-agent",
-    draft: bool = True,
-    labels: list[str] = ["auto-fix", "agent-generated"],
+@adk_tool(skip_summarization=True)
+async def github_list_recent_commits(
+    branch: Annotated[str, "Branch to list commits from"] = "main",
+    file_path: Annotated[str | None, "Filter by file path"] = None,
+    max_results: Annotated[int, "Max commits (1-50, default 10)"] = 10,
+    tool_context: Any = None,
 ) -> BaseToolResponse:
-    """Create a pull request with the agent's proposed changes."""
+    """List recent commits from the SRE Agent's repository."""
+```
+
+**Use cases:**
+- Understanding recent changes to the codebase.
+- Finding when a bug was introduced.
+- Gathering context before creating a fix PR.
+
+#### Tool: `github_create_pull_request`
+
+Create a pull request with proposed changes. This is the agent's primary self-healing mechanism.
+
+```python
+@adk_tool(skip_summarization=True)
+async def github_create_pull_request(
+    title: Annotated[str, "PR title (concise, under 72 chars)"],
+    description: Annotated[str, "PR body with summary, motivation, and test plan"],
+    branch_name: Annotated[str, "New branch name (must start with 'auto-fix/')"],
+    file_changes: Annotated[list[dict[str, str]], "List of {path, content, message} dicts"],
+    base_branch: Annotated[str, "Base branch for the PR"] = "main",
+    draft: Annotated[bool, "Create as draft PR (default True)"] = True,
+    tool_context: Any = None,
+) -> BaseToolResponse:
+    """Create a pull request with proposed changes to the SRE Agent's code."""
 ```
 
 **Use cases:**
@@ -287,11 +310,32 @@ async def github_create_pr(
 - Proposing a prompt improvement based on trace analysis.
 - Adding a new playbook based on a resolved investigation.
 
-**Safety considerations:**
-- PRs are created as **drafts** by default — requiring human review.
-- PRs are labeled `agent-generated` for easy filtering.
+**Safety guardrails:**
+- Branch name **must** start with `auto-fix/` -- enforced by the tool.
+- PRs are created as **drafts** by default -- requiring human review before merge.
+- All PRs are labeled `agent-generated` and `auto-fix` for audit trail.
+- PR body includes an auto-generated footer identifying the change as agent-generated.
+- Memory integration: PR creation is automatically recorded to memory.
 - The `core/approval.py` human approval workflow gates destructive actions.
-- The existing `ai-code-review.yml` GitHub Action reviews all PRs with AI.
+- The existing CI/CD pipeline validates changes before deployment.
+
+#### GitHub Client Architecture
+
+The GitHub tools are backed by a thin async HTTP client (`sre_agent/tools/github/client.py`) using `httpx`:
+
+| Component | Purpose |
+|-----------|---------|
+| `client.py` | Async GitHub REST API client with `httpx` |
+| `tools.py` | `@adk_tool` functions for agent use |
+| `__init__.py` | Tool exports |
+
+The client provides these low-level operations:
+- `get_file_content()` -- Read files (base64 decoded)
+- `search_code()` -- Code search via GitHub Search API
+- `list_commits()` -- Commit listing with optional file path filter
+- `create_branch()` -- Create a new branch from a ref
+- `create_or_update_file()` -- Commit a file change to a branch
+- `create_pull_request()` -- Open a PR with labels
 
 #### Configuration
 
@@ -299,6 +343,28 @@ async def github_create_pr(
 |----------|-------------|----------|
 | `GITHUB_TOKEN` | Personal access token or GitHub App token with `repo` scope | Yes |
 | `GITHUB_REPO` | Repository in `owner/name` format (default: `srtux/sre-agent`) | No |
+
+#### Registration
+
+The GitHub tools are registered at all standard integration points:
+
+| Location | Registration |
+|----------|-------------|
+| `tools/__init__.py` | Lazy imports for all four tools |
+| `tools/config.py` | `ToolCategory` entries |
+| `agent.py` | `base_tools`, `TOOL_NAME_MAP` |
+| `council/tool_registry.py` | `SHARED_GITHUB_TOOLS` (available to `ROOT_CAUSE_ANALYST_TOOLS`, `ORCHESTRATOR_TOOLS`) |
+
+### Self-Healing Playbook
+
+The structured self-healing playbook (`sre_agent/tools/playbooks/self_healing.py`) defines four specific issues the agent can self-diagnose and fix:
+
+1. **Excessive Retries** -- Detects when the same tool is called >3 times under one parent span
+2. **Token Waste** -- Identifies output tokens >5x input tokens on intermediate LLM calls
+3. **Tool Syntax Errors** -- Finds repeated failures due to incorrect API filter syntax or parameter usage
+4. **Slow Investigation** -- Detects investigations taking >8 consecutive LLM calls without meaningful tool use
+
+Each issue includes diagnostic steps with specific tool names and parameters, plus remediation steps involving `github_read_file` and `github_create_pull_request`.
 
 ### Self-Healing Pipeline: End-to-End Flow
 
@@ -327,12 +393,13 @@ async def github_create_pr(
 │     → Identifies: missing input validation causes retries       │
 │     │                                                           │
 │     ▼                                                           │
-│  6. github_create_pr(                                           │
+│  6. github_create_pull_request(                                  │
 │       title="fix: add input validation to list_log_entries",    │
+│       branch_name="auto-fix/improve-log-filter-validation",    │
 │       file_changes=[{path: "sre_agent/tools/clients/logging.py",│
-│                      content: "...improved code..."}],          │
-│       draft=True,                                               │
-│       labels=["auto-fix", "agent-generated"]                    │
+│                      content: "...improved code...",            │
+│                      message: "fix: add input validation"}],    │
+│       draft=True                                                │
 │     )                                                           │
 │     │                                                           │
 │     ▼                                                           │
@@ -360,16 +427,18 @@ Self-modification requires strong safety measures:
 
 | Guardrail | Mechanism | Status |
 |-----------|-----------|--------|
-| **Draft PRs** | All agent-generated PRs are drafts by default | Proposed |
-| **Human approval** | PRs require human merge approval | Exists (GitHub) |
-| **AI code review** | `ai-code-review.yml` reviews all PRs | Exists |
-| **CI/CD gating** | Tests + evals must pass before deploy | Exists (Cloud Build) |
-| **Policy engine** | `core/policy_engine.py` gates destructive actions | Exists |
-| **Human-in-the-loop** | `core/approval.py` workflow for risky actions | Exists |
-| **Labeled PRs** | `agent-generated` label for audit trail | Proposed |
-| **Branch protection** | `main` branch requires PR reviews | Standard |
-| **Rollback** | Cloud Run revision rollback if deploy fails | Exists |
-| **Token budget** | `SRE_AGENT_TOKEN_BUDGET` limits per-request cost | Exists |
+| **Draft PRs** | All agent-generated PRs are drafts by default | **Implemented** |
+| **Branch prefix** | Branch names must start with `auto-fix/` | **Implemented** |
+| **Human approval** | PRs require human merge approval | **Implemented** (GitHub) |
+| **AI code review** | `ai-code-review.yml` reviews all PRs | **Implemented** |
+| **CI/CD gating** | Tests + evals must pass before deploy | **Implemented** (Cloud Build) |
+| **Policy engine** | `core/policy_engine.py` gates destructive actions | **Implemented** |
+| **Human-in-the-loop** | `core/approval.py` workflow for risky actions | **Implemented** |
+| **Labeled PRs** | `agent-generated` + `auto-fix` labels for audit trail | **Implemented** |
+| **Memory recording** | All PR creations are recorded to memory | **Implemented** |
+| **Branch protection** | `main` branch requires PR reviews | **Implemented** |
+| **Rollback** | Cloud Run revision rollback if deploy fails | **Implemented** |
+| **Token budget** | `SRE_AGENT_TOKEN_BUDGET` limits per-request cost | **Implemented** |
 
 ### Metrics for Self-Healing Effectiveness
 
@@ -385,15 +454,15 @@ The agent should track its own improvement:
 | PRs auto-generated | GitHub API | Tracking |
 | PRs merged successfully | GitHub API | > 80% acceptance |
 
-### Implementation Roadmap
+### Implementation Status
 
-| Phase | Scope | Prerequisites |
-|-------|-------|---------------|
-| **Phase 4.1** | GitHub read tools (`github_read_file`, `github_search_code`) | `GITHUB_TOKEN` env var |
-| **Phase 4.2** | GitHub write tools (`github_create_branch`, `github_commit_file`, `github_create_pr`) | Phase 4.1 + branch protection |
-| **Phase 4.3** | Scheduled self-analysis playbook (automated OODA cycle) | Phase 4.2 + Cloud Scheduler |
-| **Phase 4.4** | Self-healing verification loop (confirm fixes worked) | Phase 4.3 + metrics dashboard |
-| **Phase 4.5** | Autonomous prompt tuning (optimize own system instructions) | Phase 4.4 + A/B eval framework |
+| Phase | Scope | Status |
+|-------|-------|--------|
+| **Phase 4.1** | GitHub read tools (`github_read_file`, `github_search_code`, `github_list_recent_commits`) | **Implemented** |
+| **Phase 4.2** | GitHub write tools (`github_create_pull_request` with branch + commit + PR in one call) | **Implemented** |
+| **Phase 4.3** | Self-healing playbook (`playbooks/self_healing.py`) with automated OODA cycle | **Implemented** |
+| **Phase 4.4** | Self-healing verification loop (confirm fixes worked) | Planned (Cloud Scheduler integration) |
+| **Phase 4.5** | Autonomous prompt tuning (optimize own system instructions) | Planned (A/B eval framework) |
 
 ### Architectural Principles
 
@@ -416,4 +485,4 @@ The agent should track its own improvement:
 
 ---
 
-*Last verified: 2026-02-14 — Auto SRE Team*
+*Last verified: 2026-02-15 -- Auto SRE Team*

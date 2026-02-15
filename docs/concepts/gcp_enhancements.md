@@ -1,410 +1,247 @@
-# Google Cloud SRE Agent Enhancement Roadmap
+# GCP Integrations & Enhancements
 
-## Vision: The World's Best Google Cloud SRE Agent
+## Overview
 
-Transform this SRE Agent into the definitive, world-class debugging companion for Google Cloud Platform. Think of it as having a Staff SRE who knows *every* GCP service intimately, working 24/7 on your incidents.
-
-## Current State Analysis
-
-### Strengths (Already Excellent!)
-- Deep Cloud Trace integration with multi-stage analysis pipeline
-- Cross-signal correlation (traces + logs + metrics via exemplars)
-- Sophisticated log pattern extraction using Drain3
-- Critical path and service dependency analysis
-- BigQuery-powered aggregate analysis at scale
-- "Council of Experts" architecture for specialized analysis
-
-### Gaps to Address
-
-| Category | Missing Capability | Impact |
-|----------|-------------------|--------|
-| **GKE** | Pod/Node/Cluster health analysis | Can't debug Kubernetes-specific issues |
-| **Serverless** | Cloud Run/Functions cold start, concurrency | Missing serverless debugging |
-| **SLO/SLI** | Service Level Objectives integration | No SRE golden signals framework |
-| **Messaging** | Pub/Sub tracing, dead letters | Async system debugging gaps |
-| **Remediation** | Automated fix suggestions | Diagnosis only, no treatment |
-| **Profiling** | Cloud Profiler integration | No CPU/memory profiling correlation |
-| **Error Reporting** | Deep stack trace analysis | Surface-level error integration |
-| **Incidents** | Operations Suite integration | No incident lifecycle awareness |
-| **Database** | Spanner/CloudSQL/Bigtable health | Missing database-specific analysis |
-| **Cost** | Cost correlation with issues | No financial impact assessment |
+The SRE Agent provides deep integrations with Google Cloud Platform observability and infrastructure services. This document catalogs the current capabilities, the structured playbook system for service-specific troubleshooting, and the enhancement roadmap for future modules.
 
 ---
 
-## Enhancement Modules
+## Implemented Integrations
 
-### Module 1: GKE Intelligence Suite
+### Core Observability Stack
 
-**Purpose**: Deep Kubernetes and GKE-specific debugging capabilities.
+#### Cloud Trace (Distributed Tracing)
 
-#### New Tools
+| Capability | Module | Tools |
+| :--- | :--- | :--- |
+| Single trace fetch | `tools/clients/trace.py` | `fetch_trace`, `fetch_trace_spans` |
+| Trace listing | `tools/clients/trace.py` | `list_traces` |
+| Comprehensive analysis | `tools/analysis/trace/` | `analyze_trace_comprehensive` (Mega-Tool) |
+| Critical path analysis | `tools/analysis/trace/` | `analyze_critical_path` |
+| Span comparison | `tools/analysis/trace/` | `compare_span_timings` |
+| SRE pattern detection | `tools/analysis/trace/` | `detect_all_sre_patterns` (retry storms, cascading timeouts, connection pool issues, circular deps) |
+| BigQuery aggregate analysis | `tools/mcp/`, `tools/bigquery/` | `mcp_execute_sql`, `query_data_agent` |
+
+The `analyze_trace_comprehensive` tool is a "Mega-Tool" that combines timing, error, structure, and resiliency analysis into a single call, reducing round trips between the LLM and the tool layer.
+
+#### Cloud Logging
+
+| Capability | Module | Tools |
+| :--- | :--- | :--- |
+| Log entry listing | `tools/clients/logging.py` | `list_log_entries` |
+| Pattern extraction (Drain3) | `tools/analysis/logs/` | `extract_log_patterns` |
+| Log anomaly analysis | `tools/analysis/logs/` | `analyze_log_anomalies` |
+| BigQuery log analysis | `tools/analysis/bigquery/` | `analyze_bigquery_log_patterns` |
+
+Drain3 (streaming log template mining) is used for automatic pattern extraction, grouping similar log entries into templates that reveal error trends and anomalies.
+
+#### Cloud Monitoring (Metrics & Alerting)
+
+| Capability | Module | Tools |
+| :--- | :--- | :--- |
+| Time series queries | `tools/clients/monitoring.py` | `list_time_series` |
+| PromQL queries | `tools/clients/monitoring.py` | `query_promql` |
+| Anomaly detection | `tools/analysis/metrics/` | `detect_metric_anomalies` |
+| Metric comparison | `tools/analysis/metrics/` | `compare_metric_windows` |
+| Active alert listing | `tools/clients/alerting.py` | `list_alerts` |
+| Alert policy listing | `tools/clients/alerting.py` | `list_alert_policies` |
+| Single alert detail | `tools/clients/alerting.py` | `get_alert` |
+| Proactive signals | `tools/proactive/` | `check_related_signals` |
+| Resource metrics catalog | `resources/` | Metrics definitions organized by GCP service |
+
+### SLO / Error Budget Analysis
+
+The SLO subsystem (`sre_agent/tools/analysis/slo/burn_rate.py`) implements multi-window burn rate analysis following the Google SRE Workbook methodology.
+
+| Capability | Tool |
+| :--- | :--- |
+| Multi-window burn rate (1h, 6h, 1d, 3d) | `analyze_error_budget_burn` |
+| Budget exhaustion prediction | `analyze_error_budget_burn` |
+| SLO breach detection | `analyze_error_budget_burn` |
+
+### Cross-Signal Correlation
+
+The correlation subsystem (`sre_agent/tools/analysis/correlation/`) provides multi-signal analysis:
+
+| Capability | Tools |
+| :--- | :--- |
+| Cross-signal timeline | `build_cross_signal_timeline` |
+| Critical path analysis | `analyze_critical_path` |
+| Service dependency impact | `analyze_upstream_downstream_impact` |
+| Change-incident correlation | `correlate_changes_with_incident` |
+| Causal analysis | `perform_causal_analysis` |
+| Historical incident matching | `find_similar_past_incidents` |
+| Trace-metric correlation | `correlate_trace_with_metrics` |
+
+### BigQuery Analytics
+
+| Component | Module | Purpose |
+| :--- | :--- | :--- |
+| MCP SQL execution | `tools/mcp/` | BigQuery SQL via Model Context Protocol |
+| Data agent | `tools/bigquery/` | `query_data_agent` for structured queries |
+| Telemetry discovery | `tools/discovery/` | `discover_telemetry_sources` (scans for `_AllSpans`, `_AllLogs` tables) |
+| MCP fallback | `tools/mcp/fallback.py` | Auto-fallback to direct API when MCP fails |
+
+### Remediation & Postmortem
+
+The remediation subsystem (`sre_agent/tools/analysis/remediation/`) provides:
+
+| Tool | Purpose |
+| :--- | :--- |
+| `generate_remediation_suggestions` | Actionable fix recommendations based on root cause findings |
+| `generate_postmortem` | Structured postmortem document generation |
+
+### Service Dependency Graph
+
+The `GraphService` (`sre_agent/core/graph_service.py`) builds a knowledge graph from trace data:
+
+| Tool | Purpose |
+| :--- | :--- |
+| `build_service_dependency_graph` | Construct dependency graph from trace spans |
+| `analyze_upstream_downstream_impact` | Blast radius analysis for failing services |
+| `find_bottleneck_services` | Identify services with highest latency/error contribution |
+
+### Sandboxed Code Execution
+
+The sandbox subsystem (`sre_agent/tools/sandbox/`) enables safe execution of data processing code for large result sets:
+
+| Component | Purpose |
+| :--- | :--- |
+| `executor.py` | Sandboxed code execution engine |
+| `processors.py` | Pre-built data processing functions |
+| `schemas.py` | Execution request/result schemas |
+
+Controlled by the `SRE_AGENT_LOCAL_EXECUTION` environment variable. The `large_payload_handler.py` in `sre_agent/core/` uses the sandbox to offload processing of large tool results that would otherwise exceed context limits.
+
+---
+
+## GCP Service Playbooks
+
+The playbook system (`sre_agent/tools/playbooks/`) provides structured troubleshooting guides for specific GCP services. Each playbook defines common issues, symptoms, root causes, diagnostic steps, and remediation actions -- all integrated with the agent's tool ecosystem.
+
+### Playbook Architecture
+
+- **`PlaybookRegistry`** (`playbooks/registry.py`): Singleton registry that indexes playbooks by ID, service name, and category. Accessed via `get_playbook_registry()`.
+- **`Playbook`** schema (`playbooks/schemas.py`): Pydantic model (`frozen=True, extra="forbid"`) defining the structure.
+- **`DiagnosticStep`**: Each step can specify a `tool_name` and `tool_params` for automatic invocation.
+- **`TroubleshootingIssue`**: Groups symptoms, root causes, diagnostic and remediation steps for a specific issue.
+
+### Available Playbooks
+
+| Service | Module | Category | Key Issues Covered |
+| :--- | :--- | :--- | :--- |
+| **GKE** | `playbooks/gke.py` | COMPUTE | Pod CrashLoopBackOff, node pressure, HPA scaling, image pull failures |
+| **Cloud Run** | `playbooks/cloud_run.py` | COMPUTE | Cold starts, memory limits, request timeouts, container crashes |
+| **Cloud SQL** | `playbooks/cloud_sql.py` | DATA | Connection exhaustion, high CPU, replication lag, storage limits |
+| **Pub/Sub** | `playbooks/pubsub.py` | MESSAGING | Message backlog, dead letters, delivery failures, quota limits |
+| **GCE** | `playbooks/gce.py` | COMPUTE | Instance failures, disk issues, network connectivity |
+| **BigQuery** | `playbooks/bigquery.py` | DATA | Slot contention, query timeouts, quota exhaustion |
+| **Self-Healing** | `playbooks/self_healing.py` | OBSERVABILITY | Agent self-improvement: excessive retries, token waste, tool syntax errors, slow investigations |
+
+### Playbook Categories
+
+Defined in `PlaybookCategory` enum:
+`COMPUTE`, `DATA`, `STORAGE`, `MESSAGING`, `AI_ML`, `OBSERVABILITY`, `SECURITY`, `NETWORKING`, `MANAGEMENT`
+
+### Playbook Severity Levels
+
+Defined in `PlaybookSeverity` enum:
+`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`, `INFO`
+
+### Playbook Search
+
+The `PlaybookRegistry` supports multiple search patterns:
+- **By service name**: `get_by_service("gke")`
+- **By category**: `get_by_category(PlaybookCategory.COMPUTE)`
+- **By keyword search**: `search(query="connection pool")` (matches issue titles, descriptions, and symptoms)
+
+---
+
+## Client Factory Pattern
+
+All GCP API clients follow a **singleton factory** pattern (`sre_agent/tools/clients/factory.py`) that:
+- Creates thread-safe client instances
+- Respects End-User Credentials (EUC) for multi-tenant access
+- Provides per-request credential injection via `ToolContext`
+- Falls back to Application Default Credentials (ADC) when EUC is not available
+
 ```python
-# sre_agent/tools/clients/gke.py
-
-def get_pod_status(cluster_name: str, namespace: str, pod_name: str) -> dict:
-    """Get detailed pod status including container states, restart counts, and events."""
-
-def analyze_node_pressure(cluster_name: str, node_name: str) -> dict:
-    """Check for CPU/memory/disk pressure conditions on a node."""
-
-def get_hpa_events(cluster_name: str, namespace: str, deployment: str) -> dict:
-    """Get HorizontalPodAutoscaler scaling events and decisions."""
-
-def analyze_resource_quotas(cluster_name: str, namespace: str) -> dict:
-    """Check if workloads are hitting resource quota limits."""
-
-def get_pod_disruption_events(cluster_name: str, namespace: str) -> list:
-    """Find recent pod evictions, preemptions, and disruptions."""
-
-def analyze_gke_cluster_health(cluster_name: str) -> dict:
-    """Comprehensive cluster health including node pool status, upgrade status, and alerts."""
-
-def correlate_trace_with_pod(trace_id: str, cluster_name: str) -> dict:
-    """Link a trace to specific pod metadata and container info."""
-```
-
-#### New Sub-Agent
-```python
-# GKE Specialist - Kubernetes whisperer
-gke_analyzer = LlmAgent(
-    name="gke_analyzer",
-    model="gemini-2.5-pro",
-    description="GKE and Kubernetes specialist for container orchestration debugging",
-    instruction=GKE_ANALYZER_PROMPT,
-    tools=[get_pod_status, analyze_node_pressure, get_hpa_events, ...]
-)
-```
-
-#### Integration Points
-- Cloud Logging: `resource.type="k8s_container"` and `resource.type="k8s_pod"`
-- Cloud Monitoring: GKE system metrics (container/*, kubernetes/*, etc.)
-- Kubernetes Engine API: Cluster and workload introspection
-
----
-
-### Module 2: Serverless Debugging Suite
-
-**Purpose**: Cloud Run, Cloud Functions, and App Engine specific analysis.
-
-#### New Tools
-```python
-# sre_agent/tools/clients/serverless.py
-
-def analyze_cold_starts(service_name: str, region: str, minutes_ago: int = 60) -> dict:
-    """Identify cold start patterns and their impact on latency."""
-
-def get_instance_scaling_events(service_name: str, region: str) -> list:
-    """Track instance scaling decisions and timing."""
-
-def analyze_concurrency_limits(service_name: str) -> dict:
-    """Check if requests are being throttled due to concurrency limits."""
-
-def get_revision_traffic_split(service_name: str) -> dict:
-    """Show traffic distribution across revisions for canary analysis."""
-
-def analyze_function_execution_patterns(function_name: str, region: str) -> dict:
-    """Cloud Functions execution patterns, memory usage, and timeout analysis."""
-
-def detect_serverless_anti_patterns(service_name: str) -> list:
-    """Identify anti-patterns: excessive cold starts, timeout misconfigs, memory thrashing."""
-```
-
-#### Key Metrics to Surface
-- `run.googleapis.com/container/instance_count` - Instance scaling
-- `run.googleapis.com/container/startup_latencies` - Cold starts
-- `run.googleapis.com/request_latencies` - Request latency distribution
-- `cloudfunctions.googleapis.com/function/execution_times` - Function duration
-
----
-
-### Module 3: SLO/SLI Framework Integration
-
-**Purpose**: Native support for SRE golden signals and SLO management.
-
-#### New Tools
-```python
-# sre_agent/tools/clients/slo.py
-
-def list_slos(project_id: str, service_name: str = None) -> list:
-    """List all defined SLOs for a service or project."""
-
-def get_slo_status(slo_name: str) -> dict:
-    """Get current SLO compliance: error budget remaining, burn rate, status."""
-
-def analyze_error_budget_burn(slo_name: str, window_hours: int = 24) -> dict:
-    """Analyze error budget consumption rate and project exhaustion time."""
-
-def correlate_incident_with_slo_impact(trace_id: str, slo_name: str) -> dict:
-    """Quantify how much a specific incident contributed to SLO miss."""
-
-def get_golden_signals(service_name: str, minutes_ago: int = 60) -> dict:
-    """Get the 4 golden signals: latency, traffic, errors, saturation."""
-
-def predict_slo_violation(slo_name: str, hours_ahead: int = 24) -> dict:
-    """Predict if current error rate will exhaust error budget."""
-```
-
-#### SLO-Driven Investigation Workflow
-```
-1. Alert fires -> Check SLO status
-2. Calculate error budget impact
-3. Correlate with traces causing budget burn
-4. Prioritize based on SLO impact (not just error count)
+from sre_agent.tools.clients.factory import get_trace_client
+client = get_trace_client(tool_context)  # Thread-safe, EUC-aware
 ```
 
 ---
 
-### Module 4: Pub/Sub & Async Messaging Analysis
+## MCP vs Direct API Decision Matrix
 
-**Purpose**: Debug asynchronous message-based systems.
+| Use Case | Approach | Rationale |
+| :--- | :--- | :--- |
+| Aggregate trace analysis | MCP (`mcp_execute_sql`) | BigQuery processes millions of spans efficiently |
+| Single trace fetch | Direct (`fetch_trace`) | Low latency, no BigQuery overhead |
+| Log pattern mining | MCP (`analyze_bigquery_log_patterns`) | Bulk analysis over large time windows |
+| Real-time metrics | Direct (`query_promql`) | Sub-second latency needed |
+| Complex joins | MCP | SQL expressiveness for multi-table analysis |
 
-#### New Tools
-```python
-# sre_agent/tools/clients/pubsub.py
-
-def get_subscription_health(subscription_name: str) -> dict:
-    """Check backlog, oldest message age, delivery rate, ack latency."""
-
-def analyze_dead_letter_queue(dlq_topic: str) -> dict:
-    """Analyze messages in dead letter queue: patterns, failure reasons."""
-
-def trace_message_journey(message_id: str) -> dict:
-    """Follow a message from publish through all processing stages."""
-
-def detect_subscriber_lag(subscription_name: str) -> dict:
-    """Identify if subscribers are falling behind and why."""
-
-def analyze_push_delivery_failures(subscription_name: str) -> dict:
-    """For push subscriptions, analyze delivery failures and retry patterns."""
-
-def correlate_pubsub_with_traces(topic: str, time_window_minutes: int) -> dict:
-    """Link Pub/Sub messages to distributed traces via trace context propagation."""
-```
-
-#### Key Metrics
-- `pubsub.googleapis.com/subscription/oldest_unacked_message_age` - Lag indicator
-- `pubsub.googleapis.com/subscription/num_undelivered_messages` - Backlog
-- `pubsub.googleapis.com/subscription/dead_letter_message_count` - Failures
+Fallback: MCP failures automatically route to direct API via `tools/mcp/fallback.py`.
 
 ---
 
-### Module 5: Automated Remediation Suggestions
+## Environment Variables for GCP Integrations
 
-**Purpose**: Move from diagnosis to treatment with actionable recommendations.
-
-#### New Tools
-```python
-# sre_agent/tools/analysis/remediation/suggestions.py
-
-def suggest_remediation(finding: dict) -> dict:
-    """Generate remediation suggestions based on root cause analysis."""
-
-def get_runbook_recommendations(error_pattern: str) -> list:
-    """Match error patterns to relevant runbook steps."""
-
-def estimate_remediation_impact(suggestion: dict) -> dict:
-    """Estimate risk, effort, and expected improvement from a fix."""
-
-def generate_gcloud_commands(remediation: dict) -> list:
-    """Generate ready-to-run gcloud commands for common fixes."""
-
-def check_similar_past_incidents(pattern: dict) -> list:
-    """Find past incidents with similar patterns and their resolutions."""
-```
-
-#### Remediation Categories
-1. **Scaling Issues**: "Increase Cloud Run max instances from 10 to 50"
-2. **Resource Limits**: "Pod memory limit of 512Mi is insufficient based on OOM patterns"
-3. **Configuration**: "Connection pool size of 10 is causing exhaustion under load"
-4. **Retry Logic**: "Add exponential backoff for transient database errors"
-5. **Caching**: "High cache miss rate - consider increasing TTL or cache size"
+| Variable | Purpose | Default |
+| :--- | :--- | :--- |
+| `GOOGLE_CLOUD_PROJECT` | Default GCP project ID | Required |
+| `GOOGLE_CLOUD_LOCATION` | GCP region | `us-central1` |
+| `SRE_AGENT_ID` | Agent Engine resource ID (enables remote mode + Memory Bank) | Unset |
+| `STRICT_EUC_ENFORCEMENT` | Block ADC fallback (require EUC tokens) | `false` |
+| `SRE_AGENT_LOCAL_EXECUTION` | Enable local sandbox execution | `false` |
+| `SRE_AGENT_CONTEXT_CACHING` | Enable Vertex AI context caching (OPT-10) | `false` |
+| `USE_MOCK_MCP` | Use mock MCP in tests | `false` |
+| `GOOGLE_CUSTOM_SEARCH_API_KEY` | API key for Google Custom Search (research tools) | Unset |
+| `GOOGLE_CUSTOM_SEARCH_ENGINE_ID` | Programmable Search Engine ID (research tools) | Unset |
 
 ---
 
-### Module 6: Cloud Profiler Integration
+## Enhancement Roadmap
 
-**Purpose**: Connect performance profiling data with trace analysis.
+The following table summarizes the implementation status of the originally planned enhancement modules:
 
-#### New Tools
-```python
-# sre_agent/tools/clients/profiler.py
+| Module | Status | Description |
+| :--- | :--- | :--- |
+| GKE Intelligence Suite | **Implemented** (playbook + tools) | Pod/node/cluster health, HPA analysis |
+| Serverless Debugging | **Implemented** (playbook) | Cloud Run cold starts, concurrency, timeouts |
+| SLO/SLI Framework | **Implemented** | Multi-window burn rate, budget prediction |
+| Pub/Sub Analysis | **Implemented** (playbook) | Backlog, dead letters, delivery failures |
+| Remediation Suggestions | **Implemented** | Actionable recommendations, postmortem generation |
+| Database Analysis | **Implemented** (playbook) | Cloud SQL connection exhaustion, CPU, replication |
+| Cloud Profiler Integration | Planned | CPU/memory profiling correlation with traces |
+| Enhanced Error Reporting | Planned | Deep stack trace analysis, error trends |
+| Incident Lifecycle | Planned | Operations Suite incident management integration |
+| Cost Correlation | Planned | Financial impact assessment for incidents |
 
-def get_cpu_hotspots(service_name: str, version: str, time_range_hours: int = 24) -> dict:
-    """Get top CPU consuming functions from Cloud Profiler."""
+### Planned Module: Cloud Profiler Integration
+- Connect performance profiling data with trace analysis
+- CPU and memory allocation hotspot identification
+- Profile comparison between deployment versions
+- Tools: `get_cpu_hotspots`, `correlate_profile_with_trace`, `compare_profile_versions`
 
-def get_memory_allocation_hotspots(service_name: str, version: str) -> dict:
-    """Identify functions with highest memory allocation rates."""
+### Planned Module: Enhanced Error Reporting
+- Deep integration with Cloud Error Reporting
+- Stack trace analysis and variation pattern detection
+- Error trend tracking across deployments
+- Tools: `get_error_group_details`, `analyze_error_trends`, `find_error_root_cause_frame`
 
-def correlate_profile_with_trace(trace_id: str, service_name: str) -> dict:
-    """Link specific trace spans to profiler data for that timeframe."""
+### Planned Module: Incident Lifecycle
+- Google Cloud Operations Suite incident management
+- Incident timeline correlation with traces and logs
+- Automated postmortem data collection
+- Tools: `get_active_incidents`, `correlate_traces_with_incident`, `generate_postmortem_data`
 
-def compare_profile_versions(service_name: str, v1: str, v2: str) -> dict:
-    """Compare CPU/memory profiles between deployments to find regressions."""
-
-def detect_profiler_anomalies(service_name: str) -> list:
-    """Find sudden changes in profiling data that may indicate issues."""
-```
-
----
-
-### Module 7: Enhanced Error Reporting Integration
-
-**Purpose**: Deep integration with Cloud Error Reporting for stack trace analysis.
-
-#### New Tools
-```python
-# sre_agent/tools/clients/error_reporting.py (enhanced)
-
-def get_error_group_details(group_id: str) -> dict:
-    """Get full details of an error group including stack traces and affected services."""
-
-def analyze_error_trends(service_name: str, days: int = 7) -> dict:
-    """Track error count trends, new vs recurring errors, resolution rate."""
-
-def get_stack_trace_analysis(error_group_id: str) -> dict:
-    """Deep analysis of stack trace: common frames, variation patterns."""
-
-def correlate_errors_with_deployments(service_name: str) -> dict:
-    """Link error spikes to specific deployments."""
-
-def find_error_root_cause_frame(error_group_id: str) -> dict:
-    """Identify the most likely root cause frame in the stack trace."""
-
-def get_error_impact_assessment(error_group_id: str) -> dict:
-    """Assess user impact: affected users, affected requests, revenue impact."""
-```
-
----
-
-### Module 8: Incident Lifecycle Integration
-
-**Purpose**: Connect with Google Cloud Operations Suite incident management.
-
-#### New Tools
-```python
-# sre_agent/tools/clients/incidents.py
-
-def get_active_incidents(project_id: str) -> list:
-    """List currently open incidents from Cloud Monitoring."""
-
-def get_incident_timeline(incident_id: str) -> dict:
-    """Get full incident timeline: alerts, acknowledgments, annotations."""
-
-def correlate_traces_with_incident(incident_id: str) -> list:
-    """Find all traces that occurred during an incident window."""
-
-def analyze_incident_blast_radius(incident_id: str) -> dict:
-    """Determine all services affected by an incident."""
-
-def get_incident_similar_past(incident_id: str) -> list:
-    """Find past incidents with similar characteristics."""
-
-def generate_postmortem_data(incident_id: str) -> dict:
-    """Collect all data needed for an incident postmortem."""
-```
-
----
-
-### Module 9: Database-Specific Analysis
-
-**Purpose**: Deep integration with Cloud SQL, Spanner, and Bigtable.
-
-#### New Tools
-```python
-# sre_agent/tools/clients/databases.py
-
-# Cloud SQL
-def analyze_cloudsql_performance(instance_id: str) -> dict:
-    """CPU, memory, connections, slow queries, replication lag."""
-
-def get_slow_queries(instance_id: str, threshold_ms: int = 1000) -> list:
-    """Get queries exceeding threshold from Cloud SQL Insights."""
-
-def analyze_connection_pooling(instance_id: str) -> dict:
-    """Check connection usage vs limits, detect exhaustion patterns."""
-
-# Spanner
-def analyze_spanner_performance(instance_id: str, database: str) -> dict:
-    """Spanner-specific: read/write latency, aborted transactions, hotspots."""
-
-def detect_spanner_hotspots(instance_id: str, database: str) -> list:
-    """Identify hot rows/ranges causing performance issues."""
-
-# Bigtable
-def analyze_bigtable_performance(instance_id: str, table_id: str) -> dict:
-    """Bigtable: read/write latency, hotspots, row key distribution."""
-```
-
----
-
-### Module 10: Cost Correlation
-
-**Purpose**: Connect incidents to financial impact.
-
-#### New Tools
-```python
-# sre_agent/tools/clients/billing.py
-
-def estimate_incident_cost(incident_start: str, incident_end: str, services: list) -> dict:
-    """Estimate additional costs incurred during incident (extra compute, retries, etc.)."""
-
-def analyze_resource_waste(service_name: str, days: int = 7) -> dict:
-    """Identify over-provisioned resources that could be optimized."""
-
-def get_cost_anomalies(project_id: str, days: int = 7) -> list:
-    """Find unexpected cost spikes and correlate with incidents."""
-
-def predict_scaling_cost_impact(current_usage: dict, projected_growth: float) -> dict:
-    """Project costs based on current usage patterns and growth rate."""
-```
-
----
-
-## Implementation Priority
-
-### Phase 1: High Impact, Lower Effort (Week 1-2)
-1. **SLO/SLI Integration** - Core SRE practice, well-defined API
-2. **Enhanced Error Reporting** - Direct impact on debugging workflow
-3. **Automated Remediation Suggestions** - Immediate user value
-
-### Phase 2: GKE & Serverless (Week 3-4)
-4. **GKE Intelligence Suite** - Large user base on GKE
-5. **Serverless Debugging** - Growing Cloud Run adoption
-
-### Phase 3: Async & Data (Week 5-6)
-6. **Pub/Sub Analysis** - Critical for event-driven architectures
-7. **Database Analysis** - Common pain point
-
-### Phase 4: Advanced Features (Week 7-8)
-8. **Cloud Profiler Integration** - Deep performance analysis
-9. **Incident Lifecycle** - Full incident management
-10. **Cost Correlation** - Business impact visibility
-
----
-
-## New Sub-Agent Architecture
-
-```
-                        ┌─────────────────────────┐
-                        │     🔧 SRE Agent        │
-                        │     (Orchestrator)      │
-                        └───────────┬─────────────┘
-                                    │
-        ┌───────────────────────────┼───────────────────────────┐
-        │                           │                           │
-        ▼                           ▼                           ▼
-┌───────────────┐         ┌───────────────┐         ┌───────────────┐
-│ Trace Squad   │         │ Infra Squad   │         │ Business Squad│
-│ (existing)    │         │ (NEW!)        │         │ (NEW!)        │
-├───────────────┤         ├───────────────┤         ├───────────────┤
-│ • Latency     │         │ • GKE Expert  │         │ • SLO Expert  │
-│ • Error       │         │ • Serverless  │         │ • Cost Expert │
-│ • Structure   │         │ • Database    │         │ • Incident    │
-│ • Statistics  │         │ • Pub/Sub     │         │   Manager     │
-│ • Causality   │         │ • Profiler    │         │ • Remediation │
-│ • Impact      │         │               │         │   Advisor     │
-└───────────────┘         └───────────────┘         └───────────────┘
-```
+### Planned Module: Cost Correlation
+- Connect incidents to financial impact
+- Resource waste identification and optimization
+- Cost anomaly detection
+- Tools: `estimate_incident_cost`, `analyze_resource_waste`, `get_cost_anomalies`
 
 ---
 
@@ -418,14 +255,4 @@ def predict_scaling_cost_impact(current_usage: dict, projected_growth: float) ->
 
 ---
 
-## Conclusion
-
-This enhancement roadmap transforms the SRE Agent from a capable trace analyzer into a **comprehensive Google Cloud operations command center**. By the end of this roadmap, the agent will be able to:
-
-1. **Understand** the full GCP ecosystem (GKE, Cloud Run, Pub/Sub, databases)
-2. **Measure** against SRE best practices (SLOs, error budgets, golden signals)
-3. **Diagnose** issues across all three pillars of observability
-4. **Recommend** specific, actionable remediations
-5. **Quantify** business impact (cost, user impact, SLO burn)
-
-*"Don't be evil" has evolved to "Do the right thing" - and the right thing is giving SREs the best possible debugging companion.*
+*Last verified: 2026-02-15 -- Auto SRE Team*

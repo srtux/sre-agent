@@ -38,7 +38,7 @@
     │  MODE A: LlmAgent   │  │  MODE B: BaseAgent       │
     │  (Default Root)      │  │  (CouncilOrchestrator)   │
     │  sre_agent/agent.py  │  │  council/orchestrator.py │
-    │  :1485               │  │  :34                     │
+    │                      │  │  :39                     │
     └─────────┬───────────┘  └────────────┬─────────────┘
               │                            │
               ▼                            ▼
@@ -58,11 +58,11 @@
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                     sre_agent (LlmAgent)                            │
-│                     Model: gemini-flash                              │
+│                     Model: gemini-2.5-flash                          │
 │                     Prompt: SRE_AGENT_PROMPT                        │
-│                     Tools: ~20 slim (default) or ~72 full           │
+│                     Tools: ~39 slim (default) or ~80 full           │
 │                            + preload_memory + load_memory           │
-│                     Code: sre_agent/agent.py:1485                   │
+│                     Code: sre_agent/agent.py                        │
 │                                                                     │
 │  ┌─────────────────────────────────────────────────────────────┐    │
 │  │              3-Tier Router (route_request)                   │    │
@@ -102,12 +102,14 @@
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │              CouncilOrchestrator (BaseAgent)                         │
-│              council/orchestrator.py:34                              │
+│              council/orchestrator.py:39                              │
 │              No LLM — pure routing logic                            │
+│              (or LLM-augmented with adaptive classifier)            │
 │                                                                     │
 │  ┌─────────────────────────────────────────────────────────────┐    │
 │  │     classify_intent_with_signal() → mode + signal_type      │    │
-│  │     council/intent_classifier.py:268                        │    │
+│  │     (or adaptive_classify() if ADAPTIVE_CLASSIFIER=true)    │    │
+│  │     council/intent_classifier.py + adaptive_classifier.py   │    │
 │  └──────┬─────────────────┬────────────────────┬───────────────┘    │
 │         │                 │                    │                     │
 │    ┌────▼────┐     ┌──────▼──────┐      ┌──────▼──────┐            │
@@ -198,19 +200,19 @@
 
 | Agent | Type | Model | Code | Prompt | Description |
 |:------|:-----|:------|:-----|:-------|:------------|
-| **sre_agent** | `LlmAgent` | `fast` (Gemini Flash) | [`agent.py:1485`](../../sre_agent/agent.py#L1485) | [`SRE_AGENT_PROMPT`](../../sre_agent/prompt.py#L31) | Default root agent. Slim tool set (~20, OPT-1), 7 sub-agents, 3-tier router |
-| **CouncilOrchestrator** | `BaseAgent` | None (no LLM) | [`council/orchestrator.py:34`](../../sre_agent/council/orchestrator.py#L34) | None | Alternative root. Pure routing to Fast/Standard/Debate pipelines |
+| **sre_agent** | `LlmAgent` | `fast` (Gemini 2.5 Flash) | [`agent.py:1554`](../../sre_agent/agent.py#L1554) | [`SRE_AGENT_PROMPT`](../../sre_agent/prompt.py#L31) | Default root agent. Slim tool set (~39, OPT-1), 7 sub-agents, 3-tier router |
+| **CouncilOrchestrator** | `BaseAgent` | None (no LLM) | [`council/orchestrator.py:39`](../../sre_agent/council/orchestrator.py#L39) | None | Alternative root. Pure routing to Fast/Standard/Debate pipelines. Supports adaptive classifier (`SRE_AGENT_ADAPTIVE_CLASSIFIER=true`) |
 
 ### Sub-Agents (children of sre_agent)
 
 | Agent | Model | Code | Prompt Location | Tools | Purpose |
 |:------|:------|:-----|:----------------|:------|:--------|
-| **aggregate_analyzer** | `deep` (Gemini Pro) | [`sub_agents/trace.py:122`](../../sre_agent/sub_agents/trace.py#L122) | [`AGGREGATE_ANALYZER_PROMPT`](../../sre_agent/sub_agents/trace.py#L28) | via `AGGREGATE_ANALYZER_TOOLS` (15) | Stage 0: Fleet-wide BigQuery analysis |
+| **aggregate_analyzer** | `deep` (Gemini Pro) | [`sub_agents/trace.py:122`](../../sre_agent/sub_agents/trace.py#L122) | [`AGGREGATE_ANALYZER_PROMPT`](../../sre_agent/sub_agents/trace.py#L28) | via `AGGREGATE_ANALYZER_TOOLS` (14) | Stage 0: Fleet-wide BigQuery analysis |
 | **trace_analyst** | `fast` (Gemini Flash) | [`sub_agents/trace.py:103`](../../sre_agent/sub_agents/trace.py#L103) | [`TRACE_ANALYST_PROMPT`](../../sre_agent/sub_agents/trace.py#L68) | via `TRACE_ANALYST_TOOLS` (16) | Stage 1: Individual trace analysis (latency, errors, structure) |
-| **log_analyst** | `fast` (Gemini Flash) | [`sub_agents/logs.py:69`](../../sre_agent/sub_agents/logs.py#L69) | [`LOG_ANALYST_PROMPT`](../../sre_agent/sub_agents/logs.py#L29) | via `LOG_ANALYST_TOOLS` (13) | Log pattern mining via BigQuery/Drain3 (OPT-5: downgraded to Flash) |
-| **metrics_analyzer** | `fast` (Gemini Flash) | [`sub_agents/metrics.py:92`](../../sre_agent/sub_agents/metrics.py#L92) | [`METRICS_ANALYZER_PROMPT`](../../sre_agent/sub_agents/metrics.py#L36) | via `METRICS_ANALYZER_TOOLS` (14) | Time-series/PromQL/exemplar correlation (OPT-5: downgraded to Flash) |
+| **log_analyst** | `fast` (Gemini Flash) | [`sub_agents/logs.py:69`](../../sre_agent/sub_agents/logs.py#L69) | [`LOG_ANALYST_PROMPT`](../../sre_agent/sub_agents/logs.py#L29) | via `LOG_ANALYST_TOOLS` (12) | Log pattern mining via BigQuery/Drain3 (OPT-5: downgraded to Flash) |
+| **metrics_analyzer** | `fast` (Gemini Flash) | [`sub_agents/metrics.py:92`](../../sre_agent/sub_agents/metrics.py#L92) | [`METRICS_ANALYZER_PROMPT`](../../sre_agent/sub_agents/metrics.py#L36) | via `METRICS_ANALYZER_TOOLS` (13) | Time-series/PromQL/exemplar correlation (OPT-5: downgraded to Flash) |
 | **alert_analyst** | `fast` (Gemini Flash) | [`sub_agents/alerts.py:55`](../../sre_agent/sub_agents/alerts.py#L55) | [`ALERT_ANALYST_PROMPT`](../../sre_agent/sub_agents/alerts.py#L26) | via `ALERT_ANALYST_TOOLS` (11) | Alert triage and incident classification |
-| **root_cause_analyst** | `deep` (Gemini Pro) | [`sub_agents/root_cause.py:62`](../../sre_agent/sub_agents/root_cause.py#L62) | [`ROOT_CAUSE_ANALYST_PROMPT`](../../sre_agent/sub_agents/root_cause.py#L29) | via `ROOT_CAUSE_ANALYST_TOOLS` (18) | Stage 2: Multi-signal root cause synthesis |
+| **root_cause_analyst** | `deep` (Gemini Pro) | [`sub_agents/root_cause.py:62`](../../sre_agent/sub_agents/root_cause.py#L62) | [`ROOT_CAUSE_ANALYST_PROMPT`](../../sre_agent/sub_agents/root_cause.py#L29) | via `ROOT_CAUSE_ANALYST_TOOLS` (23) | Stage 2: Multi-signal root cause synthesis + research + GitHub self-healing |
 | **agent_debugger** | `fast` (Gemini Flash) | [`sub_agents/agent_debugger.py:89`](../../sre_agent/sub_agents/agent_debugger.py#L89) | [`AGENT_DEBUGGER_PROMPT`](../../sre_agent/sub_agents/agent_debugger.py#L40) | 12 | Debugs Vertex Agent Engine interactions |
 
 ### Council Panel Agents (created dynamically by pipeline factories)
@@ -290,13 +292,16 @@ Both sub-agents and council panels import from this single registry to prevent t
 | `ALERTS_PANEL_TOOLS` | `alerts_panel` | 11 |
 | `DATA_PANEL_TOOLS` | `data_panel` | 6 |
 | `TRACE_ANALYST_TOOLS` | `trace_analyst` sub-agent | 16 |
-| `AGGREGATE_ANALYZER_TOOLS` | `aggregate_analyzer` sub-agent | 15 |
-| `LOG_ANALYST_TOOLS` | `log_analyst` sub-agent | 13 |
+| `AGGREGATE_ANALYZER_TOOLS` | `aggregate_analyzer` sub-agent | 14 |
+| `LOG_ANALYST_TOOLS` | `log_analyst` sub-agent | 12 |
 | `ALERT_ANALYST_TOOLS` | `alert_analyst` sub-agent | 11 |
-| `METRICS_ANALYZER_TOOLS` | `metrics_analyzer` sub-agent | 14 |
-| `ROOT_CAUSE_ANALYST_TOOLS` | `root_cause_analyst` sub-agent | 18 |
+| `METRICS_ANALYZER_TOOLS` | `metrics_analyzer` sub-agent | 13 |
+| `ROOT_CAUSE_ANALYST_TOOLS` | `root_cause_analyst` sub-agent | 23 |
+| `ORCHESTRATOR_TOOLS` | Slim root agent (DIRECT tier) | 14 |
 | `SHARED_STATE_TOOLS` | All agents (cross-cutting) | 2 |
 | `SHARED_REMEDIATION_TOOLS` | Alert/Log/Root Cause agents | 3 |
+| `SHARED_RESEARCH_TOOLS` | Root Cause agent | 2 |
+| `SHARED_GITHUB_TOOLS` | Root Cause agent | 4 |
 
 ---
 
@@ -325,70 +330,70 @@ Both sub-agents and council panels import from this single registry to prevent t
 
 | Tool | Code Path | Used By |
 |:-----|:----------|:--------|
-| [`analyze_trace_comprehensive`](../../sre_agent/tools/analysis/trace/comprehensive.py) | `tools/analysis/trace/comprehensive.py` | Root, Trace Analyst, Trace Panel |
-| [`analyze_critical_path`](../../sre_agent/tools/analysis/trace/critical_path.py) | `tools/analysis/trace/critical_path.py` | Root, Trace Analyst, Trace Panel |
-| [`calculate_critical_path_contribution`](../../sre_agent/tools/analysis/trace/critical_path.py) | `tools/analysis/trace/critical_path.py` | Root, Trace Analyst, Trace Panel |
-| [`calculate_span_durations`](../../sre_agent/tools/analysis/trace/durations.py) | `tools/analysis/trace/durations.py` | Root |
+| [`analyze_trace_comprehensive`](../../sre_agent/tools/analysis/trace_comprehensive.py) | `tools/analysis/trace_comprehensive.py` | Root, Trace Analyst, Trace Panel |
+| [`analyze_critical_path`](../../sre_agent/tools/analysis/correlation/critical_path.py) | `tools/analysis/correlation/critical_path.py` | Root, Trace Analyst, Trace Panel |
+| [`calculate_critical_path_contribution`](../../sre_agent/tools/analysis/correlation/critical_path.py) | `tools/analysis/correlation/critical_path.py` | Root, Trace Analyst, Trace Panel |
+| [`calculate_span_durations`](../../sre_agent/tools/analysis/trace/analysis.py) | `tools/analysis/trace/analysis.py` | Root |
 | [`compare_span_timings`](../../sre_agent/tools/analysis/trace/comparison.py) | `tools/analysis/trace/comparison.py` | Root, Trace Analyst, Trace Panel |
-| [`find_bottleneck_services`](../../sre_agent/tools/analysis/trace/bottleneck.py) | `tools/analysis/trace/bottleneck.py` | Root, Trace Analyst, Agg. Analyzer, Trace Panel |
-| [`analyze_trace_patterns`](../../sre_agent/tools/analysis/trace/patterns.py) | `tools/analysis/trace/patterns.py` | Root |
-| [`find_structural_differences`](../../sre_agent/tools/analysis/trace/structure.py) | `tools/analysis/trace/structure.py` | Root |
-| [`summarize_trace`](../../sre_agent/tools/analysis/trace/summary.py) | `tools/analysis/trace/summary.py` | Root |
-| [`validate_trace_quality`](../../sre_agent/tools/analysis/trace/validation.py) | `tools/analysis/trace/validation.py` | Root |
-| [`extract_errors`](../../sre_agent/tools/analysis/trace/errors.py) | `tools/analysis/trace/errors.py` | Root |
-| [`build_call_graph`](../../sre_agent/tools/analysis/trace/call_graph.py) | `tools/analysis/trace/call_graph.py` | Root |
-| [`compute_latency_statistics`](../../sre_agent/tools/analysis/trace/statistics.py) | `tools/analysis/trace/statistics.py` | Root |
+| [`find_bottleneck_services`](../../sre_agent/tools/analysis/correlation/critical_path.py) | `tools/analysis/correlation/critical_path.py` | Root, Trace Analyst, Agg. Analyzer, Trace Panel |
+| [`analyze_trace_patterns`](../../sre_agent/tools/analysis/trace/statistical_analysis.py) | `tools/analysis/trace/statistical_analysis.py` | Root |
+| [`find_structural_differences`](../../sre_agent/tools/analysis/trace/comparison.py) | `tools/analysis/trace/comparison.py` | Root |
+| [`summarize_trace`](../../sre_agent/tools/analysis/trace/analysis.py) | `tools/analysis/trace/analysis.py` | Root |
+| [`validate_trace_quality`](../../sre_agent/tools/analysis/trace/analysis.py) | `tools/analysis/trace/analysis.py` | Root |
+| [`extract_errors`](../../sre_agent/tools/analysis/trace/analysis.py) | `tools/analysis/trace/analysis.py` | Root |
+| [`build_call_graph`](../../sre_agent/tools/analysis/trace/analysis.py) | `tools/analysis/trace/analysis.py` | Root |
+| [`compute_latency_statistics`](../../sre_agent/tools/analysis/trace/statistical_analysis.py) | `tools/analysis/trace/statistical_analysis.py` | Root |
 
 ### Metrics Analysis (6 tools)
 
 | Tool | Code Path | Used By |
 |:-----|:----------|:--------|
-| [`detect_metric_anomalies`](../../sre_agent/tools/analysis/metrics/anomaly.py) | `tools/analysis/metrics/anomaly.py` | Root, Metrics Analyzer, Metrics Panel |
-| [`compare_metric_windows`](../../sre_agent/tools/analysis/metrics/comparison.py) | `tools/analysis/metrics/comparison.py` | Root, Metrics Analyzer, Metrics Panel |
+| [`detect_metric_anomalies`](../../sre_agent/tools/analysis/metrics/anomaly_detection.py) | `tools/analysis/metrics/anomaly_detection.py` | Root, Metrics Analyzer, Metrics Panel |
+| [`compare_metric_windows`](../../sre_agent/tools/analysis/metrics/anomaly_detection.py) | `tools/analysis/metrics/anomaly_detection.py` | Root, Metrics Analyzer, Metrics Panel |
 | [`calculate_series_stats`](../../sre_agent/tools/analysis/metrics/statistics.py) | `tools/analysis/metrics/statistics.py` | Root, Metrics Analyzer, Metrics Panel |
-| [`detect_trend_changes`](../../sre_agent/tools/analysis/metrics/trends.py) | `tools/analysis/metrics/trends.py` | Root, Agg. Analyzer, Root Cause, Trace Panel |
-| [`detect_latency_anomalies`](../../sre_agent/tools/analysis/metrics/latency.py) | `tools/analysis/metrics/latency.py` | Root, Trace Analyst, Trace Panel |
-| [`compare_time_periods`](../../sre_agent/tools/analysis/metrics/periods.py) | `tools/analysis/metrics/periods.py` | Root, Multiple sub-agents, Multiple panels |
+| [`detect_trend_changes`](../../sre_agent/tools/analysis/bigquery/otel.py) | `tools/analysis/bigquery/otel.py` | Root, Agg. Analyzer, Root Cause, Trace Panel |
+| [`detect_latency_anomalies`](../../sre_agent/tools/analysis/trace/statistical_analysis.py) | `tools/analysis/trace/statistical_analysis.py` | Root, Trace Analyst, Trace Panel |
+| [`compare_time_periods`](../../sre_agent/tools/analysis/bigquery/otel.py) | `tools/analysis/bigquery/otel.py` | Root, Multiple sub-agents, Multiple panels |
 
 ### Log Analysis (4 tools)
 
 | Tool | Code Path | Used By |
 |:-----|:----------|:--------|
 | [`extract_log_patterns`](../../sre_agent/tools/analysis/logs/patterns.py) | `tools/analysis/logs/patterns.py` | Root, Log Analyst, Logs Panel |
-| [`compare_log_patterns`](../../sre_agent/tools/analysis/logs/comparison.py) | `tools/analysis/logs/comparison.py` | Root |
-| [`analyze_log_anomalies`](../../sre_agent/tools/analysis/logs/anomaly.py) | `tools/analysis/logs/anomaly.py` | Root |
-| [`analyze_bigquery_log_patterns`](../../sre_agent/tools/analysis/logs/bigquery.py) | `tools/analysis/logs/bigquery.py` | Root, Log Analyst, Logs Panel |
+| [`compare_log_patterns`](../../sre_agent/tools/analysis/logs/patterns.py) | `tools/analysis/logs/patterns.py` | Root |
+| [`analyze_log_anomalies`](../../sre_agent/tools/analysis/logs/patterns.py) | `tools/analysis/logs/patterns.py` | Root |
+| [`analyze_bigquery_log_patterns`](../../sre_agent/tools/analysis/bigquery/logs.py) | `tools/analysis/bigquery/logs.py` | Root, Log Analyst, Logs Panel |
 
 ### SLO/SLI Analysis (5 tools)
 
 | Tool | Code Path | Used By |
 |:-----|:----------|:--------|
-| [`analyze_error_budget_burn`](../../sre_agent/tools/analysis/slo/budget.py) | `tools/analysis/slo/budget.py` | Root |
+| [`analyze_error_budget_burn`](../../sre_agent/tools/clients/slo.py) | `tools/clients/slo.py` | Root |
 | [`analyze_multi_window_burn_rate`](../../sre_agent/tools/analysis/slo/burn_rate.py) | `tools/analysis/slo/burn_rate.py` | Root |
-| [`get_slo_status`](../../sre_agent/tools/analysis/slo/status.py) | `tools/analysis/slo/status.py` | Root |
-| [`predict_slo_violation`](../../sre_agent/tools/analysis/slo/prediction.py) | `tools/analysis/slo/prediction.py` | Root |
-| [`correlate_incident_with_slo_impact`](../../sre_agent/tools/analysis/slo/correlation.py) | `tools/analysis/slo/correlation.py` | Root |
+| [`get_slo_status`](../../sre_agent/tools/clients/slo.py) | `tools/clients/slo.py` | Root |
+| [`predict_slo_violation`](../../sre_agent/tools/clients/slo.py) | `tools/clients/slo.py` | Root |
+| [`correlate_incident_with_slo_impact`](../../sre_agent/tools/clients/slo.py) | `tools/clients/slo.py` | Root |
 
 ### Cross-Signal Correlation (7 tools)
 
 | Tool | Code Path | Used By |
 |:-----|:----------|:--------|
-| [`correlate_trace_with_metrics`](../../sre_agent/tools/analysis/correlation/trace_metrics.py) | `tools/analysis/correlation/` | Root, Metrics Analyzer, Root Cause, Metrics Panel |
-| [`correlate_metrics_with_traces_via_exemplars`](../../sre_agent/tools/analysis/correlation/exemplars.py) | `tools/analysis/correlation/` | Root, Agg. Analyzer, Metrics Analyzer, Trace/Metrics Panels |
-| [`correlate_logs_with_trace`](../../sre_agent/tools/analysis/correlation/logs_trace.py) | `tools/analysis/correlation/` | Root, Trace Analyst, Root Cause, Trace Panel |
-| [`correlate_trace_with_kubernetes`](../../sre_agent/tools/analysis/correlation/trace_k8s.py) | `tools/analysis/correlation/` | Root |
-| [`build_cross_signal_timeline`](../../sre_agent/tools/analysis/correlation/timeline.py) | `tools/analysis/correlation/` | Root, Root Cause |
-| [`analyze_signal_correlation_strength`](../../sre_agent/tools/analysis/correlation/strength.py) | `tools/analysis/correlation/` | Root |
-| [`correlate_changes_with_incident`](../../sre_agent/tools/analysis/correlation/changes.py) | `tools/analysis/correlation/` | Root |
+| [`correlate_trace_with_metrics`](../../sre_agent/tools/analysis/correlation/cross_signal.py) | `tools/analysis/correlation/cross_signal.py` | Root, Metrics Analyzer, Root Cause, Metrics Panel |
+| [`correlate_metrics_with_traces_via_exemplars`](../../sre_agent/tools/analysis/correlation/cross_signal.py) | `tools/analysis/correlation/cross_signal.py` | Root, Agg. Analyzer, Metrics Analyzer, Trace/Metrics Panels |
+| [`correlate_logs_with_trace`](../../sre_agent/tools/analysis/bigquery/otel.py) | `tools/analysis/bigquery/otel.py` | Root, Trace Analyst, Root Cause, Trace Panel |
+| [`correlate_trace_with_kubernetes`](../../sre_agent/tools/clients/gke.py) | `tools/clients/gke.py` | Root |
+| [`build_cross_signal_timeline`](../../sre_agent/tools/analysis/correlation/cross_signal.py) | `tools/analysis/correlation/cross_signal.py` | Root, Root Cause |
+| [`analyze_signal_correlation_strength`](../../sre_agent/tools/analysis/correlation/cross_signal.py) | `tools/analysis/correlation/cross_signal.py` | Root |
+| [`correlate_changes_with_incident`](../../sre_agent/tools/analysis/correlation/change_correlation.py) | `tools/analysis/correlation/change_correlation.py` | Root |
 
 ### Resiliency Pattern Detection (4 tools)
 
 | Tool | Code Path | Used By |
 |:-----|:----------|:--------|
-| [`detect_all_sre_patterns`](../../sre_agent/tools/analysis/trace/sre_patterns.py) | `tools/analysis/trace/sre_patterns.py` | Root, Trace Analyst, Trace Panel |
-| [`detect_retry_storm`](../../sre_agent/tools/analysis/trace/retry.py) | `tools/analysis/trace/retry.py` | Root, Trace Analyst, Trace Panel |
-| [`detect_cascading_timeout`](../../sre_agent/tools/analysis/trace/timeout.py) | `tools/analysis/trace/timeout.py` | Root, Trace Analyst, Trace Panel |
-| [`detect_connection_pool_issues`](../../sre_agent/tools/analysis/trace/pool.py) | `tools/analysis/trace/pool.py` | Root, Trace Analyst, Trace Panel |
+| [`detect_all_sre_patterns`](../../sre_agent/tools/analysis/trace/patterns.py) | `tools/analysis/trace/patterns.py` | Root, Trace Analyst, Trace Panel |
+| [`detect_retry_storm`](../../sre_agent/tools/analysis/trace/patterns.py) | `tools/analysis/trace/patterns.py` | Root, Trace Analyst, Trace Panel |
+| [`detect_cascading_timeout`](../../sre_agent/tools/analysis/trace/patterns.py) | `tools/analysis/trace/patterns.py` | Root, Trace Analyst, Trace Panel |
+| [`detect_connection_pool_issues`](../../sre_agent/tools/analysis/trace/patterns.py) | `tools/analysis/trace/patterns.py` | Root, Trace Analyst, Trace Panel |
 
 ### Dependency & Structure (4 tools)
 
@@ -397,7 +402,7 @@ Both sub-agents and council panels import from this single registry to prevent t
 | [`build_service_dependency_graph`](../../sre_agent/tools/analysis/correlation/dependencies.py) | `tools/analysis/correlation/` | Root, Agg. Analyzer, Root Cause, Trace Panel |
 | [`find_hidden_dependencies`](../../sre_agent/tools/analysis/correlation/dependencies.py) | `tools/analysis/correlation/` | Root |
 | [`detect_circular_dependencies`](../../sre_agent/tools/analysis/correlation/dependencies.py) | `tools/analysis/correlation/` | Root |
-| [`analyze_upstream_downstream_impact`](../../sre_agent/tools/analysis/correlation/impact.py) | `tools/analysis/correlation/` | Root, Root Cause |
+| [`analyze_upstream_downstream_impact`](../../sre_agent/tools/analysis/correlation/dependencies.py) | `tools/analysis/correlation/dependencies.py` | Root, Root Cause |
 
 ### GKE / Infrastructure (6 tools)
 
@@ -414,10 +419,10 @@ Both sub-agents and council panels import from this single registry to prevent t
 
 | Tool | Code Path | Used By |
 |:-----|:----------|:--------|
-| [`generate_remediation_suggestions`](../../sre_agent/tools/analysis/remediation/suggestions.py) | `tools/analysis/remediation/` | Root, Log/Alert/Root Cause sub-agents, Alerts Panel |
-| [`estimate_remediation_risk`](../../sre_agent/tools/analysis/remediation/risk.py) | `tools/analysis/remediation/` | Root, Log/Alert/Root Cause sub-agents, Alerts Panel |
-| [`generate_postmortem`](../../sre_agent/tools/analysis/remediation/postmortem.py) | `tools/analysis/remediation/` | Root |
-| [`get_gcloud_commands`](../../sre_agent/tools/analysis/remediation/commands.py) | `tools/analysis/remediation/` | Root, Log/Alert/Root Cause sub-agents, Alerts Panel |
+| [`generate_remediation_suggestions`](../../sre_agent/tools/analysis/remediation/suggestions.py) | `tools/analysis/remediation/suggestions.py` | Root, Log/Alert/Root Cause sub-agents, Alerts Panel |
+| [`estimate_remediation_risk`](../../sre_agent/tools/analysis/remediation/suggestions.py) | `tools/analysis/remediation/suggestions.py` | Root, Log/Alert/Root Cause sub-agents, Alerts Panel |
+| [`generate_postmortem`](../../sre_agent/tools/analysis/remediation/postmortem.py) | `tools/analysis/remediation/postmortem.py` | Root |
+| [`get_gcloud_commands`](../../sre_agent/tools/analysis/remediation/suggestions.py) | `tools/analysis/remediation/suggestions.py` | Root, Log/Alert/Root Cause sub-agents, Alerts Panel |
 
 ### BigQuery & MCP (10 tools)
 
@@ -430,8 +435,8 @@ Both sub-agents and council panels import from this single registry to prevent t
 | [`mcp_list_log_entries`](../../sre_agent/tools/mcp/gcp.py) | `tools/mcp/gcp.py` | Root |
 | [`mcp_list_timeseries`](../../sre_agent/tools/mcp/gcp.py) | `tools/mcp/gcp.py` | Root, Metrics Analyzer, Metrics Panel |
 | [`mcp_query_range`](../../sre_agent/tools/mcp/gcp.py) | `tools/mcp/gcp.py` | Root, Metrics Analyzer, Metrics Panel |
-| [`analyze_aggregate_metrics`](../../sre_agent/tools/bigquery/aggregate.py) | `tools/bigquery/aggregate.py` | Root, Agg. Analyzer, Trace Panel |
-| [`find_exemplar_traces`](../../sre_agent/tools/bigquery/exemplars.py) | `tools/bigquery/exemplars.py` | Root, Agg. Analyzer, Trace Panel |
+| [`analyze_aggregate_metrics`](../../sre_agent/tools/analysis/bigquery/otel.py) | `tools/analysis/bigquery/otel.py` | Root, Agg. Analyzer, Trace Panel |
+| [`find_exemplar_traces`](../../sre_agent/tools/analysis/bigquery/otel.py) | `tools/analysis/bigquery/otel.py` | Root, Agg. Analyzer, Trace Panel |
 | [`query_data_agent`](../../sre_agent/tools/bigquery/ca_data_agent.py) | `tools/bigquery/ca_data_agent.py` | Root, Data Panel |
 
 ### Orchestration Tools (7 tools — invoke sub-agents)
@@ -450,15 +455,15 @@ Both sub-agents and council panels import from this single registry to prevent t
 
 | Tool | Code Path | Used By |
 |:-----|:----------|:--------|
-| [`discover_telemetry_sources`](../../sre_agent/tools/discovery/sources.py) | `tools/discovery/sources.py` | Root, Agg. Analyzer, Agent Debugger, Multiple panels |
-| [`explore_project_health`](../../sre_agent/tools/exploration/health.py) | `tools/exploration/health.py` | Root |
+| [`discover_telemetry_sources`](../../sre_agent/tools/discovery/discovery_tool.py) | `tools/discovery/discovery_tool.py` | Root, Agg. Analyzer, Agent Debugger, Multiple panels |
+| [`explore_project_health`](../../sre_agent/tools/exploration/explore_health.py) | `tools/exploration/explore_health.py` | Root |
 
 ### Investigation State & Memory (8 tools)
 
 | Tool | Code Path | Used By |
 |:-----|:----------|:--------|
-| [`update_investigation_state`](../../sre_agent/tools/memory.py) | `tools/memory.py` | Root, All sub-agents, All panels |
-| [`get_investigation_summary`](../../sre_agent/tools/memory.py) | `tools/memory.py` | Root, All sub-agents, All panels |
+| [`update_investigation_state`](../../sre_agent/tools/investigation.py) | `tools/investigation.py` | Root, All sub-agents, All panels |
+| [`get_investigation_summary`](../../sre_agent/tools/investigation.py) | `tools/investigation.py` | Root, All sub-agents, All panels |
 | [`add_finding_to_memory`](../../sre_agent/tools/memory.py) | `tools/memory.py` | Root |
 | [`search_memory`](../../sre_agent/tools/memory.py) | `tools/memory.py` | Root |
 | [`complete_investigation`](../../sre_agent/tools/memory.py) | `tools/memory.py` | Root |
@@ -477,6 +482,22 @@ Both sub-agents and council panels import from this single registry to prevent t
 | [`execute_custom_analysis_in_sandbox`](../../sre_agent/tools/sandbox/) | `tools/sandbox/` | Root |
 | [`get_sandbox_status`](../../sre_agent/tools/sandbox/) | `tools/sandbox/` | Root |
 
+### Online Research (2 tools)
+
+| Tool | Code Path | Used By |
+|:-----|:----------|:--------|
+| [`search_google`](../../sre_agent/tools/research.py) | `tools/research.py` | Root, Root Cause |
+| [`fetch_web_page`](../../sre_agent/tools/research.py) | `tools/research.py` | Root, Root Cause |
+
+### GitHub Self-Healing (4 tools)
+
+| Tool | Code Path | Used By |
+|:-----|:----------|:--------|
+| [`github_read_file`](../../sre_agent/tools/github/tools.py) | `tools/github/tools.py` | Root, Root Cause |
+| [`github_search_code`](../../sre_agent/tools/github/tools.py) | `tools/github/tools.py` | Root, Root Cause |
+| [`github_list_recent_commits`](../../sre_agent/tools/github/tools.py) | `tools/github/tools.py` | Root, Root Cause |
+| [`github_create_pull_request`](../../sre_agent/tools/github/tools.py) | `tools/github/tools.py` | Root, Root Cause |
+
 ### Agent Debugging (4 tools)
 
 | Tool | Code Path | Used By |
@@ -491,23 +512,23 @@ Both sub-agents and council panels import from this single registry to prevent t
 | Tool | Code Path | Used By |
 |:-----|:----------|:--------|
 | [`get_current_time`](../../sre_agent/tools/common/time.py) | `tools/common/time.py` | Root, Agent Debugger |
-| [`get_golden_signals`](../../sre_agent/tools/analysis/slo/golden.py) | `tools/analysis/slo/golden.py` | Root |
-| [`find_similar_past_incidents`](../../sre_agent/tools/analysis/correlation/incidents.py) | `tools/analysis/correlation/` | Root |
-| [`perform_causal_analysis`](../../sre_agent/tools/analysis/correlation/causal.py) | `tools/analysis/correlation/` | Root, Root Cause |
-| [`find_example_traces`](../../sre_agent/tools/bigquery/examples.py) | `tools/bigquery/examples.py` | Root |
-| [`select_traces_manually`](../../sre_agent/tools/bigquery/selection.py) | `tools/bigquery/selection.py` | Root |
-| [`select_traces_from_statistical_outliers`](../../sre_agent/tools/bigquery/selection.py) | `tools/bigquery/selection.py` | Root |
+| [`get_golden_signals`](../../sre_agent/tools/clients/slo.py) | `tools/clients/slo.py` | Root |
+| [`find_similar_past_incidents`](../../sre_agent/tools/analysis/remediation/suggestions.py) | `tools/analysis/remediation/suggestions.py` | Root |
+| [`perform_causal_analysis`](../../sre_agent/tools/analysis/trace/statistical_analysis.py) | `tools/analysis/trace/statistical_analysis.py` | Root, Root Cause |
+| [`find_example_traces`](../../sre_agent/tools/clients/trace.py) | `tools/clients/trace.py` | Root |
+| [`select_traces_manually`](../../sre_agent/tools/analysis/trace/filters.py) | `tools/analysis/trace/filters.py` | Root |
+| [`select_traces_from_statistical_outliers`](../../sre_agent/tools/analysis/trace/filters.py) | `tools/analysis/trace/filters.py` | Root |
 | [`synthesize_report`](../../sre_agent/tools/reporting.py) | `tools/reporting.py` | Root |
 | [`preload_memory_tool`](https://google.github.io/adk-docs/) | ADK built-in | Root (auto each turn) |
 | [`load_memory_tool`](https://google.github.io/adk-docs/) | ADK built-in | Root (on-demand) |
 
-**Total: ~103 unique tools** registered in [`TOOL_NAME_MAP`](../../sre_agent/agent.py#L1069)
+**Total: ~118 unique tools** registered in [`TOOL_NAME_MAP`](../../sre_agent/agent.py)
 
 ---
 
 ## Tool-to-Agent Assignment Matrix
 
-Shows which tools are available to each agent. `R` = Root, `AA` = Aggregate Analyzer, `TA` = Trace Analyst, `LA` = Log Analyst, `MA` = Metrics Analyzer, `AL` = Alert Analyst, `RC` = Root Cause, `AD` = Agent Debugger, `TP` = Trace Panel, `MP` = Metrics Panel, `LP` = Logs Panel, `AP` = Alerts Panel, `DP` = Data Panel.
+Shows which tools are available to each agent. `R` = Root, `AA` = Aggregate Analyzer, `TA` = Trace Analyst, `LA` = Log Analyst, `MA` = Metrics Analyzer, `AL` = Alert Analyst, `RC` = Root Cause, `AD` = Agent Debugger, `TP` = Trace Panel, `MP` = Metrics Panel, `LP` = Logs Panel, `AP` = Alerts Panel, `DP` = Data Panel. Note: Root Cause now includes research and GitHub self-healing tools.
 
 | Tool Category | R | AA | TA | LA | MA | AL | RC | AD | TP | MP | LP | AP | DP |
 |:-----|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
@@ -527,6 +548,12 @@ Shows which tools are available to each agent. `R` = Root, `AA` = Aggregate Anal
 | update_investigation_state | x | x | x | x | x | x | x | x | x | x | x | x | x |
 | get_investigation_summary | x | x | x | x | x | x | x | x | x | x | x | x | x |
 | query_data_agent | x | | | | | | | | | | | | x |
+| search_google | x | | | | | | x | | | | | | |
+| fetch_web_page | x | | | | | | x | | | | | | |
+| github_read_file | x | | | | | | x | | | | | | |
+| github_search_code | x | | | | | | x | | | | | | |
+| github_list_recent_commits | x | | | | | | x | | | | | | |
+| github_create_pull_request | x | | | | | | x | | | | | | |
 
 ---
 
@@ -654,7 +681,7 @@ All 10 identified optimizations have been implemented or scaffolded. Here is the
 
 #### OPT-1: Slim Tools Default
 - **Change**: Flipped `SRE_AGENT_SLIM_TOOLS` default from `"false"` to `"true"` in `agent.py`.
-- **Effect**: Root agent now presents ~20 routing/orchestration tools instead of ~90. Specialist tools delegated to sub-agents.
+- **Effect**: Root agent now presents ~39 routing/orchestration tools instead of ~80. Specialist tools delegated to sub-agents.
 - **Rollback**: Set `SRE_AGENT_SLIM_TOOLS=false` to restore full tool set.
 
 #### OPT-2: Compressed Root Prompt
@@ -723,4 +750,15 @@ All 10 identified optimizations have been implemented or scaffolded. Here is the
 
 ---
 
-*Last updated: 2026-02-11 — All 10 optimizations applied, line numbers verified*
+### Additional Features (Post-OPT)
+
+| Feature | Status | Description |
+|:--------|:-------|:------------|
+| **Adaptive Classifier** | **Applied** | LLM-augmented intent classification (`council/adaptive_classifier.py`). Considers session history, alert severity, token budget. Feature flag: `SRE_AGENT_ADAPTIVE_CLASSIFIER=true`. |
+| **Large Payload Handler** | **Applied** | Auto-summarizes oversized tool outputs via sandbox (`core/large_payload_handler.py`). Sits in `after_tool_callback` chain. |
+| **Online Research** | **Applied** | `search_google` and `fetch_web_page` tools (`tools/research.py`). Requires `GOOGLE_CUSTOM_SEARCH_API_KEY` and `GOOGLE_CUSTOM_SEARCH_ENGINE_ID`. |
+| **GitHub Self-Healing** | **Applied** | Read, search, list commits, create PRs (`tools/github/`). Available to Root Cause analyst for automated remediation. |
+| **Dashboard Explorer** | **Applied** | Direct query endpoints in `api/routers/tools.py` plus NL query translation. Frontend visual data explorer with query language toggle. |
+| **Memory Mistake Learning** | **Applied** | `memory/mistake_learner.py`, `mistake_advisor.py`, `mistake_store.py` — continuous learning from investigation patterns. |
+
+*Last updated: 2026-02-15 -- All 10 optimizations applied plus additional features. Tool counts and registry verified against codebase.*

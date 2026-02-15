@@ -2,7 +2,7 @@
   {
     "id": "traces",
     "title": "Traces & Spans",
-    "description": "Understand request flows and latency bottlenecks.",
+    "description": "Analyze distributed traces, critical paths, and resiliency anti-patterns.",
     "icon": "timeline",
     "categories": [
       "Observability"
@@ -12,7 +12,7 @@
   {
     "id": "logs",
     "title": "Logs & Patterns",
-    "description": "Analyze millions of log lines for errors and anomalies.",
+    "description": "AI-powered log pattern extraction, anomaly detection, and before/after comparison.",
     "icon": "article",
     "categories": [
       "Observability"
@@ -22,7 +22,7 @@
   {
     "id": "metrics",
     "title": "Metrics & Burn Rate",
-    "description": "Track system health and SLO compliance.",
+    "description": "Time-series analysis, SLO compliance, multi-window burn rate, and Golden Signals.",
     "icon": "bar_chart",
     "categories": [
       "Observability"
@@ -32,7 +32,7 @@
   {
     "id": "changes",
     "title": "Changes & Deployments",
-    "description": "Correlate incidents with recent system changes.",
+    "description": "Correlate incidents with recent deployments, config changes, and code commits.",
     "icon": "history",
     "categories": [
       "Observability"
@@ -42,7 +42,7 @@
   {
     "id": "council",
     "title": "Council Investigation",
-    "description": "Parallel multi-signal analysis with debate-based consensus.",
+    "description": "Five specialist panels analyze in parallel with optional debate-based consensus.",
     "icon": "psychology",
     "categories": [
       "Analysis"
@@ -52,7 +52,7 @@
   {
     "id": "rca",
     "title": "Root Cause Analysis",
-    "description": "How the agent diagnoses complex failure modes.",
+    "description": "Multi-signal synthesis to identify what happened, what changed, and the blast radius.",
     "icon": "psychology",
     "categories": [
       "Analysis"
@@ -62,17 +62,17 @@
   {
     "id": "circuit_breaker",
     "title": "Circuit Breakers",
-    "description": "Protecting your cloud resources during outages.",
+    "description": "Three-state failure recovery protecting API quotas and preventing cascading failures.",
     "icon": "electric_bolt",
     "categories": [
-      "Analysis"
+      "Reliability"
     ],
     "content_file": "circuit_breaker.md"
   },
   {
     "id": "postmortems",
     "title": "Postmortems",
-    "description": "Generate blameless incident reports automatically.",
+    "description": "Generate blameless incident reports with severity assessment and prioritized action items.",
     "icon": "assignment",
     "categories": [
       "Remediation"
@@ -82,7 +82,7 @@
   {
     "id": "remediation",
     "title": "Remediation Suggestions",
-    "description": "Get actionable steps to fix the issue.",
+    "description": "Pattern-matched fix suggestions ranked by risk and effort, with ready-to-run commands.",
     "icon": "build",
     "categories": [
       "Remediation"
@@ -92,7 +92,7 @@
   {
     "id": "incident_lifecycle",
     "title": "Incident Lifecycle",
-    "description": "From alert to postmortem: the full workflow.",
+    "description": "Five-phase investigation from triage to completion with quality scoring.",
     "icon": "play_arrow",
     "categories": [
       "Workflows"
@@ -102,7 +102,7 @@
   {
     "id": "safety",
     "title": "Security & Safety",
-    "description": "Safety guardrails and read-only modes.",
+    "description": "Policy engine, tool access levels, EUC enforcement, and human approval workflows.",
     "icon": "security",
     "categories": [
       "FAQ"
@@ -112,7 +112,7 @@
   {
     "id": "custom_tools",
     "title": "Adding Tools",
-    "description": "Can I add my own custom SRE tools?",
+    "description": "Extend the agent with custom Python tools, MCP servers, and tool configuration.",
     "icon": "build",
     "categories": [
       "FAQ"
@@ -122,7 +122,7 @@
   {
     "id": "model_info",
     "title": "The Brain",
-    "description": "Which LLM powers the AutoSRE agent?",
+    "description": "Gemini 2.5 Flash and Pro: how the agent selects models for different tasks.",
     "icon": "psychology",
     "categories": [
       "FAQ"
@@ -132,7 +132,7 @@
   {
     "id": "telemetry_source",
     "title": "Data Sources",
-    "description": "Where does the agent get its data?",
+    "description": "Cloud Trace, Logging, Monitoring, BigQuery, GKE, GitHub, and more.",
     "icon": "bar_chart",
     "categories": [
       "FAQ"
@@ -141,9 +141,9 @@
   },
   {
     "id": "deployment",
-    "title": "Cloud Run & Vertex AI",
-    "description": "How the infrastructure powers your investigation.",
-    "icon": "play_arrow",
+    "title": "Deployment Options",
+    "description": "Local dev, Cloud Run, Vertex AI Agent Engine, and GKE deployment modes.",
+    "icon": "cloud",
     "categories": [
       "FAQ"
     ],
@@ -152,7 +152,7 @@
   {
     "id": "debugging_agent",
     "title": "Fixing the Agent",
-    "description": "Troubleshoot Reasoning and Permission issues.",
+    "description": "Troubleshoot permissions, loops, MCP failures, and use the Agent Debugger.",
     "icon": "build",
     "categories": [
       "FAQ"

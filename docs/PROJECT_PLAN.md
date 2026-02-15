@@ -4,12 +4,14 @@ This document is the **Single Source of Truth** for the project's evolution. It 
 
 ---
 
-## 📈 Executive Summary
-Auto SRE is an autonomous reliability engine for Google Cloud. We are transitioning from a monolithic, reactive tool into a modular, proactive, and memory-aware diagnostic expert.
+## Executive Summary
+Auto SRE is an autonomous reliability engine for Google Cloud. It has evolved from a monolithic, reactive tool into a modular, proactive, and memory-aware diagnostic expert with a Council of Experts architecture, self-healing capabilities, and an interactive Observability Explorer dashboard.
+
+**Current state**: 2312 backend tests across 196 test files, 74 Flutter tests across 22 test files. Phase 3 complete; Phase 4 in progress.
 
 ---
 
-## ✅ Completed Milestones
+## Completed Milestones
 
 ### Phase 1: Foundation & Modularization (Jan 2026)
 **Goal**: Technical debt reduction and reasoning structure.
@@ -43,16 +45,13 @@ Auto SRE is an autonomous reliability engine for Google Cloud. We are transition
 
 ---
 
-## 🏗️ Active Roadmap
-
 ### Phase 2: Memory & Proactive State (COMPLETED)
 **Goal**: Deep context retention and guided investigations.
 
 - [x] **Vertex AI Memory Integration**: Core integration of `VertexAiMemoryBankService` for long-term incident retention.
 - [x] **Proactive Search Logic**: Implemented `InvestigationPattern` system to recommend tools based on similar past incidents.
-- [x] **Investigation State Machine**: Added formal `InvestigationPhase` tracking (Initiated → Triage → Deep Dive → Remediation).
+- [x] **Investigation State Machine**: Added formal `InvestigationPhase` tracking (Initiated -> Triage -> Deep Dive -> Remediation).
 - [x] **Self-Improvement Protocol**: Agent now reflects on investigations and reinforces successful patterns.
-- [ ] **Cross-Agent Handoffs**: Refine the schema for passing context (including negative findings) between sub-agents.
 - [x] **Automated CI/CD (Cloud Build)**: Orchestrate full-stack deployment (Agent Engine + Cloud Run) via GCP native triggers with parallelized tracks.
 
 ### User Interface & Experience
@@ -62,10 +61,10 @@ Auto SRE is an autonomous reliability engine for Google Cloud. We are transition
     - **Metrics & Alerts**: Visual timeline of incidents.
     - **Remediation**: Risk-assessed step-by-step guidance.
 
-### Phase 2.5: SRE Reliability Suite (COMPLETED — Feb 2026)
+### Phase 2.5: SRE Reliability Suite (COMPLETED -- Feb 2026)
 **Goal**: Production-grade resilience patterns and advanced SRE tooling.
 
-- [x] **Circuit Breaker Pattern** (`sre_agent/core/circuit_breaker.py`): Three-state breaker (CLOSED/OPEN/HALF_OPEN) with per-tool configuration and singleton registry. Prevents cascading failures when GCP APIs are degraded. (20 tests)
+- [x] **Circuit Breaker Pattern** (`sre_agent/core/circuit_breaker.py`): Three-state breaker (CLOSED/OPEN/HALF_OPEN) with per-tool configuration, singleton registry, and thread-safe state mutations via `threading.Lock`. Prevents cascading failures when GCP APIs are degraded. Integrated into `@adk_tool` decorator for automatic protection. (20 tests)
 - [x] **Multi-Window SLO Burn Rate Analyzer** (`sre_agent/tools/analysis/slo/burn_rate.py`): Google SRE Workbook multi-window alerting (1h/6h/24h/72h windows) with error budget projection and urgency classification. (19 tests)
 - [x] **Change Correlation Tool** (`sre_agent/tools/analysis/correlation/change_correlation.py`): Queries GCP Audit Logs to find and rank recent changes by temporal proximity to incidents. (17 tests)
 - [x] **Automated Postmortem Generator** (`sre_agent/tools/analysis/remediation/postmortem.py`): Google SRE-style blameless postmortem with severity assessment, TTD/TTM metrics, and auto-generated P0-P2 action items. (21 tests)
@@ -74,7 +73,7 @@ Auto SRE is an autonomous reliability engine for Google Cloud. We are transition
 
 Total: **105 new tests**, all passing.
 
-### Phase 2.75: Parallel Council & Debate Architecture (COMPLETED — Feb 2026)
+### Phase 2.75: Parallel Council & Debate Architecture (COMPLETED -- Feb 2026)
 **Goal**: Parallel multi-signal investigation with adversarial refinement.
 
 - [x] **Council of Experts Architecture**: Five parallel specialist panels (Trace, Metrics, Logs, Alerts, Data) running simultaneously via ADK `ParallelAgent`. Each panel has domain-specific tools and prompts.
@@ -88,12 +87,12 @@ Total: **105 new tests**, all passing.
 - [x] **Council Tab in Investigation Dashboard**: Flutter UI panel displaying council panel findings, debate rounds, and synthesized results.
 - [x] **Schemas**: `InvestigationMode`, `PanelFinding`, `CriticReport`, `CouncilResult` Pydantic models with `frozen=True, extra="forbid"`.
 
-Total: **174 new council tests**, all passing. Grand total: **1512 tests**.
+Total: **174 new council tests**, all passing.
 
-### Phase 3: Observability & Advanced Diagnostics (IN PROGRESS — Feb 2026)
-**Goal**: ADK-native observability, tool discovery, eval coverage, and resilience patterns.
+### Phase 3: Observability & Advanced Diagnostics (COMPLETED -- Feb 2026)
+**Goal**: ADK-native observability, tool discovery, eval coverage, resilience patterns, sandbox execution, self-healing, and advanced routing.
 
-#### Completed
+#### Phase 3.0: Core Observability & Evaluation
 - [x] **ADK Model Callbacks for Cost/Token Tracking** (`sre_agent/core/model_callbacks.py`):
     - `UsageTracker` with thread-safe singleton accumulator for per-agent and aggregate usage.
     - `before_model_callback` enforces configurable token budget (`SRE_AGENT_TOKEN_BUDGET` env var).
@@ -123,10 +122,12 @@ Total: **174 new council tests**, all passing. Grand total: **1512 tests**.
     - `_detect_signal_type()` uses keyword scoring to route FAST queries to the correct panel (TRACE/METRICS/LOGS/ALERTS).
     - Backward-compatible `classify_intent()` wrapper preserved.
     - (28 tests)
-- [x] **New Eval Scenarios** (9 cases across 3 files):
-    - `eval/kubernetes_debugging.test.json`: Pod CrashLoopBackOff, node pressure, HPA scaling failure.
-    - `eval/slo_burn_rate.test.json`: Error budget exhaustion, multi-window SLO violation.
-    - `eval/failure_modes.test.json`: Invalid project handling, hallucination resistance, rate limit recovery, cascading multi-service failure.
+- [x] **Evaluation Framework Overhaul** (`eval/`):
+    - Restructured eval framework with ADK `AgentEvaluator` integration.
+    - Shared `conftest.py` with credential checking, dynamic project ID replacement, and reusable `EvalConfig` builders (`make_tool_trajectory_config`, `make_full_config`).
+    - 9 eval scenario files: `basic_capabilities`, `tool_selection`, `metrics_analysis`, `incident_investigation`, `error_diagnosis`, `multi_signal_correlation`, `kubernetes_debugging`, `slo_burn_rate`, `failure_modes`.
+    - 8 eval test functions covering sanity, tool routing, analysis, e2e investigation, error diagnosis, multi-signal correlation, Kubernetes debugging, SLO burn rate, and failure modes.
+    - Configurable scoring: tool trajectory matching, response quality, hallucination resistance, and safety.
 - [x] **Bug Fixes & Consistency**:
     - Fixed AGENTS.md merge conflict markers (Section 12.1/13).
     - Removed duplicate `correlate_changes_with_incident` from `base_tools`.
@@ -134,118 +135,182 @@ Total: **174 new council tests**, all passing. Grand total: **1512 tests**.
     - Added `run_council_investigation` and `classify_investigation_mode` to both `TOOL_NAME_MAP` and `TOOL_DEFINITIONS`.
     - Integrated circuit breaker into `@adk_tool` decorator (was dead code).
 
-Total: **112 new tests** in this phase. Grand total: **1909+** tests passing.
+#### Phase 3.5: Observability Explorer Dashboard Refactor
+- [x] Transformed the passive "agent-only" dashboard into an active GCP-style Observability Explorer where users can directly query telemetry data alongside agent-provided insights.
+    - **Syncfusion Chart Migration**: Replaced `fl_chart` with Syncfusion Community Edition charts for interactive zoom, pan, and trackball tooltips. Created `SyncfusionMetricChart` and `SyncfusionTraceWaterfall`. Deleted 1,935 lines of old FL Chart widgets.
+    - **Manual Query Capability**: Added `ManualQueryBar` input widget to every dashboard panel (metrics, logs, traces, alerts) for direct GCP telemetry querying.
+    - **Backend Query Endpoints**: Added 4 new REST endpoints (`POST /api/tools/metrics/query`, `POST /api/tools/metrics/promql`, `POST /api/tools/alerts/query`, `POST /api/tools/logs/query`).
+    - **Dual Data Source Architecture**: Extended `DashboardState` with `DataSource.agent` / `DataSource.manual` tracking, per-panel loading/error states, `TimeRange` model with preset selectors.
+    - **GCP-Style Toolbar**: `SreToolbar` with time range preset chips, custom date range picker, refresh button, and auto-refresh toggle.
 
-- [x] **Observability Explorer Dashboard Refactor** (Phase 3.5 — Feb 2026):
-    Transformed the passive "agent-only" dashboard into an active GCP-style Observability Explorer
-    where users can directly query telemetry data alongside agent-provided insights.
-    - **Syncfusion Chart Migration**: Replaced `fl_chart` with Syncfusion Community Edition charts (`syncfusion_flutter_charts`, `syncfusion_flutter_datepicker`) for interactive zoom, pan, and trackball tooltips. Created `SyncfusionMetricChart` (line chart with anomaly overlays, trend lines, and stats row) and `SyncfusionTraceWaterfall` (horizontal range bar chart with service color mapping and span detail panel). Deleted 1,935 lines of old FL Chart and custom painter widgets.
-    - **Manual Query Capability**: Added `ManualQueryBar` input widget to every dashboard panel (metrics, logs, traces, alerts) so users can directly query GCP telemetry without going through the AI agent.
-    - **Backend Query Endpoints**: Added 4 new REST endpoints (`POST /api/tools/metrics/query`, `POST /api/tools/metrics/promql`, `POST /api/tools/alerts/query`, `POST /api/tools/logs/query`) to `sre_agent/api/routers/tools.py`. Fixed all endpoints to properly unwrap `BaseToolResponse` envelopes and apply `genui_adapter.transform_*()` transformations.
-    - **Dual Data Source Architecture**: Extended `DashboardState` with `DataSource.agent` / `DataSource.manual` tracking, per-panel loading/error states, `TimeRange` model with preset selectors (1H/6H/1D/1W/Custom), and auto-refresh timer. Created `ExplorerQueryService` as the HTTP client for manual queries.
-    - **GCP-Style Toolbar**: Added `SreToolbar` with time range preset chips, custom date range picker, refresh button, and auto-refresh toggle.
-    - **Shared UI Components**: Extracted reusable `ErrorBanner`, `SourceBadge`, `ExplorerEmptyState`, and `ShimmerLoading` widgets.
-    - **JSON Parsing Hardening**: Applied null-safe defaults (`?? []`, `?? {}`, try-catch on `DateTime.parse`) to 12+ `fromJson` factories in `adk_schema.dart`.
-    - **Centralized Chart Theme**: Created `chart_theme.dart` with Deep Space palette integration for all Syncfusion chart elements.
-    - 6 new backend API tests, updated existing tests to use `BaseToolResponse` mocks. Grand total: **1989 backend tests**, **129 Flutter tests** passing.
-
-- [x] **Full-Stack Code Audit & Hardening** (Phase 3.6 — Feb 2026):
-    Comprehensive 6-layer audit across backend, frontend, council, tools, and tests. Applied 15 fixes across 12 files.
+#### Phase 3.6: Full-Stack Code Audit & Hardening
+- [x] Comprehensive 6-layer audit across backend, frontend, council, tools, and tests. Applied 15 fixes across 12 files.
     - **Thread Safety**: Added `threading.Lock` to `CircuitBreakerRegistry` state mutations and double-checked locking to `get_policy_engine()` / `get_prompt_composer()` singletons.
-    - **Input Validation**: Replaced raw `dict[str, Any]` payloads with 5 Pydantic request models (`MetricsQueryRequest`, `PromQLQueryRequest`, `AlertsQueryRequest`, `LogsQueryRequest`, `LogAnalyzeRequest`) on query endpoints.
-    - **Security Hardening**: Replaced 7 `traceback.print_exc()` calls with `logger.exception()`, hardened help router path traversal with `Path.resolve()` verification, upgraded dev-mode auth bypass log from DEBUG to WARNING.
-    - **Schema Compliance**: Added `extra="forbid"` to `InvestigationState`, `frozen=True` to 4 council activity tracking models (`ToolCallRecord`, `LLMCallRecord`, `AgentActivity`, `CouncilActivityGraph`).
-    - **Resource Leaks**: Fixed timer leak in `DashboardState.toggleAutoRefresh()`, added `client.close()` to `ExplorerQueryService` HTTP calls.
-    - **Data Integrity**: Fixed `genui_adapter.transform_trace()` input mutation (copy-on-write), fixed `datetime.now()` → `datetime.now(timezone.utc)` inconsistency, cleared stale closure in debate convergence tracker, narrowed `_is_tool_failure()` exception catch to `JSONDecodeError/ValueError`.
-    - Grand total: **1989 backend tests**, **129 Flutter tests** passing. Lint clean.
+    - **Input Validation**: Replaced raw `dict[str, Any]` payloads with 5 Pydantic request models on query endpoints.
+    - **Security Hardening**: Replaced 7 `traceback.print_exc()` calls with `logger.exception()`, hardened help router path traversal, upgraded dev-mode auth bypass log.
+    - **Schema Compliance**: Added `extra="forbid"` to `InvestigationState`, `frozen=True` to 4 council activity tracking models.
+    - **Resource Leaks**: Fixed timer leak in `DashboardState.toggleAutoRefresh()`, added `client.close()` to `ExplorerQueryService`.
+    - **Data Integrity**: Fixed `genui_adapter.transform_trace()` input mutation, fixed `datetime.now()` timezone inconsistency, cleared stale closure in debate convergence tracker.
 
-- [x] **Codebase Audit & Bug Fix Pass** (Phase 3.7 — Feb 2026):
-    Comprehensive code review across backend, identifying and fixing critical bugs, optimizations, and documentation gaps.
-    - **Critical Bug Fix**: Fixed `AttributeError` in `run_aggregate_analysis()` — calling `.get()` on `BaseToolResponse` object instead of `.result` dict (`agent.py:589`). Would crash at runtime during telemetry discovery.
-    - **Error Status Fix**: Changed `ToolStatus.SUCCESS` → `ToolStatus.PARTIAL` when no trace tables found (was misleading).
-    - **Traceback Preservation**: Fixed `raise e` → bare `raise` in `@adk_tool` decorator (both async and sync wrappers) to preserve original tracebacks (`decorators.py:295,363`).
-    - **Thread Safety**: Added `threading.Lock` with double-checked locking to `_get_fernet()` singleton in `auth.py`. Previously unprotected against concurrent initialization.
-    - **Redundant Imports**: Removed 2 redundant `import os` statements in `auth.py` functions (already imported at module level).
-    - **Cache Memory Leak**: Added `evict_expired()` method to `DataCache` in `cache.py`. Previously, expired entries were only removed during `get()` operations, causing unbounded memory growth for write-heavy caches.
-    - **Performance Optimization**: Cached reverse tool lookup dict (`TOOL_NAME_MAP` → `_tool_to_name_cache`) in `agent.py`. Was being rebuilt from 100+ entries on every agent turn.
-    - **Log Extraction Optimization**: Replaced O(n*m) case-insensitive field matching loop in `LogMessageExtractor._extract_from_json()` with lazy-built lowercase lookup dict.
-    - **Documentation Updates**: Added missing env vars (`SRE_AGENT_TOKEN_BUDGET`, `SRE_AGENT_LOCAL_EXECUTION`, `USE_MOCK_MCP`) to configuration reference. Fixed incorrect GitHub tool names in tools reference. Added sandbox tools section. Fixed typo "Templets" → "Queries". Updated tool registration checklist to include all 5 sync points.
+#### Phase 3.7: Codebase Audit & Bug Fix Pass
+- [x] Comprehensive code review across backend with critical bug fixes, optimizations, and documentation gaps.
+    - **Critical Bug Fix**: Fixed `AttributeError` in `run_aggregate_analysis()` (calling `.get()` on `BaseToolResponse` instead of `.result` dict).
+    - **Traceback Preservation**: Fixed `raise e` to bare `raise` in `@adk_tool` decorator.
+    - **Thread Safety**: Added `threading.Lock` with double-checked locking to `_get_fernet()` singleton in `auth.py`.
+    - **Cache Memory Leak**: Added `evict_expired()` method to `DataCache` in `cache.py`.
+    - **Performance Optimization**: Cached reverse tool lookup dict (`TOOL_NAME_MAP` to `_tool_to_name_cache`). Replaced O(n*m) log field matching with lazy-built lookup dict.
+
+#### Phase 3.8: Council 2.0 Adaptive Classification
+- [x] **Adaptive Intent Classifier** (`sre_agent/council/adaptive_classifier.py`):
+    - LLM-augmented classification with automatic fallback to rule-based classifier on any failure.
+    - `ClassificationContext` schema: session history, alert severity, remaining token budget, previous modes.
+    - `AdaptiveClassificationResult` schema: mode, signal type, confidence, reasoning, classifier provenance tracking.
+    - Budget-aware override: automatically downgrades DEBATE to STANDARD when token budget is low (<10k remaining).
+    - Feature flag: `SRE_AGENT_ADAPTIVE_CLASSIFIER=true` to enable LLM augmentation.
+    - (57 tests: 45 unit + 12 integration)
+
+#### Phase 3.9: 3-Tier Request Router
+- [x] **Request Router** (`sre_agent/core/router.py`):
+    - 3-tier routing for every incoming query: DIRECT (simple data retrieval), SUB_AGENT (focused analysis), COUNCIL (complex multi-signal investigation).
+    - `RoutingDecision` enum in `council/schemas.py` and `RoutingResult` dataclass in `council/intent_classifier.py` with `classify_routing()` function.
+    - `route_request` exposed as `@adk_tool` so the root agent calls it as the first step of every user turn.
+    - Per-tier guidance messages with suggested tools, agents, or investigation modes.
+    - (15 router tests + 23 routing classifier tests)
+
+#### Phase 3.10: GitHub Self-Healing Tools
+- [x] **GitHub Integration** (`sre_agent/tools/github/`):
+    - `github_read_file`: Read files from the agent's own repository (any branch/ref).
+    - `github_search_code`: Search the codebase for patterns, functions, and classes.
+    - `github_list_recent_commits`: List recent commits with optional file path filtering.
+    - `github_create_pull_request`: Create draft PRs with `auto-fix/` branch prefix, safety validation, and `agent-generated` labels. Human review always required before merge.
+    - `GitHubAPIError` exception handling with structured error responses.
+    - All tools persist findings to memory for future reference.
+    - (35 tests: 17 tool tests + 18 client tests)
+
+#### Phase 3.11: Online Research Tools
+- [x] **Web Research** (`sre_agent/tools/research.py`):
+    - `search_google`: Google Custom Search JSON API integration with site restriction support.
+    - `fetch_web_page`: HTML-to-text extraction with stdlib `HTMLParser` (no external dependencies), automatic truncation, and redirect following.
+    - Memory persistence: search results and fetched page summaries automatically saved for future reference.
+    - Configurable via `GOOGLE_CUSTOM_SEARCH_API_KEY` and `GOOGLE_CUSTOM_SEARCH_ENGINE_ID`.
+    - (28 tests)
+
+#### Phase 3.12: Large Payload Handler & Sandbox Code Execution
+- [x] **Large Payload Handler** (`sre_agent/core/large_payload_handler.py`):
+    - Automatic interception of oversized tool outputs in the `after_tool_callback` chain.
+    - Configurable thresholds: item count (default 50) and character count (default 100k) via environment variables.
+    - 3-tier processing: tool-specific sandbox template, generic sandbox summarization, or code-generation prompt for the LLM.
+    - `TOOL_TEMPLATE_MAP`: maps 10+ tools to pre-built sandbox templates (metrics, logs, traces, time series).
+    - `build_code_generation_prompt()`: creates structured prompts with data samples and schema hints when no template matches.
+    - (63 tests)
+- [x] **Sandbox Code Execution** (`sre_agent/tools/sandbox/`):
+    - `SandboxExecutor` for Agent Engine code execution sandboxes with local fallback (`LocalCodeExecutor`).
+    - `SandboxConfig`, `MachineConfig`, `CodeExecutionOutput`, `SandboxFile` schemas.
+    - Data processors for summarizing metrics, logs, traces, and time series.
+    - Real-time event emission via configurable callback for UI integration.
+    - Execution log tracking with `get_recent_execution_logs()`.
+    - Feature flag: `SRE_AGENT_LOCAL_EXECUTION=true` for local sandbox mode.
+    - (94 tests: 47 executor + 20 schemas + 27 processors)
+
+#### Phase 3.13: Context Caching (OPT-10)
+- [x] **Vertex AI Context Caching** (`sre_agent/model_config.py`):
+    - `is_context_caching_enabled()` and `get_context_cache_config()` for static system prompt caching.
+    - Reduces input token costs by up to 75% for repeated calls by caching invariant prompt prefixes.
+    - Configurable TTL via `SRE_AGENT_CONTEXT_CACHE_TTL` (default 3600s).
+    - Feature flag: `SRE_AGENT_CONTEXT_CACHING=true`.
+
+#### Phase 3.14: Service Dependency Graph
+- [x] **Knowledge Graph for RCA** (`sre_agent/core/graph_service.py`):
+    - `DependencyGraph` with `DependencyNode` and `DependencyEdge` dataclasses.
+    - `ServiceType` enum (COMPUTE, DATABASE, CACHE, QUEUE, EXTERNAL, GATEWAY, STORAGE).
+    - `EdgeType` enum (CALLS, READS_FROM, WRITES_TO, SUBSCRIBES, PUBLISHES, DEPENDS_ON).
+    - `BlastRadiusReport` Pydantic model for impact analysis of service failures.
+    - Adjacency list-based graph traversal with `get_downstream()`, `get_upstream()`, `get_edges_from()`, `get_edges_to()`.
+    - (28 tests)
+
+#### Phase 3.15: Playbook System
+- [x] **Runbook Playbooks** (`sre_agent/tools/playbooks/`):
+    - 7 service-specific playbooks: GKE, Cloud Run, Cloud SQL, Pub/Sub, GCE, BigQuery, and Agent Self-Healing.
+    - `Playbook`, `TroubleshootingIssue`, `DiagnosticStep` schemas with severity and category enums.
+    - `PlaybookRegistry` for discovering and loading playbooks by service name or category.
+    - Self-healing playbook follows OODA loop: Observe (trace analysis) -> Orient (code research) -> Decide (fix strategy) -> Act (create PR).
+    - (50 tests: 13 registry + 27 self-healing + 10 schemas)
+
+#### Phase 3.16: Human Approval Workflow
+- [x] **Approval System** (`sre_agent/core/approval.py`):
+    - `HumanApprovalRequest` and `HumanApprovalEvent` Pydantic models with `frozen=True, extra="forbid"`.
+    - `ApprovalStatus` enum: PENDING, APPROVED, REJECTED, EXPIRED, CANCELLED.
+    - Thread-safe approval state management for write operations requiring human confirmation.
+
+Grand total at Phase 3 completion: **2312 backend tests**, **74 Flutter tests** passing across 196 test files. Lint clean.
+
+---
+
+## Active Roadmap
+
+### Phase 4: Modern & World-Class Agentics (IN PROGRESS -- 2026)
+**Goal**: Transparency, continuous quality, and elite governance.
+
+#### Completed
+- [x] **Streaming Reasoning (CoT)**: Real-time "Thinking" stream in the UI, exposing the agent's internal chain-of-thought before it acts.
+- [x] **CI-Driven Evaluations**: Integrated "LLM-as-a-Judge" into Cloud Build. Regression suites run on every PR to ensure reasoning accuracy never drops.
 
 #### Remaining
-- [ ] **Anomaly Correlation Engine**: Automate "Z-score comparison" across metrics and logs simultaneously.
-- [ ] **Microservice Dependency Mapping**: Add graph analysis tools to detect circular dependencies in OTel trace trees.
-- [ ] **Resource Saturation Suite**: Deep dive tools for OOMKilled, CPU Throttling, and Connection Pool exhaustion detection.
-- [ ] **Messaging & Pub/Sub Tracing**: Extend investigation to dead-letter queues and message lag.
+- [ ] **Observability-on-Self**: Fully link the agent's own trace IDs to the UI. Allow the user to "View Reasoning Trace" in Cloud Trace via deep links, leveraging native ADK instrumentation.
+- [ ] **Confirmation Bridge (HITL 2.0)**: Global interceptor for `IMPACT: HIGH` tool calls (e.g., Delete/Modify) that pauses the agent and requests user permission via UI banner. (Foundation in `core/approval.py` is ready.)
+- [ ] **Zero-Trust Identity Propagation**: 1:1 mapping of every tool execution to the *actual* end-user IAM identity, ensuring absolute auditability in massive GCP environments.
+- [ ] **System Instruction Optimization**:
+    - [ ] **Dynamic Tool Descriptions**: Inject tool docstrings at runtime to prevent hallucination drift and reduce maintenance.
+    - [ ] **Dynamic Few-Shot Examples (RAG)**: Inject past successful investigations from Memory Bank into the prompt context to boost problem-solving.
+    - [ ] **Token Efficiency**: Move critical invariants (constraints) to the end of the prompt to combat "lost in the middle" phenomenon.
+    - [ ] **Documentation Snapshot**: [Captured current state](../docs/architecture/system_instruction_snapshot_v1.md) for future comparison.
+- [ ] **Cross-Agent Handoffs**: Refine the schema for passing context (including negative findings) between sub-agents.
 
-#### Audit Follow-Up Items
+### Phase 3 Audit Follow-Up Items (Backlog)
 - [ ] **Council Intent Classifier**: Deterministic tie-breaking for signal type detection; word-boundary keyword matching to reduce false positives.
 - [ ] **Council Debate Validation**: Confidence bounds checking (clamp 0.0-1.0); panel completion validation after `ParallelAgent`; critic output schema enforcement (`CriticReport`).
 - [ ] **API Rate Limiting**: Add `slowapi` middleware with per-endpoint rate limits; request size limits on POST endpoints.
 - [ ] **CORS Tightening**: Replace `allow_headers=["*"]` with explicit header allowlist; disable `allow_credentials` when `allow_origins=["*"]`.
 - [ ] **Sync Tool Circuit Breaker**: Add circuit breaker logic to `sync_wrapper` in `decorators.py` to match async wrapper protection.
-- [ ] **Test Quality**: Replace `time.sleep()` in circuit breaker tests with `freezegun`; add health router tests; add playbook module tests; add error/exception fixture suite to `conftest.py`.
+- [ ] **Test Quality**: Replace `time.sleep()` in circuit breaker tests with `freezegun`; add health router tests; add error/exception fixture suite to `conftest.py`.
 - [ ] **genui_adapter Robustness**: Guard `transform_metrics()` PromQL path against `IndexError` on empty results; add `isinstance` check on nested `attributes` dict access.
 - [ ] **Token Estimation Consistency**: Align `CHARS_PER_TOKEN` between `context_compactor.py` (4) and `model_callbacks.py` (2.5).
 - [ ] **Session State Cleanup**: Add TTL-based cleanup for `_compaction_state` dict in `context_compactor.py` and `_active_executions` in `runner.py`.
 
 ---
 
-## 🚀 Future Vision
-
-- [ ] **Runbook Automation**: Execute predefined "Safety-First" runbooks (Restart, Scale, Rollback) with human-in-the-loop approval.
-- [ ] **Executive Reporting**: One-click "Post-Mortem" generator that synthesizes the investigation into a professional report.
-- [ ] **Structured Knowledge Extraction**: Automatic graph population based on investigation findings (e.g., auto-discovering a new API dependency).
-- [ ] **Knowledge Graph for RCA**: Build service dependency graphs from trace data.
-- [ ] **Chaos Engineering Sub-Agent**: Validate resilience hypotheses.
-- [ ] **Rate Limiting / Backpressure**: Complement circuit breakers with request rate limiting.
-- [ ] **Cross-Incident Learning**: Use embeddings to find similar past incidents.
-- [ ] **Proactive SLO Forecasting**: Predict violations before they happen using trend analysis.
-
-### Phase 4: Modern & World-Class Agentics (2026 Vision)
-**Goal**: Transparency, continuous quality, and elite governance.
-
-- [x] **Streaming Reasoning (CoT)**: Real-time "Thinking" stream in the UI, exposing the agent's internal chain-of-thought before it acts.
-- [x] **CI-Driven Evaluations**: Integrated "LLM-as-a-Judge" into Cloud Build. Regression suites run on every PR to ensure reasoning accuracy never drops.
-- [ ] **Observability-on-Self**: Fully link the agent's own trace IDs to the UI. Allow the user to "View Reasoning Trace" in Cloud Trace via deep links, leveraging native ADK instrumentation.
-- [ ] **Confirmation Bridge (HITL 2.0)**: Global interceptor for `IMPACT: HIGH` tool calls (e.g., Delete/Modify) that pauses the agent and requests user permission via UI banner.
-- [ ] **Zero-Trust Identity propagation**: 1:1 mapping of every tool execution to the *actual* end-user IAM identity, ensuring absolute auditability in massive GCP environments.
-- [ ] **System Instruction Optimization**:
-    - [ ] **Dynamic Tool Descriptions**: Inject tool docstrings at runtime to prevent hallucination drift and reduce maintenance.
-    - [ ] **Dynamic Few-Shot Examples (RAG)**: Inject past successful investigations from Memory Bank into the prompt context to boost problem-solving.
-    - [ ] **Token Efficiency**: Move critical invariants (constraints) to the end of the prompt to combat "lost in the middle" phenomenon.
-    - [ ] **Documentation Snapshot**: [Captured current state](../docs/architecture/system_instruction_snapshot_v1.md) for future comparison.
+## Future Vision
 
 ### Phase 5: Proactive SRE (Q2 2026)
 **Goal**: The agent anticipates problems before users ask.
 
-- [ ] **Proactive Anomaly Detection**: Background monitoring mode — continuously poll key SLO metrics, run Z-score and seasonal decomposition, surface pre-incident warnings, auto-create investigations when thresholds breach.
-- [ ] **Cross-Incident Knowledge Graph**: Persistent graph (services, APIs, error types, deployments) auto-populated from investigation findings. Queryable: "What usually causes checkout-service latency?"
-- [ ] **Adaptive Panel Selection (Council 2.0)**: Replace rule-based IntentClassifier with LLM-augmented classifier considering investigation history, incident severity, and token budget.
-- [ ] **Panel Self-Assessment & Re-Dispatch**: Confidence-aware feedback loop — low-confidence panels get re-dispatched with refined queries; contradicting panels auto-escalate to Debate mode.
-- [ ] **Investigation Quality Scoring**: Post-investigation report with signal coverage, aggregate confidence, evidence strength, and suggestions for deeper investigation.
+- [ ] **Proactive Anomaly Detection**: Background monitoring mode -- continuously poll key SLO metrics, run Z-score and seasonal decomposition, surface pre-incident warnings, auto-create investigations when thresholds breach.
+- [ ] **Cross-Incident Knowledge Graph**: Persistent graph (services, APIs, error types, deployments) auto-populated from investigation findings. Queryable: "What usually causes checkout-service latency?" (Foundation: `core/graph_service.py` provides `DependencyGraph` and `BlastRadiusReport`.)
+- [ ] **Panel Self-Assessment & Re-Dispatch**: Confidence-aware feedback loop -- low-confidence panels get re-dispatched with refined queries; contradicting panels auto-escalate to Debate mode.
 - [ ] **Investigation History & Replay**: Past investigations with timestamps, ability to replay against current data, diff view for "what changed since last investigation."
-- [ ] **Graceful Degradation Hierarchy**: Multi-level fallback — Full MCP → Simplified MCP → Direct API → Cached results → Synthetic estimates.
-- [ ] **Cost Attribution & Chargeback**: Per-team/per-project cost tracking for LLM tokens and GCP API calls, monthly reports, budget alerts.
+- [ ] **Graceful Degradation Hierarchy**: Multi-level fallback -- Full MCP -> Simplified MCP -> Direct API -> Cached results -> Synthetic estimates. (Foundation: `tools/mcp/fallback.py` provides MCP-to-Direct-API fallback.)
+- [ ] **Cost Attribution & Chargeback**: Per-team/per-project cost tracking for LLM tokens and GCP API calls, monthly reports, budget alerts. (Foundation: `core/model_callbacks.py` tracks per-request token usage and costs.)
+- [ ] **Anomaly Correlation Engine**: Automate "Z-score comparison" across metrics and logs simultaneously.
+- [ ] **Resource Saturation Suite**: Deep dive tools for OOMKilled, CPU Throttling, and Connection Pool exhaustion detection.
+- [ ] **Messaging & Pub/Sub Tracing**: Extend investigation to dead-letter queues and message lag.
 
 ### Phase 6: Enterprise & Scale (Q3-Q4 2026)
 **Goal**: Multi-team, multi-cloud, production-grade governance.
 
-- [ ] **Confirmation Bridge (HITL 2.0)**: Global interceptor for `IMPACT: HIGH` tool calls that pauses the agent and requests user permission via UI banner.
-- [ ] **Zero-Trust Identity Propagation**: 1:1 mapping of every tool execution to the end-user IAM identity for absolute auditability.
-- [ ] **Collaborative Investigations**: Multi-user investigation sessions — shared links, real-time cursors, comments/annotations, escalation workflow.
+- [ ] **Collaborative Investigations**: Multi-user investigation sessions -- shared links, real-time cursors, comments/annotations, escalation workflow.
 - [ ] **Canary Deployment Pipeline**: Deploy new agent version to 5% of traffic, run automated eval suite, compare quality metrics, auto-promote or rollback.
 - [ ] **Prompt A/B Testing**: Track investigation quality per prompt variant, auto-select higher-performing prompts, few-shot examples from memory bank (RAG).
-- [ ] **Mobile-Responsive Dashboard**: Responsive breakpoints for tablet/mobile — collapsible sidebar, swipeable panel cards, push notifications.
+- [ ] **Mobile-Responsive Dashboard**: Responsive breakpoints for tablet/mobile -- collapsible sidebar, swipeable panel cards, push notifications.
 - [ ] **Chaos Engineering Sub-Agent**: Validate resilience hypotheses with controlled fault injection.
 - [ ] **Multi-Cloud Support**: Extend investigation to AWS CloudWatch and Azure Monitor via new client factories.
 
 ---
 
-## 🧪 Engineering Standards
+## Engineering Standards
 
-*   **Vibe Coding**: Follow the lifecycle: Read Docs → Plan → Test First → Micro-Edit → Record.
+*   **Vibe Coding**: Follow the lifecycle: Read Docs -> Plan -> Test First -> Micro-Edit -> Record.
 *   **Test-Driven**: Every feature must have unit tests mirrored in `tests/unit/`.
 *   **Documentation**: This file (`PROJECT_PLAN.md`) must be updated after every significant change or phase transition.
 
 ---
-*Last updated: 2026-02-11 — Auto SRE Team*
+*Last updated: 2026-02-15 -- Auto SRE Team*
