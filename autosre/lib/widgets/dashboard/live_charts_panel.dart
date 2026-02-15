@@ -51,7 +51,7 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
   void initState() {
     super.initState();
     _sqlController = TextEditingController(
-      text: widget.dashboardState.getLastQueryFilter(DashboardDataType.charts),
+      text: widget.dashboardState.getLastQueryFilter(DashboardDataType.analytics),
     );
   }
 
@@ -72,8 +72,8 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
   // ===========================================================================
 
   Widget _buildSqlView() {
-    final isLoading = widget.dashboardState.isLoading(DashboardDataType.charts);
-    final error = widget.dashboardState.errorFor(DashboardDataType.charts);
+    final isLoading = widget.dashboardState.isLoading(DashboardDataType.analytics);
+    final error = widget.dashboardState.errorFor(DashboardDataType.analytics);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -86,13 +86,13 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
             final current = _sqlController.text;
             final prefix = current.isEmpty || current.endsWith(' ') || current.endsWith('\n') ? '' : ' ';
             _sqlController.text = current + prefix + tableName;
-            widget.dashboardState.setLastQueryFilter(DashboardDataType.charts, _sqlController.text);
+            widget.dashboardState.setLastQueryFilter(DashboardDataType.analytics, _sqlController.text);
           },
           onInsertColumn: (columnName) {
             final current = _sqlController.text;
             final prefix = current.isEmpty || current.endsWith(' ') || current.endsWith('\n') ? '' : ', ';
             _sqlController.text = current + prefix + columnName;
-            widget.dashboardState.setLastQueryFilter(DashboardDataType.charts, _sqlController.text);
+            widget.dashboardState.setLastQueryFilter(DashboardDataType.analytics, _sqlController.text);
           },
         ),
         // Main query and results area
@@ -100,7 +100,7 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
           child: ListenableBuilder(
             listenable: widget.dashboardState,
             builder: (context, _) {
-              final sqlItems = widget.dashboardState.itemsOfType(DashboardDataType.sql);
+              final sqlItems = widget.dashboardState.itemsOfType(DashboardDataType.analytics).where((i) => i.sqlData != null).toList();
               final hasResults = sqlItems.isNotEmpty;
 
               return Column(
@@ -128,7 +128,7 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
                           'SELECT column1, column2\nFROM `project.dataset.table`\nWHERE condition\nLIMIT 1000',
                       dashboardState: widget.dashboardState,
                       onRefresh: () {
-                        final sql = widget.dashboardState.getLastQueryFilter(DashboardDataType.charts);
+                        final sql = widget.dashboardState.getLastQueryFilter(DashboardDataType.analytics);
                         if (sql != null && sql.isNotEmpty) {
                           final explorer = context.read<ExplorerQueryService>();
                           explorer.queryBigQuery(sql: sql);
@@ -140,7 +140,7 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
                       onLanguageChanged: (i) => setState(() => _viewMode = i),
                       multiLine: true,
                       initialValue: widget.dashboardState
-                          .getLastQueryFilter(DashboardDataType.charts),
+                          .getLastQueryFilter(DashboardDataType.analytics),
                 isLoading: isLoading,
                 snippets: sqlSnippets,
                 templates: sqlTemplates,
@@ -150,7 +150,7 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
                 naturalLanguageExamples: sqlNaturalLanguageExamples,
                 onSubmitWithMode: (query, isNl) {
                   widget.dashboardState
-                      .setLastQueryFilter(DashboardDataType.charts, query);
+                      .setLastQueryFilter(DashboardDataType.analytics, query);
                   final explorer = context.read<ExplorerQueryService>();
                   if (isNl) {
                     if (widget.onPromptRequest != null) {
@@ -162,7 +162,7 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
                 },
                 onSubmit: (sql) {
                   widget.dashboardState
-                      .setLastQueryFilter(DashboardDataType.charts, sql);
+                      .setLastQueryFilter(DashboardDataType.analytics, sql);
                   final explorer = context.read<ExplorerQueryService>();
                   explorer.queryBigQuery(sql: sql);
                 },
@@ -174,7 +174,7 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
                     ErrorBanner(
                       message: error,
                       onDismiss: () => widget.dashboardState
-                          .setError(DashboardDataType.charts, null),
+                          .setError(DashboardDataType.analytics, null),
                     ),
                   // Results area
                   if (isLoading && !hasResults)
@@ -329,6 +329,7 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
   // ===========================================================================
 
   Widget _buildAgentChartsView() {
+    final chartItems = widget.items.where((i) => i.chartData != null).toList();
     return Column(
       children: [
         Padding(
@@ -341,17 +342,17 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
             onLanguageChanged: (i) => setState(() => _viewMode = i),
             languageLabelColor: AppColors.warning,
             initialValue: widget.dashboardState
-                .getLastQueryFilter(DashboardDataType.charts),
+                .getLastQueryFilter(DashboardDataType.analytics),
             isLoading:
-                widget.dashboardState.isLoading(DashboardDataType.charts),
+                widget.dashboardState.isLoading(DashboardDataType.analytics),
             onSubmit: (query) {
               widget.dashboardState
-                  .setLastQueryFilter(DashboardDataType.charts, query);
+                  .setLastQueryFilter(DashboardDataType.analytics, query);
             },
           ),
         ),
         Expanded(
-          child: widget.items.isEmpty
+          child: chartItems.isEmpty
               ? const ExplorerEmptyState(
                   icon: Icons.bar_chart_rounded,
                   title: 'No Charts Yet',
@@ -360,9 +361,9 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
                 )
               : ListView.builder(
                   padding: const EdgeInsets.all(12),
-                  itemCount: widget.items.length,
+                  itemCount: chartItems.length,
                   itemBuilder: (context, index) {
-                    final item = widget.items[index];
+                    final item = chartItems[index];
                     if (item.chartData == null) return const SizedBox.shrink();
                     return DashboardCardWrapper(
                       onClose: () =>

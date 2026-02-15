@@ -206,7 +206,7 @@ _RailIconConfig _tabIconConfig(DashboardDataType type) {
   switch (type) {
     case DashboardDataType.traces:
       return const _RailIconConfig(
-          'Traces', Icons.timeline_rounded, AppColors.primaryCyan);
+          'Traces', Icons.alt_route_rounded, AppColors.primaryCyan);
     case DashboardDataType.logs:
       return const _RailIconConfig(
           'Logs', Icons.article_outlined, AppColors.success);
@@ -222,11 +222,8 @@ _RailIconConfig _tabIconConfig(DashboardDataType type) {
     case DashboardDataType.council:
       return const _RailIconConfig(
           'Council', Icons.groups_rounded, AppColors.primaryTeal);
-    case DashboardDataType.charts:
+    case DashboardDataType.analytics:
       return const _RailIconConfig(
-          'Charts', Icons.bar_chart_rounded, AppColors.primaryBlue);
-    case DashboardDataType.sql:
-      return const _RailIconConfig(
-          'SQL', Icons.storage_rounded, Colors.orange);
+          'Analytics', Icons.insights_rounded, AppColors.primaryBlue);
   }
 }

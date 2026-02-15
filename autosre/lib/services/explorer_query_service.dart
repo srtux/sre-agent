@@ -223,7 +223,7 @@ class ExplorerQueryService {
     required String sql,
     String? projectId,
   }) async {
-    _dashboardState.setLoading(DashboardDataType.charts, true);
+    _dashboardState.setLoading(DashboardDataType.analytics, true);
     try {
       final body = jsonEncode({
         'sql': sql,
@@ -245,14 +245,14 @@ class ExplorerQueryService {
       _dashboardState.addSqlResults(sql, columns, rows, 'bigquery_sql_explorer',
           source: DataSource.manual);
       _dashboardState.openDashboard();
-      _dashboardState.setActiveTab(DashboardDataType.charts);
+      _dashboardState.setActiveTab(DashboardDataType.analytics);
     } catch (e) {
       _dashboardState.setError(
-        DashboardDataType.charts, e.toString(),
+        DashboardDataType.analytics, e.toString(),
       );
       debugPrint('ExplorerQueryService.queryBigQuery error: $e');
     } finally {
-      _dashboardState.setLoading(DashboardDataType.charts, false);
+      _dashboardState.setLoading(DashboardDataType.analytics, false);
     }
   }
   /// Query alerts/incidents.

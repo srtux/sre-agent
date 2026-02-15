@@ -17,8 +17,7 @@ enum DashboardDataType {
   alerts,
   remediation,
   council,
-  charts,
-  sql,
+  analytics,
 }
 
 /// A set of tabular results from an SQL query.
@@ -95,7 +94,7 @@ DashboardDataType? classifyComponent(String componentType) {
     case 'x-sre-council-synthesis':
       return DashboardDataType.council;
     case 'x-sre-vega-chart':
-      return DashboardDataType.charts;
+      return DashboardDataType.analytics;
     default:
       return null;
   }
@@ -172,7 +171,7 @@ class DashboardState extends ChangeNotifier {
 
     _addItemBounded(DashboardItem(
       id: 'sql-$_itemCounter',
-      type: DashboardDataType.sql,
+      type: DashboardDataType.analytics,
       toolName: toolName,
       timestamp: DateTime.now(),
       rawData: {
@@ -393,7 +392,7 @@ class DashboardState extends ChangeNotifier {
     _itemCounter++;
     _addItemBounded(DashboardItem(
       id: 'chart-$_itemCounter',
-      type: DashboardDataType.charts,
+      type: DashboardDataType.analytics,
       toolName: toolName,
       timestamp: DateTime.now(),
       rawData: raw,
@@ -535,7 +534,7 @@ class DashboardState extends ChangeNotifier {
 
         case 'x-sre-vega-chart':
           final chart = VegaChartData.fromJson(dataMap);
-          _addItemSilent(DashboardDataType.charts, toolName, dataMap,
+          _addItemSilent(DashboardDataType.analytics, toolName, dataMap,
               chartData: chart);
 
         default:
@@ -610,9 +609,9 @@ class DashboardState extends ChangeNotifier {
       case 'council':
         return DashboardDataType.council;
       case 'charts':
-        return DashboardDataType.charts;
       case 'sql':
-        return DashboardDataType.sql;
+      case 'analytics':
+        return DashboardDataType.analytics;
       default:
         return null;
     }

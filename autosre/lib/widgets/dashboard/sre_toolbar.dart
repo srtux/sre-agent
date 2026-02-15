@@ -142,7 +142,7 @@ class _TabConfig {
 _TabConfig _tabConfig(DashboardDataType type) {
   switch (type) {
     case DashboardDataType.traces:
-      return const _TabConfig('Traces', Icons.timeline_rounded, AppColors.primaryCyan);
+      return const _TabConfig('Traces', Icons.alt_route_rounded, AppColors.primaryCyan);
     case DashboardDataType.logs:
       return const _TabConfig('Logs', Icons.article_outlined, AppColors.success);
     case DashboardDataType.metrics:
@@ -153,9 +153,7 @@ _TabConfig _tabConfig(DashboardDataType type) {
       return const _TabConfig('Remediation', Icons.build_circle_outlined, AppColors.secondaryPurple);
     case DashboardDataType.council:
       return const _TabConfig('Council', Icons.groups_rounded, AppColors.primaryTeal);
-    case DashboardDataType.charts:
-      return const _TabConfig('Charts', Icons.bar_chart_rounded, AppColors.warning);
-    case DashboardDataType.sql:
-      return const _TabConfig('SQL', Icons.storage_rounded, AppColors.warning);
+    case DashboardDataType.analytics:
+      return const _TabConfig('Analytics', Icons.insights_rounded, AppColors.warning);
   }
 }
