@@ -1,8 +1,7 @@
-
-import pytest
 from datetime import datetime, timedelta
-from typing import Any
+
 from sre_agent.tools.analysis.trace.analysis import _validate_trace_quality_impl
+
 
 class TestValidateTraceOptimization:
     def test_optimized_path_valid(self):
@@ -22,7 +21,7 @@ class TestValidateTraceOptimization:
                     "start_time_unix": start_ts,
                     "end_time_unix": end_ts,
                 }
-            ]
+            ],
         }
 
         result = _validate_trace_quality_impl(trace)
@@ -44,7 +43,7 @@ class TestValidateTraceOptimization:
                     "start_time_unix": start_ts,
                     "end_time_unix": end_ts,
                 }
-            ]
+            ],
         }
 
         result = _validate_trace_quality_impl(trace)
@@ -74,8 +73,8 @@ class TestValidateTraceOptimization:
                     # No string timestamps
                     "start_time_unix": 999.0,
                     "end_time_unix": 1005.0,
-                }
-            ]
+                },
+            ],
         }
 
         result = _validate_trace_quality_impl(trace)
@@ -94,7 +93,7 @@ class TestValidateTraceOptimization:
                     "end_time": "2023-01-01T12:00:01Z",
                     # No unix timestamps
                 }
-            ]
+            ],
         }
 
         result = _validate_trace_quality_impl(trace)
@@ -113,10 +112,10 @@ class TestValidateTraceOptimization:
                 {
                     "span_id": "child",
                     "parent_span_id": "parent",
-                    "start_time": "2023-01-01T12:00:09Z", # Starts before parent
+                    "start_time": "2023-01-01T12:00:09Z",  # Starts before parent
                     "end_time": "2023-01-01T12:00:15Z",
-                }
-            ]
+                },
+            ],
         }
 
         result = _validate_trace_quality_impl(trace)
@@ -141,11 +140,12 @@ class TestValidateTraceOptimization:
                 {
                     "span_id": "child",
                     "parent_span_id": "parent",
-                    "start_time_unix": parent_start.timestamp() - 1.0, # Starts 1s before parent
+                    "start_time_unix": parent_start.timestamp()
+                    - 1.0,  # Starts 1s before parent
                     "end_time_unix": parent_start.timestamp() + 5.0,
                     # No string timestamps for child (forces usage of optimized path for child, fallback for parent)
-                }
-            ]
+                },
+            ],
         }
 
         result = _validate_trace_quality_impl(trace)
