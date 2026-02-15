@@ -92,7 +92,9 @@ class _BigQuerySidebarState extends State<BigQuerySidebar> {
     );
     if (mounted) {
       setState(() {
-        _tableSchemas[cacheKey] = schema;
+        if (schema != null) {
+          _tableSchemas[cacheKey] = schema;
+        }
         _fetchingSchemas.remove(cacheKey);
       });
     }

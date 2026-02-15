@@ -358,8 +358,7 @@ class ExplorerQueryService {
     }
   }
 
-  /// Fetch schema for a table.
-  Future<List<Map<String, dynamic>>> getTableSchema({
+  Future<List<Map<String, dynamic>>?> getTableSchema({
     required String datasetId,
     required String tableId,
     String? projectId,
@@ -374,7 +373,7 @@ class ExplorerQueryService {
       return items?.map((e) => Map<String, dynamic>.from(e as Map)).toList() ?? [];
     } catch (e) {
       debugPrint('ExplorerQueryService.getTableSchema error: $e');
-      return [];
+      return null;
     }
   }
 }

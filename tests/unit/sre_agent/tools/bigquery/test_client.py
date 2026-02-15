@@ -186,8 +186,10 @@ async def test_get_table_schema_failure(mock_tool_context):
         client = BigQueryClient(
             project_id="test-project", tool_context=mock_tool_context
         )
-        fields = await client.get_table_schema("ds", "tbl")
-        assert fields == []
+        with pytest.raises(
+            RuntimeError, match="MCP fallback failed to fetch schema: Not Found"
+        ):
+            await client.get_table_schema("ds", "tbl")
 
 
 def test_client_init_no_context():

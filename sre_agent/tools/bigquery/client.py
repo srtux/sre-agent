@@ -158,7 +158,7 @@ class BigQueryClient:
 
             # Map BigQuery SchemaField to dict
             fields = []
-            for field in table.schema:
+            for field in table.schema or []:
                 fields.append(_map_schema_field(field))
             return fields
         except Exception as e:
@@ -166,7 +166,9 @@ class BigQueryClient:
 
         # MCP Fallback
         if not self.tool_context:
-            return []
+            raise RuntimeError(
+                "Failed to fetch schema (direct SDK failed and NO tool context for MCP fallback)"
+            )
 
         result = await call_mcp_tool_with_retry(
             create_bigquery_mcp_toolset,
@@ -182,7 +184,9 @@ class BigQueryClient:
 
         if result.get("status") != "success":
             logger.warning(f"Failed to get table info via MCP: {result.get('error')}")
-            return []
+            raise RuntimeError(
+                f"MCP fallback failed to fetch schema: {result.get('error')}"
+            )
 
         data = result.get("result", {})
         structured = data.get("structuredContent", data)
