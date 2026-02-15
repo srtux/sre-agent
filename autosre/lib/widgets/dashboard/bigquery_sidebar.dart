@@ -463,7 +463,7 @@ class _BigQuerySidebarState extends State<BigQuerySidebar> {
         return Icons.tag_rounded;
       case 'FLOAT':
       case 'FLOAT64':
-        return Icons.decimal_increase_rounded;
+        return Icons.tag_rounded;
       case 'BOOLEAN':
       case 'BOOL':
         return Icons.toggle_on_rounded;
