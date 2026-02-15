@@ -113,9 +113,9 @@ steps:
     allowFailure: true
     waitFor: ['deploy-frontend'] # Run AFTER deployment to avoid blocking the release
     entrypoint: 'bash'
-    secretEnv: ['SRE_AGENT_ENCRYPTION_KEY', 'GOOGLE_CUSTOM_SEARCH_API_KEY', 'GITHUB_TOKEN']
+    secretEnv: ['SRE_AGENT_ENCRYPTION_KEY', 'GOOGLE_CUSTOM_SEARCH_API_KEY', 'GITHUB_TOKEN', 'EVAL_PROJECT_ID']
     env:
-      - 'GOOGLE_CLOUD_PROJECT=$PROJECT_ID'
+      - 'FALLBACK_PROJECT_ID=$PROJECT_ID'
       - 'GOOGLE_CLOUD_LOCATION=$_LOCATION'
       - 'RUNNING_IN_AGENT_ENGINE=true'
       - 'STRICT_EUC_ENFORCEMENT=false'
@@ -125,6 +125,10 @@ steps:
     args:
       - '-c'
       - |
+        # Use EVAL_PROJECT_ID from secret if available, otherwise fallback to build project
+        export GOOGLE_CLOUD_PROJECT=$${EVAL_PROJECT_ID:-$$FALLBACK_PROJECT_ID}
+        echo "📍 Using Project ID: $$GOOGLE_CLOUD_PROJECT"
+
         curl -LsSf https://astral.sh/uv/install.sh | sh
         export PATH="/builder/home/.local/bin:$$PATH"
         uv python install 3.12
@@ -150,6 +154,9 @@ availableSecrets:
     env: 'GOOGLE_CUSTOM_SEARCH_API_KEY'
   - versionName: projects/$PROJECT_ID/secrets/github-token/versions/latest
     env: 'GITHUB_TOKEN'
+  # Setup this secret if you want to run evals against a different project than the build project
+  - versionName: projects/$PROJECT_ID/secrets/eval-project-id/versions/latest
+    env: 'EVAL_PROJECT_ID'
 
 options:
   logging: CLOUD_LOGGING_ONLY

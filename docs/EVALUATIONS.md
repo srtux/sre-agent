@@ -42,12 +42,30 @@ To pass the `tool_trajectory` metrics, the agent must adhere to strict syntax ru
 *   **Resource Labeling**: For GKE and GCE, resource labels must be precise (e.g., `resource.labels.container_name` vs `container_name`).
 *   **Verify-then-Query**: The agent is instructed to use `list_metric_descriptors` before querying unknown metrics to prevent hallucinated metric names (e.g., `core_usage_time` vs `usage_time`).
 
-## 4. Environment-Awareness
+## 5. CI/CD Setup (Cloud Build)
 
-Evaluations automatically detect their environment:
-*   **Project ID**: The `TEST_PROJECT_ID` placeholder in `.test.json` files is dynamically replaced with the project ID active in the environment.
-*   **Identity**: In CI/CD, the evaluator falls back to the **Cloud Build Service Account**, which must have the necessary IAM roles (`roles/aiplatform.user`, `roles/logging.viewer`, etc.) to execute the trajectory.
-*   **Telemetry**: To prevent hangs at process exit, evaluations suppress background OpenTelemetry threads using `OTEL_SDK_DISABLED=true`.
+To run evaluations successfully in Cloud Build, follow these steps:
+
+### 1. Grant IAM Roles
+Grant the following roles to your Cloud Build Service Account (`PROJECT_NUMBER@cloudbuild.gserviceaccount.com`):
+*   `roles/cloudtrace.user`
+*   `roles/logging.viewer`
+*   `roles/monitoring.viewer`
+*   `roles/aiplatform.user`
+*   `roles/compute.viewer`
+*   `roles/serviceusage.serviceUsageConsumer`
+
+You can use the provided script:
+```bash
+python deploy/grant_permissions.py --project-id YOUR_PROJECT_ID --service-account PROJECT_NUMBER@cloudbuild.gserviceaccount.com
+```
+
+### 2. Configure Secrets (Optional)
+By default, evals run against the project currently being built (`$PROJECT_ID`). If you want to run evals against a *different* project (e.g., a stable test project), create a secret in Secret Manager:
+*   **Secret Name**: `eval-project-id`
+*   **Value**: The target GCP Project ID.
+
+The `cloudbuild.yaml` is configured to automatically pick up this secret if it exists.
 
 ---
 *Last verified: 2026-02-02 — Auto SRE Team*

@@ -24,9 +24,9 @@ logger = logging.getLogger(__name__)
 def get_check_project_id() -> str | None:
     """Get project ID for connectivity checks from environment."""
     return (
-        os.getenv("TEST_PROJECT_ID")
-        or os.getenv("GOOGLE_CLOUD_PROJECT")
+        os.getenv("GOOGLE_CLOUD_PROJECT")
         or os.getenv("GCP_PROJECT_ID")
+        or os.getenv("TEST_PROJECT_ID")
     )
 
 

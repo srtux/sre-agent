@@ -18,7 +18,7 @@ os.environ["SRE_AGENT_EVAL_MODE"] = "true"
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
-load_dotenv()
+load_dotenv(override=True)
 
 
 def main():
