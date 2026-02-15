@@ -20,7 +20,7 @@ Our philosophy is simple: **If it is not tested, it is broken.**
 
 ## Test Suite Overview
 
-As of 2026-02-15, the project has **196 Python test files** containing approximately **2,300+ test functions** and **21 Flutter test files** containing approximately **112 test functions**.
+As of 2026-02-15, the project has **196 Python test files** containing approximately **2,429+ test functions** and **21 Flutter test files** containing approximately **129 test functions**.
 
 ---
 
@@ -85,6 +85,10 @@ Never use live tokens or real GCP projects in unit tests. Use `unittest.mock` (`
 - **Clients**: Mock the factory returned from `sre_agent.tools.clients.factory`.
 - **Telemetry**: Ensure `adk_tool` spans are ignored or asserted on correctly.
 - **MCP**: Use `USE_MOCK_MCP=true` environment variable to substitute real MCP toolsets with `MockMcpTool`/`MockMcpToolset` from `sre_agent.tools.mcp.mock_mcp`. See the [MCP Mocking](#mcp-mocking-use_mock_mcp) section below.
+
+> [!IMPORTANT]
+> **Case Study: Project Isolation in BigQueryClient**
+> When refactoring initialization logic, ensure that project resolution does not accidentally pick up environment variables (like `GOOGLE_CLOUD_PROJECT`) in unit tests. Tools should use `get_project_id_with_fallback()` to allow tests to properly mock "no project" scenarios by patching that specific function. This avoids "leaking" real environment state into isolated unit tests.
 
 ### 5. Dependency Injection via Context
 Since our tools rely on `ToolContext` for session and credentials, use specialized fixtures to create mock contexts. The shared `conftest.py` provides a `mock_tool_context` fixture for this purpose.
@@ -176,7 +180,7 @@ The `tests/conftest.py` file provides shared resources available to all tests:
 
 | Fixture | Description |
 |---------|-------------|
-| `sanitize_environment` | Session-scoped autouse fixture that cleans env vars (removes `GOOGLE_API_KEY`, `GEMINI_API_KEY`, `SRE_AGENT_ID`; sets `USE_DATABASE_SESSIONS=false`) |
+| `sanitize_environment` | Session-scoped autouse fixture that cleans env vars (removes `GOOGLE_API_KEY`, `GEMINI_API_KEY`, `SRE_AGENT_ID`; sets `USE_DATABASE_SESSIONS=false`) <!-- pragma: allowlist secret --> |
 | `sample_text_payload_logs` | 5 log entries with textPayload (INFO, ERROR, WARNING) |
 | `sample_json_payload_logs` | 4 log entries with jsonPayload (various field names: `message`, `msg`, `log`) |
 | `sample_proto_payload_logs` | 1 audit log entry with protoPayload |

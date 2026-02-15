@@ -146,10 +146,12 @@ File: `lib/widgets/dashboard/live_charts_panel.dart`
 
 ### 7. Council of Experts Dashboard (`LiveCouncilPanel`)
 
-*   **Expert Findings View**: Specialist panel (Trace, Metrics, Logs, Alerts) assessments with severity indicators and confidence scores.
-*   **Critic Report**: In Debate mode, shows agreements, contradictions, and identified gaps.
+*   **Expert Findings View**: Specialist panel (Trace, Metrics, Logs, Alerts, Data) assessments with severity indicators, confidence scores, and specialist summaries.
+*   **Specialist Indicators**: Each finding includes a domain-specific icon and status badge (CRITICAL, WARNING, HEALTHY, INFO).
+*   **Evidence Sections**: Detailed evidence lists parsed from agent responses, supporting specific findings.
+*   **Critic Report**: In Debate mode, shows agreements, contradictions, and identified gaps between specialist assessments.
 *   **Activity Graph View** (`council_activity_graph.dart`): Tree visualization of agent hierarchy with timeline mode and tool call details.
-*   **Integration**: Tool calls from panels automatically populate other dashboard tabs.
+*   **Integration**: Findings from council experts automatically correlate with telemetry across all all other dashboard tabs.
 
 ## Architecture
 
@@ -239,7 +241,7 @@ All endpoints unwrap `BaseToolResponse` envelopes via `_unwrap_tool_result()` be
 | `BigQuerySidebar` | `lib/widgets/dashboard/bigquery_sidebar.dart` | Left sidebar showing datasets, tables, and schemas for the BigQuery SQL panel |
 | `SqlResultsTable` | `lib/widgets/dashboard/sql_results_table.dart` | Sortable, scrollable data table with export capabilities |
 | `VisualDataExplorer` | `lib/widgets/dashboard/visual_data_explorer.dart` | Tableau-like interactive visualization builder for BigQuery results |
-| `ErrorBanner` | `lib/widgets/common/error_banner.dart` | Compact error display for panel-level errors |
+| `ErrorBanner` | `lib/widgets/common/error_banner.dart` | Dismissible error display for panel-level errors; allows manual clearing of error states via `onDismiss` callback |
 | `SourceBadge` | `lib/widgets/common/source_badge.dart` | "MANUAL" badge for manually-queried items |
 | `ExplorerEmptyState` | `lib/widgets/common/explorer_empty_state.dart` | Glass morphism empty state with query hints |
 | `ShimmerLoading` | `lib/widgets/common/shimmer_loading.dart` | Shimmer placeholder during API calls |
