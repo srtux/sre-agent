@@ -145,11 +145,12 @@ class TestSandboxExecutor:
         executor = SandboxExecutor(sandbox_name="test-sandbox")
 
         # Mock the vertexai SDK response: ExecuteSandboxEnvironmentResponse
-        # has .outputs (list of Chunk).  stdout/stderr arrive in a JSON chunk.
+        # has .outputs (list of Chunk).  stdout/stderr arrive in a JSON chunk
+        # using keys "msg_out" and "msg_err" per the Vertex AI documentation.
         mock_stdout_chunk = MagicMock()
         mock_stdout_chunk.mime_type = "application/json"
         mock_stdout_chunk.data = json.dumps(
-            {"stdout": '{"result": "success"}', "stderr": ""}
+            {"msg_out": '{"result": "success"}', "msg_err": ""}
         ).encode("utf-8")
         mock_stdout_chunk.metadata = None  # No file_name → stdout/stderr
 
@@ -178,10 +179,10 @@ class TestSandboxExecutor:
         """Output file chunks are returned as SandboxFile objects."""
         executor = SandboxExecutor(sandbox_name="test-sandbox")
 
-        # stdout/stderr chunk
+        # stdout/stderr chunk (uses msg_out/msg_err per Vertex AI docs)
         mock_stdout_chunk = MagicMock()
         mock_stdout_chunk.mime_type = "application/json"
-        mock_stdout_chunk.data = json.dumps({"stdout": "done", "stderr": ""}).encode(
+        mock_stdout_chunk.data = json.dumps({"msg_out": "done", "msg_err": ""}).encode(
             "utf-8"
         )
         mock_stdout_chunk.metadata = None
