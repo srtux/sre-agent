@@ -243,27 +243,48 @@ def deploy(env_vars: dict[str, str] | None = None) -> None:
         except Exception as e:
             print(f"Note: Could not list agents: {e}")
 
+    # Prepare set of environment variables to propagate from the local environment
+    # to the remote Agent Engine environment.
+    env_vars_to_propagate = [
+        "GOOGLE_CUSTOM_SEARCH_API_KEY",
+        "GOOGLE_CUSTOM_SEARCH_ENGINE_ID",
+        "GITHUB_TOKEN",
+        "GITHUB_REPO",
+        "SRE_AGENT_CONTEXT_CACHE_TTL",
+        "SRE_AGENT_COUNCIL_ORCHESTRATOR",
+        "SRE_AGENT_SLIM_TOOLS",
+        "SRE_AGENT_CIRCUIT_BREAKER",
+    ]
+
+    base_env_vars = {
+        "GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY": "true",
+        "ADK_OTEL_TO_CLOUD": "true",
+        "OTEL_SERVICE_NAME": "sre-agent",
+        "OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED": "true",
+        "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "true",
+        "ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS": "false",
+        "USE_ARIZE": os.getenv("USE_ARIZE", "false"),
+        "RUNNING_IN_AGENT_ENGINE": "true",
+        "LOG_FORMAT": "JSON",
+        "LOG_LEVEL": os.getenv("LOG_LEVEL", "INFO"),
+        "STRICT_EUC_ENFORCEMENT": os.getenv("STRICT_EUC_ENFORCEMENT", "false"),
+        "SRE_AGENT_ENFORCE_POLICY": os.getenv("SRE_AGENT_ENFORCE_POLICY", "true"),
+        "SRE_AGENT_ENCRYPTION_KEY": os.getenv("SRE_AGENT_ENCRYPTION_KEY", ""),
+    }
+
+    # Add optional propagated variables if they are set in the local environment
+    for var in env_vars_to_propagate:
+        val = os.getenv(var)
+        if val:
+            base_env_vars[var] = val
+
+    # Merge with any variables passed directly to deploy()
+    base_env_vars.update(env_vars)
+
     common_kwargs = {
         "requirements": requirements,
         "extra_packages": ["./sre_agent"],
-        "env_vars": {
-            "GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY": "true",
-            "ADK_OTEL_TO_CLOUD": "true",
-            # We rely on ADK's native exporters in the Agent Engine runtime.
-            # Manual OTEL_TO_CLOUD is disabled to avoid duplicate span conflicts.
-            "OTEL_SERVICE_NAME": "sre-agent",
-            "OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED": "true",
-            "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "true",
-            "ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS": "false",
-            "USE_ARIZE": "false",
-            "RUNNING_IN_AGENT_ENGINE": "true",
-            "LOG_FORMAT": "JSON",
-            "LOG_LEVEL": os.getenv("LOG_LEVEL", "INFO"),
-            "STRICT_EUC_ENFORCEMENT": os.getenv("STRICT_EUC_ENFORCEMENT", "false"),
-            "SRE_AGENT_ENFORCE_POLICY": os.getenv("SRE_AGENT_ENFORCE_POLICY", "true"),
-            "SRE_AGENT_ENCRYPTION_KEY": os.getenv("SRE_AGENT_ENCRYPTION_KEY", ""),
-            **env_vars,
-        },
+        "env_vars": base_env_vars,
     }
 
     if identity_config:
