@@ -117,7 +117,7 @@ Set one of these credential configurations:
 
 ```bash
 # Option A: Google AI API key
-export GOOGLE_API_KEY="your-key"
+export GOOGLE_API_KEY="your-key"  # pragma: allowlist secret
 
 # Option B: Vertex AI
 export GOOGLE_CLOUD_PROJECT="your-project"

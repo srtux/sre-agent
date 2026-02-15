@@ -93,7 +93,8 @@ class TestAggregateAnalyzerAgent:
             for t in aggregate_analyzer.tools
         ]
         assert any(
-            "sql" in name.lower() or "bigquery" in name.lower()
+            "sql" in name.lower()
+            or "bigquery" in name.lower()
             or "aggregate" in name.lower()
             for name in tool_names
         )

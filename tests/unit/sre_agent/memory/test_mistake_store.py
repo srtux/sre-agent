@@ -163,9 +163,9 @@ class TestSanitizeArgs:
                 "query": "SELECT 1",
                 "access_token": "secret",
                 "credentials": "private",
-                "token": "tok123",
-                "password": "pass",
-                "secret": "shh",
+                "token": "tok123",  # pragma: allowlist secret
+                "password": "pass",  # pragma: allowlist secret
+                "secret": "shh",  # pragma: allowlist secret
             }
         )
         assert "query" in result

@@ -224,7 +224,7 @@ class TestListCommits:
     async def test_success(self) -> None:
         resp_data = [
             {
-                "sha": "abc123def456789",
+                "sha": "abc123def456789",  # pragma: allowlist secret
                 "commit": {
                     "message": "Fix bug in parser\nDetailed description",
                     "author": {"name": "Test User", "date": "2026-01-15T10:00:00Z"},
@@ -244,7 +244,7 @@ class TestListCommits:
             result = await list_commits()
 
         assert len(result) == 1
-        assert result[0]["sha"] == "abc123def456"  # Truncated to 12 chars
+        assert result[0]["sha"] == "abc123def456"  # pragma: allowlist secret
         assert result[0]["message"] == "Fix bug in parser"  # First line only
         assert result[0]["author"] == "Test User"
 

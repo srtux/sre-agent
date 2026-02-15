@@ -232,14 +232,14 @@ POD_NAMES: dict[str, list[str]] = {
 # ---------------------------------------------------------------------------
 # These are fixed IDs so the synthetic logs, traces, and alerts all correlate.
 TRACE_IDS = {
-    "checkout_slow_1": "a1b2c3d4e5f6789012345678abcdef01",
-    "checkout_slow_2": "b2c3d4e5f6789012345678abcdef0102",
-    "checkout_error_1": "c3d4e5f6789012345678abcdef010203",
-    "checkout_healthy": "d4e5f6789012345678abcdef01020304",
-    "product_healthy": "e5f6789012345678abcdef0102030405",
-    "cart_healthy": "f6789012345678abcdef010203040506",
-    "payment_flow": "0789012345678abcdef01020304050607",
-    "recommendation": "1890123456789abcdef0102030405060a",
+    "checkout_slow_1": "a1b2c3d4e5f6789012345678abcdef01",  # pragma: allowlist secret
+    "checkout_slow_2": "b2c3d4e5f6789012345678abcdef0102",  # pragma: allowlist secret
+    "checkout_error_1": "c3d4e5f6789012345678abcdef010203",  # pragma: allowlist secret
+    "checkout_healthy": "d4e5f6789012345678abcdef01020304",  # pragma: allowlist secret
+    "product_healthy": "e5f6789012345678abcdef0102030405",  # pragma: allowlist secret
+    "cart_healthy": "f6789012345678abcdef010203040506",  # pragma: allowlist secret
+    "payment_flow": "0789012345678abcdef01020304050607",  # pragma: allowlist secret
+    "recommendation": "1890123456789abcdef0102030405060a",  # pragma: allowlist secret
 }
 
 # ---------------------------------------------------------------------------

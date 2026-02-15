@@ -49,24 +49,24 @@ Located in `tests/unit/sre_agent/tools/`
   - `test_patterns.py` - Latency patterns, error patterns
   - `test_statistical_analysis.py` - Percentile calculations, outlier detection
   - `test_comparison_logic.py` - Baseline vs incident comparison
-  
+
 - **Log Analysis**: Message extraction, pattern detection
   - `test_extraction.py` - TextPayload, JsonPayload, ProtoPayload extraction
   - `test_patterns.py` - Log pattern detection and anomaly identification
-  
+
 - **Correlation & Correlation**: Cross-signal analysis
   - `test_cross_signal.py` - Metric + log + trace correlation
   - `test_dependencies.py` - Service dependency analysis
   - `test_critical_path.py` - Critical path identification
-  
+
 - **Remediation**: Suggestion generation, postmortem analysis
   - `test_suggestions.py` - Remedy suggestion logic
   - `test_postmortem.py` - Post-incident analysis
-  
+
 - **BigQuery**: Schema-aware queries
   - `test_bigquery_otel.py` - OTel trace schema querying
   - `test_logs.py` - Log querying
-  
+
 - **SLO & Metrics**: Burn rate, metric analysis
   - `test_burn_rate.py` - SLO burn rate calculations
   - `test_metrics_analysis.py` - Metric time-series analysis
@@ -166,7 +166,7 @@ async def test_something(mock_function):
 async def test_async_tool(mock_tool_context):
     mock_service = AsyncMock()
     mock_service.run_async.return_value = {"data": "value"}
-    
+
     with patch("module.ServiceClass", return_value=mock_service):
         result = await async_function()
 ```
@@ -202,7 +202,7 @@ class TestComponentName:
     @pytest.mark.asyncio
     async def test_success_case(self, fixture1):
         """Test description"""
-        
+
     @pytest.mark.asyncio
     async def test_error_case(self):
         """Test description"""
@@ -261,12 +261,12 @@ def generate_random_string(length=10) -> str  # Random alphanumeric
   - Finding example traces (baseline + anomaly)
   - Trace URL parsing and fetching
   - Error trace vs normal trace classification
-  
+
 - **Discovery** (`test_discovery_tool.py`):
   - Dataset enumeration
   - Table discovery (_AllSpans, _AllLogs)
   - Fallback mode handling
-  
+
 - **Investigation** (`test_investigation.py`):
   - State phase tracking (triage → deep_dive → remediation)
   - Finding persistence

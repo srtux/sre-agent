@@ -70,7 +70,9 @@ class TestGetCurrentTraceInfo:
         assert result["project_id"] == "my-proj"
         assert "trace_url" in result
         assert "my-proj" in result["trace_url"]
-        assert "aabbccddeeff00112233445566778899" in result["trace_url"]
+        # fmt: off
+        assert "aabbccddeeff00112233445566778899" in result["trace_url"]  # pragma: allowlist secret
+        # fmt: on
 
     def test_returns_payload_without_url_when_no_project(self) -> None:
         """Trace ID available but no project -> payload without trace_url."""

@@ -95,7 +95,7 @@ class TestReconstructAgentInteraction:
 
         assert result.status == ToolStatus.SUCCESS
         assert "sql_query" in result.result
-        assert "abc123def456" in result.result["sql_query"]
+        assert "abc123def456" in result.result["sql_query"]  # pragma: allowlist secret
         assert result.result["trace_id"] == "abc123def456"
 
     @pytest.mark.asyncio()

@@ -24,11 +24,11 @@ class TestGetPackageVersion:
 
 class TestGetGitSha:
     def test_prefers_build_sha_env(self) -> None:
-        with patch.dict("os.environ", {"BUILD_SHA": "abc123def456789"}):
+        with patch.dict("os.environ", {"BUILD_SHA": "abc123def456789"}):  # fmt: skip # pragma: allowlist secret
             from sre_agent.version import _get_git_sha
 
             result = _get_git_sha()
-            assert result == "abc123def456"
+            assert result == "abc123def456"  # pragma: allowlist secret
 
     def test_falls_back_to_git_command(self) -> None:
         with (
@@ -41,11 +41,11 @@ class TestGetGitSha:
             os.environ.pop("BUILD_SHA", None)
 
             mock_run.return_value.returncode = 0
-            mock_run.return_value.stdout = "deadbeef1234\n"
+            mock_run.return_value.stdout = "deadbeef1234\n"  # pragma: allowlist secret
 
             from sre_agent.version import _get_git_sha
 
-            assert _get_git_sha() == "deadbeef1234"
+            assert _get_git_sha() == "deadbeef1234"  # pragma: allowlist secret
 
     def test_returns_unknown_on_failure(self) -> None:
         with (

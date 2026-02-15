@@ -1,13 +1,15 @@
 """Tests for tool_callbacks — truncation safety guard for tool outputs."""
 
-import json
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
 
-from sre_agent.core.tool_callbacks import MAX_RESULT_CHARS, truncate_tool_output_callback
+from sre_agent.core.tool_callbacks import (
+    MAX_RESULT_CHARS,
+    truncate_tool_output_callback,
+)
 
 
 class TestMaxResultCharsConstant:
@@ -167,7 +169,10 @@ class TestEdgeCases:
         """When tool_response is not a dict, callback should return None."""
         tool = SimpleNamespace(name="fetch_trace")
         result = await truncate_tool_output_callback(
-            tool, {}, MagicMock(), "not a dict"  # type: ignore[arg-type]
+            tool,
+            {},
+            MagicMock(),
+            "not a dict",  # type: ignore[arg-type]
         )
         assert result is None
 

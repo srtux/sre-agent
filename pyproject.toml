@@ -129,7 +129,7 @@ default = true
 
 [tool.codespell]
 skip = "*.json,*.test.json,*.js,*.lock,./web/node_modules/*,./web/.next/*,./.venv/*,./.git/*,pyproject.toml,./autosre/build/*,./autosre/.dart_tool/*,./adk-docs/*,./adk-python/*,./autosre/linux/*,./autosre/windows/*,./autosre/macos/*"
-ignore-words-list = "allReady,ot"
+ignore-words-list = "already,ot"
 
 [tool.deptry]
 ignore = ["DEP001", "DEP004"]

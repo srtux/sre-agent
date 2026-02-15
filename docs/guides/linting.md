@@ -124,7 +124,7 @@ Automated spell checking for code, comments, and documentation.
 ```toml
 [tool.codespell]
 skip = "*.json,*.test.json,*.js,*.lock,./web/node_modules/*,./web/.next/*,./.venv/*,./.git/*,pyproject.toml,./autosre/build/*,./autosre/.dart_tool/*,./adk-docs/*,./adk-python/*,./autosre/linux/*,./autosre/windows/*,./autosre/macos/*"
-ignore-words-list = "allReady,ot"
+ignore-words-list = "already,ot"
 ```
 
 **Poe task**: `uv run poe spell` -- Runs `codespell`.
