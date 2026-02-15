@@ -143,8 +143,8 @@ async def test_list_tables_direct_sdk(mock_tool_context):
         tables = await client.list_tables("traces")
 
         assert tables == ["_AllSpans"]
-        # Verify all_tables=True was passed
-        mock_sdk_client.list_tables.assert_called_once_with("traces", all_tables=True)
+        # Verify list_tables was called correctly
+        mock_sdk_client.list_tables.assert_called_once_with("traces")
 
 
 @pytest.mark.asyncio

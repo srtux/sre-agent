@@ -245,7 +245,7 @@ class BigQueryClient:
         try:
             client = self._get_direct_client()
             # Explicitly include hidden tables (starting with underscore)
-            tables = list(client.list_tables(dataset_id, all_tables=True))
+            tables = list(client.list_tables(dataset_id))
             return [t.table_id for t in tables]
         except Exception as e:
             logger.warning(f"Direct table list failed: {e}. Trying MCP fallback.")
