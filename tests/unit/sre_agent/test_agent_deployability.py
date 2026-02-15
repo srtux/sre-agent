@@ -62,7 +62,7 @@ def test_adk_app_is_deepcopyable():
     """Verify that AdkApp containing the agent is deepcopyable."""
     try:
         # Mock vertexai.init to avoid GCP credential checks
-        with patch("vertexai.init") as mock_init:
+        with patch("vertexai.init"):
             # Manually set the project in global_config to satisfy internal checks
             initializer.global_config._project = "test-project"
 
