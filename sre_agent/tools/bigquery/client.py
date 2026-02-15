@@ -244,7 +244,8 @@ class BigQueryClient:
 
         try:
             client = self._get_direct_client()
-            tables = list(client.list_tables(dataset_id))
+            # Explicitly include hidden tables (starting with underscore)
+            tables = list(client.list_tables(dataset_id, all_tables=True))
             return [t.table_id for t in tables]
         except Exception as e:
             logger.warning(f"Direct table list failed: {e}. Trying MCP fallback.")
@@ -271,10 +272,11 @@ class BigQueryClient:
         for t in tables_list:
             if isinstance(t, dict):
                 id_str = t.get("id", "")
-                if ":" in id_str:
-                    id_str = id_str.split(":", 1)[-1]
-                if "." in id_str:
-                    id_str = id_str.split(".", 1)[-1]
+                # Robustly extract the table ID (the part after the last dot or colon)
+                import re
+
+                parts = re.split(r"[:.]", id_str)
+                id_str = parts[-1] if parts else id_str
                 res.append(id_str)
             else:
                 res.append(str(t))

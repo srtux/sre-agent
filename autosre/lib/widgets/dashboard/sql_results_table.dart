@@ -28,6 +28,7 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
   String? _sortColumn;
   bool _sortDescending = false;
   int? _hoveredRow;
+  final Set<int> _expandedRows = {};
 
   /// Column type cache — determined once from first non-null values.
   late Map<String, _ColumnType> _columnTypes;
@@ -43,6 +44,7 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.columns != widget.columns || oldWidget.rows != widget.rows) {
       _columnTypes = _detectColumnTypes();
+      _expandedRows.clear();
     }
   }
 
@@ -79,7 +81,6 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
   }
 
   static bool _looksLikeTimestamp(String s) {
-    // ISO 8601 or common timestamp patterns
     return RegExp(r'^\d{4}-\d{2}-\d{2}[T ]').hasMatch(s);
   }
 
@@ -95,7 +96,6 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
     sorted.sort((a, b) {
       final aVal = a[_sortColumn];
       final bVal = b[_sortColumn];
-      // Null-last sorting: nulls always sort to the end regardless of direction
       if (aVal == null && bVal == null) return 0;
       if (aVal == null) return 1;
       if (bVal == null) return -1;
@@ -121,18 +121,30 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
       );
     }
 
+    final rows = _sortedRows;
+    final allColumns = ['#', ...widget.columns];
+
     return Column(
       children: [
-        // Results summary bar
         _buildSummaryBar(),
-        // Scrollable data table
         Expanded(
-          child: SelectionArea(
-            child: Scrollbar(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: SingleChildScrollView(
-                  child: _buildTable(),
+          child: Scrollbar(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(
+                width: allColumns.length * 150.0, // Base width for columns
+                child: Column(
+                  children: [
+                    _buildHeader(allColumns),
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: rows.length,
+                        itemBuilder: (context, index) {
+                          return _buildRow(rows[index], index, allColumns);
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -155,19 +167,13 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
       ),
       child: Row(
         children: [
-          Icon(Icons.table_rows_rounded,
-              size: 12,
-              color: AppColors.textMuted.withValues(alpha: 0.7)),
+          const Icon(Icons.table_rows_rounded, size: 12, color: AppColors.textMuted),
           const SizedBox(width: 6),
           Text(
             '${widget.rows.length} rows, ${widget.columns.length} columns',
-            style: const TextStyle(
-              fontSize: 10,
-              color: AppColors.textMuted,
-            ),
+            style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
           ),
           const Spacer(),
-          // Export buttons
           _buildExportButton(
             icon: Icons.content_copy_rounded,
             label: 'CSV',
@@ -216,209 +222,250 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
     );
   }
 
-  Widget _buildTable() {
-    final rows = _sortedRows;
-
-    // Prepend a row-number column
-    final allColumns = ['#', ...widget.columns];
-
-    return DataTable(
-      columnSpacing: 24,
-      headingRowHeight: 36,
-      dataRowMinHeight: 32,
-      dataRowMaxHeight: 32,
-      headingRowColor: WidgetStateProperty.all(
-        Colors.white.withValues(alpha: 0.03),
+  Widget _buildHeader(List<String> columns) {
+    return Container(
+      height: 36,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        border: const Border(
+          bottom: BorderSide(color: AppColors.surfaceBorder, width: 1),
+        ),
       ),
-      columns: allColumns.map((col) {
-        if (col == '#') {
-          // Row number column header
-          return DataColumn(
-            label: Text(
-              '#',
-              style: GoogleFonts.jetBrainsMono(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textMuted.withValues(alpha: 0.5),
-              ),
-            ),
-            numeric: true,
-          );
-        }
-        final isSorted = _sortColumn == col;
-        final colType = _columnTypes[col] ?? _ColumnType.string;
-        return DataColumn(
-          label: InkWell(
-            onTap: () => setState(() {
-              if (_sortColumn == col) {
-                _sortDescending = !_sortDescending;
-              } else {
-                _sortColumn = col;
-                _sortDescending = false;
-              }
-            }),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Type indicator icon
-                Padding(
-                  padding: const EdgeInsets.only(right: 4),
-                  child: Icon(
-                    _iconForColumnType(colType),
-                    size: 10,
-                    color: isSorted
-                        ? AppColors.primaryCyan.withValues(alpha: 0.7)
-                        : AppColors.textMuted.withValues(alpha: 0.4),
-                  ),
-                ),
-                Text(
-                  col,
-                  style: GoogleFonts.jetBrainsMono(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: isSorted ? AppColors.primaryCyan : AppColors.textPrimary,
-                  ),
-                ),
-                if (isSorted) ...[
-                  const SizedBox(width: 2),
-                  Icon(
-                    _sortDescending
-                        ? Icons.arrow_drop_down_rounded
-                        : Icons.arrow_drop_up_rounded,
-                    size: 16,
-                    color: AppColors.primaryCyan,
-                  ),
-                ],
-              ],
-            ),
-          ),
-        );
-      }).toList(),
-      rows: List.generate(rows.length, (index) {
-        final row = rows[index];
-        final isHovered = _hoveredRow == index;
-        return DataRow(
-          color: WidgetStateProperty.all(
-            isHovered
-                ? Colors.white.withValues(alpha: 0.05)
-                : Colors.transparent,
-          ),
-          cells: allColumns.map((col) {
-            if (col == '#') {
-              // Row number cell
-              return DataCell(
-                MouseRegion(
-                  onEnter: (_) => setState(() => _hoveredRow = index),
-                  onExit: (_) => setState(() => _hoveredRow = null),
-                  child: Text(
-                    '${index + 1}',
-                    style: GoogleFonts.jetBrainsMono(
-                      fontSize: 9,
-                      color: AppColors.textMuted.withValues(alpha: 0.4),
-                    ),
-                  ),
-                ),
-              );
-            }
-            final val = row[col];
-            final colType = _columnTypes[col] ?? _ColumnType.string;
-            final display = _formatValue(val, colType);
-            final fullText = val?.toString() ?? 'NULL';
-            final isTruncated = display != fullText && val != null;
+      child: Row(
+        children: columns.map((col) {
+          final isIndex = col == '#';
+          final colType = isIndex ? _ColumnType.string : (_columnTypes[col] ?? _ColumnType.string);
+          final isSorted = _sortColumn == col;
 
-            return DataCell(
-              MouseRegion(
-                onEnter: (_) => setState(() => _hoveredRow = index),
-                onExit: (_) => setState(() => _hoveredRow = null),
-                child: Tooltip(
-                  message: isTruncated || (fullText.length > 30)
-                      ? fullText
-                      : '',
-                  waitDuration: const Duration(milliseconds: 400),
-                  child: InkWell(
-                    onLongPress: val != null
-                        ? () {
-                            Clipboard.setData(ClipboardData(text: fullText));
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Cell value copied'),
-                                  duration: Duration(seconds: 1),
-                                ),
-                              );
-                            }
+          return Expanded(
+            flex: isIndex ? 0 : 1,
+            child: SizedBox(
+              width: isIndex ? 50 : 150,
+              child: InkWell(
+                onTap: isIndex
+                    ? null
+                    : () => setState(() {
+                          if (_sortColumn == col) {
+                            _sortDescending = !_sortDescending;
+                          } else {
+                            _sortColumn = col;
+                            _sortDescending = false;
                           }
-                        : null,
-                    child: Text(
-                      display,
-                      style: GoogleFonts.jetBrainsMono(
-                        fontSize: 10,
-                        color: val == null
-                            ? AppColors.textMuted.withValues(alpha: 0.5)
-                            : colType == _ColumnType.number
-                                ? AppColors.warning.withValues(alpha: 0.9)
-                                : colType == _ColumnType.timestamp
-                                    ? AppColors.secondaryPurple.withValues(alpha: 0.8)
-                                    : colType == _ColumnType.boolean
-                                        ? AppColors.success.withValues(alpha: 0.8)
-                                        : colType == _ColumnType.json
-                                            ? AppColors.primaryTeal.withValues(alpha: 0.8)
-                                            : AppColors.textSecondary,
-                        fontStyle:
-                            val == null ? FontStyle.italic : FontStyle.normal,
+                        }),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
+                    children: [
+                      if (!isIndex)
+                        Icon(
+                          _iconForColumnType(colType),
+                          size: 10,
+                          color: isSorted ? AppColors.primaryCyan : AppColors.textMuted,
+                        ),
+                      if (!isIndex) const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          col,
+                          style: GoogleFonts.jetBrainsMono(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: isSorted ? AppColors.primaryCyan : AppColors.textPrimary,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    ),
+                      if (isSorted)
+                        Icon(
+                          _sortDescending ? Icons.arrow_drop_down : Icons.arrow_drop_up,
+                          size: 14,
+                          color: AppColors.primaryCyan,
+                        ),
+                    ],
                   ),
                 ),
               ),
-            );
-          }).toList(),
-        );
-      }),
+            ),
+          );
+        }).toList(),
+      ),
     );
   }
 
-  /// Format a cell value with type-aware formatting.
-  String _formatValue(dynamic val, _ColumnType colType) {
-    if (val == null) return 'NULL';
+  Widget _buildRow(Map<String, dynamic> row, int index, List<String> columns) {
+    final isExpanded = _expandedRows.contains(index);
+    final hasJson = _columnTypes.values.any((t) => t == _ColumnType.json);
 
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        InkWell(
+          onTap: hasJson ? () => setState(() {
+            if (isExpanded) {
+              _expandedRows.remove(index);
+            } else {
+              _expandedRows.add(index);
+            }
+          }) : null,
+          onHover: (hovering) => setState(() => _hoveredRow = hovering ? index : null),
+          child: Container(
+            height: 32,
+            decoration: BoxDecoration(
+              color: _hoveredRow == index ? Colors.white.withValues(alpha: 0.05) : Colors.transparent,
+              border: const Border(
+                bottom: BorderSide(color: AppColors.surfaceBorder, width: 0.5),
+              ),
+            ),
+            child: Row(
+              children: columns.map((col) {
+                final isIndex = col == '#';
+                final val = isIndex ? (index + 1) : row[col];
+                final colType = isIndex ? _ColumnType.number : (_columnTypes[col] ?? _ColumnType.string);
+                final display = _formatValue(val, colType, compact: true);
+
+                return Expanded(
+                  flex: isIndex ? 0 : 1,
+                  child: SizedBox(
+                    width: isIndex ? 50 : 150,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        children: [
+                          if (isIndex && hasJson)
+                            Icon(
+                              isExpanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right,
+                              size: 12,
+                              color: AppColors.textMuted,
+                            ),
+                          if (isIndex && hasJson) const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              display,
+                              style: GoogleFonts.jetBrainsMono(
+                                fontSize: 10,
+                                color: val == null
+                                    ? AppColors.textMuted.withValues(alpha: 0.5)
+                                    : colType == _ColumnType.json
+                                        ? AppColors.primaryTeal
+                                        : AppColors.textSecondary,
+                                fontStyle: val == null ? FontStyle.italic : FontStyle.normal,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+        if (isExpanded) _buildExpandedArea(row),
+      ],
+    );
+  }
+
+  Widget _buildExpandedArea(Map<String, dynamic> row) {
+    final jsonCols = widget.columns.where((c) => _columnTypes[c] == _ColumnType.json).toList();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.2),
+        border: const Border(
+          bottom: BorderSide(color: AppColors.surfaceBorder, width: 1),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: jsonCols.map((col) {
+          final val = row[col];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.data_object, size: 12, color: AppColors.primaryTeal),
+                    const SizedBox(width: 6),
+                    Text(
+                      col,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primaryTeal,
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.copy, size: 12),
+                      onPressed: () => Clipboard.setData(ClipboardData(text: _formatValue(val, _ColumnType.json, compact: false))),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.backgroundDark,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.surfaceBorder),
+                  ),
+                  child: SelectableText(
+                    _formatValue(val, _ColumnType.json, compact: false),
+                    style: GoogleFonts.jetBrainsMono(
+                      fontSize: 11,
+                      color: AppColors.textSecondary,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  String _formatValue(dynamic val, _ColumnType colType, {bool compact = true}) {
+    if (val == null) return 'NULL';
     if (val is double) {
-      if (val == val.roundToDouble() && val.abs() < 1e15) {
-        return _formatNumber(val.toInt());
-      }
+      if (val == val.roundToDouble() && val.abs() < 1e15) return _formatNumber(val.toInt());
       return val.toStringAsFixed(4);
     }
+    if (val is int) return _formatNumber(val);
 
-    if (val is int) {
-      return _formatNumber(val);
-    }
-
-    // JSON objects/arrays — compact display
-    if (val is Map || val is List) {
-      final s = const JsonEncoder().convert(val);
-      if (s.length > 80) {
-        return '${s.substring(0, 80)}...';
+    if (colType == _ColumnType.json) {
+      try {
+        final dynamic decoded = val is String ? jsonDecode(val) : val;
+        final encoder = compact ? const JsonEncoder() : const JsonEncoder.withIndent('  ');
+        final s = encoder.convert(decoded);
+        if (compact && s.length > 50) return '${s.substring(0, 50)}...';
+        return s;
+      } catch (_) {
+        return val.toString();
       }
-      return s;
     }
 
     final s = val.toString();
-    if (s.length > 80) {
-      return '${s.substring(0, 80)}...';
-    }
+    if (compact && s.length > 50) return '${s.substring(0, 50)}...';
     return s;
   }
 
-  /// Format integers/large numbers with thousands separators.
   String _formatNumber(int value) {
     if (value.abs() < 1000) return value.toString();
     final neg = value < 0;
     final abs = value.abs().toString();
     final buffer = StringBuffer();
     final remainder = abs.length % 3;
-    if (remainder > 0) {
-      buffer.write(abs.substring(0, remainder));
-    }
+    if (remainder > 0) buffer.write(abs.substring(0, remainder));
     for (var i = remainder; i < abs.length; i += 3) {
       if (buffer.isNotEmpty) buffer.write(',');
       buffer.write(abs.substring(i, i + 3));
@@ -428,16 +475,11 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
 
   IconData _iconForColumnType(_ColumnType type) {
     switch (type) {
-      case _ColumnType.number:
-        return Icons.tag_rounded;
-      case _ColumnType.boolean:
-        return Icons.toggle_on_rounded;
-      case _ColumnType.timestamp:
-        return Icons.schedule_rounded;
-      case _ColumnType.json:
-        return Icons.data_object_rounded;
-      case _ColumnType.string:
-        return Icons.text_fields_rounded;
+      case _ColumnType.number: return Icons.tag_rounded;
+      case _ColumnType.boolean: return Icons.toggle_on_rounded;
+      case _ColumnType.timestamp: return Icons.schedule_rounded;
+      case _ColumnType.json: return Icons.data_object_rounded;
+      case _ColumnType.string: return Icons.text_fields_rounded;
     }
   }
 
@@ -445,33 +487,15 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
     final buffer = StringBuffer();
     buffer.writeln(widget.columns.join(','));
     for (final row in _sortedRows) {
-      final values = widget.columns
-          .map((c) => _escapeCsv(row[c]?.toString() ?? ''))
-          .join(',');
+      final values = widget.columns.map((c) => _escapeCsv(row[c]?.toString() ?? '')).join(',');
       buffer.writeln(values);
     }
     Clipboard.setData(ClipboardData(text: buffer.toString()));
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Copied as CSV'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-    }
   }
 
   void _copyAsJson() {
     final json = const JsonEncoder.withIndent('  ').convert(_sortedRows);
     Clipboard.setData(ClipboardData(text: json));
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Copied as JSON'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-    }
   }
 
   String _escapeCsv(String value) {
@@ -482,5 +506,4 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
   }
 }
 
-/// Internal column type classification for formatting.
 enum _ColumnType { string, number, boolean, timestamp, json }
