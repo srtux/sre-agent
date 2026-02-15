@@ -26,6 +26,7 @@ class LiveRemediationPanel extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
           child: ManualQueryBar(
             hintText: 'Search plans...',
+            dashboardState: dashboardState,
             initialValue: dashboardState.getLastQueryFilter(DashboardDataType.remediation),
             isLoading: dashboardState.isLoading(DashboardDataType.remediation),
             onSubmit: (query) {

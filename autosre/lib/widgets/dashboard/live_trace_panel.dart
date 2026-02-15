@@ -15,7 +15,6 @@ import '../common/source_badge.dart';
 import '../syncfusion_trace_waterfall.dart';
 import 'manual_query_bar.dart';
 import 'dashboard_card_wrapper.dart';
-import 'query_language_badge.dart';
 import 'query_helpers.dart';
 
 /// Dashboard panel that displays all collected trace results.
@@ -44,9 +43,6 @@ class LiveTracePanel extends StatefulWidget {
 }
 
 class _LiveTracePanelState extends State<LiveTracePanel> {
-  /// 0 = Cloud Trace Filter, 1 = Trace ID lookup
-  int _queryMode = 0;
-
   @override
   Widget build(BuildContext context) {
     final isLoading =
@@ -60,68 +56,61 @@ class _LiveTracePanelState extends State<LiveTracePanel> {
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
           child: Column(
             children: [
-              // Language selector row
-              Row(
-                children: [
-                  QueryLanguageBadge(
-                    language: 'Cloud Trace',
-                    icon: Icons.timeline_rounded,
-                    color: AppColors.primaryCyan,
-                    onHelpTap: () => _openDocs(),
-                  ),
-                  const Spacer(),
-                  _buildModeToggle(),
-                ],
-              ),
-              const SizedBox(height: 6),
+
               // Query bar changes based on mode
-              if (_queryMode == 0)
-                ManualQueryBar(
-                  hintText:
-                      '+span:name:my_service RootSpan:/api/v1 MinDuration:100ms',
-                  languageLabel: 'FILTER',
-                  languageLabelColor: AppColors.primaryCyan,
-                  initialValue: widget.dashboardState
-                      .getLastQueryFilter(DashboardDataType.traces),
-                  isLoading: isLoading,
-                  snippets: traceSnippets,
-                  templates: traceTemplates,
-                  enableNaturalLanguage: true,
-                  naturalLanguageHint:
-                      'Show me the slowest API calls in the last hour...',
-                  naturalLanguageExamples: traceNaturalLanguageExamples,
-                  onSubmitWithMode: (query, isNl) {
-                    widget.dashboardState
-                        .setLastQueryFilter(DashboardDataType.traces, query);
+              ManualQueryBar(
+                hintText:
+                    '+span:name:my_service  OR  trace=abc123def456789...',
+                dashboardState: widget.dashboardState,
+                onRefresh: () {
+                  final filter = widget.dashboardState.getLastQueryFilter(DashboardDataType.traces);
+                  if (filter != null && filter.isNotEmpty) {
                     final explorer = context.read<ExplorerQueryService>();
-                    if (isNl) {
-                      if (widget.onPromptRequest != null) {
-                        widget.onPromptRequest!(query);
-                      }
+                    if (filter.startsWith('trace=')) {
+                      explorer.queryTrace(traceId: filter.substring(6).trim());
+                    } else {
+                      explorer.queryTraceFilter(filter: filter);
+                    }
+                  }
+                },
+                languageLabel: 'TRACE',
+                languageLabelColor: AppColors.primaryCyan,
+                initialValue: widget.dashboardState
+                    .getLastQueryFilter(DashboardDataType.traces),
+                isLoading: isLoading,
+                snippets: traceSnippets,
+                templates: traceTemplates,
+                enableNaturalLanguage: true,
+                naturalLanguageHint:
+                    'Show me the slowest API calls in the last hour...',
+                naturalLanguageExamples: traceNaturalLanguageExamples,
+                onSubmitWithMode: (query, isNl) {
+                  widget.dashboardState
+                      .setLastQueryFilter(DashboardDataType.traces, query);
+                  final explorer = context.read<ExplorerQueryService>();
+                  if (isNl) {
+                    if (widget.onPromptRequest != null) {
+                      widget.onPromptRequest!(query);
+                    }
+                  } else {
+                    if (query.startsWith('trace=')) {
+                      explorer.queryTrace(traceId: query.substring(6).trim());
                     } else {
                       explorer.queryTraceFilter(filter: query);
                     }
-                  },
-                  onSubmit: (filter) {
-                    widget.dashboardState
-                        .setLastQueryFilter(DashboardDataType.traces, filter);
-                    final explorer = context.read<ExplorerQueryService>();
+                  }
+                },
+                onSubmit: (filter) {
+                  widget.dashboardState
+                      .setLastQueryFilter(DashboardDataType.traces, filter);
+                  final explorer = context.read<ExplorerQueryService>();
+                  if (filter.startsWith('trace=')) {
+                    explorer.queryTrace(traceId: filter.substring(6).trim());
+                  } else {
                     explorer.queryTraceFilter(filter: filter);
-                  },
-                )
-              else
-                ManualQueryBar(
-                  hintText: 'Enter Trace ID (e.g. abc123def456789...)',
-                  initialValue: widget.dashboardState
-                      .getLastQueryFilter(DashboardDataType.traces),
-                  isLoading: isLoading,
-                  onSubmit: (traceId) {
-                    widget.dashboardState
-                        .setLastQueryFilter(DashboardDataType.traces, traceId);
-                    final explorer = context.read<ExplorerQueryService>();
-                    explorer.queryTrace(traceId: traceId);
-                  },
-                ),
+                  }
+                },
+              ),
             ],
           ),
         ),
@@ -133,15 +122,11 @@ class _LiveTracePanelState extends State<LiveTracePanel> {
           child: isLoading && widget.items.isEmpty
               ? const ShimmerLoading(showChart: true)
               : widget.items.isEmpty
-                  ? ExplorerEmptyState(
+                  ? const ExplorerEmptyState(
                       icon: Icons.timeline_rounded,
                       title: 'No Traces Yet',
-                      description: _queryMode == 0
-                          ? 'Enter a Cloud Trace filter expression above to search\nfor traces, or switch to natural language mode.'
-                          : 'Enter a Cloud Trace ID above to visualize\nthe distributed trace waterfall.',
-                      queryHint: _queryMode == 0
-                          ? 'e.g. +span:name:my_service MinDuration:100ms'
-                          : 'e.g. abc123def456789...',
+                      description: 'Enter a Cloud Trace filter expression or trace=ID to search\nfor traces, or switch to natural language mode.',
+                      queryHint: 'e.g. trace=abc123def456789...',
                     )
                   : _buildTraceList(),
         ),
@@ -149,58 +134,7 @@ class _LiveTracePanelState extends State<LiveTracePanel> {
     );
   }
 
-  Widget _buildModeToggle() {
-    return Container(
-      padding: const EdgeInsets.all(2),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: AppColors.surfaceBorder.withValues(alpha: 0.3),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildModeChip('Filter', 0),
-          _buildModeChip('Trace ID', 1),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildModeChip(String label, int index) {
-    final isActive = _queryMode == index;
-    return GestureDetector(
-      onTap: () => setState(() => _queryMode = index),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: isActive
-              ? AppColors.primaryCyan.withValues(alpha: 0.15)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(
-            color: isActive
-                ? AppColors.primaryCyan.withValues(alpha: 0.3)
-                : Colors.transparent,
-          ),
-        ),
-        child: Text(
-          label,
-          style: GoogleFonts.jetBrainsMono(
-            fontSize: 10,
-            fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-            color: isActive ? AppColors.primaryCyan : AppColors.textMuted,
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildSyntaxHelp() {
-    if (_queryMode != 0) return const SizedBox.shrink();
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 0, 12, 4),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -335,15 +269,6 @@ class _LiveTracePanelState extends State<LiveTracePanel> {
         ),
       ),
     );
-  }
-
-  Future<void> _openDocs() async {
-    final url = Uri.parse(
-      'https://cloud.google.com/trace/docs/trace-filters',
-    );
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    }
   }
 
   String _calcTotalDuration(dynamic trace) {

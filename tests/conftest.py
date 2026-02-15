@@ -24,6 +24,9 @@ def sanitize_environment():
 
     # Ensure tests don't accidentally use remote agent engine mode
     os.environ.pop("SRE_AGENT_ID", None)
+
+    # Use InMemorySessionService for tests to prevent parallel DB locking conflicts
+    os.environ["USE_DATABASE_SESSIONS"] = "false"
     yield
 
 

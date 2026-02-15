@@ -52,9 +52,9 @@ void main() {
     final initialSize = tester.getSize(dashboardFinder);
     expect(initialSize.width, 1152.0);
 
-    // Drag handle to the LEFT by 192 (10% of width)
+    // Drag handle to the RIGHT by 192 (10% of width)
     // New width should be 70% of 1920 = 1344
-    await tester.drag(handleFinder, const Offset(-192.0, 0));
+    await tester.drag(handleFinder, const Offset(192.0, 0));
     await tester.pumpAndSettle();
 
     final expandedSize = tester.getSize(dashboardFinder);

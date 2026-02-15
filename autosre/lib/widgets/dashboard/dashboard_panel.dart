@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 
 import '../../services/dashboard_state.dart';
-import '../../services/explorer_query_service.dart';
 import '../../theme/app_theme.dart';
 import 'live_logs_explorer.dart';
 import 'live_metrics_panel.dart';
@@ -74,7 +71,7 @@ class _DashboardPanelState extends State<DashboardPanel>
       animation: _entranceController,
       builder: (context, child) {
         return Transform.translate(
-          offset: Offset(_slideAnimation.value * 400, 0),
+          offset: Offset(_slideAnimation.value * -400, 0),
           child: Opacity(
             opacity: _fadeAnimation.value,
             child: child,
@@ -85,43 +82,27 @@ class _DashboardPanelState extends State<DashboardPanel>
         decoration: BoxDecoration(
           color: AppColors.backgroundDark,
           border: Border(
-            left: BorderSide(
-              color: AppColors.surfaceBorder.withValues(alpha: 0.5),
+            right: BorderSide(
+              color: AppColors.surfaceBorder.withValues(alpha: 0.8),
               width: 1,
             ),
           ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.4),
+              blurRadius: 20,
+              offset: const Offset(4, 0),
+            ),
+          ],
         ),
         child: Column(
           children: [
-            _buildHeader(),
             SreToolbar(
               dashboardState: widget.state,
-              onRefresh: () {
-                final activeType = widget.state.activeTab;
-                final filter = widget.state.getLastQueryFilter(activeType);
-                if (filter != null && filter.isNotEmpty) {
-                  final explorer = context.read<ExplorerQueryService>();
-                  switch (activeType) {
-                    case DashboardDataType.metrics:
-                      explorer.queryMetrics(filter: filter);
-                      break;
-                    case DashboardDataType.logs:
-                      explorer.queryLogs(filter: filter);
-                      break;
-                    case DashboardDataType.alerts:
-                      explorer.queryAlerts(filter: filter);
-                      break;
-                    case DashboardDataType.traces:
-                      // Could be a trace ID or filter; send as filter for flexibility
-                      explorer.queryTraceFilter(filter: filter);
-                      break;
-                    default:
-                      break;
-                  }
-                }
-              },
+              isMaximized: widget.isMaximized,
+              onToggleMaximize: widget.onToggleMaximize,
+              onClose: widget.onClose,
             ),
-            _buildTabBar(),
             Expanded(
               child: SelectionArea(
                 child: _buildContent(),
@@ -133,137 +114,7 @@ class _DashboardPanelState extends State<DashboardPanel>
     );
   }
 
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.backgroundCard,
-        border: Border(
-          bottom: BorderSide(
-            color: AppColors.surfaceBorder.withValues(alpha: 0.5),
-            width: 1,
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.primaryCyan.withValues(alpha: 0.2),
-                  AppColors.primaryTeal.withValues(alpha: 0.2),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(
-              Icons.dashboard_rounded,
-              size: 16,
-              color: AppColors.primaryCyan,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Text(
-            'Investigation Dashboard',
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
-              letterSpacing: -0.2,
-            ),
-          ),
-          const Spacer(),
-          _buildItemCount(),
-          const SizedBox(width: 8),
-          if (widget.onToggleMaximize != null)
-            IconButton(
-              icon: Icon(
-                widget.isMaximized ? Icons.fullscreen_exit : Icons.fullscreen,
-                size: 20,
-              ),
-              color: AppColors.textMuted,
-              onPressed: widget.onToggleMaximize,
-              tooltip: widget.isMaximized ? 'Restore' : 'Maximize',
-              style: IconButton.styleFrom(
-                padding: const EdgeInsets.all(4),
-                minimumSize: const Size(28, 28),
-              ),
-            ),
-          IconButton(
-            icon: const Icon(Icons.close, size: 18),
-            color: AppColors.textMuted,
-            onPressed: widget.onClose,
-            tooltip: 'Close Dashboard',
-            style: IconButton.styleFrom(
-              padding: const EdgeInsets.all(4),
-              minimumSize: const Size(28, 28),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildItemCount() {
-    return ListenableBuilder(
-      listenable: widget.state,
-      builder: (context, _) {
-        final count = widget.state.items.length;
-        if (count == 0) return const SizedBox.shrink();
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          decoration: BoxDecoration(
-            color: AppColors.primaryCyan.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Text(
-            '$count items',
-            style: const TextStyle(
-              fontSize: 11,
-              color: AppColors.primaryCyan,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildTabBar() {
-    return ListenableBuilder(
-      listenable: widget.state,
-      builder: (context, _) {
-        final counts = widget.state.typeCounts;
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          decoration: BoxDecoration(
-            color: AppColors.backgroundCard.withValues(alpha: 0.5),
-            border: Border(
-              bottom: BorderSide(
-                color: AppColors.surfaceBorder.withValues(alpha: 0.3),
-                width: 1,
-              ),
-            ),
-          ),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: DashboardDataType.values.map((type) {
-                return _DashboardTab(
-                  type: type,
-                  isActive: widget.state.activeTab == type,
-                  count: counts[type] ?? 0,
-                  onTap: () => widget.state.setActiveTab(type),
-                );
-              }).toList(),
-            ),
-          ),
-        );
-      },
-    );
-  }
 
   Widget _buildContent() {
     return ListenableBuilder(
@@ -318,110 +169,4 @@ class _DashboardPanelState extends State<DashboardPanel>
   }
 
 
-}
-
-class _DashboardTab extends StatelessWidget {
-  final DashboardDataType type;
-  final bool isActive;
-  final int count;
-  final VoidCallback onTap;
-
-  const _DashboardTab({
-    required this.type,
-    required this.isActive,
-    required this.count,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final config = _tabConfig(type);
-    final color = isActive ? config.color : AppColors.textMuted;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 2),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: isActive
-                  ? config.color.withValues(alpha: 0.12)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: isActive
-                    ? config.color.withValues(alpha: 0.3)
-                    : Colors.transparent,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(config.icon, size: 14, color: color),
-                const SizedBox(width: 6),
-                Text(
-                  config.label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                    color: color,
-                  ),
-                ),
-                if (count > 0) ...[
-                  const SizedBox(width: 6),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: config.color.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      '$count',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: config.color,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TabConfig {
-  final String label;
-  final IconData icon;
-  final Color color;
-  const _TabConfig(this.label, this.icon, this.color);
-}
-
-_TabConfig _tabConfig(DashboardDataType type) {
-  switch (type) {
-    case DashboardDataType.traces:
-      return const _TabConfig('Traces', Icons.timeline_rounded, AppColors.primaryCyan);
-    case DashboardDataType.logs:
-      return const _TabConfig('Logs', Icons.article_outlined, AppColors.success);
-    case DashboardDataType.metrics:
-      return const _TabConfig('Metrics', Icons.show_chart_rounded, AppColors.warning);
-    case DashboardDataType.alerts:
-      return const _TabConfig('Alerts', Icons.notifications_active_outlined, AppColors.error);
-    case DashboardDataType.remediation:
-      return const _TabConfig('Remediation', Icons.build_circle_outlined, AppColors.secondaryPurple);
-    case DashboardDataType.council:
-      return const _TabConfig('Council', Icons.groups_rounded, AppColors.primaryTeal);
-    case DashboardDataType.charts:
-      return const _TabConfig('Charts', Icons.bar_chart_rounded, AppColors.warning);
-  }
 }

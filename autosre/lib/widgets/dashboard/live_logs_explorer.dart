@@ -12,7 +12,6 @@ import '../common/error_banner.dart';
 import '../common/explorer_empty_state.dart';
 import '../common/shimmer_loading.dart';
 import 'manual_query_bar.dart';
-import 'query_language_badge.dart';
 import 'query_helpers.dart';
 
 /// Dashboard panel for exploring all collected log data.
@@ -43,7 +42,7 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
   String _searchQuery = '';
   String? _severityFilter;
   int? _expandedEntry;
-  bool _showSyntaxHelp = false;
+  final bool _showSyntaxHelp = false;
 
   /// Aggregate all log entries across all tool calls.
   List<LogEntry> get _allEntries {
@@ -97,50 +96,18 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
           child: Column(
             children: [
-              // Language badge row
-              Row(
-                children: [
-                  QueryLanguageBadge(
-                    language: 'Cloud Logging',
-                    icon: Icons.article_outlined,
-                    color: AppColors.success,
-                    onHelpTap: () => _openDocs(),
-                  ),
-                  const Spacer(),
-                  InkWell(
-                    borderRadius: BorderRadius.circular(4),
-                    onTap: () =>
-                        setState(() => _showSyntaxHelp = !_showSyntaxHelp),
-                    child: Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            _showSyntaxHelp
-                                ? Icons.expand_less_rounded
-                                : Icons.expand_more_rounded,
-                            size: 14,
-                            color: AppColors.textMuted,
-                          ),
-                          const SizedBox(width: 2),
-                          Text(
-                            'Syntax',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: AppColors.textMuted.withValues(alpha: 0.8),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
+
               ManualQueryBar(
                 hintText:
                     'severity>=ERROR AND resource.type="gce_instance"',
+                dashboardState: widget.dashboardState,
+                onRefresh: () {
+                  final filter = widget.dashboardState.getLastQueryFilter(DashboardDataType.logs);
+                  if (filter != null && filter.isNotEmpty) {
+                    final explorer = context.read<ExplorerQueryService>();
+                    explorer.queryLogs(filter: filter);
+                  }
+                },
                 languageLabel: 'LOG FILTER',
                 languageLabelColor: AppColors.success,
                 initialValue: widget.dashboardState

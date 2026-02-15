@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:syncfusion_flutter_datepicker/datepicker.dart';
 
+import '../../models/time_range.dart';
+import '../../services/dashboard_state.dart';
 import '../../theme/app_theme.dart';
 import 'query_autocomplete_overlay.dart';
 import 'query_helpers.dart';
@@ -22,11 +25,24 @@ class ManualQueryBar extends StatefulWidget {
   final String? initialValue;
   final TextEditingController? controller;
 
+  /// Used for controlling and displaying the embedded time picker
+  final DashboardState? dashboardState;
+  final VoidCallback? onRefresh;
+
   /// Optional label shown as a leading badge (e.g. "SQL", "PromQL").
   final String? languageLabel;
 
   /// Color used for the language badge.
   final Color languageLabelColor;
+
+  /// List of supported languages. If provided, the badge becomes a dropdown selector.
+  final List<String>? languages;
+
+  /// Index of the currently selected language.
+  final int selectedLanguageIndex;
+
+  /// Callback when a new language is selected from the dropdown.
+  final ValueChanged<int>? onLanguageChanged;
 
   /// When true, the query bar expands to support multi-line input (e.g. SQL).
   final bool multiLine;
@@ -59,8 +75,13 @@ class ManualQueryBar extends StatefulWidget {
     this.onClear,
     this.initialValue,
     this.controller,
+    this.dashboardState,
+    this.onRefresh,
     this.languageLabel,
     this.languageLabelColor = AppColors.primaryCyan,
+    this.languages,
+    this.selectedLanguageIndex = 0,
+    this.onLanguageChanged,
     this.multiLine = false,
     this.snippets = const [],
     this.templates = const [],
@@ -399,7 +420,6 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
       link: _layerLink,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        height: 40,
         decoration: BoxDecoration(
           color: isFocused
               ? AppColors.backgroundDark
@@ -425,13 +445,16 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
               ),
           ],
         ),
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // NL toggle or language badge or search icon
-            if (widget.enableNaturalLanguage)
-              _buildNlToggle()
-            else if (widget.languageLabel != null)
-              _buildLanguageBadge()
+            SizedBox(
+              height: 40,
+              child: Row(
+                children: [
+            // Language selector or search icon
+            if (widget.enableNaturalLanguage || widget.languageLabel != null || (widget.languages != null && widget.languages!.isNotEmpty))
+              _buildLanguageSelector()
             else
               const Padding(
                 padding: EdgeInsets.only(left: 10, right: 6),
@@ -526,6 +549,16 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
             ),
           ],
         ),
+            ),
+            if (widget.dashboardState != null) ...[
+              Container(
+                height: 1,
+                color: AppColors.surfaceBorder.withValues(alpha: 0.3),
+              ),
+              _buildTimeControlsRow(),
+            ]
+          ],
+        ),
       ),
     );
   }
@@ -577,9 +610,8 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
               padding: const EdgeInsets.fromLTRB(10, 6, 4, 0),
               child: Row(
                 children: [
-                  if (widget.enableNaturalLanguage) _buildNlToggle(),
-                  if (widget.languageLabel != null && !_isNaturalLanguage)
-                    _buildLanguageBadge(),
+                  if (widget.enableNaturalLanguage || widget.languageLabel != null || (widget.languages != null && widget.languages!.isNotEmpty))
+                    _buildLanguageSelector(),
                   if (widget.templates.isNotEmpty ||
                       widget.naturalLanguageExamples.isNotEmpty)
                     _buildHelperButton(),
@@ -672,6 +704,13 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
                 ),
               ),
             ),
+            if (widget.dashboardState != null) ...[
+              Container(
+                height: 1,
+                color: AppColors.surfaceBorder.withValues(alpha: 0.3),
+              ),
+              _buildTimeControlsRow(),
+            ]
           ],
         ),
       ),
@@ -682,80 +721,115 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
   // Shared sub-widgets
   // ===========================================================================
 
-  Widget _buildNlToggle() {
-    return Tooltip(
-      message: _isNaturalLanguage
-          ? 'Switch to structured query'
-          : 'Switch to natural language',
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: _toggleNaturalLanguage,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          margin: const EdgeInsets.only(left: 6, right: 6),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-            color: _isNaturalLanguage
-                ? AppColors.secondaryPurple.withValues(alpha: 0.15)
-                : widget.languageLabelColor.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: _isNaturalLanguage
-                  ? AppColors.secondaryPurple.withValues(alpha: 0.3)
-                  : widget.languageLabelColor.withValues(alpha: 0.25),
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                _isNaturalLanguage
-                    ? Icons.auto_awesome_rounded
-                    : Icons.code_rounded,
-                size: 11,
-                color: _isNaturalLanguage
-                    ? AppColors.secondaryPurple
-                    : widget.languageLabelColor,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                _isNaturalLanguage
-                    ? 'NL'
-                    : (widget.languageLabel ?? 'Query'),
-                style: GoogleFonts.jetBrainsMono(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
-                  color: _isNaturalLanguage
-                      ? AppColors.secondaryPurple
-                      : widget.languageLabelColor,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  Widget _buildLanguageSelector() {
+    final hasNl = widget.enableNaturalLanguage;
+    final hasMultipleLanguages = widget.languages != null && widget.languages!.isNotEmpty;
+    final isClickable = hasMultipleLanguages || hasNl;
 
-  Widget _buildLanguageBadge() {
-    return Container(
-      margin: const EdgeInsets.only(left: 8, right: 8),
+    final currentLabel = _isNaturalLanguage
+        ? 'NL'
+        : (widget.languages != null && widget.languages!.isNotEmpty
+            ? widget.languages![widget.selectedLanguageIndex]
+            : (widget.languageLabel ?? 'Query'));
+
+    final color = _isNaturalLanguage ? AppColors.secondaryPurple : widget.languageLabelColor;
+    final icon = _isNaturalLanguage ? Icons.auto_awesome_rounded : Icons.code_rounded;
+
+    Widget badge = AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      margin: const EdgeInsets.only(left: 6, right: 6),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: widget.languageLabelColor.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(6),
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(isClickable ? 12 : 6),
         border: Border.all(
-          color: widget.languageLabelColor.withValues(alpha: 0.25),
+          color: color.withValues(alpha: 0.25),
         ),
       ),
-      child: Text(
-        widget.languageLabel!,
-        style: GoogleFonts.jetBrainsMono(
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-          color: widget.languageLabelColor,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: color),
+          const SizedBox(width: 4),
+          Text(
+            currentLabel,
+            style: GoogleFonts.jetBrainsMono(
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+          if (isClickable) ...[
+            const SizedBox(width: 2),
+            Icon(Icons.arrow_drop_down_rounded, size: 14, color: color.withValues(alpha: 0.8)),
+          ],
+        ],
       ),
+    );
+
+    if (!isClickable) return badge;
+
+    return PopupMenuButton<String>(
+      tooltip: 'Select query mode',
+      offset: const Offset(0, 30),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      color: AppColors.backgroundCard,
+      onSelected: (mode) {
+        if (mode == 'NL') {
+          if (!_isNaturalLanguage) _toggleNaturalLanguage();
+        } else if (mode == 'BASE_LABEL') {
+          if (_isNaturalLanguage) _toggleNaturalLanguage();
+        } else {
+          if (_isNaturalLanguage) _toggleNaturalLanguage();
+          if (widget.languages != null) {
+            final idx = widget.languages!.indexOf(mode);
+            if (idx != -1 && widget.onLanguageChanged != null) {
+              widget.onLanguageChanged!(idx);
+            }
+          }
+        }
+      },
+      itemBuilder: (context) => [
+        if (widget.languages != null && widget.languages!.isNotEmpty)
+          ...widget.languages!.map((l) => PopupMenuItem(
+                value: l,
+                height: 32,
+                child: Row(
+                  children: [
+                    Icon(Icons.code_rounded, size: 14, color: widget.languageLabelColor),
+                    const SizedBox(width: 8),
+                    Text(l, style: const TextStyle(fontSize: 12, color: AppColors.textPrimary)),
+                  ],
+                ),
+              ))
+        else if (widget.languageLabel != null)
+          PopupMenuItem(
+            value: 'BASE_LABEL',
+            height: 32,
+            child: Row(
+              children: [
+                Icon(Icons.code_rounded, size: 14, color: widget.languageLabelColor),
+                const SizedBox(width: 8),
+                Text(widget.languageLabel!, style: const TextStyle(fontSize: 12, color: AppColors.textPrimary)),
+              ],
+            ),
+          ),
+        if (hasNl && (hasMultipleLanguages || widget.languageLabel != null))
+          const PopupMenuDivider(height: 1),
+        if (hasNl)
+          const PopupMenuItem(
+            value: 'NL',
+            height: 32,
+            child: Row(
+              children: [
+                Icon(Icons.auto_awesome_rounded, size: 14, color: AppColors.secondaryPurple),
+                SizedBox(width: 8),
+                Text('Natural Language', style: TextStyle(fontSize: 12, color: AppColors.textPrimary)),
+              ],
+            ),
+          ),
+      ],
+      child: badge,
     );
   }
 
@@ -776,6 +850,328 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildTimeControlsRow() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: Row(
+        children: [
+          _buildTimeRangeChips(),
+          const Spacer(),
+          _buildRefreshButton(),
+          const SizedBox(width: 8),
+          _buildAutoRefreshToggle(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimeRangeChips() {
+    final dashboardState = widget.dashboardState!;
+    final currentPreset = dashboardState.timeRange.preset;
+    final presets = [
+      (TimeRangePreset.oneHour, '1H'),
+      (TimeRangePreset.sixHours, '6H'),
+      (TimeRangePreset.oneDay, '1D'),
+      (TimeRangePreset.oneWeek, '1W'),
+    ];
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ...presets.map((entry) {
+            final (preset, label) = entry;
+            final isSelected = currentPreset == preset;
+            return Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: ChoiceChip(
+                label: Text(label),
+                selected: isSelected,
+                onSelected: (_) {
+                  dashboardState.setTimeRange(TimeRange.fromPreset(preset));
+                  widget.onRefresh?.call();
+                },
+                labelStyle: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: isSelected
+                      ? AppColors.backgroundDark
+                      : AppColors.textSecondary,
+                ),
+                selectedColor: AppColors.primaryCyan,
+                backgroundColor: Colors.transparent,
+                side: BorderSide(
+                  color: isSelected
+                      ? AppColors.primaryCyan
+                      : AppColors.surfaceBorder,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+              ),
+            );
+          }),
+          // Custom range button
+          ChoiceChip(
+            label: Text(
+              currentPreset == TimeRangePreset.custom
+                  ? dashboardState.timeRange.displayLabel
+                  : 'Custom',
+            ),
+            selected: currentPreset == TimeRangePreset.custom,
+            onSelected: (_) => _showCustomRangePicker(context),
+            labelStyle: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: currentPreset == TimeRangePreset.custom
+                  ? AppColors.backgroundDark
+                  : AppColors.textSecondary,
+            ),
+            selectedColor: AppColors.primaryCyan,
+            backgroundColor: Colors.transparent,
+            side: BorderSide(
+              color: currentPreset == TimeRangePreset.custom
+                  ? AppColors.primaryCyan
+                  : AppColors.surfaceBorder,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(6),
+            ),
+            visualDensity: VisualDensity.compact,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            avatar: currentPreset != TimeRangePreset.custom
+                ? const Icon(
+                    Icons.date_range_rounded,
+                    size: 12,
+                    color: AppColors.textSecondary,
+                  )
+                : null,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRefreshButton() {
+    return SizedBox(
+      width: 24,
+      height: 24,
+      child: IconButton(
+        icon: const Icon(Icons.refresh, size: 14),
+        color: AppColors.textSecondary,
+        onPressed: () {
+          widget.dashboardState!
+              .setTimeRange(widget.dashboardState!.timeRange.refresh());
+          widget.onRefresh?.call();
+        },
+        style: IconButton.styleFrom(
+          padding: EdgeInsets.zero,
+          minimumSize: const Size(24, 24),
+          backgroundColor: Colors.transparent,
+        ),
+        tooltip: 'Refresh',
+      ),
+    );
+  }
+
+  Widget _buildAutoRefreshToggle() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'Auto',
+          style: TextStyle(
+            fontSize: 10,
+            color: widget.dashboardState!.autoRefresh
+                ? AppColors.primaryCyan
+                : AppColors.textMuted,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(width: 4),
+        SizedBox(
+          height: 16,
+          width: 28,
+          child: FittedBox(
+            fit: BoxFit.contain,
+            child: Switch(
+              value: widget.dashboardState!.autoRefresh,
+              onChanged: (_) => widget.dashboardState!.toggleAutoRefresh(),
+              activeThumbColor: AppColors.primaryCyan,
+              activeTrackColor: AppColors.primaryCyan.withValues(alpha: 0.3),
+              inactiveThumbColor: AppColors.textMuted,
+              inactiveTrackColor: Colors.white.withValues(alpha: 0.1),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showCustomRangePicker(BuildContext context) {
+    DateTime? startDate;
+    DateTime? endDate;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: AppColors.backgroundCard,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: AppColors.surfaceBorder),
+          ),
+          child: SizedBox(
+            width: 360,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.date_range_rounded,
+                        size: 18,
+                        color: AppColors.primaryCyan,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Custom Time Range',
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Date picker
+                SizedBox(
+                  height: 320,
+                  child: SfDateRangePicker(
+                    selectionMode: DateRangePickerSelectionMode.range,
+                    backgroundColor: Colors.transparent,
+                    headerStyle: DateRangePickerHeaderStyle(
+                      backgroundColor: Colors.transparent,
+                      textStyle: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    monthCellStyle: DateRangePickerMonthCellStyle(
+                      textStyle: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 13,
+                      ),
+                      todayTextStyle: const TextStyle(
+                        color: AppColors.primaryCyan,
+                        fontSize: 13,
+                      ),
+                      disabledDatesTextStyle: TextStyle(
+                        color: AppColors.textMuted.withValues(alpha: 0.4),
+                        fontSize: 13,
+                      ),
+                      todayCellDecoration: BoxDecoration(
+                        border: Border.all(
+                          color: AppColors.primaryCyan,
+                        ),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    yearCellStyle: const DateRangePickerYearCellStyle(
+                      textStyle: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 13,
+                      ),
+                      todayTextStyle: TextStyle(
+                        color: AppColors.primaryCyan,
+                        fontSize: 13,
+                      ),
+                    ),
+                    selectionColor: AppColors.primaryCyan,
+                    startRangeSelectionColor: AppColors.primaryCyan,
+                    endRangeSelectionColor: AppColors.primaryCyan,
+                    rangeSelectionColor:
+                        AppColors.primaryCyan.withValues(alpha: 0.2),
+                    todayHighlightColor: AppColors.primaryCyan,
+                    maxDate: DateTime.now(),
+                    onSelectionChanged:
+                        (DateRangePickerSelectionChangedArgs args) {
+                      if (args.value is PickerDateRange) {
+                        final range = args.value as PickerDateRange;
+                        startDate = range.startDate;
+                        endDate = range.endDate;
+                      }
+                    },
+                  ),
+                ),
+                // Actions
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () {
+                          if (startDate != null) {
+                            final effectiveEnd = endDate ?? startDate!;
+                            widget.dashboardState!.setTimeRange(TimeRange(
+                              start: startDate!,
+                              end: effectiveEnd,
+                              preset: TimeRangePreset.custom,
+                            ));
+                            widget.onRefresh?.call();
+                          }
+                          Navigator.of(dialogContext).pop();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryCyan,
+                          foregroundColor: AppColors.backgroundDark,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 10,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          textStyle: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        child: const Text('Apply'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

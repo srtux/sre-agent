@@ -34,6 +34,7 @@ class _LiveCouncilPanelState extends State<LiveCouncilPanel> {
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
           child: ManualQueryBar(
             hintText: 'Search past decisions...',
+            dashboardState: widget.dashboardState,
             initialValue: widget.dashboardState.getLastQueryFilter(DashboardDataType.council),
             isLoading: widget.dashboardState.isLoading(DashboardDataType.council),
             onSubmit: (query) {

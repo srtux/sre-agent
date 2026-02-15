@@ -71,8 +71,9 @@ class TracesQueryRequest(BaseModel):
     """Request model for traces query endpoint."""
 
     filter: str | None = None
+    minutes_ago: int = 60
     project_id: str | None = None
-    minutes_ago: int | None = 60
+    limit: int = 10
 
 
 class MetricsQueryRequest(BaseModel):
@@ -106,15 +107,6 @@ class LogsQueryRequest(BaseModel):
     minutes_ago: int | None = None
     limit: int = 50
     project_id: str | None = None
-
-
-class TracesQueryRequest(BaseModel):
-    """Request model for trace filter query endpoint."""
-
-    filter: str = ""
-    minutes_ago: int = 60
-    project_id: str | None = None
-    limit: int = 10
 
 
 class NLQueryRequest(BaseModel):
@@ -293,38 +285,6 @@ async def query_promql_endpoint(payload: PromQLQueryRequest) -> Any:
         raise
     except Exception as e:
         logger.exception("Error executing PromQL query")
-        raise HTTPException(status_code=500, detail=str(e)) from e
-
-
-@router.post("/traces/query")
-async def query_traces_endpoint(payload: TracesQueryRequest) -> Any:
-    """Query traces using Cloud Trace filter syntax.
-
-    Accepts Cloud Trace query language filters such as:
-    ``+span:name:my_span``, ``RootSpan:/api/v1``, ``MinDuration:500ms``.
-
-    Returns data in Trace-compatible format (spans list).
-    """
-    try:
-        # Compute start/end time from minutes_ago
-        from datetime import datetime, timedelta, timezone
-
-        end = datetime.now(timezone.utc)
-        start = end - timedelta(minutes=payload.minutes_ago)
-
-        result = await list_traces(
-            project_id=payload.project_id,
-            filter_str=payload.filter,
-            start_time=start.isoformat(),
-            end_time=end.isoformat(),
-            limit=payload.limit,
-        )
-        raw = _unwrap_tool_result(result)
-        return genui_adapter.transform_trace(raw)
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception("Error querying traces")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 

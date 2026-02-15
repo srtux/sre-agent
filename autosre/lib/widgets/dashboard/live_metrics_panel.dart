@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../services/dashboard_state.dart';
 import '../../services/explorer_query_service.dart';
@@ -15,8 +14,6 @@ import '../syncfusion_metric_chart.dart';
 import '../canvas/metrics_dashboard_canvas.dart';
 import 'manual_query_bar.dart';
 import 'dashboard_card_wrapper.dart';
-import 'query_language_badge.dart';
-import 'query_language_toggle.dart';
 import 'query_helpers.dart';
 
 /// Dashboard panel displaying all collected metric data.
@@ -75,28 +72,24 @@ class LiveMetricsPanel extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
               child: Column(
                 children: [
-                  Row(
-                    children: [
-                      QueryLanguageBadge(
-                        language: _languages[langIndex],
-                        icon: Icons.show_chart_rounded,
-                        color: AppColors.warning,
-                        onHelpTap: () => _openDocs(langIndex),
-                      ),
-                      const SizedBox(width: 8),
-                      QueryLanguageToggle(
-                        languages: _languages,
-                        selectedIndex: langIndex,
-                        onChanged: (i) =>
-                            dashboardState.setMetricsQueryLanguage(i),
-                        activeColor: AppColors.warning,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
+
                   ManualQueryBar(
                     hintText: _hints[langIndex],
-                    languageLabel: langIndex == 0 ? 'MQL' : 'PromQL',
+                    dashboardState: dashboardState,
+                    onRefresh: () {
+                      final filter = dashboardState.getLastQueryFilter(DashboardDataType.metrics);
+                      if (filter != null && filter.isNotEmpty) {
+                        final explorer = context.read<ExplorerQueryService>();
+                        if (langIndex == 0) {
+                          explorer.queryMetrics(filter: filter);
+                        } else {
+                          explorer.queryMetricsPromQL(query: filter);
+                        }
+                      }
+                    },
+                    languages: _languages,
+                    selectedLanguageIndex: langIndex,
+                    onLanguageChanged: (i) => dashboardState.setMetricsQueryLanguage(i),
                     languageLabelColor: AppColors.warning,
                     initialValue: dashboardState
                         .getLastQueryFilter(DashboardDataType.metrics),
@@ -326,14 +319,4 @@ class LiveMetricsPanel extends StatelessWidget {
     );
   }
 
-  Future<void> _openDocs(int langIndex) async {
-    final urls = [
-      'https://cloud.google.com/monitoring/api/v3/filters',
-      'https://cloud.google.com/monitoring/promql',
-    ];
-    final url = Uri.parse(urls[langIndex]);
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    }
-  }
 }

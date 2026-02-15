@@ -78,13 +78,42 @@ class BigQueryClient:
         # For now assuming it returns a python dictionary matching the result structure.
 
         data = result.get("result", {})
-        # If 'rows' key exists, return that. fallback to the result itself if it is a list.
-        if isinstance(data, dict):
-            return cast(list[dict[str, Any]], data.get("rows", []))
-        if isinstance(data, list):
-            return data
 
-        return []
+        if not isinstance(data, dict):
+            return data if isinstance(data, list) else []
+
+        structured = data.get("structuredContent", data)
+
+        # If 'rows' key exists, return that. fallback to the result itself if it is a list.
+        rows_data = (
+            structured.get("rows", []) if isinstance(structured, dict) else structured
+        )
+        schema_data = (
+            structured.get("schema", {}).get("fields", [])
+            if isinstance(structured, dict)
+            else []
+        )
+
+        if not schema_data or not isinstance(rows_data, list):
+            return rows_data if isinstance(rows_data, list) else []
+
+        # Parse BigQuery raw rows format: {"f": [{"v": "val1"}, {"v": "val2"}]} -> {"col1": "val1", "col2": "val2"}
+        parsed_rows = []
+        field_names = [field.get("name") for field in schema_data]
+
+        for row in rows_data:
+            if isinstance(row, dict) and "f" in row:
+                values = row.get("f", [])
+                parsed_row = {}
+                for col, val_dict in zip(field_names, values, strict=False):
+                    parsed_row[col] = (
+                        val_dict.get("v") if isinstance(val_dict, dict) else val_dict
+                    )
+                parsed_rows.append(parsed_row)
+            else:
+                parsed_rows.append(row)
+
+        return parsed_rows
 
     async def get_table_schema(
         self, dataset_id: str, table_id: str
@@ -119,9 +148,15 @@ class BigQueryClient:
             logger.warning(f"Failed to get table info: {result.get('error')}")
             return []
 
-        # result['result'] should contain 'schema'
-        info = result.get("result", {})
-        return cast(list[dict[str, Any]], info.get("schema", {}).get("fields", []))
+        # result['result'] should contain 'schema' OR 'structuredContent' -> 'schema'
+        data = result.get("result", {})
+        if not isinstance(data, dict):
+            return []
+
+        structured = data.get("structuredContent", data)
+        info = structured.get("tableInfo", structured)  # in case it's nested
+        schema = info.get("schema", structured.get("schema", {}))
+        return cast(list[dict[str, Any]], schema.get("fields", []))
 
     async def list_datasets(self) -> list[str]:
         """List BigQuery dataset IDs.
@@ -148,7 +183,25 @@ class BigQueryClient:
             logger.warning(f"Failed to list datasets: {result.get('error')}")
             return []
 
-        return cast(list[str], result.get("result", {}).get("datasets", []))
+        data = result.get("result", {})
+        if not isinstance(data, dict):
+            return data if isinstance(data, list) else []
+
+        structured = data.get("structuredContent", data)
+        datasets = structured.get("datasets", [])
+
+        res = []
+        for d in datasets:
+            if isinstance(d, dict):
+                # MCP typically returns "projectId:datasetId"
+                id_str = d.get("id", "")
+                if ":" in id_str:
+                    id_str = id_str.split(":", 1)[-1]
+                res.append(id_str)
+            else:
+                res.append(str(d))
+
+        return res
 
     async def list_tables(self, dataset_id: str) -> list[str]:
         """List BigQuery table IDs for a dataset.
@@ -179,4 +232,24 @@ class BigQueryClient:
             logger.warning(f"Failed to list tables: {result.get('error')}")
             return []
 
-        return cast(list[str], result.get("result", {}).get("tables", []))
+        data = result.get("result", {})
+        if not isinstance(data, dict):
+            return data if isinstance(data, list) else []
+
+        structured = data.get("structuredContent", data)
+        tables = structured.get("tables", [])
+
+        res = []
+        for t in tables:
+            if isinstance(t, dict):
+                # MCP typically returns "projectId:datasetId.tableId"
+                id_str = t.get("id", "")
+                if ":" in id_str:
+                    id_str = id_str.split(":", 1)[-1]
+                if "." in id_str:
+                    id_str = id_str.split(".", 1)[-1]
+                res.append(id_str)
+            else:
+                res.append(str(t))
+
+        return res

@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../services/dashboard_state.dart';
 import '../../services/explorer_query_service.dart';
@@ -14,7 +13,6 @@ import '../common/explorer_empty_state.dart';
 import '../common/shimmer_loading.dart';
 import 'manual_query_bar.dart';
 import 'dashboard_card_wrapper.dart';
-import 'query_language_badge.dart';
 import 'query_helpers.dart';
 import 'sql_results_table.dart';
 import 'visual_data_explorer.dart';
@@ -67,95 +65,8 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Header with view mode toggle
-        _buildHeader(),
-        // Content based on view mode
-        Expanded(
-          child: _viewMode == 0 ? _buildSqlView() : _buildAgentChartsView(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-      child: Row(
-        children: [
-          QueryLanguageBadge(
-            language: _viewMode == 0 ? 'BigQuery SQL' : 'Agent Charts',
-            icon: _viewMode == 0
-                ? Icons.storage_rounded
-                : Icons.bar_chart_rounded,
-            color: AppColors.warning,
-            onHelpTap: _viewMode == 0 ? () => _openDocs() : null,
-          ),
-          const Spacer(),
-          // View mode toggle
-          Container(
-            padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: AppColors.surfaceBorder.withValues(alpha: 0.3),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildViewModeChip('SQL Query', Icons.code_rounded, 0),
-                _buildViewModeChip(
-                    'Agent Charts', Icons.auto_awesome_rounded, 1),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildViewModeChip(String label, IconData icon, int index) {
-    final isActive = _viewMode == index;
-    return GestureDetector(
-      onTap: () => setState(() => _viewMode = index),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: isActive
-              ? AppColors.warning.withValues(alpha: 0.15)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(
-            color: isActive
-                ? AppColors.warning.withValues(alpha: 0.3)
-                : Colors.transparent,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 12,
-              color: isActive ? AppColors.warning : AppColors.textMuted,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                color: isActive ? AppColors.warning : AppColors.textMuted,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    if (_viewMode == 0) return _buildSqlView();
+    return _buildAgentChartsView();
   }
 
   // ===========================================================================
@@ -163,8 +74,7 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
   // ===========================================================================
 
   Widget _buildSqlView() {
-    final isLoading =
-        widget.dashboardState.isLoading(DashboardDataType.charts);
+    final isLoading = widget.dashboardState.isLoading(DashboardDataType.charts);
     final error = widget.dashboardState.errorFor(DashboardDataType.charts);
 
     return Row(
@@ -201,8 +111,18 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
                       controller: _sqlController,
                       hintText:
                           'SELECT column1, column2\nFROM `project.dataset.table`\nWHERE condition\nLIMIT 1000',
-                      languageLabel: 'SQL',
+                      dashboardState: widget.dashboardState,
+                      onRefresh: () {
+                        final sql = widget.dashboardState.getLastQueryFilter(DashboardDataType.charts);
+                        if (sql != null && sql.isNotEmpty) {
+                          final explorer = context.read<ExplorerQueryService>();
+                          explorer.queryBigQuery(sql: sql);
+                        }
+                      },
                       languageLabelColor: AppColors.warning,
+                      languages: const ['BigQuery SQL', 'Agent Charts'],
+                      selectedLanguageIndex: 0,
+                      onLanguageChanged: (i) => setState(() => _viewMode = i),
                       multiLine: true,
                       initialValue: widget.dashboardState
                           .getLastQueryFilter(DashboardDataType.charts),
@@ -420,6 +340,11 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
           padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
           child: ManualQueryBar(
             hintText: 'Search data answers...',
+            dashboardState: widget.dashboardState,
+            languages: const ['BigQuery SQL', 'Agent Charts'],
+            selectedLanguageIndex: 1,
+            onLanguageChanged: (i) => setState(() => _viewMode = i),
+            languageLabelColor: AppColors.warning,
             initialValue: widget.dashboardState
                 .getLastQueryFilter(DashboardDataType.charts),
             isLoading:
@@ -485,15 +410,6 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
         ),
       ],
     );
-  }
-
-  Future<void> _openDocs() async {
-    final url = Uri.parse(
-      'https://cloud.google.com/bigquery/docs/reference/standard-sql/query-syntax',
-    );
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    }
   }
 }
 

@@ -554,7 +554,6 @@ class _ConversationPageState extends State<ConversationPage>
     _scrollToBottom(force: true);
   }
 
-  bool _isSidebarOpen = false;
   double _dashboardWidthFactor = 0.6;
   bool _isDashboardMaximized = false;
   double _lastDashboardWidth = 0.6;
@@ -580,47 +579,18 @@ class _ConversationPageState extends State<ConversationPage>
     return LayoutBuilder(
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < 900;
-        final showDrawer = isMobile;
-        final showSidebar = !isMobile && _isSidebarOpen;
 
         return Scaffold(
           backgroundColor: AppColors.backgroundDark,
-          drawer: showDrawer
-              ? Drawer(
-                  width: 280,
-                  backgroundColor: AppColors.backgroundCard,
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: BorderRadius.zero,
-                  ),
-                  child: Column(
-                    children: [
-                      Expanded(
-                        child: ValueListenableBuilder<String?>(
-                          valueListenable: _sessionService.currentSessionId,
-                          builder: (context, currentSessionId, _) {
-                            return SessionPanel(
-                              sessionService: _sessionService,
-                              onNewSession: _startNewSession,
-                              onSessionSelected: (id) {
-                                _loadSession(id);
-                                Navigator.pop(context); // Close drawer
-                              },
-                              currentSessionId: currentSessionId,
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              : null,
-          appBar: _buildAppBar(isMobile: isMobile),
-          body: Row(
-            children: [
-              // Sidebar for desktop
-              if (showSidebar)
-                SizedBox(
-                  width: 280,
+          endDrawer: Drawer(
+            width: 280,
+            backgroundColor: AppColors.backgroundCard,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.zero,
+            ),
+            child: Column(
+              children: [
+                Expanded(
                   child: ValueListenableBuilder<String?>(
                     valueListenable: _sessionService.currentSessionId,
                     builder: (context, currentSessionId, _) {
@@ -629,49 +599,26 @@ class _ConversationPageState extends State<ConversationPage>
                         onNewSession: _startNewSession,
                         onSessionSelected: (id) {
                           _loadSession(id);
+                          Navigator.pop(context); // Close drawer
                         },
                         currentSessionId: currentSessionId,
                       );
                     },
                   ),
                 ),
-              // Divider
-              if (showSidebar)
-                const VerticalDivider(
-                  width: 1,
-                  thickness: 1,
-                  color: AppColors.surfaceBorder,
-                ),
-              // Main conversation area
-              Expanded(
-                child: ValueListenableBuilder<List<ChatMessage>>(
-                  valueListenable: _conversation?.conversation ?? ValueNotifier([]),
-                  builder: (context, messages, _) {
-                    return ValueListenableBuilder<bool>(
-                      valueListenable:
-                          _contentGenerator?.isProcessing ?? ValueNotifier(false),
-                      builder: (context, isProcessing, _) {
-                        if (messages.isEmpty) {
-                          return _buildHeroEmptyState(isProcessing);
-                        }
-                        return Column(
-                          children: [
-                            Expanded(
-                                child: _buildMessageList(messages, isProcessing)),
-                            _buildInputArea(isProcessing),
-                          ],
-                        );
-                      },
-                    );
-                  },
-                ),
-              ),
-              // Vertical Investigation Rail
+              ],
+            ),
+          ),
+          appBar: _buildAppBar(isMobile: isMobile, scaffoldKey: context),
+          body: Row(
+            children: [
+              // 1. Extreme Left Vertical Investigation Rail
               if (!isMobile)
                 _InvestigationRailWidget(
                   state: _dashboardState,
                 ),
-              // Investigation Dashboard Panel
+
+              // 2. Investigation Dashboard Panel
               ListenableBuilder(
                 listenable: _dashboardState,
                 builder: (context, _) {
@@ -685,17 +632,33 @@ class _ConversationPageState extends State<ConversationPage>
                   return Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Resize Handle
+                      // Dashboard Content
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOutCubic,
+                        width: targetWidth,
+                        child: DashboardPanel(
+                          state: _dashboardState,
+                          onClose: _dashboardState.closeDashboard,
+                          onToggleMaximize: _toggleDashboardMaximize,
+                          isMaximized: _isDashboardMaximized,
+                          onPromptRequest: (prompt) {
+                            _textController.text = prompt;
+                            _sendMessage();
+                          },
+                        ),
+                      ),
+                      // Resize Handle (Now on the right side of the dashboard)
                       GestureDetector(
                         key: const Key('dashboard_resize_handle'),
                         behavior: HitTestBehavior.translucent,
                         onHorizontalDragUpdate: (details) {
                           setState(() {
-                            // Dragging left adds to dashboard width (since it's on the right)
-                            // Dragging right subtracts
+                            // Dragging right adds to dashboard width (since it's on the left)
+                            // Dragging left subtracts
                             final deltaFraction =
                                 details.delta.dx / constraints.maxWidth;
-                            _dashboardWidthFactor -= deltaFraction;
+                            _dashboardWidthFactor += deltaFraction;
                             _dashboardWidthFactor =
                                 _dashboardWidthFactor.clamp(0.2, 0.95);
 
@@ -726,25 +689,34 @@ class _ConversationPageState extends State<ConversationPage>
                           ),
                         ),
                       ),
-                      // Dashboard Content
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOutCubic,
-                        width: targetWidth,
-                        child: DashboardPanel(
-                          state: _dashboardState,
-                          onClose: _dashboardState.closeDashboard,
-                          onToggleMaximize: _toggleDashboardMaximize,
-                          isMaximized: _isDashboardMaximized,
-                          onPromptRequest: (prompt) {
-                            _textController.text = prompt;
-                            _sendMessage();
-                          },
-                        ),
-                      ),
                     ],
                   );
                 },
+              ),
+
+              // 3. Main conversation area (Chat Interface on the right)
+              Expanded(
+                child: ValueListenableBuilder<List<ChatMessage>>(
+                  valueListenable: _conversation?.conversation ?? ValueNotifier([]),
+                  builder: (context, messages, _) {
+                    return ValueListenableBuilder<bool>(
+                      valueListenable:
+                          _contentGenerator?.isProcessing ?? ValueNotifier(false),
+                      builder: (context, isProcessing, _) {
+                        if (messages.isEmpty) {
+                          return _buildHeroEmptyState(isProcessing);
+                        }
+                        return Column(
+                          children: [
+                            Expanded(
+                                child: _buildMessageList(messages, isProcessing)),
+                            _buildInputArea(isProcessing),
+                          ],
+                        );
+                      },
+                    );
+                  },
+                ),
               ),
             ],
           ),
@@ -753,7 +725,7 @@ class _ConversationPageState extends State<ConversationPage>
     );
   }
 
-  PreferredSizeWidget _buildAppBar({required bool isMobile}) {
+  PreferredSizeWidget _buildAppBar({required bool isMobile, required BuildContext scaffoldKey}) {
     return AppBar(
       backgroundColor: AppColors.backgroundCard,
       surfaceTintColor: Colors.transparent,
@@ -764,27 +736,8 @@ class _ConversationPageState extends State<ConversationPage>
           width: 1,
         ),
       ),
-      leading: Builder(
-        builder: (context) {
-          return IconButton(
-            icon: Icon(
-              isMobile
-                  ? Icons.menu
-                  : (_isSidebarOpen ? Icons.menu_open : Icons.menu),
-              color: AppColors.textSecondary,
-            ),
-            onPressed: () {
-              if (isMobile) {
-                Scaffold.of(context).openDrawer();
-              } else {
-                setState(() {
-                  _isSidebarOpen = !_isSidebarOpen;
-                });
-              }
-            },
-          );
-        },
-      ),
+      leading: null, // Removed leading menu icon since nav is on the right now
+      automaticallyImplyLeading: false,
       titleSpacing: 0,
       title: LayoutBuilder(
         builder: (context, constraints) {
@@ -880,6 +833,26 @@ class _ConversationPageState extends State<ConversationPage>
               MaterialPageRoute(builder: (context) => const HelpPage()),
             );
           },
+        ),
+        const SizedBox(width: 8),
+        // History button
+        Builder(
+          builder: (context) {
+            return IconButton(
+              icon: const Icon(Icons.history, color: AppColors.textSecondary),
+              tooltip: 'History & Sessions',
+              onPressed: () {
+                Scaffold.of(context).openEndDrawer();
+              },
+            );
+          }
+        ),
+        const SizedBox(width: 8),
+        // New Chat button
+        IconButton(
+          icon: const Icon(Icons.add_comment_outlined, color: AppColors.textSecondary),
+          tooltip: 'New Investigation',
+          onPressed: _startNewSession,
         ),
         const SizedBox(width: 8),
         // User Profile
