@@ -11,7 +11,7 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from sre_agent.api.dependencies import get_tool_context
 from sre_agent.schema import BaseToolResponse
@@ -51,11 +51,15 @@ def _unwrap_tool_result(result: Any) -> Any:
 class ToolConfigUpdate(BaseModel):
     """Request model for updating tool configuration."""
 
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
     enabled: bool
 
 
 class ToolTestRequest(BaseModel):
     """Request model for testing a tool."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     tool_name: str
 
@@ -63,12 +67,16 @@ class ToolTestRequest(BaseModel):
 class LogAnalyzeRequest(BaseModel):
     """Request model for log analysis endpoint."""
 
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
     filter: str | None = None
     project_id: str | None = None
 
 
 class TracesQueryRequest(BaseModel):
     """Request model for traces query endpoint."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     filter: str | None = None
     minutes_ago: int = 60
@@ -79,6 +87,8 @@ class TracesQueryRequest(BaseModel):
 class MetricsQueryRequest(BaseModel):
     """Request model for metrics query endpoint."""
 
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
     filter: str = ""
     minutes_ago: int = 60
     project_id: str | None = None
@@ -86,6 +96,8 @@ class MetricsQueryRequest(BaseModel):
 
 class PromQLQueryRequest(BaseModel):
     """Request model for PromQL query endpoint."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     query: str = ""
     minutes_ago: int = 60
@@ -95,6 +107,8 @@ class PromQLQueryRequest(BaseModel):
 class AlertsQueryRequest(BaseModel):
     """Request model for alerts query endpoint."""
 
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
     filter: str | None = None
     minutes_ago: int | None = None
     project_id: str | None = None
@@ -102,6 +116,8 @@ class AlertsQueryRequest(BaseModel):
 
 class LogsQueryRequest(BaseModel):
     """Request model for logs query endpoint."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     filter: str | None = None
     minutes_ago: int | None = None
@@ -112,6 +128,8 @@ class LogsQueryRequest(BaseModel):
 class NLQueryRequest(BaseModel):
     """Request model for natural language query endpoint."""
 
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
     query: str
     domain: str
     natural_language: bool = True
@@ -121,6 +139,8 @@ class NLQueryRequest(BaseModel):
 
 class BigQueryQueryRequest(BaseModel):
     """Request model for BigQuery SQL execution."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     sql: str
     project_id: str | None = None

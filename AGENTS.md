@@ -528,6 +528,56 @@ result = await route_request(query="Why is checkout latency spiking?")
 
 The router uses `classify_routing()` from `council/intent_classifier.py` (rule-based) and can be augmented with the adaptive classifier (see Section 19).
 
+### 14.1 InvestigationMode (Council Modes)
+
+**Path**: `sre_agent/council/schemas.py`
+
+The `InvestigationMode` enum defines three investigation modes used by the Council of Experts. The 3-Tier Router (Section 14) selects the mode when it classifies a query as `COUNCIL`.
+
+| Mode | Trigger | Behaviour |
+|------|---------|-----------|
+| **FAST** | Narrow-scope queries (single signal type) | Single-panel dispatch — only the most relevant panel runs |
+| **STANDARD** | Normal investigations (multi-signal) | 5 parallel panels (trace, metrics, logs, alerts, data) → Synthesizer merge |
+| **DEBATE** | High-severity incidents (SEV-1/SEV-2, low confidence) | Panels → Critic `LoopAgent` → Confidence gating (iterates until threshold met) |
+
+**Panel composition** (Standard / Debate):
+1. **Trace Panel** — Distributed trace analysis (latency, error spans, critical path)
+2. **Metrics Panel** — Time-series anomaly detection (spike/dip, SLO burn rate)
+3. **Logs Panel** — Log pattern clustering (Drain3), error correlation
+4. **Alerts Panel** — Active alert investigation, policy evaluation
+5. **Data Panel** — BigQuery / cross-signal data analysis
+
+**Selection logic**: The rule-based `IntentClassifier` (`council/intent_classifier.py`) scores keyword signals and alert severity. When `SRE_AGENT_ADAPTIVE_CLASSIFIER=true`, the LLM-augmented `AdaptiveClassifier` (`council/adaptive_classifier.py`) refines the selection using session history and token budget (see Section 19).
+
+### 14.2 3-Stage Analysis Pipeline
+
+**Path**: `sre_agent/agent.py`
+
+The root agent orchestrates investigation through three named stages. Each stage is a specialist sub-agent that runs sequentially, with outputs from earlier stages informing later ones.
+
+| Stage | Name | Sub-Agent | Purpose |
+|-------|------|-----------|---------|
+| **0** | Aggregate Analysis | `aggregate_analyzer` (Data Analyst) | Broad data collection — gathers logs, metrics, traces, and alerts across the affected service(s) |
+| **1** | Triage | `trace_analyst` (Trace Analyst) | Narrows scope — identifies the most anomalous signals, ranks hypotheses, filters noise |
+| **2** | Deep Dive | `root_cause_analyst` (Root Cause Analyst) | Root cause synthesis — correlates findings from stages 0–1, produces RCA and remediation recommendations |
+
+**Execution flow**:
+```
+User query → route_request (Section 14)
+  ├─ DIRECT → tool call (skip pipeline)
+  ├─ SUB_AGENT → single specialist sub-agent
+  └─ COUNCIL → InvestigationMode selection (Section 14.1)
+                 └─ Stage 0 (Aggregate) → Stage 1 (Triage) → Stage 2 (Deep Dive)
+```
+
+**Key sub-agents** (`sre_agent/sub_agents/`):
+- `trace.py` — Trace Analyst (Stage 1)
+- `logs.py` — Log Analyst
+- `metrics.py` — Metrics Analyst
+- `alerts.py` — Alert Analyst
+- `root_cause.py` — Root Cause Analyst (Stage 2)
+- `agent_debugger.py` — Agent self-debugging
+
 ### 15. Large Payload Handler Pattern
 
 **Path**: `sre_agent/core/large_payload_handler.py`

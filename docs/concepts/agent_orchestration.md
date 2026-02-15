@@ -2,9 +2,9 @@
 
 This document explores the "brain" of the SRE Agent, detailing the orchestration logic, the analysis pipeline, the Council of Experts architecture, and the prompt engineering strategies that drive its diagnostic capabilities.
 
-## The Core Squad Orchestration
+## The Council of Experts Orchestration
 
-The SRE Agent uses a **Core Squad** pattern, where a central `root_agent` manages a team of specialized sub-agents. This modularity allows for deeper expertise in specific domains (like Traces or Metrics) while maintaining a unified conversational interface.
+The SRE Agent uses a **Council of Experts** pattern, where a central `root_agent` manages a team of specialized sub-agents. This modularity allows for deeper expertise in specific domains (like Traces or Metrics) while maintaining a unified conversational interface.
 
 ---
 

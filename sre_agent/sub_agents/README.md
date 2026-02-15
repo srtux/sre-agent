@@ -1,6 +1,6 @@
 # SRE Agent Sub-Agents
 
-This directory contains specialized sub-agents that form the investigation pipeline used by the main SRE Agent. The sub-agents can operate both in the direct "Core Squad" orchestration pattern and within the parallel Council of Experts architecture.
+This directory contains specialized sub-agents that form the investigation pipeline used by the main SRE Agent. The sub-agents can operate both in the direct "Council of Experts" orchestration pattern and within the parallel Council of Experts architecture.
 
 ## Architecture Overview
 
@@ -138,7 +138,7 @@ The SRE Agent uses a multi-stage analysis pipeline where specialized sub-agents 
 
 ## Orchestration Functions
 
-The main agent uses these orchestration functions in `agent.py` to invoke the Core Squad:
+The main agent uses these orchestration functions in `agent.py` to invoke the Council of Experts:
 
 | Function | Stage | Sub-Agents Invoked |
 |----------|-------|-------------------|

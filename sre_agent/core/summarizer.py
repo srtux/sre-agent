@@ -178,6 +178,8 @@ class Summarizer:
 
     def _default_summarize(self, tool_name: str, output: dict[str, Any]) -> str:
         """Default summarization for tool output."""
+        if not isinstance(output, dict):
+            return f"Tool {tool_name} completed"
         status = output.get("status", "unknown")
 
         if status == "error":

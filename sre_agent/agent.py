@@ -5,10 +5,10 @@ This is the main orchestration agent for SRE tasks, designed to analyze telemetr
 from Google Cloud Observability (Traces, Logs, Metrics) to identify root causes of
 production issues.
 
-## Architecture: "Core Squad"
+## Architecture: "Council of Experts"
 
-The agent uses a "Core Squad" orchestration pattern (simplified from the previous
-"Council of Experts") where a central **SRE Agent** delegates to high-level analysts.
+The agent uses a "Council of Experts" orchestration pattern where a central
+**SRE Agent** delegates to specialized analyst sub-agents.
 
 ### The 3-Stage Analysis Pipeline
 
@@ -1564,7 +1564,7 @@ sre_agent = LlmAgent(
     description="""SRE Agent - Google Cloud Observability & Reliability Expert.
 
 Capabilities:
-- Orchestrates a "Core Squad" for multi-stage incident analysis (Aggregate -> Triage -> Deep Dive)
+- Orchestrates a "Council of Experts" for multi-stage incident analysis (Aggregate -> Triage -> Deep Dive)
 - Performs cross-signal correlation (Traces + Logs + Metrics) to find root causes
 - Analyzes SLO/SLI status, error budgets, and predicts violations
 - Debugs Kubernetes/GKE clusters (Node pressure, Pod crash loops, OOMs)

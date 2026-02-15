@@ -76,6 +76,9 @@ class InvestigationState(BaseModel):
     - Scores for investigation quality
     """
 
+    # NOTE: frozen=True intentionally omitted — this model uses mutating methods
+    # (add_finding, add_timeline_event, transition_phase, etc.) that require
+    # in-place mutation. See AGENTS.md for the project-wide frozen=True pattern.
     model_config = ConfigDict(extra="forbid")
 
     phase: InvestigationPhase = InvestigationPhase.TRIAGE

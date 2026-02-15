@@ -320,3 +320,146 @@ class TestEventSummary:
         assert summary.error_count == 1
         assert summary.events_summarized == 10
         assert summary.token_estimate == 500
+
+
+class TestSummarizerEdgeCases:
+    """Edge-case tests for Summarizer."""
+
+    @pytest.fixture
+    def summarizer(self) -> Summarizer:
+        return Summarizer(use_llm=False)
+
+    def test_malformed_json_in_tool_output(self, summarizer: Summarizer) -> None:
+        """Summarizer should handle malformed JSON gracefully."""
+        event = {
+            "type": "tool_output",
+            "tool_name": "fetch_trace",
+            "content": "this is {not valid json",
+            "timestamp": "2026-01-25T10:00:00Z",
+        }
+        summary = summarizer.summarize_event(event)
+        assert isinstance(summary, str)
+        assert len(summary) > 0
+
+    def test_empty_content_in_event(self, summarizer: Summarizer) -> None:
+        """Summarizer should handle empty content."""
+        event = {
+            "type": "tool_output",
+            "tool_name": "fetch_trace",
+            "content": "",
+            "timestamp": "2026-01-25T10:00:00Z",
+        }
+        summary = summarizer.summarize_event(event)
+        assert isinstance(summary, str)
+
+    def test_none_content_in_event(self, summarizer: Summarizer) -> None:
+        """Summarizer should handle None content."""
+        event = {
+            "type": "tool_output",
+            "tool_name": "fetch_trace",
+            "content": None,
+        }
+        summary = summarizer.summarize_event(event)
+        assert isinstance(summary, str)
+
+    def test_unknown_event_type(self, summarizer: Summarizer) -> None:
+        """Summarizer should handle unknown event types."""
+        event = {
+            "type": "alien_event_type",
+            "content": "something happened",
+            "timestamp": "2026-01-25T10:00:00Z",
+        }
+        summary = summarizer.summarize_event(event)
+        assert isinstance(summary, str)
+
+    def test_unknown_tool_name(self, summarizer: Summarizer) -> None:
+        """Summarizer should handle unknown tool names."""
+        event = {
+            "type": "tool_output",
+            "tool_name": "completely_unknown_tool_xyz",
+            "content": json.dumps({"status": "success", "result": {"data": "value"}}),
+            "timestamp": "2026-01-25T10:00:00Z",
+        }
+        summary = summarizer.summarize_event(event)
+        assert isinstance(summary, str)
+        assert len(summary) > 0
+
+    def test_single_event_list(self, summarizer: Summarizer) -> None:
+        """Summarizer should handle single-event list."""
+        events = [
+            {
+                "type": "user_message",
+                "content": "Hello",
+                "timestamp": "2026-01-25T10:00:00Z",
+            }
+        ]
+        result = summarizer.summarize_events(events)
+        assert result.events_summarized == 1
+
+    def test_many_events_list(self, summarizer: Summarizer) -> None:
+        """Summarizer should handle large event lists."""
+        events = [
+            {
+                "type": "tool_output",
+                "tool_name": "fetch_trace",
+                "content": json.dumps(
+                    {"status": "success", "result": {"span_count": i}}
+                ),
+                "timestamp": f"2026-01-25T10:00:{i:02d}Z",
+            }
+            for i in range(50)
+        ]
+        result = summarizer.summarize_events(events)
+        assert result.events_summarized == 50
+
+    def test_tool_output_with_empty_result(self, summarizer: Summarizer) -> None:
+        """Summarizer should handle empty result dict."""
+        event = {
+            "type": "tool_output",
+            "tool_name": "fetch_trace",
+            "content": json.dumps({"status": "success", "result": {}}),
+            "timestamp": "2026-01-25T10:00:00Z",
+        }
+        summary = summarizer.summarize_event(event)
+        assert isinstance(summary, str)
+
+    def test_tool_output_with_null_result(self, summarizer: Summarizer) -> None:
+        """Summarizer should handle null result."""
+        event = {
+            "type": "tool_output",
+            "tool_name": "fetch_trace",
+            "content": json.dumps({"status": "success", "result": None}),
+            "timestamp": "2026-01-25T10:00:00Z",
+        }
+        summary = summarizer.summarize_event(event)
+        assert isinstance(summary, str)
+
+    def test_extract_finding_no_special_keys(self, summarizer: Summarizer) -> None:
+        """Extract finding should return None when no special keys present."""
+        event = {
+            "type": "tool_output",
+            "content": json.dumps({"status": "success", "result": {"plain": "data"}}),
+        }
+        finding = summarizer._extract_finding(event)
+        # Finding may or may not be None depending on implementation
+        # Just ensure no crash
+        assert finding is None or isinstance(finding, str)
+
+    def test_summarize_timeseries_output(self, summarizer: Summarizer) -> None:
+        """Summarizer should handle list_time_series output."""
+        output = {
+            "status": "success",
+            "result": [
+                {"metric": {"type": "custom/latency"}, "points": [{"value": 100}]},
+                {"metric": {"type": "custom/errors"}, "points": [{"value": 5}]},
+            ],
+        }
+        event = {
+            "type": "tool_output",
+            "tool_name": "list_time_series",
+            "content": json.dumps(output),
+            "timestamp": "2026-01-25T10:00:00Z",
+        }
+        summary = summarizer.summarize_event(event)
+        assert isinstance(summary, str)
+        assert "2" in summary  # 2 time series

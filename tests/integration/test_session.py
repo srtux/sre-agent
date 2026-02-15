@@ -4,45 +4,44 @@ from sre_agent.services.session import ADKSessionManager, SessionInfo
 
 
 @pytest.mark.asyncio
-async def test_session_manager_in_memory():
+async def test_session_manager_in_memory(monkeypatch: pytest.MonkeyPatch):
     """Test that session manager works with in-memory service."""
     # Force in-memory for testing
-    with pytest.MonkeyPatch.context() as mp:
-        mp.setenv("USE_DATABASE_SESSIONS", "false")
-        mp.delenv("SRE_AGENT_ID", raising=False)
+    monkeypatch.setenv("USE_DATABASE_SESSIONS", "false")
+    monkeypatch.delenv("SRE_AGENT_ID", raising=False)
 
-        manager = ADKSessionManager()
-        assert "InMemorySessionService" in str(type(manager.session_service))
+    manager = ADKSessionManager()
+    assert "InMemorySessionService" in str(type(manager.session_service))
 
-        # Test create session
-        session = await manager.create_session(
-            user_id="test-user", initial_state={"foo": "bar"}
-        )
-        assert session.id is not None
-        assert session.state["foo"] == "bar"
-        assert "created_at" in session.state
+    # Test create session
+    session = await manager.create_session(
+        user_id="test-user", initial_state={"foo": "bar"}
+    )
+    assert session.id is not None
+    assert session.state["foo"] == "bar"
+    assert "created_at" in session.state
 
-        # Test get session
-        retrieved = await manager.get_session(session.id, user_id="test-user")
-        assert retrieved.id == session.id
+    # Test get session
+    retrieved = await manager.get_session(session.id, user_id="test-user")
+    assert retrieved.id == session.id
 
-        # Test list sessions
-        sessions = await manager.list_sessions(user_id="test-user")
-        assert len(sessions) == 1
-        assert sessions[0].id == session.id
-        assert sessions[0].user_id == "test-user"
+    # Test list sessions
+    sessions = await manager.list_sessions(user_id="test-user")
+    assert len(sessions) == 1
+    assert sessions[0].id == session.id
+    assert sessions[0].user_id == "test-user"
 
-        # Test update state
-        await manager.update_session_state(session, {"new_key": "new_val"})
-        updated = await manager.get_session(session.id, user_id="test-user")
-        assert updated.state["new_key"] == "new_val"
+    # Test update state
+    await manager.update_session_state(session, {"new_key": "new_val"})
+    updated = await manager.get_session(session.id, user_id="test-user")
+    assert updated.state["new_key"] == "new_val"
 
-        # Test delete session
-        success = await manager.delete_session(session.id, user_id="test-user")
-        assert success is True
+    # Test delete session
+    success = await manager.delete_session(session.id, user_id="test-user")
+    assert success is True
 
-        not_found = await manager.get_session(session.id, user_id="test-user")
-        assert not_found is None
+    not_found = await manager.get_session(session.id, user_id="test-user")
+    assert not_found is None
 
 
 def test_session_info_to_dict():
@@ -66,22 +65,21 @@ def test_session_info_to_dict():
 
 
 @pytest.mark.asyncio
-async def test_storage_service():
+async def test_storage_service(monkeypatch: pytest.MonkeyPatch):
     """Test StorageService delegation."""
     from sre_agent.services.storage import get_storage_service
 
-    with pytest.MonkeyPatch.context() as mp:
-        mp.setenv("USE_DATABASE_SESSIONS", "false")
+    monkeypatch.setenv("USE_DATABASE_SESSIONS", "false")
 
-        storage = get_storage_service()
+    storage = get_storage_service()
 
-        # Test project selection
-        await storage.set_selected_project("test-proj", user_id="u2")
-        proj = await storage.get_selected_project(user_id="u2")
-        assert proj == "test-proj"
+    # Test project selection
+    await storage.set_selected_project("test-proj", user_id="u2")
+    proj = await storage.get_selected_project(user_id="u2")
+    assert proj == "test-proj"
 
-        # Test tool config
-        config = {"tool1": True, "tool2": False}
-        await storage.set_tool_config(config, user_id="u2")
-        retrieved = await storage.get_tool_config(user_id="u2")
-        assert retrieved == config
+    # Test tool config
+    config = {"tool1": True, "tool2": False}
+    await storage.set_tool_config(config, user_id="u2")
+    retrieved = await storage.get_tool_config(user_id="u2")
+    assert retrieved == config

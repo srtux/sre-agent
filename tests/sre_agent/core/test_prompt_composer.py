@@ -312,3 +312,113 @@ class TestPromptComposerSingleton:
         composer2 = get_prompt_composer()
 
         assert composer1 is composer2
+
+
+class TestPromptComposerEdgeCases:
+    """Edge-case tests for PromptComposer."""
+
+    @pytest.fixture
+    def composer(self) -> PromptComposer:
+        return PromptComposer()
+
+    def test_all_domain_context_fields_populated(
+        self, composer: PromptComposer
+    ) -> None:
+        """Test compose_developer_role with ALL optional fields populated."""
+        domain_context = DomainContext(
+            project_id="my-project-123",
+            active_alerts=["Alert 1", "Alert 2", "Alert 3"],
+            runbook_content="1. Check logs\n2. Restart service\n3. Verify",
+            investigation_phase="REMEDIATION",
+            custom_constraints=["Don't restart pods", "No rollbacks"],
+            mistake_lessons="### Lessons\n- Use correct filter syntax",
+        )
+        content = composer.compose_developer_role(domain_context)
+        text = content.parts[0].text
+        assert "my-project-123" in text
+        assert "Alert 1" in text
+        assert "Check logs" in text
+        assert "REMEDIATION" in text
+        assert "Don't restart pods" in text
+        assert "Lessons" in text
+
+    def test_very_long_session_summary(self, composer: PromptComposer) -> None:
+        """Test compose_user_role with a very long session summary."""
+        summary = SessionSummary(
+            summary_text="A" * 5000,
+            key_findings=["Finding " + str(i) for i in range(50)],
+            tools_used=["tool_" + str(i) for i in range(30)],
+            last_compaction_turn=100,
+        )
+        content = composer.compose_user_role(
+            user_message="Continue", session_summary=summary
+        )
+        text = content.parts[0].text
+        assert "Session Summary" in text
+        # Should not crash despite large input
+        assert isinstance(text, str)
+
+    def test_empty_user_message(self, composer: PromptComposer) -> None:
+        """Test compose_user_role with empty message."""
+        content = composer.compose_user_role(user_message="")
+        text = content.parts[0].text
+        assert isinstance(text, str)
+        assert "Current Request" in text
+
+    def test_empty_recent_events(self, composer: PromptComposer) -> None:
+        """Test compose_user_role with empty events list."""
+        content = composer.compose_user_role(
+            user_message="Test",
+            recent_events=[],
+        )
+        text = content.parts[0].text
+        assert isinstance(text, str)
+
+    def test_recent_events_with_missing_fields(self, composer: PromptComposer) -> None:
+        """Test format_recent_events with events missing optional fields."""
+        events = [
+            {"type": "tool_call", "content": "data"},  # Missing timestamp
+            {"type": "tool_output"},  # Missing content and timestamp
+        ]
+        formatted = composer._format_recent_events(events)
+        assert isinstance(formatted, str)
+
+    def test_multiple_system_capabilities(self, composer: PromptComposer) -> None:
+        """Test adding multiple system capabilities."""
+        composer.add_system_capability("Can analyze Kubernetes HPA events")
+        composer.add_system_capability("Can query BigQuery datasets")
+        composer.add_system_capability("Can correlate traces with logs")
+
+        content = composer.compose_system_role()
+        text = content.parts[0].text
+        assert "Kubernetes HPA" in text
+        assert "BigQuery" in text
+        assert "correlate traces" in text
+
+    def test_compose_full_prompt_without_optional_context(
+        self, composer: PromptComposer
+    ) -> None:
+        """Test compose_full_prompt with minimal inputs."""
+        contents = composer.compose_full_prompt(user_message="Hello")
+        assert len(contents) == 3
+        for content in contents:
+            assert content.role == "user"
+            assert len(content.parts) >= 1
+
+    def test_tool_guidance_with_empty_context(self, composer: PromptComposer) -> None:
+        """Test create_tool_guidance with empty context."""
+        guidance = composer.create_tool_guidance(
+            tool_name="fetch_trace",
+            context="",
+        )
+        assert "fetch_trace" in guidance
+        assert isinstance(guidance, str)
+
+    def test_session_summary_with_zero_compaction_turn(self) -> None:
+        """Test SessionSummary with default last_compaction_turn."""
+        summary = SessionSummary(
+            summary_text="Test",
+            key_findings=[],
+            tools_used=[],
+        )
+        assert summary.last_compaction_turn == 0
