@@ -376,6 +376,12 @@ See `.env.example` for full list and `docs/reference/configuration.md` for detai
 | Dashboard data channel | Section 12 |
 | Council activity graph events | Section 12.1 |
 | Sandbox code execution | Section 13 |
+| 3-tier request router | Section 14 |
+| Large payload handler | Section 15 |
+| Research tools | Section 16 |
+| GitHub self-healing | Section 17 |
+| Context caching (OPT-10) | Section 18 |
+| Adaptive intent classifier | Section 19 |
 
 ## Adding a New Tool (Checklist)
 1. Create function in `sre_agent/tools/` (appropriate subdirectory)
