@@ -13,7 +13,7 @@
 
 Auto SRE is an AI-powered Site Reliability Engineering agent that automates incident investigation on Google Cloud Platform. It uses a **"Council of Experts"** pattern — specialized sub-agents for traces, logs, metrics, alerts, and root cause analysis.
 
-**Version**: 0.2.0 | **License**: Apache-2.0 | **Status**: Phase 3 active (1989+ backend tests, 129 Flutter tests passing)
+**Version**: 0.2.0 | **License**: Apache-2.0 | **Status**: Phase 3 active (2277+ backend tests, 129 Flutter tests passing)
 
 ## Tech Stack
 - **Backend**: Python 3.10+ (<3.13), FastAPI, Google ADK 1.23.0, Pydantic 2
@@ -324,4 +324,4 @@ See `.env.example` for full list and `docs/reference/configuration.md` for detai
 > **Always refer to [`AGENTS.md`](AGENTS.md) for the single source of truth on coding patterns.**
 
 ---
-*Last verified: 2026-02-11 — Auto SRE Team*
+*Last verified: 2026-02-15 — Auto SRE Team*

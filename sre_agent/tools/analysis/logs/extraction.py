@@ -104,19 +104,23 @@ class LogMessageExtractor:
             return str(payload)[:500]
 
         # Strategy 1: Check known message field names
+        # Build lowercase lookup once for case-insensitive matching
+        lower_lookup: dict[str, str] | None = None
         for field_name in MESSAGE_FIELD_NAMES:
-            # Check exact match
+            # Check exact match first (fast path)
             if field_name in payload:
                 val = payload[field_name]
                 if isinstance(val, str) and len(val) > 0:
                     return val.strip()
 
-            # Check case-insensitive
-            for key in payload:
-                if key.lower() == field_name.lower():
-                    val = payload[key]
-                    if isinstance(val, str) and len(val) > 0:
-                        return val.strip()
+            # Lazy-build case-insensitive lookup on first miss
+            if lower_lookup is None:
+                lower_lookup = {k.lower(): k for k in payload}
+            original_key = lower_lookup.get(field_name.lower())
+            if original_key is not None:
+                val = payload[original_key]
+                if isinstance(val, str) and len(val) > 0:
+                    return val.strip()
 
         # Strategy 2: Find longest string that looks like a log message
         best_candidate = None

@@ -75,6 +75,7 @@ The EUC (End User Credentials) flow works as follows:
 import contextvars
 import logging
 import os
+import threading
 import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
@@ -125,27 +126,33 @@ _guest_mode_context: contextvars.ContextVar[bool] = contextvars.ContextVar(
 # In production, this should be loaded from a Secret Manager
 ENCRYPTION_KEY = os.environ.get("SRE_AGENT_ENCRYPTION_KEY")
 _cached_fernet = None
+_fernet_lock = threading.Lock()
 
 
 def _get_fernet() -> Any:
-    """Gets a Fernet instance for encryption/decryption."""
+    """Gets a Fernet instance for encryption/decryption (thread-safe)."""
     global _cached_fernet
-    if _cached_fernet:
+    if _cached_fernet is not None:
         return _cached_fernet
 
-    from cryptography.fernet import Fernet
+    with _fernet_lock:
+        # Double-checked locking
+        if _cached_fernet is not None:
+            return _cached_fernet
 
-    key = ENCRYPTION_KEY
-    if not key:
-        # Fallback for local development (NOT for production)
-        # Use a consistent key within the same process
-        key = Fernet.generate_key().decode()
-        logger.warning(
-            "⚠️ SRE_AGENT_ENCRYPTION_KEY not set. Using a transient key. Tokens will not be decryptable after restart."
-        )
+        from cryptography.fernet import Fernet
 
-    _cached_fernet = Fernet(key.encode())
-    return _cached_fernet
+        key = ENCRYPTION_KEY
+        if not key:
+            # Fallback for local development (NOT for production)
+            # Use a consistent key within the same process
+            key = Fernet.generate_key().decode()
+            logger.warning(
+                "⚠️ SRE_AGENT_ENCRYPTION_KEY not set. Using a transient key. Tokens will not be decryptable after restart."
+            )
+
+        _cached_fernet = Fernet(key.encode())
+        return _cached_fernet
 
 
 def encrypt_token(token: str) -> str:
@@ -275,7 +282,6 @@ def get_current_credentials() -> tuple[google.auth.credentials.Credentials, str 
 
     # Fallback to default if no user credentials (e.g. running locally or background tasks)
     # UNLESS strict EUC enforcement is enabled.
-    import os
 
     is_strict = os.getenv("STRICT_EUC_ENFORCEMENT", "false").lower() == "true"
 
@@ -331,7 +337,6 @@ def get_current_project_id() -> str | None:
         return project_id
 
     # 2. Check Environment
-    import os
 
     project_id = os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get(
         "GCP_PROJECT_ID"
