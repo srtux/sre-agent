@@ -1425,7 +1425,7 @@ def _get_tool_to_name_map() -> dict[Any, str]:
 def get_enabled_base_tools() -> list[Any]:
     """Get base_tools filtered by configuration.
 
-    Returns the slim ~20-tool orchestration set by default (OPT-1).
+    Returns the slim orchestration set by default (OPT-1).
     All specialist tools are available via panel/sub-agent agents.
 
     Set SRE_AGENT_SLIM_TOOLS=false to restore the full ~90-tool set
@@ -1434,13 +1434,9 @@ def get_enabled_base_tools() -> list[Any]:
     Returns:
         List of enabled base tools.
     """
-    # OPT-1: Slim tools is now the DEFAULT. Full tools require explicit opt-in.
-    # Research shows LLM tool selection accuracy degrades above ~30 tools.
+    # OPT-1: Slim tools is now the DEFAULT.
     if os.environ.get("SRE_AGENT_SLIM_TOOLS", "true").lower() != "false":
-        logger.info(
-            f"Slim tools mode enabled: {len(slim_tools)} orchestration tools "
-            f"(down from {len(base_tools)} full tools)"
-        )
+        logger.debug(f"Slim tools mode enabled: {len(slim_tools)} tools")
         return list(slim_tools)
 
     manager = get_tool_config_manager()
@@ -1451,11 +1447,22 @@ def get_enabled_base_tools() -> list[Any]:
 
     enabled_base_tools = []
     for tool in base_tools:
+        # Robust name lookup: try map, then __name__, then .name attribute
         tool_name = tool_to_name.get(tool)
+        if tool_name is None:
+            if hasattr(tool, "__name__"):
+                tool_name = tool.__name__
+            elif hasattr(tool, "name"):
+                tool_name = tool.name
+
         # Include tool if:
         # 1. It's in the enabled list, OR
-        # 2. It's not in TOOL_NAME_MAP (orchestration tools like run_aggregate_analysis)
-        if tool_name is None or tool_name in enabled_tool_names:
+        # 2. It's not in TOOL_NAME_MAP (orchestration tools/built-ins)
+        if (
+            tool_name is None
+            or tool_name not in TOOL_NAME_MAP
+            or tool_name in enabled_tool_names
+        ):
             enabled_base_tools.append(tool)
         else:
             logger.debug(f"Filtering out disabled tool: {tool_name}")

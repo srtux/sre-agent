@@ -95,7 +95,7 @@ When `SRE_AGENT_ADAPTIVE_CLASSIFIER=true`, the classifier:
 - Considers recent investigation queries from the session
 - Factors in alert severity (e.g., critical alerts bias toward DEBATE)
 - Respects token budget constraints (low budget downgrades DEBATE to STANDARD)
-- Tracks which classifer produced the result (`rule_based`, `llm_augmented`, or `fallback`)
+- Tracks which classifier produced the result (`rule_based`, `llm_augmented`, or `fallback`)
 - Falls back gracefully to rule-based on any LLM failure
 
 ### Debate Pipeline

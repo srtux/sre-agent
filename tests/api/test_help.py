@@ -27,7 +27,7 @@ def test_get_help_content_success(client):
     # Use 'traces' as it's a known ID from our manifest
     response = client.get("/api/help/content/traces")
     assert response.status_code == 200
-    assert "### Getting Started with Traces" in response.text
+    assert "### Distributed Trace Analysis" in response.text
 
 
 def test_get_help_content_not_found(client):
@@ -47,7 +47,7 @@ def test_get_help_content_council(client):
     """Council help content should be accessible and contain key information."""
     response = client.get("/api/help/content/council")
     assert response.status_code == 200
-    assert "### Council Investigation" in response.text
+    assert "### Council of Experts Investigation" in response.text
     assert "Fast" in response.text
     assert "Standard" in response.text
     assert "Debate" in response.text
@@ -70,4 +70,4 @@ def test_get_help_content_sanitization(client):
     response = client.get("/api/help/content/traces.md")
     # If it ends with .md, the router handles it
     assert response.status_code == 200
-    assert "### Getting Started with Traces" in response.text
+    assert "### Distributed Trace Analysis" in response.text
