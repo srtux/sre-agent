@@ -53,8 +53,11 @@ else:
         _ExceptionGroup = _AnyioExceptionGroup
     except ImportError:
         # Fallback if anyio not available
-        _BaseExceptionGroup = Exception
-        _ExceptionGroup = Exception
+        class _FallbackExceptionGroup(Exception):
+            pass
+
+        _BaseExceptionGroup = _FallbackExceptionGroup
+        _ExceptionGroup = _FallbackExceptionGroup
 
 logger = logging.getLogger(__name__)
 
@@ -520,7 +523,7 @@ async def call_mcp_tool_with_retry(
         except (httpx.HTTPStatusError, Exception) as e:
             # Unwrap ExceptionGroup from AnyIO TaskGroup (e.g., from streamable_http_client)
             actual_error = e
-            if isinstance(e, _BaseExceptionGroup):
+            if isinstance(e, _BaseExceptionGroup) and hasattr(e, "exceptions"):
                 for sub_err in e.exceptions:
                     if isinstance(
                         sub_err, httpx.HTTPStatusError
