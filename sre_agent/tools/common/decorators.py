@@ -292,7 +292,7 @@ def _build_adk_tool_wrapper(
             # Record exception in circuit breaker
             if use_cb and registry:
                 registry.record_failure(tool_name)
-            raise e
+            raise  # bare raise preserves the original traceback
 
     @functools.wraps(func)
     def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -360,7 +360,7 @@ def _build_adk_tool_wrapper(
                 f"❌ Tool Failed: '{tool_name}' | Duration: {duration_ms:.2f}ms | Error: {e}",
                 exc_info=True,
             )
-            raise e
+            raise  # bare raise preserves the original traceback
 
     if inspect.iscoroutinefunction(func):
         async_wrapper._skip_summarization = skip_summarization  # type: ignore[attr-defined]

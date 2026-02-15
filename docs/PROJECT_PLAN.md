@@ -159,6 +159,18 @@ Total: **112 new tests** in this phase. Grand total: **1909+** tests passing.
     - **Data Integrity**: Fixed `genui_adapter.transform_trace()` input mutation (copy-on-write), fixed `datetime.now()` → `datetime.now(timezone.utc)` inconsistency, cleared stale closure in debate convergence tracker, narrowed `_is_tool_failure()` exception catch to `JSONDecodeError/ValueError`.
     - Grand total: **1989 backend tests**, **129 Flutter tests** passing. Lint clean.
 
+- [x] **Codebase Audit & Bug Fix Pass** (Phase 3.7 — Feb 2026):
+    Comprehensive code review across backend, identifying and fixing critical bugs, optimizations, and documentation gaps.
+    - **Critical Bug Fix**: Fixed `AttributeError` in `run_aggregate_analysis()` — calling `.get()` on `BaseToolResponse` object instead of `.result` dict (`agent.py:589`). Would crash at runtime during telemetry discovery.
+    - **Error Status Fix**: Changed `ToolStatus.SUCCESS` → `ToolStatus.PARTIAL` when no trace tables found (was misleading).
+    - **Traceback Preservation**: Fixed `raise e` → bare `raise` in `@adk_tool` decorator (both async and sync wrappers) to preserve original tracebacks (`decorators.py:295,363`).
+    - **Thread Safety**: Added `threading.Lock` with double-checked locking to `_get_fernet()` singleton in `auth.py`. Previously unprotected against concurrent initialization.
+    - **Redundant Imports**: Removed 2 redundant `import os` statements in `auth.py` functions (already imported at module level).
+    - **Cache Memory Leak**: Added `evict_expired()` method to `DataCache` in `cache.py`. Previously, expired entries were only removed during `get()` operations, causing unbounded memory growth for write-heavy caches.
+    - **Performance Optimization**: Cached reverse tool lookup dict (`TOOL_NAME_MAP` → `_tool_to_name_cache`) in `agent.py`. Was being rebuilt from 100+ entries on every agent turn.
+    - **Log Extraction Optimization**: Replaced O(n*m) case-insensitive field matching loop in `LogMessageExtractor._extract_from_json()` with lazy-built lowercase lookup dict.
+    - **Documentation Updates**: Added missing env vars (`SRE_AGENT_TOKEN_BUDGET`, `SRE_AGENT_LOCAL_EXECUTION`, `USE_MOCK_MCP`) to configuration reference. Fixed incorrect GitHub tool names in tools reference. Added sandbox tools section. Fixed typo "Templets" → "Queries". Updated tool registration checklist to include all 5 sync points.
+
 #### Remaining
 - [ ] **Anomaly Correlation Engine**: Automate "Z-score comparison" across metrics and logs simultaneously.
 - [ ] **Microservice Dependency Mapping**: Add graph analysis tools to detect circular dependencies in OTel trace trees.

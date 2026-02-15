@@ -26,7 +26,7 @@ Enables fleet-wide analysis by querying telemetry data exported to BigQuery.
 The "Holy Grail" of observability - linking different pillars.
 - `correlate_metrics_with_traces_via_exemplars`: Jumps from a chart spike to the exact request that caused it.
 - `correlate_logs_with_trace`: Injects logs into the trace timeline.
-- `correlate_changes_with_incident`: Templets GCP Audit Logs to find and rank deployments/config changes by correlation score.
+- `correlate_changes_with_incident`: Queries GCP Audit Logs to find and rank deployments/config changes by correlation score.
 
 ### 5. Remediation & Reporting
 Moving from "What is wrong" to "How to fix it."
@@ -59,11 +59,19 @@ Tools for inspecting the agent's own execution behavior.
 
 ### 9. GitHub (Self-Healing)
 Tools for interacting with source code repositories to fix identified root causes.
-- `github_get_repo`: Fetch basic repository metadata.
-- `github_get_file`: Read contents of a specific file in the repository.
-- `github_create_branch`: Create a new branch for applying fixes.
-- `github_update_file`: Commit a change to a specific file.
+- `github_read_file`: Read contents of a specific file in the repository.
+- `github_search_code`: Search for code patterns across the repository.
+- `github_list_recent_commits`: List recent commits to identify recent changes.
 - `github_create_pull_request`: Open a pull request with the applied fixes.
+
+### 10. Sandbox Processing
+Tools for processing large datasets in sandboxed environments to avoid context window limits.
+- `summarize_metric_descriptors_in_sandbox`: Summarize metric descriptors in a sandboxed process.
+- `summarize_time_series_in_sandbox`: Summarize time series data in a sandboxed process.
+- `summarize_log_entries_in_sandbox`: Summarize log entries in a sandboxed process.
+- `summarize_traces_in_sandbox`: Summarize trace data in a sandboxed process.
+- `execute_custom_analysis_in_sandbox`: Run custom analysis code in a sandboxed process.
+- `get_sandbox_status`: Check status of sandbox execution environment.
 
 ---
 
@@ -107,10 +115,12 @@ The `TOOL_DEFINITIONS` list is the definitive source of truth for tool metadata.
 - **Enabled Status**: Tools can be toggled on/off at runtime via the management API.
 
 ### Registry Synchronization
-Tools must be synchronized across three locations:
-1. **Metadata Registry**: `sre_agent/tools/config.py` (`TOOL_DEFINITIONS`)
+Tools must be synchronized across four locations:
+1. **Exports**: `sre_agent/tools/__init__.py` (`__all__`)
 2. **Logic Mapping**: `sre_agent/agent.py` (`TOOL_NAME_MAP`)
 3. **Availability List**: `sre_agent/agent.py` (`base_tools`)
+4. **Metadata Registry**: `sre_agent/tools/config.py` (`TOOL_DEFINITIONS`)
+5. **Council Tool Sets** (if used by sub-agents): `sre_agent/council/tool_registry.py`
 
 ---
 

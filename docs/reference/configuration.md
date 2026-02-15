@@ -62,6 +62,14 @@ The following variables are deprecated and will be removed in a future release.
 
 > **Migration**: If you were previously using Arize for observability, switch to native Cloud Trace (`OTEL_TO_CLOUD=true`) for production tracing. For local development debugging, use Langfuse (`LANGFUSE_TRACING=true`). Both can run simultaneously.
 
+## Agent Behavior
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SRE_AGENT_TOKEN_BUDGET` | Maximum token budget per request. Enforced by `before_model_callback` in `model_callbacks.py`. If unset, no budget limit is applied. | - |
+| `SRE_AGENT_LOCAL_EXECUTION` | Enable sandboxed local execution mode for code analysis tools. | `false` |
+| `USE_MOCK_MCP` | Use mock MCP tool implementations in tests instead of real BigQuery/Monitoring connections. | `false` |
+
 ## Council Architecture
 
 | Variable | Description | Default |
@@ -95,4 +103,4 @@ Used by `deploy/` scripts.
 | `GOOGLE_CLOUD_STORAGE_BUCKET` | Staging bucket for Agent Engine artifacts. |
 
 ---
-*Last verified: 2026-02-02 — Auto SRE Team*
+*Last verified: 2026-02-15 — Auto SRE Team*

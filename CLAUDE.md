@@ -13,7 +13,7 @@
 
 Auto SRE is an AI-powered Site Reliability Engineering agent that automates incident investigation on Google Cloud Platform. It uses a **"Council of Experts"** pattern — specialized sub-agents for traces, logs, metrics, alerts, and root cause analysis.
 
-**Version**: 0.2.0 | **License**: Apache-2.0 | **Status**: Phase 3 active (1989+ backend tests, 129 Flutter tests passing)
+**Version**: 0.2.0 | **License**: Apache-2.0 | **Status**: Phase 3 active (2277+ backend tests, 129 Flutter tests passing)
 
 ## Tech Stack
 - **Backend**: Python 3.10+ (<3.13), FastAPI, Google ADK 1.23.0, Pydantic 2
@@ -93,7 +93,11 @@ sre_agent/
 │   ├── model_callbacks.py #   Cost/token tracking, budget enforcement
 │   ├── context_compactor.py # Context window management
 │   ├── summarizer.py     #   Response summarization
-│   └── approval.py       #   Human approval workflow
+│   ├── approval.py       #   Human approval workflow
+│   ├── tool_callbacks.py  #   Tool output truncation and post-processing
+│   ├── large_payload_handler.py # Large result set handling (sandbox offload)
+│   ├── graph_service.py   #   Service dependency graph construction
+│   └── router.py         #   Request routing logic
 │
 ├── council/              # Parallel Council of Experts architecture
 │   ├── orchestrator.py    #   CouncilOrchestrator (BaseAgent subclass)
@@ -126,16 +130,20 @@ sre_agent/
 │   │   ├── slo/           #     SLO burn rate analysis (multi-window)
 │   │   ├── correlation/   #     Cross-signal, critical path, dependencies, change correlation
 │   │   ├── bigquery/      #     BigQuery-based OTel/log analysis
+│   │   ├── agent_trace/   #     Agent self-analysis trace tools
 │   │   └── remediation/   #     Remediation suggestions, postmortem generation
 │   ├── mcp/               #   Model Context Protocol (BigQuery SQL, heavy queries)
 │   ├── bigquery/          #   BigQuery client, schemas, query builders
 │   ├── sandbox/           #   Sandboxed code execution (large data processing)
 │   ├── discovery/         #   GCP resource discovery
+│   ├── github/            #   GitHub integration (read, search, PR creation)
 │   ├── playbooks/         #   Runbook execution (GKE, Cloud Run, SQL, Pub/Sub, GCE, BigQuery)
 │   ├── proactive/         #   Proactive signal analysis
 │   ├── exploration/       #   Health check exploration
 │   ├── synthetic/         #   Synthetic data generation for testing
 │   ├── research.py        #   Online research (search_google, fetch_web_page)
+│   ├── investigation.py   #   Investigation state management tools
+│   ├── reporting.py       #   Report synthesis tools
 │   ├── config.py          #   Tool configuration registry
 │   ├── registry.py        #   Tool registration and discovery system
 │   ├── memory.py          #   Memory management
@@ -324,4 +332,4 @@ See `.env.example` for full list and `docs/reference/configuration.md` for detai
 > **Always refer to [`AGENTS.md`](AGENTS.md) for the single source of truth on coding patterns.**
 
 ---
-*Last verified: 2026-02-11 — Auto SRE Team*
+*Last verified: 2026-02-15 — Auto SRE Team*

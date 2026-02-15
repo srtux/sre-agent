@@ -104,6 +104,23 @@ class DataCache:
         with self._lock:
             return len(self._cache)
 
+    def evict_expired(self) -> int:
+        """Remove all expired entries from the cache.
+
+        Returns:
+            The number of entries removed.
+        """
+        with self._lock:
+            now = datetime.now(timezone.utc)
+            expired_keys = [
+                key for key, entry in self._cache.items() if now >= entry["expires"]
+            ]
+            for key in expired_keys:
+                del self._cache[key]
+            if expired_keys:
+                logger.info(f"Evicted {len(expired_keys)} expired cache entries")
+            return len(expired_keys)
+
     def stats(self) -> dict[str, Any]:
         """Get cache statistics.
 

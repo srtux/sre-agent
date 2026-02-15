@@ -586,10 +586,17 @@ async def run_aggregate_analysis(
                 tool_context=tool_context
             )
 
-            trace_table_full = discovery_result.get("trace_table")
+            # discovery_result is a BaseToolResponse; extract from .result dict
+            result_data = (
+                discovery_result.result
+                if isinstance(discovery_result, BaseToolResponse)
+                and isinstance(discovery_result.result, dict)
+                else {}
+            )
+            trace_table_full = result_data.get("trace_table")
             if not trace_table_full:
                 return BaseToolResponse(
-                    status=ToolStatus.SUCCESS,
+                    status=ToolStatus.PARTIAL,
                     result="Telemetry discovery completed but found no trace tables. Please ask the user to provide the 'dataset_id' manually.",
                     metadata={"stage": "aggregate"},
                 )
@@ -1403,6 +1410,17 @@ slim_tools: list[Any] = [
 ]
 
 
+_tool_to_name_cache: dict[Any, str] | None = None
+
+
+def _get_tool_to_name_map() -> dict[Any, str]:
+    """Get cached reverse lookup from tool function to tool name."""
+    global _tool_to_name_cache
+    if _tool_to_name_cache is None:
+        _tool_to_name_cache = {v: k for k, v in TOOL_NAME_MAP.items()}
+    return _tool_to_name_cache
+
+
 def get_enabled_base_tools() -> list[Any]:
     """Get base_tools filtered by configuration.
 
@@ -1427,8 +1445,8 @@ def get_enabled_base_tools() -> list[Any]:
     manager = get_tool_config_manager()
     enabled_tool_names = set(manager.get_enabled_tools())
 
-    # Reverse lookup: tool function -> tool name
-    tool_to_name: dict[Any, str] = {v: k for k, v in TOOL_NAME_MAP.items()}
+    # Reverse lookup: tool function -> tool name (cached at module level)
+    tool_to_name = _get_tool_to_name_map()
 
     enabled_base_tools = []
     for tool in base_tools:
