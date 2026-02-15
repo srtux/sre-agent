@@ -47,6 +47,8 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
   /// 0 = Table view, 1 = Visual Explorer
   int _resultsView = 0;
 
+  bool _showSidebar = true;
+
   late final TextEditingController _sqlController;
 
   @override
@@ -81,8 +83,10 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Left sidebar for schemas
-        BigQuerySidebar(
-          onInsertTable: (tableName) {
+        if (_showSidebar)
+          BigQuerySidebar(
+            onClose: () => setState(() => _showSidebar = false),
+            onInsertTable: (tableName) {
             final current = _sqlController.text;
             final prefix = current.isEmpty || current.endsWith(' ') || current.endsWith('\n') ? '' : ' ';
             _sqlController.text = current + prefix + tableName;
@@ -100,7 +104,8 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
           child: ListenableBuilder(
             listenable: widget.dashboardState,
             builder: (context, _) {
-              final hasResults = widget.dashboardState.bigQueryColumns.isNotEmpty;
+              final sqlItems = widget.dashboardState.itemsOfType(DashboardDataType.sql);
+              final hasResults = sqlItems.isNotEmpty;
 
               return Column(
                 children: [
@@ -108,6 +113,20 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
                     child: ManualQueryBar(
+                      leading: IconButton(
+                        icon: Icon(
+                          _showSidebar
+                              ? Icons.menu_open_rounded
+                              : Icons.menu_rounded,
+                          size: 18,
+                        ),
+                        color: _showSidebar
+                            ? AppColors.primaryCyan
+                            : AppColors.textMuted,
+                        onPressed: () =>
+                            setState(() => _showSidebar = !_showSidebar),
+                        tooltip: _showSidebar ? 'Hide Schema' : 'Show Schema',
+                      ),
                       controller: _sqlController,
                       hintText:
                           'SELECT column1, column2\nFROM `project.dataset.table`\nWHERE condition\nLIMIT 1000',
@@ -173,19 +192,69 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
                       ),
                     )
                   else ...[
-                    // Results view toggle (Table vs Visual Explorer)
-                    _buildResultsViewToggle(),
-                    // Results content
+                    // Selection for which result to show in table vs visual explorer
+                    // Actually, if we show cards, we can just show them all.
                     Expanded(
-                      child: _resultsView == 0
-                          ? SqlResultsTable(
-                              columns: widget.dashboardState.bigQueryColumns,
-                              rows: widget.dashboardState.bigQueryResults,
-                            )
-                          : VisualDataExplorer(
-                              columns: widget.dashboardState.bigQueryColumns,
-                              rows: widget.dashboardState.bigQueryResults,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(12),
+                        itemCount: sqlItems.length,
+                        itemBuilder: (context, index) {
+                          // Show in reverse chronological order
+                          final item = sqlItems[sqlItems.length - 1 - index];
+                          if (item.sqlData == null) return const SizedBox.shrink();
+
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: DashboardCardWrapper(
+                              onClose: () => widget.dashboardState.removeItem(item.id),
+                              header: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primaryCyan.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Icon(
+                                      Icons.table_chart_rounded,
+                                      size: 14,
+                                      color: AppColors.primaryCyan,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      item.sqlData!.query.replaceAll('\n', ' '),
+                                      style: GoogleFonts.jetBrainsMono(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w500,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '${item.sqlData!.rows.length} rows',
+                                    style: const TextStyle(
+                                      fontSize: 9,
+                                      color: AppColors.textMuted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              child: SizedBox(
+                                height: 400, // Fixed height for each result card
+                                child: SqlResultsTable(
+                                  columns: item.sqlData!.columns,
+                                  rows: item.sqlData!.rows,
+                                ),
+                              ),
                             ),
+                          );
+                        },
+                      ),
                     ),
                   ],
                 ],

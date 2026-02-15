@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/adk_schema.dart';
 import '../models/time_range.dart';
+import 'data_utils.dart';
 
 /// Tracks whether data came from the agent or a manual user query.
 enum DataSource { agent, manual }
@@ -17,6 +18,20 @@ enum DashboardDataType {
   remediation,
   council,
   charts,
+  sql,
+}
+
+/// A set of tabular results from an SQL query.
+class SqlResultSet {
+  final String query;
+  final List<String> columns;
+  final List<Map<String, dynamic>> rows;
+
+  SqlResultSet({
+    required this.query,
+    required this.columns,
+    required this.rows,
+  });
 }
 
 /// A single item collected from a tool call for dashboard display.
@@ -37,6 +52,7 @@ class DashboardItem {
   final RemediationPlan? remediationPlan;
   final CouncilSynthesisData? councilData;
   final VegaChartData? chartData;
+  final SqlResultSet? sqlData;
 
   // Track data origin for dual-stream architecture
   final DataSource source;
@@ -57,6 +73,7 @@ class DashboardItem {
     this.remediationPlan,
     this.councilData,
     this.chartData,
+    this.sqlData,
   });
 }
 
@@ -136,7 +153,37 @@ class DashboardState extends ChangeNotifier {
   void setBigQueryResults(
       List<String> columns, List<Map<String, dynamic>> rows) {
     _bigQueryColumns = columns;
-    _bigQueryResults = rows;
+    _bigQueryResults = flattenBigQueryResults(rows);
+    notifyListeners();
+  }
+
+  void addSqlResults(String query, List<String> columns,
+      List<Map<String, dynamic>> rows, String toolName,
+      {DataSource source = DataSource.agent}) {
+    _itemCounter++;
+    final flattenedRows = flattenBigQueryResults(rows);
+
+    // Also update the "latest" single view
+    _bigQueryColumns = columns;
+    _bigQueryResults = flattenedRows;
+
+    _items.add(DashboardItem(
+      id: 'sql-$_itemCounter',
+      type: DashboardDataType.sql,
+      toolName: toolName,
+      timestamp: DateTime.now(),
+      rawData: {
+        'query': query,
+        'columns': columns,
+        'rows': flattenedRows,
+      },
+      source: source,
+      sqlData: SqlResultSet(
+        query: query,
+        columns: columns,
+        rows: flattenedRows,
+      ),
+    ));
     notifyListeners();
   }
 

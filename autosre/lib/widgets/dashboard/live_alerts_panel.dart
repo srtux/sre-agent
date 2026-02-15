@@ -76,49 +76,60 @@ class LiveAlertsPanel extends StatelessWidget {
   }
 
   Widget _buildAlertContent() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(12),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final item = items[index];
-        if (item.alertData == null) return const SizedBox.shrink();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableHeight = constraints.maxHeight;
+        // If there's only one item, let it take up most of the screen
+        // If multiple, use a standard tall height
+        final double itemHeight = items.length == 1
+            ? (availableHeight - 32).clamp(600.0, 1500.0)
+            : 600.0;
 
-        return DashboardCardWrapper(
-          onClose: () => dashboardState.removeItem(item.id),
-          header: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: AppColors.error.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: const Icon(
-                  Icons.notifications_active_outlined,
-                  size: 14,
-                  color: AppColors.error,
+        return ListView.builder(
+          padding: const EdgeInsets.all(12),
+          itemCount: items.length,
+          itemBuilder: (context, index) {
+            final item = items[index];
+            if (item.alertData == null) return const SizedBox.shrink();
+
+            return DashboardCardWrapper(
+              onClose: () => dashboardState.removeItem(item.id),
+              header: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: AppColors.error.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Icon(
+                      Icons.notifications_active_outlined,
+                      size: 14,
+                      color: AppColors.error,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Active Alerts Dashboard',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const Spacer(),
+                  SourceBadge(source: item.source),
+                ],
+              ),
+              child: SizedBox(
+                height: itemHeight,
+                child: AlertsDashboardCanvas(
+                  data: item.alertData!,
+                  onPromptRequest: onPromptRequest,
                 ),
               ),
-              const SizedBox(width: 8),
-              const Text(
-                'Active Alerts Dashboard',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const Spacer(),
-              SourceBadge(source: item.source),
-            ],
-          ),
-          child: SizedBox(
-            height: 450,
-            child: AlertsDashboardCanvas(
-              data: item.alertData!,
-              onPromptRequest: onPromptRequest,
-            ),
-          ),
+            );
+          },
         );
       },
     );

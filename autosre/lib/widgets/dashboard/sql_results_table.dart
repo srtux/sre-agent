@@ -30,7 +30,7 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
   int? _hoveredRow;
 
   /// Column type cache — determined once from first non-null values.
-  late final Map<String, _ColumnType> _columnTypes;
+  late Map<String, _ColumnType> _columnTypes;
 
   @override
   void initState() {

@@ -241,7 +241,8 @@ class ExplorerQueryService {
               .toList() ??
           [];
 
-      _dashboardState.setBigQueryResults(columns, rows);
+      _dashboardState.addSqlResults(sql, columns, rows, 'bigquery_sql_explorer',
+          source: DataSource.manual);
       _dashboardState.openDashboard();
       _dashboardState.setActiveTab(DashboardDataType.charts);
     } catch (e) {

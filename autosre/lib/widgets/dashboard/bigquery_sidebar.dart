@@ -9,11 +9,13 @@ import '../common/shimmer_loading.dart';
 class BigQuerySidebar extends StatefulWidget {
   final Function(String)? onInsertTable;
   final Function(String)? onInsertColumn;
+  final VoidCallback? onClose;
 
   const BigQuerySidebar({
     super.key,
     this.onInsertTable,
     this.onInsertColumn,
+    this.onClose,
   });
 
   @override
@@ -146,6 +148,17 @@ class _BigQuerySidebarState extends State<BigQuerySidebar> {
             onPressed: _fetchDatasets,
             tooltip: 'Refresh Datasets',
           ),
+          if (widget.onClose != null) ...[
+            const SizedBox(width: 4),
+            IconButton(
+              icon: const Icon(Icons.close_rounded, size: 14),
+              color: AppColors.textMuted,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              onPressed: widget.onClose,
+              tooltip: 'Hide Schema',
+            ),
+          ],
         ],
       ),
     );

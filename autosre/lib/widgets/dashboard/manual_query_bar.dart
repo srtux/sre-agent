@@ -67,6 +67,9 @@ class ManualQueryBar extends StatefulWidget {
   final void Function(String query, bool isNaturalLanguage)?
       onSubmitWithMode;
 
+  /// Optional widget shown at the very beginning of the bar.
+  final Widget? leading;
+
   const ManualQueryBar({
     super.key,
     required this.hintText,
@@ -89,6 +92,7 @@ class ManualQueryBar extends StatefulWidget {
     this.naturalLanguageHint = 'Describe what you want to find...',
     this.naturalLanguageExamples = const [],
     this.onSubmitWithMode,
+    this.leading,
   });
 
   @override
@@ -452,6 +456,7 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
               height: 40,
               child: Row(
                 children: [
+                  if (widget.leading != null) widget.leading!,
             // Language selector or search icon
             if (widget.enableNaturalLanguage || widget.languageLabel != null || (widget.languages != null && widget.languages!.isNotEmpty))
               _buildLanguageSelector()
@@ -610,6 +615,7 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
               padding: const EdgeInsets.fromLTRB(10, 6, 4, 0),
               child: Row(
                 children: [
+                  if (widget.leading != null) widget.leading!,
                   if (widget.enableNaturalLanguage || widget.languageLabel != null || (widget.languages != null && widget.languages!.isNotEmpty))
                     _buildLanguageSelector(),
                   if (widget.templates.isNotEmpty ||
