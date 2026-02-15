@@ -42,7 +42,7 @@ class CouncilOrchestrator(BaseAgent):
     Replaces the root LlmAgent when SRE_AGENT_COUNCIL_ORCHESTRATOR=true.
     Classifies user intent and delegates to the appropriate pipeline:
     - FAST: Single best-fit panel
-    - STANDARD: Parallel council (4 panels + synthesizer)
+    - STANDARD: Parallel council (5 panels + synthesizer)
     - DEBATE: Parallel council + critic loop with confidence gating
     """
 

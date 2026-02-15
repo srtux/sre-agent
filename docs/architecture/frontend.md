@@ -4,26 +4,32 @@ The SRE Agent frontend is a high-performance Flutter Web application designed fo
 
 ## Architecture & State Management
 
-The frontend follows the **Provider** pattern for centralized state management.
+The frontend follows the **Provider** pattern for centralized state management via `MultiProvider` in `SreNexusApp` (`autosre/lib/app.dart`).
 
-### Key Providers (`autosre/lib/app.dart`)
-- **`AuthService`**: Manages Google SSO lifecycle and local credential caching.
+### Key Providers
+- **`AuthService`**: Manages Google Sign-In lifecycle and local credential caching.
 - **`ConnectivityService`**: Monitors network state and backend availability.
 - **`ProjectService`**: Tracks the user's selected GCP project across all components.
 - **`SessionService`**: Manages conversation history, loading/saving sessions from the backend.
+- **`DashboardState`**: Centralized state manager for the investigation dashboard.
+- **`ExplorerQueryService`**: Manages structured and natural language query execution for the data explorer.
+- **`PromptHistoryService`**: Manages prompt history for the conversation input.
+- **`ToolConfigService`**: Manages tool configuration state.
+- **`VersionService`**: Fetches and caches backend version information.
+- **`HelpService`**: Manages help center content.
 
 ---
 
 ## The Conversational Engine
 
-The heart of the UI is the `ConversationPage`, which orchestrates the interaction loop.
+The heart of the UI is the `ConversationPage` (`lib/pages/conversation_page.dart`), which orchestrates the interaction loop.
 
 ### 1. NDJSON Stream Handling
 The frontend consumes a **Streaming NDJSON** API from the backend.
 - It processes events in real-time as they are emitted by the Agent Engine.
 - Events include: `text` (markdown), `thought` (reasoning), `tool_call` (step tracking), `widget` (GenUI), and **`dashboard`** (dedicated data channel).
 
-### 2. AdkContentGenerator
+### 2. AdkContentGenerator (`lib/agent/adk_content_generator.dart`)
 A specialized class that handles the low-level HTTP streaming and transforms the JSON stream into a high-level `GenUiConversation` model.
 - **`dashboardStream`**: A dedicated stream that emits flat metric and alert data for the Investigation Dashboard, decoupled from the chat-based A2UI protocol.
 
@@ -31,7 +37,7 @@ A specialized class that handles the low-level HTTP streaming and transforms the
 
 ## Interceptors & Security
 
-Every request sent by the frontend is intercepted by the `ProjectInterceptorClient`.
+Every request sent by the frontend is intercepted by the `ProjectInterceptorClient` (`lib/services/api_client.dart`).
 
 - **Auth Injection**: Automatically includes the `Authorization: Bearer <token>` header using the cached Google token.
 - **Project Scope**: Injects the `X-GCP-Project-ID` header based on the global selection.
@@ -42,7 +48,7 @@ Every request sent by the frontend is intercepted by the `ProjectInterceptorClie
 
 ## GenUI (Generative UI) Widgets
 
-The SRE Agent uses a dynamic widget system to visualize telemetry. When the backend emits a `widget` event, the frontend looks up a corresponding renderer in the `CatalogRegistry` (`autosre/lib/catalog.dart`).
+The SRE Agent uses a dynamic widget system to visualize telemetry. When the backend emits a `widget` event, the frontend looks up a corresponding renderer.
 
 | Widget | Purpose | Data Source |
 | :--- | :--- | :--- |
@@ -58,16 +64,62 @@ The SRE Agent uses a dynamic widget system to visualize telemetry. When the back
 The SRE Agent features a dedicated Investigation Dashboard that provides real-time situational awareness. Unlike standard GenUI widgets that are nested within the chat, the dashboard data is transmitted via a **Dedicated Data Channel** (`type: dashboard` events).
 
 ### Key Components:
-- **`DashboardState`**: Centralized state manager for the dashboard (`lib/services/dashboard_state.dart`).
-- **`MetricDashboardCanvas`**: Uses high-performance custom painting to visualize timeseries data without the overhead of standard Flutter chart libraries.
-- **`DashboardResizeDivider`**: Allows the user to dynamically split the screen between the investigation thread and the situational dashboard.
+- **`DashboardState`** (`lib/services/dashboard_state.dart`): Centralized state manager for the dashboard.
+- **`DashboardPanel`** (`lib/widgets/dashboard/dashboard_panel.dart`): The main dashboard container.
+- **`SreToolbar`** (`lib/widgets/dashboard/sre_toolbar.dart`): Dashboard toolbar controls.
+- **Live Panels**:
+  - `LiveAlertsPanel`: Real-time alert monitoring.
+  - `LiveChartsPanel`: Metric chart visualization.
+  - `LiveCouncilPanel`: Council investigation activity.
+  - `LiveLogsExplorer`: Log entry exploration.
+  - `LiveMetricsPanel`: Metrics data display.
+  - `LiveRemediationPanel`: Remediation suggestion display.
+  - `LiveTracePanel`: Trace data display.
+
+### Visual Data Explorer
+
+The dashboard includes a **Visual Data Explorer** (`lib/widgets/dashboard/visual_data_explorer.dart`) that supports structured query execution against GCP telemetry data:
+
+- **`ManualQueryBar`**: Allows users to type structured queries (Cloud Trace filters, Cloud Logging filters, PromQL, BigQuery SQL).
+- **`QueryLanguageToggle`**: Switches between query domains (traces, logs, metrics, BigQuery).
+- **`QueryLanguageBadge`**: Displays the active query language.
+- **`QueryAutocompleteOverlay`**: Provides autocomplete suggestions for query syntax.
+- **`BigQuerySidebar`**: Dataset and table browser for BigQuery exploration.
+- **`SqlResultsTable`**: Renders BigQuery query results in a tabular format.
+- **Natural Language Queries**: Users can type natural language descriptions that are translated by the LLM into structured queries via the `/api/tools/nl/query` endpoint.
+
+---
+
+## Visualization Canvases (`lib/widgets/canvas/`)
+
+The frontend includes multiple custom-painted canvases for high-performance visualization:
+
+| Canvas | Purpose |
+| :--- | :--- |
+| **AgentActivityCanvas** | Visualizes agent execution steps and timing |
+| **AgentGraphCanvas** | Council activity graph (panel interactions) |
+| **AgentTraceCanvas** | Agent-level trace visualization |
+| **AiReasoningCanvas** | Displays AI reasoning chain |
+| **AlertsDashboardCanvas** | Alert overview and severity distribution |
+| **IncidentTimelineCanvas** | Temporal view of incident events |
+| **MetricsDashboardCanvas** | High-performance timeseries rendering (custom painting) |
+| **ServiceTopologyCanvas** | Service dependency topology map |
 
 ---
 
 ## UI Components & Aesthetics
 
-The UI is built with a "Dark/Tech" aesthetic using a custom design system in `autosre/lib/theme/app_theme.dart`.
+The UI is built with a "Deep Space" aesthetic using a custom design system in `autosre/lib/theme/app_theme.dart`.
 
-- **TechGridPainter**: A custom background painter that gives the app its "Observability" vibe.
-- **UnifiedPromptInput**: A context-aware input field that supports multi-line text and keyboard shortcuts (Enter to send, Shift+Enter for newline).
-- **ToolLogWidget**: Visualizes the agent's internal reasoning loop, showing tool inputs/outputs in a collapsible, status-aware log.
+- **Material 3**: The app uses Material 3 design language with a dark theme.
+- **Common Widgets** (`lib/widgets/common/`):
+  - `ErrorBanner`: Dismissible error notifications.
+  - `ShimmerLoading`: Loading skeleton animations.
+  - `SourceBadge`: Displays the data source for dashboard panels.
+  - `ExplorerEmptyState`: Empty state illustration for the data explorer.
+
+### Pages (`lib/pages/`)
+- **`LoginPage`**: Google Sign-In with guest mode bypass.
+- **`ConversationPage`**: Main investigation interface (chat + dashboard split view).
+- **`ToolConfigPage`**: Tool enable/disable management with connectivity testing.
+- **`HelpPage`**: Searchable help center with Documentation-as-Code content.

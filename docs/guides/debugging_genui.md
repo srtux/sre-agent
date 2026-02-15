@@ -2,9 +2,9 @@
 
 This guide documents known issues and debugging techniques for the GenUI (A2UI) protocol implementation in the Auto SRE Agent. For a comprehensive overview of the architecture and component schemas, see **[Rendering Telemetry](rendering_telemetry.md)**.
 
-## 📋 A2UI v0.8 Protocol Compliance
+## A2UI v0.8 Protocol Compliance
 
-The Auto SRE Agent now follows the **A2UI v0.8 specification** for proper compatibility with the genui package.
+The Auto SRE Agent follows the **A2UI v0.8 specification** for proper compatibility with the genui package.
 
 ### Required Component Format
 
@@ -45,7 +45,9 @@ The `beginRendering` message MUST include a `root` field pointing to the root co
 }
 ```
 
-## ⚠️ Known Issues
+---
+
+## Known Issues
 
 ### 1. Component Format Mismatch (RESOLVED)
 
@@ -82,7 +84,7 @@ The backend was sending components without the required `id` and `component` wra
 
 **Prevention**:
 - The `autosre/lib/catalog.dart` has defensive code (`_unwrapComponentData()`) to handle multiple formats.
-- Tests in `tests/sre_agent/api/test_tool_events.py` verify A2UI v0.8 compliance.
+- Tests in `tests/server/test_genui_chat_events.py` and `tests/server/test_widget_logic.py` verify A2UI v0.8 compliance.
 
 ### 2. "Ghost Bubbles" & Race Conditions (RESOLVED)
 
@@ -109,7 +111,7 @@ For specialized widgets (charts, traces), we now promote the `type` field to the
 ```json
 {
   "id": "chart-123",
-  "type": "x-sre-metric-chart",  // Root-level promotion
+  "type": "x-sre-metric-chart",
   "component": {
     "type": "x-sre-metric-chart",
     "x-sre-metric-chart": { ... data ... }
@@ -125,19 +127,54 @@ When a tool call is rejected by the `PolicyEngine` (e.g., restricted access or d
 
 **Guideline**: Always catch rejections and yield a dummy "error" response to satisfy the framework's state machine.
 
+### 5. Dashboard Event Duplication
+
+**Problem**: When tool results are emitted both inline (from the event stream in `agent.py`) and via the dashboard queue (from `@adk_tool` decorator), the same dashboard event can appear twice on the frontend.
+
+**Current Solution**: The `event_generator()` in `sre_agent/api/routers/agent.py` tracks `inline_emitted_counts` per tool name. When draining the dashboard queue, it skips entries already emitted inline. See the `drain_dashboard_queue()` loop in the agent router.
+
+**Symptoms (if regression occurs)**:
+- Duplicate panels in the dashboard (e.g., two identical trace panels).
+- Check backend logs for `Dashboard event (inline)` and `Dashboard event (queued)` -- if both appear for the same tool call, deduplication may have failed.
+
+### 6. Dashboard Query Language Confusion (MQL vs PromQL)
+
+**Problem**: The agent LLM sometimes generates MQL (Monitoring Query Language) syntax when the `query_promql` tool expects PromQL, or vice versa.
+
+**Symptoms**:
+- 400 Bad Request errors from the Cloud Monitoring API.
+- Error messages containing `HINT: Your query looks like MQL. This tool ONLY supports PromQL.`
+- Queries containing `fetch_gcp_metric` or `::` (MQL indicators) sent to the PromQL endpoint.
+
+**Current Mitigation** (in `sre_agent/tools/clients/monitoring.py`):
+- Smart error hints detect MQL-in-PromQL and PromQL-in-MQL confusion.
+- The tool appends context-aware HINT messages to error responses, helping the agent self-correct on retry.
+- Additional hints for common mistakes like `instance_name` vs `instance_id` in GCE metrics.
+
+**Debugging**:
+```bash
+# Check for query language errors in logs
+LOG_LEVEL=DEBUG uv run poe web
+# Look for lines containing "HINT:" or "400" in the monitoring tool output
+```
+
 ---
 
-## 🏗️ World-Class Platform Patterns
+## World-Class Platform Patterns
 
 ### 1. "Verify-then-Query" Anti-Hallucination
 Before the agent queries a specific metric, it should use `list_metric_descriptors` to verify the exact string name (e.g., `kubernetes.io/container/cpu/core_usage_time` vs `usage_time`). This prevents 404s and hallucinated metric names.
 
 ### 2. Reactive Errors & Hints
-Monitoring tools now include **Smart Error Hints**. If a query fails with a 400 (Bad Request), the tool adds a context-aware HINT (e.g., "Your query looks like MQL but this tool requires PromQL") to help the agent self-correct.
+Monitoring tools include **Smart Error Hints**. If a query fails with a 400 (Bad Request), the tool adds a context-aware HINT to help the agent self-correct:
+- MQL syntax detected in PromQL tool: `"Your query looks like MQL. This tool ONLY supports PromQL."`
+- Invalid OR between metric types: `"'list_time_series' does not support OR between metric types."`
+- GCE label confusion: `"For GCE instance metrics, use 'instance_id' instead of 'instance_name'."`
+- Histogram quantile issues: `"histogram_quantile requires sum by (le, ...)."`
 
 ---
 
-## 🔍 Debugging Techniques
+## Debugging Techniques
 
 ### 1. Comprehensive A2UI Debug Mode (RECOMMENDED)
 
@@ -158,50 +195,50 @@ A2UI_DEBUG=true uv run poe dev
 
 | Location | Log Prefix | What it shows |
 |----------|-----------|---------------|
-| Backend: Tool Event Helpers | `🔍 A2UI_DEBUG:` | Event creation, component structure, surface IDs |
-| Backend: Agent Router | `🔍 A2UI_ROUTER:` | Event yielding, NDJSON stream output |
-| Frontend: ContentGenerator | `📥 [A2UI #N]` | A2UI message parsing, beginRendering/surfaceUpdate details |
-| Frontend: ContentGenerator | `🖼️ [UI #N]` | UI marker reception, surface ID association |
-| Frontend: Catalog | `🔓 [UNWRAP #N]` | Component data unwrapping strategy used |
-| Frontend: ConversationPage | `🎯 [CONV]` / `📥 [CONV_A2UI]` | Message processing callbacks |
+| Backend: Tool Event Helpers | `A2UI_DEBUG:` | Event creation, component structure, surface IDs |
+| Backend: Agent Router | `A2UI_ROUTER:` | Event yielding, NDJSON stream output |
+| Frontend: ContentGenerator | `[A2UI #N]` | A2UI message parsing, beginRendering/surfaceUpdate details |
+| Frontend: ContentGenerator | `[UI #N]` | UI marker reception, surface ID association |
+| Frontend: Catalog | `[UNWRAP #N]` | Component data unwrapping strategy used |
+| Frontend: ConversationPage | `[CONV]` / `[CONV_A2UI]` | Message processing callbacks |
 
 **Example Debug Output (Backend):**
 
 ```
-🔍 A2UI_DEBUG: [TOOL_CALL_START] Creating tool call event
+A2UI_DEBUG: [TOOL_CALL_START] Creating tool call event
 {
   "tool_name": "fetch_trace",
   "surface_id": "abc123-...",
   "component_id": "tool-log-abc12345",
   "args_preview": "{\"trace_id\": \"123\"}"
 }
-🔍 A2UI_DEBUG: [TOOL_CALL_EVENT] Created beginRendering event
+A2UI_DEBUG: [TOOL_CALL_EVENT] Created beginRendering event
 {
   "surface_id": "abc123-...",
   "event_type": "beginRendering",
   "component_type": "x-sre-tool-log",
   "event_size_bytes": 456
 }
-🔍 A2UI_ROUTER: [ROUTER_FC_YIELD_A2UI] Yielding A2UI event 1/1
-🔍 A2UI_ROUTER: [ROUTER_FC_YIELD_UI] Yielding UI marker
+A2UI_ROUTER: [ROUTER_FC_YIELD_A2UI] Yielding A2UI event 1/1
+A2UI_ROUTER: [ROUTER_FC_YIELD_UI] Yielding UI marker
 ```
 
 **Example Debug Output (Frontend - Browser Console/F12):**
 
 ```
-📥 [LINE 5] Received: {"type":"a2ui","message":{"beginRendering":{...}}}
-📥 [LINE 5] Parsed type: a2ui
-🎯 [A2UI #1] ===== A2UI MESSAGE RECEIVED =====
-🎯 [A2UI #1] Type: beginRendering
-🎯 [A2UI #1] surfaceId: abc123-...
-🎯 [A2UI #1] Component[0] id: tool-log-abc12345
-🎯 [A2UI #1] Component[0] type: x-sre-tool-log
-🎯 [A2UI #1] ✅ Emitted to stream
-🖼️ [UI #1] ===== UI MARKER RECEIVED =====
-🖼️ [UI #1] surface_id: abc123-...
-🔓 [UNWRAP #1] ===== _unwrapComponentData START =====
-🔓 [UNWRAP #1] componentName: x-sre-tool-log
-🔓 [UNWRAP #1] ✅ Strategy 2b: Component wrapper type matches
+[LINE 5] Received: {"type":"a2ui","message":{"beginRendering":{...}}}
+[LINE 5] Parsed type: a2ui
+[A2UI #1] ===== A2UI MESSAGE RECEIVED =====
+[A2UI #1] Type: beginRendering
+[A2UI #1] surfaceId: abc123-...
+[A2UI #1] Component[0] id: tool-log-abc12345
+[A2UI #1] Component[0] type: x-sre-tool-log
+[A2UI #1] Emitted to stream
+[UI #1] ===== UI MARKER RECEIVED =====
+[UI #1] surface_id: abc123-...
+[UNWRAP #1] ===== _unwrapComponentData START =====
+[UNWRAP #1] componentName: x-sre-tool-log
+[UNWRAP #1] Strategy 2: Component wrapper type matches
 ```
 
 **Debug Log Tags Reference:**
@@ -218,7 +255,23 @@ A2UI_DEBUG=true uv run poe dev
 | `[UNWRAP #N]` | Catalog unwrap operation N |
 | `[CONV_*]` | Conversation page processing |
 
-### 2. Manual Backend Event Debugging
+### 2. DEBUG_UI_TEST Mode
+
+The agent router includes a built-in test mode for verifying the full A2UI pipeline end-to-end. Send a message containing `DEBUG_UI_TEST` to trigger a mock sequence:
+
+```
+# In the chat UI, type:
+DEBUG_UI_TEST
+```
+
+This produces:
+1. A tool-log component (alias test) with beginRendering + surfaceUpdate flow.
+2. A core button component test.
+3. Proper sequencing verification (DATA before MARKER).
+
+Check the backend logs for `Triggering DEBUG_UI_TEST mock sequence` to confirm activation.
+
+### 3. Manual Backend Event Debugging
 
 If you need more granular control, add print debugging to the main event loop in `sre_agent/api/routers/agent.py`.
 **Note**: Use `print()` instead of `logger.debug()` if looking for immediate terminal output in `uv run poe dev`, as logging might be buffered or filtered.
@@ -226,19 +279,25 @@ If you need more granular control, add print debugging to the main event loop in
 ```python
 # sre_agent/api/routers/agent.py
 
-async for event in root_agent.run_async(inv_ctx):
-    print(f"DEBUG: 📥 Event: type={type(event)}")
+async for event in runner.run_turn(session=active_session, ...):
+    print(f"DEBUG: Event: type={type(event)}")
 
     # ... inside the parts processing loop ...
     for part in parts:
-        print(f"DEBUG: 🔍 Processing part: type={type(part)}")
+        print(f"DEBUG: Processing part: type={type(part)}")
         if hasattr(part, "function_call"):
              print(f"DEBUG: Part has function_call: {part.function_call}")
 ```
 
-### 3. Manual Frontend Rendering Debugging (Catalog)
+### 4. Manual Frontend Rendering Debugging (Catalog)
 
-The catalog already includes extensive debugging when widgets are built. Check the browser console (F12) for logs prefixed with `🔓 [UNWRAP]` and `🔧`.
+The catalog includes debugging in `_unwrapComponentData()`. Check the browser console (F12) for logs related to `UNWRAP`.
+
+The `_unwrapComponentData()` function in `autosre/lib/catalog.dart` tries four strategies in order:
+1. **Direct key match**: Data contains the component name as a key (e.g., `{"x-sre-tool-log": {...}}`)
+2. **Component wrapper**: Data has a `component` key wrapping the component name (e.g., `{"component": {"x-sre-tool-log": {...}}}`)
+3. **Root type match**: Data has `type` equal to the component name (e.g., `{"type": "x-sre-tool-log", ...}`)
+4. **Fallback**: Returns the raw data as-is
 
 If you need additional debugging, modify the `CatalogItem` builder in `autosre/lib/catalog.dart`:
 
@@ -246,10 +305,10 @@ If you need additional debugging, modify the `CatalogItem` builder in `autosre/l
 // autosre/lib/catalog.dart
 
 CatalogItem(
-  name: "x-sre-tool-log",
+  name: 'x-sre-tool-log',
   widgetBuilder: (context) {
-    print("DEBUG: x-sre-tool-log builder called");
-    print("DEBUG: Data received: ${context.data}");
+    print('DEBUG: x-sre-tool-log builder called');
+    print('DEBUG: Data received: ${context.data}');
     // ...
   }
 )
@@ -259,9 +318,9 @@ CatalogItem(
 - When running `uv run poe dev`, Flutter logs (stdout) should appear in the terminal console alongside backend logs.
 - If running in Chrome context, use `F12` DevTools Console.
 
-### 4. Debugging Data Flow Step-by-Step
+### 5. Debugging Data Flow Step-by-Step
 
-When widgets aren't rendering, follow this debugging checklist:
+When widgets are not rendering, follow this debugging checklist:
 
 1. **Check Backend Event Creation** (A2UI_DEBUG log):
    - Look for `[TOOL_CALL_EVENT]` or `[WIDGET_EVENTS]` logs
@@ -274,38 +333,64 @@ When widgets aren't rendering, follow this debugging checklist:
    - Confirm no exceptions during yield
 
 3. **Check Frontend Stream Reception** (Browser Console):
-   - Look for `📥 [LINE N]` logs
+   - Look for `[LINE N]` logs
    - Verify the line contains `"type":"a2ui"`
    - Check that JSON parsing succeeds
 
 4. **Check Frontend A2UI Processing** (Browser Console):
-   - Look for `🎯 [A2UI #N]` logs
+   - Look for `[A2UI #N]` logs
    - Verify `surfaceId` and `components` are present
-   - Check for `✅ Emitted to stream` confirmation
+   - Check for `Emitted to stream` confirmation
 
 5. **Check Frontend UI Marker Reception** (Browser Console):
-   - Look for `🖼️ [UI #N]` logs
+   - Look for `[UI #N]` logs
    - Verify `surface_id` matches the A2UI surfaceId
    - Check `a2ui messages received so far` count > 0
 
 6. **Check Frontend Catalog Unwrapping** (Browser Console):
-   - Look for `🔓 [UNWRAP #N]` logs
+   - Look for `[UNWRAP #N]` logs
    - Check which strategy matched (1-4)
    - Verify final data contains expected keys (e.g., `tool_name`, `status`)
 
-### 5. Restarting the Environment
+### 6. Debugging Dashboard Data Channel
+
+Dashboard events are emitted on a separate channel from the main chat stream. If dashboard panels are not updating:
+
+1. **Check inline emission** -- look for `Dashboard event (inline) for <tool_name>` in backend logs.
+2. **Check queued emission** -- look for `Dashboard event (queued) for <tool_name>` in backend logs.
+3. **Verify the dashboard queue is initialized** -- `init_dashboard_queue()` is called at the start of each `event_generator()` in `sre_agent/api/routers/agent.py`.
+4. **Check deduplication** -- if both inline and queued events appear for the same tool, the `inline_emitted_counts` tracking may have a bug.
+
+### 7. Restarting the Environment
 
 The `uv run poe dev` command orchestrates both backend (Python) and frontend (Flutter).
 - **Backend Changes**: Usually require a restart if `uvicorn` reload is not active or if `agent.py` logic (which is often cached) is modified.
 - **Frontend Changes**: Dart code changes require a full rebuild/restart of the Flutter process (`kill` port 8080 and restart `poe dev`) to be absolutely sure. 'Hot Restart' (r) is available if you run `flutter run` manually, but `poe dev` wraps it.
 
-### 6. Common Failure Points
+### 8. Common Failure Points
 
 | Symptom | Likely Cause | Debug Focus |
 |---------|-------------|-------------|
 | No A2UI logs in backend | Tool call not detected | Check `[ROUTER_FC_DETECTED]` |
 | A2UI logs but no UI marker | Exception during yield | Check for errors after `[ROUTER_FC_YIELD_A2UI]` |
-| Frontend receives nothing | NDJSON stream issue | Check `📥 [LINE N]` count |
-| Frontend receives but no widget | Catalog unwrap failure | Check `🔓 [UNWRAP]` strategy |
-| Widget builds but empty | Data format mismatch | Check `🔧 x-sre-tool-log unwrapped data` |
+| Frontend receives nothing | NDJSON stream issue | Check `[LINE N]` count |
+| Frontend receives but no widget | Catalog unwrap failure | Check `[UNWRAP]` strategy |
+| Widget builds but empty | Data format mismatch | Check `x-sre-tool-log unwrapped data` |
 | Ghost bubble (empty) | Race condition | Verify A2UI before UI in logs |
+| Duplicate dashboard panels | Dedup tracking failure | Check `inline_emitted_counts` |
+| 400 on metric queries | MQL/PromQL confusion | Check for HINT in tool response |
+| Agent retries same query | Self-correction loop | Verify HINT messages are propagated |
+
+---
+
+## Key Source Files
+
+| File | Purpose |
+|------|---------|
+| `sre_agent/api/routers/agent.py` | Main chat endpoint, event generator, A2UI yielding |
+| `sre_agent/api/helpers/tool_events.py` | A2UI event creation (`create_tool_call_events`, `create_tool_response_events`) |
+| `sre_agent/api/helpers/dashboard_queue.py` | Dashboard event queue (`init_dashboard_queue`, `drain_dashboard_queue`) |
+| `autosre/lib/catalog.dart` | CatalogRegistry, `_unwrapComponentData()` |
+| `sre_agent/tools/clients/monitoring.py` | Smart Error Hints for query language issues |
+| `tests/server/test_genui_chat_events.py` | A2UI protocol compliance tests |
+| `tests/server/test_widget_logic.py` | Widget rendering logic tests |

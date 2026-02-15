@@ -17,21 +17,25 @@ This is the central index for all Auto SRE documentation. Use this page to navig
 | Write or run tests                  | [Testing Strategy](guides/testing.md)                              |
 | Run or write agent evaluations      | [Evaluation Guide](guides/evaluation.md)                           |
 | Deploy to production                | [Deployment Guide](guides/deployment.md)                           |
-| Debug an issue                      | [Debugging Guides](#debugging-1)                                   |
+| Understand deployment architecture  | [Deployment Architecture](infrastructure/DEPLOYMENT.md)            |
+| Debug an issue                      | [Debugging Guides](#debugging)                                     |
 | Look up environment variables       | [Configuration Reference](reference/configuration.md)              |
 | Find available tools                | [Tools Catalog](reference/tools.md)                                |
 | Understand security model           | [Security Reference](reference/security.md)                        |
 | Check the project roadmap           | [Project Plan](PROJECT_PLAN.md)                                    |
+| Troubleshoot Cloud Spanner          | [Spanner Playbook](SPANNER_TROUBLESHOOTING_PLAYBOOK.md)            |
+| Browse in-app help topics           | [Help System Content](#help-system-content)                        |
 
 ---
 
 ## Project Overview
 
-- [README.md](../README.md) — High-level project overview with architecture diagram
-- [Project Plan](PROJECT_PLAN.md) — Living roadmap of completed and planned work
-- [AGENTS.md](../AGENTS.md) — Universal AI agent standard (single source of truth for coding)
-- [CLAUDE.md](../CLAUDE.md) — Quick rules for Claude Code agents
-- [llm.txt](../llm.txt) — High-density LLM agent context file
+- [README.md](../README.md) -- High-level project overview with architecture diagram
+- [Project Plan](PROJECT_PLAN.md) -- Living roadmap of completed and planned work
+- [AGENTS.md](../AGENTS.md) -- Universal AI agent standard (single source of truth for coding)
+- [CLAUDE.md](../CLAUDE.md) -- Quick rules for Claude Code agents
+- [llm.txt](../llm.txt) -- High-density LLM agent context file
+- [Documentation Review & Roadmap](DOCUMENTATION_REVIEW_AND_ROADMAP.md) -- Full audit of all docs with future improvement plan
 
 ---
 
@@ -61,7 +65,7 @@ Philosophical and design documents explaining the "why" behind the architecture.
 | Document | Description |
 |----------|-------------|
 | [Autonomous Reliability](concepts/autonomous_reliability.md) | The "Unrolled Codex" pattern and OODA event loop |
-| [Agent Orchestration](concepts/agent_orchestration.md) | Council of Experts design — how sub-agents collaborate |
+| [Agent Orchestration](concepts/agent_orchestration.md) | Council of Experts design -- how sub-agents collaborate |
 | [Observability Deep Dive](concepts/observability.md) | Traces, spans, metrics analysis theory |
 | [Memory & State](concepts/memory.md) | How the agent persists context across sessions |
 | [Online Research & Self-Healing](concepts/online_research_and_self_healing.md) | Web search tools and autonomous self-improvement architecture |
@@ -78,7 +82,7 @@ Practical how-to instructions for developers.
 | Guide | Description |
 |-------|-------------|
 | [Getting Started](guides/getting_started.md) | Installation, configuration, first run |
-| [Development Guide](guides/development.md) | "Vibe Coding" handbook — the full development workflow |
+| [Development Guide](guides/development.md) | "Vibe Coding" handbook -- the full development workflow |
 | [Testing Strategy](guides/testing.md) | Test levels, style guide, coverage requirements |
 | [Linting Rules](guides/linting.md) | Ruff, MyPy, codespell, deptry configuration |
 | [Evaluation Guide](guides/evaluation.md) | Agent quality benchmarking with ADK eval |
@@ -114,6 +118,36 @@ API specifications, configuration, and catalogs.
 
 ---
 
+## Infrastructure
+
+Deployment infrastructure and CI/CD documentation.
+
+| Document | Description |
+|----------|-------------|
+| [Deployment Architecture](infrastructure/DEPLOYMENT.md) | Parallel deployment strategy, CI/CD pipeline (Cloud Build), build process |
+
+---
+
+## Knowledge Base
+
+Internal engineering notes and SDK-specific findings.
+
+| Document | Description |
+|----------|-------------|
+| [Vertex AI SDK Notes](knowledge/vertex_ai_sdk_notes.md) | Agent Engine SDK findings, method availability, migration notes |
+
+---
+
+## Playbooks
+
+Operational runbooks for specific GCP services.
+
+| Document | Description |
+|----------|-------------|
+| [Spanner Troubleshooting](SPANNER_TROUBLESHOOTING_PLAYBOOK.md) | Query performance, lock contention, hot spotting, and data distribution for Cloud Spanner |
+
+---
+
 ## Evaluation & Quality
 
 | Document | Description |
@@ -121,6 +155,34 @@ API specifications, configuration, and catalogs.
 | [Evaluation Standards](EVALUATIONS.md) | Dual-layer eval architecture, rubrics, anti-hallucination |
 | [Evaluation Guide](guides/evaluation.md) | Running evals locally and in CI/CD |
 | [Observability Guide](OBSERVABILITY.md) | Tracing and logging best practices |
+
+---
+
+## Help System Content
+
+In-app contextual help topics served to users via the help system. These files are managed
+through [`help/manifest.json`](help/manifest.json), which defines the topic registry
+(IDs, titles, categories, icons). See [Help System Architecture](architecture/help_system.md)
+for the design.
+
+| Topic | File | Description |
+|-------|------|-------------|
+| Traces & Spans | [traces.md](help/content/traces.md) | Getting started with distributed traces and latency visualization |
+| Log Intelligence | [logs.md](help/content/logs.md) | AI-powered log clustering and pattern analysis |
+| SLO & Metrics | [metrics.md](help/content/metrics.md) | SLO burn rate analysis and error budget tracking |
+| Council Investigation | [council.md](help/content/council.md) | Council of Experts parallel investigation workflow |
+| Root Cause Analysis | [rca.md](help/content/rca.md) | Structured detective methodology for diagnosing issues |
+| Incident Lifecycle | [incident_lifecycle.md](help/content/incident_lifecycle.md) | Standard SRE incident response lifecycle (detect, triage, mitigate, resolve) |
+| Incident Correlation | [changes.md](help/content/changes.md) | Change correlation -- audit logs, deployments, feature flags |
+| Remediation | [remediation.md](help/content/remediation.md) | Risk-ranked remediation suggestions |
+| Postmortems | [postmortems.md](help/content/postmortems.md) | Blameless incident report generation |
+| Deployment & Infrastructure | [deployment.md](help/content/deployment.md) | Cloud Run and Agent Engine deployment overview |
+| Telemetry Integration | [telemetry_source.md](help/content/telemetry_source.md) | GCP observability stack integration points |
+| Model Info | [model_info.md](help/content/model_info.md) | Gemini model capabilities and context window details |
+| Debugging the Agent | [debugging_agent.md](help/content/debugging_agent.md) | Troubleshooting agent permission errors, stuck states |
+| Circuit Breaker | [circuit_breaker.md](help/content/circuit_breaker.md) | Self-preservation mechanism for API failures |
+| Custom Tools | [custom_tools.md](help/content/custom_tools.md) | Extending the agent with Python tools and MCP servers |
+| Trust & Safety | [safety.md](help/content/safety.md) | Read-only defaults, audit logging, approval workflow |
 
 ---
 
@@ -134,9 +196,11 @@ API specifications, configuration, and catalogs.
 | **Authentication** | `auth.py` | OAuth2, EUC, token validation, ContextVars |
 | **Schemas** | `schema.py` | Pydantic models (`frozen=True, extra="forbid"`) |
 | **System Prompt** | `prompt.py` | Agent personality and instructions |
+| **Model Config** | `model_config.py` | Model configuration, context caching |
 | **Suggestions** | `suggestions.py` | Follow-up suggestion generation |
 | **API Layer** | `api/` | FastAPI app factory, middleware, routers, DI |
 | **Core Engine** | `core/` | Runner, policy engine, context compaction, summarizer |
+| **Council** | `council/` | Council of Experts orchestrator, panels, synthesizer, critic |
 | **Sub-Agents** | `sub_agents/` | Trace, logs, metrics, alerts, root cause specialists |
 | **Tools** | `tools/` | Analysis, GCP clients, MCP, BigQuery, discovery |
 | **Services** | `services/` | Session management, storage, Agent Engine client |
@@ -181,14 +245,15 @@ API specifications, configuration, and catalogs.
 
 If you are an LLM agent (Claude Code, Gemini, etc.), follow this reading order:
 
-1. **[llm.txt](../llm.txt)** — High-density context (read first, always)
-2. **[AGENTS.md](../AGENTS.md)** — Coding patterns, checklists, pitfalls
-3. **[Project Plan](PROJECT_PLAN.md)** — Current roadmap and status
-4. **Relevant docs below** — Based on your task:
+1. **[llm.txt](../llm.txt)** -- High-density context (read first, always)
+2. **[AGENTS.md](../AGENTS.md)** -- Coding patterns, checklists, pitfalls
+3. **[Project Plan](PROJECT_PLAN.md)** -- Current roadmap and status
+4. **Relevant docs below** -- Based on your task:
    - Modifying tools? Read [Tools Catalog](reference/tools.md) + [Development Guide](guides/development.md)
    - Writing tests? Read [Testing Strategy](guides/testing.md)
-   - Debugging? Read the appropriate [Debugging Guide](#debugging-1)
-   - Deploying? Read [Deployment Guide](guides/deployment.md)
+   - Debugging? Read the appropriate [Debugging Guide](#debugging)
+   - Deploying? Read [Deployment Guide](guides/deployment.md) + [Deployment Architecture](infrastructure/DEPLOYMENT.md)
+   - Understanding the help system? Read [Help System Architecture](architecture/help_system.md) + [Help Content](#help-system-content)
 
 ---
-*Last verified: 2026-02-11 — Auto SRE Team*
+*Last verified: 2026-02-15 -- Auto SRE Team*

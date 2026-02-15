@@ -8,15 +8,53 @@ This document details the improvements made to elevate the Auto SRE Agent toward
 
 Five major features were implemented across the Python ADK backend and Flutter UI:
 
-| Feature | Category | Files | Tests |
-|---------|----------|-------|-------|
-| Circuit Breaker Pattern | Resilience | `sre_agent/core/circuit_breaker.py` | 20 |
-| Multi-Window SLO Burn Rate Analyzer | SLO Alerting | `sre_agent/tools/analysis/slo/burn_rate.py` | 19 |
-| Change Correlation Tool | Root Cause Analysis | `sre_agent/tools/analysis/correlation/change_correlation.py` | 17 |
-| Automated Postmortem Generator | Incident Learning | `sre_agent/tools/analysis/remediation/postmortem.py` | 21 |
-| Enhanced Investigation Model | State Tracking | `sre_agent/models/investigation.py` | 28 |
+| Feature | Category | Files | Tests | Status |
+|---------|----------|-------|-------|--------|
+| Circuit Breaker Pattern | Resilience | `sre_agent/core/circuit_breaker.py` | 20 | **Completed** |
+| Multi-Window SLO Burn Rate Analyzer | SLO Alerting | `sre_agent/tools/analysis/slo/burn_rate.py` | 19 | **Completed** |
+| Change Correlation Tool | Root Cause Analysis | `sre_agent/tools/analysis/correlation/change_correlation.py` | 17 | **Completed** |
+| Automated Postmortem Generator | Incident Learning | `sre_agent/tools/analysis/remediation/postmortem.py` | 21 | **Completed** |
+| Enhanced Investigation Model | State Tracking | `sre_agent/models/investigation.py` | 28 | **Completed** |
 
 Total: **105 new tests**, all passing.
+
+---
+
+## Completed Optimizations (OPT-1 through OPT-10)
+
+In addition to the five features above, ten optimization passes were applied to the agent architecture. All are tracked in detail in [docs/architecture/AGENTS_AND_TOOLS.md](docs/architecture/AGENTS_AND_TOOLS.md).
+
+| ID | Optimization | Status |
+|----|-------------|--------|
+| **OPT-1** | Slim tools default (`SRE_AGENT_SLIM_TOOLS=true`) — reduces root agent to ~20 tools | **Applied** |
+| **OPT-2** | Compress root prompt (~2,500 to ~1,000 tokens, XML tags, primacy bias) | **Applied** |
+| **OPT-3** | Remove ReAct from panels (saves ~750 tokens/council run) | **Applied** |
+| **OPT-4** | Unified tool registry — sub-agents and panels share tool sets via `council/tool_registry.py` | **Applied** |
+| **OPT-5** | Downgrade models (log_analyst, metrics_analyzer, critic to Flash) | **Applied** |
+| **OPT-6** | Positive framing + XML tags on all sub-agent prompts | **Applied** |
+| **OPT-7** | Dynamic root prompt via lambda (timestamp injection) | **Applied** |
+| **OPT-8** | `skip_summarization` support in `@adk_tool` decorator + `prepare_tools()` | **Applied** |
+| **OPT-9** | Synthesizer cross-referencing instructions | **Applied** |
+| **OPT-10** | Context caching config (`SRE_AGENT_CONTEXT_CACHING`) | **Scaffolded** |
+
+---
+
+## Completed Features (Post-Phase 2.5)
+
+The following features have been implemented since the original IMPROVEMENTS document was written:
+
+| Feature | Category | Key Files | Date |
+|---------|----------|-----------|------|
+| Online Research Tools | Intelligence | `sre_agent/tools/research.py` (`search_google`, `fetch_web_page`) | 2026-02 |
+| GitHub Self-Healing Tools | Self-Healing | `sre_agent/tools/github/` (read, search, PR creation) | 2026-02 |
+| Self-Healing Playbook | Resilience | `sre_agent/tools/playbooks/self_healing.py` | 2026-02 |
+| Dashboard Query Language | UX | `autosre/lib/widgets/dashboard/query_*.dart` (autocomplete, helpers, NL support) | 2026-02 |
+| Service Dependency Graph | RCA | `sre_agent/core/graph_service.py` (blast radius, causal inference) | 2026-02 |
+| Proactive Signal Analysis | Intelligence | `sre_agent/tools/proactive/related_signals.py` | 2026-02 |
+| Council of Experts (3 modes) | Architecture | `sre_agent/council/` (Fast, Standard, Debate) | 2026-02 |
+| Agent Evaluations Framework | Quality | `eval/` (trajectory, rubrics, hallucination, safety) | 2026-02 |
+| Memory Subsystem | Learning | `sre_agent/memory/` (factory, local, callbacks, manager) | 2026-02 |
+| Global Tool Error Learning | Resilience | `sre_agent/memory/` (persists tool errors for future avoidance) | 2026-02 |
 
 ---
 
@@ -214,13 +252,24 @@ All new tools are registered in:
 
 ## Future Improvements
 
-Areas identified for further development:
+Areas identified for further development (items marked with checkmarks have been partially or fully addressed):
 
-1. **LoopAgent for iterative refinement** - Re-examine findings across multiple passes
-2. **Knowledge Graph for RCA** - Build service dependency graphs from trace data
+1. **LoopAgent for iterative refinement** - Re-examine findings across multiple passes. *Partially implemented via Council Debate mode (`council/debate.py`) which uses `LoopAgent` for critic feedback loops.*
+2. **Knowledge Graph for RCA** - Build service dependency graphs from trace data. *Implemented in `core/graph_service.py` — provides blast radius analysis and causal inference.*
 3. **Chaos Engineering sub-agent** - Validate resilience hypotheses
 4. **Error budget as first-class objects** - Track budget across SLOs in state
 5. **Rate limiting / backpressure** - Complement circuit breakers with request rate limiting
-6. **Runbook automation** - Execute verified remediation steps (with human approval gates)
-7. **Cross-incident learning** - Use embeddings to find similar past incidents
-8. **Proactive SLO forecasting** - Predict violations before they happen using trend analysis
+6. **Runbook automation** - Execute verified remediation steps (with human approval gates). *Partially implemented via playbook registry (`tools/playbooks/`) covering GKE, Cloud Run, Cloud SQL, GCE, BigQuery, Pub/Sub, and Self-Healing.*
+7. **Cross-incident learning** - Use embeddings to find similar past incidents. *Partially implemented via memory subsystem (`memory/`) which persists investigation patterns and tool error learning.*
+8. **Proactive SLO forecasting** - Predict violations before they happen using trend analysis. *Partially implemented via `tools/proactive/related_signals.py` (suggest_next_steps).*
+9. **Online research capabilities** - Search the web and fetch documentation during investigations. *Implemented in `tools/research.py` (`search_google`, `fetch_web_page`).*
+10. **Self-healing agent** - Agent can read its own source, search for patterns, and create PRs to fix itself. *Implemented via `tools/github/` and `tools/playbooks/self_healing.py`.*
+11. **Dashboard query language** - Natural language and structured query support for dashboard panels. *Implemented in Flutter dashboard with query helpers, autocomplete, and NL-to-query translation.*
+12. **Context caching** - Cache Vertex AI context to reduce latency for repeated investigations. *Scaffolded via OPT-10 (`SRE_AGENT_CONTEXT_CACHING` env var), awaiting full implementation.*
+13. **Spanner troubleshooting playbook** - Add a structured playbook for Cloud Spanner issues. *Documented in `docs/SPANNER_TROUBLESHOOTING_PLAYBOOK.md` but no code playbook yet (Spanner is listed as planned in `tools/playbooks/__init__.py`).*
+14. **Multi-cloud support** - Extend beyond GCP to AWS CloudWatch and Azure Monitor.
+15. **Collaborative investigations** - Multi-user investigation sessions with real-time sharing.
+
+---
+
+*Last verified: 2026-02-15 -- Auto SRE Team*

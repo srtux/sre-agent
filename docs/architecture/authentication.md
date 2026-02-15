@@ -144,6 +144,17 @@ To maintain compatibility between Flutter Web (production) and VM (unit tests):
 
 ---
 
+## LLM Credential Injection (Disabled)
+
+A critical architectural decision: the system **does not inject End-User Credentials into the Vertex AI Gemini client**. Vertex AI's `GenerateContent` API rejects Google Sign-In (Web Client) access tokens with a `401 ACCESS_TOKEN_TYPE_UNSUPPORTED` error.
+
+- **Gemini LLM**: Executes using the **Service Account (ADC)** -- Application Default Credentials from the Cloud Run or Agent Engine service account.
+- **Tools**: Continue to use **End-User Credentials (EUC)** by explicitly calling `get_credentials_from_tool_context()`. This ensures tools respect the user's IAM permissions when accessing GCP resources.
+
+The relevant code (commented out) can be found in `sre_agent/agent.py` in the `_inject_global_credentials()` function.
+
+---
+
 ## Security Considerations
 
 - **Secure Cookies**: Cookies are configured with `httponly=True` (preventing JS access) and `samesite='lax'` (protecting against CSRF while allowing seamless navigation).
@@ -151,6 +162,7 @@ To maintain compatibility between Flutter Web (production) and VM (unit tests):
 - **Local OIDC Validation**: Using `id_token` for local verification ensures identity is proven by Google's cryptography without relying on shared secrets or repeated network lookups.
 - **Background Validation**: Access tokens are periodically re-validated with Google (using a 10-minute cache) to ensure they haven't been revoked.
 - **Scope Enforcement**: The system strictly enforces the `https://www.googleapis.com/auth/cloud-platform` scope; sessions created with insufficient scopes will be rejected.
+- **LLM Isolation**: Gemini executes on ADC, not user tokens, preventing token type mismatches and ensuring the LLM cannot escalate privileges.
 
 ---
 

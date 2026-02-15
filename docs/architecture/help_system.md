@@ -1,11 +1,11 @@
-# 🏥 AutoSRE Help Center: Architecture & DaC Guide
+# AutoSRE Help Center: Architecture & DaC Guide
 
-## 🎯 Strategic Objective
+## Strategic Objective
 The AutoSRE Help Center is designed to provide immediate, context-aware guidance to SREs during high-pressure incidents. It follows a **Documentation-as-Code (DaC)** model, ensuring that documentation is versioned, tested, and deployed alongside the codebase.
 
 ---
 
-## 🏗️ System Architecture
+## System Architecture
 
 The help system is decoupled into three distinct layers:
 
@@ -24,15 +24,16 @@ The help system is decoupled into three distinct layers:
 - **Security**: Implements path sanitization to prevent directory traversal attacks.
 
 ### 3. UI Layer (Flutter Frontend)
-- **Service**: `HelpService` (lib/services/help_service.dart)
-- **Components**:
-  - `HelpPage`: The main search and discovery hub.
-  - `HelpCard`: Expandable cards that fetch Markdown content on demand to minimize initial load time.
-  - `MarkdownView`: Renders the high-fidelity markdown with theme-aware styling.
+- **Service**: `HelpService` (`lib/services/help_service.dart`)
+- **Page**: `HelpPage` (`lib/pages/help_page.dart`)
+- **Widgets** (`lib/widgets/help/`):
+  - Help card components for expandable topic display.
+  - Markdown rendering with theme-aware styling.
+  - Search and category filtering.
 
 ---
 
-## 🛠️ The DaC Workflow: Adding a New Topic
+## The DaC Workflow: Adding a New Topic
 
 To add a new help topic, follow these steps:
 
@@ -49,11 +50,11 @@ To add a new help topic, follow these steps:
     }
     ```
 3.  **Verify Locally**: Run `uv run poe dev` and check the "Help" page in the dashboard.
-4.  **Add Regression Test**: Ensure your new topic is visible in `autosre/test/pages/help_page_test.dart` (or simply rely on the existing unit tests if no new logic was added).
+4.  **Add Regression Test**: Ensure your new topic is visible in the Flutter test suite (or rely on existing unit tests if no new logic was added).
 
 ---
 
-## 📜 Mandatory Policy: The Documentation Gate
+## Mandatory Policy: The Documentation Gate
 
 **Rule**: Every new feature or functional change **MUST** include updates to:
 1.  **Internal Docs**: Update relevant files in `docs/architecture/` or `docs/reference/`.

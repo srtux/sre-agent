@@ -11,10 +11,12 @@ This document explains the root causes of telemetry and authentication issues wh
 5. [Frontend (Flutter) Architecture](../architecture/frontend.md)
 6. [Authentication & Session Design](../architecture/authentication.md)
 7. [Technical Learnings: Google SSO](../concepts/auth_learnings.md)
-8. [Issue 1: Telemetry in Agent Engine](#issue-1-telemetry-in-agent-engine)
-4. [Issue 2: End User Authentication](#issue-2-end-user-authentication)
-5. [Debug Tools](#debug-tools)
-6. [Configuration Checklist](#configuration-checklist)
+8. [Issue 1: Telemetry in Agent Engine](#issue-1-traces-not-emitting-from-cloud-run)
+9. [Issue 2: End User Authentication](#issue-2-end-user-authentication)
+10. [Issue 3: Token Encryption Mismatches](#issue-3-token-encryption-mismatches)
+11. [Debug Tools](#debug-tools)
+12. [API Endpoints Reference](#api-endpoints-reference)
+13. [Configuration Checklist](#configuration-checklist)
 
 ---
 
@@ -30,8 +32,8 @@ The issue stems from the different execution environments:
 
 1. **Agent Engine Playground UI**: Calls the agent directly within Agent Engine. The Agent Engine runtime has its own TracerProvider that exports spans to Cloud Trace automatically.
 
-2. **Cloud Run → Agent Engine**: When the frontend calls Cloud Run, which then calls Agent Engine:
-   - Cloud Run's FastAPI server has its own TracerProvider (configured in `telemetry.py`)
+2. **Cloud Run to Agent Engine**: When the frontend calls Cloud Run, which then calls Agent Engine:
+   - Cloud Run's FastAPI server has its own TracerProvider (configured in `sre_agent/tools/common/telemetry.py`)
    - Agent Engine has a separate TracerProvider
    - **There is no trace context propagation** between Cloud Run and Agent Engine
    - The Agent Engine's telemetry may not be enabled
@@ -68,9 +70,19 @@ agent = reasoning_engines.ReasoningEngine.create(
 
 To correlate traces between Cloud Run and Agent Engine, you need to propagate W3C Trace Context headers. Currently, the `reasoning_engines.ReasoningEngine.stream()` API does not support custom headers for trace context propagation.
 
-**Workaround**: The debug logging added to the codebase will help you understand the trace context at each stage. You can correlate traces by:
-1. Logging the trace ID from Cloud Run
-2. Matching timestamps in Cloud Trace
+**Workaround**: The agent router emits `trace_info` events at the start of each stream response, allowing the frontend to deep-link to Cloud Trace:
+
+```python
+# sre_agent/api/routers/agent.py
+trace_info = get_current_trace_info(project_id=effective_project_id)
+if trace_info:
+    yield json.dumps(trace_info) + "\n"
+```
+
+You can correlate traces by:
+1. Checking the `X-Trace-ID` response header (set by tracing middleware)
+2. Using the `X-Correlation-ID` header for cross-service request tracking
+3. Matching timestamps in Cloud Trace
 
 #### Solution 3: View Traces in Agent Engine Console
 
@@ -102,57 +114,77 @@ curl http://localhost:8001/api/debug | jq
 
 The goal is to use end-user credentials (OAuth tokens) to make API requests from the agent, rather than using the agent's service account.
 
-### Current Implementation (EUC Flow)
+### Current Implementation (Google Sign-In + EUC Flow)
 
-Auto SRE now implements a complete End-User Credentials (EUC) flow:
+Auto SRE implements a complete End-User Credentials (EUC) flow using the `google_sign_in` Flutter package:
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                          EUC FLOW (IMPLEMENTED)                                  │
-├─────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                  │
-│  1. Browser: User signs in with Google OAuth                                    │
-│     └─► Scopes: email, cloud-platform                                           │
-│                                                                                  │
-│  2. Flutter Web: ProjectInterceptorClient sends request                         │
-│     ├─► Authorization: Bearer <access_token>                                    │
-│     └─► X-GCP-Project-ID: <selected_project>                                    │
-│                                                                                  │
-│  3. FastAPI Middleware (auth_middleware):                                       │
-│     ├─► Extracts token from Authorization header                                │
-│     ├─► Creates Credentials(token=token)                                        │
-│     ├─► Sets ContextVar: _credentials_context                                   │
-│     └─► Sets ContextVar: _project_id_context                                    │
-│                                                                                  │
-│  4a. LOCAL MODE (SRE_AGENT_ID not set):                                         │
-│      └─► Agent runs in FastAPI process                                          │
-│      └─► Tools use get_credentials_from_tool_context()                          │
-│      └─► ContextVar contains user credentials                                   │
-│                                                                                  │
-│  4b. REMOTE MODE (SRE_AGENT_ID is set):                                         │
-│      └─► AgentEngineClient creates session with state:                          │
-│          • _user_access_token: <access_token>                                   │
-│          • _user_project_id: <project_id>                                       │
-│      └─► Tools read from tool_context.invocation_context.session.state          │
-│                                                                                  │
-│  5. Tool Execution:                                                             │
-│     └─► get_credentials_from_tool_context() checks:                             │
-│         1. ContextVar (local mode)                                              │
-│         2. Session state (remote mode)                                          │
-│         3. Default credentials (if STRICT_EUC_ENFORCEMENT=false)                │
-│                                                                                  │
-│  6. GCP API Calls:                                                              │
-│     └─► Authenticated as the user, not service account                          │
-│                                                                                  │
-└─────────────────────────────────────────────────────────────────────────────────┘
++---------------------------------------------------------------------------------+
+|                      EUC FLOW (CURRENT IMPLEMENTATION)                          |
++---------------------------------------------------------------------------------+
+|                                                                                 |
+|  1. Browser: User signs in with Google Sign-In                                  |
+|     +-> Uses google_sign_in package (authenticationEvents stream)               |
+|     +-> Scopes: email, cloud-platform                                           |
+|     +-> AuthService listens to GoogleSignInAuthenticationEvent                  |
+|                                                                                 |
+|  2. AuthService: Authorizes GCP scopes via authorizationClient                  |
+|     +-> authorizationClient.authorizationForScopes() (silent)                   |
+|     +-> authorizationClient.authorizeScopes() (interactive fallback)            |
+|     +-> Access token cached in SharedPreferences (page refresh survival)        |
+|                                                                                 |
+|  3. Flutter Web: ProjectInterceptorClient sends request                         |
+|     +-> Authorization: Bearer <access_token>                                    |
+|     +-> X-GCP-Project-ID: <selected_project>                                   |
+|     +-> X-User-ID: <user_email>                                                |
+|     +-> X-Correlation-ID: <uuid>                                                |
+|                                                                                 |
+|  4. FastAPI Middleware (auth_middleware):                                        |
+|     +-> Extracts token from Authorization header                                |
+|     +-> Validates via X-ID-Token (fast, local) or access_token (cached)         |
+|     +-> Creates Credentials(token=token)                                        |
+|     +-> Sets ContextVar: _credentials_context                                   |
+|     +-> Sets ContextVar: _project_id_context                                    |
+|     +-> Sets ContextVar: _user_id_context                                       |
+|     +-> Clears all ContextVars in finally block (prevents leakage)              |
+|                                                                                 |
+|  5a. LOCAL MODE (SRE_AGENT_ID not set):                                         |
+|      +-> Agent runs in FastAPI process                                          |
+|      +-> event_generator() re-sets ContextVars (because middleware              |
+|          clears them before async generator starts yielding)                    |
+|      +-> Tools use get_credentials_from_tool_context()                          |
+|      +-> ContextVar contains user credentials                                   |
+|                                                                                 |
+|  5b. REMOTE MODE (SRE_AGENT_ID is set):                                         |
+|      +-> AgentEngineClient creates session with state:                          |
+|          * _user_access_token: <encrypted_token>                                |
+|          * _user_project_id: <project_id>                                       |
+|      +-> Tools read from tool_context.invocation_context.session.state          |
+|      +-> Token decrypted via decrypt_token() before use                         |
+|                                                                                 |
+|  6. Tool Execution:                                                             |
+|     +-> get_credentials_from_tool_context() checks:                             |
+|         1. ContextVar (local mode)                                              |
+|         2. Session state (remote mode, with token decryption)                   |
+|         3. Default credentials (if STRICT_EUC_ENFORCEMENT=false)                |
+|                                                                                 |
+|  7. GCP API Calls:                                                              |
+|     +-> Authenticated as the user, not service account                          |
+|                                                                                 |
++---------------------------------------------------------------------------------+
 ```
+
+**Important**: LLM credential injection is **disabled**. The agent does NOT inject user OAuth tokens into LLM calls. Only GCP API tool calls (Cloud Trace, Cloud Logging, Cloud Monitoring, BigQuery) use user credentials.
 
 **Key Files:**
-- `sre_agent/auth.py`: Credential extraction, ContextVars, session state
-- `sre_agent/api/middleware.py`: Token extraction from headers
-- `sre_agent/services/agent_engine_client.py`: Remote Agent Engine with EUC
+- `sre_agent/auth.py`: Credential extraction, ContextVars, session state, token encryption/decryption, `ContextAwareCredentials`
+- `sre_agent/api/middleware.py`: Token extraction from headers, guest mode, dev mode bypass, session cookie fallback
+- `sre_agent/api/routers/agent.py`: ContextVar re-propagation in `event_generator()`, token encryption on session creation
+- `sre_agent/api/routers/system.py`: `/api/auth/login`, `/api/auth/logout`, `/api/auth/info`, `/api/config` endpoints
+- `sre_agent/services/agent_engine_client.py`: Remote Agent Engine with EUC propagation
 - `sre_agent/tools/clients/factory.py`: Client factory with EUC support
-- `autosre/lib/services/api_client.dart`: ProjectInterceptorClient
+- `autosre/lib/services/auth_service.dart`: Google Sign-In, `authorizationClient`, token caching
+- `autosre/lib/services/api_client.dart`: `ProjectInterceptorClient` (header injection)
 
 ### Debugging EUC Issues
 
@@ -165,14 +197,28 @@ curl -H "Authorization: Bearer <token>" http://localhost:8001/api/auth/info | jq
 ```json
 {
   "authenticated": true,
-  "token_preview": "ya29.a0A...",
   "token_info": {
     "valid": true,
     "email": "user@example.com",
     "expires_in": 3540,
-    "scopes": ["https://www.googleapis.com/auth/cloud-platform", ...]
+    "scopes": ["https://www.googleapis.com/auth/cloud-platform", "..."],
+    "error": null
   },
   "project_id": "my-project"
+}
+```
+
+**Check system config (auth enabled, guest mode):**
+```bash
+curl http://localhost:8001/api/config | jq
+```
+
+**Response shows:**
+```json
+{
+  "google_client_id": "YOUR_CLIENT_ID.apps.googleusercontent.com",
+  "auth_enabled": true,
+  "guest_mode_enabled": true
 }
 ```
 
@@ -182,74 +228,106 @@ curl -H "Authorization: Bearer <token>" http://localhost:8001/api/auth/info | jq
 export STRICT_EUC_ENFORCEMENT=true
 ```
 
+**Disable auth for local development:**
+```bash
+# Skip authentication entirely (dev only)
+export ENABLE_AUTH=false
+```
+
+### Guest Mode
+
+When guest mode is enabled (`ENABLE_GUEST_MODE=true`), users can bypass Google Sign-In and access the agent with synthetic demo data.
+
+- Frontend sends `X-Guest-Mode: true` header
+- Backend middleware sets synthetic credentials:
+  - Project: `cymbal-shops-demo`
+  - User: `guest@demo.autosre.dev`
+  - Token: `guest-mode-token`
+- Tools will use default credentials (ADC) since the guest token is not real
+
+### Auth Middleware Credential Resolution Order
+
+The `auth_middleware` in `sre_agent/api/middleware.py` resolves credentials in this order:
+
+1. **Guest Mode Header**: `X-Guest-Mode: true` -- synthetic credentials
+2. **Bearer Token**: `Authorization: Bearer <token>` -- user OAuth token
+3. **Dev Mode Bypass**: `ENABLE_AUTH=false` -- dummy dev credentials
+4. **Session Cookie**: `sre_session_id` cookie -- look up encrypted token from session state
+
+### ContextVar Re-propagation in StreamingResponse
+
+A critical subtlety: the `auth_middleware` clears ContextVars in its `finally` block after the request handler returns. However, for `StreamingResponse`, the async generator has not started yielding yet when the handler returns. This means ContextVars are empty when tools actually execute.
+
+**Solution** (in `sre_agent/api/routers/agent.py`):
+```python
+async def event_generator() -> AsyncGenerator[str, None]:
+    # Re-propagate auth context into the generator
+    if access_token:
+        set_current_credentials(Credentials(token=access_token))
+    if effective_project_id:
+        set_current_project_id(effective_project_id)
+    if effective_user_id:
+        set_current_user_id(effective_user_id)
+    # ... rest of generator
+```
+
+If tools are getting `None` credentials in local mode, this re-propagation may have broken.
+
 ### Root Cause Analysis (Historical Context)
 
 Several factors affect end-user authentication:
 
 1. **ADK's Authentication Model**: ADK is designed for tool-level OAuth flows (interactive consent), not for propagating existing tokens from a frontend.
 
-2. **Token Scopes**: The OAuth token from Google Identity Platform (used for user sign-in) may not have the required GCP API scopes:
-   - Cloud Trace: `https://www.googleapis.com/auth/trace.readonly`
-   - Cloud Logging: `https://www.googleapis.com/auth/logging.read`
-   - Cloud Monitoring: `https://www.googleapis.com/auth/monitoring.read`
-   - BigQuery: `https://www.googleapis.com/auth/bigquery.readonly`
+2. **Token Scopes**: The OAuth token must have the `cloud-platform` scope for broad GCP API access. The `AuthService` in Flutter requests:
+   - `email`
+   - `https://www.googleapis.com/auth/cloud-platform`
 
 3. **MCP Server Configuration**: Google's MCP servers support OAuth tokens, but must be configured with `useClientOAuth: true`.
 
 4. **Session State Propagation**: The current implementation passes tokens via session state, but:
-   - ContextVars don't cross process boundaries (Cloud Run → Agent Engine)
-   - Session state propagation depends on the ADK version and Agent Engine configuration
+   - ContextVars don't cross process boundaries (Cloud Run to Agent Engine)
+   - Tokens are encrypted with Fernet before storage in session state
+   - Encryption key mismatch between services causes silent auth failures
 
 ### Authentication Options
 
-#### Option A: ADK Interactive OAuth Flow (Recommended for Full User Context)
+#### Option A: EUC with Google Sign-In (Current Default)
 
-Use ADK's built-in authentication mechanism for tools that need user-specific access:
+The current implementation uses Google Sign-In with `authorizationClient` for GCP scope authorization:
 
-```python
-from google.adk.auth import AuthCredential, AuthCredentialTypes, OAuth2Auth
-from google.adk.tools import ToolContext
+```dart
+// autosre/lib/services/auth_service.dart
+static final List<String> _scopes = [
+  'email',
+  'https://www.googleapis.com/auth/cloud-platform',
+];
 
-# Configure OAuth for GCP APIs
-auth_credential = AuthCredential(
-    auth_type=AuthCredentialTypes.OAUTH2,
-    oauth2=OAuth2Auth(
-        client_id="YOUR_CLIENT_ID.apps.googleusercontent.com",
-        client_secret="YOUR_CLIENT_SECRET",  # pragma: allowlist secret
-    )
-)
-
-# In your tool, check for credentials or request them
-def my_gcp_tool(query: str, tool_context: ToolContext) -> dict:
-    # Check if we have cached credentials
-    cached = tool_context.state.get("gcp_tokens")
-    if cached:
-        # Use cached credentials
-        ...
-
-    # Otherwise, request authentication
-    tool_context.request_credential(auth_config)
-    return {"pending": True, "message": "Please authenticate..."}
+// Silent authorization attempt
+var authz = await authzClient.authorizationForScopes(_scopes);
+// Interactive fallback
+if (authz == null && interactive) {
+  authz = await authzClient.authorizeScopes(_scopes);
+}
 ```
 
 **Pros**:
 - Proper OAuth flow with user consent
 - Correct scopes for GCP APIs
-- Tokens are refreshable
+- Token refresh handled by frontend
+- Token caching survives page refreshes (SharedPreferences)
 
 **Cons**:
-- Requires user interaction
-- More complex frontend integration
+- Requires OAuth consent screen setup
+- Token expiry (55 min) requires refresh handling
 
 #### Option B: Service Account with IAM Grants (Recommended for Simplicity)
 
 Users grant the agent's service account permissions on their GCP project:
 
-1. **Get the Agent's Service Account**: The agent running in Agent Engine has a service account identity.
-
-2. **User Grants Permissions**: Users run gcloud commands or use the Cloud Console to grant permissions.
-
-3. **Agent Accesses User's Project**: The agent can then access the user's project using its own identity.
+1. **Get the Agent's Service Account**: Use the permissions info endpoint.
+2. **User Grants Permissions**: Users run gcloud commands or use the Cloud Console.
+3. **Agent Accesses User's Project**: The agent uses its own identity.
 
 See [Project Permission Setup](#project-permission-setup) below for detailed instructions.
 
@@ -262,11 +340,12 @@ See [Project Permission Setup](#project-permission-setup) below for detailed ins
 - Requires manual IAM setup by users
 - Uses agent identity, not user identity
 
-#### Option C: Hybrid Approach
+#### Option C: Hybrid Approach (Current Production Recommendation)
 
 Combine both approaches:
-1. Use service account for initial access (listing projects, basic queries)
-2. Use ADK OAuth flow for sensitive operations (BigQuery queries on user data)
+1. Use EUC (Google Sign-In) for user identity verification and project-level access
+2. Fall back to service account when EUC token is expired or unavailable
+3. Use `STRICT_EUC_ENFORCEMENT=true` in high-security environments to disable fallback
 
 ### Project Permission Setup
 
@@ -274,29 +353,54 @@ For Option B, users need to grant the agent's service account access to their pr
 
 #### Step 1: Identify the Agent's Service Account
 
-The agent's service account follows this pattern:
-```
-sre-agent@YOUR_AGENT_PROJECT.iam.gserviceaccount.com
-```
-
-Or if using Agent Identity (Preview):
-```
-agent-AGENT_ID@YOUR_AGENT_PROJECT.iam.gserviceaccount.com
+Use the permissions info API:
+```bash
+curl http://localhost:8001/api/permissions/info | jq
 ```
 
-#### Step 2: Required IAM Roles
+Response:
+```json
+{
+  "service_account": "sre-agent@YOUR_AGENT_PROJECT.iam.gserviceaccount.com",
+  "roles": [
+    "roles/cloudtrace.user",
+    "roles/logging.viewer",
+    "roles/monitoring.viewer",
+    "roles/compute.viewer"
+  ],
+  "project_id": "your-agent-project"
+}
+```
 
-Grant these roles on the **user's project**:
+#### Step 2: Check Current Permissions
 
-| Role | Purpose |
-|------|---------|
-| `roles/cloudtrace.user` | View traces |
-| `roles/logging.viewer` | View logs |
-| `roles/monitoring.viewer` | View metrics and dashboards |
-| `roles/bigquery.dataViewer` | Query BigQuery tables |
-| `roles/bigquery.jobUser` | Run BigQuery jobs |
+```bash
+curl "http://localhost:8001/api/permissions/check/USER_PROJECT_ID" | jq
+```
 
-#### Step 3: Grant Permissions (User Action)
+Response:
+```json
+{
+  "project_id": "user-project-123",
+  "results": {
+    "cloudtrace.user": {"status": "ok", "message": null},
+    "logging.viewer": {"status": "missing", "message": "Permission Denied (403)"},
+    "monitoring.viewer": {"status": "ok", "message": null}
+  },
+  "all_ok": false,
+  "timestamp": "2026-02-15T00:00:00+00:00"
+}
+```
+
+#### Step 3: Generate gcloud Commands
+
+```bash
+curl "http://localhost:8001/api/permissions/gcloud?project_id=USER_PROJECT_ID" | jq
+```
+
+Response includes ready-to-use gcloud commands and a one-liner.
+
+#### Step 4: Grant Permissions (Manual)
 
 **Option A: gcloud CLI**
 
@@ -320,11 +424,7 @@ gcloud projects add-iam-policy-binding $USER_PROJECT_ID \
 
 gcloud projects add-iam-policy-binding $USER_PROJECT_ID \
     --member="serviceAccount:$AGENT_SA" \
-    --role="roles/bigquery.dataViewer"
-
-gcloud projects add-iam-policy-binding $USER_PROJECT_ID \
-    --member="serviceAccount:$AGENT_SA" \
-    --role="roles/bigquery.jobUser"
+    --role="roles/compute.viewer"
 ```
 
 **Option B: Cloud Console**
@@ -335,6 +435,52 @@ gcloud projects add-iam-policy-binding $USER_PROJECT_ID \
 4. Enter the agent's service account email
 5. Add the required roles
 6. Click **Save**
+
+---
+
+## Issue 3: Token Encryption Mismatches
+
+### Problem Description
+
+Tokens stored in session state are encrypted with Fernet (symmetric encryption). If the encryption key differs between services (e.g., Cloud Run frontend proxy and Agent Engine backend), tokens cannot be decrypted.
+
+### Symptoms
+
+- Warning: `Failed to decrypt Fernet token. This strongly indicates an SRE_AGENT_ENCRYPTION_KEY mismatch`
+- Tools receive `None` credentials despite user being authenticated
+- 401 errors from downstream GCP APIs
+
+### Root Cause
+
+The `SRE_AGENT_ENCRYPTION_KEY` environment variable must be identical across all services that read or write session tokens:
+- The Cloud Run instance running `server.py`
+- The Agent Engine instance (if using remote mode)
+- Any GKE deployment
+
+### Solution
+
+1. Generate a Fernet key:
+   ```python
+   from cryptography.fernet import Fernet
+   print(Fernet.generate_key().decode())
+   ```
+
+2. Set it in all environments:
+   ```bash
+   export SRE_AGENT_ENCRYPTION_KEY="your-base64-fernet-key"
+   ```
+
+3. For GKE, store it in a Kubernetes secret:
+   ```yaml
+   # deploy/k8s/deployment.yaml
+   - name: SRE_AGENT_ENCRYPTION_KEY
+     valueFrom:
+       secretKeyRef:
+         name: autosre-secrets
+         key: encryption_key
+   ```
+
+**Note**: If `SRE_AGENT_ENCRYPTION_KEY` is not set, the system generates a transient key that is valid only for the current process lifetime. Tokens encrypted with a transient key cannot be decrypted after a restart.
 
 ---
 
@@ -349,10 +495,9 @@ curl http://localhost:8001/api/debug | jq
 ```
 
 Response includes:
-- OpenTelemetry tracer provider configuration
-- Current span context (trace ID, span ID)
-- Environment variables affecting telemetry
+- Environment variables affecting telemetry (`GOOGLE_CLOUD_PROJECT`, `SRE_AGENT_ID`, `DISABLE_TELEMETRY`, etc.)
 - Authentication state (ContextVar, session state, effective credentials)
+- Debug mode status
 
 ### Debug Environment Variables
 
@@ -362,6 +507,12 @@ Response includes:
 | `DEBUG_AUTH` | Enable detailed auth logging | `false` |
 | `LOG_LEVEL` | Logging level | `INFO` |
 | `GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY` | Enable Agent Engine tracing | `false` |
+| `ENABLE_AUTH` | Enable/disable authentication | `true` |
+| `ENABLE_GUEST_MODE` | Enable guest mode (synthetic demo data) | `true` |
+| `STRICT_EUC_ENFORCEMENT` | Block ADC fallback when no user token | `false` |
+| `SRE_AGENT_ENCRYPTION_KEY` | Fernet key for token encryption | auto-generated (transient) |
+| `GOOGLE_CLIENT_ID` | Google OAuth Client ID | required for auth |
+| `SECURE_COOKIES` | Set Secure flag on session cookies | `false` |
 
 ### Debug Functions
 
@@ -374,6 +525,7 @@ from sre_agent.tools.common.debug import (
     log_mcp_auth_state,
     log_agent_engine_call_state,
     enable_debug_mode,
+    get_debug_summary,
 )
 
 # Log telemetry state
@@ -385,9 +537,47 @@ state = log_auth_state(tool_context, "in_my_tool")
 # Log MCP headers that will be sent
 state = log_mcp_auth_state(project_id, tool_context, "before_mcp_call")
 
+# Log state before calling Agent Engine
+state = log_agent_engine_call_state(
+    user_message="query",
+    session_id="session-123",
+    user_access_token=token,
+    project_id="my-project",
+    context_label="before_remote_call",
+)
+
 # Enable all debug logging
 enable_debug_mode()
 ```
+
+### ContextAwareCredentials
+
+For debugging credential propagation at the gRPC client level, the `ContextAwareCredentials` class in `sre_agent/auth.py` provides a proxy that dynamically resolves credentials from the current ContextVar. It logs detailed credential resolution when `LOG_LEVEL=DEBUG`:
+
+```
+ContextAwareCredentials: Using token from context (exists: True)
+ContextAwareCredentials: Using token from ADC (exists: True, type: Credentials)
+ContextAwareCredentials: ADC token missing or expired, refreshing...
+```
+
+---
+
+## API Endpoints Reference
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check (`{"status": "ok", "version": "..."}`) |
+| `/api/debug` | GET | Telemetry and auth debug info |
+| `/api/config` | GET | Public config (client ID, auth enabled, guest mode) |
+| `/api/version` | GET | Build version metadata |
+| `/api/auth/login` | POST | Exchange token for session cookie |
+| `/api/auth/logout` | POST | Clear session cookie |
+| `/api/auth/info` | GET | Current auth state and token validation |
+| `/api/genui/chat` | POST | Main agent chat endpoint (also available at `/agent`) |
+| `/api/suggestions` | GET | Contextual suggestions |
+| `/api/permissions/info` | GET | Agent service account and required roles |
+| `/api/permissions/check/{project_id}` | GET | Check agent permissions on a project |
+| `/api/permissions/gcloud` | GET | Generate gcloud commands for granting permissions |
 
 ---
 
@@ -404,21 +594,31 @@ enable_debug_mode()
 
 - [ ] Set `GOOGLE_CLOUD_PROJECT` environment variable
 - [ ] Ensure service account has `roles/cloudtrace.agent` role
-- [ ] Don't set `DISABLE_TELEMETRY=true`
+- [ ] Do not set `DISABLE_TELEMETRY=true`
+- [ ] Configure `WEB_CONCURRENCY` to match allocated CPUs (default: 4)
 
 ### For End User Authentication
 
-- [ ] Decide on authentication approach (Option A, B, or C)
-- [ ] If using service account approach:
-  - [ ] Document the agent's service account
-  - [ ] Create user-facing instructions for granting permissions
-  - [ ] Consider creating a permissions check endpoint
+- [ ] Set `GOOGLE_CLIENT_ID` environment variable (both backend and frontend build)
+- [ ] Add authorized JavaScript origins to OAuth consent screen (localhost:8080, Cloud Run URL)
+- [ ] Ensure OAuth consent screen has `cloud-platform` scope
+- [ ] If using token encryption: set `SRE_AGENT_ENCRYPTION_KEY` consistently across all services
+- [ ] If using strict mode: set `STRICT_EUC_ENFORCEMENT=true`
+- [ ] If disabling auth for dev: set `ENABLE_AUTH=false`
 
 ### For MCP Server Authentication
 
 - [ ] Verify `x-goog-user-project` header is set correctly
 - [ ] If using user tokens, ensure they have correct scopes
 - [ ] Test with `DEBUG_AUTH=true` to see headers being sent
+
+### For GKE Deployment
+
+- [ ] Store `GOOGLE_CLIENT_ID` in Kubernetes secret (`autosre-secrets`)
+- [ ] Store `SRE_AGENT_ENCRYPTION_KEY` in Kubernetes secret
+- [ ] Configure `GEMINI_API_KEY` in Kubernetes secret
+- [ ] Set `SRE_AGENT_ID` in ConfigMap (`autosre-config`)
+- [ ] Set `GCP_PROJECT_ID` in ConfigMap
 
 ---
 
@@ -428,3 +628,4 @@ enable_debug_mode()
 - [ADK Authentication](https://google.github.io/adk-docs/tools-custom/authentication/)
 - [BigQuery MCP Server](https://docs.cloud.google.com/bigquery/docs/use-bigquery-mcp)
 - [Agent Identity](https://docs.cloud.google.com/agent-builder/agent-engine/agent-identity)
+- [google_sign_in Flutter package](https://pub.dev/packages/google_sign_in)

@@ -2,6 +2,14 @@
 
 **Based on Official Google Cloud Documentation**
 
+> **Implementation Status**: This document serves as a reference guide for Cloud Spanner troubleshooting. A corresponding code playbook (`sre_agent/tools/playbooks/spanner.py`) has **not yet been implemented**. The playbook framework (`sre_agent/tools/playbooks/`) supports Spanner as a planned category under `PlaybookCategory.DATA` (see `tools/playbooks/__init__.py`). The existing code playbooks cover GKE, Cloud Run, Cloud SQL, GCE, BigQuery, Pub/Sub, and Self-Healing.
+>
+> **Available SRE Agent tools for Spanner diagnostics**: While no dedicated Spanner playbook tool exists, the agent can investigate Spanner issues using:
+> - `list_time_series` -- Query Spanner metrics (CPU utilization, latency, request count, storage)
+> - `get_logs_for_trace` -- Correlate Spanner operations with trace data
+> - `fetch_trace` -- Analyze distributed traces involving Spanner calls
+> - Spanner metrics are cataloged in `sre_agent/resources/gcp_metrics.py` under "Cloud Spanner"
+
 ---
 
 ## Table of Contents
@@ -13,6 +21,7 @@
 6. [Schema Design Best Practices](#6-schema-design-best-practices)
 7. [Monitoring and Diagnostic Tools](#7-monitoring-and-diagnostic-tools)
 8. [Quick Reference Decision Tree](#8-quick-reference-decision-tree)
+9. [SRE Agent Integration Notes](#9-sre-agent-integration-notes)
 
 ---
 
@@ -340,8 +349,8 @@ Response not received within configured timeout period
 
 **Step 5: Examine Latency Breakdown**
 - Identify where delays occur across:
-  - Client → Google Front End (GFE)
-  - GFE → Spanner servers
+  - Client to Google Front End (GFE)
+  - GFE to Spanner servers
   - Within Spanner processing
 - Address specific bottleneck
 
@@ -587,12 +596,25 @@ Benefits:
 ### Latency Analysis
 
 **Components of Spanner Latency:**
-1. **Client → Google Front End (GFE)**
-2. **GFE → Spanner servers**
+1. **Client to Google Front End (GFE)**
+2. **GFE to Spanner servers**
 3. **Spanner processing** (query execution, locking, replication)
-4. **Return path** (GFE → client)
+4. **Return path** (GFE to client)
 
 Use latency breakdown in monitoring to identify bottleneck.
+
+### SRE Agent Metrics for Spanner
+
+The SRE Agent includes the following Spanner metrics in its GCP metrics catalog (`sre_agent/resources/gcp_metrics.py`):
+
+| Metric | Description |
+|--------|-------------|
+| `spanner.googleapis.com/instance/cpu/utilization_by_priority` | CPU utilization broken down by priority |
+| `spanner.googleapis.com/instance/storage/used_bytes` | Storage usage in bytes |
+| `spanner.googleapis.com/api/request_count` | API request count |
+| `spanner.googleapis.com/api/latencies` | API latency distribution |
+
+These metrics can be queried via the `list_time_series` tool with appropriate filters.
 
 ---
 
@@ -600,34 +622,72 @@ Use latency breakdown in monitoring to identify bottleneck.
 
 ```
 START: Spanner Performance Issue
-│
-├─ Is response not received in time? (DEADLINE_EXCEEDED)
-│  ├─ Check CPU > 60%? YES → Scale instance or optimize queries
-│  ├─ Full table scan? YES → Add index or use primary key
-│  ├─ High lock waits? YES → Reduce concurrent writes, redesign keys
-│  └─ Timeout too short? YES → Increase timeout to realistic value
-│
-├─ Is query execution slow?
-│  ├─ Full table scan? YES → Add appropriate index
-│  ├─ Wrong join order? YES → Reorder tables or use FORCE_INDEX
-│  ├─ Stale statistics? YES → Force statistics package regeneration
-│  └─ Missing index? YES → Create selective secondary index
-│
-├─ Is latency concentrated on certain splits? (Hotspots)
-│  ├─ Monotonically increasing key? YES → Redesign primary key
-│  ├─ High-volume writes to same row? YES → Implement sharding
-│  └─ CPU 100% on subset of nodes? YES → Pre-split distribution
-│
-├─ High lock contention?
-│  ├─ Multiple transactions on same row? YES → Distribute writes
-│  ├─ Long transactions? YES → Split into smaller transactions
-│  └─ SELECT FOR UPDATE overhead? YES → Review necessity
-│
-└─ Schema issues?
-   ├─ Using timestamp as first key? YES → Switch to UUID or reorder
-   ├─ Non-interleaved index on high-write column? YES → Use interleaved
-   └─ Related data scattered? YES → Use interleave or reorder keys
+|
++-- Is response not received in time? (DEADLINE_EXCEEDED)
+|  +-- Check CPU > 60%? YES -> Scale instance or optimize queries
+|  +-- Full table scan? YES -> Add index or use primary key
+|  +-- High lock waits? YES -> Reduce concurrent writes, redesign keys
+|  +-- Timeout too short? YES -> Increase timeout to realistic value
+|
++-- Is query execution slow?
+|  +-- Full table scan? YES -> Add appropriate index
+|  +-- Wrong join order? YES -> Reorder tables or use FORCE_INDEX
+|  +-- Stale statistics? YES -> Force statistics package regeneration
+|  +-- Missing index? YES -> Create selective secondary index
+|
++-- Is latency concentrated on certain splits? (Hotspots)
+|  +-- Monotonically increasing key? YES -> Redesign primary key
+|  +-- High-volume writes to same row? YES -> Implement sharding
+|  +-- CPU 100% on subset of nodes? YES -> Pre-split distribution
+|
++-- High lock contention?
+|  +-- Multiple transactions on same row? YES -> Distribute writes
+|  +-- Long transactions? YES -> Split into smaller transactions
+|  +-- SELECT FOR UPDATE overhead? YES -> Review necessity
+|
++-- Schema issues?
+   +-- Using timestamp as first key? YES -> Switch to UUID or reorder
+   +-- Non-interleaved index on high-write column? YES -> Use interleaved
+   +-- Related data scattered? YES -> Use interleave or reorder keys
 ```
+
+---
+
+## 9. SRE Agent Integration Notes
+
+### Current State
+This playbook is a **documentation-only reference**. The SRE Agent's playbook framework (`sre_agent/tools/playbooks/`) does not yet include a code-level Spanner playbook.
+
+### Existing Playbooks in Code
+The following playbooks are implemented as structured `Playbook` objects with `DiagnosticStep` sequences:
+
+| Playbook | File | Category |
+|----------|------|----------|
+| GKE | `sre_agent/tools/playbooks/gke.py` | Compute |
+| Cloud Run | `sre_agent/tools/playbooks/cloud_run.py` | Compute |
+| Cloud SQL | `sre_agent/tools/playbooks/cloud_sql.py` | Data |
+| GCE | `sre_agent/tools/playbooks/gce.py` | Compute |
+| BigQuery | `sre_agent/tools/playbooks/bigquery.py` | Data |
+| Pub/Sub | `sre_agent/tools/playbooks/pubsub.py` | Messaging |
+| Self-Healing | `sre_agent/tools/playbooks/self_healing.py` | Management |
+
+### Implementation Path for Spanner Playbook
+To convert this documentation into an agent-usable playbook:
+
+1. Create `sre_agent/tools/playbooks/spanner.py` following the pattern in `cloud_sql.py`
+2. Use `PlaybookCategory.DATA` (same as BigQuery and Cloud SQL)
+3. Define `TroubleshootingIssue` entries for:
+   - Query performance regression
+   - Lock contention / deadlocks
+   - Hot spotting
+   - DEADLINE_EXCEEDED errors
+   - Replication issues
+4. Map diagnostic steps to existing SRE Agent tools:
+   - `list_time_series` for Spanner metrics
+   - `get_logs_for_trace` for log correlation
+   - `fetch_trace` for latency analysis
+5. Register in `registry.py` by adding to `load_all_playbooks()`
+6. Note: The playbook registry is currently data-only (no agent tool exposes it). A `search_playbooks` or `get_playbook_details` tool would need to be created to make playbooks accessible to the agent.
 
 ---
 
@@ -646,5 +706,5 @@ START: Spanner Performance Issue
 
 ---
 
-*Last Updated: 2026-02-05*
+*Last verified: 2026-02-15 -- Auto SRE Team*
 *Source: Official Google Cloud Spanner Documentation*

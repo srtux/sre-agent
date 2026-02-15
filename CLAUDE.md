@@ -13,7 +13,7 @@
 
 Auto SRE is an AI-powered Site Reliability Engineering agent that automates incident investigation on Google Cloud Platform. It uses a **"Council of Experts"** pattern — specialized sub-agents for traces, logs, metrics, alerts, and root cause analysis.
 
-**Version**: 0.2.0 | **License**: Apache-2.0 | **Status**: Phase 3 active (2277+ backend tests, 129 Flutter tests passing)
+**Version**: 0.2.0 | **License**: Apache-2.0 | **Status**: Phase 3 active (2310+ backend tests, 112 Flutter tests passing)
 
 ## Tech Stack
 - **Backend**: Python 3.10+ (<3.13), FastAPI, Google ADK 1.23.0, Pydantic 2
@@ -23,8 +23,8 @@ Auto SRE is an AI-powered Site Reliability Engineering agent that automates inci
 - **Telemetry**: Cloud Trace, Cloud Logging, Cloud Monitoring (OTel)
 - **Testing**: pytest 8+ (backend), flutter test (frontend), ADK eval (agent quality)
 - **Package Management**: uv (Python), Flutter pub (Dart)
-- **Task Runner**: poethepoet (22+ tasks)
-- **CI/CD**: Google Cloud Build (7-stage pipeline)
+- **Task Runner**: poethepoet (23 public tasks + 4 internal)
+- **CI/CD**: Google Cloud Build (6-stage pipeline)
 
 ## Quick Rules
 1. **Read before modifying** — Never propose changes to unread code.
@@ -50,6 +50,7 @@ uv run poe sync         # Install/update all dependencies (uv + flutter)
 uv run poe lint         # Ruff format + lint + MyPy + codespell + deptry
 uv run poe lint-all     # Backend + Flutter linters
 uv run poe test         # pytest + 80% coverage gate
+uv run poe test-fast    # pytest without coverage (fastest iteration)
 uv run poe test-all     # Backend + Flutter tests
 uv run poe eval         # Agent evaluations (trajectory + rubrics)
 
@@ -61,6 +62,7 @@ uv run poe deploy-gke   # Full stack to GKE
 
 # Utilities
 uv run poe list         # List deployed agents
+uv run poe delete       # Delete agent (--resource_id ID)
 uv run poe pre-commit   # Run all pre-commit hooks
 uv run poe format       # Auto-format code (ruff)
 ```
@@ -76,17 +78,22 @@ sre_agent/
 ├── prompt.py             # Agent system instruction / personality
 ├── model_config.py       # Model configuration (get_model_name("fast"|"deep"), context caching)
 ├── suggestions.py        # Follow-up suggestion generation
+├── version.py            # Build version and metadata (reads pyproject.toml + git SHA)
 │
 ├── api/                  # FastAPI application layer
 │   ├── app.py            #   Factory (create_app), Pydantic monkeypatch
 │   ├── middleware.py      #   Auth + tracing + CORS middleware
 │   ├── dependencies.py    #   Dependency injection (session, tool context)
 │   ├── routers/           #   HTTP handlers: agent, sessions, tools, health, system, permissions, preferences, help
-│   └── helpers/           #   Tool event streaming (emit_dashboard_event)
+│   └── helpers/           #   Tool event streaming, dashboard queue, memory events
+│       ├── tool_events.py #     emit_dashboard_event
+│       ├── dashboard_queue.py #  Dashboard event queue
+│       └── memory_events.py #   Memory event helpers
 │
 ├── core/                 # Agent execution engine
 │   ├── runner.py          #   Agent execution logic
 │   ├── runner_adapter.py  #   Runner adaptation layer
+│   ├── router.py         #   3-tier request router (DIRECT/SUB_AGENT/COUNCIL)
 │   ├── policy_engine.py   #   Safety guardrails
 │   ├── prompt_composer.py #   Dynamic prompt composition
 │   ├── circuit_breaker.py #   Three-state failure recovery (CLOSED/OPEN/HALF_OPEN)
@@ -95,9 +102,8 @@ sre_agent/
 │   ├── summarizer.py     #   Response summarization
 │   ├── approval.py       #   Human approval workflow
 │   ├── tool_callbacks.py  #   Tool output truncation and post-processing
-│   ├── large_payload_handler.py # Large result set handling (sandbox offload)
-│   ├── graph_service.py   #   Service dependency graph construction
-│   └── router.py         #   Request routing logic
+│   ├── large_payload_handler.py # Auto-sandbox for oversized tool outputs
+│   └── graph_service.py   #   Service dependency graph construction
 │
 ├── council/              # Parallel Council of Experts architecture
 │   ├── orchestrator.py    #   CouncilOrchestrator (BaseAgent subclass)
@@ -106,10 +112,11 @@ sre_agent/
 │   ├── panels.py          #   5 specialist panel factories (trace, metrics, logs, alerts, data)
 │   ├── synthesizer.py     #   Unified assessment from all panels
 │   ├── critic.py          #   Cross-examination of panel findings
+│   ├── adaptive_classifier.py # LLM-augmented intent classification (Council 2.0)
 │   ├── intent_classifier.py # Rule-based investigation mode selection
 │   ├── mode_router.py    #   @adk_tool wrapper for intent classification
 │   ├── tool_registry.py   #   Single source of truth for all domain tool sets (OPT-4)
-│   ├── schemas.py         #   InvestigationMode, PanelFinding, CriticReport, CouncilResult
+│   ├── schemas.py         #   InvestigationMode, RoutingDecision, PanelFinding, CouncilResult
 │   └── prompts.py         #   Panel, critic, synthesizer prompts
 │
 ├── sub_agents/           # Specialist sub-agents
@@ -120,24 +127,47 @@ sre_agent/
 │   ├── root_cause.py     #   Multi-signal synthesis for RCA
 │   └── agent_debugger.py #   Agent execution debugging and inspection
 │
-├── tools/                # Tool ecosystem (158+ files)
-│   ├── common/            #   Shared utilities (@adk_tool, cache, telemetry, serialization)
+├── tools/                # Tool ecosystem (95 Python files)
+│   ├── common/            #   Shared utilities (@adk_tool, cache, debug, telemetry, serialization)
 │   ├── clients/           #   GCP API clients (singleton factory pattern)
+│   │   ├── factory.py     #     Client factory (get_trace_client, get_logging_client, ...)
+│   │   ├── trace.py       #     Cloud Trace
+│   │   ├── logging.py     #     Cloud Logging
+│   │   ├── monitoring.py  #     Cloud Monitoring
+│   │   ├── alerts.py      #     Alert policies
+│   │   ├── slo.py         #     SLO services
+│   │   ├── gke.py         #     GKE cluster management
+│   │   ├── gcp_projects.py#     GCP project enumeration
+│   │   ├── app_telemetry.py #   App Hub telemetry
+│   │   ├── apphub.py      #     App Hub resources
+│   │   ├── asset_inventory.py #  Cloud Asset Inventory
+│   │   └── dependency_graph.py # Service dependency graphs
 │   ├── analysis/          #   Pure analysis modules
-│   │   ├── trace/         #     Trace filtering, comparison, statistics
+│   │   ├── trace/         #     Trace filtering, comparison, patterns, statistics
 │   │   ├── logs/          #     Pattern extraction, clustering
 │   │   ├── metrics/       #     Anomaly detection, statistics
 │   │   ├── slo/           #     SLO burn rate analysis (multi-window)
 │   │   ├── correlation/   #     Cross-signal, critical path, dependencies, change correlation
 │   │   ├── bigquery/      #     BigQuery-based OTel/log analysis
 │   │   ├── agent_trace/   #     Agent self-analysis trace tools
-│   │   └── remediation/   #     Remediation suggestions, postmortem generation
+│   │   ├── remediation/   #     Remediation suggestions, postmortem generation
+│   │   ├── genui_adapter.py #   GenUI schema adapter for tool outputs
+│   │   └── trace_comprehensive.py # Consolidated mega-tool for trace analysis
 │   ├── mcp/               #   Model Context Protocol (BigQuery SQL, heavy queries)
-│   ├── bigquery/          #   BigQuery client, schemas, query builders
+│   ├── bigquery/          #   BigQuery client, schemas, query builders, Conversational Analytics agent
 │   ├── sandbox/           #   Sandboxed code execution (large data processing)
 │   ├── discovery/         #   GCP resource discovery
-│   ├── github/            #   GitHub integration (read, search, PR creation)
-│   ├── playbooks/         #   Runbook execution (GKE, Cloud Run, SQL, Pub/Sub, GCE, BigQuery)
+│   ├── github/            #   GitHub self-healing (read, search, PR creation)
+│   ├── playbooks/         #   Runbook execution + self-healing playbook
+│   │   ├── gke.py         #     GKE troubleshooting
+│   │   ├── cloud_run.py   #     Cloud Run troubleshooting
+│   │   ├── cloud_sql.py   #     Cloud SQL troubleshooting
+│   │   ├── pubsub.py      #     Pub/Sub troubleshooting
+│   │   ├── gce.py         #     GCE troubleshooting
+│   │   ├── bigquery.py    #     BigQuery troubleshooting
+│   │   ├── self_healing.py#     Agent self-improvement OODA loop playbook
+│   │   ├── registry.py    #     Playbook registration
+│   │   └── schemas.py     #     Playbook data schemas
 │   ├── proactive/         #   Proactive signal analysis
 │   ├── exploration/       #   Health check exploration
 │   ├── synthetic/         #   Synthetic data generation for testing
@@ -147,6 +177,7 @@ sre_agent/
 │   ├── config.py          #   Tool configuration registry
 │   ├── registry.py        #   Tool registration and discovery system
 │   ├── memory.py          #   Memory management
+│   ├── test_functions.py  #   Connectivity check functions (runtime, not pytest)
 │   └── __init__.py        #   Tool exports (add new tools to __all__ here)
 │
 ├── services/             # Business services
@@ -155,7 +186,16 @@ sre_agent/
 │   ├── agent_engine_client.py # Remote Agent Engine client (dual-mode)
 │   └── memory_manager.py #   Memory service management
 │
-├── memory/               # Memory subsystem (manager, factory, local, callbacks)
+├── memory/               # Memory subsystem
+│   ├── manager.py         #   Memory manager (persistence, retrieval)
+│   ├── factory.py         #   Memory manager factory (singleton)
+│   ├── local.py           #   Local in-memory store
+│   ├── callbacks.py       #   Memory event callbacks
+│   ├── sanitizer.py       #   Memory content sanitization
+│   ├── mistake_store.py   #   Mistake memory storage
+│   ├── mistake_learner.py #   Learn from past mistakes
+│   └── mistake_advisor.py #   Advise based on mistake history
+│
 ├── models/               # Data models (InvestigationPhase, InvestigationState)
 └── resources/            # GCP resources catalog (metrics by service)
 ```
@@ -165,13 +205,28 @@ sre_agent/
 autosre/lib/
 ├── main.dart             # App entry point
 ├── app.dart              # Root widget
+├── catalog.dart          # Widget catalog
+├── agent/                # Agent integration
+│   └── adk_content_generator.dart # ADK content generator (streams, dashboard channel)
 ├── pages/                # Login, Conversation (main UI), Tool Config, Help
-├── services/             # Auth, API client, session, dashboard state, connectivity
+├── services/             # Auth, API client, session, dashboard state, connectivity,
+│   │                     #   explorer query, help, project, prompt history, tool config, version
+│   └── explorer_query_service.dart # Manual telemetry query execution
 ├── widgets/              # Reusable UI components
-│   ├── canvas/           #   Visualization canvases (agent activity, reasoning, topology, etc.)
-│   └── dashboard/        #   Live panels (alerts, council, logs, metrics, remediation, traces)
-├── models/               # ADK schema definitions
-├── theme/                # Material 3 deep space theme
+│   ├── auth/             #   Google sign-in button (platform-adaptive)
+│   ├── common/           #   Error banner, shimmer loading, explorer empty state, source badge
+│   ├── canvas/           #   Visualization canvases (agent activity, graph, trace, reasoning, alerts, etc.)
+│   ├── dashboard/        #   Live panels (alerts, council, logs, metrics, remediation, traces)
+│   │   ├── cards/        #     Council decision card
+│   │   ├── manual_query_bar.dart    # Dashboard query input
+│   │   ├── query_language_toggle.dart # Query language switcher (MQL/PromQL/SQL)
+│   │   ├── query_autocomplete_overlay.dart # Query autocomplete
+│   │   ├── sql_results_table.dart   # BigQuery results table
+│   │   ├── visual_data_explorer.dart # Visual data exploration
+│   │   └── bigquery_sidebar.dart    # BigQuery sidebar panel
+│   └── help/             #   Help cards
+├── models/               # ADK schema definitions, time range
+├── theme/                # Material 3 deep space theme (app + chart themes)
 └── utils/                # Utilities (ANSI parser)
 ```
 
@@ -181,20 +236,33 @@ tests/
 ├── conftest.py           # Shared fixtures (synthetic OTel data, mock clients)
 ├── fixtures/             # Synthetic OTel data generator
 ├── unit/                 # Unit tests — mirrors sre_agent/ structure
-├── integration/          # Integration tests (auth, pipeline, persistence, middleware)
-├── e2e/                  # End-to-end tests
-├── server/               # FastAPI server tests
-└── api/                  # API endpoint tests
+│   ├── sre_agent/        #   Agent-level tests (schema, auth, tools, council, core, etc.)
+│   ├── deploy/           #   Deployment script tests
+│   └── tools/            #   Tool-specific tests (exploration, synthetic)
+├── sre_agent/            # Additional sre_agent tests (api, core)
+├── integration/          # Integration tests (auth, pipeline, persistence, council, middleware)
+├── e2e/                  # End-to-end tests (agent execution, investigation, analysis)
+├── server/               # FastAPI server tests (session, cancellation, GenUI, widgets)
+└── api/                  # API endpoint tests (help)
 ```
 
 ### Other Key Directories
-- `eval/` — Agent evaluation framework (ADK AgentEvaluator, test scenarios)
-- `deploy/` — Deployment scripts (Agent Engine, Cloud Run, GKE) + k8s manifests
-- `docs/` — Comprehensive documentation (architecture, concepts, guides, reference)
-- `scripts/` — Development utilities (start_dev.py, analyze_health.py)
+- `eval/` — Agent evaluation framework (ADK AgentEvaluator, shared conftest.py, 9 test scenario JSON files)
+- `deploy/` — Deployment scripts (Agent Engine, Cloud Run, GKE) + k8s manifests + Dockerfile.unified
+- `docs/` — Comprehensive documentation (architecture, concepts, guides, reference, knowledge)
+- `scripts/` — Development utilities (start_dev.py, analyze_health.py, migrate_default_sessions.py)
 - `openspec/` — OpenSpec specifications and change tracking
 
 ## Key Architecture Patterns
+
+### 3-Tier Request Router
+The root agent uses a 3-tier router (`sre_agent/core/router.py`) exposed as an `@adk_tool` to classify every incoming query:
+
+| Tier | When | Behavior |
+|------|------|----------|
+| **DIRECT** | Simple data retrieval (logs, metrics, traces) | Calls individual tools directly, no sub-agent overhead |
+| **SUB_AGENT** | Focused analysis (anomaly detection, pattern analysis) | Delegates to a specialist sub-agent |
+| **COUNCIL** | Complex multi-signal investigation (RCA, incidents) | Starts a council meeting with the appropriate mode |
 
 ### Council of Experts (3 modes)
 | Mode | Trigger | Behavior |
@@ -203,7 +271,9 @@ tests/
 | **Standard** | Normal investigations | 5 parallel panels → Synthesizer merge |
 | **Debate** | High-severity incidents | Panels → Critic LoopAgent → Confidence gating |
 
-Feature flags: `SRE_AGENT_COUNCIL_ORCHESTRATOR` (enable council), `SRE_AGENT_SLIM_TOOLS` (default `true`, reduces root to ~20 tools).
+**Council 2.0 — Adaptive Panel Selection**: The `adaptive_classifier.py` augments the rule-based `IntentClassifier` with LLM-based classification that considers investigation history, alert severity, and token budget. Falls back to rule-based on any LLM failure. Feature flag: `SRE_AGENT_ADAPTIVE_CLASSIFIER`.
+
+Feature flags: `SRE_AGENT_COUNCIL_ORCHESTRATOR` (enable council), `SRE_AGENT_SLIM_TOOLS` (default `true`, reduces root to ~20 tools), `SRE_AGENT_ADAPTIVE_CLASSIFIER` (LLM-augmented classification).
 
 ### Tool Implementation
 ```python
@@ -268,10 +338,15 @@ Backend emits `{"type": "dashboard", ...}` events via `api/helpers/tool_events.p
 |----------|---------|---------|
 | `GOOGLE_CLOUD_PROJECT` | GCP project ID | required |
 | `GOOGLE_CLOUD_LOCATION` | GCP region | us-central1 |
+| `GOOGLE_GENAI_USE_VERTEXAI` | Use Vertex AI for Gemini (vs AI Studio) | 1 |
 | `SRE_AGENT_ID` | Enables remote mode (Agent Engine) | unset = local |
 | `SRE_AGENT_COUNCIL_ORCHESTRATOR` | Enables Council architecture | unset |
+| `SRE_AGENT_ADAPTIVE_CLASSIFIER` | LLM-augmented intent classification (Council 2.0) | unset |
 | `SRE_AGENT_SLIM_TOOLS` | Reduces root agent tools to ~20 | true |
 | `SRE_AGENT_TOKEN_BUDGET` | Max token budget per request | unset |
+| `SRE_AGENT_CIRCUIT_BREAKER` | Enable circuit breaker on tool calls | true |
+| `SRE_AGENT_ENCRYPTION_KEY` | AES-256 Fernet key for session token encryption | unset |
+| `SRE_AGENT_DEPLOYMENT_MODE` | Suppresses init side-effects during deploy/test | false |
 | `STRICT_EUC_ENFORCEMENT` | Blocks ADC fallback | false |
 | `SRE_AGENT_LOCAL_EXECUTION` | Sandbox local mode | false |
 | `LOG_LEVEL` | Logging level | INFO |
@@ -279,6 +354,9 @@ Backend emits `{"type": "dashboard", ...}` events via `api/helpers/tool_events.p
 | `USE_MOCK_MCP` | Use mock MCP in tests | false |
 | `GOOGLE_CUSTOM_SEARCH_API_KEY` | API key for Google Custom Search (research tools) | unset |
 | `GOOGLE_CUSTOM_SEARCH_ENGINE_ID` | Programmable Search Engine ID (research tools) | unset |
+| `GITHUB_TOKEN` | GitHub PAT for self-healing (repo scope) | unset |
+| `GITHUB_REPO` | GitHub repo for self-healing tools | srtux/sre-agent |
+| `EVAL_PROJECT_ID` | Override project ID for agent evaluations (CI) | unset |
 
 See `.env.example` for full list and `docs/reference/configuration.md` for details.
 
@@ -327,6 +405,9 @@ See `.env.example` for full list and `docs/reference/configuration.md` for detai
 - **Forgetting `await`**: All tool functions are async — `RuntimeWarning: coroutine was never awaited`
 - **Import errors**: Run `uv run poe sync` to ensure dependencies are installed
 - **GenUI rendering issues**: See `docs/guides/debugging_genui.md`
+- **Large tool outputs**: If a tool can return >50 items, integrate with `large_payload_handler.py` for auto-sandbox processing
+- **SRE_AGENT_DEPLOYMENT_MODE not set in tests**: Tests must set `SRE_AGENT_DEPLOYMENT_MODE=true` to avoid agent init side-effects (see `pyproject.toml` test task)
+- **Circuit breaker tripping**: The `@adk_tool` decorator includes a circuit breaker (env `SRE_AGENT_CIRCUIT_BREAKER`). If a tool fails repeatedly, the breaker opens and blocks calls. Check tool health before assuming bugs.
 
 > [!IMPORTANT]
 > **Always refer to [`AGENTS.md`](AGENTS.md) for the single source of truth on coding patterns.**
