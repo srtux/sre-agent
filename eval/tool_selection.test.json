@@ -101,7 +101,7 @@
               {
                 "name": "list_time_series",
                 "args": {
-                  "project_id": "my-test-project",
+                  "project_id": "TEST_PROJECT_ID",
                   "filter": "metric.type=\"compute.googleapis.com/instance/cpu/utilization\" AND resource.labels.instance_id=\"instance-1\""
                 }
               }
