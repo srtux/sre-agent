@@ -1,13 +1,61 @@
 """Tests for the SRE Agent Router tool.
 
 Validates that the route_request @adk_tool correctly classifies queries
-into the 3-tier routing system and returns proper BaseToolResponse with
+into the routing system and returns proper BaseToolResponse with
 actionable guidance.
 """
 
 import pytest
 
 from sre_agent.core.router import route_request
+
+
+class TestRouteRequestGreeting:
+    """Tests for GREETING tier routing via the tool."""
+
+    @pytest.mark.asyncio
+    async def test_greeting_tier_for_hello(self) -> None:
+        """Simple greetings should return GREETING tier."""
+        result = await route_request(query="hello")
+        assert result.status.value == "success"
+        assert result.result["decision"] == "greeting"
+
+    @pytest.mark.asyncio
+    async def test_greeting_tier_for_hi(self) -> None:
+        """'hi' should return GREETING tier."""
+        result = await route_request(query="hi")
+        assert result.status.value == "success"
+        assert result.result["decision"] == "greeting"
+
+    @pytest.mark.asyncio
+    async def test_greeting_tier_for_thanks(self) -> None:
+        """'thanks' should return GREETING tier."""
+        result = await route_request(query="thanks")
+        assert result.status.value == "success"
+        assert result.result["decision"] == "greeting"
+
+    @pytest.mark.asyncio
+    async def test_greeting_tier_for_help(self) -> None:
+        """'what can you do' should return GREETING tier."""
+        result = await route_request(query="what can you do")
+        assert result.status.value == "success"
+        assert result.result["decision"] == "greeting"
+
+    @pytest.mark.asyncio
+    async def test_greeting_includes_no_tool_guidance(self) -> None:
+        """GREETING tier should include guidance to not call tools."""
+        result = await route_request(query="hey there")
+        assert result.status.value == "success"
+        assert "guidance" in result.result
+        assert "do not call any tools" in result.result["guidance"].lower()
+
+    @pytest.mark.asyncio
+    async def test_greeting_does_not_include_suggested_tools(self) -> None:
+        """GREETING tier should not have suggested_tools."""
+        result = await route_request(query="hello")
+        assert "suggested_tools" not in result.result
+        assert "suggested_agent" not in result.result
+        assert "investigation_mode" not in result.result
 
 
 class TestRouteRequestDirect:
@@ -139,4 +187,4 @@ class TestRouteRequestMetadata:
         """Metadata should include the routing tier."""
         result = await route_request(query="show me the logs")
         assert "tier" in result.metadata
-        assert result.metadata["tier"] in ("direct", "sub_agent", "council")
+        assert result.metadata["tier"] in ("greeting", "direct", "sub_agent", "council")

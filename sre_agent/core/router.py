@@ -26,6 +26,11 @@ logger = logging.getLogger(__name__)
 
 # Human-readable descriptions for each routing tier
 _TIER_DESCRIPTIONS: dict[RoutingDecision, str] = {
+    RoutingDecision.GREETING: (
+        "Greeting or conversational message — respond directly without "
+        "calling any tools. Keep it brief, friendly, and mention your "
+        "key capabilities. Use the GREETING_PROMPT personality."
+    ),
     RoutingDecision.DIRECT: (
         "Simple data retrieval — call the suggested tools directly "
         "to fetch the requested data. No sub-agent delegation needed."
@@ -76,7 +81,17 @@ async def route_request(
         }
 
         # Add tier-specific guidance
-        if result.decision == RoutingDecision.DIRECT:
+        if result.decision == RoutingDecision.GREETING:
+            response_data["guidance"] = (
+                "This is a greeting or conversational message. "
+                "Respond directly — do NOT call any tools. "
+                "Be warm, concise, and lightly witty. "
+                "Briefly mention your key capabilities "
+                "(trace analysis, log investigation, metrics monitoring, "
+                "alert triage, incident RCA). "
+                "Keep the response under 4 sentences."
+            )
+        elif result.decision == RoutingDecision.DIRECT:
             response_data["suggested_tools"] = list(result.suggested_tools)
             response_data["guidance"] = (
                 f"Call the {result.signal_type.value} tools directly: "

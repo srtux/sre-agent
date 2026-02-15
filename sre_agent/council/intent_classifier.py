@@ -22,6 +22,40 @@ from functools import lru_cache
 
 from .schemas import InvestigationMode, RoutingDecision
 
+# Keywords that indicate a greeting or conversational message (no tools needed)
+_GREETING_KEYWORDS: set[str] = {
+    "hi",
+    "hello",
+    "hey",
+    "howdy",
+    "greetings",
+    "good morning",
+    "good afternoon",
+    "good evening",
+    "good day",
+    "sup",
+    "yo",
+    "hola",
+    "hiya",
+    "heya",
+}
+
+# Conversational queries that don't need tool calls
+_CONVERSATIONAL_KEYWORDS: set[str] = {
+    "thanks",
+    "thank you",
+    "thx",
+    "bye",
+    "goodbye",
+    "see you",
+    "who are you",
+    "what are you",
+    "what can you do",
+    "help me",
+    "how do you work",
+    "introduce yourself",
+}
+
 # Keywords that suggest a quick, lightweight check
 _FAST_KEYWORDS: set[str] = {
     "status",
@@ -197,6 +231,8 @@ def _compile_keyword_patterns() -> dict[str, list[re.Pattern[str]]]:
         Dict mapping category name to list of compiled patterns.
     """
     categories: dict[str, set[str]] = {
+        "greeting": _GREETING_KEYWORDS,
+        "conversational": _CONVERSATIONAL_KEYWORDS,
         "fast": _FAST_KEYWORDS,
         "debate": _DEBATE_KEYWORDS,
         "trace": _TRACE_KEYWORDS,
@@ -489,15 +525,69 @@ _SIGNAL_TO_AGENT: dict[SignalType, str] = {
 }
 
 
+def is_greeting_or_conversational(query: str) -> bool:
+    """Check whether a query is a greeting or simple conversational message.
+
+    These queries don't require any tool calls and should be answered
+    directly with a lightweight prompt for minimal latency.
+
+    Heuristics:
+    1. Contains greeting or conversational keywords.
+    2. Is short (< 40 characters) and has NO signal-type keywords
+       (i.e. the user isn't asking about traces, metrics, logs, or alerts).
+
+    Args:
+        query: The user's query string.
+
+    Returns:
+        True if the query is a greeting or simple conversation.
+    """
+    query_lower = query.lower().strip()
+
+    if not query_lower:
+        return False
+
+    # Strip trailing punctuation for cleaner matching ("Hello!" -> "hello")
+    query_clean = query_lower.rstrip("!?.,;:")
+
+    # Exact-match very short greetings (≤ 20 chars) that are obviously greetings
+    if len(query_clean) <= 20 and _has_keyword_match(query_clean, "greeting"):
+        return True
+
+    # Conversational keywords at any length
+    if _has_keyword_match(query_clean, "conversational"):
+        # But only if there are no SRE-signal keywords mixed in
+        has_signal = any(
+            _has_keyword_match(query_clean, cat)
+            for cat in ("trace", "metrics", "logs", "alerts")
+        )
+        if not has_signal:
+            return True
+
+    # Short messages with greeting keywords (up to 60 chars for things like
+    # "hey there, what can you do?" or "good morning team")
+    if len(query_clean) < 60 and _has_keyword_match(query_clean, "greeting"):
+        has_signal = any(
+            _has_keyword_match(query_clean, cat)
+            for cat in ("trace", "metrics", "logs", "alerts", "debate", "analysis")
+        )
+        if not has_signal:
+            return True
+
+    return False
+
+
 def classify_routing(query: str) -> RoutingResult:
-    """Classify a user query into a 3-tier routing decision.
+    """Classify a user query into a routing decision.
 
     Determines whether a query should be handled by:
+    - GREETING: Greetings/conversational — respond directly, no tools
     - DIRECT: Individual tools for simple data retrieval
     - SUB_AGENT: Specialist sub-agents for focused analysis
     - COUNCIL: Council meeting for complex multi-signal investigation
 
     Rules (applied in priority order):
+    0. Greeting/conversational (hi, thanks, help, etc.) -> GREETING
     1. Council keywords/patterns (root cause, incident, etc.) -> COUNCIL
     2. Analysis keywords/patterns (analyze, detect, compare, etc.) -> SUB_AGENT
     3. Direct retrieval keywords/patterns (show, list, get, etc.) -> DIRECT
@@ -510,6 +600,13 @@ def classify_routing(query: str) -> RoutingResult:
         RoutingResult with decision, signal_type, and routing guidance.
     """
     query_lower = query.lower().strip()
+
+    # 0. Check for greetings/conversational (highest priority — zero-tool fast path)
+    if is_greeting_or_conversational(query):
+        return RoutingResult(
+            decision=RoutingDecision.GREETING,
+        )
+
     signal_type = _detect_signal_type(query_lower)
 
     # 1. Check for council-level queries (highest priority — complex investigations)

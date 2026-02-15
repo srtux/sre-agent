@@ -80,7 +80,7 @@ from .core.router import route_request
 from .council.mode_router import classify_investigation_mode
 from .memory.factory import get_memory_manager
 from .model_config import get_model_name
-from .prompt import SRE_AGENT_PROMPT
+from .prompt import GREETING_PROMPT, SRE_AGENT_PROMPT
 from .schema import BaseToolResponse, InvestigationPhase, ToolStatus
 
 # Import sub-agents
@@ -1580,8 +1580,14 @@ Direct Tools:
     # OPT-7: Dynamic prompt assembly — timestamp is injected per-turn
     # instead of being baked in at import time. ADK LlmAgent supports
     # callable instructions that receive ReadonlyContext.
+    # OPT-11: Greeting prompt injected so the agent knows how to handle
+    # the GREETING routing tier without additional tool calls.
     instruction=lambda ctx: (
         f"{SRE_AGENT_PROMPT}\n\n"
+        f"<greeting_persona>\n"
+        f"When route_request returns tier='greeting', use this persona:\n"
+        f"{GREETING_PROMPT}\n"
+        f"</greeting_persona>\n\n"
         f"<current_time>{datetime.now(timezone.utc).isoformat()}</current_time>"
     ),
     tools=_agent_tools,

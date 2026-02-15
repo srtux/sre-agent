@@ -1,13 +1,18 @@
 """Tests for the rule-based intent classifier.
 
 Validates that queries are correctly classified into
-investigation modes based on keyword and pattern matching.
+investigation modes based on keyword and pattern matching,
+and that greetings/conversational queries are detected.
 """
 
 import pytest
 
-from sre_agent.council.intent_classifier import classify_intent
-from sre_agent.council.schemas import InvestigationMode
+from sre_agent.council.intent_classifier import (
+    classify_intent,
+    classify_routing,
+    is_greeting_or_conversational,
+)
+from sre_agent.council.schemas import InvestigationMode, RoutingDecision
 
 
 class TestFastModeClassification:
@@ -97,3 +102,115 @@ class TestStandardModeClassification:
             classify_intent("how are the services performing today?")
             == InvestigationMode.STANDARD
         )
+
+
+class TestGreetingDetection:
+    """Tests for greeting and conversational query detection."""
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            "hi",
+            "hello",
+            "hey",
+            "howdy",
+            "Hi!",
+            "Hello there",
+            "hey there",
+            "good morning",
+            "Good afternoon!",
+            "good evening",
+            "hiya",
+            "yo",
+            "sup",
+        ],
+    )
+    def test_greetings_detected(self, query: str) -> None:
+        """Simple greetings should be detected."""
+        assert is_greeting_or_conversational(query) is True
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            "thanks",
+            "thank you",
+            "thx",
+            "bye",
+            "goodbye",
+            "who are you",
+            "what can you do",
+            "what are you",
+            "help me",
+            "how do you work",
+            "introduce yourself",
+        ],
+    )
+    def test_conversational_detected(self, query: str) -> None:
+        """Conversational queries should be detected."""
+        assert is_greeting_or_conversational(query) is True
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            "show me the logs for checkout-service",
+            "analyze the trace for latency bottlenecks",
+            "find the root cause of the latency spike",
+            "check the status of payment-service",
+            "list all alerts",
+            "what metrics are available for CPU",
+        ],
+    )
+    def test_sre_queries_not_greetings(self, query: str) -> None:
+        """SRE-related queries should NOT be classified as greetings."""
+        assert is_greeting_or_conversational(query) is False
+
+    def test_empty_query_not_greeting(self) -> None:
+        """Empty queries should not be classified as greetings."""
+        assert is_greeting_or_conversational("") is False
+
+    def test_greeting_with_sre_context_not_greeting(self) -> None:
+        """Greeting combined with SRE keywords should not be a greeting."""
+        assert (
+            is_greeting_or_conversational("hi, show me the traces for payment-service")
+            is False
+        )
+
+    def test_thanks_with_signal_not_greeting(self) -> None:
+        """Conversational word with signal keywords should not be a greeting."""
+        assert is_greeting_or_conversational("thanks, now analyze the metrics") is False
+
+
+class TestGreetingRouting:
+    """Tests that greeting queries are routed to the GREETING tier."""
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            "hi",
+            "hello",
+            "hey there",
+            "good morning",
+            "thanks",
+            "who are you",
+            "what can you do",
+        ],
+    )
+    def test_greeting_routed_to_greeting_tier(self, query: str) -> None:
+        """Greetings should route to GREETING tier."""
+        result = classify_routing(query)
+        assert result.decision == RoutingDecision.GREETING
+
+    def test_greeting_tier_has_no_suggested_tools(self) -> None:
+        """GREETING tier should have empty suggested_tools."""
+        result = classify_routing("hello")
+        assert result.suggested_tools == ()
+
+    def test_greeting_tier_has_no_suggested_agent(self) -> None:
+        """GREETING tier should have empty suggested_agent."""
+        result = classify_routing("hey")
+        assert result.suggested_agent == ""
+
+    def test_sre_query_not_routed_to_greeting(self) -> None:
+        """SRE queries should not be routed to GREETING tier."""
+        result = classify_routing("show me the logs")
+        assert result.decision != RoutingDecision.GREETING

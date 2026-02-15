@@ -13,11 +13,14 @@ class RoutingDecision(str, Enum):
     """Top-level routing decision for the SRE agent orchestrator.
 
     Determines how to handle a user query:
+    - GREETING: Conversational messages (greetings, thanks, help) — respond directly
+      with no tool calls and a lightweight prompt for minimal latency.
     - DIRECT: Simple data retrieval — call individual tools (logs, metrics, traces, alerts).
     - SUB_AGENT: Analysis tasks — delegate to a specialist sub-agent.
     - COUNCIL: Complex multi-signal investigation — start a council meeting.
     """
 
+    GREETING = "greeting"
     DIRECT = "direct"
     SUB_AGENT = "sub_agent"
     COUNCIL = "council"
