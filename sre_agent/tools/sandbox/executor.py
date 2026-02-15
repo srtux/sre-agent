@@ -388,9 +388,12 @@ class SandboxExecutor:
                         and not has_file_name
                     ):
                         # stdout/stderr JSON envelope
+                        # The Vertex AI sandbox returns keys "msg_out" and
+                        # "msg_err" per the official documentation:
+                        # https://docs.cloud.google.com/agent-builder/agent-engine/code-execution/quickstart
                         json_output = json.loads(output_chunk.data.decode("utf-8"))
-                        stdout = json_output.get("stdout", "")
-                        stderr = json_output.get("stderr", "")
+                        stdout = json_output.get("msg_out", "")
+                        stderr = json_output.get("msg_err", "")
                     else:
                         # Output file
                         file_name = ""

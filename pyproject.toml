@@ -6,7 +6,7 @@ authors = [{ name = "SRT", email = "srtuxx@gmail.com" }]
 license = "Apache-2.0"
 readme = "README.md"
 dependencies = [
-    "google-cloud-aiplatform[adk,agent-engines]>=1.93.0",
+    "google-cloud-aiplatform[adk,agent-engines]>=1.112.0",
     "google-genai>=1.9.0",
     "opentelemetry-instrumentation-google-genai>=0.5.0",
     "pydantic>=2.10.6",
