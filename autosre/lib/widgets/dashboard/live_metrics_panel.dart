@@ -132,7 +132,12 @@ class LiveMetricsPanel extends StatelessWidget {
             ),
             // Syntax reference + inline help
             _buildSyntaxHelp(langIndex),
-            if (error != null) ErrorBanner(message: error),
+            if (error != null)
+              ErrorBanner(
+                message: error,
+                onDismiss: () => dashboardState
+                    .setError(DashboardDataType.metrics, null),
+              ),
             Expanded(
               child: isLoading && items.isEmpty
                   ? const ShimmerLoading(showChart: true)

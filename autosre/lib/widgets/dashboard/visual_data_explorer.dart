@@ -646,14 +646,14 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
   Widget _buildFiltersRow() {
     return Row(
       children: [
-        SizedBox(
+        const SizedBox(
           width: 80,
           child: Row(
             children: [
-              const Icon(Icons.filter_alt_rounded,
+              Icon(Icons.filter_alt_rounded,
                   size: 12, color: AppColors.secondaryPurple),
-              const SizedBox(width: 4),
-              const Text(
+              SizedBox(width: 4),
+              Text(
                 'Filters',
                 style: TextStyle(
                   fontSize: 10,
@@ -1470,8 +1470,8 @@ class _ExplorerChartPainter extends CustomPainter {
     }
 
     // Color scale legend at top-right
-    final scaleWidth = 80.0;
-    final scaleHeight = 8.0;
+    const scaleWidth = 80.0;
+    const scaleHeight = 8.0;
     final scaleX = area.right - scaleWidth;
     final scaleY = area.top - 16;
     for (var i = 0; i < scaleWidth.toInt(); i++) {

@@ -557,7 +557,7 @@ void main() {
         ),
       );
 
-      expect(find.text('AGENT CONSENSUS'), findsOneWidget);
+      expect(find.text('EXPERT CONSENSUS'), findsOneWidget);
       expect(find.text('Trace Analysis'), findsOneWidget);
       expect(find.text('Metrics Analysis'), findsOneWidget);
     });

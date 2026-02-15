@@ -166,6 +166,12 @@ class _DashboardPanelState extends State<DashboardPanel>
               dashboardState: widget.state,
               onPromptRequest: widget.onPromptRequest,
             );
+          case DashboardDataType.sql:
+            return LiveChartsPanel(
+              items: items,
+              dashboardState: widget.state,
+              onPromptRequest: widget.onPromptRequest,
+            );
         }
       },
     );

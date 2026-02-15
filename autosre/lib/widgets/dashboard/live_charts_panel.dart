@@ -15,7 +15,6 @@ import 'manual_query_bar.dart';
 import 'dashboard_card_wrapper.dart';
 import 'query_helpers.dart';
 import 'sql_results_table.dart';
-import 'visual_data_explorer.dart';
 import 'bigquery_sidebar.dart';
 
 /// Dashboard panel showing BigQuery SQL results and Vega-Lite charts.
@@ -43,9 +42,6 @@ class LiveChartsPanel extends StatefulWidget {
 class _LiveChartsPanelState extends State<LiveChartsPanel> {
   /// 0 = SQL Query, 1 = Agent Charts
   int _viewMode = 0;
-
-  /// 0 = Table view, 1 = Visual Explorer
-  int _resultsView = 0;
 
   bool _showSidebar = true;
 
@@ -174,7 +170,12 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
                   ),
                   // Syntax help
                   _buildSqlSyntaxHelp(),
-                  if (error != null) ErrorBanner(message: error),
+                  if (error != null)
+                    ErrorBanner(
+                      message: error,
+                      onDismiss: () => widget.dashboardState
+                          .setError(DashboardDataType.charts, null),
+                    ),
                   // Results area
                   if (isLoading && !hasResults)
                     const Expanded(child: ShimmerLoading())
@@ -319,81 +320,6 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
             ],
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildResultsViewToggle() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppColors.backgroundCard.withValues(alpha: 0.5),
-        border: Border(
-          bottom: BorderSide(
-            color: AppColors.surfaceBorder.withValues(alpha: 0.3),
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          _buildResultsViewChip('Table', Icons.table_chart_rounded, 0),
-          const SizedBox(width: 4),
-          _buildResultsViewChip('Visual Explorer', Icons.analytics_rounded, 1),
-          const Spacer(),
-          // Row count
-          ListenableBuilder(
-            listenable: widget.dashboardState,
-            builder: (context, _) {
-              return Text(
-                '${widget.dashboardState.bigQueryResults.length} rows',
-                style: TextStyle(
-                  fontSize: 10,
-                  color: AppColors.textMuted.withValues(alpha: 0.7),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildResultsViewChip(String label, IconData icon, int index) {
-    final isActive = _resultsView == index;
-    return GestureDetector(
-      onTap: () => setState(() => _resultsView = index),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: isActive
-              ? AppColors.primaryCyan.withValues(alpha: 0.15)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(
-            color: isActive
-                ? AppColors.primaryCyan.withValues(alpha: 0.3)
-                : AppColors.surfaceBorder.withValues(alpha: 0.2),
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 12,
-              color: isActive ? AppColors.primaryCyan : AppColors.textMuted,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                color: isActive ? AppColors.primaryCyan : AppColors.textMuted,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

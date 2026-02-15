@@ -2899,5 +2899,7 @@ _RailIconConfig _tabIconConfig(DashboardDataType type) {
       return const _RailIconConfig('Council', Icons.groups_rounded, AppColors.primaryTeal);
     case DashboardDataType.charts:
       return const _RailIconConfig('Charts', Icons.bar_chart_rounded, AppColors.primaryBlue);
+    case DashboardDataType.sql:
+      return const _RailIconConfig('SQL', Icons.storage_rounded, Colors.orange);
   }
 }

@@ -42,10 +42,22 @@ class CouncilDecisionCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // New Summary Header with Severity and Confidence
+          if (council != null) ...[
+            _buildSummaryHeader(council),
+            const SizedBox(height: 20),
+          ],
+
+          // Panel Status Overview Grid
+          if (council != null && council.panels.isNotEmpty) ...[
+            _buildPanelGrid(council.panels),
+            const SizedBox(height: 24),
+          ],
+
           // Vote Tally Section
           if (votes.isNotEmpty) ...[
             Text(
-              'AGENT CONSENSUS',
+              'EXPERT CONSENSUS',
               style: GoogleFonts.inter(
                 fontSize: 10,
                 fontWeight: FontWeight.w800,
@@ -59,7 +71,7 @@ class CouncilDecisionCard extends StatelessWidget {
               runSpacing: 16,
               children: votes.map((v) => _buildAgentVote(v)).toList(),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             Container(
               height: 1,
               decoration: BoxDecoration(
@@ -71,7 +83,7 @@ class CouncilDecisionCard extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
           ],
 
           // Content Body
@@ -105,7 +117,7 @@ class CouncilDecisionCard extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
 
           // Detailed Findings Section
           if (council != null && council.panels.isNotEmpty) ...[
@@ -171,6 +183,196 @@ class CouncilDecisionCard extends StatelessWidget {
     );
   }
 
+  Widget _buildSummaryHeader(CouncilSynthesisData council) {
+    final severityColor = _getSeverityColor(council.overallSeverity);
+    final confidencePercent = (council.overallConfidence * 100).toInt();
+
+    return Row(
+      children: [
+        // Severity Indicator
+        Expanded(
+          flex: 3,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: severityColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: severityColor.withValues(alpha: 0.2),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  council.overallSeverity == 'healthy'
+                    ? Icons.check_circle_rounded
+                    : (council.overallSeverity == 'critical'
+                        ? Icons.report_rounded
+                        : Icons.info_rounded),
+                  size: 16,
+                  color: severityColor,
+                ),
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'OVERALL SEVERITY',
+                      style: GoogleFonts.inter(
+                        fontSize: 8,
+                        fontWeight: FontWeight.w800,
+                        color: severityColor.withValues(alpha: 0.7),
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    Text(
+                      council.overallSeverity.toUpperCase(),
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: severityColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        // Confidence Indicator
+        Expanded(
+          flex: 2,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.backgroundDark.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: AppColors.surfaceBorder.withValues(alpha: 0.5),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'CONFIDENCE',
+                  style: GoogleFonts.inter(
+                    fontSize: 8,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textMuted,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(2),
+                        child: LinearProgressIndicator(
+                          value: council.overallConfidence,
+                          minHeight: 4,
+                          backgroundColor: AppColors.surfaceBorder.withValues(alpha: 0.3),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            council.overallConfidence > 0.8
+                              ? AppColors.primaryCyan
+                              : (council.overallConfidence > 0.5
+                                  ? AppColors.warning
+                                  : AppColors.error),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '$confidencePercent%',
+                      style: GoogleFonts.jetBrainsMono(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPanelGrid(List<PanelFinding> panels) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'PANEL STATUS',
+          style: GoogleFonts.inter(
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            color: AppColors.textMuted,
+            letterSpacing: 1.2,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: panels.map((p) => _buildPanelBadge(p)).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPanelBadge(PanelFinding panel) {
+    final severityColor = _getSeverityColor(panel.severity);
+    final icon = _getPanelIcon(panel.panel);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.backgroundDark.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: severityColor.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: severityColor),
+          const SizedBox(width: 8),
+          Text(
+            panel.panel.toUpperCase(),
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: severityColor,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: severityColor.withValues(alpha: 0.5),
+                  blurRadius: 4,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPanelFinding(PanelFinding finding) {
     final severityColor = _getSeverityColor(finding.severity);
     final icon = _getPanelIcon(finding.panel);
@@ -194,14 +396,28 @@ class CouncilDecisionCard extends StatelessWidget {
           ),
           child: Icon(icon, size: 14, color: severityColor),
         ),
-        title: Text(
-          finding.displayName.toUpperCase(),
-          style: GoogleFonts.inter(
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
-            letterSpacing: 0.5,
-          ),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                finding.displayName.toUpperCase(),
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+            Text(
+              '${(finding.confidence * 100).toInt()}%',
+              style: GoogleFonts.jetBrainsMono(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textMuted,
+              ),
+            ),
+          ],
         ),
         subtitle: Text(
           finding.summary,

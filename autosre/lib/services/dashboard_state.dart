@@ -547,6 +547,8 @@ class DashboardState extends ChangeNotifier {
         return DashboardDataType.council;
       case 'charts':
         return DashboardDataType.charts;
+      case 'sql':
+        return DashboardDataType.sql;
       default:
         return null;
     }

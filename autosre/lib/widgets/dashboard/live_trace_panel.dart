@@ -116,7 +116,12 @@ class _LiveTracePanelState extends State<LiveTracePanel> {
         ),
         // Syntax reference (collapsed by default)
         _buildSyntaxHelp(),
-        if (error != null) ErrorBanner(message: error),
+        if (error != null)
+          ErrorBanner(
+            message: error,
+            onDismiss: () => widget.dashboardState
+                .setError(DashboardDataType.traces, null),
+          ),
         // Content
         Expanded(
           child: isLoading && widget.items.isEmpty

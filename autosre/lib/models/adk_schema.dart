@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class SpanInfo {
   final String spanId;
   final String traceId;
@@ -325,9 +327,53 @@ class CouncilSynthesisData {
 
   factory CouncilSynthesisData.fromJson(Map<String, dynamic> json) {
     // The result may be nested under 'result' key from BaseToolResponse
-    final data = json.containsKey('result') && json['result'] is Map
+    var data = json.containsKey('result') && json['result'] is Map
         ? Map<String, dynamic>.from(json['result'] as Map)
         : json;
+
+    var synthesis = data['synthesis'] as String? ?? '';
+
+    // If synthesis contains a markdown JSON block, try to parse it
+    // This happens when the agent returns a JSON string as its synthesis
+    if (synthesis.contains('```json')) {
+      try {
+        final start = synthesis.indexOf('```json') + 7;
+        final end = synthesis.lastIndexOf('```');
+        if (end > start) {
+          final jsonStr = synthesis.substring(start, end).trim();
+          final nestedData = jsonDecode(jsonStr) as Map<String, dynamic>;
+
+          // Merge nested data into current data if fields are missing
+          // Prioritize nested fields for synthesis, panels, severity, confidence
+          if (nestedData.containsKey('synthesis')) {
+            synthesis = nestedData['synthesis'] as String? ?? synthesis;
+          }
+
+          // Use nested panels if current panels are empty
+          if ((data['panels'] == null || (data['panels'] as List).isEmpty) && nestedData['panels'] != null) {
+            data['panels'] = nestedData['panels'];
+          }
+
+          if (data['overall_severity'] == null || data['overall_severity'] == 'info') {
+            data['overall_severity'] = nestedData['overall_severity'];
+          }
+
+          if (data['overall_confidence'] == null || (data['overall_confidence'] as num?) == 0) {
+            data['overall_confidence'] = nestedData['overall_confidence'];
+          }
+
+          if (data['mode'] == null || data['mode'] == 'standard') {
+            data['mode'] = nestedData['mode'];
+          }
+
+          if (data['rounds'] == null || (data['rounds'] as num?) == 1) {
+            data['rounds'] = nestedData['rounds'];
+          }
+        }
+      } catch (e) {
+        // Fallback to original synthesis if parsing fails
+      }
+    }
 
     // Parse panels
     var panels = <PanelFinding>[];
@@ -352,7 +398,7 @@ class CouncilSynthesisData {
     }
 
     return CouncilSynthesisData(
-      synthesis: data['synthesis'] as String? ?? '',
+      synthesis: synthesis,
       overallSeverity: data['overall_severity'] as String? ?? 'info',
       overallConfidence:
           (data['overall_confidence'] as num?)?.toDouble() ?? 0.0,

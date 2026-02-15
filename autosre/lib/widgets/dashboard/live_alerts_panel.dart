@@ -56,7 +56,12 @@ class LiveAlertsPanel extends StatelessWidget {
             },
           ),
         ),
-        if (error != null) ErrorBanner(message: error),
+        if (error != null)
+          ErrorBanner(
+            message: error,
+            onDismiss: () => dashboardState
+                .setError(DashboardDataType.alerts, null),
+          ),
         // Content
         Expanded(
           child: isLoading && items.isEmpty
@@ -81,7 +86,7 @@ class LiveAlertsPanel extends StatelessWidget {
         final availableHeight = constraints.maxHeight;
         // If there's only one item, let it take up most of the screen
         // If multiple, use a standard tall height
-        final double itemHeight = items.length == 1
+        final itemHeight = items.length == 1
             ? (availableHeight - 32).clamp(600.0, 1500.0)
             : 600.0;
 

@@ -145,7 +145,12 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
         _buildInlineHint(),
         // Syntax reference panel
         if (_showSyntaxHelp) _buildSyntaxReference(),
-        if (error != null) ErrorBanner(message: error),
+        if (error != null)
+          ErrorBanner(
+            message: error,
+            onDismiss: () => widget.dashboardState
+                .setError(DashboardDataType.logs, null),
+          ),
         // Content
         if (isLoading && !hasData)
           const Expanded(child: ShimmerLoading())
