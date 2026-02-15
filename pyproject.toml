@@ -136,7 +136,7 @@ ignore = ["DEP001", "DEP004"]
 
 [tool.deptry.per_rule_ignores]
 DEP002 = ["grpcio", "requests", "opentelemetry-exporter-otlp-proto-grpc", "aiosqlite", "greenlet", "openinference-instrumentation-google-adk", "arize-otel", "nest-asyncio"]
-DEP003 = ["mcp", "pydantic_core", "proto"]
+DEP003 = ["mcp", "pydantic_core", "proto", "anyio"]
 
 [tool.agent-starter-pack]
 example_question = "Analyze traces and logs in project my-gcp-project to find performance issues"

@@ -25,7 +25,7 @@
         }
       ],
       "session_input": {
-        "app_name": "sre_agent",
+        "app_name": "projects/TEST_PROJECT_ID/locations/us-central1/reasoningEngines/sre-agent",
         "user_id": "test_user"
       }
     },
@@ -47,7 +47,9 @@
               { "name": "get_slo_status" },
               { "name": "query_promql" },
               { "name": "fetch_trace" },
-              { "name": "correlate_metrics_with_trace" }
+              {
+                "name": "correlate_metrics_with_traces_via_exemplars"
+              }
             ]
           }
         }

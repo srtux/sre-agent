@@ -34,7 +34,7 @@
         }
       ],
       "session_input": {
-        "app_name": "sre_agent",
+        "app_name": "projects/TEST_PROJECT_ID/locations/us-central1/reasoningEngines/sre-agent",
         "user_id": "test_user"
       }
     }

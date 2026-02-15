@@ -20,21 +20,6 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, cast
 
 import httpx
-
-# Compatibility for ExceptionGroup/BaseExceptionGroup in Python < 3.11
-if sys.version_info >= (3, 11):
-    _BaseExceptionGroup = BaseExceptionGroup  # type: ignore # noqa: F821
-    _ExceptionGroup = ExceptionGroup  # type: ignore # noqa: F821
-else:
-    try:
-        from anyio import (  # type: ignore
-            BaseExceptionGroup as _BaseExceptionGroup,
-        )
-        from anyio import ExceptionGroup as _ExceptionGroup  # type: ignore
-    except ImportError:
-        # Fallback if anyio not available (though it usually is in this project)
-        _BaseExceptionGroup = Exception
-        _ExceptionGroup = Exception
 from google.adk.tools import ToolContext  # type: ignore[attr-defined]
 from google.adk.tools.api_registry import ApiRegistry
 
@@ -47,6 +32,29 @@ from ..common import adk_tool
 from ..common.debug import log_auth_state, log_mcp_auth_state
 from ..config import get_tool_config_manager
 from .mock_mcp import MockMcpToolset
+
+# Compatibility for ExceptionGroup/BaseExceptionGroup in Python < 3.11
+_BaseExceptionGroup: Any
+_ExceptionGroup: Any
+
+if sys.version_info >= (3, 11):
+    _BaseExceptionGroup = BaseExceptionGroup  # type: ignore # noqa: F821
+    _ExceptionGroup = ExceptionGroup  # type: ignore # noqa: F821
+else:
+    try:
+        from anyio import (
+            BaseExceptionGroup as _AnyioBaseExceptionGroup,
+        )
+        from anyio import (
+            ExceptionGroup as _AnyioExceptionGroup,
+        )
+
+        _BaseExceptionGroup = _AnyioBaseExceptionGroup
+        _ExceptionGroup = _AnyioExceptionGroup
+    except ImportError:
+        # Fallback if anyio not available
+        _BaseExceptionGroup = Exception
+        _ExceptionGroup = Exception
 
 logger = logging.getLogger(__name__)
 
@@ -448,16 +456,7 @@ async def call_mcp_tool_with_retry(
                     "error_type": "MCP_UNAVAILABLE",
                 }
 
-            try:
-                tools = await mcp_toolset.get_tools()
-            except _BaseExceptionGroup as eg:
-                for sub_err in eg.exceptions:
-                    if isinstance(
-                        sub_err, httpx.HTTPStatusError
-                    ) or "Session terminated" in str(sub_err):
-                        actual_error = sub_err
-                        break
-                raise actual_error from eg
+            tools = await mcp_toolset.get_tools()
 
             for tool in tools:
                 if tool.name == tool_name:
@@ -466,21 +465,10 @@ async def call_mcp_tool_with_retry(
                         logger.info(
                             f"🔗 MCP Call: '{tool_name}' (Project: {project_id}) | Args: {args}"
                         )
-                        try:
-                            result = await asyncio.wait_for(
-                                tool.run_async(args=args, tool_context=tool_context),
-                                timeout=180.0,  # 180s timeout for tool execution
-                            )
-                        except _BaseExceptionGroup as eg:
-                            # streamable_http_client throws an ExceptionGroup if the network request fails due to 401
-                            actual_error: Exception = eg
-                            for sub_err in eg.exceptions:
-                                if isinstance(
-                                    sub_err, httpx.HTTPStatusError
-                                ) or "Session terminated" in str(sub_err):
-                                    actual_error = sub_err
-                                    break
-                            raise actual_error from eg
+                        result = await asyncio.wait_for(
+                            tool.run_async(args=args, tool_context=tool_context),
+                            timeout=180.0,  # 180s timeout for tool execution
+                        )
                         logger.info(f"✨ MCP Success: '{tool_name}'")
                         clear_mcp_tool_context()
                         return {
@@ -544,10 +532,6 @@ async def call_mcp_tool_with_retry(
                 f"MCP Tool execution failed: {tool_name} error={actual_error!s}",
                 exc_info=True,
             )
-            if hasattr(actual_error, "response") and hasattr(
-                actual_error.response, "text"
-            ):
-                logger.error(f"HTTP Response Body: {actual_error.response.text}")
 
             error_str = str(actual_error)
             is_session_error = "Session terminated" in error_str or (

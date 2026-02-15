@@ -105,6 +105,14 @@ metrics_analyzer = LlmAgent(
 )
 
 
+metrics_analyst = metrics_analyzer
+
+
 def get_metrics_analyzer() -> LlmAgent:
     """Returns the metrics_analyzer sub-agent."""
+    return metrics_analyzer
+
+
+def get_metrics_analyst() -> LlmAgent:
+    """Alias for get_metrics_analyzer."""
     return metrics_analyzer

@@ -91,10 +91,11 @@ from .sub_agents import (
     aggregate_analyzer,
     # Alert analysis sub-agents
     alert_analyst,
-    # Metrics analysis sub-agents
+    get_metrics_analyst,
     get_metrics_analyzer,
     # Log analysis sub-agents
     log_analyst,
+    metrics_analyst,
     metrics_analyzer,
     root_cause_analyst,
     trace_analyst,
@@ -1618,7 +1619,9 @@ aggregate_analyzer = emojify_agent(aggregate_analyzer)  # type: ignore[assignmen
 trace_analyst = emojify_agent(trace_analyst)  # type: ignore[assignment]
 log_analyst = emojify_agent(log_analyst)  # type: ignore[assignment]
 metrics_analyzer = emojify_agent(metrics_analyzer)  # type: ignore[assignment]
+metrics_analyst = emojify_agent(metrics_analyst)  # type: ignore[assignment]
 get_metrics_analyzer = emojify_agent(get_metrics_analyzer)  # type: ignore[assignment]
+get_metrics_analyst = emojify_agent(get_metrics_analyst)  # type: ignore[assignment]
 alert_analyst = emojify_agent(alert_analyst)  # type: ignore[assignment]
 
 root_cause_analyst = emojify_agent(root_cause_analyst)  # type: ignore[assignment]
@@ -1727,6 +1730,7 @@ for _sa in [
     aggregate_analyzer,
     trace_analyst,
     log_analyst,
+    metrics_analyst,
     metrics_analyzer,
     alert_analyst,
     root_cause_analyst,
