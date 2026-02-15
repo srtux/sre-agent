@@ -7,6 +7,7 @@ and eval config construction used across all eval test modules.
 import json
 import os
 from pathlib import Path
+from typing import Any, Callable, TypeVar, cast
 
 import pytest
 from dotenv import load_dotenv
@@ -45,12 +46,17 @@ def has_eval_credentials() -> bool:
     return has_api_key or has_vertexai
 
 
-requires_credentials = pytest.mark.skipif(
-    not has_eval_credentials(),
-    reason=(
-        "Evaluation tests require Google AI API key or Vertex AI credentials. "
-        "Set GOOGLE_API_KEY or "
-        "(GOOGLE_CLOUD_PROJECT + GOOGLE_CLOUD_LOCATION + GOOGLE_GENAI_USE_VERTEXAI)."
+T = TypeVar("T", bound=Callable[..., Any])
+
+requires_credentials = cast(
+    Callable[[T], T],
+    pytest.mark.skipif(
+        not has_eval_credentials(),
+        reason=(
+            "Evaluation tests require Google AI API key or Vertex AI credentials. "
+            "Set GOOGLE_API_KEY or "
+            "(GOOGLE_CLOUD_PROJECT + GOOGLE_CLOUD_LOCATION + GOOGLE_GENAI_USE_VERTEXAI)."
+        ),
     ),
 )
 
@@ -86,7 +92,7 @@ def load_eval_set(file_name: str) -> EvalSet:
         return EvalSet.parse_obj(eval_data)
 
 
-def load_eval_config() -> dict:
+def load_eval_config() -> dict[str, Any]:
     """Load the shared evaluation criteria from ``test_config.json``.
 
     Returns:
@@ -94,7 +100,7 @@ def load_eval_config() -> dict:
     """
     config_path = EVAL_DIR / "test_config.json"
     with open(config_path) as f:
-        return json.load(f)["criteria"]
+        return cast(dict[str, Any], json.load(f)["criteria"])
 
 
 def make_tool_trajectory_config(

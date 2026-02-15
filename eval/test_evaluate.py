@@ -30,7 +30,7 @@ from google.adk.evaluation.eval_config import EvalConfig
 
 @requires_credentials
 @pytest.mark.asyncio
-async def test_agent_capabilities():
+async def test_agent_capabilities() -> None:
     """Verify the agent can describe its own capabilities coherently."""
     eval_set = load_eval_set("basic_capabilities.test.json")
     config = EvalConfig(criteria={"response_match_score": 0.6})
@@ -53,7 +53,7 @@ async def test_agent_capabilities():
 @pytest.mark.xfail(
     reason="Agent may ask for clarification even when Project ID is provided"
 )
-async def test_tool_selection():
+async def test_tool_selection() -> None:
     """Verify correct tool selection for trace, log, and metric queries."""
     eval_set = load_eval_set("tool_selection.test.json")
     config = make_tool_trajectory_config(trajectory_score=0.8)
@@ -73,7 +73,7 @@ async def test_tool_selection():
 
 @requires_credentials
 @pytest.mark.asyncio
-async def test_metrics_analysis():
+async def test_metrics_analysis() -> None:
     """Verify metric querying and anomaly detection capabilities."""
     eval_set = load_eval_set("metrics_analysis.test.json")
     config = make_tool_trajectory_config(trajectory_score=0.8)
@@ -93,7 +93,7 @@ async def test_metrics_analysis():
 
 @requires_credentials
 @pytest.mark.asyncio
-async def test_incident_investigation():
+async def test_incident_investigation() -> None:
     """Verify multi-stage latency investigation (Aggregate > Triage > Deep Dive)."""
     eval_set = load_eval_set("incident_investigation.test.json")
     config = make_tool_trajectory_config(trajectory_score=0.8)
@@ -113,7 +113,7 @@ async def test_incident_investigation():
 
 @requires_credentials
 @pytest.mark.asyncio
-async def test_error_diagnosis():
+async def test_error_diagnosis() -> None:
     """Verify diagnosis of DB pool exhaustion, cascading timeouts, and OOM kills."""
     eval_set = load_eval_set("error_diagnosis.test.json")
     config = make_full_config()
@@ -133,7 +133,7 @@ async def test_error_diagnosis():
 
 @requires_credentials
 @pytest.mark.asyncio
-async def test_multi_signal_correlation():
+async def test_multi_signal_correlation() -> None:
     """Verify cross-signal correlation for deployment regressions and SLO degradation."""
     eval_set = load_eval_set("multi_signal_correlation.test.json")
     config = make_full_config()
@@ -153,7 +153,7 @@ async def test_multi_signal_correlation():
 
 @requires_credentials
 @pytest.mark.asyncio
-async def test_kubernetes_debugging():
+async def test_kubernetes_debugging() -> None:
     """Verify GKE debugging: pod crashloops, node pressure, HPA scaling failures."""
     eval_set = load_eval_set("kubernetes_debugging.test.json")
     config = make_tool_trajectory_config(trajectory_score=0.8)
@@ -173,7 +173,7 @@ async def test_kubernetes_debugging():
 
 @requires_credentials
 @pytest.mark.asyncio
-async def test_slo_burn_rate():
+async def test_slo_burn_rate() -> None:
     """Verify error budget exhaustion detection and multi-window SLO analysis."""
     eval_set = load_eval_set("slo_burn_rate.test.json")
     config = make_tool_trajectory_config(trajectory_score=0.8)
@@ -193,7 +193,7 @@ async def test_slo_burn_rate():
 
 @requires_credentials
 @pytest.mark.asyncio
-async def test_failure_modes():
+async def test_failure_modes() -> None:
     """Verify graceful handling of invalid projects, fake metrics, rate limits, and cascading failures."""
     eval_set = load_eval_set("failure_modes.test.json")
     # Failure mode tests focus on response quality (graceful degradation)
