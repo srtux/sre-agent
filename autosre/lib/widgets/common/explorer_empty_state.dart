@@ -121,7 +121,10 @@ class ExplorerEmptyState extends StatelessWidget {
   }
 
   Widget _buildRunQueryButton() {
-    return DecoratedBox(
+    return Semantics(
+      button: true,
+      label: 'Run query',
+      child: DecoratedBox(
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [AppColors.primaryTeal, AppColors.primaryCyan],
@@ -167,6 +170,7 @@ class ExplorerEmptyState extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }

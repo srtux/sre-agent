@@ -1,8 +1,8 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'auth_service.dart';
+import 'service_config.dart';
 
 /// Model for a help topic fetched from the backend docs repository.
 class HelpTopic {
@@ -85,12 +85,7 @@ class HelpService {
       : _clientFactory = clientFactory ??
             (() async => await AuthService.instance.getAuthenticatedClient());
 
-  String get _baseUrl {
-    if (kDebugMode) {
-      return 'http://127.0.0.1:8001';
-    }
-    return '';
-  }
+  String get _baseUrl => ServiceConfig.baseUrl;
 
   final Map<String, String> _contentCache = {};
 
@@ -98,13 +93,23 @@ class HelpService {
   Future<List<HelpTopic>> fetchTopics() async {
     try {
       final client = await _clientFactory();
-      final response = await client.get(Uri.parse('$_baseUrl/api/help/manifest'));
+      try {
+        final response = await client
+            .get(Uri.parse('$_baseUrl/api/help/manifest'))
+            .timeout(ServiceConfig.defaultTimeout);
 
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((item) => HelpTopic.fromJson(item)).toList();
-      } else {
-        throw Exception('Failed to load help manifest: ${response.statusCode}');
+        if (response.statusCode == 200) {
+          final List<dynamic> data = jsonDecode(response.body);
+          return data
+              .map((item) =>
+                  HelpTopic.fromJson(item as Map<String, dynamic>))
+              .toList();
+        } else {
+          throw Exception(
+              'Failed to load help manifest: ${response.statusCode}');
+        }
+      } finally {
+        client.close();
       }
     } catch (e) {
       debugPrint('Error fetching help topics: $e');
@@ -120,14 +125,21 @@ class HelpService {
 
     try {
       final client = await _clientFactory();
-      final response = await client.get(Uri.parse('$_baseUrl/api/help/content/$topicId'));
+      try {
+        final response = await client
+            .get(Uri.parse('$_baseUrl/api/help/content/$topicId'))
+            .timeout(ServiceConfig.defaultTimeout);
 
-      if (response.statusCode == 200) {
-        final content = response.body;
-        _contentCache[topicId] = content;
-        return content;
-      } else {
-        throw Exception('Failed to load help content: ${response.statusCode}');
+        if (response.statusCode == 200) {
+          final content = response.body;
+          _contentCache[topicId] = content;
+          return content;
+        } else {
+          throw Exception(
+              'Failed to load help content: ${response.statusCode}');
+        }
+      } finally {
+        client.close();
       }
     } catch (e) {
       debugPrint('Error fetching help content for $topicId: $e');

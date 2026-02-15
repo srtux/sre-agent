@@ -106,6 +106,9 @@ DashboardDataType? classifyComponent(String componentType) {
 /// Collects tool call results from the A2UI stream and makes them
 /// available as categorized, interactive data panels.
 class DashboardState extends ChangeNotifier {
+  /// Maximum number of dashboard items to retain (oldest evicted first).
+  static const int _maxItems = 200;
+
   final List<DashboardItem> _items = [];
   int _itemCounter = 0;
 
@@ -167,7 +170,7 @@ class DashboardState extends ChangeNotifier {
     _bigQueryColumns = columns;
     _bigQueryResults = flattenedRows;
 
-    _items.add(DashboardItem(
+    _addItemBounded(DashboardItem(
       id: 'sql-$_itemCounter',
       type: DashboardDataType.sql,
       toolName: toolName,
@@ -205,6 +208,14 @@ class DashboardState extends ChangeNotifier {
   bool get autoRefresh => _autoRefresh;
   Timer? _refreshTimer;
   VoidCallback? _onAutoRefresh;
+
+  /// Appends an item to [_items] and evicts oldest items if over [_maxItems].
+  void _addItemBounded(DashboardItem item) {
+    _items.add(item);
+    if (_items.length > _maxItems) {
+      _items.removeRange(0, _items.length - _maxItems);
+    }
+  }
 
   /// All collected items.
   List<DashboardItem> get items => List.unmodifiable(_items);
@@ -262,7 +273,7 @@ class DashboardState extends ChangeNotifier {
   void addTrace(Trace trace, String toolName, Map<String, dynamic> raw,
       {DataSource source = DataSource.agent}) {
     _itemCounter++;
-    _items.add(DashboardItem(
+    _addItemBounded(DashboardItem(
       id: 'trace-$_itemCounter',
       type: DashboardDataType.traces,
       toolName: toolName,
@@ -279,7 +290,7 @@ class DashboardState extends ChangeNotifier {
       Map<String, dynamic> raw,
       {DataSource source = DataSource.agent}) {
     _itemCounter++;
-    _items.add(DashboardItem(
+    _addItemBounded(DashboardItem(
       id: 'logs-$_itemCounter',
       type: DashboardDataType.logs,
       toolName: toolName,
@@ -296,7 +307,7 @@ class DashboardState extends ChangeNotifier {
       Map<String, dynamic> raw,
       {DataSource source = DataSource.agent}) {
     _itemCounter++;
-    _items.add(DashboardItem(
+    _addItemBounded(DashboardItem(
       id: 'log-patterns-$_itemCounter',
       type: DashboardDataType.logs,
       toolName: toolName,
@@ -313,7 +324,7 @@ class DashboardState extends ChangeNotifier {
       Map<String, dynamic> raw,
       {DataSource source = DataSource.agent}) {
     _itemCounter++;
-    _items.add(DashboardItem(
+    _addItemBounded(DashboardItem(
       id: 'metric-$_itemCounter',
       type: DashboardDataType.metrics,
       toolName: toolName,
@@ -330,7 +341,7 @@ class DashboardState extends ChangeNotifier {
       Map<String, dynamic> raw,
       {DataSource source = DataSource.agent}) {
     _itemCounter++;
-    _items.add(DashboardItem(
+    _addItemBounded(DashboardItem(
       id: 'metrics-dashboard-$_itemCounter',
       type: DashboardDataType.metrics,
       toolName: toolName,
@@ -347,7 +358,7 @@ class DashboardState extends ChangeNotifier {
       Map<String, dynamic> raw,
       {DataSource source = DataSource.agent}) {
     _itemCounter++;
-    _items.add(DashboardItem(
+    _addItemBounded(DashboardItem(
       id: 'alert-$_itemCounter',
       type: DashboardDataType.alerts,
       toolName: toolName,
@@ -364,7 +375,7 @@ class DashboardState extends ChangeNotifier {
       Map<String, dynamic> raw,
       {DataSource source = DataSource.agent}) {
     _itemCounter++;
-    _items.add(DashboardItem(
+    _addItemBounded(DashboardItem(
       id: 'remediation-$_itemCounter',
       type: DashboardDataType.remediation,
       toolName: toolName,
@@ -380,7 +391,7 @@ class DashboardState extends ChangeNotifier {
   void addChart(VegaChartData data, String toolName, Map<String, dynamic> raw,
       {DataSource source = DataSource.agent}) {
     _itemCounter++;
-    _items.add(DashboardItem(
+    _addItemBounded(DashboardItem(
       id: 'chart-$_itemCounter',
       type: DashboardDataType.charts,
       toolName: toolName,
@@ -397,7 +408,7 @@ class DashboardState extends ChangeNotifier {
       Map<String, dynamic> raw,
       {DataSource source = DataSource.agent}) {
     _itemCounter++;
-    _items.add(DashboardItem(
+    _addItemBounded(DashboardItem(
       id: 'council-$_itemCounter',
       type: DashboardDataType.council,
       toolName: toolName,
@@ -451,6 +462,10 @@ class DashboardState extends ChangeNotifier {
   /// This is the primary way to feed data into the dashboard. Events have
   /// the shape: `{category, widget_type, tool_name, data}`.
   /// Returns true if data was added successfully.
+  ///
+  /// Uses a single [notifyListeners] call at the end to avoid excessive
+  /// widget rebuilds (the individual add* helpers each call notifyListeners,
+  /// so we use the private _addItem* variants here).
   bool addFromEvent(Map<String, dynamic> event) {
     final category = event['category'] as String?;
     final toolName = event['tool_name'] as String? ?? 'unknown';
@@ -468,49 +483,60 @@ class DashboardState extends ChangeNotifier {
     }
 
     try {
+      // Parse and add items WITHOUT individual notifyListeners calls.
+      // A single notifyListeners is fired at the end of this method.
       switch (widgetType) {
         case 'x-sre-trace-waterfall':
           final trace = Trace.fromJson(dataMap);
           if (trace.spans.isEmpty) return false;
-          addTrace(trace, toolName, dataMap);
+          _addItemSilent(DashboardDataType.traces, toolName, dataMap,
+              traceData: trace);
 
         case 'x-sre-log-entries-viewer':
           final logData = LogEntriesData.fromJson(dataMap);
           if (logData.entries.isEmpty) return false;
-          addLogEntries(logData, toolName, dataMap);
+          _addItemSilent(DashboardDataType.logs, toolName, dataMap,
+              logData: logData);
 
         case 'x-sre-log-pattern-viewer':
           final patterns = _parseLogPatterns(dataMap);
           if (patterns.isEmpty) return false;
-          addLogPatterns(patterns, toolName, dataMap);
+          _addItemSilent(DashboardDataType.logs, toolName, dataMap,
+              logPatterns: patterns);
 
         case 'x-sre-metric-chart':
           final series = MetricSeries.fromJson(dataMap);
           if (series.points.isEmpty) return false;
-          addMetricSeries(series, toolName, dataMap);
+          _addItemSilent(DashboardDataType.metrics, toolName, dataMap,
+              metricSeries: series);
 
         case 'x-sre-metrics-dashboard':
           final metricsData = MetricsDashboardData.fromJson(dataMap);
           if (metricsData.metrics.isEmpty) return false;
-          addMetricsDashboard(metricsData, toolName, dataMap);
+          _addItemSilent(DashboardDataType.metrics, toolName, dataMap,
+              metricsDashboard: metricsData);
 
         case 'x-sre-incident-timeline':
           final timelineData = IncidentTimelineData.fromJson(dataMap);
           if (timelineData.events.isEmpty) return false;
-          addAlerts(timelineData, toolName, dataMap);
+          _addItemSilent(DashboardDataType.alerts, toolName, dataMap,
+              alertData: timelineData);
 
         case 'x-sre-remediation-plan':
           final plan = RemediationPlan.fromJson(dataMap);
           if (plan.steps.isEmpty) return false;
-          addRemediation(plan, toolName, dataMap);
+          _addItemSilent(DashboardDataType.remediation, toolName, dataMap,
+              remediationPlan: plan);
 
         case 'x-sre-council-synthesis':
           final council = CouncilSynthesisData.fromJson(dataMap);
-          addCouncilSynthesis(council, toolName, dataMap);
+          _addItemSilent(DashboardDataType.council, toolName, dataMap,
+              councilData: council);
 
         case 'x-sre-vega-chart':
           final chart = VegaChartData.fromJson(dataMap);
-          addChart(chart, toolName, dataMap);
+          _addItemSilent(DashboardDataType.charts, toolName, dataMap,
+              chartData: chart);
 
         default:
           debugPrint('Unknown dashboard widget_type: $widgetType');
@@ -520,15 +546,53 @@ class DashboardState extends ChangeNotifier {
       // Auto-open dashboard on first data
       final dashType = _categoryFromString(category);
       if (dashType != null && !_isOpen) {
-        openDashboard();
-        setActiveTab(dashType);
+        _isOpen = true;
+        _activeTab = dashType;
       }
 
+      // Single notification for the entire event processing.
+      notifyListeners();
       return true;
     } catch (e) {
       debugPrint('Error processing dashboard event: $e');
       return false;
     }
+  }
+
+  /// Adds a DashboardItem without calling notifyListeners.
+  /// Used by [addFromEvent] to batch multiple state changes.
+  void _addItemSilent(
+    DashboardDataType type,
+    String toolName,
+    Map<String, dynamic> rawData, {
+    Trace? traceData,
+    LogEntriesData? logData,
+    List<LogPattern>? logPatterns,
+    MetricSeries? metricSeries,
+    MetricsDashboardData? metricsDashboard,
+    IncidentTimelineData? alertData,
+    RemediationPlan? remediationPlan,
+    CouncilSynthesisData? councilData,
+    VegaChartData? chartData,
+  }) {
+    _itemCounter++;
+    final prefix = type.name;
+    _addItemBounded(DashboardItem(
+      id: '$prefix-$_itemCounter',
+      type: type,
+      toolName: toolName,
+      timestamp: DateTime.now(),
+      rawData: rawData,
+      traceData: traceData,
+      logData: logData,
+      logPatterns: logPatterns,
+      metricSeries: metricSeries,
+      metricsDashboard: metricsDashboard,
+      alertData: alertData,
+      remediationPlan: remediationPlan,
+      councilData: councilData,
+      chartData: chartData,
+    ));
   }
 
   static DashboardDataType? _categoryFromString(String category) {

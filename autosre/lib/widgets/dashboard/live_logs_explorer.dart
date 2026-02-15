@@ -7,6 +7,7 @@ import '../../models/adk_schema.dart';
 import '../../services/dashboard_state.dart';
 import '../../services/explorer_query_service.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/design_tokens.dart';
 import '../../utils/ansi_parser.dart';
 import '../common/error_banner.dart';
 import '../common/explorer_empty_state.dart';
@@ -548,7 +549,7 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
                       margin: const EdgeInsets.only(top: 6, left: 56),
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0F172A),
+                        color: AppColors.backgroundDark,
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(
                           color: Colors.white.withValues(alpha: 0.08),
@@ -586,7 +587,7 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
       case 'CRITICAL':
       case 'EMERGENCY':
       case 'ALERT':
-        return const Color(0xFFFF1744);
+        return SeverityColors.critical;
       case 'ERROR':
         return AppColors.error;
       case 'WARNING':

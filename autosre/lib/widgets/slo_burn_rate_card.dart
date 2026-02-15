@@ -1,91 +1,10 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import 'burn_rate_window_row.dart';
+import 'slo_burn_rate_data.dart';
 
-/// Severity levels for SLO burn rate analysis.
-enum BurnRateSeverity { ok, warning, critical }
-
-/// A single burn-rate analysis window.
-class BurnRateWindow {
-  final String name;
-  final String label;
-  final double burnRate;
-  final double threshold;
-  final bool alertTriggered;
-  final Duration windowDuration;
-
-  const BurnRateWindow({
-    required this.name,
-    required this.label,
-    required this.burnRate,
-    required this.threshold,
-    required this.alertTriggered,
-    required this.windowDuration,
-  });
-
-  factory BurnRateWindow.fromJson(Map<String, dynamic> json) {
-    return BurnRateWindow(
-      name: json['name'] as String? ?? 'unknown',
-      label: json['label'] as String? ?? 'Unknown Window',
-      burnRate: (json['burn_rate'] as num?)?.toDouble() ?? 0.0,
-      threshold: (json['threshold'] as num?)?.toDouble() ?? 1.0,
-      alertTriggered: json['alert_triggered'] as bool? ?? false,
-      windowDuration: Duration(
-        minutes: (json['window_minutes'] as num?)?.toInt() ?? 60,
-      ),
-    );
-  }
-}
-
-/// Data model for SLO burn rate analysis.
-class SloBurnRateData {
-  final String sloName;
-  final double targetPercentage;
-  final BurnRateSeverity severity;
-  final double errorBudgetRemainingFraction;
-  final double? hoursToExhaustion;
-  final List<BurnRateWindow> windows;
-  final String? summary;
-
-  const SloBurnRateData({
-    required this.sloName,
-    required this.targetPercentage,
-    required this.severity,
-    required this.errorBudgetRemainingFraction,
-    this.hoursToExhaustion,
-    required this.windows,
-    this.summary,
-  });
-
-  factory SloBurnRateData.fromJson(Map<String, dynamic> json) {
-    final severityStr = (json['severity'] as String? ?? 'ok').toLowerCase();
-    final BurnRateSeverity severity;
-    switch (severityStr) {
-      case 'critical':
-        severity = BurnRateSeverity.critical;
-      case 'warning':
-        severity = BurnRateSeverity.warning;
-      default:
-        severity = BurnRateSeverity.ok;
-    }
-
-    final windowsList = json['windows'] as List<dynamic>? ?? [];
-
-    return SloBurnRateData(
-      sloName: json['slo_name'] as String? ?? 'SLO',
-      targetPercentage:
-          (json['target_percentage'] as num?)?.toDouble() ?? 99.9,
-      severity: severity,
-      errorBudgetRemainingFraction:
-          (json['error_budget_remaining_fraction'] as num?)?.toDouble() ?? 1.0,
-      hoursToExhaustion:
-          (json['hours_to_exhaustion'] as num?)?.toDouble(),
-      windows: windowsList
-          .map((w) => BurnRateWindow.fromJson(Map<String, dynamic>.from(w)))
-          .toList(),
-      summary: json['summary'] as String?,
-    );
-  }
-}
+// Re-export data models for backward compatibility.
+export 'slo_burn_rate_data.dart';
 
 /// Displays SLO multi-window burn rate analysis with a Deep Space aesthetic.
 class SloBurnRateCard extends StatefulWidget {
@@ -101,7 +20,6 @@ class _SloBurnRateCardState extends State<SloBurnRateCard>
     with SingleTickerProviderStateMixin {
   late AnimationController _animController;
   late Animation<double> _animation;
-  final Set<int> _expandedWindows = {};
 
   @override
   void initState() {
@@ -154,16 +72,6 @@ class _SloBurnRateCardState extends State<SloBurnRateCard>
       case BurnRateSeverity.ok:
         return 'OK';
     }
-  }
-
-  String _formatDuration(Duration d) {
-    if (d.inHours >= 24) {
-      final days = d.inDays;
-      return '${days}d';
-    } else if (d.inHours > 0) {
-      return '${d.inHours}h';
-    }
-    return '${d.inMinutes}m';
   }
 
   @override
@@ -223,7 +131,7 @@ class _SloBurnRateCardState extends State<SloBurnRateCard>
                   child: AnimatedSlide(
                     duration: const Duration(milliseconds: 300),
                     offset: Offset(0, (1 - animValue) * 0.1),
-                    child: _buildWindowRow(data.windows[index], index),
+                    child: BurnRateWindowRow(window: data.windows[index]),
                   ),
                 );
               }),
@@ -511,229 +419,6 @@ class _SloBurnRateCardState extends State<SloBurnRateCard>
                 height: 1.5,
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWindowRow(BurnRateWindow window, int index) {
-    final isExpanded = _expandedWindows.contains(index);
-    final isTriggered = window.alertTriggered;
-    final burnRatio = (window.burnRate / window.threshold).clamp(0.0, 2.0);
-
-    final Color windowColor;
-    if (isTriggered) {
-      windowColor = AppColors.error;
-    } else if (burnRatio > 0.7) {
-      windowColor = AppColors.warning;
-    } else {
-      windowColor = AppColors.success;
-    }
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: GlassDecoration.card(
-        borderRadius: 10,
-        borderColor:
-            isTriggered ? AppColors.error.withValues(alpha: 0.3) : null,
-      ),
-      child: Column(
-        children: [
-          InkWell(
-            onTap: () {
-              setState(() {
-                if (_expandedWindows.contains(index)) {
-                  _expandedWindows.remove(index);
-                } else {
-                  _expandedWindows.add(index);
-                }
-              });
-            },
-            borderRadius: BorderRadius.circular(10),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  // Alert status indicator
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: windowColor,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        if (isTriggered)
-                          BoxShadow(
-                            color: windowColor.withValues(alpha: 0.6),
-                            blurRadius: 6,
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-
-                  // Window label
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          window.label,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          _formatDuration(window.windowDuration),
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: AppColors.textMuted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Burn rate value
-                  Text(
-                    '${window.burnRate.toStringAsFixed(2)}x',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      fontFamily: 'monospace',
-                      color: windowColor,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-
-                  // Alert triggered badge
-                  if (isTriggered)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.error.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: AppColors.error.withValues(alpha: 0.3),
-                        ),
-                      ),
-                      child: const Text(
-                        'ALERT',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.error,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ),
-
-                  const SizedBox(width: 6),
-
-                  // Expand chevron
-                  AnimatedRotation(
-                    duration: const Duration(milliseconds: 200),
-                    turns: isExpanded ? 0.5 : 0,
-                    child: const Icon(
-                      Icons.expand_more,
-                      size: 18,
-                      color: AppColors.textMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Expanded details
-          AnimatedCrossFade(
-            duration: const Duration(milliseconds: 200),
-            firstChild: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Burn rate bar
-                  Row(
-                    children: [
-                      const Text(
-                        'Burn Rate',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: AppColors.textMuted,
-                        ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        'Threshold: ${window.threshold.toStringAsFixed(1)}x',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: AppColors.textMuted,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Stack(
-                    children: [
-                      Container(
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                      ),
-                      LayoutBuilder(
-                        builder: (context, constraints) {
-                          final barWidth = constraints.maxWidth *
-                              (burnRatio / 2.0).clamp(0.0, 1.0);
-                          return Container(
-                            height: 6,
-                            width: barWidth,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  windowColor,
-                                  windowColor.withValues(alpha: 0.7),
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                          );
-                        },
-                      ),
-                      // Threshold marker
-                      LayoutBuilder(
-                        builder: (context, constraints) {
-                          final markerPos = constraints.maxWidth *
-                              (window.threshold / (window.threshold * 2.0))
-                                  .clamp(0.0, 1.0);
-                          return Positioned(
-                            left: markerPos,
-                            child: Container(
-                              width: 2,
-                              height: 6,
-                              color: AppColors.textSecondary,
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            secondChild: const SizedBox.shrink(),
-            crossFadeState: isExpanded
-                ? CrossFadeState.showFirst
-                : CrossFadeState.showSecond,
           ),
         ],
       ),

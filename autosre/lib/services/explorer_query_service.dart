@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../models/adk_schema.dart';
 import '../models/time_range.dart';
 import 'dashboard_state.dart';
+import 'service_config.dart';
 
 /// Service for executing manual telemetry queries from the explorer UI.
 ///
@@ -22,7 +23,7 @@ class ExplorerQueryService {
     String? baseUrl,
   })  : _dashboardState = dashboardState,
         _clientFactory = clientFactory,
-        _baseUrl = baseUrl ?? (kDebugMode ? 'http://127.0.0.1:8001' : '');
+        _baseUrl = baseUrl ?? ServiceConfig.baseUrl;
 
   /// Query time-series metrics.
   Future<void> queryMetrics({
@@ -296,7 +297,7 @@ class ExplorerQueryService {
         Uri.parse('$_baseUrl$path'),
         headers: {'Content-Type': 'application/json'},
         body: body,
-      ).timeout(const Duration(seconds: 30));
+      ).timeout(ServiceConfig.defaultTimeout);
       if (response.statusCode != 200) {
         throw Exception('API error ${response.statusCode}: ${response.body}');
       }
@@ -316,7 +317,7 @@ class ExplorerQueryService {
       }
       final response = await client.get(
         Uri.parse(url),
-      ).timeout(const Duration(seconds: 30));
+      ).timeout(ServiceConfig.defaultTimeout);
       if (response.statusCode != 200) {
         throw Exception('API error ${response.statusCode}: ${response.body}');
       }

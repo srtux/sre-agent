@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/adk_schema.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/design_tokens.dart';
 
 /// Alerts Dashboard Canvas - A premium, list-based view of active alerts.
 class AlertsDashboardCanvas extends StatefulWidget {
@@ -90,7 +91,7 @@ class _AlertsDashboardCanvasState extends State<AlertsDashboardCanvas> {
             children: [
               _buildStatChip('Critical', critical, AppColors.error),
               const SizedBox(width: 8),
-              _buildStatChip('High', high, const Color(0xFFFF6B6B)),
+              _buildStatChip('High', high, SeverityColors.high),
               const SizedBox(width: 8),
               _buildStatChip('Warning', warning, AppColors.warning),
               const Spacer(),
@@ -203,7 +204,7 @@ class _AlertCardState extends State<_AlertCard> {
       case 'critical':
         return AppColors.error;
       case 'high':
-        return const Color(0xFFFF6B6B);
+        return SeverityColors.high;
       case 'medium':
         return AppColors.warning;
       case 'low':

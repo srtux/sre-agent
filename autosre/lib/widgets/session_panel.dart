@@ -439,7 +439,11 @@ class _SessionItemState extends State<_SessionItem> {
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
+    return Semantics(
+      button: true,
+      selected: widget.isSelected,
+      label: 'Session: ${widget.session.title}',
+      child: MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: Padding(
@@ -543,6 +547,7 @@ class _SessionItemState extends State<_SessionItem> {
           ),
         ),
       ),
+    ),
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/adk_schema.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/design_tokens.dart';
 
 
 
@@ -64,7 +65,7 @@ class _IncidentTimelineCanvasState extends State<IncidentTimelineCanvas>
       case 'critical':
         return AppColors.error;
       case 'high':
-        return const Color(0xFFFF6B6B);
+        return SeverityColors.high;
       case 'medium':
         return AppColors.warning;
       case 'low':

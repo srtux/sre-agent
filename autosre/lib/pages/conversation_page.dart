@@ -1,36 +1,29 @@
-import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:genui/genui.dart';
-
 import 'package:provider/provider.dart';
 
-import '../services/auth_service.dart';
-import '../services/prompt_history_service.dart';
-
 import '../agent/adk_content_generator.dart';
-import '../catalog.dart';
-import '../models/adk_schema.dart';
-import '../services/project_service.dart';
-import '../services/session_service.dart';
-import '../theme/app_theme.dart';
 import '../services/dashboard_state.dart';
+import '../services/project_service.dart';
+import '../services/prompt_history_service.dart';
+import '../services/session_service.dart';
 import '../services/version_service.dart';
-import '../widgets/dashboard/dashboard_panel.dart';
+import '../theme/app_theme.dart';
+import '../widgets/conversation/chat_input_area.dart';
+import '../widgets/conversation/chat_message_list.dart';
+import '../widgets/conversation/conversation_app_bar.dart';
+import '../widgets/conversation/dashboard_panel_wrapper.dart';
+import '../widgets/conversation/hero_empty_state.dart';
+import '../widgets/conversation/investigation_rail.dart';
 import '../widgets/session_panel.dart';
-import '../widgets/tech_grid_painter.dart';
-import '../widgets/tool_log.dart';
-import '../widgets/unified_prompt_input.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'tool_config_page.dart';
-import 'help_page.dart';
 import '../widgets/status_toast.dart';
-import '../widgets/glow_action_chip.dart';
+import 'conversation_controller.dart';
+
+/// Re-export [AgentAvatar] so existing consumers don't break.
+export '../widgets/conversation/message_item.dart' show AgentAvatar;
 
 class ConversationPage extends StatefulWidget {
   final ADKContentGenerator? contentGenerator;
@@ -44,46 +37,22 @@ class ConversationPage extends StatefulWidget {
 
 class _ConversationPageState extends State<ConversationPage>
     with TickerProviderStateMixin {
-  late A2uiMessageProcessor _messageProcessor;
-  GenUiConversation? _conversation;
-  ADKContentGenerator? _contentGenerator;
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
+  final GlobalKey _inputKey = GlobalKey(debugLabel: 'prompt_input');
+
   late ProjectService _projectService;
   late SessionService _sessionService;
-  final GlobalKey _inputKey = GlobalKey(debugLabel: 'prompt_input');
   late PromptHistoryService _promptHistoryService;
   late DashboardState _dashboardState;
-
+  late ConversationController _controller;
   late AnimationController _typingController;
 
   // Prompt History State
   List<String> _promptHistory = [];
-  int _historyIndex = -1; // -1 means not navigating history
+  int _historyIndex = -1;
   String _tempInput = '';
-
-  StreamSubscription<String>? _sessionSubscription;
-  StreamSubscription<ContentGeneratorError>? _errorSubscription;
-  StreamSubscription<String>? _uiMessageSubscription;
-  StreamSubscription<List<String>>? _suggestionsSubscription;
-  StreamSubscription<Map<String, dynamic>>? _dashboardSubscription;
-  StreamSubscription<Map<String, dynamic>>? _toolCallSubscription;
-  StreamSubscription<Map<String, dynamic>>? _traceInfoSubscription;
-  StreamSubscription<Map<String, dynamic>>? _memorySubscription;
-
-  /// Current agent trace info for Cloud Trace deep linking.
-  String? _currentTraceUrl;
-  String? _currentTraceId;
-
-  /// Inline tool call state: call_id -> ToolLog (mutable via ValueNotifier).
-  final ValueNotifier<Map<String, ToolLog>> _toolCallState =
-      ValueNotifier({});
-  final ValueNotifier<List<String>> _suggestedActions = ValueNotifier([
-    "Analyze last hour's logs",
-    'List active incidents',
-    'Check for high latency',
-  ]);
 
   @override
   void initState() {
@@ -94,35 +63,10 @@ class _ConversationPageState extends State<ConversationPage>
     _promptHistoryService = context.read<PromptHistoryService>();
     _dashboardState = context.read<DashboardState>();
 
-    // Fetch version info from backend (fire-and-forget)
     VersionService.instance.fetch();
 
-    // Handle Enter key behavior (Enter to send, Shift+Enter for newline)
-    // Also handles History navigation (Up/Down arrows)
-    _focusNode.onKeyEvent = (node, event) {
-      if (event is! KeyDownEvent) return KeyEventResult.ignored;
-
-      if (event.logicalKey == LogicalKeyboardKey.enter) {
-        if (HardwareKeyboard.instance.isShiftPressed) {
-          return KeyEventResult.ignored;
-        }
-        _sendMessage();
-        return KeyEventResult.handled;
-      } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-        // Only navigate history if input is empty or we are already navigating
-        if (_textController.text.isEmpty || _historyIndex != -1) {
-          _navigateHistory(up: true);
-          return KeyEventResult.handled;
-        }
-      } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-        if (_historyIndex != -1) {
-          _navigateHistory(up: false);
-          return KeyEventResult.handled;
-        }
-      }
-
-      return KeyEventResult.ignored;
-    };
+    // Keyboard handling (Enter to send, Up/Down for history)
+    _focusNode.onKeyEvent = _handleKeyEvent;
 
     // Typing indicator animation
     _typingController = AnimationController(
@@ -132,22 +76,64 @@ class _ConversationPageState extends State<ConversationPage>
     if (!kIsWeb && !kDebugMode) {
       _typingController.repeat();
     } else if (kIsWeb) {
-      // In web/debug, we still want the animation unless specifically in a test environment.
-      // Since Platform.script.path isn't available on web, we'll just repeat it.
       _typingController.repeat();
     }
 
-    _initializeConversation();
+    // Create the controller that manages streams and conversation lifecycle
+    _controller = ConversationController(
+      sessionService: _sessionService,
+      dashboardState: _dashboardState,
+      onScrollToBottom: _scrollToBottom,
+      showToast: (message, {isError = false}) {
+        if (mounted) {
+          StatusToast.show(
+            context,
+            message,
+            isError: isError,
+            duration: isError
+                ? const Duration(seconds: 5)
+                : const Duration(seconds: 3),
+          );
+        }
+      },
+      isMounted: () => mounted,
+    );
 
-    // Session subscription is now handled in _initializeConversation to ensure it persists across resets
+    _controller.initialize(
+      widgetContentGenerator: widget.contentGenerator,
+      projectId: _projectService.selectedProjectId,
+    );
 
-    // Fetch projects and sessions on startup
     _projectService.fetchProjects();
     _sessionService.fetchSessions();
     _loadPromptHistory();
 
-    // Update content generator when project selection changes
     _projectService.selectedProject.addListener(_onProjectChanged);
+  }
+
+  // --------------- Keyboard & History ---------------
+
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+    if (event.logicalKey == LogicalKeyboardKey.enter) {
+      if (HardwareKeyboard.instance.isShiftPressed) {
+        return KeyEventResult.ignored;
+      }
+      _sendMessage();
+      return KeyEventResult.handled;
+    } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      if (_textController.text.isEmpty || _historyIndex != -1) {
+        _navigateHistory(up: true);
+        return KeyEventResult.handled;
+      }
+    } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      if (_historyIndex != -1) {
+        _navigateHistory(up: false);
+        return KeyEventResult.handled;
+      }
+    }
+    return KeyEventResult.ignored;
   }
 
   Future<void> _loadPromptHistory() async {
@@ -159,7 +145,6 @@ class _ConversationPageState extends State<ConversationPage>
 
     if (_historyIndex == -1) {
       if (up) {
-        // Start navigation
         _tempInput = _textController.text;
         _historyIndex = _promptHistory.length - 1;
         _updateInputFromHistory();
@@ -175,7 +160,6 @@ class _ConversationPageState extends State<ConversationPage>
           _historyIndex++;
           _updateInputFromHistory();
         } else {
-          // Exit navigation
           _historyIndex = -1;
           _textController.text = _tempInput;
           _moveCursorToEnd();
@@ -197,335 +181,12 @@ class _ConversationPageState extends State<ConversationPage>
     );
   }
 
-  void _initializeConversation() {
-    final sreCatalog = CatalogRegistry.createSreCatalog();
-
-    _messageProcessor = A2uiMessageProcessor(
-      catalogs: [sreCatalog, CoreCatalogItems.asCatalog()],
-    );
-
-    // Dispose previous content generator and conversation
-    _conversation?.dispose();
-    if (_contentGenerator != widget.contentGenerator) {
-      _contentGenerator?.dispose();
-    }
-
-    final newGenerator = widget.contentGenerator ?? ADKContentGenerator();
-    _contentGenerator = newGenerator;
-    newGenerator.projectId = _projectService.selectedProjectId;
-
-    // Cancel previous session subscription to prevent leaked listeners
-    _sessionSubscription?.cancel();
-    // Subscribe to the NEW session stream immediately
-    _sessionSubscription = newGenerator.sessionStream.listen((sessionId) {
-      _sessionService.setCurrentSession(sessionId);
-      // Refresh sessions list after a message is sent creates a new session
-      _sessionService.fetchSessions();
-    });
-
-    // Subscribe to errors
-    _errorSubscription?.cancel();
-    _errorSubscription = newGenerator.errorStream.listen((error) {
-      if (mounted) {
-        // Show error toast with isError=true for proper styling
-        StatusToast.show(
-          context,
-          'Agent Error: ${error.error}',
-          isError: true,
-          duration: const Duration(seconds: 5),
-        );
-        debugPrint(
-          'ContentGenerator Error: ${error.error}\n${error.stackTrace}',
-        );
-      }
-    });
-
-    final conversation = GenUiConversation(
-      a2uiMessageProcessor: _messageProcessor,
-      contentGenerator: newGenerator,
-      onSurfaceAdded: (_) => _scrollToBottom(force: true),
-      onSurfaceUpdated: (_) => _scrollToBottom(),
-      onTextResponse: (_) => _scrollToBottom(),
-    );
-    _conversation = conversation;
-
-    // Subscribe to trace_info events for Cloud Trace deep linking.
-    _traceInfoSubscription?.cancel();
-    _traceInfoSubscription = newGenerator.traceInfoStream.listen((event) {
-      if (!mounted) return;
-      setState(() {
-        _currentTraceId = event['trace_id'] as String?;
-        _currentTraceUrl = event['trace_url'] as String?;
-      });
-    });
-
-    // Subscribe to memory events (memorizing findings, learning patterns).
-    _memorySubscription?.cancel();
-    _memorySubscription = newGenerator.memoryStream.listen((event) {
-      if (!mounted) return;
-      final action = event['action'] as String? ?? '';
-      final title = event['title'] as String? ?? 'Memory event';
-      final category = event['category'] as String? ?? '';
-
-      debugPrint('🧠 [MEMORY] action=$action, title=$title, category=$category');
-
-      // Show toast for significant memory actions
-      if (action == 'stored' || action == 'pattern_learned') {
-        StatusToast.show(
-          context,
-          '🧠 $title',
-          duration: const Duration(seconds: 3),
-        );
-      }
-    });
-
-    // Subscribe to the dedicated dashboard data stream.
-    _dashboardSubscription?.cancel();
-    _dashboardSubscription = newGenerator.dashboardStream.listen((event) {
-      debugPrint('📊 [DASH] Received dashboard event: category=${event['category']}, tool=${event['tool_name']}');
-      _dashboardState.addFromEvent(event);
-    });
-
-    // Subscribe to inline tool call/response events.
-    // tool_call: Add a running ToolLog and an AiUiMessage placeholder to the chat.
-    // tool_response: Update the ToolLog with result/status (triggers rebuild).
-    _toolCallSubscription?.cancel();
-    _toolCallSubscription = newGenerator.toolCallStream.listen((event) {
-      if (!mounted) return;
-      final eventType = event['type'] as String;
-
-      if (eventType == 'tool_call') {
-        final callId = event['call_id'] as String;
-        final toolName = event['tool_name'] as String;
-        final args = Map<String, dynamic>.from(event['args'] ?? {});
-
-        // Create a running ToolLog entry
-        final toolLog = ToolLog(
-          toolName: toolName,
-          args: args,
-          status: 'running',
-        );
-
-        // Update tool call state
-        final updated = Map<String, ToolLog>.from(_toolCallState.value);
-        updated[callId] = toolLog;
-        _toolCallState.value = updated;
-
-        // Add a chat message placeholder (using call_id as surface ID)
-        final messenger = conversation.conversation;
-        if (messenger is ValueNotifier<List<ChatMessage>>) {
-          final currentMessages = List<ChatMessage>.from(messenger.value);
-          final alreadyHas = currentMessages.any(
-            (m) => m is AiUiMessage && m.surfaceId == callId,
-          );
-          if (!alreadyHas) {
-            currentMessages.add(AiUiMessage(
-              definition: UiDefinition(surfaceId: callId),
-              surfaceId: callId,
-            ));
-            messenger.value = currentMessages;
-          }
-        }
-        _scrollToBottom();
-      } else if (eventType == 'tool_response') {
-        final callId = event['call_id'] as String;
-        final toolName = event['tool_name'] as String;
-        final status = event['status'] as String? ?? 'completed';
-        final result = event['result'];
-
-        // Stringify result for display
-        String? resultStr;
-        if (result != null) {
-          if (result is String) {
-            resultStr = result;
-          } else {
-            try {
-              resultStr = const JsonEncoder.withIndent('  ').convert(result);
-            } catch (_) {
-              resultStr = result.toString();
-            }
-          }
-        }
-
-        // Get existing args from the pending tool call
-        final existing = _toolCallState.value[callId];
-        final args = existing?.args ?? {};
-
-        final toolLog = ToolLog(
-          toolName: toolName,
-          args: args,
-          status: status,
-          result: resultStr,
-        );
-
-        final updated = Map<String, ToolLog>.from(_toolCallState.value);
-        updated[callId] = toolLog;
-        _toolCallState.value = updated;
-      }
-    });
-
-    // Subscribe to UI messages (surface markers) for non-tool-call A2UI surfaces
-    _uiMessageSubscription?.cancel();
-    _uiMessageSubscription = newGenerator.uiMessageStream.listen((surfaceId) {
-      if (!mounted) return;
-
-      final messenger = conversation.conversation;
-      if (messenger is ValueNotifier<List<ChatMessage>>) {
-        final currentMessages = List<ChatMessage>.from(messenger.value);
-
-        // Deduplicate
-        final alreadyHas =
-            currentMessages.any((m) => m is AiUiMessage && m.surfaceId == surfaceId);
-
-        if (!alreadyHas) {
-          currentMessages.add(AiUiMessage(
-            definition: UiDefinition(surfaceId: surfaceId),
-            surfaceId: surfaceId,
-          ));
-          messenger.value = currentMessages;
-        }
-      }
-    });
-
-    // Subscribe to suggestions
-    _suggestionsSubscription?.cancel();
-    _suggestionsSubscription = newGenerator.suggestionsStream.listen((
-      suggestions,
-    ) {
-      if (mounted) {
-        _suggestedActions.value = suggestions;
-      }
-    });
-
-    // Initial fetch of suggestions
-    newGenerator.fetchSuggestions();
-  }
+  // --------------- Actions ---------------
 
   void _onProjectChanged() {
-    _contentGenerator?.projectId = _projectService.selectedProjectId;
-    _contentGenerator?.fetchSuggestions();
-  }
-
-  void _startNewSession() {
-    // Clear session in content generator (new messages will start a new backend session)
-    _contentGenerator?.clearSession();
-    // Clear current session in service
-    _sessionService.startNewSession();
-    // Clear dashboard data for fresh investigation
-    _dashboardState.clear();
-    // Clear inline tool call state
-    _toolCallState.value = {};
-    // Clear trace deep-link state
-    _currentTraceUrl = null;
-    _currentTraceId = null;
-
-    setState(() {
-      _initializeConversation();
-    });
-
-    // Show confirmation
-    StatusToast.show(context, 'Starting new investigation...');
-  }
-
-  Future<void> _loadSession(String sessionId) async {
-    // Load session from backend
-    final session = await _sessionService.getSession(sessionId);
-    if (session == null) {
-      // ignore: use_build_context_synchronously
-      if (mounted) {
-        StatusToast.show(context, 'Failed to load session history');
-      }
-      return;
-    }
-
-    // Set session ID in content generator
-    _contentGenerator?.sessionId = sessionId;
-    _sessionService.setCurrentSession(sessionId);
-
-    if (!mounted) return;
-
-    // Reset and hydrate conversation
-    setState(() {
-      _initializeConversation();
-    });
-
-    // Hydrate history if available
-    if (session.messages.isNotEmpty) {
-      final history = <ChatMessage>[];
-      for (final msg in session.messages) {
-        if (msg.role == 'user' || msg.role == 'human') {
-          history.add(UserMessage.text(msg.content));
-        } else {
-          // Default to AiTextMessage for model responses in history
-          // (Original UI events are not preserved in text-only history yet)
-          history.add(AiTextMessage([TextPart(msg.content)]));
-        }
-      }
-
-      // Inject history into conversation state
-      // Note: Cast to ValueNotifier to update state directly
-      try {
-        final conversation = _conversation;
-        if (conversation != null && conversation.conversation is ValueNotifier) {
-          (conversation.conversation as ValueNotifier<List<ChatMessage>>)
-                  .value =
-              history;
-          // Scroll to bottom after frame
-          WidgetsBinding.instance.addPostFrameCallback(
-            (_) => _scrollToBottom(force: true),
-          );
-        }
-      } catch (e) {
-        debugPrint('Could not hydrate session history: $e');
-      }
-    }
-
-    // Show a message indicating the session is loaded
-    StatusToast.show(context, 'Loaded session: ${session.displayTitle}');
-  }
-
-  void _scrollToBottom({bool force = false}) {
-    if (!mounted || !_scrollController.hasClients) return;
-
-    final position = _scrollController.position;
-    final extentAfter = position.extentAfter;
-    final maxScroll = position.maxScrollExtent;
-
-    // 1. Check if user is actively manual scrolling
-    final isUserScrolling =
-        position.userScrollDirection != ScrollDirection.idle;
-
-    // 2. Threshold to detect if we should "stick" to the bottom.
-    // We use a larger threshold (300px) to ensure we don't lose stickiness
-    // when large blocks of text arrive between frames.
-    final isNearBottom = extentAfter < 300.0;
-
-    // 3. Logic to decide whether to scroll:
-    // - Always scroll if forced (e.g. user just sent a message)
-    // - Scroll if we are near the bottom AND the user isn't actively manual scrolling
-    // - Scroll if the list is empty/new
-    if (!force && (isUserScrolling || (!isNearBottom && maxScroll > 0))) {
-      return;
-    }
-
-    // Use addPostFrameCallback to ensure the layout has updated
-    // with the latest message sizes before calculating the target offset.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_scrollController.hasClients) return;
-
-      final currentMax = _scrollController.position.maxScrollExtent;
-      final currentOffset = _scrollController.offset;
-
-      // If we are already at the bottom (or very close), no need to start a new animation.
-      if ((currentMax - currentOffset).abs() < 5.0) return;
-
-      // Animate smoothly but quickly to the bottom.
-      _scrollController.animateTo(
-        currentMax,
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeOutCubic,
-      );
-    });
+    _controller.contentGenerator?.projectId =
+        _projectService.selectedProjectId;
+    _controller.contentGenerator?.fetchSuggestions();
   }
 
   void _sendMessage() {
@@ -533,18 +194,14 @@ class _ConversationPageState extends State<ConversationPage>
     final text = _textController.text;
     _textController.clear();
 
-    // Save to history
     _promptHistoryService.addPrompt(text).then((_) {
-      _loadPromptHistory(); // Reload to get updated list/order
+      _loadPromptHistory();
     });
-    // Reset history navigation state
     _historyIndex = -1;
     _tempInput = '';
 
-    _conversation?.sendRequest(UserMessage.text(text));
+    _controller.conversation?.sendRequest(UserMessage.text(text));
 
-    // Request focus after the frame to ensure that if the layout transitioned
-    // from Hero to Conversation state, the new TextField is ready to receive focus.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _focusNode.requestFocus();
@@ -554,25 +211,99 @@ class _ConversationPageState extends State<ConversationPage>
     _scrollToBottom(force: true);
   }
 
-  double _dashboardWidthFactor = 0.6;
-  bool _isDashboardMaximized = false;
-  double _lastDashboardWidth = 0.6;
-  bool _isResizeHovered = false;
-
-  void _toggleDashboardMaximize() {
+  void _startNewSession() {
+    _controller.clearSessionState();
     setState(() {
-      if (_isDashboardMaximized) {
-        // Restore
-        _isDashboardMaximized = false;
-        _dashboardWidthFactor = _lastDashboardWidth;
-      } else {
-        // Maximize
-        _lastDashboardWidth = _dashboardWidthFactor;
-        _isDashboardMaximized = true;
-        _dashboardWidthFactor = 0.95;
+      _controller.initialize(
+        widgetContentGenerator: widget.contentGenerator,
+        projectId: _projectService.selectedProjectId,
+      );
+    });
+    StatusToast.show(context, 'Starting new investigation...');
+  }
+
+  Future<void> _loadSession(String sessionId) async {
+    final session = await _sessionService.getSession(sessionId);
+    if (session == null) {
+      if (mounted) {
+        StatusToast.show(context, 'Failed to load session history');
       }
+      return;
+    }
+
+    _controller.contentGenerator?.sessionId = sessionId;
+    _sessionService.setCurrentSession(sessionId);
+
+    if (!mounted) return;
+
+    setState(() {
+      _controller.initialize(
+        widgetContentGenerator: widget.contentGenerator,
+        projectId: _projectService.selectedProjectId,
+      );
+    });
+
+    if (session.messages.isNotEmpty) {
+      final history = <ChatMessage>[];
+      for (final msg in session.messages) {
+        if (msg.role == 'user' || msg.role == 'human') {
+          history.add(UserMessage.text(msg.content));
+        } else {
+          history.add(AiTextMessage([TextPart(msg.content)]));
+        }
+      }
+
+      try {
+        final conv = _controller.conversation;
+        if (conv != null && conv.conversation is ValueNotifier) {
+          (conv.conversation as ValueNotifier<List<ChatMessage>>).value =
+              history;
+          WidgetsBinding.instance.addPostFrameCallback(
+            (_) => _scrollToBottom(force: true),
+          );
+        }
+      } catch (e) {
+        debugPrint('Could not hydrate session history: $e');
+      }
+    }
+
+    StatusToast.show(context, 'Loaded session: ${session.displayTitle}');
+  }
+
+  // --------------- Scroll ---------------
+
+  void _scrollToBottom({bool force = false}) {
+    if (!mounted || !_scrollController.hasClients) return;
+
+    final position = _scrollController.position;
+    final extentAfter = position.extentAfter;
+    final maxScroll = position.maxScrollExtent;
+
+    final isUserScrolling =
+        position.userScrollDirection != ScrollDirection.idle;
+    final isNearBottom = extentAfter < 300.0;
+
+    if (!force && (isUserScrolling || (!isNearBottom && maxScroll > 0))) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+
+      final currentMax = _scrollController.position.maxScrollExtent;
+      final currentOffset = _scrollController.offset;
+
+      if ((currentMax - currentOffset).abs() < 5.0) return;
+
+      _scrollController.animateTo(
+        currentMax,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOutCubic,
+      );
     });
   }
+
+  // --------------- Build ---------------
 
   @override
   Widget build(BuildContext context) {
@@ -582,135 +313,84 @@ class _ConversationPageState extends State<ConversationPage>
 
         return Scaffold(
           backgroundColor: AppColors.backgroundDark,
-          endDrawer: Drawer(
-            width: 280,
-            backgroundColor: AppColors.backgroundCard,
-            shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.zero,
-            ),
-            child: Column(
-              children: [
-                Expanded(
-                  child: ValueListenableBuilder<String?>(
-                    valueListenable: _sessionService.currentSessionId,
-                    builder: (context, currentSessionId, _) {
-                      return SessionPanel(
-                        sessionService: _sessionService,
-                        onNewSession: _startNewSession,
-                        onSessionSelected: (id) {
-                          _loadSession(id);
-                          Navigator.pop(context); // Close drawer
-                        },
-                        currentSessionId: currentSessionId,
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
+          endDrawer: _buildSessionDrawer(),
+          appBar: ConversationAppBar(
+            isMobile: isMobile,
+            contentGenerator: _controller.contentGenerator,
+            projectService: _projectService,
+            sessionService: _sessionService,
+            currentTraceUrl: _controller.currentTraceUrl,
+            currentTraceId: _controller.currentTraceId,
+            onStartNewSession: _startNewSession,
+            onLoadSession: _loadSession,
           ),
-          appBar: _buildAppBar(isMobile: isMobile, scaffoldKey: context),
           body: Row(
             children: [
-              // 1. Extreme Left Vertical Investigation Rail
+              // 1. Investigation Rail (desktop only)
               if (!isMobile)
-                _InvestigationRailWidget(
-                  state: _dashboardState,
-                ),
+                InvestigationRail(state: _dashboardState),
 
-              // 2. Investigation Dashboard Panel
-              ListenableBuilder(
-                listenable: _dashboardState,
-                builder: (context, _) {
-                  final isOpen = _dashboardState.isOpen;
-                  if (!isOpen) return const SizedBox.shrink();
-
-                  // Calculate width based on factor
-                  // We also clamp it to sensible min/max if needed, but 60% is critical request.
-                  final targetWidth = constraints.maxWidth * _dashboardWidthFactor;
-
-                  return Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Dashboard Content
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOutCubic,
-                        width: targetWidth,
-                        child: DashboardPanel(
-                          state: _dashboardState,
-                          onClose: _dashboardState.closeDashboard,
-                          onToggleMaximize: _toggleDashboardMaximize,
-                          isMaximized: _isDashboardMaximized,
-                          onPromptRequest: (prompt) {
-                            _textController.text = prompt;
-                            _sendMessage();
-                          },
-                        ),
-                      ),
-                      // Resize Handle (Now on the right side of the dashboard)
-                      GestureDetector(
-                        key: const Key('dashboard_resize_handle'),
-                        behavior: HitTestBehavior.translucent,
-                        onHorizontalDragUpdate: (details) {
-                          setState(() {
-                            // Dragging right adds to dashboard width (since it's on the left)
-                            // Dragging left subtracts
-                            final deltaFraction =
-                                details.delta.dx / constraints.maxWidth;
-                            _dashboardWidthFactor += deltaFraction;
-                            _dashboardWidthFactor =
-                                _dashboardWidthFactor.clamp(0.2, 0.95);
-
-                            // If user drags back from maximized, update state
-                            if (_isDashboardMaximized && _dashboardWidthFactor < 0.9) {
-                              _isDashboardMaximized = false;
-                            }
-                          });
-                        },
-                        child: MouseRegion(
-                          cursor: SystemMouseCursors.resizeColumn,
-                          onEnter: (_) => setState(() => _isResizeHovered = true),
-                          onExit: (_) => setState(() => _isResizeHovered = false),
-                          child: Container(
-                            width: 12, // Larger hit target
-                            color: Colors.transparent,
-                            alignment: Alignment.center,
-                            child: Container(
-                              width: 4,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: _isResizeHovered
-                                    ? AppColors.primaryCyan
-                                    : AppColors.surfaceBorder,
-                                borderRadius: BorderRadius.circular(2),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
+              // 2. Dashboard Panel
+              DashboardPanelWrapper(
+                dashboardState: _dashboardState,
+                totalWidth: constraints.maxWidth,
+                onPromptRequest: (prompt) {
+                  _textController.text = prompt;
+                  _sendMessage();
                 },
               ),
 
-              // 3. Main conversation area (Chat Interface on the right)
+              // 3. Main conversation area
               Expanded(
                 child: ValueListenableBuilder<List<ChatMessage>>(
-                  valueListenable: _conversation?.conversation ?? ValueNotifier([]),
+                  valueListenable:
+                      _controller.conversation?.conversation ??
+                          ValueNotifier([]),
                   builder: (context, messages, _) {
                     return ValueListenableBuilder<bool>(
                       valueListenable:
-                          _contentGenerator?.isProcessing ?? ValueNotifier(false),
+                          _controller.contentGenerator?.isProcessing ??
+                              ValueNotifier(false),
                       builder: (context, isProcessing, _) {
                         if (messages.isEmpty) {
-                          return _buildHeroEmptyState(isProcessing);
+                          return HeroEmptyState(
+                            isProcessing: isProcessing,
+                            inputKey: _inputKey,
+                            textController: _textController,
+                            focusNode: _focusNode,
+                            onSend: _sendMessage,
+                            onCancel: () => _controller.contentGenerator
+                                ?.cancelRequest(),
+                            suggestedActions:
+                                _controller.suggestedActions,
+                          );
                         }
                         return Column(
                           children: [
                             Expanded(
-                                child: _buildMessageList(messages, isProcessing)),
-                            _buildInputArea(isProcessing),
+                              child: ChatMessageList(
+                                messages: messages,
+                                isProcessing: isProcessing,
+                                scrollController: _scrollController,
+                                conversation:
+                                    _controller.conversation!,
+                                typingAnimation: _typingController,
+                                toolCallState:
+                                    _controller.toolCallState,
+                              ),
+                            ),
+                            ChatInputArea(
+                              isProcessing: isProcessing,
+                              inputKey: _inputKey,
+                              textController: _textController,
+                              focusNode: _focusNode,
+                              onSend: _sendMessage,
+                              onCancel: () => _controller
+                                  .contentGenerator
+                                  ?.cancelRequest(),
+                              suggestedActions:
+                                  _controller.suggestedActions,
+                            ),
                           ],
                         );
                       },
@@ -725,2181 +405,45 @@ class _ConversationPageState extends State<ConversationPage>
     );
   }
 
-  PreferredSizeWidget _buildAppBar({required bool isMobile, required BuildContext scaffoldKey}) {
-    return AppBar(
+  Widget _buildSessionDrawer() {
+    return Drawer(
+      width: 280,
       backgroundColor: AppColors.backgroundCard,
-      surfaceTintColor: Colors.transparent,
-      elevation: 0,
-      shape: Border(
-        bottom: BorderSide(
-          color: AppColors.surfaceBorder.withValues(alpha: 0.5),
-          width: 1,
-        ),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.zero,
       ),
-      leading: null, // Removed leading menu icon since nav is on the right now
-      automaticallyImplyLeading: false,
-      titleSpacing: 0,
-      title: LayoutBuilder(
-        builder: (context, constraints) {
-          final isCompact = constraints.maxWidth < 600;
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min, // Added min to prevent expansion
-            children: [
-              // Logo/Icon - clickable to return to home
-              _buildLogoButton(),
-              const SizedBox(width: 8),
-              // Title
-              if (!isCompact) ...[
-                InkWell(
-                  onTap: _startNewSession,
-                  child: Stack(
-                    children: [
-                      // Shadow Layer
-                      Text(
-                        'AutoSRE',
-                        style: GoogleFonts.inter(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.transparent,
-                          letterSpacing: 0.5,
-                          shadows: [
-                            const Shadow(
-                              color: Colors.blueAccent,
-                              blurRadius: 10,
-                              offset: Offset(0, 0),
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Gradient Layer
-                      ShaderMask(
-                        shaderCallback: (bounds) => const LinearGradient(
-                          colors: [Colors.white, AppColors.primaryCyan],
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                        ).createShader(bounds),
-                        child: Text(
-                          'AutoSRE',
-                          style: GoogleFonts.inter(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 24),
-              ],
-              // Project Selector (Left aligned now)
-              Flexible( // Added Flexible
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 250),
-                  child: _buildProjectSelector(),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-      actions: [
-        // View Trace deep link (visible when trace context is available)
-        if (_currentTraceUrl != null) _buildViewTraceChip(),
-        // Status indicator
-        ValueListenableBuilder<bool>(
-          valueListenable: _contentGenerator?.isConnected ?? ValueNotifier(false),
-          builder: (context, isConnected, _) {
-            return ValueListenableBuilder<bool>(
-              valueListenable: _contentGenerator?.isProcessing ?? ValueNotifier(false),
-              builder: (context, isProcessing, _) {
-                return _buildStatusIndicator(isProcessing, isConnected);
+      child: Column(
+        children: [
+          Expanded(
+            child: ValueListenableBuilder<String?>(
+              valueListenable: _sessionService.currentSessionId,
+              builder: (context, currentSessionId, _) {
+                return SessionPanel(
+                  sessionService: _sessionService,
+                  onNewSession: _startNewSession,
+                  onSessionSelected: (id) {
+                    _loadSession(id);
+                    Navigator.pop(context);
+                  },
+                  currentSessionId: currentSessionId,
+                );
               },
-            );
-          },
-        ),
-        const SizedBox(width: 12),
-        // Settings / Tool Config
-        _buildSettingsButton(),
-        const SizedBox(width: 8),
-        // Help Button
-        IconButton(
-          icon: const Icon(Icons.help_outline, color: AppColors.textSecondary),
-          tooltip: 'Help & Documentation',
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (context) => const HelpPage()),
-            );
-          },
-        ),
-        const SizedBox(width: 8),
-        // History button
-        Builder(
-          builder: (context) {
-            return IconButton(
-              icon: const Icon(Icons.history, color: AppColors.textSecondary),
-              tooltip: 'History & Sessions',
-              onPressed: () {
-                Scaffold.of(context).openEndDrawer();
-              },
-            );
-          }
-        ),
-        const SizedBox(width: 8),
-        // New Chat button
-        IconButton(
-          icon: const Icon(Icons.add_comment_outlined, color: AppColors.textSecondary),
-          tooltip: 'New Investigation',
-          onPressed: _startNewSession,
-        ),
-        const SizedBox(width: 8),
-        // User Profile
-        _buildUserProfileButton(),
-        const SizedBox(width: 16),
-      ],
-    );
-  }
-
-  Widget _buildLogoButton({bool isMobile = false}) {
-    return Tooltip(
-      message: 'New Session',
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: _startNewSession,
-          borderRadius: BorderRadius.circular(8),
-          child: Padding(
-            padding: EdgeInsets.all(isMobile ? 6 : 8),
-            child: Icon(
-              Icons.smart_toy,
-              color: AppColors.primaryTeal,
-              size: isMobile ? 24 : 32,
             ),
-          ),
-        ),
-      ),
-    );
-  }
-
-
-
-  Widget _buildViewTraceChip() {
-    final traceId = _currentTraceId ?? '';
-    final shortId = traceId.length > 8 ? traceId.substring(0, 8) : traceId;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: Tooltip(
-        message: 'View agent reasoning trace in Cloud Trace\nTrace: $traceId',
-        child: ActionChip(
-          avatar: Icon(
-            Icons.timeline_rounded,
-            size: 14,
-            color: AppColors.primaryCyan.withValues(alpha: 0.9),
-          ),
-          label: Text(
-            'Trace $shortId',
-            style: GoogleFonts.jetBrainsMono(
-              fontSize: 11,
-              color: AppColors.primaryCyan,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          side: BorderSide(
-            color: AppColors.primaryCyan.withValues(alpha: 0.3),
-          ),
-          backgroundColor: AppColors.primaryCyan.withValues(alpha: 0.08),
-          onPressed: () async {
-            final url = _currentTraceUrl;
-            if (url == null) return;
-            final uri = Uri.parse(url);
-            if (await canLaunchUrl(uri)) {
-              await launchUrl(uri, mode: LaunchMode.externalApplication);
-            }
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSettingsButton() {
-    return Tooltip(
-      message: 'Settings',
-      child: IconButton(
-        icon: const Icon(
-          Icons.settings_outlined,
-          color: AppColors.textSecondary,
-        ),
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (context) => const ToolConfigPage()),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildUserProfileButton() {
-    final authService = Provider.of<AuthService>(context, listen: false);
-    final user = authService.currentUser;
-    // Handle local dev mode where user is null but auth is disabled
-    final displayName = authService.isAuthEnabled ? (user?.displayName ?? 'User Profile') : 'Local Dev';
-    final photoUrl = user?.photoUrl;
-    final isDevMode = !authService.isAuthEnabled;
-
-    return Tooltip(
-      message: displayName,
-      child: Material(
-        color: Colors.transparent,
-        shape: const CircleBorder(),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () {
-            // TODO: Show profile dialog or sign out option
-            showDialog(
-              context: context,
-              builder: (context) => AlertDialog(
-                title: Text(displayName),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (isDevMode)
-                      const Padding(
-                        padding: EdgeInsets.only(bottom: 8.0),
-                        child: Text(
-                          'Authentication is disabled in this environment (Local Dev Mode).',
-                          style: TextStyle(fontStyle: FontStyle.italic, color: AppColors.textSecondary),
-                        ),
-                      ),
-                    if (user?.email != null) Text('Email: ${user!.email}'),
-                    const SizedBox(height: 16),
-                    const Divider(),
-                    const SizedBox(height: 8),
-                    Text(
-                      'AutoSRE ${VersionService.instance.displayString}',
-                      style: const TextStyle(
-                        color: AppColors.textMuted,
-                        fontSize: 12,
-                      ),
-                    ),
-                    if (VersionService.instance.buildTimestamp.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          'Built: ${VersionService.instance.buildTimestamp}',
-                          style: const TextStyle(
-                            color: AppColors.textMuted,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Close'),
-                  ),
-                  if (authService.isAuthEnabled)
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        authService.signOut();
-                      },
-                      child: const Text('Sign Out'),
-                    ),
-                ],
-              ),
-            );
-          },
-          child: CircleAvatar(
-             radius: 16,
-             backgroundColor: isDevMode ? AppColors.warning : AppColors.surfaceGlass,
-             backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
-             child: photoUrl == null
-                 ? Icon(
-                     isDevMode ? Icons.developer_mode : Icons.person,
-                     size: 20,
-                     color: isDevMode ? Colors.white : AppColors.textSecondary,
-                   )
-                 : null,
-           ),
-        ),
-      ),
-    );
-  }
-
-
-  Widget _buildStatusIndicator(
-    bool isProcessing,
-    bool isConnected, {
-    bool compact = false,
-  }) {
-    Color statusColor;
-    String statusText;
-
-    if (isConnected) {
-      statusColor = AppColors.success;
-      statusText = 'Connected';
-    } else {
-      statusColor = AppColors.error;
-      statusText = 'Offline';
-    }
-
-    // Get Agent URL if available
-    final agentUrl = _contentGenerator?.baseUrl ?? '';
-
-    return Tooltip(
-      message:
-          'Agent URL: ${agentUrl.isEmpty ? "Internal" : agentUrl}\nStatus: $statusText',
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: AppColors.backgroundDark,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.surfaceBorder, width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
           ),
         ],
       ),
-      textStyle: const TextStyle(color: AppColors.textPrimary, fontSize: 12),
-      child: Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: compact ? 6 : 8,
-          vertical: compact ? 3 : 4,
-        ),
-        decoration: BoxDecoration(
-          color: statusColor.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Static Dot Only (User requested removal of spinner)
-            Container(
-              width: 6,
-              height: 6,
-              decoration: BoxDecoration(
-                color: statusColor,
-                shape: BoxShape.circle,
-              ),
-            ),
-            if (!compact) ...[
-              const SizedBox(width: 6),
-              Text(
-                statusText,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  color: statusColor,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
     );
   }
-
-  Widget _buildProjectSelector() {
-    return ValueListenableBuilder<bool>(
-      valueListenable: _projectService.isLoading,
-      builder: (context, isLoading, _) {
-        return ValueListenableBuilder<List<GcpProject>>(
-          valueListenable: _projectService.projects,
-          builder: (context, projects, _) {
-            return ValueListenableBuilder<GcpProject?>(
-              valueListenable: _projectService.selectedProject,
-              builder: (context, selectedProject, _) {
-                return ValueListenableBuilder<String?>(
-                  valueListenable: _projectService.error,
-                  builder: (context, error, _) {
-                    return ValueListenableBuilder<List<GcpProject>>(
-                      valueListenable: _projectService.recentProjects,
-                      builder: (context, recentProjects, _) {
-                        return ValueListenableBuilder<List<GcpProject>>(
-                          valueListenable: _projectService.starredProjects,
-                          builder: (context, starredProjects, _) {
-                            return _ProjectSelectorDropdown(
-                              projects: projects,
-                              recentProjects: recentProjects,
-                              starredProjects: starredProjects,
-                              selectedProject: selectedProject,
-                              isLoading: isLoading,
-                              error: error,
-                              onProjectSelected: (project) {
-                                _projectService.selectProjectInstance(project);
-                              },
-                              onRefresh: () {
-                                _projectService.fetchProjects();
-                              },
-                              onSearch: (query) {
-                                _projectService.fetchProjects(query: query);
-                              },
-                              onToggleStar: (project) {
-                                _projectService.toggleStar(project);
-                              },
-                            );
-                          },
-                        );
-                      },
-                    );
-                  },
-                );
-              },
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildMessageList(List<ChatMessage> messages, bool isProcessing) {
-    return Stack(
-      children: [
-        // 1. Tech Grid Background
-        const Positioned.fill(child: CustomPaint(painter: TechGridPainter())),
-        // Gradient Overlay for Fade Effect
-        const Positioned.fill(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                stops: [0.5, 1.0],
-                colors: [Colors.transparent, AppColors.backgroundDark],
-              ),
-            ),
-          ),
-        ),
-
-        // 2. Centered Chat Stream
-        Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 900),
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.fromLTRB(8, 12, 8, 12),
-              itemCount: messages.length + 1, // +1 for typing indicator
-              itemBuilder: (context, index) {
-                if (index == messages.length) {
-                  // Typing indicator at the end
-                  if (!isProcessing) return const SizedBox.shrink();
-                  return _buildTypingIndicator();
-                }
-                final msg = messages[index];
-
-                // Determine vertical spacing
-                var topSpacing = 4.0;
-                if (index > 0) {
-                  final prevMsg = messages[index - 1];
-                  final isSameSender =
-                      (msg is UserMessage && prevMsg is UserMessage) ||
-                      ((msg is AiTextMessage || msg is AiUiMessage) &&
-                          (prevMsg is AiTextMessage || prevMsg is AiUiMessage));
-                  if (!isSameSender) {
-                    topSpacing = 24.0;
-                  }
-                } else {
-                  // First message
-                  topSpacing = 16.0;
-                }
-
-                return Padding(
-                  padding: EdgeInsets.only(top: topSpacing),
-                  child: _MessageItem(
-                    message: msg,
-                    host: _conversation!.host,
-                    animation: _typingController,
-                    toolCallState: _toolCallState,
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildHeroEmptyState(bool isProcessing) {
-    final authService = Provider.of<AuthService>(context, listen: false);
-    final user = authService.currentUser;
-    // Get first name for "Hi [Name]"
-    var name = 'there';
-    if (user?.displayName != null && user!.displayName!.isNotEmpty) {
-      name = user.displayName!.split(' ').first;
-    }
-
-    return Stack(
-      children: [
-        const Positioned.fill(child: CustomPaint(painter: TechGridPainter())),
-        Center(
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1000),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Greeting
-                    ShaderMask(
-                      shaderCallback: (bounds) => const LinearGradient(
-                        colors: [
-                          AppColors.primaryBlue,
-                          AppColors.secondaryPurple,
-                        ],
-                      ).createShader(bounds),
-                      child: Text(
-                        'Hi $name',
-                        style: const TextStyle(
-                          fontSize: 48,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Where should we start debugging?',
-                      style: TextStyle(
-                        fontSize: 24,
-                        color: AppColors.textSecondary,
-                        fontWeight: FontWeight.w400,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 48),
-
-                    // Hero Input Field
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 700),
-                      child: _buildHeroInput(isProcessing),
-                    ),
-
-                    const SizedBox(height: 32),
-
-                    // Action Chips
-                    ValueListenableBuilder<List<String>>(
-                      valueListenable: _suggestedActions,
-                      builder: (context, suggestions, _) {
-                        if (suggestions.isEmpty) return const SizedBox.shrink();
-
-                        final displaySuggestions = suggestions.take(4).toList();
-
-                        return SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: displaySuggestions.asMap().entries.map((entry) {
-                              final index = entry.key;
-                              final suggestion = entry.value;
-                              return Padding(
-                                padding: EdgeInsets.only(
-                                  right: index < displaySuggestions.length - 1
-                                      ? 12
-                                      : 0,
-                                ),
-                                child: _buildHeroActionChip(suggestion),
-                              );
-                            }).toList(),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildHeroInput(bool isProcessing) {
-    return _buildUnifiedInput(isProcessing);
-  }
-
-  Widget _buildUnifiedInput(bool isProcessing) {
-    return UnifiedPromptInput(
-      key: _inputKey,
-      controller: _textController,
-      focusNode: _focusNode,
-      isProcessing: isProcessing,
-      onSend: _sendMessage,
-      onCancel: () => _contentGenerator?.cancelRequest(),
-    );
-  }
-
-  Widget _buildHeroActionChip(String label) {
-    return GlowActionChip(
-      label: label,
-      icon: Icons.bolt_rounded,
-      onTap: () {
-        _textController.text = label;
-        _sendMessage();
-      },
-    );
-  }
-
-  Widget _buildTypingIndicator() {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          crossAxisAlignment:
-              CrossAxisAlignment.center, // Center aligned for dots
-          children: [
-            // Agent Icon
-            const AgentAvatar(),
-            // Typing Dots Bubble
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppColors.secondaryPurple.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: AppColors.secondaryPurple.withValues(alpha: 0.1),
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: List.generate(3, (index) {
-                  return AnimatedBuilder(
-                    animation: _typingController,
-                    builder: (context, child) {
-                      final delay = index * 0.2;
-                      final animValue =
-                          ((_typingController.value + delay) % 1.0 * 2.0).clamp(
-                            0.0,
-                            1.0,
-                          );
-                      final bounce =
-                          (animValue < 0.5
-                              ? animValue * 2
-                              : 2 - animValue * 2) *
-                          0.4;
-
-                      return Container(
-                        margin: EdgeInsets.only(right: index < 2 ? 4 : 0),
-                        child: Transform.translate(
-                          offset: Offset(0, -bounce * 4),
-                          child: Container(
-                            width: 6,
-                            height: 6,
-                            decoration: BoxDecoration(
-                              color: AppColors.secondaryPurple.withValues(
-                                alpha: 0.4 + bounce,
-                              ),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  );
-                }),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInputArea(bool isProcessing) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-      decoration: const BoxDecoration(
-        color: Colors
-            .transparent, // Floating effect: Transparent background wrapper
-      ),
-      child: SafeArea(
-        top: false,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 900), // Max width 900px
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Suggested Actions
-                _buildSuggestedActions(),
-                const SizedBox(height: 12),
-                // Unified Input Container
-                _buildUnifiedInput(isProcessing),
-                // Compact keyboard hint
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 8, left: 16),
-                    child: Text(
-                      'Enter to send • Shift+Enter for new line',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: AppColors.textMuted.withValues(alpha: 0.6),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSuggestedActions() {
-    return ValueListenableBuilder<List<String>>(
-      valueListenable: _suggestedActions,
-      builder: (context, suggestions, _) {
-        if (suggestions.isEmpty) return const SizedBox.shrink();
-
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 4),
-          child: SizedBox(
-            height: 34,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              itemCount: suggestions.length,
-              separatorBuilder: (context, index) => const SizedBox(width: 10),
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              itemBuilder: (context, index) {
-                final action = suggestions[index];
-                return _buildActionChip(action);
-              },
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildActionChip(String text) {
-    return GlowActionChip(
-      label: text,
-      icon: Icons.bolt_rounded,
-      compact: true,
-      onTap: () {
-        _textController.text = text;
-        _sendMessage();
-      },
-    );
-  }
-
-
-
-  // Dashboard routing is now handled by the dedicated dashboard stream
-  // in _initializeConversation(). No A2UI parsing needed.
 
   @override
   void dispose() {
-    _sessionSubscription?.cancel();
-    _errorSubscription?.cancel();
-    _uiMessageSubscription?.cancel();
-    _suggestionsSubscription?.cancel();
-    _dashboardSubscription?.cancel();
-    _toolCallSubscription?.cancel();
-    _traceInfoSubscription?.cancel();
-    _memorySubscription?.cancel();
-    _toolCallState.dispose();
-    _dashboardState.dispose();
+    _controller.dispose();
+    // Note: _dashboardState is managed by Provider — do NOT dispose here.
     _projectService.selectedProject.removeListener(_onProjectChanged);
     _typingController.dispose();
-    _conversation?.dispose();
-    _contentGenerator?.dispose();
+    _textController.dispose();
+    _scrollController.dispose();
     _focusNode.dispose();
     super.dispose();
-  }
-}
-
-/// Standalone Agent Avatar widget for reuse
-class AgentAvatar extends StatelessWidget {
-  const AgentAvatar({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(right: 8),
-      width: 32,
-      height: 32,
-      decoration: BoxDecoration(
-        color: AppColors.secondaryPurple.withValues(alpha: 0.2),
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: AppColors.secondaryPurple.withValues(alpha: 0.3),
-          width: 1,
-        ),
-      ),
-      child: const Icon(
-        Icons.smart_toy,
-        size: 18, // UNIFIED SIZE: 18px
-        color: AppColors.secondaryPurple,
-      ),
-    );
-  }
-}
-
-/// Animated message item widget
-class _MessageItem extends StatefulWidget {
-  final ChatMessage message;
-  final GenUiHost host;
-  final AnimationController animation;
-  final ValueNotifier<Map<String, ToolLog>>? toolCallState;
-
-  const _MessageItem({
-    required this.message,
-    required this.host,
-    required this.animation,
-    this.toolCallState,
-  });
-
-  @override
-  State<_MessageItem> createState() => _MessageItemState();
-}
-
-class _MessageItemState extends State<_MessageItem>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _entryController;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _entryController = AnimationController(
-      duration: const Duration(milliseconds: 400),
-      vsync: this,
-    );
-
-    _fadeAnimation = CurvedAnimation(
-      parent: _entryController,
-      curve: Curves.easeOut,
-    );
-
-    _slideAnimation =
-        Tween<Offset>(begin: const Offset(0, 0.015), end: Offset.zero).animate(
-          CurvedAnimation(parent: _entryController, curve: Curves.easeOutCubic),
-        );
-
-    _entryController.forward();
-  }
-
-  @override
-  void dispose() {
-    _entryController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _fadeAnimation,
-      child: SlideTransition(
-        position: _slideAnimation,
-        child: _buildMessageContent(context),
-      ),
-    );
-  }
-
-  Widget _buildMessageContent(BuildContext context) {
-    final msg = widget.message;
-
-    if (msg is UserMessage) {
-      final isShort = !msg.text.contains('\n') && msg.text.length < 80;
-      return Align(
-        alignment: Alignment.centerRight,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          crossAxisAlignment: isShort
-              ? CrossAxisAlignment.center
-              : CrossAxisAlignment.start,
-          children: [
-            // Spacer to push content
-            const Spacer(),
-
-            // Message Bubble
-            Flexible(
-              flex: 0,
-              child: Container(
-                constraints: const BoxConstraints(maxWidth: 900),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryBlue.withValues(
-                      alpha: 0.15,
-                    ), // Blue Accent
-                    borderRadius: BorderRadius.circular(12), // Modern Radius
-                    border: Border.all(
-                      color: AppColors.primaryBlue.withValues(alpha: 0.3),
-                      width: 1,
-                    ),
-                  ),
-                  child: SelectionArea(
-                    child: MarkdownBody(
-                      data: msg.text,
-                      styleSheet: MarkdownStyleSheet(
-                        p: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          height: 1.4,
-                        ),
-                        code: TextStyle(
-                          backgroundColor: Colors.black.withValues(alpha: 0.2),
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontFamily: AppTheme.codeStyle.fontFamily,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8), // Gap 8px
-            // User Avatar
-            Container(
-              width: 32,
-              height: 32,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.primaryTeal,
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Consumer<AuthService>(
-                builder: (context, auth, _) {
-                  final user = auth.currentUser;
-                  if (user?.photoUrl != null) {
-                    return Image.network(user!.photoUrl!, fit: BoxFit.cover);
-                  }
-                  return Center(
-                    child: Text(
-                      (user?.displayName ?? 'U').substring(0, 1).toUpperCase(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      );
-    } else if (msg is AiTextMessage) {
-      final isShort = !msg.text.contains('\n') && msg.text.length < 80;
-      return Align(
-        alignment: Alignment.centerLeft,
-        child: Row(
-          crossAxisAlignment: isShort
-              ? CrossAxisAlignment.center
-              : CrossAxisAlignment.start,
-          children: [
-            // Agent Icon
-            const AgentAvatar(),
-            // Message Bubble
-            Flexible(
-              child: Container(
-                constraints: const BoxConstraints(maxWidth: 900),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B), // Dark Background for AI
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.1),
-                    width: 1,
-                  ),
-                ),
-                child: SelectionArea(
-                  child: MarkdownBody(
-                    data: _sanitizeMarkdown(msg.text),
-                    styleSheet: MarkdownStyleSheet(
-                      p: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 14,
-                        height:
-                            1.6, // Increased line height for better readability
-                      ),
-                      pPadding: const EdgeInsets.only(bottom: 16),
-                      h1: const TextStyle(
-                        color: AppColors.primaryTeal,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.5,
-                      ),
-                      h1Padding: const EdgeInsets.only(top: 24, bottom: 12),
-                      h2: const TextStyle(
-                        color: AppColors.primaryCyan,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: -0.3,
-                      ),
-                      h2Padding: const EdgeInsets.only(top: 20, bottom: 10),
-                      h3: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      h3Padding: const EdgeInsets.only(top: 12, bottom: 4),
-                      code: TextStyle(
-                        backgroundColor: const Color(
-                          0xFF0F172A,
-                        ), // Dark "code pill" bg
-                        color: AppColors.primaryCyan, // Cyan text
-                        fontSize: 13,
-                        fontFamily: AppTheme.codeStyle.fontFamily,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      codeblockDecoration: BoxDecoration(
-                        color: const Color(0xFF0F172A),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.1),
-                        ),
-                      ),
-                      blockquoteDecoration: BoxDecoration(
-                        color: AppColors.primaryTeal.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border(
-                          left: BorderSide(
-                            color: AppColors.primaryTeal.withValues(alpha: 0.5),
-                            width: 3,
-                          ),
-                        ),
-                      ),
-                      blockquotePadding: const EdgeInsets.all(12),
-                      // Premium Table Styling
-                      tableHead: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                        fontSize: 12,
-                      ),
-                      tableBody: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12,
-                      ),
-                      tableBorder: TableBorder.all(
-                        color: Colors.white.withValues(alpha: 0.1),
-                        width: 1,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      tableCellsPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      tableCellsDecoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.02),
-                      ),
-                      listBullet: const TextStyle(
-                        color: AppColors.primaryTeal,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      listIndent: 20,
-                      listBulletPadding: const EdgeInsets.only(right: 8),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    } else if (msg is AiUiMessage) {
-      // Check if this is an inline tool call (rendered directly, not via GenUI)
-      final toolState = widget.toolCallState;
-      if (toolState != null) {
-        final toolLog = toolState.value[msg.surfaceId];
-        if (toolLog != null) {
-          // Render as inline tool call widget (simple, no A2UI)
-          return ValueListenableBuilder<Map<String, ToolLog>>(
-            valueListenable: toolState,
-            builder: (context, state, _) {
-              final currentLog = state[msg.surfaceId];
-              if (currentLog == null) return const SizedBox.shrink();
-              return Align(
-                alignment: Alignment.centerLeft,
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 44),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 700),
-                    child: ToolLogWidget(log: currentLog),
-                  ),
-                ),
-              );
-            },
-          );
-        }
-      }
-
-      // Fallback: render via GenUI surface (for non-tool-call A2UI widgets)
-      final host = widget.host;
-      return Align(
-        alignment: Alignment.centerLeft,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const AgentAvatar(),
-            Flexible(
-              child: Container(
-                constraints: const BoxConstraints(maxWidth: 950),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: GenUiSurface(host: host, surfaceId: msg.surfaceId),
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-    return const SizedBox.shrink();
-  }
-  String _sanitizeMarkdown(String text) {
-    // The previous sanitization regex incorrectly split valid table columns.
-    return text;
-  }
-}
-
-/// Modern searchable project selector with combobox functionality
-class _ProjectSelectorDropdown extends StatefulWidget {
-  final List<GcpProject> projects;
-  final List<GcpProject> recentProjects;
-  final List<GcpProject> starredProjects;
-  final GcpProject? selectedProject;
-  final bool isLoading;
-  final String? error;
-  final ValueChanged<GcpProject?> onProjectSelected;
-  final VoidCallback onRefresh;
-  final ValueChanged<String> onSearch;
-  final ValueChanged<GcpProject> onToggleStar;
-
-  const _ProjectSelectorDropdown({
-    required this.projects,
-    required this.recentProjects,
-    required this.starredProjects,
-    required this.selectedProject,
-    required this.isLoading,
-    this.error,
-    required this.onProjectSelected,
-    required this.onRefresh,
-    required this.onSearch,
-    required this.onToggleStar,
-  });
-
-  @override
-  State<_ProjectSelectorDropdown> createState() =>
-      _ProjectSelectorDropdownState();
-}
-
-class _ProjectSelectorDropdownState extends State<_ProjectSelectorDropdown>
-    with SingleTickerProviderStateMixin {
-  final LayerLink _layerLink = LayerLink();
-  final TextEditingController _searchController = TextEditingController();
-  final FocusNode _searchFocusNode = FocusNode();
-  OverlayEntry? _overlayEntry;
-  bool _isOpen = false;
-  String _searchQuery = '';
-  late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
-  late Animation<double> _scaleAnimation;
-
-  Timer? _debounceTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 200),
-      vsync: this,
-    );
-    _fadeAnimation = CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOut,
-    );
-    _scaleAnimation = Tween<double>(begin: 0.95, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
-    );
-  }
-
-  @override
-  void didUpdateWidget(_ProjectSelectorDropdown oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Refresh the overlay if it's open, so that changes to project lists
-    // (like starring/unstarring) are reflected immediately.
-    if (_isOpen) {
-      _overlayEntry?.markNeedsBuild();
-    }
-  }
-
-  @override
-  void dispose() {
-    _debounceTimer?.cancel();
-    _animationController.dispose();
-    if (_isOpen) {
-      _overlayEntry?.remove();
-      _overlayEntry = null;
-    }
-    _searchController.dispose();
-    _searchFocusNode.dispose();
-    super.dispose();
-  }
-
-  // The projects list is already filtered by backend if query matches,
-  // effectively we just show 'widget.projects'.
-  // But for better UX during 'isLoading' or empty/cleared search, we might want local logic too?
-  // Current logic: If backend returns list, that's the list.
-  List<GcpProject> get _filteredProjects {
-    // If we are searching and waiting, maybe keep showing old results or show loading?
-    // For now, trust the state.
-    return widget.projects;
-  }
-
-  void _toggleDropdown() {
-    if (_isOpen) {
-      _closeDropdown();
-    } else {
-      _openDropdown();
-    }
-  }
-
-  void _openDropdown() {
-    _overlayEntry = _createOverlayEntry();
-    Overlay.of(context).insert(_overlayEntry!);
-    _animationController.forward();
-    setState(() {
-      _isOpen = true;
-    });
-    // Focus the search field after a short delay
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (mounted) {
-        _searchFocusNode.requestFocus();
-      }
-    });
-  }
-
-  void _closeDropdown() {
-    _animationController.reverse().then((_) {
-      if (mounted) {
-        _overlayEntry?.remove();
-        _overlayEntry = null;
-      }
-    });
-    if (mounted) {
-      setState(() {
-        _isOpen = false;
-        _searchQuery = '';
-        _searchController.clear();
-      });
-      widget.onSearch('');
-    }
-  }
-
-  void _selectCustomProject(String projectId) {
-    if (projectId.trim().isEmpty) return;
-    final customProject = GcpProject(projectId: projectId.trim());
-    widget.onProjectSelected(customProject);
-    _closeDropdown();
-  }
-
-  OverlayEntry _createOverlayEntry() {
-    final renderBox = context.findRenderObject() as RenderBox;
-    final size = renderBox.size;
-    final offset = renderBox.localToGlobal(Offset.zero);
-
-    return OverlayEntry(
-      builder: (context) => GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onTap: _closeDropdown,
-        child: Material(
-          color: Colors.transparent,
-          child: Stack(
-            children: [
-              Positioned(
-                left: offset.dx,
-                top: offset.dy + size.height + 8,
-                width: 360, // Slightly wider
-                child: GestureDetector(
-                  onTap: () {}, // Prevent tap from closing
-                  child: FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: ScaleTransition(
-                      scale: _scaleAnimation,
-                      alignment: Alignment.topLeft,
-                      child: _buildDropdownContent(),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDropdownContent() {
-    return DefaultTabController(
-      length: 2,
-      child: StatefulBuilder(
-        builder: (context, setDropdownState) {
-          return Container(
-            constraints: const BoxConstraints(maxHeight: 550), // Increased height
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E293B),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.4),
-                  blurRadius: 24,
-                  offset: const Offset(0, 12),
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Search input as Header
-                  SizedBox(
-                    height: 50,
-                    child: TextField(
-                      controller: _searchController,
-                      focusNode: _searchFocusNode,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 14,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: 'Search or enter project ID...',
-                        hintStyle: const TextStyle(
-                          color: AppColors.textMuted,
-                          fontSize: 13,
-                        ),
-                        prefixIcon: const Icon(
-                          Icons.search,
-                          size: 18,
-                          color: AppColors.textMuted,
-                        ),
-                        suffixIcon: _searchController.text.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(
-                                  Icons.clear,
-                                  size: 16,
-                                  color: AppColors.textMuted,
-                                ),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  setDropdownState(() {
-                                    _searchQuery = '';
-                                  });
-                                  widget.onSearch('');
-                                },
-                              )
-                            : null,
-                        border: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        errorBorder: InputBorder.none,
-                        disabledBorder: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 15,
-                        ),
-                      ),
-                      onChanged: (value) {
-                        setDropdownState(() {
-                          _searchQuery = value;
-                        });
-
-                        // Debounce search to avoid too many API calls
-                        _debounceTimer?.cancel();
-                        _debounceTimer = Timer(
-                          const Duration(milliseconds: 500),
-                          () {
-                            widget.onSearch(value);
-                          },
-                        );
-                      },
-                      onSubmitted: (value) {
-                        if (_filteredProjects.isEmpty && value.isNotEmpty) {
-                          _selectCustomProject(value);
-                        } else if (_filteredProjects.length == 1) {
-                          widget.onProjectSelected(_filteredProjects.first);
-                          _closeDropdown();
-                        }
-                      },
-                    ),
-                  ),
-                  const Divider(height: 1, color: Colors.white10),
-
-                  // Header with refresh and project count
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.02),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryTeal.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Icon(
-                            Icons.cloud_outlined,
-                            size: 14,
-                            color: AppColors.primaryTeal,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'GCP Projects',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textMuted,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        const Spacer(),
-                        if (_searchQuery.isNotEmpty)
-                          Text(
-                            '${_filteredProjects.length} matches',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: AppColors.textMuted,
-                            ),
-                          )
-                        else
-                          Text(
-                            '${widget.projects.length} total',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: AppColors.textMuted,
-                            ),
-                          ),
-                        const SizedBox(width: 8),
-                        Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: widget.onRefresh,
-                            borderRadius: BorderRadius.circular(6),
-                            child: Padding(
-                              padding: const EdgeInsets.all(6),
-                              child: widget.isLoading
-                                  ? const SizedBox(
-                                      width: 14,
-                                      height: 14,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(
-                                          AppColors.primaryTeal,
-                                        ),
-                                      ),
-                                    )
-                                  : const Icon(
-                                      Icons.refresh,
-                                      size: 14,
-                                      color: AppColors.textMuted,
-                                    ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Tab Bar for Favorites/Recent vs All
-                  if (_searchQuery.isEmpty)
-                    const TabBar(
-                      indicatorColor: AppColors.primaryTeal,
-                      indicatorSize: TabBarIndicatorSize.tab,
-                      labelColor: AppColors.primaryTeal,
-                      unselectedLabelColor: AppColors.textMuted,
-                      labelStyle: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.5,
-                      ),
-                      tabs: [
-                        Tab(text: 'FAVORITES & RECENT'),
-                        Tab(text: 'ALL PROJECTS'),
-                      ],
-                    ),
-
-                  // Tab Content
-                  Flexible(
-                    child: _searchQuery.isNotEmpty
-                        ? _buildSearchResults(setDropdownState)
-                        : TabBarView(
-                            children: [
-                              _buildFavoritesAndRecentTab(),
-                              _buildAllProjectsTab(),
-                            ],
-                          ),
-                  ),
-
-                  // Custom project option when search doesn't match
-                  if (_searchQuery.isNotEmpty && _filteredProjects.isEmpty)
-                    _buildUseCustomProjectOption(_searchQuery, setDropdownState),
-
-                  // Use custom project when there's a search with some results
-                  if (_searchQuery.isNotEmpty && _filteredProjects.isNotEmpty)
-                    _buildUseCustomProjectOption(_searchQuery, setDropdownState),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildSearchResults(StateSetter setDropdownState) {
-    if (widget.isLoading) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 32),
-          child: SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryTeal),
-            ),
-          ),
-        ),
-      );
-    }
-
-    if (_filteredProjects.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(24),
-        child: Column(
-          children: [
-            Icon(Icons.search_off, size: 32, color: AppColors.textMuted),
-            SizedBox(height: 12),
-            Text(
-              'No matching projects',
-              style: TextStyle(fontSize: 13, color: AppColors.textMuted),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return ListView.builder(
-      shrinkWrap: true,
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      itemCount: _filteredProjects.length,
-      itemBuilder: (context, index) {
-        final project = _filteredProjects[index];
-        final isSelected = widget.selectedProject?.projectId == project.projectId;
-        return _buildProjectItem(project, isSelected);
-      },
-    );
-  }
-
-  Widget _buildFavoritesAndRecentTab() {
-    if (widget.error != null) return _buildErrorState();
-    if (widget.starredProjects.isEmpty && widget.recentProjects.isEmpty) {
-      return _buildEmptyState('No favorites or recent projects');
-    }
-
-    return ListView(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      children: [
-        if (widget.starredProjects.isNotEmpty) ...[
-          _buildSectionHeader(Icons.star, 'STARRED', Colors.amber),
-          ...widget.starredProjects.map((project) {
-            final isSelected = widget.selectedProject?.projectId == project.projectId;
-            return _buildProjectItem(project, isSelected);
-          }),
-          const Divider(height: 16, color: Colors.white10),
-        ],
-        if (widget.recentProjects.isNotEmpty) ...[
-          _buildSectionHeader(Icons.history, 'RECENT', AppColors.primaryTeal),
-          ...widget.recentProjects.map((project) {
-            final isSelected = widget.selectedProject?.projectId == project.projectId;
-            return _buildProjectItem(project, isSelected);
-          }),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildAllProjectsTab() {
-    if (widget.error != null) return _buildErrorState();
-    if (widget.projects.isEmpty) return _buildEmptyState('No projects available');
-
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      itemCount: widget.projects.length,
-      itemBuilder: (context, index) {
-        final project = widget.projects[index];
-        final isSelected = widget.selectedProject?.projectId == project.projectId;
-        return _buildProjectItem(project, isSelected);
-      },
-    );
-  }
-
-  Widget _buildSectionHeader(IconData icon, String title, Color iconColor) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-      child: Row(
-        children: [
-          Icon(icon, size: 12, color: iconColor.withValues(alpha: 0.8)),
-          const SizedBox(width: 6),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textMuted.withValues(alpha: 0.7),
-              letterSpacing: 0.8,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildErrorState() {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, size: 32, color: Colors.redAccent),
-          const SizedBox(height: 12),
-          const Text(
-            'Error loading projects',
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.redAccent,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            widget.error!,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyState(String message) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.cloud_off_outlined, size: 32, color: AppColors.textMuted),
-          const SizedBox(height: 12),
-          Text(
-            message,
-            style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildUseCustomProjectOption(
-    String projectId,
-    StateSetter setDropdownState,
-  ) {
-    // Don't show if exact match exists
-    final exactMatch = widget.projects.any((p) => p.projectId == projectId);
-    if (exactMatch) return const SizedBox.shrink();
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-      decoration: BoxDecoration(
-        color: AppColors.primaryTeal.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.primaryTeal.withValues(alpha: 0.3)),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => _selectCustomProject(projectId),
-          borderRadius: BorderRadius.circular(10),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryTeal.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Icon(
-                    Icons.add,
-                    size: 14,
-                    color: AppColors.primaryTeal,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Use "$projectId"',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.primaryTeal,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const Text(
-                        'Press Enter or click to use this project ID',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: AppColors.textMuted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(
-                  Icons.keyboard_return,
-                  size: 14,
-                  color: AppColors.primaryTeal,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProjectItem(GcpProject project, bool isSelected) {
-    final isStarred = widget.starredProjects.any((p) => p.projectId == project.projectId);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      child: Material(
-        color: Colors.transparent,
-        child: Row(
-          children: [
-            // Project Clickable Area
-            Expanded(
-              child: InkWell(
-                onTap: () {
-                  widget.onProjectSelected(project);
-                  _closeDropdown();
-                },
-                borderRadius: BorderRadius.circular(10),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? AppColors.primaryTeal.withValues(alpha: 0.15)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: isSelected
-                          ? AppColors.primaryTeal.withValues(alpha: 0.3)
-                          : Colors.transparent,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          gradient: isSelected
-                              ? LinearGradient(
-                                  colors: [
-                                    AppColors.primaryTeal.withValues(alpha: 0.3),
-                                    AppColors.primaryCyan.withValues(alpha: 0.2),
-                                  ],
-                                )
-                              : null,
-                          color: isSelected
-                              ? null
-                              : Colors.white.withValues(alpha: 0.05),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(
-                          isSelected ? Icons.folder : Icons.folder_outlined,
-                          size: 16,
-                          color: isSelected
-                              ? AppColors.primaryTeal
-                              : AppColors.textMuted,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              project.name,
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: isSelected
-                                    ? FontWeight.w600
-                                    : FontWeight.w500,
-                                color: isSelected
-                                    ? AppColors.primaryTeal
-                                    : AppColors.textPrimary,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            if (project.displayName != null &&
-                                project.displayName != project.projectId)
-                              Text(
-                                project.projectId,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: AppColors.textMuted,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            // Independent Star toggle button
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => widget.onToggleStar(project),
-                borderRadius: BorderRadius.circular(20),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Icon(
-                    isStarred ? Icons.star : Icons.star_border,
-                    size: 18,
-                    color: isStarred
-                        ? Colors.amber
-                        : AppColors.textMuted.withValues(alpha: 0.4),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return CompositedTransformTarget(
-      link: _layerLink,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: _toggleDropdown,
-          borderRadius: BorderRadius.circular(6),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            decoration: BoxDecoration(
-              color: _isOpen
-                  ? AppColors.primaryTeal.withValues(alpha: 0.1)
-                  : Colors.white.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                color: _isOpen
-                    ? AppColors.primaryTeal.withValues(alpha: 0.3)
-                    : AppColors.surfaceBorder.withValues(alpha: 0.5),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.folder_outlined,
-                  size: 14,
-                  color: _isOpen ? AppColors.primaryTeal : AppColors.textMuted,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    widget.selectedProject?.name ?? 'Project',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: widget.selectedProject != null
-                          ? AppColors.textPrimary
-                          : AppColors.textMuted,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 2),
-                AnimatedRotation(
-                  turns: _isOpen ? 0.5 : 0,
-                  duration: const Duration(milliseconds: 150),
-                  child: Icon(
-                    Icons.keyboard_arrow_down,
-                    size: 16,
-                    color: _isOpen
-                        ? AppColors.primaryTeal
-                        : AppColors.textMuted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// A vertical rail on the right side providing quick access to dashboard categories.
-class _InvestigationRailWidget extends StatelessWidget {
-  final DashboardState state;
-
-  const _InvestigationRailWidget({required this.state});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: state,
-      builder: (context, _) {
-        final hasData = state.hasData;
-        final counts = state.typeCounts;
-
-        return Container(
-          width: 56,
-          decoration: BoxDecoration(
-            color: AppColors.backgroundCard.withValues(alpha: 0.8),
-            border: Border(
-              left: BorderSide(
-                color: AppColors.surfaceBorder.withValues(alpha: 0.5),
-                width: 1,
-              ),
-            ),
-          ),
-          child: Column(
-            children: [
-              const SizedBox(height: 12),
-              // Main Toggle
-              _RailItem(
-                icon: state.isOpen ? Icons.dashboard_rounded : Icons.dashboard_outlined,
-                label: 'Dashboard',
-                color: AppColors.primaryCyan,
-                isActive: state.isOpen,
-                hasData: hasData,
-                onTap: state.toggleDashboard,
-              ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                child: Divider(height: 1),
-              ),
-              // Category Items
-              Expanded(
-                child: ListView(
-                  padding: EdgeInsets.zero,
-                  children: DashboardDataType.values.map((type) {
-                    final config = _tabIconConfig(type);
-                    final count = counts[type] ?? 0;
-                    final isCurrentTab = state.isOpen && state.activeTab == type;
-
-                    return _RailItem(
-                      icon: config.icon,
-                      label: config.label,
-                      color: config.color,
-                      isActive: isCurrentTab,
-                      hasData: count > 0,
-                      count: count,
-                      onTap: () {
-                        if (!state.isOpen) {
-                          state.openDashboard();
-                        }
-                        state.setActiveTab(type);
-                      },
-                    );
-                  }).toList(),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _RailItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final bool isActive;
-  final bool hasData;
-  final int count;
-  final VoidCallback onTap;
-
-  const _RailItem({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.isActive,
-    required this.hasData,
-    this.count = 0,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Tooltip(
-        message: label,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: isActive
-                      ? color.withValues(alpha: 0.15)
-                      : hasData
-                          ? color.withValues(alpha: 0.05)
-                          : Colors.transparent,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isActive
-                        ? color.withValues(alpha: 0.4)
-                        : hasData
-                            ? color.withValues(alpha: 0.1)
-                            : Colors.transparent,
-                    width: 1,
-                  ),
-                  boxShadow: [
-                    if (isActive || (hasData && !isActive))
-                      BoxShadow(
-                        color: color.withValues(alpha: 0.1),
-                        blurRadius: 8,
-                        spreadRadius: -2,
-                      ),
-                  ],
-                ),
-                child: Icon(
-                  icon,
-                  size: 20,
-                  color: isActive || hasData ? color : AppColors.textMuted,
-                ),
-              ),
-              // Activity Indicator Glow
-              if (hasData && !isActive)
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Container(
-                    width: 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: color.withValues(alpha: 0.6),
-                          blurRadius: 4,
-                          spreadRadius: 1,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              // Badge count
-              if (count > 0 && isActive)
-                Positioned(
-                  bottom: 4,
-                  right: 4,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: color,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      '$count',
-                      style: const TextStyle(
-                        fontSize: 8,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _RailIconConfig {
-  final String label;
-  final IconData icon;
-  final Color color;
-  const _RailIconConfig(this.label, this.icon, this.color);
-}
-
-_RailIconConfig _tabIconConfig(DashboardDataType type) {
-  switch (type) {
-    case DashboardDataType.traces:
-      return const _RailIconConfig('Traces', Icons.timeline_rounded, AppColors.primaryCyan);
-    case DashboardDataType.logs:
-      return const _RailIconConfig('Logs', Icons.article_outlined, AppColors.success);
-    case DashboardDataType.metrics:
-      return const _RailIconConfig('Metrics', Icons.show_chart_rounded, AppColors.warning);
-    case DashboardDataType.alerts:
-      return const _RailIconConfig('Alerts', Icons.notifications_active_outlined, AppColors.error);
-    case DashboardDataType.remediation:
-      return const _RailIconConfig('Remediation', Icons.build_circle_outlined, AppColors.secondaryPurple);
-    case DashboardDataType.council:
-      return const _RailIconConfig('Council', Icons.groups_rounded, AppColors.primaryTeal);
-    case DashboardDataType.charts:
-      return const _RailIconConfig('Charts', Icons.bar_chart_rounded, AppColors.primaryBlue);
-    case DashboardDataType.sql:
-      return const _RailIconConfig('SQL', Icons.storage_rounded, Colors.orange);
   }
 }

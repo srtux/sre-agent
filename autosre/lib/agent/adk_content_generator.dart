@@ -321,6 +321,9 @@ class ADKContentGenerator implements ContentGenerator {
         if (!_isDisposed) {
           _isProcessing.value = false;
         }
+
+        // Fetch new contextual suggestions after successful request
+        unawaited(fetchSuggestions());
         return;
       } catch (e, st) {
         // Check if this was a cancellation

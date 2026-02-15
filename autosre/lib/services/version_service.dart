@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'service_config.dart';
 
 /// Lightweight service that fetches and caches backend version metadata.
 class VersionService {
@@ -17,18 +18,13 @@ class VersionService {
   String get gitSha => _gitSha ?? 'unknown';
   String get buildTimestamp => _buildTimestamp ?? '';
 
-  String get _baseUrl {
-    if (kDebugMode) {
-      return 'http://127.0.0.1:8001';
-    }
-    return '';
-  }
-
   /// Fetch version info from the backend. Caches after first successful call.
   Future<void> fetch() async {
     if (_fetched) return;
     try {
-      final response = await http.get(Uri.parse('$_baseUrl/api/version'));
+      final response = await http
+          .get(Uri.parse('${ServiceConfig.baseUrl}/api/version'))
+          .timeout(ServiceConfig.healthCheckTimeout);
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as Map<String, dynamic>;
         _version = data['version'] as String?;

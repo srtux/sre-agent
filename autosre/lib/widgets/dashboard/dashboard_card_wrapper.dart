@@ -69,7 +69,10 @@ class _DashboardCardWrapperState extends State<DashboardCardWrapper> {
   }
 
   Widget _buildHeader() {
-    return Material(
+    return Semantics(
+      button: true,
+      label: _isExpanded ? 'Collapse dashboard card' : 'Expand dashboard card',
+      child: Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: () => setState(() => _isExpanded = !_isExpanded),
@@ -137,6 +140,7 @@ class _DashboardCardWrapperState extends State<DashboardCardWrapper> {
           ),
         ),
       ),
+    ),
     );
   }
 }

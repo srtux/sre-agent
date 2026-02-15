@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_client.dart';
 import 'project_service.dart';
+import 'service_config.dart';
 
 /// Service to handle authentication with Google Sign-In.
 ///
@@ -44,6 +45,8 @@ class AuthService extends ChangeNotifier {
 
   late final gsi_lib.GoogleSignIn _googleSignIn;
   bool _initialized = false;
+  StreamSubscription<gsi_lib.GoogleSignInAuthenticationEvent>?
+      _authEventSubscription;
 
   gsi_lib.GoogleSignInAccount? _currentUser;
   String? _accessToken;
@@ -77,13 +80,6 @@ class AuthService extends ChangeNotifier {
   /// The GoogleSignIn instance, exposed for web's renderButton().
   gsi_lib.GoogleSignIn get googleSignIn => _googleSignIn;
 
-  String get _baseUrl {
-    if (kDebugMode) {
-      return 'http://127.0.0.1:8001';
-    }
-    return '';
-  }
-
   // ---------------------------------------------------------------------------
   // Initialization
   // ---------------------------------------------------------------------------
@@ -93,7 +89,9 @@ class AuthService extends ChangeNotifier {
 
     // 1. Fetch runtime config from backend
     try {
-      final response = await http.get(Uri.parse('$_baseUrl/api/config'));
+      final response = await http
+          .get(Uri.parse('${ServiceConfig.baseUrl}/api/config'))
+          .timeout(ServiceConfig.healthCheckTimeout);
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data.containsKey('auth_enabled')) {
@@ -124,7 +122,7 @@ class AuthService extends ChangeNotifier {
     _googleSignIn = gsi_lib.GoogleSignIn.instance;
 
     // 3. Listen to auth state changes
-    _googleSignIn.authenticationEvents.listen(
+    _authEventSubscription = _googleSignIn.authenticationEvents.listen(
       _handleAuthEvent,
       onError: (e) => debugPrint('Auth stream error: $e'),
     );
@@ -200,7 +198,8 @@ class AuthService extends ChangeNotifier {
 
     // Already have a valid token?
     if (_accessToken != null && _accessTokenExpiry != null) {
-      final buffer = _accessTokenExpiry!.subtract(const Duration(minutes: 5));
+      final buffer =
+          _accessTokenExpiry!.subtract(ServiceConfig.tokenRefreshBuffer);
       if (DateTime.now().isBefore(buffer)) {
         return;
       }
@@ -223,7 +222,7 @@ class AuthService extends ChangeNotifier {
 
       if (authz != null) {
         _accessToken = authz.accessToken;
-        _accessTokenExpiry = DateTime.now().add(const Duration(minutes: 55));
+        _accessTokenExpiry = DateTime.now().add(ServiceConfig.tokenLifetime);
         debugPrint('AuthService: Access token obtained successfully');
         await _cacheTokens();
       } else {
@@ -262,7 +261,7 @@ class AuthService extends ChangeNotifier {
 
       if (cachedToken != null && cachedExpiry != null) {
         final expiry = DateTime.parse(cachedExpiry);
-        final buffer = expiry.subtract(const Duration(minutes: 5));
+        final buffer = expiry.subtract(ServiceConfig.tokenRefreshBuffer);
         if (DateTime.now().isBefore(buffer)) {
           _accessToken = cachedToken;
           _accessTokenExpiry = expiry;
@@ -387,5 +386,11 @@ class AuthService extends ChangeNotifier {
     return authHeader != null && authHeader.startsWith('Bearer ')
         ? authHeader.substring(7)
         : authHeader;
+  }
+
+  @override
+  void dispose() {
+    _authEventSubscription?.cancel();
+    super.dispose();
   }
 }

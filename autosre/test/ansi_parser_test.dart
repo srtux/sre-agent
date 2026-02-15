@@ -67,4 +67,36 @@ void main() {
     expect(firstSpan.text, 'Cyan-ish');
     expect(firstSpan.style?.color, const Color(0xFF4DD0E1));
   });
+
+  test('AnsiParser handles italic code (3)', () {
+    const text = '\x1B[3mItalic Text\x1B[0m';
+    final span = AnsiParser.parse(text);
+
+    expect(span.children?.length, 1);
+    final firstSpan = span.children?[0] as TextSpan;
+    expect(firstSpan.text, 'Italic Text');
+    expect(firstSpan.style?.fontStyle, FontStyle.italic);
+  });
+
+  test('AnsiParser handles underline code (4)', () {
+    const text = '\x1B[4mUnderlined\x1B[0m';
+    final span = AnsiParser.parse(text);
+
+    expect(span.children?.length, 1);
+    final firstSpan = span.children?[0] as TextSpan;
+    expect(firstSpan.text, 'Underlined');
+    expect(firstSpan.style?.decoration, TextDecoration.underline);
+  });
+
+  test('AnsiParser handles combined bold+italic+color', () {
+    const text = '\x1B[1;3;31mBold Italic Red\x1B[0m';
+    final span = AnsiParser.parse(text);
+
+    expect(span.children?.length, 1);
+    final firstSpan = span.children?[0] as TextSpan;
+    expect(firstSpan.text, 'Bold Italic Red');
+    expect(firstSpan.style?.fontWeight, FontWeight.bold);
+    expect(firstSpan.style?.fontStyle, FontStyle.italic);
+    expect(firstSpan.style?.color, const Color(0xFFE57373));
+  });
 }

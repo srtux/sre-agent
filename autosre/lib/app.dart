@@ -27,10 +27,12 @@ class SreNexusApp extends StatelessWidget {
         Provider(create: (_) => PromptHistoryService()),
         ChangeNotifierProvider(create: (_) => DashboardState()),
         ProxyProvider<DashboardState, ExplorerQueryService>(
-          update: (_, dashState, _) => ExplorerQueryService(
-            dashboardState: dashState,
-            clientFactory: () => AuthService.instance.getAuthenticatedClient(),
-          ),
+          update: (_, dashState, previous) =>
+              previous ?? ExplorerQueryService(
+                dashboardState: dashState,
+                clientFactory: () =>
+                    AuthService.instance.getAuthenticatedClient(),
+              ),
         ),
       ],
       child: MaterialApp(

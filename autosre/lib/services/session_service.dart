@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'auth_service.dart';
+import 'service_config.dart';
 
 /// Model representing a session message.
 class SessionMessage {
@@ -158,16 +159,8 @@ class SessionService {
 
   SessionService._internal();
 
-  /// HTTP request timeout duration.
-  static const Duration _requestTimeout = Duration(seconds: 30);
-
   /// Returns the base API URL based on the runtime environment.
-  String get _baseUrl {
-    if (kDebugMode) {
-      return 'http://127.0.0.1:8001';
-    }
-    return '';
-  }
+  String get _baseUrl => ServiceConfig.baseUrl;
 
   final ValueNotifier<List<SessionSummary>> _sessions = ValueNotifier([]);
   final ValueNotifier<String?> _currentSessionId = ValueNotifier(null);
@@ -202,20 +195,24 @@ class SessionService {
           userId ?? AuthService().currentUser?.email ?? 'default';
 
       final client = await AuthService().getAuthenticatedClient();
+      try {
+        final response = await client
+            .get(Uri.parse('$_baseUrl/api/sessions?user_id=$effectiveUserId'))
+            .timeout(ServiceConfig.defaultTimeout);
 
-      final response = await client
-          .get(Uri.parse('$_baseUrl/api/sessions?user_id=$effectiveUserId'))
-          .timeout(_requestTimeout);
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          final sessionList = data['sessions'] as List<dynamic>? ?? [];
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final sessionList = data['sessions'] as List<dynamic>? ?? [];
-
-        _sessions.value = sessionList
-            .map((s) => SessionSummary.fromJson(s as Map<String, dynamic>))
-            .toList();
-      } else {
-        _error.value = 'Failed to fetch sessions: ${response.statusCode}';
+          _sessions.value = sessionList
+              .map(
+                  (s) => SessionSummary.fromJson(s as Map<String, dynamic>))
+              .toList();
+        } else {
+          _error.value = 'Failed to fetch sessions: ${response.statusCode}';
+        }
+      } finally {
+        client.close();
       }
     } catch (e, stack) {
       _error.value = 'Error fetching sessions: $e';
@@ -236,35 +233,38 @@ class SessionService {
           userId ?? AuthService().currentUser?.email ?? 'default';
 
       final client = await AuthService().getAuthenticatedClient();
+      try {
+        final response = await client
+            .post(
+              Uri.parse('$_baseUrl/api/sessions'),
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode({
+                'user_id': effectiveUserId,
+                // ignore: use_null_aware_elements
+                if (title != null) 'title': title,
+                // ignore: use_null_aware_elements
+                if (projectId != null) 'project_id': projectId,
+              }),
+            )
+            .timeout(ServiceConfig.defaultTimeout);
 
-      final response = await client
-          .post(
-            Uri.parse('$_baseUrl/api/sessions'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'user_id': effectiveUserId,
-              // ignore: use_null_aware_elements
-              if (title != null) 'title': title,
-              // ignore: use_null_aware_elements
-              if (projectId != null) 'project_id': projectId,
-            }),
-          )
-          .timeout(_requestTimeout);
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          final session = Session.fromJson(data);
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final session = Session.fromJson(data);
+          // Set as current session
+          _currentSessionId.value = session.id;
 
-        // Set as current session
-        _currentSessionId.value = session.id;
+          // Refresh sessions list
+          await fetchHistory(userId: effectiveUserId, force: true);
 
-        // Refresh sessions list
-        await fetchHistory(userId: effectiveUserId, force: true);
-
-        return session;
-      } else {
-        _error.value = 'Failed to create session: ${response.statusCode}';
-        return null;
+          return session;
+        } else {
+          _error.value = 'Failed to create session: ${response.statusCode}';
+          return null;
+        }
+      } finally {
+        client.close();
       }
     } catch (e) {
       _error.value = 'Error creating session: $e';
@@ -276,39 +276,28 @@ class SessionService {
   /// Gets a session by ID.
   Future<Session?> getSession(String sessionId) async {
     try {
-      // Note: getSession typically doesn't strictly require userId for retrieval if ID is known,
-      // but ADK might enforce ownership. We'll pass it if we have it, or let backend handle it.
-      // The current backend implementation of get_session takes user_id but might not enforce it strictly
-      // depending on implementation.
-      // Let's safe-guard by just getting the client.
-
       final client = await AuthService().getAuthenticatedClient();
+      try {
+        final effectiveUserId =
+            AuthService().currentUser?.email ?? 'default';
 
-      // Check current user for the request usage if needed, but get calls usually are by ID.
-      // API signature: get_session(session_id, user_id="default")
-      // We should probably pass the user_id to be safe/consistent.
-      final effectiveUserId = AuthService().currentUser?.email ?? 'default';
+        final response = await client
+            .get(
+              Uri.parse(
+                '$_baseUrl/api/sessions/$sessionId?user_id=$effectiveUserId',
+              ),
+            )
+            .timeout(ServiceConfig.defaultTimeout);
 
-      // Typically GET params? No, the backend `get_session` is just path param `session_id`.
-      // The `user_id` query param is optional in the backend definition `async def get_session(session_id: str, user_id: str = "default")`
-      // Wait, let's check server.py:
-      // @app.get("/api/sessions/{session_id}")
-      // async def get_session(session_id: str, user_id: str = "default")
-
-      final response = await client
-          .get(
-            Uri.parse(
-              '$_baseUrl/api/sessions/$sessionId?user_id=$effectiveUserId',
-            ),
-          )
-          .timeout(_requestTimeout);
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return Session.fromJson(data);
-      } else {
-        _error.value = 'Failed to get session: ${response.statusCode}';
-        return null;
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          return Session.fromJson(data);
+        } else {
+          _error.value = 'Failed to get session: ${response.statusCode}';
+          return null;
+        }
+      } finally {
+        client.close();
       }
     } catch (e) {
       debugPrint('Error getting session details: $e');
@@ -322,30 +311,33 @@ class SessionService {
       final effectiveUserId = AuthService().currentUser?.email ?? 'default';
 
       final client = await AuthService().getAuthenticatedClient();
+      try {
+        final response = await client
+            .delete(
+              Uri.parse(
+                '$_baseUrl/api/sessions/$sessionId?user_id=$effectiveUserId',
+              ),
+            )
+            .timeout(ServiceConfig.defaultTimeout);
 
-      final response = await client
-          .delete(
-            Uri.parse(
-              '$_baseUrl/api/sessions/$sessionId?user_id=$effectiveUserId',
-            ),
-          )
-          .timeout(_requestTimeout);
+        if (response.statusCode == 200) {
+          // Remove from list
+          _sessions.value = _sessions.value
+              .where((s) => s.id != sessionId)
+              .toList();
 
-      if (response.statusCode == 200) {
-        // Remove from list
-        _sessions.value = _sessions.value
-            .where((s) => s.id != sessionId)
-            .toList();
+          // Clear current session if deleted
+          if (_currentSessionId.value == sessionId) {
+            _currentSessionId.value = null;
+          }
 
-        // Clear current session if deleted
-        if (_currentSessionId.value == sessionId) {
-          _currentSessionId.value = null;
+          return true;
+        } else {
+          _error.value = 'Failed to delete session: ${response.statusCode}';
+          return false;
         }
-
-        return true;
-      } else {
-        _error.value = 'Failed to delete session: ${response.statusCode}';
-        return false;
+      } finally {
+        client.close();
       }
     } catch (e) {
       _error.value = 'Error deleting session: $e';
@@ -357,42 +349,43 @@ class SessionService {
   /// Renames a session.
   Future<bool> renameSession(String sessionId, String newTitle) async {
     try {
-      // final effectiveUserId = AuthService().currentUser?.email ?? 'default'; // Patch might use it?
-
       final client = await AuthService().getAuthenticatedClient();
+      try {
+        final response = await client
+            .patch(
+              Uri.parse('$_baseUrl/api/sessions/$sessionId'),
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode({'title': newTitle}),
+            )
+            .timeout(ServiceConfig.defaultTimeout);
 
-      final response = await client
-          .patch(
-            Uri.parse('$_baseUrl/api/sessions/$sessionId'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'title': newTitle}),
-          )
-          .timeout(_requestTimeout);
+        if (response.statusCode == 200) {
+          // Update list locally
+          final updatedSessions = _sessions.value.map((s) {
+            if (s.id == sessionId) {
+              return SessionSummary(
+                id: s.id,
+                userId: s.userId,
+                appName: s.appName,
+                title: newTitle,
+                projectId: s.projectId,
+                createdAt: s.createdAt,
+                updatedAt: s.updatedAt,
+                messageCount: s.messageCount,
+                preview: s.preview,
+              );
+            }
+            return s;
+          }).toList();
 
-      if (response.statusCode == 200) {
-        // Update list locally
-        final updatedSessions = _sessions.value.map((s) {
-          if (s.id == sessionId) {
-            return SessionSummary(
-              id: s.id,
-              userId: s.userId,
-              appName: s.appName,
-              title: newTitle, // Update title
-              projectId: s.projectId,
-              createdAt: s.createdAt,
-              updatedAt: s.updatedAt,
-              messageCount: s.messageCount,
-              preview: s.preview,
-            );
-          }
-          return s;
-        }).toList();
-
-        _sessions.value = updatedSessions;
-        return true;
-      } else {
-        _error.value = 'Failed to rename session: ${response.statusCode}';
-        return false;
+          _sessions.value = updatedSessions;
+          return true;
+        } else {
+          _error.value = 'Failed to rename session: ${response.statusCode}';
+          return false;
+        }
+      } finally {
+        client.close();
       }
     } catch (e) {
       _error.value = 'Error renaming session: $e';

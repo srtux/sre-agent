@@ -84,7 +84,7 @@ class CatalogRegistry {
               height: null,
             );
           } catch (e) {
-            return ErrorPlaceholder(error: e);
+            return _logAndBuildError('x-sre-trace-waterfall', e);
           }
         },
       ),
@@ -106,7 +106,7 @@ class CatalogRegistry {
               height: 380,
             );
           } catch (e) {
-            return ErrorPlaceholder(error: e);
+            return _logAndBuildError('x-sre-metric-chart', e);
           }
         },
       ),
@@ -129,7 +129,7 @@ class CatalogRegistry {
               minHeight: 200,
             );
           } catch (e) {
-            return ErrorPlaceholder(error: e);
+            return _logAndBuildError('x-sre-remediation-plan', e);
           }
         },
       ),
@@ -179,7 +179,7 @@ class CatalogRegistry {
               height: 450,
             );
           } catch (e) {
-            return ErrorPlaceholder(error: e);
+            return _logAndBuildError('x-sre-log-pattern-viewer', e);
           }
         },
       ),
@@ -201,7 +201,7 @@ class CatalogRegistry {
               height: 500,
             );
           } catch (e) {
-            return ErrorPlaceholder(error: e);
+            return _logAndBuildError('x-sre-log-entries-viewer', e);
           }
         },
       ),
@@ -224,7 +224,7 @@ class CatalogRegistry {
               height: 450,
             );
           } catch (e) {
-            return ErrorPlaceholder(error: e);
+            return _logAndBuildError('x-sre-agent-activity', e);
           }
         },
       ),
@@ -246,7 +246,7 @@ class CatalogRegistry {
               height: 500,
             );
           } catch (e) {
-            return ErrorPlaceholder(error: e);
+            return _logAndBuildError('x-sre-service-topology', e);
           }
         },
       ),
@@ -268,7 +268,7 @@ class CatalogRegistry {
               height: 420,
             );
           } catch (e) {
-            return ErrorPlaceholder(error: e);
+            return _logAndBuildError('x-sre-incident-timeline', e);
           }
         },
       ),
@@ -290,7 +290,7 @@ class CatalogRegistry {
               height: 400,
             );
           } catch (e) {
-            return ErrorPlaceholder(error: e);
+            return _logAndBuildError('x-sre-metrics-dashboard', e);
           }
         },
       ),
@@ -316,7 +316,7 @@ class CatalogRegistry {
               height: 480,
             );
           } catch (e) {
-            return ErrorPlaceholder(error: e);
+            return _logAndBuildError('x-sre-ai-reasoning', e);
           }
         },
       ),
@@ -338,7 +338,7 @@ class CatalogRegistry {
               height: 550,
             );
           } catch (e) {
-            return ErrorPlaceholder(error: e);
+            return _logAndBuildError('x-sre-agent-trace', e);
           }
         },
       ),
@@ -360,7 +360,7 @@ class CatalogRegistry {
               height: 500,
             );
           } catch (e) {
-            return ErrorPlaceholder(error: e);
+            return _logAndBuildError('x-sre-agent-graph', e);
           }
         },
       ),
@@ -377,11 +377,17 @@ class CatalogRegistry {
             final log = ToolLog.fromJson(data);
             return ToolLogWidget(log: log);
           } catch (e) {
-            return ErrorPlaceholder(error: e);
+            return _logAndBuildError('x-sre-tool-log', e);
           }
         },
       ),
     ], catalogId: 'sre-catalog');
+  }
+
+  /// Logs a component render error and returns an [ErrorPlaceholder].
+  static Widget _logAndBuildError(String componentName, Object error) {
+    debugPrint('[CATALOG] $componentName render error: $error');
+    return ErrorPlaceholder(error: error);
   }
 
   /// Helper to safely cast dynamic data to a Map, throwing a clear error if mismatch

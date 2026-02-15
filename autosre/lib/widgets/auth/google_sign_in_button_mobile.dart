@@ -7,7 +7,10 @@ import 'package:google_fonts/google_fonts.dart';
 /// [AuthService.signIn] → [GoogleSignIn.authenticate(scopeHint: scopes)].
 /// This requests both identity AND GCP scopes in a single OAuth flow.
 Widget buildGoogleSignInButton({required VoidCallback onSignIn}) {
-  return Material(
+  return Semantics(
+    button: true,
+    label: 'Sign in with Google',
+    child: Material(
     color: Colors.transparent,
     child: InkWell(
       onTap: onSignIn,
@@ -56,5 +59,6 @@ Widget buildGoogleSignInButton({required VoidCallback onSignIn}) {
         ),
       ),
     ),
+  ),
   );
 }

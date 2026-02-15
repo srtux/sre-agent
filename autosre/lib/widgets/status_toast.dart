@@ -195,21 +195,24 @@ class _AnimatedToastState extends State<_AnimatedToast>
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () {
-                            _exitController.forward().then(
-                                  (_) => widget.onDismissed(),
-                                );
-                          },
-                          borderRadius: BorderRadius.circular(4),
-                          child: const Padding(
-                            padding: EdgeInsets.all(4.0),
-                            child: Icon(
-                              Icons.close,
-                              color: Colors.white54,
-                              size: 16,
+                      Tooltip(
+                        message: 'Dismiss',
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () {
+                              _exitController.forward().then(
+                                    (_) => widget.onDismissed(),
+                                  );
+                            },
+                            borderRadius: BorderRadius.circular(4),
+                            child: const Padding(
+                              padding: EdgeInsets.all(4.0),
+                              child: Icon(
+                                Icons.close,
+                                color: Colors.white54,
+                                size: 16,
+                              ),
                             ),
                           ),
                         ),

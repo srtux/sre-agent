@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'auth_service.dart';
+import 'service_config.dart';
 
 /// Model representing a GCP project.
 class GcpProject {
@@ -74,16 +75,8 @@ class ProjectService {
 
   final ClientFactory _clientFactory;
 
-  /// HTTP request timeout duration.
-  static const Duration _requestTimeout = Duration(seconds: 30);
-
-  /// Returns the base API URL based on the runtime environment.
-  String get _baseUrl {
-    if (kDebugMode) {
-      return 'http://127.0.0.1:8001';
-    }
-    return '';
-  }
+  /// Returns the base API URL from centralized config.
+  String get _baseUrl => ServiceConfig.baseUrl;
 
   /// Returns the projects API URL based on the runtime environment.
   String get _projectsUrl => '$_baseUrl/api/tools/projects/list';
@@ -147,22 +140,26 @@ class ProjectService {
 
       // Fallback to backend preference if local not found (optional, depending on migration)
       final client = await _clientFactory();
-      final response = await client
-          .get(Uri.parse(_preferencesUrl))
-          .timeout(_requestTimeout);
+      try {
+        final response = await client
+            .get(Uri.parse(_preferencesUrl))
+            .timeout(ServiceConfig.defaultTimeout);
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final backendProjectId = data['project_id'] as String?;
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          final backendProjectId = data['project_id'] as String?;
 
-        if (backendProjectId != null && backendProjectId.isNotEmpty) {
-          // Find in projects list or create new
-          final project = _projects.value.firstWhere(
-            (p) => p.projectId == backendProjectId,
-            orElse: () => GcpProject(projectId: backendProjectId),
-          );
-          _selectedProject.value = project;
+          if (backendProjectId != null && backendProjectId.isNotEmpty) {
+            // Find in projects list or create new
+            final project = _projects.value.firstWhere(
+              (p) => p.projectId == backendProjectId,
+              orElse: () => GcpProject(projectId: backendProjectId),
+            );
+            _selectedProject.value = project;
+          }
         }
+      } finally {
+        client.close();
       }
     } on TimeoutException catch (_) {
       _error.value = 'Request timed out while loading project preferences';
@@ -181,13 +178,17 @@ class ProjectService {
 
       // Also try to save to backend
       final client = await _clientFactory();
-      await client
-          .post(
-            Uri.parse(_preferencesUrl),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'project_id': projectId}),
-          )
-          .timeout(_requestTimeout);
+      try {
+        await client
+            .post(
+              Uri.parse(_preferencesUrl),
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode({'project_id': projectId}),
+            )
+            .timeout(ServiceConfig.defaultTimeout);
+      } finally {
+        client.close();
+      }
     } catch (e) {
       debugPrint('Error saving project selection: $e');
     }
@@ -197,22 +198,26 @@ class ProjectService {
   Future<void> _loadRecentProjects() async {
     try {
       final client = await _clientFactory();
-      final response = await client
-          .get(Uri.parse(_recentProjectsUrl))
-          .timeout(_requestTimeout);
+      try {
+        final response = await client
+            .get(Uri.parse(_recentProjectsUrl))
+            .timeout(ServiceConfig.defaultTimeout);
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data is Map && data['projects'] != null) {
-          final list = (data['projects'] as List)
-              .map((p) => GcpProject.fromJson(p as Map<String, dynamic>))
-              .toList();
-          _recentProjects.value = list;
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data is Map && data['projects'] != null) {
+            final list = (data['projects'] as List)
+                .map((p) =>
+                    GcpProject.fromJson(p as Map<String, dynamic>))
+                .toList();
+            _recentProjects.value = list;
+          }
         }
+      } finally {
+        client.close();
       }
     } catch (e) {
       debugPrint('Error loading recent projects: $e');
-      // Non-critical, just log
     }
   }
 
@@ -220,15 +225,20 @@ class ProjectService {
   Future<void> _saveRecentProjects() async {
     try {
       final client = await _clientFactory();
-      await client
-          .post(
-            Uri.parse(_recentProjectsUrl),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'projects': _recentProjects.value.map((p) => p.toJson()).toList(),
-            }),
-          )
-          .timeout(_requestTimeout);
+      try {
+        await client
+            .post(
+              Uri.parse(_recentProjectsUrl),
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode({
+                'projects':
+                    _recentProjects.value.map((p) => p.toJson()).toList(),
+              }),
+            )
+            .timeout(ServiceConfig.defaultTimeout);
+      } finally {
+        client.close();
+      }
     } catch (e) {
       debugPrint('Error saving recent projects: $e');
     }
@@ -238,18 +248,23 @@ class ProjectService {
   Future<void> _loadStarredProjects() async {
     try {
       final client = await _clientFactory();
-      final response = await client
-          .get(Uri.parse(_starredProjectsUrl))
-          .timeout(_requestTimeout);
+      try {
+        final response = await client
+            .get(Uri.parse(_starredProjectsUrl))
+            .timeout(ServiceConfig.defaultTimeout);
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data is Map && data['projects'] != null) {
-          final list = (data['projects'] as List)
-              .map((p) => GcpProject.fromJson(p as Map<String, dynamic>))
-              .toList();
-          _starredProjects.value = list;
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data is Map && data['projects'] != null) {
+            final list = (data['projects'] as List)
+                .map((p) =>
+                    GcpProject.fromJson(p as Map<String, dynamic>))
+                .toList();
+            _starredProjects.value = list;
+          }
         }
+      } finally {
+        client.close();
       }
     } catch (e) {
       debugPrint('Error loading starred projects: $e');
@@ -277,17 +292,21 @@ class ProjectService {
     // Persist to backend
     try {
       final client = await _clientFactory();
-      await client
-          .post(
-            Uri.parse(_starredToggleUrl),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'project_id': project.projectId,
-              'display_name': project.displayName ?? project.projectId,
-              'starred': !wasStarred,
-            }),
-          )
-          .timeout(_requestTimeout);
+      try {
+        await client
+            .post(
+              Uri.parse(_starredToggleUrl),
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode({
+                'project_id': project.projectId,
+                'display_name': project.displayName ?? project.projectId,
+                'starred': !wasStarred,
+              }),
+            )
+            .timeout(ServiceConfig.defaultTimeout);
+      } finally {
+        client.close();
+      }
     } catch (e) {
       debugPrint('Error toggling star: $e');
       // Revert on failure
@@ -297,83 +316,71 @@ class ProjectService {
 
   /// Fetches the list of available GCP projects from the backend.
   Future<void> fetchProjects({String? query}) async {
-    debugPrint('🔄 ProjectService: Fetching projects... query=$query');
-    // If we are searching (query != null), we shouldn't block on existing loading state
-    // because user might be typing fast. But for initial load we might want to debounce.
-    // Actually, simple way: cancel previous request? Dart http doesn't easily support cancellation tokens.
-    // For now we just let it race, but we update URL.
-
-    // Note: If you want to cancel, you'd need a new client per request or use a package like dio.
-    // For simplicity, we just set loading true.
-
     _isLoading.value = true;
     _error.value = null;
 
     try {
-      debugPrint('🔑 ProjectService: Getting authenticated client...');
       final client = await _clientFactory();
+      try {
+        final uri = query != null && query.isNotEmpty
+            ? Uri.parse(
+                '$_projectsUrl?query=${Uri.encodeComponent(query)}')
+            : Uri.parse(_projectsUrl);
 
-      final uri = query != null && query.isNotEmpty
-          ? Uri.parse('$_projectsUrl?query=${Uri.encodeComponent(query)}')
-          : Uri.parse(_projectsUrl);
+        final response =
+            await client.get(uri).timeout(ServiceConfig.defaultTimeout);
 
-      debugPrint('📡 ProjectService: Sending request to $uri');
-      final response = await client.get(uri).timeout(_requestTimeout);
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
 
-      debugPrint('📥 ProjectService: Response status ${response.statusCode}');
-      if (response.statusCode != 200) {
-        debugPrint('❌ ProjectService: Error body: ${response.body}');
-      }
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        debugPrint('📦 ProjectService: Parsed data type=${data.runtimeType}');
-
-        // Handle different response formats:
-        // 1. Plain list: [{"project_id": ...}, ...]
-        // 2. Wrapped: {"projects": [...]}
-        // 3. BaseToolResponse envelope: {"status": "success", "result": {"projects": [...]}}
-        List<dynamic> projectList;
-        if (data is List) {
-          projectList = data;
-        } else if (data is Map) {
-          if (data['projects'] != null) {
-            projectList = data['projects'] as List;
-          } else if (data['result'] is Map && data['result']['projects'] != null) {
-            // Unwrap BaseToolResponse envelope
-            projectList = data['result']['projects'] as List;
+          // Handle different response formats:
+          // 1. Plain list: [{"project_id": ...}, ...]
+          // 2. Wrapped: {"projects": [...]}
+          // 3. BaseToolResponse envelope
+          List<dynamic> projectList;
+          if (data is List) {
+            projectList = data;
+          } else if (data is Map) {
+            if (data['projects'] != null) {
+              projectList = data['projects'] as List;
+            } else if (data['result'] is Map &&
+                data['result']['projects'] != null) {
+              projectList = data['result']['projects'] as List;
+            } else {
+              projectList = [];
+            }
           } else {
             projectList = [];
           }
+
+          final projects = projectList
+              .map(
+                  (p) => GcpProject.fromJson(p as Map<String, dynamic>))
+              .toList();
+
+          _projects.value = projects;
+
+          // Load saved project preference first
+          await loadSavedProject();
+
+          // Load recent and starred projects
+          await _loadRecentProjects();
+          await _loadStarredProjects();
+
+          // Auto-select first project if still none selected
+          if (_selectedProject.value == null && projects.isNotEmpty) {
+            selectProjectInstance(projects.first);
+          }
         } else {
-          projectList = [];
+          _error.value =
+              'Failed to fetch projects: ${response.statusCode}';
         }
-
-        final projects = projectList
-            .map((p) => GcpProject.fromJson(p as Map<String, dynamic>))
-            .toList();
-
-        _projects.value = projects;
-        debugPrint('✅ ProjectService: Loaded ${projects.length} projects');
-
-        // Load saved project preference first
-        await loadSavedProject();
-
-        // Load recent and starred projects
-        await _loadRecentProjects();
-        await _loadStarredProjects();
-
-        // Auto-select first project if still none selected
-        if (_selectedProject.value == null && projects.isNotEmpty) {
-          selectProjectInstance(projects.first);
-        }
-      } else {
-        _error.value = 'Failed to fetch projects: ${response.statusCode}';
+      } finally {
+        client.close();
       }
     } catch (e, stack) {
       _error.value = 'Error fetching projects: $e';
       debugPrint('ProjectService error: $e\n$stack');
-      debugPrint('🔥 ProjectService Exception: $e');
     } finally {
       _isLoading.value = false;
     }

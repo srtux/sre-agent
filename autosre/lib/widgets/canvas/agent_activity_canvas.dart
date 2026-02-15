@@ -1,67 +1,8 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import '../../models/agent_models.dart';
 import '../../theme/app_theme.dart';
-
-/// Model for an agent activity node
-class AgentNode {
-  final String id;
-  final String name;
-  final String type; // 'coordinator', 'sub_agent', 'tool', 'data_source'
-  final String status; // 'idle', 'active', 'completed', 'error'
-  final List<String> connections;
-  final Map<String, dynamic>? metadata;
-
-  AgentNode({
-    required this.id,
-    required this.name,
-    required this.type,
-    required this.status,
-    this.connections = const [],
-    this.metadata,
-  });
-
-  factory AgentNode.fromJson(Map<String, dynamic> json) {
-    return AgentNode(
-      id: json['id'] ?? '',
-      name: json['name'] ?? '',
-      type: json['type'] ?? 'tool',
-      status: json['status'] ?? 'idle',
-      connections: List<String>.from(json['connections'] ?? []),
-      metadata: json['metadata'],
-    );
-  }
-}
-
-/// Model for the agent activity visualization
-class AgentActivityData {
-  final List<AgentNode> nodes;
-  final String currentPhase;
-  final String? activeNodeId;
-  final List<String> completedSteps;
-  final String? message;
-
-  AgentActivityData({
-    required this.nodes,
-    required this.currentPhase,
-    this.activeNodeId,
-    this.completedSteps = const [],
-    this.message,
-  });
-
-  factory AgentActivityData.fromJson(Map<String, dynamic> json) {
-    final nodesList = (json['nodes'] as List? ?? [])
-        .map((n) => AgentNode.fromJson(Map<String, dynamic>.from(n)))
-        .toList();
-    return AgentActivityData(
-      nodes: nodesList,
-      currentPhase: json['current_phase'] ?? 'Analyzing',
-      activeNodeId: json['active_node_id'],
-      completedSteps: List<String>.from(json['completed_steps'] ?? []),
-      message: json['message'],
-    );
-  }
-}
 
 /// Agent Activity Canvas - Real-time visualization of agent workflow
 class AgentActivityCanvas extends StatefulWidget {

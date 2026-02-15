@@ -156,6 +156,6 @@ _TabConfig _tabConfig(DashboardDataType type) {
     case DashboardDataType.charts:
       return const _TabConfig('Charts', Icons.bar_chart_rounded, AppColors.warning);
     case DashboardDataType.sql:
-      return const _TabConfig('SQL', Icons.storage_rounded, Colors.orange);
+      return const _TabConfig('SQL', Icons.storage_rounded, AppColors.warning);
   }
 }

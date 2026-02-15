@@ -1,118 +1,12 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import 'postmortem_action_items.dart';
+import 'postmortem_data.dart';
+import 'postmortem_lessons.dart';
+import 'postmortem_timeline.dart';
 
-/// Priority level for postmortem action items.
-enum ActionPriority { p0, p1, p2 }
-
-/// A single event in the postmortem timeline.
-class PostmortemTimelineEvent {
-  final String timestamp;
-  final String description;
-  final String? actor;
-
-  const PostmortemTimelineEvent({
-    required this.timestamp,
-    required this.description,
-    this.actor,
-  });
-
-  factory PostmortemTimelineEvent.fromJson(Map<String, dynamic> json) {
-    return PostmortemTimelineEvent(
-      timestamp: json['timestamp'] as String? ?? '',
-      description: json['description'] as String? ?? '',
-      actor: json['actor'] as String?,
-    );
-  }
-}
-
-/// An action item from the postmortem.
-class PostmortemActionItem {
-  final String description;
-  final ActionPriority priority;
-  final String? owner;
-  final bool completed;
-
-  const PostmortemActionItem({
-    required this.description,
-    required this.priority,
-    this.owner,
-    this.completed = false,
-  });
-
-  factory PostmortemActionItem.fromJson(Map<String, dynamic> json) {
-    final priorityStr =
-        (json['priority'] as String? ?? 'p2').toLowerCase();
-    final ActionPriority priority;
-    switch (priorityStr) {
-      case 'p0':
-        priority = ActionPriority.p0;
-      case 'p1':
-        priority = ActionPriority.p1;
-      default:
-        priority = ActionPriority.p2;
-    }
-
-    return PostmortemActionItem(
-      description: json['description'] as String? ?? '',
-      priority: priority,
-      owner: json['owner'] as String?,
-      completed: json['completed'] as bool? ?? false,
-    );
-  }
-}
-
-/// Data model for a generated postmortem report.
-class PostmortemData {
-  final String title;
-  final String severity;
-  final String? impactSummary;
-  final String? errorBudgetConsumed;
-  final String? duration;
-  final List<PostmortemTimelineEvent> timeline;
-  final String? rootCause;
-  final List<PostmortemActionItem> actionItems;
-  final List<String> whatWentWell;
-  final List<String> whatWentPoorly;
-
-  const PostmortemData({
-    required this.title,
-    required this.severity,
-    this.impactSummary,
-    this.errorBudgetConsumed,
-    this.duration,
-    this.timeline = const [],
-    this.rootCause,
-    this.actionItems = const [],
-    this.whatWentWell = const [],
-    this.whatWentPoorly = const [],
-  });
-
-  factory PostmortemData.fromJson(Map<String, dynamic> json) {
-    final timelineRaw = json['timeline'] as List<dynamic>? ?? [];
-    final actionsRaw = json['action_items'] as List<dynamic>? ?? [];
-    final wellRaw = json['what_went_well'] as List<dynamic>? ?? [];
-    final poorlyRaw = json['what_went_poorly'] as List<dynamic>? ?? [];
-
-    return PostmortemData(
-      title: json['title'] as String? ?? 'Postmortem Report',
-      severity: json['severity'] as String? ?? 'unknown',
-      impactSummary: json['impact_summary'] as String?,
-      errorBudgetConsumed: json['error_budget_consumed'] as String?,
-      duration: json['duration'] as String?,
-      timeline: timelineRaw
-          .map((e) =>
-              PostmortemTimelineEvent.fromJson(Map<String, dynamic>.from(e)))
-          .toList(),
-      rootCause: json['root_cause'] as String?,
-      actionItems: actionsRaw
-          .map((e) =>
-              PostmortemActionItem.fromJson(Map<String, dynamic>.from(e)))
-          .toList(),
-      whatWentWell: wellRaw.map((e) => e.toString()).toList(),
-      whatWentPoorly: poorlyRaw.map((e) => e.toString()).toList(),
-    );
-  }
-}
+// Re-export data models for backward compatibility.
+export 'postmortem_data.dart';
 
 /// Displays a generated postmortem report with Deep Space aesthetic.
 class PostmortemCard extends StatefulWidget {
@@ -128,8 +22,6 @@ class _PostmortemCardState extends State<PostmortemCard>
     with SingleTickerProviderStateMixin {
   late AnimationController _animController;
   late Animation<double> _animation;
-  bool _timelineExpanded = false;
-  final Set<int> _checkedActions = {};
 
   @override
   void initState() {
@@ -143,13 +35,6 @@ class _PostmortemCardState extends State<PostmortemCard>
       curve: Curves.easeOutCubic,
     );
     _animController.forward();
-
-    // Pre-populate checked actions from data
-    for (var i = 0; i < widget.data.actionItems.length; i++) {
-      if (widget.data.actionItems[i].completed) {
-        _checkedActions.add(i);
-      }
-    }
   }
 
   @override
@@ -173,28 +58,6 @@ class _PostmortemCardState extends State<PostmortemCard>
         return AppColors.success;
       default:
         return AppColors.textMuted;
-    }
-  }
-
-  Color _priorityColor(ActionPriority priority) {
-    switch (priority) {
-      case ActionPriority.p0:
-        return AppColors.error;
-      case ActionPriority.p1:
-        return AppColors.warning;
-      case ActionPriority.p2:
-        return AppColors.info;
-    }
-  }
-
-  String _priorityLabel(ActionPriority priority) {
-    switch (priority) {
-      case ActionPriority.p0:
-        return 'P0';
-      case ActionPriority.p1:
-        return 'P1';
-      case ActionPriority.p2:
-        return 'P2';
     }
   }
 
@@ -226,7 +89,8 @@ class _PostmortemCardState extends State<PostmortemCard>
                 const SizedBox(height: 16),
 
               // Timeline
-              if (data.timeline.isNotEmpty) _buildTimelineSection(data.timeline),
+              if (data.timeline.isNotEmpty)
+                PostmortemTimeline(timeline: data.timeline),
               if (data.timeline.isNotEmpty) const SizedBox(height: 16),
 
               // Root cause
@@ -237,12 +101,18 @@ class _PostmortemCardState extends State<PostmortemCard>
 
               // Action items
               if (data.actionItems.isNotEmpty)
-                _buildActionItemsSection(data.actionItems),
+                PostmortemActionItems(
+                  items: data.actionItems,
+                  animation: _animation,
+                ),
               if (data.actionItems.isNotEmpty) const SizedBox(height: 16),
 
               // Lessons learned
               if (data.whatWentWell.isNotEmpty || data.whatWentPoorly.isNotEmpty)
-                _buildLessonsSection(data.whatWentWell, data.whatWentPoorly),
+                PostmortemLessons(
+                  whatWentWell: data.whatWentWell,
+                  whatWentPoorly: data.whatWentPoorly,
+                ),
             ],
           ),
         );
@@ -435,175 +305,6 @@ class _PostmortemCardState extends State<PostmortemCard>
     );
   }
 
-  Widget _buildTimelineSection(List<PostmortemTimelineEvent> timeline) {
-    return Container(
-      decoration: GlassDecoration.card(borderRadius: 12),
-      child: Column(
-        children: [
-          // Timeline header (tappable to expand/collapse)
-          InkWell(
-            onTap: () {
-              setState(() {
-                _timelineExpanded = !_timelineExpanded;
-              });
-            },
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.timeline_rounded,
-                    size: 16,
-                    color: AppColors.primaryCyan,
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Timeline of Events',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryCyan.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      '${timeline.length}',
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primaryCyan,
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  AnimatedRotation(
-                    duration: const Duration(milliseconds: 200),
-                    turns: _timelineExpanded ? 0.5 : 0,
-                    child: const Icon(
-                      Icons.expand_more,
-                      color: AppColors.textMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Timeline events
-          AnimatedCrossFade(
-            duration: const Duration(milliseconds: 200),
-            firstChild: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-              child: Column(
-                children: List.generate(timeline.length, (index) {
-                  final event = timeline[index];
-                  final isLast = index == timeline.length - 1;
-                  return _buildTimelineEvent(event, isLast);
-                }),
-              ),
-            ),
-            secondChild: const SizedBox.shrink(),
-            crossFadeState: _timelineExpanded
-                ? CrossFadeState.showFirst
-                : CrossFadeState.showSecond,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTimelineEvent(PostmortemTimelineEvent event, bool isLast) {
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Dot + Line
-          SizedBox(
-            width: 24,
-            child: Column(
-              children: [
-                const SizedBox(height: 4),
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryCyan,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primaryCyan.withValues(alpha: 0.4),
-                        blurRadius: 4,
-                      ),
-                    ],
-                  ),
-                ),
-                if (!isLast)
-                  Expanded(
-                    child: Container(
-                      width: 1,
-                      color: AppColors.surfaceBorder,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          // Content
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        event.timestamp,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          fontFamily: 'monospace',
-                          color: AppColors.primaryCyan,
-                        ),
-                      ),
-                      if (event.actor != null) ...[
-                        const SizedBox(width: 8),
-                        Text(
-                          event.actor!,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: AppColors.textMuted,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    event.description,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textSecondary,
-                      height: 1.4,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildRootCauseSection(String rootCause) {
     return Container(
       padding: const EdgeInsets.all(14),
@@ -637,279 +338,6 @@ class _PostmortemCardState extends State<PostmortemCard>
               height: 1.5,
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionItemsSection(List<PostmortemActionItem> items) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Row(
-          children: [
-            Icon(Icons.checklist_rounded, size: 16, color: AppColors.primaryTeal),
-            SizedBox(width: 8),
-            Text(
-              'Action Items',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        ...List.generate(items.length, (index) {
-          final item = items[index];
-          final isChecked = _checkedActions.contains(index);
-          final pColor = _priorityColor(item.priority);
-          final pLabel = _priorityLabel(item.priority);
-
-          final staggerDelay = index / items.length;
-          final animValue =
-              ((_animation.value - staggerDelay * 0.3) / 0.7).clamp(0.0, 1.0);
-
-          return AnimatedOpacity(
-            duration: const Duration(milliseconds: 200),
-            opacity: animValue,
-            child: AnimatedSlide(
-              duration: const Duration(milliseconds: 300),
-              offset: Offset(0, (1 - animValue) * 0.1),
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                decoration: GlassDecoration.card(
-                  borderRadius: 10,
-                  borderColor: isChecked
-                      ? AppColors.success.withValues(alpha: 0.3)
-                      : null,
-                ),
-                child: InkWell(
-                  onTap: () {
-                    setState(() {
-                      if (_checkedActions.contains(index)) {
-                        _checkedActions.remove(index);
-                      } else {
-                        _checkedActions.add(index);
-                      }
-                    });
-                  },
-                  borderRadius: BorderRadius.circular(10),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      children: [
-                        // Checkbox
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          width: 22,
-                          height: 22,
-                          decoration: BoxDecoration(
-                            gradient: isChecked
-                                ? LinearGradient(
-                                    colors: [
-                                      AppColors.success,
-                                      AppColors.success.withValues(alpha: 0.8),
-                                    ],
-                                  )
-                                : null,
-                            color: isChecked
-                                ? null
-                                : Colors.white.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
-                              color: isChecked
-                                  ? AppColors.success
-                                  : AppColors.surfaceBorder,
-                            ),
-                          ),
-                          child: isChecked
-                              ? const Icon(
-                                  Icons.check,
-                                  size: 14,
-                                  color: Colors.white,
-                                )
-                              : null,
-                        ),
-                        const SizedBox(width: 10),
-
-                        // Priority badge
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: pColor.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(
-                              color: pColor.withValues(alpha: 0.3),
-                            ),
-                          ),
-                          child: Text(
-                            pLabel,
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: pColor,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-
-                        // Description
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                item.description,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                  color: isChecked
-                                      ? AppColors.textMuted
-                                      : AppColors.textPrimary,
-                                  decoration: isChecked
-                                      ? TextDecoration.lineThrough
-                                      : null,
-                                ),
-                              ),
-                              if (item.owner != null) ...[
-                                const SizedBox(height: 2),
-                                Text(
-                                  'Owner: ${item.owner}',
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: AppColors.textMuted,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          );
-        }),
-      ],
-    );
-  }
-
-  Widget _buildLessonsSection(
-    List<String> wentWell,
-    List<String> wentPoorly,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Row(
-          children: [
-            Icon(Icons.school_rounded, size: 16, color: AppColors.secondaryPurple),
-            SizedBox(width: 8),
-            Text(
-              'Lessons Learned',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-
-        // What went well
-        if (wentWell.isNotEmpty)
-          _buildLessonsList(
-            title: 'What Went Well',
-            items: wentWell,
-            icon: Icons.thumb_up_alt_rounded,
-            color: AppColors.success,
-          ),
-        if (wentWell.isNotEmpty && wentPoorly.isNotEmpty)
-          const SizedBox(height: 10),
-
-        // What went poorly
-        if (wentPoorly.isNotEmpty)
-          _buildLessonsList(
-            title: 'What Went Poorly',
-            items: wentPoorly,
-            icon: Icons.thumb_down_alt_rounded,
-            color: AppColors.error,
-          ),
-      ],
-    );
-  }
-
-  Widget _buildLessonsList({
-    required String title,
-    required List<String> items,
-    required IconData icon,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: GlassDecoration.card(
-        borderRadius: 10,
-        borderColor: color.withValues(alpha: 0.2),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 14, color: color),
-              const SizedBox(width: 6),
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: color,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ...items.map((item) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Container(
-                      width: 4,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.6),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      item,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                        height: 1.5,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
         ],
       ),
     );

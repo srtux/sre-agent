@@ -23,12 +23,16 @@ class HelpCard extends StatefulWidget {
   State<HelpCard> createState() => _HelpCardState();
 }
 
-class _HelpCardState extends State<HelpCard> with SingleTickerProviderStateMixin {
+class _HelpCardState extends State<HelpCard> {
   bool _isExpanded = false;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return Semantics(
+      button: true,
+      label: '${widget.title} help card',
+      expanded: _isExpanded,
+      child: Container(
       decoration: BoxDecoration(
         color: AppColors.backgroundCard.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(16),
@@ -171,6 +175,7 @@ class _HelpCardState extends State<HelpCard> with SingleTickerProviderStateMixin
           ),
         ),
       ),
+    ),
     );
   }
 }

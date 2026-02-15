@@ -34,7 +34,7 @@ class QueryAutocompleteOverlay extends StatelessWidget {
       child: Container(
         constraints: const BoxConstraints(maxHeight: 240),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A2332),
+          color: AppColors.backgroundCard,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: AppColors.surfaceBorder.withValues(alpha: 0.5),

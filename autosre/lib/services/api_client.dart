@@ -1,9 +1,9 @@
-import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 import 'auth_service.dart';
 import 'project_service.dart';
+import 'service_config.dart';
 
 /// Exception thrown when an API request is made without a selected project.
 class ProjectNotSelectedException implements Exception {
@@ -20,6 +20,7 @@ class ProjectNotSelectedException implements Exception {
 class ProjectInterceptorClient extends http.BaseClient {
   final http.Client _inner;
   final ProjectService _projectService;
+  static const _uuid = Uuid();
 
   ProjectInterceptorClient(
     this._inner, {
@@ -36,8 +37,7 @@ class ProjectInterceptorClient extends http.BaseClient {
     request.headers.addAll(authHeaders);
 
     if (kDebugMode && authHeaders.containsKey('Authorization')) {
-       final token = authHeaders['Authorization']!;
-       debugPrint('ProjectInterceptorClient: Injected Auth header (prefix: ${token.substring(0, min(token.length, 15))}...)');
+       debugPrint('ProjectInterceptorClient: Injected Auth header');
     }
 
     // 2. Add User ID hint for better backend session lookup
@@ -57,8 +57,7 @@ class ProjectInterceptorClient extends http.BaseClient {
     }
 
     // 4. Correlation ID for Cross-Service Tracing
-    final correlationId = request.headers['X-Correlation-ID'] ??
-        const Uuid().v4();
+    final correlationId = request.headers['X-Correlation-ID'] ?? _uuid.v4();
     request.headers['X-Correlation-ID'] = correlationId;
 
     if (kDebugMode) {
@@ -67,7 +66,9 @@ class ProjectInterceptorClient extends http.BaseClient {
 
     final stopwatch = Stopwatch()..start();
     try {
-      final response = await _inner.send(request);
+      final response = await _inner.send(request).timeout(
+        ServiceConfig.defaultTimeout,
+      );
       final duration = stopwatch.elapsedMilliseconds;
 
       if (kDebugMode) {

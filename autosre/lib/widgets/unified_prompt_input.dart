@@ -61,7 +61,10 @@ class _UnifiedPromptInputState extends State<UnifiedPromptInput>
 
   @override
   Widget build(BuildContext context) {
-    return ConstrainedBox(
+    return Semantics(
+      label: 'Investigation prompt input',
+      textField: true,
+      child: ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 60, maxHeight: 200),
       child: Stack(
         children: [
@@ -78,8 +81,8 @@ class _UnifiedPromptInputState extends State<UnifiedPromptInput>
                 curve: Curves.easeOut,
                 decoration: BoxDecoration(
                   color: _isHovered
-                      ? const Color(0xFF1E293B) // Slightly lighter on hover
-                      : const Color(0xFF0F172A), // Solid Dark Navy
+                      ? AppColors.backgroundCard
+                      : AppColors.backgroundDark,
                   borderRadius: BorderRadius.circular(30),
                   border: Border.all(
                     color: _isHovered
@@ -200,6 +203,7 @@ class _UnifiedPromptInputState extends State<UnifiedPromptInput>
             ),
         ],
       ),
+    ),
     );
   }
 }
@@ -217,23 +221,27 @@ class _UnifiedSendButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: isProcessing ? 'Stop' : 'Send',
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: isProcessing ? onCancel : onPressed,
-          borderRadius: BorderRadius.circular(20),
-          child: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: isProcessing ? AppColors.error : AppColors.primaryTeal,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              isProcessing ? Icons.stop_rounded : Icons.arrow_upward_rounded,
-              color: isProcessing ? Colors.white : AppColors.backgroundDark,
-              size: 20,
+    return Semantics(
+      button: true,
+      label: isProcessing ? 'Stop investigation' : 'Send message',
+      child: Tooltip(
+        message: isProcessing ? 'Stop' : 'Send',
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: isProcessing ? onCancel : onPressed,
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isProcessing ? AppColors.error : AppColors.primaryTeal,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                isProcessing ? Icons.stop_rounded : Icons.arrow_upward_rounded,
+                color: isProcessing ? Colors.white : AppColors.backgroundDark,
+                size: 20,
+              ),
             ),
           ),
         ),

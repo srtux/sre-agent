@@ -26,8 +26,8 @@ class LoginPage extends StatelessWidget {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Color(0xFF0F172A), // Deep Slate Blue
-                    Color(0xFF1E1B4B), // Darker Indigo
+                    AppColors.backgroundDark,
+                    Color(0xFF1E1B4B), // Deeper Indigo accent
                   ],
                 ),
               ),

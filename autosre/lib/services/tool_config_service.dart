@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
+import 'auth_service.dart';
+import 'service_config.dart';
 
 /// Categories of tools based on their functionality.
 enum ToolCategory {
@@ -223,13 +224,7 @@ class ToolConfigService {
 
   ToolConfigService._internal();
 
-  /// Returns the API base URL based on the runtime environment.
-  String get _baseUrl {
-    if (kDebugMode) {
-      return 'http://127.0.0.1:8001';
-    }
-    return '';
-  }
+  String get _baseUrl => ServiceConfig.baseUrl;
 
   final ValueNotifier<Map<ToolCategory, List<ToolConfig>>> _toolsByCategory =
       ValueNotifier({});
@@ -262,32 +257,41 @@ class ToolConfigService {
     _error.value = null;
 
     try {
-      final response = await http.get(Uri.parse('$_baseUrl/api/tools/config'));
+      final client = await AuthService.instance.getAuthenticatedClient();
+      try {
+        final response = await client
+            .get(Uri.parse('$_baseUrl/api/tools/config'))
+            .timeout(ServiceConfig.defaultTimeout);
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final toolsMap = data['tools'] as Map<String, dynamic>? ?? {};
-        final summaryData = data['summary'] as Map<String, dynamic>?;
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          final toolsMap = data['tools'] as Map<String, dynamic>? ?? {};
+          final summaryData = data['summary'] as Map<String, dynamic>?;
 
-        // Parse tools grouped by category
-        final grouped = <ToolCategory, List<ToolConfig>>{};
-        for (final entry in toolsMap.entries) {
-          final category = ToolCategory.fromValue(entry.key);
-          if (category != null) {
-            final tools = (entry.value as List<dynamic>)
-                .map((t) => ToolConfig.fromJson(t as Map<String, dynamic>))
-                .toList();
-            grouped[category] = tools;
+          // Parse tools grouped by category
+          final grouped = <ToolCategory, List<ToolConfig>>{};
+          for (final entry in toolsMap.entries) {
+            final category = ToolCategory.fromValue(entry.key);
+            if (category != null) {
+              final tools = (entry.value as List<dynamic>)
+                  .map(
+                      (t) => ToolConfig.fromJson(t as Map<String, dynamic>))
+                  .toList();
+              grouped[category] = tools;
+            }
           }
-        }
 
-        _toolsByCategory.value = grouped;
+          _toolsByCategory.value = grouped;
 
-        if (summaryData != null) {
-          _summary.value = ToolConfigSummary.fromJson(summaryData);
+          if (summaryData != null) {
+            _summary.value = ToolConfigSummary.fromJson(summaryData);
+          }
+        } else {
+          _error.value =
+              'Failed to fetch tool configs: ${response.statusCode}';
         }
-      } else {
-        _error.value = 'Failed to fetch tool configs: ${response.statusCode}';
+      } finally {
+        client.close();
       }
     } catch (e) {
       _error.value = 'Error fetching tool configs: $e';
@@ -300,11 +304,15 @@ class ToolConfigService {
   /// Updates the enabled status of a tool.
   Future<bool> setToolEnabled(String toolName, bool enabled) async {
     try {
-      final response = await http.put(
-        Uri.parse('$_baseUrl/api/tools/config/$toolName'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'enabled': enabled}),
-      );
+      final client = await AuthService.instance.getAuthenticatedClient();
+      try {
+        final response = await client
+            .put(
+              Uri.parse('$_baseUrl/api/tools/config/$toolName'),
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode({'enabled': enabled}),
+            )
+            .timeout(ServiceConfig.defaultTimeout);
 
       if (response.statusCode == 200) {
         // Update local state
@@ -345,6 +353,9 @@ class ToolConfigService {
         _error.value = 'Failed to update tool: ${response.statusCode}';
         return false;
       }
+      } finally {
+        client.close();
+      }
     } catch (e) {
       _error.value = 'Error updating tool: $e';
       debugPrint('ToolConfigService error: $e');
@@ -358,35 +369,40 @@ class ToolConfigService {
     _testingTools.value = {..._testingTools.value, toolName};
 
     try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl/api/tools/test/$toolName'),
-      );
+      final client = await AuthService.instance.getAuthenticatedClient();
+      try {
+        final response = await client
+            .post(Uri.parse('$_baseUrl/api/tools/test/$toolName'))
+            .timeout(ServiceConfig.queryTimeout);
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
 
-        if (data['testable'] == false) {
-          return ToolTestResult(
-            status: ToolTestStatus.notTestable,
-            message: data['message'] as String? ?? 'Tool is not testable',
-          );
+          if (data['testable'] == false) {
+            return ToolTestResult(
+              status: ToolTestStatus.notTestable,
+              message: data['message'] as String? ?? 'Tool is not testable',
+            );
+          }
+
+          final resultData = data['result'] as Map<String, dynamic>?;
+          if (resultData != null) {
+            final result = ToolTestResult.fromJson(resultData);
+
+            // Update local state with test result
+            _updateToolTestResult(toolName, result);
+
+            return result;
+          }
         }
 
-        final resultData = data['result'] as Map<String, dynamic>?;
-        if (resultData != null) {
-          final result = ToolTestResult.fromJson(resultData);
-
-          // Update local state with test result
-          _updateToolTestResult(toolName, result);
-
-          return result;
-        }
+        return ToolTestResult(
+          status: ToolTestStatus.failed,
+          message: 'Failed to test tool: ${response.statusCode}',
+        );
+      } finally {
+        client.close();
       }
-
-      return ToolTestResult(
-        status: ToolTestStatus.failed,
-        message: 'Failed to test tool: ${response.statusCode}',
-      );
     } catch (e) {
       debugPrint('ToolConfigService test error: $e');
       return ToolTestResult(
@@ -407,30 +423,37 @@ class ToolConfigService {
   }) async {
     try {
       final uri = category != null
-          ? Uri.parse('$_baseUrl/api/tools/test-all?category=${category.value}')
+          ? Uri.parse(
+              '$_baseUrl/api/tools/test-all?category=${category.value}')
           : Uri.parse('$_baseUrl/api/tools/test-all');
 
-      final response = await http.post(uri);
+      final client = await AuthService.instance.getAuthenticatedClient();
+      try {
+        final response =
+            await client.post(uri).timeout(ServiceConfig.queryTimeout);
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final results = data['results'] as Map<String, dynamic>? ?? {};
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          final results = data['results'] as Map<String, dynamic>? ?? {};
 
-        final parsedResults = <String, ToolTestResult>{};
-        for (final entry in results.entries) {
-          final resultData = entry.value as Map<String, dynamic>;
-          parsedResults[entry.key] = ToolTestResult.fromJson(resultData);
+          final parsedResults = <String, ToolTestResult>{};
+          for (final entry in results.entries) {
+            final resultData = entry.value as Map<String, dynamic>;
+            parsedResults[entry.key] = ToolTestResult.fromJson(resultData);
+          }
+
+          // Update local state with all test results
+          for (final entry in parsedResults.entries) {
+            _updateToolTestResult(entry.key, entry.value);
+          }
+
+          return parsedResults;
         }
 
-        // Update local state with all test results
-        for (final entry in parsedResults.entries) {
-          _updateToolTestResult(entry.key, entry.value);
-        }
-
-        return parsedResults;
+        return {};
+      } finally {
+        client.close();
       }
-
-      return {};
     } catch (e) {
       debugPrint('ToolConfigService test all error: $e');
       return {};
@@ -460,19 +483,26 @@ class ToolConfigService {
   /// Bulk update tool configurations.
   Future<bool> bulkUpdateTools(Map<String, bool> updates) async {
     try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl/api/tools/config/bulk'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(updates),
-      );
+      final client = await AuthService.instance.getAuthenticatedClient();
+      try {
+        final response = await client
+            .post(
+              Uri.parse('$_baseUrl/api/tools/config/bulk'),
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode(updates),
+            )
+            .timeout(ServiceConfig.defaultTimeout);
 
-      if (response.statusCode == 200) {
-        // Refresh configs to get updated state
-        await fetchConfigs();
-        return true;
+        if (response.statusCode == 200) {
+          // Refresh configs to get updated state
+          await fetchConfigs();
+          return true;
+        }
+
+        return false;
+      } finally {
+        client.close();
       }
-
-      return false;
     } catch (e) {
       debugPrint('ToolConfigService bulk update error: $e');
       return false;

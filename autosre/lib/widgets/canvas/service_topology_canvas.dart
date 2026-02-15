@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/design_tokens.dart';
 
 /// Model for a service node in the topology
 class ServiceNode {
@@ -235,7 +236,7 @@ class _ServiceTopologyCanvasState extends State<ServiceTopologyCanvas>
       case 'cache':
         return AppColors.warning;
       case 'queue':
-        return const Color(0xFFE91E63);
+        return SeverityColors.queue;
       case 'external':
         return AppColors.textMuted;
       default:

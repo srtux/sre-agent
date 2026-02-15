@@ -64,6 +64,10 @@ class AnsiParser {
         newStyle = newStyle.copyWith(fontWeight: FontWeight.bold);
       } else if (code == 2) {
         newStyle = newStyle.copyWith(color: current.color?.withValues(alpha: 0.5));
+      } else if (code == 3) {
+        newStyle = newStyle.copyWith(fontStyle: FontStyle.italic);
+      } else if (code == 4) {
+        newStyle = newStyle.copyWith(decoration: TextDecoration.underline);
       } else if (code >= 30 && code <= 37) {
         newStyle = newStyle.copyWith(color: _getColor(code - 30, bright: false));
       } else if (code >= 40 && code <= 47) {
