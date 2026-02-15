@@ -231,10 +231,10 @@ class _BigQuerySidebarState extends State<BigQuerySidebar> {
         return Theme(
           data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
           child: ExpansionTile(
-            key: PageStorageKey('table_$tableId'),
+            key: PageStorageKey('bq_sidebar_schema_${_selectedDataset}_$tableId'),
             tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
             childrenPadding: EdgeInsets.zero,
-            minTileHeight: 36,
+            minTileHeight: 36.0,
             onExpansionChanged: (expanded) {
               if (expanded) {
                 _fetchSchema(tableId);
@@ -310,8 +310,8 @@ class _BigQuerySidebarState extends State<BigQuerySidebar> {
         itemCount: schema.length,
         itemBuilder: (context, index) {
           final column = schema[index];
-          final name = column['name'] as String? ?? 'Unknown';
-          final type = column['type'] as String? ?? 'UNKNOWN';
+          final name = column['name']?.toString() ?? 'Unknown';
+          final type = column['type']?.toString() ?? 'UNKNOWN';
           return InkWell(
             onTap: widget.onInsertColumn != null
                 ? () => widget.onInsertColumn!(name)

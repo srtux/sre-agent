@@ -171,6 +171,8 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
   double? _toDouble(dynamic val) {
     if (val == null) return null;
     if (val is num) return val.toDouble();
+    if (val is bool) return val ? 1.0 : 0.0;
+    if (val is String) return double.tryParse(val);
     return double.tryParse(val.toString());
   }
 

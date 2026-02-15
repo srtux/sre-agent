@@ -78,37 +78,40 @@ class _DashboardPanelState extends State<DashboardPanel>
           ),
         );
       },
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.backgroundDark,
-          border: Border(
-            right: BorderSide(
-              color: AppColors.surfaceBorder.withValues(alpha: 0.8),
-              width: 1,
-            ),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.4),
-              blurRadius: 20,
-              offset: const Offset(4, 0),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            SreToolbar(
-              dashboardState: widget.state,
-              isMaximized: widget.isMaximized,
-              onToggleMaximize: widget.onToggleMaximize,
-              onClose: widget.onClose,
-            ),
-            Expanded(
-              child: SelectionArea(
-                child: _buildContent(),
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.backgroundDark,
+            border: Border(
+              right: BorderSide(
+                color: AppColors.surfaceBorder.withValues(alpha: 0.8),
+                width: 1,
               ),
             ),
-          ],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.4),
+                blurRadius: 20,
+                offset: const Offset(4, 0),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              SreToolbar(
+                dashboardState: widget.state,
+                isMaximized: widget.isMaximized,
+                onToggleMaximize: widget.onToggleMaximize,
+                onClose: widget.onClose,
+              ),
+              Expanded(
+                child: SelectionArea(
+                  child: _buildContent(),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -29,98 +29,101 @@ class QueryAutocompleteOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     if (suggestions.isEmpty) return const SizedBox.shrink();
 
-    return Container(
-      constraints: const BoxConstraints(maxHeight: 240),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A2332),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: AppColors.surfaceBorder.withValues(alpha: 0.5),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.4),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        constraints: const BoxConstraints(maxHeight: 240),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A2332),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: AppColors.surfaceBorder.withValues(alpha: 0.5),
           ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(10),
-        child: ListView.builder(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          shrinkWrap: true,
-          itemCount: suggestions.length,
-          itemBuilder: (context, index) {
-            final s = suggestions[index];
-            final isHighlighted = index == highlightedIndex;
-            return InkWell(
-              onTap: () => onSelect(s),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                color: isHighlighted
-                    ? AppColors.primaryCyan.withValues(alpha: 0.12)
-                    : Colors.transparent,
-                child: Row(
-                  children: [
-                    // Category icon
-                    Container(
-                      width: 22,
-                      height: 22,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: s.color.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(5),
-                      ),
-                      child: Icon(s.icon, size: 12, color: s.color),
-                    ),
-                    const SizedBox(width: 8),
-                    // Label
-                    Text(
-                      s.label,
-                      style: GoogleFonts.jetBrainsMono(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: isHighlighted
-                            ? AppColors.primaryCyan
-                            : AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    // Description
-                    Expanded(
-                      child: Text(
-                        s.description,
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: AppColors.textMuted.withValues(alpha: 0.7),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.4),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            shrinkWrap: true,
+            itemCount: suggestions.length,
+            itemBuilder: (context, index) {
+              final s = suggestions[index];
+              final isHighlighted = index == highlightedIndex;
+              return InkWell(
+                onTap: () => onSelect(s),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  color: isHighlighted
+                      ? AppColors.primaryCyan.withValues(alpha: 0.12)
+                      : Colors.transparent,
+                  child: Row(
+                    children: [
+                      // Category icon
+                      Container(
+                        width: 22,
+                        height: 22,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: s.color.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(5),
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        child: Icon(s.icon, size: 12, color: s.color),
                       ),
-                    ),
-                    // Category badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 5, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.05),
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                      child: Text(
-                        s.category,
-                        style: TextStyle(
-                          fontSize: 8,
-                          color: AppColors.textMuted.withValues(alpha: 0.6),
+                      const SizedBox(width: 8),
+                      // Label
+                      Text(
+                        s.label,
+                        style: GoogleFonts.jetBrainsMono(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: isHighlighted
+                              ? AppColors.primaryCyan
+                              : AppColors.textPrimary,
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 10),
+                      // Description
+                      Expanded(
+                        child: Text(
+                          s.description,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: AppColors.textMuted.withValues(alpha: 0.7),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      // Category badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: Text(
+                          s.category,
+                          style: TextStyle(
+                            fontSize: 8,
+                            color: AppColors.textMuted.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );
@@ -156,55 +159,58 @@ class QueryTemplatesPicker extends StatelessWidget {
       grouped.putIfAbsent(t.category, () => []).add(t);
     }
 
-    return Container(
-      constraints: const BoxConstraints(maxHeight: 420, maxWidth: 440),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A2332),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.surfaceBorder.withValues(alpha: 0.5),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
-            blurRadius: 20,
-            offset: const Offset(0, 6),
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        constraints: const BoxConstraints(maxHeight: 420, maxWidth: 440),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A2332),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: AppColors.surfaceBorder.withValues(alpha: 0.5),
           ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: ListView(
-          padding: const EdgeInsets.all(8),
-          shrinkWrap: true,
-          children: [
-            // Natural language examples section
-            if (naturalLanguageExamples.isNotEmpty &&
-                onNaturalLanguageSelect != null) ...[
-              _buildSectionHeader(
-                'Ask in Plain English',
-                Icons.chat_bubble_outline_rounded,
-                AppColors.secondaryPurple,
-              ),
-              ...naturalLanguageExamples.map(
-                (example) => _buildNlExampleItem(example),
-              ),
-              Divider(
-                color: AppColors.surfaceBorder.withValues(alpha: 0.3),
-                height: 16,
-              ),
-            ],
-            // Template categories
-            ...grouped.entries.expand((entry) => [
-                  _buildSectionHeader(
-                    entry.key,
-                    entry.value.first.icon,
-                    AppColors.primaryCyan,
-                  ),
-                  ...entry.value.map(_buildTemplateItem),
-                  const SizedBox(height: 4),
-                ]),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.5),
+              blurRadius: 20,
+              offset: const Offset(0, 6),
+            ),
           ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: ListView(
+            padding: const EdgeInsets.all(8),
+            shrinkWrap: true,
+            children: [
+              // Natural language examples section
+              if (naturalLanguageExamples.isNotEmpty &&
+                  onNaturalLanguageSelect != null) ...[
+                _buildSectionHeader(
+                  'Ask in Plain English',
+                  Icons.chat_bubble_outline_rounded,
+                  AppColors.secondaryPurple,
+                ),
+                ...naturalLanguageExamples.map(
+                  (example) => _buildNlExampleItem(example),
+                ),
+                Divider(
+                  color: AppColors.surfaceBorder.withValues(alpha: 0.3),
+                  height: 16,
+                ),
+              ],
+              // Template categories
+              ...grouped.entries.expand((entry) => [
+                    _buildSectionHeader(
+                      entry.key,
+                      entry.value.first.icon,
+                      AppColors.primaryCyan,
+                    ),
+                    ...entry.value.map(_buildTemplateItem),
+                    const SizedBox(height: 4),
+                  ]),
+            ],
+          ),
         ),
       ),
     );
