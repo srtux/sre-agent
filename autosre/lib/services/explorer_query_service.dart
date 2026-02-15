@@ -190,11 +190,10 @@ class ExplorerQueryService {
     try {
       final body = jsonEncode({
         'query': query,
-        'language': 'promql',
         'project_id': projectId,
         'minutes_ago': range.minutesAgo,
       });
-      final response = await _post('/api/tools/metrics/query', body);
+      final response = await _post('/api/tools/metrics/promql', body);
       final data = jsonDecode(response.body) as Map<String, dynamic>;
 
       final series = MetricSeries.fromJson(data);
