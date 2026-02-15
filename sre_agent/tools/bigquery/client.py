@@ -11,7 +11,7 @@ This architecture allows:
 """
 
 import logging
-from typing import Any, cast
+from typing import Any
 
 from google.adk.tools import ToolContext  # type: ignore[attr-defined]
 
@@ -118,14 +118,22 @@ class BigQueryClient:
     async def get_table_schema(
         self, dataset_id: str, table_id: str
     ) -> list[dict[str, Any]]:
-        """Get table schema.
+        """Get table schema with enriched field metadata.
+
+        Returns schema fields with normalized properties including nested fields
+        for RECORD/STRUCT types, field modes, and descriptions.
 
         Args:
             dataset_id: Dataset ID.
             table_id: Table ID.
 
         Returns:
-            List of schema fields.
+            List of schema fields, each containing:
+            - name: Field name
+            - type: BigQuery type (STRING, INTEGER, RECORD, etc.)
+            - mode: NULLABLE, REQUIRED, or REPEATED
+            - description: Field description (empty string if not set)
+            - fields: Nested fields for RECORD types (empty list otherwise)
         """
         if not self.project_id:
             raise ValueError("No project ID")
@@ -156,7 +164,43 @@ class BigQueryClient:
         structured = data.get("structuredContent", data)
         info = structured.get("tableInfo", structured)  # in case it's nested
         schema = info.get("schema", structured.get("schema", {}))
-        return cast(list[dict[str, Any]], schema.get("fields", []))
+        raw_fields = schema.get("fields", [])
+
+        return _normalize_schema_fields(raw_fields)
+
+
+def _normalize_schema_fields(
+    fields: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Normalize BigQuery schema fields to a consistent structure.
+
+    Ensures every field has name, type, mode, description, and recursively
+    normalizes nested fields for RECORD/STRUCT types.
+
+    Args:
+        fields: Raw schema fields from BigQuery MCP.
+
+    Returns:
+        Normalized list of field dicts.
+    """
+    normalized: list[dict[str, Any]] = []
+    for field in fields:
+        if not isinstance(field, dict):
+            continue
+        entry: dict[str, Any] = {
+            "name": field.get("name", ""),
+            "type": field.get("type", "UNKNOWN"),
+            "mode": field.get("mode", "NULLABLE"),
+            "description": field.get("description", ""),
+        }
+        # Recursively normalize nested fields for RECORD/STRUCT types
+        nested = field.get("fields", [])
+        if nested and isinstance(nested, list):
+            entry["fields"] = _normalize_schema_fields(nested)
+        else:
+            entry["fields"] = []
+        normalized.append(entry)
+    return normalized
 
     async def list_datasets(self) -> list[str]:
         """List BigQuery dataset IDs.

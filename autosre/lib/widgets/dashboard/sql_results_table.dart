@@ -8,7 +8,8 @@ import '../../theme/app_theme.dart';
 
 /// A sortable, scrollable data table for displaying BigQuery SQL query results.
 ///
-/// Supports column sorting, row selection, and CSV/JSON export via clipboard.
+/// Supports column sorting (with null-last semantics), row numbering,
+/// tooltips for truncated/long values, number formatting, and CSV/JSON export.
 class SqlResultsTable extends StatefulWidget {
   final List<String> columns;
   final List<Map<String, dynamic>> rows;
@@ -28,17 +29,81 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
   bool _sortDescending = false;
   int? _hoveredRow;
 
+  /// Column type cache — determined once from first non-null values.
+  late final Map<String, _ColumnType> _columnTypes;
+
+  @override
+  void initState() {
+    super.initState();
+    _columnTypes = _detectColumnTypes();
+  }
+
+  @override
+  void didUpdateWidget(SqlResultsTable oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.columns != widget.columns || oldWidget.rows != widget.rows) {
+      _columnTypes = _detectColumnTypes();
+    }
+  }
+
+  Map<String, _ColumnType> _detectColumnTypes() {
+    final types = <String, _ColumnType>{};
+    for (final col in widget.columns) {
+      var detected = _ColumnType.string;
+      for (final row in widget.rows.take(30)) {
+        final val = row[col];
+        if (val == null) continue;
+        if (val is Map || val is List) {
+          detected = _ColumnType.json;
+        } else if (val is num) {
+          detected = _ColumnType.number;
+        } else if (val is bool) {
+          detected = _ColumnType.boolean;
+        } else {
+          final s = val.toString();
+          if (double.tryParse(s) != null) {
+            detected = _ColumnType.number;
+          } else if (_looksLikeTimestamp(s)) {
+            detected = _ColumnType.timestamp;
+          } else if (_looksLikeJson(s)) {
+            detected = _ColumnType.json;
+          } else {
+            detected = _ColumnType.string;
+          }
+        }
+        break; // use first non-null value
+      }
+      types[col] = detected;
+    }
+    return types;
+  }
+
+  static bool _looksLikeTimestamp(String s) {
+    // ISO 8601 or common timestamp patterns
+    return RegExp(r'^\d{4}-\d{2}-\d{2}[T ]').hasMatch(s);
+  }
+
+  static bool _looksLikeJson(String s) {
+    final trimmed = s.trim();
+    return (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+        (trimmed.startsWith('[') && trimmed.endsWith(']'));
+  }
+
   List<Map<String, dynamic>> get _sortedRows {
     if (_sortColumn == null) return widget.rows;
     final sorted = List<Map<String, dynamic>>.from(widget.rows);
     sorted.sort((a, b) {
       final aVal = a[_sortColumn];
       final bVal = b[_sortColumn];
+      // Null-last sorting: nulls always sort to the end regardless of direction
+      if (aVal == null && bVal == null) return 0;
+      if (aVal == null) return 1;
+      if (bVal == null) return -1;
       int cmp;
       if (aVal is num && bVal is num) {
         cmp = aVal.compareTo(bVal);
       } else {
-        cmp = (aVal?.toString() ?? '').compareTo(bVal?.toString() ?? '');
+        cmp = aVal.toString().compareTo(bVal.toString());
       }
       return _sortDescending ? -cmp : cmp;
     });
@@ -154,6 +219,9 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
   Widget _buildTable() {
     final rows = _sortedRows;
 
+    // Prepend a row-number column
+    final allColumns = ['#', ...widget.columns];
+
     return DataTable(
       columnSpacing: 24,
       headingRowHeight: 36,
@@ -162,8 +230,23 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
       headingRowColor: WidgetStateProperty.all(
         Colors.white.withValues(alpha: 0.03),
       ),
-      columns: widget.columns.map((col) {
+      columns: allColumns.map((col) {
+        if (col == '#') {
+          // Row number column header
+          return DataColumn(
+            label: Text(
+              '#',
+              style: GoogleFonts.jetBrainsMono(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textMuted.withValues(alpha: 0.5),
+              ),
+            ),
+            numeric: true,
+          );
+        }
         final isSorted = _sortColumn == col;
+        final colType = _columnTypes[col] ?? _ColumnType.string;
         return DataColumn(
           label: InkWell(
             onTap: () => setState(() {
@@ -177,6 +260,17 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Type indicator icon
+                Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: Icon(
+                    _iconForColumnType(colType),
+                    size: 10,
+                    color: isSorted
+                        ? AppColors.primaryCyan.withValues(alpha: 0.7)
+                        : AppColors.textMuted.withValues(alpha: 0.4),
+                  ),
+                ),
                 Text(
                   col,
                   style: GoogleFonts.jetBrainsMono(
@@ -209,33 +303,71 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
                 ? Colors.white.withValues(alpha: 0.05)
                 : Colors.transparent,
           ),
-          cells: widget.columns.map((col) {
-            final val = row[col];
-            String display;
-            if (val is double) {
-              display = val == val.roundToDouble()
-                  ? val.toInt().toString()
-                  : val.toStringAsFixed(4);
-            } else if (val == null) {
-              display = 'NULL';
-            } else {
-              display = val.toString();
+          cells: allColumns.map((col) {
+            if (col == '#') {
+              // Row number cell
+              return DataCell(
+                MouseRegion(
+                  onEnter: (_) => setState(() => _hoveredRow = index),
+                  onExit: (_) => setState(() => _hoveredRow = null),
+                  child: Text(
+                    '${index + 1}',
+                    style: GoogleFonts.jetBrainsMono(
+                      fontSize: 9,
+                      color: AppColors.textMuted.withValues(alpha: 0.4),
+                    ),
+                  ),
+                ),
+              );
             }
+            final val = row[col];
+            final colType = _columnTypes[col] ?? _ColumnType.string;
+            final display = _formatValue(val, colType);
+            final fullText = val?.toString() ?? 'NULL';
+            final isTruncated = display != fullText && val != null;
+
             return DataCell(
               MouseRegion(
                 onEnter: (_) => setState(() => _hoveredRow = index),
                 onExit: (_) => setState(() => _hoveredRow = null),
-                child: Text(
-                  display.length > 50
-                      ? '${display.substring(0, 50)}...'
-                      : display,
-                  style: GoogleFonts.jetBrainsMono(
-                    fontSize: 10,
-                    color: val == null
-                        ? AppColors.textMuted.withValues(alpha: 0.5)
-                        : AppColors.textSecondary,
-                    fontStyle:
-                        val == null ? FontStyle.italic : FontStyle.normal,
+                child: Tooltip(
+                  message: isTruncated || (fullText.length > 30)
+                      ? fullText
+                      : '',
+                  waitDuration: const Duration(milliseconds: 400),
+                  child: InkWell(
+                    onLongPress: val != null
+                        ? () {
+                            Clipboard.setData(ClipboardData(text: fullText));
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Cell value copied'),
+                                  duration: Duration(seconds: 1),
+                                ),
+                              );
+                            }
+                          }
+                        : null,
+                    child: Text(
+                      display,
+                      style: GoogleFonts.jetBrainsMono(
+                        fontSize: 10,
+                        color: val == null
+                            ? AppColors.textMuted.withValues(alpha: 0.5)
+                            : colType == _ColumnType.number
+                                ? AppColors.warning.withValues(alpha: 0.9)
+                                : colType == _ColumnType.timestamp
+                                    ? AppColors.secondaryPurple.withValues(alpha: 0.8)
+                                    : colType == _ColumnType.boolean
+                                        ? AppColors.success.withValues(alpha: 0.8)
+                                        : colType == _ColumnType.json
+                                            ? AppColors.primaryTeal.withValues(alpha: 0.8)
+                                            : AppColors.textSecondary,
+                        fontStyle:
+                            val == null ? FontStyle.italic : FontStyle.normal,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -244,6 +376,69 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
         );
       }),
     );
+  }
+
+  /// Format a cell value with type-aware formatting.
+  String _formatValue(dynamic val, _ColumnType colType) {
+    if (val == null) return 'NULL';
+
+    if (val is double) {
+      if (val == val.roundToDouble() && val.abs() < 1e15) {
+        return _formatNumber(val.toInt());
+      }
+      return val.toStringAsFixed(4);
+    }
+
+    if (val is int) {
+      return _formatNumber(val);
+    }
+
+    // JSON objects/arrays — compact display
+    if (val is Map || val is List) {
+      final s = const JsonEncoder().convert(val);
+      if (s.length > 80) {
+        return '${s.substring(0, 80)}...';
+      }
+      return s;
+    }
+
+    final s = val.toString();
+    if (s.length > 80) {
+      return '${s.substring(0, 80)}...';
+    }
+    return s;
+  }
+
+  /// Format integers/large numbers with thousands separators.
+  String _formatNumber(int value) {
+    if (value.abs() < 1000) return value.toString();
+    final neg = value < 0;
+    final abs = value.abs().toString();
+    final buffer = StringBuffer();
+    final remainder = abs.length % 3;
+    if (remainder > 0) {
+      buffer.write(abs.substring(0, remainder));
+    }
+    for (var i = remainder; i < abs.length; i += 3) {
+      if (buffer.isNotEmpty) buffer.write(',');
+      buffer.write(abs.substring(i, i + 3));
+    }
+    return neg ? '-$buffer' : buffer.toString();
+  }
+
+  IconData _iconForColumnType(_ColumnType type) {
+    switch (type) {
+      case _ColumnType.number:
+        return Icons.tag_rounded;
+      case _ColumnType.boolean:
+        return Icons.toggle_on_rounded;
+      case _ColumnType.timestamp:
+        return Icons.schedule_rounded;
+      case _ColumnType.json:
+        return Icons.data_object_rounded;
+      case _ColumnType.string:
+        return Icons.text_fields_rounded;
+    }
   }
 
   void _copyAsCsv() {
@@ -286,3 +481,6 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
     return value;
   }
 }
+
+/// Internal column type classification for formatting.
+enum _ColumnType { string, number, boolean, timestamp, json }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../../services/explorer_query_service.dart';
@@ -27,9 +28,11 @@ class _BigQuerySidebarState extends State<BigQuerySidebar> {
   bool _loadingTables = false;
   List<String> _tables = [];
 
-  // Cache for schemas to avoid multiple fetches for the same table
+  // Cache for schemas — keyed by "datasetId.tableId" to avoid cross-dataset collisions
   final Map<String, List<Map<String, dynamic>>> _tableSchemas = {};
   final Set<String> _fetchingSchemas = {};
+
+  String _schemaCacheKey(String tableId) => '${_selectedDataset ?? ""}.$tableId';
 
   @override
   void initState() {
@@ -71,11 +74,14 @@ class _BigQuerySidebarState extends State<BigQuerySidebar> {
   }
 
   Future<void> _fetchSchema(String tableId) async {
-    if (_selectedDataset == null || _tableSchemas.containsKey(tableId) || _fetchingSchemas.contains(tableId)) {
+    final cacheKey = _schemaCacheKey(tableId);
+    if (_selectedDataset == null ||
+        _tableSchemas.containsKey(cacheKey) ||
+        _fetchingSchemas.contains(cacheKey)) {
       return;
     }
     setState(() {
-      _fetchingSchemas.add(tableId);
+      _fetchingSchemas.add(cacheKey);
     });
     final explorer = context.read<ExplorerQueryService>();
     final schema = await explorer.getTableSchema(
@@ -84,8 +90,8 @@ class _BigQuerySidebarState extends State<BigQuerySidebar> {
     );
     if (mounted) {
       setState(() {
-        _tableSchemas[tableId] = schema;
-        _fetchingSchemas.remove(tableId);
+        _tableSchemas[cacheKey] = schema;
+        _fetchingSchemas.remove(cacheKey);
       });
     }
   }
@@ -272,13 +278,14 @@ class _BigQuerySidebarState extends State<BigQuerySidebar> {
   }
 
   Widget _buildSchemaView(String tableId) {
-    if (_fetchingSchemas.contains(tableId)) {
+    final cacheKey = _schemaCacheKey(tableId);
+    if (_fetchingSchemas.contains(cacheKey)) {
       return const Padding(
         padding: EdgeInsets.all(16),
         child: Center(child: SizedBox(height: 20, child: ShimmerLoading())),
       );
     }
-    final schema = _tableSchemas[tableId];
+    final schema = _tableSchemas[cacheKey];
     if (schema == null) {
       return const Padding(
         padding: EdgeInsets.all(16),
@@ -304,40 +311,229 @@ class _BigQuerySidebarState extends State<BigQuerySidebar> {
 
     return Container(
       color: AppColors.backgroundDark.withValues(alpha: 0.5),
-      child: ListView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: schema.length,
-        itemBuilder: (context, index) {
-          final column = schema[index];
-          final name = column['name']?.toString() ?? 'Unknown';
-          final type = column['type']?.toString() ?? 'UNKNOWN';
-          return InkWell(
-            onTap: widget.onInsertColumn != null
-                ? () => widget.onInsertColumn!(name)
-                : null,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 6),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      name,
-                      style: const TextStyle(fontSize: 11, color: AppColors.textSecondary, fontFamily: 'monospace'),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Text(
-                    type,
-                    style: const TextStyle(fontSize: 10, color: AppColors.textMuted, fontFamily: 'monospace'),
-                  ),
-                ],
-              ),
+      child: _buildFieldList(schema, depth: 0),
+    );
+  }
+
+  /// Recursively builds the field list, supporting nested RECORD fields.
+  Widget _buildFieldList(List<Map<String, dynamic>> fields, {required int depth}) {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: fields.length,
+      itemBuilder: (context, index) {
+        final column = fields[index];
+        return _buildFieldItem(column, depth: depth);
+      },
+    );
+  }
+
+  Widget _buildFieldItem(Map<String, dynamic> column, {required int depth}) {
+    final name = column['name']?.toString() ?? 'Unknown';
+    final type = column['type']?.toString() ?? 'UNKNOWN';
+    final mode = column['mode']?.toString() ?? 'NULLABLE';
+    final description = column['description']?.toString() ?? '';
+    final nestedFields = column['fields'] as List? ?? [];
+    final isRecord = type == 'RECORD' || type == 'STRUCT';
+    final leftPadding = 24.0 + (depth * 16.0);
+
+    if (isRecord && nestedFields.isNotEmpty) {
+      // RECORD fields are expandable to show nested fields
+      return Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: EdgeInsets.only(left: leftPadding, right: 16),
+          childrenPadding: EdgeInsets.zero,
+          minTileHeight: 32.0,
+          leading: Icon(
+            _iconForType(type),
+            size: 12,
+            color: _colorForType(type),
+          ),
+          title: _buildFieldTitle(name, type, mode, description),
+          children: [
+            _buildFieldList(
+              nestedFields.map((f) => Map<String, dynamic>.from(f as Map)).toList(),
+              depth: depth + 1,
             ),
-          );
-        },
+          ],
+        ),
+      );
+    }
+
+    // Leaf fields
+    return InkWell(
+      onTap: widget.onInsertColumn != null
+          ? () => widget.onInsertColumn!(name)
+          : null,
+      child: Tooltip(
+        message: description.isNotEmpty ? description : '$name ($type)',
+        waitDuration: const Duration(milliseconds: 500),
+        child: Padding(
+          padding: EdgeInsets.only(left: leftPadding, right: 16, top: 5, bottom: 5),
+          child: Row(
+            children: [
+              Icon(
+                _iconForType(type),
+                size: 12,
+                color: _colorForType(type),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: _buildFieldTitle(name, type, mode, description),
+              ),
+            ],
+          ),
+        ),
       ),
     );
+  }
+
+  Widget _buildFieldTitle(String name, String type, String mode, String description) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            name,
+            style: GoogleFonts.jetBrainsMono(
+              fontSize: 11,
+              color: AppColors.textSecondary,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: 4),
+        // Mode badge for REQUIRED or REPEATED fields
+        if (mode == 'REQUIRED')
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+            margin: const EdgeInsets.only(right: 4),
+            decoration: BoxDecoration(
+              color: AppColors.error.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: Text(
+              'REQ',
+              style: GoogleFonts.jetBrainsMono(
+                fontSize: 7,
+                fontWeight: FontWeight.w700,
+                color: AppColors.error.withValues(alpha: 0.8),
+              ),
+            ),
+          ),
+        if (mode == 'REPEATED')
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+            margin: const EdgeInsets.only(right: 4),
+            decoration: BoxDecoration(
+              color: AppColors.secondaryPurple.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: Text(
+              '[ ]',
+              style: GoogleFonts.jetBrainsMono(
+                fontSize: 7,
+                fontWeight: FontWeight.w700,
+                color: AppColors.secondaryPurple.withValues(alpha: 0.8),
+              ),
+            ),
+          ),
+        Text(
+          _abbreviateType(type),
+          style: GoogleFonts.jetBrainsMono(
+            fontSize: 9,
+            color: _colorForType(type).withValues(alpha: 0.7),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Returns a type-specific icon for BigQuery schema field types.
+  IconData _iconForType(String type) {
+    switch (type.toUpperCase()) {
+      case 'STRING':
+      case 'BYTES':
+        return Icons.text_fields_rounded;
+      case 'INTEGER':
+      case 'INT64':
+      case 'NUMERIC':
+      case 'BIGNUMERIC':
+        return Icons.tag_rounded;
+      case 'FLOAT':
+      case 'FLOAT64':
+        return Icons.decimal_increase_rounded;
+      case 'BOOLEAN':
+      case 'BOOL':
+        return Icons.toggle_on_rounded;
+      case 'TIMESTAMP':
+      case 'DATE':
+      case 'TIME':
+      case 'DATETIME':
+        return Icons.schedule_rounded;
+      case 'RECORD':
+      case 'STRUCT':
+        return Icons.account_tree_rounded;
+      case 'GEOGRAPHY':
+        return Icons.map_rounded;
+      case 'JSON':
+        return Icons.data_object_rounded;
+      default:
+        return Icons.help_outline_rounded;
+    }
+  }
+
+  /// Returns a type-specific color for BigQuery schema field types.
+  Color _colorForType(String type) {
+    switch (type.toUpperCase()) {
+      case 'STRING':
+      case 'BYTES':
+        return AppColors.primaryCyan;
+      case 'INTEGER':
+      case 'INT64':
+      case 'NUMERIC':
+      case 'BIGNUMERIC':
+      case 'FLOAT':
+      case 'FLOAT64':
+        return AppColors.warning;
+      case 'BOOLEAN':
+      case 'BOOL':
+        return AppColors.success;
+      case 'TIMESTAMP':
+      case 'DATE':
+      case 'TIME':
+      case 'DATETIME':
+        return AppColors.secondaryPurple;
+      case 'RECORD':
+      case 'STRUCT':
+        return AppColors.info;
+      case 'JSON':
+        return AppColors.primaryTeal;
+      default:
+        return AppColors.textMuted;
+    }
+  }
+
+  /// Abbreviates long BigQuery type names for compact display.
+  String _abbreviateType(String type) {
+    switch (type.toUpperCase()) {
+      case 'BIGNUMERIC':
+        return 'BIGNUM';
+      case 'TIMESTAMP':
+        return 'TSTAMP';
+      case 'DATETIME':
+        return 'DTIME';
+      case 'GEOGRAPHY':
+        return 'GEO';
+      case 'FLOAT64':
+        return 'FLOAT';
+      case 'INT64':
+        return 'INT';
+      case 'BOOLEAN':
+        return 'BOOL';
+      default:
+        return type;
+    }
   }
 }

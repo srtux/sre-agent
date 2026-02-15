@@ -35,7 +35,7 @@ class FieldConfig {
 ///
 /// Allows users to:
 /// - Assign columns as dimensions or measures
-/// - Select chart types (bar, line, scatter, pie, etc.)
+/// - Select chart types (bar, line, scatter, pie, heatmap, etc.)
 /// - Apply aggregation functions (SUM, AVG, COUNT, MIN, MAX)
 /// - Group by and filter interactively
 /// - View the transformed data as a chart or table
@@ -57,7 +57,7 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
   // Explorer configuration
   final List<FieldConfig> _dimensions = [];
   final List<FieldConfig> _measures = [];
-  final List<String> _filters = [];
+  final List<_FilterEntry> _filters = [];
   ExplorerChartType _chartType = ExplorerChartType.bar;
   String? _sortColumn;
   bool _sortDescending = false;
@@ -117,9 +117,35 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
   List<Map<String, dynamic>> get _aggregatedData {
     if (_dimensions.isEmpty && _measures.isEmpty) return widget.rows;
 
+    // Apply filters first
+    var filteredRows = widget.rows;
+    for (final filter in _filters) {
+      filteredRows = filteredRows.where((row) {
+        final val = row[filter.column]?.toString() ?? '';
+        switch (filter.operator) {
+          case '=':
+            return val == filter.value;
+          case '!=':
+            return val != filter.value;
+          case 'contains':
+            return val.toLowerCase().contains(filter.value.toLowerCase());
+          case '>':
+            final a = double.tryParse(val);
+            final b = double.tryParse(filter.value);
+            return a != null && b != null && a > b;
+          case '<':
+            final a = double.tryParse(val);
+            final b = double.tryParse(filter.value);
+            return a != null && b != null && a < b;
+          default:
+            return true;
+        }
+      }).toList();
+    }
+
     // Group by dimensions
     final groups = <String, List<Map<String, dynamic>>>{};
-    for (final row in widget.rows) {
+    for (final row in filteredRows) {
       final key = _dimensions.map((d) => row[d.column]?.toString() ?? '').join('|');
       groups.putIfAbsent(key, () => []).add(row);
     }
@@ -200,7 +226,7 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
       children: [
         // Configuration toolbar
         _buildConfigBar(),
-        // Field shelves (dimensions + measures)
+        // Field shelves (dimensions + measures + filters)
         _buildFieldShelves(),
         // Chart / table content
         Expanded(child: _buildVisualization()),
@@ -392,11 +418,9 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
               );
             }),
           ),
-          // Filters section
-          if (_filters.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            _buildFiltersRow(),
-          ],
+          const SizedBox(height: 6),
+          // Filters row
+          _buildFiltersRow(),
         ],
       ),
     );
@@ -622,14 +646,14 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
   Widget _buildFiltersRow() {
     return Row(
       children: [
-        const SizedBox(
+        SizedBox(
           width: 80,
           child: Row(
             children: [
-              Icon(Icons.filter_alt_rounded,
+              const Icon(Icons.filter_alt_rounded,
                   size: 12, color: AppColors.secondaryPurple),
-              SizedBox(width: 4),
-              Text(
+              const SizedBox(width: 4),
+              const Text(
                 'Filters',
                 style: TextStyle(
                   fontSize: 10,
@@ -641,29 +665,227 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
           ),
         ),
         Expanded(
-          child: Wrap(
-            spacing: 4,
-            children: _filters.map((f) {
-              return Chip(
-                label: Text(f,
-                    style: const TextStyle(
-                        fontSize: 10, color: AppColors.textPrimary)),
-                deleteIcon: const Icon(Icons.close, size: 12),
-                onDeleted: () =>
-                    setState(() => _filters.remove(f)),
-                backgroundColor:
-                    AppColors.secondaryPurple.withValues(alpha: 0.1),
-                side: BorderSide(
-                    color:
-                        AppColors.secondaryPurple.withValues(alpha: 0.2)),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6)),
-                visualDensity: VisualDensity.compact,
-              );
-            }).toList(),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                ..._filters.asMap().entries.map((entry) {
+                  final filter = entry.value;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.secondaryPurple.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: AppColors.secondaryPurple.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '${filter.column} ${filter.operator} ${filter.value}',
+                            style: GoogleFonts.jetBrainsMono(
+                              fontSize: 9,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          InkWell(
+                            onTap: () => setState(() => _filters.removeAt(entry.key)),
+                            child: Icon(
+                              Icons.close_rounded,
+                              size: 10,
+                              color: AppColors.textMuted.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+                // Add filter button
+                _buildAddFilterButton(),
+              ],
+            ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildAddFilterButton() {
+    if (widget.columns.isEmpty) return const SizedBox.shrink();
+
+    return PopupMenuButton<String>(
+      onSelected: (col) => _showFilterDialog(col),
+      tooltip: 'Add filter',
+      offset: const Offset(0, 24),
+      color: AppColors.backgroundCard,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      itemBuilder: (_) => widget.columns.map((col) {
+        final isNumeric = _numericColumns.contains(col);
+        return PopupMenuItem(
+          value: col,
+          height: 32,
+          child: Row(
+            children: [
+              Icon(
+                isNumeric ? Icons.tag_rounded : Icons.text_fields_rounded,
+                size: 12,
+                color: isNumeric ? AppColors.warning : AppColors.primaryCyan,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                col,
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 11,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: AppColors.secondaryPurple.withValues(alpha: 0.2),
+          ),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.add_rounded, size: 12, color: AppColors.secondaryPurple),
+            SizedBox(width: 2),
+            Text(
+              'Add',
+              style: TextStyle(fontSize: 10, color: AppColors.secondaryPurple),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showFilterDialog(String column) {
+    final isNumeric = _numericColumns.contains(column);
+    final operators = isNumeric ? ['=', '!=', '>', '<'] : ['=', '!=', 'contains'];
+    var selectedOp = operators.first;
+    final valueController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              backgroundColor: AppColors.backgroundCard,
+              title: Text(
+                'Filter: $column',
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Operator selector
+                  Row(
+                    children: operators.map((op) {
+                      final isSelected = op == selectedOp;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 4),
+                        child: InkWell(
+                          onTap: () => setDialogState(() => selectedOp = op),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? AppColors.secondaryPurple.withValues(alpha: 0.2)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: isSelected
+                                    ? AppColors.secondaryPurple
+                                    : AppColors.surfaceBorder,
+                              ),
+                            ),
+                            child: Text(
+                              op,
+                              style: GoogleFonts.jetBrainsMono(
+                                fontSize: 12,
+                                color: isSelected
+                                    ? AppColors.secondaryPurple
+                                    : AppColors.textMuted,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 12),
+                  // Value input
+                  TextField(
+                    controller: valueController,
+                    style: GoogleFonts.jetBrainsMono(
+                      fontSize: 12,
+                      color: AppColors.textPrimary,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Filter value...',
+                      hintStyle: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textMuted.withValues(alpha: 0.5),
+                      ),
+                      filled: true,
+                      fillColor: AppColors.backgroundDark,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: const BorderSide(color: AppColors.surfaceBorder),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 8),
+                    ),
+                    autofocus: true,
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Cancel',
+                      style: TextStyle(color: AppColors.textMuted)),
+                ),
+                TextButton(
+                  onPressed: () {
+                    if (valueController.text.isNotEmpty) {
+                      setState(() {
+                        _filters.add(_FilterEntry(
+                          column: column,
+                          operator: selectedOp,
+                          value: valueController.text,
+                        ));
+                      });
+                      Navigator.of(ctx).pop();
+                    }
+                  },
+                  child: const Text('Apply',
+                      style: TextStyle(color: AppColors.primaryCyan)),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -784,8 +1006,6 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
   }
 
   Widget _buildChart(List<Map<String, dynamic>> data) {
-    // Use a simple custom-painted chart for the visual explorer
-    // This renders bar/line/area/pie charts from the aggregated data
     if (_dimensions.isEmpty || _measures.isEmpty) {
       return const Center(
         child: Text(
@@ -798,22 +1018,97 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
     final dimensionKey = _dimensions.first.column;
     final measureKey = _measures.first.displayName;
 
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: CustomPaint(
-        painter: _ExplorerChartPainter(
-          data: data,
-          dimensionKey: dimensionKey,
-          measureKey: measureKey,
-          chartType: _chartType,
-          color: AppColors.primaryCyan,
-          textColor: AppColors.textMuted,
-          gridColor: AppColors.surfaceBorder,
+    // Build legend entries for multi-measure charts
+    final legendEntries = _measures.map((m) => m.displayName).toList();
+
+    return Column(
+      children: [
+        // Chart legend
+        if (_measures.isNotEmpty)
+          _buildLegend(legendEntries),
+        // Chart area
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: CustomPaint(
+              painter: _ExplorerChartPainter(
+                data: data,
+                dimensionKey: dimensionKey,
+                measureKey: measureKey,
+                measures: _measures.map((m) => m.displayName).toList(),
+                chartType: _chartType,
+                color: AppColors.primaryCyan,
+                textColor: AppColors.textMuted,
+                gridColor: AppColors.surfaceBorder,
+              ),
+              child: const SizedBox.expand(),
+            ),
+          ),
         ),
-        child: const SizedBox.expand(),
+      ],
+    );
+  }
+
+  Widget _buildLegend(List<String> entries) {
+    final colors = _chartColors;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: entries.asMap().entries.map((entry) {
+          final color = colors[entry.key % colors.length];
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  entry.value,
+                  style: GoogleFonts.jetBrainsMono(
+                    fontSize: 9,
+                    color: AppColors.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
       ),
     );
   }
+
+  static List<Color> get _chartColors => [
+    AppColors.primaryCyan,
+    AppColors.warning,
+    AppColors.success,
+    AppColors.error,
+    AppColors.secondaryPurple,
+    AppColors.primaryBlue,
+    AppColors.info,
+    AppColors.primaryTeal,
+  ];
+}
+
+/// Filter entry for the visual explorer.
+class _FilterEntry {
+  final String column;
+  final String operator;
+  final String value;
+
+  const _FilterEntry({
+    required this.column,
+    required this.operator,
+    required this.value,
+  });
 }
 
 /// Custom painter for rendering explorer charts.
@@ -821,15 +1116,28 @@ class _ExplorerChartPainter extends CustomPainter {
   final List<Map<String, dynamic>> data;
   final String dimensionKey;
   final String measureKey;
+  final List<String> measures;
   final ExplorerChartType chartType;
   final Color color;
   final Color textColor;
   final Color gridColor;
 
+  static const _chartColors = [
+    AppColors.primaryCyan,
+    AppColors.warning,
+    AppColors.success,
+    AppColors.error,
+    AppColors.secondaryPurple,
+    AppColors.primaryBlue,
+    AppColors.info,
+    AppColors.primaryTeal,
+  ];
+
   _ExplorerChartPainter({
     required this.data,
     required this.dimensionKey,
     required this.measureKey,
+    required this.measures,
     required this.chartType,
     required this.color,
     required this.textColor,
@@ -856,30 +1164,35 @@ class _ExplorerChartPainter extends CustomPainter {
 
     final chartArea = Rect.fromLTRB(60, 20, size.width - 20, size.height - 40);
 
-    // Draw grid lines
-    _drawGrid(canvas, chartArea, maxVal, minVal);
-
     switch (chartType) {
       case ExplorerChartType.bar:
+        _drawGrid(canvas, chartArea, maxVal, minVal);
         _drawBarChart(canvas, chartArea, values, labels, maxVal, range);
+        _drawAxisLabels(canvas, chartArea, labels);
         break;
       case ExplorerChartType.line:
       case ExplorerChartType.area:
-        _drawLineChart(canvas, chartArea, values, labels, minVal, range,
+        _drawGrid(canvas, chartArea, maxVal, minVal);
+        _drawLineChart(canvas, chartArea, values, labels, minVal, maxVal, range,
             fill: chartType == ExplorerChartType.area);
+        _drawAxisLabels(canvas, chartArea, labels);
         break;
       case ExplorerChartType.scatter:
+        _drawGrid(canvas, chartArea, maxVal, minVal);
         _drawScatterChart(canvas, chartArea, values, labels, minVal, range);
+        _drawAxisLabels(canvas, chartArea, labels);
         break;
       case ExplorerChartType.pie:
         _drawPieChart(canvas, size, values, labels);
         break;
-      default:
-        _drawBarChart(canvas, chartArea, values, labels, maxVal, range);
+      case ExplorerChartType.heatmap:
+        _drawHeatmap(canvas, chartArea, values, labels, minVal, maxVal);
+        _drawAxisLabels(canvas, chartArea, labels);
+        break;
+      case ExplorerChartType.table:
+        // Handled by widget, not painter
+        break;
     }
-
-    // Draw axis labels
-    _drawAxisLabels(canvas, chartArea, labels);
   }
 
   void _drawGrid(Canvas canvas, Rect area, double maxVal, double minVal) {
@@ -896,15 +1209,22 @@ class _ExplorerChartPainter extends CustomPainter {
       final val = maxVal - (maxVal - minVal) * i / gridLines;
       final tp = TextPainter(
         text: TextSpan(
-          text: val >= 1000
-              ? '${(val / 1000).toStringAsFixed(1)}K'
-              : val.toStringAsFixed(val == val.roundToDouble() ? 0 : 1),
+          text: _formatAxisValue(val),
           style: TextStyle(fontSize: 9, color: textColor.withValues(alpha: 0.6)),
         ),
         textDirection: TextDirection.ltr,
       )..layout();
       tp.paint(canvas, Offset(area.left - tp.width - 6, y - tp.height / 2));
     }
+  }
+
+  String _formatAxisValue(double val) {
+    if (val.abs() >= 1e9) return '${(val / 1e9).toStringAsFixed(1)}B';
+    if (val.abs() >= 1e6) return '${(val / 1e6).toStringAsFixed(1)}M';
+    if (val.abs() >= 1e3) return '${(val / 1e3).toStringAsFixed(1)}K';
+    return val == val.roundToDouble()
+        ? val.toInt().toString()
+        : val.toStringAsFixed(1);
   }
 
   void _drawBarChart(Canvas canvas, Rect area, List<double> values,
@@ -930,18 +1250,38 @@ class _ExplorerChartPainter extends CustomPainter {
         ),
         paint,
       );
+
+      // Value label on top of bar
+      if (values.length <= 20) {
+        final tp = TextPainter(
+          text: TextSpan(
+            text: _formatAxisValue(values[i]),
+            style: TextStyle(
+              fontSize: 8,
+              color: textColor.withValues(alpha: 0.7),
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        tp.paint(canvas,
+            Offset(x + barWidth / 2 - tp.width / 2, y - tp.height - 2));
+      }
     }
   }
 
   void _drawLineChart(Canvas canvas, Rect area, List<double> values,
-      List<String> labels, double minVal, double range,
+      List<String> labels, double minVal, double maxVal, double range,
       {bool fill = false}) {
-    if (values.length < 2 || range == 0) return;
+    if (values.length < 2) return;
+
+    // Handle constant values (range == 0) — draw a horizontal line at midpoint
+    final effectiveRange = range == 0 ? 1.0 : range;
+    final effectiveMin = range == 0 ? minVal - 0.5 : minVal;
 
     final points = <Offset>[];
     for (var i = 0; i < values.length; i++) {
       final x = area.left + (area.width * i / (values.length - 1));
-      final normalized = (values[i] - minVal) / range;
+      final normalized = (values[i] - effectiveMin) / effectiveRange;
       final y = area.bottom - (normalized * area.height);
       points.add(Offset(x, y));
     }
@@ -991,10 +1331,13 @@ class _ExplorerChartPainter extends CustomPainter {
 
   void _drawScatterChart(Canvas canvas, Rect area, List<double> values,
       List<String> labels, double minVal, double range) {
-    if (range == 0) return;
+    // Handle constant values gracefully
+    final effectiveRange = range == 0 ? 1.0 : range;
+    final effectiveMin = range == 0 ? minVal - 0.5 : minVal;
+
     for (var i = 0; i < values.length; i++) {
       final x = area.left + (area.width * i / values.length) + (area.width / values.length / 2);
-      final normalized = (values[i] - minVal) / range;
+      final normalized = (values[i] - effectiveMin) / effectiveRange;
       final y = area.bottom - (normalized * area.height);
       canvas.drawCircle(
           Offset(x, y), 4, Paint()..color = color.withValues(alpha: 0.7));
@@ -1003,28 +1346,18 @@ class _ExplorerChartPainter extends CustomPainter {
 
   void _drawPieChart(
       Canvas canvas, Size size, List<double> values, List<String> labels) {
-    final total = values.fold(0.0, (a, b) => a + b);
+    final total = values.fold(0.0, (a, b) => a + b.abs());
     if (total == 0) return;
 
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = min(size.width, size.height) / 2.5;
+    final center = Offset(size.width * 0.4, size.height / 2);
+    final radius = min(size.width * 0.35, size.height / 2.5);
     var startAngle = -pi / 2;
 
-    final colors = [
-      AppColors.primaryCyan,
-      AppColors.warning,
-      AppColors.success,
-      AppColors.error,
-      AppColors.secondaryPurple,
-      AppColors.primaryBlue,
-      AppColors.info,
-      AppColors.primaryTeal,
-    ];
-
+    // Draw slices
     for (var i = 0; i < values.length; i++) {
-      final sweep = (values[i] / total) * 2 * pi;
+      final sweep = (values[i].abs() / total) * 2 * pi;
       final paint = Paint()
-        ..color = colors[i % colors.length].withValues(alpha: 0.7)
+        ..color = _chartColors[i % _chartColors.length].withValues(alpha: 0.7)
         ..style = PaintingStyle.fill;
 
       canvas.drawArc(
@@ -1035,36 +1368,154 @@ class _ExplorerChartPainter extends CustomPainter {
         paint,
       );
 
+      // Slice border for separation
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle,
+        sweep,
+        true,
+        Paint()
+          ..color = const Color(0xFF0F172A)
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke,
+      );
+
+      startAngle += sweep;
+    }
+
+    // Draw legend on the right side
+    final legendX = size.width * 0.7;
+    var legendY = max(20.0, (size.height - values.length * 18) / 2);
+    for (var i = 0; i < values.length && i < 15; i++) {
+      final color = _chartColors[i % _chartColors.length];
+      final label = labels[i].length > 18
+          ? '${labels[i].substring(0, 18)}...'
+          : labels[i];
+      final pct = (values[i].abs() / total * 100).toStringAsFixed(1);
+
+      // Color swatch
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(legendX, legendY, 8, 8),
+          const Radius.circular(2),
+        ),
+        Paint()..color = color.withValues(alpha: 0.7),
+      );
+
       // Label
-      if (sweep > 0.2) {
-        final labelAngle = startAngle + sweep / 2;
-        final labelPos = Offset(
-          center.dx + cos(labelAngle) * radius * 0.65,
-          center.dy + sin(labelAngle) * radius * 0.65,
-        );
+      final tp = TextPainter(
+        text: TextSpan(
+          text: '$label ($pct%)',
+          style: TextStyle(
+            fontSize: 9,
+            color: textColor.withValues(alpha: 0.8),
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout(maxWidth: size.width - legendX - 12);
+      tp.paint(canvas, Offset(legendX + 12, legendY - 1));
+
+      legendY += 18;
+    }
+  }
+
+  void _drawHeatmap(Canvas canvas, Rect area, List<double> values,
+      List<String> labels, double minVal, double maxVal) {
+    if (values.isEmpty) return;
+
+    final range = maxVal - minVal;
+    final cellWidth = area.width / values.length;
+    final cellHeight = area.height;
+
+    for (var i = 0; i < values.length; i++) {
+      // Normalize to 0..1 for color intensity
+      final normalized = range == 0 ? 0.5 : (values[i] - minVal) / range;
+
+      // Interpolate from cool (low) to hot (high)
+      final cellColor = Color.lerp(
+        AppColors.primaryCyan.withValues(alpha: 0.1),
+        AppColors.error.withValues(alpha: 0.8),
+        normalized,
+      )!;
+
+      final x = area.left + cellWidth * i;
+      canvas.drawRect(
+        Rect.fromLTWH(x, area.top, cellWidth - 1, cellHeight),
+        Paint()..color = cellColor,
+      );
+
+      // Value label inside cell
+      if (values.length <= 30) {
         final tp = TextPainter(
           text: TextSpan(
-            text: labels[i].length > 10
-                ? '${labels[i].substring(0, 10)}...'
-                : labels[i],
-            style: const TextStyle(
-                fontSize: 9, color: AppColors.textPrimary, fontWeight: FontWeight.w500),
+            text: _formatAxisValue(values[i]),
+            style: TextStyle(
+              fontSize: 9,
+              color: normalized > 0.5
+                  ? Colors.white.withValues(alpha: 0.9)
+                  : textColor.withValues(alpha: 0.7),
+              fontWeight: FontWeight.w500,
+            ),
           ),
           textDirection: TextDirection.ltr,
         )..layout();
         tp.paint(
-            canvas, labelPos - Offset(tp.width / 2, tp.height / 2));
+          canvas,
+          Offset(
+            x + cellWidth / 2 - tp.width / 2,
+            area.top + cellHeight / 2 - tp.height / 2,
+          ),
+        );
       }
-
-      startAngle += sweep;
     }
+
+    // Color scale legend at top-right
+    final scaleWidth = 80.0;
+    final scaleHeight = 8.0;
+    final scaleX = area.right - scaleWidth;
+    final scaleY = area.top - 16;
+    for (var i = 0; i < scaleWidth.toInt(); i++) {
+      final t = i / scaleWidth;
+      final c = Color.lerp(
+        AppColors.primaryCyan.withValues(alpha: 0.1),
+        AppColors.error.withValues(alpha: 0.8),
+        t,
+      )!;
+      canvas.drawRect(
+        Rect.fromLTWH(scaleX + i, scaleY, 1, scaleHeight),
+        Paint()..color = c,
+      );
+    }
+    // Scale labels
+    final lowTp = TextPainter(
+      text: TextSpan(
+        text: _formatAxisValue(minVal),
+        style: TextStyle(fontSize: 7, color: textColor.withValues(alpha: 0.5)),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    lowTp.paint(canvas, Offset(scaleX, scaleY - lowTp.height - 1));
+
+    final highTp = TextPainter(
+      text: TextSpan(
+        text: _formatAxisValue(maxVal),
+        style: TextStyle(fontSize: 7, color: textColor.withValues(alpha: 0.5)),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    highTp.paint(
+        canvas, Offset(scaleX + scaleWidth - highTp.width, scaleY - highTp.height - 1));
   }
 
   void _drawAxisLabels(Canvas canvas, Rect area, List<String> labels) {
+    // Determine max label length based on available space
+    final labelWidth = area.width / labels.length;
+    final maxChars = max(4, min(20, (labelWidth / 6).floor()));
+
     for (var i = 0; i < labels.length; i++) {
       final x = area.left + (area.width * i / labels.length) + (area.width / labels.length / 2);
-      final label = labels[i].length > 8
-          ? '${labels[i].substring(0, 8)}..'
+      final label = labels[i].length > maxChars
+          ? '${labels[i].substring(0, maxChars)}..'
           : labels[i];
       final tp = TextPainter(
         text: TextSpan(
@@ -1074,7 +1525,7 @@ class _ExplorerChartPainter extends CustomPainter {
         textDirection: TextDirection.ltr,
       )..layout();
 
-      // Rotate labels if many
+      // Rotate labels if many items
       if (labels.length > 8) {
         canvas.save();
         canvas.translate(x, area.bottom + 4);
@@ -1092,5 +1543,6 @@ class _ExplorerChartPainter extends CustomPainter {
       data != oldDelegate.data ||
       dimensionKey != oldDelegate.dimensionKey ||
       measureKey != oldDelegate.measureKey ||
-      chartType != oldDelegate.chartType;
+      chartType != oldDelegate.chartType ||
+      measures != oldDelegate.measures;
 }
