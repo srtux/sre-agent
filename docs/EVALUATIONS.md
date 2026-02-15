@@ -8,21 +8,25 @@ The SRE Agent uses a hybrid approach to balance developer velocity with producti
 
 ### Layer 1: Local / CI Quality Gate
 *   **Tool**: `adk eval` (triggered via `uv run poe eval`)
-*   **Purpose**: Rapid iteration and blocking the CI/CD pipeline on regressions.
+*   **Purpose**: Rapid iteration and surfacing regressions in CI/CD.
 *   **Configuration**: `eval/test_config.json`
 *   **Key Metrics**:
     *   `tool_trajectory_avg_score`: Ensures the agent uses the correct sequence of SRE tools (Aggregate -> Triage -> Deep Dive).
-    *   `rubric_based_final_response_quality_v1`: Gradual quality check for Technical Precision, Causality, and Actionability.
+    *   `rubric_based_final_response_quality_v1`: Quality check for Technical Precision, Causality, and Actionability.
     *   `final_response_match_v2`: Semantic match against "Gold Standard" diagnostic reports.
+    *   `hallucinations_v1`: Zero tolerance for fabricated claims.
+    *   `safety_v1`: Zero tolerance for unsafe outputs.
 
 ### Layer 2: Cloud-Native Vertex AI Sync
-*   **Tool**: `vertexai.preview.evaluation.EvalTask` (triggered via `uv run poe eval --sync`)
+*   **Tool**: `vertexai.Client().evals` API (triggered via `uv run poe eval --sync`)
+*   **Fallback**: Legacy `vertexai.preview.evaluation.EvalTask` when new SDK is unavailable.
 *   **Purpose**: Long-term tracking, auditing, and historical analysis in the Google Cloud Console.
-*   **Platform**: Syncs to the **Vertex AI > Evaluations** and **Experiments** tabs.
-*   **Advanced Metrics**:
-    *   `trajectory_exact_match`
-    *   `trajectory_precision` / `trajectory_recall`
-    *   `groundedness` (Ensures responses are strictly based on tool outputs).
+*   **Platform**: Syncs to **Vertex AI > Evaluations** in GCP Console.
+*   **Agent Metrics**:
+    *   `FINAL_RESPONSE_QUALITY`: Response appropriateness and completeness
+    *   `TOOL_USE_QUALITY`: Tool selection and invocation accuracy
+    *   `HALLUCINATION`: Factual accuracy assessment
+    *   `SAFETY`: Safety compliance evaluation
 
 ## 2. Evaluation Rubrics
 
@@ -49,5 +53,21 @@ Evaluations automatically detect their environment:
 *   **Identity**: In CI/CD, the evaluator falls back to the **Cloud Build Service Account**, which must have the necessary IAM roles (`roles/aiplatform.user`, `roles/logging.viewer`, etc.) to execute the trajectory.
 *   **Telemetry**: To prevent hangs at process exit, evaluations suppress background OpenTelemetry threads using `OTEL_SDK_DISABLED=true`.
 
+## 5. Coverage
+
+The eval suite covers **20 test cases** across 9 categories:
+
+| Category | Cases | What It Tests |
+| :--- | :--- | :--- |
+| Sanity | 1 | Agent self-description |
+| Tool Routing | 3 | Correct tool selection |
+| Analysis | 1 | Metric anomaly detection |
+| E2E Investigation | 1 | Multi-stage investigation pipeline |
+| Error Diagnosis | 3 | DB exhaustion, cascading timeouts, OOM |
+| Multi-Signal Correlation | 2 | Deploy regressions, SLO degradation |
+| GKE Debugging | 3 | Pod crashes, node pressure, HPA scaling |
+| SLO Analysis | 2 | Error budget, multi-window violations |
+| Failure Modes | 4 | Edge cases, hallucination resistance, rate limits |
+
 ---
-*Last verified: 2026-02-02 — Auto SRE Team*
+*Last verified: 2026-02-15 — Auto SRE Team*

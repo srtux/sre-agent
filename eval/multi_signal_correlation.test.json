@@ -5,6 +5,10 @@
   "eval_cases": [
     {
       "eval_id": "correlated_deploy_regression",
+      "session_input": {
+        "app_name": "sre_agent",
+        "user_id": "test_user"
+      },
       "conversation": [
         {
           "invocation_id": "inv_001",
@@ -45,6 +49,10 @@
     },
     {
       "eval_id": "gradual_degradation_detection",
+      "session_input": {
+        "app_name": "sre_agent",
+        "user_id": "test_user"
+      },
       "conversation": [
         {
           "invocation_id": "inv_002",
