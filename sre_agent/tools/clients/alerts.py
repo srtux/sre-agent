@@ -118,10 +118,11 @@ def _list_alerts_sync(
             filters.append(filter_str)
 
         if minutes_ago:
-            import time
+            from datetime import datetime, timedelta, timezone
 
-            start_time = int(time.time() - (minutes_ago * 60))
-            filters.append(f"openTime >= {start_time}")
+            start_time = datetime.now(timezone.utc) - timedelta(minutes=minutes_ago)
+            start_time_str = start_time.strftime("%Y-%m-%dT%H:%M:%S.000000Z")
+            filters.append(f'open_time >= "{start_time_str}"')
 
         if filters:
             params["filter"] = " AND ".join(filters)
@@ -129,12 +130,12 @@ def _list_alerts_sync(
         if order_by:
             mapped_order_by = order_by
             replacements = {
-                "start_time": "openTime",
-                "startTime": "openTime",
-                "open_time": "openTime",
-                "end_time": "closeTime",
-                "endTime": "closeTime",
-                "close_time": "closeTime",
+                "start_time": "open_time",
+                "startTime": "open_time",
+                "openTime": "open_time",
+                "end_time": "close_time",
+                "endTime": "close_time",
+                "closeTime": "close_time",
             }
             for k, v in replacements.items():
                 mapped_order_by = mapped_order_by.replace(k, v)
@@ -185,15 +186,16 @@ def _list_alerts_sync(
         ):
             error_msg += (
                 "\n\nHINT: Google Cloud Monitoring filters must follow the syntax 'field=\"value\"'. "
-                "Ensure you are not passing raw proto-style filters or complex objects. "
-                "Example: 'state=\"OPEN\"'. Also ensure timestamps are integers or use the 'minutes_ago' parameter."
+                "Ensure you are using valid fields like 'open_time', 'close_time' or 'state'. "
+                "Example: 'state=\"OPEN\"' or 'open_time > \"2023-01-01T00:00:00Z\"'. "
+                "Instead of formatting raw timestamps, you can also consider passing the 'minutes_ago' parameter directly."
             )
 
         if "comparator:" in error_msg:
             error_msg += (
-                "\n\nCRITICAL HINT: The filter you passed looks like a raw proto debug string. "
-                "This usually happens when an object is passed instead of a simple string. "
-                "Always use simple string filters like 'state=\"OPEN\"' or 'create_time > 123456789'."
+                "\n\nCRITICAL HINT: The Cloud Monitoring API parser failed. "
+                "This usually happens when timestamps are formatted as integers instead of RFC3339 strings. "
+                "Always use time strings like 'open_time > \"2023-01-01T00:00:00Z\"' instead of unix epoch numbers."
             )
 
         logger.error(error_msg, exc_info=True)
