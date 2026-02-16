@@ -63,7 +63,7 @@ The following table lists all registered A2UI components with their catalog name
 
 | Component Type | Widget Class | Data Model | Height | Description |
 |---------------|-------------|------------|--------|-------------|
-| `x-sre-trace-waterfall` | `SyncfusionTraceWaterfall` | `Trace` | auto | Distributed trace span waterfall |
+| `x-sre-trace-waterfall` | `TraceWaterfall` | `Trace` | auto | Distributed trace span waterfall |
 | `x-sre-metric-chart` | `SyncfusionMetricChart` | `MetricSeries` | 380px | Time-series metric line chart |
 | `x-sre-remediation-plan` | `RemediationPlanWidget` | `RemediationPlan` | auto (min 200px) | Interactive remediation checklist |
 | `x-sre-log-pattern-viewer` | `LogPatternViewer` | `List<LogPattern>` | 450px | Clustered log pattern summary |
@@ -132,8 +132,8 @@ Visualizes a distributed trace span tree.
 
 **Data Source**: `fetch_trace`, `list_traces`
 **Adapter**: `sre_agent.tools.analysis.genui_adapter.transform_trace`
-**Chat Widget**: `SyncfusionTraceWaterfall` (`lib/widgets/syncfusion_trace_waterfall.dart`)
-**Dashboard Widget**: `SyncfusionTraceWaterfall` via `LiveTracePanel`
+**Chat Widget**: `TraceWaterfall` (`lib/widgets/trace_waterfall.dart`)
+**Dashboard Widget**: `TraceWaterfall` via `LiveTracePanel`
 
 ```json
 {

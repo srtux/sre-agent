@@ -270,7 +270,7 @@ Advanced canvas-style widgets for real-time, animated SRE visualizations:
 | `UnifiedPromptInput` | Centered, pill-shaped chat input with floating shadow and suggestion chips. |
 | `SessionPanel` | Sidebar for viewing and managing investigation history sessions. |
 | `StatusToast` | Floating glassmorphic notification for system status. |
-| `SyncfusionTraceWaterfall` | Gantt-chart-style distributed trace waterfall (Syncfusion). |
+| `TraceWaterfall` | Gantt-chart-style distributed trace waterfall. |
 | `SyncfusionMetricChart` | Time-series metric chart with anomaly markers (Syncfusion). |
 | `LogEntriesViewer` | Raw log entries table with severity coloring and ANSI parsing. |
 | `LogPatternViewer` | Aggregated log pattern viewer with occurrence counts. |

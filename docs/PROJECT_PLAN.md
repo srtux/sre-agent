@@ -137,7 +137,7 @@ Total: **174 new council tests**, all passing.
 
 #### Phase 3.5: Observability Explorer Dashboard Refactor
 - [x] Transformed the passive "agent-only" dashboard into an active GCP-style Observability Explorer where users can directly query telemetry data alongside agent-provided insights.
-    - **Syncfusion Chart Migration**: Replaced `fl_chart` with Syncfusion Community Edition charts for interactive zoom, pan, and trackball tooltips. Created `SyncfusionMetricChart` and `SyncfusionTraceWaterfall`. Deleted 1,935 lines of old FL Chart widgets.
+    - **Syncfusion Chart Migration**: Replaced `fl_chart` with Syncfusion Community Edition charts for interactive zoom, pan, and trackball tooltips (`SyncfusionMetricChart`). Added custom tree table implementation (`TraceWaterfall`). Deleted 1,935 lines of old FL Chart widgets.
     - **Manual Query Capability**: Added `ManualQueryBar` input widget to every dashboard panel (metrics, logs, traces, alerts) for direct GCP telemetry querying.
     - **Backend Query Endpoints**: Added 4 new REST endpoints (`POST /api/tools/metrics/query`, `POST /api/tools/metrics/promql`, `POST /api/tools/alerts/query`, `POST /api/tools/logs/query`).
     - **Dual Data Source Architecture**: Extended `DashboardState` with `DataSource.agent` / `DataSource.manual` tracking, per-panel loading/error states, `TimeRange` model with preset selectors.

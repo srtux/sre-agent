@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:autosre/widgets/syncfusion_trace_waterfall.dart';
+import 'package:autosre/widgets/trace_waterfall.dart';
 import 'package:autosre/models/adk_schema.dart';
 
 void main() {
-  testWidgets('SyncfusionTraceWaterfall renders without error', (
+  testWidgets('TraceWaterfall renders without error', (
     WidgetTester tester,
   ) async {
     final trace = Trace(
@@ -28,7 +28,7 @@ void main() {
           body: SizedBox(
             width: 800,
             height: 600,
-            child: SyncfusionTraceWaterfall(trace: trace),
+            child: TraceWaterfall(trace: trace),
           ),
         ),
       ),
@@ -38,16 +38,22 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
 
     // Verify widget renders
-    expect(find.byType(SyncfusionTraceWaterfall), findsOneWidget);
+    expect(find.byType(TraceWaterfall), findsOneWidget);
 
     // Verify trace ID is displayed in header
     expect(find.text('test-trace'), findsOneWidget);
 
     // Verify span count badge
     expect(find.text('1 spans'), findsOneWidget);
+
+    // Verify new horizontal scroll structure
+    expect(find.byType(SingleChildScrollView), findsOneWidget);
+
+    // Verify tooltips wrap the layout spans directly
+    expect(find.byType(Tooltip), findsWidgets);
   });
 
-  testWidgets('SyncfusionTraceWaterfall shows empty state for empty trace', (
+  testWidgets('TraceWaterfall shows empty state for empty trace', (
     WidgetTester tester,
   ) async {
     final trace = Trace(traceId: 'empty-trace', spans: []);
@@ -58,7 +64,7 @@ void main() {
           body: SizedBox(
             width: 800,
             height: 600,
-            child: SyncfusionTraceWaterfall(trace: trace),
+            child: TraceWaterfall(trace: trace),
           ),
         ),
       ),
@@ -67,10 +73,10 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
 
     // Widget should still render gracefully
-    expect(find.byType(SyncfusionTraceWaterfall), findsOneWidget);
+    expect(find.byType(TraceWaterfall), findsOneWidget);
   });
 
-  testWidgets('SyncfusionTraceWaterfall renders service legend', (
+  testWidgets('TraceWaterfall renders service legend', (
     WidgetTester tester,
   ) async {
     final now = DateTime.now();
@@ -105,7 +111,7 @@ void main() {
           body: SizedBox(
             width: 800,
             height: 600,
-            child: SyncfusionTraceWaterfall(trace: trace),
+            child: TraceWaterfall(trace: trace),
           ),
         ),
       ),
@@ -114,10 +120,10 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
 
     // Verify widget renders with multiple spans
-    expect(find.byType(SyncfusionTraceWaterfall), findsOneWidget);
+    expect(find.byType(TraceWaterfall), findsOneWidget);
 
-    // Verify service names appear in legend
-    expect(find.text('frontend'), findsOneWidget);
-    expect(find.text('backend'), findsOneWidget);
+    // Verify service names appear in legend and structure
+    expect(find.text('frontend'), findsWidgets);
+    expect(find.text('backend'), findsWidgets);
   });
 }

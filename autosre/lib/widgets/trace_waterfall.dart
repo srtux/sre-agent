@@ -1,11 +1,9 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:syncfusion_flutter_charts/charts.dart';
 import '../models/adk_schema.dart';
 import '../theme/app_theme.dart';
 import '../theme/chart_theme.dart';
 
-/// Data model for a single span bar in the waterfall chart.
 class _SpanBarData {
   final String spanName;
   final double startOffsetMs;
@@ -14,6 +12,8 @@ class _SpanBarData {
   final String status;
   final bool isCriticalPath;
   final SpanInfo span;
+  final int depth;
+  final bool hasChildren;
 
   _SpanBarData({
     required this.spanName,
@@ -23,36 +23,30 @@ class _SpanBarData {
     required this.status,
     required this.isCriticalPath,
     required this.span,
+    required this.depth,
+    required this.hasChildren,
   });
 
   double get durationMs => endOffsetMs - startOffsetMs;
   bool get isError => status == 'ERROR';
 }
 
-/// Syncfusion-based trace waterfall chart that replaces the custom [TraceWaterfall].
-///
-/// Displays a transposed (horizontal) range bar chart where each bar represents
-/// a span's execution window. Features include:
-/// - Horizontal span bars colored by service
-/// - Critical path highlighting with glow border
-/// - Service legend with unique color mapping
-/// - Tooltip with span details on hover/tap
-/// - Span detail panel on bar tap
-class SyncfusionTraceWaterfall extends StatefulWidget {
+class TraceWaterfall extends StatefulWidget {
   final Trace trace;
 
-  const SyncfusionTraceWaterfall({super.key, required this.trace});
+  const TraceWaterfall({super.key, required this.trace});
 
   @override
-  State<SyncfusionTraceWaterfall> createState() =>
-      _SyncfusionTraceWaterfallState();
+  State<TraceWaterfall> createState() =>
+      _TraceWaterfallState();
 }
 
-class _SyncfusionTraceWaterfallState extends State<SyncfusionTraceWaterfall> {
+class _TraceWaterfallState extends State<TraceWaterfall> {
   late List<_SpanBarData> _spanBars;
   late Map<String, Color> _serviceColors;
   late double _totalDurationMs;
   SpanInfo? _selectedSpan;
+  Set<String> _collapsedSpanIds = {};
 
   @override
   void initState() {
@@ -61,15 +55,15 @@ class _SyncfusionTraceWaterfallState extends State<SyncfusionTraceWaterfall> {
   }
 
   @override
-  void didUpdateWidget(covariant SyncfusionTraceWaterfall oldWidget) {
+  void didUpdateWidget(covariant TraceWaterfall oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.trace.traceId != widget.trace.traceId) {
+      _collapsedSpanIds.clear();
       _buildSpanData();
       _selectedSpan = null;
     }
   }
 
-  /// Build the flattened span bar data from the trace's span hierarchy.
   void _buildSpanData() {
     if (widget.trace.spans.isEmpty) {
       _spanBars = [];
@@ -78,7 +72,6 @@ class _SyncfusionTraceWaterfallState extends State<SyncfusionTraceWaterfall> {
       return;
     }
 
-    // Sort spans by start time.
     final sortedSpans = List<SpanInfo>.from(widget.trace.spans)
       ..sort((a, b) => a.startTime.compareTo(b.startTime));
 
@@ -89,68 +82,65 @@ class _SyncfusionTraceWaterfallState extends State<SyncfusionTraceWaterfall> {
     _totalDurationMs = traceEnd.difference(traceStart).inMicroseconds / 1000.0;
     if (_totalDurationMs <= 0) _totalDurationMs = 1;
 
-    // Build parent-child map for hierarchy ordering.
     final childrenMap = <String?, List<SpanInfo>>{};
     for (final span in sortedSpans) {
       childrenMap.putIfAbsent(span.parentSpanId, () => []).add(span);
     }
 
-    // Identify root spans (no parent, or parent not present in trace).
     final allSpanIds = sortedSpans.map((s) => s.spanId).toSet();
     final rootSpans = sortedSpans.where(
       (s) => s.parentSpanId == null || !allSpanIds.contains(s.parentSpanId),
-    );
+    ).toList();
 
-    // Find critical path (longest execution chain).
-    final criticalPathIds = _findCriticalPath(rootSpans.toList(), childrenMap);
+    rootSpans.sort((a, b) => a.startTime.compareTo(b.startTime));
 
-    // Flatten hierarchy in depth-first order.
-    final flatSpans = <SpanInfo>[];
-    void flatten(SpanInfo span) {
-      flatSpans.add(span);
-      final children = childrenMap[span.spanId] ?? [];
-      for (final child in children) {
-        flatten(child);
-      }
-    }
+    final criticalPathIds = _findCriticalPath(rootSpans, childrenMap);
 
-    for (final root in rootSpans) {
-      flatten(root);
-    }
-
-    // Assign service colors.
+    final flatData = <_SpanBarData>[];
     _serviceColors = {};
     var colorIndex = 0;
-    for (final span in flatSpans) {
+
+    void flatten(SpanInfo span, int depth) {
+      final children = childrenMap[span.spanId] ?? [];
+      final hasChildren = children.isNotEmpty;
+
       final service = _extractServiceName(span.name);
       if (!_serviceColors.containsKey(service)) {
         _serviceColors[service] = ChartTheme
             .seriesColors[colorIndex % ChartTheme.seriesColors.length];
         colorIndex++;
       }
-    }
 
-    // Build span bar data.
-    _spanBars = flatSpans.map((span) {
-      final offsetMs =
-          span.startTime.difference(traceStart).inMicroseconds / 1000.0;
+      final offsetMs = span.startTime.difference(traceStart).inMicroseconds / 1000.0;
       final endMs = span.endTime.difference(traceStart).inMicroseconds / 1000.0;
-      final service = _extractServiceName(span.name);
 
-      return _SpanBarData(
+      flatData.add(_SpanBarData(
         spanName: span.name,
         startOffsetMs: offsetMs,
-        endOffsetMs: math.max(endMs, offsetMs + 0.5), // Minimum bar width
+        endOffsetMs: math.max(endMs, offsetMs + 0.1),
         serviceName: service,
         status: span.status,
         isCriticalPath: criticalPathIds.contains(span.spanId),
         span: span,
-      );
-    }).toList();
+        depth: depth,
+        hasChildren: hasChildren,
+      ));
+
+      if (!_collapsedSpanIds.contains(span.spanId)) {
+        children.sort((a, b) => a.startTime.compareTo(b.startTime));
+        for (final child in children) {
+          flatten(child, depth + 1);
+        }
+      }
+    }
+
+    for (final root in rootSpans) {
+      flatten(root, 0);
+    }
+
+    _spanBars = flatData;
   }
 
-  /// Find the critical path as the set of span IDs along the longest
-  /// cumulative-duration chain from root to leaf.
   Set<String> _findCriticalPath(
     List<SpanInfo> roots,
     Map<String?, List<SpanInfo>> childrenMap,
@@ -181,7 +171,6 @@ class _SyncfusionTraceWaterfallState extends State<SyncfusionTraceWaterfall> {
     return bestPath;
   }
 
-  /// Extract a service name from a span name using common delimiter patterns.
   String _extractServiceName(String spanName) {
     final colonIndex = spanName.indexOf(':');
     final slashIndex = spanName.indexOf('/');
@@ -193,6 +182,17 @@ class _SyncfusionTraceWaterfallState extends State<SyncfusionTraceWaterfall> {
     if (dotIndex > 0) splitIndex = math.min(splitIndex, dotIndex);
 
     return spanName.substring(0, splitIndex);
+  }
+
+  void _toggleCollapse(String spanId) {
+    setState(() {
+      if (_collapsedSpanIds.contains(spanId)) {
+        _collapsedSpanIds.remove(spanId);
+      } else {
+        _collapsedSpanIds.add(spanId);
+      }
+      _buildSpanData();
+    });
   }
 
   @override
@@ -214,8 +214,8 @@ class _SyncfusionTraceWaterfallState extends State<SyncfusionTraceWaterfall> {
         const SizedBox(height: 8),
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(4, 4, 12, 4),
-            child: _buildChart(),
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: _buildTreeTable(),
           ),
         ),
         if (_selectedSpan != null) ...[
@@ -301,7 +301,7 @@ class _SyncfusionTraceWaterfallState extends State<SyncfusionTraceWaterfall> {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        '${_spanBars.length} spans',
+                        '${widget.trace.spans.length} spans',
                         style: const TextStyle(
                           fontSize: 10,
                           color: AppColors.primaryTeal,
@@ -349,6 +349,29 @@ class _SyncfusionTraceWaterfallState extends State<SyncfusionTraceWaterfall> {
               AppColors.error,
             ),
           ],
+          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.unfold_more, size: 16),
+            tooltip: 'Expand All',
+            onPressed: () {
+              setState(() {
+                _collapsedSpanIds.clear();
+                _buildSpanData();
+              });
+            },
+            color: AppColors.textSecondary,
+          ),
+          IconButton(
+            icon: const Icon(Icons.unfold_less, size: 16),
+            tooltip: 'Collapse All',
+            onPressed: () {
+              setState(() {
+                _collapsedSpanIds = widget.trace.spans.map((s) => s.spanId).toSet();
+                _buildSpanData();
+              });
+            },
+            color: AppColors.textSecondary,
+          ),
         ],
       ),
     );
@@ -423,144 +446,266 @@ class _SyncfusionTraceWaterfallState extends State<SyncfusionTraceWaterfall> {
     );
   }
 
-  Widget _buildChart() {
-    return SfCartesianChart(
-      isTransposed: true,
-      plotAreaBorderWidth: 0,
-      primaryXAxis: CategoryAxis(
-        majorGridLines: const MajorGridLines(width: 0),
-        labelStyle: const TextStyle(
-          color: AppColors.textSecondary,
-          fontSize: 10,
-        ),
-        axisLine: AxisLine(
-          color: AppColors.surfaceBorder.withValues(alpha: 0.3),
-        ),
-      ),
-      primaryYAxis: NumericAxis(
-        title: const AxisTitle(
-          text: 'Duration (ms)',
-          textStyle: TextStyle(color: AppColors.textMuted, fontSize: 10),
-        ),
-        majorGridLines: MajorGridLines(
-          color: AppColors.surfaceBorder.withValues(alpha: 0.15),
-          dashArray: const <double>[4, 4],
-        ),
-        minorGridLines: const MinorGridLines(width: 0),
-        labelStyle: const TextStyle(color: AppColors.textMuted, fontSize: 10),
-        axisLine: const AxisLine(width: 0),
-        minimum: 0,
-        maximum: _totalDurationMs * 1.05,
-      ),
-      tooltipBehavior: TooltipBehavior(
-        enable: true,
+  Widget _buildTreeTable() {
+    return Container(
+      decoration: BoxDecoration(
         color: AppColors.backgroundCard,
-        textStyle: const TextStyle(color: AppColors.textPrimary, fontSize: 11),
-        borderColor: AppColors.primaryCyan,
-        borderWidth: 1,
-        builder:
-            (
-              dynamic data,
-              dynamic point,
-              dynamic series,
-              int pointIndex,
-              int seriesIndex,
-            ) {
-              final bar = _spanBars[pointIndex];
-              return Container(
-                padding: const EdgeInsets.all(10),
-                constraints: const BoxConstraints(maxWidth: 250),
-                decoration: BoxDecoration(
-                  color: AppColors.backgroundCard,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.primaryCyan),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      bar.spanName,
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Service: ${bar.serviceName}',
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 10,
-                      ),
-                    ),
-                    Text(
-                      'Duration: ${bar.durationMs.toStringAsFixed(2)}ms',
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 10,
-                      ),
-                    ),
-                    Text(
-                      'Status: ${bar.status}',
-                      style: TextStyle(
-                        color: bar.isError
-                            ? AppColors.error
-                            : AppColors.success,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    if (bar.isCriticalPath)
-                      const Text(
-                        'On Critical Path',
-                        style: TextStyle(
-                          color: AppColors.warning,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                  ],
-                ),
-              );
-            },
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.surfaceBorder),
       ),
-      series: <CartesianSeries<_SpanBarData, String>>[
-        RangeColumnSeries<_SpanBarData, String>(
-          dataSource: _spanBars,
-          xValueMapper: (_SpanBarData bar, _) => _truncateLabel(bar.spanName),
-          lowValueMapper: (_SpanBarData bar, _) => bar.startOffsetMs,
-          highValueMapper: (_SpanBarData bar, _) => bar.endOffsetMs,
-          pointColorMapper: (_SpanBarData bar, _) {
-            if (bar.isError) return AppColors.error;
-            return _serviceColors[bar.serviceName] ?? AppColors.primaryTeal;
-          },
-          borderColor: Colors.transparent,
-          borderWidth: 0,
-          borderRadius: const BorderRadius.all(Radius.circular(3)),
-          animationDuration: 800,
-          onPointTap: (ChartPointDetails details) {
-            final idx = details.pointIndex;
-            if (idx != null && idx >= 0 && idx < _spanBars.length) {
-              setState(() {
-                final tapped = _spanBars[idx].span;
-                _selectedSpan = _selectedSpan?.spanId == tapped.spanId
-                    ? null
-                    : tapped;
-              });
-            }
-          },
-        ),
-      ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final tableWidth = math.max(constraints.maxWidth, 1000.0); // Minimum width to ensure horizontal scroll
+
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: tableWidth,
+              child: Column(
+                children: [
+                  _buildTableHeader(),
+                  const Divider(height: 1, color: AppColors.surfaceBorder),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: _spanBars.length,
+                      itemBuilder: (context, index) {
+                        return _buildTableRow(_spanBars[index]);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+      ),
     );
   }
 
-  /// Truncate long span names for chart Y-axis labels.
-  String _truncateLabel(String name) {
-    if (name.length <= 30) return name;
-    return '${name.substring(0, 27)}...';
+  Widget _buildTableHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+      decoration: const BoxDecoration(
+        color: AppColors.backgroundElevated,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+      ),
+      child: Row(
+        children: [
+          const Expanded(
+            flex: 3,
+            child: Text(
+              'Name',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const Expanded(
+            flex: 1,
+            child: Text(
+              'Service',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 5,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return Stack(
+                  children: [
+                    SizedBox(height: 14, width: constraints.maxWidth),
+                    const Positioned(
+                      left: 0,
+                      child: Text(
+                        '0s',
+                        style: TextStyle(color: AppColors.textMuted, fontSize: 10),
+                      ),
+                    ),
+                    Positioned(
+                      right: 0,
+                      child: Text(
+                        '${_totalDurationMs.toStringAsFixed(1)}ms',
+                        style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
+                      ),
+                    ),
+                    Positioned(
+                      left: constraints.maxWidth * 0.25,
+                      child: Text(
+                        '${(_totalDurationMs * 0.25).toStringAsFixed(0)}ms',
+                        style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
+                      ),
+                    ),
+                    Positioned(
+                      left: constraints.maxWidth * 0.5,
+                      child: Text(
+                        '${(_totalDurationMs * 0.5).toStringAsFixed(0)}ms',
+                        style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
+                      ),
+                    ),
+                    Positioned(
+                      left: constraints.maxWidth * 0.75,
+                      child: Text(
+                        '${(_totalDurationMs * 0.75).toStringAsFixed(0)}ms',
+                        style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTableRow(_SpanBarData bar) {
+    final isSelected = _selectedSpan?.spanId == bar.span.spanId;
+    final isCollapsed = _collapsedSpanIds.contains(bar.span.spanId);
+    final rowBg = isSelected
+        ? AppColors.primaryTeal.withValues(alpha: 0.1)
+        : Colors.transparent;
+
+    return InkWell(
+      onTap: () => setState(() {
+        _selectedSpan = isSelected ? null : bar.span;
+      }),
+      child: Container(
+        color: rowBg,
+        padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 8),
+        constraints: const BoxConstraints(minHeight: 28),
+        child: Row(
+          children: [
+            Expanded(
+              flex: 3,
+              child: Padding(
+                padding: EdgeInsets.only(left: bar.depth * 16.0),
+                child: Row(
+                  children: [
+                    if (bar.hasChildren)
+                      InkWell(
+                        onTap: () => _toggleCollapse(bar.span.spanId),
+                        child: Icon(
+                          isCollapsed ? Icons.arrow_right : Icons.arrow_drop_down,
+                          size: 20,
+                          color: AppColors.textMuted,
+                        ),
+                      )
+                    else
+                      const SizedBox(width: 20),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        bar.spanName,
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 12,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 1,
+              child: Text(
+                bar.serviceName,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 11,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Expanded(
+              flex: 5,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final width = constraints.maxWidth;
+                  final left = (bar.startOffsetMs / _totalDurationMs) * width;
+                  final barWidth = (bar.durationMs / _totalDurationMs) * width;
+
+                  final safeWidth = math.max(barWidth, 3.0);
+                  final safeLeft = left.clamp(0.0, width);
+
+                  final barColor = bar.isError
+                      ? AppColors.error
+                      : (_serviceColors[bar.serviceName] ?? AppColors.primaryTeal);
+
+                  return SizedBox(
+                    height: 18,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Container(
+                          margin: const EdgeInsets.only(top: 8),
+                          width: width,
+                          height: 1,
+                          color: AppColors.surfaceBorder.withValues(alpha: 0.3),
+                        ),
+                        Positioned(
+                          left: safeLeft,
+                          width: safeWidth,
+                          top: 2,
+                          bottom: 2,
+                          child: Tooltip(
+                            message: '${bar.spanName}\nService: ${bar.serviceName}\nDuration: ${bar.durationMs.toStringAsFixed(2)}ms\nStatus: ${bar.status}',
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppColors.backgroundCard,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: AppColors.surfaceBorder),
+                            ),
+                            textStyle: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 11,
+                            ),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: barColor.withValues(alpha: 0.7),
+                                border: Border.all(color: barColor, width: 1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (safeLeft + safeWidth + 40 < width)
+                          Positioned(
+                            left: safeLeft + safeWidth + 4,
+                            top: 2,
+                            child: Tooltip(
+                              message: '${bar.durationMs.toStringAsFixed(2)}ms',
+                              child: Text(
+                                '${bar.durationMs.toStringAsFixed(2)}ms',
+                                style: const TextStyle(
+                                  color: AppColors.textMuted,
+                                  fontSize: 9,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.visible,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildSpanDetailPanel(SpanInfo span) {
@@ -568,7 +713,7 @@ class _SyncfusionTraceWaterfallState extends State<SyncfusionTraceWaterfall> {
     final serviceColor = _serviceColors[service] ?? AppColors.primaryTeal;
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.backgroundElevated,
@@ -759,7 +904,3 @@ class _SyncfusionTraceWaterfallState extends State<SyncfusionTraceWaterfall> {
     );
   }
 }
-
-// Note: Critical path highlighting is handled via pointColorMapper above.
-// Future enhancement: custom rendering can be added via SelectionBehavior
-// or by overlaying additional series for glow effects.

@@ -12,7 +12,7 @@ import '../common/error_banner.dart';
 import '../common/explorer_empty_state.dart';
 import '../common/shimmer_loading.dart';
 import '../common/source_badge.dart';
-import '../syncfusion_trace_waterfall.dart';
+import '../trace_waterfall.dart';
 import 'manual_query_bar.dart';
 import 'dashboard_card_wrapper.dart';
 import 'query_helpers.dart';
@@ -245,7 +245,7 @@ class _LiveTracePanelState extends State<LiveTracePanel> {
           ),
           child: Container(
             padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-            child: SyncfusionTraceWaterfall(trace: trace),
+            child: TraceWaterfall(trace: trace),
           ),
         );
       },

@@ -9,7 +9,7 @@ import 'widgets/log_entries_viewer.dart';
 import 'widgets/log_pattern_viewer.dart';
 import 'widgets/remediation_plan.dart';
 import 'widgets/syncfusion_metric_chart.dart';
-import 'widgets/syncfusion_trace_waterfall.dart';
+import 'widgets/trace_waterfall.dart';
 import 'widgets/tool_log.dart';
 // Canvas widgets
 import 'widgets/canvas/agent_activity_canvas.dart';
@@ -33,7 +33,16 @@ class CatalogRegistry {
     dynamic rawData,
     String componentName,
   ) {
-    var data = _ensureMap(rawData);
+    if (rawData == null) return {};
+
+    // If the data itself refuses to parse as a map, we can't unwrap it.
+    // The specific widget builder will catch the parsing exception and
+    // render an ErrorPlaceholder if needed.
+    if (rawData is! Map) {
+      throw Exception('Data unwrapping failed: expected Map, got ${rawData.runtimeType}');
+    }
+
+    final data = Map<String, dynamic>.from(rawData);
 
     // 1. Direct key match (e.g. {"x-sre-tool-log": {...}})
     if (data.containsKey(componentName)) {
@@ -80,7 +89,7 @@ class CatalogRegistry {
             if (trace.spans.isEmpty) return const SizedBox.shrink();
 
             return _buildWidgetContainer(
-              child: SyncfusionTraceWaterfall(trace: trace),
+              child: TraceWaterfall(trace: trace),
               height: null,
             );
           } catch (e) {
@@ -385,17 +394,6 @@ class CatalogRegistry {
   static Widget _logAndBuildError(String componentName, Object error) {
     debugPrint('[CATALOG] $componentName render error: $error');
     return ErrorPlaceholder(error: error);
-  }
-
-  /// Helper to safely cast dynamic data to a Map, throwing a clear error if mismatch
-  static Map<String, dynamic> _ensureMap(dynamic data) {
-    if (data == null) return {};
-    if (data is Map) {
-      return Map<String, dynamic>.from(data);
-    }
-    throw Exception(
-      'Expected Map<String, dynamic>, got ${data.runtimeType}: $data',
-    );
   }
 
   /// Builds a styled container for widgets with consistent theming

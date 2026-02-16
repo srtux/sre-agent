@@ -80,7 +80,7 @@ File: `lib/widgets/dashboard/live_trace_panel.dart`
     *   **Trace ID Lookup**: Prefix with `trace=` to fetch a single trace by ID. Uses `ExplorerQueryService.queryTrace()`.
     *   **Natural Language**: Routes to the AI agent via `onPromptRequest`.
 *   **Syntax Help**: Inline reference bar showing `Tab to autocomplete | Syntax: +span:name:<value> RootSpan:<path> MinDuration:<dur> HasLabel:<key>:<value>`.
-*   **Syncfusion Waterfall**: Expandable `SyncfusionTraceWaterfall` chart per trace. First trace in list is expanded by default.
+*   **Trace Waterfall**: Expandable custom `TraceWaterfall` chart per trace. First trace in list is expanded by default.
 *   **Cloud Trace Deep Link**: "Open in Cloud Trace" button constructs a `console.cloud.google.com/traces/list?tid=...&project=...` URL.
 *   **Card Management**: Each trace is wrapped in `DashboardCardWrapper` with collapse, copy JSON, and remove controls.
 
