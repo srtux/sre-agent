@@ -216,7 +216,11 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
         const SizedBox(height: 8),
         _buildServiceLegend(),
         const SizedBox(height: 8),
-        Expanded(
+        SizedBox(
+          height: math.min(
+            MediaQuery.of(context).size.height * 0.6,
+            math.max(100.0, _spanBars.length * 32.0 + 50.0),
+          ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: _buildTreeTable(),

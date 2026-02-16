@@ -52,6 +52,13 @@ def start_backend() -> bool:
     # Run only a single worker for local dev to avoid interleaved logs in stdout
     env["WEB_CONCURRENCY"] = "1"
 
+    # Enforce local execution mode even if SRE_AGENT_ID is in .env for deployments
+    if "SRE_AGENT_ID" in env:
+        print(
+            "[INFO] Unsetting SRE_AGENT_ID to force local execution mode for development."
+        )
+        env.pop("SRE_AGENT_ID")
+
     backend_proc = subprocess.Popen(
         ["uv", "run", "poe", "web"],
         cwd=os.getcwd(),
