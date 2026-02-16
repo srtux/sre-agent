@@ -140,7 +140,7 @@ class BigQueryClient:
             results = query_job.result()
             return [dict(row.items()) for row in results]
         except Exception as e:
-            logger.error(f"Direct BigQuery execution failed: {e}")
+            logger.error(f"Direct BigQuery execution failed: {e}", exc_info=True)
             raise RuntimeError(f"BigQuery execution failed: {e}") from e
 
     async def get_table_schema(
@@ -162,7 +162,9 @@ class BigQueryClient:
                 fields.append(_map_schema_field(field))
             return fields
         except Exception as e:
-            logger.warning(f"Direct schema fetch failed: {e}. Trying MCP fallback.")
+            logger.warning(
+                f"Direct schema fetch failed: {e}. Trying MCP fallback.", exc_info=True
+            )
 
         # MCP Fallback
         if not self.tool_context:

@@ -346,14 +346,9 @@ class _BigQuerySidebarState extends State<BigQuerySidebar> {
     List<Map<String, dynamic>> fields, {
     required int depth,
   }) {
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: fields.length,
-      itemBuilder: (context, index) {
-        final column = fields[index];
-        return _buildFieldItem(column, depth: depth);
-      },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: fields.map((column) => _buildFieldItem(column, depth: depth)).toList(),
     );
   }
 

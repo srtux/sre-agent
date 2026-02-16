@@ -101,7 +101,7 @@ class TestGetAgentEngineClient:
     def test_returns_none_when_not_configured(self) -> None:
         """Test that get_agent_engine_client returns None when not configured."""
         # Reset singleton
-        import sre_agent.services.agent_engine_client as client_module
+        from sre_agent.services import agent_engine_client as client_module
 
         client_module._client = None
 
@@ -113,7 +113,7 @@ class TestGetAgentEngineClient:
     def test_returns_client_when_configured(self) -> None:
         """Test that get_agent_engine_client returns client when configured."""
         # Reset singleton
-        import sre_agent.services.agent_engine_client as client_module
+        from sre_agent.services import agent_engine_client as client_module
 
         client_module._client = None
 

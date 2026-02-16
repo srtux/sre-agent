@@ -173,7 +173,18 @@ class AgentEngineClient:
             else:
                 logger.info(f"Agent Engine client initialized with methods: {methods}")
         except Exception as e:
-            logger.error(f"Failed to initialize Agent Engine client: {e}")
+            error_msg = str(e)
+            if "Reauthentication is needed" in error_msg:
+                logger.error(
+                    "❌ Vertex AI authentication failed: Reauthentication is required. "
+                    "This usually happens when your session expires. "
+                    "Please run: \n"
+                    "  gcloud auth application-default login\n"
+                    "  gcloud auth application-default set-quota-project YOUR_PROJECT_ID\n"
+                    "Then restart this application."
+                )
+            else:
+                logger.error(f"Failed to initialize Agent Engine client: {e}")
             # Do not set _initialized to True, so next call retries (or fails again)
             raise e
 
