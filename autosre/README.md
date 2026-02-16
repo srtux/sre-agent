@@ -283,7 +283,7 @@ Advanced canvas-style widgets for real-time, animated SRE visualizations:
 | `CouncilActivityGraphWidget` | Council investigation activity graph (agent hierarchy, tool calls, timeline). |
 | `CouncilDecisionCard` | Council decision summary with agent consensus and reasoning. |
 | `BigQuerySidebar` | Dataset/table browser for BigQuery SQL panel. |
-| `SqlResultsTable` | Sortable, scrollable results table with CSV/JSON export. |
+| `SqlResultsTable` | Paginated, sortable, scrollable, and resizable results table with CSV/JSON export and UNIX timestamp decoding. |
 
 ## Session Management
 

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../theme/app_theme.dart';
+import 'json_payload_viewer.dart';
 
 /// A sortable, scrollable data table for displaying BigQuery SQL query results.
 ///
@@ -26,6 +27,13 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
   int? _hoveredRow;
   final Set<int> _expandedRows = {};
 
+  // Pagination
+  int _currentPage = 0;
+  int _pageSize = 100;
+
+  // Column resizing
+  late Map<String, double> _columnWidths;
+
   /// Column type cache — determined once from first non-null values.
   late Map<String, _ColumnType> _columnTypes;
 
@@ -33,6 +41,15 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
   void initState() {
     super.initState();
     _columnTypes = _detectColumnTypes();
+    _initColumnWidths();
+  }
+
+  void _initColumnWidths() {
+    _columnWidths = {};
+    _columnWidths['#'] = 50.0;
+    for (final col in widget.columns) {
+      _columnWidths[col] = 150.0;
+    }
   }
 
   @override
@@ -40,7 +57,9 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.columns != widget.columns || oldWidget.rows != widget.rows) {
       _columnTypes = _detectColumnTypes();
+      _initColumnWidths();
       _expandedRows.clear();
+      _currentPage = 0;
     }
   }
 
@@ -52,16 +71,30 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
         final val = row[col];
         if (val == null) continue;
         if (val is Map || val is List) {
-          detected = _ColumnType.json;
-        } else if (val is num) {
+        detected = _ColumnType.json;
+      } else if (val is num) {
+        // Heuristic: Unix epoch seconds, ms, us, ns
+        final colLower = col.toLowerCase();
+        if ((colLower.contains('time') || colLower.contains('date')) &&
+            val > 1000000000) {
+          detected = _ColumnType.timestamp;
+        } else {
           detected = _ColumnType.number;
-        } else if (val is bool) {
+        }
+      } else if (val is bool) {
           detected = _ColumnType.boolean;
         } else {
-          final s = val.toString();
-          if (double.tryParse(s) != null) {
+        final s = val.toString();
+        final parsedDouble = double.tryParse(s);
+        if (parsedDouble != null) {
+          final colLower = col.toLowerCase();
+          if ((colLower.contains('time') || colLower.contains('date') || colLower.contains('timestamp')) &&
+              parsedDouble > 1000000000) {
+            detected = _ColumnType.timestamp;
+          } else {
             detected = _ColumnType.number;
-          } else if (_looksLikeTimestamp(s)) {
+          }
+        } else if (_looksLikeTimestamp(s)) {
             detected = _ColumnType.timestamp;
           } else if (_looksLikeJson(s)) {
             detected = _ColumnType.json;
@@ -118,35 +151,122 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
     }
 
     final rows = _sortedRows;
+    final startIndex = _currentPage * _pageSize;
+    final endIndex = (startIndex + _pageSize).clamp(0, rows.length);
+    final pagedRows = rows.sublist(startIndex, endIndex);
+
     final allColumns = ['#', ...widget.columns];
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSummaryBar(),
         Expanded(
-          child: Scrollbar(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: SizedBox(
-                width: allColumns.length * 150.0, // Base width for columns
-                child: Column(
-                  children: [
-                    _buildHeader(allColumns),
-                    Expanded(
-                      child: ListView.builder(
-                        itemCount: rows.length,
-                        itemBuilder: (context, index) {
-                          return _buildRow(rows[index], index, allColumns);
-                        },
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: Scrollbar(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SizedBox(
+                  width: allColumns.fold(0.0, (sum, col) => (sum as double) + (_columnWidths[col] ?? 150.0)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildHeader(allColumns),
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: pagedRows.length,
+                          itemBuilder: (context, index) {
+                            final actualIndex = _currentPage * _pageSize + index;
+                            return _buildRow(pagedRows[index], actualIndex, allColumns);
+                          },
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
         ),
+        _buildPaginationFooter(rows.length),
       ],
+    );
+  }
+
+  Widget _buildPaginationFooter(int totalRows) {
+    final totalPages = (totalRows / _pageSize).ceil();
+    final startItem = totalRows == 0 ? 0 : (_currentPage * _pageSize) + 1;
+    final endItem = (startItem + _pageSize - 1).clamp(0, totalRows);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.backgroundCard.withValues(alpha: 0.5),
+        border: Border(
+          top: BorderSide(
+            color: AppColors.surfaceBorder.withValues(alpha: 0.3),
+          ),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          const Text(
+            'Rows per page:',
+            style: TextStyle(fontSize: 10, color: AppColors.textMuted),
+          ),
+          const SizedBox(width: 8),
+          DropdownButton<int>(
+            value: _pageSize,
+            isDense: true,
+            underline: const SizedBox.shrink(),
+            style: GoogleFonts.jetBrainsMono(
+              fontSize: 10,
+              color: AppColors.textPrimary,
+            ),
+            dropdownColor: AppColors.backgroundCard,
+            items: [50, 100, 200, 1000]
+                .map((s) => DropdownMenuItem(value: s, child: Text('$s')))
+                .toList(),
+            onChanged: (val) {
+              if (val != null) {
+                setState(() {
+                  _pageSize = val;
+                  _currentPage = 0;
+                });
+              }
+            },
+          ),
+          const SizedBox(width: 16),
+          Text(
+            '$startItem-$endItem of $totalRows',
+            style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+          ),
+          const SizedBox(width: 16),
+          IconButton(
+            icon: const Icon(Icons.chevron_left, size: 16),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            color: _currentPage > 0 ? AppColors.textPrimary : AppColors.textMuted,
+            onPressed: _currentPage > 0
+                ? () => setState(() => _currentPage--)
+                : null,
+          ),
+          const SizedBox(width: 16),
+          IconButton(
+            icon: const Icon(Icons.chevron_right, size: 16),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            color: _currentPage < totalPages - 1
+                ? AppColors.textPrimary
+                : AppColors.textMuted,
+            onPressed: _currentPage < totalPages - 1
+                ? () => setState(() => _currentPage++)
+                : null,
+          ),
+        ],
+      ),
     );
   }
 
@@ -238,60 +358,81 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
               ? _ColumnType.string
               : (_columnTypes[col] ?? _ColumnType.string);
           final isSorted = _sortColumn == col;
+          final width = _columnWidths[col] ?? 150.0;
 
-          return Expanded(
-            flex: isIndex ? 0 : 1,
-            child: SizedBox(
-              width: isIndex ? 50 : 150,
-              child: InkWell(
-                onTap: isIndex
-                    ? null
-                    : () => setState(() {
-                        if (_sortColumn == col) {
-                          _sortDescending = !_sortDescending;
-                        } else {
-                          _sortColumn = col;
-                          _sortDescending = false;
-                        }
-                      }),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Row(
-                    children: [
-                      if (!isIndex)
-                        Icon(
-                          _iconForColumnType(colType),
-                          size: 10,
-                          color: isSorted
-                              ? AppColors.primaryCyan
-                              : AppColors.textMuted,
-                        ),
-                      if (!isIndex) const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          col,
-                          style: GoogleFonts.jetBrainsMono(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: isSorted
-                                ? AppColors.primaryCyan
-                                : AppColors.textPrimary,
+          return SizedBox(
+            width: width,
+            child: Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: isIndex
+                        ? null
+                        : () => setState(() {
+                            if (_sortColumn == col) {
+                              _sortDescending = !_sortDescending;
+                            } else {
+                              _sortColumn = col;
+                              _sortDescending = false;
+                            }
+                          }),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        children: [
+                          if (!isIndex)
+                            Icon(
+                              _iconForColumnType(colType),
+                              size: 10,
+                              color: isSorted
+                                  ? AppColors.primaryCyan
+                                  : AppColors.textMuted,
+                            ),
+                          if (!isIndex) const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              col,
+                              style: GoogleFonts.jetBrainsMono(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: isSorted
+                                    ? AppColors.primaryCyan
+                                    : AppColors.textPrimary,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                          if (isSorted)
+                            Icon(
+                              _sortDescending
+                                  ? Icons.arrow_drop_down
+                                  : Icons.arrow_drop_up,
+                              size: 14,
+                              color: AppColors.primaryCyan,
+                            ),
+                        ],
                       ),
-                      if (isSorted)
-                        Icon(
-                          _sortDescending
-                              ? Icons.arrow_drop_down
-                              : Icons.arrow_drop_up,
-                          size: 14,
-                          color: AppColors.primaryCyan,
-                        ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
+                // Resizer handle
+                MouseRegion(
+                  cursor: SystemMouseCursors.resizeColumn,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onHorizontalDragUpdate: (details) {
+                      setState(() {
+                        final newWidth = width + details.delta.dx;
+                        _columnWidths[col] = newWidth.clamp(30.0, 800.0);
+                      });
+                    },
+                    child: Container(
+                      width: 4,
+                      color: Colors.transparent,
+                    ),
+                  ),
+                ),
+              ],
             ),
           );
         }).toList(),
@@ -337,26 +478,29 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
                     : (_columnTypes[col] ?? _ColumnType.string);
                 final display = _formatValue(val, colType, compact: true);
 
-                return Expanded(
-                  flex: isIndex ? 0 : 1,
-                  child: SizedBox(
-                    width: isIndex ? 50 : 150,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Row(
-                        children: [
-                          if (isIndex && hasJson)
-                            Icon(
-                              isExpanded
-                                  ? Icons.keyboard_arrow_down
-                                  : Icons.keyboard_arrow_right,
-                              size: 12,
-                              color: AppColors.textMuted,
-                            ),
-                          if (isIndex && hasJson) const SizedBox(width: 4),
-                          Expanded(
+                final width = _columnWidths[col] ?? 150.0;
+
+                return SizedBox(
+                  width: width,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(
+                      children: [
+                        if (isIndex && hasJson)
+                          Icon(
+                            isExpanded
+                                ? Icons.keyboard_arrow_down
+                                : Icons.keyboard_arrow_right,
+                            size: 12,
+                            color: AppColors.textMuted,
+                          ),
+                        if (isIndex && hasJson) const SizedBox(width: 4),
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
                             child: Text(
                               display,
+                              textAlign: TextAlign.left,
                               style: GoogleFonts.jetBrainsMono(
                                 fontSize: 10,
                                 color: val == null
@@ -371,8 +515,8 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 );
@@ -450,14 +594,7 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: AppColors.surfaceBorder),
                   ),
-                  child: SelectableText(
-                    _formatValue(val, _ColumnType.json, compact: false),
-                    style: GoogleFonts.jetBrainsMono(
-                      fontSize: 11,
-                      color: AppColors.textSecondary,
-                      height: 1.5,
-                    ),
-                  ),
+                  child: _buildJsonExplorer(val),
                 ),
               ],
             ),
@@ -467,10 +604,68 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
     );
   }
 
+  Widget _buildJsonExplorer(dynamic val) {
+    if (val == null) {
+      return const Text('NULL', style: TextStyle(color: AppColors.textMuted));
+    }
+    try {
+      final dynamic decoded = val is String ? jsonDecode(val) : val;
+      final map = decoded is Map<String, dynamic>
+          ? decoded
+          : {'data': decoded};
+
+      return JsonPayloadViewer(
+        json: map,
+        onValueTap: (path, disp) {
+          Clipboard.setData(ClipboardData(text: disp));
+        },
+      );
+    } catch (_) {
+      return SelectableText(
+        _formatValue(val, _ColumnType.json, compact: false),
+        style: GoogleFonts.jetBrainsMono(
+          fontSize: 11,
+          color: AppColors.textSecondary,
+          height: 1.5,
+        ),
+      );
+    }
+  }
+
   String _formatValue(dynamic val, _ColumnType colType, {bool compact = true}) {
-    if (val == null) return 'NULL';
-    if (val is double) {
-      if (val == val.roundToDouble() && val.abs() < 1e15) {
+  if (val == null) return 'NULL';
+
+  if (colType == _ColumnType.timestamp) {
+    DateTime? dt;
+    final numVal = val is num ? val.toDouble() : double.tryParse(val.toString());
+
+    if (numVal != null) {
+      // Auto-detect precision based on magnitude
+      if (numVal > 1e16) {
+        // nanoseconds
+        dt = DateTime.fromMillisecondsSinceEpoch(numVal ~/ 1e6);
+      } else if (numVal > 1e14) {
+        // microseconds
+        dt = DateTime.fromMillisecondsSinceEpoch(numVal ~/ 1e3);
+      } else if (numVal > 1e11) {
+        // milliseconds
+        dt = DateTime.fromMillisecondsSinceEpoch(numVal.toInt());
+      } else {
+        // seconds
+        dt = DateTime.fromMillisecondsSinceEpoch((numVal * 1000).toInt());
+      }
+    } else {
+      dt = DateTime.tryParse(val.toString());
+    }
+    if (dt != null) {
+      final loc = dt.toLocal();
+      return '${loc.year}-${loc.month.toString().padLeft(2, '0')}-${loc.day.toString().padLeft(2, '0')} '
+          '${loc.hour.toString().padLeft(2, '0')}:${loc.minute.toString().padLeft(2, '0')}:${loc.second.toString().padLeft(2, '0')}';
+    }
+  }
+
+  if (val is double) {
+    if (val == val.roundToDouble() && val.abs() < 1e15) {
         return _formatNumber(val.toInt());
       }
       return val.toStringAsFixed(4);
