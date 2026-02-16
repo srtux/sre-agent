@@ -511,8 +511,9 @@ class _HistogramPainter extends CustomPainter {
 
     if (blueHeight > 0) {
       final paint = Paint()
-        ..color = AppColors.primaryCyan
-            .withValues(alpha: (0.6 * alphaMultiplier).clamp(0.0, 1.0))
+        ..color = AppColors.primaryCyan.withValues(
+          alpha: (0.6 * alphaMultiplier).clamp(0.0, 1.0),
+        )
         ..style = PaintingStyle.fill;
 
       final rrect = RRect.fromRectAndCorners(
@@ -526,8 +527,9 @@ class _HistogramPainter extends CustomPainter {
 
     if (redHeight > 0) {
       final paint = Paint()
-        ..color = AppColors.error
-            .withValues(alpha: (0.8 * alphaMultiplier).clamp(0.0, 1.0))
+        ..color = AppColors.error.withValues(
+          alpha: (0.8 * alphaMultiplier).clamp(0.0, 1.0),
+        )
         ..style = PaintingStyle.fill;
 
       final rrect = RRect.fromRectAndCorners(

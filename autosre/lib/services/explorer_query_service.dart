@@ -63,20 +63,40 @@ class ExplorerQueryService {
   }
 
   /// Fetch raw log entries.
-  Future<void> queryLogs({required String filter, String? projectId}) async {
+  Future<void> queryLogs({
+    required String filter,
+    String? projectId,
+    String? pageToken,
+  }) async {
     _dashboardState.setLoading(DashboardDataType.logs, true);
     try {
-      final body = jsonEncode({'filter': filter, 'project_id': projectId});
+      final payload = <String, dynamic>{
+        'filter': filter,
+        'project_id': projectId,
+      };
+      if (pageToken != null) {
+        payload['page_token'] = pageToken;
+      }
+      final body = jsonEncode(payload);
       final response = await _post('/api/tools/logs/query', body);
       final data = jsonDecode(response.body) as Map<String, dynamic>;
 
       final logData = LogEntriesData.fromJson(data);
-      _dashboardState.addLogEntries(
-        logData,
-        'manual_query',
-        data,
-        source: DataSource.manual,
-      );
+      if (pageToken != null) {
+        _dashboardState.appendLogEntries(
+          logData,
+          'manual_query',
+          data,
+          source: DataSource.manual,
+        );
+      } else {
+        _dashboardState.addLogEntries(
+          logData,
+          'manual_query',
+          data,
+          source: DataSource.manual,
+        );
+      }
 
       _dashboardState.openDashboard();
       _dashboardState.setActiveTab(DashboardDataType.logs);

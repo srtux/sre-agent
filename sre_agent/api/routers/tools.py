@@ -125,6 +125,7 @@ class LogsQueryRequest(BaseModel):
     minutes_ago: int | None = None
     limit: int = 50
     project_id: str | None = None
+    page_token: str | None = None
 
 
 class NLQueryRequest(BaseModel):
@@ -342,6 +343,7 @@ async def query_logs_endpoint(payload: LogsQueryRequest) -> Any:
             filter_str=payload.filter,
             project_id=payload.project_id,
             limit=payload.limit,
+            page_token=payload.page_token,
         )
         raw = _unwrap_tool_result(result)
         return genui_adapter.transform_log_entries(raw)

@@ -61,14 +61,67 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
   /// Active facet filters: field name -> set of selected values.
   final Map<String, Set<String>> _facetFilters = {};
 
+  final ScrollController _scrollController = ScrollController();
+  bool _isLoadingMore = false;
+
   @override
   void initState() {
     super.initState();
     _loadHelpDismissed();
 
+    _scrollController.addListener(_onScroll);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchMetadata();
     });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  String? get _latestPageToken {
+    // Find the most recent manual logs item with a page token
+    for (final item in widget.items.reversed) {
+      if (item.type == DashboardDataType.logs &&
+          item.source == DataSource.manual &&
+          item.logData?.nextPageToken != null) {
+        return item.logData!.nextPageToken;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _onScroll() async {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 400) {
+      await _loadMoreLogs();
+    }
+  }
+
+  Future<void> _loadMoreLogs() async {
+    if (_isLoadingMore) return;
+
+    final pageToken = _latestPageToken;
+    if (pageToken == null) return;
+
+    final filter = widget.dashboardState.getLastQueryFilter(
+      DashboardDataType.logs,
+    );
+    if (filter == null || filter.isEmpty) return;
+
+    setState(() => _isLoadingMore = true);
+
+    try {
+      final explorer = context.read<ExplorerQueryService>();
+      await explorer.queryLogs(filter: filter, pageToken: pageToken);
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingMore = false);
+      }
+    }
   }
 
   Future<void> _fetchMetadata() async {
@@ -565,9 +618,27 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
     }
 
     return ListView.builder(
+      controller: _scrollController,
       padding: const EdgeInsets.all(tokens.Spacing.sm),
-      itemCount: entries.length,
-      itemBuilder: (context, index) => _buildLogRow(entries[index], index),
+      itemCount: entries.length + (_isLoadingMore ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (index == entries.length) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: tokens.Spacing.md),
+            child: Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.primaryCyan,
+                ),
+              ),
+            ),
+          );
+        }
+        return _buildLogRow(entries[index], index);
+      },
     );
   }
 
