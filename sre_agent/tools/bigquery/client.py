@@ -114,6 +114,8 @@ class BigQueryClient:
                             "Connection closed",
                             "Session terminated",
                             "timeout",
+                            "400 Bad Request",
+                            "400",
                         ]
                     ):
                         logger.warning(
@@ -123,9 +125,18 @@ class BigQueryClient:
                         logger.error(f"BigQuery MCP execution failed: {err}")
                         raise RuntimeError(f"BigQuery execution failed: {err}")
             except Exception as e:
-                if "Connection closed" in str(e) or "Session terminated" in str(e):
+                err_str = str(e)
+                if any(
+                    msg in err_str
+                    for msg in [
+                        "Connection closed",
+                        "Session terminated",
+                        "timeout",
+                        "400 Bad Request",
+                    ]
+                ):
                     logger.warning(
-                        f"BigQuery MCP connection error: {e}. Falling back to direct SDK."
+                        f"BigQuery MCP connection or syntax error: {e}. Falling back to direct SDK."
                     )
                 else:
                     raise
@@ -142,6 +153,34 @@ class BigQueryClient:
         except Exception as e:
             logger.error(f"Direct BigQuery execution failed: {e}", exc_info=True)
             raise RuntimeError(f"BigQuery execution failed: {e}") from e
+
+    async def get_json_keys(
+        self, dataset_id: str, table_id: str, column_name: str
+    ) -> list[str]:
+        """Infer JSON keys for a specific column using JSON_KEYS().
+
+        Args:
+            dataset_id: BigQuery dataset ID.
+            table_id: BigQuery table ID.
+            column_name: Name of the JSON column to inspect.
+
+        Returns:
+            List of unique JSON key strings found in the column.
+        """
+        # We use a subquery with DISTINCT and UNNEST(JSON_KEYS(...))
+        # to get all unique top-level keys in the JSON column.
+        sql = (
+            f"SELECT DISTINCT key "
+            f"FROM `{self.project_id}.{dataset_id}.{table_id}`, "
+            f"UNNEST(JSON_KEYS({column_name})) AS key "
+            f"LIMIT 500"
+        )
+        try:
+            rows = await self.execute_query(sql)
+            return [str(row.get("key")) for row in rows if row.get("key")]
+        except Exception as e:
+            logger.error(f"Failed to infer JSON keys for {column_name}: {e}")
+            return []
 
     async def get_table_schema(
         self, dataset_id: str, table_id: str

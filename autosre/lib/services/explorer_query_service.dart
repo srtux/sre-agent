@@ -425,4 +425,25 @@ class ExplorerQueryService {
       return null;
     }
   }
+
+  /// Infer JSON keys for a specific column.
+  Future<List<String>> getJsonKeys({
+    required String datasetId,
+    required String tableId,
+    required String columnName,
+    String? projectId,
+  }) async {
+    try {
+      final response = await _get(
+        '/api/tools/bigquery/datasets/${Uri.encodeComponent(datasetId)}/tables/${Uri.encodeComponent(tableId)}/columns/${Uri.encodeComponent(columnName)}/json-keys',
+        projectId: projectId,
+      );
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final listData = data['keys'] as List<dynamic>? ?? [];
+      return listData.map((e) => e.toString()).toList();
+    } catch (e) {
+      debugPrint('ExplorerQueryService.getJsonKeys error: $e');
+      return [];
+    }
+  }
 }

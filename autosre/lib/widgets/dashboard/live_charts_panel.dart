@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../services/dashboard_state.dart';
 import '../../services/explorer_query_service.dart';
@@ -11,11 +12,14 @@ import '../../theme/app_theme.dart';
 import '../common/error_banner.dart';
 import '../common/explorer_empty_state.dart';
 import '../common/shimmer_loading.dart';
-import 'manual_query_bar.dart';
+import 'bigquery_sidebar.dart';
+import 'bigquery_sql_syntax_controller.dart';
 import 'dashboard_card_wrapper.dart';
+
+import 'manual_query_bar.dart';
 import 'query_helpers.dart';
 import 'sql_results_table.dart';
-import 'bigquery_sidebar.dart';
+import 'visual_data_explorer.dart';
 
 /// Dashboard panel showing BigQuery SQL results and Vega-Lite charts.
 ///
@@ -44,23 +48,78 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
   int _viewMode = 0;
 
   bool _showSidebar = true;
+  double _sidebarWidth = 280.0;
+  List<QuerySnippet> _schemaSnippets = [];
 
-  late final TextEditingController _sqlController;
+  late final BigQuerySqlSyntaxController _sqlController;
+
+  bool _helpDismissed = false;
+  bool _helpDismissedLoaded = false;
 
   @override
   void initState() {
     super.initState();
-    _sqlController = TextEditingController(
+    _loadHelpDismissed();
+    _sqlController = BigQuerySqlSyntaxController(
       text: widget.dashboardState.getLastQueryFilter(
         DashboardDataType.analytics,
       ),
     );
   }
 
+  Future<void> _loadHelpDismissed() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _helpDismissed = prefs.getBool('charts_help_dismissed') ?? false;
+        _helpDismissedLoaded = true;
+      });
+    }
+  }
+
+  Future<void> _dismissHelp() async {
+    setState(() => _helpDismissed = true);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('charts_help_dismissed', true);
+  }
+
   @override
   void dispose() {
     _sqlController.dispose();
     super.dispose();
+  }
+
+  void _insertAtCursor(String textToInsert, String separator) {
+    final text = _sqlController.text;
+    final selection = _sqlController.selection;
+
+    // If there's no valid selection, append to the end
+    if (!selection.isValid) {
+      final prefix = text.isEmpty || text.endsWith(' ') || text.endsWith('\n')
+          ? ''
+          : separator;
+      _sqlController.text = text + prefix + textToInsert;
+      _sqlController.selection = TextSelection.collapsed(
+        offset: _sqlController.text.length,
+      );
+      return;
+    }
+
+    final beforeCursor = text.substring(0, selection.baseOffset);
+    final afterCursor = text.substring(selection.extentOffset);
+
+    final prefix =
+        beforeCursor.isEmpty ||
+            beforeCursor.endsWith(' ') ||
+            beforeCursor.endsWith('\n')
+        ? ''
+        : separator;
+
+    final insertedText = prefix + textToInsert;
+    _sqlController.text = beforeCursor + insertedText + afterCursor;
+    _sqlController.selection = TextSelection.collapsed(
+      offset: beforeCursor.length + insertedText.length,
+    );
   }
 
   @override
@@ -83,38 +142,61 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Left sidebar for schemas
-        if (_showSidebar)
-          BigQuerySidebar(
-            onClose: () => setState(() => _showSidebar = false),
-            onInsertTable: (tableName) {
-              final current = _sqlController.text;
-              final prefix =
-                  current.isEmpty ||
-                      current.endsWith(' ') ||
-                      current.endsWith('\n')
-                  ? ''
-                  : ' ';
-              _sqlController.text = current + prefix + tableName;
-              widget.dashboardState.setLastQueryFilter(
-                DashboardDataType.analytics,
-                _sqlController.text,
-              );
-            },
-            onInsertColumn: (columnName) {
-              final current = _sqlController.text;
-              final prefix =
-                  current.isEmpty ||
-                      current.endsWith(' ') ||
-                      current.endsWith('\n')
-                  ? ''
-                  : ', ';
-              _sqlController.text = current + prefix + columnName;
-              widget.dashboardState.setLastQueryFilter(
-                DashboardDataType.analytics,
-                _sqlController.text,
-              );
-            },
+        if (_showSidebar) ...[
+          SizedBox(
+            width: _sidebarWidth,
+            child: BigQuerySidebar(
+              onClose: () => setState(() => _showSidebar = false),
+              onInsertTable: (tableName) {
+                _insertAtCursor(tableName, ' ');
+                widget.dashboardState.setLastQueryFilter(
+                  DashboardDataType.analytics,
+                  _sqlController.text,
+                );
+              },
+              onInsertColumn: (columnName) {
+                _insertAtCursor(columnName, ', ');
+                widget.dashboardState.setLastQueryFilter(
+                  DashboardDataType.analytics,
+                  _sqlController.text,
+                );
+              },
+              onSchemaUpdated: (snippets) {
+                setState(() {
+                  _schemaSnippets = snippets;
+                });
+              },
+            ),
           ),
+          // Resizer handle
+          GestureDetector(
+            onHorizontalDragUpdate: (details) {
+              setState(() {
+                _sidebarWidth = (_sidebarWidth + details.delta.dx).clamp(
+                  200.0,
+                  600.0,
+                );
+              });
+            },
+            child: MouseRegion(
+              cursor: SystemMouseCursors.resizeLeftRight,
+              child: Container(
+                width: 4,
+                color: Colors.transparent,
+                child: Center(
+                  child: Container(
+                    width: 1,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceBorder.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(1),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
         // Main query and results area
         Expanded(
           child: ListenableBuilder(
@@ -168,7 +250,10 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
                         DashboardDataType.analytics,
                       ),
                       isLoading: isLoading,
-                      snippets: sqlSnippets,
+                      snippets: [
+                        ...sqlSnippets,
+                        ..._schemaSnippets,
+                      ],
                       templates: sqlTemplates,
                       enableNaturalLanguage: true,
                       naturalLanguageHint:
@@ -199,7 +284,7 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
                     ),
                   ),
                   // Syntax help
-                  _buildSqlSyntaxHelp(),
+                  if (_helpDismissedLoaded && !_helpDismissed) _buildSqlSyntaxHelp(),
                   if (error != null)
                     ErrorBanner(
                       message: error,
@@ -240,56 +325,9 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
 
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 16),
-                            child: DashboardCardWrapper(
-                              onClose: () =>
-                                  widget.dashboardState.removeItem(item.id),
-                              header: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.primaryCyan.withValues(
-                                        alpha: 0.15,
-                                      ),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: const Icon(
-                                      Icons.table_chart_rounded,
-                                      size: 14,
-                                      color: AppColors.primaryCyan,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      item.sqlData!.query.replaceAll('\n', ' '),
-                                      style: GoogleFonts.jetBrainsMono(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w500,
-                                        color: AppColors.textPrimary,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    '${item.sqlData!.rows.length} rows',
-                                    style: const TextStyle(
-                                      fontSize: 9,
-                                      color: AppColors.textMuted,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              child: SizedBox(
-                                height:
-                                    400, // Fixed height for each result card
-                                child: SqlResultsTable(
-                                  columns: item.sqlData!.columns,
-                                  rows: item.sqlData!.rows,
-                                ),
-                              ),
+                            child: _SqlResultCard(
+                              item: item,
+                              dashboardState: widget.dashboardState,
                             ),
                           );
                         },
@@ -306,60 +344,87 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
   }
 
   Widget _buildSqlSyntaxHelp() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 4),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppColors.warning.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.warning.withValues(alpha: 0.1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.keyboard_rounded,
-                size: 11,
-                color: AppColors.textMuted.withValues(alpha: 0.6),
-              ),
-              const SizedBox(width: 5),
-              Text(
-                'Tab to autocomplete  |  '
-                'Lightbulb for templates  |  '
-                'NL toggle for natural language',
-                style: TextStyle(
-                  fontSize: 9,
-                  color: AppColors.textMuted.withValues(alpha: 0.7),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Icon(
-                Icons.info_outline_rounded,
-                size: 11,
-                color: AppColors.textMuted.withValues(alpha: 0.6),
-              ),
-              const SizedBox(width: 5),
-              Expanded(
-                child: Text(
-                  'BigQuery Standard SQL  |  Ctrl+Enter to run  |  '
-                  'Tables: OTel spans, logs, metrics',
-                  style: GoogleFonts.jetBrainsMono(
-                    fontSize: 9,
-                    color: AppColors.textMuted.withValues(alpha: 0.8),
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: AppColors.warning.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.warning.withValues(alpha: 0.1)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.keyboard_rounded,
+                        size: 11,
+                        color: AppColors.textMuted.withValues(alpha: 0.6),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        'Tab to autocomplete  |  '
+                        'Lightbulb for templates  |  '
+                        'NL toggle for natural language',
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: AppColors.textMuted.withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ],
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline_rounded,
+                        size: 11,
+                        color: AppColors.textMuted.withValues(alpha: 0.6),
+                      ),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          'BigQuery Standard SQL  |  Ctrl+Enter to run  |  '
+                          'Tables: OTel spans, logs, metrics',
+                          style: GoogleFonts.jetBrainsMono(
+                            fontSize: 9,
+                            color: AppColors.textMuted.withValues(alpha: 0.8),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ],
-          ),
-        ],
+            ),
+            const SizedBox(width: 4),
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: IconButton(
+                icon: const Icon(Icons.close, size: 12),
+                padding: EdgeInsets.zero,
+                color: AppColors.textMuted.withValues(alpha: 0.6),
+                onPressed: _dismissHelp,
+                style: IconButton.styleFrom(
+                  minimumSize: const Size(20, 20),
+                  backgroundColor: Colors.transparent,
+                ),
+                tooltip: 'Dismiss',
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -449,6 +514,147 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
                 ),
         ),
       ],
+    );
+  }
+}
+
+class _SqlResultCard extends StatefulWidget {
+  final DashboardItem item;
+  final DashboardState dashboardState;
+
+  const _SqlResultCard({
+    required this.item,
+    required this.dashboardState,
+  });
+
+  @override
+  State<_SqlResultCard> createState() => _SqlResultCardState();
+}
+
+class _SqlResultCardState extends State<_SqlResultCard> {
+  bool _showVisualizer = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final sqlData = widget.item.sqlData!;
+
+    return DashboardCardWrapper(
+      onClose: () => widget.dashboardState.removeItem(widget.item.id),
+      header: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: AppColors.primaryCyan.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: const Icon(
+              Icons.table_chart_rounded,
+              size: 14,
+              color: AppColors.primaryCyan,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              sqlData.query.replaceAll('\n', ' '),
+              style: GoogleFonts.jetBrainsMono(
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                color: AppColors.textPrimary,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '${sqlData.rows.length} rows',
+            style: const TextStyle(
+              fontSize: 9,
+              color: AppColors.textMuted,
+            ),
+          ),
+          const SizedBox(width: 12),
+          // View Toggle
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.backgroundDark,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: AppColors.surfaceBorder.withValues(alpha: 0.5),
+              ),
+            ),
+            child: Row(
+              children: [
+                _buildToggleBtn(
+                  icon: Icons.table_rows_rounded,
+                  label: 'Table',
+                  isActive: !_showVisualizer,
+                  onTap: () => setState(() => _showVisualizer = false),
+                ),
+                _buildToggleBtn(
+                  icon: Icons.bar_chart_rounded,
+                  label: 'Visualize',
+                  isActive: _showVisualizer,
+                  onTap: () => setState(() => _showVisualizer = true),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      child: SizedBox(
+        height: 600, // Larger fixed height for each result card
+        child: _showVisualizer
+            ? VisualDataExplorer(
+                columns: sqlData.columns,
+                rows: sqlData.rows,
+              )
+            : SqlResultsTable(
+                columns: sqlData.columns,
+                rows: sqlData.rows,
+              ),
+      ),
+    );
+  }
+
+  Widget _buildToggleBtn({
+    required IconData icon,
+    required String label,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(5),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: isActive
+              ? AppColors.primaryCyan.withValues(alpha: 0.2)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(5),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 12,
+              color: isActive ? AppColors.primaryCyan : AppColors.textMuted,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                color: isActive ? AppColors.primaryCyan : AppColors.textMuted,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

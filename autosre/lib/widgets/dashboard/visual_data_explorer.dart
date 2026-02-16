@@ -166,7 +166,8 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
       // Compute aggregations
       for (final measure in _measures) {
         final aggFn = measure.aggregate ?? AggregateFunction.sum;
-        if (aggFn == AggregateFunction.count || aggFn == AggregateFunction.countDistinct) {
+        if (aggFn == AggregateFunction.count ||
+            aggFn == AggregateFunction.countDistinct) {
           final values = groupRows
               .map((r) => r[measure.column])
               .where((v) => v != null && v.toString().isNotEmpty)

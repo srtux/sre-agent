@@ -107,6 +107,8 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
   /// Whether autocomplete overlay is visible.
   bool _showAutocomplete = false;
 
+  double _multiLineHeight = 140.0;
+
   /// Filtered autocomplete suggestions.
   List<QuerySnippet> _filteredSnippets = [];
 
@@ -124,6 +126,52 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
 
   /// OverlayEntry for the templates popup.
   OverlayEntry? _templatesOverlay;
+
+  /// Dynamic offset for the autocomplete dropdown, keeping it below the cursor.
+  Offset _cursorOffset = const Offset(0, 44);
+
+  void _updateCursorOffset() {
+    if (!widget.multiLine) {
+      _cursorOffset = const Offset(0, 44);
+      return;
+    }
+
+    final text = _controller.text;
+    final cursorPos = _controller.selection.baseOffset;
+
+    final style = _isNaturalLanguage
+        ? GoogleFonts.inter(fontSize: 12, height: 1.5)
+        : GoogleFonts.jetBrainsMono(fontSize: 12, height: 1.5);
+
+    final textPainter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+    );
+
+    final renderBox = context.findRenderObject() as RenderBox?;
+    final width = renderBox?.size.width ?? 400.0;
+
+    final availableWidth = width > 20 ? width - 20 : 400.0;
+    textPainter.layout(maxWidth: availableWidth);
+
+    final caretOffset = textPainter.getOffsetForCaret(
+      TextPosition(offset: cursorPos),
+      Rect.zero,
+    );
+
+    // Header row (~38-40px) + TextField top padding (4px) + cursor position
+    // We add more vertical space (20px instead of 18) and a bottom margin (8px)
+    // 42.0 (header) + 4.0 (top padding) + caretOffset.dy + 18.0 (line height) + 8.0 (margin)
+    final yPos = 42.0 + 4.0 + caretOffset.dy + 26.0;
+
+    // Horizontal offset should try to align with cursor, but stay within bounds
+    var xPos = 10.0 + caretOffset.dx;
+    if (xPos + 400 > width) {
+      xPos = (width - 400).clamp(0, width);
+    }
+
+    _cursorOffset = Offset(xPos, yPos);
+  }
 
   @override
   void initState() {
@@ -230,6 +278,7 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
     }
 
     _highlightedIndex = -1;
+    _updateCursorOffset();
     _showOverlay();
   }
 
@@ -242,7 +291,7 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
         child: CompositedTransformFollower(
           link: _layerLink,
           showWhenUnlinked: false,
-          offset: const Offset(0, 44),
+          offset: _cursorOffset,
           child: QueryAutocompleteOverlay(
             suggestions: _filteredSnippets,
             highlightedIndex: _highlightedIndex,
@@ -295,6 +344,29 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
         widget.onSubmit(text);
       }
     }
+  }
+
+  void _handleFormatSql() {
+    if (_isNaturalLanguage) return;
+    final text = _controller.text;
+    if (text.trim().isEmpty) return;
+
+    // Basic heuristic SQL formatting
+    var formatted = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final kwRegex = RegExp(
+        r'\b(SELECT|FROM|WHERE|GROUP BY|ORDER BY|LIMIT|HAVING|LEFT JOIN|RIGHT JOIN|INNER JOIN|FULL OUTER JOIN|CROSS JOIN|JOIN|UNION ALL|UNION|WITH|ON|AND|OR)\b',
+        caseSensitive: false);
+
+    formatted = formatted.replaceAllMapped(kwRegex, (m) {
+      final kw = m[1]!.toUpperCase();
+      if (kw == 'AND' || kw == 'OR' || kw == 'ON') {
+        return '\n    $kw';
+      }
+      return '\n$kw';
+    });
+
+    formatted = formatted.trim();
+    _controller.text = formatted;
   }
 
   void _handleClear() {
@@ -577,8 +649,8 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
     return CompositedTransformTarget(
       link: _layerLink,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        constraints: const BoxConstraints(minHeight: 80, maxHeight: 200),
+        duration: const Duration(milliseconds: 100),
+        height: _multiLineHeight,
         decoration: BoxDecoration(
           color: isFocused
               ? AppColors.backgroundDark
@@ -606,7 +678,6 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
           ],
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
             // Header row
             Padding(
@@ -622,6 +693,23 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
                   if (widget.templates.isNotEmpty ||
                       widget.naturalLanguageExamples.isNotEmpty)
                     _buildHelperButton(),
+
+                  // Format Button
+                  if (!_isNaturalLanguage && _hasText)
+                    Tooltip(
+                      message: 'Format Query',
+                      child: IconButton(
+                        icon: const Icon(Icons.format_align_left_rounded, size: 14),
+                        color: AppColors.textMuted,
+                        onPressed: _handleFormatSql,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        style: IconButton.styleFrom(
+                          minimumSize: const Size(28, 28),
+                        ),
+                      ),
+                    ),
+
                   const Spacer(),
                   if (_hasText && !widget.isLoading)
                     SizedBox(
@@ -653,47 +741,76 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
                 ],
               ),
             ),
-            // Text field
-            Flexible(
+            // Text field with scrollbar
+            Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(10, 4, 10, 8),
-                child: Focus(
-                  onKeyEvent: (_, event) => _handleKeyEvent(event),
-                  child: TextField(
-                    controller: _controller,
-                    focusNode: _focusNode,
-                    maxLines: null,
-                    style: _isNaturalLanguage
-                        ? GoogleFonts.inter(
-                            fontSize: 12,
-                            color: AppColors.textPrimary,
-                            height: 1.5,
-                          )
-                        : GoogleFonts.jetBrainsMono(
-                            fontSize: 12,
-                            color: AppColors.textPrimary,
-                            height: 1.5,
-                          ),
-                    decoration: InputDecoration(
-                      hintText: effectiveHint,
-                      hintStyle:
-                          (_isNaturalLanguage
-                                  ? GoogleFonts.inter(fontSize: 12, height: 1.5)
-                                  : GoogleFonts.jetBrainsMono(
-                                      fontSize: 12,
-                                      height: 1.5,
-                                    ))
-                              .copyWith(
-                                color: AppColors.textMuted.withValues(
-                                  alpha: 0.6,
+                child: Scrollbar(
+                  controller: ScrollController(),
+                  thumbVisibility: true,
+                  child: Focus(
+                    onKeyEvent: (_, event) => _handleKeyEvent(event),
+                    child: TextField(
+                      controller: _controller,
+                      focusNode: _focusNode,
+                      maxLines: null,
+                      keyboardType: TextInputType.multiline,
+                      style: _isNaturalLanguage
+                          ? GoogleFonts.inter(
+                              fontSize: 12,
+                              color: AppColors.textPrimary,
+                              height: 1.5,
+                            )
+                          : GoogleFonts.jetBrainsMono(
+                              fontSize: 12,
+                              color: AppColors.textPrimary,
+                              height: 1.5,
+                            ),
+                      decoration: InputDecoration(
+                        hintText: effectiveHint,
+                        hintStyle:
+                            (_isNaturalLanguage
+                                    ? GoogleFonts.inter(fontSize: 12, height: 1.5)
+                                    : GoogleFonts.jetBrainsMono(
+                                        fontSize: 12,
+                                        height: 1.5,
+                                      ))
+                                .copyWith(
+                                  color: AppColors.textMuted.withValues(
+                                    alpha: 0.6,
+                                  ),
                                 ),
-                              ),
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      contentPadding: EdgeInsets.zero,
-                      isDense: true,
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        contentPadding: const EdgeInsets.only(right: 12),
+                        isDense: true,
+                      ),
                     ),
+                  ),
+                ),
+              ),
+            ),
+            // Drag handle for resizing
+            GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onVerticalDragUpdate: (details) {
+                setState(() {
+                  _multiLineHeight += details.delta.dy;
+                  if (_multiLineHeight < 80) _multiLineHeight = 80;
+                  if (_multiLineHeight > 800) _multiLineHeight = 800;
+                });
+              },
+              child: Container(
+                height: 8,
+                width: double.infinity,
+                alignment: Alignment.center,
+                child: Container(
+                  width: 30,
+                  height: 3,
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceBorder.withValues(alpha: 0.8),
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),

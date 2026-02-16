@@ -37,8 +37,7 @@ class TraceWaterfall extends StatefulWidget {
   const TraceWaterfall({super.key, required this.trace});
 
   @override
-  State<TraceWaterfall> createState() =>
-      _TraceWaterfallState();
+  State<TraceWaterfall> createState() => _TraceWaterfallState();
 }
 
 class _TraceWaterfallState extends State<TraceWaterfall> {
@@ -88,9 +87,11 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
     }
 
     final allSpanIds = sortedSpans.map((s) => s.spanId).toSet();
-    final rootSpans = sortedSpans.where(
-      (s) => s.parentSpanId == null || !allSpanIds.contains(s.parentSpanId),
-    ).toList();
+    final rootSpans = sortedSpans
+        .where(
+          (s) => s.parentSpanId == null || !allSpanIds.contains(s.parentSpanId),
+        )
+        .toList();
 
     rootSpans.sort((a, b) => a.startTime.compareTo(b.startTime));
 
@@ -111,20 +112,23 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
         colorIndex++;
       }
 
-      final offsetMs = span.startTime.difference(traceStart).inMicroseconds / 1000.0;
+      final offsetMs =
+          span.startTime.difference(traceStart).inMicroseconds / 1000.0;
       final endMs = span.endTime.difference(traceStart).inMicroseconds / 1000.0;
 
-      flatData.add(_SpanBarData(
-        spanName: span.name,
-        startOffsetMs: offsetMs,
-        endOffsetMs: math.max(endMs, offsetMs + 0.1),
-        serviceName: service,
-        status: span.status,
-        isCriticalPath: criticalPathIds.contains(span.spanId),
-        span: span,
-        depth: depth,
-        hasChildren: hasChildren,
-      ));
+      flatData.add(
+        _SpanBarData(
+          spanName: span.name,
+          startOffsetMs: offsetMs,
+          endOffsetMs: math.max(endMs, offsetMs + 0.1),
+          serviceName: service,
+          status: span.status,
+          isCriticalPath: criticalPathIds.contains(span.spanId),
+          span: span,
+          depth: depth,
+          hasChildren: hasChildren,
+        ),
+      );
 
       if (!_collapsedSpanIds.contains(span.spanId)) {
         children.sort((a, b) => a.startTime.compareTo(b.startTime));
@@ -366,7 +370,9 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
             tooltip: 'Collapse All',
             onPressed: () {
               setState(() {
-                _collapsedSpanIds = widget.trace.spans.map((s) => s.spanId).toSet();
+                _collapsedSpanIds = widget.trace.spans
+                    .map((s) => s.spanId)
+                    .toSet();
                 _buildSpanData();
               });
             },
@@ -455,7 +461,10 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final tableWidth = math.max(constraints.maxWidth, 1000.0); // Minimum width to ensure horizontal scroll
+          final tableWidth = math.max(
+            constraints.maxWidth,
+            1000.0,
+          ); // Minimum width to ensure horizontal scroll
 
           return SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -477,7 +486,7 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
               ),
             ),
           );
-        }
+        },
       ),
     );
   }
@@ -524,35 +533,50 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
                       left: 0,
                       child: Text(
                         '0s',
-                        style: TextStyle(color: AppColors.textMuted, fontSize: 10),
+                        style: TextStyle(
+                          color: AppColors.textMuted,
+                          fontSize: 10,
+                        ),
                       ),
                     ),
                     Positioned(
                       right: 0,
                       child: Text(
                         '${_totalDurationMs.toStringAsFixed(1)}ms',
-                        style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
+                        style: const TextStyle(
+                          color: AppColors.textMuted,
+                          fontSize: 10,
+                        ),
                       ),
                     ),
                     Positioned(
                       left: constraints.maxWidth * 0.25,
                       child: Text(
                         '${(_totalDurationMs * 0.25).toStringAsFixed(0)}ms',
-                        style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
+                        style: const TextStyle(
+                          color: AppColors.textMuted,
+                          fontSize: 10,
+                        ),
                       ),
                     ),
                     Positioned(
                       left: constraints.maxWidth * 0.5,
                       child: Text(
                         '${(_totalDurationMs * 0.5).toStringAsFixed(0)}ms',
-                        style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
+                        style: const TextStyle(
+                          color: AppColors.textMuted,
+                          fontSize: 10,
+                        ),
                       ),
                     ),
                     Positioned(
                       left: constraints.maxWidth * 0.75,
                       child: Text(
                         '${(_totalDurationMs * 0.75).toStringAsFixed(0)}ms',
-                        style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
+                        style: const TextStyle(
+                          color: AppColors.textMuted,
+                          fontSize: 10,
+                        ),
                       ),
                     ),
                   ],
@@ -592,7 +616,9 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
                       InkWell(
                         onTap: () => _toggleCollapse(bar.span.spanId),
                         child: Icon(
-                          isCollapsed ? Icons.arrow_right : Icons.arrow_drop_down,
+                          isCollapsed
+                              ? Icons.arrow_right
+                              : Icons.arrow_drop_down,
                           size: 20,
                           color: AppColors.textMuted,
                         ),
@@ -640,7 +666,8 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
 
                   final barColor = bar.isError
                       ? AppColors.error
-                      : (_serviceColors[bar.serviceName] ?? AppColors.primaryTeal);
+                      : (_serviceColors[bar.serviceName] ??
+                            AppColors.primaryTeal);
 
                   return SizedBox(
                     height: 18,
@@ -659,12 +686,15 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
                           top: 2,
                           bottom: 2,
                           child: Tooltip(
-                            message: '${bar.spanName}\nService: ${bar.serviceName}\nDuration: ${bar.durationMs.toStringAsFixed(2)}ms\nStatus: ${bar.status}',
+                            message:
+                                '${bar.spanName}\nService: ${bar.serviceName}\nDuration: ${bar.durationMs.toStringAsFixed(2)}ms\nStatus: ${bar.status}',
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
                               color: AppColors.backgroundCard,
                               borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: AppColors.surfaceBorder),
+                              border: Border.all(
+                                color: AppColors.surfaceBorder,
+                              ),
                             ),
                             textStyle: const TextStyle(
                               color: AppColors.textPrimary,

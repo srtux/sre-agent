@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../services/dashboard_state.dart';
 import '../../services/explorer_query_service.dart';
@@ -22,7 +23,7 @@ import 'query_helpers.dart';
 /// - **MQL Filter** (ListTimeSeries): Standard Cloud Monitoring filter syntax
 /// - **PromQL**: Prometheus Query Language for metric queries
 /// - **Natural Language**: Describe the metric you want to find
-class LiveMetricsPanel extends StatelessWidget {
+class LiveMetricsPanel extends StatefulWidget {
   final List<DashboardItem> items;
   final DashboardState dashboardState;
   final Function(String)? onPromptRequest;
@@ -32,6 +33,12 @@ class LiveMetricsPanel extends StatelessWidget {
     required this.dashboardState,
     this.onPromptRequest,
   });
+
+  @override
+  State<LiveMetricsPanel> createState() => _LiveMetricsPanelState();
+}
+
+class _LiveMetricsPanelState extends State<LiveMetricsPanel> {
 
   static const _languages = ['MQL Filter', 'PromQL'];
 
@@ -55,15 +62,40 @@ class LiveMetricsPanel extends StatelessWidget {
     ],
   ];
 
+  bool _helpDismissed = false;
+  bool _helpDismissedLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHelpDismissed();
+  }
+
+  Future<void> _loadHelpDismissed() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _helpDismissed = prefs.getBool('metrics_help_dismissed') ?? false;
+        _helpDismissedLoaded = true;
+      });
+    }
+  }
+
+  Future<void> _dismissHelp() async {
+    setState(() => _helpDismissed = true);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('metrics_help_dismissed', true);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final isLoading = dashboardState.isLoading(DashboardDataType.metrics);
-    final error = dashboardState.errorFor(DashboardDataType.metrics);
+    final isLoading = widget.dashboardState.isLoading(DashboardDataType.metrics);
+    final error = widget.dashboardState.errorFor(DashboardDataType.metrics);
 
     return ListenableBuilder(
-      listenable: dashboardState,
+      listenable: widget.dashboardState,
       builder: (context, _) {
-        final langIndex = dashboardState.metricsQueryLanguage;
+        final langIndex = widget.dashboardState.metricsQueryLanguage;
 
         return Column(
           children: [
@@ -74,9 +106,9 @@ class LiveMetricsPanel extends StatelessWidget {
                 children: [
                   ManualQueryBar(
                     hintText: _hints[langIndex],
-                    dashboardState: dashboardState,
+                    dashboardState: widget.dashboardState,
                     onRefresh: () {
-                      final filter = dashboardState.getLastQueryFilter(
+                      final filter = widget.dashboardState.getLastQueryFilter(
                         DashboardDataType.metrics,
                       );
                       if (filter != null && filter.isNotEmpty) {
@@ -91,9 +123,9 @@ class LiveMetricsPanel extends StatelessWidget {
                     languages: _languages,
                     selectedLanguageIndex: langIndex,
                     onLanguageChanged: (i) =>
-                        dashboardState.setMetricsQueryLanguage(i),
+                        widget.dashboardState.setMetricsQueryLanguage(i),
                     languageLabelColor: AppColors.warning,
-                    initialValue: dashboardState.getLastQueryFilter(
+                    initialValue: widget.dashboardState.getLastQueryFilter(
                       DashboardDataType.metrics,
                     ),
                     isLoading: isLoading,
@@ -106,14 +138,14 @@ class LiveMetricsPanel extends StatelessWidget {
                         'What is the CPU utilization across all instances?',
                     naturalLanguageExamples: metricsNaturalLanguageExamples,
                     onSubmitWithMode: (query, isNl) {
-                      dashboardState.setLastQueryFilter(
+                      widget.dashboardState.setLastQueryFilter(
                         DashboardDataType.metrics,
                         query,
                       );
                       final explorer = context.read<ExplorerQueryService>();
                       if (isNl) {
-                        if (onPromptRequest != null) {
-                          onPromptRequest!(query);
+                        if (widget.onPromptRequest != null) {
+                          widget.onPromptRequest!(query);
                         }
                       } else if (langIndex == 0) {
                         explorer.queryMetrics(filter: query);
@@ -122,7 +154,7 @@ class LiveMetricsPanel extends StatelessWidget {
                       }
                     },
                     onSubmit: (filter) {
-                      dashboardState.setLastQueryFilter(
+                      widget.dashboardState.setLastQueryFilter(
                         DashboardDataType.metrics,
                         filter,
                       );
@@ -138,17 +170,17 @@ class LiveMetricsPanel extends StatelessWidget {
               ),
             ),
             // Syntax reference + inline help
-            _buildSyntaxHelp(langIndex),
+            if (_helpDismissedLoaded && !_helpDismissed) _buildSyntaxHelp(langIndex),
             if (error != null)
               ErrorBanner(
                 message: error,
                 onDismiss: () =>
-                    dashboardState.setError(DashboardDataType.metrics, null),
+                    widget.dashboardState.setError(DashboardDataType.metrics, null),
               ),
             Expanded(
-              child: isLoading && items.isEmpty
+              child: isLoading && widget.items.isEmpty
                   ? const ShimmerLoading(showChart: true)
-                  : items.isEmpty
+                  : widget.items.isEmpty
                   ? ExplorerEmptyState(
                       icon: Icons.show_chart_rounded,
                       title: 'No Metrics Yet',
@@ -171,69 +203,96 @@ class LiveMetricsPanel extends StatelessWidget {
 
   Widget _buildSyntaxHelp(int langIndex) {
     final examples = _syntaxExamples[langIndex];
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 4),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppColors.warning.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.warning.withValues(alpha: 0.1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Inline help hint
-          Row(
-            children: [
-              Icon(
-                Icons.keyboard_rounded,
-                size: 11,
-                color: AppColors.textMuted.withValues(alpha: 0.6),
-              ),
-              const SizedBox(width: 5),
-              Text(
-                'Tab to autocomplete  |  '
-                'Lightbulb for templates  |  '
-                'NL toggle for natural language',
-                style: TextStyle(
-                  fontSize: 9,
-                  color: AppColors.textMuted.withValues(alpha: 0.7),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          // Syntax examples
-          ...examples.map(
-            (e) => Padding(
-              padding: const EdgeInsets.only(bottom: 2),
-              child: Row(
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: AppColors.warning.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.warning.withValues(alpha: 0.1)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(
-                    width: 220,
-                    child: Text(
-                      (e).$1,
-                      style: GoogleFonts.jetBrainsMono(
-                        fontSize: 9,
-                        color: AppColors.warning.withValues(alpha: 0.9),
+                  // Inline help hint
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.keyboard_rounded,
+                        size: 11,
+                        color: AppColors.textMuted.withValues(alpha: 0.6),
                       ),
-                    ),
+                      const SizedBox(width: 5),
+                      Text(
+                        'Tab to autocomplete  |  '
+                        'Lightbulb for templates  |  '
+                        'NL toggle for natural language',
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: AppColors.textMuted.withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ],
                   ),
-                  Expanded(
-                    child: Text(
-                      e.$2,
-                      style: TextStyle(
-                        fontSize: 9,
-                        color: AppColors.textMuted.withValues(alpha: 0.8),
+                  const SizedBox(height: 4),
+                  // Syntax examples
+                  ...examples.map(
+                    (e) => Padding(
+                      padding: const EdgeInsets.only(bottom: 2),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: 220,
+                            child: Text(
+                              (e).$1,
+                              style: GoogleFonts.jetBrainsMono(
+                                fontSize: 9,
+                                color: AppColors.warning.withValues(alpha: 0.9),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              e.$2,
+                              style: TextStyle(
+                                fontSize: 9,
+                                color: AppColors.textMuted.withValues(alpha: 0.8),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 4),
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: IconButton(
+                icon: const Icon(Icons.close, size: 12),
+                padding: EdgeInsets.zero,
+                color: AppColors.textMuted.withValues(alpha: 0.6),
+                onPressed: _dismissHelp,
+                style: IconButton.styleFrom(
+                  minimumSize: const Size(20, 20),
+                  backgroundColor: Colors.transparent,
+                ),
+                tooltip: 'Dismiss',
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -244,9 +303,9 @@ class LiveMetricsPanel extends StatelessWidget {
         final isWide = constraints.maxWidth > 500;
         return ListView.builder(
           padding: const EdgeInsets.all(12),
-          itemCount: items.length,
+          itemCount: widget.items.length,
           itemBuilder: (context, index) {
-            final item = items[index];
+            final item = widget.items[index];
             if (item.metricsDashboard != null) {
               return _buildDashboardCard(item, isWide);
             }
@@ -263,7 +322,7 @@ class LiveMetricsPanel extends StatelessWidget {
   Widget _buildMetricCard(DashboardItem item, bool isWide) {
     final series = item.metricSeries!;
     return DashboardCardWrapper(
-      onClose: () => dashboardState.removeItem(item.id),
+      onClose: () => widget.dashboardState.removeItem(item.id),
       dataToCopy: const JsonEncoder.withIndent('  ').convert(item.rawData),
       header: Row(
         children: [
@@ -306,7 +365,7 @@ class LiveMetricsPanel extends StatelessWidget {
 
   Widget _buildDashboardCard(DashboardItem item, bool isWide) {
     return DashboardCardWrapper(
-      onClose: () => dashboardState.removeItem(item.id),
+      onClose: () => widget.dashboardState.removeItem(item.id),
       header: Row(
         children: [
           const Icon(

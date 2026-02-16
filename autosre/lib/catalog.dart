@@ -39,7 +39,9 @@ class CatalogRegistry {
     // The specific widget builder will catch the parsing exception and
     // render an ErrorPlaceholder if needed.
     if (rawData is! Map) {
-      throw Exception('Data unwrapping failed: expected Map, got ${rawData.runtimeType}');
+      throw Exception(
+        'Data unwrapping failed: expected Map, got ${rawData.runtimeType}',
+      );
     }
 
     final data = Map<String, dynamic>.from(rawData);

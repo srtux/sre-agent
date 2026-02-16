@@ -441,6 +441,28 @@ async def get_bigquery_table_schema(
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+@router.get(
+    "/bigquery/datasets/{dataset_id}/tables/{table_id}/columns/{column_name}/json-keys"
+)
+async def get_bigquery_json_keys(
+    dataset_id: str,
+    table_id: str,
+    column_name: str,
+    project_id: str | None = None,
+) -> Any:
+    """Infer JSON keys for a BigQuery JSON column."""
+    try:
+        ctx = await get_tool_context()
+        client = BigQueryClient(project_id=project_id, tool_context=ctx)
+        keys = await client.get_json_keys(dataset_id, table_id, column_name)
+        return {"keys": keys}
+    except Exception as e:
+        logger.exception(
+            f"Error getting JSON keys for {dataset_id}.{table_id}.{column_name}"
+        )
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
 # =============================================================================
 # NATURAL LANGUAGE QUERY ENDPOINT
 # =============================================================================

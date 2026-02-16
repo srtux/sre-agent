@@ -171,6 +171,45 @@ async def test_get_table_schema_no_project(mock_tool_context):
             await client.get_table_schema("ds", "tbl")
 
 
+@pytest.mark.asyncio
+async def test_get_json_keys_success(mock_tool_context):
+    """Test successful JSON key inference."""
+    with patch("sre_agent.tools.bigquery.client.call_mcp_tool_with_retry") as mock_call:
+        mock_call.return_value = {
+            "status": "success",
+            "result": {
+                "structuredContent": {
+                    "rows": [{"f": [{"v": "key1"}]}, {"f": [{"v": "key2"}]}],
+                    "schema": {"fields": [{"name": "key"}]},
+                }
+            },
+        }
+
+        client = BigQueryClient(
+            project_id="test-project", tool_context=mock_tool_context
+        )
+        keys = await client.get_json_keys("ds", "tbl", "col")
+
+        assert keys == ["key1", "key2"]
+        # Verify SQL contains JSON_KEYS
+        args = mock_call.call_args[0][2]
+        assert "JSON_KEYS(col)" in args["query"]
+        assert "UNNEST" in args["query"]
+
+
+@pytest.mark.asyncio
+async def test_get_json_keys_failure(mock_tool_context):
+    """Test JSON key inference failure returns empty list."""
+    with patch("sre_agent.tools.bigquery.client.call_mcp_tool_with_retry") as mock_call:
+        mock_call.return_value = {"status": "error", "error": "Column not found"}
+
+        client = BigQueryClient(
+            project_id="test-project", tool_context=mock_tool_context
+        )
+        keys = await client.get_json_keys("ds", "tbl", "bad_col")
+        assert keys == []
+
+
 # ---- Tests for _normalize_schema_fields ----
 
 

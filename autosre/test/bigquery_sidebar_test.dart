@@ -7,7 +7,10 @@ import 'package:autosre/services/dashboard_state.dart';
 
 class MockExplorer extends ExplorerQueryService {
   MockExplorer(DashboardState state)
-      : super(dashboardState: state, clientFactory: () async => throw Exception('unsupported'));
+    : super(
+        dashboardState: state,
+        clientFactory: () async => throw Exception('unsupported'),
+      );
 
   @override
   Future<List<String>> getDatasets({String? projectId}) async {
@@ -15,7 +18,10 @@ class MockExplorer extends ExplorerQueryService {
   }
 
   @override
-  Future<List<String>> getTables({required String datasetId, String? projectId}) async {
+  Future<List<String>> getTables({
+    required String datasetId,
+    String? projectId,
+  }) async {
     return ['_AllSpans'];
   }
 
@@ -26,16 +32,29 @@ class MockExplorer extends ExplorerQueryService {
     String? projectId,
   }) async {
     return [
-      {'name': 'trace_id', 'type': 'STRING', 'mode': 'NULLABLE', 'description': 'a', 'fields': []},
-      {'name': 'events', 'type': 'RECORD', 'mode': 'REPEATED', 'fields': [
-        {'name': 'time', 'type': 'TIMESTAMP'}
-      ]}
+      {
+        'name': 'trace_id',
+        'type': 'STRING',
+        'mode': 'NULLABLE',
+        'description': 'a',
+        'fields': [],
+      },
+      {
+        'name': 'events',
+        'type': 'RECORD',
+        'mode': 'REPEATED',
+        'fields': [
+          {'name': 'time', 'type': 'TIMESTAMP'},
+        ],
+      },
     ];
   }
 }
 
 void main() {
-  testWidgets('BigQuerySidebar renders schema correctly', (WidgetTester tester) async {
+  testWidgets('BigQuerySidebar renders schema correctly', (
+    WidgetTester tester,
+  ) async {
     final state = DashboardState();
     final explorer = MockExplorer(state);
 

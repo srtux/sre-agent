@@ -5,16 +5,19 @@ import 'package:provider/provider.dart';
 import '../../services/explorer_query_service.dart';
 import '../../theme/app_theme.dart';
 import '../common/shimmer_loading.dart';
+import 'query_helpers.dart';
 
 class BigQuerySidebar extends StatefulWidget {
   final Function(String)? onInsertTable;
   final Function(String)? onInsertColumn;
+  final Function(List<QuerySnippet>)? onSchemaUpdated;
   final VoidCallback? onClose;
 
   const BigQuerySidebar({
     super.key,
     this.onInsertTable,
     this.onInsertColumn,
+    this.onSchemaUpdated,
     this.onClose,
   });
 
@@ -33,6 +36,10 @@ class _BigQuerySidebarState extends State<BigQuerySidebar> {
   // Cache for schemas — keyed by "datasetId.tableId" to avoid cross-dataset collisions
   final Map<String, List<Map<String, dynamic>>> _tableSchemas = {};
   final Set<String> _fetchingSchemas = {};
+
+  // Cache for inferred JSON keys: keyed by "dataset.table.column"
+  final Map<String, List<String>> _inferredJsonKeys = {};
+  final Set<String> _fetchingJsonKeys = {};
 
   String _schemaCacheKey(String tableId) =>
       '${_selectedDataset ?? ""}.$tableId';
@@ -95,16 +102,126 @@ class _BigQuerySidebarState extends State<BigQuerySidebar> {
       setState(() {
         if (schema != null) {
           _tableSchemas[cacheKey] = schema;
+          _notifySchemaUpdated(tableId);
         }
         _fetchingSchemas.remove(cacheKey);
       });
     }
   }
 
+  Future<void> _inferJsonKeys(String tableId, String columnName) async {
+    if (_selectedDataset == null) return;
+    final cacheKey = '$_selectedDataset.$tableId.$columnName';
+
+    if (_inferredJsonKeys.containsKey(cacheKey) ||
+        _fetchingJsonKeys.contains(cacheKey)) {
+      return;
+    }
+
+    setState(() {
+      _fetchingJsonKeys.add(cacheKey);
+    });
+
+    try {
+      final explorer = context.read<ExplorerQueryService>();
+      final keys = await explorer.getJsonKeys(
+        datasetId: _selectedDataset!,
+        tableId: tableId,
+        columnName: columnName,
+      );
+
+      if (mounted) {
+        setState(() {
+          _inferredJsonKeys[cacheKey] = keys;
+          _fetchingJsonKeys.remove(cacheKey);
+          _notifySchemaUpdated(tableId);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _fetchingJsonKeys.remove(cacheKey);
+        });
+      }
+    }
+  }
+
+  String _formatJsonKey(String colFullPath, String key) {
+    if (key.contains(RegExp(r'[^a-zA-Z0-9_]'))) {
+      return "$colFullPath['$key']";
+    }
+    return '$colFullPath.$key';
+  }
+
+  void _notifySchemaUpdated(String tableId) {
+    if (widget.onSchemaUpdated == null) return;
+
+    final schema = _tableSchemas[_schemaCacheKey(tableId)];
+    if (schema == null) return;
+
+    final snippets = <QuerySnippet>[];
+
+    // Add table columns
+    for (final field in schema) {
+      final name = field['name']?.toString() ?? '';
+      final type = field['type']?.toString() ?? '';
+      if (name.isEmpty) continue;
+
+      snippets.add(
+        QuerySnippet(
+          label: name,
+          insertText: name,
+          description: '$type column',
+          category: 'Column',
+          icon: _iconForType(type),
+          color: _colorForType(type),
+        ),
+      );
+
+      // Add nested fields if any
+      final nested = field['fields'] as List? ?? [];
+      for (final n in nested) {
+        final nName = n['name']?.toString() ?? '';
+        final nType = n['type']?.toString() ?? '';
+        if (nName.isEmpty) continue;
+        final path = '$name.$nName';
+        snippets.add(
+          QuerySnippet(
+            label: path,
+            insertText: path,
+            description: '$nType (nested)',
+            category: 'Column',
+            icon: _iconForType(nType),
+            color: _colorForType(nType),
+          ),
+        );
+      }
+
+      // Add inferred JSON keys
+      final jsonKey = '$_selectedDataset.$tableId.$name';
+      if (_inferredJsonKeys.containsKey(jsonKey)) {
+        for (final key in _inferredJsonKeys[jsonKey]!) {
+          final path = _formatJsonKey(name, key);
+          snippets.add(
+            QuerySnippet(
+              label: path,
+              insertText: path,
+              description: 'JSON key (inferred)',
+              category: 'JSON field',
+              icon: Icons.data_object_rounded,
+              color: AppColors.primaryTeal,
+            ),
+          );
+        }
+      }
+    }
+
+    widget.onSchemaUpdated!(snippets);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 280,
       decoration: BoxDecoration(
         color: AppColors.backgroundCard.withValues(alpha: 0.3),
         border: Border(
@@ -337,32 +454,53 @@ class _BigQuerySidebarState extends State<BigQuerySidebar> {
 
     return Container(
       color: AppColors.backgroundDark.withValues(alpha: 0.5),
-      child: _buildFieldList(schema, depth: 0),
+      child: _buildFieldList(schema, tableId: tableId, depth: 0),
     );
   }
 
   /// Recursively builds the field list, supporting nested RECORD fields.
   Widget _buildFieldList(
     List<Map<String, dynamic>> fields, {
+    required String tableId,
     required int depth,
+    String parentPath = '',
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: fields.map((column) => _buildFieldItem(column, depth: depth)).toList(),
+      children: fields.map((column) {
+        return _buildFieldItem(
+          column,
+          tableId: tableId,
+          depth: depth,
+          parentPath: parentPath,
+        );
+      }).toList(),
     );
   }
 
-  Widget _buildFieldItem(Map<String, dynamic> column, {required int depth}) {
+  Widget _buildFieldItem(
+    Map<String, dynamic> column, {
+    required String tableId,
+    required int depth,
+    String parentPath = '',
+  }) {
     final name = column['name']?.toString() ?? 'Unknown';
+    final fullPath = parentPath.isEmpty ? name : '$parentPath.$name';
     final type = column['type']?.toString() ?? 'UNKNOWN';
     final mode = column['mode']?.toString() ?? 'NULLABLE';
     final description = column['description']?.toString() ?? '';
     final nestedFields = column['fields'] as List? ?? [];
     final isRecord = type == 'RECORD' || type == 'STRUCT';
+    final isJson = type == 'JSON';
     final leftPadding = 24.0 + (depth * 16.0);
 
-    if (isRecord && nestedFields.isNotEmpty) {
-      // RECORD fields are expandable to show nested fields
+    final jsonCacheKey = '$_selectedDataset.$tableId.$fullPath';
+    final inferredKeys = _inferredJsonKeys[jsonCacheKey];
+    final isFetchingKeys = _fetchingJsonKeys.contains(jsonCacheKey);
+
+    if ((isRecord && nestedFields.isNotEmpty) ||
+        (isJson && (inferredKeys?.isNotEmpty ?? false || isFetchingKeys))) {
+      // RECORD fields or JSON fields with inferred keys are expandable
       return Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
@@ -370,25 +508,85 @@ class _BigQuerySidebarState extends State<BigQuerySidebar> {
           childrenPadding: EdgeInsets.zero,
           minTileHeight: 32.0,
           controlAffinity: ListTileControlAffinity.leading,
-          title: Row(
-            children: [
-              Icon(
-                _iconForType(type),
-                size: 12,
-                color: _colorForType(type),
-              ),
-              const SizedBox(width: 6),
-              Expanded(child: _buildFieldTitle(name, type, mode, description)),
-            ],
+          title: InkWell(
+            onTap:
+                isJson
+                    ? () => _inferJsonKeys(tableId, fullPath)
+                    : widget.onInsertColumn != null
+                    ? () => widget.onInsertColumn!(fullPath)
+                    : null,
+            child: Row(
+              children: [
+                Icon(_iconForType(type), size: 12, color: _colorForType(type)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: _buildFieldTitle(name, type, mode, description),
+                ),
+                if (isJson && isFetchingKeys)
+                  const SizedBox(
+                    width: 10,
+                    height: 10,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.5,
+                      valueColor: AlwaysStoppedAnimation(AppColors.primaryTeal),
+                    ),
+                  ),
+              ],
+            ),
           ),
           children: [
-            _buildFieldList(
-              nestedFields
-                  .map((f) => Map<String, dynamic>.from(f as Map))
-                  .toList(),
-              depth: depth + 1,
-            ),
+            if (isRecord)
+              _buildFieldList(
+                nestedFields
+                    .map((f) => Map<String, dynamic>.from(f as Map))
+                    .toList(),
+                tableId: tableId,
+                depth: depth + 1,
+                parentPath: fullPath,
+              ),
+            if (isJson && inferredKeys != null)
+              ...inferredKeys.map(
+                (key) => _buildInferredKeyItem(
+                  key,
+                  fullPath: _formatJsonKey(fullPath, key),
+                  depth: depth + 1,
+                ),
+              ),
           ],
+        ),
+      );
+    }
+
+    // Leaf JSON fields (not yet clicked or no keys found)
+    if (isJson) {
+      final hasAttemptedFetch = inferredKeys != null;
+      return InkWell(
+        onTap: hasAttemptedFetch && widget.onInsertColumn != null
+            ? () => widget.onInsertColumn!(fullPath)
+            : () => _inferJsonKeys(tableId, fullPath),
+        child: Padding(
+          padding: EdgeInsets.only(
+            left: leftPadding + 32.0,
+            right: 16,
+            top: 5,
+            bottom: 5,
+          ),
+          child: Row(
+            children: [
+              Icon(_iconForType(type), size: 12, color: _colorForType(type)),
+              const SizedBox(width: 6),
+              Expanded(child: _buildFieldTitle(name, type, mode, description)),
+              if (isFetchingKeys)
+                const SizedBox(
+                  width: 10,
+                  height: 10,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.5,
+                    valueColor: AlwaysStoppedAnimation(AppColors.primaryTeal),
+                  ),
+                ),
+            ],
+          ),
         ),
       );
     }
@@ -396,11 +594,12 @@ class _BigQuerySidebarState extends State<BigQuerySidebar> {
     // Leaf fields
     // Add additional padding so leaf fields align horizontally with the labels inside ExpansionTiles (which have a leading chevron)
     return InkWell(
-      onTap: widget.onInsertColumn != null
-          ? () => widget.onInsertColumn!(name)
-          : null,
+      onTap:
+          widget.onInsertColumn != null
+              ? () => widget.onInsertColumn!(fullPath)
+              : null,
       child: Tooltip(
-        message: description.isNotEmpty ? description : '$name ($type)',
+        message: description.isNotEmpty ? description : '$fullPath ($type)',
         waitDuration: const Duration(milliseconds: 500),
         child: Padding(
           padding: EdgeInsets.only(
@@ -416,6 +615,53 @@ class _BigQuerySidebarState extends State<BigQuerySidebar> {
               Expanded(child: _buildFieldTitle(name, type, mode, description)),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInferredKeyItem(
+    String key, {
+    required String fullPath,
+    required int depth,
+  }) {
+    final leftPadding = 24.0 + (depth * 16.0);
+    return InkWell(
+      onTap:
+          widget.onInsertColumn != null
+              ? () => widget.onInsertColumn!(fullPath)
+              : null,
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: leftPadding + 32.0,
+          right: 16,
+          top: 5,
+          bottom: 5,
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.data_object_rounded,
+              size: 11,
+              color: AppColors.primaryTeal,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                key,
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 10,
+                  color: AppColors.textSecondary.withValues(alpha: 0.9),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const Text(
+              'KEY',
+              style: TextStyle(fontSize: 8, color: AppColors.textMuted),
+            ),
+          ],
         ),
       ),
     );

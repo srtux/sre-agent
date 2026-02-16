@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../services/dashboard_state.dart';
@@ -43,6 +44,31 @@ class LiveTracePanel extends StatefulWidget {
 }
 
 class _LiveTracePanelState extends State<LiveTracePanel> {
+  bool _helpDismissed = false;
+  bool _helpDismissedLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHelpDismissed();
+  }
+
+  Future<void> _loadHelpDismissed() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _helpDismissed = prefs.getBool('traces_help_dismissed') ?? false;
+        _helpDismissedLoaded = true;
+      });
+    }
+  }
+
+  Future<void> _dismissHelp() async {
+    setState(() => _helpDismissed = true);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('traces_help_dismissed', true);
+  }
+
   @override
   Widget build(BuildContext context) {
     final isLoading = widget.dashboardState.isLoading(DashboardDataType.traces);
@@ -118,8 +144,8 @@ class _LiveTracePanelState extends State<LiveTracePanel> {
             ],
           ),
         ),
-        // Syntax reference (collapsed by default)
-        _buildSyntaxHelp(),
+        // Syntax reference
+        if (_helpDismissedLoaded && !_helpDismissed) _buildSyntaxHelp(),
         if (error != null)
           ErrorBanner(
             message: error,
@@ -145,36 +171,56 @@ class _LiveTracePanelState extends State<LiveTracePanel> {
   }
 
   Widget _buildSyntaxHelp() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 4),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppColors.primaryCyan.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.primaryCyan.withValues(alpha: 0.1)),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.info_outline_rounded,
-            size: 12,
-            color: AppColors.textMuted.withValues(alpha: 0.7),
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              'Tab to autocomplete  |  '
-              'Syntax: +span:name:<value>  RootSpan:<path>  '
-              'MinDuration:<dur>  HasLabel:<key>:<value>',
-              style: GoogleFonts.jetBrainsMono(
-                fontSize: 9,
-                color: AppColors.textMuted.withValues(alpha: 0.8),
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: AppColors.primaryCyan.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.primaryCyan.withValues(alpha: 0.1)),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.info_outline_rounded,
+              size: 12,
+              color: AppColors.textMuted.withValues(alpha: 0.7),
             ),
-          ),
-        ],
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                'Tab to autocomplete  |  '
+                'Syntax: +span:name:<value>  RootSpan:<path>  '
+                'MinDuration:<dur>  HasLabel:<key>:<value>',
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 9,
+                  color: AppColors.textMuted.withValues(alpha: 0.8),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 4),
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: IconButton(
+                icon: const Icon(Icons.close, size: 12),
+                padding: EdgeInsets.zero,
+                color: AppColors.textMuted.withValues(alpha: 0.6),
+                onPressed: _dismissHelp,
+                style: IconButton.styleFrom(
+                  minimumSize: const Size(20, 20),
+                  backgroundColor: Colors.transparent,
+                ),
+                tooltip: 'Dismiss',
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
