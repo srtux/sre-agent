@@ -369,12 +369,18 @@ class _BigQuerySidebarState extends State<BigQuerySidebar> {
           tilePadding: EdgeInsets.only(left: leftPadding, right: 16),
           childrenPadding: EdgeInsets.zero,
           minTileHeight: 32.0,
-          leading: Icon(
-            _iconForType(type),
-            size: 12,
-            color: _colorForType(type),
+          controlAffinity: ListTileControlAffinity.leading,
+          title: Row(
+            children: [
+              Icon(
+                _iconForType(type),
+                size: 12,
+                color: _colorForType(type),
+              ),
+              const SizedBox(width: 6),
+              Expanded(child: _buildFieldTitle(name, type, mode, description)),
+            ],
           ),
-          title: _buildFieldTitle(name, type, mode, description),
           children: [
             _buildFieldList(
               nestedFields
@@ -388,6 +394,7 @@ class _BigQuerySidebarState extends State<BigQuerySidebar> {
     }
 
     // Leaf fields
+    // Add additional padding so leaf fields align horizontally with the labels inside ExpansionTiles (which have a leading chevron)
     return InkWell(
       onTap: widget.onInsertColumn != null
           ? () => widget.onInsertColumn!(name)
@@ -397,7 +404,7 @@ class _BigQuerySidebarState extends State<BigQuerySidebar> {
         waitDuration: const Duration(milliseconds: 500),
         child: Padding(
           padding: EdgeInsets.only(
-            left: leftPadding,
+            left: leftPadding + 32.0,
             right: 16,
             top: 5,
             bottom: 5,
