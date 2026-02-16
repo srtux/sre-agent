@@ -88,10 +88,12 @@ class ProjectService {
   String get _recentProjectsUrl => '$_baseUrl/api/preferences/projects/recent';
 
   /// Returns the starred projects API URL.
-  String get _starredProjectsUrl => '$_baseUrl/api/preferences/projects/starred';
+  String get _starredProjectsUrl =>
+      '$_baseUrl/api/preferences/projects/starred';
 
   /// Returns the starred toggle API URL.
-  String get _starredToggleUrl => '$_baseUrl/api/preferences/projects/starred/toggle';
+  String get _starredToggleUrl =>
+      '$_baseUrl/api/preferences/projects/starred/toggle';
 
   final ValueNotifier<List<GcpProject>> _projects = ValueNotifier([]);
   final ValueNotifier<List<GcpProject>> _recentProjects = ValueNotifier([]);
@@ -207,8 +209,7 @@ class ProjectService {
           final data = jsonDecode(response.body);
           if (data is Map && data['projects'] != null) {
             final list = (data['projects'] as List)
-                .map((p) =>
-                    GcpProject.fromJson(p as Map<String, dynamic>))
+                .map((p) => GcpProject.fromJson(p as Map<String, dynamic>))
                 .toList();
             _recentProjects.value = list;
           }
@@ -231,8 +232,9 @@ class ProjectService {
               Uri.parse(_recentProjectsUrl),
               headers: {'Content-Type': 'application/json'},
               body: jsonEncode({
-                'projects':
-                    _recentProjects.value.map((p) => p.toJson()).toList(),
+                'projects': _recentProjects.value
+                    .map((p) => p.toJson())
+                    .toList(),
               }),
             )
             .timeout(ServiceConfig.defaultTimeout);
@@ -257,8 +259,7 @@ class ProjectService {
           final data = jsonDecode(response.body);
           if (data is Map && data['projects'] != null) {
             final list = (data['projects'] as List)
-                .map((p) =>
-                    GcpProject.fromJson(p as Map<String, dynamic>))
+                .map((p) => GcpProject.fromJson(p as Map<String, dynamic>))
                 .toList();
             _starredProjects.value = list;
           }
@@ -323,12 +324,12 @@ class ProjectService {
       final client = await _clientFactory();
       try {
         final uri = query != null && query.isNotEmpty
-            ? Uri.parse(
-                '$_projectsUrl?query=${Uri.encodeComponent(query)}')
+            ? Uri.parse('$_projectsUrl?query=${Uri.encodeComponent(query)}')
             : Uri.parse(_projectsUrl);
 
-        final response =
-            await client.get(uri).timeout(ServiceConfig.defaultTimeout);
+        final response = await client
+            .get(uri)
+            .timeout(ServiceConfig.defaultTimeout);
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
@@ -354,8 +355,7 @@ class ProjectService {
           }
 
           final projects = projectList
-              .map(
-                  (p) => GcpProject.fromJson(p as Map<String, dynamic>))
+              .map((p) => GcpProject.fromJson(p as Map<String, dynamic>))
               .toList();
 
           _projects.value = projects;
@@ -372,8 +372,7 @@ class ProjectService {
             selectProjectInstance(projects.first);
           }
         } else {
-          _error.value =
-              'Failed to fetch projects: ${response.statusCode}';
+          _error.value = 'Failed to fetch projects: ${response.statusCode}';
         }
       } finally {
         client.close();

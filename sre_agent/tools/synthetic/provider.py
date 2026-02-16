@@ -605,6 +605,23 @@ class SyntheticDataProvider:
         )
 
     @staticmethod
+    def list_logs(
+        project_id: str | None = None,
+        **kwargs: Any,
+    ) -> BaseToolResponse:
+        """Return a list of synthetic log names."""
+        pid = project_id or DEMO_PROJECT_ID
+        logs = [
+            f"projects/{pid}/logs/cloudaudit.googleapis.com%2Factivity",
+            f"projects/{pid}/logs/cloudaudit.googleapis.com%2Fdata_access",
+            f"projects/{pid}/logs/compute.googleapis.com%2Factivity_log",
+            f"projects/{pid}/logs/stderr",
+            f"projects/{pid}/logs/stdout",
+            f"projects/{pid}/logs/syslog",
+        ]
+        return BaseToolResponse(status=ToolStatus.SUCCESS, result={"logs": logs})
+
+    @staticmethod
     def list_error_events(
         project_id: str | None = None,
         minutes_ago: int = 60,

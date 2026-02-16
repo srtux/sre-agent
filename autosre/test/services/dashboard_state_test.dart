@@ -55,7 +55,7 @@ void main() {
     });
 
     test('setActiveTab does not notify when tab is same', () {
-      int notifyCount = 0;
+      var notifyCount = 0;
       state.addListener(() => notifyCount++);
       state.setActiveTab(DashboardDataType.logs);
       expect(notifyCount, 1);
@@ -69,7 +69,7 @@ void main() {
     });
 
     test('setMetricsQueryLanguage does not notify when same', () {
-      int notifyCount = 0;
+      var notifyCount = 0;
       state.addListener(() => notifyCount++);
       state.setMetricsQueryLanguage(1);
       expect(notifyCount, 1);
@@ -166,15 +166,22 @@ void main() {
       state.addChart(data, 'query', {});
 
       expect(state.items.length, 1);
-      expect(state.items.first.type, DashboardDataType.charts);
+      expect(state.items.first.type, DashboardDataType.analytics);
       expect(state.items.first.chartData, data);
     });
 
     test('addSqlResults adds SQL item and updates BigQuery state', () {
-      state.addSqlResults('SELECT 1', ['col1'], [{'col1': 1}], 'run_sql');
+      state.addSqlResults(
+        'SELECT 1',
+        ['col1'],
+        [
+          {'col1': 1},
+        ],
+        'run_sql',
+      );
 
       expect(state.items.length, 1);
-      expect(state.items.first.type, DashboardDataType.sql);
+      expect(state.items.first.type, DashboardDataType.analytics);
       expect(state.items.first.sqlData?.query, 'SELECT 1');
       expect(state.bigQueryColumns, ['col1']);
     });
@@ -228,11 +235,17 @@ void main() {
 
     test('clearManualItems removes only manual items', () {
       state.addTrace(
-          Trace(traceId: 't1', spans: []), 'tool', {},
-          source: DataSource.agent);
+        Trace(traceId: 't1', spans: []),
+        'tool',
+        {},
+        source: DataSource.agent,
+      );
       state.addTrace(
-          Trace(traceId: 't2', spans: []), 'tool', {},
-          source: DataSource.manual);
+        Trace(traceId: 't2', spans: []),
+        'tool',
+        {},
+        source: DataSource.manual,
+      );
 
       state.clearManualItems();
       expect(state.items.length, 1);
@@ -244,7 +257,12 @@ void main() {
       state.setActiveTab(DashboardDataType.logs);
       state.setLoading(DashboardDataType.traces, true);
       state.setError(DashboardDataType.logs, 'error');
-      state.setBigQueryResults(['a'], [{'a': 1}]);
+      state.setBigQueryResults(
+        ['a'],
+        [
+          {'a': 1},
+        ],
+      );
       state.setMetricsQueryLanguage(1);
 
       state.clear();
@@ -287,23 +305,36 @@ void main() {
   // ===========================================================================
   group('DashboardState BigQuery', () {
     test('setBigQueryResults stores columns and rows', () {
-      state.setBigQueryResults(['name', 'age'], [
-        {'name': 'Alice', 'age': 30},
-        {'name': 'Bob', 'age': 25},
-      ]);
+      state.setBigQueryResults(
+        ['name', 'age'],
+        [
+          {'name': 'Alice', 'age': 30},
+          {'name': 'Bob', 'age': 25},
+        ],
+      );
       expect(state.bigQueryColumns, ['name', 'age']);
       expect(state.bigQueryResults.length, 2);
     });
 
     test('clearBigQueryResults resets BQ state', () {
-      state.setBigQueryResults(['a'], [{'a': 1}]);
+      state.setBigQueryResults(
+        ['a'],
+        [
+          {'a': 1},
+        ],
+      );
       state.clearBigQueryResults();
       expect(state.bigQueryColumns, isEmpty);
       expect(state.bigQueryResults, isEmpty);
     });
 
     test('bigQueryResults returns unmodifiable list', () {
-      state.setBigQueryResults(['a'], [{'a': 1}]);
+      state.setBigQueryResults(
+        ['a'],
+        [
+          {'a': 1},
+        ],
+      );
       expect(() => state.bigQueryResults.add({'b': 2}), throwsA(anything));
     });
   });
@@ -315,7 +346,9 @@ void main() {
     test('setLastQueryFilter stores filter', () {
       state.setLastQueryFilter(DashboardDataType.logs, 'severity=ERROR');
       expect(
-          state.getLastQueryFilter(DashboardDataType.logs), 'severity=ERROR');
+        state.getLastQueryFilter(DashboardDataType.logs),
+        'severity=ERROR',
+      );
     });
 
     test('getLastQueryFilter returns null for unset types', () {
@@ -390,14 +423,10 @@ void main() {
         'category': 'charts',
         'widget_type': 'x-sre-vega-chart',
         'tool_name': 'query',
-        'data': {
-          'question': 'Q',
-          'answer': 'A',
-          'vega_lite_charts': [],
-        },
+        'data': {'question': 'Q', 'answer': 'A', 'vega_lite_charts': []},
       });
       expect(result, isTrue);
-      expect(state.items.first.type, DashboardDataType.charts);
+      expect(state.items.first.type, DashboardDataType.analytics);
     });
 
     test('rejects empty trace spans', () {
@@ -458,24 +487,42 @@ void main() {
   // ===========================================================================
   group('classifyComponent', () {
     test('maps known component types', () {
-      expect(classifyComponent('x-sre-log-entries-viewer'),
-          DashboardDataType.logs);
-      expect(classifyComponent('x-sre-log-pattern-viewer'),
-          DashboardDataType.logs);
-      expect(classifyComponent('x-sre-metric-chart'),
-          DashboardDataType.metrics);
-      expect(classifyComponent('x-sre-metrics-dashboard'),
-          DashboardDataType.metrics);
-      expect(classifyComponent('x-sre-trace-waterfall'),
-          DashboardDataType.traces);
-      expect(classifyComponent('x-sre-incident-timeline'),
-          DashboardDataType.alerts);
-      expect(classifyComponent('x-sre-remediation-plan'),
-          DashboardDataType.remediation);
-      expect(classifyComponent('x-sre-council-synthesis'),
-          DashboardDataType.council);
-      expect(classifyComponent('x-sre-vega-chart'),
-          DashboardDataType.charts);
+      expect(
+        classifyComponent('x-sre-log-entries-viewer'),
+        DashboardDataType.logs,
+      );
+      expect(
+        classifyComponent('x-sre-log-pattern-viewer'),
+        DashboardDataType.logs,
+      );
+      expect(
+        classifyComponent('x-sre-metric-chart'),
+        DashboardDataType.metrics,
+      );
+      expect(
+        classifyComponent('x-sre-metrics-dashboard'),
+        DashboardDataType.metrics,
+      );
+      expect(
+        classifyComponent('x-sre-trace-waterfall'),
+        DashboardDataType.traces,
+      );
+      expect(
+        classifyComponent('x-sre-incident-timeline'),
+        DashboardDataType.alerts,
+      );
+      expect(
+        classifyComponent('x-sre-remediation-plan'),
+        DashboardDataType.remediation,
+      );
+      expect(
+        classifyComponent('x-sre-council-synthesis'),
+        DashboardDataType.council,
+      );
+      expect(
+        classifyComponent('x-sre-vega-chart'),
+        DashboardDataType.analytics,
+      );
     });
 
     test('returns null for unknown component', () {

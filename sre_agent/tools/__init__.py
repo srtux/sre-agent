@@ -218,6 +218,8 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     "get_logs_for_trace": (".clients.logging", "get_logs_for_trace"),
     "list_error_events": (".clients.logging", "list_error_events"),
     "list_log_entries": (".clients.logging", "list_log_entries"),
+    "list_logs": (".clients.logging", "list_logs"),
+    "list_resource_keys": (".clients.logging", "list_resource_keys"),
     # Clients - Monitoring
     "list_metric_descriptors": (".clients.monitoring", "list_metric_descriptors"),
     "list_time_series": (".clients.monitoring", "list_time_series"),

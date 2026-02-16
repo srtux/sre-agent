@@ -39,10 +39,7 @@ class ExplorerEmptyState extends StatelessWidget {
       child: Container(
         constraints: const BoxConstraints(maxWidth: 420),
         margin: const EdgeInsets.all(24),
-        decoration: GlassDecoration.card(
-          borderRadius: 16,
-          opacity: 0.06,
-        ),
+        decoration: GlassDecoration.card(borderRadius: 16, opacity: 0.06),
         padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 36),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -88,8 +85,10 @@ class ExplorerEmptyState extends StatelessWidget {
               const SizedBox(height: 16),
               Container(
                 width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.backgroundDark.withValues(alpha: 0.6),
                   borderRadius: BorderRadius.circular(8),
@@ -125,52 +124,52 @@ class ExplorerEmptyState extends StatelessWidget {
       button: true,
       label: 'Run query',
       child: DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.primaryTeal, AppColors.primaryCyan],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ),
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primaryCyan.withValues(alpha: 0.2),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [AppColors.primaryTeal, AppColors.primaryCyan],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
           ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onRunQuery,
           borderRadius: BorderRadius.circular(10),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.play_arrow_rounded,
-                  size: 18,
-                  color: Colors.white,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Run Query',
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primaryCyan.withValues(alpha: 0.2),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onRunQuery,
+            borderRadius: BorderRadius.circular(10),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.play_arrow_rounded,
+                    size: 18,
                     color: Colors.white,
-                    letterSpacing: 0.3,
                   ),
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  Text(
+                    'Run Query',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       ),
-    ),
     );
   }
 }

@@ -35,7 +35,7 @@ void main() {
     });
 
     test('updateStatus notifies listeners on change', () {
-      int notifyCount = 0;
+      var notifyCount = 0;
       service.addListener(() => notifyCount++);
 
       service.updateStatus(true);
@@ -46,7 +46,7 @@ void main() {
     });
 
     test('updateStatus does not notify when status unchanged', () {
-      int notifyCount = 0;
+      var notifyCount = 0;
       service.updateStatus(true);
       service.addListener(() => notifyCount++);
 

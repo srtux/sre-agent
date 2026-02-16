@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:autosre/pages/conversation_page.dart';
@@ -16,18 +15,16 @@ void main() {
     clearMockSingletons();
   });
 
-  testWidgets('ConversationPage builds correctly and shows logo', (WidgetTester tester) async {
+  testWidgets('ConversationPage builds correctly and shows logo', (
+    WidgetTester tester,
+  ) async {
     // Set a desktop-like size
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
 
     await tester.pumpWidget(
-      wrapWithProviders(
-        const MaterialApp(
-          home: ConversationPage(),
-        ),
-      ),
+      wrapWithProviders(const MaterialApp(home: ConversationPage())),
     );
 
     // Initial pump

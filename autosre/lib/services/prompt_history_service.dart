@@ -7,7 +7,8 @@ class PromptHistoryService {
   static const String _keyPrefix = 'prompt_history_';
 
   static PromptHistoryService? _mockInstance;
-  static PromptHistoryService get instance => _mockInstance ?? _internalInstance;
+  static PromptHistoryService get instance =>
+      _mockInstance ?? _internalInstance;
   static final PromptHistoryService _internalInstance =
       PromptHistoryService._internal();
 

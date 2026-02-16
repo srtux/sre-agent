@@ -769,7 +769,9 @@ class _AIReasoningCanvasState extends State<AIReasoningCanvas>
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.03),
-            border: const Border(bottom: BorderSide(color: AppColors.surfaceBorder)),
+            border: const Border(
+              bottom: BorderSide(color: AppColors.surfaceBorder),
+            ),
           ),
           child: Row(
             children: [

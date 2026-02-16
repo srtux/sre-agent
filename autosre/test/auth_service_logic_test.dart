@@ -12,7 +12,10 @@ void main() {
     test('AuthService initial state', () {
       final auth = AuthService.instance;
       expect(auth.isAuthenticated, isFalse);
-      expect(auth.isLoading, isTrue); // Initialized to true until init() finishes
+      expect(
+        auth.isLoading,
+        isTrue,
+      ); // Initialized to true until init() finishes
       expect(auth.currentUser, isNull);
     });
 

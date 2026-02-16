@@ -477,8 +477,9 @@ class _RemediationPlanWidgetState extends State<RemediationPlanWidget>
                                           _copyCommand(step.command, index),
                                       borderRadius: BorderRadius.circular(6),
                                       child: AnimatedContainer(
-                                        duration:
-                                            const Duration(milliseconds: 200),
+                                        duration: const Duration(
+                                          milliseconds: 200,
+                                        ),
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 10,
                                           vertical: 4,
@@ -489,9 +490,11 @@ class _RemediationPlanWidgetState extends State<RemediationPlanWidget>
                                                   alpha: 0.2,
                                                 )
                                               : Colors.white.withValues(
-                                                  alpha: 0.1),
-                                          borderRadius:
-                                              BorderRadius.circular(6),
+                                                  alpha: 0.1,
+                                                ),
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
                                         ),
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,

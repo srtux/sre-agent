@@ -37,13 +37,22 @@ void main() {
 
     expect((span.children?[0] as TextSpan).text, 'Normal ');
     expect((span.children?[1] as TextSpan).text, 'Green');
-    expect((span.children?[1] as TextSpan).style?.color, const Color(0xFF81C784));
+    expect(
+      (span.children?[1] as TextSpan).style?.color,
+      const Color(0xFF81C784),
+    );
 
     expect((span.children?[2] as TextSpan).text, ' ');
-    expect((span.children?[2] as TextSpan).style?.color, isNull); // Reset to base
+    expect(
+      (span.children?[2] as TextSpan).style?.color,
+      isNull,
+    ); // Reset to base
 
     expect((span.children?[3] as TextSpan).text, 'Blue');
-    expect((span.children?[3] as TextSpan).style?.color, const Color(0xFF64B5F6));
+    expect(
+      (span.children?[3] as TextSpan).style?.color,
+      const Color(0xFF64B5F6),
+    );
   });
 
   test('AnsiParser handles bold and combined codes', () {

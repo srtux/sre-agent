@@ -25,16 +25,28 @@ class _AlertsDashboardCanvasState extends State<AlertsDashboardCanvas> {
     // Sort events by severity (critical first) and then timestamp (newest first)
     final sortedEvents = List<TimelineEvent>.from(widget.data.events)
       ..sort((a, b) {
-        final sevMap = {'critical': 0, 'high': 1, 'medium': 2, 'low': 3, 'info': 4};
+        final sevMap = {
+          'critical': 0,
+          'high': 1,
+          'medium': 2,
+          'low': 3,
+          'info': 4,
+        };
         final aSev = sevMap[a.severity] ?? 5;
         final bSev = sevMap[b.severity] ?? 5;
         if (aSev != bSev) return aSev.compareTo(bSev);
         return b.timestamp.compareTo(a.timestamp);
       });
 
-    final criticalCount = widget.data.events.where((e) => e.severity == 'critical').length;
-    final highCount = widget.data.events.where((e) => e.severity == 'high').length;
-    final warningCount = widget.data.events.where((e) => e.severity == 'medium').length;
+    final criticalCount = widget.data.events
+        .where((e) => e.severity == 'critical')
+        .length;
+    final highCount = widget.data.events
+        .where((e) => e.severity == 'high')
+        .length;
+    final warningCount = widget.data.events
+        .where((e) => e.severity == 'medium')
+        .length;
 
     return Container(
       color: AppColors.backgroundDark,
@@ -187,10 +199,7 @@ class _AlertCard extends StatefulWidget {
   final TimelineEvent event;
   final Function(String)? onPromptRequest;
 
-  const _AlertCard({
-    required this.event,
-    this.onPromptRequest,
-  });
+  const _AlertCard({required this.event, this.onPromptRequest});
 
   @override
   State<_AlertCard> createState() => _AlertCardState();
@@ -263,7 +272,9 @@ class _AlertCardState extends State<_AlertCard> {
                           children: [
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 2),
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: color.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(4),
@@ -320,7 +331,9 @@ class _AlertCardState extends State<_AlertCard> {
                             _buildInfoItem(Icons.cloud_outlined, serviceName),
                             const SizedBox(width: 16),
                             _buildInfoItem(
-                                Icons.category_outlined, resourceType),
+                              Icons.category_outlined,
+                              resourceType,
+                            ),
                           ],
                         ),
                         if (metricType.isNotEmpty) ...[
@@ -361,40 +374,42 @@ class _AlertCardState extends State<_AlertCard> {
           const SizedBox(height: 12),
           const Divider(height: 1, color: AppColors.surfaceBorder),
           const SizedBox(height: 12),
-          ...event.metadata!.entries.where((e) {
-            final k = e.key;
-            return k != 'service_name' &&
-                k != 'resource_type' &&
-                k != 'state' &&
-                k != 'metric_type';
-          }).map((e) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 6.0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${e.key}: ',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      e.value.toString(),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textMuted,
-                        fontFamily: 'monospace',
+          ...event.metadata!.entries
+              .where((e) {
+                final k = e.key;
+                return k != 'service_name' &&
+                    k != 'resource_type' &&
+                    k != 'state' &&
+                    k != 'metric_type';
+              })
+              .map((e) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 6.0),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${e.key}: ',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
-                    ),
+                      Expanded(
+                        child: Text(
+                          e.value.toString(),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textMuted,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            );
-          }),
+                );
+              }),
         ],
         // Remediation Action Button
         const SizedBox(height: 16),
@@ -406,7 +421,8 @@ class _AlertCardState extends State<_AlertCard> {
             onPressed: () {
               if (widget.onPromptRequest != null) {
                 widget.onPromptRequest!(
-                    'Generate remediation suggestions for alert: ${event.title}');
+                  'Generate remediation suggestions for alert: ${event.title}',
+                );
               }
             },
             style: ElevatedButton.styleFrom(
@@ -415,7 +431,8 @@ class _AlertCardState extends State<_AlertCard> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
                 side: BorderSide(
-                    color: AppColors.secondaryPurple.withValues(alpha: 0.3)),
+                  color: AppColors.secondaryPurple.withValues(alpha: 0.3),
+                ),
               ),
               padding: const EdgeInsets.symmetric(vertical: 12),
               elevation: 0,
@@ -459,11 +476,7 @@ class _AlertCardState extends State<_AlertCard> {
         color: AppColors.error,
         shape: BoxShape.circle,
         boxShadow: [
-          BoxShadow(
-            color: AppColors.error,
-            blurRadius: 4,
-            spreadRadius: 1,
-          ),
+          BoxShadow(color: AppColors.error, blurRadius: 4, spreadRadius: 1),
         ],
       ),
     );

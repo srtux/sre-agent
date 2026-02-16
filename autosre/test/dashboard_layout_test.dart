@@ -1,4 +1,3 @@
-
 import 'package:autosre/models/adk_schema.dart';
 // import 'package:autosre/pages/conversation_page.dart';
 import 'package:autosre/services/dashboard_state.dart';
@@ -9,7 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 // import 'test_helper.dart';
 
 void main() {
-/*
+  /*
   testWidgets('DashboardPanel expands to 60% width when toggled', (tester) async {
     // Set a fixed screen size for calculation verification (e.g., 1000px wide)
     tester.view.physicalSize = const Size(1000, 800);
@@ -65,7 +64,9 @@ void main() {
   });
 */
 
-  testWidgets('LiveAlertsPanel fills available space with single item', (tester) async {
+  testWidgets('LiveAlertsPanel fills available space with single item', (
+    tester,
+  ) async {
     // Set a large screen size to verify expansion
     tester.view.physicalSize = const Size(1000, 800);
     tester.view.devicePixelRatio = 1.0;
@@ -118,6 +119,10 @@ void main() {
 
     final size = tester.getSize(panelFinder);
     // Screen is 800px; panel should fill most of it
-    expect(size.height, greaterThan(600), reason: 'Alert panel should expand to fill space');
+    expect(
+      size.height,
+      greaterThan(600),
+      reason: 'Alert panel should expand to fill space',
+    );
   });
 }

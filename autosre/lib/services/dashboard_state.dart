@@ -153,15 +153,21 @@ class DashboardState extends ChangeNotifier {
   List<String> get bigQueryColumns => List.unmodifiable(_bigQueryColumns);
 
   void setBigQueryResults(
-      List<String> columns, List<Map<String, dynamic>> rows) {
+    List<String> columns,
+    List<Map<String, dynamic>> rows,
+  ) {
     _bigQueryColumns = columns;
     _bigQueryResults = flattenBigQueryResults(rows);
     notifyListeners();
   }
 
-  void addSqlResults(String query, List<String> columns,
-      List<Map<String, dynamic>> rows, String toolName,
-      {DataSource source = DataSource.agent}) {
+  void addSqlResults(
+    String query,
+    List<String> columns,
+    List<Map<String, dynamic>> rows,
+    String toolName, {
+    DataSource source = DataSource.agent,
+  }) {
     _itemCounter++;
     final flattenedRows = flattenBigQueryResults(rows);
 
@@ -169,23 +175,21 @@ class DashboardState extends ChangeNotifier {
     _bigQueryColumns = columns;
     _bigQueryResults = flattenedRows;
 
-    _addItemBounded(DashboardItem(
-      id: 'sql-$_itemCounter',
-      type: DashboardDataType.analytics,
-      toolName: toolName,
-      timestamp: DateTime.now(),
-      rawData: {
-        'query': query,
-        'columns': columns,
-        'rows': flattenedRows,
-      },
-      source: source,
-      sqlData: SqlResultSet(
-        query: query,
-        columns: columns,
-        rows: flattenedRows,
+    _addItemBounded(
+      DashboardItem(
+        id: 'sql-$_itemCounter',
+        type: DashboardDataType.analytics,
+        toolName: toolName,
+        timestamp: DateTime.now(),
+        rawData: {'query': query, 'columns': columns, 'rows': flattenedRows},
+        source: source,
+        sqlData: SqlResultSet(
+          query: query,
+          columns: columns,
+          rows: flattenedRows,
+        ),
       ),
-    ));
+    );
     notifyListeners();
   }
 
@@ -269,153 +273,200 @@ class DashboardState extends ChangeNotifier {
   }
 
   /// Add a trace result to the dashboard.
-  void addTrace(Trace trace, String toolName, Map<String, dynamic> raw,
-      {DataSource source = DataSource.agent}) {
+  void addTrace(
+    Trace trace,
+    String toolName,
+    Map<String, dynamic> raw, {
+    DataSource source = DataSource.agent,
+  }) {
     _itemCounter++;
-    _addItemBounded(DashboardItem(
-      id: 'trace-$_itemCounter',
-      type: DashboardDataType.traces,
-      toolName: toolName,
-      timestamp: DateTime.now(),
-      rawData: raw,
-      source: source,
-      traceData: trace,
-    ));
+    _addItemBounded(
+      DashboardItem(
+        id: 'trace-$_itemCounter',
+        type: DashboardDataType.traces,
+        toolName: toolName,
+        timestamp: DateTime.now(),
+        rawData: raw,
+        source: source,
+        traceData: trace,
+      ),
+    );
     notifyListeners();
   }
 
   /// Add a log entries result to the dashboard.
-  void addLogEntries(LogEntriesData data, String toolName,
-      Map<String, dynamic> raw,
-      {DataSource source = DataSource.agent}) {
+  void addLogEntries(
+    LogEntriesData data,
+    String toolName,
+    Map<String, dynamic> raw, {
+    DataSource source = DataSource.agent,
+  }) {
     _itemCounter++;
-    _addItemBounded(DashboardItem(
-      id: 'logs-$_itemCounter',
-      type: DashboardDataType.logs,
-      toolName: toolName,
-      timestamp: DateTime.now(),
-      rawData: raw,
-      source: source,
-      logData: data,
-    ));
+    _addItemBounded(
+      DashboardItem(
+        id: 'logs-$_itemCounter',
+        type: DashboardDataType.logs,
+        toolName: toolName,
+        timestamp: DateTime.now(),
+        rawData: raw,
+        source: source,
+        logData: data,
+      ),
+    );
     notifyListeners();
   }
 
   /// Add log patterns to the dashboard.
-  void addLogPatterns(List<LogPattern> patterns, String toolName,
-      Map<String, dynamic> raw,
-      {DataSource source = DataSource.agent}) {
+  void addLogPatterns(
+    List<LogPattern> patterns,
+    String toolName,
+    Map<String, dynamic> raw, {
+    DataSource source = DataSource.agent,
+  }) {
     _itemCounter++;
-    _addItemBounded(DashboardItem(
-      id: 'log-patterns-$_itemCounter',
-      type: DashboardDataType.logs,
-      toolName: toolName,
-      timestamp: DateTime.now(),
-      rawData: raw,
-      source: source,
-      logPatterns: patterns,
-    ));
+    _addItemBounded(
+      DashboardItem(
+        id: 'log-patterns-$_itemCounter',
+        type: DashboardDataType.logs,
+        toolName: toolName,
+        timestamp: DateTime.now(),
+        rawData: raw,
+        source: source,
+        logPatterns: patterns,
+      ),
+    );
     notifyListeners();
   }
 
   /// Add a metric series result to the dashboard.
-  void addMetricSeries(MetricSeries series, String toolName,
-      Map<String, dynamic> raw,
-      {DataSource source = DataSource.agent}) {
+  void addMetricSeries(
+    MetricSeries series,
+    String toolName,
+    Map<String, dynamic> raw, {
+    DataSource source = DataSource.agent,
+  }) {
     _itemCounter++;
-    _addItemBounded(DashboardItem(
-      id: 'metric-$_itemCounter',
-      type: DashboardDataType.metrics,
-      toolName: toolName,
-      timestamp: DateTime.now(),
-      rawData: raw,
-      source: source,
-      metricSeries: series,
-    ));
+    _addItemBounded(
+      DashboardItem(
+        id: 'metric-$_itemCounter',
+        type: DashboardDataType.metrics,
+        toolName: toolName,
+        timestamp: DateTime.now(),
+        rawData: raw,
+        source: source,
+        metricSeries: series,
+      ),
+    );
     notifyListeners();
   }
 
   /// Add a metrics dashboard result.
-  void addMetricsDashboard(MetricsDashboardData data, String toolName,
-      Map<String, dynamic> raw,
-      {DataSource source = DataSource.agent}) {
+  void addMetricsDashboard(
+    MetricsDashboardData data,
+    String toolName,
+    Map<String, dynamic> raw, {
+    DataSource source = DataSource.agent,
+  }) {
     _itemCounter++;
-    _addItemBounded(DashboardItem(
-      id: 'metrics-dashboard-$_itemCounter',
-      type: DashboardDataType.metrics,
-      toolName: toolName,
-      timestamp: DateTime.now(),
-      rawData: raw,
-      source: source,
-      metricsDashboard: data,
-    ));
+    _addItemBounded(
+      DashboardItem(
+        id: 'metrics-dashboard-$_itemCounter',
+        type: DashboardDataType.metrics,
+        toolName: toolName,
+        timestamp: DateTime.now(),
+        rawData: raw,
+        source: source,
+        metricsDashboard: data,
+      ),
+    );
     notifyListeners();
   }
 
   /// Add an alert/incident timeline result.
-  void addAlerts(IncidentTimelineData data, String toolName,
-      Map<String, dynamic> raw,
-      {DataSource source = DataSource.agent}) {
+  void addAlerts(
+    IncidentTimelineData data,
+    String toolName,
+    Map<String, dynamic> raw, {
+    DataSource source = DataSource.agent,
+  }) {
     _itemCounter++;
-    _addItemBounded(DashboardItem(
-      id: 'alert-$_itemCounter',
-      type: DashboardDataType.alerts,
-      toolName: toolName,
-      timestamp: DateTime.now(),
-      rawData: raw,
-      source: source,
-      alertData: data,
-    ));
+    _addItemBounded(
+      DashboardItem(
+        id: 'alert-$_itemCounter',
+        type: DashboardDataType.alerts,
+        toolName: toolName,
+        timestamp: DateTime.now(),
+        rawData: raw,
+        source: source,
+        alertData: data,
+      ),
+    );
     notifyListeners();
   }
 
   /// Add a remediation plan result.
-  void addRemediation(RemediationPlan plan, String toolName,
-      Map<String, dynamic> raw,
-      {DataSource source = DataSource.agent}) {
+  void addRemediation(
+    RemediationPlan plan,
+    String toolName,
+    Map<String, dynamic> raw, {
+    DataSource source = DataSource.agent,
+  }) {
     _itemCounter++;
-    _addItemBounded(DashboardItem(
-      id: 'remediation-$_itemCounter',
-      type: DashboardDataType.remediation,
-      toolName: toolName,
-      timestamp: DateTime.now(),
-      rawData: raw,
-      source: source,
-      remediationPlan: plan,
-    ));
+    _addItemBounded(
+      DashboardItem(
+        id: 'remediation-$_itemCounter',
+        type: DashboardDataType.remediation,
+        toolName: toolName,
+        timestamp: DateTime.now(),
+        rawData: raw,
+        source: source,
+        remediationPlan: plan,
+      ),
+    );
     notifyListeners();
   }
 
   /// Add a chart (Vega-Lite) result to the dashboard.
-  void addChart(VegaChartData data, String toolName, Map<String, dynamic> raw,
-      {DataSource source = DataSource.agent}) {
+  void addChart(
+    VegaChartData data,
+    String toolName,
+    Map<String, dynamic> raw, {
+    DataSource source = DataSource.agent,
+  }) {
     _itemCounter++;
-    _addItemBounded(DashboardItem(
-      id: 'chart-$_itemCounter',
-      type: DashboardDataType.analytics,
-      toolName: toolName,
-      timestamp: DateTime.now(),
-      rawData: raw,
-      source: source,
-      chartData: data,
-    ));
+    _addItemBounded(
+      DashboardItem(
+        id: 'chart-$_itemCounter',
+        type: DashboardDataType.analytics,
+        toolName: toolName,
+        timestamp: DateTime.now(),
+        rawData: raw,
+        source: source,
+        chartData: data,
+      ),
+    );
     notifyListeners();
   }
 
   /// Add a council synthesis result to the dashboard.
-  void addCouncilSynthesis(CouncilSynthesisData data, String toolName,
-      Map<String, dynamic> raw,
-      {DataSource source = DataSource.agent}) {
+  void addCouncilSynthesis(
+    CouncilSynthesisData data,
+    String toolName,
+    Map<String, dynamic> raw, {
+    DataSource source = DataSource.agent,
+  }) {
     _itemCounter++;
-    _addItemBounded(DashboardItem(
-      id: 'council-$_itemCounter',
-      type: DashboardDataType.council,
-      toolName: toolName,
-      timestamp: DateTime.now(),
-      rawData: raw,
-      source: source,
-      councilData: data,
-    ));
+    _addItemBounded(
+      DashboardItem(
+        id: 'council-$_itemCounter',
+        type: DashboardDataType.council,
+        toolName: toolName,
+        timestamp: DateTime.now(),
+        rawData: raw,
+        source: source,
+        councilData: data,
+      ),
+    );
     notifyListeners();
   }
 
@@ -488,54 +539,90 @@ class DashboardState extends ChangeNotifier {
         case 'x-sre-trace-waterfall':
           final trace = Trace.fromJson(dataMap);
           if (trace.spans.isEmpty) return false;
-          _addItemSilent(DashboardDataType.traces, toolName, dataMap,
-              traceData: trace);
+          _addItemSilent(
+            DashboardDataType.traces,
+            toolName,
+            dataMap,
+            traceData: trace,
+          );
 
         case 'x-sre-log-entries-viewer':
           final logData = LogEntriesData.fromJson(dataMap);
           if (logData.entries.isEmpty) return false;
-          _addItemSilent(DashboardDataType.logs, toolName, dataMap,
-              logData: logData);
+          _addItemSilent(
+            DashboardDataType.logs,
+            toolName,
+            dataMap,
+            logData: logData,
+          );
 
         case 'x-sre-log-pattern-viewer':
           final patterns = _parseLogPatterns(dataMap);
           if (patterns.isEmpty) return false;
-          _addItemSilent(DashboardDataType.logs, toolName, dataMap,
-              logPatterns: patterns);
+          _addItemSilent(
+            DashboardDataType.logs,
+            toolName,
+            dataMap,
+            logPatterns: patterns,
+          );
 
         case 'x-sre-metric-chart':
           final series = MetricSeries.fromJson(dataMap);
           if (series.points.isEmpty) return false;
-          _addItemSilent(DashboardDataType.metrics, toolName, dataMap,
-              metricSeries: series);
+          _addItemSilent(
+            DashboardDataType.metrics,
+            toolName,
+            dataMap,
+            metricSeries: series,
+          );
 
         case 'x-sre-metrics-dashboard':
           final metricsData = MetricsDashboardData.fromJson(dataMap);
           if (metricsData.metrics.isEmpty) return false;
-          _addItemSilent(DashboardDataType.metrics, toolName, dataMap,
-              metricsDashboard: metricsData);
+          _addItemSilent(
+            DashboardDataType.metrics,
+            toolName,
+            dataMap,
+            metricsDashboard: metricsData,
+          );
 
         case 'x-sre-incident-timeline':
           final timelineData = IncidentTimelineData.fromJson(dataMap);
           if (timelineData.events.isEmpty) return false;
-          _addItemSilent(DashboardDataType.alerts, toolName, dataMap,
-              alertData: timelineData);
+          _addItemSilent(
+            DashboardDataType.alerts,
+            toolName,
+            dataMap,
+            alertData: timelineData,
+          );
 
         case 'x-sre-remediation-plan':
           final plan = RemediationPlan.fromJson(dataMap);
           if (plan.steps.isEmpty) return false;
-          _addItemSilent(DashboardDataType.remediation, toolName, dataMap,
-              remediationPlan: plan);
+          _addItemSilent(
+            DashboardDataType.remediation,
+            toolName,
+            dataMap,
+            remediationPlan: plan,
+          );
 
         case 'x-sre-council-synthesis':
           final council = CouncilSynthesisData.fromJson(dataMap);
-          _addItemSilent(DashboardDataType.council, toolName, dataMap,
-              councilData: council);
+          _addItemSilent(
+            DashboardDataType.council,
+            toolName,
+            dataMap,
+            councilData: council,
+          );
 
         case 'x-sre-vega-chart':
           final chart = VegaChartData.fromJson(dataMap);
-          _addItemSilent(DashboardDataType.analytics, toolName, dataMap,
-              chartData: chart);
+          _addItemSilent(
+            DashboardDataType.analytics,
+            toolName,
+            dataMap,
+            chartData: chart,
+          );
 
         default:
           debugPrint('Unknown dashboard widget_type: $widgetType');
@@ -576,22 +663,24 @@ class DashboardState extends ChangeNotifier {
   }) {
     _itemCounter++;
     final prefix = type.name;
-    _addItemBounded(DashboardItem(
-      id: '$prefix-$_itemCounter',
-      type: type,
-      toolName: toolName,
-      timestamp: DateTime.now(),
-      rawData: rawData,
-      traceData: traceData,
-      logData: logData,
-      logPatterns: logPatterns,
-      metricSeries: metricSeries,
-      metricsDashboard: metricsDashboard,
-      alertData: alertData,
-      remediationPlan: remediationPlan,
-      councilData: councilData,
-      chartData: chartData,
-    ));
+    _addItemBounded(
+      DashboardItem(
+        id: '$prefix-$_itemCounter',
+        type: type,
+        toolName: toolName,
+        timestamp: DateTime.now(),
+        rawData: rawData,
+        traceData: traceData,
+        logData: logData,
+        logPatterns: logPatterns,
+        metricSeries: metricSeries,
+        metricsDashboard: metricsDashboard,
+        alertData: alertData,
+        remediationPlan: remediationPlan,
+        councilData: councilData,
+        chartData: chartData,
+      ),
+    );
   }
 
   static DashboardDataType? _categoryFromString(String category) {

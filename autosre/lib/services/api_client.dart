@@ -22,10 +22,8 @@ class ProjectInterceptorClient extends http.BaseClient {
   final ProjectService _projectService;
   static const _uuid = Uuid();
 
-  ProjectInterceptorClient(
-    this._inner, {
-    ProjectService? projectService,
-  }) : _projectService = projectService ?? ProjectService();
+  ProjectInterceptorClient(this._inner, {ProjectService? projectService})
+    : _projectService = projectService ?? ProjectService();
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
@@ -37,7 +35,7 @@ class ProjectInterceptorClient extends http.BaseClient {
     request.headers.addAll(authHeaders);
 
     if (kDebugMode && authHeaders.containsKey('Authorization')) {
-       debugPrint('ProjectInterceptorClient: Injected Auth header');
+      debugPrint('ProjectInterceptorClient: Injected Auth header');
     }
 
     // 2. Add User ID hint for better backend session lookup
@@ -48,7 +46,9 @@ class ProjectInterceptorClient extends http.BaseClient {
 
     final projectId = _projectService.selectedProjectId;
     if (kDebugMode) {
-      debugPrint('ProjectInterceptorClient: Request to ${request.url.path}, ProjectID: $projectId');
+      debugPrint(
+        'ProjectInterceptorClient: Request to ${request.url.path}, ProjectID: $projectId',
+      );
     }
 
     // 3. Add as Header
@@ -61,25 +61,31 @@ class ProjectInterceptorClient extends http.BaseClient {
     request.headers['X-Correlation-ID'] = correlationId;
 
     if (kDebugMode) {
-      debugPrint('🌐 [API Request] ${request.method} ${request.url.path} | CorrID: $correlationId');
+      debugPrint(
+        '🌐 [API Request] ${request.method} ${request.url.path} | CorrID: $correlationId',
+      );
     }
 
     final stopwatch = Stopwatch()..start();
     try {
-      final response = await _inner.send(request).timeout(
-        ServiceConfig.defaultTimeout,
-      );
+      final response = await _inner
+          .send(request)
+          .timeout(ServiceConfig.defaultTimeout);
       final duration = stopwatch.elapsedMilliseconds;
 
       if (kDebugMode) {
-        debugPrint('🌐 [API Response] ${request.method} ${request.url.path} | Status: ${response.statusCode} | Duration: ${duration}ms | CorrID: $correlationId');
+        debugPrint(
+          '🌐 [API Response] ${request.method} ${request.url.path} | Status: ${response.statusCode} | Duration: ${duration}ms | CorrID: $correlationId',
+        );
       }
 
       return response;
     } catch (e) {
       final duration = stopwatch.elapsedMilliseconds;
       if (kDebugMode) {
-        debugPrint('❌ [API Error] ${request.method} ${request.url.path} | Error: $e | Duration: ${duration}ms | CorrID: $correlationId');
+        debugPrint(
+          '❌ [API Error] ${request.method} ${request.url.path} | Error: $e | Duration: ${duration}ms | CorrID: $correlationId',
+        );
       }
       rethrow;
     }

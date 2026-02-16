@@ -400,6 +400,128 @@ async def get_logs_for_trace(
     return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
+@adk_tool
+async def list_logs(
+    project_id: str | None = None, tool_context: Any = None
+) -> BaseToolResponse:
+    """Lists the names of logs available in the Google Cloud Project.
+
+    Args:
+        project_id: The Google Cloud Project ID.
+        tool_context: Context object for tool execution.
+
+    Returns:
+        Standardized response containing a list of log paths.
+    """
+    from sre_agent.auth import is_guest_mode
+
+    if is_guest_mode():
+        from sre_agent.tools.synthetic.provider import SyntheticDataProvider
+
+        return SyntheticDataProvider.list_logs(project_id=project_id)
+
+    from fastapi.concurrency import run_in_threadpool
+
+    from sre_agent.auth import get_current_project_id
+
+    if not project_id:
+        project_id = get_current_project_id()
+        if not project_id:
+            return BaseToolResponse(
+                status=ToolStatus.ERROR,
+                error="Project ID is required.",
+            )
+
+    result = await run_in_threadpool(_list_logs_sync, project_id, tool_context)
+    if "error" in result:
+        return BaseToolResponse(status=ToolStatus.ERROR, error=result["error"])
+    return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
+
+
+def _list_logs_sync(project_id: str, tool_context: Any = None) -> dict[str, Any]:
+    try:
+        client = get_logging_client(tool_context=tool_context)
+        parent = f"projects/{project_id}"
+        pager = client.list_logs(parent=parent)
+        logs = []
+        for x in pager:
+            # Note: pager yields strings
+            if isinstance(x, str):
+                log_name = x
+            elif hasattr(x, "name"):
+                log_name = x.name
+            else:
+                log_name = str(x)
+
+            # Usually the log name is a full path 'projects/[PROJECT_ID]/logs/[LOG_ID]'
+            # But the google-cloud-logging library often just returns the LOG_ID or full path.
+            # We standardize on returning the full string.
+            logs.append(log_name)
+            if len(logs) >= 500:
+                break
+        return {"logs": logs}
+    except Exception as e:
+        logger.error(f"Failed to list logs: {e}", exc_info=True)
+        return {"error": str(e)}
+
+
+@adk_tool
+async def list_resource_keys(
+    project_id: str | None = None, tool_context: Any = None
+) -> BaseToolResponse:
+    """Lists the monitored resource descriptors available in Cloud Logging.
+
+    Args:
+        project_id: The Google Cloud Project ID.
+        tool_context: Context object for tool execution.
+
+    Returns:
+        Standardized response containing resource descriptors.
+    """
+    from sre_agent.auth import is_guest_mode
+
+    if is_guest_mode():
+        return BaseToolResponse(status=ToolStatus.SUCCESS, result={"resource_keys": []})
+
+    from fastapi.concurrency import run_in_threadpool
+
+    from sre_agent.auth import get_current_project_id
+
+    if not project_id:
+        project_id = get_current_project_id()
+        if not project_id:
+            return BaseToolResponse(
+                status=ToolStatus.ERROR,
+                error="Project ID is required.",
+            )
+
+    result = await run_in_threadpool(_list_resource_keys_sync, tool_context)
+    if "error" in result:
+        return BaseToolResponse(status=ToolStatus.ERROR, error=result["error"])
+    return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
+
+
+def _list_resource_keys_sync(tool_context: Any = None) -> dict[str, Any]:
+    try:
+        client = get_logging_client(tool_context=tool_context)
+        pager = client.list_monitored_resource_descriptors()
+        keys = []
+        for d in pager:
+            keys.append(
+                {
+                    "type": getattr(d, "type", ""),
+                    "display_name": getattr(d, "display_name", ""),
+                    "description": getattr(d, "description", ""),
+                }
+            )
+            if len(keys) >= 200:
+                break
+        return {"resource_keys": keys}
+    except Exception as e:
+        logger.error(f"Failed to list resource keys: {e}", exc_info=True)
+        return {"error": str(e)}
+
+
 def _extract_log_payload(entry: Any) -> str | dict[str, Any]:
     """Extracts and normalizes payload from a log entry."""
     payload_data: str | dict[str, Any] = ""

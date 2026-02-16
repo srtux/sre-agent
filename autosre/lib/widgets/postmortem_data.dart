@@ -41,8 +41,7 @@ class PostmortemActionItem {
   });
 
   factory PostmortemActionItem.fromJson(Map<String, dynamic> json) {
-    final priorityStr =
-        (json['priority'] as String? ?? 'p2').toLowerCase();
+    final priorityStr = (json['priority'] as String? ?? 'p2').toLowerCase();
     final ActionPriority priority;
     switch (priorityStr) {
       case 'p0':
@@ -101,13 +100,16 @@ class PostmortemData {
       errorBudgetConsumed: json['error_budget_consumed'] as String?,
       duration: json['duration'] as String?,
       timeline: timelineRaw
-          .map((e) =>
-              PostmortemTimelineEvent.fromJson(Map<String, dynamic>.from(e)))
+          .map(
+            (e) =>
+                PostmortemTimelineEvent.fromJson(Map<String, dynamic>.from(e)),
+          )
           .toList(),
       rootCause: json['root_cause'] as String?,
       actionItems: actionsRaw
-          .map((e) =>
-              PostmortemActionItem.fromJson(Map<String, dynamic>.from(e)))
+          .map(
+            (e) => PostmortemActionItem.fromJson(Map<String, dynamic>.from(e)),
+          )
           .toList(),
       whatWentWell: wellRaw.map((e) => e.toString()).toList(),
       whatWentPoorly: poorlyRaw.map((e) => e.toString()).toList(),

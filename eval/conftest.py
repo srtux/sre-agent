@@ -6,8 +6,9 @@ and eval config construction used across all eval test modules.
 
 import json
 import os
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, TypeVar, cast
+from typing import Any, TypeVar, cast
 
 import pytest
 from dotenv import load_dotenv

@@ -231,8 +231,7 @@ class _LogEntryCardState extends State<LogEntryCard> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.2),
-        border:
-            const Border(top: BorderSide(color: AppColors.surfaceBorder)),
+        border: const Border(top: BorderSide(color: AppColors.surfaceBorder)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -248,16 +247,12 @@ class _LogEntryCardState extends State<LogEntryCard> {
             ),
           // Trace info
           if (entry.traceId != null || entry.spanId != null)
-            _buildDetailSection(
-              'Trace Info',
-              Icons.account_tree_outlined,
-              [
-                if (entry.traceId != null)
-                  _buildLabelChip('trace_id', entry.traceId!),
-                if (entry.spanId != null)
-                  _buildLabelChip('span_id', entry.spanId!),
-              ],
-            ),
+            _buildDetailSection('Trace Info', Icons.account_tree_outlined, [
+              if (entry.traceId != null)
+                _buildLabelChip('trace_id', entry.traceId!),
+              if (entry.spanId != null)
+                _buildLabelChip('span_id', entry.spanId!),
+            ]),
           // HTTP Request
           if (entry.httpRequest != null)
             _buildDetailSection('HTTP Request', Icons.http, [
@@ -293,8 +288,7 @@ class _LogEntryCardState extends State<LogEntryCard> {
                   _buildActionButton('Copy JSON', Icons.data_object, () {
                     _copyToClipboard(
                       context,
-                      const JsonEncoder.withIndent('  ')
-                          .convert(entry.payload),
+                      const JsonEncoder.withIndent('  ').convert(entry.payload),
                     );
                   }),
               ],
@@ -421,11 +415,7 @@ class _LogEntryCardState extends State<LogEntryCard> {
     );
   }
 
-  Widget _buildActionButton(
-    String label,
-    IconData icon,
-    VoidCallback onTap,
-  ) {
+  Widget _buildActionButton(String label, IconData icon, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(6),
@@ -482,9 +472,7 @@ class _LogEntryCardState extends State<LogEntryCard> {
     if (entry.spanId != null) buffer.writeln('Span ID: ${entry.spanId}');
     buffer.writeln('---');
     if (entry.isJsonPayload) {
-      buffer.writeln(
-        const JsonEncoder.withIndent('  ').convert(entry.payload),
-      );
+      buffer.writeln(const JsonEncoder.withIndent('  ').convert(entry.payload));
     } else {
       buffer.writeln(entry.payload?.toString() ?? '');
     }

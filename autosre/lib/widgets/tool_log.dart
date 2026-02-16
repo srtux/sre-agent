@@ -227,7 +227,9 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
                         ),
                       ),
                       // Output section (only if not an error)
-                      if (completed && widget.log.result != null && !isError) ...[
+                      if (completed &&
+                          widget.log.result != null &&
+                          !isError) ...[
                         const SizedBox(height: 10),
                         _buildSection(
                           title: 'Output',
@@ -272,7 +274,9 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
             // Check for status-based failure
             final status = decoded['status']?.toString().toLowerCase();
             if (status != null &&
-                (status == 'error' || status == 'failed' || status == 'failure')) {
+                (status == 'error' ||
+                    status == 'failed' ||
+                    status == 'failure')) {
               return true;
             }
           }

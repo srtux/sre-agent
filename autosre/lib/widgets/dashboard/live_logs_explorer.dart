@@ -15,6 +15,7 @@ import '../../utils/ansi_parser.dart';
 import '../common/error_banner.dart';
 import '../common/explorer_empty_state.dart';
 import '../common/shimmer_loading.dart';
+import 'json_payload_viewer.dart';
 import 'log_field_facets.dart';
 import 'log_timeline_histogram.dart';
 import 'manual_query_bar.dart';
@@ -54,6 +55,9 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
   bool _helpDismissed = false;
   bool _helpDismissedLoaded = false;
 
+  /// Cached lists for quick filters
+  List<String> _logNames = [];
+
   /// Active facet filters: field name -> set of selected values.
   final Map<String, Set<String>> _facetFilters = {};
 
@@ -61,6 +65,20 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
   void initState() {
     super.initState();
     _loadHelpDismissed();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchMetadata();
+    });
+  }
+
+  Future<void> _fetchMetadata() async {
+    final explorer = context.read<ExplorerQueryService>();
+    final logs = await explorer.getLogNames();
+    if (mounted) {
+      setState(() {
+        _logNames = logs;
+      });
+    }
   }
 
   Future<void> _loadHelpDismissed() async {
@@ -139,11 +157,11 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
 
   @override
   Widget build(BuildContext context) {
-    final isLoading =
-        widget.dashboardState.isLoading(DashboardDataType.logs);
+    final isLoading = widget.dashboardState.isLoading(DashboardDataType.logs);
     final error = widget.dashboardState.errorFor(DashboardDataType.logs);
-    final hasPatterns = widget.items
-        .any((i) => i.logPatterns != null && i.logPatterns!.isNotEmpty);
+    final hasPatterns = widget.items.any(
+      (i) => i.logPatterns != null && i.logPatterns!.isNotEmpty,
+    );
     final allEntries = _allEntries;
     final hasData = allEntries.isNotEmpty || hasPatterns;
 
@@ -152,14 +170,18 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
         // Query bar (primary filter - all filtering goes through here)
         Padding(
           padding: const EdgeInsets.fromLTRB(
-            tokens.Spacing.md, tokens.Spacing.sm, tokens.Spacing.md, tokens.Spacing.xs,
+            tokens.Spacing.md,
+            tokens.Spacing.sm,
+            tokens.Spacing.md,
+            tokens.Spacing.xs,
           ),
           child: ManualQueryBar(
             hintText: 'severity>=ERROR AND resource.type="gce_instance"',
             dashboardState: widget.dashboardState,
             onRefresh: () {
-              final filter = widget.dashboardState
-                  .getLastQueryFilter(DashboardDataType.logs);
+              final filter = widget.dashboardState.getLastQueryFilter(
+                DashboardDataType.logs,
+              );
               if (filter != null && filter.isNotEmpty) {
                 final explorer = context.read<ExplorerQueryService>();
                 explorer.queryLogs(filter: filter);
@@ -167,8 +189,9 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
             },
             languageLabel: 'LOG FILTER',
             languageLabelColor: AppColors.success,
-            initialValue: widget.dashboardState
-                .getLastQueryFilter(DashboardDataType.logs),
+            initialValue: widget.dashboardState.getLastQueryFilter(
+              DashboardDataType.logs,
+            ),
             isLoading: isLoading,
             snippets: loggingSnippets,
             templates: loggingTemplates,
@@ -177,8 +200,10 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
                 'Show me all errors from the payment service...',
             naturalLanguageExamples: loggingNaturalLanguageExamples,
             onSubmitWithMode: (query, isNl) {
-              widget.dashboardState
-                  .setLastQueryFilter(DashboardDataType.logs, query);
+              widget.dashboardState.setLastQueryFilter(
+                DashboardDataType.logs,
+                query,
+              );
               final explorer = context.read<ExplorerQueryService>();
               if (isNl) {
                 widget.onPromptRequest?.call(query);
@@ -187,13 +212,18 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
               }
             },
             onSubmit: (filter) {
-              widget.dashboardState
-                  .setLastQueryFilter(DashboardDataType.logs, filter);
+              widget.dashboardState.setLastQueryFilter(
+                DashboardDataType.logs,
+                filter,
+              );
               final explorer = context.read<ExplorerQueryService>();
               explorer.queryLogs(filter: filter);
             },
           ),
         ),
+
+        // Metadata dropdown selectors
+        _buildMetadataSelectors(),
 
         // Collapsible help banner
         if (_helpDismissedLoaded && !_helpDismissed) _buildDismissibleHelp(),
@@ -253,6 +283,109 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
     );
   }
 
+  Widget _buildMetadataSelectors() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        tokens.Spacing.md,
+        0,
+        tokens.Spacing.md,
+        tokens.Spacing.sm,
+      ),
+      child: Row(
+        children: [
+          _buildDropdown('All log names', _logNames, (val) {
+            if (val != null) _appendFilter('logName="$val"');
+          }),
+          const SizedBox(width: tokens.Spacing.sm),
+          _buildDropdown(
+            'All severities',
+            const [
+              'DEFAULT',
+              'DEBUG',
+              'INFO',
+              'NOTICE',
+              'WARNING',
+              'ERROR',
+              'CRITICAL',
+              'ALERT',
+              'EMERGENCY',
+            ],
+            (val) {
+              if (val != null) _appendFilter('severity="$val"');
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDropdown(
+    String hint,
+    List<String> items,
+    ValueChanged<String?> onChanged,
+  ) {
+    return Container(
+      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          isDense: true,
+          hint: Text(
+            hint,
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          icon: const Icon(
+            Icons.arrow_drop_down,
+            size: 18,
+            color: AppColors.textPrimary,
+          ),
+          style: const TextStyle(fontSize: 12, color: AppColors.textPrimary),
+          dropdownColor: AppColors.backgroundElevated,
+          focusColor: Colors.transparent,
+          items: items.map((i) {
+            var display = i;
+            if (i.contains('/logs/')) {
+              final parts = i.split('/logs/');
+              if (parts.length > 1) {
+                display = Uri.decodeComponent(parts.last);
+              }
+            }
+            return DropdownMenuItem(
+              value: i,
+              child: SizedBox(
+                width: display.length > 30 ? 200 : null,
+                child: Text(display, overflow: TextOverflow.ellipsis),
+              ),
+            );
+          }).toList(),
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+
+  void _appendFilter(String addition) {
+    var current =
+        widget.dashboardState.getLastQueryFilter(DashboardDataType.logs) ?? '';
+    if (current.isEmpty) {
+      current = addition;
+    } else if (!current.contains(addition)) {
+      current = '$current AND $addition';
+    }
+    widget.dashboardState.setLastQueryFilter(DashboardDataType.logs, current);
+
+    final explorer = context.read<ExplorerQueryService>();
+    explorer.queryLogs(filter: current);
+  }
+
   /// Dismissible help banner with 'X' button and persistent state.
   Widget _buildDismissibleHelp() {
     return AnimatedSize(
@@ -260,15 +393,16 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
       curve: Curves.easeOut,
       child: Container(
         margin: const EdgeInsets.fromLTRB(
-          tokens.Spacing.md, 0, tokens.Spacing.md, tokens.Spacing.xs,
+          tokens.Spacing.md,
+          0,
+          tokens.Spacing.md,
+          tokens.Spacing.xs,
         ),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           color: AppColors.success.withValues(alpha: 0.04),
           borderRadius: tokens.Radii.borderMd,
-          border: Border.all(
-            color: AppColors.success.withValues(alpha: 0.1),
-          ),
+          border: Border.all(color: AppColors.success.withValues(alpha: 0.1)),
         ),
         child: Row(
           children: [
@@ -351,41 +485,45 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
             ],
           ),
           const SizedBox(height: 6),
-          ...top.map((p) => Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.success.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        '${p.count}x',
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.success,
-                        ),
+          ...top.map(
+            (p) => Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.success.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      '${p.count}x',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.success,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        p.template,
-                        style: GoogleFonts.jetBrainsMono(
-                          fontSize: 10,
-                          color: AppColors.textSecondary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      p.template,
+                      style: GoogleFonts.jetBrainsMono(
+                        fontSize: 10,
+                        color: AppColors.textSecondary,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ],
-                ),
-              )),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -429,8 +567,7 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
     return ListView.builder(
       padding: const EdgeInsets.all(tokens.Spacing.sm),
       itemCount: entries.length,
-      itemBuilder: (context, index) =>
-          _buildLogRow(entries[index], index),
+      itemBuilder: (context, index) => _buildLogRow(entries[index], index),
     );
   }
 
@@ -448,7 +585,8 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
         child: AnimatedContainer(
           duration: tokens.Durations.instant,
           padding: const EdgeInsets.symmetric(
-            horizontal: tokens.Spacing.sm, vertical: 5,
+            horizontal: tokens.Spacing.sm,
+            vertical: 5,
           ),
           decoration: BoxDecoration(
             color: isExpanded
@@ -479,7 +617,9 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
                   Container(
                     width: 50,
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 4, vertical: 1),
+                      horizontal: 4,
+                      vertical: 1,
+                    ),
                     decoration: BoxDecoration(
                       color: sevColor.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(3),
@@ -568,17 +708,14 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
     if (entry.spanId != null) fullJson['spanId'] = entry.spanId;
     if (entry.httpRequest != null) fullJson['httpRequest'] = entry.httpRequest;
 
-    final prettyJson =
-        const JsonEncoder.withIndent('  ').convert(fullJson);
+    final prettyJson = const JsonEncoder.withIndent('  ').convert(fullJson);
 
     return Container(
       margin: const EdgeInsets.only(top: 6, left: 16),
       decoration: BoxDecoration(
         color: AppColors.backgroundDark,
         borderRadius: tokens.Radii.borderSm,
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.08),
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -586,7 +723,8 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
           // Header with resource type badge and copy button
           Container(
             padding: const EdgeInsets.symmetric(
-              horizontal: tokens.Spacing.sm, vertical: tokens.Spacing.xs,
+              horizontal: tokens.Spacing.sm,
+              vertical: tokens.Spacing.xs,
             ),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.03),
@@ -599,7 +737,8 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
               children: [
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 6, vertical: 2,
+                    horizontal: 6,
+                    vertical: 2,
                   ),
                   decoration: BoxDecoration(
                     color: AppColors.primaryCyan.withValues(alpha: 0.1),
@@ -666,13 +805,27 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
           // JSON content
           Padding(
             padding: const EdgeInsets.all(tokens.Spacing.sm),
-            child: SelectableText(
-              prettyJson,
-              style: GoogleFonts.jetBrainsMono(
-                fontSize: 10,
-                color: AppColors.primaryCyan.withValues(alpha: 0.9),
-                height: 1.4,
-              ),
+            child: JsonPayloadViewer(
+              json: fullJson,
+              onValueTap: (path, displayVal) {
+                final filterAddition = '$path=$displayVal';
+                final currentFilter =
+                    widget.dashboardState.getLastQueryFilter(
+                      DashboardDataType.logs,
+                    ) ??
+                    '';
+                final newFilter = currentFilter.isEmpty
+                    ? filterAddition
+                    : '$currentFilter AND $filterAddition';
+
+                widget.dashboardState.setLastQueryFilter(
+                  DashboardDataType.logs,
+                  newFilter,
+                );
+
+                final explorer = context.read<ExplorerQueryService>();
+                explorer.queryLogs(filter: newFilter);
+              },
             ),
           ),
         ],

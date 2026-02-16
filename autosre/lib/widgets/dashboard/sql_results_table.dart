@@ -14,11 +14,7 @@ class SqlResultsTable extends StatefulWidget {
   final List<String> columns;
   final List<Map<String, dynamic>> rows;
 
-  const SqlResultsTable({
-    super.key,
-    required this.columns,
-    required this.rows,
-  });
+  const SqlResultsTable({super.key, required this.columns, required this.rows});
 
   @override
   State<SqlResultsTable> createState() => _SqlResultsTableState();
@@ -167,7 +163,11 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.table_rows_rounded, size: 12, color: AppColors.textMuted),
+          const Icon(
+            Icons.table_rows_rounded,
+            size: 12,
+            color: AppColors.textMuted,
+          ),
           const SizedBox(width: 6),
           Text(
             '${widget.rows.length} rows, ${widget.columns.length} columns',
@@ -234,7 +234,9 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
       child: Row(
         children: columns.map((col) {
           final isIndex = col == '#';
-          final colType = isIndex ? _ColumnType.string : (_columnTypes[col] ?? _ColumnType.string);
+          final colType = isIndex
+              ? _ColumnType.string
+              : (_columnTypes[col] ?? _ColumnType.string);
           final isSorted = _sortColumn == col;
 
           return Expanded(
@@ -245,13 +247,13 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
                 onTap: isIndex
                     ? null
                     : () => setState(() {
-                          if (_sortColumn == col) {
-                            _sortDescending = !_sortDescending;
-                          } else {
-                            _sortColumn = col;
-                            _sortDescending = false;
-                          }
-                        }),
+                        if (_sortColumn == col) {
+                          _sortDescending = !_sortDescending;
+                        } else {
+                          _sortColumn = col;
+                          _sortDescending = false;
+                        }
+                      }),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Row(
@@ -260,7 +262,9 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
                         Icon(
                           _iconForColumnType(colType),
                           size: 10,
-                          color: isSorted ? AppColors.primaryCyan : AppColors.textMuted,
+                          color: isSorted
+                              ? AppColors.primaryCyan
+                              : AppColors.textMuted,
                         ),
                       if (!isIndex) const SizedBox(width: 6),
                       Expanded(
@@ -269,14 +273,18 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
                           style: GoogleFonts.jetBrainsMono(
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
-                            color: isSorted ? AppColors.primaryCyan : AppColors.textPrimary,
+                            color: isSorted
+                                ? AppColors.primaryCyan
+                                : AppColors.textPrimary,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       if (isSorted)
                         Icon(
-                          _sortDescending ? Icons.arrow_drop_down : Icons.arrow_drop_up,
+                          _sortDescending
+                              ? Icons.arrow_drop_down
+                              : Icons.arrow_drop_up,
                           size: 14,
                           color: AppColors.primaryCyan,
                         ),
@@ -299,18 +307,23 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
       mainAxisSize: MainAxisSize.min,
       children: [
         InkWell(
-          onTap: hasJson ? () => setState(() {
-            if (isExpanded) {
-              _expandedRows.remove(index);
-            } else {
-              _expandedRows.add(index);
-            }
-          }) : null,
-          onHover: (hovering) => setState(() => _hoveredRow = hovering ? index : null),
+          onTap: hasJson
+              ? () => setState(() {
+                  if (isExpanded) {
+                    _expandedRows.remove(index);
+                  } else {
+                    _expandedRows.add(index);
+                  }
+                })
+              : null,
+          onHover: (hovering) =>
+              setState(() => _hoveredRow = hovering ? index : null),
           child: Container(
             height: 32,
             decoration: BoxDecoration(
-              color: _hoveredRow == index ? Colors.white.withValues(alpha: 0.05) : Colors.transparent,
+              color: _hoveredRow == index
+                  ? Colors.white.withValues(alpha: 0.05)
+                  : Colors.transparent,
               border: const Border(
                 bottom: BorderSide(color: AppColors.surfaceBorder, width: 0.5),
               ),
@@ -319,7 +332,9 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
               children: columns.map((col) {
                 final isIndex = col == '#';
                 final val = isIndex ? (index + 1) : row[col];
-                final colType = isIndex ? _ColumnType.number : (_columnTypes[col] ?? _ColumnType.string);
+                final colType = isIndex
+                    ? _ColumnType.number
+                    : (_columnTypes[col] ?? _ColumnType.string);
                 final display = _formatValue(val, colType, compact: true);
 
                 return Expanded(
@@ -332,7 +347,9 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
                         children: [
                           if (isIndex && hasJson)
                             Icon(
-                              isExpanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right,
+                              isExpanded
+                                  ? Icons.keyboard_arrow_down
+                                  : Icons.keyboard_arrow_right,
                               size: 12,
                               color: AppColors.textMuted,
                             ),
@@ -345,9 +362,11 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
                                 color: val == null
                                     ? AppColors.textMuted.withValues(alpha: 0.5)
                                     : colType == _ColumnType.json
-                                        ? AppColors.primaryTeal
-                                        : AppColors.textSecondary,
-                                fontStyle: val == null ? FontStyle.italic : FontStyle.normal,
+                                    ? AppColors.primaryTeal
+                                    : AppColors.textSecondary,
+                                fontStyle: val == null
+                                    ? FontStyle.italic
+                                    : FontStyle.normal,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -367,7 +386,9 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
   }
 
   Widget _buildExpandedArea(Map<String, dynamic> row) {
-    final jsonCols = widget.columns.where((c) => _columnTypes[c] == _ColumnType.json).toList();
+    final jsonCols = widget.columns
+        .where((c) => _columnTypes[c] == _ColumnType.json)
+        .toList();
 
     return Container(
       width: double.infinity,
@@ -389,7 +410,11 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.data_object, size: 12, color: AppColors.primaryTeal),
+                    const Icon(
+                      Icons.data_object,
+                      size: 12,
+                      color: AppColors.primaryTeal,
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       col,
@@ -402,7 +427,15 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
                     const Spacer(),
                     IconButton(
                       icon: const Icon(Icons.copy, size: 12),
-                      onPressed: () => Clipboard.setData(ClipboardData(text: _formatValue(val, _ColumnType.json, compact: false))),
+                      onPressed: () => Clipboard.setData(
+                        ClipboardData(
+                          text: _formatValue(
+                            val,
+                            _ColumnType.json,
+                            compact: false,
+                          ),
+                        ),
+                      ),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                     ),
@@ -437,7 +470,9 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
   String _formatValue(dynamic val, _ColumnType colType, {bool compact = true}) {
     if (val == null) return 'NULL';
     if (val is double) {
-      if (val == val.roundToDouble() && val.abs() < 1e15) return _formatNumber(val.toInt());
+      if (val == val.roundToDouble() && val.abs() < 1e15) {
+        return _formatNumber(val.toInt());
+      }
       return val.toStringAsFixed(4);
     }
     if (val is int) return _formatNumber(val);
@@ -445,7 +480,9 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
     if (colType == _ColumnType.json) {
       try {
         final dynamic decoded = val is String ? jsonDecode(val) : val;
-        final encoder = compact ? const JsonEncoder() : const JsonEncoder.withIndent('  ');
+        final encoder = compact
+            ? const JsonEncoder()
+            : const JsonEncoder.withIndent('  ');
         final s = encoder.convert(decoded);
         if (compact && s.length > 50) return '${s.substring(0, 50)}...';
         return s;
@@ -475,11 +512,16 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
 
   IconData _iconForColumnType(_ColumnType type) {
     switch (type) {
-      case _ColumnType.number: return Icons.tag_rounded;
-      case _ColumnType.boolean: return Icons.toggle_on_rounded;
-      case _ColumnType.timestamp: return Icons.schedule_rounded;
-      case _ColumnType.json: return Icons.data_object_rounded;
-      case _ColumnType.string: return Icons.text_fields_rounded;
+      case _ColumnType.number:
+        return Icons.tag_rounded;
+      case _ColumnType.boolean:
+        return Icons.toggle_on_rounded;
+      case _ColumnType.timestamp:
+        return Icons.schedule_rounded;
+      case _ColumnType.json:
+        return Icons.data_object_rounded;
+      case _ColumnType.string:
+        return Icons.text_fields_rounded;
     }
   }
 
@@ -487,7 +529,9 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
     final buffer = StringBuffer();
     buffer.writeln(widget.columns.join(','));
     for (final row in _sortedRows) {
-      final values = widget.columns.map((c) => _escapeCsv(row[c]?.toString() ?? '')).join(',');
+      final values = widget.columns
+          .map((c) => _escapeCsv(row[c]?.toString() ?? ''))
+          .join(',');
       buffer.writeln(values);
     }
     Clipboard.setData(ClipboardData(text: buffer.toString()));

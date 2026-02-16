@@ -116,11 +116,12 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 itemCount: entries.length,
                 itemBuilder: (context, index) {
-                  final staggerDelay =
-                      index / widget.data.entries.length;
+                  final staggerDelay = index / widget.data.entries.length;
                   final animValue =
-                      ((_animation.value - staggerDelay * 0.3) / 0.7)
-                          .clamp(0.0, 1.0);
+                      ((_animation.value - staggerDelay * 0.3) / 0.7).clamp(
+                        0.0,
+                        1.0,
+                      );
                   return LogEntryCard(
                     entry: entries[index],
                     animationValue: animValue,
@@ -282,8 +283,7 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
             Expanded(
               child: TextField(
                 controller: _searchController,
-                onChanged: (value) =>
-                    setState(() => _searchQuery = value),
+                onChanged: (value) => setState(() => _searchQuery = value),
                 style: const TextStyle(
                   fontSize: 13,
                   color: AppColors.textPrimary,
@@ -358,9 +358,7 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: isSelected
-              ? color.withValues(alpha: 0.2)
-              : Colors.transparent,
+          color: isSelected ? color.withValues(alpha: 0.2) : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
             color: isSelected ? color : AppColors.surfaceBorder,
@@ -374,19 +372,16 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
               style: TextStyle(
                 fontSize: 10,
                 color: isSelected ? color : AppColors.textMuted,
-                fontWeight:
-                    isSelected ? FontWeight.w600 : FontWeight.w400,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
               ),
             ),
             const SizedBox(width: 4),
             Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 4,
-                vertical: 1,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
               decoration: BoxDecoration(
-                color: (isSelected ? color : AppColors.textMuted)
-                    .withValues(alpha: 0.2),
+                color: (isSelected ? color : AppColors.textMuted).withValues(
+                  alpha: 0.2,
+                ),
                 borderRadius: BorderRadius.circular(3),
               ),
               child: Text(
@@ -426,10 +421,7 @@ class _LogEntriesViewerState extends State<LogEntriesViewer>
             _searchQuery.isNotEmpty || _filterSeverity != null
                 ? 'No logs match your filters'
                 : 'No log entries',
-            style: const TextStyle(
-              color: AppColors.textMuted,
-              fontSize: 14,
-            ),
+            style: const TextStyle(color: AppColors.textMuted, fontSize: 14),
           ),
         ],
       ),

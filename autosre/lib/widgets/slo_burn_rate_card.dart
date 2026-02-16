@@ -123,8 +123,10 @@ class _SloBurnRateCardState extends State<SloBurnRateCard>
               ...List.generate(data.windows.length, (index) {
                 final staggerDelay = index / data.windows.length;
                 final animValue =
-                    ((_animation.value - staggerDelay * 0.3) / 0.7)
-                        .clamp(0.0, 1.0);
+                    ((_animation.value - staggerDelay * 0.3) / 0.7).clamp(
+                      0.0,
+                      1.0,
+                    );
                 return AnimatedOpacity(
                   duration: const Duration(milliseconds: 200),
                   opacity: animValue,
@@ -304,10 +306,7 @@ class _SloBurnRateCardState extends State<SloBurnRateCard>
                     width: constraints.maxWidth * remaining * _animation.value,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [
-                          gaugeColor,
-                          gaugeColor.withValues(alpha: 0.7),
-                        ],
+                        colors: [gaugeColor, gaugeColor.withValues(alpha: 0.7)],
                       ),
                       borderRadius: BorderRadius.circular(5),
                       boxShadow: [
@@ -344,9 +343,7 @@ class _SloBurnRateCardState extends State<SloBurnRateCard>
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: GlassDecoration.card(
         borderRadius: 10,
-        borderColor: isCritical
-            ? AppColors.error.withValues(alpha: 0.3)
-            : null,
+        borderColor: isCritical ? AppColors.error.withValues(alpha: 0.3) : null,
       ),
       child: Row(
         children: [

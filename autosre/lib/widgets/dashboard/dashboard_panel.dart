@@ -72,10 +72,7 @@ class _DashboardPanelState extends State<DashboardPanel>
       builder: (context, child) {
         return Transform.translate(
           offset: Offset(_slideAnimation.value * -400, 0),
-          child: Opacity(
-            opacity: _fadeAnimation.value,
-            child: child,
-          ),
+          child: Opacity(opacity: _fadeAnimation.value, child: child),
         );
       },
       child: Material(
@@ -105,19 +102,13 @@ class _DashboardPanelState extends State<DashboardPanel>
                 onToggleMaximize: widget.onToggleMaximize,
                 onClose: widget.onClose,
               ),
-              Expanded(
-                child: SelectionArea(
-                  child: _buildContent(),
-                ),
-              ),
+              Expanded(child: SelectionArea(child: _buildContent())),
             ],
           ),
         ),
       ),
     );
   }
-
-
 
   Widget _buildContent() {
     return ListenableBuilder(
@@ -156,10 +147,7 @@ class _DashboardPanelState extends State<DashboardPanel>
               dashboardState: widget.state,
             );
           case DashboardDataType.council:
-            return LiveCouncilPanel(
-              items: items,
-              dashboardState: widget.state,
-            );
+            return LiveCouncilPanel(items: items, dashboardState: widget.state);
           case DashboardDataType.analytics:
             return LiveChartsPanel(
               items: items,
@@ -170,6 +158,4 @@ class _DashboardPanelState extends State<DashboardPanel>
       },
     );
   }
-
-
 }

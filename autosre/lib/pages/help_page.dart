@@ -78,9 +78,11 @@ class _HelpPageState extends State<HelpPage> {
 
   List<HelpTopic> get _filteredTopics {
     return _allTopics.where((topic) {
-      final matchesCategory = _selectedCategory == 'All' ||
+      final matchesCategory =
+          _selectedCategory == 'All' ||
           topic.categories.contains(_selectedCategory);
-      final matchesSearch = _searchQuery.isEmpty ||
+      final matchesSearch =
+          _searchQuery.isEmpty ||
           topic.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           topic.description.toLowerCase().contains(_searchQuery.toLowerCase());
       return matchesCategory && matchesSearch;
@@ -107,7 +109,10 @@ class _HelpPageState extends State<HelpPage> {
               // Hero Section
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 48,
+                  horizontal: 24,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.backgroundCard.withValues(alpha: 0.3),
                   border: const Border(
@@ -155,23 +160,36 @@ class _HelpPageState extends State<HelpPage> {
                         },
                         style: const TextStyle(color: AppColors.textPrimary),
                         decoration: InputDecoration(
-                          hintText: 'Search for tools, workflows, or concepts...',
-                          hintStyle: const TextStyle(color: AppColors.textSecondary),
-                          prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary),
+                          hintText:
+                              'Search for tools, workflows, or concepts...',
+                          hintStyle: const TextStyle(
+                            color: AppColors.textSecondary,
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.search,
+                            color: AppColors.textSecondary,
+                          ),
                           filled: true,
                           fillColor: Colors.black.withValues(alpha: 0.3),
-                          contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 20,
+                            horizontal: 24,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
                             borderSide: BorderSide.none,
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide: const BorderSide(color: AppColors.surfaceBorder),
+                            borderSide: const BorderSide(
+                              color: AppColors.surfaceBorder,
+                            ),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide: const BorderSide(color: AppColors.primaryTeal),
+                            borderSide: const BorderSide(
+                              color: AppColors.primaryTeal,
+                            ),
                           ),
                         ),
                       ),
@@ -183,7 +201,10 @@ class _HelpPageState extends State<HelpPage> {
               // Categories
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 24,
+                ),
                 child: Row(
                   children: _categories.map((category) {
                     final isSelected = _selectedCategory == category;
@@ -198,18 +219,31 @@ class _HelpPageState extends State<HelpPage> {
                             _selectedCategory = category;
                           });
                         },
-                        backgroundColor: AppColors.backgroundCard.withValues(alpha: 0.5),
-                        selectedColor: AppColors.primaryTeal.withValues(alpha: 0.2),
+                        backgroundColor: AppColors.backgroundCard.withValues(
+                          alpha: 0.5,
+                        ),
+                        selectedColor: AppColors.primaryTeal.withValues(
+                          alpha: 0.2,
+                        ),
                         labelStyle: TextStyle(
-                          color: isSelected ? AppColors.primaryTeal : AppColors.textSecondary,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          color: isSelected
+                              ? AppColors.primaryTeal
+                              : AppColors.textSecondary,
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
                           fontSize: 14,
                         ),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                           side: BorderSide(
-                            color: isSelected ? AppColors.primaryTeal : AppColors.surfaceBorder,
+                            color: isSelected
+                                ? AppColors.primaryTeal
+                                : AppColors.surfaceBorder,
                           ),
                         ),
                         showCheckmark: false,
@@ -223,67 +257,81 @@ class _HelpPageState extends State<HelpPage> {
               Expanded(
                 child: _isLoading
                     ? const Center(
-                        child: CircularProgressIndicator(color: AppColors.primaryTeal),
+                        child: CircularProgressIndicator(
+                          color: AppColors.primaryTeal,
+                        ),
                       )
                     : _errorMessage != null
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.error_outline, size: 48, color: AppColors.error),
-                                const SizedBox(height: 16),
-                                Text(
-                                  _errorMessage!,
-                                  style: const TextStyle(color: AppColors.textSecondary),
-                                ),
-                                const SizedBox(height: 16),
-                                ElevatedButton(
-                                  onPressed: _fetchTopics,
-                                  child: const Text('Retry'),
-                                ),
-                              ],
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.error_outline,
+                              size: 48,
+                              color: AppColors.error,
                             ),
-                          )
-                        : _filteredTopics.isEmpty
-                            ? Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(Icons.search_off, size: 64, color: AppColors.textSecondary),
-                                    const SizedBox(height: 24),
-                                    Text(
-                                      'No topics found for "$_searchQuery"',
-                                      style: const TextStyle(
-                                        color: AppColors.textSecondary,
-                                        fontSize: 18,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              )
-                            : ListView.builder(
-                                padding: const EdgeInsets.fromLTRB(24, 0, 24, 40),
-                                itemCount: _filteredTopics.length,
-                                itemBuilder: (context, index) {
-                                  final topic = _filteredTopics[index];
-                                  return Padding(
-                                    padding: const EdgeInsets.only(bottom: 20),
-                                    child: Center(
-                                      child: ConstrainedBox(
-                                        constraints: const BoxConstraints(maxWidth: 900),
-                                        child: HelpCard(
-                                          key: ValueKey('topic_${topic.id}'),
-                                          icon: topic.icon,
-                                          title: topic.title,
-                                          description: topic.description,
-                                          expandedContent: topic.expandedContent,
-                                          onTap: () => _loadTopicContent(topic),
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
+                            const SizedBox(height: 16),
+                            Text(
+                              _errorMessage!,
+                              style: const TextStyle(
+                                color: AppColors.textSecondary,
                               ),
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: _fetchTopics,
+                              child: const Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      )
+                    : _filteredTopics.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.search_off,
+                              size: 64,
+                              color: AppColors.textSecondary,
+                            ),
+                            const SizedBox(height: 24),
+                            Text(
+                              'No topics found for "$_searchQuery"',
+                              style: const TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 18,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(24, 0, 24, 40),
+                        itemCount: _filteredTopics.length,
+                        itemBuilder: (context, index) {
+                          final topic = _filteredTopics[index];
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 20),
+                            child: Center(
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  maxWidth: 900,
+                                ),
+                                child: HelpCard(
+                                  key: ValueKey('topic_${topic.id}'),
+                                  icon: topic.icon,
+                                  title: topic.title,
+                                  description: topic.description,
+                                  expandedContent: topic.expandedContent,
+                                  onTap: () => _loadTopicContent(topic),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
               ),
             ],
           ),

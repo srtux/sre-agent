@@ -25,6 +25,8 @@ class ConversationAppBar extends StatelessWidget
   final String? currentTraceId;
   final VoidCallback onStartNewSession;
   final ValueChanged<String> onLoadSession;
+  final bool isChatOpen;
+  final VoidCallback onToggleChat;
 
   const ConversationAppBar({
     super.key,
@@ -36,6 +38,8 @@ class ConversationAppBar extends StatelessWidget
     this.currentTraceId,
     required this.onStartNewSession,
     required this.onLoadSession,
+    this.isChatOpen = true,
+    required this.onToggleChat,
   });
 
   @override
@@ -87,8 +91,7 @@ class ConversationAppBar extends StatelessWidget
                         ),
                       ),
                       ShaderMask(
-                        shaderCallback: (bounds) =>
-                            const LinearGradient(
+                        shaderCallback: (bounds) => const LinearGradient(
                           colors: [Colors.white, AppColors.primaryCyan],
                           begin: Alignment.centerLeft,
                           end: Alignment.centerRight,
@@ -119,6 +122,17 @@ class ConversationAppBar extends StatelessWidget
         },
       ),
       actions: [
+        if (!isChatOpen)
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Tooltip(
+              message: 'Open Conversation',
+              child: IconButton(
+                icon: const Icon(Icons.chat, color: AppColors.textSecondary),
+                onPressed: onToggleChat,
+              ),
+            ),
+          ),
         if (currentTraceUrl != null)
           _ViewTraceChip(
             traceId: currentTraceId ?? '',
@@ -145,33 +159,13 @@ class ConversationAppBar extends StatelessWidget
         _SettingsButton(),
         const SizedBox(width: 8),
         IconButton(
-          icon: const Icon(Icons.help_outline,
-              color: AppColors.textSecondary),
+          icon: const Icon(Icons.help_outline, color: AppColors.textSecondary),
           tooltip: 'Help & Documentation',
           onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                  builder: (context) => const HelpPage()),
-            );
+            Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (context) => const HelpPage()));
           },
-        ),
-        const SizedBox(width: 8),
-        Builder(builder: (context) {
-          return IconButton(
-            icon: const Icon(Icons.history,
-                color: AppColors.textSecondary),
-            tooltip: 'History & Sessions',
-            onPressed: () {
-              Scaffold.of(context).openEndDrawer();
-            },
-          );
-        }),
-        const SizedBox(width: 8),
-        IconButton(
-          icon: const Icon(Icons.add_comment_outlined,
-              color: AppColors.textSecondary),
-          tooltip: 'New Investigation',
-          onPressed: onStartNewSession,
         ),
         const SizedBox(width: 8),
         _UserProfileButton(),
@@ -197,8 +191,7 @@ class ConversationAppBar extends StatelessWidget
                       valueListenable: projectService.recentProjects,
                       builder: (context, recentProjects, _) {
                         return ValueListenableBuilder<List<GcpProject>>(
-                          valueListenable:
-                              projectService.starredProjects,
+                          valueListenable: projectService.starredProjects,
                           builder: (context, starredProjects, _) {
                             return ProjectSelectorDropdown(
                               projects: projects,
@@ -208,15 +201,13 @@ class ConversationAppBar extends StatelessWidget
                               isLoading: isLoading,
                               error: error,
                               onProjectSelected: (project) {
-                                projectService
-                                    .selectProjectInstance(project);
+                                projectService.selectProjectInstance(project);
                               },
                               onRefresh: () {
                                 projectService.fetchProjects();
                               },
                               onSearch: (query) {
-                                projectService.fetchProjects(
-                                    query: query);
+                                projectService.fetchProjects(query: query);
                               },
                               onToggleStar: (project) {
                                 projectService.toggleStar(project);
@@ -269,20 +260,15 @@ class _ViewTraceChip extends StatelessWidget {
   final String traceId;
   final String traceUrl;
 
-  const _ViewTraceChip({
-    required this.traceId,
-    required this.traceUrl,
-  });
+  const _ViewTraceChip({required this.traceId, required this.traceUrl});
 
   @override
   Widget build(BuildContext context) {
-    final shortId =
-        traceId.length > 8 ? traceId.substring(0, 8) : traceId;
+    final shortId = traceId.length > 8 ? traceId.substring(0, 8) : traceId;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: Tooltip(
-        message:
-            'View agent reasoning trace in Cloud Trace\nTrace: $traceId',
+        message: 'View agent reasoning trace in Cloud Trace\nTrace: $traceId',
         child: ActionChip(
           avatar: Icon(
             Icons.timeline_rounded,
@@ -297,16 +283,12 @@ class _ViewTraceChip extends StatelessWidget {
               fontWeight: FontWeight.w500,
             ),
           ),
-          side: BorderSide(
-            color: AppColors.primaryCyan.withValues(alpha: 0.3),
-          ),
-          backgroundColor:
-              AppColors.primaryCyan.withValues(alpha: 0.08),
+          side: BorderSide(color: AppColors.primaryCyan.withValues(alpha: 0.3)),
+          backgroundColor: AppColors.primaryCyan.withValues(alpha: 0.08),
           onPressed: () async {
             final uri = Uri.parse(traceUrl);
             if (await canLaunchUrl(uri)) {
-              await launchUrl(uri,
-                  mode: LaunchMode.externalApplication);
+              await launchUrl(uri, mode: LaunchMode.externalApplication);
             }
           },
         ),
@@ -327,8 +309,7 @@ class _SettingsButton extends StatelessWidget {
         ),
         onPressed: () {
           Navigator.of(context).push(
-            MaterialPageRoute(
-                builder: (context) => const ToolConfigPage()),
+            MaterialPageRoute(builder: (context) => const ToolConfigPage()),
           );
         },
       ),
@@ -340,15 +321,11 @@ class _StatusIndicator extends StatelessWidget {
   final bool isConnected;
   final String agentUrl;
 
-  const _StatusIndicator({
-    required this.isConnected,
-    required this.agentUrl,
-  });
+  const _StatusIndicator({required this.isConnected, required this.agentUrl});
 
   @override
   Widget build(BuildContext context) {
-    final statusColor =
-        isConnected ? AppColors.success : AppColors.error;
+    final statusColor = isConnected ? AppColors.success : AppColors.error;
     final statusText = isConnected ? 'Connected' : 'Offline';
 
     return Tooltip(
@@ -358,8 +335,7 @@ class _StatusIndicator extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.backgroundDark,
         borderRadius: BorderRadius.circular(8),
-        border:
-            Border.all(color: AppColors.surfaceBorder, width: 1),
+        border: Border.all(color: AppColors.surfaceBorder, width: 1),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.3),
@@ -368,13 +344,9 @@ class _StatusIndicator extends StatelessWidget {
           ),
         ],
       ),
-      textStyle: const TextStyle(
-          color: AppColors.textPrimary, fontSize: 12),
+      textStyle: const TextStyle(color: AppColors.textPrimary, fontSize: 12),
       child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 8,
-          vertical: 4,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: statusColor.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(4),
@@ -409,8 +381,7 @@ class _StatusIndicator extends StatelessWidget {
 class _UserProfileButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final authService =
-        Provider.of<AuthService>(context, listen: false);
+    final authService = Provider.of<AuthService>(context, listen: false);
     final user = authService.currentUser;
     final displayName = authService.isAuthEnabled
         ? (user?.displayName ?? 'User Profile')
@@ -445,8 +416,7 @@ class _UserProfileButton extends StatelessWidget {
                           ),
                         ),
                       ),
-                    if (user?.email != null)
-                      Text('Email: ${user!.email}'),
+                    if (user?.email != null) Text('Email: ${user!.email}'),
                     const SizedBox(height: 16),
                     const Divider(),
                     const SizedBox(height: 8),
@@ -457,8 +427,7 @@ class _UserProfileButton extends StatelessWidget {
                         fontSize: 12,
                       ),
                     ),
-                    if (VersionService.instance
-                        .buildTimestamp.isNotEmpty)
+                    if (VersionService.instance.buildTimestamp.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: Text(
@@ -493,17 +462,12 @@ class _UserProfileButton extends StatelessWidget {
             backgroundColor: isDevMode
                 ? AppColors.warning
                 : AppColors.surfaceGlass,
-            backgroundImage:
-                photoUrl != null ? NetworkImage(photoUrl) : null,
+            backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
             child: photoUrl == null
                 ? Icon(
-                    isDevMode
-                        ? Icons.developer_mode
-                        : Icons.person,
+                    isDevMode ? Icons.developer_mode : Icons.person,
                     size: 20,
-                    color: isDevMode
-                        ? Colors.white
-                        : AppColors.textSecondary,
+                    color: isDevMode ? Colors.white : AppColors.textSecondary,
                   )
                 : null,
           ),

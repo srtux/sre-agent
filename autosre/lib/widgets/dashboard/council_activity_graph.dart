@@ -304,7 +304,8 @@ class _CouncilActivityGraphWidgetState
                         ),
                       ),
                       // Expand indicator
-                      if (agent.toolCalls.isNotEmpty || agent.llmCalls.isNotEmpty)
+                      if (agent.toolCalls.isNotEmpty ||
+                          agent.llmCalls.isNotEmpty)
                         Icon(
                           isSelected
                               ? Icons.keyboard_arrow_up_rounded
@@ -396,8 +397,8 @@ class _CouncilActivityGraphWidgetState
     final statusColor = call.isError
         ? AppColors.error
         : call.isPending
-            ? AppColors.warning
-            : AppColors.success;
+        ? AppColors.warning
+        : AppColors.success;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
@@ -416,11 +417,7 @@ class _CouncilActivityGraphWidgetState
         children: [
           Row(
             children: [
-              Icon(
-                Icons.build_circle_rounded,
-                size: 10,
-                color: statusColor,
-              ),
+              Icon(Icons.build_circle_rounded, size: 10, color: statusColor),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
@@ -477,10 +474,7 @@ class _CouncilActivityGraphWidgetState
       return Center(
         child: Text(
           'No tool calls recorded',
-          style: GoogleFonts.inter(
-            fontSize: 12,
-            color: AppColors.textMuted,
-          ),
+          style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMuted),
         ),
       );
     }
@@ -491,7 +485,12 @@ class _CouncilActivityGraphWidgetState
       itemBuilder: (context, index) {
         final call = allCalls[index];
         final agent = _findAgentForToolCall(call);
-        return _buildTimelineItem(call, agent, index == 0, index == allCalls.length - 1);
+        return _buildTimelineItem(
+          call,
+          agent,
+          index == 0,
+          index == allCalls.length - 1,
+        );
       },
     );
   }
@@ -514,8 +513,8 @@ class _CouncilActivityGraphWidgetState
     final statusColor = call.isError
         ? AppColors.error
         : call.isPending
-            ? AppColors.warning
-            : AppColors.success;
+        ? AppColors.warning
+        : AppColors.success;
 
     return IntrinsicHeight(
       child: Row(
@@ -528,10 +527,7 @@ class _CouncilActivityGraphWidgetState
               children: [
                 if (!isFirst)
                   Expanded(
-                    child: Container(
-                      width: 2,
-                      color: AppColors.surfaceBorder,
-                    ),
+                    child: Container(width: 2, color: AppColors.surfaceBorder),
                   ),
                 Container(
                   width: 10,
@@ -547,10 +543,7 @@ class _CouncilActivityGraphWidgetState
                 ),
                 if (!isLast)
                   Expanded(
-                    child: Container(
-                      width: 2,
-                      color: AppColors.surfaceBorder,
-                    ),
+                    child: Container(width: 2, color: AppColors.surfaceBorder),
                   ),
               ],
             ),

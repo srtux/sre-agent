@@ -55,12 +55,12 @@ void main() {
   });
 
   Widget createWidgetUnderTest() {
-    return const MaterialApp(
-      home: HelpPage(),
-    );
+    return const MaterialApp(home: HelpPage());
   }
 
-  testWidgets('HelpPage renders correctly with mock data', (WidgetTester tester) async {
+  testWidgets('HelpPage renders correctly with mock data', (
+    WidgetTester tester,
+  ) async {
     // Set a consistent surface size for tests
     await tester.binding.setSurfaceSize(const Size(1200, 1000));
 
@@ -69,11 +69,17 @@ void main() {
 
     // Verify Title
     expect(find.text('AutoSRE Help'), findsWidgets);
-    expect(find.textContaining('documentation for the modern SRE'), findsOneWidget);
+    expect(
+      find.textContaining('documentation for the modern SRE'),
+      findsOneWidget,
+    );
 
     // Verify Categories
     expect(find.byKey(const ValueKey('category_All')), findsOneWidget);
-    expect(find.byKey(const ValueKey('category_Observability')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('category_Observability')),
+      findsOneWidget,
+    );
     expect(find.byKey(const ValueKey('category_Analysis')), findsOneWidget);
 
     // Verify first topic is visible

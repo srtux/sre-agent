@@ -39,8 +39,7 @@ class ConversationController {
   late A2uiMessageProcessor messageProcessor;
 
   /// Inline tool call state: call_id -> ToolLog.
-  final ValueNotifier<Map<String, ToolLog>> toolCallState =
-      ValueNotifier({});
+  final ValueNotifier<Map<String, ToolLog>> toolCallState = ValueNotifier({});
 
   /// Suggested follow-up actions.
   final ValueNotifier<List<String>> suggestedActions = ValueNotifier([
@@ -89,16 +88,14 @@ class ConversationController {
       contentGenerator?.dispose();
     }
 
-    final newGenerator =
-        widgetContentGenerator ?? ADKContentGenerator();
+    final newGenerator = widgetContentGenerator ?? ADKContentGenerator();
     contentGenerator = newGenerator;
     newGenerator.projectId = projectId;
 
     // --- Wire up all stream subscriptions ---
 
     _sessionSubscription?.cancel();
-    _sessionSubscription =
-        newGenerator.sessionStream.listen((sessionId) {
+    _sessionSubscription = newGenerator.sessionStream.listen((sessionId) {
       sessionService.setCurrentSession(sessionId);
       sessionService.fetchSessions();
     });
@@ -123,8 +120,7 @@ class ConversationController {
     conversation = conv;
 
     _traceInfoSubscription?.cancel();
-    _traceInfoSubscription =
-        newGenerator.traceInfoStream.listen((event) {
+    _traceInfoSubscription = newGenerator.traceInfoStream.listen((event) {
       if (!isMounted()) return;
       currentTraceId = event['trace_id'] as String?;
       currentTraceUrl = event['trace_url'] as String?;
@@ -139,7 +135,8 @@ class ConversationController {
       final category = event['category'] as String? ?? '';
 
       debugPrint(
-          '\u{1F9E0} [MEMORY] action=$action, title=$title, category=$category');
+        '\u{1F9E0} [MEMORY] action=$action, title=$title, category=$category',
+      );
 
       if (action == 'stored' || action == 'pattern_learned') {
         showToast('\u{1F9E0} $title', isError: false);
@@ -147,16 +144,15 @@ class ConversationController {
     });
 
     _dashboardSubscription?.cancel();
-    _dashboardSubscription =
-        newGenerator.dashboardStream.listen((event) {
+    _dashboardSubscription = newGenerator.dashboardStream.listen((event) {
       debugPrint(
-          '\u{1F4CA} [DASH] Received dashboard event: category=${event['category']}, tool=${event['tool_name']}');
+        '\u{1F4CA} [DASH] Received dashboard event: category=${event['category']}, tool=${event['tool_name']}',
+      );
       dashboardState.addFromEvent(event);
     });
 
     _toolCallSubscription?.cancel();
-    _toolCallSubscription =
-        newGenerator.toolCallStream.listen((event) {
+    _toolCallSubscription = newGenerator.toolCallStream.listen((event) {
       if (!isMounted()) return;
       final eventType = event['type'] as String;
 
@@ -168,29 +164,31 @@ class ConversationController {
     });
 
     _uiMessageSubscription?.cancel();
-    _uiMessageSubscription =
-        newGenerator.uiMessageStream.listen((surfaceId) {
+    _uiMessageSubscription = newGenerator.uiMessageStream.listen((surfaceId) {
       if (!isMounted()) return;
 
       final messenger = conv.conversation;
       if (messenger is ValueNotifier<List<ChatMessage>>) {
-        final currentMessages =
-            List<ChatMessage>.from(messenger.value);
+        final currentMessages = List<ChatMessage>.from(messenger.value);
         final alreadyHas = currentMessages.any(
-            (m) => m is AiUiMessage && m.surfaceId == surfaceId);
+          (m) => m is AiUiMessage && m.surfaceId == surfaceId,
+        );
         if (!alreadyHas) {
-          currentMessages.add(AiUiMessage(
-            definition: UiDefinition(surfaceId: surfaceId),
-            surfaceId: surfaceId,
-          ));
+          currentMessages.add(
+            AiUiMessage(
+              definition: UiDefinition(surfaceId: surfaceId),
+              surfaceId: surfaceId,
+            ),
+          );
           messenger.value = currentMessages;
         }
       }
     });
 
     _suggestionsSubscription?.cancel();
-    _suggestionsSubscription =
-        newGenerator.suggestionsStream.listen((suggestions) {
+    _suggestionsSubscription = newGenerator.suggestionsStream.listen((
+      suggestions,
+    ) {
       if (isMounted()) {
         suggestedActions.value = suggestions;
       }
@@ -201,17 +199,12 @@ class ConversationController {
     return true;
   }
 
-  void _handleToolCall(
-      Map<String, dynamic> event, GenUiConversation conv) {
+  void _handleToolCall(Map<String, dynamic> event, GenUiConversation conv) {
     final callId = event['call_id'] as String;
     final toolName = event['tool_name'] as String;
     final args = Map<String, dynamic>.from(event['args'] ?? {});
 
-    final toolLog = ToolLog(
-      toolName: toolName,
-      args: args,
-      status: 'running',
-    );
+    final toolLog = ToolLog(toolName: toolName, args: args, status: 'running');
 
     final updated = Map<String, ToolLog>.from(toolCallState.value);
     updated[callId] = toolLog;
@@ -219,15 +212,17 @@ class ConversationController {
 
     final messenger = conv.conversation;
     if (messenger is ValueNotifier<List<ChatMessage>>) {
-      final currentMessages =
-          List<ChatMessage>.from(messenger.value);
-      final alreadyHas = currentMessages
-          .any((m) => m is AiUiMessage && m.surfaceId == callId);
+      final currentMessages = List<ChatMessage>.from(messenger.value);
+      final alreadyHas = currentMessages.any(
+        (m) => m is AiUiMessage && m.surfaceId == callId,
+      );
       if (!alreadyHas) {
-        currentMessages.add(AiUiMessage(
-          definition: UiDefinition(surfaceId: callId),
-          surfaceId: callId,
-        ));
+        currentMessages.add(
+          AiUiMessage(
+            definition: UiDefinition(surfaceId: callId),
+            surfaceId: callId,
+          ),
+        );
         messenger.value = currentMessages;
       }
     }
@@ -246,8 +241,7 @@ class ConversationController {
         resultStr = result;
       } else {
         try {
-          resultStr =
-              const JsonEncoder.withIndent('  ').convert(result);
+          resultStr = const JsonEncoder.withIndent('  ').convert(result);
         } catch (_) {
           resultStr = result.toString();
         }

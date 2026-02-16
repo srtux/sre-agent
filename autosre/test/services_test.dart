@@ -59,7 +59,10 @@ void main() {
 
       await service.fetchProjects(query: 'my-project');
 
-      expect(capturedUrls.any((url) => url.contains('query=my-project')), isTrue);
+      expect(
+        capturedUrls.any((url) => url.contains('query=my-project')),
+        isTrue,
+      );
       service.dispose();
     });
   });

@@ -49,11 +49,7 @@ void main() {
     });
 
     test('fromJson handles null timestamps', () {
-      final json = {
-        'span_id': 's1',
-        'start_time': null,
-        'end_time': null,
-      };
+      final json = {'span_id': 's1', 'start_time': null, 'end_time': null};
       final span = SpanInfo.fromJson(json);
       expect(span.startTime, isA<DateTime>());
       expect(span.endTime, isA<DateTime>());
@@ -186,10 +182,7 @@ void main() {
     });
 
     test('fromJson handles integer value', () {
-      final json = {
-        'timestamp': '2026-01-01T10:00:00Z',
-        'value': 42,
-      };
+      final json = {'timestamp': '2026-01-01T10:00:00Z', 'value': 42};
       final point = MetricPoint.fromJson(json);
       expect(point.value, 42.0);
     });

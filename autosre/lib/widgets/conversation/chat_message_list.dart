@@ -30,8 +30,7 @@ class ChatMessageList extends StatelessWidget {
     return Stack(
       children: [
         // 1. Tech Grid Background
-        const Positioned.fill(
-            child: CustomPaint(painter: TechGridPainter())),
+        const Positioned.fill(child: CustomPaint(painter: TechGridPainter())),
         // Gradient Overlay for Fade Effect
         const Positioned.fill(
           child: DecoratedBox(
@@ -67,9 +66,8 @@ class ChatMessageList extends StatelessWidget {
                   final prevMsg = messages[index - 1];
                   final isSameSender =
                       (msg is UserMessage && prevMsg is UserMessage) ||
-                          ((msg is AiTextMessage || msg is AiUiMessage) &&
-                              (prevMsg is AiTextMessage ||
-                                  prevMsg is AiUiMessage));
+                      ((msg is AiTextMessage || msg is AiUiMessage) &&
+                          (prevMsg is AiTextMessage || prevMsg is AiUiMessage));
                   if (!isSameSender) {
                     topSpacing = 24.0;
                   }
@@ -112,15 +110,12 @@ class _TypingIndicator extends StatelessWidget {
           children: [
             const AgentAvatar(),
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color:
-                    AppColors.secondaryPurple.withValues(alpha: 0.08),
+                color: AppColors.secondaryPurple.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: AppColors.secondaryPurple
-                      .withValues(alpha: 0.1),
+                  color: AppColors.secondaryPurple.withValues(alpha: 0.1),
                   width: 1,
                 ),
               ),
@@ -131,26 +126,25 @@ class _TypingIndicator extends StatelessWidget {
                     animation: animation,
                     builder: (context, child) {
                       final delay = index * 0.2;
-                      final animValue =
-                          ((animation.value + delay) % 1.0 * 2.0)
-                              .clamp(0.0, 1.0);
+                      final animValue = ((animation.value + delay) % 1.0 * 2.0)
+                          .clamp(0.0, 1.0);
                       final bounce =
                           (animValue < 0.5
-                                  ? animValue * 2
-                                  : 2 - animValue * 2) *
-                              0.4;
+                              ? animValue * 2
+                              : 2 - animValue * 2) *
+                          0.4;
 
                       return Container(
-                        margin:
-                            EdgeInsets.only(right: index < 2 ? 4 : 0),
+                        margin: EdgeInsets.only(right: index < 2 ? 4 : 0),
                         child: Transform.translate(
                           offset: Offset(0, -bounce * 4),
                           child: Container(
                             width: 6,
                             height: 6,
                             decoration: BoxDecoration(
-                              color: AppColors.secondaryPurple
-                                  .withValues(alpha: 0.4 + bounce),
+                              color: AppColors.secondaryPurple.withValues(
+                                alpha: 0.4 + bounce,
+                              ),
                               shape: BoxShape.circle,
                             ),
                           ),

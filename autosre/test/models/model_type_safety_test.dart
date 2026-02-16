@@ -204,7 +204,12 @@ void main() {
         'start_time': '2026-01-01T00:00:00Z',
         'status': 'ongoing',
         'events': [
-          {'id': 'e1', 'timestamp': '2026-01-01T00:00:00Z', 'type': 'alert', 'title': 'Alert'},
+          {
+            'id': 'e1',
+            'timestamp': '2026-01-01T00:00:00Z',
+            'type': 'alert',
+            'title': 'Alert',
+          },
           null,
           'invalid',
         ],
@@ -233,7 +238,13 @@ void main() {
           42,
         ],
         'edges': [
-          {'source_id': 'n1', 'target_id': 'n2', 'label': 'calls', 'call_count': 1, 'avg_duration_ms': 100.0},
+          {
+            'source_id': 'n1',
+            'target_id': 'n2',
+            'label': 'calls',
+            'call_count': 1,
+            'avg_duration_ms': 100.0,
+          },
           'invalid',
         ],
       });
@@ -447,7 +458,12 @@ void main() {
       final data = CouncilSynthesisData.fromJson({
         'synthesis': 'test',
         'panels': [
-          {'panel': 'trace', 'summary': 'ok', 'severity': 'info', 'confidence': 0.5},
+          {
+            'panel': 'trace',
+            'summary': 'ok',
+            'severity': 'info',
+            'confidence': 0.5,
+          },
           'invalid',
           null,
         ],

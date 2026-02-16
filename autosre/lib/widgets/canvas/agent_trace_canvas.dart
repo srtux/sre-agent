@@ -71,7 +71,10 @@ class _AgentTraceCanvasState extends State<AgentTraceCanvas> {
     final data = widget.data;
     if (data.nodes.isEmpty) {
       return const Center(
-        child: Text('No agent trace data', style: TextStyle(color: Colors.white70)),
+        child: Text(
+          'No agent trace data',
+          style: TextStyle(color: Colors.white70),
+        ),
       );
     }
 
@@ -83,7 +86,8 @@ class _AgentTraceCanvasState extends State<AgentTraceCanvas> {
         _buildLegend(),
         const SizedBox(height: 8),
         Expanded(child: _buildTimeline(data)),
-        if (_selectedIndex != null) _buildDetailPanel(data.nodes[_selectedIndex!]),
+        if (_selectedIndex != null)
+          _buildDetailPanel(data.nodes[_selectedIndex!]),
       ],
     );
   }
@@ -96,7 +100,11 @@ class _AgentTraceCanvasState extends State<AgentTraceCanvas> {
         children: [
           Row(
             children: [
-              const Icon(Icons.smart_toy, color: AppColors.primaryCyan, size: 20),
+              const Icon(
+                Icons.smart_toy,
+                color: AppColors.primaryCyan,
+                size: 20,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -108,7 +116,10 @@ class _AgentTraceCanvasState extends State<AgentTraceCanvas> {
                   ),
                 ),
               ),
-              _chip('${data.totalDurationMs.toStringAsFixed(0)}ms', Colors.white24),
+              _chip(
+                '${data.totalDurationMs.toStringAsFixed(0)}ms',
+                Colors.white24,
+              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -116,11 +127,26 @@ class _AgentTraceCanvasState extends State<AgentTraceCanvas> {
             spacing: 8,
             runSpacing: 4,
             children: [
-              _chip('Trace: ${data.traceId.substring(0, math.min(12, data.traceId.length))}...', Colors.white10),
-              _chip('In: ${_formatTokens(data.totalInputTokens)}', AppColors.primaryCyan.withValues(alpha: 0.2)),
-              _chip('Out: ${_formatTokens(data.totalOutputTokens)}', AppColors.secondaryPurple.withValues(alpha: 0.2)),
-              _chip('${data.llmCallCount} LLM', AppColors.secondaryPurple.withValues(alpha: 0.2)),
-              _chip('${data.toolCallCount} Tools', AppColors.warning.withValues(alpha: 0.2)),
+              _chip(
+                'Trace: ${data.traceId.substring(0, math.min(12, data.traceId.length))}...',
+                Colors.white10,
+              ),
+              _chip(
+                'In: ${_formatTokens(data.totalInputTokens)}',
+                AppColors.primaryCyan.withValues(alpha: 0.2),
+              ),
+              _chip(
+                'Out: ${_formatTokens(data.totalOutputTokens)}',
+                AppColors.secondaryPurple.withValues(alpha: 0.2),
+              ),
+              _chip(
+                '${data.llmCallCount} LLM',
+                AppColors.secondaryPurple.withValues(alpha: 0.2),
+              ),
+              _chip(
+                '${data.toolCallCount} Tools',
+                AppColors.warning.withValues(alpha: 0.2),
+              ),
             ],
           ),
         ],
@@ -143,7 +169,12 @@ class _AgentTraceCanvasState extends State<AgentTraceCanvas> {
   }
 
   Widget _buildLegend() {
-    const kinds = ['agent_invocation', 'llm_call', 'tool_execution', 'sub_agent_delegation'];
+    const kinds = [
+      'agent_invocation',
+      'llm_call',
+      'tool_execution',
+      'sub_agent_delegation',
+    ];
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
@@ -187,19 +218,26 @@ class _AgentTraceCanvasState extends State<AgentTraceCanvas> {
         final barWidth = math.max(node.durationMs / totalMs, 0.01);
 
         return GestureDetector(
-          onTap: () => setState(() => _selectedIndex = isSelected ? null : index),
+          onTap: () =>
+              setState(() => _selectedIndex = isSelected ? null : index),
           child: Container(
             margin: const EdgeInsets.only(bottom: 2),
             padding: const EdgeInsets.symmetric(vertical: 4),
             decoration: BoxDecoration(
-              color: isSelected ? Colors.white.withValues(alpha: 0.05) : Colors.transparent,
+              color: isSelected
+                  ? Colors.white.withValues(alpha: 0.05)
+                  : Colors.transparent,
               borderRadius: BorderRadius.circular(4),
             ),
             child: Row(
               children: [
                 // Indent + icon
                 SizedBox(width: (node.depth * 16.0) + 4),
-                Icon(_kindIcon(node.kind), color: _kindColor(node.kind), size: 14),
+                Icon(
+                  _kindIcon(node.kind),
+                  color: _kindColor(node.kind),
+                  size: 14,
+                ),
                 const SizedBox(width: 6),
                 // Name
                 SizedBox(
@@ -236,14 +274,21 @@ class _AgentTraceCanvasState extends State<AgentTraceCanvas> {
                               width: math.max(barWidth * maxWidth, 4),
                               height: 18,
                               decoration: BoxDecoration(
-                                color: _kindColor(node.kind).withValues(alpha: 0.7),
+                                color: _kindColor(
+                                  node.kind,
+                                ).withValues(alpha: 0.7),
                                 borderRadius: BorderRadius.circular(3),
                                 border: node.hasError
-                                    ? Border.all(color: Colors.redAccent, width: 1)
+                                    ? Border.all(
+                                        color: Colors.redAccent,
+                                        width: 1,
+                                      )
                                     : null,
                               ),
                               alignment: Alignment.centerLeft,
-                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                              ),
                               child: _buildBarContent(node),
                             ),
                           ),
@@ -273,19 +318,23 @@ class _AgentTraceCanvasState extends State<AgentTraceCanvas> {
     final parts = <Widget>[];
 
     if (node.inputTokens != null || node.outputTokens != null) {
-      parts.add(Text(
-        'in:${node.inputTokens ?? 0}/out:${node.outputTokens ?? 0}',
-        style: const TextStyle(color: Colors.white, fontSize: 9),
-        overflow: TextOverflow.ellipsis,
-      ));
+      parts.add(
+        Text(
+          'in:${node.inputTokens ?? 0}/out:${node.outputTokens ?? 0}',
+          style: const TextStyle(color: Colors.white, fontSize: 9),
+          overflow: TextOverflow.ellipsis,
+        ),
+      );
     }
 
     if (node.modelUsed != null) {
-      parts.add(Text(
-        node.modelUsed!.split('/').last,
-        style: const TextStyle(color: Colors.white54, fontSize: 9),
-        overflow: TextOverflow.ellipsis,
-      ));
+      parts.add(
+        Text(
+          node.modelUsed!.split('/').last,
+          style: const TextStyle(color: Colors.white54, fontSize: 9),
+          overflow: TextOverflow.ellipsis,
+        ),
+      );
     }
 
     if (parts.isEmpty) return const SizedBox.shrink();
@@ -311,12 +360,20 @@ class _AgentTraceCanvasState extends State<AgentTraceCanvas> {
         children: [
           Row(
             children: [
-              Icon(_kindIcon(node.kind), color: _kindColor(node.kind), size: 16),
+              Icon(
+                _kindIcon(node.kind),
+                color: _kindColor(node.kind),
+                size: 16,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   node.name,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
                 ),
               ),
               IconButton(
@@ -334,9 +391,12 @@ class _AgentTraceCanvasState extends State<AgentTraceCanvas> {
           if (node.toolName != null) _detailRow('Tool', node.toolName!),
           if (node.modelUsed != null) _detailRow('Model', node.modelUsed!),
           _detailRow('Duration', '${node.durationMs.toStringAsFixed(1)}ms'),
-          if (node.inputTokens != null) _detailRow('Input Tokens', '${node.inputTokens}'),
-          if (node.outputTokens != null) _detailRow('Output Tokens', '${node.outputTokens}'),
-          if (node.hasError) _detailRow('Status', 'ERROR', valueColor: Colors.redAccent),
+          if (node.inputTokens != null)
+            _detailRow('Input Tokens', '${node.inputTokens}'),
+          if (node.outputTokens != null)
+            _detailRow('Output Tokens', '${node.outputTokens}'),
+          if (node.hasError)
+            _detailRow('Status', 'ERROR', valueColor: Colors.redAccent),
         ],
       ),
     );
@@ -349,10 +409,19 @@ class _AgentTraceCanvasState extends State<AgentTraceCanvas> {
         children: [
           SizedBox(
             width: 100,
-            child: Text(label, style: const TextStyle(color: Colors.white38, fontSize: 11)),
+            child: Text(
+              label,
+              style: const TextStyle(color: Colors.white38, fontSize: 11),
+            ),
           ),
           Expanded(
-            child: Text(value, style: TextStyle(color: valueColor ?? Colors.white70, fontSize: 11)),
+            child: Text(
+              value,
+              style: TextStyle(
+                color: valueColor ?? Colors.white70,
+                fontSize: 11,
+              ),
+            ),
           ),
         ],
       ),

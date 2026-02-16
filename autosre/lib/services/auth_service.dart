@@ -40,13 +40,14 @@ class AuthService extends ChangeNotifier {
   static const String _prefKeyAccessToken = 'auth_access_token';
   static const String _prefKeyAccessTokenExpiry = 'auth_access_token_expiry';
 
-  static const String _buildTimeClientId =
-      String.fromEnvironment('GOOGLE_CLIENT_ID');
+  static const String _buildTimeClientId = String.fromEnvironment(
+    'GOOGLE_CLIENT_ID',
+  );
 
   late final gsi_lib.GoogleSignIn _googleSignIn;
   bool _initialized = false;
   StreamSubscription<gsi_lib.GoogleSignInAuthenticationEvent>?
-      _authEventSubscription;
+  _authEventSubscription;
 
   gsi_lib.GoogleSignInAccount? _currentUser;
   String? _accessToken;
@@ -115,8 +116,8 @@ class AuthService extends ChangeNotifier {
 
     final effectiveClientId =
         (runtimeClientId != null && runtimeClientId.isNotEmpty)
-            ? runtimeClientId
-            : _buildTimeClientId;
+        ? runtimeClientId
+        : _buildTimeClientId;
 
     // 2. Initialize GoogleSignIn
     _googleSignIn = gsi_lib.GoogleSignIn.instance;
@@ -198,8 +199,9 @@ class AuthService extends ChangeNotifier {
 
     // Already have a valid token?
     if (_accessToken != null && _accessTokenExpiry != null) {
-      final buffer =
-          _accessTokenExpiry!.subtract(ServiceConfig.tokenRefreshBuffer);
+      final buffer = _accessTokenExpiry!.subtract(
+        ServiceConfig.tokenRefreshBuffer,
+      );
       if (DateTime.now().isBefore(buffer)) {
         return;
       }

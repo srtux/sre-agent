@@ -7,6 +7,7 @@ import '../../theme/app_theme.dart';
 import '../common/unified_time_picker.dart';
 import 'query_autocomplete_overlay.dart';
 import 'query_helpers.dart';
+import 'syntax_highlighting_controller.dart';
 
 /// Compact per-panel query input bar for manual data exploration.
 ///
@@ -63,8 +64,7 @@ class ManualQueryBar extends StatefulWidget {
 
   /// Called with `(query, isNaturalLanguage)` when submitted.
   /// Use this instead of [onSubmit] when NL mode matters.
-  final void Function(String query, bool isNaturalLanguage)?
-      onSubmitWithMode;
+  final void Function(String query, bool isNaturalLanguage)? onSubmitWithMode;
 
   /// Optional widget shown at the very beginning of the bar.
   final Widget? leading;
@@ -134,7 +134,7 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
         _controller.text = widget.initialValue!;
       }
     } else {
-      _controller = TextEditingController(text: widget.initialValue);
+      _controller = SyntaxHighlightingController(text: widget.initialValue);
       _ownsController = true;
     }
     _hasText = _controller.text.isNotEmpty;
@@ -186,13 +186,13 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
 
     // Get the current word being typed (after the last space)
     final cursorPos = _controller.selection.baseOffset;
-    final beforeCursor =
-        cursorPos >= 0 && cursorPos <= text.length
-            ? text.substring(0, cursorPos)
-            : text;
+    final beforeCursor = cursorPos >= 0 && cursorPos <= text.length
+        ? text.substring(0, cursorPos)
+        : text;
     final lastSpace = beforeCursor.lastIndexOf(' ');
-    final currentWord =
-        lastSpace >= 0 ? beforeCursor.substring(lastSpace + 1) : beforeCursor;
+    final currentWord = lastSpace >= 0
+        ? beforeCursor.substring(lastSpace + 1)
+        : beforeCursor;
 
     if (currentWord.isEmpty) {
       _removeOverlay();
@@ -200,21 +200,29 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
     }
 
     final query = currentWord.toLowerCase();
-    _filteredSnippets = widget.snippets.where((s) {
-      final label = s.label.toLowerCase();
-      if (label.contains(query)) return true;
+    _filteredSnippets = widget.snippets
+        .where((s) {
+          final label = s.label.toLowerCase();
+          if (label.contains(query)) return true;
 
-      // Special handling for key="value" style autocompletes (MQL/Logs)
-      const prefixes = ['metric.type="', 'resource.type="', 'metric.labels.', 'resource.labels.'];
-      for (final p in prefixes) {
-        if (query.startsWith(p) && label.startsWith(p)) {
-          final queryVal = query.substring(p.length);
-          final labelVal = label.substring(p.length);
-          return labelVal.contains(queryVal);
-        }
-      }
-      return false;
-    }).take(8).toList();
+          // Special handling for key="value" style autocompletes (MQL/Logs)
+          const prefixes = [
+            'metric.type="',
+            'resource.type="',
+            'metric.labels.',
+            'resource.labels.',
+          ];
+          for (final p in prefixes) {
+            if (query.startsWith(p) && label.startsWith(p)) {
+              final queryVal = query.substring(p.length);
+              final labelVal = label.substring(p.length);
+              return labelVal.contains(queryVal);
+            }
+          }
+          return false;
+        })
+        .take(8)
+        .toList();
 
     if (_filteredSnippets.isEmpty) {
       _removeOverlay();
@@ -255,19 +263,18 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
   void _insertSnippet(QuerySnippet snippet) {
     final text = _controller.text;
     final cursorPos = _controller.selection.baseOffset;
-    final beforeCursor =
-        cursorPos >= 0 && cursorPos <= text.length
-            ? text.substring(0, cursorPos)
-            : text;
-    final afterCursor =
-        cursorPos >= 0 && cursorPos <= text.length
-            ? text.substring(cursorPos)
-            : '';
+    final beforeCursor = cursorPos >= 0 && cursorPos <= text.length
+        ? text.substring(0, cursorPos)
+        : text;
+    final afterCursor = cursorPos >= 0 && cursorPos <= text.length
+        ? text.substring(cursorPos)
+        : '';
 
     // Replace the current partial word
     final lastSpace = beforeCursor.lastIndexOf(' ');
-    final prefix =
-        lastSpace >= 0 ? beforeCursor.substring(0, lastSpace + 1) : '';
+    final prefix = lastSpace >= 0
+        ? beforeCursor.substring(0, lastSpace + 1)
+        : '';
 
     final newText = '$prefix${snippet.insertText}$afterCursor';
     _controller.text = newText;
@@ -406,18 +413,23 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.multiLine) return _buildMultiLineBar();
-    return _buildSingleLineBar();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (widget.multiLine) return _buildMultiLineBar(constraints.maxWidth);
+        return _buildSingleLineBar(constraints.maxWidth);
+      },
+    );
   }
 
   // ===========================================================================
   // Single-line bar
   // ===========================================================================
 
-  Widget _buildSingleLineBar() {
+  Widget _buildSingleLineBar(double maxWidth) {
     final isFocused = _focusNode.hasFocus;
-    final effectiveHint =
-        _isNaturalLanguage ? widget.naturalLanguageHint : widget.hintText;
+    final effectiveHint = _isNaturalLanguage
+        ? widget.naturalLanguageHint
+        : widget.hintText;
 
     return CompositedTransformTarget(
       link: _layerLink,
@@ -432,17 +444,18 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
             color: _isNaturalLanguage
                 ? AppColors.secondaryPurple.withValues(alpha: 0.6)
                 : isFocused
-                    ? AppColors.primaryCyan.withValues(alpha: 0.6)
-                    : AppColors.surfaceBorder.withValues(alpha: 0.5),
+                ? AppColors.primaryCyan.withValues(alpha: 0.6)
+                : AppColors.surfaceBorder.withValues(alpha: 0.5),
             width: 1,
           ),
           boxShadow: [
             if (isFocused)
               BoxShadow(
-                color: (_isNaturalLanguage
-                        ? AppColors.secondaryPurple
-                        : AppColors.primaryCyan)
-                    .withValues(alpha: 0.15),
+                color:
+                    (_isNaturalLanguage
+                            ? AppColors.secondaryPurple
+                            : AppColors.primaryCyan)
+                        .withValues(alpha: 0.15),
                 blurRadius: 10,
                 spreadRadius: 1,
               ),
@@ -456,111 +469,95 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
               child: Row(
                 children: [
                   if (widget.leading != null) widget.leading!,
-            // Language selector or search icon
-            if (widget.enableNaturalLanguage || widget.languageLabel != null || (widget.languages != null && widget.languages!.isNotEmpty))
-              _buildLanguageSelector()
-            else
-              const Padding(
-                padding: EdgeInsets.only(left: 10, right: 6),
-                child: Icon(Icons.search_rounded,
-                    size: 16, color: AppColors.textMuted),
-              ),
-            // Text input
-            Expanded(
-              child: Focus(
-                onKeyEvent: (_, event) => _handleKeyEvent(event),
-                child: TextField(
-                  controller: _controller,
-                  focusNode: _focusNode,
-                  style: _isNaturalLanguage
-                      ? GoogleFonts.inter(
-                          fontSize: 12,
-                          color: AppColors.textPrimary,
-                        )
-                      : GoogleFonts.jetBrainsMono(
-                          fontSize: 12,
-                          color: AppColors.textPrimary,
+                  // Language selector or search icon
+                  if (widget.enableNaturalLanguage ||
+                      widget.languageLabel != null ||
+                      (widget.languages != null &&
+                          widget.languages!.isNotEmpty))
+                    _buildLanguageSelector()
+                  else
+                    const Padding(
+                      padding: EdgeInsets.only(left: 10, right: 6),
+                      child: Icon(
+                        Icons.search_rounded,
+                        size: 16,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                  // Text input
+                  Expanded(
+                    child: Focus(
+                      onKeyEvent: (_, event) => _handleKeyEvent(event),
+                      child: TextField(
+                        controller: _controller,
+                        focusNode: _focusNode,
+                        style: _isNaturalLanguage
+                            ? GoogleFonts.inter(
+                                fontSize: 12,
+                                color: AppColors.textPrimary,
+                              )
+                            : GoogleFonts.jetBrainsMono(
+                                fontSize: 12,
+                                color: AppColors.textPrimary,
+                              ),
+                        decoration: InputDecoration(
+                          hintText: effectiveHint,
+                          hintStyle:
+                              (_isNaturalLanguage
+                                      ? GoogleFonts.inter(fontSize: 12)
+                                      : GoogleFonts.jetBrainsMono(fontSize: 12))
+                                  .copyWith(
+                                    color: AppColors.textMuted.withValues(
+                                      alpha: 0.6,
+                                    ),
+                                  ),
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 10,
+                          ),
+                          isDense: true,
                         ),
-                  decoration: InputDecoration(
-                    hintText: effectiveHint,
-                    hintStyle: (_isNaturalLanguage
-                            ? GoogleFonts.inter(fontSize: 12)
-                            : GoogleFonts.jetBrainsMono(fontSize: 12))
-                        .copyWith(
-                      color: AppColors.textMuted.withValues(alpha: 0.6),
-                    ),
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                    isDense: true,
-                  ),
-                  onSubmitted: (_) => _handleSubmit(),
-                ),
-              ),
-            ),
-            // Helper templates button
-            if (widget.templates.isNotEmpty ||
-                widget.naturalLanguageExamples.isNotEmpty)
-              _buildHelperButton(),
-            // Clear button
-            if (_hasText && !widget.isLoading)
-              SizedBox(
-                width: 28,
-                height: 28,
-                child: IconButton(
-                  icon: const Icon(Icons.close_rounded, size: 14),
-                  color: AppColors.textMuted,
-                  onPressed: _handleClear,
-                  padding: EdgeInsets.zero,
-                  style: IconButton.styleFrom(
-                    minimumSize: const Size(28, 28),
-                    backgroundColor: Colors.transparent,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6)),
-                  ),
-                  tooltip: 'Clear',
-                ),
-              ),
-            // Run Query / loading
-            Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: widget.isLoading
-                  ? const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 10),
-                      child: SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: AppColors.primaryCyan),
+                        onSubmitted: (_) => _handleSubmit(),
                       ),
-                    )
-                  : TextButton(
-                      onPressed: _hasText ? _handleSubmit : null,
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.primaryCyan,
-                        disabledForegroundColor:
-                            AppColors.textMuted.withValues(alpha: 0.4),
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        minimumSize: const Size(0, 30),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(6)),
-                        textStyle: const TextStyle(
-                            fontSize: 11, fontWeight: FontWeight.w600),
-                      ),
-                      child: const Text('Run Query'),
                     ),
-            ),
-          ],
-        ),
-            ),
-            if (widget.dashboardState != null) ...[
-              Container(
-                height: 1,
-                color: AppColors.surfaceBorder.withValues(alpha: 0.3),
+                  ),
+                  // Helper templates button
+                  if (widget.templates.isNotEmpty ||
+                      widget.naturalLanguageExamples.isNotEmpty)
+                    _buildHelperButton(),
+                  // Clear button
+                  if (_hasText && !widget.isLoading)
+                    SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 14),
+                        color: AppColors.textMuted,
+                        onPressed: _handleClear,
+                        padding: EdgeInsets.zero,
+                        style: IconButton.styleFrom(
+                          minimumSize: const Size(28, 28),
+                          backgroundColor: Colors.transparent,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                        tooltip: 'Clear',
+                      ),
+                    ),
+                  // Run Query / loading / time controls
+                  if (widget.dashboardState != null && maxWidth > 400)
+                    _buildCompactTimeControls()
+                  else
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: _buildRunButton(),
+                    ),
+                ],
               ),
-              _buildTimeControlsRow(),
-            ]
+            ),
           ],
         ),
       ),
@@ -571,10 +568,11 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
   // Multi-line bar
   // ===========================================================================
 
-  Widget _buildMultiLineBar() {
+  Widget _buildMultiLineBar(double maxWidth) {
     final isFocused = _focusNode.hasFocus;
-    final effectiveHint =
-        _isNaturalLanguage ? widget.naturalLanguageHint : widget.hintText;
+    final effectiveHint = _isNaturalLanguage
+        ? widget.naturalLanguageHint
+        : widget.hintText;
 
     return CompositedTransformTarget(
       link: _layerLink,
@@ -590,17 +588,18 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
             color: _isNaturalLanguage
                 ? AppColors.secondaryPurple.withValues(alpha: 0.6)
                 : isFocused
-                    ? AppColors.primaryCyan.withValues(alpha: 0.6)
-                    : AppColors.surfaceBorder.withValues(alpha: 0.5),
+                ? AppColors.primaryCyan.withValues(alpha: 0.6)
+                : AppColors.surfaceBorder.withValues(alpha: 0.5),
             width: 1,
           ),
           boxShadow: [
             if (isFocused)
               BoxShadow(
-                color: (_isNaturalLanguage
-                        ? AppColors.secondaryPurple
-                        : AppColors.primaryCyan)
-                    .withValues(alpha: 0.15),
+                color:
+                    (_isNaturalLanguage
+                            ? AppColors.secondaryPurple
+                            : AppColors.primaryCyan)
+                        .withValues(alpha: 0.15),
                 blurRadius: 10,
                 spreadRadius: 1,
               ),
@@ -615,7 +614,10 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
               child: Row(
                 children: [
                   if (widget.leading != null) widget.leading!,
-                  if (widget.enableNaturalLanguage || widget.languageLabel != null || (widget.languages != null && widget.languages!.isNotEmpty))
+                  if (widget.enableNaturalLanguage ||
+                      widget.languageLabel != null ||
+                      (widget.languages != null &&
+                          widget.languages!.isNotEmpty))
                     _buildLanguageSelector(),
                   if (widget.templates.isNotEmpty ||
                       widget.naturalLanguageExamples.isNotEmpty)
@@ -634,38 +636,20 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
                           minimumSize: const Size(28, 28),
                           backgroundColor: Colors.transparent,
                           shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(6)),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
                         ),
                         tooltip: 'Clear',
                       ),
                     ),
-                  widget.isLoading
-                      ? const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 10),
-                          child: SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: AppColors.primaryCyan),
-                          ),
-                        )
-                      : TextButton.icon(
-                          onPressed: _hasText ? _handleSubmit : null,
-                          icon: const Icon(Icons.play_arrow_rounded, size: 16),
-                          label: const Text('Run'),
-                          style: TextButton.styleFrom(
-                            foregroundColor: AppColors.primaryCyan,
-                            disabledForegroundColor:
-                                AppColors.textMuted.withValues(alpha: 0.4),
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 10),
-                            minimumSize: const Size(0, 28),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6)),
-                            textStyle: const TextStyle(
-                                fontSize: 11, fontWeight: FontWeight.w600),
-                          ),
-                        ),
+                  // Run Query / loading / time controls
+                  if (widget.dashboardState != null && maxWidth > 400)
+                    _buildCompactTimeControls()
+                  else
+                    Padding(
+                      padding: const EdgeInsets.only(right: 2),
+                      child: _buildRunButton(),
+                    ),
                 ],
               ),
             ),
@@ -692,13 +676,18 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
                           ),
                     decoration: InputDecoration(
                       hintText: effectiveHint,
-                      hintStyle: (_isNaturalLanguage
-                              ? GoogleFonts.inter(fontSize: 12, height: 1.5)
-                              : GoogleFonts.jetBrainsMono(
-                                  fontSize: 12, height: 1.5))
-                          .copyWith(
-                        color: AppColors.textMuted.withValues(alpha: 0.6),
-                      ),
+                      hintStyle:
+                          (_isNaturalLanguage
+                                  ? GoogleFonts.inter(fontSize: 12, height: 1.5)
+                                  : GoogleFonts.jetBrainsMono(
+                                      fontSize: 12,
+                                      height: 1.5,
+                                    ))
+                              .copyWith(
+                                color: AppColors.textMuted.withValues(
+                                  alpha: 0.6,
+                                ),
+                              ),
                       border: InputBorder.none,
                       enabledBorder: InputBorder.none,
                       focusedBorder: InputBorder.none,
@@ -709,13 +698,6 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
                 ),
               ),
             ),
-            if (widget.dashboardState != null) ...[
-              Container(
-                height: 1,
-                color: AppColors.surfaceBorder.withValues(alpha: 0.3),
-              ),
-              _buildTimeControlsRow(),
-            ]
           ],
         ),
       ),
@@ -728,17 +710,22 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
 
   Widget _buildLanguageSelector() {
     final hasNl = widget.enableNaturalLanguage;
-    final hasMultipleLanguages = widget.languages != null && widget.languages!.isNotEmpty;
+    final hasMultipleLanguages =
+        widget.languages != null && widget.languages!.isNotEmpty;
     final isClickable = hasMultipleLanguages || hasNl;
 
     final currentLabel = _isNaturalLanguage
         ? 'NL'
         : (widget.languages != null && widget.languages!.isNotEmpty
-            ? widget.languages![widget.selectedLanguageIndex]
-            : (widget.languageLabel ?? 'Query'));
+              ? widget.languages![widget.selectedLanguageIndex]
+              : (widget.languageLabel ?? 'Query'));
 
-    final color = _isNaturalLanguage ? AppColors.secondaryPurple : widget.languageLabelColor;
-    final icon = _isNaturalLanguage ? Icons.auto_awesome_rounded : Icons.code_rounded;
+    final color = _isNaturalLanguage
+        ? AppColors.secondaryPurple
+        : widget.languageLabelColor;
+    final icon = _isNaturalLanguage
+        ? Icons.auto_awesome_rounded
+        : Icons.code_rounded;
 
     Widget badge = AnimatedContainer(
       duration: const Duration(milliseconds: 200),
@@ -747,9 +734,7 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(isClickable ? 12 : 6),
-        border: Border.all(
-          color: color.withValues(alpha: 0.25),
-        ),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -766,7 +751,11 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
           ),
           if (isClickable) ...[
             const SizedBox(width: 2),
-            Icon(Icons.arrow_drop_down_rounded, size: 14, color: color.withValues(alpha: 0.8)),
+            Icon(
+              Icons.arrow_drop_down_rounded,
+              size: 14,
+              color: color.withValues(alpha: 0.8),
+            ),
           ],
         ],
       ),
@@ -796,26 +785,48 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
       },
       itemBuilder: (context) => [
         if (widget.languages != null && widget.languages!.isNotEmpty)
-          ...widget.languages!.map((l) => PopupMenuItem(
-                value: l,
-                height: 32,
-                child: Row(
-                  children: [
-                    Icon(Icons.code_rounded, size: 14, color: widget.languageLabelColor),
-                    const SizedBox(width: 8),
-                    Text(l, style: const TextStyle(fontSize: 12, color: AppColors.textPrimary)),
-                  ],
-                ),
-              ))
+          ...widget.languages!.map(
+            (l) => PopupMenuItem(
+              value: l,
+              height: 32,
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.code_rounded,
+                    size: 14,
+                    color: widget.languageLabelColor,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    l,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
         else if (widget.languageLabel != null)
           PopupMenuItem(
             value: 'BASE_LABEL',
             height: 32,
             child: Row(
               children: [
-                Icon(Icons.code_rounded, size: 14, color: widget.languageLabelColor),
+                Icon(
+                  Icons.code_rounded,
+                  size: 14,
+                  color: widget.languageLabelColor,
+                ),
                 const SizedBox(width: 8),
-                Text(widget.languageLabel!, style: const TextStyle(fontSize: 12, color: AppColors.textPrimary)),
+                Text(
+                  widget.languageLabel!,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
               ],
             ),
           ),
@@ -827,9 +838,16 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
             height: 32,
             child: Row(
               children: [
-                Icon(Icons.auto_awesome_rounded, size: 14, color: AppColors.secondaryPurple),
+                Icon(
+                  Icons.auto_awesome_rounded,
+                  size: 14,
+                  color: AppColors.secondaryPurple,
+                ),
                 SizedBox(width: 8),
-                Text('Natural Language', style: TextStyle(fontSize: 12, color: AppColors.textPrimary)),
+                Text(
+                  'Natural Language',
+                  style: TextStyle(fontSize: 12, color: AppColors.textPrimary),
+                ),
               ],
             ),
           ),
@@ -858,24 +876,137 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
     );
   }
 
-  Widget _buildTimeControlsRow() {
-    final dashboardState = widget.dashboardState!;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      child: UnifiedTimePicker(
-        currentRange: dashboardState.timeRange,
-        onChanged: (range) {
-          dashboardState.setTimeRange(range);
-          widget.onRefresh?.call();
-        },
-        onRefresh: () {
-          dashboardState.setTimeRange(dashboardState.timeRange.refresh());
-          widget.onRefresh?.call();
-        },
-        showAutoRefresh: true,
-        autoRefresh: dashboardState.autoRefresh,
-        onAutoRefreshToggle: () => dashboardState.toggleAutoRefresh(),
+  Widget _buildCompactTimeControls() {
+    final state = widget.dashboardState!;
+    return Container(
+      margin: const EdgeInsets.only(right: 6, bottom: 2, top: 2),
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: AppColors.backgroundDark.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: AppColors.surfaceBorder.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 1. Time range dropdown
+          UnifiedTimePicker(
+            currentRange: state.timeRange,
+            onChanged: (range) {
+              state.setTimeRange(range);
+              widget.onRefresh?.call();
+            },
+            showRefreshButton: false,
+            showAutoRefresh: false,
+          ),
+          const SizedBox(width: 4),
+          Container(width: 1, height: 20, color: AppColors.surfaceBorder),
+          const SizedBox(width: 4),
+
+          // 2. Auto toggle
+          Tooltip(
+            message: 'Auto-refresh',
+            child: InkWell(
+              onTap: () {
+                state.toggleAutoRefresh();
+                setState(() {});
+              },
+              borderRadius: BorderRadius.circular(6),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                decoration: BoxDecoration(
+                  color: state.autoRefresh
+                      ? AppColors.primaryCyan.withValues(alpha: 0.2)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.sync,
+                      size: 14,
+                      color: state.autoRefresh
+                          ? AppColors.primaryCyan
+                          : AppColors.textMuted,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Auto',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: state.autoRefresh
+                            ? AppColors.primaryCyan
+                            : AppColors.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 2),
+
+          // 3. Refresh
+          Tooltip(
+            message: 'Refresh data',
+            child: IconButton(
+              icon: const Icon(Icons.refresh_rounded, size: 16),
+              color: AppColors.textPrimary,
+              onPressed: () {
+                state.setTimeRange(state.timeRange.refresh());
+                widget.onRefresh?.call();
+              },
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+              padding: EdgeInsets.zero,
+            ),
+          ),
+
+          const SizedBox(width: 4),
+
+          // 4. Run Button
+          _buildRunButton(),
+        ],
       ),
     );
+  }
+
+  Widget _buildRunButton() {
+    return widget.isLoading
+        ? const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 6),
+            child: SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppColors.primaryCyan,
+              ),
+            ),
+          )
+        : TextButton.icon(
+            onPressed: _hasText ? _handleSubmit : null,
+            icon: const Icon(Icons.play_arrow_rounded, size: 16),
+            label: const Text('Run'),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.primaryCyan,
+              disabledForegroundColor: AppColors.textMuted.withValues(
+                alpha: 0.4,
+              ),
+              backgroundColor: AppColors.primaryCyan.withValues(alpha: 0.1),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+              minimumSize: const Size(0, 26),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(6),
+              ),
+              textStyle: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          );
   }
 }

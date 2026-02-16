@@ -302,8 +302,7 @@ const loggingTemplates = <QueryTemplate>[
   QueryTemplate(
     title: 'Cloud Run request logs',
     description: 'HTTP request logs from Cloud Run services',
-    query:
-        'resource.type="cloud_run_revision" AND httpRequest.status>=400',
+    query: 'resource.type="cloud_run_revision" AND httpRequest.status>=400',
     category: 'Cloud Run',
     icon: Icons.cloud_rounded,
   ),
@@ -385,16 +384,20 @@ const mqlSnippets = <QuerySnippet>[
     color: AppColors.warning,
   ),
   QuerySnippet(
-    label: 'metric.type="compute.googleapis.com/instance/network/received_bytes_count"',
-    insertText: 'metric.type="compute.googleapis.com/instance/network/received_bytes_count"',
+    label:
+        'metric.type="compute.googleapis.com/instance/network/received_bytes_count"',
+    insertText:
+        'metric.type="compute.googleapis.com/instance/network/received_bytes_count"',
     description: 'Received bytes count',
     category: 'Metric',
     icon: Icons.show_chart_rounded,
     color: AppColors.warning,
   ),
   QuerySnippet(
-    label: 'metric.type="compute.googleapis.com/instance/network/sent_bytes_count"',
-    insertText: 'metric.type="compute.googleapis.com/instance/network/sent_bytes_count"',
+    label:
+        'metric.type="compute.googleapis.com/instance/network/sent_bytes_count"',
+    insertText:
+        'metric.type="compute.googleapis.com/instance/network/sent_bytes_count"',
     description: 'Sent bytes count',
     category: 'Metric',
     icon: Icons.show_chart_rounded,
@@ -450,7 +453,8 @@ const mqlSnippets = <QuerySnippet>[
   ),
   QuerySnippet(
     label: 'metric.type="cloudsql.googleapis.com/database/cpu/utilization"',
-    insertText: 'metric.type="cloudsql.googleapis.com/database/cpu/utilization"',
+    insertText:
+        'metric.type="cloudsql.googleapis.com/database/cpu/utilization"',
     description: 'Cloud SQL CPU utilization',
     category: 'Metric',
     icon: Icons.show_chart_rounded,
@@ -458,23 +462,28 @@ const mqlSnippets = <QuerySnippet>[
   ),
   QuerySnippet(
     label: 'metric.type="cloudsql.googleapis.com/database/memory/utilization"',
-    insertText: 'metric.type="cloudsql.googleapis.com/database/memory/utilization"',
+    insertText:
+        'metric.type="cloudsql.googleapis.com/database/memory/utilization"',
     description: 'Cloud SQL Memory utilization',
     category: 'Metric',
     icon: Icons.show_chart_rounded,
     color: AppColors.warning,
   ),
   QuerySnippet(
-    label: 'metric.type="pubsub.googleapis.com/subscription/num_undelivered_messages"',
-    insertText: 'metric.type="pubsub.googleapis.com/subscription/num_undelivered_messages"',
+    label:
+        'metric.type="pubsub.googleapis.com/subscription/num_undelivered_messages"',
+    insertText:
+        'metric.type="pubsub.googleapis.com/subscription/num_undelivered_messages"',
     description: 'Pub/Sub Unacked messages',
     category: 'Metric',
     icon: Icons.show_chart_rounded,
     color: AppColors.warning,
   ),
   QuerySnippet(
-    label: 'metric.type="pubsub.googleapis.com/subscription/oldest_unacked_message_age"',
-    insertText: 'metric.type="pubsub.googleapis.com/subscription/oldest_unacked_message_age"',
+    label:
+        'metric.type="pubsub.googleapis.com/subscription/oldest_unacked_message_age"',
+    insertText:
+        'metric.type="pubsub.googleapis.com/subscription/oldest_unacked_message_age"',
     description: 'Oldest unacked message age',
     category: 'Metric',
     icon: Icons.show_chart_rounded,
@@ -482,7 +491,8 @@ const mqlSnippets = <QuerySnippet>[
   ),
   QuerySnippet(
     label: 'metric.type="loadbalancing.googleapis.com/https/backend_latencies"',
-    insertText: 'metric.type="loadbalancing.googleapis.com/https/backend_latencies"',
+    insertText:
+        'metric.type="loadbalancing.googleapis.com/https/backend_latencies"',
     description: 'LB Backend latencies',
     category: 'Metric',
     icon: Icons.show_chart_rounded,
@@ -490,7 +500,8 @@ const mqlSnippets = <QuerySnippet>[
   ),
   QuerySnippet(
     label: 'metric.type="loadbalancing.googleapis.com/https/request_count"',
-    insertText: 'metric.type="loadbalancing.googleapis.com/https/request_count"',
+    insertText:
+        'metric.type="loadbalancing.googleapis.com/https/request_count"',
     description: 'LB Request count',
     category: 'Metric',
     icon: Icons.show_chart_rounded,
@@ -586,32 +597,28 @@ const metricsTemplates = <QueryTemplate>[
   QueryTemplate(
     title: 'CPU utilization',
     description: 'Compute Engine instance CPU usage',
-    query:
-        'metric.type="compute.googleapis.com/instance/cpu/utilization"',
+    query: 'metric.type="compute.googleapis.com/instance/cpu/utilization"',
     category: 'Compute',
     icon: Icons.memory_rounded,
   ),
   QueryTemplate(
     title: 'Cloud Run request count',
     description: 'Request count for Cloud Run services',
-    query:
-        'metric.type="run.googleapis.com/request_count"',
+    query: 'metric.type="run.googleapis.com/request_count"',
     category: 'Cloud Run',
     icon: Icons.cloud_rounded,
   ),
   QueryTemplate(
     title: 'Cloud SQL connections',
     description: 'Active database connections',
-    query:
-        'metric.type="cloudsql.googleapis.com/database/network/connections"',
+    query: 'metric.type="cloudsql.googleapis.com/database/network/connections"',
     category: 'Database',
     icon: Icons.storage_rounded,
   ),
   QueryTemplate(
     title: 'Load balancer latency',
     description: 'HTTP load balancer backend latencies',
-    query:
-        'metric.type="loadbalancing.googleapis.com/https/backend_latencies"',
+    query: 'metric.type="loadbalancing.googleapis.com/https/backend_latencies"',
     category: 'Network',
     icon: Icons.network_check_rounded,
   ),
@@ -636,15 +643,15 @@ const promqlTemplates = <QueryTemplate>[
   QueryTemplate(
     title: 'P95 latency',
     description: '95th percentile request latency',
-    query: 'histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))',
+    query:
+        'histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))',
     category: 'Latency',
     icon: Icons.speed_rounded,
   ),
   QueryTemplate(
     title: 'Memory usage by pod',
     description: 'Container memory usage grouped by pod',
-    query:
-        'sum by (pod) (container_memory_usage_bytes{container!=""})',
+    query: 'sum by (pod) (container_memory_usage_bytes{container!=""})',
     category: 'Resources',
     icon: Icons.memory_rounded,
   ),

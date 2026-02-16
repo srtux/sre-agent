@@ -2,7 +2,9 @@ import 'dart:convert';
 
 /// Flattens BigQuery's nested `{f: [{v: ...}, ...]}` or `{v: ...}` structure
 /// into a clean Map/List hierarchical structure for display.
-List<Map<String, dynamic>> flattenBigQueryResults(List<Map<String, dynamic>> rows) {
+List<Map<String, dynamic>> flattenBigQueryResults(
+  List<Map<String, dynamic>> rows,
+) {
   return rows.map((row) {
     return row.map((key, value) => MapEntry(key, flattenBigQueryValue(value)));
   }).toList();

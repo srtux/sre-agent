@@ -51,7 +51,9 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
   void initState() {
     super.initState();
     _sqlController = TextEditingController(
-      text: widget.dashboardState.getLastQueryFilter(DashboardDataType.analytics),
+      text: widget.dashboardState.getLastQueryFilter(
+        DashboardDataType.analytics,
+      ),
     );
   }
 
@@ -72,7 +74,9 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
   // ===========================================================================
 
   Widget _buildSqlView() {
-    final isLoading = widget.dashboardState.isLoading(DashboardDataType.analytics);
+    final isLoading = widget.dashboardState.isLoading(
+      DashboardDataType.analytics,
+    );
     final error = widget.dashboardState.errorFor(DashboardDataType.analytics);
 
     return Row(
@@ -83,24 +87,43 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
           BigQuerySidebar(
             onClose: () => setState(() => _showSidebar = false),
             onInsertTable: (tableName) {
-            final current = _sqlController.text;
-            final prefix = current.isEmpty || current.endsWith(' ') || current.endsWith('\n') ? '' : ' ';
-            _sqlController.text = current + prefix + tableName;
-            widget.dashboardState.setLastQueryFilter(DashboardDataType.analytics, _sqlController.text);
-          },
-          onInsertColumn: (columnName) {
-            final current = _sqlController.text;
-            final prefix = current.isEmpty || current.endsWith(' ') || current.endsWith('\n') ? '' : ', ';
-            _sqlController.text = current + prefix + columnName;
-            widget.dashboardState.setLastQueryFilter(DashboardDataType.analytics, _sqlController.text);
-          },
-        ),
+              final current = _sqlController.text;
+              final prefix =
+                  current.isEmpty ||
+                      current.endsWith(' ') ||
+                      current.endsWith('\n')
+                  ? ''
+                  : ' ';
+              _sqlController.text = current + prefix + tableName;
+              widget.dashboardState.setLastQueryFilter(
+                DashboardDataType.analytics,
+                _sqlController.text,
+              );
+            },
+            onInsertColumn: (columnName) {
+              final current = _sqlController.text;
+              final prefix =
+                  current.isEmpty ||
+                      current.endsWith(' ') ||
+                      current.endsWith('\n')
+                  ? ''
+                  : ', ';
+              _sqlController.text = current + prefix + columnName;
+              widget.dashboardState.setLastQueryFilter(
+                DashboardDataType.analytics,
+                _sqlController.text,
+              );
+            },
+          ),
         // Main query and results area
         Expanded(
           child: ListenableBuilder(
             listenable: widget.dashboardState,
             builder: (context, _) {
-              final sqlItems = widget.dashboardState.itemsOfType(DashboardDataType.analytics).where((i) => i.sqlData != null).toList();
+              final sqlItems = widget.dashboardState
+                  .itemsOfType(DashboardDataType.analytics)
+                  .where((i) => i.sqlData != null)
+                  .toList();
               final hasResults = sqlItems.isNotEmpty;
 
               return Column(
@@ -128,7 +151,9 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
                           'SELECT column1, column2\nFROM `project.dataset.table`\nWHERE condition\nLIMIT 1000',
                       dashboardState: widget.dashboardState,
                       onRefresh: () {
-                        final sql = widget.dashboardState.getLastQueryFilter(DashboardDataType.analytics);
+                        final sql = widget.dashboardState.getLastQueryFilter(
+                          DashboardDataType.analytics,
+                        );
                         if (sql != null && sql.isNotEmpty) {
                           final explorer = context.read<ExplorerQueryService>();
                           explorer.queryBigQuery(sql: sql);
@@ -139,33 +164,38 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
                       selectedLanguageIndex: 0,
                       onLanguageChanged: (i) => setState(() => _viewMode = i),
                       multiLine: true,
-                      initialValue: widget.dashboardState
-                          .getLastQueryFilter(DashboardDataType.analytics),
-                isLoading: isLoading,
-                snippets: sqlSnippets,
-                templates: sqlTemplates,
-                enableNaturalLanguage: true,
-                naturalLanguageHint:
-                    'Show me the top 10 most expensive queries by slot usage...',
-                naturalLanguageExamples: sqlNaturalLanguageExamples,
-                onSubmitWithMode: (query, isNl) {
-                  widget.dashboardState
-                      .setLastQueryFilter(DashboardDataType.analytics, query);
-                  final explorer = context.read<ExplorerQueryService>();
-                  if (isNl) {
-                    if (widget.onPromptRequest != null) {
-                      widget.onPromptRequest!(query);
-                    }
-                  } else {
-                    explorer.queryBigQuery(sql: query);
-                  }
-                },
-                onSubmit: (sql) {
-                  widget.dashboardState
-                      .setLastQueryFilter(DashboardDataType.analytics, sql);
-                  final explorer = context.read<ExplorerQueryService>();
-                  explorer.queryBigQuery(sql: sql);
-                },
+                      initialValue: widget.dashboardState.getLastQueryFilter(
+                        DashboardDataType.analytics,
+                      ),
+                      isLoading: isLoading,
+                      snippets: sqlSnippets,
+                      templates: sqlTemplates,
+                      enableNaturalLanguage: true,
+                      naturalLanguageHint:
+                          'Show me the top 10 most expensive queries by slot usage...',
+                      naturalLanguageExamples: sqlNaturalLanguageExamples,
+                      onSubmitWithMode: (query, isNl) {
+                        widget.dashboardState.setLastQueryFilter(
+                          DashboardDataType.analytics,
+                          query,
+                        );
+                        final explorer = context.read<ExplorerQueryService>();
+                        if (isNl) {
+                          if (widget.onPromptRequest != null) {
+                            widget.onPromptRequest!(query);
+                          }
+                        } else {
+                          explorer.queryBigQuery(sql: query);
+                        }
+                      },
+                      onSubmit: (sql) {
+                        widget.dashboardState.setLastQueryFilter(
+                          DashboardDataType.analytics,
+                          sql,
+                        );
+                        final explorer = context.read<ExplorerQueryService>();
+                        explorer.queryBigQuery(sql: sql);
+                      },
                     ),
                   ),
                   // Syntax help
@@ -173,8 +203,10 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
                   if (error != null)
                     ErrorBanner(
                       message: error,
-                      onDismiss: () => widget.dashboardState
-                          .setError(DashboardDataType.analytics, null),
+                      onDismiss: () => widget.dashboardState.setError(
+                        DashboardDataType.analytics,
+                        null,
+                      ),
                     ),
                   // Results area
                   if (isLoading && !hasResults)
@@ -202,18 +234,23 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
                         itemBuilder: (context, index) {
                           // Show in reverse chronological order
                           final item = sqlItems[sqlItems.length - 1 - index];
-                          if (item.sqlData == null) return const SizedBox.shrink();
+                          if (item.sqlData == null) {
+                            return const SizedBox.shrink();
+                          }
 
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 16),
                             child: DashboardCardWrapper(
-                              onClose: () => widget.dashboardState.removeItem(item.id),
+                              onClose: () =>
+                                  widget.dashboardState.removeItem(item.id),
                               header: Row(
                                 children: [
                                   Container(
                                     padding: const EdgeInsets.all(4),
                                     decoration: BoxDecoration(
-                                      color: AppColors.primaryCyan.withValues(alpha: 0.15),
+                                      color: AppColors.primaryCyan.withValues(
+                                        alpha: 0.15,
+                                      ),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: const Icon(
@@ -246,7 +283,8 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
                                 ],
                               ),
                               child: SizedBox(
-                                height: 400, // Fixed height for each result card
+                                height:
+                                    400, // Fixed height for each result card
                                 child: SqlResultsTable(
                                   columns: item.sqlData!.columns,
                                   rows: item.sqlData!.rows,
@@ -274,18 +312,18 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
       decoration: BoxDecoration(
         color: AppColors.warning.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: AppColors.warning.withValues(alpha: 0.1),
-        ),
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.keyboard_rounded,
-                  size: 11,
-                  color: AppColors.textMuted.withValues(alpha: 0.6)),
+              Icon(
+                Icons.keyboard_rounded,
+                size: 11,
+                color: AppColors.textMuted.withValues(alpha: 0.6),
+              ),
               const SizedBox(width: 5),
               Text(
                 'Tab to autocomplete  |  '
@@ -301,9 +339,11 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
           const SizedBox(height: 4),
           Row(
             children: [
-              Icon(Icons.info_outline_rounded,
-                  size: 11,
-                  color: AppColors.textMuted.withValues(alpha: 0.6)),
+              Icon(
+                Icons.info_outline_rounded,
+                size: 11,
+                color: AppColors.textMuted.withValues(alpha: 0.6),
+              ),
               const SizedBox(width: 5),
               Expanded(
                 child: Text(
@@ -341,13 +381,17 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
             selectedLanguageIndex: 1,
             onLanguageChanged: (i) => setState(() => _viewMode = i),
             languageLabelColor: AppColors.warning,
-            initialValue: widget.dashboardState
-                .getLastQueryFilter(DashboardDataType.analytics),
-            isLoading:
-                widget.dashboardState.isLoading(DashboardDataType.analytics),
+            initialValue: widget.dashboardState.getLastQueryFilter(
+              DashboardDataType.analytics,
+            ),
+            isLoading: widget.dashboardState.isLoading(
+              DashboardDataType.analytics,
+            ),
             onSubmit: (query) {
-              widget.dashboardState
-                  .setLastQueryFilter(DashboardDataType.analytics, query);
+              widget.dashboardState.setLastQueryFilter(
+                DashboardDataType.analytics,
+                query,
+              );
             },
           ),
         ),
@@ -366,15 +410,13 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
                     final item = chartItems[index];
                     if (item.chartData == null) return const SizedBox.shrink();
                     return DashboardCardWrapper(
-                      onClose: () =>
-                          widget.dashboardState.removeItem(item.id),
+                      onClose: () => widget.dashboardState.removeItem(item.id),
                       header: Row(
                         children: [
                           Container(
                             padding: const EdgeInsets.all(4),
                             decoration: BoxDecoration(
-                              color:
-                                  AppColors.warning.withValues(alpha: 0.15),
+                              color: AppColors.warning.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: const Icon(
@@ -399,7 +441,9 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
                         ],
                       ),
                       child: _ChartCard(
-                          data: item.chartData!, toolName: item.toolName),
+                        data: item.chartData!,
+                        toolName: item.toolName,
+                      ),
                     );
                   },
                 ),
@@ -463,12 +507,14 @@ class _ChartCardState extends State<_ChartCard> {
   }
 
   Widget _buildChartPreview(Map<String, dynamic> spec, int index) {
-    final title = spec['title'] as String? ??
+    final title =
+        spec['title'] as String? ??
         spec['description'] as String? ??
         'Chart ${index + 1}';
     final mark = spec['mark'];
-    final markType =
-        mark is String ? mark : (mark is Map ? mark['type'] ?? 'unknown' : 'unknown');
+    final markType = mark is String
+        ? mark
+        : (mark is Map ? mark['type'] ?? 'unknown' : 'unknown');
 
     return Padding(
       padding: const EdgeInsets.only(top: 6),
@@ -476,9 +522,7 @@ class _ChartCardState extends State<_ChartCard> {
         decoration: BoxDecoration(
           color: AppColors.backgroundDark,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: AppColors.warning.withValues(alpha: 0.2),
-          ),
+          border: Border.all(color: AppColors.warning.withValues(alpha: 0.2)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -526,9 +570,7 @@ class _ChartCardState extends State<_ChartCard> {
                   InkWell(
                     onTap: () => setState(() => _showSpec = !_showSpec),
                     child: Icon(
-                      _showSpec
-                          ? Icons.code_off_rounded
-                          : Icons.code_rounded,
+                      _showSpec ? Icons.code_off_rounded : Icons.code_rounded,
                       size: 14,
                       color: AppColors.textMuted,
                     ),

@@ -27,10 +27,15 @@ class LiveRemediationPanel extends StatelessWidget {
           child: ManualQueryBar(
             hintText: 'Search plans...',
             dashboardState: dashboardState,
-            initialValue: dashboardState.getLastQueryFilter(DashboardDataType.remediation),
+            initialValue: dashboardState.getLastQueryFilter(
+              DashboardDataType.remediation,
+            ),
             isLoading: dashboardState.isLoading(DashboardDataType.remediation),
             onSubmit: (query) {
-              dashboardState.setLastQueryFilter(DashboardDataType.remediation, query);
+              dashboardState.setLastQueryFilter(
+                DashboardDataType.remediation,
+                query,
+              );
             },
           ),
         ),
@@ -47,7 +52,9 @@ class LiveRemediationPanel extends StatelessWidget {
                   itemCount: items.length,
                   itemBuilder: (context, index) {
                     final item = items[index];
-                    if (item.remediationPlan == null) return const SizedBox.shrink();
+                    if (item.remediationPlan == null) {
+                      return const SizedBox.shrink();
+                    }
 
                     return DashboardCardWrapper(
                       onClose: () => dashboardState.removeItem(item.id),
@@ -56,8 +63,9 @@ class LiveRemediationPanel extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.all(4),
                             decoration: BoxDecoration(
-                              color: AppColors.secondaryPurple
-                                  .withValues(alpha: 0.15),
+                              color: AppColors.secondaryPurple.withValues(
+                                alpha: 0.15,
+                              ),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: const Icon(
@@ -90,7 +98,9 @@ class LiveRemediationPanel extends StatelessWidget {
                           ),
                           Padding(
                             padding: const EdgeInsets.all(8),
-                            child: RemediationPlanWidget(plan: item.remediationPlan!),
+                            child: RemediationPlanWidget(
+                              plan: item.remediationPlan!,
+                            ),
                           ),
                         ],
                       ),

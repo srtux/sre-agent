@@ -128,13 +128,12 @@ class _LogPatternViewerState extends State<LogPatternViewer>
                     index: index,
                     total: patterns.length,
                     animation: _animation,
-                    isSelected:
-                        _selectedPattern == patterns[index].template,
+                    isSelected: _selectedPattern == patterns[index].template,
                     onTap: () => setState(() {
                       _selectedPattern =
                           _selectedPattern == patterns[index].template
-                              ? null
-                              : patterns[index].template;
+                          ? null
+                          : patterns[index].template;
                     }),
                   );
                 },
@@ -385,8 +384,7 @@ class _LogPatternViewerState extends State<LogPatternViewer>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color:
-              isSelected ? color.withValues(alpha: 0.2) : Colors.transparent,
+          color: isSelected ? color.withValues(alpha: 0.2) : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
             color: isSelected ? color : AppColors.surfaceBorder,
@@ -470,13 +468,10 @@ class _LogPatternViewerState extends State<LogPatternViewer>
                 const SizedBox(width: 2),
                 Icon(
                   isActive
-                      ? (_sortAsc
-                          ? Icons.arrow_upward
-                          : Icons.arrow_downward)
+                      ? (_sortAsc ? Icons.arrow_upward : Icons.arrow_downward)
                       : Icons.unfold_more,
                   size: 12,
-                  color:
-                      isActive ? AppColors.primaryTeal : AppColors.textMuted,
+                  color: isActive ? AppColors.primaryTeal : AppColors.textMuted,
                 ),
               ],
             ),

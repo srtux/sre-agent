@@ -14,6 +14,7 @@ import '../services/version_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/conversation/chat_input_area.dart';
 import '../widgets/conversation/chat_message_list.dart';
+import '../widgets/conversation/chat_panel_wrapper.dart';
 import '../widgets/conversation/conversation_app_bar.dart';
 import '../widgets/conversation/dashboard_panel_wrapper.dart';
 import '../widgets/conversation/hero_empty_state.dart';
@@ -53,6 +54,10 @@ class _ConversationPageState extends State<ConversationPage>
   List<String> _promptHistory = [];
   int _historyIndex = -1;
   String _tempInput = '';
+
+  // Layout State
+  bool _isChatOpen = true;
+  bool _isChatMaximized = false;
 
   @override
   void initState() {
@@ -184,8 +189,7 @@ class _ConversationPageState extends State<ConversationPage>
   // --------------- Actions ---------------
 
   void _onProjectChanged() {
-    _controller.contentGenerator?.projectId =
-        _projectService.selectedProjectId;
+    _controller.contentGenerator?.projectId = _projectService.selectedProjectId;
     _controller.contentGenerator?.fetchSuggestions();
   }
 
@@ -323,81 +327,99 @@ class _ConversationPageState extends State<ConversationPage>
             currentTraceId: _controller.currentTraceId,
             onStartNewSession: _startNewSession,
             onLoadSession: _loadSession,
+            isChatOpen: _isChatOpen,
+            onToggleChat: () {
+              setState(() => _isChatOpen = true);
+            },
           ),
           body: Row(
             children: [
-              // 1. Investigation Rail (desktop only)
-              if (!isMobile)
-                InvestigationRail(state: _dashboardState),
+              // 1. Investigation Rail
+              InvestigationRail(state: _dashboardState),
 
               // 2. Dashboard Panel
-              DashboardPanelWrapper(
-                dashboardState: _dashboardState,
-                totalWidth: constraints.maxWidth,
-                onPromptRequest: (prompt) {
-                  _textController.text = prompt;
-                  _sendMessage();
-                },
-              ),
-
-              // 3. Main conversation area
-              Expanded(
-                child: ValueListenableBuilder<List<ChatMessage>>(
-                  valueListenable:
-                      _controller.conversation?.conversation ??
-                          ValueNotifier([]),
-                  builder: (context, messages, _) {
-                    return ValueListenableBuilder<bool>(
-                      valueListenable:
-                          _controller.contentGenerator?.isProcessing ??
-                              ValueNotifier(false),
-                      builder: (context, isProcessing, _) {
-                        if (messages.isEmpty) {
-                          return HeroEmptyState(
-                            isProcessing: isProcessing,
-                            inputKey: _inputKey,
-                            textController: _textController,
-                            focusNode: _focusNode,
-                            onSend: _sendMessage,
-                            onCancel: () => _controller.contentGenerator
-                                ?.cancelRequest(),
-                            suggestedActions:
-                                _controller.suggestedActions,
-                          );
-                        }
-                        return Column(
-                          children: [
-                            Expanded(
-                              child: ChatMessageList(
-                                messages: messages,
-                                isProcessing: isProcessing,
-                                scrollController: _scrollController,
-                                conversation:
-                                    _controller.conversation!,
-                                typingAnimation: _typingController,
-                                toolCallState:
-                                    _controller.toolCallState,
-                              ),
-                            ),
-                            ChatInputArea(
-                              isProcessing: isProcessing,
-                              inputKey: _inputKey,
-                              textController: _textController,
-                              focusNode: _focusNode,
-                              onSend: _sendMessage,
-                              onCancel: () => _controller
-                                  .contentGenerator
-                                  ?.cancelRequest(),
-                              suggestedActions:
-                                  _controller.suggestedActions,
-                            ),
-                          ],
-                        );
-                      },
-                    );
+              if (!isMobile && (!_isChatMaximized || !_isChatOpen))
+                DashboardPanelWrapper(
+                  dashboardState: _dashboardState,
+                  totalWidth: constraints.maxWidth,
+                  isChatOpen: _isChatOpen,
+                  onPromptRequest: (prompt) {
+                    _textController.text = prompt;
+                    if (!_isChatOpen) setState(() => _isChatOpen = true);
+                    _sendMessage();
                   },
                 ),
-              ),
+
+              // 3. Main conversation area
+              if (_isChatOpen)
+                Expanded(
+                  child: ChatPanelWrapper(
+                    isMaximized: _isChatMaximized,
+                    onToggleMaximize: () {
+                      setState(() {
+                        _isChatMaximized = !_isChatMaximized;
+                      });
+                    },
+                    onClose: () {
+                      setState(() {
+                        _isChatOpen = false;
+                        _isChatMaximized = false;
+                      });
+                    },
+                    onStartNewSession: _startNewSession,
+                    child: ValueListenableBuilder<List<ChatMessage>>(
+                      valueListenable:
+                          _controller.conversation?.conversation ??
+                          ValueNotifier([]),
+                      builder: (context, messages, _) {
+                        return ValueListenableBuilder<bool>(
+                          valueListenable:
+                              _controller.contentGenerator?.isProcessing ??
+                              ValueNotifier(false),
+                          builder: (context, isProcessing, _) {
+                            if (messages.isEmpty) {
+                              return HeroEmptyState(
+                                isProcessing: isProcessing,
+                                inputKey: _inputKey,
+                                textController: _textController,
+                                focusNode: _focusNode,
+                                onSend: _sendMessage,
+                                onCancel: () => _controller.contentGenerator
+                                    ?.cancelRequest(),
+                                suggestedActions: _controller.suggestedActions,
+                              );
+                            }
+                            return Column(
+                              children: [
+                                Expanded(
+                                  child: ChatMessageList(
+                                    messages: messages,
+                                    isProcessing: isProcessing,
+                                    scrollController: _scrollController,
+                                    conversation: _controller.conversation!,
+                                    typingAnimation: _typingController,
+                                    toolCallState: _controller.toolCallState,
+                                  ),
+                                ),
+                                ChatInputArea(
+                                  isProcessing: isProcessing,
+                                  inputKey: _inputKey,
+                                  textController: _textController,
+                                  focusNode: _focusNode,
+                                  onSend: _sendMessage,
+                                  onCancel: () => _controller.contentGenerator
+                                      ?.cancelRequest(),
+                                  suggestedActions:
+                                      _controller.suggestedActions,
+                                ),
+                              ],
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ),
             ],
           ),
         );
@@ -409,9 +431,7 @@ class _ConversationPageState extends State<ConversationPage>
     return Drawer(
       width: 280,
       backgroundColor: AppColors.backgroundCard,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.zero,
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       child: Column(
         children: [
           Expanded(

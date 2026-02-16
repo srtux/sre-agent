@@ -29,9 +29,7 @@ class ChatInputArea extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-      decoration: const BoxDecoration(
-        color: Colors.transparent,
-      ),
+      decoration: const BoxDecoration(color: Colors.transparent),
       child: SafeArea(
         top: false,
         child: Center(
@@ -61,8 +59,7 @@ class ChatInputArea extends StatelessWidget {
                       'Enter to send \u2022 Shift+Enter for new line',
                       style: TextStyle(
                         fontSize: 11,
-                        color:
-                            AppColors.textMuted.withValues(alpha: 0.6),
+                        color: AppColors.textMuted.withValues(alpha: 0.6),
                       ),
                     ),
                   ),
@@ -89,8 +86,7 @@ class ChatInputArea extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               physics: const BouncingScrollPhysics(),
               itemCount: suggestions.length,
-              separatorBuilder: (context, index) =>
-                  const SizedBox(width: 10),
+              separatorBuilder: (context, index) => const SizedBox(width: 10),
               padding: const EdgeInsets.symmetric(horizontal: 4),
               itemBuilder: (context, index) {
                 final action = suggestions[index];

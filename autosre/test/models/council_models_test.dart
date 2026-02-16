@@ -35,34 +35,83 @@ void main() {
 
     test('displayName maps correctly', () {
       expect(
-        PanelFinding(panel: 'trace', summary: '', severity: '', confidence: 0, evidence: [], recommendedActions: []).displayName,
+        PanelFinding(
+          panel: 'trace',
+          summary: '',
+          severity: '',
+          confidence: 0,
+          evidence: [],
+          recommendedActions: [],
+        ).displayName,
         'Trace Analysis',
       );
       expect(
-        PanelFinding(panel: 'metrics', summary: '', severity: '', confidence: 0, evidence: [], recommendedActions: []).displayName,
+        PanelFinding(
+          panel: 'metrics',
+          summary: '',
+          severity: '',
+          confidence: 0,
+          evidence: [],
+          recommendedActions: [],
+        ).displayName,
         'Metrics Analysis',
       );
       expect(
-        PanelFinding(panel: 'logs', summary: '', severity: '', confidence: 0, evidence: [], recommendedActions: []).displayName,
+        PanelFinding(
+          panel: 'logs',
+          summary: '',
+          severity: '',
+          confidence: 0,
+          evidence: [],
+          recommendedActions: [],
+        ).displayName,
         'Logs Analysis',
       );
       expect(
-        PanelFinding(panel: 'alerts', summary: '', severity: '', confidence: 0, evidence: [], recommendedActions: []).displayName,
+        PanelFinding(
+          panel: 'alerts',
+          summary: '',
+          severity: '',
+          confidence: 0,
+          evidence: [],
+          recommendedActions: [],
+        ).displayName,
         'Alerts Analysis',
       );
       expect(
-        PanelFinding(panel: 'custom', summary: '', severity: '', confidence: 0, evidence: [], recommendedActions: []).displayName,
+        PanelFinding(
+          panel: 'custom',
+          summary: '',
+          severity: '',
+          confidence: 0,
+          evidence: [],
+          recommendedActions: [],
+        ).displayName,
         'custom',
       );
     });
 
     test('iconName maps correctly', () {
       expect(
-        PanelFinding(panel: 'trace', summary: '', severity: '', confidence: 0, evidence: [], recommendedActions: []).iconName,
+        PanelFinding(
+          panel: 'trace',
+          summary: '',
+          severity: '',
+          confidence: 0,
+          evidence: [],
+          recommendedActions: [],
+        ).iconName,
         'timeline',
       );
       expect(
-        PanelFinding(panel: 'unknown', summary: '', severity: '', confidence: 0, evidence: [], recommendedActions: []).iconName,
+        PanelFinding(
+          panel: 'unknown',
+          summary: '',
+          severity: '',
+          confidence: 0,
+          evidence: [],
+          recommendedActions: [],
+        ).iconName,
         'help',
       );
     });
@@ -95,7 +144,9 @@ void main() {
 
     test('hasContradictions is true when contradictions exist', () {
       final report = CriticReport(
-        agreements: [], contradictions: ['conflict'], gaps: [],
+        agreements: [],
+        contradictions: ['conflict'],
+        gaps: [],
         revisedConfidence: 0.5,
       );
       expect(report.hasContradictions, isTrue);
@@ -103,7 +154,9 @@ void main() {
 
     test('hasGaps is true when gaps exist', () {
       final report = CriticReport(
-        agreements: [], contradictions: [], gaps: ['missing data'],
+        agreements: [],
+        contradictions: [],
+        gaps: ['missing data'],
         revisedConfidence: 0.5,
       );
       expect(report.hasGaps, isTrue);
@@ -111,7 +164,9 @@ void main() {
 
     test('hasStrongAgreement when 2+ agreements and no contradictions', () {
       final report = CriticReport(
-        agreements: ['a1', 'a2'], contradictions: [], gaps: [],
+        agreements: ['a1', 'a2'],
+        contradictions: [],
+        gaps: [],
         revisedConfidence: 0.9,
       );
       expect(report.hasStrongAgreement, isTrue);
@@ -119,7 +174,9 @@ void main() {
 
     test('hasStrongAgreement false with contradictions', () {
       final report = CriticReport(
-        agreements: ['a1', 'a2'], contradictions: ['c1'], gaps: [],
+        agreements: ['a1', 'a2'],
+        contradictions: ['c1'],
+        gaps: [],
         revisedConfidence: 0.5,
       );
       expect(report.hasStrongAgreement, isFalse);
@@ -132,16 +189,31 @@ void main() {
   group('CouncilAgentType', () {
     test('fromString maps correctly', () {
       expect(CouncilAgentType.fromString('root'), CouncilAgentType.root);
-      expect(CouncilAgentType.fromString('orchestrator'), CouncilAgentType.orchestrator);
+      expect(
+        CouncilAgentType.fromString('orchestrator'),
+        CouncilAgentType.orchestrator,
+      );
       expect(CouncilAgentType.fromString('panel'), CouncilAgentType.panel);
       expect(CouncilAgentType.fromString('critic'), CouncilAgentType.critic);
-      expect(CouncilAgentType.fromString('synthesizer'), CouncilAgentType.synthesizer);
-      expect(CouncilAgentType.fromString('sub_agent'), CouncilAgentType.subAgent);
-      expect(CouncilAgentType.fromString('subagent'), CouncilAgentType.subAgent);
+      expect(
+        CouncilAgentType.fromString('synthesizer'),
+        CouncilAgentType.synthesizer,
+      );
+      expect(
+        CouncilAgentType.fromString('sub_agent'),
+        CouncilAgentType.subAgent,
+      );
+      expect(
+        CouncilAgentType.fromString('subagent'),
+        CouncilAgentType.subAgent,
+      );
     });
 
     test('fromString defaults to subAgent for unknown', () {
-      expect(CouncilAgentType.fromString('unknown_type'), CouncilAgentType.subAgent);
+      expect(
+        CouncilAgentType.fromString('unknown_type'),
+        CouncilAgentType.subAgent,
+      );
       expect(CouncilAgentType.fromString(''), CouncilAgentType.subAgent);
     });
 
@@ -194,9 +266,22 @@ void main() {
     });
 
     test('status helpers work correctly', () {
-      expect(ToolCallRecord(callId: '', toolName: '', status: 'error').isError, isTrue);
-      expect(ToolCallRecord(callId: '', toolName: '', status: 'pending').isPending, isTrue);
-      expect(ToolCallRecord(callId: '', toolName: '', status: 'completed').isCompleted, isTrue);
+      expect(
+        ToolCallRecord(callId: '', toolName: '', status: 'error').isError,
+        isTrue,
+      );
+      expect(
+        ToolCallRecord(callId: '', toolName: '', status: 'pending').isPending,
+        isTrue,
+      );
+      expect(
+        ToolCallRecord(
+          callId: '',
+          toolName: '',
+          status: 'completed',
+        ).isCompleted,
+        isTrue,
+      );
     });
   });
 
@@ -274,25 +359,39 @@ void main() {
 
     test('isRoot when parentId is null', () {
       final activity = CouncilAgentActivity(
-        agentId: 'root', agentName: 'root', agentType: CouncilAgentType.root,
+        agentId: 'root',
+        agentName: 'root',
+        agentType: CouncilAgentType.root,
       );
       expect(activity.isRoot, isTrue);
     });
 
     test('status helpers work correctly', () {
       expect(
-        CouncilAgentActivity(agentId: '', agentName: '', agentType: CouncilAgentType.root, status: 'running').isRunning,
+        CouncilAgentActivity(
+          agentId: '',
+          agentName: '',
+          agentType: CouncilAgentType.root,
+          status: 'running',
+        ).isRunning,
         isTrue,
       );
       expect(
-        CouncilAgentActivity(agentId: '', agentName: '', agentType: CouncilAgentType.root, status: 'error').hasError,
+        CouncilAgentActivity(
+          agentId: '',
+          agentName: '',
+          agentType: CouncilAgentType.root,
+          status: 'error',
+        ).hasError,
         isTrue,
       );
     });
 
     test('errorCount counts tool errors', () {
       final activity = CouncilAgentActivity(
-        agentId: 'a1', agentName: 'test', agentType: CouncilAgentType.panel,
+        agentId: 'a1',
+        agentName: 'test',
+        agentType: CouncilAgentType.panel,
         toolCalls: [
           ToolCallRecord(callId: 'c1', toolName: 't1', status: 'completed'),
           ToolCallRecord(callId: 'c2', toolName: 't2', status: 'error'),
@@ -304,11 +403,25 @@ void main() {
 
     test('getToolCallsForCategory filters by category', () {
       final activity = CouncilAgentActivity(
-        agentId: 'a1', agentName: 'test', agentType: CouncilAgentType.panel,
+        agentId: 'a1',
+        agentName: 'test',
+        agentType: CouncilAgentType.panel,
         toolCalls: [
-          ToolCallRecord(callId: 'c1', toolName: 't1', dashboardCategory: 'traces'),
-          ToolCallRecord(callId: 'c2', toolName: 't2', dashboardCategory: 'metrics'),
-          ToolCallRecord(callId: 'c3', toolName: 't3', dashboardCategory: 'traces'),
+          ToolCallRecord(
+            callId: 'c1',
+            toolName: 't1',
+            dashboardCategory: 'traces',
+          ),
+          ToolCallRecord(
+            callId: 'c2',
+            toolName: 't2',
+            dashboardCategory: 'metrics',
+          ),
+          ToolCallRecord(
+            callId: 'c3',
+            toolName: 't3',
+            dashboardCategory: 'traces',
+          ),
         ],
       );
       expect(activity.getToolCallsForCategory('traces').length, 2);
@@ -318,11 +431,19 @@ void main() {
 
     test('iconName maps agent types correctly', () {
       expect(
-        CouncilAgentActivity(agentId: '', agentName: '', agentType: CouncilAgentType.root).iconName,
+        CouncilAgentActivity(
+          agentId: '',
+          agentName: '',
+          agentType: CouncilAgentType.root,
+        ).iconName,
         'account_tree',
       );
       expect(
-        CouncilAgentActivity(agentId: '', agentName: '', agentType: CouncilAgentType.panel).iconName,
+        CouncilAgentActivity(
+          agentId: '',
+          agentName: '',
+          agentType: CouncilAgentType.panel,
+        ).iconName,
         'psychology',
       );
     });
@@ -344,8 +465,16 @@ void main() {
           'agent_name': 'sre_agent',
           'agent_type': 'root',
           'status': 'completed',
-          'tool_calls': [{'call_id': 'c1', 'tool_name': 'route', 'dashboard_category': 'traces'}],
-          'llm_calls': [{'call_id': 'l1', 'model': 'gemini'}],
+          'tool_calls': [
+            {
+              'call_id': 'c1',
+              'tool_name': 'route',
+              'dashboard_category': 'traces',
+            },
+          ],
+          'llm_calls': [
+            {'call_id': 'l1', 'model': 'gemini'},
+          ],
         },
         {
           'agent_id': 'panel-1',
@@ -353,7 +482,13 @@ void main() {
           'agent_type': 'panel',
           'parent_id': 'root-1',
           'status': 'completed',
-          'tool_calls': [{'call_id': 'c2', 'tool_name': 'fetch_trace', 'dashboard_category': 'traces'}],
+          'tool_calls': [
+            {
+              'call_id': 'c2',
+              'tool_name': 'fetch_trace',
+              'dashboard_category': 'traces',
+            },
+          ],
         },
         {
           'agent_id': 'critic-1',
@@ -387,15 +522,21 @@ void main() {
         'started_at': 'now',
         'agents': [
           {
-            'agent_id': 'a1', 'agent_name': 'panel', 'agent_type': 'panel',
+            'agent_id': 'a1',
+            'agent_name': 'panel',
+            'agent_type': 'panel',
             'tool_calls': [
               {'call_id': 'c1', 'tool_name': 't1'},
               {'call_id': 'c2', 'tool_name': 't2'},
             ],
           },
           {
-            'agent_id': 'a2', 'agent_name': 'panel2', 'agent_type': 'panel',
-            'tool_calls': [{'call_id': 'c3', 'tool_name': 't3'}],
+            'agent_id': 'a2',
+            'agent_name': 'panel2',
+            'agent_type': 'panel',
+            'tool_calls': [
+              {'call_id': 'c3', 'tool_name': 't3'},
+            ],
           },
         ],
       });
@@ -458,7 +599,9 @@ void main() {
 
     test('criticAgent returns null when no critic', () {
       final graph = CouncilActivityGraph(
-        investigationId: 'inv', mode: 'fast', startedAt: 'now',
+        investigationId: 'inv',
+        mode: 'fast',
+        startedAt: 'now',
       );
       expect(graph.criticAgent, isNull);
     });
@@ -496,8 +639,18 @@ void main() {
         'mode': 'debate',
         'rounds': 3,
         'panels': [
-          {'panel': 'trace', 'summary': 'High latency', 'severity': 'warning', 'confidence': 0.8},
-          {'panel': 'logs', 'summary': 'Error spike', 'severity': 'critical', 'confidence': 0.95},
+          {
+            'panel': 'trace',
+            'summary': 'High latency',
+            'severity': 'warning',
+            'confidence': 0.8,
+          },
+          {
+            'panel': 'logs',
+            'summary': 'Error spike',
+            'severity': 'critical',
+            'confidence': 0.95,
+          },
         ],
         'critic_report': {
           'agreements': ['DB issue confirmed'],
@@ -544,11 +697,29 @@ void main() {
 
     test('getPanelByType finds matching panel', () {
       final data = CouncilSynthesisData(
-        synthesis: 'test', overallSeverity: 'info', overallConfidence: 0.5,
-        mode: 'standard', rounds: 1, rawData: const {},
+        synthesis: 'test',
+        overallSeverity: 'info',
+        overallConfidence: 0.5,
+        mode: 'standard',
+        rounds: 1,
+        rawData: const {},
         panels: [
-          PanelFinding(panel: 'trace', summary: 's', severity: 'info', confidence: 0.5, evidence: [], recommendedActions: []),
-          PanelFinding(panel: 'logs', summary: 's', severity: 'info', confidence: 0.5, evidence: [], recommendedActions: []),
+          PanelFinding(
+            panel: 'trace',
+            summary: 's',
+            severity: 'info',
+            confidence: 0.5,
+            evidence: [],
+            recommendedActions: [],
+          ),
+          PanelFinding(
+            panel: 'logs',
+            summary: 's',
+            severity: 'info',
+            confidence: 0.5,
+            evidence: [],
+            recommendedActions: [],
+          ),
         ],
       );
       expect(data.getPanelByType('trace'), isNotNull);
@@ -558,12 +729,22 @@ void main() {
 
     test('isDebateMode detects debate', () {
       final debate = CouncilSynthesisData(
-        synthesis: '', overallSeverity: '', overallConfidence: 0,
-        mode: 'debate', rounds: 1, panels: [], rawData: const {},
+        synthesis: '',
+        overallSeverity: '',
+        overallConfidence: 0,
+        mode: 'debate',
+        rounds: 1,
+        panels: [],
+        rawData: const {},
       );
       final standard = CouncilSynthesisData(
-        synthesis: '', overallSeverity: '', overallConfidence: 0,
-        mode: 'standard', rounds: 1, panels: [], rawData: const {},
+        synthesis: '',
+        overallSeverity: '',
+        overallConfidence: 0,
+        mode: 'standard',
+        rounds: 1,
+        panels: [],
+        rawData: const {},
       );
       expect(debate.isDebateMode, isTrue);
       expect(standard.isDebateMode, isFalse);
@@ -571,11 +752,19 @@ void main() {
 
     test('totalToolCalls and totalLLMCalls from activityGraph', () {
       final data = CouncilSynthesisData(
-        synthesis: '', overallSeverity: '', overallConfidence: 0,
-        mode: 'standard', rounds: 1, panels: [], rawData: const {},
+        synthesis: '',
+        overallSeverity: '',
+        overallConfidence: 0,
+        mode: 'standard',
+        rounds: 1,
+        panels: [],
+        rawData: const {},
         activityGraph: CouncilActivityGraph(
-          investigationId: 'inv-1', mode: 'standard', startedAt: 'now',
-          totalToolCalls: 10, totalLLMCalls: 5,
+          investigationId: 'inv-1',
+          mode: 'standard',
+          startedAt: 'now',
+          totalToolCalls: 10,
+          totalLLMCalls: 5,
         ),
       );
       expect(data.totalToolCalls, 10);
@@ -584,8 +773,13 @@ void main() {
 
     test('totalToolCalls returns 0 when no activityGraph', () {
       final data = CouncilSynthesisData(
-        synthesis: '', overallSeverity: '', overallConfidence: 0,
-        mode: 'standard', rounds: 1, panels: [], rawData: const {},
+        synthesis: '',
+        overallSeverity: '',
+        overallConfidence: 0,
+        mode: 'standard',
+        rounds: 1,
+        panels: [],
+        rawData: const {},
       );
       expect(data.totalToolCalls, 0);
       expect(data.totalLLMCalls, 0);
@@ -598,8 +792,11 @@ void main() {
   group('VegaChartData', () {
     test('hasCharts is true when charts exist', () {
       final data = VegaChartData(
-        question: 'q', answer: 'a',
-        vegaLiteCharts: [{'mark': 'bar'}],
+        question: 'q',
+        answer: 'a',
+        vegaLiteCharts: [
+          {'mark': 'bar'},
+        ],
       );
       expect(data.hasCharts, isTrue);
     });

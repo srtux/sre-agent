@@ -42,11 +42,6 @@ class ToolLog {
           duration == other.duration;
 
   @override
-  int get hashCode => Object.hash(
-        toolName,
-        status,
-        result,
-        timestamp,
-        duration,
-      );
+  int get hashCode =>
+      Object.hash(toolName, status, result, timestamp, duration);
 }

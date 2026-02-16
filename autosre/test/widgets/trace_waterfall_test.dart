@@ -4,8 +4,9 @@ import 'package:autosre/widgets/syncfusion_trace_waterfall.dart';
 import 'package:autosre/models/adk_schema.dart';
 
 void main() {
-  testWidgets('SyncfusionTraceWaterfall renders without error',
-      (WidgetTester tester) async {
+  testWidgets('SyncfusionTraceWaterfall renders without error', (
+    WidgetTester tester,
+  ) async {
     final trace = Trace(
       traceId: 'test-trace',
       spans: [
@@ -46,12 +47,10 @@ void main() {
     expect(find.text('1 spans'), findsOneWidget);
   });
 
-  testWidgets('SyncfusionTraceWaterfall shows empty state for empty trace',
-      (WidgetTester tester) async {
-    final trace = Trace(
-      traceId: 'empty-trace',
-      spans: [],
-    );
+  testWidgets('SyncfusionTraceWaterfall shows empty state for empty trace', (
+    WidgetTester tester,
+  ) async {
+    final trace = Trace(traceId: 'empty-trace', spans: []);
 
     await tester.pumpWidget(
       MaterialApp(
@@ -71,8 +70,9 @@ void main() {
     expect(find.byType(SyncfusionTraceWaterfall), findsOneWidget);
   });
 
-  testWidgets('SyncfusionTraceWaterfall renders service legend',
-      (WidgetTester tester) async {
+  testWidgets('SyncfusionTraceWaterfall renders service legend', (
+    WidgetTester tester,
+  ) async {
     final now = DateTime.now();
     final trace = Trace(
       traceId: 'multi-service-trace',

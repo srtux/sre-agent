@@ -62,14 +62,14 @@ class SpanInfo {
 
   @override
   int get hashCode => Object.hash(
-        spanId,
-        traceId,
-        name,
-        startTime,
-        endTime,
-        status,
-        parentSpanId,
-      );
+    spanId,
+    traceId,
+    name,
+    startTime,
+    endTime,
+    status,
+    parentSpanId,
+  );
 }
 
 /// A distributed trace containing multiple spans.
@@ -110,14 +110,8 @@ class Trace {
     );
   }
 
-  Trace copyWith({
-    String? traceId,
-    List<SpanInfo>? spans,
-  }) {
-    return Trace(
-      traceId: traceId ?? this.traceId,
-      spans: spans ?? this.spans,
-    );
+  Trace copyWith({String? traceId, List<SpanInfo>? spans}) {
+    return Trace(traceId: traceId ?? this.traceId, spans: spans ?? this.spans);
   }
 
   @override

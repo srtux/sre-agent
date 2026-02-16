@@ -183,16 +183,16 @@ class DashboardMetric {
 
   @override
   int get hashCode => Object.hash(
-        id,
-        name,
-        unit,
-        currentValue,
-        previousValue,
-        threshold,
-        history.length,
-        status,
-        anomalyDescription,
-      );
+    id,
+    name,
+    unit,
+    currentValue,
+    previousValue,
+    threshold,
+    history.length,
+    status,
+    anomalyDescription,
+  );
 }
 
 /// Container for a metrics dashboard with multiple metrics.
@@ -241,5 +241,6 @@ class MetricsDashboardData {
           lastUpdated == other.lastUpdated;
 
   @override
-  int get hashCode => Object.hash(title, serviceName, metrics.length, lastUpdated);
+  int get hashCode =>
+      Object.hash(title, serviceName, metrics.length, lastUpdated);
 }

@@ -10,9 +10,13 @@ void main() {
       traceId: 'trace-1',
       spans: [
         SpanInfo(
-          spanId: 's1', traceId: 'trace-1', name: 'root',
-          startTime: DateTime.utc(2026), endTime: DateTime.utc(2026),
-          attributes: {}, status: 'OK',
+          spanId: 's1',
+          traceId: 'trace-1',
+          name: 'root',
+          startTime: DateTime.utc(2026),
+          endTime: DateTime.utc(2026),
+          attributes: {},
+          status: 'OK',
         ),
       ],
     );
@@ -84,8 +88,12 @@ void main() {
     final original = LogEntriesData(
       entries: [
         LogEntry(
-          insertId: 'id1', timestamp: DateTime.utc(2026), severity: 'ERROR',
-          payload: 'test', resourceLabels: {}, resourceType: 'gce',
+          insertId: 'id1',
+          timestamp: DateTime.utc(2026),
+          severity: 'ERROR',
+          payload: 'test',
+          resourceLabels: {},
+          resourceType: 'gce',
         ),
       ],
       filter: 'severity="ERROR"',
@@ -130,8 +138,10 @@ void main() {
       status: 'resolved',
       events: [
         TimelineEvent(
-          id: 'e1', timestamp: DateTime.utc(2026, 1, 1, 9),
-          type: 'alert', title: 'Alert',
+          id: 'e1',
+          timestamp: DateTime.utc(2026, 1, 1, 9),
+          type: 'alert',
+          title: 'Alert',
         ),
       ],
       rootCause: 'DB issue',
@@ -176,8 +186,12 @@ void main() {
       rounds: 1,
       panels: [
         PanelFinding(
-          panel: 'trace', summary: 'High latency', severity: 'warning',
-          confidence: 0.85, evidence: [], recommendedActions: [],
+          panel: 'trace',
+          summary: 'High latency',
+          severity: 'warning',
+          confidence: 0.85,
+          evidence: [],
+          recommendedActions: [],
         ),
       ],
       rawData: const {},
@@ -190,7 +204,9 @@ void main() {
 
     test('updates activityGraph only (dashboard_state pattern)', () {
       final graph = CouncilActivityGraph(
-        investigationId: 'inv-1', mode: 'standard', startedAt: 'now',
+        investigationId: 'inv-1',
+        mode: 'standard',
+        startedAt: 'now',
       );
       final copy = original.copyWith(activityGraph: graph);
       expect(copy.activityGraph, isNotNull);

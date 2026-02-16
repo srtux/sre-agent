@@ -3,7 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:autosre/widgets/glow_action_chip.dart';
 
 void main() {
-  testWidgets('Multiple GlowActionChips in a horizontal ListView', (WidgetTester tester) async {
+  testWidgets('Multiple GlowActionChips in a horizontal ListView', (
+    WidgetTester tester,
+  ) async {
     // Narrow window to force overflow
     tester.view.physicalSize = const Size(300, 600);
     tester.view.devicePixelRatio = 1.0;
@@ -20,11 +22,10 @@ void main() {
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: suggestions.length,
-                  separatorBuilder: (context, index) => const SizedBox(width: 8),
-                  itemBuilder: (context, index) => GlowActionChip(
-                    label: suggestions[index],
-                    onTap: () {},
-                  ),
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(width: 8),
+                  itemBuilder: (context, index) =>
+                      GlowActionChip(label: suggestions[index], onTap: () {}),
                 ),
               ),
             ],

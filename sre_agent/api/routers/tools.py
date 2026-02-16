@@ -21,6 +21,8 @@ from sre_agent.tools import (
     list_alerts,
     list_gcp_projects,
     list_log_entries,
+    list_logs,
+    list_resource_keys,
     list_time_series,
     list_traces,
     query_promql,
@@ -347,6 +349,34 @@ async def query_logs_endpoint(payload: LogsQueryRequest) -> Any:
         raise
     except Exception as e:
         logger.exception("Error querying logs")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.get("/logs/names")
+async def get_logs_names(project_id: str | None = None) -> Any:
+    """Lists the names of logs available in the Google Cloud Project."""
+    try:
+        result = await list_logs(project_id=project_id)
+        raw = _unwrap_tool_result(result)
+        return raw
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error getting log names")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.get("/logs/resource_keys")
+async def get_logs_resource_keys(project_id: str | None = None) -> Any:
+    """Lists the monitored resource descriptors available in Cloud Logging."""
+    try:
+        result = await list_resource_keys(project_id=project_id)
+        raw = _unwrap_tool_result(result)
+        return raw
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error getting resource keys")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 

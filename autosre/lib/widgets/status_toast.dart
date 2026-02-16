@@ -202,8 +202,8 @@ class _AnimatedToastState extends State<_AnimatedToast>
                           child: InkWell(
                             onTap: () {
                               _exitController.forward().then(
-                                    (_) => widget.onDismissed(),
-                                  );
+                                (_) => widget.onDismissed(),
+                              );
                             },
                             borderRadius: BorderRadius.circular(4),
                             child: const Padding(

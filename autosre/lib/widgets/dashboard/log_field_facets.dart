@@ -41,7 +41,9 @@ class _LogFieldFacetsState extends State<LogFieldFacets> {
   /// Length of entries list when facets were last computed.
   int _lastEntriesLength = -1;
 
-  static const double _width = 220;
+  double _width = 170.0;
+  bool _isResizing = false;
+
   static const int _logNameLimit = 10;
   static const int _projectIdLimit = 5;
 
@@ -156,34 +158,70 @@ class _LogFieldFacetsState extends State<LogFieldFacets> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: _width,
-      decoration: BoxDecoration(
-        color: AppColors.backgroundCard.withValues(alpha: 0.5),
-        border: Border(
-          right: BorderSide(
-            color: AppColors.surfaceBorder.withValues(alpha: 0.3),
-            width: 1,
-          ),
-        ),
-      ),
-      child: widget.entries.isEmpty
-          ? Center(
-              child: Text(
-                'No log data',
-                style: GoogleFonts.robotoMono(
-                  fontSize: 11,
-                  color: AppColors.textMuted,
-                ),
-              ),
-            )
-          : SingleChildScrollView(
-              padding: tokens.Spacing.paddingSm,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: _buildSections(),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          width: _width,
+          decoration: BoxDecoration(
+            color: AppColors.backgroundCard.withValues(alpha: 0.5),
+            border: Border(
+              right: BorderSide(
+                color: AppColors.surfaceBorder.withValues(alpha: 0.3),
+                width: 1,
               ),
             ),
+          ),
+          child: widget.entries.isEmpty
+              ? Center(
+                  child: Text(
+                    'No log data',
+                    style: GoogleFonts.robotoMono(
+                      fontSize: 11,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                )
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: _buildSections(),
+                  ),
+                ),
+        ),
+        // Resize Handle
+        MouseRegion(
+          cursor: SystemMouseCursors.resizeColumn,
+          onEnter: (_) => setState(() => _isResizing = true),
+          onExit: (_) => setState(() => _isResizing = false),
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onHorizontalDragUpdate: (details) {
+              setState(() {
+                _width += details.delta.dx;
+                _width = _width.clamp(120.0, 400.0);
+              });
+            },
+            child: Container(
+              width: 8,
+              color: Colors.transparent,
+              alignment: Alignment.center,
+              child: Container(
+                width: 2,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: _isResizing
+                      ? AppColors.primaryCyan
+                      : AppColors.surfaceBorder,
+                  borderRadius: BorderRadius.circular(1),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -310,15 +348,18 @@ class _FacetSection extends StatelessWidget {
               ? const SizedBox.shrink()
               : Column(
                   children: values
-                      .map((entry) => _FacetValueRow(
-                            value: entry.key,
-                            count: entry.value,
-                            isActive: activeValues.contains(entry.key),
-                            isSeverity: isSeverity,
-                            dotColor:
-                                isSeverity ? severityDotColor(entry.key) : null,
-                            onTap: () => onFilterToggle(entry.key),
-                          ))
+                      .map(
+                        (entry) => _FacetValueRow(
+                          value: entry.key,
+                          count: entry.value,
+                          isActive: activeValues.contains(entry.key),
+                          isSeverity: isSeverity,
+                          dotColor: isSeverity
+                              ? severityDotColor(entry.key)
+                              : null,
+                          onTap: () => onFilterToggle(entry.key),
+                        ),
+                      )
                       .toList(),
                 ),
         ),
@@ -365,8 +406,9 @@ class _FacetValueRowState extends State<_FacetValueRow> {
       backgroundColor = Colors.transparent;
     }
 
-    final textColor =
-        isActive ? AppColors.primaryCyan : AppColors.textSecondary;
+    final textColor = isActive
+        ? AppColors.primaryCyan
+        : AppColors.textSecondary;
     final countColor = isActive ? AppColors.primaryCyan : AppColors.textMuted;
 
     return MouseRegion(
@@ -412,20 +454,14 @@ class _FacetValueRowState extends State<_FacetValueRow> {
                 child: Text(
                   widget.value,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.robotoMono(
-                    fontSize: 11,
-                    color: textColor,
-                  ),
+                  style: GoogleFonts.robotoMono(fontSize: 11, color: textColor),
                 ),
               ),
 
               // Count badge
               Text(
                 '${widget.count}',
-                style: GoogleFonts.robotoMono(
-                  fontSize: 10,
-                  color: countColor,
-                ),
+                style: GoogleFonts.robotoMono(fontSize: 10, color: countColor),
               ),
             ],
           ),

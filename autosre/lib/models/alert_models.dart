@@ -5,7 +5,7 @@ class TimelineEvent {
   final String id;
   final DateTime timestamp;
   final String
-      type; // 'alert', 'deployment', 'config_change', 'scaling', 'incident', 'recovery', 'agent_action'
+  type; // 'alert', 'deployment', 'config_change', 'scaling', 'incident', 'recovery', 'agent_action'
   final String title;
   final String? description;
   final String severity; // 'critical', 'high', 'medium', 'low', 'info'
@@ -60,14 +60,14 @@ class TimelineEvent {
 
   @override
   int get hashCode => Object.hash(
-        id,
-        timestamp,
-        type,
-        title,
-        description,
-        severity,
-        isCorrelatedToIncident,
-      );
+    id,
+    timestamp,
+    type,
+    title,
+    description,
+    severity,
+    isCorrelatedToIncident,
+  );
 }
 
 /// Container for an incident timeline with events and metadata.
@@ -170,14 +170,14 @@ class IncidentTimelineData {
 
   @override
   int get hashCode => Object.hash(
-        incidentId,
-        title,
-        startTime,
-        endTime,
-        status,
-        events.length,
-        rootCause,
-        timeToDetect,
-        timeToMitigate,
-      );
+    incidentId,
+    title,
+    startTime,
+    endTime,
+    status,
+    events.length,
+    rootCause,
+    timeToDetect,
+    timeToMitigate,
+  );
 }

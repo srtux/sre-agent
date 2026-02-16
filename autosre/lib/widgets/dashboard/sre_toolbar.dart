@@ -91,11 +91,7 @@ class SreToolbar extends StatelessWidget {
             ),
             borderRadius: BorderRadius.circular(6),
           ),
-          child: Icon(
-            config.icon,
-            size: 14,
-            color: config.color,
-          ),
+          child: Icon(config.icon, size: 14, color: config.color),
         ),
         const SizedBox(width: 8),
         Text(
@@ -142,18 +138,46 @@ class _TabConfig {
 _TabConfig _tabConfig(DashboardDataType type) {
   switch (type) {
     case DashboardDataType.traces:
-      return const _TabConfig('Traces', Icons.alt_route_rounded, AppColors.primaryCyan);
+      return const _TabConfig(
+        'Traces',
+        Icons.alt_route_rounded,
+        AppColors.primaryCyan,
+      );
     case DashboardDataType.logs:
-      return const _TabConfig('Logs', Icons.article_outlined, AppColors.success);
+      return const _TabConfig(
+        'Logs',
+        Icons.article_outlined,
+        AppColors.success,
+      );
     case DashboardDataType.metrics:
-      return const _TabConfig('Metrics', Icons.show_chart_rounded, AppColors.warning);
+      return const _TabConfig(
+        'Metrics',
+        Icons.show_chart_rounded,
+        AppColors.warning,
+      );
     case DashboardDataType.alerts:
-      return const _TabConfig('Alerts', Icons.notifications_active_outlined, AppColors.error);
+      return const _TabConfig(
+        'Alerts',
+        Icons.notifications_active_outlined,
+        AppColors.error,
+      );
     case DashboardDataType.remediation:
-      return const _TabConfig('Remediation', Icons.build_circle_outlined, AppColors.secondaryPurple);
+      return const _TabConfig(
+        'Remediation',
+        Icons.build_circle_outlined,
+        AppColors.secondaryPurple,
+      );
     case DashboardDataType.council:
-      return const _TabConfig('Council', Icons.groups_rounded, AppColors.primaryTeal);
+      return const _TabConfig(
+        'Council',
+        Icons.groups_rounded,
+        AppColors.primaryTeal,
+      );
     case DashboardDataType.analytics:
-      return const _TabConfig('Analytics', Icons.insights_rounded, AppColors.warning);
+      return const _TabConfig(
+        'Analytics',
+        Icons.insights_rounded,
+        AppColors.warning,
+      );
   }
 }

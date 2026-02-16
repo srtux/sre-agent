@@ -455,7 +455,10 @@ class _AgentActivityCanvasState extends State<AgentActivityCanvas>
       children: [
         Icon(icon, size: 14, color: color),
         const SizedBox(width: 4),
-        Text(label, style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+        ),
       ],
     );
   }

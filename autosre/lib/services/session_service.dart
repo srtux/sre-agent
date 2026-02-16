@@ -205,8 +205,7 @@ class SessionService {
           final sessionList = data['sessions'] as List<dynamic>? ?? [];
 
           _sessions.value = sessionList
-              .map(
-                  (s) => SessionSummary.fromJson(s as Map<String, dynamic>))
+              .map((s) => SessionSummary.fromJson(s as Map<String, dynamic>))
               .toList();
         } else {
           _error.value = 'Failed to fetch sessions: ${response.statusCode}';
@@ -278,8 +277,7 @@ class SessionService {
     try {
       final client = await AuthService().getAuthenticatedClient();
       try {
-        final effectiveUserId =
-            AuthService().currentUser?.email ?? 'default';
+        final effectiveUserId = AuthService().currentUser?.email ?? 'default';
 
         final response = await client
             .get(

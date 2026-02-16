@@ -42,8 +42,7 @@ class HeroEmptyState extends StatelessWidget {
 
     return Stack(
       children: [
-        const Positioned.fill(
-            child: CustomPaint(painter: TechGridPainter())),
+        const Positioned.fill(child: CustomPaint(painter: TechGridPainter())),
         Center(
           child: SingleChildScrollView(
             child: Padding(
@@ -105,25 +104,22 @@ class HeroEmptyState extends StatelessWidget {
                           return const SizedBox.shrink();
                         }
 
-                        final displaySuggestions =
-                            suggestions.take(4).toList();
+                        final displaySuggestions = suggestions.take(4).toList();
 
                         return SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
-                            children: displaySuggestions
-                                .asMap()
-                                .entries
-                                .map((entry) {
+                            children: displaySuggestions.asMap().entries.map((
+                              entry,
+                            ) {
                               final index = entry.key;
                               final suggestion = entry.value;
                               return Padding(
                                 padding: EdgeInsets.only(
-                                  right:
-                                      index < displaySuggestions.length - 1
-                                          ? 12
-                                          : 0,
+                                  right: index < displaySuggestions.length - 1
+                                      ? 12
+                                      : 0,
                                 ),
                                 child: GlowActionChip(
                                   label: suggestion,

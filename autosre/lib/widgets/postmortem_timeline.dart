@@ -49,8 +49,10 @@ class _PostmortemTimelineState extends State<PostmortemTimeline> {
                   ),
                   const SizedBox(width: 8),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.primaryCyan.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
@@ -128,10 +130,7 @@ class _PostmortemTimelineState extends State<PostmortemTimeline> {
                 ),
                 if (!isLast)
                   Expanded(
-                    child: Container(
-                      width: 1,
-                      color: AppColors.surfaceBorder,
-                    ),
+                    child: Container(width: 1, color: AppColors.surfaceBorder),
                   ),
               ],
             ),

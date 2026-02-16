@@ -339,11 +339,17 @@ class _SessionPanelState extends State<SessionPanel> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.textMuted),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Delete', style: TextStyle(color: AppColors.error)),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: AppColors.error),
+            ),
           ),
         ],
       ),
@@ -391,7 +397,10 @@ class _SessionPanelState extends State<SessionPanel> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.textMuted),
+            ),
           ),
           TextButton(
             onPressed: () {
@@ -444,110 +453,110 @@ class _SessionItemState extends State<_SessionItem> {
       selected: widget.isSelected,
       label: 'Session: ${widget.session.title}',
       child: MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: widget.onTap,
-            borderRadius: BorderRadius.circular(8),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: widget.isSelected
-                    ? AppColors.primaryTeal.withValues(alpha: 0.15)
-                    : _isHovered
-                    ? Colors.white.withValues(alpha: 0.03)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  // Icon
-                  Icon(
-                    Icons.chat_bubble_outline,
-                    size: 16,
-                    color: widget.isSelected
-                        ? AppColors.primaryTeal
-                        : AppColors.textMuted,
-                  ),
-                  const SizedBox(width: 12),
-                  // Content
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.session.displayTitle,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: widget.isSelected
-                                ? FontWeight.w600
-                                : FontWeight.w500,
-                            color: widget.isSelected
-                                ? AppColors.primaryTeal
-                                : AppColors.textPrimary,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Text(
-                              widget.session.formattedDate,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: AppColors.textMuted,
-                              ),
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: widget.onTap,
+              borderRadius: BorderRadius.circular(8),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: widget.isSelected
+                      ? AppColors.primaryTeal.withValues(alpha: 0.15)
+                      : _isHovered
+                      ? Colors.white.withValues(alpha: 0.03)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    // Icon
+                    Icon(
+                      Icons.chat_bubble_outline,
+                      size: 16,
+                      color: widget.isSelected
+                          ? AppColors.primaryTeal
+                          : AppColors.textMuted,
+                    ),
+                    const SizedBox(width: 12),
+                    // Content
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.session.displayTitle,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: widget.isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
+                              color: widget.isSelected
+                                  ? AppColors.primaryTeal
+                                  : AppColors.textPrimary,
                             ),
-                          ],
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Text(
+                                widget.session.formattedDate,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.textMuted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Actions (Edit/Delete) on hover
+                    if (_isHovered) ...[
+                      IconButton(
+                        onPressed: widget.onRename,
+                        icon: const Icon(
+                          Icons.edit_outlined,
+                          size: 14,
+                          color: AppColors.textMuted,
                         ),
-                      ],
-                    ),
-                  ),
-                  // Actions (Edit/Delete) on hover
-                  if (_isHovered) ...[
-                    IconButton(
-                      onPressed: widget.onRename,
-                      icon: const Icon(
-                        Icons.edit_outlined,
-                        size: 14,
-                        color: AppColors.textMuted,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: 24,
+                          minHeight: 24,
+                        ),
+                        tooltip: 'Rename',
                       ),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(
-                        minWidth: 24,
-                        minHeight: 24,
+                      const SizedBox(width: 4),
+                      IconButton(
+                        onPressed: widget.onDelete,
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          size: 14,
+                          color: AppColors.textMuted,
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: 24,
+                          minHeight: 24,
+                        ),
+                        tooltip: 'Delete',
                       ),
-                      tooltip: 'Rename',
-                    ),
-                    const SizedBox(width: 4),
-                    IconButton(
-                      onPressed: widget.onDelete,
-                      icon: const Icon(
-                        Icons.delete_outline,
-                        size: 14,
-                        color: AppColors.textMuted,
-                      ),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(
-                        minWidth: 24,
-                        minHeight: 24,
-                      ),
-                      tooltip: 'Delete',
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
         ),
       ),
-    ),
     );
   }
 }

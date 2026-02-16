@@ -104,10 +104,12 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
       _dimensions.add(FieldConfig(column: _categoricalColumns.first));
     }
     if (_numericColumns.isNotEmpty) {
-      _measures.add(FieldConfig(
-        column: _numericColumns.first,
-        aggregate: AggregateFunction.sum,
-      ));
+      _measures.add(
+        FieldConfig(
+          column: _numericColumns.first,
+          aggregate: AggregateFunction.sum,
+        ),
+      );
     }
   }
 
@@ -144,7 +146,9 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
     // Group by dimensions
     final groups = <String, List<Map<String, dynamic>>>{};
     for (final row in filteredRows) {
-      final key = _dimensions.map((d) => row[d.column]?.toString() ?? '').join('|');
+      final key = _dimensions
+          .map((d) => row[d.column]?.toString() ?? '')
+          .join('|');
       groups.putIfAbsent(key, () => []).add(row);
     }
 
@@ -167,8 +171,10 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
             .cast<double>()
             .toList();
 
-        aggregatedRow[measure.displayName] =
-            _aggregate(values, measure.aggregate ?? AggregateFunction.sum);
+        aggregatedRow[measure.displayName] = _aggregate(
+          values,
+          measure.aggregate ?? AggregateFunction.sum,
+        );
       }
 
       result.add(aggregatedRow);
@@ -271,10 +277,7 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
                 color: AppColors.textPrimary,
               ),
               items: [10, 25, 50, 100, 500, 1000]
-                  .map((v) => DropdownMenuItem(
-                        value: v,
-                        child: Text('$v'),
-                      ))
+                  .map((v) => DropdownMenuItem(value: v, child: Text('$v')))
                   .toList(),
               onChanged: (v) => setState(() => _limit = v ?? 100),
             ),
@@ -399,10 +402,9 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
             availableColumns: widget.columns,
             isMeasure: true,
             onAdd: (col) => setState(() {
-              _measures.add(FieldConfig(
-                column: col,
-                aggregate: AggregateFunction.sum,
-              ));
+              _measures.add(
+                FieldConfig(column: col, aggregate: AggregateFunction.sum),
+              );
             }),
             onRemove: (index) => setState(() {
               _measures.removeAt(index);
@@ -554,7 +556,9 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
     Color color,
     ValueChanged<String> onAdd,
   ) {
-    final available = allColumns.where((c) => !usedColumns.contains(c)).toList();
+    final available = allColumns
+        .where((c) => !usedColumns.contains(c))
+        .toList();
     if (available.isEmpty) return const SizedBox.shrink();
 
     return PopupMenuButton<String>(
@@ -602,10 +606,7 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
           children: [
             Icon(Icons.add_rounded, size: 12, color: color),
             const SizedBox(width: 2),
-            Text(
-              'Add',
-              style: TextStyle(fontSize: 10, color: color),
-            ),
+            Text('Add', style: TextStyle(fontSize: 10, color: color)),
           ],
         ),
       ),
@@ -613,28 +614,36 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
   }
 
   void _showAggregateMenu(
-      int index, Function(int, AggregateFunction) onUpdate) {
+    int index,
+    Function(int, AggregateFunction) onUpdate,
+  ) {
     final box = context.findRenderObject() as RenderBox;
     final position = box.localToGlobal(Offset.zero);
 
     showMenu<AggregateFunction>(
       context: context,
       position: RelativeRect.fromLTRB(
-          position.dx + 100, position.dy + 100, position.dx + 200, 0),
+        position.dx + 100,
+        position.dy + 100,
+        position.dx + 200,
+        0,
+      ),
       color: AppColors.backgroundCard,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       items: AggregateFunction.values
-          .map((fn) => PopupMenuItem(
-                value: fn,
-                height: 32,
-                child: Text(
-                  fn.name.toUpperCase(),
-                  style: GoogleFonts.jetBrainsMono(
-                    fontSize: 11,
-                    color: AppColors.textPrimary,
-                  ),
+          .map(
+            (fn) => PopupMenuItem(
+              value: fn,
+              height: 32,
+              child: Text(
+                fn.name.toUpperCase(),
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 11,
+                  color: AppColors.textPrimary,
                 ),
-              ))
+              ),
+            ),
+          )
           .toList(),
     ).then((fn) {
       if (fn != null) onUpdate(index, fn);
@@ -648,8 +657,11 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
           width: 80,
           child: Row(
             children: [
-              Icon(Icons.filter_alt_rounded,
-                  size: 12, color: AppColors.secondaryPurple),
+              Icon(
+                Icons.filter_alt_rounded,
+                size: 12,
+                color: AppColors.secondaryPurple,
+              ),
               SizedBox(width: 4),
               Text(
                 'Filters',
@@ -672,12 +684,17 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
                   return Padding(
                     padding: const EdgeInsets.only(right: 4),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.secondaryPurple.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(
-                          color: AppColors.secondaryPurple.withValues(alpha: 0.2),
+                          color: AppColors.secondaryPurple.withValues(
+                            alpha: 0.2,
+                          ),
                         ),
                       ),
                       child: Row(
@@ -692,7 +709,8 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
                           ),
                           const SizedBox(width: 4),
                           InkWell(
-                            onTap: () => setState(() => _filters.removeAt(entry.key)),
+                            onTap: () =>
+                                setState(() => _filters.removeAt(entry.key)),
                             child: Icon(
                               Icons.close_rounded,
                               size: 10,
@@ -773,7 +791,9 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
 
   void _showFilterDialog(String column) {
     final isNumeric = _numericColumns.contains(column);
-    final operators = isNumeric ? ['=', '!=', '>', '<'] : ['=', '!=', 'contains'];
+    final operators = isNumeric
+        ? ['=', '!=', '>', '<']
+        : ['=', '!=', 'contains'];
     var selectedOp = operators.first;
     final valueController = TextEditingController();
 
@@ -804,10 +824,14 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
                           onTap: () => setDialogState(() => selectedOp = op),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: isSelected
-                                  ? AppColors.secondaryPurple.withValues(alpha: 0.2)
+                                  ? AppColors.secondaryPurple.withValues(
+                                      alpha: 0.2,
+                                    )
                                   : Colors.transparent,
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(
@@ -848,10 +872,14 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
                       fillColor: AppColors.backgroundDark,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(6),
-                        borderSide: const BorderSide(color: AppColors.surfaceBorder),
+                        borderSide: const BorderSide(
+                          color: AppColors.surfaceBorder,
+                        ),
                       ),
                       contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 8),
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
                     ),
                     autofocus: true,
                   ),
@@ -860,24 +888,30 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('Cancel',
-                      style: TextStyle(color: AppColors.textMuted)),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(color: AppColors.textMuted),
+                  ),
                 ),
                 TextButton(
                   onPressed: () {
                     if (valueController.text.isNotEmpty) {
                       setState(() {
-                        _filters.add(_FilterEntry(
-                          column: column,
-                          operator: selectedOp,
-                          value: valueController.text,
-                        ));
+                        _filters.add(
+                          _FilterEntry(
+                            column: column,
+                            operator: selectedOp,
+                            value: valueController.text,
+                          ),
+                        );
                       });
                       Navigator.of(ctx).pop();
                     }
                   },
-                  child: const Text('Apply',
-                      style: TextStyle(color: AppColors.primaryCyan)),
+                  child: const Text(
+                    'Apply',
+                    style: TextStyle(color: AppColors.primaryCyan),
+                  ),
                 ),
               ],
             );
@@ -895,9 +929,11 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.analytics_rounded,
-                size: 40,
-                color: AppColors.textMuted.withValues(alpha: 0.3)),
+            Icon(
+              Icons.analytics_rounded,
+              size: 40,
+              color: AppColors.textMuted.withValues(alpha: 0.3),
+            ),
             const SizedBox(height: 12),
             const Text(
               'Add dimensions and measures to visualize data',
@@ -1022,8 +1058,7 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
     return Column(
       children: [
         // Chart legend
-        if (_measures.isNotEmpty)
-          _buildLegend(legendEntries),
+        if (_measures.isNotEmpty) _buildLegend(legendEntries),
         // Chart area
         Expanded(
           child: Padding(
@@ -1083,7 +1118,6 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
       ),
     );
   }
-
 }
 
 /// Filter entry for the visual explorer.

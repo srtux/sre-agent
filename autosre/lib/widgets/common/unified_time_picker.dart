@@ -164,14 +164,16 @@ class _UnifiedTimePickerState extends State<UnifiedTimePicker> {
       for (final preset in section.presets) {
         final range = TimeRange.fromPreset(preset);
         final isActive = activePreset == preset;
-        items.add(PopupMenuItem<_MenuAction>(
-          height: 32,
-          value: _MenuAction(() => widget.onChanged(range)),
-          child: _PresetMenuItem(
-            label: range.displayLabel,
-            isActive: isActive,
+        items.add(
+          PopupMenuItem<_MenuAction>(
+            height: 32,
+            value: _MenuAction(() => widget.onChanged(range)),
+            child: _PresetMenuItem(
+              label: range.displayLabel,
+              isActive: isActive,
+            ),
           ),
-        ));
+        );
       }
 
       // Separator between sections
@@ -183,24 +185,28 @@ class _UnifiedTimePickerState extends State<UnifiedTimePicker> {
     // Custom section
     items.add(const _ThinDivider());
     items.add(const _SectionHeader(label: 'CUSTOM'));
-    items.add(PopupMenuItem<_MenuAction>(
-      height: 32,
-      value: _MenuAction(() => _showCustomRangePicker(context)),
-      child: _PresetMenuItem(
-        label: 'Custom range...',
-        isActive: activePreset == TimeRangePreset.custom,
-        icon: Icons.date_range_rounded,
+    items.add(
+      PopupMenuItem<_MenuAction>(
+        height: 32,
+        value: _MenuAction(() => _showCustomRangePicker(context)),
+        child: _PresetMenuItem(
+          label: 'Custom range...',
+          isActive: activePreset == TimeRangePreset.custom,
+          icon: Icons.date_range_rounded,
+        ),
       ),
-    ));
-    items.add(PopupMenuItem<_MenuAction>(
-      height: 32,
-      value: _MenuAction(() => _showJumpToTimePicker(context)),
-      child: const _PresetMenuItem(
-        label: 'Jump to time...',
-        isActive: false,
-        icon: Icons.access_time_rounded,
+    );
+    items.add(
+      PopupMenuItem<_MenuAction>(
+        height: 32,
+        value: _MenuAction(() => _showJumpToTimePicker(context)),
+        child: const _PresetMenuItem(
+          label: 'Jump to time...',
+          isActive: false,
+          icon: Icons.access_time_rounded,
+        ),
       ),
-    ));
+    );
 
     return items;
   }
@@ -348,18 +354,19 @@ class _UnifiedTimePickerState extends State<UnifiedTimePicker> {
                     selectionColor: AppColors.primaryCyan,
                     startRangeSelectionColor: AppColors.primaryCyan,
                     endRangeSelectionColor: AppColors.primaryCyan,
-                    rangeSelectionColor:
-                        AppColors.primaryCyan.withValues(alpha: 0.2),
+                    rangeSelectionColor: AppColors.primaryCyan.withValues(
+                      alpha: 0.2,
+                    ),
                     todayHighlightColor: AppColors.primaryCyan,
                     maxDate: DateTime.now(),
                     onSelectionChanged:
                         (DateRangePickerSelectionChangedArgs args) {
-                      if (args.value is PickerDateRange) {
-                        final range = args.value as PickerDateRange;
-                        startDate = range.startDate;
-                        endDate = range.endDate;
-                      }
-                    },
+                          if (args.value is PickerDateRange) {
+                            final range = args.value as PickerDateRange;
+                            startDate = range.startDate;
+                            endDate = range.endDate;
+                          }
+                        },
                   ),
                 ),
                 Padding(
@@ -387,11 +394,13 @@ class _UnifiedTimePickerState extends State<UnifiedTimePicker> {
                         onPressed: () {
                           if (startDate != null) {
                             final effectiveEnd = endDate ?? startDate!;
-                            widget.onChanged(TimeRange(
-                              start: startDate!,
-                              end: effectiveEnd,
-                              preset: TimeRangePreset.custom,
-                            ));
+                            widget.onChanged(
+                              TimeRange(
+                                start: startDate!,
+                                end: effectiveEnd,
+                                preset: TimeRangePreset.custom,
+                              ),
+                            );
                           }
                           Navigator.of(dialogContext).pop();
                         },
@@ -501,15 +510,12 @@ class _UnifiedTimePickerState extends State<UnifiedTimePicker> {
                                 builder: (context, child) {
                                   return Theme(
                                     data: Theme.of(context).copyWith(
-                                      colorScheme:
-                                          Theme.of(context).colorScheme
-                                              .copyWith(
-                                                primary: AppColors.primaryCyan,
-                                                surface:
-                                                    AppColors.backgroundCard,
-                                                onSurface:
-                                                    AppColors.textPrimary,
-                                              ),
+                                      colorScheme: Theme.of(context).colorScheme
+                                          .copyWith(
+                                            primary: AppColors.primaryCyan,
+                                            surface: AppColors.backgroundCard,
+                                            onSurface: AppColors.textPrimary,
+                                          ),
                                       dialogTheme: const DialogThemeData(
                                         backgroundColor:
                                             AppColors.backgroundCard,
@@ -581,15 +587,12 @@ class _UnifiedTimePickerState extends State<UnifiedTimePicker> {
                                 builder: (context, child) {
                                   return Theme(
                                     data: Theme.of(context).copyWith(
-                                      colorScheme:
-                                          Theme.of(context).colorScheme
-                                              .copyWith(
-                                                primary: AppColors.primaryCyan,
-                                                surface:
-                                                    AppColors.backgroundCard,
-                                                onSurface:
-                                                    AppColors.textPrimary,
-                                              ),
+                                      colorScheme: Theme.of(context).colorScheme
+                                          .copyWith(
+                                            primary: AppColors.primaryCyan,
+                                            surface: AppColors.backgroundCard,
+                                            onSurface: AppColors.textPrimary,
+                                          ),
                                       dialogTheme: const DialogThemeData(
                                         backgroundColor:
                                             AppColors.backgroundCard,
@@ -678,13 +681,15 @@ class _UnifiedTimePickerState extends State<UnifiedTimePicker> {
                                 selectedTime.minute,
                               );
                               // Center a 1-hour window around the target
-                              widget.onChanged(TimeRange(
-                                start: target.subtract(
-                                  const Duration(minutes: 30),
+                              widget.onChanged(
+                                TimeRange(
+                                  start: target.subtract(
+                                    const Duration(minutes: 30),
+                                  ),
+                                  end: target.add(const Duration(minutes: 30)),
+                                  preset: TimeRangePreset.custom,
                                 ),
-                                end: target.add(const Duration(minutes: 30)),
-                                preset: TimeRangePreset.custom,
-                              ));
+                              );
                               Navigator.of(dialogContext).pop();
                             },
                             style: ElevatedButton.styleFrom(
@@ -695,8 +700,7 @@ class _UnifiedTimePickerState extends State<UnifiedTimePicker> {
                                 vertical: Spacing.md,
                               ),
                               shape: RoundedRectangleBorder(
-                                borderRadius:
-                                    BorderRadius.circular(Radii.md),
+                                borderRadius: BorderRadius.circular(Radii.md),
                               ),
                               textStyle: const TextStyle(
                                 fontSize: 13,

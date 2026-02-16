@@ -5,8 +5,6 @@ import 'package:intl/intl.dart';
 import '../../models/adk_schema.dart';
 import '../../theme/app_theme.dart';
 
-
-
 /// Metrics Dashboard Canvas - Real-time multi-metric visualization
 class MetricsDashboardCanvas extends StatefulWidget {
   final MetricsDashboardData data;

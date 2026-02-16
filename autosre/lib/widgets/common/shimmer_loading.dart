@@ -16,11 +16,7 @@ class ShimmerLoading extends StatelessWidget {
   /// Number of shimmer lines for list mode (ignored in chart mode).
   final int lineCount;
 
-  const ShimmerLoading({
-    super.key,
-    this.showChart = false,
-    this.lineCount = 5,
-  });
+  const ShimmerLoading({super.key, this.showChart = false, this.lineCount = 5});
 
   @override
   Widget build(BuildContext context) {

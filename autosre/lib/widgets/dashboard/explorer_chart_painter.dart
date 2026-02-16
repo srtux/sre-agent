@@ -54,7 +54,9 @@ class ExplorerChartPainter extends CustomPainter {
       return double.tryParse(v?.toString() ?? '') ?? 0.0;
     }).toList();
 
-    final labels = data.map((row) => row[dimensionKey]?.toString() ?? '').toList();
+    final labels = data
+        .map((row) => row[dimensionKey]?.toString() ?? '')
+        .toList();
 
     if (values.isEmpty) return;
 
@@ -73,8 +75,16 @@ class ExplorerChartPainter extends CustomPainter {
       case ExplorerChartType.line:
       case ExplorerChartType.area:
         _drawGrid(canvas, chartArea, maxVal, minVal);
-        _drawLineChart(canvas, chartArea, values, labels, minVal, maxVal, range,
-            fill: chartType == ExplorerChartType.area);
+        _drawLineChart(
+          canvas,
+          chartArea,
+          values,
+          labels,
+          minVal,
+          maxVal,
+          range,
+          fill: chartType == ExplorerChartType.area,
+        );
         _drawAxisLabels(canvas, chartArea, labels);
         break;
       case ExplorerChartType.scatter:
@@ -110,7 +120,10 @@ class ExplorerChartPainter extends CustomPainter {
       final tp = TextPainter(
         text: TextSpan(
           text: _formatAxisValue(val),
-          style: TextStyle(fontSize: 9, color: textColor.withValues(alpha: 0.6)),
+          style: TextStyle(
+            fontSize: 9,
+            color: textColor.withValues(alpha: 0.6),
+          ),
         ),
         textDirection: TextDirection.ltr,
       )..layout();
@@ -127,8 +140,14 @@ class ExplorerChartPainter extends CustomPainter {
         : val.toStringAsFixed(1);
   }
 
-  void _drawBarChart(Canvas canvas, Rect area, List<double> values,
-      List<String> labels, double maxVal, double range) {
+  void _drawBarChart(
+    Canvas canvas,
+    Rect area,
+    List<double> values,
+    List<String> labels,
+    double maxVal,
+    double range,
+  ) {
     if (maxVal == 0) return;
     final barWidth = (area.width / values.length) * 0.7;
     final gap = (area.width / values.length) * 0.15;
@@ -163,15 +182,24 @@ class ExplorerChartPainter extends CustomPainter {
           ),
           textDirection: TextDirection.ltr,
         )..layout();
-        tp.paint(canvas,
-            Offset(x + barWidth / 2 - tp.width / 2, y - tp.height - 2));
+        tp.paint(
+          canvas,
+          Offset(x + barWidth / 2 - tp.width / 2, y - tp.height - 2),
+        );
       }
     }
   }
 
-  void _drawLineChart(Canvas canvas, Rect area, List<double> values,
-      List<String> labels, double minVal, double maxVal, double range,
-      {bool fill = false}) {
+  void _drawLineChart(
+    Canvas canvas,
+    Rect area,
+    List<double> values,
+    List<String> labels,
+    double minVal,
+    double maxVal,
+    double range, {
+    bool fill = false,
+  }) {
     if (values.length < 2) return;
 
     // Handle constant values (range == 0) — draw a horizontal line at midpoint
@@ -221,31 +249,48 @@ class ExplorerChartPainter extends CustomPainter {
     for (final p in points) {
       canvas.drawCircle(p, 3, Paint()..color = color);
       canvas.drawCircle(
-          p,
-          2,
-          Paint()
-            ..color = AppColors.backgroundDark
-            ..style = PaintingStyle.fill);
+        p,
+        2,
+        Paint()
+          ..color = AppColors.backgroundDark
+          ..style = PaintingStyle.fill,
+      );
     }
   }
 
-  void _drawScatterChart(Canvas canvas, Rect area, List<double> values,
-      List<String> labels, double minVal, double range) {
+  void _drawScatterChart(
+    Canvas canvas,
+    Rect area,
+    List<double> values,
+    List<String> labels,
+    double minVal,
+    double range,
+  ) {
     // Handle constant values gracefully
     final effectiveRange = range == 0 ? 1.0 : range;
     final effectiveMin = range == 0 ? minVal - 0.5 : minVal;
 
     for (var i = 0; i < values.length; i++) {
-      final x = area.left + (area.width * i / values.length) + (area.width / values.length / 2);
+      final x =
+          area.left +
+          (area.width * i / values.length) +
+          (area.width / values.length / 2);
       final normalized = (values[i] - effectiveMin) / effectiveRange;
       final y = area.bottom - (normalized * area.height);
       canvas.drawCircle(
-          Offset(x, y), 4, Paint()..color = color.withValues(alpha: 0.7));
+        Offset(x, y),
+        4,
+        Paint()..color = color.withValues(alpha: 0.7),
+      );
     }
   }
 
   void _drawPieChart(
-      Canvas canvas, Size size, List<double> values, List<String> labels) {
+    Canvas canvas,
+    Size size,
+    List<double> values,
+    List<String> labels,
+  ) {
     final total = values.fold(0.0, (a, b) => a + b.abs());
     if (total == 0) return;
 
@@ -257,7 +302,8 @@ class ExplorerChartPainter extends CustomPainter {
     for (var i = 0; i < values.length; i++) {
       final sweep = (values[i].abs() / total) * 2 * pi;
       final paint = Paint()
-        ..color = explorerChartColors[i % explorerChartColors.length].withValues(alpha: 0.7)
+        ..color = explorerChartColors[i % explorerChartColors.length]
+            .withValues(alpha: 0.7)
         ..style = PaintingStyle.fill;
 
       canvas.drawArc(
@@ -319,8 +365,14 @@ class ExplorerChartPainter extends CustomPainter {
     }
   }
 
-  void _drawHeatmap(Canvas canvas, Rect area, List<double> values,
-      List<String> labels, double minVal, double maxVal) {
+  void _drawHeatmap(
+    Canvas canvas,
+    Rect area,
+    List<double> values,
+    List<String> labels,
+    double minVal,
+    double maxVal,
+  ) {
     if (values.isEmpty) return;
 
     final range = maxVal - minVal;
@@ -404,7 +456,9 @@ class ExplorerChartPainter extends CustomPainter {
       textDirection: TextDirection.ltr,
     )..layout();
     highTp.paint(
-        canvas, Offset(scaleX + scaleWidth - highTp.width, scaleY - highTp.height - 1));
+      canvas,
+      Offset(scaleX + scaleWidth - highTp.width, scaleY - highTp.height - 1),
+    );
   }
 
   void _drawAxisLabels(Canvas canvas, Rect area, List<String> labels) {
@@ -413,14 +467,20 @@ class ExplorerChartPainter extends CustomPainter {
     final maxChars = max(4, min(20, (labelWidth / 6).floor()));
 
     for (var i = 0; i < labels.length; i++) {
-      final x = area.left + (area.width * i / labels.length) + (area.width / labels.length / 2);
+      final x =
+          area.left +
+          (area.width * i / labels.length) +
+          (area.width / labels.length / 2);
       final label = labels[i].length > maxChars
           ? '${labels[i].substring(0, maxChars)}..'
           : labels[i];
       final tp = TextPainter(
         text: TextSpan(
           text: label,
-          style: TextStyle(fontSize: 8, color: textColor.withValues(alpha: 0.6)),
+          style: TextStyle(
+            fontSize: 8,
+            color: textColor.withValues(alpha: 0.6),
+          ),
         ),
         textDirection: TextDirection.ltr,
       )..layout();

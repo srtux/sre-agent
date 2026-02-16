@@ -6,8 +6,6 @@ import '../../models/adk_schema.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/design_tokens.dart';
 
-
-
 /// Incident Timeline Canvas - Visual timeline of incident progression
 class IncidentTimelineCanvas extends StatefulWidget {
   final IncidentTimelineData data;

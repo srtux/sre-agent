@@ -369,10 +369,7 @@ class CatalogRegistry {
         dataSchema: S.any(),
         widgetBuilder: (context) {
           try {
-            final data = _unwrapComponentData(
-              context.data,
-              'x-sre-tool-log',
-            );
+            final data = _unwrapComponentData(context.data, 'x-sre-tool-log');
 
             final log = ToolLog.fromJson(data);
             return ToolLogWidget(log: log);

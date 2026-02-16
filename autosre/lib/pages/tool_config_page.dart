@@ -164,7 +164,10 @@ class _ToolConfigPageState extends State<ToolConfigPage>
             color: color,
           ),
         ),
-        Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+        ),
       ],
     );
   }
@@ -189,7 +192,11 @@ class _ToolConfigPageState extends State<ToolConfigPage>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.error_outline, size: 48, color: AppColors.error),
+                    const Icon(
+                      Icons.error_outline,
+                      size: 48,
+                      color: AppColors.error,
+                    ),
                     const SizedBox(height: 16),
                     Text(
                       error,
@@ -261,7 +268,10 @@ class _ToolConfigPageState extends State<ToolConfigPage>
         children: [
           Text(
             '${tools.length} tools ($enabledCount enabled, $testableCount testable)',
-            style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+            ),
           ),
           const Spacer(),
           TextButton.icon(
@@ -480,7 +490,10 @@ class _ToolConfigPageState extends State<ToolConfigPage>
             const SizedBox(height: 6),
             Text(
               arg.description,
-              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+              ),
             ),
           ],
           if (arg.defaultValue != null || arg.example != null) ...[
@@ -576,7 +589,10 @@ class _ToolConfigPageState extends State<ToolConfigPage>
             Flexible(
               child: Text(
                 result.message,
-                style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textMuted,
+                ),
                 overflow: TextOverflow.ellipsis,
               ),
             ),

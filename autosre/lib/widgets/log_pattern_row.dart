@@ -38,8 +38,8 @@ class _LogPatternRowState extends State<LogPatternRow> {
     final trend = getFrequencyTrend(distribution);
 
     final staggerDelay = widget.index / widget.total;
-    final animValue =
-        ((widget.animation.value - staggerDelay * 0.3) / 0.7).clamp(0.0, 1.0);
+    final animValue = ((widget.animation.value - staggerDelay * 0.3) / 0.7)
+        .clamp(0.0, 1.0);
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -51,19 +51,16 @@ class _LogPatternRowState extends State<LogPatternRow> {
           opacity: animValue,
           child: Container(
             margin: const EdgeInsets.only(bottom: 1),
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: widget.isSelected
                   ? severityColor.withValues(alpha: 0.1)
                   : _isHovered
-                      ? Colors.white.withValues(alpha: 0.04)
-                      : Colors.white.withValues(alpha: 0.015),
+                  ? Colors.white.withValues(alpha: 0.04)
+                  : Colors.white.withValues(alpha: 0.015),
               border: Border(
                 left: BorderSide(
-                  color: widget.isSelected
-                      ? severityColor
-                      : Colors.transparent,
+                  color: widget.isSelected ? severityColor : Colors.transparent,
                   width: 3,
                 ),
                 right: const BorderSide(color: AppColors.surfaceBorder),

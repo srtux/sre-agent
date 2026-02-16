@@ -28,7 +28,8 @@ class SreNexusApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => DashboardState()),
         ProxyProvider<DashboardState, ExplorerQueryService>(
           update: (_, dashState, previous) =>
-              previous ?? ExplorerQueryService(
+              previous ??
+              ExplorerQueryService(
                 dashboardState: dashState,
                 clientFactory: () =>
                     AuthService.instance.getAuthenticatedClient(),

@@ -34,7 +34,8 @@ class _BigQuerySidebarState extends State<BigQuerySidebar> {
   final Map<String, List<Map<String, dynamic>>> _tableSchemas = {};
   final Set<String> _fetchingSchemas = {};
 
-  String _schemaCacheKey(String tableId) => '${_selectedDataset ?? ""}.$tableId';
+  String _schemaCacheKey(String tableId) =>
+      '${_selectedDataset ?? ""}.$tableId';
 
   @override
   void initState() {
@@ -118,9 +119,7 @@ class _BigQuerySidebarState extends State<BigQuerySidebar> {
           _buildHeader(),
           _buildDatasetSelector(),
           const Divider(height: 1, color: AppColors.surfaceBorder),
-          Expanded(
-            child: _buildTablesList(),
-          ),
+          Expanded(child: _buildTablesList()),
         ],
       ),
     );
@@ -199,14 +198,15 @@ class _BigQuerySidebarState extends State<BigQuerySidebar> {
             isExpanded: true,
             icon: const Icon(Icons.arrow_drop_down, color: AppColors.textMuted),
             dropdownColor: AppColors.backgroundDark,
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppColors.textPrimary,
-            ),
+            style: const TextStyle(fontSize: 12, color: AppColors.textPrimary),
             items: _datasets.map((dataset) {
               return DropdownMenuItem(
                 value: dataset,
-                child: Text(dataset, maxLines: 1, overflow: TextOverflow.ellipsis),
+                child: Text(
+                  dataset,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               );
             }).toList(),
             onChanged: (value) {
@@ -252,8 +252,13 @@ class _BigQuerySidebarState extends State<BigQuerySidebar> {
         return Theme(
           data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
           child: ExpansionTile(
-            key: PageStorageKey('bq_sidebar_schema_${_selectedDataset}_$tableId'),
-            tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+            key: PageStorageKey(
+              'bq_sidebar_schema_${_selectedDataset}_$tableId',
+            ),
+            tilePadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 0,
+            ),
             childrenPadding: EdgeInsets.zero,
             minTileHeight: 36.0,
             onExpansionChanged: (expanded) {
@@ -261,13 +266,20 @@ class _BigQuerySidebarState extends State<BigQuerySidebar> {
                 _fetchSchema(tableId);
               }
             },
-            leading: const Icon(Icons.table_chart_rounded, size: 14, color: AppColors.primaryCyan),
+            leading: const Icon(
+              Icons.table_chart_rounded,
+              size: 14,
+              color: AppColors.primaryCyan,
+            ),
             title: Row(
               children: [
                 Expanded(
                   child: Text(
                     tableId,
-                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -279,13 +291,12 @@ class _BigQuerySidebarState extends State<BigQuerySidebar> {
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     tooltip: 'Insert table name',
-                    onPressed: () => widget.onInsertTable!('`$_selectedDataset.$tableId`'),
+                    onPressed: () =>
+                        widget.onInsertTable!('`$_selectedDataset.$tableId`'),
                   ),
               ],
             ),
-            children: [
-              _buildSchemaView(tableId),
-            ],
+            children: [_buildSchemaView(tableId)],
           ),
         );
       },
@@ -331,7 +342,10 @@ class _BigQuerySidebarState extends State<BigQuerySidebar> {
   }
 
   /// Recursively builds the field list, supporting nested RECORD fields.
-  Widget _buildFieldList(List<Map<String, dynamic>> fields, {required int depth}) {
+  Widget _buildFieldList(
+    List<Map<String, dynamic>> fields, {
+    required int depth,
+  }) {
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -368,7 +382,9 @@ class _BigQuerySidebarState extends State<BigQuerySidebar> {
           title: _buildFieldTitle(name, type, mode, description),
           children: [
             _buildFieldList(
-              nestedFields.map((f) => Map<String, dynamic>.from(f as Map)).toList(),
+              nestedFields
+                  .map((f) => Map<String, dynamic>.from(f as Map))
+                  .toList(),
               depth: depth + 1,
             ),
           ],
@@ -385,18 +401,17 @@ class _BigQuerySidebarState extends State<BigQuerySidebar> {
         message: description.isNotEmpty ? description : '$name ($type)',
         waitDuration: const Duration(milliseconds: 500),
         child: Padding(
-          padding: EdgeInsets.only(left: leftPadding, right: 16, top: 5, bottom: 5),
+          padding: EdgeInsets.only(
+            left: leftPadding,
+            right: 16,
+            top: 5,
+            bottom: 5,
+          ),
           child: Row(
             children: [
-              Icon(
-                _iconForType(type),
-                size: 12,
-                color: _colorForType(type),
-              ),
+              Icon(_iconForType(type), size: 12, color: _colorForType(type)),
               const SizedBox(width: 6),
-              Expanded(
-                child: _buildFieldTitle(name, type, mode, description),
-              ),
+              Expanded(child: _buildFieldTitle(name, type, mode, description)),
             ],
           ),
         ),
@@ -404,7 +419,12 @@ class _BigQuerySidebarState extends State<BigQuerySidebar> {
     );
   }
 
-  Widget _buildFieldTitle(String name, String type, String mode, String description) {
+  Widget _buildFieldTitle(
+    String name,
+    String type,
+    String mode,
+    String description,
+  ) {
     return Row(
       children: [
         Expanded(

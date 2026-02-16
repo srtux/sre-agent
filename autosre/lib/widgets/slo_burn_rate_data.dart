@@ -73,13 +73,11 @@ class SloBurnRateData {
 
     return SloBurnRateData(
       sloName: json['slo_name'] as String? ?? 'SLO',
-      targetPercentage:
-          (json['target_percentage'] as num?)?.toDouble() ?? 99.9,
+      targetPercentage: (json['target_percentage'] as num?)?.toDouble() ?? 99.9,
       severity: severity,
       errorBudgetRemainingFraction:
           (json['error_budget_remaining_fraction'] as num?)?.toDouble() ?? 1.0,
-      hoursToExhaustion:
-          (json['hours_to_exhaustion'] as num?)?.toDouble(),
+      hoursToExhaustion: (json['hours_to_exhaustion'] as num?)?.toDouble(),
       windows: windowsList
           .map((w) => BurnRateWindow.fromJson(Map<String, dynamic>.from(w)))
           .toList(),

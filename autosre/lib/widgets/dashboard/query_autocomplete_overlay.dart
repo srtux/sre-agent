@@ -59,8 +59,10 @@ class QueryAutocompleteOverlay extends StatelessWidget {
               return InkWell(
                 onTap: () => onSelect(s),
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   color: isHighlighted
                       ? AppColors.primaryCyan.withValues(alpha: 0.12)
                       : Colors.transparent,
@@ -105,7 +107,9 @@ class QueryAutocompleteOverlay extends StatelessWidget {
                       // Category badge
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 5, vertical: 1),
+                          horizontal: 5,
+                          vertical: 1,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.05),
                           borderRadius: BorderRadius.circular(3),
@@ -200,15 +204,17 @@ class QueryTemplatesPicker extends StatelessWidget {
                 ),
               ],
               // Template categories
-              ...grouped.entries.expand((entry) => [
-                    _buildSectionHeader(
-                      entry.key,
-                      entry.value.first.icon,
-                      AppColors.primaryCyan,
-                    ),
-                    ...entry.value.map(_buildTemplateItem),
-                    const SizedBox(height: 4),
-                  ]),
+              ...grouped.entries.expand(
+                (entry) => [
+                  _buildSectionHeader(
+                    entry.key,
+                    entry.value.first.icon,
+                    AppColors.primaryCyan,
+                  ),
+                  ...entry.value.map(_buildTemplateItem),
+                  const SizedBox(height: 4),
+                ],
+              ),
             ],
           ),
         ),

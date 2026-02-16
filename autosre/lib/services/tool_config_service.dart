@@ -274,8 +274,7 @@ class ToolConfigService {
             final category = ToolCategory.fromValue(entry.key);
             if (category != null) {
               final tools = (entry.value as List<dynamic>)
-                  .map(
-                      (t) => ToolConfig.fromJson(t as Map<String, dynamic>))
+                  .map((t) => ToolConfig.fromJson(t as Map<String, dynamic>))
                   .toList();
               grouped[category] = tools;
             }
@@ -287,8 +286,7 @@ class ToolConfigService {
             _summary.value = ToolConfigSummary.fromJson(summaryData);
           }
         } else {
-          _error.value =
-              'Failed to fetch tool configs: ${response.statusCode}';
+          _error.value = 'Failed to fetch tool configs: ${response.statusCode}';
         }
       } finally {
         client.close();
@@ -314,45 +312,45 @@ class ToolConfigService {
             )
             .timeout(ServiceConfig.defaultTimeout);
 
-      if (response.statusCode == 200) {
-        // Update local state
-        final updatedMap = Map<ToolCategory, List<ToolConfig>>.from(
-          _toolsByCategory.value,
-        );
-
-        for (final category in updatedMap.keys) {
-          final tools = updatedMap[category]!;
-          final index = tools.indexWhere((t) => t.name == toolName);
-          if (index != -1) {
-            final updatedTools = List<ToolConfig>.from(tools);
-            updatedTools[index] = tools[index].copyWith(enabled: enabled);
-            updatedMap[category] = updatedTools;
-            break;
-          }
-        }
-
-        _toolsByCategory.value = updatedMap;
-
-        // Update summary
-        if (_summary.value != null) {
-          final currentSummary = _summary.value!;
-          _summary.value = ToolConfigSummary(
-            total: currentSummary.total,
-            enabled: enabled
-                ? currentSummary.enabled + 1
-                : currentSummary.enabled - 1,
-            disabled: enabled
-                ? currentSummary.disabled - 1
-                : currentSummary.disabled + 1,
-            testable: currentSummary.testable,
+        if (response.statusCode == 200) {
+          // Update local state
+          final updatedMap = Map<ToolCategory, List<ToolConfig>>.from(
+            _toolsByCategory.value,
           );
-        }
 
-        return true;
-      } else {
-        _error.value = 'Failed to update tool: ${response.statusCode}';
-        return false;
-      }
+          for (final category in updatedMap.keys) {
+            final tools = updatedMap[category]!;
+            final index = tools.indexWhere((t) => t.name == toolName);
+            if (index != -1) {
+              final updatedTools = List<ToolConfig>.from(tools);
+              updatedTools[index] = tools[index].copyWith(enabled: enabled);
+              updatedMap[category] = updatedTools;
+              break;
+            }
+          }
+
+          _toolsByCategory.value = updatedMap;
+
+          // Update summary
+          if (_summary.value != null) {
+            final currentSummary = _summary.value!;
+            _summary.value = ToolConfigSummary(
+              total: currentSummary.total,
+              enabled: enabled
+                  ? currentSummary.enabled + 1
+                  : currentSummary.enabled - 1,
+              disabled: enabled
+                  ? currentSummary.disabled - 1
+                  : currentSummary.disabled + 1,
+              testable: currentSummary.testable,
+            );
+          }
+
+          return true;
+        } else {
+          _error.value = 'Failed to update tool: ${response.statusCode}';
+          return false;
+        }
       } finally {
         client.close();
       }
@@ -423,14 +421,14 @@ class ToolConfigService {
   }) async {
     try {
       final uri = category != null
-          ? Uri.parse(
-              '$_baseUrl/api/tools/test-all?category=${category.value}')
+          ? Uri.parse('$_baseUrl/api/tools/test-all?category=${category.value}')
           : Uri.parse('$_baseUrl/api/tools/test-all');
 
       final client = await AuthService.instance.getAuthenticatedClient();
       try {
-        final response =
-            await client.post(uri).timeout(ServiceConfig.queryTimeout);
+        final response = await client
+            .post(uri)
+            .timeout(ServiceConfig.queryTimeout);
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body) as Map<String, dynamic>;

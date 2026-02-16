@@ -18,10 +18,12 @@ class AnsiParser {
     final matches = _ansiRegex.allMatches(text);
     for (final match in matches) {
       if (match.start > lastMatchEnd) {
-        spans.add(TextSpan(
-          text: text.substring(lastMatchEnd, match.start),
-          style: currentStyle,
-        ));
+        spans.add(
+          TextSpan(
+            text: text.substring(lastMatchEnd, match.start),
+            style: currentStyle,
+          ),
+        );
       }
 
       final code = text.substring(match.start, match.end);
@@ -30,10 +32,9 @@ class AnsiParser {
     }
 
     if (lastMatchEnd < text.length) {
-      spans.add(TextSpan(
-        text: text.substring(lastMatchEnd),
-        style: currentStyle,
-      ));
+      spans.add(
+        TextSpan(text: text.substring(lastMatchEnd), style: currentStyle),
+      );
     }
 
     return TextSpan(children: spans);
@@ -63,13 +64,17 @@ class AnsiParser {
       } else if (code == 1) {
         newStyle = newStyle.copyWith(fontWeight: FontWeight.bold);
       } else if (code == 2) {
-        newStyle = newStyle.copyWith(color: current.color?.withValues(alpha: 0.5));
+        newStyle = newStyle.copyWith(
+          color: current.color?.withValues(alpha: 0.5),
+        );
       } else if (code == 3) {
         newStyle = newStyle.copyWith(fontStyle: FontStyle.italic);
       } else if (code == 4) {
         newStyle = newStyle.copyWith(decoration: TextDecoration.underline);
       } else if (code >= 30 && code <= 37) {
-        newStyle = newStyle.copyWith(color: _getColor(code - 30, bright: false));
+        newStyle = newStyle.copyWith(
+          color: _getColor(code - 30, bright: false),
+        );
       } else if (code >= 40 && code <= 47) {
         // Background colors - maybe implementation later if needed
       } else if (code >= 90 && code <= 97) {
@@ -85,7 +90,9 @@ class AnsiParser {
       case 0:
         return bright ? Colors.grey[400]! : Colors.grey[800]!; // Black/Grey
       case 1:
-        return bright ? const Color(0xFFFF5252) : const Color(0xFFE57373); // Red
+        return bright
+            ? const Color(0xFFFF5252)
+            : const Color(0xFFE57373); // Red
       case 2:
         return bright
             ? const Color(0xFF69F0AE)
@@ -95,13 +102,17 @@ class AnsiParser {
             ? const Color(0xFFFFD740)
             : const Color(0xFFFFF176); // Yellow
       case 4:
-        return bright ? const Color(0xFF448AFF) : const Color(0xFF64B5F6); // Blue
+        return bright
+            ? const Color(0xFF448AFF)
+            : const Color(0xFF64B5F6); // Blue
       case 5:
         return bright
             ? const Color(0xFFE040FB)
             : const Color(0xFFF06292); // Magenta
       case 6:
-        return bright ? const Color(0xFF18FFFF) : const Color(0xFF4DD0E1); // Cyan
+        return bright
+            ? const Color(0xFF18FFFF)
+            : const Color(0xFF4DD0E1); // Cyan
       case 7:
         return bright ? Colors.white : Colors.grey[300]!; // White
       default:

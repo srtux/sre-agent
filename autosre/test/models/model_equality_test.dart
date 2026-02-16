@@ -10,15 +10,15 @@ void main() {
     final end = DateTime.utc(2026, 1, 1, 10, 0, 1);
 
     SpanInfo makeSpan({String spanId = 's1'}) => SpanInfo(
-          spanId: spanId,
-          traceId: 't1',
-          name: 'GET /api',
-          startTime: start,
-          endTime: end,
-          attributes: {'key': 'value'},
-          status: 'OK',
-          parentSpanId: 'p1',
-        );
+      spanId: spanId,
+      traceId: 't1',
+      name: 'GET /api',
+      startTime: start,
+      endTime: end,
+      attributes: {'key': 'value'},
+      status: 'OK',
+      parentSpanId: 'p1',
+    );
 
     test('identical instances are equal', () {
       final a = makeSpan();
@@ -117,8 +117,16 @@ void main() {
     });
 
     test('different labels break equality', () {
-      final a = MetricSeries(metricName: 'cpu', points: [], labels: {'k': 'v1'});
-      final b = MetricSeries(metricName: 'cpu', points: [], labels: {'k': 'v2'});
+      final a = MetricSeries(
+        metricName: 'cpu',
+        points: [],
+        labels: {'k': 'v1'},
+      );
+      final b = MetricSeries(
+        metricName: 'cpu',
+        points: [],
+        labels: {'k': 'v2'},
+      );
       expect(a == b, isFalse);
     });
   });
@@ -150,8 +158,16 @@ void main() {
   // ===========================================================================
   group('LogPattern equality', () {
     test('equal patterns are equal', () {
-      final a = LogPattern(template: 'tmpl', count: 5, severityCounts: {'ERROR': 3});
-      final b = LogPattern(template: 'tmpl', count: 5, severityCounts: {'ERROR': 3});
+      final a = LogPattern(
+        template: 'tmpl',
+        count: 5,
+        severityCounts: {'ERROR': 3},
+      );
+      final b = LogPattern(
+        template: 'tmpl',
+        count: 5,
+        severityCounts: {'ERROR': 3},
+      );
       expect(a, equals(b));
       expect(a.hashCode, equals(b.hashCode));
     });
@@ -222,8 +238,18 @@ void main() {
   group('TimelineEvent equality', () {
     test('equal events are equal', () {
       final ts = DateTime.utc(2026, 1, 1);
-      final a = TimelineEvent(id: 'e1', timestamp: ts, type: 'alert', title: 'Alert');
-      final b = TimelineEvent(id: 'e1', timestamp: ts, type: 'alert', title: 'Alert');
+      final a = TimelineEvent(
+        id: 'e1',
+        timestamp: ts,
+        type: 'alert',
+        title: 'Alert',
+      );
+      final b = TimelineEvent(
+        id: 'e1',
+        timestamp: ts,
+        type: 'alert',
+        title: 'Alert',
+      );
       expect(a, equals(b));
       expect(a.hashCode, equals(b.hashCode));
     });
@@ -234,19 +260,35 @@ void main() {
   // ===========================================================================
   group('AgentNode equality', () {
     test('equal nodes are equal', () {
-      final a = AgentNode(id: 'n1', name: 'Agent', type: 'agent', status: 'active');
-      final b = AgentNode(id: 'n1', name: 'Agent', type: 'agent', status: 'active');
+      final a = AgentNode(
+        id: 'n1',
+        name: 'Agent',
+        type: 'agent',
+        status: 'active',
+      );
+      final b = AgentNode(
+        id: 'n1',
+        name: 'Agent',
+        type: 'agent',
+        status: 'active',
+      );
       expect(a, equals(b));
       expect(a.hashCode, equals(b.hashCode));
     });
 
     test('different connections break equality', () {
       final a = AgentNode(
-        id: 'n1', name: 'Agent', type: 'agent', status: 'active',
+        id: 'n1',
+        name: 'Agent',
+        type: 'agent',
+        status: 'active',
         connections: ['n2'],
       );
       final b = AgentNode(
-        id: 'n1', name: 'Agent', type: 'agent', status: 'active',
+        id: 'n1',
+        name: 'Agent',
+        type: 'agent',
+        status: 'active',
         connections: ['n3'],
       );
       expect(a == b, isFalse);
@@ -258,8 +300,18 @@ void main() {
   // ===========================================================================
   group('AgentGraphNode equality', () {
     test('equal nodes are equal', () {
-      final a = AgentGraphNode(id: 'n1', label: 'Agent', type: 'agent', hasError: false);
-      final b = AgentGraphNode(id: 'n1', label: 'Agent', type: 'agent', hasError: false);
+      final a = AgentGraphNode(
+        id: 'n1',
+        label: 'Agent',
+        type: 'agent',
+        hasError: false,
+      );
+      final b = AgentGraphNode(
+        id: 'n1',
+        label: 'Agent',
+        type: 'agent',
+        hasError: false,
+      );
       expect(a, equals(b));
       expect(a.hashCode, equals(b.hashCode));
     });
@@ -268,12 +320,20 @@ void main() {
   group('AgentGraphEdge equality', () {
     test('equal edges are equal', () {
       final a = AgentGraphEdge(
-        sourceId: 'n1', targetId: 'n2', label: 'calls',
-        callCount: 1, avgDurationMs: 100.0, hasError: false,
+        sourceId: 'n1',
+        targetId: 'n2',
+        label: 'calls',
+        callCount: 1,
+        avgDurationMs: 100.0,
+        hasError: false,
       );
       final b = AgentGraphEdge(
-        sourceId: 'n1', targetId: 'n2', label: 'calls',
-        callCount: 1, avgDurationMs: 100.0, hasError: false,
+        sourceId: 'n1',
+        targetId: 'n2',
+        label: 'calls',
+        callCount: 1,
+        avgDurationMs: 100.0,
+        hasError: false,
       );
       expect(a, equals(b));
       expect(a.hashCode, equals(b.hashCode));
@@ -286,12 +346,20 @@ void main() {
   group('PanelFinding equality', () {
     test('equal findings are equal', () {
       final a = PanelFinding(
-        panel: 'trace', summary: 'High latency', severity: 'warning',
-        confidence: 0.85, evidence: ['e1'], recommendedActions: ['scale up'],
+        panel: 'trace',
+        summary: 'High latency',
+        severity: 'warning',
+        confidence: 0.85,
+        evidence: ['e1'],
+        recommendedActions: ['scale up'],
       );
       final b = PanelFinding(
-        panel: 'trace', summary: 'High latency', severity: 'warning',
-        confidence: 0.85, evidence: ['e1'], recommendedActions: ['scale up'],
+        panel: 'trace',
+        summary: 'High latency',
+        severity: 'warning',
+        confidence: 0.85,
+        evidence: ['e1'],
+        recommendedActions: ['scale up'],
       );
       expect(a, equals(b));
       expect(a.hashCode, equals(b.hashCode));
@@ -299,12 +367,20 @@ void main() {
 
     test('different evidence breaks equality', () {
       final a = PanelFinding(
-        panel: 'trace', summary: 's', severity: 'info',
-        confidence: 0.5, evidence: ['e1'], recommendedActions: [],
+        panel: 'trace',
+        summary: 's',
+        severity: 'info',
+        confidence: 0.5,
+        evidence: ['e1'],
+        recommendedActions: [],
       );
       final b = PanelFinding(
-        panel: 'trace', summary: 's', severity: 'info',
-        confidence: 0.5, evidence: ['e2'], recommendedActions: [],
+        panel: 'trace',
+        summary: 's',
+        severity: 'info',
+        confidence: 0.5,
+        evidence: ['e2'],
+        recommendedActions: [],
       );
       expect(a == b, isFalse);
     });
@@ -316,11 +392,15 @@ void main() {
   group('CriticReport equality', () {
     test('equal reports are equal', () {
       final a = CriticReport(
-        agreements: ['a1'], contradictions: [], gaps: [],
+        agreements: ['a1'],
+        contradictions: [],
+        gaps: [],
         revisedConfidence: 0.9,
       );
       final b = CriticReport(
-        agreements: ['a1'], contradictions: [], gaps: [],
+        agreements: ['a1'],
+        contradictions: [],
+        gaps: [],
         revisedConfidence: 0.9,
       );
       expect(a, equals(b));
@@ -350,7 +430,10 @@ void main() {
 
     test('totalTokens computed correctly', () {
       final r = LLMCallRecord(
-        callId: 'c1', model: 'gemini', inputTokens: 100, outputTokens: 50,
+        callId: 'c1',
+        model: 'gemini',
+        inputTokens: 100,
+        outputTokens: 50,
       );
       expect(r.totalTokens, 150);
     });

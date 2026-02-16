@@ -46,8 +46,10 @@ void main() {
         return http.Response('{}', 200);
       });
 
-      final client = ProjectInterceptorClient(inner,
-          projectService: mockProject);
+      final client = ProjectInterceptorClient(
+        inner,
+        projectService: mockProject,
+      );
       await client.get(Uri.parse('http://localhost/test'));
 
       expect(correlationId, isNotNull);
@@ -62,8 +64,10 @@ void main() {
         return http.Response('{}', 200);
       });
 
-      final client = ProjectInterceptorClient(inner,
-          projectService: mockProject);
+      final client = ProjectInterceptorClient(
+        inner,
+        projectService: mockProject,
+      );
       await client.get(
         Uri.parse('http://localhost/test'),
         headers: {'X-Correlation-ID': 'existing-id'},
@@ -80,8 +84,10 @@ void main() {
         return http.Response('{}', 200);
       });
 
-      final client = ProjectInterceptorClient(inner,
-          projectService: mockProject);
+      final client = ProjectInterceptorClient(
+        inner,
+        projectService: mockProject,
+      );
       await client.get(Uri.parse('http://localhost/test'));
 
       expect(projectHeader, isNull);
@@ -93,8 +99,10 @@ void main() {
         throw http.ClientException('Connection refused');
       });
 
-      final client = ProjectInterceptorClient(inner,
-          projectService: mockProject);
+      final client = ProjectInterceptorClient(
+        inner,
+        projectService: mockProject,
+      );
 
       expect(
         () => client.get(Uri.parse('http://localhost/test')),

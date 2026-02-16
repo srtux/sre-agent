@@ -26,11 +26,13 @@ class PanelFinding {
       summary: json['summary'] as String? ?? '',
       severity: json['severity'] as String? ?? 'info',
       confidence: (json['confidence'] as num?)?.toDouble() ?? 0.0,
-      evidence: (json['evidence'] as List<dynamic>?)
+      evidence:
+          (json['evidence'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           [],
-      recommendedActions: (json['recommended_actions'] as List<dynamic>?)
+      recommendedActions:
+          (json['recommended_actions'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           [],
@@ -83,13 +85,13 @@ class PanelFinding {
 
   @override
   int get hashCode => Object.hash(
-        panel,
-        summary,
-        severity,
-        confidence,
-        evidence.length,
-        recommendedActions.length,
-      );
+    panel,
+    summary,
+    severity,
+    confidence,
+    evidence.length,
+    recommendedActions.length,
+  );
 }
 
 /// Represents a critic's cross-examination report in debate mode.
@@ -108,17 +110,18 @@ class CriticReport {
 
   factory CriticReport.fromJson(Map<String, dynamic> json) {
     return CriticReport(
-      agreements: (json['agreements'] as List<dynamic>?)
+      agreements:
+          (json['agreements'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           [],
-      contradictions: (json['contradictions'] as List<dynamic>?)
+      contradictions:
+          (json['contradictions'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           [],
-      gaps: (json['gaps'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
+      gaps:
+          (json['gaps'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
           [],
       revisedConfidence:
           (json['revised_confidence'] as num?)?.toDouble() ?? 0.0,
@@ -147,11 +150,11 @@ class CriticReport {
 
   @override
   int get hashCode => Object.hash(
-        agreements.length,
-        contradictions.length,
-        gaps.length,
-        revisedConfidence,
-      );
+    agreements.length,
+    contradictions.length,
+    gaps.length,
+    revisedConfidence,
+  );
 }
 
 /// Represents a Vega-Lite chart returned by the CA Data Agent.
@@ -308,13 +311,13 @@ class ToolCallRecord {
 
   @override
   int get hashCode => Object.hash(
-        callId,
-        toolName,
-        status,
-        durationMs,
-        timestamp,
-        dashboardCategory,
-      );
+    callId,
+    toolName,
+    status,
+    durationMs,
+    timestamp,
+    dashboardCategory,
+  );
 }
 
 /// Record of an LLM inference call made by an agent.
@@ -362,13 +365,13 @@ class LLMCallRecord {
 
   @override
   int get hashCode => Object.hash(
-        callId,
-        model,
-        inputTokens,
-        outputTokens,
-        durationMs,
-        timestamp,
-      );
+    callId,
+    model,
+    inputTokens,
+    outputTokens,
+    durationMs,
+    timestamp,
+  );
 }
 
 /// Activity record for a single agent in the council hierarchy.
@@ -401,8 +404,9 @@ class CouncilAgentActivity {
     return CouncilAgentActivity(
       agentId: json['agent_id'] as String? ?? '',
       agentName: json['agent_name'] as String? ?? '',
-      agentType:
-          CouncilAgentType.fromString(json['agent_type'] as String? ?? 'sub_agent'),
+      agentType: CouncilAgentType.fromString(
+        json['agent_type'] as String? ?? 'sub_agent',
+      ),
       parentId: json['parent_id'] as String?,
       status: json['status'] as String? ?? 'pending',
       startedAt: json['started_at'] as String? ?? '',
@@ -469,17 +473,17 @@ class CouncilAgentActivity {
 
   @override
   int get hashCode => Object.hash(
-        agentId,
-        agentName,
-        agentType,
-        parentId,
-        status,
-        startedAt,
-        completedAt,
-        toolCalls.length,
-        llmCalls.length,
-        outputSummary,
-      );
+    agentId,
+    agentName,
+    agentType,
+    parentId,
+    status,
+    startedAt,
+    completedAt,
+    toolCalls.length,
+    llmCalls.length,
+    outputSummary,
+  );
 }
 
 /// Complete activity graph for a council investigation.
@@ -507,8 +511,7 @@ class CouncilActivityGraph {
   factory CouncilActivityGraph.fromJson(Map<String, dynamic> json) {
     final agents = (json['agents'] as List? ?? [])
         .whereType<Map>()
-        .map(
-            (a) => CouncilAgentActivity.fromJson(Map<String, dynamic>.from(a)))
+        .map((a) => CouncilAgentActivity.fromJson(Map<String, dynamic>.from(a)))
         .toList();
 
     return CouncilActivityGraph(
@@ -517,9 +520,11 @@ class CouncilActivityGraph {
       startedAt: json['started_at'] as String? ?? '',
       completedAt: json['completed_at'] as String? ?? '',
       agents: agents,
-      totalToolCalls: (json['total_tool_calls'] as num?)?.toInt() ??
+      totalToolCalls:
+          (json['total_tool_calls'] as num?)?.toInt() ??
           agents.fold(0, (sum, a) => sum + a.totalToolCalls),
-      totalLLMCalls: (json['total_llm_calls'] as num?)?.toInt() ??
+      totalLLMCalls:
+          (json['total_llm_calls'] as num?)?.toInt() ??
           agents.fold(0, (sum, a) => sum + a.totalLLMCalls),
       debateRounds: (json['debate_rounds'] as num?)?.toInt() ?? 1,
     );
@@ -546,9 +551,7 @@ class CouncilActivityGraph {
 
   /// Get all panel agents.
   List<CouncilAgentActivity> get panelAgents {
-    return agents
-        .where((a) => a.agentType == CouncilAgentType.panel)
-        .toList();
+    return agents.where((a) => a.agentType == CouncilAgentType.panel).toList();
   }
 
   /// Get the critic agent if present.
@@ -563,8 +566,9 @@ class CouncilActivityGraph {
   /// Get the synthesizer agent if present.
   CouncilAgentActivity? get synthesizerAgent {
     try {
-      return agents
-          .firstWhere((a) => a.agentType == CouncilAgentType.synthesizer);
+      return agents.firstWhere(
+        (a) => a.agentType == CouncilAgentType.synthesizer,
+      );
     } catch (_) {
       return null;
     }
@@ -606,15 +610,15 @@ class CouncilActivityGraph {
 
   @override
   int get hashCode => Object.hash(
-        investigationId,
-        mode,
-        startedAt,
-        completedAt,
-        agents.length,
-        totalToolCalls,
-        totalLLMCalls,
-        debateRounds,
-      );
+    investigationId,
+    mode,
+    startedAt,
+    completedAt,
+    agents.length,
+    totalToolCalls,
+    totalLLMCalls,
+    debateRounds,
+  );
 }
 
 /// Represents a council investigation synthesis result.
@@ -662,8 +666,7 @@ class CouncilSynthesisData {
             synthesis = nestedData['synthesis'] as String? ?? synthesis;
           }
 
-          if ((data['panels'] == null ||
-                  (data['panels'] as List).isEmpty) &&
+          if ((data['panels'] == null || (data['panels'] as List).isEmpty) &&
               nestedData['panels'] != null) {
             data['panels'] = nestedData['panels'];
           }
@@ -704,14 +707,16 @@ class CouncilSynthesisData {
     CriticReport? criticReport;
     if (data['critic_report'] != null && data['critic_report'] is Map) {
       criticReport = CriticReport.fromJson(
-          Map<String, dynamic>.from(data['critic_report'] as Map));
+        Map<String, dynamic>.from(data['critic_report'] as Map),
+      );
     }
 
     // Parse activity graph
     CouncilActivityGraph? activityGraph;
     if (data['activity_graph'] != null && data['activity_graph'] is Map) {
       activityGraph = CouncilActivityGraph.fromJson(
-          Map<String, dynamic>.from(data['activity_graph'] as Map));
+        Map<String, dynamic>.from(data['activity_graph'] as Map),
+      );
     }
 
     return CouncilSynthesisData(
@@ -764,8 +769,9 @@ class CouncilSynthesisData {
   /// Get panel by type
   PanelFinding? getPanelByType(String type) {
     try {
-      return panels
-          .firstWhere((p) => p.panel.toLowerCase() == type.toLowerCase());
+      return panels.firstWhere(
+        (p) => p.panel.toLowerCase() == type.toLowerCase(),
+      );
     } catch (_) {
       return null;
     }
@@ -793,13 +799,13 @@ class CouncilSynthesisData {
 
   @override
   int get hashCode => Object.hash(
-        synthesis,
-        overallSeverity,
-        overallConfidence,
-        mode,
-        rounds,
-        panels.length,
-        criticReport,
-        activityGraph,
-      );
+    synthesis,
+    overallSeverity,
+    overallConfidence,
+    mode,
+    rounds,
+    panels.length,
+    criticReport,
+    activityGraph,
+  );
 }

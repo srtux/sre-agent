@@ -13,10 +13,7 @@ import '../../../models/adk_schema.dart';
 class CouncilDecisionCard extends StatelessWidget {
   final DashboardItem item;
 
-  const CouncilDecisionCard({
-    super.key,
-    required this.item,
-  });
+  const CouncilDecisionCard({super.key, required this.item});
 
   @override
   Widget build(BuildContext context) {
@@ -24,18 +21,27 @@ class CouncilDecisionCard extends StatelessWidget {
     final council = item.councilData;
 
     // Use specific votes if available, otherwise map from panels
-    final votes = data['votes'] as List<dynamic>? ??
-                               council?.panels.map((p) => {
-                                 'agent': p.displayName,
-                                 'vote': p.severity == 'healthy' ? 'yes' : (p.severity == 'critical' ? 'no' : 'info'),
-                                 'reason': p.summary,
-                               }).toList() ?? [];
+    final votes =
+        data['votes'] as List<dynamic>? ??
+        council?.panels
+            .map(
+              (p) => {
+                'agent': p.displayName,
+                'vote': p.severity == 'healthy'
+                    ? 'yes'
+                    : (p.severity == 'critical' ? 'no' : 'info'),
+                'reason': p.summary,
+              },
+            )
+            .toList() ??
+        [];
 
     // Support both the new data format and the existing CouncilSynthesisData model
-    final summary = data['summary'] ??
-                  data['conclusion'] ??
-                  council?.synthesis ??
-                  'No conclusion available.';
+    final summary =
+        data['summary'] ??
+        data['conclusion'] ??
+        council?.synthesis ??
+        'No conclusion available.';
 
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -111,7 +117,9 @@ class CouncilDecisionCard extends StatelessWidget {
               ),
               code: GoogleFonts.jetBrainsMono(
                 fontSize: 11,
-                backgroundColor: AppColors.backgroundDark.withValues(alpha: 0.5),
+                backgroundColor: AppColors.backgroundDark.withValues(
+                  alpha: 0.5,
+                ),
                 color: AppColors.primaryCyan,
               ),
             ),
@@ -197,18 +205,16 @@ class CouncilDecisionCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: severityColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: severityColor.withValues(alpha: 0.2),
-              ),
+              border: Border.all(color: severityColor.withValues(alpha: 0.2)),
             ),
             child: Row(
               children: [
                 Icon(
                   council.overallSeverity == 'healthy'
-                    ? Icons.check_circle_rounded
-                    : (council.overallSeverity == 'critical'
-                        ? Icons.report_rounded
-                        : Icons.info_rounded),
+                      ? Icons.check_circle_rounded
+                      : (council.overallSeverity == 'critical'
+                            ? Icons.report_rounded
+                            : Icons.info_rounded),
                   size: 16,
                   color: severityColor,
                 ),
@@ -273,13 +279,15 @@ class CouncilDecisionCard extends StatelessWidget {
                         child: LinearProgressIndicator(
                           value: council.overallConfidence,
                           minHeight: 4,
-                          backgroundColor: AppColors.surfaceBorder.withValues(alpha: 0.3),
+                          backgroundColor: AppColors.surfaceBorder.withValues(
+                            alpha: 0.3,
+                          ),
                           valueColor: AlwaysStoppedAnimation<Color>(
                             council.overallConfidence > 0.8
-                              ? AppColors.primaryCyan
-                              : (council.overallConfidence > 0.5
-                                  ? AppColors.warning
-                                  : AppColors.error),
+                                ? AppColors.primaryCyan
+                                : (council.overallConfidence > 0.5
+                                      ? AppColors.warning
+                                      : AppColors.error),
                           ),
                         ),
                       ),
@@ -335,9 +343,7 @@ class CouncilDecisionCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.backgroundDark.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: severityColor.withValues(alpha: 0.3),
-        ),
+        border: Border.all(color: severityColor.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -490,7 +496,9 @@ class CouncilDecisionCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            ...finding.recommendedActions.map((a) => _buildBulletItem(a, isAction: true)),
+            ...finding.recommendedActions.map(
+              (a) => _buildBulletItem(a, isAction: true),
+            ),
           ],
         ],
       ),
@@ -508,7 +516,9 @@ class CouncilDecisionCard extends StatelessWidget {
             child: Icon(
               isAction ? Icons.bolt_rounded : Icons.circle,
               size: isAction ? 12 : 6,
-              color: isAction ? AppColors.warning : AppColors.textMuted.withValues(alpha: 0.5),
+              color: isAction
+                  ? AppColors.warning
+                  : AppColors.textMuted.withValues(alpha: 0.5),
             ),
           ),
           const SizedBox(width: 10),
@@ -563,14 +573,18 @@ class CouncilDecisionCard extends StatelessWidget {
     final council = item.councilData;
 
     // Subject mapping: rawData['subject'] or default to "Council of Experts" if it looks like the old model
-    final subject = data['subject']?.toString() ??
-                  (council != null ? 'Council of Experts' : 'Council Debate');
+    final subject =
+        data['subject']?.toString() ??
+        (council != null ? 'Council of Experts' : 'Council Debate');
 
     // Status mapping: rawData['status'] or map council severity to status
     var status = data['status']?.toString().toLowerCase() ?? '';
     if (status.isEmpty && council != null) {
-      status = council.overallSeverity == 'healthy' ? 'approved' :
-               (council.overallSeverity == 'critical' ? 'rejected' : 'in progress');
+      status = council.overallSeverity == 'healthy'
+          ? 'approved'
+          : (council.overallSeverity == 'critical'
+                ? 'rejected'
+                : 'in progress');
     } else if (status.isEmpty) {
       status = 'in progress';
     }
@@ -627,9 +641,7 @@ class CouncilDecisionCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: bgColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: bgColor.withValues(alpha: 0.2),
-        ),
+        border: Border.all(color: bgColor.withValues(alpha: 0.2)),
       ),
       child: Text(
         label,
@@ -683,7 +695,9 @@ class CouncilDecisionCard extends StatelessWidget {
                     ],
                   ),
                   child: Icon(
-                    isYes ? Icons.check : (isNo ? Icons.close : Icons.priority_high),
+                    isYes
+                        ? Icons.check
+                        : (isNo ? Icons.close : Icons.priority_high),
                     size: 8,
                     color: Colors.white,
                   ),

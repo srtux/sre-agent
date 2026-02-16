@@ -110,7 +110,7 @@ class AgentTraceNode {
   final String? parentSpanId;
   final String name;
   final String
-      kind; // agent_invocation, llm_call, tool_execution, sub_agent_delegation
+  kind; // agent_invocation, llm_call, tool_execution, sub_agent_delegation
   final String operation; // invoke_agent, execute_tool, generate_content
   final double startOffsetMs;
   final double durationMs;
@@ -180,21 +180,21 @@ class AgentTraceNode {
 
   @override
   int get hashCode => Object.hash(
-        spanId,
-        parentSpanId,
-        name,
-        kind,
-        operation,
-        startOffsetMs,
-        durationMs,
-        depth,
-        inputTokens,
-        outputTokens,
-        modelUsed,
-        toolName,
-        agentName,
-        hasError,
-      );
+    spanId,
+    parentSpanId,
+    name,
+    kind,
+    operation,
+    startOffsetMs,
+    durationMs,
+    depth,
+    inputTokens,
+    outputTokens,
+    modelUsed,
+    toolName,
+    agentName,
+    hasError,
+  );
 }
 
 /// Data model for the agent trace timeline widget.
@@ -235,8 +235,7 @@ class AgentTraceData {
           .toList(),
       totalInputTokens: (json['total_input_tokens'] as num?)?.toInt() ?? 0,
       totalOutputTokens: (json['total_output_tokens'] as num?)?.toInt() ?? 0,
-      totalDurationMs:
-          (json['total_duration_ms'] as num?)?.toDouble() ?? 0,
+      totalDurationMs: (json['total_duration_ms'] as num?)?.toDouble() ?? 0,
       llmCallCount: (json['llm_call_count'] as num?)?.toInt() ?? 0,
       toolCallCount: (json['tool_call_count'] as num?)?.toInt() ?? 0,
       uniqueAgents: (json['unique_agents'] as List? ?? [])
@@ -270,15 +269,15 @@ class AgentTraceData {
 
   @override
   int get hashCode => Object.hash(
-        traceId,
-        rootAgentName,
-        nodes.length,
-        totalInputTokens,
-        totalOutputTokens,
-        totalDurationMs,
-        llmCallCount,
-        toolCallCount,
-      );
+    traceId,
+    rootAgentName,
+    nodes.length,
+    totalInputTokens,
+    totalOutputTokens,
+    totalDurationMs,
+    llmCallCount,
+    toolCallCount,
+  );
 }
 
 /// A node in the agent dependency graph.
@@ -374,14 +373,14 @@ class AgentGraphEdge {
 
   @override
   int get hashCode => Object.hash(
-        sourceId,
-        targetId,
-        label,
-        callCount,
-        avgDurationMs,
-        totalTokens,
-        hasError,
-      );
+    sourceId,
+    targetId,
+    label,
+    callCount,
+    avgDurationMs,
+    totalTokens,
+    hasError,
+  );
 }
 
 /// Data model for the agent dependency graph widget.
@@ -420,6 +419,5 @@ class AgentGraphData {
           rootAgentName == other.rootAgentName;
 
   @override
-  int get hashCode =>
-      Object.hash(nodes.length, edges.length, rootAgentName);
+  int get hashCode => Object.hash(nodes.length, edges.length, rootAgentName);
 }

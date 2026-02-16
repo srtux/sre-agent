@@ -73,74 +73,73 @@ class _DashboardCardWrapperState extends State<DashboardCardWrapper> {
       button: true,
       label: _isExpanded ? 'Collapse dashboard card' : 'Expand dashboard card',
       child: Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => setState(() => _isExpanded = !_isExpanded),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-          child: Row(
-            children: [
-              Expanded(child: widget.header),
-              const SizedBox(width: 8),
-              // Copy Icon
-              if (widget.dataToCopy != null)
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => setState(() => _isExpanded = !_isExpanded),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+            child: Row(
+              children: [
+                Expanded(child: widget.header),
+                const SizedBox(width: 8),
+                // Copy Icon
+                if (widget.dataToCopy != null)
+                  IconButton(
+                    icon: const Icon(Icons.copy, size: 16),
+                    color: AppColors.textMuted,
+                    onPressed: () {
+                      Clipboard.setData(
+                        ClipboardData(text: widget.dataToCopy!),
+                      );
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Copied to clipboard'),
+                          duration: Duration(seconds: 1),
+                          behavior: SnackBarBehavior.floating,
+                          width: 200,
+                        ),
+                      );
+                    },
+                    style: IconButton.styleFrom(
+                      padding: const EdgeInsets.all(4),
+                      minimumSize: const Size(28, 28),
+                    ),
+                    tooltip: 'Copy Data',
+                  ),
+                if (widget.dataToCopy != null) const SizedBox(width: 4),
+                // Collapse Icon
                 IconButton(
-                  icon: const Icon(Icons.copy, size: 16),
+                  icon: Icon(
+                    _isExpanded ? Icons.expand_less : Icons.expand_more,
+                    size: 20,
+                  ),
                   color: AppColors.textMuted,
-                  onPressed: () {
-                    Clipboard.setData(ClipboardData(text: widget.dataToCopy!));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Copied to clipboard'),
-                        duration: Duration(seconds: 1),
-                        behavior: SnackBarBehavior.floating,
-                        width: 200,
-                      ),
-                    );
-                  },
+                  onPressed: () => setState(() => _isExpanded = !_isExpanded),
                   style: IconButton.styleFrom(
+                    backgroundColor: Colors.transparent,
                     padding: const EdgeInsets.all(4),
                     minimumSize: const Size(28, 28),
                   ),
-                  tooltip: 'Copy Data',
+                  tooltip: _isExpanded ? 'Collapse' : 'Expand',
                 ),
-              if (widget.dataToCopy != null) const SizedBox(width: 4),
-              // Collapse Icon
-              IconButton(
-                icon: Icon(
-                  _isExpanded ? Icons.expand_less : Icons.expand_more,
-                  size: 20,
+                const SizedBox(width: 4),
+                // Close Icon
+                IconButton(
+                  icon: const Icon(Icons.close, size: 18),
+                  color: AppColors.textMuted,
+                  onPressed: widget.onClose,
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    padding: const EdgeInsets.all(4),
+                    minimumSize: const Size(28, 28),
+                  ),
+                  tooltip: 'Remove',
                 ),
-                color: AppColors.textMuted,
-                onPressed: () => setState(() => _isExpanded = !_isExpanded),
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  padding: const EdgeInsets.all(4),
-                  minimumSize: const Size(28, 28),
-                ),
-                tooltip: _isExpanded ? 'Collapse' : 'Expand',
-              ),
-              const SizedBox(width: 4),
-              // Close Icon
-              IconButton(
-                icon: const Icon(
-                  Icons.close,
-                  size: 18,
-                ),
-                color: AppColors.textMuted,
-                onPressed: widget.onClose,
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  padding: const EdgeInsets.all(4),
-                  minimumSize: const Size(28, 28),
-                ),
-                tooltip: 'Remove',
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
-    ),
     );
   }
 }

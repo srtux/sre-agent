@@ -52,7 +52,8 @@ class InvestigationRail extends StatelessWidget {
                   children: DashboardDataType.values.map((type) {
                     final config = _tabIconConfig(type);
                     final count = counts[type] ?? 0;
-                    final isCurrentTab = state.isOpen && state.activeTab == type;
+                    final isCurrentTab =
+                        state.isOpen && state.activeTab == type;
 
                     return _RailItem(
                       icon: config.icon,
@@ -118,15 +119,15 @@ class _RailItem extends StatelessWidget {
                   color: isActive
                       ? color.withValues(alpha: 0.15)
                       : hasData
-                          ? color.withValues(alpha: 0.05)
-                          : Colors.transparent,
+                      ? color.withValues(alpha: 0.05)
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: isActive
                         ? color.withValues(alpha: 0.4)
                         : hasData
-                            ? color.withValues(alpha: 0.1)
-                            : Colors.transparent,
+                        ? color.withValues(alpha: 0.1)
+                        : Colors.transparent,
                     width: 1,
                   ),
                   boxShadow: [
@@ -171,8 +172,10 @@ class _RailItem extends StatelessWidget {
                   bottom: 4,
                   right: 4,
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 1,
+                    ),
                     decoration: BoxDecoration(
                       color: color,
                       borderRadius: BorderRadius.circular(6),
@@ -206,24 +209,45 @@ _RailIconConfig _tabIconConfig(DashboardDataType type) {
   switch (type) {
     case DashboardDataType.traces:
       return const _RailIconConfig(
-          'Traces', Icons.alt_route_rounded, AppColors.primaryCyan);
+        'Traces',
+        Icons.alt_route_rounded,
+        AppColors.primaryCyan,
+      );
     case DashboardDataType.logs:
       return const _RailIconConfig(
-          'Logs', Icons.article_outlined, AppColors.success);
+        'Logs',
+        Icons.article_outlined,
+        AppColors.success,
+      );
     case DashboardDataType.metrics:
       return const _RailIconConfig(
-          'Metrics', Icons.show_chart_rounded, AppColors.warning);
+        'Metrics',
+        Icons.show_chart_rounded,
+        AppColors.warning,
+      );
     case DashboardDataType.alerts:
-      return const _RailIconConfig('Alerts',
-          Icons.notifications_active_outlined, AppColors.error);
+      return const _RailIconConfig(
+        'Alerts',
+        Icons.notifications_active_outlined,
+        AppColors.error,
+      );
     case DashboardDataType.remediation:
-      return const _RailIconConfig('Remediation',
-          Icons.build_circle_outlined, AppColors.secondaryPurple);
+      return const _RailIconConfig(
+        'Remediation',
+        Icons.build_circle_outlined,
+        AppColors.secondaryPurple,
+      );
     case DashboardDataType.council:
       return const _RailIconConfig(
-          'Council', Icons.groups_rounded, AppColors.primaryTeal);
+        'Council',
+        Icons.groups_rounded,
+        AppColors.primaryTeal,
+      );
     case DashboardDataType.analytics:
       return const _RailIconConfig(
-          'Analytics', Icons.insights_rounded, AppColors.primaryBlue);
+        'Analytics',
+        Icons.insights_rounded,
+        AppColors.primaryBlue,
+      );
   }
 }

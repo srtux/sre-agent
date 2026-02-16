@@ -22,7 +22,14 @@ def test_get_check_project_id():
     with patch.dict("os.environ", {"GOOGLE_CLOUD_PROJECT": "test-project"}):
         assert get_check_project_id() == "test-project"
 
-    with patch.dict("os.environ", {"TEST_PROJECT_ID": "test-project"}):
+    with patch.dict(
+        "os.environ",
+        {
+            "TEST_PROJECT_ID": "test-project",
+            "GOOGLE_CLOUD_PROJECT": "",
+            "GCP_PROJECT_ID": "",
+        },
+    ):
         assert get_check_project_id() == "test-project"
 
     with patch.dict(

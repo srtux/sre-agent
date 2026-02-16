@@ -1,3 +1,5 @@
+// ignore_for_file: unnecessary_underscores
+
 import 'package:autosre/models/log_models.dart';
 import 'package:autosre/widgets/dashboard/log_field_facets.dart';
 import 'package:flutter/material.dart';
@@ -17,7 +19,7 @@ LogEntry _makeEntry({
     payload: 'Test log message',
     resourceLabels: {
       'log_name': logName,
-      if (projectId != null) 'project_id': projectId,
+      'project_id': ?projectId,
     },
     resourceType: resourceType,
   );
@@ -171,9 +173,7 @@ void main() {
       String? tappedField;
       String? tappedValue;
 
-      final entries = [
-        _makeEntry(id: 'e1', severity: 'INFO'),
-      ];
+      final entries = [_makeEntry(id: 'e1', severity: 'INFO')];
 
       await tester.pumpWidget(
         _wrapWidget(
@@ -224,9 +224,7 @@ void main() {
     });
 
     testWidgets('collapses section when header tapped', (tester) async {
-      final entries = [
-        _makeEntry(id: 'e1', severity: 'INFO'),
-      ];
+      final entries = [_makeEntry(id: 'e1', severity: 'INFO')];
 
       await tester.pumpWidget(
         _wrapWidget(
@@ -260,10 +258,7 @@ void main() {
       // Create 15 entries with unique log names.
       final entries = List.generate(
         15,
-        (i) => _makeEntry(
-          id: 'e$i',
-          logName: 'log-$i',
-        ),
+        (i) => _makeEntry(id: 'e$i', logName: 'log-$i'),
       );
 
       await tester.pumpWidget(
@@ -277,8 +272,8 @@ void main() {
       );
 
       // Count how many log-name value texts are present.
-      int logNameCount = 0;
-      for (int i = 0; i < 15; i++) {
+      var logNameCount = 0;
+      for (var i = 0; i < 15; i++) {
         if (find.text('log-$i').evaluate().isNotEmpty) {
           logNameCount++;
         }
@@ -290,10 +285,7 @@ void main() {
       // Create 8 entries with unique project IDs.
       final entries = List.generate(
         8,
-        (i) => _makeEntry(
-          id: 'e$i',
-          projectId: 'project-$i',
-        ),
+        (i) => _makeEntry(id: 'e$i', projectId: 'project-$i'),
       );
 
       await tester.pumpWidget(
@@ -307,8 +299,8 @@ void main() {
       );
 
       // Count how many project-id value texts are present.
-      int projectCount = 0;
-      for (int i = 0; i < 8; i++) {
+      var projectCount = 0;
+      for (var i = 0; i < 8; i++) {
         if (find.text('project-$i').evaluate().isNotEmpty) {
           projectCount++;
         }
@@ -317,9 +309,7 @@ void main() {
     });
 
     testWidgets('updates facets when entries change', (tester) async {
-      final entriesV1 = [
-        _makeEntry(id: 'e1', severity: 'INFO'),
-      ];
+      final entriesV1 = [_makeEntry(id: 'e1', severity: 'INFO')];
 
       await tester.pumpWidget(
         _wrapWidget(

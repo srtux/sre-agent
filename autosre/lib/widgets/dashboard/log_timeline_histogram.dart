@@ -59,20 +59,26 @@ class _LogTimelineHistogramState extends State<LogTimelineHistogram> {
     final bucketDuration = _bucketSize(range.duration);
     final buckets = <_HistogramBucket>[];
 
-    var current = range.start;
-    while (current.isBefore(range.end)) {
+    final rangeStart = range.start.toUtc();
+    final rangeEnd = range.end.toUtc();
+
+    var current = rangeStart;
+    while (current.isBefore(rangeEnd)) {
       final bucketEnd = current.add(bucketDuration);
-      buckets.add(_HistogramBucket(
-        start: current,
-        end: bucketEnd.isAfter(range.end) ? range.end : bucketEnd,
-      ));
+      buckets.add(
+        _HistogramBucket(
+          start: current,
+          end: bucketEnd.isAfter(rangeEnd) ? rangeEnd : bucketEnd,
+        ),
+      );
       current = bucketEnd;
     }
 
     for (final entry in entries) {
+      final entryTime = entry.timestamp.toUtc();
       for (final bucket in buckets) {
-        if (!entry.timestamp.isBefore(bucket.start) &&
-            entry.timestamp.isBefore(bucket.end)) {
+        if (!entryTime.isBefore(bucket.start) &&
+            entryTime.isBefore(bucket.end)) {
           switch (entry.severity.toUpperCase()) {
             case 'CRITICAL':
             case 'EMERGENCY':
@@ -98,8 +104,7 @@ class _LogTimelineHistogramState extends State<LogTimelineHistogram> {
 
   int? _bucketIndexAtX(double x, int bucketCount, double width) {
     if (bucketCount == 0 || width <= 0) return null;
-    final barWidth =
-        (width - (bucketCount - 1) * _barGap) / bucketCount;
+    final barWidth = (width - (bucketCount - 1) * _barGap) / bucketCount;
     if (barWidth < 1) return null;
     final index = x ~/ (barWidth + _barGap);
     if (index < 0 || index >= bucketCount) return null;
@@ -141,11 +146,10 @@ class _LogTimelineHistogramState extends State<LogTimelineHistogram> {
                     });
                   }
                 },
-                onExit: (_) =>
-                    setState(() {
-                      _hoveredBucketIndex = null;
-                      _hoverPosition = null;
-                    }),
+                onExit: (_) => setState(() {
+                  _hoveredBucketIndex = null;
+                  _hoverPosition = null;
+                }),
                 child: GestureDetector(
                   onTapUp: (details) {
                     if (widget.onBucketTap == null) return;
@@ -206,9 +210,11 @@ class _LogTimelineHistogramState extends State<LogTimelineHistogram> {
   }
 
   Widget _buildTooltip(_HistogramBucket bucket, double containerWidth) {
-    final barWidth = (containerWidth - (math.max(1, _hoveredBucketIndex!) * _barGap)) /
+    final barWidth =
+        (containerWidth - (math.max(1, _hoveredBucketIndex!) * _barGap)) /
         math.max(1, _hoveredBucketIndex! + 1);
-    final barCenterX = _hoveredBucketIndex! * (barWidth + _barGap) + barWidth / 2;
+    final barCenterX =
+        _hoveredBucketIndex! * (barWidth + _barGap) + barWidth / 2;
 
     // Clamp tooltip so it doesn't overflow the container
     const tooltipWidth = 160.0;
@@ -224,34 +230,38 @@ class _LogTimelineHistogramState extends State<LogTimelineHistogram> {
 
     final severities = <MapEntry<String, _SeverityInfo>>[];
     if (bucket.criticalCount > 0) {
-      severities.add(MapEntry(
-        'Critical',
-        _SeverityInfo(bucket.criticalCount, SeverityColors.critical),
-      ));
+      severities.add(
+        MapEntry(
+          'Critical',
+          _SeverityInfo(bucket.criticalCount, SeverityColors.critical),
+        ),
+      );
     }
     if (bucket.errorCount > 0) {
-      severities.add(MapEntry(
-        'Error',
-        _SeverityInfo(bucket.errorCount, AppColors.error),
-      ));
+      severities.add(
+        MapEntry('Error', _SeverityInfo(bucket.errorCount, AppColors.error)),
+      );
     }
     if (bucket.warningCount > 0) {
-      severities.add(MapEntry(
-        'Warning',
-        _SeverityInfo(bucket.warningCount, AppColors.warning),
-      ));
+      severities.add(
+        MapEntry(
+          'Warning',
+          _SeverityInfo(bucket.warningCount, AppColors.warning),
+        ),
+      );
     }
     if (bucket.infoCount > 0) {
-      severities.add(MapEntry(
-        'Info',
-        _SeverityInfo(bucket.infoCount, AppColors.info),
-      ));
+      severities.add(
+        MapEntry('Info', _SeverityInfo(bucket.infoCount, AppColors.info)),
+      );
     }
     if (bucket.debugCount > 0) {
-      severities.add(MapEntry(
-        'Debug',
-        _SeverityInfo(bucket.debugCount, AppColors.textMuted),
-      ));
+      severities.add(
+        MapEntry(
+          'Debug',
+          _SeverityInfo(bucket.debugCount, AppColors.textMuted),
+        ),
+      );
     }
 
     return Positioned(
@@ -267,9 +277,7 @@ class _LogTimelineHistogramState extends State<LogTimelineHistogram> {
           decoration: BoxDecoration(
             color: AppColors.backgroundElevated.withValues(alpha: 0.95),
             borderRadius: Radii.borderMd,
-            border: Border.all(
-              color: AppColors.surfaceBorder,
-            ),
+            border: Border.all(color: AppColors.surfaceBorder),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.4),
@@ -300,39 +308,41 @@ class _LogTimelineHistogramState extends State<LogTimelineHistogram> {
               ),
               if (severities.isNotEmpty) ...[
                 const SizedBox(height: Spacing.xs),
-                ...severities.map((e) => Padding(
-                      padding: const EdgeInsets.only(top: 1),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 6,
-                            height: 6,
-                            decoration: BoxDecoration(
-                              color: e.value.color,
-                              borderRadius: BorderRadius.circular(1),
-                            ),
+                ...severities.map(
+                  (e) => Padding(
+                    padding: const EdgeInsets.only(top: 1),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: e.value.color,
+                            borderRadius: BorderRadius.circular(1),
                           ),
-                          const SizedBox(width: Spacing.xs),
-                          Expanded(
-                            child: Text(
-                              e.key,
-                              style: const TextStyle(
-                                fontSize: 9,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ),
-                          Text(
-                            '${e.value.count}',
+                        ),
+                        const SizedBox(width: Spacing.xs),
+                        Expanded(
+                          child: Text(
+                            e.key,
                             style: const TextStyle(
                               fontSize: 9,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary,
+                              color: AppColors.textSecondary,
                             ),
                           ),
-                        ],
-                      ),
-                    )),
+                        ),
+                        Text(
+                          '${e.value.count}',
+                          style: const TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ],
           ),
@@ -354,8 +364,18 @@ class _LogTimelineHistogramState extends State<LogTimelineHistogram> {
         return '$h:$m';
       case _TimeFormat.date:
         const months = [
-          'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+          'Jan',
+          'Feb',
+          'Mar',
+          'Apr',
+          'May',
+          'Jun',
+          'Jul',
+          'Aug',
+          'Sep',
+          'Oct',
+          'Nov',
+          'Dec',
         ];
         return '${months[dt.month - 1]} ${dt.day}';
     }
@@ -404,8 +424,7 @@ class _HistogramPainter extends CustomPainter {
     }
 
     final chartHeight = size.height - _bottomMargin;
-    final maxTotal =
-        buckets.fold<int>(0, (prev, b) => math.max(prev, b.total));
+    final maxTotal = buckets.fold<int>(0, (prev, b) => math.max(prev, b.total));
 
     if (maxTotal == 0) {
       _paintEmpty(canvas, size);
@@ -413,8 +432,7 @@ class _HistogramPainter extends CustomPainter {
     }
 
     final numBuckets = buckets.length;
-    var barWidth =
-        (size.width - (numBuckets - 1) * _barGap) / numBuckets;
+    var barWidth = (size.width - (numBuckets - 1) * _barGap) / numBuckets;
     if (barWidth < _minBarWidth) barWidth = _minBarWidth;
 
     // Gridlines at 25%, 50%, 75%
@@ -426,11 +444,13 @@ class _HistogramPainter extends CustomPainter {
       if (bucket.total == 0) continue;
 
       final x = i * (barWidth + _barGap);
-      final totalHeight =
-          math.max(_minBarHeight, (bucket.total / maxTotal) * chartHeight);
+      final totalHeight = math.max(
+        _minBarHeight,
+        (bucket.total / maxTotal) * chartHeight,
+      );
 
       final isHovered = i == hoveredIndex;
-      final alphaMultiplier = isHovered ? 1.2 : 1.0;
+      final alphaMultiplier = isHovered ? 1.5 : 1.0;
 
       _paintStackedBar(
         canvas,
@@ -446,7 +466,7 @@ class _HistogramPainter extends CustomPainter {
       // Hover highlight border
       if (isHovered) {
         final highlightPaint = Paint()
-          ..color = AppColors.textPrimary.withValues(alpha: 0.4)
+          ..color = AppColors.primaryCyan.withValues(alpha: 0.8)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1;
         final rect = RRect.fromRectAndCorners(
@@ -472,78 +492,50 @@ class _HistogramPainter extends CustomPainter {
     int maxTotal,
     double alphaMultiplier,
   ) {
-    // Severity layers bottom-to-top: debug, info, warning, error, critical
-    final layers = <_BarLayer>[
-      if (bucket.debugCount > 0)
-        _BarLayer(
-          bucket.debugCount,
-          AppColors.textMuted.withValues(
-            alpha: _clampAlpha(0.3 * alphaMultiplier),
-          ),
-        ),
-      if (bucket.infoCount > 0)
-        _BarLayer(
-          bucket.infoCount,
-          AppColors.info.withValues(
-            alpha: _clampAlpha(0.7 * alphaMultiplier),
-          ),
-        ),
-      if (bucket.warningCount > 0)
-        _BarLayer(
-          bucket.warningCount,
-          AppColors.warning.withValues(
-            alpha: _clampAlpha(0.7 * alphaMultiplier),
-          ),
-        ),
-      if (bucket.errorCount > 0)
-        _BarLayer(
-          bucket.errorCount,
-          AppColors.error.withValues(
-            alpha: _clampAlpha(0.8 * alphaMultiplier),
-          ),
-        ),
-      if (bucket.criticalCount > 0)
-        _BarLayer(
-          bucket.criticalCount,
-          SeverityColors.critical.withValues(
-            alpha: _clampAlpha(0.9 * alphaMultiplier),
-          ),
-        ),
-    ];
+    // Cloud Logging uses a cleaner, single mostly-blue aesthetic with error highlights on top
+    final hasErrors = bucket.errorCount > 0 || bucket.criticalCount > 0;
 
-    var currentY = chartHeight;
-    final totalCount = layers.fold<int>(0, (s, l) => s + l.count);
+    // Base blue layer
+    final blueHeight = hasErrors && bucket.total > 0
+        ? math.max(
+            1.0,
+            ((bucket.total - bucket.errorCount - bucket.criticalCount) /
+                    bucket.total) *
+                totalHeight,
+          )
+        : totalHeight;
 
-    for (var li = 0; li < layers.length; li++) {
-      final layer = layers[li];
-      final segmentHeight =
-          math.max(1.0, (layer.count / totalCount) * totalHeight);
-      final isTopLayer = li == layers.length - 1;
+    final redHeight = hasErrors ? totalHeight - blueHeight : 0.0;
 
+    var yPosition = chartHeight;
+
+    if (blueHeight > 0) {
       final paint = Paint()
-        ..color = layer.color
+        ..color = AppColors.primaryCyan
+            .withValues(alpha: (0.6 * alphaMultiplier).clamp(0.0, 1.0))
         ..style = PaintingStyle.fill;
 
-      if (isTopLayer) {
-        final rrect = RRect.fromRectAndCorners(
-          Rect.fromLTWH(
-            x,
-            currentY - segmentHeight,
-            barWidth,
-            segmentHeight,
-          ),
-          topLeft: const Radius.circular(1),
-          topRight: const Radius.circular(1),
-        );
-        canvas.drawRRect(rrect, paint);
-      } else {
-        canvas.drawRect(
-          Rect.fromLTWH(x, currentY - segmentHeight, barWidth, segmentHeight),
-          paint,
-        );
-      }
+      final rrect = RRect.fromRectAndCorners(
+        Rect.fromLTWH(x, yPosition - blueHeight, barWidth, blueHeight),
+        topLeft: hasErrors ? Radius.zero : const Radius.circular(1),
+        topRight: hasErrors ? Radius.zero : const Radius.circular(1),
+      );
+      canvas.drawRRect(rrect, paint);
+      yPosition -= blueHeight;
+    }
 
-      currentY -= segmentHeight;
+    if (redHeight > 0) {
+      final paint = Paint()
+        ..color = AppColors.error
+            .withValues(alpha: (0.8 * alphaMultiplier).clamp(0.0, 1.0))
+        ..style = PaintingStyle.fill;
+
+      final rrect = RRect.fromRectAndCorners(
+        Rect.fromLTWH(x, yPosition - redHeight, barWidth, redHeight),
+        topLeft: const Radius.circular(1),
+        topRight: const Radius.circular(1),
+      );
+      canvas.drawRRect(rrect, paint);
     }
   }
 
@@ -554,11 +546,7 @@ class _HistogramPainter extends CustomPainter {
 
     for (final fraction in [0.25, 0.5, 0.75]) {
       final y = chartHeight * (1 - fraction);
-      canvas.drawLine(
-        Offset(0, y),
-        Offset(size.width, y),
-        linePaint,
-      );
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), linePaint);
     }
   }
 
@@ -570,7 +558,8 @@ class _HistogramPainter extends CustomPainter {
     if (labelCount == 0) return;
 
     final step = math.max(1, buckets.length ~/ labelCount);
-    final useDateFormat = buckets.first.end.difference(buckets.first.start).inDays >= 1;
+    final useDateFormat =
+        buckets.first.end.difference(buckets.first.start).inDays >= 1;
 
     for (var i = 0; i < buckets.length; i += step) {
       final bucket = buckets[i];
@@ -626,22 +615,24 @@ class _HistogramPainter extends CustomPainter {
 
   String _formatDate(DateTime dt) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[dt.month - 1]} ${dt.day}';
   }
-
-  double _clampAlpha(double value) => value.clamp(0.0, 1.0);
 
   @override
   bool shouldRepaint(_HistogramPainter oldDelegate) =>
       oldDelegate.hoveredIndex != hoveredIndex ||
       oldDelegate.buckets != buckets;
-}
-
-class _BarLayer {
-  final int count;
-  final Color color;
-  const _BarLayer(this.count, this.color);
 }

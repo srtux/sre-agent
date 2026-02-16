@@ -14,15 +14,17 @@ void main() {
           'description': 'Test Desc',
           'icon': 'timeline',
           'categories': ['FAQ'],
-          'content_file': 'test.md'
-        }
+          'content_file': 'test.md',
+        },
       ];
 
       final mockClient = MockClient((request) async {
         return http.Response(jsonEncode(mockData), 200);
       });
 
-      final service = HelpService.newInstance(clientFactory: () async => mockClient);
+      final service = HelpService.newInstance(
+        clientFactory: () async => mockClient,
+      );
       final topics = await service.fetchTopics();
 
       expect(topics.length, 1);
@@ -37,7 +39,9 @@ void main() {
         return http.Response('## Mock Content', 200);
       });
 
-      final service = HelpService.newInstance(clientFactory: () async => mockClient);
+      final service = HelpService.newInstance(
+        clientFactory: () async => mockClient,
+      );
 
       // First call
       final content1 = await service.fetchContent('test-id');
@@ -56,7 +60,7 @@ void main() {
         'title': 'title',
         'description': 'desc',
         'icon': 'article',
-        'content_file': 'file.md'
+        'content_file': 'file.md',
       };
 
       final topic = HelpTopic.fromJson(json);

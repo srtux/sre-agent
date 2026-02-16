@@ -78,7 +78,6 @@ class MockAuthService extends ChangeNotifier implements AuthService {
   Future<void> signIn() async {}
   @override
   Future<void> signOut() async {}
-
 }
 
 void main() {

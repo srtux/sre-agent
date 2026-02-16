@@ -15,8 +15,9 @@ class FakeCatalogItemContext implements CatalogItemContext {
 }
 
 void main() {
-  testWidgets('Catalog handles legacy "component" wrapper for tool logs',
-      (WidgetTester tester) async {
+  testWidgets('Catalog handles legacy "component" wrapper for tool logs', (
+    WidgetTester tester,
+  ) async {
     final catalog = CatalogRegistry.createSreCatalog();
     final item = catalog.items.firstWhere((i) => i.name == 'x-sre-tool-log');
 
@@ -26,28 +27,23 @@ void main() {
         'x-sre-tool-log': {
           'tool_name': 'list_gcp_projects',
           'args': {},
-          'status': 'running'
-        }
-      }
+          'status': 'running',
+        },
+      },
     };
 
     final widget = item.widgetBuilder(FakeCatalogItemContext(wrappedData));
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: widget,
-        ),
-      ),
-    );
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: widget)));
 
     // Should find the ToolLogWidget
     expect(find.byType(ToolLogWidget), findsOneWidget);
     expect(find.text('List Gcp Projects'), findsOneWidget);
   });
 
-  testWidgets('Catalog handles A2UI v0.8 format with "id" and "component"',
-      (WidgetTester tester) async {
+  testWidgets('Catalog handles A2UI v0.8 format with "id" and "component"', (
+    WidgetTester tester,
+  ) async {
     final catalog = CatalogRegistry.createSreCatalog();
     final item = catalog.items.firstWhere((i) => i.name == 'x-sre-tool-log');
 
@@ -60,27 +56,22 @@ void main() {
           'args': {'trace_id': 'abc123'},
           'status': 'completed',
           'result': {'spans': []},
-        }
-      }
+        },
+      },
     };
 
     final widget = item.widgetBuilder(FakeCatalogItemContext(a2uiV08Data));
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: widget,
-        ),
-      ),
-    );
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: widget)));
 
     // Should find the ToolLogWidget
     expect(find.byType(ToolLogWidget), findsOneWidget);
     expect(find.text('Fetching Trace Details'), findsOneWidget);
   });
 
-  testWidgets('Catalog handles direct data format',
-      (WidgetTester tester) async {
+  testWidgets('Catalog handles direct data format', (
+    WidgetTester tester,
+  ) async {
     final catalog = CatalogRegistry.createSreCatalog();
     final item = catalog.items.firstWhere((i) => i.name == 'x-sre-tool-log');
 
@@ -93,13 +84,7 @@ void main() {
 
     final widget = item.widgetBuilder(FakeCatalogItemContext(directData));
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: widget,
-        ),
-      ),
-    );
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: widget)));
 
     // Should find the ToolLogWidget
     expect(find.byType(ToolLogWidget), findsOneWidget);

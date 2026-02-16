@@ -61,8 +61,7 @@ class _ProjectSelectorDropdownState extends State<ProjectSelectorDropdown>
       curve: Curves.easeOut,
     );
     _scaleAnimation = Tween<double>(begin: 0.95, end: 1.0).animate(
-      CurvedAnimation(
-          parent: _animationController, curve: Curves.easeOutCubic),
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
     );
   }
 
@@ -183,8 +182,7 @@ class _ProjectSelectorDropdownState extends State<ProjectSelectorDropdown>
             decoration: BoxDecoration(
               color: const Color(0xFF1E293B),
               borderRadius: BorderRadius.circular(12),
-              border:
-                  Border.all(color: Colors.white.withValues(alpha: 0.1)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.4),
@@ -283,8 +281,9 @@ class _ProjectSelectorDropdownState extends State<ProjectSelectorDropdown>
                         Container(
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
-                            color:
-                                AppColors.primaryTeal.withValues(alpha: 0.15),
+                            color: AppColors.primaryTeal.withValues(
+                              alpha: 0.15,
+                            ),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: const Icon(
@@ -336,8 +335,8 @@ class _ProjectSelectorDropdownState extends State<ProjectSelectorDropdown>
                                         strokeWidth: 2,
                                         valueColor:
                                             AlwaysStoppedAnimation<Color>(
-                                          AppColors.primaryTeal,
-                                        ),
+                                              AppColors.primaryTeal,
+                                            ),
                                       ),
                                     )
                                   : const Icon(
@@ -384,11 +383,15 @@ class _ProjectSelectorDropdownState extends State<ProjectSelectorDropdown>
 
                   if (_searchQuery.isNotEmpty && _filteredProjects.isEmpty)
                     _buildUseCustomProjectOption(
-                        _searchQuery, setDropdownState),
+                      _searchQuery,
+                      setDropdownState,
+                    ),
 
                   if (_searchQuery.isNotEmpty && _filteredProjects.isNotEmpty)
                     _buildUseCustomProjectOption(
-                        _searchQuery, setDropdownState),
+                      _searchQuery,
+                      setDropdownState,
+                    ),
                 ],
               ),
             ),
@@ -408,8 +411,7 @@ class _ProjectSelectorDropdownState extends State<ProjectSelectorDropdown>
             height: 20,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              valueColor:
-                  AlwaysStoppedAnimation<Color>(AppColors.primaryTeal),
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryTeal),
             ),
           ),
         ),
@@ -464,8 +466,7 @@ class _ProjectSelectorDropdownState extends State<ProjectSelectorDropdown>
           const Divider(height: 16, color: Colors.white10),
         ],
         if (widget.recentProjects.isNotEmpty) ...[
-          _buildSectionHeader(
-              Icons.history, 'RECENT', AppColors.primaryTeal),
+          _buildSectionHeader(Icons.history, 'RECENT', AppColors.primaryTeal),
           ...widget.recentProjects.map((project) {
             final isSelected =
                 widget.selectedProject?.projectId == project.projectId;
@@ -521,8 +522,7 @@ class _ProjectSelectorDropdownState extends State<ProjectSelectorDropdown>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.error_outline,
-              size: 32, color: Colors.redAccent),
+          const Icon(Icons.error_outline, size: 32, color: Colors.redAccent),
           const SizedBox(height: 12),
           const Text(
             'Error loading projects',
@@ -536,8 +536,7 @@ class _ProjectSelectorDropdownState extends State<ProjectSelectorDropdown>
           Text(
             widget.error!,
             textAlign: TextAlign.center,
-            style:
-                const TextStyle(fontSize: 11, color: AppColors.textMuted),
+            style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
           ),
         ],
       ),
@@ -550,13 +549,15 @@ class _ProjectSelectorDropdownState extends State<ProjectSelectorDropdown>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.cloud_off_outlined,
-              size: 32, color: AppColors.textMuted),
+          const Icon(
+            Icons.cloud_off_outlined,
+            size: 32,
+            color: AppColors.textMuted,
+          ),
           const SizedBox(height: 12),
           Text(
             message,
-            style:
-                const TextStyle(fontSize: 13, color: AppColors.textMuted),
+            style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
           ),
         ],
       ),
@@ -567,8 +568,7 @@ class _ProjectSelectorDropdownState extends State<ProjectSelectorDropdown>
     String projectId,
     StateSetter setDropdownState,
   ) {
-    final exactMatch =
-        widget.projects.any((p) => p.projectId == projectId);
+    final exactMatch = widget.projects.any((p) => p.projectId == projectId);
     if (exactMatch) return const SizedBox.shrink();
 
     return Container(
@@ -576,8 +576,7 @@ class _ProjectSelectorDropdownState extends State<ProjectSelectorDropdown>
       decoration: BoxDecoration(
         color: AppColors.primaryTeal.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-            color: AppColors.primaryTeal.withValues(alpha: 0.3)),
+        border: Border.all(color: AppColors.primaryTeal.withValues(alpha: 0.3)),
       ),
       child: Material(
         color: Colors.transparent,
@@ -585,15 +584,13 @@ class _ProjectSelectorDropdownState extends State<ProjectSelectorDropdown>
           onTap: () => _selectCustomProject(projectId),
           borderRadius: BorderRadius.circular(10),
           child: Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color:
-                        AppColors.primaryTeal.withValues(alpha: 0.2),
+                    color: AppColors.primaryTeal.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: const Icon(
@@ -640,8 +637,9 @@ class _ProjectSelectorDropdownState extends State<ProjectSelectorDropdown>
   }
 
   Widget _buildProjectItem(GcpProject project, bool isSelected) {
-    final isStarred = widget.starredProjects
-        .any((p) => p.projectId == project.projectId);
+    final isStarred = widget.starredProjects.any(
+      (p) => p.projectId == project.projectId,
+    );
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       child: Material(
@@ -658,7 +656,9 @@ class _ProjectSelectorDropdownState extends State<ProjectSelectorDropdown>
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 10),
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: isSelected
                         ? AppColors.primaryTeal.withValues(alpha: 0.15)
@@ -679,10 +679,12 @@ class _ProjectSelectorDropdownState extends State<ProjectSelectorDropdown>
                           gradient: isSelected
                               ? LinearGradient(
                                   colors: [
-                                    AppColors.primaryTeal
-                                        .withValues(alpha: 0.3),
-                                    AppColors.primaryCyan
-                                        .withValues(alpha: 0.2),
+                                    AppColors.primaryTeal.withValues(
+                                      alpha: 0.3,
+                                    ),
+                                    AppColors.primaryCyan.withValues(
+                                      alpha: 0.2,
+                                    ),
                                   ],
                                 )
                               : null,
@@ -692,9 +694,7 @@ class _ProjectSelectorDropdownState extends State<ProjectSelectorDropdown>
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Icon(
-                          isSelected
-                              ? Icons.folder
-                              : Icons.folder_outlined,
+                          isSelected ? Icons.folder : Icons.folder_outlined,
                           size: 16,
                           color: isSelected
                               ? AppColors.primaryTeal
@@ -770,8 +770,7 @@ class _ProjectSelectorDropdownState extends State<ProjectSelectorDropdown>
           onTap: _toggleDropdown,
           borderRadius: BorderRadius.circular(6),
           child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             decoration: BoxDecoration(
               color: _isOpen
                   ? AppColors.primaryTeal.withValues(alpha: 0.1)
@@ -788,9 +787,7 @@ class _ProjectSelectorDropdownState extends State<ProjectSelectorDropdown>
                 Icon(
                   Icons.folder_outlined,
                   size: 14,
-                  color: _isOpen
-                      ? AppColors.primaryTeal
-                      : AppColors.textMuted,
+                  color: _isOpen ? AppColors.primaryTeal : AppColors.textMuted,
                 ),
                 const SizedBox(width: 6),
                 Expanded(

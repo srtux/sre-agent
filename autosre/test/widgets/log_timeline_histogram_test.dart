@@ -4,10 +4,7 @@ import 'package:autosre/widgets/dashboard/log_timeline_histogram.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-LogEntry _makeEntry({
-  required DateTime timestamp,
-  String severity = 'INFO',
-}) {
+LogEntry _makeEntry({required DateTime timestamp, String severity = 'INFO'}) {
   return LogEntry(
     insertId: 'entry-${timestamp.millisecondsSinceEpoch}',
     timestamp: timestamp,
@@ -18,21 +15,13 @@ LogEntry _makeEntry({
   );
 }
 
-TimeRange _makeRange({
-  required DateTime start,
-  required DateTime end,
-}) {
+TimeRange _makeRange({required DateTime start, required DateTime end}) {
   return TimeRange(start: start, end: end, preset: TimeRangePreset.custom);
 }
 
 Widget _wrapWidget(Widget child) {
   return MaterialApp(
-    home: Scaffold(
-      body: SizedBox(
-        width: 800,
-        child: child,
-      ),
-    ),
+    home: Scaffold(body: SizedBox(width: 800, child: child)),
   );
 }
 
@@ -40,25 +29,25 @@ void main() {
   group('LogTimelineHistogram', () {
     final baseTime = DateTime(2026, 2, 15, 10, 0, 0);
 
-    testWidgets('shows empty state text when entries empty',
-        (WidgetTester tester) async {
+    testWidgets('shows empty state text when entries empty', (
+      WidgetTester tester,
+    ) async {
       final range = _makeRange(
         start: baseTime,
         end: baseTime.add(const Duration(hours: 1)),
       );
 
       await tester.pumpWidget(
-        _wrapWidget(
-          LogTimelineHistogram(entries: const [], timeRange: range),
-        ),
+        _wrapWidget(LogTimelineHistogram(entries: const [], timeRange: range)),
       );
       await tester.pumpAndSettle();
 
       expect(find.text('No log data in selected range'), findsOneWidget);
     });
 
-    testWidgets('renders CustomPaint when entries present',
-        (WidgetTester tester) async {
+    testWidgets('renders CustomPaint when entries present', (
+      WidgetTester tester,
+    ) async {
       final range = _makeRange(
         start: baseTime,
         end: baseTime.add(const Duration(hours: 1)),
@@ -69,9 +58,7 @@ void main() {
       ];
 
       await tester.pumpWidget(
-        _wrapWidget(
-          LogTimelineHistogram(entries: entries, timeRange: range),
-        ),
+        _wrapWidget(LogTimelineHistogram(entries: entries, timeRange: range)),
       );
       await tester.pumpAndSettle();
 
@@ -88,17 +75,17 @@ void main() {
       ];
 
       await tester.pumpWidget(
-        _wrapWidget(
-          LogTimelineHistogram(entries: entries, timeRange: range),
-        ),
+        _wrapWidget(LogTimelineHistogram(entries: entries, timeRange: range)),
       );
       await tester.pumpAndSettle();
 
       final container = tester.widget<Container>(
-        find.descendant(
-          of: find.byType(LogTimelineHistogram),
-          matching: find.byType(Container),
-        ).first,
+        find
+            .descendant(
+              of: find.byType(LogTimelineHistogram),
+              matching: find.byType(Container),
+            )
+            .first,
       );
       final box = container.constraints;
       expect(box?.maxHeight, 72);
@@ -114,9 +101,7 @@ void main() {
       ];
 
       await tester.pumpWidget(
-        _wrapWidget(
-          LogTimelineHistogram(entries: entries, timeRange: range),
-        ),
+        _wrapWidget(LogTimelineHistogram(entries: entries, timeRange: range)),
       );
       await tester.pumpAndSettle();
 
@@ -124,8 +109,9 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('handles entries spanning the full time range',
-        (WidgetTester tester) async {
+    testWidgets('handles entries spanning the full time range', (
+      WidgetTester tester,
+    ) async {
       final range = _makeRange(
         start: baseTime,
         end: baseTime.add(const Duration(hours: 1)),
@@ -139,9 +125,7 @@ void main() {
       ];
 
       await tester.pumpWidget(
-        _wrapWidget(
-          LogTimelineHistogram(entries: entries, timeRange: range),
-        ),
+        _wrapWidget(LogTimelineHistogram(entries: entries, timeRange: range)),
       );
       await tester.pumpAndSettle();
 
@@ -149,22 +133,19 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('handles entries outside time range gracefully',
-        (WidgetTester tester) async {
+    testWidgets('handles entries outside time range gracefully', (
+      WidgetTester tester,
+    ) async {
       final range = _makeRange(
         start: baseTime,
         end: baseTime.add(const Duration(hours: 1)),
       );
       final entries = [
-        _makeEntry(
-          timestamp: baseTime.subtract(const Duration(hours: 2)),
-        ),
+        _makeEntry(timestamp: baseTime.subtract(const Duration(hours: 2))),
       ];
 
       await tester.pumpWidget(
-        _wrapWidget(
-          LogTimelineHistogram(entries: entries, timeRange: range),
-        ),
+        _wrapWidget(LogTimelineHistogram(entries: entries, timeRange: range)),
       );
       await tester.pumpAndSettle();
 
@@ -172,8 +153,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('calls onBucketTap when provided',
-        (WidgetTester tester) async {
+    testWidgets('calls onBucketTap when provided', (WidgetTester tester) async {
       final range = _makeRange(
         start: baseTime,
         end: baseTime.add(const Duration(hours: 1)),
@@ -229,17 +209,13 @@ void main() {
       ];
 
       await tester.pumpWidget(
-        _wrapWidget(
-          LogTimelineHistogram(entries: entriesA, timeRange: range),
-        ),
+        _wrapWidget(LogTimelineHistogram(entries: entriesA, timeRange: range)),
       );
       await tester.pumpAndSettle();
 
       // Rebuild with different entries.
       await tester.pumpWidget(
-        _wrapWidget(
-          LogTimelineHistogram(entries: entriesB, timeRange: range),
-        ),
+        _wrapWidget(LogTimelineHistogram(entries: entriesB, timeRange: range)),
       );
       await tester.pumpAndSettle();
 
@@ -262,16 +238,12 @@ void main() {
       ];
 
       await tester.pumpWidget(
-        _wrapWidget(
-          LogTimelineHistogram(entries: entries, timeRange: range1h),
-        ),
+        _wrapWidget(LogTimelineHistogram(entries: entries, timeRange: range1h)),
       );
       await tester.pumpAndSettle();
 
       await tester.pumpWidget(
-        _wrapWidget(
-          LogTimelineHistogram(entries: entries, timeRange: range6h),
-        ),
+        _wrapWidget(LogTimelineHistogram(entries: entries, timeRange: range6h)),
       );
       await tester.pumpAndSettle();
 
@@ -279,8 +251,9 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('handles many entries efficiently',
-        (WidgetTester tester) async {
+    testWidgets('handles many entries efficiently', (
+      WidgetTester tester,
+    ) async {
       final range = _makeRange(
         start: baseTime,
         end: baseTime.add(const Duration(hours: 1)),
@@ -294,9 +267,7 @@ void main() {
       );
 
       await tester.pumpWidget(
-        _wrapWidget(
-          LogTimelineHistogram(entries: entries, timeRange: range),
-        ),
+        _wrapWidget(LogTimelineHistogram(entries: entries, timeRange: range)),
       );
       await tester.pumpAndSettle();
 
@@ -308,8 +279,9 @@ void main() {
   group('Bucket computation', () {
     final baseTime = DateTime(2026, 2, 15, 10, 0, 0);
 
-    testWidgets('correctly distributes entries across visual bars',
-        (WidgetTester tester) async {
+    testWidgets('correctly distributes entries across visual bars', (
+      WidgetTester tester,
+    ) async {
       final range = _makeRange(
         start: baseTime,
         end: baseTime.add(const Duration(hours: 2)),
@@ -323,9 +295,7 @@ void main() {
       ];
 
       await tester.pumpWidget(
-        _wrapWidget(
-          LogTimelineHistogram(entries: entries, timeRange: range),
-        ),
+        _wrapWidget(LogTimelineHistogram(entries: entries, timeRange: range)),
       );
       await tester.pumpAndSettle();
 
@@ -363,9 +333,7 @@ void main() {
       ];
 
       await tester.pumpWidget(
-        _wrapWidget(
-          LogTimelineHistogram(entries: entries, timeRange: range),
-        ),
+        _wrapWidget(LogTimelineHistogram(entries: entries, timeRange: range)),
       );
       await tester.pumpAndSettle();
 

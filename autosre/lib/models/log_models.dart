@@ -16,7 +16,8 @@ class LogPattern {
     return LogPattern(
       template: json['template'] as String? ?? '',
       count: (json['count'] as num?)?.toInt() ?? 0,
-      severityCounts: (json['severity_counts'] as Map?)?.map(
+      severityCounts:
+          (json['severity_counts'] as Map?)?.map(
             (key, value) =>
                 MapEntry(key.toString(), (value as num?)?.toInt() ?? 0),
           ) ??
@@ -125,14 +126,8 @@ class LogEntry {
           spanId == other.spanId;
 
   @override
-  int get hashCode => Object.hash(
-        insertId,
-        timestamp,
-        severity,
-        resourceType,
-        traceId,
-        spanId,
-      );
+  int get hashCode =>
+      Object.hash(insertId, timestamp, severity, resourceType, traceId, spanId);
 }
 
 /// Container for log entries viewer.

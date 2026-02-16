@@ -30,9 +30,7 @@ class QueryLanguageBadge extends StatelessWidget {
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(
-              color: color.withValues(alpha: 0.25),
-            ),
+            border: Border.all(color: color.withValues(alpha: 0.25)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,

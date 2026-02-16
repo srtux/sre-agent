@@ -28,8 +28,10 @@ class _BurnRateWindowRowState extends State<BurnRateWindowRow> {
   @override
   Widget build(BuildContext context) {
     final isTriggered = widget.window.alertTriggered;
-    final burnRatio =
-        (widget.window.burnRate / widget.window.threshold).clamp(0.0, 2.0);
+    final burnRatio = (widget.window.burnRate / widget.window.threshold).clamp(
+      0.0,
+      2.0,
+    );
 
     final Color windowColor;
     if (isTriggered) {
@@ -44,8 +46,9 @@ class _BurnRateWindowRowState extends State<BurnRateWindowRow> {
       margin: const EdgeInsets.only(bottom: 8),
       decoration: GlassDecoration.card(
         borderRadius: 10,
-        borderColor:
-            isTriggered ? AppColors.error.withValues(alpha: 0.3) : null,
+        borderColor: isTriggered
+            ? AppColors.error.withValues(alpha: 0.3)
+            : null,
       ),
       child: Column(
         children: [
@@ -197,7 +200,8 @@ class _BurnRateWindowRowState extends State<BurnRateWindowRow> {
                       ),
                       LayoutBuilder(
                         builder: (context, constraints) {
-                          final barWidth = constraints.maxWidth *
+                          final barWidth =
+                              constraints.maxWidth *
                               (burnRatio / 2.0).clamp(0.0, 1.0);
                           return Container(
                             height: 6,
@@ -217,7 +221,8 @@ class _BurnRateWindowRowState extends State<BurnRateWindowRow> {
                       // Threshold marker
                       LayoutBuilder(
                         builder: (context, constraints) {
-                          final markerPos = constraints.maxWidth *
+                          final markerPos =
+                              constraints.maxWidth *
                               (widget.window.threshold /
                                       (widget.window.threshold * 2.0))
                                   .clamp(0.0, 1.0);

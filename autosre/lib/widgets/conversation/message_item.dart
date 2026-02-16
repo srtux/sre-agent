@@ -74,11 +74,9 @@ class _MessageItemState extends State<MessageItem>
     );
 
     _slideAnimation =
-        Tween<Offset>(begin: const Offset(0, 0.015), end: Offset.zero)
-            .animate(
-      CurvedAnimation(
-          parent: _entryController, curve: Curves.easeOutCubic),
-    );
+        Tween<Offset>(begin: const Offset(0, 0.015), end: Offset.zero).animate(
+          CurvedAnimation(parent: _entryController, curve: Curves.easeOutCubic),
+        );
 
     _entryController.forward();
   }
@@ -119,8 +117,9 @@ class _MessageItemState extends State<MessageItem>
       alignment: Alignment.centerRight,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
-        crossAxisAlignment:
-            isShort ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+        crossAxisAlignment: isShort
+            ? CrossAxisAlignment.center
+            : CrossAxisAlignment.start,
         children: [
           const Spacer(),
           Flexible(
@@ -150,8 +149,7 @@ class _MessageItemState extends State<MessageItem>
                         height: 1.4,
                       ),
                       code: TextStyle(
-                        backgroundColor:
-                            Colors.black.withValues(alpha: 0.2),
+                        backgroundColor: Colors.black.withValues(alpha: 0.2),
                         color: Colors.white,
                         fontSize: 12,
                         fontFamily: AppTheme.codeStyle.fontFamily,
@@ -176,14 +174,11 @@ class _MessageItemState extends State<MessageItem>
               builder: (context, auth, _) {
                 final user = auth.currentUser;
                 if (user?.photoUrl != null) {
-                  return Image.network(user!.photoUrl!,
-                      fit: BoxFit.cover);
+                  return Image.network(user!.photoUrl!, fit: BoxFit.cover);
                 }
                 return Center(
                   child: Text(
-                    (user?.displayName ?? 'U')
-                        .substring(0, 1)
-                        .toUpperCase(),
+                    (user?.displayName ?? 'U').substring(0, 1).toUpperCase(),
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 14,
@@ -204,17 +199,15 @@ class _MessageItemState extends State<MessageItem>
     return Align(
       alignment: Alignment.centerLeft,
       child: Row(
-        crossAxisAlignment:
-            isShort ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+        crossAxisAlignment: isShort
+            ? CrossAxisAlignment.center
+            : CrossAxisAlignment.start,
         children: [
           const AgentAvatar(),
           Flexible(
             child: Container(
               constraints: const BoxConstraints(maxWidth: 900),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 12,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 color: const Color(0xFF1E293B),
                 borderRadius: BorderRadius.circular(12),
@@ -275,8 +268,7 @@ class _MessageItemState extends State<MessageItem>
               constraints: const BoxConstraints(maxWidth: 950),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                child:
-                    GenUiSurface(host: host, surfaceId: msg.surfaceId),
+                child: GenUiSurface(host: host, surfaceId: msg.surfaceId),
               ),
             ),
           ),
@@ -327,9 +319,7 @@ class _MessageItemState extends State<MessageItem>
       codeblockDecoration: BoxDecoration(
         color: const Color(0xFF0F172A),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.1),
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       blockquoteDecoration: BoxDecoration(
         color: AppColors.primaryTeal.withValues(alpha: 0.08),
@@ -347,10 +337,7 @@ class _MessageItemState extends State<MessageItem>
         color: Colors.white,
         fontSize: 12,
       ),
-      tableBody: const TextStyle(
-        color: AppColors.textSecondary,
-        fontSize: 12,
-      ),
+      tableBody: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
       tableBorder: TableBorder.all(
         color: Colors.white.withValues(alpha: 0.1),
         width: 1,

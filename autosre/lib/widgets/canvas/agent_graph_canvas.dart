@@ -145,7 +145,11 @@ class _AgentGraphCanvasState extends State<AgentGraphCanvas> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
-          const Icon(Icons.account_tree, color: AppColors.primaryCyan, size: 18),
+          const Icon(
+            Icons.account_tree,
+            color: AppColors.primaryCyan,
+            size: 18,
+          ),
           const SizedBox(width: 8),
           Text(
             data.rootAgentName ?? 'Agent Graph',
@@ -171,8 +175,16 @@ class _AgentGraphCanvasState extends State<AgentGraphCanvas> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _toggleButton('Hierarchical', _useSugiyama, () => setState(() => _useSugiyama = true)),
-          _toggleButton('Force', !_useSugiyama, () => setState(() => _useSugiyama = false)),
+          _toggleButton(
+            'Hierarchical',
+            _useSugiyama,
+            () => setState(() => _useSugiyama = true),
+          ),
+          _toggleButton(
+            'Force',
+            !_useSugiyama,
+            () => setState(() => _useSugiyama = false),
+          ),
         ],
       ),
     );
@@ -184,7 +196,9 @@ class _AgentGraphCanvasState extends State<AgentGraphCanvas> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: active ? AppColors.primaryTeal.withValues(alpha: 0.3) : Colors.transparent,
+          color: active
+              ? AppColors.primaryTeal.withValues(alpha: 0.3)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
         ),
         child: Text(
@@ -216,7 +230,10 @@ class _AgentGraphCanvasState extends State<AgentGraphCanvas> {
               children: [
                 Icon(_nodeIcon(t.$2), color: _nodeColor(t.$2), size: 12),
                 const SizedBox(width: 3),
-                Text(t.$1, style: const TextStyle(color: Colors.white54, fontSize: 10)),
+                Text(
+                  t.$1,
+                  style: const TextStyle(color: Colors.white54, fontSize: 10),
+                ),
               ],
             ),
           );
@@ -228,7 +245,12 @@ class _AgentGraphCanvasState extends State<AgentGraphCanvas> {
   Widget _buildNodeWidget(AgentGraphData data, String nodeId) {
     final gNode = data.nodes.firstWhere(
       (n) => n.id == nodeId,
-      orElse: () => AgentGraphNode(id: nodeId, label: nodeId, type: 'unknown', hasError: false),
+      orElse: () => AgentGraphNode(
+        id: nodeId,
+        label: nodeId,
+        type: 'unknown',
+        hasError: false,
+      ),
     );
     final isSelected = _selectedNodeId == nodeId;
     final color = _nodeColor(gNode.type);
@@ -266,7 +288,10 @@ class _AgentGraphCanvasState extends State<AgentGraphCanvas> {
             if (gNode.totalTokens != null && gNode.totalTokens! > 0)
               Text(
                 _formatTokens(gNode.totalTokens!),
-                style: TextStyle(color: color.withValues(alpha: 0.8), fontSize: 9),
+                style: TextStyle(
+                  color: color.withValues(alpha: 0.8),
+                  fontSize: 9,
+                ),
               ),
           ],
         ),
@@ -286,7 +311,9 @@ class _AgentGraphCanvasState extends State<AgentGraphCanvas> {
     );
 
     final relatedEdges = data.edges
-        .where((e) => e.sourceId == _selectedNodeId || e.targetId == _selectedNodeId)
+        .where(
+          (e) => e.sourceId == _selectedNodeId || e.targetId == _selectedNodeId,
+        )
         .toList();
 
     return Container(
@@ -296,7 +323,9 @@ class _AgentGraphCanvasState extends State<AgentGraphCanvas> {
       decoration: BoxDecoration(
         color: Colors.black26,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _nodeColor(gNode.type).withValues(alpha: 0.4)),
+        border: Border.all(
+          color: _nodeColor(gNode.type).withValues(alpha: 0.4),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -304,12 +333,20 @@ class _AgentGraphCanvasState extends State<AgentGraphCanvas> {
         children: [
           Row(
             children: [
-              Icon(_nodeIcon(gNode.type), color: _nodeColor(gNode.type), size: 16),
+              Icon(
+                _nodeIcon(gNode.type),
+                color: _nodeColor(gNode.type),
+                size: 16,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   gNode.label,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
                 ),
               ),
               IconButton(
@@ -321,18 +358,34 @@ class _AgentGraphCanvasState extends State<AgentGraphCanvas> {
             ],
           ),
           const SizedBox(height: 6),
-          Text('Type: ${gNode.type}', style: const TextStyle(color: Colors.white54, fontSize: 11)),
+          Text(
+            'Type: ${gNode.type}',
+            style: const TextStyle(color: Colors.white54, fontSize: 11),
+          ),
           if (gNode.callCount != null)
-            Text('Calls: ${gNode.callCount}', style: const TextStyle(color: Colors.white54, fontSize: 11)),
+            Text(
+              'Calls: ${gNode.callCount}',
+              style: const TextStyle(color: Colors.white54, fontSize: 11),
+            ),
           if (gNode.totalTokens != null)
-            Text('Tokens: ${_formatTokens(gNode.totalTokens!)}', style: const TextStyle(color: Colors.white54, fontSize: 11)),
+            Text(
+              'Tokens: ${_formatTokens(gNode.totalTokens!)}',
+              style: const TextStyle(color: Colors.white54, fontSize: 11),
+            ),
           if (relatedEdges.isNotEmpty) ...[
             const SizedBox(height: 6),
-            const Text('Connections:', style: TextStyle(color: Colors.white38, fontSize: 10)),
-            ...relatedEdges.take(5).map((e) => Text(
-              '  ${e.sourceId} -[${e.label}]-> ${e.targetId} (${e.callCount}x, ${e.avgDurationMs.toStringAsFixed(0)}ms)',
-              style: const TextStyle(color: Colors.white30, fontSize: 10),
-            )),
+            const Text(
+              'Connections:',
+              style: TextStyle(color: Colors.white38, fontSize: 10),
+            ),
+            ...relatedEdges
+                .take(5)
+                .map(
+                  (e) => Text(
+                    '  ${e.sourceId} -[${e.label}]-> ${e.targetId} (${e.callCount}x, ${e.avgDurationMs.toStringAsFixed(0)}ms)',
+                    style: const TextStyle(color: Colors.white30, fontSize: 10),
+                  ),
+                ),
           ],
         ],
       ),
@@ -340,7 +393,9 @@ class _AgentGraphCanvasState extends State<AgentGraphCanvas> {
   }
 
   String _formatTokens(int tokens) {
-    if (tokens >= 1000000) return '${(tokens / 1000000).toStringAsFixed(1)}M tok';
+    if (tokens >= 1000000) {
+      return '${(tokens / 1000000).toStringAsFixed(1)}M tok';
+    }
     if (tokens >= 1000) return '${(tokens / 1000).toStringAsFixed(1)}K tok';
     return '$tokens tok';
   }

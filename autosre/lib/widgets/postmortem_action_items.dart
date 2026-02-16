@@ -59,7 +59,11 @@ class _PostmortemActionItemsState extends State<PostmortemActionItems> {
       children: [
         const Row(
           children: [
-            Icon(Icons.checklist_rounded, size: 16, color: AppColors.primaryTeal),
+            Icon(
+              Icons.checklist_rounded,
+              size: 16,
+              color: AppColors.primaryTeal,
+            ),
             SizedBox(width: 8),
             Text(
               'Action Items',
@@ -80,8 +84,10 @@ class _PostmortemActionItemsState extends State<PostmortemActionItems> {
 
           final staggerDelay = index / widget.items.length;
           final animValue =
-              ((widget.animation.value - staggerDelay * 0.3) / 0.7)
-                  .clamp(0.0, 1.0);
+              ((widget.animation.value - staggerDelay * 0.3) / 0.7).clamp(
+                0.0,
+                1.0,
+              );
 
           return AnimatedOpacity(
             duration: const Duration(milliseconds: 200),
@@ -122,8 +128,7 @@ class _PostmortemActionItemsState extends State<PostmortemActionItems> {
                                 ? LinearGradient(
                                     colors: [
                                       AppColors.success,
-                                      AppColors.success
-                                          .withValues(alpha: 0.8),
+                                      AppColors.success.withValues(alpha: 0.8),
                                     ],
                                   )
                                 : null,

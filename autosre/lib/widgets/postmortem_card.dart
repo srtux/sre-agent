@@ -108,7 +108,8 @@ class _PostmortemCardState extends State<PostmortemCard>
               if (data.actionItems.isNotEmpty) const SizedBox(height: 16),
 
               // Lessons learned
-              if (data.whatWentWell.isNotEmpty || data.whatWentPoorly.isNotEmpty)
+              if (data.whatWentWell.isNotEmpty ||
+                  data.whatWentPoorly.isNotEmpty)
                 PostmortemLessons(
                   whatWentWell: data.whatWentWell,
                   whatWentPoorly: data.whatWentPoorly,

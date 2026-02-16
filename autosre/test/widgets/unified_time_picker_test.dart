@@ -5,9 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
 
 Widget _wrapWidget(Widget child) {
-  return MaterialApp(
-    home: Scaffold(body: child),
-  );
+  return MaterialApp(home: Scaffold(body: child));
 }
 
 void main() {
@@ -31,8 +29,11 @@ void main() {
       for (final entry in cases.entries) {
         final range = TimeRange.fromPreset(entry.key);
         // Allow 1 second tolerance for test execution time
-        expect(range.duration.inSeconds, closeTo(entry.value.inSeconds, 1),
-            reason: '${entry.key} should have duration ${entry.value}');
+        expect(
+          range.duration.inSeconds,
+          closeTo(entry.value.inSeconds, 1),
+          reason: '${entry.key} should have duration ${entry.value}',
+        );
         expect(range.preset, entry.key);
       }
     });
@@ -91,7 +92,7 @@ void main() {
 
     test('refresh preserves custom duration', () {
       final now = DateTime.now();
-      final customDuration = const Duration(hours: 3, minutes: 17);
+      const customDuration = Duration(hours: 3, minutes: 17);
       final range = TimeRange(
         start: now.subtract(customDuration),
         end: now,
@@ -101,62 +102,71 @@ void main() {
       final refreshed = range.refresh();
 
       expect(refreshed.preset, TimeRangePreset.custom);
-      expect(refreshed.duration.inSeconds,
-          closeTo(customDuration.inSeconds, 1));
+      expect(
+        refreshed.duration.inSeconds,
+        closeTo(customDuration.inSeconds, 1),
+      );
     });
   });
 
   group('UnifiedTimePicker widget', () {
-    testWidgets('renders current range display label',
-        (WidgetTester tester) async {
+    testWidgets('renders current range display label', (
+      WidgetTester tester,
+    ) async {
       final range = TimeRange.fromPreset(TimeRangePreset.oneHour);
 
-      await tester.pumpWidget(_wrapWidget(
-        UnifiedTimePicker(
-          currentRange: range,
-          onChanged: (_) {},
-        ),
-      ));
+      await tester.pumpWidget(
+        _wrapWidget(UnifiedTimePicker(currentRange: range, onChanged: (_) {})),
+      );
 
       expect(find.text('Last 1 hour'), findsOneWidget);
     });
 
-    testWidgets('renders refresh button by default',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(_wrapWidget(
-        UnifiedTimePicker(
-          currentRange: TimeRange.fromPreset(TimeRangePreset.oneHour),
-          onChanged: (_) {},
+    testWidgets('renders refresh button by default', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrapWidget(
+          UnifiedTimePicker(
+            currentRange: TimeRange.fromPreset(TimeRangePreset.oneHour),
+            onChanged: (_) {},
+          ),
         ),
-      ));
+      );
 
       expect(find.byIcon(Icons.refresh), findsOneWidget);
     });
 
-    testWidgets('hides refresh button when disabled',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(_wrapWidget(
-        UnifiedTimePicker(
-          currentRange: TimeRange.fromPreset(TimeRangePreset.oneHour),
-          onChanged: (_) {},
-          showRefreshButton: false,
+    testWidgets('hides refresh button when disabled', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrapWidget(
+          UnifiedTimePicker(
+            currentRange: TimeRange.fromPreset(TimeRangePreset.oneHour),
+            onChanged: (_) {},
+            showRefreshButton: false,
+          ),
         ),
-      ));
+      );
 
       expect(find.byIcon(Icons.refresh), findsNothing);
     });
 
-    testWidgets('calls onRefresh when refresh tapped',
-        (WidgetTester tester) async {
+    testWidgets('calls onRefresh when refresh tapped', (
+      WidgetTester tester,
+    ) async {
       var refreshCalled = false;
 
-      await tester.pumpWidget(_wrapWidget(
-        UnifiedTimePicker(
-          currentRange: TimeRange.fromPreset(TimeRangePreset.oneHour),
-          onChanged: (_) {},
-          onRefresh: () => refreshCalled = true,
+      await tester.pumpWidget(
+        _wrapWidget(
+          UnifiedTimePicker(
+            currentRange: TimeRange.fromPreset(TimeRangePreset.oneHour),
+            onChanged: (_) {},
+            onRefresh: () => refreshCalled = true,
+          ),
         ),
-      ));
+      );
 
       await tester.tap(find.byIcon(Icons.refresh));
       await tester.pumpAndSettle();
@@ -164,43 +174,52 @@ void main() {
       expect(refreshCalled, isTrue);
     });
 
-    testWidgets('shows auto-refresh toggle when enabled',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(_wrapWidget(
-        UnifiedTimePicker(
-          currentRange: TimeRange.fromPreset(TimeRangePreset.oneHour),
-          onChanged: (_) {},
-          showAutoRefresh: true,
+    testWidgets('shows auto-refresh toggle when enabled', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrapWidget(
+          UnifiedTimePicker(
+            currentRange: TimeRange.fromPreset(TimeRangePreset.oneHour),
+            onChanged: (_) {},
+            showAutoRefresh: true,
+          ),
         ),
-      ));
+      );
 
       expect(find.text('Auto'), findsOneWidget);
     });
 
-    testWidgets('hides auto-refresh toggle by default',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(_wrapWidget(
-        UnifiedTimePicker(
-          currentRange: TimeRange.fromPreset(TimeRangePreset.oneHour),
-          onChanged: (_) {},
+    testWidgets('hides auto-refresh toggle by default', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrapWidget(
+          UnifiedTimePicker(
+            currentRange: TimeRange.fromPreset(TimeRangePreset.oneHour),
+            onChanged: (_) {},
+          ),
         ),
-      ));
+      );
 
       expect(find.text('Auto'), findsNothing);
     });
 
-    testWidgets('calls onAutoRefreshToggle when auto-refresh tapped',
-        (WidgetTester tester) async {
+    testWidgets('calls onAutoRefreshToggle when auto-refresh tapped', (
+      WidgetTester tester,
+    ) async {
       var toggleCalled = false;
 
-      await tester.pumpWidget(_wrapWidget(
-        UnifiedTimePicker(
-          currentRange: TimeRange.fromPreset(TimeRangePreset.oneHour),
-          onChanged: (_) {},
-          showAutoRefresh: true,
-          onAutoRefreshToggle: () => toggleCalled = true,
+      await tester.pumpWidget(
+        _wrapWidget(
+          UnifiedTimePicker(
+            currentRange: TimeRange.fromPreset(TimeRangePreset.oneHour),
+            onChanged: (_) {},
+            showAutoRefresh: true,
+            onAutoRefreshToggle: () => toggleCalled = true,
+          ),
         ),
-      ));
+      );
 
       await tester.tap(find.byType(Switch));
       await tester.pumpAndSettle();
@@ -209,12 +228,14 @@ void main() {
     });
 
     testWidgets('opens dropdown menu on tap', (WidgetTester tester) async {
-      await tester.pumpWidget(_wrapWidget(
-        UnifiedTimePicker(
-          currentRange: TimeRange.fromPreset(TimeRangePreset.oneHour),
-          onChanged: (_) {},
+      await tester.pumpWidget(
+        _wrapWidget(
+          UnifiedTimePicker(
+            currentRange: TimeRange.fromPreset(TimeRangePreset.oneHour),
+            onChanged: (_) {},
+          ),
         ),
-      ));
+      );
 
       // Tap the trigger button (the PopupMenuButton area showing the label)
       await tester.tap(find.text('Last 1 hour'));
@@ -228,17 +249,19 @@ void main() {
       expect(find.text('Last 5 minutes'), findsOneWidget);
     });
 
-    testWidgets(
-        'calls onChanged with correct preset when menu item selected',
-        (WidgetTester tester) async {
+    testWidgets('calls onChanged with correct preset when menu item selected', (
+      WidgetTester tester,
+    ) async {
       TimeRange? selectedRange;
 
-      await tester.pumpWidget(_wrapWidget(
-        UnifiedTimePicker(
-          currentRange: TimeRange.fromPreset(TimeRangePreset.oneHour),
-          onChanged: (range) => selectedRange = range,
+      await tester.pumpWidget(
+        _wrapWidget(
+          UnifiedTimePicker(
+            currentRange: TimeRange.fromPreset(TimeRangePreset.oneHour),
+            onChanged: (range) => selectedRange = range,
+          ),
         ),
-      ));
+      );
 
       // Open the dropdown
       await tester.tap(find.text('Last 1 hour'));

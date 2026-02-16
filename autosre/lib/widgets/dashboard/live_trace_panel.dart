@@ -45,8 +45,7 @@ class LiveTracePanel extends StatefulWidget {
 class _LiveTracePanelState extends State<LiveTracePanel> {
   @override
   Widget build(BuildContext context) {
-    final isLoading =
-        widget.dashboardState.isLoading(DashboardDataType.traces);
+    final isLoading = widget.dashboardState.isLoading(DashboardDataType.traces);
     final error = widget.dashboardState.errorFor(DashboardDataType.traces);
 
     return Column(
@@ -56,14 +55,14 @@ class _LiveTracePanelState extends State<LiveTracePanel> {
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
           child: Column(
             children: [
-
               // Query bar changes based on mode
               ManualQueryBar(
-                hintText:
-                    '+span:name:my_service  OR  trace=abc123def456789...',
+                hintText: '+span:name:my_service  OR  trace=abc123def456789...',
                 dashboardState: widget.dashboardState,
                 onRefresh: () {
-                  final filter = widget.dashboardState.getLastQueryFilter(DashboardDataType.traces);
+                  final filter = widget.dashboardState.getLastQueryFilter(
+                    DashboardDataType.traces,
+                  );
                   if (filter != null && filter.isNotEmpty) {
                     final explorer = context.read<ExplorerQueryService>();
                     if (filter.startsWith('trace=')) {
@@ -75,8 +74,9 @@ class _LiveTracePanelState extends State<LiveTracePanel> {
                 },
                 languageLabel: 'TRACE',
                 languageLabelColor: AppColors.primaryCyan,
-                initialValue: widget.dashboardState
-                    .getLastQueryFilter(DashboardDataType.traces),
+                initialValue: widget.dashboardState.getLastQueryFilter(
+                  DashboardDataType.traces,
+                ),
                 isLoading: isLoading,
                 snippets: traceSnippets,
                 templates: traceTemplates,
@@ -85,8 +85,10 @@ class _LiveTracePanelState extends State<LiveTracePanel> {
                     'Show me the slowest API calls in the last hour...',
                 naturalLanguageExamples: traceNaturalLanguageExamples,
                 onSubmitWithMode: (query, isNl) {
-                  widget.dashboardState
-                      .setLastQueryFilter(DashboardDataType.traces, query);
+                  widget.dashboardState.setLastQueryFilter(
+                    DashboardDataType.traces,
+                    query,
+                  );
                   final explorer = context.read<ExplorerQueryService>();
                   if (isNl) {
                     if (widget.onPromptRequest != null) {
@@ -101,8 +103,10 @@ class _LiveTracePanelState extends State<LiveTracePanel> {
                   }
                 },
                 onSubmit: (filter) {
-                  widget.dashboardState
-                      .setLastQueryFilter(DashboardDataType.traces, filter);
+                  widget.dashboardState.setLastQueryFilter(
+                    DashboardDataType.traces,
+                    filter,
+                  );
                   final explorer = context.read<ExplorerQueryService>();
                   if (filter.startsWith('trace=')) {
                     explorer.queryTrace(traceId: filter.substring(6).trim());
@@ -119,21 +123,22 @@ class _LiveTracePanelState extends State<LiveTracePanel> {
         if (error != null)
           ErrorBanner(
             message: error,
-            onDismiss: () => widget.dashboardState
-                .setError(DashboardDataType.traces, null),
+            onDismiss: () =>
+                widget.dashboardState.setError(DashboardDataType.traces, null),
           ),
         // Content
         Expanded(
           child: isLoading && widget.items.isEmpty
               ? const ShimmerLoading(showChart: true)
               : widget.items.isEmpty
-                  ? const ExplorerEmptyState(
-                      icon: Icons.timeline_rounded,
-                      title: 'No Traces Yet',
-                      description: 'Enter a Cloud Trace filter expression or trace=ID to search\nfor traces, or switch to natural language mode.',
-                      queryHint: 'e.g. trace=abc123def456789...',
-                    )
-                  : _buildTraceList(),
+              ? const ExplorerEmptyState(
+                  icon: Icons.timeline_rounded,
+                  title: 'No Traces Yet',
+                  description:
+                      'Enter a Cloud Trace filter expression or trace=ID to search\nfor traces, or switch to natural language mode.',
+                  queryHint: 'e.g. trace=abc123def456789...',
+                )
+              : _buildTraceList(),
         ),
       ],
     );
@@ -146,15 +151,15 @@ class _LiveTracePanelState extends State<LiveTracePanel> {
       decoration: BoxDecoration(
         color: AppColors.primaryCyan.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: AppColors.primaryCyan.withValues(alpha: 0.1),
-        ),
+        border: Border.all(color: AppColors.primaryCyan.withValues(alpha: 0.1)),
       ),
       child: Row(
         children: [
-          Icon(Icons.info_outline_rounded,
-              size: 12,
-              color: AppColors.textMuted.withValues(alpha: 0.7)),
+          Icon(
+            Icons.info_outline_rounded,
+            size: 12,
+            color: AppColors.textMuted.withValues(alpha: 0.7),
+          ),
           const SizedBox(width: 6),
           Expanded(
             child: Text(

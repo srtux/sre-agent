@@ -49,13 +49,13 @@ void main() {
           'end_time': '2024-01-01T00:00:01Z',
           'attributes': <String, dynamic>{},
           'status': 'OK',
-        }
+        },
       ],
       'metric_name': 'test-metric',
       'unit': 'ms',
       'current_value': 100.0,
       'points': [
-        {'timestamp': '2024-01-01T00:00:00Z', 'value': 1.0}
+        {'timestamp': '2024-01-01T00:00:00Z', 'value': 1.0},
       ],
       'labels': <String, dynamic>{},
       'issue': 'test-issue',
@@ -66,8 +66,8 @@ void main() {
           'type': 'observation',
           'content': 'test step',
           'description': 'remediation step',
-          'command': 'ls'
-        }
+          'command': 'ls',
+        },
       ],
       'entries': [
         {
@@ -77,18 +77,18 @@ void main() {
           'payload': 'test',
           'resource_labels': <String, String>{},
           'resource_type': 'test-resource',
-        }
+        },
       ],
       'nodes': [
         {
           'id': 'n1',
           'name': 'node 1',
           'type': 'coordinator',
-          'status': 'completed'
-        }
+          'status': 'completed',
+        },
       ],
       'services': [
-        {'id': 's1', 'name': 'svc 1', 'type': 'backend', 'health': 'healthy'}
+        {'id': 's1', 'name': 'svc 1', 'type': 'backend', 'health': 'healthy'},
       ],
       'events': [
         {
@@ -97,10 +97,10 @@ void main() {
           'type': 'info',
           'title': 'evt 1',
           'severity': 'info',
-        }
+        },
       ],
       'metrics': [
-        {'id': 'm1', 'name': 'met 1', 'current_value': 10, 'status': 'normal'}
+        {'id': 'm1', 'name': 'met 1', 'current_value': 10, 'status': 'normal'},
       ],
       'template': 'test-template',
       'count': 1,
@@ -138,13 +138,14 @@ void main() {
         }
       });
 
-      testWidgets('$name handles A2UI v0.8 format with id and component',
-          (tester) async {
+      testWidgets('$name handles A2UI v0.8 format with id and component', (
+        tester,
+      ) async {
         final item = catalog.items.firstWhere((i) => i.name == name);
         // A2UI v0.8 format: {"id": "...", "component": {"x-sre-foo": {...}}}
         final a2uiV08Data = {
           'id': 'component-${name.hashCode}',
-          'component': {name: testData}
+          'component': {name: testData},
         };
 
         final widget = item.widgetBuilder(FakeCatalogItemContext(a2uiV08Data));

@@ -64,8 +64,7 @@ class ADKContentGenerator implements ContentGenerator {
       _dashboardController.stream;
 
   /// Stream of tool call/response events for inline chat display.
-  Stream<Map<String, dynamic>> get toolCallStream =>
-      _toolCallController.stream;
+  Stream<Map<String, dynamic>> get toolCallStream => _toolCallController.stream;
 
   /// Stream of trace_info events for Cloud Trace deep linking.
   Stream<Map<String, dynamic>> get traceInfoStream =>
@@ -242,7 +241,6 @@ class ADKContentGenerator implements ContentGenerator {
         // Store subscription to allow cancellation
         var lineCount = 0;
 
-
         _streamSubscription = response.stream
             .transform(utf8.decoder)
             .transform(const LineSplitter())
@@ -256,7 +254,8 @@ class ADKContentGenerator implements ContentGenerator {
                 if (type == 'text') {
                   _textController.add(data['content']);
                 } else if (type == 'error') {
-                  final errorMessage = data['error'] as String? ?? 'Unknown error';
+                  final errorMessage =
+                      data['error'] as String? ?? 'Unknown error';
                   _textController.add('\n\n**Error:** $errorMessage\n');
                   _errorController.add(
                     ContentGeneratorError(
@@ -284,7 +283,9 @@ class ADKContentGenerator implements ContentGenerator {
                   debugPrint('🔗 [TRACE_INFO] trace_id=${data['trace_id']}');
                   _traceInfoController.add(Map<String, dynamic>.from(data));
                 } else if (type == 'dashboard') {
-                  debugPrint('📊 [DASHBOARD] category=${data['category']}, tool=${data['tool_name']}');
+                  debugPrint(
+                    '📊 [DASHBOARD] category=${data['category']}, tool=${data['tool_name']}',
+                  );
                   _dashboardController.add(Map<String, dynamic>.from(data));
                 } else if (type == 'memory') {
                   debugPrint(
@@ -296,20 +297,28 @@ class ADKContentGenerator implements ContentGenerator {
                   if (newSessionId != null) {
                     sessionId = newSessionId;
                     _sessionController.add(newSessionId);
-                    debugPrint('🔑 [SESSION] Session ID updated: $newSessionId');
+                    debugPrint(
+                      '🔑 [SESSION] Session ID updated: $newSessionId',
+                    );
                   }
                 } else if (type == 'agent_activity') {
-                  debugPrint('🤖 [AGENT_ACTIVITY] agent=${data['agent']?['agent_name']}');
+                  debugPrint(
+                    '🤖 [AGENT_ACTIVITY] agent=${data['agent']?['agent_name']}',
+                  );
                   _agentActivityController.add(Map<String, dynamic>.from(data));
                 } else if (type == 'council_graph') {
-                  debugPrint('🏛️ [COUNCIL_GRAPH] investigation=${data['investigation_id']}, agents=${(data['agents'] as List?)?.length ?? 0}');
+                  debugPrint(
+                    '🏛️ [COUNCIL_GRAPH] investigation=${data['investigation_id']}, agents=${(data['agents'] as List?)?.length ?? 0}',
+                  );
                   _councilGraphController.add(Map<String, dynamic>.from(data));
                 } else {
                   debugPrint('❓ [UNKNOWN] Unknown event type: $type');
                 }
               } catch (e, stack) {
                 debugPrint('❌ [PARSE_ERROR] Error parsing line $lineCount: $e');
-                debugPrint('❌ [PARSE_ERROR] Line content: ${line.length > 500 ? "${line.substring(0, 500)}..." : line}');
+                debugPrint(
+                  '❌ [PARSE_ERROR] Line content: ${line.length > 500 ? "${line.substring(0, 500)}..." : line}',
+                );
                 debugPrint('❌ [PARSE_ERROR] Stack: $stack');
               }
             });

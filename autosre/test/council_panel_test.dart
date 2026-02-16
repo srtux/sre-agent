@@ -152,25 +152,27 @@ CouncilActivityGraph _makeActivityGraph({
   List<CouncilAgentActivity>? agents,
   int debateRounds = 1,
 }) {
-  final agentsList = agents ?? [
-    _makeAgentActivity(
-      agentId: 'orchestrator',
-      agentName: 'council_orchestrator',
-      agentType: CouncilAgentType.orchestrator,
-    ),
-    _makeAgentActivity(
-      agentId: 'trace-panel',
-      agentName: 'trace_panel',
-      agentType: CouncilAgentType.panel,
-      parentId: 'orchestrator',
-    ),
-    _makeAgentActivity(
-      agentId: 'metrics-panel',
-      agentName: 'metrics_panel',
-      agentType: CouncilAgentType.panel,
-      parentId: 'orchestrator',
-    ),
-  ];
+  final agentsList =
+      agents ??
+      [
+        _makeAgentActivity(
+          agentId: 'orchestrator',
+          agentName: 'council_orchestrator',
+          agentType: CouncilAgentType.orchestrator,
+        ),
+        _makeAgentActivity(
+          agentId: 'trace-panel',
+          agentName: 'trace_panel',
+          agentType: CouncilAgentType.panel,
+          parentId: 'orchestrator',
+        ),
+        _makeAgentActivity(
+          agentId: 'metrics-panel',
+          agentName: 'metrics_panel',
+          agentType: CouncilAgentType.panel,
+          parentId: 'orchestrator',
+        ),
+      ];
 
   return CouncilActivityGraph(
     investigationId: investigationId,
@@ -206,7 +208,10 @@ void main() {
 
     test('displayName returns correct values', () {
       expect(_makePanelFinding(panel: 'trace').displayName, 'Trace Analysis');
-      expect(_makePanelFinding(panel: 'metrics').displayName, 'Metrics Analysis');
+      expect(
+        _makePanelFinding(panel: 'metrics').displayName,
+        'Metrics Analysis',
+      );
       expect(_makePanelFinding(panel: 'logs').displayName, 'Logs Analysis');
       expect(_makePanelFinding(panel: 'alerts').displayName, 'Alerts Analysis');
     });
@@ -777,7 +782,11 @@ void main() {
         'completed_at': '2026-01-01T10:00:05Z',
         'tool_calls': [
           {'call_id': 'tc1', 'tool_name': 'fetch_trace', 'status': 'completed'},
-          {'call_id': 'tc2', 'tool_name': 'analyze_trace', 'status': 'completed'},
+          {
+            'call_id': 'tc2',
+            'tool_name': 'analyze_trace',
+            'status': 'completed',
+          },
         ],
         'llm_calls': [
           {'call_id': 'llm1', 'model': 'gemini-2.0-flash'},
@@ -808,10 +817,7 @@ void main() {
           _makeToolCallRecord(status: 'error'),
           _makeToolCallRecord(status: 'completed'),
         ],
-        llmCalls: [
-          _makeLLMCallRecord(),
-          _makeLLMCallRecord(),
-        ],
+        llmCalls: [_makeLLMCallRecord(), _makeLLMCallRecord()],
       );
       expect(agent.totalToolCalls, 3);
       expect(agent.totalLLMCalls, 2);
@@ -821,9 +827,15 @@ void main() {
     test('getToolCallsForCategory filters correctly', () {
       final agent = _makeAgentActivity(
         toolCalls: [
-          _makeToolCallRecord(toolName: 'fetch_trace', dashboardCategory: 'traces'),
+          _makeToolCallRecord(
+            toolName: 'fetch_trace',
+            dashboardCategory: 'traces',
+          ),
           _makeToolCallRecord(toolName: 'list_logs', dashboardCategory: 'logs'),
-          _makeToolCallRecord(toolName: 'analyze_trace', dashboardCategory: 'traces'),
+          _makeToolCallRecord(
+            toolName: 'analyze_trace',
+            dashboardCategory: 'traces',
+          ),
         ],
       );
       final traceCalls = agent.getToolCallsForCategory('traces');
@@ -850,11 +862,20 @@ void main() {
   group('CouncilAgentType', () {
     test('fromString parses correctly', () {
       expect(CouncilAgentType.fromString('root'), CouncilAgentType.root);
-      expect(CouncilAgentType.fromString('orchestrator'), CouncilAgentType.orchestrator);
+      expect(
+        CouncilAgentType.fromString('orchestrator'),
+        CouncilAgentType.orchestrator,
+      );
       expect(CouncilAgentType.fromString('panel'), CouncilAgentType.panel);
       expect(CouncilAgentType.fromString('critic'), CouncilAgentType.critic);
-      expect(CouncilAgentType.fromString('synthesizer'), CouncilAgentType.synthesizer);
-      expect(CouncilAgentType.fromString('sub_agent'), CouncilAgentType.subAgent);
+      expect(
+        CouncilAgentType.fromString('synthesizer'),
+        CouncilAgentType.synthesizer,
+      );
+      expect(
+        CouncilAgentType.fromString('sub_agent'),
+        CouncilAgentType.subAgent,
+      );
     });
 
     test('displayName returns correct values', () {
@@ -904,7 +925,10 @@ void main() {
 
     test('getAgentById returns correct agent', () {
       final graph = _makeActivityGraph();
-      expect(graph.getAgentById('orchestrator')?.agentName, 'council_orchestrator');
+      expect(
+        graph.getAgentById('orchestrator')?.agentName,
+        'council_orchestrator',
+      );
       expect(graph.getAgentById('trace-panel')?.agentName, 'trace_panel');
       expect(graph.getAgentById('nonexistent'), isNull);
     });
@@ -934,14 +958,23 @@ void main() {
           _makeAgentActivity(
             agentId: 'a1',
             toolCalls: [
-              _makeToolCallRecord(callId: 'c2', timestamp: '2026-01-01T10:00:02Z'),
-              _makeToolCallRecord(callId: 'c1', timestamp: '2026-01-01T10:00:01Z'),
+              _makeToolCallRecord(
+                callId: 'c2',
+                timestamp: '2026-01-01T10:00:02Z',
+              ),
+              _makeToolCallRecord(
+                callId: 'c1',
+                timestamp: '2026-01-01T10:00:01Z',
+              ),
             ],
           ),
           _makeAgentActivity(
             agentId: 'a2',
             toolCalls: [
-              _makeToolCallRecord(callId: 'c3', timestamp: '2026-01-01T10:00:03Z'),
+              _makeToolCallRecord(
+                callId: 'c3',
+                timestamp: '2026-01-01T10:00:03Z',
+              ),
             ],
           ),
         ],
@@ -983,10 +1016,9 @@ void main() {
     test('totalToolCalls returns value from graph', () {
       final graph = _makeActivityGraph(
         agents: [
-          _makeAgentActivity(toolCalls: [
-            _makeToolCallRecord(),
-            _makeToolCallRecord(),
-          ]),
+          _makeAgentActivity(
+            toolCalls: [_makeToolCallRecord(), _makeToolCallRecord()],
+          ),
         ],
       );
       final data = _makeCouncilData(activityGraph: graph);

@@ -11,12 +11,14 @@ import '../dashboard/dashboard_panel.dart';
 class DashboardPanelWrapper extends StatefulWidget {
   final DashboardState dashboardState;
   final double totalWidth;
+  final bool isChatOpen;
   final ValueChanged<String> onPromptRequest;
 
   const DashboardPanelWrapper({
     super.key,
     required this.dashboardState,
     required this.totalWidth,
+    this.isChatOpen = true,
     required this.onPromptRequest,
   });
 
@@ -51,7 +53,20 @@ class _DashboardPanelWrapperState extends State<DashboardPanelWrapper> {
         final isOpen = widget.dashboardState.isOpen;
         if (!isOpen) return const SizedBox.shrink();
 
-        final targetWidth = widget.totalWidth * _dashboardWidthFactor;
+        // Ensure we leave room for the investigation rail (approx 72px) and the chat panel (min 350px)
+        const railWidth = 72.0;
+        final minChatWidth = widget.isChatOpen ? 350.0 : 0.0;
+        final maxAllowedWidth = widget.totalWidth - railWidth - minChatWidth;
+
+        double targetWidth;
+        if (!widget.isChatOpen) {
+          targetWidth = maxAllowedWidth;
+        } else {
+          targetWidth = widget.totalWidth * _dashboardWidthFactor;
+          if (targetWidth > maxAllowedWidth && maxAllowedWidth > 0) {
+            targetWidth = maxAllowedWidth;
+          }
+        }
 
         return Row(
           mainAxisSize: MainAxisSize.min,
@@ -75,24 +90,32 @@ class _DashboardPanelWrapperState extends State<DashboardPanelWrapper> {
               behavior: HitTestBehavior.translucent,
               onHorizontalDragUpdate: (details) {
                 setState(() {
-                  final deltaFraction =
-                      details.delta.dx / widget.totalWidth;
+                  final deltaFraction = details.delta.dx / widget.totalWidth;
                   _dashboardWidthFactor += deltaFraction;
-                  _dashboardWidthFactor =
-                      _dashboardWidthFactor.clamp(0.2, 0.95);
 
-                  if (_isDashboardMaximized &&
-                      _dashboardWidthFactor < 0.9) {
+                  const railWidth = 72.0;
+                  final minChatWidth = widget.isChatOpen ? 350.0 : 0.0;
+                  final maxAllowedWidth =
+                      widget.totalWidth - railWidth - minChatWidth;
+                  final maxFactor = (maxAllowedWidth / widget.totalWidth).clamp(
+                    0.2,
+                    0.95,
+                  );
+
+                  _dashboardWidthFactor = _dashboardWidthFactor.clamp(
+                    0.2,
+                    maxFactor,
+                  );
+
+                  if (_isDashboardMaximized && _dashboardWidthFactor < 0.9) {
                     _isDashboardMaximized = false;
                   }
                 });
               },
               child: MouseRegion(
                 cursor: SystemMouseCursors.resizeColumn,
-                onEnter: (_) =>
-                    setState(() => _isResizeHovered = true),
-                onExit: (_) =>
-                    setState(() => _isResizeHovered = false),
+                onEnter: (_) => setState(() => _isResizeHovered = true),
+                onExit: (_) => setState(() => _isResizeHovered = false),
                 child: Container(
                   width: 12,
                   color: Colors.transparent,

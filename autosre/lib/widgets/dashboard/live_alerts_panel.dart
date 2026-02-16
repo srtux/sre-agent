@@ -41,16 +41,23 @@ class LiveAlertsPanel extends StatelessWidget {
             hintText: 'state="OPEN" AND severity="CRITICAL"',
             dashboardState: dashboardState,
             onRefresh: () {
-              final filter = dashboardState.getLastQueryFilter(DashboardDataType.alerts);
+              final filter = dashboardState.getLastQueryFilter(
+                DashboardDataType.alerts,
+              );
               if (filter != null && filter.isNotEmpty) {
                 final explorer = context.read<ExplorerQueryService>();
                 explorer.queryAlerts(filter: filter);
               }
             },
-            initialValue: dashboardState.getLastQueryFilter(DashboardDataType.alerts),
+            initialValue: dashboardState.getLastQueryFilter(
+              DashboardDataType.alerts,
+            ),
             isLoading: isLoading,
             onSubmit: (filter) {
-              dashboardState.setLastQueryFilter(DashboardDataType.alerts, filter);
+              dashboardState.setLastQueryFilter(
+                DashboardDataType.alerts,
+                filter,
+              );
               final explorer = context.read<ExplorerQueryService>();
               explorer.queryAlerts(filter: filter);
             },
@@ -59,22 +66,22 @@ class LiveAlertsPanel extends StatelessWidget {
         if (error != null)
           ErrorBanner(
             message: error,
-            onDismiss: () => dashboardState
-                .setError(DashboardDataType.alerts, null),
+            onDismiss: () =>
+                dashboardState.setError(DashboardDataType.alerts, null),
           ),
         // Content
         Expanded(
           child: isLoading && items.isEmpty
               ? const ShimmerLoading()
               : items.isEmpty
-                  ? const ExplorerEmptyState(
-                      icon: Icons.notifications_active_outlined,
-                      title: 'No Alerts Yet',
-                      description:
-                          'Query active alerts and incidents by entering\na filter expression above, or wait for the agent to find them.',
-                      queryHint: 'state="OPEN" AND severity="CRITICAL"',
-                    )
-                  : _buildAlertContent(),
+              ? const ExplorerEmptyState(
+                  icon: Icons.notifications_active_outlined,
+                  title: 'No Alerts Yet',
+                  description:
+                      'Query active alerts and incidents by entering\na filter expression above, or wait for the agent to find them.',
+                  queryHint: 'state="OPEN" AND severity="CRITICAL"',
+                )
+              : _buildAlertContent(),
         ),
       ],
     );
@@ -139,6 +146,4 @@ class LiveAlertsPanel extends StatelessWidget {
       },
     );
   }
-
-
 }

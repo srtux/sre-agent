@@ -77,13 +77,15 @@ class HelpService {
   final Future<http.Client> Function() _clientFactory;
 
   HelpService._internal({Future<http.Client> Function()? clientFactory})
-      : _clientFactory = clientFactory ??
-            (() async => await AuthService.instance.getAuthenticatedClient());
+    : _clientFactory =
+          clientFactory ??
+          (() async => await AuthService.instance.getAuthenticatedClient());
 
   /// Creates a new, non-singleton instance for testing.
   HelpService.newInstance({Future<http.Client> Function()? clientFactory})
-      : _clientFactory = clientFactory ??
-            (() async => await AuthService.instance.getAuthenticatedClient());
+    : _clientFactory =
+          clientFactory ??
+          (() async => await AuthService.instance.getAuthenticatedClient());
 
   String get _baseUrl => ServiceConfig.baseUrl;
 
@@ -101,12 +103,12 @@ class HelpService {
         if (response.statusCode == 200) {
           final List<dynamic> data = jsonDecode(response.body);
           return data
-              .map((item) =>
-                  HelpTopic.fromJson(item as Map<String, dynamic>))
+              .map((item) => HelpTopic.fromJson(item as Map<String, dynamic>))
               .toList();
         } else {
           throw Exception(
-              'Failed to load help manifest: ${response.statusCode}');
+            'Failed to load help manifest: ${response.statusCode}',
+          );
         }
       } finally {
         client.close();
@@ -136,7 +138,8 @@ class HelpService {
           return content;
         } else {
           throw Exception(
-              'Failed to load help content: ${response.statusCode}');
+            'Failed to load help content: ${response.statusCode}',
+          );
         }
       } finally {
         client.close();

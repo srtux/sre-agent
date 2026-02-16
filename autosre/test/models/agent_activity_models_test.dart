@@ -35,7 +35,10 @@ void main() {
 
     test('fromJson handles null connections', () {
       final node = AgentNode.fromJson({
-        'id': 'n1', 'name': 'test', 'type': 'tool', 'status': 'idle',
+        'id': 'n1',
+        'name': 'test',
+        'type': 'tool',
+        'status': 'idle',
         'connections': null,
       });
       expect(node.connections, isEmpty);
@@ -43,7 +46,10 @@ void main() {
 
     test('fromJson handles empty connections', () {
       final node = AgentNode.fromJson({
-        'id': 'n1', 'name': 'test', 'type': 'tool', 'status': 'idle',
+        'id': 'n1',
+        'name': 'test',
+        'type': 'tool',
+        'status': 'idle',
         'connections': [],
       });
       expect(node.connections, isEmpty);
@@ -58,11 +64,16 @@ void main() {
       final data = AgentActivityData.fromJson({
         'nodes': [
           {
-            'id': 'n1', 'name': 'Coordinator', 'type': 'coordinator',
-            'status': 'active', 'connections': ['n2'],
+            'id': 'n1',
+            'name': 'Coordinator',
+            'type': 'coordinator',
+            'status': 'active',
+            'connections': ['n2'],
           },
           {
-            'id': 'n2', 'name': 'Trace Tool', 'type': 'tool',
+            'id': 'n2',
+            'name': 'Trace Tool',
+            'type': 'tool',
             'status': 'completed',
           },
         ],
@@ -116,17 +127,21 @@ void main() {
   // Integration: AgentNode accessible via barrel import
   // ===========================================================================
   group('Barrel import integration', () {
-    test('AgentNode and AgentActivityData are accessible from adk_schema barrel', () {
-      // This test validates that the barrel file properly re-exports
-      // the models moved from agent_activity_canvas.dart
-      final node = AgentNode(
-        id: 'n1', name: 'test', type: 'tool', status: 'idle',
-      );
-      final data = AgentActivityData(
-        nodes: [node], currentPhase: 'Testing',
-      );
-      expect(data.nodes.length, 1);
-      expect(data.nodes[0].id, 'n1');
-    });
+    test(
+      'AgentNode and AgentActivityData are accessible from adk_schema barrel',
+      () {
+        // This test validates that the barrel file properly re-exports
+        // the models moved from agent_activity_canvas.dart
+        final node = AgentNode(
+          id: 'n1',
+          name: 'test',
+          type: 'tool',
+          status: 'idle',
+        );
+        final data = AgentActivityData(nodes: [node], currentPhase: 'Testing');
+        expect(data.nodes.length, 1);
+        expect(data.nodes[0].id, 'n1');
+      },
+    );
   });
 }

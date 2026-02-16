@@ -278,13 +278,16 @@ class _AnimatedPhysicsRobotState extends State<_AnimatedPhysicsRobot>
       duration: const Duration(milliseconds: 1000),
     );
 
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(-5.0, 0.0), // Fly in from the left
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _entranceController,
-      curve: Curves.easeOutBack, // Gives a nice settle/overshoot
-    ));
+    _slideAnimation =
+        Tween<Offset>(
+          begin: const Offset(-5.0, 0.0), // Fly in from the left
+          end: Offset.zero,
+        ).animate(
+          CurvedAnimation(
+            parent: _entranceController,
+            curve: Curves.easeOutBack, // Gives a nice settle/overshoot
+          ),
+        );
 
     _scaleAnimation = CurvedAnimation(
       parent: _entranceController,

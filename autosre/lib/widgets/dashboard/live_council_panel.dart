@@ -35,10 +35,17 @@ class _LiveCouncilPanelState extends State<LiveCouncilPanel> {
           child: ManualQueryBar(
             hintText: 'Search past decisions...',
             dashboardState: widget.dashboardState,
-            initialValue: widget.dashboardState.getLastQueryFilter(DashboardDataType.council),
-            isLoading: widget.dashboardState.isLoading(DashboardDataType.council),
+            initialValue: widget.dashboardState.getLastQueryFilter(
+              DashboardDataType.council,
+            ),
+            isLoading: widget.dashboardState.isLoading(
+              DashboardDataType.council,
+            ),
             onSubmit: (query) {
-              widget.dashboardState.setLastQueryFilter(DashboardDataType.council, query);
+              widget.dashboardState.setLastQueryFilter(
+                DashboardDataType.council,
+                query,
+              );
               // Implementation-specific search logic would go here
             },
           ),
@@ -56,15 +63,17 @@ class _LiveCouncilPanelState extends State<LiveCouncilPanel> {
               : ListView.separated(
                   padding: const EdgeInsets.all(12),
                   itemCount: widget.items.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 12),
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     final item = widget.items[index];
 
                     return DashboardCardWrapper(
                       onClose: () => widget.dashboardState.removeItem(item.id),
                       header: CouncilDecisionCard.buildHeader(item),
-                      dataToCopy: const JsonEncoder.withIndent('  ')
-                          .convert(item.rawData),
+                      dataToCopy: const JsonEncoder.withIndent(
+                        '  ',
+                      ).convert(item.rawData),
                       child: CouncilDecisionCard(item: item),
                     );
                   },
