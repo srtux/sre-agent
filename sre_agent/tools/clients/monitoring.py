@@ -11,6 +11,7 @@ with trace data using Exemplars.
 
 import logging
 import os
+import re
 import time
 from datetime import datetime, timezone
 from typing import Any, cast
@@ -254,14 +255,14 @@ def _list_time_series_sync(
                 ". HINT: 'resource.labels.service_name' is NOT valid for GCE metrics. "
                 "Use 'resource.labels.instance_id' or use query_promql() to filter/aggregate by service."
             )
-        elif "404" in error_str and "kubernetes.io" in filter_str:
+        elif "404" in error_str and re.search(r"kubernetes\.io(/|$)", filter_str):
             suggestion = (
                 ". HINT: For GKE container CPU usage, use 'kubernetes.io/container/cpu/core_usage_time' "
                 "instead of 'usage_time'. For memory use 'kubernetes.io/container/memory/used_bytes'."
             )
         elif (
             "404" in error_str
-            and "compute.googleapis.com" in filter_str
+            and re.search(r"compute\.googleapis\.com(/|$)", filter_str)
             and "memory" in filter_str
         ):
             suggestion = (

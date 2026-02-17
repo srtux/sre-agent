@@ -59,7 +59,7 @@ async def create_session(request: CreateSessionRequest) -> Any:
         }
     except Exception as e:
         logger.error(f"Error creating session: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from None
 
 
 @router.get("")
@@ -71,7 +71,7 @@ async def list_sessions(user_id: str = "default") -> Any:
         return {"sessions": [s.to_dict() for s in sessions]}
     except Exception as e:
         logger.error(f"Error listing sessions: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from None
 
 
 @router.get("/{session_id}")
@@ -128,7 +128,7 @@ async def get_session(session_id: str, user_id: str = "default") -> Any:
         raise
     except Exception as e:
         logger.error(f"Error getting session: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from None
 
 
 @router.delete("/{session_id}")
@@ -144,7 +144,7 @@ async def delete_session(session_id: str, user_id: str = "default") -> Any:
         raise
     except Exception as e:
         logger.error(f"Error deleting session: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from None
 
 
 @router.patch("/{session_id}")
@@ -172,7 +172,7 @@ async def update_session(
         raise
     except Exception as e:
         logger.error(f"Error updating session: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from None
 
 
 @router.get("/{session_id}/history")
@@ -223,4 +223,4 @@ async def get_session_history(session_id: str, user_id: str = "default") -> Any:
         raise
     except Exception as e:
         logger.error(f"Error getting session history: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from None
