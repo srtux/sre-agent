@@ -837,7 +837,8 @@ def get_template(template_id: str) -> dict[str, Any] | None:
     builder = _TEMPLATE_BUILDERS.get(template_id)
     if builder is None:
         return None
-    return builder()
+    result: dict[str, Any] = builder()
+    return result
 
 
 def get_template_ids() -> list[str]:
