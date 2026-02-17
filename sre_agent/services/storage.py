@@ -160,6 +160,10 @@ class StorageService:
     KEY_TOOL_CONFIG = "tool_config"
     KEY_RECENT_PROJECTS = "recent_projects"
     KEY_STARRED_PROJECTS = "starred_projects"
+    KEY_RECENT_QUERIES = "recent_queries"
+    KEY_SAVED_QUERIES = "saved_queries"
+
+    MAX_RECENT_QUERIES = 1000
 
     def __init__(self) -> None:
         """Initialize the storage service with appropriate backend."""
@@ -252,6 +256,99 @@ class StorageService:
         """
         key = self._user_key(self.KEY_STARRED_PROJECTS, user_id)
         await self._backend.set(key, projects)
+
+    # ========================================================================
+    # Recent & Saved Queries
+    # ========================================================================
+
+    async def get_recent_queries(
+        self, user_id: str = "default", panel_type: str | None = None
+    ) -> list[dict[str, Any]]:
+        """Get the list of recent queries for a user, optionally filtered by panel type."""
+        key = self._user_key(self.KEY_RECENT_QUERIES, user_id)
+        result = await self._backend.get(key)
+        items: list[dict[str, Any]] = result if isinstance(result, list) else []
+        if panel_type:
+            items = [q for q in items if q.get("panel_type") == panel_type]
+        return items
+
+    async def add_recent_query(
+        self, query: dict[str, Any], user_id: str = "default"
+    ) -> list[dict[str, Any]]:
+        """Add a query to the recent queries list (dedup + FIFO eviction).
+
+        Returns the updated list.
+        """
+        key = self._user_key(self.KEY_RECENT_QUERIES, user_id)
+        result = await self._backend.get(key)
+        items: list[dict[str, Any]] = result if isinstance(result, list) else []
+
+        # Remove duplicate (same query text + panel_type)
+        items = [
+            q
+            for q in items
+            if not (
+                q.get("query") == query.get("query")
+                and q.get("panel_type") == query.get("panel_type")
+            )
+        ]
+
+        # Prepend (most recent first)
+        items.insert(0, query)
+
+        # Enforce limit
+        if len(items) > self.MAX_RECENT_QUERIES:
+            items = items[: self.MAX_RECENT_QUERIES]
+
+        await self._backend.set(key, items)
+        return items
+
+    async def get_saved_queries(
+        self, user_id: str = "default", panel_type: str | None = None
+    ) -> list[dict[str, Any]]:
+        """Get the list of saved queries for a user, optionally filtered by panel type."""
+        key = self._user_key(self.KEY_SAVED_QUERIES, user_id)
+        result = await self._backend.get(key)
+        items: list[dict[str, Any]] = result if isinstance(result, list) else []
+        if panel_type:
+            items = [q for q in items if q.get("panel_type") == panel_type]
+        return items
+
+    async def add_saved_query(
+        self, query: dict[str, Any], user_id: str = "default"
+    ) -> list[dict[str, Any]]:
+        """Add a query to saved queries. Returns the updated list."""
+        key = self._user_key(self.KEY_SAVED_QUERIES, user_id)
+        result = await self._backend.get(key)
+        items: list[dict[str, Any]] = result if isinstance(result, list) else []
+        items.insert(0, query)
+        await self._backend.set(key, items)
+        return items
+
+    async def update_saved_query(
+        self, query_id: str, updates: dict[str, Any], user_id: str = "default"
+    ) -> list[dict[str, Any]]:
+        """Update a saved query by ID. Returns the updated list."""
+        key = self._user_key(self.KEY_SAVED_QUERIES, user_id)
+        result = await self._backend.get(key)
+        items: list[dict[str, Any]] = result if isinstance(result, list) else []
+        for item in items:
+            if item.get("id") == query_id:
+                item.update(updates)
+                break
+        await self._backend.set(key, items)
+        return items
+
+    async def delete_saved_query(
+        self, query_id: str, user_id: str = "default"
+    ) -> list[dict[str, Any]]:
+        """Delete a saved query by ID. Returns the updated list."""
+        key = self._user_key(self.KEY_SAVED_QUERIES, user_id)
+        result = await self._backend.get(key)
+        items: list[dict[str, Any]] = result if isinstance(result, list) else []
+        items = [q for q in items if q.get("id") != query_id]
+        await self._backend.set(key, items)
+        return items
 
 
 # ============================================================================
