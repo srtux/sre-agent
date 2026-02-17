@@ -168,7 +168,7 @@ async def get_trace(trace_id: str, project_id: str | None = None) -> Any:
         raise
     except Exception as e:
         logger.exception("Error fetching trace %s", trace_id)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/traces/query")
@@ -213,7 +213,7 @@ async def query_traces_endpoint(payload: TracesQueryRequest) -> Any:
         raise
     except Exception as e:
         logger.exception("Error querying traces")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/projects/list")
@@ -229,7 +229,7 @@ async def list_projects(query: str | None = None) -> Any:
         raise
     except Exception as e:
         logger.exception("Error listing projects")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/logs/analyze")
@@ -260,7 +260,7 @@ async def analyze_logs(payload: LogAnalyzeRequest) -> Any:
         raise
     except Exception as e:
         logger.exception("Error analyzing logs")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/metrics/query")
@@ -281,7 +281,7 @@ async def query_metrics_endpoint(payload: MetricsQueryRequest) -> Any:
         raise
     except Exception as e:
         logger.exception("Error querying metrics")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/metrics/promql")
@@ -308,7 +308,7 @@ async def query_promql_endpoint(payload: PromQLQueryRequest) -> Any:
         raise
     except Exception as e:
         logger.exception("Error executing PromQL query")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/alerts/query")
@@ -329,7 +329,7 @@ async def query_alerts_endpoint(payload: AlertsQueryRequest) -> Any:
         raise
     except Exception as e:
         logger.exception("Error querying alerts")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/logs/query")
@@ -363,7 +363,7 @@ async def query_logs_endpoint(payload: LogsQueryRequest) -> Any:
         raise
     except Exception as e:
         logger.exception("Error querying logs")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/logs/names")
@@ -377,7 +377,7 @@ async def get_logs_names(project_id: str | None = None) -> Any:
         raise
     except Exception as e:
         logger.exception("Error getting log names")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/logs/resource_keys")
@@ -391,7 +391,7 @@ async def get_logs_resource_keys(project_id: str | None = None) -> Any:
         raise
     except Exception as e:
         logger.exception("Error getting resource keys")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/bigquery/query")
@@ -409,7 +409,7 @@ async def query_bigquery_endpoint(payload: BigQueryQueryRequest) -> Any:
         return {"columns": columns, "rows": rows}
     except Exception as e:
         logger.exception("Error querying BigQuery")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/bigquery/datasets")
@@ -422,7 +422,7 @@ async def list_bigquery_datasets(project_id: str | None = None) -> Any:
         return {"datasets": datasets}
     except Exception as e:
         logger.exception("Error listing BigQuery datasets")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/bigquery/datasets/{dataset_id}/tables")
@@ -435,7 +435,7 @@ async def list_bigquery_tables(dataset_id: str, project_id: str | None = None) -
         return {"tables": tables}
     except Exception as e:
         logger.exception(f"Error listing tables for dataset {dataset_id}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/bigquery/datasets/{dataset_id}/tables/{table_id}/schema")
@@ -450,7 +450,7 @@ async def get_bigquery_table_schema(
         return {"schema": schema}
     except Exception as e:
         logger.exception(f"Error getting schema for table {dataset_id}.{table_id}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get(
@@ -472,7 +472,7 @@ async def get_bigquery_json_keys(
         logger.exception(
             f"Error getting JSON keys for {dataset_id}.{table_id}.{column_name}"
         )
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 # =============================================================================
@@ -548,7 +548,7 @@ async def query_natural_language_endpoint(payload: NLQueryRequest) -> Any:
         raise
     except Exception as e:
         logger.exception("Error processing natural language query")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 async def _translate_nl_query(
@@ -714,7 +714,7 @@ async def get_tool_configs(
         raise
     except Exception as e:
         logger.error(f"Error getting tool configs: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/config/{tool_name}")
@@ -735,7 +735,7 @@ async def get_tool_config(tool_name: str) -> Any:
         raise
     except Exception as e:
         logger.error(f"Error getting tool config: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.put("/config/{tool_name}")
@@ -770,7 +770,7 @@ async def update_tool_config(tool_name: str, update: ToolConfigUpdate) -> Any:
         raise
     except Exception as e:
         logger.error(f"Error updating tool config: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/config/bulk")
@@ -810,7 +810,7 @@ async def bulk_update_tool_configs(updates: dict[str, bool]) -> Any:
         }
     except Exception as e:
         logger.error(f"Error in bulk update: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 # =============================================================================
@@ -858,7 +858,7 @@ async def test_tool(tool_name: str) -> Any:
         raise
     except Exception as e:
         logger.error(f"Error testing tool: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/test-all")
@@ -926,4 +926,4 @@ async def test_all_tools(category: str | None = None) -> Any:
         raise
     except Exception as e:
         logger.error(f"Error testing all tools: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
