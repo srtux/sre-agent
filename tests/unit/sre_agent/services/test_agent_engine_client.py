@@ -520,6 +520,7 @@ class TestAgentEngineClient:
         mock_session_manager.get_or_create_session = AsyncMock(
             return_value=mock_session
         )
+        mock_session_manager.update_session_state = AsyncMock()
 
         mock_adk_app = MagicMock()
         del mock_adk_app.async_stream_query
@@ -543,8 +544,8 @@ class TestAgentEngineClient:
 
             error_events = [e for e in events if e.get("type") == "error"]
             assert len(error_events) == 1
-            assert "execution failed" in error_events[0]["error"].lower()
-            assert "authentication issues" in error_events[0]["error"].lower()
+            assert "invalid response" in error_events[0]["error"].lower()
+            assert "upstream error" in error_events[0]["error"].lower()
 
     @pytest.mark.asyncio
     async def test_async_stream_query_handles_errors(
@@ -565,7 +566,7 @@ class TestAgentEngineClient:
         mock_adk_app_v = MagicMock()
 
         async def mock_v_err(*args, **kwargs):
-            raise ValueError("malformed")
+            raise ValueError("Can only parse array of JSON objects")
             yield {}
 
         mock_adk_app_v.async_stream_query = MagicMock(side_effect=mock_v_err)
@@ -579,7 +580,7 @@ class TestAgentEngineClient:
             async for event in client.stream_query(user_id="u", message="m"):
                 events.append(event)
             assert any(
-                "agent execution failed" in e.get("error", "").lower() for e in events
+                "roles/aiplatform.user" in e.get("error", "").lower() for e in events
             )
 
         # Test path for AttributeError
@@ -603,5 +604,4 @@ class TestAgentEngineClient:
             # Check for specifically yielded error in AttributeError path
             error_events = [e for e in events if e.get("type") == "error"]
             assert len(error_events) == 1
-            assert "invalid response" in error_events[0]["error"].lower()
-            assert "backend logs" in error_events[0]["error"].lower()
+            assert "roles/aiplatform.user" in error_events[0]["error"].lower()

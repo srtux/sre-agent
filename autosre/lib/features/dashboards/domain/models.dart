@@ -8,10 +8,13 @@ enum DashboardSource {
   @JsonValue('local')
   local,
   @JsonValue('cloud_monitoring')
-  cloudMonitoring;
+  cloudMonitoring,
+  @JsonValue('template')
+  template;
 
   static DashboardSource fromString(String value) {
     if (value == 'cloud_monitoring') return DashboardSource.cloudMonitoring;
+    if (value == 'template') return DashboardSource.template;
     return DashboardSource.local;
   }
 }

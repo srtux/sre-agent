@@ -342,35 +342,25 @@ class AgentEngineClient:
                                 f"❌ Error processing remote chunk: {chunk_err}. Raw chunk: {chunk}"
                             )
                             raise chunk_err
-                except ValueError as e:
-                    # Google API REST streaming raises ValueError when parsing
-                    # malformed responses (e.g., "Can only parse array of JSON objects")
+                except (ValueError, AttributeError) as e:
                     error_msg = str(e)
-
-                    # Log the actual failure to help developers identify the malformed response
-                    logger.error(
-                        f"❌ Agent Engine stream returned invalid JSON format: {error_msg}. "
-                        "This usually happens when the backend returns a non-protocol error (e.g. 500 HTML or raw traceback)."
-                    )
-
-                    yield {
-                        "type": "error",
-                        "error": (
-                            "Agent execution failed. This is typically caused by authentication issues "
-                            "(e.g., expired/invalid token or encryption key mismatch) or a backend crash. "
-                            "Please check the Agent Engine logs in GCP Console using the correlation Trace ID."
-                        ),
-                    }
-                except AttributeError as e:
-                    # Catch specific error where SDK expects dict but gets list
-                    if "'list' object has no attribute 'get'" in str(e):
+                    if (
+                        "Can only parse array of JSON objects" in error_msg
+                        or "'list' object has no attribute 'get'" in error_msg
+                        or "invalid JSON" in error_msg.lower()
+                    ):
                         logger.error(
-                            "Agent Engine backend returned an invalid response format (List instead of Dict). "
-                            "This usually indicates an upstream error that the SDK cannot parse."
+                            f"❌ Agent Engine stream returned an invalid response format: {error_msg}. "
+                            "This usually happens when the backend returns an error object, a non-protocol error (e.g. 500 HTML), or permission denied."
                         )
                         yield {
                             "type": "error",
-                            "error": "Agent Engine returned an invalid response. Please check backend logs.",
+                            "error": (
+                                "Agent execution failed due to an invalid response format from Agent Engine. "
+                                "This is typically caused by authentication issues (e.g., expired token), "
+                                "permission denied, or an invalid Agent ID. Please check Cloud Run logs, verify SRE_AGENT_ID, "
+                                "and ensure the user has IAM permissions (roles/aiplatform.user)."
+                            ),
                         }
                     else:
                         raise
@@ -395,32 +385,19 @@ class AgentEngineClient:
                                     f"❌ Error processing remote event (async): {chunk_err}. Raw event: {event}"
                                 )
                                 raise chunk_err
-                    except ValueError as e:
-                        # Google API REST streaming raises ValueError when parsing
-                        # malformed responses (e.g., "Can only parse array of JSON objects")
+                    except (ValueError, AttributeError) as e:
                         error_msg = str(e)
-                        logger.error(
-                            f"Agent Engine stream returned invalid JSON format: {error_msg}. "
-                            "This usually indicates an authentication or execution error."
-                        )
-                        yield {
-                            "type": "error",
-                            "error": (
-                                "Agent execution failed. This is typically caused by authentication issues "
-                                "(e.g., expired/invalid token or encryption key mismatch). "
-                                "Please try signing out and back in."
-                            ),
-                        }
-                    except AttributeError as e:
-                        # Catch specific error where SDK expects dict but gets list
-                        if "'list' object has no attribute 'get'" in str(e):
+                        if (
+                            "Can only parse array of JSON objects" in error_msg
+                            or "'list' object has no attribute 'get'" in error_msg
+                        ):
                             logger.error(
-                                "Agent Engine backend returned an invalid response format (List instead of Dict). "
-                                "This usually indicates an upstream error that the SDK cannot parse."
+                                "Agent Engine backend returned an invalid response format (likely an error object)."
                             )
                             yield {
                                 "type": "error",
-                                "error": "Agent Engine returned an invalid response. Please check backend logs.",
+                                "error": "Agent Engine returned an invalid response. This usually indicates an upstream error, permission "
+                                "issue, or invalid Agent ID. Please check backend logs and verify your configuration.",
                             }
                         else:
                             raise
@@ -439,36 +416,23 @@ class AgentEngineClient:
                             if event is None:
                                 break
                             yield process_event(event)
-                        except ValueError as e:
-                            # Google API REST streaming raises ValueError when parsing
-                            # malformed responses (e.g., "Can only parse array of JSON objects")
+                        except (ValueError, AttributeError) as e:
                             error_msg = str(e)
-                            logger.error(
-                                f"Agent Engine stream returned invalid JSON format: {error_msg}. "
-                                "This usually indicates an authentication or execution error."
-                            )
-                            yield {
-                                "type": "error",
-                                "error": (
-                                    "Agent execution failed. This is typically caused by authentication issues "
-                                    "(e.g., expired/invalid token or encryption key mismatch). "
-                                    "Please try signing out and back in."
-                                ),
-                            }
-                            break
-                        except AttributeError as e:
-                            if "'list' object has no attribute 'get'" in str(e):
+                            if (
+                                "Can only parse array of JSON objects" in error_msg
+                                or "'list' object has no attribute 'get'" in error_msg
+                            ):
                                 logger.error(
-                                    "Agent Engine backend returned an invalid response format (List instead of Dict). "
-                                    "This usually indicates an upstream error that the SDK cannot parse."
+                                    "Agent Engine backend returned an invalid response format (likely an error object)."
                                 )
                                 yield {
                                     "type": "error",
-                                    "error": "Agent Engine returned an invalid response. Please check backend logs.",
+                                    "error": "Agent Engine returned an invalid response. This usually indicates an upstream error, permission "
+                                    "issue, or invalid Agent ID. Please check backend logs.",
                                 }
+                                break
                             else:
                                 raise
-                            break
                         except Exception as chunk_err:
                             logger.error(
                                 f"❌ Error processing remote event (sync): {chunk_err}. Raw event: {event if 'event' in locals() else 'unretrieved'}"
