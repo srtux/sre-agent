@@ -121,7 +121,8 @@ def _generate_session_title(user_message: str) -> str:
             break
 
     # Remove context tags like [Context: ...]
-    text = re.sub(r"\[Context:.*?\]", "", text).strip()
+    # Optimized regex to avoid polynomial backtracking (ReDoS)
+    text = re.sub(r"\[Context:[^\]]*\]", "", text).strip()
 
     # Take first sentence or first N words
     sentences = re.split(r"[.?!\n]", text)
@@ -366,7 +367,7 @@ async def _handle_remote_agent(
                 json.dumps(
                     {
                         "type": "text",
-                        "content": f"\n\n**Error:** {e!s}",
+                        "content": "\n\n**Error:** An internal error occurred while streaming from Agent Engine.",
                     }
                 )
                 + "\n"
@@ -967,10 +968,8 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                     # Sync findings and observations to Long-term Memory Bank
                     # This makes the investigation searchable in future sessions
                     await session_manager.sync_to_memory(active_session)
-                except Exception as e:
-                    logger.warning(
-                        f"⚠️ Memory sync skipped or failed for {session.id}: {e}"
-                    )
+                except Exception:
+                    logger.warning(f"⚠️ Memory sync skipped or failed for {session.id}")
 
             except Exception as e:
                 logger.error(f"🔥 Error in agent run: {e}", exc_info=True)
@@ -978,7 +977,7 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
                     json.dumps(
                         {
                             "type": "text",
-                            "content": f"\n\n**Error executing agent:** {e!s}",
+                            "content": "\n\n**Error executing agent:** An internal error occurred.",
                         }
                     )
                     + "\n"
@@ -989,6 +988,6 @@ async def chat_agent(request: AgentRequest, raw_request: Request) -> StreamingRe
 
         return StreamingResponse(event_generator(), media_type="application/x-ndjson")
 
-    except Exception as e:
-        logger.error(f"Error in chat endpoint: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+    except Exception:
+        logger.error("Error in chat endpoint", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error") from None

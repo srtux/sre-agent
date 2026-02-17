@@ -51,7 +51,7 @@ async def get_permissions_info() -> Any:
                 "roles/monitoring.viewer",
                 "roles/compute.viewer",
             ],
-            "error": str(e),
+            "error": "Failed to retrieve permission info",
         }
 
 
@@ -83,9 +83,9 @@ async def get_gcloud_commands(project_id: str) -> Any:
             "commands": commands,
             "one_liner": " && ".join(commands),
         }
-    except Exception as e:
-        logger.error(f"Error generating gcloud commands: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+    except Exception:
+        logger.error("Error generating gcloud commands", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error") from None
 
 
 @router.get("/check/{project_id}")

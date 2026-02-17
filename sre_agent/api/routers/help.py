@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -35,29 +36,25 @@ async def get_help_manifest() -> Any:
 @router.get("/content/{content_id}")
 async def get_help_content(content_id: str) -> PlainTextResponse:
     """Retrieve the markdown content for a specific help topic."""
-    # Prevent directory traversal with resolve-and-verify
-    safe_id = content_id.replace("..", "").replace("/", "").replace("\\", "")
-    if safe_id != content_id:
-        raise HTTPException(status_code=400, detail="Invalid content ID")
+    # Step 1: Strict Character Validation (Allow-list)
+    # Only allow Alphanumeric, underscores, and dashes. No dots, slashes, or special chars.
+    if not re.match(r"^[a-zA-Z0-9_\-]+$", content_id):
+        raise HTTPException(status_code=400, detail="Invalid help topic ID")
 
-    # The manifest maps content_id to filenames, but for simplicity,
-    # we'll check common extensions if id doesn't match exactly.
-    content_path = Path(DOCS_DIR, "content", f"{safe_id}.md")
+    # Step 2: Ensure path is within the designated content directory
+    base_content_dir = _DOCS_RESOLVED / "content"
+    content_path = (base_content_dir / f"{content_id}.md").resolve()
 
-    if not content_path.exists():
-        # Check if it was passed with .md already
-        if content_id.endswith(".md"):
-            content_path = Path(DOCS_DIR, "content", safe_id)
-
-    # Resolve symlinks and verify the path is within DOCS_DIR
-    resolved = content_path.resolve()
-    if not str(resolved).startswith(str(_DOCS_RESOLVED)):
-        raise HTTPException(status_code=400, detail="Invalid content ID")
-
-    if not resolved.exists():
+    # Step 3: Verify the resolved path starts with the base content directory
+    if not str(content_path).startswith(str(base_content_dir)):
         raise HTTPException(
-            status_code=404, detail=f"Content for {content_id} not found"
+            status_code=400, detail="Security violation: Invalid path access"
         )
 
-    content = resolved.read_text(encoding="utf-8")
+    if not content_path.exists():
+        raise HTTPException(
+            status_code=404, detail=f"Help topic '{content_id}' not found"
+        )
+
+    content = content_path.read_text(encoding="utf-8")
     return PlainTextResponse(content)

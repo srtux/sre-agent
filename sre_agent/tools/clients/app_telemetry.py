@@ -48,7 +48,7 @@ def _extract_resource_filters(
 
         # Parse GCP resource URI
         # Format: //service.googleapis.com/projects/PROJECT/locations/LOCATION/...
-        if "run.googleapis.com" in uri:
+        if uri.startswith("//run.googleapis.com/"):
             # Cloud Run service
             parts = uri.split("/")
             if len(parts) >= 8:
@@ -63,7 +63,7 @@ def _extract_resource_filters(
                         "uri": uri,
                     }
                 )
-        elif "compute.googleapis.com" in uri and "forwardingRules" in uri:
+        elif uri.startswith("//compute.googleapis.com/") and "forwardingRules" in uri:
             # Load balancer forwarding rule
             parts = uri.split("/")
             resources["load_balancers"].append(
@@ -79,7 +79,7 @@ def _extract_resource_filters(
         wl_ref = wl.get("workload_reference", {})
         uri = wl_ref.get("uri", "")
 
-        if "container.googleapis.com" in uri:
+        if uri.startswith("//container.googleapis.com/"):
             # GKE workload
             parts = uri.split("/")
             if len(parts) >= 8:
@@ -113,7 +113,7 @@ def _extract_resource_filters(
                                 "name": workload_name,
                             }
                         )
-        elif "compute.googleapis.com" in uri and "instanceGroups" in uri:
+        elif uri.startswith("//compute.googleapis.com/") and "instanceGroups" in uri:
             # Managed Instance Group
             parts = uri.split("/")
             resources["gce_instances"].append(
@@ -122,7 +122,7 @@ def _extract_resource_filters(
                     "name": parts[-1] if parts else "",
                 }
             )
-        elif "sqladmin.googleapis.com" in uri:
+        elif uri.startswith("//sqladmin.googleapis.com/"):
             # Cloud SQL instance
             parts = uri.split("/")
             if len(parts) >= 6:
