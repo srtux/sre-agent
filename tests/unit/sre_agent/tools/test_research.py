@@ -1,4 +1,4 @@
-"""Tests for the online research tools (search_google, fetch_web_page).
+"""Tests for the online research tools (fetch_web_page).
 
 Patterns: AsyncMock for httpx, env-var gating, BaseToolResponse validation,
 memory integration verification.
@@ -9,12 +9,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from sre_agent.schema import BaseToolResponse, ToolStatus
+from sre_agent.schema import ToolStatus
 from sre_agent.tools.research import (
     _extract_text_from_html,
     _extract_title,
     fetch_web_page,
-    search_google,
 )
 
 # ---------------------------------------------------------------------------
@@ -32,20 +31,6 @@ def mock_tool_context() -> MagicMock:
     mock_inv_ctx.session = mock_session
     mock_ctx.invocation_context = mock_inv_ctx
     return mock_ctx
-
-
-@pytest.fixture
-def search_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Set required env vars for Google Custom Search."""
-    monkeypatch.setenv("GOOGLE_CUSTOM_SEARCH_API_KEY", "test-api-key")
-    monkeypatch.setenv("GOOGLE_CUSTOM_SEARCH_ENGINE_ID", "test-cx-id")
-
-
-@pytest.fixture
-def _clear_search_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Ensure search env vars are NOT set."""
-    monkeypatch.delenv("GOOGLE_CUSTOM_SEARCH_API_KEY", raising=False)
-    monkeypatch.delenv("GOOGLE_CUSTOM_SEARCH_ENGINE_ID", raising=False)
 
 
 SAMPLE_SEARCH_RESPONSE = {
@@ -135,224 +120,6 @@ class TestHTMLTextExtractor:
 # ---------------------------------------------------------------------------
 # search_google tests
 # ---------------------------------------------------------------------------
-
-
-class TestSearchGoogle:
-    """Tests for the search_google tool."""
-
-    @pytest.mark.asyncio
-    @pytest.mark.usefixtures("_clear_search_env")
-    async def test_missing_config_returns_error(self) -> None:
-        """Without API key/CX, tool should return a clear error."""
-        result = await search_google(query="test query", tool_context=None)
-
-        assert isinstance(result, BaseToolResponse)
-        assert result.status == ToolStatus.ERROR
-        assert "not configured" in result.error
-
-    @pytest.mark.asyncio
-    async def test_successful_search(
-        self, search_env: None, mock_tool_context: MagicMock
-    ) -> None:
-        """Successful search returns structured results and saves to memory."""
-        mock_response = MagicMock(spec=httpx.Response)
-        mock_response.status_code = 200
-        mock_response.json.return_value = SAMPLE_SEARCH_RESPONSE
-        mock_response.raise_for_status = MagicMock()
-
-        mock_client = AsyncMock()
-        mock_client.get.return_value = mock_response
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
-
-        mock_manager = AsyncMock()
-        mock_manager.add_finding = AsyncMock()
-
-        with (
-            patch(
-                "sre_agent.tools.research.httpx.AsyncClient", return_value=mock_client
-            ),
-            patch(
-                "sre_agent.tools.research.get_memory_manager", return_value=mock_manager
-            ),
-            patch(
-                "sre_agent.tools.research._get_context",
-                return_value=("sess-1", "user@test.com"),
-            ),
-        ):
-            result = await search_google(
-                query="cloud logging query syntax",
-                num_results=2,
-                tool_context=mock_tool_context,
-            )
-
-        assert isinstance(result, BaseToolResponse)
-        assert result.status == ToolStatus.SUCCESS
-        assert result.result["query"] == "cloud logging query syntax"
-        assert result.result["total_results"] == "42"
-        assert len(result.result["results"]) == 2
-        assert result.result["results"][0]["title"] == "Cloud Logging query syntax"
-        assert result.metadata["num_results"] == 2
-
-        # Verify memory was called
-        mock_manager.add_finding.assert_called_once()
-        call_kwargs = mock_manager.add_finding.call_args.kwargs
-        assert "cloud logging query syntax" in call_kwargs["description"]
-        assert call_kwargs["source_tool"] == "search_google"
-
-    @pytest.mark.asyncio
-    async def test_search_with_site_restrict(self, search_env: None) -> None:
-        """Verify site_restrict is passed as siteSearch param."""
-        mock_response = MagicMock(spec=httpx.Response)
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"searchInformation": {}, "items": []}
-        mock_response.raise_for_status = MagicMock()
-
-        mock_client = AsyncMock()
-        mock_client.get.return_value = mock_response
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
-
-        with patch(
-            "sre_agent.tools.research.httpx.AsyncClient", return_value=mock_client
-        ):
-            result = await search_google(
-                query="PromQL syntax",
-                site_restrict="cloud.google.com",
-                tool_context=None,
-            )
-
-        assert result.status == ToolStatus.SUCCESS
-        # Verify the siteSearch param was included
-        call_args = mock_client.get.call_args
-        params = call_args.kwargs.get("params") or call_args[1].get("params")
-        assert params["siteSearch"] == "cloud.google.com"
-        assert params["siteSearchFilter"] == "i"
-
-    @pytest.mark.asyncio
-    async def test_search_timeout(self, search_env: None) -> None:
-        """Timeout should return a clear error."""
-        mock_client = AsyncMock()
-        mock_client.get.side_effect = httpx.TimeoutException("timed out")
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
-
-        with patch(
-            "sre_agent.tools.research.httpx.AsyncClient", return_value=mock_client
-        ):
-            result = await search_google(query="test", tool_context=None)
-
-        assert result.status == ToolStatus.ERROR
-        assert "timed out" in result.error
-
-    @pytest.mark.asyncio
-    async def test_search_http_error(self, search_env: None) -> None:
-        """HTTP errors should be surfaced cleanly."""
-        mock_resp = MagicMock(spec=httpx.Response)
-        mock_resp.status_code = 403
-        mock_resp.text = "Forbidden"
-
-        mock_client = AsyncMock()
-        mock_client.get.side_effect = httpx.HTTPStatusError(
-            "403", request=MagicMock(), response=mock_resp
-        )
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
-
-        with patch(
-            "sre_agent.tools.research.httpx.AsyncClient", return_value=mock_client
-        ):
-            result = await search_google(query="test", tool_context=None)
-
-        assert result.status == ToolStatus.ERROR
-        assert "403" in result.error
-
-    @pytest.mark.asyncio
-    async def test_search_clamps_num_results(self, search_env: None) -> None:
-        """num_results should be clamped to [1, 10]."""
-        mock_response = MagicMock(spec=httpx.Response)
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"searchInformation": {}, "items": []}
-        mock_response.raise_for_status = MagicMock()
-
-        mock_client = AsyncMock()
-        mock_client.get.return_value = mock_response
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
-
-        with patch(
-            "sre_agent.tools.research.httpx.AsyncClient", return_value=mock_client
-        ):
-            # Request 99 — should be clamped to 10
-            await search_google(query="test", num_results=99, tool_context=None)
-            params = mock_client.get.call_args.kwargs.get(
-                "params"
-            ) or mock_client.get.call_args[1].get("params")
-            assert params["num"] == 10
-
-            # Request 0 — should be clamped to 1
-            await search_google(query="test", num_results=0, tool_context=None)
-            params = mock_client.get.call_args.kwargs.get(
-                "params"
-            ) or mock_client.get.call_args[1].get("params")
-            assert params["num"] == 1
-
-    @pytest.mark.asyncio
-    async def test_search_no_results(self, search_env: None) -> None:
-        """Empty results should still succeed."""
-        mock_response = MagicMock(spec=httpx.Response)
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "searchInformation": {"totalResults": "0"},
-            "items": [],
-        }
-        mock_response.raise_for_status = MagicMock()
-
-        mock_client = AsyncMock()
-        mock_client.get.return_value = mock_response
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
-
-        with patch(
-            "sre_agent.tools.research.httpx.AsyncClient", return_value=mock_client
-        ):
-            result = await search_google(query="test", tool_context=None)
-
-        assert result.status == ToolStatus.SUCCESS
-        assert len(result.result["results"]) == 0
-
-    @pytest.mark.asyncio
-    async def test_memory_failure_does_not_break_search(
-        self, search_env: None, mock_tool_context: MagicMock
-    ) -> None:
-        """Memory save failures should be swallowed — search result is still returned."""
-        mock_response = MagicMock(spec=httpx.Response)
-        mock_response.status_code = 200
-        mock_response.json.return_value = SAMPLE_SEARCH_RESPONSE
-        mock_response.raise_for_status = MagicMock()
-
-        mock_client = AsyncMock()
-        mock_client.get.return_value = mock_response
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
-
-        mock_manager = AsyncMock()
-        mock_manager.add_finding = AsyncMock(side_effect=RuntimeError("memory boom"))
-
-        with (
-            patch(
-                "sre_agent.tools.research.httpx.AsyncClient", return_value=mock_client
-            ),
-            patch(
-                "sre_agent.tools.research.get_memory_manager", return_value=mock_manager
-            ),
-            patch("sre_agent.tools.research._get_context", return_value=("s1", "u1")),
-        ):
-            result = await search_google(query="test", tool_context=mock_tool_context)
-
-        # Search still succeeds despite memory failure
-        assert result.status == ToolStatus.SUCCESS
-        assert len(result.result["results"]) == 2
 
 
 # ---------------------------------------------------------------------------

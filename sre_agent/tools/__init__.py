@@ -279,7 +279,6 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     # Proactive
     "suggest_next_steps": (".proactive", "suggest_next_steps"),
     # Research (Online)
-    "search_google": (".research", "search_google"),
     "fetch_web_page": (".research", "fetch_web_page"),
     # GitHub (Self-Healing)
     "github_read_file": (".github.tools", "github_read_file"),

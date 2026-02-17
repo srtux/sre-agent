@@ -70,7 +70,6 @@ from sre_agent.tools import (
     # Root cause / causal analysis
     perform_causal_analysis,
     query_promql,
-    search_google,
     update_investigation_state,
 )
 from sre_agent.tools.bigquery.ca_data_agent import query_data_agent
@@ -85,7 +84,6 @@ SHARED_STATE_TOOLS: list[Any] = [
 ]
 
 SHARED_RESEARCH_TOOLS: list[Any] = [
-    search_google,
     fetch_web_page,
 ]
 

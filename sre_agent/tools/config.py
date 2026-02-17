@@ -1015,14 +1015,6 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
     # Online Research Tools
     # -------------------------------------------------------------------------
     ToolConfig(
-        name="search_google",
-        display_name="Search Google",
-        description="Search Google for technical information, documentation, or answers",
-        category=ToolCategory.RESEARCH,
-        testable=False,
-        enabled=True,
-    ),
-    ToolConfig(
         name="fetch_web_page",
         display_name="Fetch Web Page",
         description="Fetch and extract readable text content from a web page",

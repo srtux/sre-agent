@@ -119,9 +119,9 @@ class TestToolSyntaxErrorsIssue:
     def test_severity_is_high(self, issue) -> None:
         assert issue.severity == PlaybookSeverity.HIGH
 
-    def test_references_search_google(self, issue) -> None:
+    def test_references_google_search(self, issue) -> None:
         tool_names = [step.tool_name for step in issue.diagnostic_steps]
-        assert "search_google" in tool_names
+        assert "google_search" in tool_names
 
 
 class TestSlowInvestigationIssue:

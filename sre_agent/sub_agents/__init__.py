@@ -9,6 +9,7 @@ from .metrics import (
     metrics_analyst,
     metrics_analyzer,
 )
+from .research import get_research_agent_tool
 from .root_cause import root_cause_analyst
 from .trace import (
     aggregate_analyzer,
@@ -21,6 +22,7 @@ __all__ = [
     "alert_analyst",
     "get_metrics_analyst",
     "get_metrics_analyzer",
+    "get_research_agent_tool",
     "log_analyst",
     "metrics_analyst",
     "metrics_analyzer",

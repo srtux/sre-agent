@@ -79,9 +79,9 @@ def get_playbook() -> Playbook:
                     "Search Google for best practices and documentation related "
                     "to the identified issue."
                 ),
-                tool_name="search_google",
-                tool_params={"query": "{issue_description} best practice"},
-                expected_outcome="Relevant documentation or best practices",
+                tool_name="google_search",
+                tool_params={"query": "agent anti-pattern fix strategy"},
+                expected_outcome="Documentation and best practices found",
             ),
             DiagnosticStep(
                 step_number=5,
@@ -306,12 +306,11 @@ def _tool_syntax_errors() -> TroubleshootingIssue:
                 step_number=2,
                 title="Research Correct Syntax",
                 description="Search Google for the correct API syntax",
-                tool_name="search_google",
+                tool_name="google_search",
                 tool_params={
-                    "query": "{tool_name} {error_message} correct syntax",
-                    "site_restrict": "cloud.google.com",
+                    "query": "Google Cloud {tool_name} syntax {error_message}"
                 },
-                expected_outcome="Documentation with correct syntax examples",
+                expected_outcome="Documentation on correct API syntax",
             ),
         ],
         remediation_steps=[
