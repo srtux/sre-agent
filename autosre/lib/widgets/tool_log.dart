@@ -5,7 +5,6 @@ import '../models/adk_schema.dart';
 import '../theme/app_theme.dart';
 import '../utils/ansi_parser.dart';
 import '../utils/isolate_helper.dart';
-import 'package:flutter/foundation.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'tool_log_helpers.dart';
 
@@ -654,7 +653,7 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
 
 // Top-level function for background isolate processing
 (bool, String?) _analyzeLogForError(ToolLog log) {
-  bool isError = false;
+  var isError = false;
   String? errorMessage;
 
   if (log.status == 'error') {

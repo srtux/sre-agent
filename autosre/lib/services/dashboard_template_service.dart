@@ -184,7 +184,7 @@ class DashboardTemplateService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final uri = Uri.parse('$_baseUrl').replace(
+      final uri = Uri.parse(_baseUrl).replace(
         queryParameters: {
           'include_cloud': includeCloud.toString(),
         },
