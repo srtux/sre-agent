@@ -3,8 +3,13 @@
 Provides CRUD operations for dashboards with local persistence and
 Cloud Monitoring integration. Dashboards follow the Perses-compatible
 spec defined in sre_agent.models.dashboard.
+
+Includes support for:
+- OOTB (out-of-the-box) dashboard templates for cloud services
+- Custom panel creation (metric charts, log panels, trace lists)
 """
 
+import copy
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -314,6 +319,225 @@ class DashboardService:
                 max_y = bottom
 
         return {"x": 0, "y": max_y, "width": 12, "height": 4}
+
+    # -----------------------------------------------------------------
+    # OOTB Template provisioning
+    # -----------------------------------------------------------------
+
+    async def list_templates(self) -> list[dict[str, Any]]:
+        """List available OOTB dashboard templates.
+
+        Returns:
+            List of template summaries.
+        """
+        from sre_agent.services.dashboard_templates import list_templates
+
+        return list_templates()
+
+    async def get_template(self, template_id: str) -> dict[str, Any] | None:
+        """Get a full template definition by ID.
+
+        Args:
+            template_id: Template identifier.
+
+        Returns:
+            Full template dict or None if not found.
+        """
+        from sre_agent.services.dashboard_templates import get_template
+
+        return get_template(template_id)
+
+    async def provision_template(
+        self,
+        template_id: str,
+        project_id: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Provision an OOTB template as a local dashboard.
+
+        Creates a new dashboard from a template definition, assigning
+        unique IDs to each panel and recording the template source.
+
+        Args:
+            template_id: Template identifier (e.g. ``"ootb-gke"``).
+            project_id: Optional GCP project ID.
+
+        Returns:
+            Created dashboard data, or None if template not found.
+        """
+        from sre_agent.services.dashboard_templates import get_template
+
+        template = get_template(template_id)
+        if template is None:
+            return None
+
+        # Deep copy panels so the template is not mutated
+        panels = copy.deepcopy(template.get("panels", []))
+
+        # Assign unique IDs to each panel
+        for panel in panels:
+            panel["id"] = f"panel-{uuid.uuid4().hex[:8]}"
+
+        labels = dict(template.get("labels", {}))
+        labels["template_id"] = template_id
+
+        dashboard = await self.create_dashboard(
+            display_name=template["display_name"],
+            description=template.get("description", ""),
+            panels=panels,
+            variables=template.get("variables"),
+            labels=labels,
+            project_id=project_id,
+            source="template",
+        )
+
+        logger.info(
+            "Provisioned template '%s' as dashboard '%s'",
+            template_id,
+            dashboard["id"],
+        )
+        return dashboard
+
+    # -----------------------------------------------------------------
+    # Custom panel creation
+    # -----------------------------------------------------------------
+
+    async def add_custom_metric_panel(
+        self,
+        dashboard_id: str,
+        title: str,
+        metric_type: str,
+        *,
+        resource_type: str | None = None,
+        aggregation: str = "ALIGN_MEAN",
+        group_by: list[str] | None = None,
+        description: str = "",
+        unit: str | None = None,
+        panel_type: str = "time_series",
+        thresholds: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any] | None:
+        """Add a metric chart panel to a dashboard.
+
+        Args:
+            dashboard_id: Target dashboard ID.
+            title: Panel title.
+            metric_type: Cloud Monitoring metric type
+                (e.g. ``"compute.googleapis.com/instance/cpu/utilization"``).
+            resource_type: Monitored resource type filter.
+            aggregation: Alignment function.
+            group_by: Fields to group by.
+            description: Panel description.
+            unit: Display unit.
+            panel_type: Visualization type (``"time_series"``, ``"gauge"``, etc.).
+            thresholds: Visual threshold markers.
+
+        Returns:
+            Updated dashboard or None if dashboard not found.
+        """
+        filter_parts = [f'metric.type="{metric_type}"']
+        if resource_type:
+            filter_parts.append(f'resource.type="{resource_type}"')
+        filter_str = " AND ".join(filter_parts)
+
+        query: dict[str, Any] = {
+            "datasource": {"type": "cloud_monitoring"},
+            "cloud_monitoring": {
+                "filter_str": filter_str,
+                "aggregation": aggregation,
+            },
+        }
+        if group_by:
+            query["cloud_monitoring"]["group_by_fields"] = group_by
+
+        panel: dict[str, Any] = {
+            "title": title,
+            "type": panel_type,
+            "description": description,
+            "queries": [query],
+        }
+        if unit:
+            panel["unit"] = unit
+        if thresholds:
+            panel["thresholds"] = thresholds
+
+        return await self.add_panel(dashboard_id, panel)
+
+    async def add_custom_log_panel(
+        self,
+        dashboard_id: str,
+        title: str,
+        log_filter: str,
+        *,
+        resource_type: str | None = None,
+        severity_levels: list[str] | None = None,
+        description: str = "",
+    ) -> dict[str, Any] | None:
+        """Add a log viewer panel to a dashboard.
+
+        Args:
+            dashboard_id: Target dashboard ID.
+            title: Panel title.
+            log_filter: Cloud Logging filter expression.
+            resource_type: Monitored resource type.
+            severity_levels: Severity levels to display.
+            description: Panel description.
+
+        Returns:
+            Updated dashboard or None if dashboard not found.
+        """
+        query: dict[str, Any] = {
+            "datasource": {"type": "loki"},
+            "logs": {
+                "filter_str": log_filter,
+            },
+        }
+        if severity_levels:
+            query["logs"]["severity_levels"] = severity_levels
+        if resource_type:
+            query["logs"]["resource_type"] = resource_type
+
+        panel: dict[str, Any] = {
+            "title": title,
+            "type": "logs",
+            "description": description,
+            "queries": [query],
+        }
+
+        return await self.add_panel(dashboard_id, panel)
+
+    async def add_custom_trace_panel(
+        self,
+        dashboard_id: str,
+        title: str,
+        trace_filter: str,
+        *,
+        description: str = "",
+    ) -> dict[str, Any] | None:
+        """Add a trace list panel to a dashboard.
+
+        Args:
+            dashboard_id: Target dashboard ID.
+            title: Panel title.
+            trace_filter: Trace query filter expression.
+            description: Panel description.
+
+        Returns:
+            Updated dashboard or None if dashboard not found.
+        """
+        panel: dict[str, Any] = {
+            "title": title,
+            "type": "traces",
+            "description": description,
+            "queries": [
+                {
+                    "datasource": {"type": "tempo"},
+                    "logs": {
+                        "filter_str": trace_filter,
+                    },
+                }
+            ],
+        }
+
+        return await self.add_panel(dashboard_id, panel)
 
     async def _list_cloud_dashboards(self, project_id: str) -> list[dict[str, Any]]:
         """Fetch dashboards from Cloud Monitoring API."""

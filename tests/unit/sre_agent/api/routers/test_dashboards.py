@@ -74,6 +74,39 @@ def mock_service() -> AsyncMock:
             {"id": "p1", "grid_position": {"x": 0, "y": 0, "width": 6, "height": 4}}
         ],
     }
+    # Template methods
+    service.list_templates.return_value = [
+        {
+            "id": "ootb-gke",
+            "display_name": "GKE Overview",
+            "description": "GKE dashboard",
+            "service": "gke",
+            "panel_count": 12,
+            "labels": {"service": "gke"},
+        },
+    ]
+    service.get_template.return_value = {
+        "id": "ootb-gke",
+        "display_name": "GKE Overview",
+        "description": "GKE dashboard",
+        "service": "gke",
+        "panels": [{"title": "CPU", "type": "time_series"}],
+    }
+    service.provision_template.return_value = {
+        "id": "new-dash-id",
+        "display_name": "GKE Overview",
+        "panels": [{"id": "p1", "title": "CPU"}],
+        "labels": {"template_id": "ootb-gke"},
+    }
+    # Custom panel methods
+    _dash_with_panel = {
+        "id": "d1",
+        "display_name": "Test",
+        "panels": [{"id": "p1", "title": "Custom Panel"}],
+    }
+    service.add_custom_metric_panel.return_value = _dash_with_panel
+    service.add_custom_log_panel.return_value = _dash_with_panel
+    service.add_custom_trace_panel.return_value = _dash_with_panel
     return service
 
 
@@ -199,3 +232,162 @@ class TestDashboardRouter:
             json={"x": 0, "y": 0, "width": 6, "height": 4},
         )
         assert response.status_code == 200
+
+
+class TestTemplateRouter:
+    """Tests for OOTB template endpoints."""
+
+    @patch("sre_agent.api.routers.dashboards.get_dashboard_service")
+    def test_list_templates_returns_200(
+        self, mock_get_service: Any, client: TestClient, mock_service: AsyncMock
+    ) -> None:
+        mock_get_service.return_value = mock_service
+        response = client.get("/api/dashboards/templates/list")
+        assert response.status_code == 200
+        data = response.json()
+        assert "templates" in data
+        assert "total_count" in data
+        assert data["total_count"] == 1
+
+    @patch("sre_agent.api.routers.dashboards.get_dashboard_service")
+    def test_get_template_returns_200(
+        self, mock_get_service: Any, client: TestClient, mock_service: AsyncMock
+    ) -> None:
+        mock_get_service.return_value = mock_service
+        response = client.get("/api/dashboards/templates/ootb-gke")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["display_name"] == "GKE Overview"
+
+    @patch("sre_agent.api.routers.dashboards.get_dashboard_service")
+    def test_get_template_not_found_returns_404(
+        self, mock_get_service: Any, client: TestClient, mock_service: AsyncMock
+    ) -> None:
+        mock_service.get_template.return_value = None
+        mock_get_service.return_value = mock_service
+        response = client.get("/api/dashboards/templates/nonexistent")
+        assert response.status_code == 404
+
+    @patch("sre_agent.api.routers.dashboards.get_dashboard_service")
+    def test_provision_template_returns_201(
+        self, mock_get_service: Any, client: TestClient, mock_service: AsyncMock
+    ) -> None:
+        mock_get_service.return_value = mock_service
+        response = client.post(
+            "/api/dashboards/templates/ootb-gke/provision",
+            json={"project_id": "my-project"},
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert data["display_name"] == "GKE Overview"
+
+    @patch("sre_agent.api.routers.dashboards.get_dashboard_service")
+    def test_provision_template_no_body_returns_201(
+        self, mock_get_service: Any, client: TestClient, mock_service: AsyncMock
+    ) -> None:
+        mock_get_service.return_value = mock_service
+        response = client.post("/api/dashboards/templates/ootb-gke/provision")
+        assert response.status_code == 201
+
+    @patch("sre_agent.api.routers.dashboards.get_dashboard_service")
+    def test_provision_template_not_found_returns_404(
+        self, mock_get_service: Any, client: TestClient, mock_service: AsyncMock
+    ) -> None:
+        mock_service.provision_template.return_value = None
+        mock_get_service.return_value = mock_service
+        response = client.post(
+            "/api/dashboards/templates/nonexistent/provision",
+        )
+        assert response.status_code == 404
+
+
+class TestCustomPanelRouter:
+    """Tests for custom panel endpoints."""
+
+    @patch("sre_agent.api.routers.dashboards.get_dashboard_service")
+    def test_add_metric_panel_returns_200(
+        self, mock_get_service: Any, client: TestClient, mock_service: AsyncMock
+    ) -> None:
+        mock_get_service.return_value = mock_service
+        response = client.post(
+            "/api/dashboards/d1/panels/metric",
+            json={
+                "title": "CPU Usage",
+                "metric_type": "compute.googleapis.com/instance/cpu/utilization",
+                "resource_type": "gce_instance",
+            },
+        )
+        assert response.status_code == 200
+
+    @patch("sre_agent.api.routers.dashboards.get_dashboard_service")
+    def test_add_metric_panel_not_found_returns_404(
+        self, mock_get_service: Any, client: TestClient, mock_service: AsyncMock
+    ) -> None:
+        mock_service.add_custom_metric_panel.return_value = None
+        mock_get_service.return_value = mock_service
+        response = client.post(
+            "/api/dashboards/bad-id/panels/metric",
+            json={
+                "title": "CPU",
+                "metric_type": "some/metric",
+            },
+        )
+        assert response.status_code == 404
+
+    @patch("sre_agent.api.routers.dashboards.get_dashboard_service")
+    def test_add_log_panel_returns_200(
+        self, mock_get_service: Any, client: TestClient, mock_service: AsyncMock
+    ) -> None:
+        mock_get_service.return_value = mock_service
+        response = client.post(
+            "/api/dashboards/d1/panels/log",
+            json={
+                "title": "Error Logs",
+                "log_filter": "severity>=ERROR",
+            },
+        )
+        assert response.status_code == 200
+
+    @patch("sre_agent.api.routers.dashboards.get_dashboard_service")
+    def test_add_log_panel_not_found_returns_404(
+        self, mock_get_service: Any, client: TestClient, mock_service: AsyncMock
+    ) -> None:
+        mock_service.add_custom_log_panel.return_value = None
+        mock_get_service.return_value = mock_service
+        response = client.post(
+            "/api/dashboards/bad-id/panels/log",
+            json={
+                "title": "Logs",
+                "log_filter": "severity>=ERROR",
+            },
+        )
+        assert response.status_code == 404
+
+    @patch("sre_agent.api.routers.dashboards.get_dashboard_service")
+    def test_add_trace_panel_returns_200(
+        self, mock_get_service: Any, client: TestClient, mock_service: AsyncMock
+    ) -> None:
+        mock_get_service.return_value = mock_service
+        response = client.post(
+            "/api/dashboards/d1/panels/trace",
+            json={
+                "title": "Request Traces",
+                "trace_filter": '+resource.type:"cloud_run_revision"',
+            },
+        )
+        assert response.status_code == 200
+
+    @patch("sre_agent.api.routers.dashboards.get_dashboard_service")
+    def test_add_trace_panel_not_found_returns_404(
+        self, mock_get_service: Any, client: TestClient, mock_service: AsyncMock
+    ) -> None:
+        mock_service.add_custom_trace_panel.return_value = None
+        mock_get_service.return_value = mock_service
+        response = client.post(
+            "/api/dashboards/bad-id/panels/trace",
+            json={
+                "title": "Traces",
+                "trace_filter": "some filter",
+            },
+        )
+        assert response.status_code == 404
