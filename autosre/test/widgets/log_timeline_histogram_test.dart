@@ -134,7 +134,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('handles entries outside time range gracefully', (
+  testWidgets('handles entries outside time range gracefully (dynamic expanding bounds)', (
       WidgetTester tester,
     ) async {
       final range = _makeRange(
@@ -142,7 +142,8 @@ void main() {
         end: baseTime.add(const Duration(hours: 1)),
       );
       final entries = [
-        _makeEntry(timestamp: baseTime.subtract(const Duration(hours: 2))),
+        _makeEntry(timestamp: baseTime.subtract(const Duration(hours: 2))), // before explicitly bound
+        _makeEntry(timestamp: baseTime.add(const Duration(hours: 4))), // after explicitly bound
       ];
 
       await tester.pumpWidget(
@@ -151,6 +152,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(LogTimelineHistogram), findsOneWidget);
+      expect(find.byType(CustomPaint), findsWidgets); // Should not assert and successfully paint
       expect(tester.takeException(), isNull);
     });
 

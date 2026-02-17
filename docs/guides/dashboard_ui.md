@@ -90,10 +90,13 @@ File: `lib/widgets/dashboard/live_logs_explorer.dart`
 
 *   **Manual Query**: Cloud Logging filter expressions with autocomplete (e.g., `severity>=ERROR AND resource.type="gce_instance"`). Uses `ExplorerQueryService.queryLogs()`.
 *   **Natural Language**: Routes to the AI agent via `onPromptRequest`.
+*   **Time Range Autocall**: Changing the time range triggers a new background query automatically to update the view without manual submission.
+*   **Infiniscroll**: Logs are mounted in reverse order (`reverse: true` inside `ListView.builder`) simulating a live tail. Scrolling backward (up) through the list dynamically fetches older log entries and prepends them naturally.
 *   **Severity Filtering**: Interactive `FilterChip` widgets with per-severity counts (CRITICAL, ERROR, WARNING, INFO, DEBUG). Clicking filters the aggregated entry list.
 *   **Full-Text Search**: Real-time search across `payloadPreview` of all collected entries.
 *   **Log Aggregation**: Entries from multiple tool calls are merged, deduplicated by timestamp, and sorted newest-first.
-*   **Pattern Summary**: When `logPatterns` data exists, displays top 3 Drain3-extracted patterns with occurrence counts (e.g., "450x Connection refused to database").
+*   **Dynamic Histogram Auto-Scaling**: The timeline histogram expands its computational buckets automatically when older entries are fetched out of bounds via infiniscroll.
+*   **Pattern Summary**: When `logPatterns` data exists, displays top 3 Drain3-extracted patterns with occurrence counts.
 *   **Expandable JSON Payloads**: Click any `isJsonPayload` entry to expand the full structured payload in a dark code block with `JetBrainsMono` font.
 *   **ANSI Parsing**: Log text payloads are rendered via `AnsiParser.parse()` for color-coded terminal output.
 *   **External Docs**: Link to Cloud Logging query language documentation.

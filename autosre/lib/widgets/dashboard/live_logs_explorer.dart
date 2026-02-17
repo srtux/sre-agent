@@ -253,11 +253,9 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
             onRefresh: () {
               final filter = widget.dashboardState.getLastQueryFilter(
                 DashboardDataType.logs,
-              );
-              if (filter != null && filter.isNotEmpty) {
-                final explorer = context.read<ExplorerQueryService>();
-                explorer.queryLogs(filter: filter);
-              }
+              ) ?? '';
+              final explorer = context.read<ExplorerQueryService>();
+              explorer.queryLogs(filter: filter);
             },
             languageLabel: 'LOG FILTER',
             languageLabelColor: AppColors.success,
@@ -638,6 +636,7 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
 
     return ListView.builder(
       controller: _scrollController,
+      reverse: true,
       padding: const EdgeInsets.all(tokens.Spacing.sm),
       itemCount: entries.length + (_isLoadingMore ? 1 : 0),
       itemBuilder: (context, index) {

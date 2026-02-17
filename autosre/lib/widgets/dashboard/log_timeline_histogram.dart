@@ -57,19 +57,33 @@ class _LogTimelineHistogramState extends State<LogTimelineHistogram> {
     List<LogEntry> entries,
     TimeRange range,
   ) {
-    final bucketDuration = _bucketSize(range.duration);
+    if (entries.isEmpty) return [];
+
+    var minTime = range.start.toUtc();
+    var maxTime = range.end.toUtc();
+
+    for (final entry in entries) {
+      final t = entry.timestamp.toUtc();
+      if (t.isBefore(minTime)) minTime = t;
+      if (t.isAfter(maxTime)) maxTime = t;
+    }
+
+    if (minTime.isAtSameMomentAs(maxTime)) {
+      minTime = minTime.subtract(const Duration(minutes: 1));
+      maxTime = maxTime.add(const Duration(minutes: 1));
+    }
+
+    final totalDuration = maxTime.difference(minTime);
+    final bucketDuration = _bucketSize(totalDuration);
     final buckets = <_HistogramBucket>[];
 
-    final rangeStart = range.start.toUtc();
-    final rangeEnd = range.end.toUtc();
-
-    var current = rangeStart;
-    while (current.isBefore(rangeEnd)) {
+    var current = minTime;
+    while (current.isBefore(maxTime)) {
       final bucketEnd = current.add(bucketDuration);
       buckets.add(
         _HistogramBucket(
           start: current,
-          end: bucketEnd.isAfter(rangeEnd) ? rangeEnd : bucketEnd,
+          end: bucketEnd.isAfter(maxTime) ? maxTime : bucketEnd,
         ),
       );
       current = bucketEnd;
@@ -79,21 +93,26 @@ class _LogTimelineHistogramState extends State<LogTimelineHistogram> {
       final entryTime = entry.timestamp.toUtc();
       for (final bucket in buckets) {
         if (!entryTime.isBefore(bucket.start) &&
-            entryTime.isBefore(bucket.end)) {
+            (entryTime.isBefore(bucket.end) || entryTime.isAtSameMomentAs(maxTime) && bucket.end.isAtSameMomentAs(maxTime))) {
           switch (entry.severity.toUpperCase()) {
             case 'CRITICAL':
             case 'EMERGENCY':
             case 'ALERT':
               bucket.criticalCount++;
+              break;
             case 'ERROR':
               bucket.errorCount++;
+              break;
             case 'WARNING':
               bucket.warningCount++;
+              break;
             case 'INFO':
             case 'NOTICE':
               bucket.infoCount++;
+              break;
             default:
               bucket.debugCount++;
+              break;
           }
           break;
         }

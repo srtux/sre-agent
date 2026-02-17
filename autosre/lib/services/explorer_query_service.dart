@@ -124,12 +124,15 @@ class ExplorerQueryService {
     String? projectId,
     String? pageToken,
     int? limit,
+    TimeRange? timeRange,
   }) async {
+    final range = timeRange ?? _dashboardState.timeRange;
     _dashboardState.setLoading(DashboardDataType.logs, true);
     try {
       final payload = <String, dynamic>{
         'filter': filter,
         'project_id': projectId,
+        'minutes_ago': range.minutesAgo,
       };
       if (pageToken != null) {
         payload['page_token'] = pageToken;
