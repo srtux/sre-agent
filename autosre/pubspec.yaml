@@ -31,11 +31,21 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
-  cupertino_icons: ^1.0.8
+  # Modern 2026 Stack Dependencies
+  flutter_riverpod: any
+  riverpod_annotation: any
+  freezed_annotation: any
+  dio: any
+  pluto_grid: any
+  multi_split_view: ^3.4.1
+  drift: any
+  drift_flutter: any
+  sqlite3: any
+  json_annotation: ^4.9.0
   genui: ^0.6.1
   genui_a2ui: ^0.6.1
+
+  # Legacy / Existing
   provider: ^6.1.5+1
   syncfusion_flutter_charts: ^29.1.69
   syncfusion_flutter_datepicker: ^29.1.69
@@ -63,11 +73,19 @@ dev_dependencies:
   integration_test:
     sdk: flutter
 
-  # The "flutter_lints" package below contains a set of recommended lints to
-  # encourage good coding practices. The lint set provided by the package is
-  # activated in the `analysis_options.yaml` file located at the root of your
-  # package. See that file for information about deactivating specific lint
-  # rules and activating additional ones.
+  # Code Generation & Tools
+  build_runner: any
+  riverpod_generator: any
+  riverpod_lint: any
+  freezed: ^3.2.3
+  json_serializable: any
+  drift_dev: any
+
+  # Testing
+  mockito: any
+  alchemist: any
+  patrol: any
+
   flutter_lints: ^6.0.0
   plugin_platform_interface: ^2.1.8
 

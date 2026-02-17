@@ -158,12 +158,12 @@ void main() {
   // ===========================================================================
   group('LogPattern equality', () {
     test('equal patterns are equal', () {
-      final a = LogPattern(
+      const a = LogPattern(
         template: 'tmpl',
         count: 5,
         severityCounts: {'ERROR': 3},
       );
-      final b = LogPattern(
+      const b = LogPattern(
         template: 'tmpl',
         count: 5,
         severityCounts: {'ERROR': 3},

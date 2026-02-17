@@ -8,7 +8,7 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from sre_agent.services.dashboard_service import get_dashboard_service
 
@@ -19,6 +19,8 @@ router = APIRouter(prefix="/api/dashboards", tags=["dashboards"])
 
 class CreateDashboardBody(BaseModel):
     """Request body for creating a dashboard."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     display_name: str
     description: str = ""
@@ -33,6 +35,8 @@ class CreateDashboardBody(BaseModel):
 class UpdateDashboardBody(BaseModel):
     """Request body for updating a dashboard."""
 
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
     display_name: str | None = None
     description: str | None = None
     panels: list[dict[str, Any]] | None = None
@@ -44,6 +48,8 @@ class UpdateDashboardBody(BaseModel):
 
 class AddPanelBody(BaseModel):
     """Request body for adding a panel."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     title: str
     type: str = "time_series"
@@ -57,6 +63,8 @@ class AddPanelBody(BaseModel):
 
 class UpdatePanelPositionBody(BaseModel):
     """Request body for updating panel position."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     x: int
     y: int
@@ -169,9 +177,7 @@ async def update_panel_position(
         "width": body.width,
         "height": body.height,
     }
-    result = await service.update_panel_position(
-        dashboard_id, panel_id, grid_position
-    )
+    result = await service.update_panel_position(dashboard_id, panel_id, grid_position)
     if not result:
         raise HTTPException(status_code=404, detail="Dashboard not found")
     return result

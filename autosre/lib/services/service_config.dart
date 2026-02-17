@@ -12,9 +12,14 @@ class ServiceConfig {
   /// In debug mode, points to local dev server. In release, uses
   /// relative paths (same-origin on Cloud Run).
   static String get baseUrl {
+    // In local development, the frontend usually runs on port 8080
+    // while the backend runs on port 8001.
     if (kDebugMode) {
-      return 'http://127.0.0.1:8001';
+      debugPrint('ServiceConfig: Using local dev baseUrl: http://localhost:8001');
+      return 'http://localhost:8001';
     }
+
+    debugPrint('ServiceConfig: Using production baseUrl (relative)');
     return '';
   }
 

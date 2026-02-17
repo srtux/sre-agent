@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../features/dashboards/presentation/pages/dashboards_page.dart';
 import '../../services/dashboard_state.dart';
 import '../../theme/app_theme.dart';
+
 
 /// A vertical rail on the left side providing quick access to dashboard categories.
 class InvestigationRail extends StatelessWidget {
@@ -45,6 +47,26 @@ class InvestigationRail extends StatelessWidget {
                 padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 child: Divider(height: 1),
               ),
+              // Dashboards Browser
+              _RailItem(
+                icon: Icons.dashboard_customize_outlined,
+                label: 'Custom Dashboards',
+                color: AppColors.primaryTeal,
+                isActive: false,
+                hasData: false,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const DashboardsPage(),
+                    ),
+                  );
+                },
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Divider(height: 1),
+              ),
+
               // Category Items
               Expanded(
                 child: ListView(

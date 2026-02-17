@@ -386,89 +386,93 @@ class _ConversationPageState extends State<ConversationPage>
               // 1. Investigation Rail
               InvestigationRail(state: _dashboardState),
 
-              // 2. Dashboard Panel
-              if (!isMobile && (!_isChatMaximized || !_isChatOpen))
-                DashboardPanelWrapper(
-                  dashboardState: _dashboardState,
-                  totalWidth: constraints.maxWidth,
-                  isChatOpen: _isChatOpen,
-                  onPromptRequest: (prompt) {
-                    _textController.text = prompt;
-                    if (!_isChatOpen) setState(() => _isChatOpen = true);
-                    _sendMessage();
-                  },
-                ),
-
-              // 3. Main conversation area
-              if (_isChatOpen)
-                Expanded(
-                  child: ChatPanelWrapper(
-                    isMaximized: _isChatMaximized,
-                    onToggleMaximize: () {
-                      setState(() {
-                        _isChatMaximized = !_isChatMaximized;
-                      });
-                    },
-                    onClose: () {
-                      setState(() {
-                        _isChatOpen = false;
-                        _isChatMaximized = false;
-                      });
-                    },
-                    onStartNewSession: _startNewSession,
-                    child: ValueListenableBuilder<List<ChatMessage>>(
-                      valueListenable:
-                          _controller.conversation?.conversation ??
-                          ValueNotifier([]),
-                      builder: (context, messages, _) {
-                        return ValueListenableBuilder<bool>(
-                          valueListenable:
-                              _controller.contentGenerator?.isProcessing ??
-                              ValueNotifier(false),
-                          builder: (context, isProcessing, _) {
-                            if (messages.isEmpty) {
-                              return HeroEmptyState(
-                                isProcessing: isProcessing,
-                                inputKey: _inputKey,
-                                textController: _textController,
-                                focusNode: _focusNode,
-                                onSend: _sendMessage,
-                                onCancel: () => _controller.contentGenerator
-                                    ?.cancelRequest(),
-                                suggestedActions: _controller.suggestedActions,
-                              );
-                            }
-                            return Column(
-                              children: [
-                                Expanded(
-                                  child: ChatMessageList(
-                                    messages: messages,
-                                    isProcessing: isProcessing,
-                                    scrollController: _scrollController,
-                                    conversation: _controller.conversation!,
-                                    typingAnimation: _typingController,
-                                    toolCallState: _controller.toolCallState,
-                                  ),
-                                ),
-                                ChatInputArea(
-                                  isProcessing: isProcessing,
-                                  inputKey: _inputKey,
-                                  textController: _textController,
-                                  focusNode: _focusNode,
-                                  onSend: _sendMessage,
-                                  onCancel: () => _controller.contentGenerator
-                                      ?.cancelRequest(),
-                                  suggestedActions:
-                                      _controller.suggestedActions,
-                                ),
-                              ],
-                            );
+              // 2. Main Workspace (Reverted to stable Row for verification)
+              Expanded(
+                child: Row(
+                  children: [
+                    if (!isMobile && (!_isChatMaximized || !_isChatOpen))
+                      DashboardPanelWrapper(
+                        dashboardState: _dashboardState,
+                        totalWidth: constraints.maxWidth,
+                        isChatOpen: _isChatOpen,
+                        onPromptRequest: (prompt) {
+                          _textController.text = prompt;
+                          if (!_isChatOpen) setState(() => _isChatOpen = true);
+                          _sendMessage();
+                        },
+                      ),
+                    if (_isChatOpen)
+                      Expanded(
+                        child: ChatPanelWrapper(
+                          isMaximized: _isChatMaximized,
+                          onToggleMaximize: () {
+                            setState(() {
+                              _isChatMaximized = !_isChatMaximized;
+                            });
                           },
-                        );
-                      },
-                    ),
-                  ),
+                          onClose: () {
+                            setState(() {
+                              _isChatOpen = false;
+                              _isChatMaximized = false;
+                            });
+                          },
+                          onStartNewSession: _startNewSession,
+                          child: ValueListenableBuilder<List<ChatMessage>>(
+                            valueListenable:
+                                _controller.conversation?.conversation ??
+                                ValueNotifier([]),
+                            builder: (context, messages, _) {
+                              return ValueListenableBuilder<bool>(
+                                valueListenable:
+                                    _controller.contentGenerator?.isProcessing ??
+                                    ValueNotifier(false),
+                                builder: (context, isProcessing, _) {
+                                  if (messages.isEmpty) {
+                                    return HeroEmptyState(
+                                      isProcessing: isProcessing,
+                                      inputKey: _inputKey,
+                                      textController: _textController,
+                                      focusNode: _focusNode,
+                                      onSend: _sendMessage,
+                                      onCancel: () => _controller.contentGenerator
+                                          ?.cancelRequest(),
+                                      suggestedActions: _controller.suggestedActions,
+                                    );
+                                  }
+                                  return Column(
+                                    children: [
+                                      Expanded(
+                                        child: ChatMessageList(
+                                          messages: messages,
+                                          isProcessing: isProcessing,
+                                          scrollController: _scrollController,
+                                          conversation: _controller.conversation!,
+                                          typingAnimation: _typingController,
+                                          toolCallState: _controller.toolCallState,
+                                        ),
+                                      ),
+                                      ChatInputArea(
+                                        isProcessing: isProcessing,
+                                        inputKey: _inputKey,
+                                        textController: _textController,
+                                        focusNode: _focusNode,
+                                        onSend: _sendMessage,
+                                        onCancel: () => _controller.contentGenerator
+                                            ?.cancelRequest(),
+                                        suggestedActions:
+                                            _controller.suggestedActions,
+                                      ),
+                                    ],
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
+              ),
             ],
           ),
         );

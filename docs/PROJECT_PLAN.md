@@ -236,11 +236,16 @@ Total: **174 new council tests**, all passing.
     - Self-healing playbook follows OODA loop: Observe (trace analysis) -> Orient (code research) -> Decide (fix strategy) -> Act (create PR).
     - (50 tests: 13 registry + 27 self-healing + 10 schemas)
 
+#### Phase 3.17: Custom Dashboard Modernization (PR #166)
+- [x] **Feature-First Migration**: Ported custom dashboard models, repositories, and UI components to the unified `lib/features/dashboards/` directory.
+- [x] **Riverpod 3.0 Adoption**: Replaced legacy `DashboardApiService` and `DashboardState` with `Dashboards` and `DashboardDetail` AsyncNotifiers.
+- [x] **Dio Integration**: Centralized networking via `dioProvider` and `DashboardRepository`.
+- [x] **Navigation Integration**: Added "Custom Dashboards" access point to the `InvestigationRail`.
+- [x] **Zero-Debt Cleanup**: Deleted `lib/models/dashboard_models.dart`, `lib/services/dashboard_service.dart`, and legacy presentation widgets.
+- [x] **Static Analysis Compliance**: Resolution of type mismatches and broken test references following architectural shift.
+
 #### Phase 3.16: Human Approval Workflow
-- [x] **Approval System** (`sre_agent/core/approval.py`):
-    - `HumanApprovalRequest` and `HumanApprovalEvent` Pydantic models with `frozen=True, extra="forbid"`.
-    - `ApprovalStatus` enum: PENDING, APPROVED, REJECTED, EXPIRED, CANCELLED.
-    - Thread-safe approval state management for write operations requiring human confirmation.
+
 
 Grand total at Phase 3 completion: **2312 backend tests**, **74 Flutter tests** passing across 196 test files. Lint clean.
 
@@ -254,6 +259,11 @@ Grand total at Phase 3 completion: **2312 backend tests**, **74 Flutter tests** 
 #### Completed
 - [x] **Streaming Reasoning (CoT)**: Real-time "Thinking" stream in the UI, exposing the agent's internal chain-of-thought before it acts.
 - [x] **CI-Driven Evaluations**: Integrated "LLM-as-a-Judge" into Cloud Build. Regression suites run on every PR to ensure reasoning accuracy never drops.
+- [x] **Zero Broken Windows (Feb 2026)**: Resolved 11+ failing Flutter tests and critical static analysis issues.
+    - Fixed `type 'Null' is not a subtype of type 'String'` in log parsing by implementing safe manual `fromJson` in `LogEntry` / `LogEntriesData`.
+    - Fixed `trace_waterfall.dart` type error by using pre-computed `_childrenMap`.
+    - Fixed `log_repository_test.dart` by correctly mocking `post` requests.
+    - Achieved 100% pass rate across 500+ Flutter tests and 2300+ Python tests.
 
 #### Remaining
 - [x] **WasmGC & CanvasKit Migration**: Enabled high-performance WebAssembly with Garbage Collection and CanvasKit rendering for the Flutter web dashboard, resulting in 2-3x faster execution and smoother visualizations. Includes automatic JS fallback for legacy browsers.

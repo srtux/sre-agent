@@ -173,19 +173,19 @@ class GridPosition(BaseModel):
     @classmethod
     def validate_width(cls, v: Any) -> int:
         """Ensure width is between 1 and 24."""
-        v = int(v)
-        if v < 1 or v > 24:
+        val = int(v)
+        if val < 1 or val > 24:
             raise ValueError("width must be between 1 and 24")
-        return v
+        return val
 
     @field_validator("height", mode="before")
     @classmethod
     def validate_height(cls, v: Any) -> int:
         """Ensure height is at least 1."""
-        v = int(v)
-        if v < 1:
+        val = int(v)
+        if val < 1:
             raise ValueError("height must be >= 1")
-        return v
+        return val
 
 
 class DatasourceRef(BaseModel):

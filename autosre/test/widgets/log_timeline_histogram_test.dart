@@ -1,4 +1,5 @@
-import 'package:autosre/models/log_models.dart';
+import 'package:autosre/features/logs/domain/models.dart';
+
 import 'package:autosre/models/time_range.dart';
 import 'package:autosre/widgets/dashboard/log_timeline_histogram.dart';
 import 'package:flutter/material.dart';

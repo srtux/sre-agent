@@ -1,6 +1,7 @@
 // ignore_for_file: unnecessary_underscores
 
-import 'package:autosre/models/log_models.dart';
+import 'package:autosre/features/logs/domain/models.dart';
+
 import 'package:autosre/widgets/dashboard/log_field_facets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

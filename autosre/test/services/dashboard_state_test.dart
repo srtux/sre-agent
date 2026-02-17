@@ -102,7 +102,7 @@ void main() {
     });
 
     test('addLogEntries adds a log item', () {
-      final logData = LogEntriesData(entries: []);
+      const logData = LogEntriesData(entries: []);
       state.addLogEntries(logData, 'fetch_logs', {});
 
       expect(state.items.length, 1);
@@ -112,7 +112,7 @@ void main() {
 
     test('addLogPatterns adds a log patterns item', () {
       final patterns = [
-        LogPattern(template: 'Error <*>', count: 5, severityCounts: {}),
+        const LogPattern(template: 'Error <*>', count: 5, severityCounts: {}),
       ];
       state.addLogPatterns(patterns, 'analyze_logs', {});
 
@@ -204,7 +204,7 @@ void main() {
   group('DashboardState filtering', () {
     test('itemsOfType filters correctly', () {
       state.addTrace(Trace(traceId: 't1', spans: []), 'tool', {});
-      state.addLogEntries(LogEntriesData(entries: []), 'tool', {});
+      state.addLogEntries(const LogEntriesData(entries: []), 'tool', {});
       state.addTrace(Trace(traceId: 't2', spans: []), 'tool', {});
 
       expect(state.itemsOfType(DashboardDataType.traces).length, 2);
@@ -215,7 +215,7 @@ void main() {
     test('typeCounts returns correct counts', () {
       state.addTrace(Trace(traceId: 't1', spans: []), 'tool', {});
       state.addTrace(Trace(traceId: 't2', spans: []), 'tool', {});
-      state.addLogEntries(LogEntriesData(entries: []), 'tool', {});
+      state.addLogEntries(const LogEntriesData(entries: []), 'tool', {});
 
       final counts = state.typeCounts;
       expect(counts[DashboardDataType.traces], 2);

@@ -316,9 +316,10 @@ void main() {
           jsonEncode({
             'entries': [
               {
+                'insert_id': 'log-1',
                 'timestamp': '2025-01-01T00:00:00Z',
                 'severity': 'INFO',
-                'message': 'test log',
+                'payload': 'test log',
               },
             ],
           }),
@@ -351,9 +352,10 @@ void main() {
           jsonEncode({
             'entries': [
               {
+                'insert_id': 'log-1',
                 'timestamp': '2025-01-01T00:00:00Z',
                 'severity': 'ERROR',
-                'message': 'error log',
+                'payload': 'error log',
               },
             ],
           }),
@@ -426,9 +428,10 @@ void main() {
           jsonEncode({
             'entries': [
               {
+                'insert_id': 'log-1',
                 'timestamp': '2025-01-01T00:00:00Z',
                 'severity': 'INFO',
-                'message': 'test',
+                'payload': 'test',
               },
             ],
           }),
@@ -1001,7 +1004,7 @@ void main() {
 
     test('adding log data keeps default logs tab', () {
       final state = DashboardState();
-      state.addLogEntries(LogEntriesData(entries: []), 'test', {});
+      state.addLogEntries(const LogEntriesData(entries: []), 'test', {});
 
       // Should still be on logs tab
       expect(state.activeTab, DashboardDataType.logs);
@@ -1017,9 +1020,10 @@ void main() {
         'data': {
           'entries': [
             {
+              'insert_id': 'log-1',
               'timestamp': '2025-01-01T00:00:00Z',
               'severity': 'INFO',
-              'message': 'test',
+              'payload': 'test',
             },
           ],
         },

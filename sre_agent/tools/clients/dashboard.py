@@ -56,9 +56,7 @@ async def list_cloud_dashboards(
                 error="Project ID is required. Set GOOGLE_CLOUD_PROJECT or pass project_id.",
             )
 
-    result = await run_in_threadpool(
-        _list_dashboards_sync, project_id, tool_context
-    )
+    result = await run_in_threadpool(_list_dashboards_sync, project_id, tool_context)
     if isinstance(result, dict) and "error" in result:
         return BaseToolResponse(status=ToolStatus.ERROR, error=result["error"])
     return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
@@ -106,9 +104,7 @@ def _list_dashboards_sync(
                     "etag": dashboard.etag,
                     "layout_type": layout_type,
                     "widget_count": widget_count,
-                    "labels": (
-                        dict(dashboard.labels) if dashboard.labels else {}
-                    ),
+                    "labels": (dict(dashboard.labels) if dashboard.labels else {}),
                     "source": "cloud_monitoring",
                 }
             )
@@ -117,20 +113,13 @@ def _list_dashboards_sync(
 
     except Exception as e:
         error_str = str(e)
-        is_eval = (
-            os.getenv("SRE_AGENT_EVAL_MODE", "false").lower() == "true"
-        )
+        is_eval = os.getenv("SRE_AGENT_EVAL_MODE", "false").lower() == "true"
         if is_eval and any(
-            code in error_str
-            for code in ["403", "404", "PermissionDenied"]
+            code in error_str for code in ["403", "404", "PermissionDenied"]
         ):
-            logger.warning(
-                f"Dashboard API error in eval mode: {error_str}"
-            )
+            logger.warning(f"Dashboard API error in eval mode: {error_str}")
             return []
-        logger.error(
-            f"Failed to list dashboards: {error_str}", exc_info=True
-        )
+        logger.error(f"Failed to list dashboards: {error_str}", exc_info=True)
         return {"error": f"Failed to list dashboards: {error_str}"}
 
 
@@ -186,17 +175,11 @@ async def get_cloud_dashboard(
                 status=ToolStatus.ERROR,
                 error="Project ID is required when passing a dashboard ID without full resource path.",
             )
-        dashboard_name = (
-            f"projects/{project_id}/dashboards/{dashboard_name}"
-        )
+        dashboard_name = f"projects/{project_id}/dashboards/{dashboard_name}"
 
-    result = await run_in_threadpool(
-        _get_dashboard_sync, dashboard_name, tool_context
-    )
+    result = await run_in_threadpool(_get_dashboard_sync, dashboard_name, tool_context)
     if isinstance(result, dict) and "error" in result:
-        return BaseToolResponse(
-            status=ToolStatus.ERROR, error=result["error"]
-        )
+        return BaseToolResponse(status=ToolStatus.ERROR, error=result["error"])
     return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
@@ -223,22 +206,23 @@ def _get_dashboard_sync(
         request = GetDashboardRequest(name=dashboard_name)
         dashboard = client.get_dashboard(request=request)
 
+        from typing import cast
+
         # Convert protobuf to dict for JSON serialization
-        dashboard_dict = MessageToDict(
-            dashboard._pb,
-            preserving_proto_field_name=True,
+        dashboard_dict = cast(
+            dict[str, Any],
+            MessageToDict(
+                dashboard._pb,
+                preserving_proto_field_name=True,
+            ),
         )
         dashboard_dict["source"] = "cloud_monitoring"
         return dashboard_dict
 
     except Exception as e:
         error_str = str(e)
-        logger.error(
-            f"Failed to get dashboard: {error_str}", exc_info=True
-        )
-        return {
-            "error": f"Failed to get dashboard {dashboard_name}: {error_str}"
-        }
+        logger.error(f"Failed to get dashboard: {error_str}", exc_info=True)
+        return {"error": f"Failed to get dashboard {dashboard_name}: {error_str}"}
 
 
 @adk_tool
@@ -292,9 +276,7 @@ async def create_cloud_dashboard(
         tool_context,
     )
     if isinstance(result, dict) and "error" in result:
-        return BaseToolResponse(
-            status=ToolStatus.ERROR, error=result["error"]
-        )
+        return BaseToolResponse(status=ToolStatus.ERROR, error=result["error"])
     return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
@@ -337,29 +319,25 @@ def _create_dashboard_sync(
                 if isinstance(tiles, list):
                     dashboard_dict["mosaic_layout"]["tiles"] = tiles
             except json.JSONDecodeError:
-                logger.warning(
-                    "Invalid widgets_json, creating empty dashboard"
-                )
+                logger.warning("Invalid widgets_json, creating empty dashboard")
 
         dashboard = Dashboard()
         ParseDict(dashboard_dict, dashboard._pb)
 
-        request = CreateDashboardRequest(
-            parent=parent, dashboard=dashboard
-        )
+        request = CreateDashboardRequest(parent=parent, dashboard=dashboard)
         created = client.create_dashboard(request=request)
 
-        result = MessageToDict(
-            created._pb, preserving_proto_field_name=True
+        from typing import cast
+
+        result = cast(
+            dict[str, Any], MessageToDict(created._pb, preserving_proto_field_name=True)
         )
         result["source"] = "cloud_monitoring"
         return result
 
     except Exception as e:
         error_str = str(e)
-        logger.error(
-            f"Failed to create dashboard: {error_str}", exc_info=True
-        )
+        logger.error(f"Failed to create dashboard: {error_str}", exc_info=True)
         return {"error": f"Failed to create dashboard: {error_str}"}
 
 
@@ -384,9 +362,7 @@ async def delete_cloud_dashboard(
     if is_guest_mode():
         return BaseToolResponse(
             status=ToolStatus.SUCCESS,
-            result={
-                "message": f"Dashboard {dashboard_name} deleted (demo mode)"
-            },
+            result={"message": f"Dashboard {dashboard_name} deleted (demo mode)"},
         )
 
     from fastapi.concurrency import run_in_threadpool
@@ -399,17 +375,13 @@ async def delete_cloud_dashboard(
                 status=ToolStatus.ERROR,
                 error="Project ID is required when passing a dashboard ID without full resource path.",
             )
-        dashboard_name = (
-            f"projects/{project_id}/dashboards/{dashboard_name}"
-        )
+        dashboard_name = f"projects/{project_id}/dashboards/{dashboard_name}"
 
     result = await run_in_threadpool(
         _delete_dashboard_sync, dashboard_name, tool_context
     )
     if isinstance(result, dict) and "error" in result:
-        return BaseToolResponse(
-            status=ToolStatus.ERROR, error=result["error"]
-        )
+        return BaseToolResponse(status=ToolStatus.ERROR, error=result["error"])
     return BaseToolResponse(status=ToolStatus.SUCCESS, result=result)
 
 
@@ -435,18 +407,12 @@ def _delete_dashboard_sync(
         request = DeleteDashboardRequest(name=dashboard_name)
         client.delete_dashboard(request=request)
 
-        return {
-            "message": f"Dashboard {dashboard_name} deleted successfully"
-        }
+        return {"message": f"Dashboard {dashboard_name} deleted successfully"}
 
     except Exception as e:
         error_str = str(e)
-        logger.error(
-            f"Failed to delete dashboard: {error_str}", exc_info=True
-        )
-        return {
-            "error": f"Failed to delete dashboard {dashboard_name}: {error_str}"
-        }
+        logger.error(f"Failed to delete dashboard: {error_str}", exc_info=True)
+        return {"error": f"Failed to delete dashboard {dashboard_name}: {error_str}"}
 
 
 # --- Sample data for guest/demo mode ---
