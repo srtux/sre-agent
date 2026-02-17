@@ -2,13 +2,12 @@ import asyncio
 
 from dotenv import load_dotenv
 
-from sre_agent.services.agent_engine_client import AgentEngineClient, AgentEngineConfig
-
 load_dotenv()
 
+from sre_agent.services.agent_engine_client import AgentEngineClient, AgentEngineConfig
 
-async def run() -> None:
-    """Run the agent engine client test."""
+
+async def run():
     config = AgentEngineConfig(
         project_id="summitt-gcp", location="us-central1", agent_id="4168506966131343360"
     )
