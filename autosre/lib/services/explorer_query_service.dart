@@ -172,6 +172,52 @@ class ExplorerQueryService {
     }
   }
 
+  Future<void> queryNewerLogs({
+    required String filter,
+    required DateTime newestTimestamp,
+    String? projectId,
+  }) async {
+    _dashboardState.setLoading(DashboardDataType.logs, true);
+    try {
+      final timeFilter =
+          'timestamp>="${newestTimestamp.toUtc().toIso8601String()}"';
+      final extendedFilter = filter.isNotEmpty
+          ? '($filter) AND $timeFilter'
+          : timeFilter;
+      final payload = <String, dynamic>{
+        'filter': extendedFilter,
+        'project_id': projectId,
+        'limit': 50,
+      };
+
+      final body = jsonEncode(payload);
+      final response = await _post('/api/tools/logs/query', body);
+
+      // Run background parsing
+      final logData = await AppIsolate.run(_parseLogEntries, response.body);
+
+      // Filter out any entries that might exactly match the newestTimestamp
+      final newEntriesList = logData.entries
+          .where((e) => e.timestamp.isAfter(newestTimestamp))
+          .toList();
+      if (newEntriesList.isEmpty) return;
+
+      final deduplicatedLogData = logData.copyWith(entries: newEntriesList);
+
+      _dashboardState.prependLogEntries(
+        deduplicatedLogData,
+        'manual_query',
+        deduplicatedLogData.toJson(),
+        source: DataSource.manual,
+      );
+    } catch (e) {
+      _dashboardState.setError(DashboardDataType.logs, e.toString());
+      debugPrint('ExplorerQueryService.queryNewerLogs error: $e');
+    } finally {
+      _dashboardState.setLoading(DashboardDataType.logs, false);
+    }
+  }
+
   Future<List<LogEntry>> fetchLogsForSpan({
     required String traceId,
     required String spanId,

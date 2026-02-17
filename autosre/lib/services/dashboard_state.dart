@@ -354,6 +354,44 @@ class DashboardState extends ChangeNotifier {
     }
   }
 
+  /// Prepend log entries to the most recent log result (for fetching newer logs).
+  void prependLogEntries(
+    LogEntriesData data,
+    String toolName,
+    Map<String, dynamic> raw, {
+    DataSource source = DataSource.manual,
+  }) {
+    final existingIndex = _items.lastIndexWhere(
+      (i) =>
+          i.type == DashboardDataType.logs &&
+          i.source == source &&
+          i.logData != null,
+    );
+    if (existingIndex != -1) {
+      final existingItem = _items[existingIndex];
+      final newEntries = List<LogEntry>.from(data.entries)
+        ..addAll(existingItem.logData!.entries);
+
+      final updatedLogData = existingItem.logData!.copyWith(
+        entries: newEntries,
+        // We do not overwrite nextPageToken so we can still fetch older logs
+      );
+
+      _items[existingIndex] = DashboardItem(
+        id: existingItem.id,
+        type: existingItem.type,
+        toolName: toolName,
+        timestamp: DateTime.now(),
+        rawData: raw,
+        source: source,
+        logData: updatedLogData,
+      );
+      notifyListeners();
+    } else {
+      addLogEntries(data, toolName, raw, source: source);
+    }
+  }
+
   /// Add log patterns to the dashboard.
   void addLogPatterns(
     List<LogPattern> patterns,

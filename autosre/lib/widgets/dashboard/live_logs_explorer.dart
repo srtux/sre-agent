@@ -130,6 +130,47 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
     }
   }
 
+  Future<void> _loadNewerLogs() async {
+    if (_isLoadingMore) return;
+
+    DashboardItem? pageItem;
+    for (final item in widget.items.reversed) {
+      if (item.type == DashboardDataType.logs && item.logData != null) {
+        pageItem = item;
+        break;
+      }
+    }
+
+    if (pageItem == null ||
+        pageItem.logData == null ||
+        pageItem.logData!.entries.isEmpty) {
+      return;
+    }
+    final logData = pageItem.logData!;
+
+    // Find the newest log's timestamp across all items to use as the baseline
+    final allEntries = _allEntries;
+    if (allEntries.isEmpty) return;
+    final newestTimestamp = allEntries.first.timestamp;
+
+    final filter =
+        logData.filter ??
+        widget.dashboardState.getLastQueryFilter(DashboardDataType.logs) ??
+        '';
+
+    try {
+      final explorer = context.read<ExplorerQueryService>();
+      final projectId = context.read<ProjectService>().selectedProjectId;
+      await explorer.queryNewerLogs(
+        filter: filter,
+        newestTimestamp: newestTimestamp,
+        projectId: projectId,
+      );
+    } catch (e) {
+      debugPrint('Error loading newer logs: $e');
+    }
+  }
+
   Future<void> _fetchMetadata() async {
     final explorer = context.read<ExplorerQueryService>();
     final logs = await explorer.getLogNames();
@@ -634,29 +675,34 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
       );
     }
 
-    return ListView.builder(
-      controller: _scrollController,
-      reverse: true,
-      padding: const EdgeInsets.all(tokens.Spacing.sm),
-      itemCount: entries.length + (_isLoadingMore ? 1 : 0),
-      itemBuilder: (context, index) {
-        if (index == entries.length) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: tokens.Spacing.md),
-            child: Center(
-              child: SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: AppColors.primaryCyan,
+    return RefreshIndicator(
+      onRefresh: _loadNewerLogs,
+      backgroundColor: AppColors.backgroundElevated,
+      color: AppColors.primaryCyan,
+      child: ListView.builder(
+        controller: _scrollController,
+        reverse: true,
+        padding: const EdgeInsets.all(tokens.Spacing.sm),
+        itemCount: entries.length + (_isLoadingMore ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index == entries.length) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: tokens.Spacing.md),
+              child: Center(
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.primaryCyan,
+                  ),
                 ),
               ),
-            ),
-          );
-        }
-        return _buildLogRow(entries[index], index);
-      },
+            );
+          }
+          return _buildLogRow(entries[index], index);
+        },
+      ),
     );
   }
 
