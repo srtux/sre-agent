@@ -271,13 +271,22 @@ def _validate_trace_quality_impl(trace: TraceData) -> dict[str, Any]:
 
         # Check for negative durations and clock skew
         try:
-            start_str = span.get("start_time")
-            end_str = span.get("end_time")
+            start_ts = span.get("start_time_unix")
+            end_ts = span.get("end_time_unix")
 
-            if start_str and end_str:
-                start = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
-                end = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
-                duration = (end - start).total_seconds()
+            if start_ts is None or end_ts is None:
+                start_str = span.get("start_time")
+                end_str = span.get("end_time")
+                if start_str and end_str:
+                    start_ts = datetime.fromisoformat(
+                        start_str.replace("Z", "+00:00")
+                    ).timestamp()
+                    end_ts = datetime.fromisoformat(
+                        end_str.replace("Z", "+00:00")
+                    ).timestamp()
+
+            if start_ts is not None and end_ts is not None:
+                duration = end_ts - start_ts
 
                 if duration < 0:
                     issues.append(
@@ -291,16 +300,22 @@ def _validate_trace_quality_impl(trace: TraceData) -> dict[str, Any]:
                 # Check clock skew
                 if parent_id and parent_id in span_map:
                     parent = span_map[parent_id]
-                    p_start_str = parent.get("start_time")
-                    p_end_str = parent.get("end_time")
+                    p_start_ts = parent.get("start_time_unix")
+                    p_end_ts = parent.get("end_time_unix")
 
-                    if p_start_str and p_end_str:
-                        p_start = datetime.fromisoformat(
-                            p_start_str.replace("Z", "+00:00")
-                        )
-                        p_end = datetime.fromisoformat(p_end_str.replace("Z", "+00:00"))
+                    if p_start_ts is None or p_end_ts is None:
+                        p_start_str = parent.get("start_time")
+                        p_end_str = parent.get("end_time")
+                        if p_start_str and p_end_str:
+                            p_start_ts = datetime.fromisoformat(
+                                p_start_str.replace("Z", "+00:00")
+                            ).timestamp()
+                            p_end_ts = datetime.fromisoformat(
+                                p_end_str.replace("Z", "+00:00")
+                            ).timestamp()
 
-                        if start < p_start or end > p_end:
+                    if p_start_ts is not None and p_end_ts is not None:
+                        if start_ts < p_start_ts or end_ts > p_end_ts:
                             issues.append(
                                 {
                                     "type": "clock_skew",
