@@ -45,7 +45,8 @@ def _unwrap_tool_result(result: Any) -> Any:
     """
     if isinstance(result, BaseToolResponse):
         if result.error:
-            raise HTTPException(status_code=502, detail=result.error)
+            logger.error(f"Tool execution failed: {result.error}")
+            raise HTTPException(status_code=502, detail="Internal tool error")
         return result.result
     return result
 
@@ -808,9 +809,9 @@ async def bulk_update_tool_configs(updates: dict[str, bool]) -> Any:
             f"{len(results['failed'])} failed, {len(results['not_found'])} not found",
             "results": results,
         }
-    except Exception as e:
-        logger.error(f"Error in bulk update: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+    except Exception:
+        logger.error("Error in bulk update", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error") from None
 
 
 # =============================================================================

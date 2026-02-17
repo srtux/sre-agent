@@ -97,7 +97,7 @@ async def set_selected_project(request: SetProjectRequest) -> Any:
         return {"success": True, "project_id": request.project_id}
     except Exception as e:
         logger.error(f"Error setting project preference: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from None
 
 
 @router.get("/tools")
@@ -123,7 +123,7 @@ async def set_tool_preferences(request: SetToolConfigRequest) -> Any:
         return {"success": True}
     except Exception as e:
         logger.error(f"Error setting tool preferences: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from None
 
 
 @router.get("/projects/recent")
@@ -149,7 +149,7 @@ async def set_recent_projects(request: SetRecentProjectsRequest) -> Any:
         return {"success": True}
     except Exception as e:
         logger.error(f"Error setting recent projects: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from None
 
 
 @router.get("/projects/starred")
@@ -175,7 +175,7 @@ async def set_starred_projects(request: SetStarredProjectsRequest) -> Any:
         return {"success": True}
     except Exception as e:
         logger.error(f"Error setting starred projects: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from None
 
 
 @router.post("/projects/starred/toggle")
@@ -206,7 +206,7 @@ async def toggle_starred_project(request: ToggleStarRequest) -> Any:
         return {"success": True, "starred": request.starred, "projects": current}
     except Exception as e:
         logger.error(f"Error toggling starred project: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from None
 
 
 # =============================================================================
@@ -289,7 +289,7 @@ async def add_recent_query(request: AddRecentQueryRequest) -> Any:
         return {"success": True, "queries": queries}
     except Exception as e:
         logger.error(f"Error adding recent query: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from None
 
 
 @router.get("/queries/saved")
@@ -326,7 +326,7 @@ async def save_query(request: SaveQueryRequest) -> Any:
         return {"success": True, "query": entry, "queries": queries}
     except Exception as e:
         logger.error(f"Error saving query: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from None
 
 
 @router.put("/queries/saved/{query_id}")
@@ -344,7 +344,7 @@ async def update_saved_query(query_id: str, request: UpdateSavedQueryRequest) ->
         return {"success": True, "queries": queries}
     except Exception as e:
         logger.error(f"Error updating saved query: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from None
 
 
 @router.delete("/queries/saved/{query_id}")
@@ -360,4 +360,4 @@ async def delete_saved_query(
         return {"success": True, "queries": queries}
     except Exception as e:
         logger.error(f"Error deleting saved query: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from None
