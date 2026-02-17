@@ -713,6 +713,24 @@ Augments the rule-based `IntentClassifier` with an LLM-based classifier that con
 2. **Components**: Use `lib/widgets/` reusable components (e.g., `GlassContainer`).
 3. **Format**: Run `dart format .` before committing.
 
+### 20. Cross-Platform Threading Pattern (AppIsolate)
+
+**Path**: `autosre/lib/utils/isolate_helper.dart`
+
+**ALL heavy background processing (like JSON decoding) MUST use `AppIsolate.run` instead of `Isolate.run` or `compute` directly.**
+
+```dart
+// Anti-Pattern (Crashes on Web):
+final data = await Isolate.run(() => _parseJson(body));
+
+// Anti-Pattern (Scattered/Inconsistent):
+final data = await compute(_parseJson, body);
+
+// Required Pattern:
+final data = await AppIsolate.run(_parseJson, body);
+```
+
+**Why**: Code compiled to Flutter Web (`dart4web`) does not support the `dart:isolate` library. Using `Isolate.run` instantly throws an `Unsupported operation` error. The centralized `AppIsolate` wrapper ensures cross-platform web safety by falling back to the main thread securely when true multi-threading isn't supported, establishing a single choke point for any future Web Worker engine upgrades.
 
 ---
 
