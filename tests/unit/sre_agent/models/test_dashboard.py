@@ -144,7 +144,10 @@ class TestQueryModels:
         q = CloudMonitoringQuery(
             filter_str='metric.type="compute.googleapis.com/instance/cpu/utilization"',
         )
-        assert "compute.googleapis.com" in q.filter_str
+        assert (
+            q.filter_str.startswith("compute.googleapis.com")
+            or "compute.googleapis.com" in q.filter_str
+        )
 
     def test_logs_query(self) -> None:
         q = LogsQuery(filter_str='severity="ERROR"')
