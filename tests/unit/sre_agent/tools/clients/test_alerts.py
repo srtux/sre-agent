@@ -107,16 +107,37 @@ async def test_list_alerts_with_minutes_ago(mock_auth, mock_authorized_session):
 
 
 @pytest.mark.asyncio
-async def test_list_alerts_with_order_by(mock_auth, mock_authorized_session):
+async def test_list_alerts_with_order_by_local_sort(mock_auth, mock_authorized_session):
     mock_response = MagicMock()
     mock_response.ok = True
-    mock_response.json.return_value = {"alerts": []}
+    mock_response.json.return_value = {
+        "alerts": [
+            {"name": "alert3", "openTime": "2023-01-03T00:00:00Z"},
+            {"name": "alert1", "openTime": "2023-01-01T00:00:00Z"},
+            {"name": "alert2", "openTime": "2023-01-02T00:00:00Z"},
+        ]
+    }
     mock_authorized_session.get.return_value = mock_response
 
-    await list_alerts(
-        project_id="test-project", order_by="start_time desc, endTime asc"
-    )
+    # Test descending
+    res_desc = await list_alerts(project_id="test-project", order_by="start_time desc")
+    assert res_desc.status == ToolStatus.SUCCESS
 
+    # Ensure orderBy was NOT sent to the API
     _, kwargs = mock_authorized_session.get.call_args
     params = kwargs.get("params", {})
-    assert params.get("orderBy") == "openTime desc, closeTime asc"
+    assert "orderBy" not in params
+
+    # Ensure local sorting worked
+    alerts = res_desc.result
+    assert alerts[0]["name"] == "alert3"
+    assert alerts[1]["name"] == "alert2"
+    assert alerts[2]["name"] == "alert1"
+
+    # Test ascending
+    res_asc = await list_alerts(project_id="test-project", order_by="openTime")
+    assert res_asc.status == ToolStatus.SUCCESS
+    alerts_asc = res_asc.result
+    assert alerts_asc[0]["name"] == "alert1"
+    assert alerts_asc[1]["name"] == "alert2"
+    assert alerts_asc[2]["name"] == "alert3"

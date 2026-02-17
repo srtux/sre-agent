@@ -127,19 +127,9 @@ def _list_alerts_sync(
         if filters:
             params["filter"] = " AND ".join(filters)
 
-        if order_by:
-            mapped_order_by = order_by
-            replacements = {
-                "start_time": "openTime",
-                "startTime": "openTime",
-                "open_time": "openTime",
-                "end_time": "closeTime",
-                "endTime": "closeTime",
-                "close_time": "closeTime",
-            }
-            for k, v in replacements.items():
-                mapped_order_by = mapped_order_by.replace(k, v)
-            params["orderBy"] = mapped_order_by
+        # We DO NOT send orderBy to the API because the Alerts API endpoint
+        # frequently rejects valid orderBy fields (like openTime) with 400 Bad Request.
+        # Sorting will be applied locally on the results below.
 
         headers = {"X-Goog-User-Project": project_id}
         response = session.get(url, params=params, headers=headers)
@@ -154,6 +144,40 @@ def _list_alerts_sync(
 
         data = response.json()
         alerts = data.get("alerts", [])
+
+        # Apply sorting locally due to API bugs with the orderBy parameter
+        if order_by and alerts:
+            mapped_order_by = order_by
+            replacements = {
+                "start_time": "openTime",
+                "startTime": "openTime",
+                "open_time": "openTime",
+                "end_time": "closeTime",
+                "endTime": "closeTime",
+                "close_time": "closeTime",
+            }
+            for k, v in replacements.items():
+                mapped_order_by = mapped_order_by.replace(k, v)
+
+            parts = mapped_order_by.split()
+            sort_field = parts[0] if parts else "openTime"
+
+            # Default ascending unless desc is explicitly specified, or if "-" prefix is used
+            reverse = False
+            if len(parts) > 1 and parts[-1].lower() == "desc":
+                reverse = True
+            elif sort_field.startswith("-"):
+                sort_field = sort_field[1:]
+                reverse = True
+
+            def sort_key(x: dict[str, Any]) -> str:
+                val = x.get(sort_field)
+                if val is None:
+                    return ""
+                return str(val)
+
+            alerts.sort(key=sort_key, reverse=reverse)
+
         return cast(list[dict[str, Any]], alerts)
 
     except Exception as e:
