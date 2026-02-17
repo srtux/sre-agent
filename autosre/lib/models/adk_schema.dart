@@ -16,7 +16,7 @@
 
 export 'trace_models.dart';
 export 'metric_models.dart';
-export 'log_models.dart';
+export '../features/logs/domain/models.dart';
 export 'alert_models.dart';
 export 'agent_models.dart';
 export 'remediation_models.dart';
