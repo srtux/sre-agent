@@ -36,12 +36,12 @@ void main() {
   // ===========================================================================
   group('LogEntry fromJson resource_labels safety', () {
     test('handles non-string values in resource_labels', () {
-      final entry = LogEntry.fromJson({
+      final entry = LogEntry.fromJson(<String, dynamic>{
         'insert_id': 'id1',
         'timestamp': '2026-01-01T00:00:00Z',
         'severity': 'INFO',
         'payload': 'test',
-        'resource_labels': {'project_id': 'proj', 'count': 42, 'flag': true},
+        'resource_labels': <String, dynamic>{'project_id': 'proj', 'count': 42, 'flag': true},
         'resource_type': 'gce',
       });
       // Should not throw — converts non-strings to string
@@ -51,7 +51,7 @@ void main() {
     });
 
     test('handles null resource_labels', () {
-      final entry = LogEntry.fromJson({
+      final entry = LogEntry.fromJson(<String, dynamic>{
         'insert_id': 'id1',
         'timestamp': '2026-01-01T00:00:00Z',
         'severity': 'INFO',
@@ -63,12 +63,12 @@ void main() {
     });
 
     test('handles non-Map http_request', () {
-      final entry = LogEntry.fromJson({
+      final entry = LogEntry.fromJson(<String, dynamic>{
         'insert_id': 'id1',
         'timestamp': '2026-01-01T00:00:00Z',
         'severity': 'INFO',
         'payload': 'test',
-        'resource_labels': {},
+        'resource_labels': <String, dynamic>{},
         'resource_type': 'gce',
         'http_request': 'not a map',
       });
@@ -180,14 +180,14 @@ void main() {
     });
 
     test('LogEntriesData.fromJson skips non-Map entries', () {
-      final data = LogEntriesData.fromJson({
+      final data = LogEntriesData.fromJson(<String, dynamic>{
         'entries': [
-          {
+          <String, dynamic>{
             'insert_id': 'id1',
             'timestamp': '2026-01-01T00:00:00Z',
             'severity': 'INFO',
             'payload': 'test',
-            'resource_labels': {},
+            'resource_labels': <String, dynamic>{},
             'resource_type': 'gce',
           },
           'not a map',

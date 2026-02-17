@@ -9,7 +9,6 @@ import 'services/session_service.dart';
 import 'services/tool_config_service.dart';
 import 'services/prompt_history_service.dart';
 import 'services/dashboard_state.dart';
-import 'services/dashboard_service.dart';
 import 'services/explorer_query_service.dart';
 import 'theme/app_theme.dart';
 
@@ -27,7 +26,7 @@ class SreNexusApp extends StatelessWidget {
         Provider(create: (_) => ToolConfigService()),
         Provider(create: (_) => PromptHistoryService()),
         ChangeNotifierProvider(create: (_) => DashboardState()),
-        ChangeNotifierProvider(create: (_) => DashboardApiService()),
+
         ProxyProvider<DashboardState, ExplorerQueryService>(
           update: (_, dashState, previous) =>
               previous ??

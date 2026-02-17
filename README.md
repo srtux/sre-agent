@@ -302,7 +302,8 @@ uv run poe delete --resource_id <ID>
 | **Agent Framework** | [Google ADK](https://google.github.io/adk-docs/) >= 1.23.0 | Agent orchestration, tool registration, session management |
 | **LLM** | Gemini 2.5 Flash / Pro | Reasoning engine (selectable via `get_model_name("fast"\|"deep")`) |
 | **Backend** | FastAPI + Pydantic 2 | API proxy, auth middleware, session storage |
-| **Frontend** | Flutter Web (Material 3) | Investigation dashboard with GenUI widget rendering |
+| **Frontend** | Flutter Web (Material 3) | Modern Feature-First dashboard with GenUI widget rendering |
+| **State Management** | Riverpod 3.0 | Reactive state with `@riverpod` code generation |
 | **Observability** | Cloud Trace, Logging, Monitoring, BigQuery | Data sources for investigation |
 | **Storage** | SQLite (local) / Firestore (cloud) | Session state, investigation memory |
 | **Auth** | Google SSO + OAuth2 EUC | Identity propagation to all GCP API calls |
@@ -312,6 +313,7 @@ uv run poe delete --resource_id <ID>
 | **Linting** | Ruff, MyPy, codespell, deptry, detect-secrets | Formatting, type checking, spelling, dependency and secret scanning |
 | **Testing** | pytest 8+ (backend), flutter test (frontend), ADK eval | Unit, integration, e2e, and agent evaluation |
 | **Packaging** | `uv` + `poethepoet` (22+ tasks) | Dependency management and task runner |
+
 
 ---
 
@@ -431,58 +433,26 @@ sre_agent/
 ```
 autosre/lib/
 ├── main.dart             # App entry point
-├── app.dart              # Root widget
-├── pages/
-│   ├── login_page.dart    # Google SSO login
-│   ├── conversation_page.dart # Main investigation UI
-│   ├── tool_config_page.dart  # Tool configuration
-│   └── help_page.dart     # Help and documentation
-├── services/
-│   ├── auth_service.dart  # Authentication state
-│   ├── api_client.dart    # HTTP client with EUC injection
-│   ├── session_service.dart # Session management
-│   ├── dashboard_state.dart # Dashboard state with dual data sources
-│   ├── explorer_query_service.dart # Manual query HTTP client
-│   ├── project_service.dart # GCP project selection
-│   ├── connectivity_service.dart # Network status
-│   ├── help_service.dart  # Help content loading
-│   ├── prompt_history_service.dart # Prompt recall
-│   ├── tool_config_service.dart # Tool configuration
-│   └── version_service.dart # Version info
-├── widgets/
-│   ├── canvas/            # Visualization canvases
-│   │   ├── agent_activity_canvas.dart    # Council agent activity
-│   │   ├── agent_graph_canvas.dart       # Agent hierarchy graph
-│   │   ├── agent_trace_canvas.dart       # Agent trace visualization
-│   │   ├── ai_reasoning_canvas.dart      # Reasoning chain display
-│   │   ├── alerts_dashboard_canvas.dart  # Alert timeline
-│   │   ├── incident_timeline_canvas.dart # Incident chronology
-│   │   ├── metrics_dashboard_canvas.dart # Metrics overview
-│   │   └── service_topology_canvas.dart  # Service dependency map
-│   ├── dashboard/         # Live investigation panels
-│   │   ├── live_trace_panel.dart        # Trace waterfall with manual query
-│   │   ├── live_metrics_panel.dart      # Metrics charts (Syncfusion)
-│   │   ├── live_logs_explorer.dart      # Log filtering and analysis
-│   │   ├── live_alerts_panel.dart       # Alert timeline
-│   │   ├── live_council_panel.dart      # Council findings
-│   │   ├── live_remediation_panel.dart  # Remediation steps
-│   │   ├── live_charts_panel.dart       # Chart visualizations
-│   │   ├── visual_data_explorer.dart    # Interactive data explorer
-│   │   ├── sre_toolbar.dart             # Time range + refresh controls
-│   │   ├── manual_query_bar.dart        # Direct GCP query input
-│   │   ├── sql_results_table.dart       # BigQuery results display
-│   │   └── council_activity_graph.dart  # Council graph visualization
-│   ├── common/            # Shared UI components
-│   ├── auth/              # Authentication widgets
-│   └── help/              # Help system widgets
-├── models/
-│   ├── adk_schema.dart    # ADK response schema definitions
-│   └── time_range.dart    # Time range model with presets
-├── theme/
-│   ├── app_theme.dart     # Material 3 Deep Space theme
-│   └── chart_theme.dart   # Syncfusion chart theming
-└── utils/                 # Utilities (ANSI parser)
+├── app.dart              # Root widget with Riverpod ProviderScope
+├── features/             # Feature-First architectural layer
+│   ├── logs/             #   Log Explorer feature (PlutoGrid, Riverpod)
+│   ├── dashboards/       #   Custom Dashboards feature (CRUD, Notifiers)
+│   ├── metrics/          #   Metrics Exploration feature (Syncfusion)
+│   ├── traces/           #   Trace Analysis feature (Waterfall)
+│   └── conversation/     #   Chat and reasoning interface
+├── services/             # Core business infrastructure
+│   ├── auth_service.dart  #   Authentication and EUC management
+│   ├── api_client.dart    #   Dio client with interceptors
+│   ├── project_service.dart # GCP project context
+│   └── persistence/       #   Drift local storage for logs/metrics
+├── widgets/              # Shared UI design system
+│   ├── common/           #   GlassContainer, app icons, feedback
+│   ├── layout/           #   resizable multi_split_view components
+│   └── canvas/           #   high-density visualization canvases
+├── theme/                # Deep Space Command Center design tokens
+└── models/               # Shared cross-cutting domain models
 ```
+
 
 ### Tests (`tests/`)
 

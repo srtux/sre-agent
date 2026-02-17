@@ -5,7 +5,7 @@ part 'models.freezed.dart';
 part 'models.g.dart';
 
 @freezed
-class AgentNode with _$AgentNode {
+abstract class AgentNode with _$AgentNode {
   const factory AgentNode({
     required String id,
     required String name,
@@ -19,7 +19,7 @@ class AgentNode with _$AgentNode {
 }
 
 @freezed
-class AgentActivityData with _$AgentActivityData {
+abstract class AgentActivityData with _$AgentActivityData {
   const factory AgentActivityData({
     required List<AgentNode> nodes,
     @JsonKey(name: 'current_phase') required String currentPhase,

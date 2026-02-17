@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../../services/auth_service.dart';
+import '../../../services/service_config.dart';
 
 part 'dio_provider.g.dart';
 
@@ -8,7 +9,7 @@ part 'dio_provider.g.dart';
 Dio dio(Ref ref) {
   final dio = Dio(
     BaseOptions(
-      baseUrl: 'http://localhost:8080', // Default baseUrl, can be configured
+      baseUrl: ServiceConfig.baseUrl,
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 30),
       headers: {

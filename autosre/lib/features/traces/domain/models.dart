@@ -5,7 +5,7 @@ part 'models.freezed.dart';
 part 'models.g.dart';
 
 @freezed
-class SpanInfo with _$SpanInfo {
+abstract class SpanInfo with _$SpanInfo {
   const SpanInfo._();
 
   const factory SpanInfo({
@@ -25,7 +25,7 @@ class SpanInfo with _$SpanInfo {
 }
 
 @freezed
-class Trace with _$Trace {
+abstract class Trace with _$Trace {
   const factory Trace({
     @JsonKey(name: 'trace_id') required String traceId,
     required List<SpanInfo> spans,

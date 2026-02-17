@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dio/dio.dart';
 import 'package:autosre/features/logs/data/log_repository.dart';
-import 'package:autosre/features/logs/domain/models.dart';
 
 class MockDio extends Fake implements Dio {
   int getCount = 0;
@@ -10,16 +9,20 @@ class MockDio extends Fake implements Dio {
   bool shouldThrowError = false;
 
   @override
-  Future<Response<T>> get<T>(
+  Future<Response<T>> post<T>(
     String path, {
+    Object? data,
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
     void Function(int, int)? onReceiveProgress,
   }) async {
     getCount++;
     lastPath = path;
-    lastParams = queryParameters;
+    if (data is Map<String, dynamic>) {
+      lastParams = data;
+    }
 
     if (shouldThrowError) {
       throw DioException(

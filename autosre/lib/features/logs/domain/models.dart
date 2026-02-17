@@ -5,7 +5,7 @@ part 'models.freezed.dart';
 part 'models.g.dart';
 
 @freezed
-class LogPattern with _$LogPattern {
+abstract class LogPattern with _$LogPattern {
   const factory LogPattern({
     @Default('') String template,
     @Default(0) int count,
@@ -16,7 +16,7 @@ class LogPattern with _$LogPattern {
 }
 
 @freezed
-class LogEntry with _$LogEntry {
+abstract class LogEntry with _$LogEntry {
   const LogEntry._();
 
   const factory LogEntry({
@@ -31,7 +31,34 @@ class LogEntry with _$LogEntry {
     @JsonKey(name: 'http_request') Map<String, dynamic>? httpRequest,
   }) = _LogEntry;
 
-  factory LogEntry.fromJson(Map<String, dynamic> json) => _$LogEntryFromJson(json);
+  factory LogEntry.fromJson(Map<String, dynamic> json) {
+    final resourceLabels = <String, String>{};
+    final labels = json['resource_labels'];
+    if (labels is Map) {
+      labels.forEach((k, v) {
+        resourceLabels[k.toString()] = v.toString();
+      });
+    }
+
+    Map<String, dynamic>? httpRequest;
+    if (json['http_request'] is Map) {
+      httpRequest = Map<String, dynamic>.from(json['http_request'] as Map);
+    }
+
+    return LogEntry(
+      insertId: json['insert_id']?.toString() ?? '',
+      timestamp: json['timestamp'] != null
+          ? DateTime.tryParse(json['timestamp'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      severity: json['severity']?.toString() ?? 'INFO',
+      payload: json['payload'],
+      resourceLabels: resourceLabels,
+      resourceType: json['resource_type']?.toString() ?? 'unknown',
+      traceId: json['trace_id']?.toString(),
+      spanId: json['span_id']?.toString(),
+      httpRequest: httpRequest,
+    );
+  }
 
   bool get isJsonPayload => payload is Map;
 
@@ -52,7 +79,7 @@ class LogEntry with _$LogEntry {
 }
 
 @freezed
-class LogEntriesData with _$LogEntriesData {
+abstract class LogEntriesData with _$LogEntriesData {
   const factory LogEntriesData({
     required List<LogEntry> entries,
     String? filter,
@@ -60,5 +87,15 @@ class LogEntriesData with _$LogEntriesData {
     @JsonKey(name: 'next_page_token') String? nextPageToken,
   }) = _LogEntriesData;
 
-  factory LogEntriesData.fromJson(Map<String, dynamic> json) => _$LogEntriesDataFromJson(json);
+  factory LogEntriesData.fromJson(Map<String, dynamic> json) {
+    return LogEntriesData(
+      entries: (json['entries'] as List? ?? [])
+          .whereType<Map>()
+          .map((e) => LogEntry.fromJson(Map<String, dynamic>.from(e)))
+          .toList(),
+      filter: json['filter'] as String?,
+      projectId: json['project_id'] as String?,
+      nextPageToken: json['next_page_token'] as String?,
+    );
+  }
 }

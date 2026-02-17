@@ -45,10 +45,12 @@
 - **Language**: Python 3.10+ (Backend), Dart/Flutter (Frontend)
 - **Agent Framework**: Google Agent Development Kit (ADK)
 - **LLM**: Gemini 2.5 Flash/Pro (via `get_model_name("fast"|"deep")`)
-- **Frontend**: Flutter Web (WasmGC + CanvasKit, Deep Space aesthetic)
+- **Frontend**: Flutter Web (WasmGC + CanvasKit, Deep Space aesthetic, Riverpod 3.0)
+- **Architecture**: Domain-Driven / Feature-First (Frontend & Backend)
 - **API Strategy**: Hybrid (MCP for heavy-lifting, Direct API for speed)
 - **Testing**: pytest (Backend), flutter test (Frontend)
 - **Linting**: Ruff + MyPy (Python), flutter analyze (Dart)
+
 
 ### Core Components
 
@@ -314,8 +316,10 @@ To prevent brittle UI rendering, the Investigation Dashboard is decoupled from t
 
 **Frontend implementation**:
 - `ADKContentGenerator` exposes a `dashboardStream`.
-- `ConversationPage` subscribes to this stream and updates `DashboardState`.
+- `DashboardViewPage` (Feature-First) and `ConversationPage` subscribe to this stream.
+- State is managed via Riverpod `AsyncNotifier` (see `Dashboards` and `DashboardDetail`).
 - A2UI remains solely for in-chat tool log bubbles.
+
 
 ### 12.1 Council Activity Graph Events
 
@@ -697,10 +701,12 @@ Augments the rule-based `IntentClassifier` with an LLM-based classifier that con
 **Path**: `autosre/`
 
 **Key Components**:
-- **Framework**: Flutter Web
+- **Framework**: Flutter Web (WasmGC + CanvasKit)
+- **Structure**: Feature-First (`lib/features/`)
 - **Protocol**: GenUI (Generative UI) + A2UI
-- **State**: Provider + ValueNotifier
+- **State**: Riverpod 3.0 (`AsyncNotifier` + `@riverpod` generator)
 - **Agent Integration**: `AdkContentGenerator` connects to Vertex AI Agent
+
 
 **Development Rules**:
 1. **Visual Excellence**: "WOW" the user. No flat, boring UIs.

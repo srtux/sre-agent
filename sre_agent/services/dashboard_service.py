@@ -50,13 +50,9 @@ class DashboardService:
             dashboards.append(
                 {
                     "id": dash_id,
-                    "display_name": dash_data.get(
-                        "display_name", "Untitled"
-                    ),
+                    "display_name": dash_data.get("display_name", "Untitled"),
                     "description": dash_data.get("description", ""),
-                    "source": dash_data.get(
-                        "source", DashboardSource.LOCAL.value
-                    ),
+                    "source": dash_data.get("source", DashboardSource.LOCAL.value),
                     "panel_count": len(dash_data.get("panels", [])),
                     "metadata": dash_data.get("metadata", {}),
                     "labels": dash_data.get("labels", {}),
@@ -66,14 +62,10 @@ class DashboardService:
         # Cloud Monitoring dashboards
         if include_cloud and project_id:
             try:
-                cloud_dashboards = await self._list_cloud_dashboards(
-                    project_id
-                )
+                cloud_dashboards = await self._list_cloud_dashboards(project_id)
                 dashboards.extend(cloud_dashboards)
             except Exception as e:
-                logger.warning(
-                    f"Failed to fetch cloud dashboards: {e}"
-                )
+                logger.warning(f"Failed to fetch cloud dashboards: {e}")
 
         # Sort by updated_at descending
         dashboards.sort(
@@ -87,9 +79,7 @@ class DashboardService:
             "next_page_token": None,
         }
 
-    async def get_dashboard(
-        self, dashboard_id: str
-    ) -> dict[str, Any] | None:
+    async def get_dashboard(self, dashboard_id: str) -> dict[str, Any] | None:
         """Get a dashboard by ID.
 
         Args:
@@ -154,9 +144,7 @@ class DashboardService:
         }
 
         self._store[dashboard_id] = dashboard_data
-        logger.info(
-            f"Created dashboard '{display_name}' with ID {dashboard_id}"
-        )
+        logger.info(f"Created dashboard '{display_name}' with ID {dashboard_id}")
         return dashboard_data
 
     async def update_dashboard(
@@ -266,11 +254,7 @@ class DashboardService:
         if not dashboard:
             return None
 
-        panels = [
-            p
-            for p in dashboard.get("panels", [])
-            if p.get("id") != panel_id
-        ]
+        panels = [p for p in dashboard.get("panels", []) if p.get("id") != panel_id]
         dashboard["panels"] = panels
 
         now = datetime.now(timezone.utc).isoformat()
@@ -315,9 +299,7 @@ class DashboardService:
         self._store[dashboard_id] = dashboard
         return dashboard
 
-    def _find_next_position(
-        self, panels: list[dict[str, Any]]
-    ) -> dict[str, int]:
+    def _find_next_position(self, panels: list[dict[str, Any]]) -> dict[str, int]:
         """Find the next available position in the grid."""
         if not panels:
             return {"x": 0, "y": 0, "width": 12, "height": 4}
@@ -333,9 +315,7 @@ class DashboardService:
 
         return {"x": 0, "y": max_y, "width": 12, "height": 4}
 
-    async def _list_cloud_dashboards(
-        self, project_id: str
-    ) -> list[dict[str, Any]]:
+    async def _list_cloud_dashboards(self, project_id: str) -> list[dict[str, Any]]:
         """Fetch dashboards from Cloud Monitoring API."""
         try:
             from fastapi.concurrency import run_in_threadpool
@@ -344,20 +324,14 @@ class DashboardService:
                 _list_dashboards_sync,
             )
 
-            result = await run_in_threadpool(
-                _list_dashboards_sync, project_id, None
-            )
+            result = await run_in_threadpool(_list_dashboards_sync, project_id, None)
             if isinstance(result, list):
                 return [
                     {
                         "id": (
-                            d.get("name", "").split("/")[-1]
-                            if d.get("name")
-                            else ""
+                            d.get("name", "").split("/")[-1] if d.get("name") else ""
                         ),
-                        "display_name": d.get(
-                            "display_name", "Untitled"
-                        ),
+                        "display_name": d.get("display_name", "Untitled"),
                         "description": "",
                         "source": "cloud_monitoring",
                         "panel_count": d.get("widget_count", 0),
@@ -371,9 +345,7 @@ class DashboardService:
                 ]
             return []
         except Exception as e:
-            logger.warning(
-                f"Failed to list cloud dashboards: {e}"
-            )
+            logger.warning(f"Failed to list cloud dashboards: {e}")
             return []
 
 

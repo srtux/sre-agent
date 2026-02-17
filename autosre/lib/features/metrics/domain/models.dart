@@ -5,7 +5,7 @@ part 'models.freezed.dart';
 part 'models.g.dart';
 
 @freezed
-class MetricPoint with _$MetricPoint {
+abstract class MetricPoint with _$MetricPoint {
   const factory MetricPoint({
     required DateTime timestamp,
     @Default(0.0) double value,
@@ -16,7 +16,7 @@ class MetricPoint with _$MetricPoint {
 }
 
 @freezed
-class MetricSeries with _$MetricSeries {
+abstract class MetricSeries with _$MetricSeries {
   const factory MetricSeries({
     @JsonKey(name: 'metric_name') required String metricName,
     required List<MetricPoint> points,
@@ -27,7 +27,7 @@ class MetricSeries with _$MetricSeries {
 }
 
 @freezed
-class MetricDataPoint with _$MetricDataPoint {
+abstract class MetricDataPoint with _$MetricDataPoint {
   const factory MetricDataPoint({
     required DateTime timestamp,
     required double value,
@@ -37,7 +37,7 @@ class MetricDataPoint with _$MetricDataPoint {
 }
 
 @freezed
-class DashboardMetric with _$DashboardMetric {
+abstract class DashboardMetric with _$DashboardMetric {
   const DashboardMetric._();
 
   const factory DashboardMetric({
@@ -61,7 +61,7 @@ class DashboardMetric with _$DashboardMetric {
 }
 
 @freezed
-class MetricsDashboardData with _$MetricsDashboardData {
+abstract class MetricsDashboardData with _$MetricsDashboardData {
   const factory MetricsDashboardData({
     @Default('Metrics Dashboard') String title,
     @JsonKey(name: 'service_name') String? serviceName,

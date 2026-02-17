@@ -122,7 +122,7 @@ def _list_alerts_sync(
 
             start_time = datetime.now(timezone.utc) - timedelta(minutes=minutes_ago)
             start_time_str = start_time.strftime("%Y-%m-%dT%H:%M:%S.000000Z")
-            filters.append(f'open_time >= "{start_time_str}"')
+            filters.append(f'openTime >= "{start_time_str}"')
 
         if filters:
             params["filter"] = " AND ".join(filters)
@@ -130,12 +130,12 @@ def _list_alerts_sync(
         if order_by:
             mapped_order_by = order_by
             replacements = {
-                "start_time": "open_time",
-                "startTime": "open_time",
-                "openTime": "open_time",
-                "end_time": "close_time",
-                "endTime": "close_time",
-                "closeTime": "close_time",
+                "start_time": "openTime",
+                "startTime": "openTime",
+                "open_time": "openTime",
+                "end_time": "closeTime",
+                "endTime": "closeTime",
+                "close_time": "closeTime",
             }
             for k, v in replacements.items():
                 mapped_order_by = mapped_order_by.replace(k, v)
@@ -186,8 +186,8 @@ def _list_alerts_sync(
         ):
             error_msg += (
                 "\n\nHINT: Google Cloud Monitoring filters must follow the syntax 'field=\"value\"'. "
-                "Ensure you are using valid fields like 'open_time', 'close_time' or 'state'. "
-                "Example: 'state=\"OPEN\"' or 'open_time > \"2023-01-01T00:00:00Z\"'. "
+                "Ensure you are using valid fields like 'openTime', 'closeTime' or 'state'. "
+                "Example: 'state=\"OPEN\"' or 'openTime > \"2023-01-01T00:00:00Z\"'. "
                 "Instead of formatting raw timestamps, you can also consider passing the 'minutes_ago' parameter directly."
             )
 
@@ -195,7 +195,7 @@ def _list_alerts_sync(
             error_msg += (
                 "\n\nCRITICAL HINT: The Cloud Monitoring API parser failed. "
                 "This usually happens when timestamps are formatted as integers instead of RFC3339 strings. "
-                "Always use time strings like 'open_time > \"2023-01-01T00:00:00Z\"' instead of unix epoch numbers."
+                "Always use time strings like 'openTime > \"2023-01-01T00:00:00Z\"' instead of unix epoch numbers."
             )
 
         logger.error(error_msg, exc_info=True)

@@ -7,7 +7,7 @@ part 'log_notifier.freezed.dart';
 part 'log_notifier.g.dart';
 
 @freezed
-class LogNotifierState with _$LogNotifierState {
+abstract class LogNotifierState with _$LogNotifierState {
   const factory LogNotifierState({
     @Default([]) List<LogEntry> entries,
     @Default(false) bool isLoading,

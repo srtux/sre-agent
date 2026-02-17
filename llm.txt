@@ -11,7 +11,8 @@ Version: 0.2.0 | License: Apache-2.0 | Status: Phase 3 active (2277+ backend tes
 
 ## TECH STACK
 - Backend: Python 3.10+ (<3.13), FastAPI, Google ADK 1.23.0, Pydantic 2
-- Frontend: Flutter Web (Material 3, Deep Space aesthetic)
+- Frontend: Flutter Web (Material 3, Deep Space aesthetic, Riverpod 3.0)
+
 - LLM: Gemini 2.5 Flash/Pro (via `get_model_name("fast"|"deep")`)
 - Storage: SQLite (dev) / Cloud SQL (prod), Firestore (configs)
 - Telemetry: Cloud Trace, Cloud Logging, Cloud Monitoring (OTel)
@@ -125,15 +126,14 @@ sre_agent/                  # Backend source
   resources/
     gcp_metrics.py          # GCP metrics catalog by service
 
-autosre/                    # Flutter frontend
+autosre/                    # Flutter frontend (Feature-First structure)
   lib/
-    pages/                  # Login, conversation (main UI), tool config, help
-    services/               # Auth, API client, session, dashboard state, connectivity
-    widgets/                # Dashboard panels, trace waterfall, charts, remediation plan
-      canvas/               # Agent activity, AI reasoning, alerts, incident timeline, metrics, topology
-      dashboard/            # Live panels (alerts, council, logs, metrics, remediation, traces)
-    models/                 # ADK schema definitions
+    features/               # Modern domain-driven features (dashboards, logs, etc.)
+    services/               # Core services (Auth, API client, Project, etc.)
+    widgets/                # Shared UI components
+    models/                 # Shared domain data
     theme/                  # Material 3 deep space theme
+
 
 tests/                      # Test suite (~218 files)
   conftest.py               # Shared fixtures (log entries, trace spans, mock clients)
@@ -206,7 +206,9 @@ Middleware extracts into ContextVars. Tools get via `get_credentials_from_tool_c
 ### 6. Dashboard Data Channel
 Backend emits `{"type": "dashboard", ...}` events via tool_events.py.
 Frontend subscribes via `dashboardStream`, decoupled from chat A2UI.
+Managed via Riverpod 3.0 `AsyncNotifier` in `lib/features/dashboards/`.
 Additional event types: `agent_activity` (per-agent status), `council_graph` (full hierarchy).
+
 
 ### 7. MCP vs Direct API
 MCP (mcp/): BigQuery SQL, complex aggregations. Direct (clients/): single fetches, low-latency.

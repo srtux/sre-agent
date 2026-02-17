@@ -59,13 +59,20 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
   late List<_SpanBarData> _spanBars;
   late Map<String, Color> _serviceColors;
   late double _totalDurationMs;
+  int _errorCount = 0;
   SpanInfo? _selectedSpan;
   Set<String> _collapsedSpanIds = {};
   TraceViewMode _viewMode = TraceViewMode.timeline;
 
+  // Optimized Lookups
+  Map<String, SpanInfo> _spanMap = {};
+  Map<String, List<SpanInfo>> _childrenMap = {};
+  final Map<String, List<SpanInfo>> _importantChildrenMemo = {};
+
   // Graph Viewer Controls
   final Set<String> _expandedGraphNodes = {};
-  final TransformationController _graphTransformationController = TransformationController();
+  final TransformationController _graphTransformationController =
+      TransformationController();
 
   @override
   void initState() {
@@ -90,8 +97,15 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
       _spanBars = [];
       _serviceColors = {};
       _totalDurationMs = 0;
+      _spanMap = {};
+      _childrenMap = {};
+      _importantChildrenMemo.clear();
       return;
     }
+
+    // Initialize mapping for O(1) lookups
+    _spanMap = {for (var s in widget.trace.spans) s.spanId: s};
+    _importantChildrenMemo.clear();
 
     final sortedSpans = List<SpanInfo>.from(widget.trace.spans)
       ..sort((a, b) => a.startTime.compareTo(b.startTime));
@@ -103,28 +117,35 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
     _totalDurationMs = traceEnd.difference(traceStart).inMicroseconds / 1000.0;
     if (_totalDurationMs <= 0) _totalDurationMs = 1;
 
-    final childrenMap = <String?, List<SpanInfo>>{};
+    // Root-relative mapping
+    _childrenMap = {};
     for (final span in sortedSpans) {
-      childrenMap.putIfAbsent(span.parentSpanId, () => []).add(span);
+      if (span.parentSpanId != null) {
+        _childrenMap.putIfAbsent(span.parentSpanId!, () => []).add(span);
+      }
     }
 
-    final allSpanIds = sortedSpans.map((s) => s.spanId).toSet();
     final rootSpans = sortedSpans
         .where(
-          (s) => s.parentSpanId == null || !allSpanIds.contains(s.parentSpanId),
+          (s) => s.parentSpanId == null || !_spanMap.containsKey(s.parentSpanId),
         )
         .toList();
 
     rootSpans.sort((a, b) => a.startTime.compareTo(b.startTime));
 
-    final criticalPathIds = _findCriticalPath(rootSpans, childrenMap);
+    final criticalPathIds = _findCriticalPath(rootSpans, _childrenMap);
+
+    _errorCount = 0;
+    for (final s in widget.trace.spans) {
+      if (s.status == 'ERROR') _errorCount++;
+    }
 
     final flatData = <_SpanBarData>[];
     _serviceColors = {};
     var colorIndex = 0;
 
     void flatten(SpanInfo span, int depth) {
-      final children = childrenMap[span.spanId] ?? [];
+      final children = _childrenMap[span.spanId] ?? [];
       final hasChildren = children.isNotEmpty;
 
       final service = _extractServiceName(span.name);
@@ -169,32 +190,55 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
 
   Set<String> _findCriticalPath(
     List<SpanInfo> roots,
-    Map<String?, List<SpanInfo>> childrenMap,
+    Map<String, List<SpanInfo>> childrenMap,
   ) {
-    var bestPath = <String>{};
-    var bestDuration = 0;
+    if (roots.isEmpty) return {};
 
-    void walk(SpanInfo span, Set<String> path, int cumDuration) {
-      path.add(span.spanId);
-      final newDuration = cumDuration + span.duration.inMicroseconds;
+    // Memoized longest path search (O(N))
+    final memo = <String, (int, List<String>)>{};
+    final visited = <String>{}; // For cycle detection
+
+    (int, List<String>) findMax(SpanInfo span) {
+      if (memo.containsKey(span.spanId)) return memo[span.spanId]!;
+
+      // Cycle detection
+      if (visited.contains(span.spanId)) {
+        return (span.duration.inMicroseconds, [span.spanId]);
+      }
+      visited.add(span.spanId);
+
+      var maxChildDuration = 0;
+      var maxChildPath = <String>[];
+
       final children = childrenMap[span.spanId] ?? [];
+      for (final child in children) {
+        final res = findMax(child);
+        if (res.$1 > maxChildDuration) {
+          maxChildDuration = res.$1;
+          maxChildPath = res.$2;
+        }
+      }
 
-      if (children.isEmpty) {
-        if (newDuration > bestDuration) {
-          bestDuration = newDuration;
-          bestPath = Set<String>.from(path);
-        }
-      } else {
-        for (final child in children) {
-          walk(child, Set<String>.from(path), newDuration);
-        }
+      final result = (
+        span.duration.inMicroseconds + maxChildDuration,
+        [span.spanId, ...maxChildPath],
+      );
+      memo[span.spanId] = result;
+      return result;
+    }
+
+    var overallMax = -1;
+    var overallPath = <String>[];
+
+    for (final root in roots) {
+      final res = findMax(root);
+      if (res.$1 > overallMax) {
+        overallMax = res.$1;
+        overallPath = res.$2;
       }
     }
 
-    for (final root in roots) {
-      walk(root, {}, 0);
-    }
-    return bestPath;
+    return overallPath.toSet();
   }
 
   String _extractServiceName(String spanName) {
@@ -227,14 +271,10 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
       return _buildEmptyState();
     }
 
-    final errorCount = widget.trace.spans
-        .where((s) => s.status == 'ERROR')
-        .length;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildHeader(errorCount),
+        _buildHeader(_errorCount),
         const SizedBox(height: 8),
         _buildServiceLegend(),
         const SizedBox(height: 8),
@@ -611,19 +651,25 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
     return false;
   }
 
-  List<SpanInfo> _getImportantChildren(String parentId, Map<String, List<String>> childrenMap) {
+  List<SpanInfo> _getImportantChildren(
+      String parentId, Map<String, List<SpanInfo>> childrenMap) {
+    if (_importantChildrenMemo.containsKey(parentId)) {
+      return _importantChildrenMemo[parentId]!;
+    }
+
     final important = <SpanInfo>[];
     final children = childrenMap[parentId] ?? [];
 
-    for (final childId in children) {
-      final childSpan = widget.trace.spans.firstWhere((s) => s.spanId == childId);
+    for (final childSpan in children) {
       if (_isImportantSpan(childSpan)) {
         important.add(childSpan);
       } else {
         // Recurse downstream
-        important.addAll(_getImportantChildren(childId, childrenMap));
+        important.addAll(_getImportantChildren(childSpan.spanId, childrenMap));
       }
     }
+
+    _importantChildrenMemo[parentId] = important;
     return important;
   }
 
@@ -632,29 +678,25 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
     final graph = Graph()..isTree = true;
     final nodeMap = <String, Node>{};
 
-    // Generate node map
+    // Generate node map (Safeguard: Limit graph size to 150 nodes to prevent UI freeze)
+    const maxNodes = 150;
+    var nodeCount = 0;
+
     for (final span in widget.trace.spans) {
       if (_isImportantSpan(span) || span.parentSpanId == null) {
         final node = Node.Id(span.spanId);
         nodeMap[span.spanId] = node;
         graph.addNode(node);
+        nodeCount++;
+        if (nodeCount >= maxNodes) break;
       }
     }
 
     // Initialize root in expanded map if empty
     if (_expandedGraphNodes.isEmpty && widget.trace.spans.isNotEmpty) {
-      final root = widget.trace.spans.firstWhere(
-        (s) => s.parentSpanId == null,
-        orElse: () => widget.trace.spans.first
-      );
+      final root = widget.trace.spans.firstWhere((s) => s.parentSpanId == null,
+          orElse: () => widget.trace.spans.first);
       _expandedGraphNodes.add(root.spanId);
-    }
-
-    final childrenMap = <String, List<String>>{};
-    for (final s in widget.trace.spans) {
-      if (s.parentSpanId != null) {
-        childrenMap.putIfAbsent(s.parentSpanId!, () => []).add(s.spanId);
-      }
     }
 
     // Build hierarchical condensed edges
@@ -662,15 +704,17 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
       if (!nodeMap.containsKey(parentSpanId)) continue;
 
       final parentNode = nodeMap[parentSpanId]!;
-      final importantChildren = _getImportantChildren(parentSpanId, childrenMap);
+      final importantChildren =
+          _getImportantChildren(parentSpanId, _childrenMap);
 
       for (final child in importantChildren) {
         if (nodeMap.containsKey(child.spanId)) {
           final childNode = nodeMap[child.spanId]!;
-          graph.addEdge(parentNode, childNode, paint: Paint()
-            ..color = AppColors.surfaceBorder
-            ..strokeWidth = 2
-            ..style = PaintingStyle.stroke);
+          graph.addEdge(parentNode, childNode,
+              paint: Paint()
+                ..color = AppColors.surfaceBorder
+                ..strokeWidth = 2
+                ..style = PaintingStyle.stroke);
         }
       }
     }
@@ -738,13 +782,7 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
     final isSelected = _selectedSpan?.spanId == span.spanId;
     final color = span.status == 'ERROR' ? AppColors.error : (_serviceColors[serviceName] ?? AppColors.primaryTeal);
 
-    final childrenMap = <String, List<String>>{};
-    for (final s in widget.trace.spans) {
-      if (s.parentSpanId != null) {
-        childrenMap.putIfAbsent(s.parentSpanId!, () => []).add(s.spanId);
-      }
-    }
-    final importantChildren = _getImportantChildren(span.spanId, childrenMap);
+    final importantChildren = _getImportantChildren(span.spanId, _childrenMap);
     final isExpanded = _expandedGraphNodes.contains(span.spanId);
 
     return GestureDetector(
