@@ -51,8 +51,8 @@ def test_consistent_key_from_env(mock_get):
     test_key = (
         "52E77h0CL_ZEwMxY0z7iXct98Fr50Savh5Jq4qX6weM="  # pragma: allowlist secret
     )
-    mock_get.side_effect = (
-        lambda k, d=None: test_key if k == "SRE_AGENT_ENCRYPTION_KEY" else d
+    mock_get.side_effect = lambda k, d=None: (
+        test_key if k == "SRE_AGENT_ENCRYPTION_KEY" else d
     )
 
     # Reset the cached Fernet instance to pick up the mocked env

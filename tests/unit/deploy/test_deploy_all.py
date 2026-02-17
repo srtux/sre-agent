@@ -22,9 +22,9 @@ def test_get_existing_agent_id_success():
         patch("vertexai.agent_engines", create=True) as mock_agent_engines,
         patch(
             "os.getenv",
-            side_effect=lambda k, d=None: "test-project"
-            if k == "GOOGLE_CLOUD_PROJECT"
-            else d,
+            side_effect=lambda k, d=None: (
+                "test-project" if k == "GOOGLE_CLOUD_PROJECT" else d
+            ),
         ),
     ):
         mock_agent_engines.list.return_value = [mock_agent]

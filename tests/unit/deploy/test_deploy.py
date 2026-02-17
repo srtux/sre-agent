@@ -85,9 +85,9 @@ def test_deploy_propagates_encryption_key(mock_agent_engines, mock_flags):
 
     with patch(
         "os.getenv",
-        side_effect=lambda k, d=None: test_key
-        if k == "SRE_AGENT_ENCRYPTION_KEY"
-        else d,
+        side_effect=lambda k, d=None: (
+            test_key if k == "SRE_AGENT_ENCRYPTION_KEY" else d
+        ),
     ):
         deploy_mod.deploy()
 

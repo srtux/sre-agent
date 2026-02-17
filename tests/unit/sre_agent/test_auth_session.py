@@ -89,9 +89,9 @@ async def test_auth_middleware_with_cookie_and_header(
     }
     # Mock lookup with specific user_id
     mock_session_manager_middleware.get_session = AsyncMock(
-        side_effect=lambda sid, user_id: mock_session
-        if user_id == "test@example.com"
-        else None
+        side_effect=lambda sid, user_id: (
+            mock_session if user_id == "test@example.com" else None
+        )
     )
 
     with patch("sre_agent.auth.set_current_credentials") as mock_set_creds:

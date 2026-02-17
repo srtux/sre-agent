@@ -49,8 +49,9 @@ class RunnerConfig:
 
     # Enable policy enforcement
     enforce_policy: bool = field(
-        default_factory=lambda: os.getenv("SRE_AGENT_ENFORCE_POLICY", "true").lower()
-        == "true"
+        default_factory=lambda: (
+            os.getenv("SRE_AGENT_ENFORCE_POLICY", "true").lower() == "true"
+        )
     )
 
     # Enable context compaction

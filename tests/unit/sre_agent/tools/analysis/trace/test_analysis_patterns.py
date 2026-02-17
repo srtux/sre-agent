@@ -9,9 +9,9 @@ def test_compare_span_timings_n_plus_one_detection():
     """Test that N+1 query patterns are detected."""
     with patch(
         "sre_agent.tools.analysis.trace.analysis.fetch_trace_data",
-        side_effect=lambda tid, pid, **kwargs: json.loads(tid)
-        if isinstance(tid, str)
-        else tid,
+        side_effect=lambda tid, pid, **kwargs: (
+            json.loads(tid) if isinstance(tid, str) else tid
+        ),
     ):
         baseline = {
             "trace_id": "base",
@@ -71,9 +71,9 @@ def test_compare_span_timings_serial_chain_detection():
     """Test that serial chain patterns (waterfalls) are detected."""
     with patch(
         "sre_agent.tools.analysis.trace.analysis.fetch_trace_data",
-        side_effect=lambda tid, pid, **kwargs: json.loads(tid)
-        if isinstance(tid, str)
-        else tid,
+        side_effect=lambda tid, pid, **kwargs: (
+            json.loads(tid) if isinstance(tid, str) else tid
+        ),
     ):
         baseline = {
             "trace_id": "base",
