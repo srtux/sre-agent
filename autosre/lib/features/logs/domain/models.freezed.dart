@@ -298,7 +298,6 @@ as Map<String, int>,
 
 }
 
-
 /// @nodoc
 mixin _$LogEntry implements DiagnosticableTreeMixin {
 
@@ -311,8 +310,6 @@ mixin _$LogEntry implements DiagnosticableTreeMixin {
 @pragma('vm:prefer-inline')
 $LogEntryCopyWith<LogEntry> get copyWith => _$LogEntryCopyWithImpl<LogEntry>(this as LogEntry, _$identity);
 
-  /// Serializes this LogEntry to a JSON map.
-  Map<String, dynamic> toJson();
 
 @override
 void debugFillProperties(DiagnosticPropertiesBuilder properties) {
@@ -326,7 +323,7 @@ bool operator ==(Object other) {
   return identical(this, other) || (other.runtimeType == runtimeType&&other is LogEntry&&(identical(other.insertId, insertId) || other.insertId == insertId)&&(identical(other.timestamp, timestamp) || other.timestamp == timestamp)&&(identical(other.severity, severity) || other.severity == severity)&&const DeepCollectionEquality().equals(other.payload, payload)&&const DeepCollectionEquality().equals(other.resourceLabels, resourceLabels)&&(identical(other.resourceType, resourceType) || other.resourceType == resourceType)&&(identical(other.traceId, traceId) || other.traceId == traceId)&&(identical(other.spanId, spanId) || other.spanId == spanId)&&const DeepCollectionEquality().equals(other.httpRequest, httpRequest));
 }
 
-@JsonKey(includeFromJson: false, includeToJson: false)
+
 @override
 int get hashCode => Object.hash(runtimeType,insertId,timestamp,severity,const DeepCollectionEquality().hash(payload),const DeepCollectionEquality().hash(resourceLabels),resourceType,traceId,spanId,const DeepCollectionEquality().hash(httpRequest));
 
@@ -509,11 +506,11 @@ return $default(_that.insertId,_that.timestamp,_that.severity,_that.payload,_tha
 }
 
 /// @nodoc
-@JsonSerializable()
+
 
 class _LogEntry extends LogEntry with DiagnosticableTreeMixin {
   const _LogEntry({@JsonKey(name: 'insert_id') required this.insertId, required this.timestamp, this.severity = 'INFO', required this.payload, @JsonKey(name: 'resource_labels') final  Map<String, String> resourceLabels = const {}, @JsonKey(name: 'resource_type') this.resourceType = 'unknown', @JsonKey(name: 'trace_id') this.traceId, @JsonKey(name: 'span_id') this.spanId, @JsonKey(name: 'http_request') final  Map<String, dynamic>? httpRequest}): _resourceLabels = resourceLabels,_httpRequest = httpRequest,super._();
-  factory _LogEntry.fromJson(Map<String, dynamic> json) => _$LogEntryFromJson(json);
+
 
 @override@JsonKey(name: 'insert_id') final  String insertId;
 @override final  DateTime timestamp;
@@ -548,10 +545,7 @@ class _LogEntry extends LogEntry with DiagnosticableTreeMixin {
 @pragma('vm:prefer-inline')
 _$LogEntryCopyWith<_LogEntry> get copyWith => __$LogEntryCopyWithImpl<_LogEntry>(this, _$identity);
 
-@override
-Map<String, dynamic> toJson() {
-  return _$LogEntryToJson(this, );
-}
+
 @override
 void debugFillProperties(DiagnosticPropertiesBuilder properties) {
   properties
@@ -564,7 +558,7 @@ bool operator ==(Object other) {
   return identical(this, other) || (other.runtimeType == runtimeType&&other is _LogEntry&&(identical(other.insertId, insertId) || other.insertId == insertId)&&(identical(other.timestamp, timestamp) || other.timestamp == timestamp)&&(identical(other.severity, severity) || other.severity == severity)&&const DeepCollectionEquality().equals(other.payload, payload)&&const DeepCollectionEquality().equals(other._resourceLabels, _resourceLabels)&&(identical(other.resourceType, resourceType) || other.resourceType == resourceType)&&(identical(other.traceId, traceId) || other.traceId == traceId)&&(identical(other.spanId, spanId) || other.spanId == spanId)&&const DeepCollectionEquality().equals(other._httpRequest, _httpRequest));
 }
 
-@JsonKey(includeFromJson: false, includeToJson: false)
+
 @override
 int get hashCode => Object.hash(runtimeType,insertId,timestamp,severity,const DeepCollectionEquality().hash(payload),const DeepCollectionEquality().hash(_resourceLabels),resourceType,traceId,spanId,const DeepCollectionEquality().hash(_httpRequest));
 
@@ -616,39 +610,36 @@ as Map<String, dynamic>?,
 
 }
 
-
 /// @nodoc
 mixin _$LogEntriesData implements DiagnosticableTreeMixin {
 
- List<LogEntry> get entries; String? get filter;@JsonKey(name: 'project_id') String? get projectId;@JsonKey(name: 'next_page_token') String? get nextPageToken;
+ List<LogEntry> get entries; String? get filter;@JsonKey(name: 'project_id') String? get projectId;@JsonKey(name: 'next_page_token') String? get nextPageToken; int? get limit;
 /// Create a copy of LogEntriesData
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
 @pragma('vm:prefer-inline')
 $LogEntriesDataCopyWith<LogEntriesData> get copyWith => _$LogEntriesDataCopyWithImpl<LogEntriesData>(this as LogEntriesData, _$identity);
 
-  /// Serializes this LogEntriesData to a JSON map.
-  Map<String, dynamic> toJson();
 
 @override
 void debugFillProperties(DiagnosticPropertiesBuilder properties) {
   properties
     ..add(DiagnosticsProperty('type', 'LogEntriesData'))
-    ..add(DiagnosticsProperty('entries', entries))..add(DiagnosticsProperty('filter', filter))..add(DiagnosticsProperty('projectId', projectId))..add(DiagnosticsProperty('nextPageToken', nextPageToken));
+    ..add(DiagnosticsProperty('entries', entries))..add(DiagnosticsProperty('filter', filter))..add(DiagnosticsProperty('projectId', projectId))..add(DiagnosticsProperty('nextPageToken', nextPageToken))..add(DiagnosticsProperty('limit', limit));
 }
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is LogEntriesData&&const DeepCollectionEquality().equals(other.entries, entries)&&(identical(other.filter, filter) || other.filter == filter)&&(identical(other.projectId, projectId) || other.projectId == projectId)&&(identical(other.nextPageToken, nextPageToken) || other.nextPageToken == nextPageToken));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is LogEntriesData&&const DeepCollectionEquality().equals(other.entries, entries)&&(identical(other.filter, filter) || other.filter == filter)&&(identical(other.projectId, projectId) || other.projectId == projectId)&&(identical(other.nextPageToken, nextPageToken) || other.nextPageToken == nextPageToken)&&(identical(other.limit, limit) || other.limit == limit));
 }
 
-@JsonKey(includeFromJson: false, includeToJson: false)
+
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(entries),filter,projectId,nextPageToken);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(entries),filter,projectId,nextPageToken,limit);
 
 @override
 String toString({ DiagnosticLevel minLevel = DiagnosticLevel.info }) {
-  return 'LogEntriesData(entries: $entries, filter: $filter, projectId: $projectId, nextPageToken: $nextPageToken)';
+  return 'LogEntriesData(entries: $entries, filter: $filter, projectId: $projectId, nextPageToken: $nextPageToken, limit: $limit)';
 }
 
 
@@ -659,7 +650,7 @@ abstract mixin class $LogEntriesDataCopyWith<$Res>  {
   factory $LogEntriesDataCopyWith(LogEntriesData value, $Res Function(LogEntriesData) _then) = _$LogEntriesDataCopyWithImpl;
 @useResult
 $Res call({
- List<LogEntry> entries, String? filter,@JsonKey(name: 'project_id') String? projectId,@JsonKey(name: 'next_page_token') String? nextPageToken
+ List<LogEntry> entries, String? filter,@JsonKey(name: 'project_id') String? projectId,@JsonKey(name: 'next_page_token') String? nextPageToken, int? limit
 });
 
 
@@ -676,13 +667,14 @@ class _$LogEntriesDataCopyWithImpl<$Res>
 
 /// Create a copy of LogEntriesData
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? entries = null,Object? filter = freezed,Object? projectId = freezed,Object? nextPageToken = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? entries = null,Object? filter = freezed,Object? projectId = freezed,Object? nextPageToken = freezed,Object? limit = freezed,}) {
   return _then(_self.copyWith(
 entries: null == entries ? _self.entries : entries // ignore: cast_nullable_to_non_nullable
 as List<LogEntry>,filter: freezed == filter ? _self.filter : filter // ignore: cast_nullable_to_non_nullable
 as String?,projectId: freezed == projectId ? _self.projectId : projectId // ignore: cast_nullable_to_non_nullable
 as String?,nextPageToken: freezed == nextPageToken ? _self.nextPageToken : nextPageToken // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,limit: freezed == limit ? _self.limit : limit // ignore: cast_nullable_to_non_nullable
+as int?,
   ));
 }
 
@@ -767,10 +759,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<LogEntry> entries,  String? filter, @JsonKey(name: 'project_id')  String? projectId, @JsonKey(name: 'next_page_token')  String? nextPageToken)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<LogEntry> entries,  String? filter, @JsonKey(name: 'project_id')  String? projectId, @JsonKey(name: 'next_page_token')  String? nextPageToken,  int? limit)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _LogEntriesData() when $default != null:
-return $default(_that.entries,_that.filter,_that.projectId,_that.nextPageToken);case _:
+return $default(_that.entries,_that.filter,_that.projectId,_that.nextPageToken,_that.limit);case _:
   return orElse();
 
 }
@@ -788,10 +780,10 @@ return $default(_that.entries,_that.filter,_that.projectId,_that.nextPageToken);
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<LogEntry> entries,  String? filter, @JsonKey(name: 'project_id')  String? projectId, @JsonKey(name: 'next_page_token')  String? nextPageToken)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<LogEntry> entries,  String? filter, @JsonKey(name: 'project_id')  String? projectId, @JsonKey(name: 'next_page_token')  String? nextPageToken,  int? limit)  $default,) {final _that = this;
 switch (_that) {
 case _LogEntriesData():
-return $default(_that.entries,_that.filter,_that.projectId,_that.nextPageToken);case _:
+return $default(_that.entries,_that.filter,_that.projectId,_that.nextPageToken,_that.limit);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -808,10 +800,10 @@ return $default(_that.entries,_that.filter,_that.projectId,_that.nextPageToken);
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<LogEntry> entries,  String? filter, @JsonKey(name: 'project_id')  String? projectId, @JsonKey(name: 'next_page_token')  String? nextPageToken)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<LogEntry> entries,  String? filter, @JsonKey(name: 'project_id')  String? projectId, @JsonKey(name: 'next_page_token')  String? nextPageToken,  int? limit)?  $default,) {final _that = this;
 switch (_that) {
 case _LogEntriesData() when $default != null:
-return $default(_that.entries,_that.filter,_that.projectId,_that.nextPageToken);case _:
+return $default(_that.entries,_that.filter,_that.projectId,_that.nextPageToken,_that.limit);case _:
   return null;
 
 }
@@ -820,11 +812,11 @@ return $default(_that.entries,_that.filter,_that.projectId,_that.nextPageToken);
 }
 
 /// @nodoc
-@JsonSerializable()
 
-class _LogEntriesData with DiagnosticableTreeMixin implements LogEntriesData {
-  const _LogEntriesData({required final  List<LogEntry> entries, this.filter, @JsonKey(name: 'project_id') this.projectId, @JsonKey(name: 'next_page_token') this.nextPageToken}): _entries = entries;
-  factory _LogEntriesData.fromJson(Map<String, dynamic> json) => _$LogEntriesDataFromJson(json);
+
+class _LogEntriesData extends LogEntriesData with DiagnosticableTreeMixin {
+  const _LogEntriesData({required final  List<LogEntry> entries, this.filter, @JsonKey(name: 'project_id') this.projectId, @JsonKey(name: 'next_page_token') this.nextPageToken, this.limit}): _entries = entries,super._();
+
 
  final  List<LogEntry> _entries;
 @override List<LogEntry> get entries {
@@ -836,6 +828,7 @@ class _LogEntriesData with DiagnosticableTreeMixin implements LogEntriesData {
 @override final  String? filter;
 @override@JsonKey(name: 'project_id') final  String? projectId;
 @override@JsonKey(name: 'next_page_token') final  String? nextPageToken;
+@override final  int? limit;
 
 /// Create a copy of LogEntriesData
 /// with the given fields replaced by the non-null parameter values.
@@ -843,29 +836,26 @@ class _LogEntriesData with DiagnosticableTreeMixin implements LogEntriesData {
 @pragma('vm:prefer-inline')
 _$LogEntriesDataCopyWith<_LogEntriesData> get copyWith => __$LogEntriesDataCopyWithImpl<_LogEntriesData>(this, _$identity);
 
-@override
-Map<String, dynamic> toJson() {
-  return _$LogEntriesDataToJson(this, );
-}
+
 @override
 void debugFillProperties(DiagnosticPropertiesBuilder properties) {
   properties
     ..add(DiagnosticsProperty('type', 'LogEntriesData'))
-    ..add(DiagnosticsProperty('entries', entries))..add(DiagnosticsProperty('filter', filter))..add(DiagnosticsProperty('projectId', projectId))..add(DiagnosticsProperty('nextPageToken', nextPageToken));
+    ..add(DiagnosticsProperty('entries', entries))..add(DiagnosticsProperty('filter', filter))..add(DiagnosticsProperty('projectId', projectId))..add(DiagnosticsProperty('nextPageToken', nextPageToken))..add(DiagnosticsProperty('limit', limit));
 }
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _LogEntriesData&&const DeepCollectionEquality().equals(other._entries, _entries)&&(identical(other.filter, filter) || other.filter == filter)&&(identical(other.projectId, projectId) || other.projectId == projectId)&&(identical(other.nextPageToken, nextPageToken) || other.nextPageToken == nextPageToken));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _LogEntriesData&&const DeepCollectionEquality().equals(other._entries, _entries)&&(identical(other.filter, filter) || other.filter == filter)&&(identical(other.projectId, projectId) || other.projectId == projectId)&&(identical(other.nextPageToken, nextPageToken) || other.nextPageToken == nextPageToken)&&(identical(other.limit, limit) || other.limit == limit));
 }
 
-@JsonKey(includeFromJson: false, includeToJson: false)
+
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_entries),filter,projectId,nextPageToken);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_entries),filter,projectId,nextPageToken,limit);
 
 @override
 String toString({ DiagnosticLevel minLevel = DiagnosticLevel.info }) {
-  return 'LogEntriesData(entries: $entries, filter: $filter, projectId: $projectId, nextPageToken: $nextPageToken)';
+  return 'LogEntriesData(entries: $entries, filter: $filter, projectId: $projectId, nextPageToken: $nextPageToken, limit: $limit)';
 }
 
 
@@ -876,7 +866,7 @@ abstract mixin class _$LogEntriesDataCopyWith<$Res> implements $LogEntriesDataCo
   factory _$LogEntriesDataCopyWith(_LogEntriesData value, $Res Function(_LogEntriesData) _then) = __$LogEntriesDataCopyWithImpl;
 @override @useResult
 $Res call({
- List<LogEntry> entries, String? filter,@JsonKey(name: 'project_id') String? projectId,@JsonKey(name: 'next_page_token') String? nextPageToken
+ List<LogEntry> entries, String? filter,@JsonKey(name: 'project_id') String? projectId,@JsonKey(name: 'next_page_token') String? nextPageToken, int? limit
 });
 
 
@@ -893,13 +883,14 @@ class __$LogEntriesDataCopyWithImpl<$Res>
 
 /// Create a copy of LogEntriesData
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? entries = null,Object? filter = freezed,Object? projectId = freezed,Object? nextPageToken = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? entries = null,Object? filter = freezed,Object? projectId = freezed,Object? nextPageToken = freezed,Object? limit = freezed,}) {
   return _then(_LogEntriesData(
 entries: null == entries ? _self._entries : entries // ignore: cast_nullable_to_non_nullable
 as List<LogEntry>,filter: freezed == filter ? _self.filter : filter // ignore: cast_nullable_to_non_nullable
 as String?,projectId: freezed == projectId ? _self.projectId : projectId // ignore: cast_nullable_to_non_nullable
 as String?,nextPageToken: freezed == nextPageToken ? _self.nextPageToken : nextPageToken // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,limit: freezed == limit ? _self.limit : limit // ignore: cast_nullable_to_non_nullable
+as int?,
   ));
 }
 

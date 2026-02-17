@@ -80,11 +80,15 @@ abstract class LogEntry with _$LogEntry {
 
 @freezed
 abstract class LogEntriesData with _$LogEntriesData {
+  // ignore: unused_element
+  const LogEntriesData._();
+
   const factory LogEntriesData({
     required List<LogEntry> entries,
     String? filter,
     @JsonKey(name: 'project_id') String? projectId,
     @JsonKey(name: 'next_page_token') String? nextPageToken,
+    int? limit,
   }) = _LogEntriesData;
 
   factory LogEntriesData.fromJson(Map<String, dynamic> json) {
@@ -96,6 +100,29 @@ abstract class LogEntriesData with _$LogEntriesData {
       filter: json['filter'] as String?,
       projectId: json['project_id'] as String?,
       nextPageToken: json['next_page_token'] as String?,
+      limit: json['limit'] as int?,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'entries': entries.map((e) => {
+        // LogEntry toJson doesn't exist either? We can just pass minimal representation or empty for dashboard cache.
+        // Actually, logData.toJson() is just stored in the dashboard item as `raw`.
+        'timestamp': e.timestamp.toIso8601String(),
+        'severity': e.severity,
+        'payload': e.payload,
+        'insert_id': e.insertId,
+        'resource_type': e.resourceType,
+        'resource_labels': e.resourceLabels,
+        'trace_id': e.traceId,
+        'span_id': e.spanId,
+        'http_request': e.httpRequest,
+      }).toList(),
+      'filter': filter,
+      'project_id': projectId,
+      'next_page_token': nextPageToken,
+      'limit': limit,
+    };
   }
 }

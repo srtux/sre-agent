@@ -121,9 +121,7 @@ class _MessageItemState extends State<MessageItem>
             ? CrossAxisAlignment.center
             : CrossAxisAlignment.start,
         children: [
-          const Spacer(),
           Flexible(
-            flex: 0,
             child: Container(
               constraints: const BoxConstraints(maxWidth: 900),
               child: Container(

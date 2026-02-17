@@ -81,19 +81,25 @@ class QueryAutocompleteOverlay extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
                       // Label
-                      Text(
-                        s.label,
-                        style: GoogleFonts.jetBrainsMono(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: isHighlighted
-                              ? AppColors.primaryCyan
-                              : AppColors.textPrimary,
+                      Expanded(
+                        flex: 5,
+                        child: Text(
+                          s.label,
+                          style: GoogleFonts.jetBrainsMono(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: isHighlighted
+                                ? AppColors.primaryCyan
+                                : AppColors.textPrimary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       const SizedBox(width: 10),
                       // Description
                       Expanded(
+                        flex: 3,
                         child: Text(
                           s.description,
                           style: TextStyle(

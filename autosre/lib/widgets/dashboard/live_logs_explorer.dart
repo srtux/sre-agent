@@ -91,18 +91,6 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
     super.dispose();
   }
 
-  String? get _latestPageToken {
-    // Find the most recent manual logs item with a page token
-    for (final item in widget.items.reversed) {
-      if (item.type == DashboardDataType.logs &&
-          item.source == DataSource.manual &&
-          item.logData?.nextPageToken != null) {
-        return item.logData!.nextPageToken;
-      }
-    }
-    return null;
-  }
-
   Future<void> _onScroll() async {
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 400) {
@@ -113,19 +101,28 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
   Future<void> _loadMoreLogs() async {
     if (_isLoadingMore) return;
 
-    final pageToken = _latestPageToken;
+    DashboardItem? pageItem;
+    for (final item in widget.items.reversed) {
+      if (item.type == DashboardDataType.logs &&
+          item.logData?.nextPageToken != null) {
+        pageItem = item;
+        break;
+      }
+    }
+
+    if (pageItem == null || pageItem.logData == null) return;
+    final logData = pageItem.logData!;
+
+    final pageToken = logData.nextPageToken;
     if (pageToken == null) return;
 
-    final filter = widget.dashboardState.getLastQueryFilter(
-      DashboardDataType.logs,
-    );
-    if (filter == null || filter.isEmpty) return;
+    final filter = logData.filter ?? widget.dashboardState.getLastQueryFilter(DashboardDataType.logs) ?? '';
 
     setState(() => _isLoadingMore = true);
 
     try {
       final explorer = context.read<ExplorerQueryService>();
-      await explorer.queryLogs(filter: filter, pageToken: pageToken);
+      await explorer.queryLogs(filter: filter, pageToken: pageToken, limit: logData.limit);
     } finally {
       if (mounted) {
         setState(() => _isLoadingMore = false);

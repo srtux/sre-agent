@@ -210,7 +210,12 @@ def _list_log_entries_sync(
                 )
             next_token = first_page.next_page_token
 
-        return {"entries": results, "next_page_token": next_token or None}
+        return {
+            "entries": results,
+            "next_page_token": next_token or None,
+            "filter": filter_str,
+            "limit": limit,
+        }
     except Exception as e:
         import os
 
@@ -224,7 +229,12 @@ def _list_log_entries_sync(
             logger.warning(
                 f"Logging API error in eval mode (filter: {filter_str}): {error_msg}. Returning empty entries."
             )
-            return {"entries": [], "next_page_token": None}
+            return {
+                "entries": [],
+                "next_page_token": None,
+                "filter": filter_str,
+                "limit": limit,
+            }
 
         # Provide smart hints for common mistakes
         if "Field not found" in error_msg:

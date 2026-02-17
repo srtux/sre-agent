@@ -96,7 +96,7 @@ class MockExplorerQueryService implements ExplorerQueryService {
   @override
   Future<void> queryMetrics({required String filter, String? projectId, TimeRange? timeRange}) async {}
   @override
-  Future<void> queryLogs({required String filter, String? projectId, String? pageToken}) async {}
+  Future<void> queryLogs({required String filter, String? projectId, String? pageToken, int? limit}) async {}
   @override
   Future<List<LogEntry>> fetchLogsForSpan({required String traceId, required String spanId, String? projectId}) async => [];
   @override

@@ -123,6 +123,7 @@ class ExplorerQueryService {
     required String filter,
     String? projectId,
     String? pageToken,
+    int? limit,
   }) async {
     _dashboardState.setLoading(DashboardDataType.logs, true);
     try {
@@ -132,6 +133,9 @@ class ExplorerQueryService {
       };
       if (pageToken != null) {
         payload['page_token'] = pageToken;
+      }
+      if (limit != null) {
+        payload['limit'] = limit;
       }
       final body = jsonEncode(payload);
       final response = await _post('/api/tools/logs/query', body);
