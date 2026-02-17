@@ -13,6 +13,8 @@ RUN flutter doctor
 WORKDIR /app
 COPY autosre/ ./autosre/
 WORKDIR /app/autosre
+RUN flutter pub get
+RUN flutter pub run build_runner build --delete-conflicting-outputs
 RUN flutter build web --wasm --release
 
 # --- Production Stage ---
