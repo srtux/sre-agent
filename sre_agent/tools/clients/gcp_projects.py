@@ -55,7 +55,7 @@ async def list_gcp_projects(
                 logger.warning(f"Credential refresh failed: {e}")
                 pass
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=10.0) as client:
             token = getattr(auth_creds, "token", None)
             if not token:
                 return BaseToolResponse(
