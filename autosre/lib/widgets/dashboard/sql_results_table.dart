@@ -1,10 +1,12 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../theme/app_theme.dart';
+import '../../utils/isolate_helper.dart';
 import 'json_payload_viewer.dart';
 
 /// A sortable, scrollable data table for displaying BigQuery SQL query results.
@@ -37,11 +39,49 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
   /// Column type cache — determined once from first non-null values.
   late Map<String, _ColumnType> _columnTypes;
 
+  bool _isLoading = true;
+  List<Map<String, dynamic>> _processedRows = [];
+
   @override
   void initState() {
     super.initState();
-    _columnTypes = _detectColumnTypes();
     _initColumnWidths();
+    _processDataAsync();
+  }
+
+  Future<void> _processDataAsync() async {
+    setState(() => _isLoading = true);
+
+    try {
+      _ProcessRowsResult result;
+      final args = _ProcessRowsArgs(
+        columns: widget.columns,
+        rows: widget.rows,
+      );
+
+      // Avoid isolate overhead for small datasets (also bypasses compute in widget tests)
+      if (widget.rows.length < 500) {
+        result = _ProcessRowsTask.process(args);
+      } else {
+        result = await AppIsolate.run(_ProcessRowsTask.process, args);
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        _columnTypes = result.columnTypes;
+        _processedRows = result.processedRows;
+        _isLoading = false;
+      });
+    } catch (e, stack) {
+      debugPrint('Error processing rows: $e\n$stack');
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _columnTypes = {};
+        _processedRows = [];
+      });
+    }
   }
 
   void _initColumnWidths() {
@@ -56,57 +96,11 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
   void didUpdateWidget(SqlResultsTable oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.columns != widget.columns || oldWidget.rows != widget.rows) {
-      _columnTypes = _detectColumnTypes();
       _initColumnWidths();
       _expandedRows.clear();
       _currentPage = 0;
+      _processDataAsync();
     }
-  }
-
-  Map<String, _ColumnType> _detectColumnTypes() {
-    final types = <String, _ColumnType>{};
-    for (final col in widget.columns) {
-      var detected = _ColumnType.string;
-      for (final row in widget.rows.take(30)) {
-        final val = row[col];
-        if (val == null) continue;
-        if (val is Map || val is List) {
-        detected = _ColumnType.json;
-      } else if (val is num) {
-        // Heuristic: Unix epoch seconds, ms, us, ns
-        final colLower = col.toLowerCase();
-        if ((colLower.contains('time') || colLower.contains('date')) &&
-            val > 1000000000) {
-          detected = _ColumnType.timestamp;
-        } else {
-          detected = _ColumnType.number;
-        }
-      } else if (val is bool) {
-          detected = _ColumnType.boolean;
-        } else {
-        final s = val.toString();
-        final parsedDouble = double.tryParse(s);
-        if (parsedDouble != null) {
-          final colLower = col.toLowerCase();
-          if ((colLower.contains('time') || colLower.contains('date') || colLower.contains('timestamp')) &&
-              parsedDouble > 1000000000) {
-            detected = _ColumnType.timestamp;
-          } else {
-            detected = _ColumnType.number;
-          }
-        } else if (_looksLikeTimestamp(s)) {
-            detected = _ColumnType.timestamp;
-          } else if (_looksLikeJson(s)) {
-            detected = _ColumnType.json;
-          } else {
-            detected = _ColumnType.string;
-          }
-        }
-        break; // use first non-null value
-      }
-      types[col] = detected;
-    }
-    return types;
   }
 
   static bool _looksLikeTimestamp(String s) {
@@ -120,8 +114,8 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
   }
 
   List<Map<String, dynamic>> get _sortedRows {
-    if (_sortColumn == null) return widget.rows;
-    final sorted = List<Map<String, dynamic>>.from(widget.rows);
+    if (_sortColumn == null) return _processedRows;
+    final sorted = List<Map<String, dynamic>>.from(_processedRows);
     sorted.sort((a, b) {
       final aVal = a[_sortColumn];
       final bVal = b[_sortColumn];
@@ -141,6 +135,26 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(height: 12),
+            Text(
+              'Processing data...',
+              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+            ),
+          ],
+        ),
+      );
+    }
+
     if (widget.columns.isEmpty) {
       return const Center(
         child: Text(
@@ -609,10 +623,10 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
       return const Text('NULL', style: TextStyle(color: AppColors.textMuted));
     }
     try {
-      final dynamic decoded = val is String ? jsonDecode(val) : val;
-      final map = decoded is Map<String, dynamic>
-          ? decoded
-          : {'data': decoded};
+      // Data is already pre-decoded by isolate
+      final map = val is Map<String, dynamic>
+          ? val
+          : {'data': val};
 
       return JsonPayloadViewer(
         json: map,
@@ -674,11 +688,10 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
 
     if (colType == _ColumnType.json) {
       try {
-        final dynamic decoded = val is String ? jsonDecode(val) : val;
         final encoder = compact
             ? const JsonEncoder()
             : const JsonEncoder.withIndent('  ');
-        final s = encoder.convert(decoded);
+        final s = encoder.convert(val);
         if (compact && s.length > 50) return '${s.substring(0, 50)}...';
         return s;
       } catch (_) {
@@ -746,3 +759,91 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
 }
 
 enum _ColumnType { string, number, boolean, timestamp, json }
+
+// Isolate workflow for processing SQL rows
+class _ProcessRowsArgs {
+  final List<String> columns;
+  final List<Map<String, dynamic>> rows;
+  const _ProcessRowsArgs({required this.columns, required this.rows});
+}
+
+class _ProcessRowsResult {
+  final Map<String, _ColumnType> columnTypes;
+  final List<Map<String, dynamic>> processedRows;
+  const _ProcessRowsResult({required this.columnTypes, required this.processedRows});
+}
+
+class _ProcessRowsTask {
+  static _ProcessRowsResult process(_ProcessRowsArgs args) {
+    final types = <String, _ColumnType>{};
+
+    // 1. Detect Types
+    for (final col in args.columns) {
+      var detected = _ColumnType.string;
+      for (final row in args.rows.take(30)) {
+        final val = row[col];
+        if (val == null) continue;
+        if (val is Map || val is List) {
+          detected = _ColumnType.json;
+        } else if (val is num) {
+          final colLower = col.toLowerCase();
+          if ((colLower.contains('time') || colLower.contains('date')) &&
+              val > 1000000000) {
+            detected = _ColumnType.timestamp;
+          } else {
+            detected = _ColumnType.number;
+          }
+        } else if (val is bool) {
+          detected = _ColumnType.boolean;
+        } else {
+          final s = val.toString();
+          final parsedDouble = double.tryParse(s);
+          if (parsedDouble != null) {
+            final colLower = col.toLowerCase();
+            if ((colLower.contains('time') || colLower.contains('date') || colLower.contains('timestamp')) &&
+                parsedDouble > 1000000000) {
+              detected = _ColumnType.timestamp;
+            } else {
+              detected = _ColumnType.number;
+            }
+          } else if (_SqlResultsTableState._looksLikeTimestamp(s)) {
+            detected = _ColumnType.timestamp;
+          } else if (_SqlResultsTableState._looksLikeJson(s)) {
+            detected = _ColumnType.json;
+          } else {
+            detected = _ColumnType.string;
+          }
+        }
+        break; // use first non-null value
+      }
+      types[col] = detected;
+    }
+
+    // 2. Pre-process JSON rows
+    final processedRows = <Map<String, dynamic>>[];
+    for (var i = 0; i < args.rows.length; i++) {
+      final rawRow = args.rows[i];
+      final processedRow = Map<String, dynamic>.from(rawRow); // Clone to mutate
+
+      for (final col in args.columns) {
+        if (types[col] == _ColumnType.json) {
+          final val = rawRow[col];
+          if (val is String) {
+            try {
+              // Pre-decode JSON strings so the UI thread doesn't have to
+              processedRow[col] = jsonDecode(val);
+            } catch (_) {
+              // If decode fails, leave it as string
+            }
+          }
+        }
+      }
+      processedRows.add(processedRow);
+    }
+
+    return _ProcessRowsResult(
+      columnTypes: types,
+      processedRows: processedRows,
+    );
+  }
+}

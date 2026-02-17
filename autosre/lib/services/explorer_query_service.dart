@@ -1,12 +1,71 @@
 import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+
+import '../utils/isolate_helper.dart';
 
 import '../models/adk_schema.dart';
 import '../models/time_range.dart';
 import 'dashboard_state.dart';
 import 'service_config.dart';
+
+// --- Background Isolate Parsers ---
+// These top-level functions execute in a separate isolate to prevent
+// heavy JSON parsing and model formatting from blocking the UI thread.
+
+MetricSeries _parseMetrics(String body) {
+  final data = jsonDecode(body) as Map<String, dynamic>;
+  return MetricSeries.fromJson(data);
+}
+
+LogEntriesData _parseLogEntries(String body) {
+  final data = jsonDecode(body) as Map<String, dynamic>;
+  return LogEntriesData.fromJson(data);
+}
+
+Trace _parseTrace(String body) {
+  final data = jsonDecode(body) as Map<String, dynamic>;
+  return Trace.fromJson(data);
+}
+
+List<Trace> _parseTraceList(String body) {
+  final listData = jsonDecode(body) as List<dynamic>;
+  final traces = <Trace>[];
+  for (final item in listData) {
+    traces.add(Trace.fromJson(item as Map<String, dynamic>));
+  }
+  return traces;
+}
+
+Map<String, dynamic> _parseBigQueryResults(String body) {
+  return jsonDecode(body) as Map<String, dynamic>;
+}
+
+IncidentTimelineData _parseAlerts(String body) {
+  final data = jsonDecode(body) as Map<String, dynamic>;
+  return IncidentTimelineData.fromJson(data);
+}
+
+List<String> _parseStringList(Map<String, dynamic> args) {
+  final body = args['body'] as String;
+  final key = args['key'] as String;
+  final data = jsonDecode(body) as Map<String, dynamic>;
+  final items = data[key] as List?;
+  return items?.map((e) => e.toString()).toList() ?? [];
+}
+
+List<Map<String, dynamic>> _parseResourceKeys(String body) {
+  final data = jsonDecode(body) as Map<String, dynamic>;
+  final listData = data['resource_keys'] as List<dynamic>? ?? [];
+  return listData.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+}
+
+List<Map<String, dynamic>> _parseTableSchema(String body) {
+  final data = jsonDecode(body) as Map<String, dynamic>;
+  final items = data['schema'] as List?;
+  return items?.map((e) => Map<String, dynamic>.from(e as Map)).toList() ?? [];
+}
+
 
 /// Service for executing manual telemetry queries from the explorer UI.
 ///
@@ -25,7 +84,6 @@ class ExplorerQueryService {
        _clientFactory = clientFactory,
        _baseUrl = baseUrl ?? ServiceConfig.baseUrl;
 
-  /// Query time-series metrics.
   Future<void> queryMetrics({
     required String filter,
     String? projectId,
@@ -40,15 +98,14 @@ class ExplorerQueryService {
         'minutes_ago': range.minutesAgo,
       });
       final response = await _post('/api/tools/metrics/query', body);
-      final data = await compute(jsonDecode, response.body) as Map<String, dynamic>;
 
-      // Backend returns a single transformed MetricSeries dict
-      // with metric_name, points, labels keys.
-      final series = MetricSeries.fromJson(data);
+      // Decode JSON and map to MetricSeries on a background thread
+      final series = await compute(_parseMetrics, response.body);
+
       _dashboardState.addMetricSeries(
         series,
         'manual_query',
-        data,
+        series.toJson(), // The original mapped json dict structure
         source: DataSource.manual,
       );
 
@@ -62,7 +119,6 @@ class ExplorerQueryService {
     }
   }
 
-  /// Fetch raw log entries.
   Future<void> queryLogs({
     required String filter,
     String? projectId,
@@ -79,21 +135,22 @@ class ExplorerQueryService {
       }
       final body = jsonEncode(payload);
       final response = await _post('/api/tools/logs/query', body);
-      final data = await compute(jsonDecode, response.body) as Map<String, dynamic>;
 
-      final logData = LogEntriesData.fromJson(data);
+      // Run background parsing
+      final logData = await AppIsolate.run(_parseLogEntries, response.body);
+
       if (pageToken != null) {
         _dashboardState.appendLogEntries(
           logData,
           'manual_query',
-          data,
+          logData.toJson(),
           source: DataSource.manual,
         );
       } else {
         _dashboardState.addLogEntries(
           logData,
           'manual_query',
-          data,
+          logData.toJson(),
           source: DataSource.manual,
         );
       }
@@ -108,7 +165,6 @@ class ExplorerQueryService {
     }
   }
 
-  /// Fetch raw log entries for a specific trace span.
   Future<List<LogEntry>> fetchLogsForSpan({
     required String traceId,
     required String spanId,
@@ -123,9 +179,8 @@ class ExplorerQueryService {
 
       final body = jsonEncode(payload);
       final response = await _post('/api/tools/logs/query', body);
-      final data = await compute(jsonDecode, response.body) as Map<String, dynamic>;
+      final logData = await AppIsolate.run(_parseLogEntries, response.body);
 
-      final logData = LogEntriesData.fromJson(data);
       return logData.entries;
     } catch (e) {
       debugPrint('ExplorerQueryService.fetchLogsForSpan error: $e');
@@ -133,7 +188,6 @@ class ExplorerQueryService {
     }
   }
 
-  /// Fetch a distributed trace by ID.
   Future<void> queryTrace({required String traceId, String? projectId}) async {
     _dashboardState.setLoading(DashboardDataType.traces, true);
     try {
@@ -152,14 +206,13 @@ class ExplorerQueryService {
           throw Exception('Trace fetch failed: ${response.statusCode}');
         }
 
-        final data = await compute(jsonDecode, response.body) as Map<String, dynamic>;
-        final trace = Trace.fromJson(data);
+        final trace = await AppIsolate.run(_parseTrace, response.body);
 
         if (trace.spans.isNotEmpty) {
           _dashboardState.addTrace(
             trace,
             'manual_query',
-            data,
+            trace.toJson(),
             source: DataSource.manual,
           );
           _dashboardState.openDashboard();
@@ -176,10 +229,6 @@ class ExplorerQueryService {
     }
   }
 
-  /// Query traces using Cloud Trace filter syntax.
-  ///
-  /// Accepts Cloud Trace Query language filters such as:
-  /// `+span:name:my_span`, `RootSpan:/api/v1`, `MinDuration:500ms`.
   Future<void> queryTraceFilter({
     required String filter,
     String? projectId,
@@ -194,16 +243,14 @@ class ExplorerQueryService {
         'minutes_ago': range.minutesAgo,
       });
       final response = await _post('/api/tools/traces/query', body);
-      final listData = await compute(jsonDecode, response.body) as List<dynamic>;
+      final traces = await AppIsolate.run(_parseTraceList, response.body);
 
-      for (var item in listData) {
-        final data = item as Map<String, dynamic>;
-        final trace = Trace.fromJson(data);
+      for (var trace in traces) {
         if (trace.spans.isNotEmpty) {
           _dashboardState.addTrace(
             trace,
             'manual_query',
-            data,
+            trace.toJson(),
             source: DataSource.manual,
           );
         }
@@ -219,7 +266,6 @@ class ExplorerQueryService {
     }
   }
 
-  /// Query metrics using PromQL.
   Future<void> queryMetricsPromQL({
     required String query,
     String? projectId,
@@ -234,13 +280,13 @@ class ExplorerQueryService {
         'minutes_ago': range.minutesAgo,
       });
       final response = await _post('/api/tools/metrics/promql', body);
-      final data = await compute(jsonDecode, response.body) as Map<String, dynamic>;
 
-      final series = MetricSeries.fromJson(data);
+      final series = await AppIsolate.run(_parseMetrics, response.body);
+
       _dashboardState.addMetricSeries(
         series,
         'manual_query_promql',
-        data,
+        series.toJson(),
         source: DataSource.manual,
       );
 
@@ -254,13 +300,13 @@ class ExplorerQueryService {
     }
   }
 
-  /// Execute a BigQuery SQL query and return tabular results.
   Future<void> queryBigQuery({required String sql, String? projectId}) async {
     _dashboardState.setLoading(DashboardDataType.analytics, true);
     try {
       final body = jsonEncode({'sql': sql, 'project_id': projectId});
       final response = await _post('/api/tools/bigquery/query', body);
-      final data = await compute(jsonDecode, response.body) as Map<String, dynamic>;
+
+      final data = await AppIsolate.run(_parseBigQueryResults, response.body);
 
       // Parse column names and row data from response
       final columns =
@@ -288,7 +334,6 @@ class ExplorerQueryService {
     }
   }
 
-  /// Query alerts/incidents.
   Future<void> queryAlerts({
     String? filter,
     String? projectId,
@@ -303,13 +348,13 @@ class ExplorerQueryService {
         'minutes_ago': range.minutesAgo,
       });
       final response = await _post('/api/tools/alerts/query', body);
-      final data = await compute(jsonDecode, response.body) as Map<String, dynamic>;
 
-      final alertData = IncidentTimelineData.fromJson(data);
+      final alertData = await AppIsolate.run(_parseAlerts, response.body);
+
       _dashboardState.addAlerts(
         alertData,
         'manual_query',
-        data,
+        alertData.toJson(),
         source: DataSource.manual,
       );
 
@@ -362,39 +407,32 @@ class ExplorerQueryService {
     }
   }
 
-  /// Fetch datasets for the project.
   Future<List<String>> getDatasets({String? projectId}) async {
     try {
       final response = await _get(
         '/api/tools/bigquery/datasets',
         projectId: projectId,
       );
-      final data = await compute(jsonDecode, response.body) as Map<String, dynamic>;
-      final items = data['datasets'] as List?;
-      return items?.map((e) => e.toString()).toList() ?? [];
+      return await AppIsolate.run(_parseStringList, {'body': response.body, 'key': 'datasets'});
     } catch (e) {
       debugPrint('ExplorerQueryService.getDatasets error: $e');
       return [];
     }
   }
 
-  /// Fetch list of log names for the project.
   Future<List<String>> getLogNames({String? projectId}) async {
     try {
       final response = await _get(
         '/api/tools/logs/names',
         projectId: projectId,
       );
-      final data = await compute(jsonDecode, response.body) as Map<String, dynamic>;
-      final listData = data['logs'] as List<dynamic>? ?? [];
-      return listData.map((e) => e.toString()).toList();
+      return await AppIsolate.run(_parseStringList, {'body': response.body, 'key': 'logs'});
     } catch (e) {
       debugPrint('ExplorerQueryService.getLogNames error: $e');
       return [];
     }
   }
 
-  /// Fetch list of monitored resource descriptors.
   Future<List<Map<String, dynamic>>> getResourceKeys({
     String? projectId,
   }) async {
@@ -403,16 +441,13 @@ class ExplorerQueryService {
         '/api/tools/logs/resource_keys',
         projectId: projectId,
       );
-      final data = await compute(jsonDecode, response.body) as Map<String, dynamic>;
-      final listData = data['resource_keys'] as List<dynamic>? ?? [];
-      return listData.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      return await AppIsolate.run(_parseResourceKeys, response.body);
     } catch (e) {
       debugPrint('ExplorerQueryService.getResourceKeys error: $e');
       return [];
     }
   }
 
-  /// Fetch tables in a dataset.
   Future<List<String>> getTables({
     required String datasetId,
     String? projectId,
@@ -422,9 +457,7 @@ class ExplorerQueryService {
         '/api/tools/bigquery/datasets/${Uri.encodeComponent(datasetId)}/tables',
         projectId: projectId,
       );
-      final data = await compute(jsonDecode, response.body) as Map<String, dynamic>;
-      final items = data['tables'] as List?;
-      return items?.map((e) => e.toString()).toList() ?? [];
+      return await AppIsolate.run(_parseStringList, {'body': response.body, 'key': 'tables'});
     } catch (e) {
       debugPrint('ExplorerQueryService.getTables error: $e');
       return [];
@@ -441,17 +474,13 @@ class ExplorerQueryService {
         '/api/tools/bigquery/datasets/${Uri.encodeComponent(datasetId)}/tables/${Uri.encodeComponent(tableId)}/schema',
         projectId: projectId,
       );
-      final data = await compute(jsonDecode, response.body) as Map<String, dynamic>;
-      final items = data['schema'] as List?;
-      return items?.map((e) => Map<String, dynamic>.from(e as Map)).toList() ??
-          [];
+      return await AppIsolate.run(_parseTableSchema, response.body);
     } catch (e) {
       debugPrint('ExplorerQueryService.getTableSchema error: $e');
       return null;
     }
   }
 
-  /// Infer JSON keys for a specific column.
   Future<List<String>> getJsonKeys({
     required String datasetId,
     required String tableId,
@@ -463,9 +492,7 @@ class ExplorerQueryService {
         '/api/tools/bigquery/datasets/${Uri.encodeComponent(datasetId)}/tables/${Uri.encodeComponent(tableId)}/columns/${Uri.encodeComponent(columnName)}/json-keys',
         projectId: projectId,
       );
-      final data = await compute(jsonDecode, response.body) as Map<String, dynamic>;
-      final listData = data['keys'] as List<dynamic>? ?? [];
-      return listData.map((e) => e.toString()).toList();
+      return await AppIsolate.run(_parseStringList, {'body': response.body, 'key': 'keys'});
     } catch (e) {
       debugPrint('ExplorerQueryService.getJsonKeys error: $e');
       return [];
@@ -476,10 +503,6 @@ class ExplorerQueryService {
   // Default Data Loading (Auto-load on dashboard open)
   // =========================================================================
 
-  /// Auto-load recent logs (past 15 minutes, all severities).
-  ///
-  /// Called when the logs panel is first displayed to provide an immediate
-  /// overview of recent log activity in the selected project.
   Future<void> loadDefaultLogs({String? projectId}) async {
     _dashboardState.setLoading(DashboardDataType.logs, true);
     try {
@@ -491,13 +514,13 @@ class ExplorerQueryService {
       };
       final body = jsonEncode(payload);
       final response = await _post('/api/tools/logs/query', body);
-      final data = await compute(jsonDecode, response.body) as Map<String, dynamic>;
 
-      final logData = LogEntriesData.fromJson(data);
+      final logData = await AppIsolate.run(_parseLogEntries, response.body);
+
       _dashboardState.addLogEntries(
         logData,
         'auto_load',
-        data,
+        logData.toJson(),
         source: DataSource.manual,
       );
 
@@ -510,11 +533,6 @@ class ExplorerQueryService {
     }
   }
 
-  /// Auto-load slow traces (latency > 3s, past 1 hour, up to 20 traces).
-  ///
-  /// Uses the Cloud Trace `MinDuration` filter to find only traces that
-  /// exceed the 3-second threshold, providing an immediate view of
-  /// performance bottlenecks.
   Future<void> loadSlowTraces({String? projectId}) async {
     _dashboardState.setLoading(DashboardDataType.traces, true);
     try {
@@ -525,16 +543,15 @@ class ExplorerQueryService {
         'limit': 20,
       });
       final response = await _post('/api/tools/traces/query', body);
-      final listData = await compute(jsonDecode, response.body) as List<dynamic>;
 
-      for (var item in listData) {
-        final data = item as Map<String, dynamic>;
-        final trace = Trace.fromJson(data);
+      final traces = await AppIsolate.run(_parseTraceList, response.body);
+
+      for (var trace in traces) {
         if (trace.spans.isNotEmpty) {
           _dashboardState.addTrace(
             trace,
             'auto_load',
-            data,
+            trace.toJson(),
             source: DataSource.manual,
           );
         }
@@ -549,10 +566,6 @@ class ExplorerQueryService {
     }
   }
 
-  /// Auto-load recent alerts (past 7 days).
-  ///
-  /// Provides an immediate overview of recent alerting activity
-  /// when the alerts panel is first opened.
   Future<void> loadRecentAlerts({String? projectId}) async {
     _dashboardState.setLoading(DashboardDataType.alerts, true);
     try {
@@ -564,13 +577,13 @@ class ExplorerQueryService {
         'minutes_ago': sevenDaysInMinutes,
       });
       final response = await _post('/api/tools/alerts/query', body);
-      final data = await compute(jsonDecode, response.body) as Map<String, dynamic>;
 
-      final alertData = IncidentTimelineData.fromJson(data);
+      final alertData = await AppIsolate.run(_parseAlerts, response.body);
+
       _dashboardState.addAlerts(
         alertData,
         'auto_load',
-        data,
+        alertData.toJson(),
         source: DataSource.manual,
       );
 
