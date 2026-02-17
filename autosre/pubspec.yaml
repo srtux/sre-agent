@@ -55,6 +55,7 @@ dependencies:
   uuid: ^4.5.2
   url_launcher: ^6.3.1
   graphview: ^1.5.1
+  vector_math: ^2.2.0
 
 dev_dependencies:
   flutter_test:

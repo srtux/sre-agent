@@ -1,6 +1,12 @@
+import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
+import 'package:graphview/GraphView.dart';
+import 'package:vector_math/vector_math_64.dart' hide Colors;
+import 'package:provider/provider.dart';
 import '../models/adk_schema.dart';
+import '../services/explorer_query_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/chart_theme.dart';
 
@@ -31,6 +37,15 @@ class _SpanBarData {
   bool get isError => status == 'ERROR';
 }
 
+/// Represents the visual layout mode of the trace.
+/// [timeline] displays a traditional cascading waterfall tree structure.
+/// [graph] displays a nodes-and-edges architectural view.
+enum TraceViewMode { timeline, graph }
+
+/// An interactive visualization of a distributed trace, representing the lifecycle
+/// of a request across multiple services.
+/// It provides a toggleable view between a Timeline Waterfall and an interactive Graph,
+/// alongside a rich span detail panel for inspecting attributes, correlated logs, and OpenTelemetry semantics.
 class TraceWaterfall extends StatefulWidget {
   final Trace trace;
 
@@ -46,6 +61,11 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
   late double _totalDurationMs;
   SpanInfo? _selectedSpan;
   Set<String> _collapsedSpanIds = {};
+  TraceViewMode _viewMode = TraceViewMode.timeline;
+
+  // Graph Viewer Controls
+  final Set<String> _expandedGraphNodes = {};
+  final TransformationController _graphTransformationController = TransformationController();
 
   @override
   void initState() {
@@ -58,6 +78,8 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.trace.traceId != widget.trace.traceId) {
       _collapsedSpanIds.clear();
+      _expandedGraphNodes.clear();
+      _graphTransformationController.value = Matrix4.identity();
       _buildSpanData();
       _selectedSpan = null;
     }
@@ -216,20 +238,34 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
         const SizedBox(height: 8),
         _buildServiceLegend(),
         const SizedBox(height: 8),
-        SizedBox(
-          height: math.min(
-            MediaQuery.of(context).size.height * 0.6,
-            math.max(100.0, _spanBars.length * 32.0 + 50.0),
-          ),
+        Expanded(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: _buildTreeTable(),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: _selectedSpan != null ? 1 : 1,
+                  child: _viewMode == TraceViewMode.timeline
+                      ? _buildTreeTable()
+                      : _buildGraphView(),
+                ),
+                if (_selectedSpan != null) ...[
+                  const SizedBox(width: 16),
+                  Expanded(
+                    flex: 1,
+                    child: _SpanDetailPanel(
+                      span: _selectedSpan!,
+                      traceId: widget.trace.traceId,
+                      serviceColor: _serviceColors[_extractServiceName(_selectedSpan!.name)] ?? AppColors.primaryTeal,
+                      onClose: () => setState(() => _selectedSpan = null),
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
-        if (_selectedSpan != null) ...[
-          const SizedBox(height: 8),
-          _buildSpanDetailPanel(_selectedSpan!),
-        ],
       ],
     );
   }
@@ -344,45 +380,106 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
               ],
             ),
           ),
-          _buildStatChip(
-            '${_totalDurationMs.toStringAsFixed(1)}ms',
-            Icons.timer_outlined,
-            AppColors.primaryCyan,
-          ),
-          if (errorCount > 0) ...[
-            const SizedBox(width: 8),
-            _buildStatChip(
-              '$errorCount errors',
-              Icons.error_outline,
-              AppColors.error,
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildStatChip(
+                      '${_totalDurationMs.toStringAsFixed(1)}ms',
+                      Icons.timer_outlined,
+                      AppColors.primaryCyan,
+                    ),
+                    if (errorCount > 0) ...[
+                      const SizedBox(width: 8),
+                      _buildStatChip(
+                        '$errorCount errors',
+                        Icons.error_outline,
+                        AppColors.error,
+                      ),
+                    ],
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.unfold_more, size: 16),
+                      tooltip: 'Expand All',
+                      onPressed: () {
+                        setState(() {
+                          _collapsedSpanIds.clear();
+                          _buildSpanData();
+                        });
+                      },
+                      color: AppColors.textSecondary,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.unfold_less, size: 16),
+                      tooltip: 'Collapse All',
+                      onPressed: () {
+                        setState(() {
+                          _collapsedSpanIds = widget.trace.spans
+                              .map((s) => s.spanId)
+                              .toSet();
+                          _buildSpanData();
+                        });
+                      },
+                      color: AppColors.textSecondary,
+                    ),
+                    const SizedBox(width: 8),
+                    _layoutToggle(),
+                  ],
+                ),
+              ),
             ),
-          ],
-          const SizedBox(width: 8),
-          IconButton(
-            icon: const Icon(Icons.unfold_more, size: 16),
-            tooltip: 'Expand All',
-            onPressed: () {
-              setState(() {
-                _collapsedSpanIds.clear();
-                _buildSpanData();
-              });
-            },
-            color: AppColors.textSecondary,
-          ),
-          IconButton(
-            icon: const Icon(Icons.unfold_less, size: 16),
-            tooltip: 'Collapse All',
-            onPressed: () {
-              setState(() {
-                _collapsedSpanIds = widget.trace.spans
-                    .map((s) => s.spanId)
-                    .toSet();
-                _buildSpanData();
-              });
-            },
-            color: AppColors.textSecondary,
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _layoutToggle() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _toggleButton(
+            'Timeline',
+            _viewMode == TraceViewMode.timeline,
+            () => setState(() => _viewMode = TraceViewMode.timeline),
+          ),
+          _toggleButton(
+            'Graph',
+            _viewMode == TraceViewMode.graph,
+            () => setState(() => _viewMode = TraceViewMode.graph),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _toggleButton(String label, bool active, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: active
+              ? AppColors.primaryTeal.withValues(alpha: 0.3)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: active ? Colors.white : Colors.white38,
+            fontSize: 11,
+          ),
+        ),
       ),
     );
   }
@@ -495,7 +592,260 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
     );
   }
 
+  bool _isImportantSpan(SpanInfo span) {
+    if (span.status == 'ERROR') return true;
+    final lowerName = span.name.toLowerCase();
+
+    // Core agent ops
+    if (lowerName.contains('invoke_agent') ||
+        lowerName.contains('generate_content') ||
+        lowerName.contains('tool') ||
+        lowerName.contains('llm') ||
+        lowerName.contains('chain')) {
+      return true;
+    }
+
+    // Core server roots
+    if (span.parentSpanId == null || span.name.startsWith('POST')) return true;
+
+    return false;
+  }
+
+  List<SpanInfo> _getImportantChildren(String parentId, Map<String, List<String>> childrenMap) {
+    final important = <SpanInfo>[];
+    final children = childrenMap[parentId] ?? [];
+
+    for (final childId in children) {
+      final childSpan = widget.trace.spans.firstWhere((s) => s.spanId == childId);
+      if (_isImportantSpan(childSpan)) {
+        important.add(childSpan);
+      } else {
+        // Recurse downstream
+        important.addAll(_getImportantChildren(childId, childrenMap));
+      }
+    }
+    return important;
+  }
+
+  Widget _buildGraphView() {
+    // Generate filtered data structure for progressive disclosure
+    final graph = Graph()..isTree = true;
+    final nodeMap = <String, Node>{};
+
+    // Generate node map
+    for (final span in widget.trace.spans) {
+      if (_isImportantSpan(span) || span.parentSpanId == null) {
+        final node = Node.Id(span.spanId);
+        nodeMap[span.spanId] = node;
+        graph.addNode(node);
+      }
+    }
+
+    // Initialize root in expanded map if empty
+    if (_expandedGraphNodes.isEmpty && widget.trace.spans.isNotEmpty) {
+      final root = widget.trace.spans.firstWhere(
+        (s) => s.parentSpanId == null,
+        orElse: () => widget.trace.spans.first
+      );
+      _expandedGraphNodes.add(root.spanId);
+    }
+
+    final childrenMap = <String, List<String>>{};
+    for (final s in widget.trace.spans) {
+      if (s.parentSpanId != null) {
+        childrenMap.putIfAbsent(s.parentSpanId!, () => []).add(s.spanId);
+      }
+    }
+
+    // Build hierarchical condensed edges
+    for (final parentSpanId in _expandedGraphNodes) {
+      if (!nodeMap.containsKey(parentSpanId)) continue;
+
+      final parentNode = nodeMap[parentSpanId]!;
+      final importantChildren = _getImportantChildren(parentSpanId, childrenMap);
+
+      for (final child in importantChildren) {
+        if (nodeMap.containsKey(child.spanId)) {
+          final childNode = nodeMap[child.spanId]!;
+          graph.addEdge(parentNode, childNode, paint: Paint()
+            ..color = AppColors.surfaceBorder
+            ..strokeWidth = 2
+            ..style = PaintingStyle.stroke);
+        }
+      }
+    }
+
+    final sugiyamaConfig = SugiyamaConfiguration()
+      ..bendPointShape = CurvedBendPointShape(curveLength: 20)
+      ..nodeSeparation = 30
+      ..levelSeparation = 50
+      ..orientation = SugiyamaConfiguration.ORIENTATION_LEFT_RIGHT;
+
+    final algorithm = SugiyamaAlgorithm(sugiyamaConfig);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.backgroundCard,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.surfaceBorder),
+      ),
+      clipBehavior: Clip.hardEdge,
+      child: Listener(
+        onPointerSignal: (pointerSignal) {
+          if (pointerSignal is! PointerScrollEvent) return;
+
+          final scaleAdjustment = pointerSignal.scrollDelta.dy > 0 ? 0.9 : 1.1;
+          final newMatrix = _graphTransformationController.value.clone();
+          final localPosition = pointerSignal.localPosition;
+
+          // Scale around the mouse position relative to the viewing window
+          newMatrix.translateByVector3(Vector3(localPosition.dx, localPosition.dy, 0.0));
+          newMatrix.scaleByVector3(Vector3(scaleAdjustment, scaleAdjustment, 1.0));
+          newMatrix.translateByVector3(Vector3(-localPosition.dx, -localPosition.dy, 0.0));
+
+          // Constrain zoom scales between 10% and 400%
+          final scale = newMatrix.getMaxScaleOnAxis();
+          if (scale > 0.1 && scale < 4.0) {
+            _graphTransformationController.value = newMatrix;
+          }
+        },
+        child: InteractiveViewer(
+          transformationController: _graphTransformationController,
+          constrained: false,
+          boundaryMargin: const EdgeInsets.all(500),
+          minScale: 0.1,
+          maxScale: 4.0,
+          child: GraphView(
+            graph: graph,
+            algorithm: algorithm,
+            paint: Paint()
+              ..color = AppColors.surfaceBorder
+              ..strokeWidth = 1
+              ..style = PaintingStyle.stroke,
+            builder: (Node node) {
+              final spanId = node.key!.value as String;
+              final spanInfo = widget.trace.spans.firstWhere((s) => s.spanId == spanId);
+              return _buildGraphNode(spanInfo);
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGraphNode(SpanInfo span) {
+    final serviceName = _extractServiceName(span.name);
+    final isSelected = _selectedSpan?.spanId == span.spanId;
+    final color = span.status == 'ERROR' ? AppColors.error : (_serviceColors[serviceName] ?? AppColors.primaryTeal);
+
+    final childrenMap = <String, List<String>>{};
+    for (final s in widget.trace.spans) {
+      if (s.parentSpanId != null) {
+        childrenMap.putIfAbsent(s.parentSpanId!, () => []).add(s.spanId);
+      }
+    }
+    final importantChildren = _getImportantChildren(span.spanId, childrenMap);
+    final isExpanded = _expandedGraphNodes.contains(span.spanId);
+
+    return GestureDetector(
+      onTap: () => setState(() => _selectedSpan = isSelected ? null : span),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 300),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? color : color.withValues(alpha: 0.4),
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  span.status == 'ERROR' ? Icons.error : Icons.check_circle,
+                  color: color,
+                  size: 14,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  serviceName,
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              span.name,
+              style: TextStyle(
+                color: span.status == 'ERROR' ? AppColors.error : AppColors.textPrimary,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            if (span.duration.inMilliseconds >= 0)
+              Text(
+                '${span.duration.inMilliseconds}ms',
+                style: const TextStyle(color: AppColors.textMuted, fontSize: 9),
+              ),
+            if (importantChildren.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              InkWell(
+                onTap: () {
+                  setState(() {
+                    if (isExpanded) {
+                      _expandedGraphNodes.remove(span.spanId);
+                    } else {
+                      _expandedGraphNodes.add(span.spanId);
+                    }
+                  });
+                },
+                borderRadius: BorderRadius.circular(4),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isExpanded ? Icons.remove : Icons.add,
+                        size: 10,
+                        color: AppColors.textSecondary,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        isExpanded ? 'Collapse' : '${importantChildren.length} calls',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildTableHeader() {
+    final showWaterfall = _selectedSpan == null;
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
       decoration: const BoxDecoration(
@@ -504,9 +854,9 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
       ),
       child: Row(
         children: [
-          const Expanded(
-            flex: 3,
-            child: Text(
+          Expanded(
+            flex: showWaterfall ? 3 : 2,
+            child: const Text(
               'Name',
               style: TextStyle(
                 color: AppColors.textSecondary,
@@ -526,68 +876,69 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
               ),
             ),
           ),
-          Expanded(
-            flex: 5,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return Stack(
-                  children: [
-                    SizedBox(height: 14, width: constraints.maxWidth),
-                    const Positioned(
-                      left: 0,
-                      child: Text(
-                        '0s',
-                        style: TextStyle(
-                          color: AppColors.textMuted,
-                          fontSize: 10,
+          if (showWaterfall)
+            Expanded(
+              flex: 5,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return Stack(
+                    children: [
+                      SizedBox(height: 14, width: constraints.maxWidth),
+                      const Positioned(
+                        left: 0,
+                        child: Text(
+                          '0s',
+                          style: TextStyle(
+                            color: AppColors.textMuted,
+                            fontSize: 10,
+                          ),
                         ),
                       ),
-                    ),
-                    Positioned(
-                      right: 0,
-                      child: Text(
-                        '${_totalDurationMs.toStringAsFixed(1)}ms',
-                        style: const TextStyle(
-                          color: AppColors.textMuted,
-                          fontSize: 10,
+                      Positioned(
+                        right: 0,
+                        child: Text(
+                          '${_totalDurationMs.toStringAsFixed(1)}ms',
+                          style: const TextStyle(
+                            color: AppColors.textMuted,
+                            fontSize: 10,
+                          ),
                         ),
                       ),
-                    ),
-                    Positioned(
-                      left: constraints.maxWidth * 0.25,
-                      child: Text(
-                        '${(_totalDurationMs * 0.25).toStringAsFixed(0)}ms',
-                        style: const TextStyle(
-                          color: AppColors.textMuted,
-                          fontSize: 10,
+                      Positioned(
+                        left: constraints.maxWidth * 0.25,
+                        child: Text(
+                          '${(_totalDurationMs * 0.25).toStringAsFixed(0)}ms',
+                          style: const TextStyle(
+                            color: AppColors.textMuted,
+                            fontSize: 10,
+                          ),
                         ),
                       ),
-                    ),
-                    Positioned(
-                      left: constraints.maxWidth * 0.5,
-                      child: Text(
-                        '${(_totalDurationMs * 0.5).toStringAsFixed(0)}ms',
-                        style: const TextStyle(
-                          color: AppColors.textMuted,
-                          fontSize: 10,
+                      Positioned(
+                        left: constraints.maxWidth * 0.5,
+                        child: Text(
+                          '${(_totalDurationMs * 0.5).toStringAsFixed(0)}ms',
+                          style: const TextStyle(
+                            color: AppColors.textMuted,
+                            fontSize: 10,
+                          ),
                         ),
                       ),
-                    ),
-                    Positioned(
-                      left: constraints.maxWidth * 0.75,
-                      child: Text(
-                        '${(_totalDurationMs * 0.75).toStringAsFixed(0)}ms',
-                        style: const TextStyle(
-                          color: AppColors.textMuted,
-                          fontSize: 10,
+                      Positioned(
+                        left: constraints.maxWidth * 0.75,
+                        child: Text(
+                          '${(_totalDurationMs * 0.75).toStringAsFixed(0)}ms',
+                          style: const TextStyle(
+                            color: AppColors.textMuted,
+                            fontSize: 10,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                );
-              },
+                    ],
+                  );
+                },
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -599,6 +950,7 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
     final rowBg = isSelected
         ? AppColors.primaryTeal.withValues(alpha: 0.1)
         : Colors.transparent;
+    final showWaterfall = _selectedSpan == null;
 
     return InkWell(
       onTap: () => setState(() {
@@ -611,7 +963,7 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
         child: Row(
           children: [
             Expanded(
-              flex: 3,
+              flex: showWaterfall ? 3 : 2,
               child: Padding(
                 padding: EdgeInsets.only(left: bar.depth * 16.0),
                 child: Row(
@@ -657,98 +1009,166 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            Expanded(
-              flex: 5,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final width = constraints.maxWidth;
-                  final left = (bar.startOffsetMs / _totalDurationMs) * width;
-                  final barWidth = (bar.durationMs / _totalDurationMs) * width;
+            if (showWaterfall)
+              Expanded(
+                flex: 5,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final width = constraints.maxWidth;
+                    final left = (bar.startOffsetMs / _totalDurationMs) * width;
+                    final barWidth = (bar.durationMs / _totalDurationMs) * width;
 
-                  final safeWidth = math.max(barWidth, 3.0);
-                  final safeLeft = left.clamp(0.0, width);
+                    final safeWidth = math.max(barWidth, 3.0);
+                    final safeLeft = left.clamp(0.0, width);
 
-                  final barColor = bar.isError
-                      ? AppColors.error
-                      : (_serviceColors[bar.serviceName] ??
-                            AppColors.primaryTeal);
+                    final barColor = bar.isError
+                        ? AppColors.error
+                        : (_serviceColors[bar.serviceName] ??
+                              AppColors.primaryTeal);
 
-                  return SizedBox(
-                    height: 18,
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        Container(
-                          margin: const EdgeInsets.only(top: 8),
-                          width: width,
-                          height: 1,
-                          color: AppColors.surfaceBorder.withValues(alpha: 0.3),
-                        ),
-                        Positioned(
-                          left: safeLeft,
-                          width: safeWidth,
-                          top: 2,
-                          bottom: 2,
-                          child: Tooltip(
-                            message:
-                                '${bar.spanName}\nService: ${bar.serviceName}\nDuration: ${bar.durationMs.toStringAsFixed(2)}ms\nStatus: ${bar.status}',
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: AppColors.backgroundCard,
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                color: AppColors.surfaceBorder,
-                              ),
-                            ),
-                            textStyle: const TextStyle(
-                              color: AppColors.textPrimary,
-                              fontSize: 11,
-                            ),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: barColor.withValues(alpha: 0.7),
-                                border: Border.all(color: barColor, width: 1),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                            ),
+                    return SizedBox(
+                      height: 18,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Container(
+                            margin: const EdgeInsets.only(top: 8),
+                            width: width,
+                            height: 1,
+                            color: AppColors.surfaceBorder.withValues(alpha: 0.3),
                           ),
-                        ),
-                        if (safeLeft + safeWidth + 40 < width)
                           Positioned(
-                            left: safeLeft + safeWidth + 4,
+                            left: safeLeft,
+                            width: safeWidth,
                             top: 2,
+                            bottom: 2,
                             child: Tooltip(
-                              message: '${bar.durationMs.toStringAsFixed(2)}ms',
-                              child: Text(
-                                '${bar.durationMs.toStringAsFixed(2)}ms',
-                                style: const TextStyle(
-                                  color: AppColors.textMuted,
-                                  fontSize: 9,
+                              message:
+                                  '${bar.spanName}\nService: ${bar.serviceName}\nDuration: ${bar.durationMs.toStringAsFixed(2)}ms\nStatus: ${bar.status}',
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppColors.backgroundCard,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: AppColors.surfaceBorder,
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.visible,
+                              ),
+                              textStyle: const TextStyle(
+                                color: AppColors.textPrimary,
+                                fontSize: 11,
+                              ),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: barColor.withValues(alpha: 0.7),
+                                  border: Border.all(color: barColor, width: 1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
                               ),
                             ),
                           ),
-                      ],
-                    ),
-                  );
-                },
+                          if (safeLeft + safeWidth + 40 < width)
+                            Positioned(
+                              left: safeLeft + safeWidth + 4,
+                              top: 2,
+                              child: Tooltip(
+                                message: '${bar.durationMs.toStringAsFixed(2)}ms',
+                                child: Text(
+                                  '${bar.durationMs.toStringAsFixed(2)}ms',
+                                  style: const TextStyle(
+                                    color: AppColors.textMuted,
+                                    fontSize: 9,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.visible,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
               ),
-            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSpanDetailPanel(SpanInfo span) {
-    final service = _extractServiceName(span.name);
-    final serviceColor = _serviceColors[service] ?? AppColors.primaryTeal;
+}
 
+/// A side-panel that displays detailed metrics for a single span within a trace.
+/// Features a tabbed interface for:
+/// - Overview: basic execution stats
+/// - Attributes: raw trace attributes (e.g. from OpenTelemetry)
+/// - Logs & Events: correlated logs fetched cleanly by `traceId` and `spanId`.
+/// If semantic conventions like [gen_ai.*] or [http.*] are present, it also renders
+/// a persistent right-aligned pane exposing those neatly formulated details.
+class _SpanDetailPanel extends StatefulWidget {
+  final SpanInfo span;
+  final String traceId;
+  final Color serviceColor;
+  final VoidCallback onClose;
+
+  const _SpanDetailPanel({
+    required this.span,
+    required this.traceId,
+    required this.serviceColor,
+    required this.onClose,
+  });
+
+  @override
+  State<_SpanDetailPanel> createState() => _SpanDetailPanelState();
+}
+
+class _SpanDetailPanelState extends State<_SpanDetailPanel> {
+  List<LogEntry>? _logs;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchLogs();
+  }
+
+  @override
+  void didUpdateWidget(covariant _SpanDetailPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.span.spanId != widget.span.spanId) {
+      _fetchLogs();
+    }
+  }
+
+  Future<void> _fetchLogs() async {
+    setState(() {
+      _isLoading = true;
+      _logs = null;
+    });
+    try {
+      final queryService = context.read<ExplorerQueryService>();
+      final logs = await queryService.fetchLogsForSpan(
+        traceId: widget.traceId,
+        spanId: widget.span.spanId,
+      );
+      if (mounted) {
+        setState(() {
+          _logs = logs;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _logs = [];
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.backgroundElevated,
         borderRadius: BorderRadius.circular(12),
@@ -760,176 +1180,434 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
             offset: const Offset(0, 4),
           ),
           BoxShadow(
-            color: (span.status == 'ERROR' ? AppColors.error : serviceColor)
+            color: (widget.span.status == 'ERROR' ? AppColors.error : widget.serviceColor)
                 .withValues(alpha: 0.15),
             blurRadius: 24,
             spreadRadius: -4,
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: serviceColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Icon(
-                  span.status == 'ERROR' ? Icons.error : Icons.check_circle,
-                  size: 16,
-                  color: span.status == 'ERROR'
-                      ? AppColors.error
-                      : serviceColor,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      span.name,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    Text(
-                      service,
-                      style: TextStyle(fontSize: 10, color: serviceColor),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.close, size: 16),
-                onPressed: () => setState(() => _selectedSpan = null),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                color: AppColors.textMuted,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 12,
-            runSpacing: 6,
-            children: [
-              _buildDetailChip(
-                'Span ID',
-                span.spanId.substring(0, math.min(8, span.spanId.length)),
-                serviceColor,
-              ),
-              _buildDetailChip(
-                'Duration',
-                '${span.duration.inMilliseconds}ms',
-                AppColors.primaryCyan,
-              ),
-              _buildDetailChip(
-                'Status',
-                span.status,
-                span.status == 'ERROR' ? AppColors.error : AppColors.success,
-              ),
-              if (span.parentSpanId != null)
-                _buildDetailChip(
-                  'Parent',
-                  span.parentSpanId!.substring(
-                    0,
-                    math.min(8, span.parentSpanId!.length),
-                  ),
-                  AppColors.textMuted,
-                ),
-            ],
-          ),
-          if (span.attributes.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Attributes',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textMuted,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  ...span.attributes.entries
-                      .take(6)
-                      .map(
-                        (e) => Padding(
-                          padding: const EdgeInsets.only(bottom: 3),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              SizedBox(
-                                width: 100,
-                                child: Text(
-                                  '${e.key}:',
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    color: AppColors.textMuted,
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                child: Text(
-                                  '${e.value}',
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    color: AppColors.textSecondary,
-                                    fontFamily: 'monospace',
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                ],
-              ),
+      child: DefaultTabController(
+        length: 3,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildHeader(),
+            const TabBar(
+              tabs: [
+                Tab(text: 'Overview'),
+                Tab(text: 'Attributes'),
+                Tab(text: 'Logs & Events'),
+              ],
+              labelColor: AppColors.primaryTeal,
+              unselectedLabelColor: AppColors.textMuted,
+              indicatorColor: AppColors.primaryTeal,
+              dividerColor: AppColors.surfaceBorder,
+              labelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              unselectedLabelStyle: TextStyle(fontSize: 12),
+              tabAlignment: TabAlignment.start,
+              isScrollable: true,
             ),
+            Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: TabBarView(
+                    children: [
+                      _buildOverviewTab(),
+                      _buildAttributesTab(),
+                      _buildLogsTab(),
+                    ],
+                  ),
+                ),
+                if (_hasSemanticAttributes())
+                  Expanded(
+                    flex: 2,
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        border: Border(left: BorderSide(color: AppColors.surfaceBorder)),
+                      ),
+                      child: _buildSemanticAttributesPane(),
+                    ),
+                  ),
+              ],
+            ),
+          ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: widget.serviceColor.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(
+              widget.span.status == 'ERROR' ? Icons.error : Icons.check_circle,
+              size: 16,
+              color: widget.span.status == 'ERROR'
+                  ? AppColors.error
+                  : widget.serviceColor,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.span.name,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                Text(
+                  'Span ID: ${widget.span.spanId}',
+                  style: const TextStyle(fontSize: 10, color: AppColors.textMuted, fontFamily: 'monospace'),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, size: 16),
+            onPressed: widget.onClose,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            color: AppColors.textMuted,
+          ),
         ],
       ),
     );
   }
 
+  Widget _buildOverviewTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(14),
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 8,
+        children: [
+          _buildDetailChip(
+            'Duration',
+            '${widget.span.duration.inMilliseconds}ms',
+            AppColors.primaryCyan,
+          ),
+          _buildDetailChip(
+            'Status',
+            widget.span.status,
+            widget.span.status == 'ERROR' ? AppColors.error : AppColors.success,
+          ),
+          if (widget.span.parentSpanId != null)
+            _buildDetailChip(
+              'Parent ID',
+              widget.span.parentSpanId!,
+              AppColors.textMuted,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAttributesTab() {
+    if (widget.span.attributes.isEmpty) {
+      return const Center(
+        child: Text('No attributes', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+      );
+    }
+
+    final sortedKeys = widget.span.attributes.keys.toList()..sort();
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(14),
+      itemCount: sortedKeys.length,
+      itemBuilder: (context, index) {
+        final key = sortedKeys[index];
+        final value = widget.span.attributes[key];
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 2,
+                child: SelectableText(
+                  key,
+                  style: const TextStyle(fontSize: 11, color: AppColors.textPrimary, fontWeight: FontWeight.bold),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: SelectableText(
+                  '$value',
+                  style: const TextStyle(fontSize: 11, color: AppColors.textSecondary, fontFamily: 'monospace'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  bool _hasSemanticAttributes() {
+    return widget.span.attributes.keys.any((k) => k.startsWith('gen_ai.') || k.startsWith('http.') || k.startsWith('db.'));
+  }
+
+  Widget _buildSemanticAttributesPane() {
+    final genAiAttrs = <String, dynamic>{};
+    final httpAttrs = <String, dynamic>{};
+    final dbAttrs = <String, dynamic>{};
+
+    int? inputTokens;
+    int? outputTokens;
+
+    for (final entry in widget.span.attributes.entries) {
+      if (entry.key.startsWith('gen_ai.')) {
+        if (entry.key == 'gen_ai.usage.input_tokens') {
+          inputTokens = int.tryParse(entry.value.toString());
+        } else if (entry.key == 'gen_ai.usage.output_tokens') {
+          outputTokens = int.tryParse(entry.value.toString());
+        } else {
+          genAiAttrs[entry.key] = entry.value;
+        }
+      } else if (entry.key.startsWith('http.')) {
+        httpAttrs[entry.key] = entry.value;
+      } else if (entry.key.startsWith('db.')) {
+        dbAttrs[entry.key] = entry.value;
+      }
+    }
+
+    return ListView(
+      padding: const EdgeInsets.all(14),
+      children: [
+        if (inputTokens != null || outputTokens != null) ...[
+          const Text(
+            'GenAI Tokens',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${(inputTokens ?? 0) / 1000}K (in), ${(outputTokens ?? 0)} (out)',
+            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 16),
+        ],
+
+        if (genAiAttrs.isNotEmpty) ...[
+          const Text(
+            'Related Attributes',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ..._buildAttributeTable(genAiAttrs),
+          const SizedBox(height: 16),
+        ],
+
+        if (httpAttrs.isNotEmpty) ...[
+          const Text(
+            'HTTP Context',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ..._buildAttributeTable(httpAttrs),
+          const SizedBox(height: 16),
+        ],
+
+        if (dbAttrs.isNotEmpty) ...[
+          const Text(
+            'Database Context',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ..._buildAttributeTable(dbAttrs),
+          const SizedBox(height: 16),
+        ],
+      ],
+    );
+  }
+
+  List<Widget> _buildAttributeTable(Map<String, dynamic> attributes) {
+    final sortedKeys = attributes.keys.toList()..sort();
+    return sortedKeys.map((key) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 1,
+              child: SelectableText(
+                key,
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 1,
+              child: SelectableText(
+                '${attributes[key]}',
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: AppColors.textSecondary,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }).toList();
+  }
+
+  Widget _buildLogsTab() {
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(strokeWidth: 2),
+      );
+    }
+    if (_logs == null || _logs!.isEmpty) {
+      return const Center(
+        child: Text('No logs or events found for this span', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.all(14),
+      itemCount: _logs!.length,
+      itemBuilder: (context, index) {
+        final log = _logs![index];
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.surfaceBorder),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: _getSeverityColor(log.severity).withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      log.severity,
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: _getSeverityColor(log.severity)
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    log.timestamp.toLocal().toString(),
+                    style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (log.isJsonPayload)
+                _buildJsonLogPayload(log.payload)
+              else
+                SelectableText(
+                  log.payload.toString(),
+                  style: const TextStyle(fontSize: 11, color: AppColors.textPrimary, fontFamily: 'monospace'),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildJsonLogPayload(dynamic payload) {
+    if (payload is Map) {
+      // Very basic formatting for JSON payloads
+      final formatted = const JsonEncoder.withIndent('  ').convert(payload);
+      return SelectableText(
+        formatted,
+        style: const TextStyle(fontSize: 11, color: AppColors.textSecondary, fontFamily: 'monospace'),
+      );
+    }
+    return SelectableText(payload.toString());
+  }
+
+  Color _getSeverityColor(String severity) {
+    switch (severity.toUpperCase()) {
+      case 'ERROR':
+      case 'CRITICAL':
+      case 'EMERGENCY':
+        return AppColors.error;
+      case 'WARNING':
+        return AppColors.warning;
+      case 'INFO':
+        return AppColors.primaryTeal;
+      case 'DEBUG':
+        return AppColors.textMuted;
+      default:
+        return AppColors.textSecondary;
+    }
+  }
+
   Widget _buildDetailChip(String label, String value, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            '$label: ',
-            style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+            label,
+            style: const TextStyle(fontSize: 9, color: AppColors.textMuted, fontWeight: FontWeight.bold),
           ),
+          const SizedBox(height: 2),
           Text(
             value,
             style: TextStyle(
-              fontSize: 10,
+              fontSize: 11,
               color: color,
-              fontWeight: FontWeight.w500,
               fontFamily: 'monospace',
             ),
           ),

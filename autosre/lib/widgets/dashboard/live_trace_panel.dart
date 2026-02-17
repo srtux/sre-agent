@@ -289,9 +289,12 @@ class _LiveTracePanelState extends State<LiveTracePanel> {
               _buildCloudTraceButton(trace.traceId),
             ],
           ),
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-            child: TraceWaterfall(trace: trace),
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * 0.85,
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+              child: TraceWaterfall(trace: trace),
+            ),
           ),
         );
       },

@@ -47,7 +47,7 @@ void main() {
     expect(find.text('1 spans'), findsOneWidget);
 
     // Verify new horizontal scroll structure
-    expect(find.byType(SingleChildScrollView), findsOneWidget);
+    expect(find.byType(SingleChildScrollView), findsNWidgets(2));
 
     // Verify tooltips wrap the layout spans directly
     expect(find.byType(Tooltip), findsWidgets);
@@ -125,5 +125,112 @@ void main() {
     // Verify service names appear in legend and structure
     expect(find.text('frontend'), findsWidgets);
     expect(find.text('backend'), findsWidgets);
+  });
+
+  testWidgets('TraceWaterfall displays GenAI semantic attributes', (
+    WidgetTester tester,
+  ) async {
+    final now = DateTime.now();
+    final trace = Trace(
+      traceId: 'genai-trace',
+      spans: [
+        SpanInfo(
+          spanId: 's1',
+          traceId: 'genai-trace',
+          name: 'generate_content',
+          startTime: now,
+          endTime: now.add(const Duration(milliseconds: 200)),
+          attributes: <String, dynamic>{
+            'gen_ai.system': 'vertex_ai',
+            'gen_ai.request.model': 'gemini-2.5-flash',
+            'gen_ai.usage.input_tokens': 1500,
+            'gen_ai.usage.output_tokens': 42,
+          },
+          status: 'OK',
+        ),
+      ],
+    );
+
+    // We need to inject ExplorerQueryService to fetch logs for the panel
+    // but since we are just testing layout, we can let it fail gracefully.
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 1200,
+            height: 800,
+            child: TraceWaterfall(trace: trace),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pump(const Duration(seconds: 1));
+
+    // Verify side pane is not present initially
+    expect(find.text('GenAI Tokens'), findsNothing);
+
+    // Ensure the text is scrolled into view (if applicable) and then tap it
+    final rowTextFinder = find.text('generate_content').last;
+    await tester.ensureVisible(rowTextFinder);
+    await tester.tap(rowTextFinder);
+    await tester.pumpAndSettle();
+
+    // Verify side pane renders tokens
+    expect(find.text('GenAI Tokens'), findsOneWidget);
+    expect(find.text('1.5K (in), 42 (out)'), findsOneWidget);
+    expect(find.text('Related Attributes'), findsOneWidget);
+
+    // SelectableText creates an EditableText child, so find.text might not spot it reliably in some configs
+    final selectableTexts = tester.widgetList<SelectableText>(find.byType(SelectableText));
+    expect(selectableTexts.any((st) => st.data == 'gen_ai.request.model'), isTrue);
+    expect(selectableTexts.any((st) => st.data == 'gemini-2.5-flash'), isTrue);
+  });
+
+  testWidgets('TraceWaterfall toggles Graph layout mode', (
+    WidgetTester tester,
+  ) async {
+    final now = DateTime.now();
+    final trace = Trace(
+      traceId: 'graph-trace',
+      spans: [
+        SpanInfo(
+          spanId: 'root',
+          traceId: 'graph-trace',
+          name: 'root',
+          startTime: now,
+          endTime: now.add(const Duration(milliseconds: 200)),
+          attributes: <String, dynamic>{},
+          status: 'OK',
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 1200,
+            height: 800,
+            child: TraceWaterfall(trace: trace),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pump(const Duration(seconds: 1));
+
+    // 'Graph' text button should be visible in the toggle group
+    expect(find.text('Graph'), findsOneWidget);
+
+    // Ensure it's in view (e.g. if inside a scrolling header)
+    final graphToggleFinder = find.text('Graph').last;
+    await tester.ensureVisible(graphToggleFinder);
+    await tester.tap(graphToggleFinder);
+    await tester.pumpAndSettle();
+
+    // At this point _buildGraphView is called, which centers "Graph View Placeholder"
+    // or renders graphview. Let's look for our InteractiveViewer or custom text.
+    expect(find.byType(InteractiveViewer), findsWidgets);
   });
 }

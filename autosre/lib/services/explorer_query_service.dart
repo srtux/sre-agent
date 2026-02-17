@@ -108,6 +108,31 @@ class ExplorerQueryService {
     }
   }
 
+  /// Fetch raw log entries for a specific trace span.
+  Future<List<LogEntry>> fetchLogsForSpan({
+    required String traceId,
+    required String spanId,
+    String? projectId,
+  }) async {
+    try {
+      final filter = 'trace="projects/${projectId ?? 'summitt-gcp'}/traces/$traceId" AND spanId="$spanId"';
+      final payload = <String, dynamic>{
+        'filter': filter,
+        'project_id': projectId,
+      };
+
+      final body = jsonEncode(payload);
+      final response = await _post('/api/tools/logs/query', body);
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+      final logData = LogEntriesData.fromJson(data);
+      return logData.entries;
+    } catch (e) {
+      debugPrint('ExplorerQueryService.fetchLogsForSpan error: $e');
+      return [];
+    }
+  }
+
   /// Fetch a distributed trace by ID.
   Future<void> queryTrace({required String traceId, String? projectId}) async {
     _dashboardState.setLoading(DashboardDataType.traces, true);
