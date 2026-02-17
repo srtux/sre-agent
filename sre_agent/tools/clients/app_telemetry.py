@@ -14,6 +14,7 @@ Reference: https://cloud.google.com/app-hub/docs/overview
 
 import logging
 from typing import Any
+from urllib.parse import urlparse
 
 from ...auth import get_current_project_id
 from ...schema import BaseToolResponse, ToolStatus
@@ -48,7 +49,10 @@ def _extract_resource_filters(
 
         # Parse GCP resource URI
         # Format: //service.googleapis.com/projects/PROJECT/locations/LOCATION/...
-        if uri.startswith("//run.googleapis.com/"):
+        parsed_uri = urlparse(uri if "://" in uri else f"https:{uri}")
+        host = parsed_uri.netloc
+
+        if host == "run.googleapis.com":
             # Cloud Run service
             parts = uri.split("/")
             if len(parts) >= 8:
@@ -63,7 +67,7 @@ def _extract_resource_filters(
                         "uri": uri,
                     }
                 )
-        elif uri.startswith("//compute.googleapis.com/") and "forwardingRules" in uri:
+        elif host == "compute.googleapis.com" and "forwardingRules" in uri:
             # Load balancer forwarding rule
             parts = uri.split("/")
             resources["load_balancers"].append(
@@ -78,8 +82,10 @@ def _extract_resource_filters(
     for wl in workloads:
         wl_ref = wl.get("workload_reference", {})
         uri = wl_ref.get("uri", "")
+        parsed_uri = urlparse(uri if "://" in uri else f"https:{uri}")
+        host = parsed_uri.netloc
 
-        if uri.startswith("//container.googleapis.com/"):
+        if host == "container.googleapis.com":
             # GKE workload
             parts = uri.split("/")
             if len(parts) >= 8:
@@ -113,7 +119,7 @@ def _extract_resource_filters(
                                 "name": workload_name,
                             }
                         )
-        elif uri.startswith("//compute.googleapis.com/") and "instanceGroups" in uri:
+        elif host == "compute.googleapis.com" and "instanceGroups" in uri:
             # Managed Instance Group
             parts = uri.split("/")
             resources["gce_instances"].append(
@@ -122,7 +128,7 @@ def _extract_resource_filters(
                     "name": parts[-1] if parts else "",
                 }
             )
-        elif uri.startswith("//sqladmin.googleapis.com/"):
+        elif host == "sqladmin.googleapis.com":
             # Cloud SQL instance
             parts = uri.split("/")
             if len(parts) >= 6:

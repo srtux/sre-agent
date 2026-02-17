@@ -52,9 +52,7 @@ async def get_help_content(content_id: str) -> PlainTextResponse:
         )
 
     if not content_path.exists():
-        raise HTTPException(
-            status_code=404, detail=f"Help topic '{content_id}' not found"
-        )
+        raise HTTPException(status_code=404, detail="Help topic not found")
 
     content = content_path.read_text(encoding="utf-8")
     return PlainTextResponse(content)
