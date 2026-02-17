@@ -13,7 +13,7 @@ RUN flutter doctor
 WORKDIR /app
 COPY autosre/ ./autosre/
 WORKDIR /app/autosre
-RUN flutter build web --release
+RUN flutter build web --wasm --release
 
 # --- Production Stage ---
 FROM python:3.11-slim

@@ -57,10 +57,12 @@ void main() {
     test('setActiveTab does not notify when tab is same', () {
       var notifyCount = 0;
       state.addListener(() => notifyCount++);
-      state.setActiveTab(DashboardDataType.logs);
+      // Change to a different tab first to verify it notifies on change
+      state.setActiveTab(DashboardDataType.metrics);
       expect(notifyCount, 1);
-      state.setActiveTab(DashboardDataType.logs);
-      expect(notifyCount, 1); // Should NOT have notified again
+      // Change to the SAME tab, should NOT notify
+      state.setActiveTab(DashboardDataType.metrics);
+      expect(notifyCount, 1);
     });
 
     test('setMetricsQueryLanguage changes index', () {

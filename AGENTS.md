@@ -45,7 +45,7 @@
 - **Language**: Python 3.10+ (Backend), Dart/Flutter (Frontend)
 - **Agent Framework**: Google Agent Development Kit (ADK)
 - **LLM**: Gemini 2.5 Flash/Pro (via `get_model_name("fast"|"deep")`)
-- **Frontend**: Flutter Web + GenUI Protocol (Deep Space Theme)
+- **Frontend**: Flutter Web (WasmGC + CanvasKit, Deep Space aesthetic)
 - **API Strategy**: Hybrid (MCP for heavy-lifting, Direct API for speed)
 - **Testing**: pytest (Backend), flutter test (Frontend)
 - **Linting**: Ruff + MyPy (Python), flutter analyze (Dart)

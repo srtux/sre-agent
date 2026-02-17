@@ -47,12 +47,12 @@ void main() {
     final initialSize = tester.getSize(dashboardFinder);
     expect(initialSize.width, 1344.0);
 
-    // Drag handle to the RIGHT by 192 (10% of width)
-    // New width should be 80% of 1920 = 1536
-    await tester.drag(handleFinder, const Offset(192.0, 0));
+    // Drag handle to the RIGHT by 100
+    // New width should be 1344 + 100 = 1444
+    await tester.drag(handleFinder, const Offset(100.0, 0));
     await tester.pumpAndSettle();
 
     final expandedSize = tester.getSize(dashboardFinder);
-    expect(expandedSize.width, 1536.0);
+    expect(expandedSize.width, closeTo(1444.0, 0.001));
   });
 }

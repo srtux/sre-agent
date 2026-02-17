@@ -8,6 +8,9 @@ import 'package:autosre/services/tool_config_service.dart';
 import 'package:autosre/services/connectivity_service.dart';
 import 'package:autosre/services/prompt_history_service.dart';
 import 'package:autosre/services/dashboard_state.dart';
+import 'package:autosre/services/explorer_query_service.dart';
+import 'package:autosre/models/time_range.dart';
+import 'package:autosre/models/adk_schema.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'package:autosre/agent/adk_content_generator.dart';
@@ -68,6 +71,8 @@ class MockProjectService implements ProjectService {
   @override
   ValueListenable<String?> get error => ValueNotifier(null);
   @override
+  ValueListenable<bool> get needsProjectSelection => ValueNotifier(false);
+  @override
   String? get selectedProjectId => null;
   @override
   Future<void> fetchProjects({String? query}) async {}
@@ -85,6 +90,45 @@ class MockProjectService implements ProjectService {
   void clearSelection() {}
   @override
   void dispose() {}
+}
+
+class MockExplorerQueryService implements ExplorerQueryService {
+  @override
+  Future<void> queryMetrics({required String filter, String? projectId, TimeRange? timeRange}) async {}
+  @override
+  Future<void> queryLogs({required String filter, String? projectId, String? pageToken}) async {}
+  @override
+  Future<List<LogEntry>> fetchLogsForSpan({required String traceId, required String spanId, String? projectId}) async => [];
+  @override
+  Future<void> queryTrace({required String traceId, String? projectId}) async {}
+  @override
+  Future<void> queryTraceFilter({required String filter, String? projectId, TimeRange? timeRange}) async {}
+  @override
+  Future<void> queryMetricsPromQL({required String query, String? projectId, TimeRange? timeRange}) async {}
+  @override
+  Future<void> queryBigQuery({required String sql, String? projectId}) async {}
+  @override
+  Future<void> queryAlerts({String? filter, String? projectId, TimeRange? timeRange}) async {}
+  @override
+  Future<List<String>> getDatasets({String? projectId}) async => [];
+  @override
+  Future<List<String>> getLogNames({String? projectId}) async => [];
+  @override
+  Future<List<Map<String, dynamic>>> getResourceKeys({String? projectId}) async => [];
+  @override
+  Future<List<String>> getTables({required String datasetId, String? projectId}) async => [];
+  @override
+  Future<List<Map<String, dynamic>>?> getTableSchema({required String datasetId, required String tableId, String? projectId}) async => [];
+  @override
+  Future<List<String>> getJsonKeys({required String datasetId, required String tableId, required String columnName, String? projectId}) async => [];
+  @override
+  Future<void> loadDefaultLogs({String? projectId}) async {}
+  @override
+  Future<void> loadSlowTraces({String? projectId}) async {}
+  @override
+  Future<void> loadRecentAlerts({String? projectId}) async {}
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class MockSessionService implements SessionService {
@@ -290,6 +334,7 @@ Widget wrapWithProviders(
   PromptHistoryService? promptHistory,
   DashboardState? dashboard,
   ConnectivityService? connectivity,
+  ExplorerQueryService? explorer,
 }) {
   final actualAuth = auth ?? MockAuthService();
   final actualProject = project ?? MockProjectService();
@@ -298,6 +343,7 @@ Widget wrapWithProviders(
   final actualPromptHistory = promptHistory ?? MockPromptHistoryService();
   final actualDashboard = dashboard ?? DashboardState();
   final actualConnectivity = connectivity ?? MockConnectivityService();
+  final actualExplorer = explorer ?? MockExplorerQueryService();
 
   // Also set singletons for non-widget code
   setupMockSingletons(
@@ -320,6 +366,7 @@ Widget wrapWithProviders(
       ChangeNotifierProvider<ConnectivityService>.value(
         value: actualConnectivity,
       ),
+      Provider<ExplorerQueryService>.value(value: actualExplorer),
     ],
     child: child,
   );

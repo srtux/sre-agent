@@ -557,7 +557,7 @@ class ExplorerQueryService {
     _dashboardState.setLoading(DashboardDataType.alerts, true);
     try {
       /// 7 days = 10080 minutes.
-      const int sevenDaysInMinutes = 10080;
+      const sevenDaysInMinutes = 10080;
       final body = jsonEncode({
         'filter': '',
         'project_id': projectId,

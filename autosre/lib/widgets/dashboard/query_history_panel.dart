@@ -210,7 +210,7 @@ class _QueryHistoryPanelState extends State<QueryHistoryPanel>
                   const SizedBox(width: 6),
                   ListenableBuilder(
                     listenable: SavedQueryService.instance,
-                    builder: (_, __) {
+                    builder: (context, _) {
                       final count = SavedQueryService.instance
                           .getRecentQueries(widget.panelType)
                           .length;
@@ -228,7 +228,7 @@ class _QueryHistoryPanelState extends State<QueryHistoryPanel>
                   const SizedBox(width: 6),
                   ListenableBuilder(
                     listenable: SavedQueryService.instance,
-                    builder: (_, __) {
+                    builder: (context, _) {
                       final count = SavedQueryService.instance
                           .getSavedQueries(widget.panelType)
                           .length;
@@ -539,7 +539,7 @@ class _QueryHistoryPanelState extends State<QueryHistoryPanel>
                 ],
               ),
             ),
-            if (trailing != null) trailing,
+            ?trailing,
           ],
         ),
       ),

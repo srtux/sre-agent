@@ -6,11 +6,13 @@ import 'package:autosre/services/dashboard_state.dart';
 import 'package:autosre/services/explorer_query_service.dart';
 import 'package:autosre/services/project_service.dart';
 import 'package:autosre/widgets/conversation/dashboard_panel_wrapper.dart';
+import 'package:autosre/widgets/dashboard/dashboard_panel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../test_helper.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -816,7 +818,7 @@ void main() {
     testWidgets('default width factor should be 0.7', (
       WidgetTester tester,
     ) async {
-      tester.view.physicalSize = const Size(1000, 800);
+      tester.view.physicalSize = const Size(2000, 800);
       tester.view.devicePixelRatio = 1.0;
 
       addTearDown(() {
@@ -827,14 +829,17 @@ void main() {
       dashboardState.openDashboard();
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: DashboardPanelWrapper(
-              dashboardState: dashboardState,
-              totalWidth: 1000,
-              onPromptRequest: (_) {},
+        wrapWithProviders(
+          MaterialApp(
+            home: Scaffold(
+              body: DashboardPanelWrapper(
+                dashboardState: dashboardState,
+                totalWidth: 2000,
+                onPromptRequest: (_) {},
+              ),
             ),
           ),
+          dashboard: dashboardState,
         ),
       );
 
@@ -842,17 +847,20 @@ void main() {
 
       // The DashboardPanelWrapper uses an AnimatedContainer with
       // width = totalWidth * _dashboardWidthFactor (default 0.7)
-      // So at 1000px total width, the panel should be 700px
+      // So at 2000px total width, the panel should be 1400px
       final wrapperFinder = find.byType(DashboardPanelWrapper);
       expect(wrapperFinder, findsOneWidget);
 
-      final animatedContainerFinder = find.byType(AnimatedContainer);
+      final animatedContainerFinder = find.ancestor(
+        of: find.byType(DashboardPanel),
+        matching: find.byType(AnimatedContainer),
+      );
       expect(animatedContainerFinder, findsOneWidget);
 
       final size = tester.getSize(animatedContainerFinder);
       expect(
         size.width,
-        700.0,
+        1400.0,
         reason: 'Dashboard width should be 70% of total width (0.7 factor)',
       );
     });
@@ -870,20 +878,27 @@ void main() {
       dashboardState.openDashboard();
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: DashboardPanelWrapper(
-              dashboardState: dashboardState,
-              totalWidth: 1000,
-              onPromptRequest: (_) {},
+        wrapWithProviders(
+          MaterialApp(
+            home: Scaffold(
+              body: DashboardPanelWrapper(
+                dashboardState: dashboardState,
+                totalWidth: 1000,
+                isChatOpen: false,
+                onPromptRequest: (_) {},
+              ),
             ),
           ),
+          dashboard: dashboardState,
         ),
       );
 
       await tester.pumpAndSettle();
 
-      final animatedContainerFinder = find.byType(AnimatedContainer);
+      final animatedContainerFinder = find.ancestor(
+        of: find.byType(DashboardPanel),
+        matching: find.byType(AnimatedContainer),
+      );
       final size = tester.getSize(animatedContainerFinder);
 
       // Should NOT be 600px (which would be 0.6 factor)
@@ -907,20 +922,26 @@ void main() {
       dashboardState.openDashboard();
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: DashboardPanelWrapper(
-              dashboardState: dashboardState,
-              totalWidth: 1920,
-              onPromptRequest: (_) {},
+        wrapWithProviders(
+          MaterialApp(
+            home: Scaffold(
+              body: DashboardPanelWrapper(
+                dashboardState: dashboardState,
+                totalWidth: 1920,
+                onPromptRequest: (_) {},
+              ),
             ),
           ),
+          dashboard: dashboardState,
         ),
       );
 
       await tester.pumpAndSettle();
 
-      final animatedContainerFinder = find.byType(AnimatedContainer);
+      final animatedContainerFinder = find.ancestor(
+        of: find.byType(DashboardPanel),
+        matching: find.byType(AnimatedContainer),
+      );
       final size = tester.getSize(animatedContainerFinder);
 
       // 1920 * 0.7 = 1344
@@ -950,6 +971,7 @@ void main() {
             body: DashboardPanelWrapper(
               dashboardState: dashboardState,
               totalWidth: 1000,
+              isChatOpen: false,
               onPromptRequest: (_) {},
             ),
           ),
