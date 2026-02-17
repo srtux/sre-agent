@@ -153,6 +153,29 @@ class IncidentTimelineData {
     );
   }
 
+  Map<String, dynamic> toJson() {
+    return {
+      'incident_id': incidentId,
+      'title': title,
+      'start_time': startTime.toIso8601String(),
+      'end_time': endTime?.toIso8601String(),
+      'status': status,
+      'events': events.map((e) => {
+        'id': e.id,
+        'timestamp': e.timestamp.toIso8601String(),
+        'type': e.type,
+        'title': e.title,
+        'description': e.description,
+        'severity': e.severity,
+        'metadata': e.metadata,
+        'is_correlated': e.isCorrelatedToIncident,
+      }).toList(),
+      'root_cause': rootCause,
+      'ttd_seconds': timeToDetect?.inSeconds,
+      'ttm_seconds': timeToMitigate?.inSeconds,
+    };
+  }
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||

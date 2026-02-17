@@ -6,6 +6,16 @@ import 'package:http/http.dart' as http;
 import '../services/auth_service.dart';
 import '../services/connectivity_service.dart';
 
+Map<String, dynamic>? _decodeHugeJson(String source) {
+  try {
+    return jsonDecode(source) as Map<String, dynamic>?;
+  } catch (e) {
+    debugPrint('Failed to decode huge JSON: $e');
+    return null;
+  }
+}
+
+
 /// A ContentGenerator that connects to the Python SRE Agent.
 class ADKContentGenerator implements ContentGenerator {
   final StreamController<A2uiMessage> _a2uiController =
@@ -39,7 +49,7 @@ class ADKContentGenerator implements ContentGenerator {
 
   /// Current HTTP client for cancellation support.
   http.Client? _currentClient;
-  StreamSubscription<String>? _streamSubscription;
+  StreamSubscription<dynamic>? _streamSubscription;
   Timer? _healthCheckTimer;
 
   static const Duration _requestTimeout = Duration(seconds: 30);
@@ -244,11 +254,21 @@ class ADKContentGenerator implements ContentGenerator {
         _streamSubscription = response.stream
             .transform(utf8.decoder)
             .transform(const LineSplitter())
-            .listen((line) {
-              lineCount++;
-              if (line.trim().isEmpty) return;
+            .asyncMap((line) async {
+              if (line.trim().isEmpty) return null;
+              if (line.length > 50000) {
+                return await compute(_decodeHugeJson, line);
+              }
               try {
-                final data = jsonDecode(line);
+                return jsonDecode(line) as Map<String, dynamic>?;
+              } catch (_) {
+                return null;
+              }
+            })
+            .listen((data) {
+              lineCount++;
+              if (data == null) return;
+              try {
                 final type = data['type'];
 
                 if (type == 'text') {
@@ -316,9 +336,6 @@ class ADKContentGenerator implements ContentGenerator {
                 }
               } catch (e, stack) {
                 debugPrint('❌ [PARSE_ERROR] Error parsing line $lineCount: $e');
-                debugPrint(
-                  '❌ [PARSE_ERROR] Line content: ${line.length > 500 ? "${line.substring(0, 500)}..." : line}',
-                );
                 debugPrint('❌ [PARSE_ERROR] Stack: $stack');
               }
             });
