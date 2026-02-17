@@ -9,6 +9,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from opentelemetry import trace
 
+from sre_agent.exceptions import SREAgentError
+
 logger = logging.getLogger(__name__)
 
 # Track if we have already logged a successful health check to reduce log noise
@@ -18,10 +20,21 @@ _HEALTH_SUCCESS_LOGGED = True
 
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Global handler for unhandled exceptions."""
-    logger.error(f"🔥 Global exception handler caught: {exc}", exc_info=True)
+    # Always log the full error internally with stack trace (Developer visibility)
+    # We use error level for 5xx and warning/info for others if needed.
+    logger.error(f"🔥 API Error caught: {exc}", exc_info=True)
+
+    # 1. Check if it's a known SRE Agent error that is safe to expose
+    if isinstance(exc, SREAgentError) and getattr(exc, "user_facing", False):
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"message": "Internal Server Error", "detail": str(exc)},
+        )
+
+    # 2. Otherwise return a generic message (CodeQL security)
     return JSONResponse(
         status_code=500,
-        content={"message": "Internal Server Error", "detail": str(exc)},
+        content={"message": "Internal Server Error", "detail": "Internal server error"},
     )
 
 

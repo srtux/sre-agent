@@ -6,6 +6,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict
 
+from sre_agent.exceptions import UserFacingError
 from sre_agent.services import get_session_service
 
 logger = logging.getLogger(__name__)
@@ -58,8 +59,8 @@ async def create_session(request: CreateSessionRequest) -> Any:
             "state": session.state,
         }
     except Exception as e:
-        logger.error(f"Error creating session: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error") from None
+        logger.exception("Error creating session")
+        raise UserFacingError(f"Internal server error: {e}") from e
 
 
 @router.get("")
@@ -70,8 +71,8 @@ async def list_sessions(user_id: str = "default") -> Any:
         sessions = await session_manager.list_sessions(user_id=user_id)
         return {"sessions": [s.to_dict() for s in sessions]}
     except Exception as e:
-        logger.error(f"Error listing sessions: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error") from None
+        logger.exception("Error listing sessions")
+        raise UserFacingError(f"Internal server error: {e}") from e
 
 
 @router.get("/{session_id}")
@@ -127,8 +128,8 @@ async def get_session(session_id: str, user_id: str = "default") -> Any:
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting session: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error") from None
+        logger.exception(f"Error getting session {session_id}")
+        raise UserFacingError(f"Internal server error: {e}") from e
 
 
 @router.delete("/{session_id}")
@@ -143,8 +144,8 @@ async def delete_session(session_id: str, user_id: str = "default") -> Any:
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error deleting session: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error") from None
+        logger.exception(f"Error deleting session {session_id}")
+        raise UserFacingError(f"Internal server error: {e}") from e
 
 
 @router.patch("/{session_id}")
@@ -171,8 +172,8 @@ async def update_session(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error updating session: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error") from None
+        logger.exception(f"Error updating session {session_id}")
+        raise UserFacingError(f"Internal server error: {e}") from e
 
 
 @router.get("/{session_id}/history")
@@ -222,5 +223,5 @@ async def get_session_history(session_id: str, user_id: str = "default") -> Any:
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting session history: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error") from None
+        logger.exception(f"Error getting session history for {session_id}")
+        raise UserFacingError(f"Internal server error: {e}") from e

@@ -4,7 +4,9 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
+
+from sre_agent.exceptions import UserFacingError
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/permissions", tags=["permissions"])
@@ -83,9 +85,9 @@ async def get_gcloud_commands(project_id: str) -> Any:
             "commands": commands,
             "one_liner": " && ".join(commands),
         }
-    except Exception:
-        logger.error("Error generating gcloud commands", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error") from None
+    except Exception as e:
+        logger.exception("Error generating gcloud commands")
+        raise UserFacingError(f"Internal server error: {e}") from e
 
 
 @router.get("/check/{project_id}")

@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
 from sre_agent.auth import get_current_user_id
+from sre_agent.exceptions import UserFacingError
 from sre_agent.services import get_storage_service
 
 logger = logging.getLogger(__name__)
@@ -95,9 +96,11 @@ async def set_selected_project(request: SetProjectRequest) -> Any:
         uid = _effective_user_id(request.user_id)
         await storage.set_selected_project(request.project_id, uid)
         return {"success": True, "project_id": request.project_id}
+    except (HTTPException, UserFacingError):
+        raise
     except Exception as e:
-        logger.error(f"Error setting project preference: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error") from None
+        logger.exception("Error setting project preference")
+        raise UserFacingError(f"Internal server error: {e}") from e
 
 
 @router.get("/tools")
@@ -108,6 +111,8 @@ async def get_tool_preferences(user_id: str = "default") -> Any:
         uid = _effective_user_id(user_id)
         tools = await storage.get_tool_config(uid)
         return {"enabled_tools": tools or {}}
+    except (HTTPException, UserFacingError):
+        raise
     except Exception as e:
         logger.error(f"Error getting tool preferences: {e}")
         return {"enabled_tools": {}}
@@ -121,9 +126,11 @@ async def set_tool_preferences(request: SetToolConfigRequest) -> Any:
         uid = _effective_user_id(request.user_id)
         await storage.set_tool_config(request.enabled_tools, uid)
         return {"success": True}
+    except (HTTPException, UserFacingError):
+        raise
     except Exception as e:
-        logger.error(f"Error setting tool preferences: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error") from None
+        logger.exception("Error setting tool preferences")
+        raise UserFacingError(f"Internal server error: {e}") from e
 
 
 @router.get("/projects/recent")
@@ -134,6 +141,8 @@ async def get_recent_projects(user_id: str = "default") -> Any:
         uid = _effective_user_id(user_id)
         projects = await storage.get_recent_projects(uid)
         return {"projects": projects or []}
+    except (HTTPException, UserFacingError):
+        raise
     except Exception as e:
         logger.error(f"Error getting recent projects: {e}")
         return {"projects": []}
@@ -147,9 +156,11 @@ async def set_recent_projects(request: SetRecentProjectsRequest) -> Any:
         uid = _effective_user_id(request.user_id)
         await storage.set_recent_projects(request.projects, uid)
         return {"success": True}
+    except (HTTPException, UserFacingError):
+        raise
     except Exception as e:
-        logger.error(f"Error setting recent projects: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error") from None
+        logger.exception("Error setting recent projects")
+        raise UserFacingError(f"Internal server error: {e}") from e
 
 
 @router.get("/projects/starred")
@@ -160,6 +171,8 @@ async def get_starred_projects(user_id: str = "default") -> Any:
         uid = _effective_user_id(user_id)
         projects = await storage.get_starred_projects(uid)
         return {"projects": projects or []}
+    except (HTTPException, UserFacingError):
+        raise
     except Exception as e:
         logger.error(f"Error getting starred projects: {e}")
         return {"projects": []}
@@ -173,9 +186,11 @@ async def set_starred_projects(request: SetStarredProjectsRequest) -> Any:
         uid = _effective_user_id(request.user_id)
         await storage.set_starred_projects(request.projects, uid)
         return {"success": True}
+    except (HTTPException, UserFacingError):
+        raise
     except Exception as e:
-        logger.error(f"Error setting starred projects: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error") from None
+        logger.exception("Error setting starred projects")
+        raise UserFacingError(f"Internal server error: {e}") from e
 
 
 @router.post("/projects/starred/toggle")
@@ -204,9 +219,13 @@ async def toggle_starred_project(request: ToggleStarRequest) -> Any:
 
         await storage.set_starred_projects(current, uid)
         return {"success": True, "starred": request.starred, "projects": current}
+    except (HTTPException, UserFacingError):
+        raise
     except Exception as e:
         logger.error(f"Error toggling starred project: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error") from None
+        raise HTTPException(
+            status_code=500, detail=f"Internal server error: {e}"
+        ) from None
 
 
 # =============================================================================
@@ -268,6 +287,8 @@ async def get_recent_queries(
         uid = _effective_user_id(user_id)
         queries = await storage.get_recent_queries(uid, panel_type=panel_type)
         return {"queries": queries}
+    except (HTTPException, UserFacingError):
+        raise
     except Exception as e:
         logger.error(f"Error getting recent queries: {e}")
         return {"queries": []}
@@ -287,9 +308,11 @@ async def add_recent_query(request: AddRecentQueryRequest) -> Any:
         }
         queries = await storage.add_recent_query(entry, uid)
         return {"success": True, "queries": queries}
+    except (HTTPException, UserFacingError):
+        raise
     except Exception as e:
-        logger.error(f"Error adding recent query: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error") from None
+        logger.exception("Error adding recent query")
+        raise UserFacingError(f"Internal server error: {e}") from e
 
 
 @router.get("/queries/saved")
@@ -303,6 +326,8 @@ async def get_saved_queries(
         uid = _effective_user_id(user_id)
         queries = await storage.get_saved_queries(uid, panel_type=panel_type)
         return {"queries": queries}
+    except (HTTPException, UserFacingError):
+        raise
     except Exception as e:
         logger.error(f"Error getting saved queries: {e}")
         return {"queries": []}
@@ -324,9 +349,11 @@ async def save_query(request: SaveQueryRequest) -> Any:
         }
         queries = await storage.add_saved_query(entry, uid)
         return {"success": True, "query": entry, "queries": queries}
+    except (HTTPException, UserFacingError):
+        raise
     except Exception as e:
-        logger.error(f"Error saving query: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error") from None
+        logger.exception("Error saving query")
+        raise UserFacingError(f"Internal server error: {e}") from e
 
 
 @router.put("/queries/saved/{query_id}")
@@ -342,9 +369,11 @@ async def update_saved_query(query_id: str, request: UpdateSavedQueryRequest) ->
             updates["query"] = request.query
         queries = await storage.update_saved_query(query_id, updates, uid)
         return {"success": True, "queries": queries}
+    except (HTTPException, UserFacingError):
+        raise
     except Exception as e:
-        logger.error(f"Error updating saved query: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error") from None
+        logger.exception("Error updating saved query")
+        raise UserFacingError(f"Internal server error: {e}") from e
 
 
 @router.delete("/queries/saved/{query_id}")
@@ -358,6 +387,8 @@ async def delete_saved_query(
         uid = _effective_user_id(user_id)
         queries = await storage.delete_saved_query(query_id, uid)
         return {"success": True, "queries": queries}
+    except (HTTPException, UserFacingError):
+        raise
     except Exception as e:
-        logger.error(f"Error deleting saved query: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error") from None
+        logger.exception("Error deleting saved query")
+        raise UserFacingError(f"Internal server error: {e}") from e

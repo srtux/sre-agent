@@ -14,6 +14,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
 from sre_agent.api.dependencies import get_tool_context
+from sre_agent.exceptions import ToolExecutionError, UserFacingError
 from sre_agent.schema import BaseToolResponse
 from sre_agent.tools import (
     extract_log_patterns,
@@ -41,12 +42,12 @@ router = APIRouter(prefix="/api/tools", tags=["tools"])
 def _unwrap_tool_result(result: Any) -> Any:
     """Unwrap BaseToolResponse envelope to raw result dict/list.
 
-    Raises HTTPException(502) if the tool reported an error.
+    Raises ToolExecutionError if the tool reported an error.
     """
     if isinstance(result, BaseToolResponse):
         if result.error:
             logger.error(f"Tool execution failed: {result.error}")
-            raise HTTPException(status_code=502, detail="Internal tool error")
+            raise ToolExecutionError(f"Internal tool error: {result.error}")
         return result.result
     return result
 
@@ -165,11 +166,11 @@ async def get_trace(trace_id: str, project_id: str | None = None) -> Any:
         )
         raw = _unwrap_tool_result(result)
         return genui_adapter.transform_trace(raw)
-    except HTTPException:
+    except (HTTPException, UserFacingError):
         raise
     except Exception as e:
         logger.exception("Error fetching trace %s", trace_id)
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+        raise UserFacingError(f"Internal server error: {e}") from e
 
 
 @router.post("/traces/query")
@@ -210,11 +211,11 @@ async def query_traces_endpoint(payload: TracesQueryRequest) -> Any:
                 logger.warning("Error fetching full trace details: %s", e)
 
         return full_traces
-    except HTTPException:
+    except (HTTPException, UserFacingError):
         raise
     except Exception as e:
         logger.exception("Error querying traces")
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+        raise UserFacingError(f"Internal server error: {e}") from e
 
 
 @router.get("/projects/list")
@@ -226,11 +227,11 @@ async def list_projects(query: str | None = None) -> Any:
     try:
         result = await list_gcp_projects(query=query)
         return _unwrap_tool_result(result)
-    except HTTPException:
+    except (HTTPException, UserFacingError):
         raise
     except Exception as e:
         logger.exception("Error listing projects")
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+        raise UserFacingError(f"Internal server error: {e}") from e
 
 
 @router.post("/logs/analyze")
@@ -257,11 +258,11 @@ async def analyze_logs(payload: LogAnalyzeRequest) -> Any:
             log_entries=log_entries,
         )
         return _unwrap_tool_result(pattern_result)
-    except HTTPException:
+    except (HTTPException, UserFacingError):
         raise
     except Exception as e:
         logger.exception("Error analyzing logs")
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+        raise UserFacingError(f"Internal server error: {e}") from e
 
 
 @router.post("/metrics/query")
@@ -278,11 +279,11 @@ async def query_metrics_endpoint(payload: MetricsQueryRequest) -> Any:
         )
         raw = _unwrap_tool_result(result)
         return genui_adapter.transform_metrics(raw)
-    except HTTPException:
+    except (HTTPException, UserFacingError):
         raise
     except Exception as e:
         logger.exception("Error querying metrics")
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+        raise UserFacingError(f"Internal server error: {e}") from e
 
 
 @router.post("/metrics/promql")
@@ -305,11 +306,11 @@ async def query_promql_endpoint(payload: PromQLQueryRequest) -> Any:
         )
         raw = _unwrap_tool_result(result)
         return genui_adapter.transform_metrics(raw)
-    except HTTPException:
+    except (HTTPException, UserFacingError):
         raise
     except Exception as e:
         logger.exception("Error executing PromQL query")
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+        raise UserFacingError(f"Internal server error: {e}") from e
 
 
 @router.post("/alerts/query")
@@ -326,11 +327,11 @@ async def query_alerts_endpoint(payload: AlertsQueryRequest) -> Any:
         )
         raw = _unwrap_tool_result(result)
         return genui_adapter.transform_alerts_to_timeline(raw)
-    except HTTPException:
+    except (HTTPException, UserFacingError):
         raise
     except Exception as e:
         logger.exception("Error querying alerts")
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+        raise UserFacingError(f"Internal server error: {e}") from e
 
 
 @router.post("/logs/query")
@@ -360,11 +361,13 @@ async def query_logs_endpoint(payload: LogsQueryRequest) -> Any:
         )
         raw = _unwrap_tool_result(result)
         return genui_adapter.transform_log_entries(raw)
-    except HTTPException:
+    except (HTTPException, UserFacingError):
         raise
     except Exception as e:
         logger.exception("Error querying logs")
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+        raise HTTPException(
+            status_code=500, detail=f"Internal server error: {e}"
+        ) from e
 
 
 @router.get("/logs/names")
@@ -374,11 +377,13 @@ async def get_logs_names(project_id: str | None = None) -> Any:
         result = await list_logs(project_id=project_id)
         raw = _unwrap_tool_result(result)
         return raw
-    except HTTPException:
+    except (HTTPException, UserFacingError):
         raise
     except Exception as e:
         logger.exception("Error getting log names")
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+        raise HTTPException(
+            status_code=500, detail=f"Internal server error: {e}"
+        ) from e
 
 
 @router.get("/logs/resource_keys")
@@ -388,11 +393,13 @@ async def get_logs_resource_keys(project_id: str | None = None) -> Any:
         result = await list_resource_keys(project_id=project_id)
         raw = _unwrap_tool_result(result)
         return raw
-    except HTTPException:
+    except (HTTPException, UserFacingError):
         raise
     except Exception as e:
         logger.exception("Error getting resource keys")
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+        raise HTTPException(
+            status_code=500, detail=f"Internal server error: {e}"
+        ) from e
 
 
 @router.post("/bigquery/query")
@@ -410,7 +417,9 @@ async def query_bigquery_endpoint(payload: BigQueryQueryRequest) -> Any:
         return {"columns": columns, "rows": rows}
     except Exception as e:
         logger.exception("Error querying BigQuery")
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+        raise HTTPException(
+            status_code=500, detail=f"Internal server error: {e}"
+        ) from e
 
 
 @router.get("/bigquery/datasets")
@@ -423,7 +432,9 @@ async def list_bigquery_datasets(project_id: str | None = None) -> Any:
         return {"datasets": datasets}
     except Exception as e:
         logger.exception("Error listing BigQuery datasets")
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+        raise HTTPException(
+            status_code=500, detail=f"Internal server error: {e}"
+        ) from e
 
 
 @router.get("/bigquery/datasets/{dataset_id}/tables")
@@ -436,7 +447,9 @@ async def list_bigquery_tables(dataset_id: str, project_id: str | None = None) -
         return {"tables": tables}
     except Exception as e:
         logger.exception(f"Error listing tables for dataset {dataset_id}")
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+        raise HTTPException(
+            status_code=500, detail=f"Internal server error: {e}"
+        ) from e
 
 
 @router.get("/bigquery/datasets/{dataset_id}/tables/{table_id}/schema")
@@ -451,7 +464,9 @@ async def get_bigquery_table_schema(
         return {"schema": schema}
     except Exception as e:
         logger.exception(f"Error getting schema for table {dataset_id}.{table_id}")
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+        raise HTTPException(
+            status_code=500, detail=f"Internal server error: {e}"
+        ) from e
 
 
 @router.get(
@@ -473,7 +488,9 @@ async def get_bigquery_json_keys(
         logger.exception(
             f"Error getting JSON keys for {dataset_id}.{table_id}.{column_name}"
         )
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+        raise HTTPException(
+            status_code=500, detail=f"Internal server error: {e}"
+        ) from e
 
 
 # =============================================================================
@@ -545,11 +562,13 @@ async def query_natural_language_endpoint(payload: NLQueryRequest) -> Any:
             project_id=payload.project_id,
             minutes_ago=payload.minutes_ago,
         )
-    except HTTPException:
+    except (HTTPException, UserFacingError):
         raise
     except Exception as e:
         logger.exception("Error processing natural language query")
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+        raise HTTPException(
+            status_code=500, detail=f"Internal server error: {e}"
+        ) from e
 
 
 async def _translate_nl_query(
@@ -711,7 +730,7 @@ async def get_tool_configs(
             },
             "categories": [c.value for c in ToolCategory],
         }
-    except HTTPException:
+    except (HTTPException, UserFacingError):
         raise
     except Exception as e:
         logger.error(f"Error getting tool configs: {e}", exc_info=True)
@@ -732,7 +751,7 @@ async def get_tool_config(tool_name: str) -> Any:
             )
 
         return config.to_dict()
-    except HTTPException:
+    except (HTTPException, UserFacingError):
         raise
     except Exception as e:
         logger.error(f"Error getting tool config: {e}", exc_info=True)
@@ -767,7 +786,7 @@ async def update_tool_config(tool_name: str, update: ToolConfigUpdate) -> Any:
             f"{'enabled' if update.enabled else 'disabled'} successfully",
             "tool": updated_config.to_dict() if updated_config else None,
         }
-    except HTTPException:
+    except (HTTPException, UserFacingError):
         raise
     except Exception as e:
         logger.error(f"Error updating tool config: {e}", exc_info=True)
@@ -855,7 +874,7 @@ async def test_tool(tool_name: str) -> Any:
                 "details": result.details,
             },
         }
-    except HTTPException:
+    except (HTTPException, UserFacingError):
         raise
     except Exception as e:
         logger.error(f"Error testing tool: {e}", exc_info=True)
