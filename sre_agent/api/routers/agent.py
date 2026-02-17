@@ -122,7 +122,9 @@ def _generate_session_title(user_message: str) -> str:
 
     # Remove context tags like [Context: ...]
     # Optimized regex to avoid polynomial backtracking (ReDoS)
-    text = re.sub(r"\[Context:[^\]]*\]", "", text).strip()
+    # Using a more restrictive pattern and limiting input length for safety
+    if len(text) < 1000:
+        text = re.sub(r"\[Context:[^\[\]]*\]", "", text).strip()
 
     # Take first sentence or first N words
     sentences = re.split(r"[.?!\n]", text)
