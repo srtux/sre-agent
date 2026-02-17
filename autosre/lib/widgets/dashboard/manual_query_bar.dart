@@ -691,7 +691,7 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
                       ),
                     ),
                   // Run Query / loading / time controls
-                  if (widget.dashboardState != null && maxWidth > 400)
+                  if (widget.dashboardState != null && maxWidth > 600)
                     _buildCompactTimeControls()
                   else
                     Padding(

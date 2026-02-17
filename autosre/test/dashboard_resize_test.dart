@@ -43,16 +43,16 @@ void main() {
     final dashboardFinder = find.byType(DashboardPanel);
     expect(dashboardFinder, findsOneWidget);
 
-    // Initial width should be 60% of 1920 = 1152
+    // Initial width should be 70% of 1920 = 1344
     final initialSize = tester.getSize(dashboardFinder);
-    expect(initialSize.width, 1152.0);
+    expect(initialSize.width, 1344.0);
 
-    // Drag handle to the RIGHT by 192 (10% of width)
-    // New width should be 70% of 1920 = 1344
-    await tester.drag(handleFinder, const Offset(192.0, 0));
+    // Drag handle to the RIGHT by 100
+    // New width should be 1344 + 100 = 1444
+    await tester.drag(handleFinder, const Offset(100.0, 0));
     await tester.pumpAndSettle();
 
     final expandedSize = tester.getSize(dashboardFinder);
-    expect(expandedSize.width, 1344.0);
+    expect(expandedSize.width, closeTo(1444.0, 0.001));
   });
 }

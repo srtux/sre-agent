@@ -103,6 +103,10 @@ class ProjectService {
   final ValueNotifier<bool> _isLoading = ValueNotifier(false);
   final ValueNotifier<String?> _error = ValueNotifier(null);
 
+  /// Signals that no previously-saved project was found and the user
+  /// should select one.
+  final ValueNotifier<bool> _needsProjectSelection = ValueNotifier(false);
+
   /// List of available projects.
   ValueListenable<List<GcpProject>> get projects => _projects;
 
@@ -120,6 +124,9 @@ class ProjectService {
 
   /// Error message if project fetch failed.
   ValueListenable<String?> get error => _error;
+
+  /// Whether the user needs to select a project (no saved project found).
+  ValueListenable<bool> get needsProjectSelection => _needsProjectSelection;
 
   /// The selected project ID, or null if none selected.
   String? get selectedProjectId => _selectedProject.value?.projectId;
@@ -367,9 +374,9 @@ class ProjectService {
           await _loadRecentProjects();
           await _loadStarredProjects();
 
-          // Auto-select first project if still none selected
-          if (_selectedProject.value == null && projects.isNotEmpty) {
-            selectProjectInstance(projects.first);
+          // Signal that user needs to select a project if none was saved
+          if (_selectedProject.value == null) {
+            _needsProjectSelection.value = true;
           }
         } else {
           _error.value = 'Failed to fetch projects: ${response.statusCode}';
@@ -397,6 +404,8 @@ class ProjectService {
   /// Selects a project directly.
   void selectProjectInstance(GcpProject? project) {
     _selectedProject.value = project;
+    // Clear the "needs selection" flag once a project is chosen
+    _needsProjectSelection.value = false;
     // Persist selection
     if (project != null) {
       _saveSelectedProject(project.projectId);
@@ -433,6 +442,7 @@ class ProjectService {
     _recentProjects.dispose();
     _starredProjects.dispose();
     _selectedProject.dispose();
+    _needsProjectSelection.dispose();
     _isLoading.dispose();
     _error.dispose();
   }

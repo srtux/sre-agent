@@ -17,7 +17,10 @@ LogEntry _makeEntry({
     timestamp: DateTime(2026, 1, 15, 12, 0),
     severity: severity,
     payload: 'Test log message',
-    resourceLabels: {'log_name': logName, 'project_id': ?projectId},
+    resourceLabels: {
+      'log_name': logName,
+      'project_id' :? projectId,
+    },
     resourceType: resourceType,
   );
 }

@@ -11,7 +11,7 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from sre_agent.api.dependencies import get_tool_context
 from sre_agent.schema import BaseToolResponse
@@ -83,7 +83,7 @@ class TracesQueryRequest(BaseModel):
     filter: str | None = None
     minutes_ago: int = 60
     project_id: str | None = None
-    limit: int = 10
+    limit: int = Field(default=10, ge=1, le=50)
 
 
 class MetricsQueryRequest(BaseModel):
@@ -180,7 +180,7 @@ async def query_traces_endpoint(payload: TracesQueryRequest) -> Any:
         # First get a list of traces matching the filter
         result_list = await list_traces(
             project_id=payload.project_id,
-            limit=5,  # Limit to avoid fetching too many full traces at once
+            limit=payload.limit,
             filter_str=payload.filter or "",
         )
 
@@ -339,8 +339,20 @@ async def query_logs_endpoint(payload: LogsQueryRequest) -> Any:
     Returns data in LogEntriesData-compatible format.
     """
     try:
+        # Build filter with optional time constraint
+        filter_str = payload.filter or ""
+        if payload.minutes_ago is not None:
+            from datetime import datetime, timedelta, timezone
+
+            cutoff = datetime.now(timezone.utc) - timedelta(minutes=payload.minutes_ago)
+            time_filter = f'timestamp>="{cutoff.isoformat()}"'
+            if filter_str:
+                filter_str = f"{filter_str} AND {time_filter}"
+            else:
+                filter_str = time_filter
+
         result = await list_log_entries(
-            filter_str=payload.filter,
+            filter_str=filter_str,
             project_id=payload.project_id,
             limit=payload.limit,
             page_token=payload.page_token,

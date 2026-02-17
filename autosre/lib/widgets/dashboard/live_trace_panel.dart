@@ -51,6 +51,16 @@ class _LiveTracePanelState extends State<LiveTracePanel> {
   void initState() {
     super.initState();
     _loadHelpDismissed();
+
+    // Auto-load slow traces when panel first appears with no data
+    // and no load is already in progress.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.items.isEmpty &&
+          mounted &&
+          !widget.dashboardState.isLoading(DashboardDataType.traces)) {
+        _loadSlowTraces();
+      }
+    });
   }
 
   Future<void> _loadHelpDismissed() async {
@@ -67,6 +77,18 @@ class _LiveTracePanelState extends State<LiveTracePanel> {
     setState(() => _helpDismissed = true);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('traces_help_dismissed', true);
+  }
+
+  Future<void> _loadSlowTraces() async {
+    if (!mounted) return;
+    try {
+      final explorer = context.read<ExplorerQueryService>();
+      final projectId = context.read<ProjectService>().selectedProjectId;
+      if (projectId == null) return;
+      await explorer.loadSlowTraces(projectId: projectId);
+    } catch (e) {
+      debugPrint('LiveTracePanel auto-load error: $e');
+    }
   }
 
   @override

@@ -116,11 +116,11 @@ class DashboardState extends ChangeNotifier {
   bool get isOpen => _isOpen;
 
   /// Currently selected tab in the dashboard.
-  DashboardDataType _activeTab = DashboardDataType.traces;
+  DashboardDataType _activeTab = DashboardDataType.logs;
   DashboardDataType get activeTab => _activeTab;
 
   /// Time range for manual queries.
-  TimeRange _timeRange = TimeRange.fromPreset(TimeRangePreset.oneHour);
+  TimeRange _timeRange = TimeRange.fromPreset(TimeRangePreset.fifteenMinutes);
   TimeRange get timeRange => _timeRange;
 
   /// Loading states per panel type.
