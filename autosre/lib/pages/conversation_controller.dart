@@ -3,11 +3,21 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:genui/genui.dart';
 
+
 import '../agent/adk_content_generator.dart';
 import '../catalog.dart';
 import '../models/adk_schema.dart';
 import '../services/dashboard_state.dart';
 import '../services/session_service.dart';
+
+String _encodeJsonMap(dynamic obj) {
+  try {
+    return const JsonEncoder.withIndent('  ').convert(obj);
+  } catch (_) {
+    return obj.toString();
+  }
+}
+
 
 /// Callback signature for showing status/error toasts.
 typedef ToastCallback = void Function(String message, {bool isError});
@@ -229,7 +239,7 @@ class ConversationController {
     onScrollToBottom();
   }
 
-  void _handleToolResponse(Map<String, dynamic> event) {
+  Future<void> _handleToolResponse(Map<String, dynamic> event) async {
     final callId = event['call_id'] as String;
     final toolName = event['tool_name'] as String;
     final status = event['status'] as String? ?? 'completed';
@@ -240,13 +250,11 @@ class ConversationController {
       if (result is String) {
         resultStr = result;
       } else {
-        try {
-          resultStr = const JsonEncoder.withIndent('  ').convert(result);
-        } catch (_) {
-          resultStr = result.toString();
-        }
+        resultStr = await compute(_encodeJsonMap, result);
       }
     }
+
+    if (!isMounted()) return;
 
     final existing = toolCallState.value[callId];
     final args = existing?.args ?? {};

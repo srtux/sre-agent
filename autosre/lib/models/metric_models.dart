@@ -75,6 +75,18 @@ class MetricSeries {
     );
   }
 
+  Map<String, dynamic> toJson() {
+    return {
+      'metric_name': metricName,
+      'points': points.map((p) => {
+        'timestamp': p.timestamp.toIso8601String(),
+        'value': p.value,
+        'is_anomaly': p.isAnomaly,
+      }).toList(),
+      'labels': labels,
+    };
+  }
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||

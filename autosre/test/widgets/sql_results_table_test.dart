@@ -18,6 +18,7 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
 
       expect(find.text('id'), findsOneWidget);
       expect(find.text('name'), findsOneWidget);
@@ -40,6 +41,7 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
 
       // By default it should show page size 100
       expect(find.text('Rows per page:'), findsOneWidget);
@@ -71,6 +73,7 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
 
       // Click column header "value"
       await tester.tap(find.text('value'));
@@ -110,6 +113,7 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
 
       // The table heuristic will detect "timestamp" in the column name + number > 1e9
       // It should format it as a YYYY-MM-DD HH:MM:SS string in local time.
