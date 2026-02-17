@@ -15,7 +15,7 @@ void main() {
   group('DashboardState basic operations', () {
     test('initial state is correct', () {
       expect(state.isOpen, isFalse);
-      expect(state.activeTab, DashboardDataType.traces);
+      expect(state.activeTab, DashboardDataType.logs);
       expect(state.hasData, isFalse);
       expect(state.items, isEmpty);
       expect(state.autoRefresh, isFalse);

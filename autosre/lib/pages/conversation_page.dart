@@ -6,7 +6,9 @@ import 'package:genui/genui.dart';
 import 'package:provider/provider.dart';
 
 import '../agent/adk_content_generator.dart';
+import '../models/time_range.dart';
 import '../services/dashboard_state.dart';
+import '../services/explorer_query_service.dart';
 import '../services/project_service.dart';
 import '../services/prompt_history_service.dart';
 import '../services/session_service.dart';
@@ -18,6 +20,7 @@ import '../widgets/conversation/chat_panel_wrapper.dart';
 import '../widgets/conversation/conversation_app_bar.dart';
 import '../widgets/conversation/dashboard_panel_wrapper.dart';
 import '../widgets/conversation/hero_empty_state.dart';
+import '../widgets/conversation/project_selection_dialog.dart';
 import '../widgets/conversation/investigation_rail.dart';
 import '../widgets/session_panel.dart';
 import '../widgets/status_toast.dart';
@@ -114,6 +117,8 @@ class _ConversationPageState extends State<ConversationPage>
     _loadPromptHistory();
 
     _projectService.selectedProject.addListener(_onProjectChanged);
+    // Listen for project selection needed (no saved project found)
+    _projectService.needsProjectSelection.addListener(_onNeedsProjectSelection);
   }
 
   // --------------- Keyboard & History ---------------
@@ -189,8 +194,52 @@ class _ConversationPageState extends State<ConversationPage>
   // --------------- Actions ---------------
 
   void _onProjectChanged() {
-    _controller.contentGenerator?.projectId = _projectService.selectedProjectId;
+    final projectId = _projectService.selectedProjectId;
+    _controller.contentGenerator?.projectId = projectId;
     _controller.contentGenerator?.fetchSuggestions();
+
+    // When a project is selected, open dashboard with logs and auto-load data
+    if (projectId != null) {
+      _dashboardState.clear();
+      _dashboardState.setTimeRange(
+        TimeRange.fromPreset(TimeRangePreset.fifteenMinutes),
+      );
+      _dashboardState.openDashboard();
+      _dashboardState.setActiveTab(DashboardDataType.logs);
+
+      // Auto-load default logs for the selected project
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          final explorer = context.read<ExplorerQueryService>();
+          explorer.loadDefaultLogs(projectId: projectId);
+        }
+      });
+    }
+  }
+
+  bool _projectDialogShown = false;
+
+  void _onNeedsProjectSelection() {
+    if (!_projectService.needsProjectSelection.value) return;
+    if (!mounted) return;
+    if (_projectDialogShown) return;
+
+    _projectDialogShown = true;
+
+    // Show project selector dialog
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => ProjectSelectionDialog(
+          projectService: _projectService,
+          onProjectSelected: () {
+            // Project was selected, dashboard will auto-open via _onProjectChanged
+          },
+        ),
+      ).then((_) => _projectDialogShown = false);
+    });
   }
 
   void _sendMessage() {
@@ -459,6 +508,7 @@ class _ConversationPageState extends State<ConversationPage>
   void dispose() {
     _controller.dispose();
     // Note: _dashboardState is managed by Provider — do NOT dispose here.
+    _projectService.needsProjectSelection.removeListener(_onNeedsProjectSelection);
     _projectService.selectedProject.removeListener(_onProjectChanged);
     _typingController.dispose();
     _textController.dispose();

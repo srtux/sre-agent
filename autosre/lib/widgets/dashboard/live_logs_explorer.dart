@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/adk_schema.dart';
 import '../../services/dashboard_state.dart';
 import '../../services/explorer_query_service.dart';
+import '../../services/project_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/design_tokens.dart' as tokens;
 import '../../utils/ansi_parser.dart';
@@ -73,6 +74,14 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchMetadata();
+      // Auto-load recent logs when panel first appears with no data
+      // and no load is already in progress (avoids duplicate with
+      // conversation_page._onProjectChanged which also triggers a load).
+      if (widget.items.isEmpty &&
+          mounted &&
+          !widget.dashboardState.isLoading(DashboardDataType.logs)) {
+        _loadDefaultLogs();
+      }
     });
   }
 
@@ -131,6 +140,18 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
       setState(() {
         _logNames = logs;
       });
+    }
+  }
+
+  Future<void> _loadDefaultLogs() async {
+    if (!mounted) return;
+    try {
+      final explorer = context.read<ExplorerQueryService>();
+      final projectId = context.read<ProjectService>().selectedProjectId;
+      if (projectId == null) return;
+      await explorer.loadDefaultLogs(projectId: projectId);
+    } catch (e) {
+      debugPrint('LiveLogsExplorer auto-load error: $e');
     }
   }
 

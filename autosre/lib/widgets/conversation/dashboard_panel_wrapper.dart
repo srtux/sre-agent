@@ -27,9 +27,9 @@ class DashboardPanelWrapper extends StatefulWidget {
 }
 
 class _DashboardPanelWrapperState extends State<DashboardPanelWrapper> {
-  double _dashboardWidthFactor = 0.6;
+  double _dashboardWidthFactor = 0.7;
   bool _isDashboardMaximized = false;
-  double _lastDashboardWidth = 0.6;
+  double _lastDashboardWidth = 0.7;
   bool _isResizeHovered = false;
 
   void _toggleDashboardMaximize() {

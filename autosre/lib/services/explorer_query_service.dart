@@ -471,4 +471,115 @@ class ExplorerQueryService {
       return [];
     }
   }
+
+  // =========================================================================
+  // Default Data Loading (Auto-load on dashboard open)
+  // =========================================================================
+
+  /// Auto-load recent logs (past 15 minutes, all severities).
+  ///
+  /// Called when the logs panel is first displayed to provide an immediate
+  /// overview of recent log activity in the selected project.
+  Future<void> loadDefaultLogs({String? projectId}) async {
+    _dashboardState.setLoading(DashboardDataType.logs, true);
+    try {
+      final payload = <String, dynamic>{
+        'filter': '',
+        'project_id': projectId,
+        'minutes_ago': 15,
+        'limit': 100,
+      };
+      final body = jsonEncode(payload);
+      final response = await _post('/api/tools/logs/query', body);
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+      final logData = LogEntriesData.fromJson(data);
+      _dashboardState.addLogEntries(
+        logData,
+        'auto_load',
+        data,
+        source: DataSource.manual,
+      );
+
+      _dashboardState.setLastQueryFilter(DashboardDataType.logs, '');
+    } catch (e) {
+      _dashboardState.setError(DashboardDataType.logs, e.toString());
+      debugPrint('ExplorerQueryService.loadDefaultLogs error: $e');
+    } finally {
+      _dashboardState.setLoading(DashboardDataType.logs, false);
+    }
+  }
+
+  /// Auto-load slow traces (latency > 3s, past 1 hour, up to 20 traces).
+  ///
+  /// Uses the Cloud Trace `MinDuration` filter to find only traces that
+  /// exceed the 3-second threshold, providing an immediate view of
+  /// performance bottlenecks.
+  Future<void> loadSlowTraces({String? projectId}) async {
+    _dashboardState.setLoading(DashboardDataType.traces, true);
+    try {
+      final body = jsonEncode({
+        'filter': 'MinDuration:3s',
+        'project_id': projectId,
+        'minutes_ago': 60,
+        'limit': 20,
+      });
+      final response = await _post('/api/tools/traces/query', body);
+      final listData = jsonDecode(response.body) as List<dynamic>;
+
+      for (var item in listData) {
+        final data = item as Map<String, dynamic>;
+        final trace = Trace.fromJson(data);
+        if (trace.spans.isNotEmpty) {
+          _dashboardState.addTrace(
+            trace,
+            'auto_load',
+            data,
+            source: DataSource.manual,
+          );
+        }
+      }
+
+      // Data loaded; the caller is responsible for tab/dashboard state.
+    } catch (e) {
+      _dashboardState.setError(DashboardDataType.traces, e.toString());
+      debugPrint('ExplorerQueryService.loadSlowTraces error: $e');
+    } finally {
+      _dashboardState.setLoading(DashboardDataType.traces, false);
+    }
+  }
+
+  /// Auto-load recent alerts (past 7 days).
+  ///
+  /// Provides an immediate overview of recent alerting activity
+  /// when the alerts panel is first opened.
+  Future<void> loadRecentAlerts({String? projectId}) async {
+    _dashboardState.setLoading(DashboardDataType.alerts, true);
+    try {
+      /// 7 days = 10080 minutes.
+      const int sevenDaysInMinutes = 10080;
+      final body = jsonEncode({
+        'filter': '',
+        'project_id': projectId,
+        'minutes_ago': sevenDaysInMinutes,
+      });
+      final response = await _post('/api/tools/alerts/query', body);
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+      final alertData = IncidentTimelineData.fromJson(data);
+      _dashboardState.addAlerts(
+        alertData,
+        'auto_load',
+        data,
+        source: DataSource.manual,
+      );
+
+      // Data loaded; the caller is responsible for tab/dashboard state.
+    } catch (e) {
+      _dashboardState.setError(DashboardDataType.alerts, e.toString());
+      debugPrint('ExplorerQueryService.loadRecentAlerts error: $e');
+    } finally {
+      _dashboardState.setLoading(DashboardDataType.alerts, false);
+    }
+  }
 }
