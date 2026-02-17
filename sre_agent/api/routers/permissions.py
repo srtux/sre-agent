@@ -51,7 +51,7 @@ async def get_permissions_info() -> Any:
                 "roles/monitoring.viewer",
                 "roles/compute.viewer",
             ],
-            "error": "Failed to retrieve permission info",
+            "error": f"Failed to retrieve permission info: {e}",
         }
 
 

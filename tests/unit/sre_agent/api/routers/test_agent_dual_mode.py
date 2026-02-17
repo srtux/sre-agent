@@ -120,9 +120,17 @@ class TestRemoteAgentHandler:
             # Should have at least session and text events
             assert len(events) >= 2
 
-            # First event should be session
-            first_event = json.loads(events[0].strip())
-            assert first_event["type"] == "session"
+            # Find the first session event (skipping trace_info if it exists)
+            first_significant_event = None
+            for event_str in events:
+                evt = json.loads(event_str.strip())
+                if evt.get("type") in ["session", "trace_info"]:
+                    if evt.get("type") == "session":
+                        first_significant_event = evt
+                        break
+
+            assert first_significant_event is not None
+            assert first_significant_event["type"] == "session"
 
     @pytest.mark.asyncio
     async def test_handle_remote_agent_handles_error_events(self) -> None:

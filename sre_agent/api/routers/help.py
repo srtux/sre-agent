@@ -36,6 +36,14 @@ async def get_help_manifest() -> Any:
 @router.get("/content/{content_id}")
 async def get_help_content(content_id: str) -> PlainTextResponse:
     """Retrieve the markdown content for a specific help topic."""
+    # Step 0: Input validation for safety and to satisfy security tests
+    if ".." in content_id or "/" in content_id or "\\" in content_id:
+        raise HTTPException(status_code=400, detail="Invalid content ID")
+
+    # Normalize: strip .md if present (handles legacy links or explicit extensions)
+    if content_id.endswith(".md"):
+        content_id = content_id[:-3]
+
     # Step 1: Load manifest to use as an allow-list
     manifest = await get_help_manifest()
 
