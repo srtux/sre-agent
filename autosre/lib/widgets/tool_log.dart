@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import '../models/adk_schema.dart';
 import '../theme/app_theme.dart';
 import '../utils/ansi_parser.dart';
+import '../utils/isolate_helper.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'tool_log_helpers.dart';
 
@@ -24,6 +26,7 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
   late Animation<double> _rotateAnimation;
 
   bool _isError = false;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -40,26 +43,50 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
       CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
     );
 
-    // Initial State Logic:
-    // RUNNING or ERROR -> EXPANDED
-    // SUCCESS -> COLLAPSED
-    _isError = _checkForError();
+    _processLogData();
+  }
+
+  Future<void> _processLogData() async {
     final isRunning = widget.log.status == 'running';
 
-    if (isRunning || _isError) {
-      _isExpanded = true;
-      _animationController.value = 1.0;
-    } else {
-      _isExpanded = false;
-      _animationController.value = 0.0;
-    }
+    // Run error checking in background
+    final result = await AppIsolate.run(_analyzeLogForError, widget.log);
+
+    if (!mounted) return;
+
+    setState(() {
+      _isError = result.$1;
+      _errorMessage = result.$2;
+
+      // Initial State Logic
+      if (isRunning || _isError) {
+        _isExpanded = true;
+        _animationController.value = 1.0;
+      } else {
+        _isExpanded = false;
+        _animationController.value = 0.0;
+      }
+    });
   }
 
   @override
   void didUpdateWidget(ToolLogWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    final newIsError = _checkForError();
+    if (oldWidget.log.status != widget.log.status ||
+        oldWidget.log.result != widget.log.result) {
+      // Re-run background analysis if log state changed significantly
+      _updateLogStateAsync(oldWidget);
+    }
+  }
+
+  Future<void> _updateLogStateAsync(ToolLogWidget oldWidget) async {
+    final result = await AppIsolate.run(_analyzeLogForError, widget.log);
+
+    if (!mounted) return;
+
+    final newIsError = result.$1;
+    final newErrorMessage = result.$2;
     final newIsCompleted = widget.log.status == 'completed';
     final wasCompleted = oldWidget.log.status == 'completed';
 
@@ -67,23 +94,23 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
     if (newIsError && !_isError) {
       // Became error -> Expand
       if (!_isExpanded) {
-        // Defer state update to next frame to avoid layout mutation crash
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _toggleExpand();
         });
       }
     } else if (newIsCompleted && !wasCompleted && !newIsError) {
       // Became completed (success) -> Collapse
-      // User requested: "Auto-Collapse after success"
       if (_isExpanded) {
-        // Defer state update to next frame
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _toggleExpand();
         });
       }
     }
 
-    _isError = newIsError;
+    setState(() {
+      _isError = newIsError;
+      _errorMessage = newErrorMessage;
+    });
   }
 
   void _toggleExpand() {
@@ -125,27 +152,9 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
   @override
   Widget build(BuildContext context) {
     final isRunning = widget.log.status == 'running';
-    var isError = _checkForError();
+    final isError = _isError;
     final completed = widget.log.status == 'completed';
-
-    // Extract error message for preview if needed
-    String? errorMessage;
-    if (isError && widget.log.result != null) {
-      try {
-        final decoded = jsonDecode(widget.log.result!);
-        if (decoded is Map) {
-          if (decoded['error'] != null) {
-            errorMessage = decoded['error'].toString();
-          } else if (decoded['status'] != null &&
-              (decoded['status'] == 'error' ||
-                  decoded['status'] == 'failure' ||
-                  decoded['status'] == 'failed')) {
-            errorMessage = 'Task failed with status: ${decoded['status']}';
-          }
-        }
-      } catch (_) {}
-      errorMessage ??= 'Output contains error'; // Fallback
-    }
+    final errorMessage = _errorMessage;
 
     // Compact collapsed view vs expanded view
     return AnimatedContainer(
@@ -256,41 +265,6 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
     );
   }
 
-  bool _checkForError() {
-    // 1. Check top-level status
-    if (widget.log.status == 'error') return true;
-
-    // 2. Check result for error indicators (Strict Mode for JSON responses)
-    if (widget.log.status == 'completed' && widget.log.result != null) {
-      final result = widget.log.result!;
-      if (result.contains('"error"') || result.contains('"status"')) {
-        try {
-          final decoded = jsonDecode(result);
-          if (decoded is Map) {
-            // Check for explicit error field that is NOT null
-            if (decoded.containsKey('error') && decoded['error'] != null) {
-              return true;
-            }
-            // Check for status-based failure
-            final status = decoded['status']?.toString().toLowerCase();
-            if (status != null &&
-                (status == 'error' ||
-                    status == 'failed' ||
-                    status == 'failure')) {
-              return true;
-            }
-          }
-        } catch (_) {
-          // Fallback if decoding fails, but only if it strongly smells like error
-          if (result.contains('"error": "') ||
-              result.contains('"status": "error"')) {
-            return true;
-          }
-        }
-      }
-    }
-    return false;
-  }
 
   Widget _buildCollapsedHeader(bool isRunning, bool isError, bool isCompleted) {
     final toolIcon = _getToolIcon(widget.log.toolName);
@@ -676,4 +650,47 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
   String _formatJson(Map<String, dynamic> json) => formatToolJson(json);
 
   IconData _getToolIcon(String toolName) => getToolIcon(toolName);
+}
+
+// Top-level function for background isolate processing
+(bool, String?) _analyzeLogForError(ToolLog log) {
+  bool isError = false;
+  String? errorMessage;
+
+  if (log.status == 'error') {
+    isError = true;
+  } else if (log.status == 'completed' && log.result != null) {
+    final result = log.result!;
+    if (result.contains('"error"') || result.contains('"status"')) {
+      try {
+        final decoded = jsonDecode(result);
+        if (decoded is Map) {
+          if (decoded.containsKey('error') && decoded['error'] != null) {
+            isError = true;
+            errorMessage = decoded['error'].toString();
+          } else {
+            final status = decoded['status']?.toString().toLowerCase();
+            if (status != null &&
+                (status == 'error' ||
+                    status == 'failed' ||
+                    status == 'failure')) {
+              isError = true;
+              errorMessage = 'Task failed with status: ${decoded['status']}';
+            }
+          }
+        }
+      } catch (_) {
+        if (result.contains('"error": "') ||
+            result.contains('"status": "error"')) {
+          isError = true;
+        }
+      }
+    }
+  }
+
+  if (isError && errorMessage == null && log.result != null) {
+    errorMessage = 'Output contains error';
+  }
+
+  return (isError, errorMessage);
 }
