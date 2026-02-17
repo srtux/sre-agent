@@ -142,6 +142,7 @@ Total: **174 new council tests**, all passing.
     - **Backend Query Endpoints**: Added 4 new REST endpoints (`POST /api/tools/metrics/query`, `POST /api/tools/metrics/promql`, `POST /api/tools/alerts/query`, `POST /api/tools/logs/query`).
     - **Dual Data Source Architecture**: Extended `DashboardState` with `DataSource.agent` / `DataSource.manual` tracking, per-panel loading/error states, `TimeRange` model with preset selectors.
     - **GCP-Style Toolbar**: `SreToolbar` with time range preset chips, custom date range picker, refresh button, and auto-refresh toggle.
+    - **Cross-Platform Threading (AppIsolate)**: Eliminated UI freezes in dashboard widgets (`SqlResultsTable`, `ToolLogWidget`) and `ExplorerQueryService` by introducing a centralized `AppIsolate` wrapper around Flutter's `compute()`. This offloads heavy JSON payload parsing (logs, metrics, BigQuery results) to background threads dynamically, safely degrading to JS Event Loops on the Web where true Isolates are unsupported (`dart:isolate` exception).
 
 #### Phase 3.6: Full-Stack Code Audit & Hardening
 - [x] Comprehensive 6-layer audit across backend, frontend, council, tools, and tests. Applied 15 fixes across 12 files.
