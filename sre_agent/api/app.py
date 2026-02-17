@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from sre_agent.api.middleware import configure_middleware
 from sre_agent.api.routers import (
     agent_router,
+    dashboards_router,
     health_router,
     help_router,
     permissions_router,
@@ -75,6 +76,7 @@ def create_app(
     app.include_router(preferences_router)
     app.include_router(permissions_router)
     app.include_router(help_router)
+    app.include_router(dashboards_router)
 
     # Register tool test functions
     register_all_test_functions()
