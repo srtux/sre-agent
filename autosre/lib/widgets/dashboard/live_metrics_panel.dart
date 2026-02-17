@@ -106,6 +106,7 @@ class _LiveMetricsPanelState extends State<LiveMetricsPanel> {
                 children: [
                   ManualQueryBar(
                     hintText: _hints[langIndex],
+                    panelType: 'metrics',
                     dashboardState: widget.dashboardState,
                     onRefresh: () {
                       final filter = widget.dashboardState.getLastQueryFilter(

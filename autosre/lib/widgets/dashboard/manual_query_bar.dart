@@ -3,10 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../services/dashboard_state.dart';
+import '../../services/saved_query_service.dart';
 import '../../theme/app_theme.dart';
 import '../common/unified_time_picker.dart';
 import 'query_autocomplete_overlay.dart';
 import 'query_helpers.dart';
+import 'query_history_panel.dart';
 import 'syntax_highlighting_controller.dart';
 
 /// Compact per-panel query input bar for manual data exploration.
@@ -69,6 +71,11 @@ class ManualQueryBar extends StatefulWidget {
   /// Optional widget shown at the very beginning of the bar.
   final Widget? leading;
 
+  /// Panel type identifier for recent/saved query tracking.
+  /// When set, enables the history button and auto-records queries on submit.
+  /// Values: "logs", "metrics", "traces", "analytics".
+  final String? panelType;
+
   const ManualQueryBar({
     super.key,
     required this.hintText,
@@ -92,6 +99,7 @@ class ManualQueryBar extends StatefulWidget {
     this.naturalLanguageExamples = const [],
     this.onSubmitWithMode,
     this.leading,
+    this.panelType,
   });
 
   @override
@@ -126,6 +134,9 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
 
   /// OverlayEntry for the templates popup.
   OverlayEntry? _templatesOverlay;
+
+  /// OverlayEntry for the query history panel.
+  OverlayEntry? _historyOverlay;
 
   /// Dynamic offset for the autocomplete dropdown, keeping it below the cursor.
   Offset _cursorOffset = const Offset(0, 44);
@@ -195,6 +206,7 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
   void dispose() {
     _removeOverlay();
     _removeTemplatesOverlay();
+    _removeHistoryOverlay();
     _focusNode.removeListener(_onFocusChanged);
     _controller.removeListener(_onTextChanged);
     if (_ownsController) {
@@ -338,12 +350,28 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
     final text = _controller.text.trim();
     if (text.isNotEmpty && !widget.isLoading) {
       _removeOverlay();
+      // Auto-record to recent queries
+      if (widget.panelType != null && !_isNaturalLanguage) {
+        final lang = _currentLanguageLabel();
+        SavedQueryService.instance.addRecentQuery(
+          query: text,
+          panelType: widget.panelType!,
+          language: lang,
+        );
+      }
       if (widget.onSubmitWithMode != null) {
         widget.onSubmitWithMode!(text, _isNaturalLanguage);
       } else {
         widget.onSubmit(text);
       }
     }
+  }
+
+  String _currentLanguageLabel() {
+    if (widget.languages != null && widget.languages!.isNotEmpty) {
+      return widget.languages![widget.selectedLanguageIndex];
+    }
+    return widget.languageLabel ?? '';
   }
 
   void _handleFormatSql() {
@@ -427,6 +455,46 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
   void _removeTemplatesOverlay() {
     _templatesOverlay?.remove();
     _templatesOverlay = null;
+  }
+
+  void _showHistoryOverlay() {
+    if (widget.panelType == null) return;
+    _removeHistoryOverlay();
+    _removeOverlay();
+    _removeTemplatesOverlay();
+    _historyOverlay = OverlayEntry(
+      builder: (context) => GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: _removeHistoryOverlay,
+        child: Stack(
+          children: [
+            CompositedTransformFollower(
+              link: _layerLink,
+              showWhenUnlinked: false,
+              offset: const Offset(0, 44),
+              child: QueryHistoryPanel(
+                panelType: widget.panelType!,
+                currentQuery: _controller.text.trim(),
+                language: _currentLanguageLabel(),
+                onSelectQuery: (query) {
+                  _controller.text = query;
+                  _controller.selection =
+                      TextSelection.collapsed(offset: query.length);
+                  _focusNode.requestFocus();
+                },
+                onDismiss: _removeHistoryOverlay,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    Overlay.of(context).insert(_historyOverlay!);
+  }
+
+  void _removeHistoryOverlay() {
+    _historyOverlay?.remove();
+    _historyOverlay = null;
   }
 
   KeyEventResult _handleKeyEvent(KeyEvent event) {
@@ -595,6 +663,9 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
                       ),
                     ),
                   ),
+                  // Query history button
+                  if (widget.panelType != null)
+                    _buildHistoryButton(),
                   // Helper templates button
                   if (widget.templates.isNotEmpty ||
                       widget.naturalLanguageExamples.isNotEmpty)
@@ -690,6 +761,8 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
                       (widget.languages != null &&
                           widget.languages!.isNotEmpty))
                     _buildLanguageSelector(),
+                  if (widget.panelType != null)
+                    _buildHistoryButton(),
                   if (widget.templates.isNotEmpty ||
                       widget.naturalLanguageExamples.isNotEmpty)
                     _buildHelperButton(),
@@ -970,6 +1043,26 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
           ),
       ],
       child: badge,
+    );
+  }
+
+  Widget _buildHistoryButton() {
+    return Tooltip(
+      message: 'Recent & saved queries',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: _showHistoryOverlay,
+        child: Container(
+          width: 28,
+          height: 28,
+          alignment: Alignment.center,
+          child: Icon(
+            Icons.history_rounded,
+            size: 15,
+            color: AppColors.primaryCyan.withValues(alpha: 0.8),
+          ),
+        ),
+      ),
     );
   }
 

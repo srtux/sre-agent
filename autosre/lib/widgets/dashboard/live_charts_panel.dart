@@ -231,6 +231,7 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
                       controller: _sqlController,
                       hintText:
                           'SELECT column1, column2\nFROM `project.dataset.table`\nWHERE condition\nLIMIT 1000',
+                      panelType: 'analytics',
                       dashboardState: widget.dashboardState,
                       onRefresh: () {
                         final sql = widget.dashboardState.getLastQueryFilter(
@@ -441,6 +442,7 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
           padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
           child: ManualQueryBar(
             hintText: 'Search data answers...',
+            panelType: 'analytics',
             dashboardState: widget.dashboardState,
             languages: const ['BigQuery SQL', 'Agent Charts'],
             selectedLanguageIndex: 1,

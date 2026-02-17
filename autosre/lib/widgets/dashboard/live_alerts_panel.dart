@@ -39,6 +39,7 @@ class LiveAlertsPanel extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
           child: ManualQueryBar(
             hintText: 'state="OPEN" AND severity="CRITICAL"',
+            panelType: 'alerts',
             dashboardState: dashboardState,
             onRefresh: () {
               final filter = dashboardState.getLastQueryFilter(
