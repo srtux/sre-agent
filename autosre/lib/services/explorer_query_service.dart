@@ -40,7 +40,7 @@ class ExplorerQueryService {
         'minutes_ago': range.minutesAgo,
       });
       final response = await _post('/api/tools/metrics/query', body);
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = await compute(jsonDecode, response.body) as Map<String, dynamic>;
 
       // Backend returns a single transformed MetricSeries dict
       // with metric_name, points, labels keys.
@@ -79,7 +79,7 @@ class ExplorerQueryService {
       }
       final body = jsonEncode(payload);
       final response = await _post('/api/tools/logs/query', body);
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = await compute(jsonDecode, response.body) as Map<String, dynamic>;
 
       final logData = LogEntriesData.fromJson(data);
       if (pageToken != null) {
@@ -123,7 +123,7 @@ class ExplorerQueryService {
 
       final body = jsonEncode(payload);
       final response = await _post('/api/tools/logs/query', body);
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = await compute(jsonDecode, response.body) as Map<String, dynamic>;
 
       final logData = LogEntriesData.fromJson(data);
       return logData.entries;
@@ -152,7 +152,7 @@ class ExplorerQueryService {
           throw Exception('Trace fetch failed: ${response.statusCode}');
         }
 
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final data = await compute(jsonDecode, response.body) as Map<String, dynamic>;
         final trace = Trace.fromJson(data);
 
         if (trace.spans.isNotEmpty) {
@@ -194,7 +194,7 @@ class ExplorerQueryService {
         'minutes_ago': range.minutesAgo,
       });
       final response = await _post('/api/tools/traces/query', body);
-      final listData = jsonDecode(response.body) as List<dynamic>;
+      final listData = await compute(jsonDecode, response.body) as List<dynamic>;
 
       for (var item in listData) {
         final data = item as Map<String, dynamic>;
@@ -234,7 +234,7 @@ class ExplorerQueryService {
         'minutes_ago': range.minutesAgo,
       });
       final response = await _post('/api/tools/metrics/promql', body);
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = await compute(jsonDecode, response.body) as Map<String, dynamic>;
 
       final series = MetricSeries.fromJson(data);
       _dashboardState.addMetricSeries(
@@ -260,7 +260,7 @@ class ExplorerQueryService {
     try {
       final body = jsonEncode({'sql': sql, 'project_id': projectId});
       final response = await _post('/api/tools/bigquery/query', body);
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = await compute(jsonDecode, response.body) as Map<String, dynamic>;
 
       // Parse column names and row data from response
       final columns =
@@ -303,7 +303,7 @@ class ExplorerQueryService {
         'minutes_ago': range.minutesAgo,
       });
       final response = await _post('/api/tools/alerts/query', body);
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = await compute(jsonDecode, response.body) as Map<String, dynamic>;
 
       final alertData = IncidentTimelineData.fromJson(data);
       _dashboardState.addAlerts(
@@ -369,7 +369,7 @@ class ExplorerQueryService {
         '/api/tools/bigquery/datasets',
         projectId: projectId,
       );
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = await compute(jsonDecode, response.body) as Map<String, dynamic>;
       final items = data['datasets'] as List?;
       return items?.map((e) => e.toString()).toList() ?? [];
     } catch (e) {
@@ -385,7 +385,7 @@ class ExplorerQueryService {
         '/api/tools/logs/names',
         projectId: projectId,
       );
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = await compute(jsonDecode, response.body) as Map<String, dynamic>;
       final listData = data['logs'] as List<dynamic>? ?? [];
       return listData.map((e) => e.toString()).toList();
     } catch (e) {
@@ -403,7 +403,7 @@ class ExplorerQueryService {
         '/api/tools/logs/resource_keys',
         projectId: projectId,
       );
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = await compute(jsonDecode, response.body) as Map<String, dynamic>;
       final listData = data['resource_keys'] as List<dynamic>? ?? [];
       return listData.map((e) => Map<String, dynamic>.from(e as Map)).toList();
     } catch (e) {
@@ -422,7 +422,7 @@ class ExplorerQueryService {
         '/api/tools/bigquery/datasets/${Uri.encodeComponent(datasetId)}/tables',
         projectId: projectId,
       );
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = await compute(jsonDecode, response.body) as Map<String, dynamic>;
       final items = data['tables'] as List?;
       return items?.map((e) => e.toString()).toList() ?? [];
     } catch (e) {
@@ -441,7 +441,7 @@ class ExplorerQueryService {
         '/api/tools/bigquery/datasets/${Uri.encodeComponent(datasetId)}/tables/${Uri.encodeComponent(tableId)}/schema',
         projectId: projectId,
       );
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = await compute(jsonDecode, response.body) as Map<String, dynamic>;
       final items = data['schema'] as List?;
       return items?.map((e) => Map<String, dynamic>.from(e as Map)).toList() ??
           [];
@@ -463,7 +463,7 @@ class ExplorerQueryService {
         '/api/tools/bigquery/datasets/${Uri.encodeComponent(datasetId)}/tables/${Uri.encodeComponent(tableId)}/columns/${Uri.encodeComponent(columnName)}/json-keys',
         projectId: projectId,
       );
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = await compute(jsonDecode, response.body) as Map<String, dynamic>;
       final listData = data['keys'] as List<dynamic>? ?? [];
       return listData.map((e) => e.toString()).toList();
     } catch (e) {
@@ -491,7 +491,7 @@ class ExplorerQueryService {
       };
       final body = jsonEncode(payload);
       final response = await _post('/api/tools/logs/query', body);
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = await compute(jsonDecode, response.body) as Map<String, dynamic>;
 
       final logData = LogEntriesData.fromJson(data);
       _dashboardState.addLogEntries(
@@ -525,7 +525,7 @@ class ExplorerQueryService {
         'limit': 20,
       });
       final response = await _post('/api/tools/traces/query', body);
-      final listData = jsonDecode(response.body) as List<dynamic>;
+      final listData = await compute(jsonDecode, response.body) as List<dynamic>;
 
       for (var item in listData) {
         final data = item as Map<String, dynamic>;
@@ -564,7 +564,7 @@ class ExplorerQueryService {
         'minutes_ago': sevenDaysInMinutes,
       });
       final response = await _post('/api/tools/alerts/query', body);
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = await compute(jsonDecode, response.body) as Map<String, dynamic>;
 
       final alertData = IncidentTimelineData.fromJson(data);
       _dashboardState.addAlerts(

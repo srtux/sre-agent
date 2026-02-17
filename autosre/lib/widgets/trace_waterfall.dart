@@ -92,7 +92,12 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
     }
   }
 
+  Graph? _cachedGraph;
+  SugiyamaAlgorithm? _cachedAlgorithm;
+
   void _buildSpanData() {
+    _cachedGraph = null;
+    _cachedAlgorithm = null;
     if (widget.trace.spans.isEmpty) {
       _spanBars = [];
       _serviceColors = {};
@@ -255,6 +260,8 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
   }
 
   void _toggleCollapse(String spanId) {
+    _cachedGraph = null;
+    _cachedAlgorithm = null;
     setState(() {
       if (_collapsedSpanIds.contains(spanId)) {
         _collapsedSpanIds.remove(spanId);
@@ -674,58 +681,64 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
   }
 
   Widget _buildGraphView() {
-    // Generate filtered data structure for progressive disclosure
-    final graph = Graph()..isTree = true;
-    final nodeMap = <String, Node>{};
+    if (_cachedGraph == null || _cachedAlgorithm == null) {
+      // Generate filtered data structure for progressive disclosure
+      final graph = Graph()..isTree = true;
+      final nodeMap = <String, Node>{};
 
-    // Generate node map (Safeguard: Limit graph size to 150 nodes to prevent UI freeze)
-    const maxNodes = 150;
-    var nodeCount = 0;
+      // Generate node map (Safeguard: Limit graph size to 150 nodes to prevent UI freeze)
+      const maxNodes = 150;
+      var nodeCount = 0;
 
-    for (final span in widget.trace.spans) {
-      if (_isImportantSpan(span) || span.parentSpanId == null) {
-        final node = Node.Id(span.spanId);
-        nodeMap[span.spanId] = node;
-        graph.addNode(node);
-        nodeCount++;
-        if (nodeCount >= maxNodes) break;
-      }
-    }
-
-    // Initialize root in expanded map if empty
-    if (_expandedGraphNodes.isEmpty && widget.trace.spans.isNotEmpty) {
-      final root = widget.trace.spans.firstWhere((s) => s.parentSpanId == null,
-          orElse: () => widget.trace.spans.first);
-      _expandedGraphNodes.add(root.spanId);
-    }
-
-    // Build hierarchical condensed edges
-    for (final parentSpanId in _expandedGraphNodes) {
-      if (!nodeMap.containsKey(parentSpanId)) continue;
-
-      final parentNode = nodeMap[parentSpanId]!;
-      final importantChildren =
-          _getImportantChildren(parentSpanId, _childrenMap);
-
-      for (final child in importantChildren) {
-        if (nodeMap.containsKey(child.spanId)) {
-          final childNode = nodeMap[child.spanId]!;
-          graph.addEdge(parentNode, childNode,
-              paint: Paint()
-                ..color = AppColors.surfaceBorder
-                ..strokeWidth = 2
-                ..style = PaintingStyle.stroke);
+      for (final span in widget.trace.spans) {
+        if (_isImportantSpan(span) || span.parentSpanId == null) {
+          final node = Node.Id(span.spanId);
+          nodeMap[span.spanId] = node;
+          graph.addNode(node);
+          nodeCount++;
+          if (nodeCount >= maxNodes) break;
         }
       }
+
+      // Initialize root in expanded map if empty
+      if (_expandedGraphNodes.isEmpty && widget.trace.spans.isNotEmpty) {
+        final root = widget.trace.spans.firstWhere((s) => s.parentSpanId == null,
+            orElse: () => widget.trace.spans.first);
+        _expandedGraphNodes.add(root.spanId);
+      }
+
+      // Build hierarchical condensed edges
+      for (final parentSpanId in _expandedGraphNodes) {
+        if (!nodeMap.containsKey(parentSpanId)) continue;
+
+        final parentNode = nodeMap[parentSpanId]!;
+        final importantChildren =
+            _getImportantChildren(parentSpanId, _childrenMap);
+
+        for (final child in importantChildren) {
+          if (nodeMap.containsKey(child.spanId)) {
+            final childNode = nodeMap[child.spanId]!;
+            graph.addEdge(parentNode, childNode,
+                paint: Paint()
+                  ..color = AppColors.surfaceBorder
+                  ..strokeWidth = 2
+                  ..style = PaintingStyle.stroke);
+          }
+        }
+      }
+
+      final sugiyamaConfig = SugiyamaConfiguration()
+        ..bendPointShape = CurvedBendPointShape(curveLength: 20)
+        ..nodeSeparation = 30
+        ..levelSeparation = 50
+        ..orientation = SugiyamaConfiguration.ORIENTATION_LEFT_RIGHT;
+
+      _cachedAlgorithm = SugiyamaAlgorithm(sugiyamaConfig);
+      _cachedGraph = graph;
     }
 
-    final sugiyamaConfig = SugiyamaConfiguration()
-      ..bendPointShape = CurvedBendPointShape(curveLength: 20)
-      ..nodeSeparation = 30
-      ..levelSeparation = 50
-      ..orientation = SugiyamaConfiguration.ORIENTATION_LEFT_RIGHT;
-
-    final algorithm = SugiyamaAlgorithm(sugiyamaConfig);
+    final graph = _cachedGraph!;
+    final algorithm = _cachedAlgorithm!;
 
     return Container(
       decoration: BoxDecoration(
@@ -842,8 +855,12 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
                   setState(() {
                     if (isExpanded) {
                       _expandedGraphNodes.remove(span.spanId);
+                      _cachedGraph = null;
+                      _cachedAlgorithm = null;
                     } else {
                       _expandedGraphNodes.add(span.spanId);
+                      _cachedGraph = null;
+                      _cachedAlgorithm = null;
                     }
                   });
                 },
