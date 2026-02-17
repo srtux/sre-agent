@@ -1,6 +1,7 @@
 """SRE Agent API routers module."""
 
 from .agent import router as agent_router
+from .dashboards import router as dashboards_router
 from .health import router as health_router
 from .help import router as help_router
 from .permissions import router as permissions_router
@@ -11,6 +12,7 @@ from .tools import router as tools_router
 
 __all__ = [
     "agent_router",
+    "dashboards_router",
     "health_router",
     "help_router",
     "permissions_router",
