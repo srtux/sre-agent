@@ -251,6 +251,7 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
           ),
           child: ManualQueryBar(
             hintText: 'severity>=ERROR AND resource.type="gce_instance"',
+            panelType: 'logs',
             dashboardState: widget.dashboardState,
             onRefresh: () {
               final filter = widget.dashboardState.getLastQueryFilter(

@@ -1,10 +1,12 @@
 """User preferences endpoints."""
 
 import logging
+import uuid
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from sre_agent.auth import get_current_user_id
 from sre_agent.services import get_storage_service
@@ -204,4 +206,158 @@ async def toggle_starred_project(request: ToggleStarRequest) -> Any:
         return {"success": True, "starred": request.starred, "projects": current}
     except Exception as e:
         logger.error(f"Error toggling starred project: {e}")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+# =============================================================================
+# Recent & Saved Queries
+# =============================================================================
+
+
+class AddRecentQueryRequest(BaseModel):
+    """Request model for adding a recent query."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    query: str = Field(description="The query text")
+    panel_type: str = Field(description="Panel type: logs, metrics, traces, analytics")
+    language: str = Field(
+        default="", description="Query language (e.g. MQL, PromQL, SQL)"
+    )
+    user_id: str = "default"
+
+
+class SaveQueryRequest(BaseModel):
+    """Request model for saving a named query."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    name: str = Field(description="Display name for the saved query")
+    query: str = Field(description="The query text")
+    panel_type: str = Field(description="Panel type: logs, metrics, traces, analytics")
+    language: str = Field(default="", description="Query language")
+    user_id: str = "default"
+
+
+class UpdateSavedQueryRequest(BaseModel):
+    """Request model for updating a saved query."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    name: str | None = Field(default=None, description="Updated name")
+    query: str | None = Field(default=None, description="Updated query text")
+    user_id: str = "default"
+
+
+class DeleteSavedQueryRequest(BaseModel):
+    """Request model for deleting a saved query."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    user_id: str = "default"
+
+
+@router.get("/queries/recent")
+async def get_recent_queries(
+    user_id: str = "default",
+    panel_type: str | None = None,
+) -> Any:
+    """Get recent queries for a user, optionally filtered by panel type."""
+    try:
+        storage = get_storage_service()
+        uid = _effective_user_id(user_id)
+        queries = await storage.get_recent_queries(uid, panel_type=panel_type)
+        return {"queries": queries}
+    except Exception as e:
+        logger.error(f"Error getting recent queries: {e}")
+        return {"queries": []}
+
+
+@router.post("/queries/recent")
+async def add_recent_query(request: AddRecentQueryRequest) -> Any:
+    """Record a query execution to recent history."""
+    try:
+        storage = get_storage_service()
+        uid = _effective_user_id(request.user_id)
+        entry: dict[str, Any] = {
+            "query": request.query,
+            "panel_type": request.panel_type,
+            "language": request.language,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        queries = await storage.add_recent_query(entry, uid)
+        return {"success": True, "queries": queries}
+    except Exception as e:
+        logger.error(f"Error adding recent query: {e}")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.get("/queries/saved")
+async def get_saved_queries(
+    user_id: str = "default",
+    panel_type: str | None = None,
+) -> Any:
+    """Get saved (bookmarked) queries for a user."""
+    try:
+        storage = get_storage_service()
+        uid = _effective_user_id(user_id)
+        queries = await storage.get_saved_queries(uid, panel_type=panel_type)
+        return {"queries": queries}
+    except Exception as e:
+        logger.error(f"Error getting saved queries: {e}")
+        return {"queries": []}
+
+
+@router.post("/queries/saved")
+async def save_query(request: SaveQueryRequest) -> Any:
+    """Save a named query."""
+    try:
+        storage = get_storage_service()
+        uid = _effective_user_id(request.user_id)
+        entry: dict[str, Any] = {
+            "id": str(uuid.uuid4()),
+            "name": request.name,
+            "query": request.query,
+            "panel_type": request.panel_type,
+            "language": request.language,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        queries = await storage.add_saved_query(entry, uid)
+        return {"success": True, "query": entry, "queries": queries}
+    except Exception as e:
+        logger.error(f"Error saving query: {e}")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.put("/queries/saved/{query_id}")
+async def update_saved_query(query_id: str, request: UpdateSavedQueryRequest) -> Any:
+    """Update a saved query name or text."""
+    try:
+        storage = get_storage_service()
+        uid = _effective_user_id(request.user_id)
+        updates: dict[str, Any] = {}
+        if request.name is not None:
+            updates["name"] = request.name
+        if request.query is not None:
+            updates["query"] = request.query
+        queries = await storage.update_saved_query(query_id, updates, uid)
+        return {"success": True, "queries": queries}
+    except Exception as e:
+        logger.error(f"Error updating saved query: {e}")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.delete("/queries/saved/{query_id}")
+async def delete_saved_query(
+    query_id: str,
+    user_id: str = "default",
+) -> Any:
+    """Delete a saved query."""
+    try:
+        storage = get_storage_service()
+        uid = _effective_user_id(user_id)
+        queries = await storage.delete_saved_query(query_id, uid)
+        return {"success": True, "queries": queries}
+    except Exception as e:
+        logger.error(f"Error deleting saved query: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e

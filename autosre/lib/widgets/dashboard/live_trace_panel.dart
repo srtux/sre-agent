@@ -106,6 +106,7 @@ class _LiveTracePanelState extends State<LiveTracePanel> {
               // Query bar changes based on mode
               ManualQueryBar(
                 hintText: '+span:name:my_service  OR  trace=abc123def456789...',
+                panelType: 'traces',
                 dashboardState: widget.dashboardState,
                 onRefresh: () {
                   final filter = widget.dashboardState.getLastQueryFilter(
