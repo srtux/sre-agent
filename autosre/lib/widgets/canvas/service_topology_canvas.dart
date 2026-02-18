@@ -122,7 +122,7 @@ class _ServiceTopologyCanvasState extends State<ServiceTopologyCanvas>
     _pulseController = AnimationController(
       duration: const Duration(milliseconds: 2000),
       vsync: this,
-    )..repeat(reverse: true);
+    );
 
     _entranceController = AnimationController(
       duration: const Duration(milliseconds: 1000),
@@ -140,6 +140,7 @@ class _ServiceTopologyCanvasState extends State<ServiceTopologyCanvas>
 
     _entranceController.forward();
     _calculateNodePositions();
+    _syncAnimations();
   }
 
   @override
@@ -147,6 +148,23 @@ class _ServiceTopologyCanvasState extends State<ServiceTopologyCanvas>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data.services.length != widget.data.services.length) {
       _calculateNodePositions();
+    }
+    if (oldWidget.data.affectedPath != widget.data.affectedPath ||
+        oldWidget.data.incidentSourceId != widget.data.incidentSourceId) {
+      _syncAnimations();
+    }
+  }
+
+  /// Only run pulse animation when there is an active incident or affected path.
+  void _syncAnimations() {
+    final needsAnimation = widget.data.affectedPath.isNotEmpty ||
+        widget.data.incidentSourceId != null;
+    if (needsAnimation) {
+      if (!_pulseController.isAnimating) {
+        _pulseController.repeat(reverse: true);
+      }
+    } else {
+      _pulseController.stop();
     }
   }
 

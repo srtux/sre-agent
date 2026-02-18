@@ -14,7 +14,9 @@ class LiveLogsExplorer extends ConsumerStatefulWidget {
 }
 
 class _LiveLogsExplorerState extends ConsumerState<LiveLogsExplorer> {
-  late PlutoGridStateManager stateManager;
+  PlutoGridStateManager? stateManager;
+  List<PlutoRow> _cachedRows = [];
+  int _lastEntryCount = -1;
 
   final List<PlutoColumn> columns = [
     PlutoColumn(
@@ -88,7 +90,16 @@ class _LiveLogsExplorerState extends ConsumerState<LiveLogsExplorer> {
 
   @override
   Widget build(BuildContext context) {
-    final logState = ref.watch(logProvider);
+    // Only rebuild when loading state or entry count changes, not on every
+    // state notification (e.g. selected entry changes).
+    final isLoading = ref.watch(logProvider.select((s) => s.isLoading));
+    final entries = ref.watch(logProvider.select((s) => s.entries));
+
+    // Cache rows — only rebuild the list when entry count actually changes.
+    if (entries.length != _lastEntryCount) {
+      _cachedRows = _buildRows(entries);
+      _lastEntryCount = entries.length;
+    }
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -96,14 +107,14 @@ class _LiveLogsExplorerState extends ConsumerState<LiveLogsExplorer> {
         children: [
           _buildToolbar(),
           Expanded(
-            child: logState.isLoading && logState.entries.isEmpty
+            child: isLoading && entries.isEmpty
                 ? const Center(child: CircularProgressIndicator())
                 : PlutoGrid(
                     columns: columns,
-                    rows: _buildRows(logState.entries),
+                    rows: _cachedRows,
                     onLoaded: (PlutoGridOnLoadedEvent event) {
                       stateManager = event.stateManager;
-                      stateManager.setShowColumnFilter(true);
+                      stateManager?.setShowColumnFilter(true);
                     },
                     configuration: const PlutoGridConfiguration(
                       style: PlutoGridStyleConfig(

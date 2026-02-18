@@ -76,6 +76,7 @@ class ChatMessageList extends StatelessWidget {
                 }
 
                 return Padding(
+                  key: ValueKey(index),
                   padding: EdgeInsets.only(top: topSpacing),
                   child: MessageItem(
                     message: msg,

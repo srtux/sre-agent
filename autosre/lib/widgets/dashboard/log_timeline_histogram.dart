@@ -41,6 +41,10 @@ class _LogTimelineHistogramState extends State<LogTimelineHistogram> {
   static const double _chartHeight = 72;
   static const double _barGap = 1;
 
+  // Cached buckets to avoid O(n*m) recomputation per frame.
+  List<_HistogramBucket>? _cachedBuckets;
+  int _cachedEntryCount = -1;
+
   Duration _bucketSize(Duration totalDuration) {
     final minutes = totalDuration.inMinutes;
     if (minutes < 30) return const Duration(minutes: 1);
@@ -132,12 +136,26 @@ class _LogTimelineHistogramState extends State<LogTimelineHistogram> {
   }
 
   @override
+  void didUpdateWidget(LogTimelineHistogram oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.entries.length != widget.entries.length ||
+        oldWidget.timeRange != widget.timeRange) {
+      _cachedBuckets = null;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     if (widget.entries.isEmpty) {
       return _buildEmptyState();
     }
 
-    final buckets = _computeBuckets(widget.entries, widget.timeRange);
+    // Cache bucket computation — only recalculate when entries/range change.
+    if (_cachedBuckets == null || _cachedEntryCount != widget.entries.length) {
+      _cachedBuckets = _computeBuckets(widget.entries, widget.timeRange);
+      _cachedEntryCount = widget.entries.length;
+    }
+    final buckets = _cachedBuckets!;
 
     return Container(
       height: _chartHeight,

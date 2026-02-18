@@ -37,7 +37,7 @@ class _IncidentTimelineCanvasState extends State<IncidentTimelineCanvas>
     _pulseController = AnimationController(
       duration: const Duration(milliseconds: 2000),
       vsync: this,
-    )..repeat(reverse: true);
+    );
 
     _entranceAnimation = CurvedAnimation(
       parent: _entranceController,
@@ -48,6 +48,26 @@ class _IncidentTimelineCanvasState extends State<IncidentTimelineCanvas>
     );
 
     _entranceController.forward();
+    _syncAnimations();
+  }
+
+  @override
+  void didUpdateWidget(IncidentTimelineCanvas oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.data.status != widget.data.status) {
+      _syncAnimations();
+    }
+  }
+
+  /// Only run pulse animation while the incident is ongoing.
+  void _syncAnimations() {
+    if (widget.data.status == 'ongoing') {
+      if (!_pulseController.isAnimating) {
+        _pulseController.repeat(reverse: true);
+      }
+    } else {
+      _pulseController.stop();
+    }
   }
 
   @override

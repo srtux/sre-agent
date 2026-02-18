@@ -22,6 +22,13 @@ class _AgentGraphCanvasState extends State<AgentGraphCanvas> {
   bool _useSugiyama = true;
   String? _selectedNodeId;
 
+  // Cached graph and algorithm to avoid O(n²-n³) recomputation per frame.
+  Graph? _cachedGraph;
+  Algorithm? _cachedAlgorithm;
+  bool _cachedUseSugiyama = true;
+  int _cachedNodeCount = -1;
+  int _cachedEdgeCount = -1;
+
   Color _nodeColor(String type) {
     switch (type) {
       case 'user':
@@ -56,6 +63,34 @@ class _AgentGraphCanvasState extends State<AgentGraphCanvas> {
     }
   }
 
+  /// Rebuild the cached graph/algorithm only when data or layout mode changes.
+  void _ensureGraphCached() {
+    final data = widget.data;
+    final needsRebuild = _cachedGraph == null ||
+        _cachedNodeCount != data.nodes.length ||
+        _cachedEdgeCount != data.edges.length ||
+        _cachedUseSugiyama != _useSugiyama;
+    if (!needsRebuild) return;
+
+    _cachedGraph = _buildGraph(data);
+    _cachedNodeCount = data.nodes.length;
+    _cachedEdgeCount = data.edges.length;
+    _cachedUseSugiyama = _useSugiyama;
+
+    if (_useSugiyama) {
+      final sugiyamaConfig = SugiyamaConfiguration()
+        ..bendPointShape = CurvedBendPointShape(curveLength: 20)
+        ..nodeSeparation = 40
+        ..levelSeparation = 60
+        ..orientation = SugiyamaConfiguration.ORIENTATION_TOP_BOTTOM;
+      _cachedAlgorithm = SugiyamaAlgorithm(sugiyamaConfig);
+    } else {
+      _cachedAlgorithm = FruchtermanReingoldAlgorithm(
+        FruchtermanReingoldConfiguration(),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final data = widget.data;
@@ -65,21 +100,7 @@ class _AgentGraphCanvasState extends State<AgentGraphCanvas> {
       );
     }
 
-    final graph = _buildGraph(data);
-
-    Algorithm graphAlgorithm;
-    if (_useSugiyama) {
-      final sugiyamaConfig = SugiyamaConfiguration()
-        ..bendPointShape = CurvedBendPointShape(curveLength: 20)
-        ..nodeSeparation = 40
-        ..levelSeparation = 60
-        ..orientation = SugiyamaConfiguration.ORIENTATION_TOP_BOTTOM;
-      graphAlgorithm = SugiyamaAlgorithm(sugiyamaConfig);
-    } else {
-      graphAlgorithm = FruchtermanReingoldAlgorithm(
-        FruchtermanReingoldConfiguration(),
-      );
-    }
+    _ensureGraphCached();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -95,8 +116,8 @@ class _AgentGraphCanvasState extends State<AgentGraphCanvas> {
             minScale: 0.3,
             maxScale: 2.0,
             child: GraphView(
-              graph: graph,
-              algorithm: graphAlgorithm,
+              graph: _cachedGraph!,
+              algorithm: _cachedAlgorithm!,
               paint: Paint()
                 ..color = Colors.white24
                 ..strokeWidth = 1

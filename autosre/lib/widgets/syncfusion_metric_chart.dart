@@ -27,6 +27,51 @@ class _SyncfusionMetricChartState extends State<SyncfusionMetricChart> {
   bool _showTrendLine = true;
   bool _showThreshold = true;
 
+  // Cached derived data — only recomputed when widget.series changes.
+  List<MetricPoint> _sortedPoints = [];
+  List<MetricPoint> _anomalyPoints = [];
+  List<MetricPoint> _movingAvgPoints = [];
+  double _minValue = 0;
+  double _maxValue = 0;
+  double _avgValue = 0;
+  double _p95Value = 0;
+  int _lastPointCount = -1;
+
+  @override
+  void initState() {
+    super.initState();
+    _recomputeData();
+  }
+
+  @override
+  void didUpdateWidget(SyncfusionMetricChart oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.series.points.length != widget.series.points.length ||
+        !identical(oldWidget.series, widget.series)) {
+      _recomputeData();
+    }
+  }
+
+  void _recomputeData() {
+    final points = widget.series.points;
+    if (points.isEmpty) return;
+
+    _sortedPoints = List<MetricPoint>.from(points)
+      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+    final values = _sortedPoints.map((p) => p.value).toList();
+    final sortedValues = List<double>.from(values)..sort();
+
+    _minValue = sortedValues.first;
+    _maxValue = sortedValues.last;
+    _avgValue = values.reduce((a, b) => a + b) / values.length;
+    _p95Value = _calculatePercentile(sortedValues, 95);
+
+    _anomalyPoints = _sortedPoints.where((p) => p.isAnomaly).toList();
+    _movingAvgPoints = _calculateMovingAverage(_sortedPoints, 5);
+    _lastPointCount = points.length;
+  }
+
   /// Calculate moving average with a centered window.
   List<MetricPoint> _calculateMovingAverage(
     List<MetricPoint> points,
@@ -76,20 +121,6 @@ class _SyncfusionMetricChartState extends State<SyncfusionMetricChart> {
       return _buildEmptyState();
     }
 
-    final sortedPoints = List<MetricPoint>.from(widget.series.points)
-      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
-
-    final values = sortedPoints.map((p) => p.value).toList();
-    final sortedValues = List<double>.from(values)..sort();
-
-    final minValue = sortedValues.first;
-    final maxValue = sortedValues.last;
-    final avgValue = values.reduce((a, b) => a + b) / values.length;
-    final p95Value = _calculatePercentile(sortedValues, 95);
-
-    final anomalyPoints = sortedPoints.where((p) => p.isAnomaly).toList();
-    final movingAvgPoints = _calculateMovingAverage(sortedPoints, 5);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -99,16 +130,16 @@ class _SyncfusionMetricChartState extends State<SyncfusionMetricChart> {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(4, 4, 12, 4),
             child: _buildChart(
-              sortedPoints,
-              anomalyPoints,
-              movingAvgPoints,
-              avgValue,
-              p95Value,
+              _sortedPoints,
+              _anomalyPoints,
+              _movingAvgPoints,
+              _avgValue,
+              _p95Value,
             ),
           ),
         ),
         const SizedBox(height: 8),
-        _buildStatsRow(minValue, maxValue, avgValue, p95Value),
+        _buildStatsRow(_minValue, _maxValue, _avgValue, _p95Value),
         if (widget.series.labels.isNotEmpty) ...[
           const SizedBox(height: 8),
           _buildLabelsFooter(),

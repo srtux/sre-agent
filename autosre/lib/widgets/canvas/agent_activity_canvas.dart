@@ -31,12 +31,12 @@ class _AgentActivityCanvasState extends State<AgentActivityCanvas>
     _pulseController = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
-    )..repeat(reverse: true);
+    );
 
     _flowController = AnimationController(
       duration: const Duration(milliseconds: 2000),
       vsync: this,
-    )..repeat();
+    );
 
     _entranceController = AnimationController(
       duration: const Duration(milliseconds: 800),
@@ -59,6 +59,7 @@ class _AgentActivityCanvasState extends State<AgentActivityCanvas>
 
     _entranceController.forward();
     _calculateNodePositions();
+    _syncAnimations();
   }
 
   @override
@@ -66,6 +67,23 @@ class _AgentActivityCanvasState extends State<AgentActivityCanvas>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data.nodes.length != widget.data.nodes.length) {
       _calculateNodePositions();
+    }
+    if (oldWidget.data.activeNodeId != widget.data.activeNodeId) {
+      _syncAnimations();
+    }
+  }
+
+  /// Only run pulse/flow animations when there is an active node.
+  void _syncAnimations() {
+    final hasActive = widget.data.activeNodeId != null;
+    if (hasActive) {
+      if (!_pulseController.isAnimating) _pulseController.repeat(reverse: true);
+      if (!_flowController.isAnimating) _flowController.repeat();
+    } else {
+      _pulseController.stop();
+      _pulseController.value = 0.0;
+      _flowController.stop();
+      _flowController.value = 0.0;
     }
   }
 

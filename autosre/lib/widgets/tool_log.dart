@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import '../models/adk_schema.dart';
 import '../theme/app_theme.dart';
 import '../utils/ansi_parser.dart';
-import '../utils/isolate_helper.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'tool_log_helpers.dart';
 
@@ -45,27 +44,25 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
     _processLogData();
   }
 
-  Future<void> _processLogData() async {
+  void _processLogData() {
     final isRunning = widget.log.status == 'running';
 
-    // Run error checking in background
-    final result = await AppIsolate.run(_analyzeLogForError, widget.log);
+    // Synchronous — this is lightweight string/JSON analysis that completes in
+    // microseconds. Running it through compute() on Flutter Web actually adds
+    // more overhead than it saves because Web does not support real isolates.
+    final result = _analyzeLogForError(widget.log);
 
-    if (!mounted) return;
+    _isError = result.$1;
+    _errorMessage = result.$2;
 
-    setState(() {
-      _isError = result.$1;
-      _errorMessage = result.$2;
-
-      // Initial State Logic
-      if (isRunning || _isError) {
-        _isExpanded = true;
-        _animationController.value = 1.0;
-      } else {
-        _isExpanded = false;
-        _animationController.value = 0.0;
-      }
-    });
+    // Initial State Logic
+    if (isRunning || _isError) {
+      _isExpanded = true;
+      _animationController.value = 1.0;
+    } else {
+      _isExpanded = false;
+      _animationController.value = 0.0;
+    }
   }
 
   @override
@@ -74,15 +71,12 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
 
     if (oldWidget.log.status != widget.log.status ||
         oldWidget.log.result != widget.log.result) {
-      // Re-run background analysis if log state changed significantly
-      _updateLogStateAsync(oldWidget);
+      _updateLogState(oldWidget);
     }
   }
 
-  Future<void> _updateLogStateAsync(ToolLogWidget oldWidget) async {
-    final result = await AppIsolate.run(_analyzeLogForError, widget.log);
-
-    if (!mounted) return;
+  void _updateLogState(ToolLogWidget oldWidget) {
+    final result = _analyzeLogForError(widget.log);
 
     final newIsError = result.$1;
     final newErrorMessage = result.$2;

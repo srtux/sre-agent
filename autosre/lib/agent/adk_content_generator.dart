@@ -122,13 +122,14 @@ class ADKContentGenerator implements ContentGenerator {
     try {
       await http.get(Uri.parse(_healthUrl)).timeout(_healthCheckTimeout);
       if (_isDisposed) return;
-      // Any response from the server means we are connected
-      if (!_isDisposed) {
+      // Only update if the value actually changed to avoid triggering
+      // unnecessary widget rebuilds through ValueNotifier listeners.
+      if (!_isConnected.value) {
         _isConnected.value = true;
         ConnectivityService().updateStatus(true);
       }
     } catch (e) {
-      if (!_isDisposed) {
+      if (!_isDisposed && _isConnected.value) {
         _isConnected.value = false;
         ConnectivityService().updateStatus(false);
       }
@@ -244,8 +245,10 @@ class ADKContentGenerator implements ContentGenerator {
           throw Exception('Failed to connect to agent: ${response.statusCode}');
         }
 
-        _isConnected.value = true; // Request succeeded, so we are connected
-        ConnectivityService().updateStatus(true);
+        if (!_isConnected.value) {
+          _isConnected.value = true;
+          ConnectivityService().updateStatus(true);
+        }
 
         // Parse stream line by line
         // Store subscription to allow cancellation
@@ -368,7 +371,7 @@ class ADKContentGenerator implements ContentGenerator {
         lastStackTrace = st;
         debugPrint('Request failed (attempt ${attempt + 1}): $e');
 
-        if (!_isDisposed) {
+        if (!_isDisposed && _isConnected.value) {
           _isConnected.value = false;
           ConnectivityService().updateStatus(false);
         }

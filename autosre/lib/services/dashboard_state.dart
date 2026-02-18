@@ -111,6 +111,34 @@ class DashboardState extends ChangeNotifier {
   final List<DashboardItem> _items = [];
   int _itemCounter = 0;
 
+  /// When > 0, [notifyListeners] calls are deferred until the batch ends.
+  int _batchDepth = 0;
+  bool _batchDirty = false;
+
+  /// Run [fn] as a batch: all [notifyListeners] calls inside are collapsed
+  /// into a single notification at the end. Batches can nest safely.
+  void batch(void Function() fn) {
+    _batchDepth++;
+    try {
+      fn();
+    } finally {
+      _batchDepth--;
+      if (_batchDepth == 0 && _batchDirty) {
+        _batchDirty = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  @override
+  void notifyListeners() {
+    if (_batchDepth > 0) {
+      _batchDirty = true;
+      return;
+    }
+    super.notifyListeners();
+  }
+
   /// Whether the dashboard panel is visible.
   bool _isOpen = false;
   bool get isOpen => _isOpen;
