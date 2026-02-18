@@ -239,7 +239,6 @@ def _compile_keyword_patterns() -> dict[str, list[re.Pattern[str]]]:
         "metrics": _METRICS_KEYWORDS,
         "logs": _LOGS_KEYWORDS,
         "alerts": _ALERTS_KEYWORDS,
-        "direct": _DIRECT_KEYWORDS,
         "analysis": _ANALYSIS_KEYWORDS,
     }
     compiled: dict[str, list[re.Pattern[str]]] = {}
@@ -393,24 +392,6 @@ def classify_intent_with_signal(query: str) -> ClassificationResult:
 # =============================================================================
 # 3-Tier Routing Classification
 # =============================================================================
-
-# Keywords indicating simple data retrieval (DIRECT tier)
-# These suggest the user wants to fetch/list/show raw data, not analyze it.
-_DIRECT_KEYWORDS: set[str] = {
-    "show",
-    "list",
-    "get",
-    "fetch",
-    "display",
-    "give",
-    "pull",
-    "view",
-    "see",
-    "look up",
-    "lookup",
-    "find",
-    "retrieve",
-}
 
 # Patterns for direct data retrieval queries
 _DIRECT_PATTERNS: list[re.Pattern[str]] = [

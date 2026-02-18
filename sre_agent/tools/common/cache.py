@@ -23,6 +23,9 @@ class DataCache:
 
     Memory Management:
         Expired entries are automatically removed during get() operations.
+        When the cache reaches max_size, expired entries are evicted before
+        inserting a new entry. If still at capacity after eviction, the new
+        entry is dropped and a warning is logged.
 
     Example:
         >>> cache = DataCache(ttl_seconds=300)
@@ -31,17 +34,23 @@ class DataCache:
         >>> data = cache.get("trace999")  # Returns None (not found)
     """
 
-    def __init__(self, ttl_seconds: int = 300) -> None:
+    def __init__(self, ttl_seconds: int = 300, max_size: int = 1000) -> None:
         """Initialize the data cache.
 
         Args:
             ttl_seconds: Time-to-live for cached entries in seconds.
                         Default is 300 seconds (5 minutes).
+            max_size: Maximum number of entries to hold. When the cache
+                     reaches this limit, expired entries are evicted before
+                     accepting a new entry. Default is 1000 entries.
         """
         self._cache: dict[str, dict[str, Any]] = {}
         self._lock = threading.Lock()
         self.ttl_seconds = ttl_seconds
-        logger.info(f"DataCache initialized with TTL={ttl_seconds}s")
+        self.max_size = max_size
+        logger.info(
+            f"DataCache initialized with TTL={ttl_seconds}s, max_size={max_size}"
+        )
 
     def get(self, key: str) -> Any | None:
         """Get cached data if available and not expired.
@@ -72,11 +81,27 @@ class DataCache:
     def put(self, key: str, data: Any) -> None:
         """Cache data with expiration.
 
+        If the cache is at max_size, expired entries are evicted first.
+        If still at capacity after eviction, the entry is dropped.
+
         Args:
             key: The cache key.
             data: The data to cache.
         """
         with self._lock:
+            # Enforce size limit: evict expired entries when at capacity
+            if key not in self._cache and len(self._cache) >= self.max_size:
+                now = datetime.now(timezone.utc)
+                expired_keys = [
+                    k for k, e in self._cache.items() if now >= e["expires"]
+                ]
+                for k in expired_keys:
+                    del self._cache[k]
+                if len(self._cache) >= self.max_size:
+                    logger.warning(
+                        f"DataCache at max_size={self.max_size}; dropping key {key}"
+                    )
+                    return
             self._cache[key] = {
                 "data": data,
                 "expires": datetime.now(timezone.utc)
