@@ -36,7 +36,7 @@ void main() {
 
     test('updateStatus notifies listeners on change', () {
       var notifyCount = 0;
-      service.addListener(() => notifyCount++);
+      service.status.addListener(() => notifyCount++);
 
       service.updateStatus(true);
       expect(notifyCount, 1);
@@ -48,7 +48,7 @@ void main() {
     test('updateStatus does not notify when status unchanged', () {
       var notifyCount = 0;
       service.updateStatus(true);
-      service.addListener(() => notifyCount++);
+      service.status.addListener(() => notifyCount++);
 
       // Set to same value
       service.updateStatus(true);

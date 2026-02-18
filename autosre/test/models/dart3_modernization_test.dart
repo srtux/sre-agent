@@ -150,7 +150,7 @@ void main() {
 
     test('fromPreset creates correct time range', () {
       final range = TimeRange.fromPreset(TimeRangePreset.fiveMinutes);
-      final expectedDuration = const Duration(minutes: 5);
+      const expectedDuration = Duration(minutes: 5);
       // Allow 1 second tolerance for test execution time
       expect(
         range.duration.inSeconds,
