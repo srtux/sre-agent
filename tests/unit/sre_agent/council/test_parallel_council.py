@@ -72,3 +72,30 @@ class TestCreateCouncilPipeline:
         pipeline = create_council_pipeline(None)
         assert isinstance(pipeline, SequentialAgent)
         assert len(pipeline.sub_agents) == 2
+
+
+class TestGetDefaultCouncilPipeline:
+    """Tests for the singleton council pipeline accessor."""
+
+    def test_returns_sequential_agent(self) -> None:
+        """Singleton pipeline should be a SequentialAgent."""
+        from google.adk.agents import SequentialAgent
+
+        from sre_agent.council.parallel_council import get_default_council_pipeline
+
+        pipeline = get_default_council_pipeline()
+        assert isinstance(pipeline, SequentialAgent)
+
+    def test_same_instance_on_repeated_calls(self) -> None:
+        """Second call must return the same object (singleton)."""
+        from sre_agent.council.parallel_council import get_default_council_pipeline
+
+        p1 = get_default_council_pipeline()
+        p2 = get_default_council_pipeline()
+        assert p1 is p2
+
+    def test_singleton_has_correct_name(self) -> None:
+        from sre_agent.council.parallel_council import get_default_council_pipeline
+
+        pipeline = get_default_council_pipeline()
+        assert pipeline.name == "council_pipeline"

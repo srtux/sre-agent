@@ -92,7 +92,8 @@ class TestModeRouterAdaptiveIntegration:
 
     @pytest.mark.asyncio
     async def test_rule_based_when_disabled(self) -> None:
-        with patch.dict("os.environ", {}, clear=True):
+        # Explicitly disable the adaptive classifier to test rule-based path
+        with patch.dict("os.environ", {"SRE_AGENT_ADAPTIVE_CLASSIFIER": "false"}):
             result = await classify_investigation_mode(
                 query="check the status of my service"
             )

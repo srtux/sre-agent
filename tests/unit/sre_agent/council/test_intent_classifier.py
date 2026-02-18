@@ -214,3 +214,52 @@ class TestGreetingRouting:
         """SRE queries should not be routed to GREETING tier."""
         result = classify_routing("show me the logs")
         assert result.decision != RoutingDecision.GREETING
+
+
+class TestStandardCouncilRouting:
+    """Tests for the STANDARD council routing tier."""
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            "what is happening with the checkout service",
+            "what are the issues with the auth system",
+            "the payment API is slow",
+            "look into the health of the auth service",
+            "end-to-end diagnostic of the pipeline",
+            "how is the checkout service performing",
+            "performance issue with the gateway",
+            "health of the payment service",
+            "service health for recommendation-service",
+            "system health overview",
+            "the checkout app is degraded",
+            "figure out what is wrong with the api service",
+        ],
+    )
+    def test_standard_council_queries(self, query: str) -> None:
+        """Multi-signal service-health queries should route to COUNCIL + STANDARD."""
+        from sre_agent.council.schemas import InvestigationMode
+        result = classify_routing(query)
+        assert result.decision == RoutingDecision.COUNCIL, (
+            f"Expected COUNCIL but got {result.decision} for: {query!r}"
+        )
+        assert result.investigation_mode == InvestigationMode.STANDARD, (
+            f"Expected STANDARD but got {result.investigation_mode} for: {query!r}"
+        )
+
+    def test_debate_still_wins_over_standard(self) -> None:
+        """DEBATE-level queries must not be downgraded to STANDARD."""
+        from sre_agent.council.schemas import InvestigationMode
+        result = classify_routing("root cause of the payment service outage")
+        assert result.decision == RoutingDecision.COUNCIL
+        assert result.investigation_mode == InvestigationMode.DEBATE
+
+    def test_direct_retrieval_not_upgraded_to_council(self) -> None:
+        """Simple data-retrieval queries must not be upgraded to COUNCIL."""
+        result = classify_routing("show me the logs for pod X")
+        assert result.decision == RoutingDecision.DIRECT
+
+    def test_single_signal_analysis_stays_sub_agent(self) -> None:
+        """Focused single-signal analysis should remain SUB_AGENT."""
+        result = classify_routing("analyze trace patterns for service Y")
+        assert result.decision == RoutingDecision.SUB_AGENT

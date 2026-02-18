@@ -4,6 +4,7 @@ Validates the debate pipeline assembly and confidence gate logic.
 """
 
 import json
+from typing import Any
 
 from google.adk.agents import LoopAgent, ParallelAgent, SequentialAgent
 
@@ -178,3 +179,89 @@ class TestCreateDebatePipeline:
         """Should use default config when None is passed."""
         pipeline = create_debate_pipeline(None)
         assert isinstance(pipeline, SequentialAgent)
+
+
+class TestMakeDebateRoundCallback:
+    """Tests for the critic-context injection callback."""
+
+    def _make_ctx(self, state: dict) -> "Any":
+        from unittest.mock import MagicMock
+
+        ctx = MagicMock()
+        ctx.state = state
+        return ctx
+
+    def test_returns_none_when_no_critic_report(self) -> None:
+        """First debate round has no critic report yet — callback must be a no-op."""
+        from sre_agent.council.debate import _make_debate_round_callback
+
+        cb = _make_debate_round_callback("trace")
+        ctx = self._make_ctx({})
+        result = cb(ctx)
+        assert result is None
+
+    def test_returns_content_with_gaps(self) -> None:
+        import json
+
+        from sre_agent.council.debate import _make_debate_round_callback
+        from sre_agent.council.state import CRITIC_REPORT
+
+        critic = {
+            "gaps": ["No trace data for service B"],
+            "contradictions": [],
+            "agreements": [],
+            "revised_confidence": 0.6,
+        }
+        ctx = self._make_ctx({CRITIC_REPORT: json.dumps(critic)})
+        cb = _make_debate_round_callback("trace")
+        result = cb(ctx)
+        assert result is not None
+        content_text = result.parts[0].text
+        assert "No trace data for service B" in content_text
+        assert "GAPS" in content_text
+
+    def test_returns_content_with_contradictions(self) -> None:
+        import json
+
+        from sre_agent.council.debate import _make_debate_round_callback
+        from sre_agent.council.state import CRITIC_REPORT
+
+        critic = {
+            "gaps": [],
+            "contradictions": ["Metrics say healthy but logs show errors"],
+            "agreements": [],
+            "revised_confidence": 0.5,
+        }
+        ctx = self._make_ctx({CRITIC_REPORT: json.dumps(critic)})
+        cb = _make_debate_round_callback("metrics")
+        result = cb(ctx)
+        assert result is not None
+        content_text = result.parts[0].text
+        assert "Metrics say healthy but logs show errors" in content_text
+        assert "CONTRADICTIONS" in content_text
+
+    def test_returns_none_when_gaps_and_contradictions_empty(self) -> None:
+        import json
+
+        from sre_agent.council.debate import _make_debate_round_callback
+        from sre_agent.council.state import CRITIC_REPORT
+
+        critic = {
+            "gaps": [],
+            "contradictions": [],
+            "agreements": ["All panels agree latency is high"],
+            "revised_confidence": 0.9,
+        }
+        ctx = self._make_ctx({CRITIC_REPORT: json.dumps(critic)})
+        cb = _make_debate_round_callback("trace")
+        result = cb(ctx)
+        assert result is None
+
+    def test_handles_malformed_critic_json_gracefully(self) -> None:
+        from sre_agent.council.debate import _make_debate_round_callback
+        from sre_agent.council.state import CRITIC_REPORT
+
+        ctx = self._make_ctx({CRITIC_REPORT: "NOT_VALID{{{"})
+        cb = _make_debate_round_callback("trace")
+        result = cb(ctx)
+        assert result is None

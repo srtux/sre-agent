@@ -25,9 +25,10 @@ from sre_agent.council.schemas import (
 class TestIsAdaptiveClassifierEnabled:
     """Tests for the feature flag check."""
 
-    def test_disabled_by_default(self) -> None:
+    def test_enabled_by_default(self) -> None:
+        """Adaptive classifier is ON when env var is absent (new default)."""
         with patch.dict("os.environ", {}, clear=True):
-            assert is_adaptive_classifier_enabled() is False
+            assert is_adaptive_classifier_enabled() is True
 
     def test_enabled_when_true(self) -> None:
         with patch.dict("os.environ", {"SRE_AGENT_ADAPTIVE_CLASSIFIER": "true"}):
@@ -41,9 +42,15 @@ class TestIsAdaptiveClassifierEnabled:
         with patch.dict("os.environ", {"SRE_AGENT_ADAPTIVE_CLASSIFIER": "false"}):
             assert is_adaptive_classifier_enabled() is False
 
-    def test_disabled_when_other_value(self) -> None:
-        with patch.dict("os.environ", {"SRE_AGENT_ADAPTIVE_CLASSIFIER": "yes"}):
+    def test_disabled_when_no(self) -> None:
+        """'no' is an explicit opt-out value."""
+        with patch.dict("os.environ", {"SRE_AGENT_ADAPTIVE_CLASSIFIER": "no"}):
             assert is_adaptive_classifier_enabled() is False
+
+    def test_enabled_when_unrecognised_value(self) -> None:
+        """Unrecognised values (e.g. 'yes') are treated as enabled."""
+        with patch.dict("os.environ", {"SRE_AGENT_ADAPTIVE_CLASSIFIER": "yes"}):
+            assert is_adaptive_classifier_enabled() is True
 
 
 class TestBuildContextBlock:
@@ -191,12 +198,14 @@ class TestRuleBasedResult:
     def test_debate_mode_detection(self) -> None:
         result = _rule_based_result("root cause of the outage")
         assert result.mode == InvestigationMode.DEBATE
-        assert result.confidence == 0.8
+        # Confidence is now computed from signal strength, not hardcoded
+        assert 0.0 < result.confidence <= 1.0
 
     def test_standard_mode_detection(self) -> None:
         result = _rule_based_result("analyze the error rates")
         assert result.mode == InvestigationMode.STANDARD
-        assert result.confidence == 0.6
+        # Confidence is now computed from signal strength, not hardcoded
+        assert 0.0 < result.confidence <= 1.0
 
     def test_reasoning_included(self) -> None:
         result = _rule_based_result("quick check")
@@ -208,7 +217,8 @@ class TestAdaptiveClassify:
 
     @pytest.mark.asyncio
     async def test_uses_rule_based_when_disabled(self) -> None:
-        with patch.dict("os.environ", {}, clear=True):
+        # Explicitly disable the adaptive classifier via env var
+        with patch.dict("os.environ", {"SRE_AGENT_ADAPTIVE_CLASSIFIER": "false"}):
             result = await adaptive_classify("check the status")
             assert result.classifier_used == "rule_based"
             assert isinstance(result, AdaptiveClassificationResult)
@@ -429,3 +439,87 @@ class TestSchemaModels:
             AdaptiveClassificationResult(mode=InvestigationMode.FAST, confidence=-0.1)
         with pytest.raises(ValidationError):
             AdaptiveClassificationResult(mode=InvestigationMode.FAST, confidence=1.1)
+
+
+class TestComputeRuleBasedConfidence:
+    """Tests for the signal-derived confidence scorer."""
+
+    def test_imports(self) -> None:
+        from sre_agent.council.adaptive_classifier import (
+            _compute_rule_based_confidence,  # noqa: F401
+        )
+
+    def test_complex_query_higher_confidence_than_simple(self) -> None:
+        from sre_agent.council.adaptive_classifier import _compute_rule_based_confidence
+
+        ctx = ClassificationContext()
+        simple = _compute_rule_based_confidence(
+            "show logs", ctx, InvestigationMode.STANDARD
+        )
+        complex_ = _compute_rule_based_confidence(
+            "investigate the latency anomaly and analyze trace errors for incident",
+            ctx,
+            InvestigationMode.STANDARD,
+        )
+        assert complex_ > simple
+
+    def test_debate_penalized_on_low_budget(self) -> None:
+        from sre_agent.council.adaptive_classifier import _compute_rule_based_confidence
+
+        ctx_low = ClassificationContext(remaining_token_budget=5_000)
+        ctx_high = ClassificationContext(remaining_token_budget=500_000)
+        low = _compute_rule_based_confidence(
+            "investigate", ctx_low, InvestigationMode.DEBATE
+        )
+        high = _compute_rule_based_confidence(
+            "investigate", ctx_high, InvestigationMode.DEBATE
+        )
+        assert low < high
+
+    def test_critical_alert_boosts_debate_confidence(self) -> None:
+        from sre_agent.council.adaptive_classifier import _compute_rule_based_confidence
+
+        ctx_no_alert = ClassificationContext()
+        ctx_critical = ClassificationContext(alert_severity="critical")
+        no_alert = _compute_rule_based_confidence(
+            "investigate", ctx_no_alert, InvestigationMode.DEBATE
+        )
+        critical = _compute_rule_based_confidence(
+            "investigate", ctx_critical, InvestigationMode.DEBATE
+        )
+        assert critical > no_alert
+
+    def test_confidence_clipped_to_unit_interval(self) -> None:
+        from sre_agent.council.adaptive_classifier import _compute_rule_based_confidence
+
+        ctx = ClassificationContext()
+        for mode in InvestigationMode:
+            conf = _compute_rule_based_confidence("x" * 1000, ctx, mode)
+            assert 0.0 <= conf <= 1.0
+
+    def test_rule_based_result_uses_computed_confidence(self) -> None:
+        """_rule_based_result must not return the old hardcoded 0.8/0.6 values."""
+        ctx = ClassificationContext(remaining_token_budget=5_000)
+        result = _rule_based_result("investigate incident", ctx)
+        # With a low budget penalty applied, DEBATE confidence must be < 0.8
+        assert result.confidence != 0.8
+        assert result.confidence != 0.6
+
+
+class TestRuleBasedResultAcceptsContext:
+    """Tests that _rule_based_result passes context to confidence calculation."""
+
+    def test_accepts_none_context(self) -> None:
+        result = _rule_based_result("analyze logs", None)
+        assert isinstance(result, AdaptiveClassificationResult)
+        assert 0.0 <= result.confidence <= 1.0
+
+    def test_accepts_rich_context(self) -> None:
+        ctx = ClassificationContext(
+            session_history=["previous query"],
+            alert_severity="warning",
+            remaining_token_budget=100_000,
+            previous_modes=["standard"],
+        )
+        result = _rule_based_result("investigate the service", ctx)
+        assert isinstance(result, AdaptiveClassificationResult)

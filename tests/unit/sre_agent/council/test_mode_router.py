@@ -4,6 +4,8 @@ Validates that the classify_investigation_mode @adk_tool correctly
 wraps the intent classifier and returns BaseToolResponse.
 """
 
+from unittest.mock import patch
+
 import pytest
 
 from sre_agent.council.mode_router import classify_investigation_mode
@@ -54,6 +56,7 @@ class TestClassifyInvestigationMode:
 
     @pytest.mark.asyncio
     async def test_metadata_contains_classifier_type(self) -> None:
-        """Metadata should indicate the classifier type."""
-        result = await classify_investigation_mode(query="test query")
-        assert result.metadata["classifier"] == "rule_based"
+        """Metadata should indicate the classifier type (rule_based when adaptive disabled)."""
+        with patch.dict("os.environ", {"SRE_AGENT_ADAPTIVE_CLASSIFIER": "false"}):
+            result = await classify_investigation_mode(query="test query")
+            assert result.metadata["classifier"] == "rule_based"

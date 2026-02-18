@@ -118,6 +118,50 @@ _DEBATE_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r"\binvestigat(e|ion)\b", re.IGNORECASE),
 ]
 
+# Patterns for standard multi-signal council routing.
+# These identify holistic service-health or cross-signal queries that benefit
+# from the full 5-panel council rather than a single specialist sub-agent.
+_STANDARD_COUNCIL_PATTERNS: list[re.Pattern[str]] = [
+    # Service / system health questions
+    re.compile(r"\b(health|wellness|status)\s+(of|for)\b", re.IGNORECASE),
+    re.compile(
+        r"\b(service|system|cluster|deployment)\s+(health|wellness|overview|diagnostic)\b",
+        re.IGNORECASE,
+    ),
+    # "What's / what is / what are happening/wrong/going on" + service noun
+    re.compile(
+        r"\bwhat(?:'?s|\s+is|\s+are)\b.*\b(happening|wrong|going\s+on|the\s+issues?|the\s+problem)\b"
+        r".*\b(service|system|app|api|cluster|pod|deployment|function)\b",
+        re.IGNORECASE,
+    ),
+    # Performance degradation (without a specific signal keyword)
+    re.compile(
+        r"\b(performance\s+(issue|problem|degradation|anomaly|concern))\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(service|system|api|app)\s+(is\s+)?(slow|degraded|impacted|struggling|flaky)\b",
+        re.IGNORECASE,
+    ),
+    # End-to-end / holistic investigation scope
+    re.compile(
+        r"\b(end[\s\-]to[\s\-]end|e2e|full[\s\-](stack|diagnostic|picture|overview))\b",
+        re.IGNORECASE,
+    ),
+    # "Look into / figure out / check out" + service noun
+    re.compile(
+        r"\b(look\s+into|figure\s+out|check\s+out)\b"
+        r".*\b(service|system|app|api|cluster|deployment)\b",
+        re.IGNORECASE,
+    ),
+    # Broad "how is X performing / doing"
+    re.compile(
+        r"\bhow\s+(is|are)\b.*\b(service|system|app|api|cluster|deployment)\b"
+        r".*\b(perform\w*|do(?:ing)?|behav\w*|look\w*)\b",
+        re.IGNORECASE,
+    ),
+]
+
 
 class SignalType(str, Enum):
     """Signal type for panel selection in FAST mode."""
@@ -599,6 +643,16 @@ def classify_routing(query: str) -> RoutingResult:
             signal_type=signal_type,
             investigation_mode=intent.mode,
         )
+
+    # 1b. Standard multi-signal council — holistic service-health and cross-signal
+    #     queries that don't reach DEBATE threshold but benefit from all 5 panels.
+    for pattern in _STANDARD_COUNCIL_PATTERNS:
+        if pattern.search(query_lower):
+            return RoutingResult(
+                decision=RoutingDecision.COUNCIL,
+                signal_type=signal_type,
+                investigation_mode=InvestigationMode.STANDARD,
+            )
 
     # 2. Check for analysis queries (SUB_AGENT tier)
     if _has_keyword_match(query_lower, "analysis"):

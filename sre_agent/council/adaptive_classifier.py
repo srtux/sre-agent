@@ -13,6 +13,7 @@ import os
 
 from google import genai
 
+from sre_agent.auth import get_current_credentials_or_none
 from sre_agent.model_config import get_model_name
 
 from .intent_classifier import (
@@ -56,8 +57,15 @@ Respond with ONLY a JSON object (no markdown, no explanation):
 
 
 def is_adaptive_classifier_enabled() -> bool:
-    """Check if the LLM-augmented adaptive classifier is enabled."""
-    return os.environ.get(_ADAPTIVE_CLASSIFIER_ENV_VAR, "false").lower() == "true"
+    """Check if the LLM-augmented adaptive classifier is enabled.
+
+    Defaults to True — the adaptive classifier provides better routing than
+    the rule-based fallback for novel or ambiguous queries.  Set
+    ``SRE_AGENT_ADAPTIVE_CLASSIFIER=false`` (or ``0`` / ``no`` / ``off``) to
+    disable and fall back to deterministic rule-based classification only.
+    """
+    val = os.environ.get(_ADAPTIVE_CLASSIFIER_ENV_VAR, "true").lower()
+    return val not in ("false", "0", "no", "off")
 
 
 def _build_context_block(context: ClassificationContext | None) -> str:
@@ -142,7 +150,11 @@ async def _classify_with_llm(
     )
 
     model_name = get_model_name("fast")
-    client = genai.Client()
+    # Use EUC credentials from ContextVar (set by middleware / emojify_agent).
+    # Falls back to Application Default Credentials when ContextVar is unset
+    # (e.g. in unit tests or local runs without a signed-in user).
+    creds = get_current_credentials_or_none()
+    client = genai.Client(credentials=creds) if creds is not None else genai.Client()
     response = await client.aio.models.generate_content(
         model=model_name,
         contents=prompt,
@@ -184,13 +196,119 @@ async def _classify_with_llm(
     )
 
 
-def _rule_based_result(query: str) -> AdaptiveClassificationResult:
+def _compute_rule_based_confidence(
+    query: str,
+    context: ClassificationContext | None,
+    mode: InvestigationMode,
+) -> float:
+    """Compute a signal-derived confidence score for rule-based classification.
+
+    Factors considered:
+    - **Keyword density**: more investigation-relevant terms -> higher confidence.
+    - **Query length**: longer queries tend to be more complex and unambiguous.
+    - **Mode consistency**: same mode used in previous turns -> higher confidence.
+    - **Alert severity**: critical alert + DEBATE mode -> bonus.
+    - **Budget penalty**: very low token budget + DEBATE mode -> penalty (may need
+      to downgrade, so confidence in DEBATE is lower).
+
+    Args:
+        query: The raw user query string.
+        context: Optional classification context.
+        mode: The InvestigationMode selected by the rule-based classifier.
+
+    Returns:
+        Confidence in [0.0, 1.0], rounded to 3 decimal places.
+    """
+    base = 0.65
+
+    # Keyword density: count SRE-relevant terms present in the query
+    sre_keywords = {
+        "investigate",
+        "analyze",
+        "analyse",
+        "trace",
+        "metric",
+        "log",
+        "alert",
+        "error",
+        "latency",
+        "incident",
+        "cause",
+        "why",
+        "debug",
+        "root",
+        "spike",
+        "anomaly",
+        "anomalies",
+        "slow",
+        "outage",
+        "failure",
+        "crash",
+        "timeout",
+    }
+    query_lower = query.lower()
+    keyword_hits = sum(1 for kw in sre_keywords if kw in query_lower)
+    keyword_bonus = min(keyword_hits * 0.04, 0.20)
+
+    # Query length: more characters -> harder query -> classifier more decisive
+    length_bonus = min(len(query) / 600.0, 0.10)
+
+    # Mode consistency across turns
+    mode_history_bonus = 0.0
+    if context and mode.value in context.previous_modes:
+        mode_history_bonus = 0.05
+
+    # Alert severity: critical alert strongly suggests DEBATE
+    severity_bonus = 0.0
+    if (
+        mode == InvestigationMode.DEBATE
+        and context
+        and context.alert_severity
+        in (
+            "critical",
+            "page",
+            "p0",
+            "p1",
+            "sev0",
+            "sev1",
+        )
+    ):
+        severity_bonus = 0.10
+
+    # Budget penalty: tight budget makes DEBATE risky -> lower confidence
+    budget_penalty = 0.0
+    if (
+        mode == InvestigationMode.DEBATE
+        and context
+        and context.remaining_token_budget is not None
+    ):
+        if context.remaining_token_budget < 10_000:
+            budget_penalty = 0.20
+        elif context.remaining_token_budget < 50_000:
+            budget_penalty = 0.10
+
+    raw = (
+        base
+        + keyword_bonus
+        + length_bonus
+        + mode_history_bonus
+        + severity_bonus
+        - budget_penalty
+    )
+    return round(max(0.0, min(1.0, raw)), 3)
+
+
+def _rule_based_result(
+    query: str,
+    context: ClassificationContext | None = None,
+) -> AdaptiveClassificationResult:
     """Produce an AdaptiveClassificationResult from the rule-based classifier."""
     result = classify_intent_with_signal(query)
+    confidence = _compute_rule_based_confidence(query, context, result.mode)
     return AdaptiveClassificationResult(
         mode=result.mode,
         signal_type=result.signal_type.value,
-        confidence=0.8 if result.mode == InvestigationMode.DEBATE else 0.6,
+        confidence=confidence,
         reasoning=f"Rule-based classification: matched {result.mode.value} keywords",
         classifier_used="rule_based",
     )
@@ -215,7 +333,7 @@ async def adaptive_classify(
         AdaptiveClassificationResult with mode, signal type, and reasoning.
     """
     if not is_adaptive_classifier_enabled():
-        return _rule_based_result(query)
+        return _rule_based_result(query, context)
 
     try:
         return await _classify_with_llm(query, context)
@@ -224,7 +342,7 @@ async def adaptive_classify(
             "LLM adaptive classification failed, falling back to rule-based",
             exc_info=True,
         )
-        result = _rule_based_result(query)
+        result = _rule_based_result(query, context)
         return AdaptiveClassificationResult(
             mode=result.mode,
             signal_type=result.signal_type,

@@ -20,6 +20,28 @@ from .panels import (
 from .schemas import CouncilConfig
 from .synthesizer import create_synthesizer
 
+# Module-level singleton for the default council pipeline.
+# ADK agents are stateless objects — all per-invocation data lives in
+# session state, not in the agent instances themselves.  Pre-building the
+# pipeline avoids re-instantiating 6 LlmAgent objects on every investigation.
+_default_council_pipeline: SequentialAgent | None = None
+
+
+def get_default_council_pipeline() -> SequentialAgent:
+    """Return the shared default council pipeline, building it on first call.
+
+    Thread-safe under CPython's GIL for the simple None-check assignment.
+    Uses the default ``CouncilConfig`` (STANDARD mode, 3 debate rounds,
+    confidence threshold 0.85, 120 s timeout).
+
+    Returns:
+        The singleton ``SequentialAgent`` for the standard council pipeline.
+    """
+    global _default_council_pipeline
+    if _default_council_pipeline is None:
+        _default_council_pipeline = create_council_pipeline(CouncilConfig())
+    return _default_council_pipeline
+
 
 def create_council_pipeline(config: CouncilConfig | None = None) -> SequentialAgent:
     """Create the parallel council pipeline.
