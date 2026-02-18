@@ -175,52 +175,37 @@ class ConversationAppBar extends StatelessWidget
   }
 
   Widget _buildProjectSelector() {
-    return ValueListenableBuilder<bool>(
-      valueListenable: projectService.isLoading,
-      builder: (context, isLoading, _) {
-        return ValueListenableBuilder<List<GcpProject>>(
-          valueListenable: projectService.projects,
-          builder: (context, projects, _) {
-            return ValueListenableBuilder<GcpProject?>(
-              valueListenable: projectService.selectedProject,
-              builder: (context, selectedProject, _) {
-                return ValueListenableBuilder<String?>(
-                  valueListenable: projectService.error,
-                  builder: (context, error, _) {
-                    return ValueListenableBuilder<List<GcpProject>>(
-                      valueListenable: projectService.recentProjects,
-                      builder: (context, recentProjects, _) {
-                        return ValueListenableBuilder<List<GcpProject>>(
-                          valueListenable: projectService.starredProjects,
-                          builder: (context, starredProjects, _) {
-                            return ProjectSelectorDropdown(
-                              projects: projects,
-                              recentProjects: recentProjects,
-                              starredProjects: starredProjects,
-                              selectedProject: selectedProject,
-                              isLoading: isLoading,
-                              error: error,
-                              onProjectSelected: (project) {
-                                projectService.selectProjectInstance(project);
-                              },
-                              onRefresh: () {
-                                projectService.fetchProjects();
-                              },
-                              onSearch: (query) {
-                                projectService.fetchProjects(query: query);
-                              },
-                              onToggleStar: (project) {
-                                projectService.toggleStar(project);
-                              },
-                            );
-                          },
-                        );
-                      },
-                    );
-                  },
-                );
-              },
-            );
+    // Merge all project service notifiers into a single listenable to avoid
+    // deeply nested ValueListenableBuilders (was 6 levels deep, causing O(n)
+    // rebuild cascades on every notifier change).
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        projectService.isLoading,
+        projectService.projects,
+        projectService.selectedProject,
+        projectService.error,
+        projectService.recentProjects,
+        projectService.starredProjects,
+      ]),
+      builder: (context, _) {
+        return ProjectSelectorDropdown(
+          projects: projectService.projects.value,
+          recentProjects: projectService.recentProjects.value,
+          starredProjects: projectService.starredProjects.value,
+          selectedProject: projectService.selectedProject.value,
+          isLoading: projectService.isLoading.value,
+          error: projectService.error.value,
+          onProjectSelected: (project) {
+            projectService.selectProjectInstance(project);
+          },
+          onRefresh: () {
+            projectService.fetchProjects();
+          },
+          onSearch: (query) {
+            projectService.fetchProjects(query: query);
+          },
+          onToggleStar: (project) {
+            projectService.toggleStar(project);
           },
         );
       },

@@ -124,11 +124,8 @@ class DashboardTemplateService extends ChangeNotifier {
         final data = await AppIsolate.run(_parseJsonMap, response.body);
         final rawList = data['templates'] as List<dynamic>? ?? [];
         _templates = rawList
-            .map(
-              (item) => DashboardTemplateSummary.fromJson(
-                item as Map<String, dynamic>,
-              ),
-            )
+            .whereType<Map<String, dynamic>>()
+            .map((item) => DashboardTemplateSummary.fromJson(item))
             .toList();
       } else {
         _error = 'Failed to fetch templates: ${response.statusCode}';
@@ -200,11 +197,8 @@ class DashboardTemplateService extends ChangeNotifier {
         final data = await AppIsolate.run(_parseJsonMap, response.body);
         final rawList = data['dashboards'] as List<dynamic>? ?? [];
         _dashboards = rawList
-            .map(
-              (item) => DashboardSummary.fromJson(
-                item as Map<String, dynamic>,
-              ),
-            )
+            .whereType<Map<String, dynamic>>()
+            .map((item) => DashboardSummary.fromJson(item))
             .toList();
       } else {
         _error = 'Failed to fetch dashboards: ${response.statusCode}';

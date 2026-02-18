@@ -372,7 +372,8 @@ class ExplorerQueryService {
           (data['columns'] as List?)?.map((c) => c.toString()).toList() ?? [];
       final rows =
           (data['rows'] as List?)
-              ?.map((r) => Map<String, dynamic>.from(r as Map))
+              ?.whereType<Map>()
+              .map((r) => Map<String, dynamic>.from(r))
               .toList() ??
           [];
 

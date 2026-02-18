@@ -138,6 +138,9 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
   /// OverlayEntry for the query history panel.
   OverlayEntry? _historyOverlay;
 
+  /// ScrollController for the multi-line text field scrollbar.
+  ScrollController? _multiLineScrollController;
+
   /// Dynamic offset for the autocomplete dropdown, keeping it below the cursor.
   Offset _cursorOffset = const Offset(0, 44);
 
@@ -213,15 +216,17 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
       _controller.dispose();
     }
     _focusNode.dispose();
+    _multiLineScrollController?.dispose();
     super.dispose();
   }
 
   void _onFocusChanged() {
+    if (!mounted) return;
     setState(() {});
     if (!_focusNode.hasFocus) {
       // Delay removal so tap on overlay can register first
       Future.delayed(const Duration(milliseconds: 200), () {
-        if (!_focusNode.hasFocus) _removeOverlay();
+        if (mounted && !_focusNode.hasFocus) _removeOverlay();
       });
     }
   }
@@ -819,7 +824,7 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(10, 4, 10, 8),
                 child: Scrollbar(
-                  controller: ScrollController(),
+                  controller: _multiLineScrollController ??= ScrollController(),
                   thumbVisibility: true,
                   child: Focus(
                     onKeyEvent: (_, event) => _handleKeyEvent(event),
