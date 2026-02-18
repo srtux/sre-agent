@@ -9,6 +9,7 @@ SRE_AGENT_COUNCIL_ORCHESTRATOR feature flag is enabled. It:
 """
 
 import logging
+import time
 from collections.abc import AsyncGenerator
 from typing import Any
 
@@ -128,8 +129,6 @@ class CouncilOrchestrator(BaseAgent):
 
         # Stream events from the pipeline with deadline enforcement (OPT-4)
         # Compatible with Python 3.10+ (asyncio.timeout requires 3.11+).
-        import time
-
         deadline = time.monotonic() + config.timeout_seconds
         timed_out = False
         async for event in pipeline.run_async(child_ctx):

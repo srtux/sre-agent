@@ -426,13 +426,7 @@ async def _process_with_generic_template(
         # Sandbox not available — fall back to code-gen prompt
         return build_code_generation_prompt(tool_name, result)
 
-    item_count = (
-        len(result)
-        if isinstance(result, list)
-        else len(result)
-        if isinstance(result, dict)
-        else 1
-    )
+    item_count = len(result) if isinstance(result, (list, dict)) else 1
     logger.info(
         "Large payload handler: generic processing of %d items from '%s'",
         item_count,
