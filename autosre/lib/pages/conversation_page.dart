@@ -76,16 +76,13 @@ class _ConversationPageState extends State<ConversationPage>
     // Keyboard handling (Enter to send, Up/Down for history)
     _focusNode.onKeyEvent = _handleKeyEvent;
 
-    // Typing indicator animation
+    // Typing indicator animation — only runs while agent is processing.
+    // Starting it unconditionally caused constant frame generation even when
+    // the indicator was hidden, contributing to UI freezing.
     _typingController = AnimationController(
       duration: const Duration(milliseconds: 1200),
       vsync: this,
     );
-    if (!kIsWeb && !kDebugMode) {
-      _typingController.repeat();
-    } else if (kIsWeb) {
-      _typingController.repeat();
-    }
 
     // Create the controller that manages streams and conversation lifecycle
     _controller = ConversationController(
@@ -111,6 +108,9 @@ class _ConversationPageState extends State<ConversationPage>
       widgetContentGenerator: widget.contentGenerator,
       projectId: _projectService.selectedProjectId,
     );
+
+    // Drive typing animation from processing state changes.
+    _controller.contentGenerator?.isProcessing.addListener(_onProcessingChanged);
 
     _projectService.fetchProjects();
     _sessionService.fetchSessions();
@@ -191,6 +191,20 @@ class _ConversationPageState extends State<ConversationPage>
     );
   }
 
+  // --------------- Processing & Typing Animation ---------------
+
+  void _onProcessingChanged() {
+    final processing = _controller.contentGenerator?.isProcessing.value ?? false;
+    if (processing) {
+      if (!_typingController.isAnimating) {
+        _typingController.repeat();
+      }
+    } else {
+      _typingController.stop();
+      _typingController.reset();
+    }
+  }
+
   // --------------- Actions ---------------
 
   void _onProjectChanged() {
@@ -200,12 +214,14 @@ class _ConversationPageState extends State<ConversationPage>
 
     // When a project is selected, open dashboard with logs and auto-load data
     if (projectId != null) {
-      _dashboardState.clear();
-      _dashboardState.setTimeRange(
-        TimeRange.fromPreset(TimeRangePreset.fifteenMinutes),
-      );
-      _dashboardState.openDashboard();
-      _dashboardState.setActiveTab(DashboardDataType.logs);
+      _dashboardState.batch(() {
+        _dashboardState.clear();
+        _dashboardState.setTimeRange(
+          TimeRange.fromPreset(TimeRangePreset.fifteenMinutes),
+        );
+        _dashboardState.openDashboard();
+        _dashboardState.setActiveTab(DashboardDataType.logs);
+      });
 
       // Auto-load default logs for the selected project
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -265,6 +281,7 @@ class _ConversationPageState extends State<ConversationPage>
   }
 
   void _startNewSession() {
+    _controller.contentGenerator?.isProcessing.removeListener(_onProcessingChanged);
     _controller.clearSessionState();
     setState(() {
       _controller.initialize(
@@ -272,6 +289,7 @@ class _ConversationPageState extends State<ConversationPage>
         projectId: _projectService.selectedProjectId,
       );
     });
+    _controller.contentGenerator?.isProcessing.addListener(_onProcessingChanged);
     StatusToast.show(context, 'Starting new investigation...');
   }
 
@@ -284,6 +302,7 @@ class _ConversationPageState extends State<ConversationPage>
       return;
     }
 
+    _controller.contentGenerator?.isProcessing.removeListener(_onProcessingChanged);
     _controller.contentGenerator?.sessionId = sessionId;
     _sessionService.setCurrentSession(sessionId);
 
@@ -295,6 +314,7 @@ class _ConversationPageState extends State<ConversationPage>
         projectId: _projectService.selectedProjectId,
       );
     });
+    _controller.contentGenerator?.isProcessing.addListener(_onProcessingChanged);
 
     if (session.messages.isNotEmpty) {
       final history = <ChatMessage>[];
@@ -510,6 +530,7 @@ class _ConversationPageState extends State<ConversationPage>
 
   @override
   void dispose() {
+    _controller.contentGenerator?.isProcessing.removeListener(_onProcessingChanged);
     _controller.dispose();
     // Note: _dashboardState is managed by Provider — do NOT dispose here.
     _projectService.needsProjectSelection.removeListener(_onNeedsProjectSelection);

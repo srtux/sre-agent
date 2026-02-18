@@ -102,15 +102,16 @@ class ExplorerQueryService {
       // Decode JSON and map to MetricSeries on a background thread
       final series = await compute(_parseMetrics, response.body);
 
-      _dashboardState.addMetricSeries(
-        series,
-        'manual_query',
-        series.toJson(), // The original mapped json dict structure
-        source: DataSource.manual,
-      );
-
-      _dashboardState.openDashboard();
-      _dashboardState.setActiveTab(DashboardDataType.metrics);
+      _dashboardState.batch(() {
+        _dashboardState.addMetricSeries(
+          series,
+          'manual_query',
+          series.toJson(),
+          source: DataSource.manual,
+        );
+        _dashboardState.openDashboard();
+        _dashboardState.setActiveTab(DashboardDataType.metrics);
+      });
     } catch (e) {
       _dashboardState.setError(DashboardDataType.metrics, e.toString());
       debugPrint('ExplorerQueryService.queryMetrics error: $e');
@@ -146,24 +147,25 @@ class ExplorerQueryService {
       // Run background parsing
       final logData = await AppIsolate.run(_parseLogEntries, response.body);
 
-      if (pageToken != null) {
-        _dashboardState.appendLogEntries(
-          logData,
-          'manual_query',
-          logData.toJson(),
-          source: DataSource.manual,
-        );
-      } else {
-        _dashboardState.addLogEntries(
-          logData,
-          'manual_query',
-          logData.toJson(),
-          source: DataSource.manual,
-        );
-      }
-
-      _dashboardState.openDashboard();
-      _dashboardState.setActiveTab(DashboardDataType.logs);
+      _dashboardState.batch(() {
+        if (pageToken != null) {
+          _dashboardState.appendLogEntries(
+            logData,
+            'manual_query',
+            logData.toJson(),
+            source: DataSource.manual,
+          );
+        } else {
+          _dashboardState.addLogEntries(
+            logData,
+            'manual_query',
+            logData.toJson(),
+            source: DataSource.manual,
+          );
+        }
+        _dashboardState.openDashboard();
+        _dashboardState.setActiveTab(DashboardDataType.logs);
+      });
     } catch (e) {
       _dashboardState.setError(DashboardDataType.logs, e.toString());
       debugPrint('ExplorerQueryService.queryLogs error: $e');
@@ -262,14 +264,16 @@ class ExplorerQueryService {
         final trace = await AppIsolate.run(_parseTrace, response.body);
 
         if (trace.spans.isNotEmpty) {
-          _dashboardState.addTrace(
-            trace,
-            'manual_query',
-            trace.toJson(),
-            source: DataSource.manual,
-          );
-          _dashboardState.openDashboard();
-          _dashboardState.setActiveTab(DashboardDataType.traces);
+          _dashboardState.batch(() {
+            _dashboardState.addTrace(
+              trace,
+              'manual_query',
+              trace.toJson(),
+              source: DataSource.manual,
+            );
+            _dashboardState.openDashboard();
+            _dashboardState.setActiveTab(DashboardDataType.traces);
+          });
         }
       } finally {
         client.close();
@@ -298,19 +302,20 @@ class ExplorerQueryService {
       final response = await _post('/api/tools/traces/query', body);
       final traces = await AppIsolate.run(_parseTraceList, response.body);
 
-      for (var trace in traces) {
-        if (trace.spans.isNotEmpty) {
-          _dashboardState.addTrace(
-            trace,
-            'manual_query',
-            trace.toJson(),
-            source: DataSource.manual,
-          );
+      _dashboardState.batch(() {
+        for (var trace in traces) {
+          if (trace.spans.isNotEmpty) {
+            _dashboardState.addTrace(
+              trace,
+              'manual_query',
+              trace.toJson(),
+              source: DataSource.manual,
+            );
+          }
         }
-      }
-
-      _dashboardState.openDashboard();
-      _dashboardState.setActiveTab(DashboardDataType.traces);
+        _dashboardState.openDashboard();
+        _dashboardState.setActiveTab(DashboardDataType.traces);
+      });
     } catch (e) {
       _dashboardState.setError(DashboardDataType.traces, e.toString());
       debugPrint('ExplorerQueryService.queryTraceFilter error: $e');
@@ -336,15 +341,16 @@ class ExplorerQueryService {
 
       final series = await AppIsolate.run(_parseMetrics, response.body);
 
-      _dashboardState.addMetricSeries(
-        series,
-        'manual_query_promql',
-        series.toJson(),
-        source: DataSource.manual,
-      );
-
-      _dashboardState.openDashboard();
-      _dashboardState.setActiveTab(DashboardDataType.metrics);
+      _dashboardState.batch(() {
+        _dashboardState.addMetricSeries(
+          series,
+          'manual_query_promql',
+          series.toJson(),
+          source: DataSource.manual,
+        );
+        _dashboardState.openDashboard();
+        _dashboardState.setActiveTab(DashboardDataType.metrics);
+      });
     } catch (e) {
       _dashboardState.setError(DashboardDataType.metrics, e.toString());
       debugPrint('ExplorerQueryService.queryMetricsPromQL error: $e');
@@ -370,15 +376,17 @@ class ExplorerQueryService {
               .toList() ??
           [];
 
-      _dashboardState.addSqlResults(
-        sql,
-        columns,
-        rows,
-        'bigquery_sql_explorer',
-        source: DataSource.manual,
-      );
-      _dashboardState.openDashboard();
-      _dashboardState.setActiveTab(DashboardDataType.analytics);
+      _dashboardState.batch(() {
+        _dashboardState.addSqlResults(
+          sql,
+          columns,
+          rows,
+          'bigquery_sql_explorer',
+          source: DataSource.manual,
+        );
+        _dashboardState.openDashboard();
+        _dashboardState.setActiveTab(DashboardDataType.analytics);
+      });
     } catch (e) {
       _dashboardState.setError(DashboardDataType.analytics, e.toString());
       debugPrint('ExplorerQueryService.queryBigQuery error: $e');
@@ -404,15 +412,16 @@ class ExplorerQueryService {
 
       final alertData = await AppIsolate.run(_parseAlerts, response.body);
 
-      _dashboardState.addAlerts(
-        alertData,
-        'manual_query',
-        alertData.toJson(),
-        source: DataSource.manual,
-      );
-
-      _dashboardState.openDashboard();
-      _dashboardState.setActiveTab(DashboardDataType.alerts);
+      _dashboardState.batch(() {
+        _dashboardState.addAlerts(
+          alertData,
+          'manual_query',
+          alertData.toJson(),
+          source: DataSource.manual,
+        );
+        _dashboardState.openDashboard();
+        _dashboardState.setActiveTab(DashboardDataType.alerts);
+      });
     } catch (e) {
       _dashboardState.setError(DashboardDataType.alerts, e.toString());
       debugPrint('ExplorerQueryService.queryAlerts error: $e');
@@ -570,14 +579,15 @@ class ExplorerQueryService {
 
       final logData = await AppIsolate.run(_parseLogEntries, response.body);
 
-      _dashboardState.addLogEntries(
-        logData,
-        'auto_load',
-        logData.toJson(),
-        source: DataSource.manual,
-      );
-
-      _dashboardState.setLastQueryFilter(DashboardDataType.logs, '');
+      _dashboardState.batch(() {
+        _dashboardState.addLogEntries(
+          logData,
+          'auto_load',
+          logData.toJson(),
+          source: DataSource.manual,
+        );
+        _dashboardState.setLastQueryFilter(DashboardDataType.logs, '');
+      });
     } catch (e) {
       _dashboardState.setError(DashboardDataType.logs, e.toString());
       debugPrint('ExplorerQueryService.loadDefaultLogs error: $e');
@@ -599,16 +609,18 @@ class ExplorerQueryService {
 
       final traces = await AppIsolate.run(_parseTraceList, response.body);
 
-      for (var trace in traces) {
-        if (trace.spans.isNotEmpty) {
-          _dashboardState.addTrace(
-            trace,
-            'auto_load',
-            trace.toJson(),
-            source: DataSource.manual,
-          );
+      _dashboardState.batch(() {
+        for (var trace in traces) {
+          if (trace.spans.isNotEmpty) {
+            _dashboardState.addTrace(
+              trace,
+              'auto_load',
+              trace.toJson(),
+              source: DataSource.manual,
+            );
+          }
         }
-      }
+      });
 
       // Data loaded; the caller is responsible for tab/dashboard state.
     } catch (e) {

@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:genui/genui.dart';
-
 
 import '../agent/adk_content_generator.dart';
 import '../catalog.dart';
@@ -239,18 +237,21 @@ class ConversationController {
     onScrollToBottom();
   }
 
-  Future<void> _handleToolResponse(Map<String, dynamic> event) async {
+  void _handleToolResponse(Map<String, dynamic> event) {
     final callId = event['call_id'] as String;
     final toolName = event['tool_name'] as String;
     final status = event['status'] as String? ?? 'completed';
     final result = event['result'];
 
+    // JSON encoding of typical tool results is fast (<1ms). Using compute()
+    // on Flutter Web runs synchronously on the main thread with added
+    // serialization overhead, which is counter-productive.
     String? resultStr;
     if (result != null) {
       if (result is String) {
         resultStr = result;
       } else {
-        resultStr = await compute(_encodeJsonMap, result);
+        resultStr = _encodeJsonMap(result);
       }
     }
 
