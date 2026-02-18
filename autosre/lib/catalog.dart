@@ -33,11 +33,8 @@ class CatalogRegistry {
     dynamic rawData,
     String componentName,
   ) {
+    // Dart 3 pattern: use switch expression for the top-level type dispatch
     if (rawData == null) return {};
-
-    // If the data itself refuses to parse as a map, we can't unwrap it.
-    // The specific widget builder will catch the parsing exception and
-    // render an ErrorPlaceholder if needed.
     if (rawData is! Map) {
       throw Exception(
         'Data unwrapping failed: expected Map, got ${rawData.runtimeType}',
@@ -47,27 +44,27 @@ class CatalogRegistry {
     final data = Map<String, dynamic>.from(rawData);
 
     // 1. Direct key match (e.g. {"x-sre-tool-log": {...}})
-    if (data.containsKey(componentName)) {
-      final inner = data[componentName];
-      if (inner is Map) return Map<String, dynamic>.from(inner);
-      if (inner is List) return {componentName: inner};
+    if (data[componentName] case Map inner) {
+      return Map<String, dynamic>.from(inner);
+    }
+    if (data[componentName] case List inner) {
+      return {componentName: inner};
     }
 
     // 2. Component wrapper (e.g. {"component": {"x-sre-tool-log": {...}}})
-    if (data.containsKey('component') && data['component'] is Map) {
-      final inner = data['component'] as Map;
-      if (inner.containsKey(componentName)) {
-        return Map<String, dynamic>.from(inner[componentName] as Map);
-      }
-      if (inner['type'] == componentName) {
+    if (data['component'] case Map component) {
+      if (component[componentName] case Map inner) {
         return Map<String, dynamic>.from(inner);
+      }
+      if (component['type'] == componentName) {
+        return Map<String, dynamic>.from(component);
       }
     }
 
     // 3. Root type match (e.g. {"type": "x-sre-tool-log", ...})
     if (data['type'] == componentName) {
-      if (data.containsKey(componentName) && data[componentName] is Map) {
-        return Map<String, dynamic>.from(data[componentName] as Map);
+      if (data[componentName] case Map inner) {
+        return Map<String, dynamic>.from(inner);
       }
       return data;
     }

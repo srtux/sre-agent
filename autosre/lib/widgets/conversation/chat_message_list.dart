@@ -30,7 +30,7 @@ class ChatMessageList extends StatelessWidget {
     return Stack(
       children: [
         // 1. Tech Grid Background
-        const Positioned.fill(child: CustomPaint(painter: TechGridPainter())),
+        const Positioned.fill(child: RepaintBoundary(child: CustomPaint(painter: TechGridPainter()))),
         // Gradient Overlay for Fade Effect
         const Positioned.fill(
           child: DecoratedBox(

@@ -84,39 +84,17 @@ class AnsiParser {
     return newStyle;
   }
 
-  static Color _getColor(int index, {required bool bright}) {
-    // Custom premium palette for dark theme
-    switch (index) {
-      case 0:
-        return bright ? Colors.grey[400]! : Colors.grey[800]!; // Black/Grey
-      case 1:
-        return bright
-            ? const Color(0xFFFF5252)
-            : const Color(0xFFE57373); // Red
-      case 2:
-        return bright
-            ? const Color(0xFF69F0AE)
-            : const Color(0xFF81C784); // Green
-      case 3:
-        return bright
-            ? const Color(0xFFFFD740)
-            : const Color(0xFFFFF176); // Yellow
-      case 4:
-        return bright
-            ? const Color(0xFF448AFF)
-            : const Color(0xFF64B5F6); // Blue
-      case 5:
-        return bright
-            ? const Color(0xFFE040FB)
-            : const Color(0xFFF06292); // Magenta
-      case 6:
-        return bright
-            ? const Color(0xFF18FFFF)
-            : const Color(0xFF4DD0E1); // Cyan
-      case 7:
-        return bright ? Colors.white : Colors.grey[300]!; // White
-      default:
-        return Colors.white;
-    }
-  }
+  static Color _getColor(int index, {required bool bright}) =>
+      // Custom premium palette for dark theme
+      switch (index) {
+        0 => bright ? Colors.grey[400]! : Colors.grey[800]!, // Black/Grey
+        1 => bright ? const Color(0xFFFF5252) : const Color(0xFFE57373), // Red
+        2 => bright ? const Color(0xFF69F0AE) : const Color(0xFF81C784), // Green
+        3 => bright ? const Color(0xFFFFD740) : const Color(0xFFFFF176), // Yellow
+        4 => bright ? const Color(0xFF448AFF) : const Color(0xFF64B5F6), // Blue
+        5 => bright ? const Color(0xFFE040FB) : const Color(0xFFF06292), // Magenta
+        6 => bright ? const Color(0xFF18FFFF) : const Color(0xFF4DD0E1), // Cyan
+        7 => bright ? Colors.white : Colors.grey[300]!, // White
+        _ => Colors.white,
+      };
 }
