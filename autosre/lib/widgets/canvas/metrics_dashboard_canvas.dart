@@ -34,7 +34,7 @@ class _MetricsDashboardCanvasState extends State<MetricsDashboardCanvas>
     _pulseController = AnimationController(
       duration: const Duration(milliseconds: 2000),
       vsync: this,
-    )..repeat(reverse: true);
+    );
 
     _entranceAnimation = CurvedAnimation(
       parent: _entranceController,
@@ -45,6 +45,29 @@ class _MetricsDashboardCanvasState extends State<MetricsDashboardCanvas>
     );
 
     _entranceController.forward();
+    _syncAnimations();
+  }
+
+  @override
+  void didUpdateWidget(MetricsDashboardCanvas oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final hadAnomalies = oldWidget.data.metrics.any((m) => m.status != 'normal');
+    final hasAnomalies = widget.data.metrics.any((m) => m.status != 'normal');
+    if (hadAnomalies != hasAnomalies) {
+      _syncAnimations();
+    }
+  }
+
+  /// Only run pulse animation when there are anomalous (non-normal) metrics.
+  void _syncAnimations() {
+    final hasAnomalies = widget.data.metrics.any((m) => m.status != 'normal');
+    if (hasAnomalies) {
+      if (!_pulseController.isAnimating) {
+        _pulseController.repeat(reverse: true);
+      }
+    } else {
+      _pulseController.stop();
+    }
   }
 
   @override

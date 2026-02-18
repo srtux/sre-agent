@@ -138,11 +138,11 @@ class _AIReasoningCanvasState extends State<AIReasoningCanvas>
     _pulseController = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
-    )..repeat(reverse: true);
+    );
     _thinkingController = AnimationController(
       duration: const Duration(milliseconds: 3000),
       vsync: this,
-    )..repeat();
+    );
 
     _entranceAnimation = CurvedAnimation(
       parent: _entranceController,
@@ -156,6 +156,29 @@ class _AIReasoningCanvasState extends State<AIReasoningCanvas>
     );
 
     _entranceController.forward();
+    _syncAnimations();
+  }
+
+  @override
+  void didUpdateWidget(AIReasoningCanvas oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.data.status != widget.data.status) {
+      _syncAnimations();
+    }
+  }
+
+  /// Only run pulse/thinking animations while reasoning is in progress.
+  void _syncAnimations() {
+    final isThinking = widget.data.status != 'complete';
+    if (isThinking) {
+      if (!_pulseController.isAnimating) {
+        _pulseController.repeat(reverse: true);
+      }
+      if (!_thinkingController.isAnimating) _thinkingController.repeat();
+    } else {
+      _pulseController.stop();
+      _thinkingController.stop();
+    }
   }
 
   @override
