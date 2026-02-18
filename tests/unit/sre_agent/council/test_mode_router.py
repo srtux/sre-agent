@@ -14,6 +14,12 @@ from sre_agent.council.mode_router import classify_investigation_mode
 class TestClassifyInvestigationMode:
     """Tests for the mode router tool."""
 
+    @pytest.fixture(autouse=True)
+    def disable_adaptive_classifier(self) -> None:
+        """Ensure adaptive classifier is disabled for all investigation mode tests."""
+        with patch.dict("os.environ", {"SRE_AGENT_ADAPTIVE_CLASSIFIER": "false"}):
+            yield
+
     @pytest.mark.asyncio
     async def test_returns_success_for_standard(self) -> None:
         """Should return success with STANDARD mode for generic query."""
