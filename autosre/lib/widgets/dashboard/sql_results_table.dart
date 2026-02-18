@@ -70,6 +70,7 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
       setState(() {
         _columnTypes = result.columnTypes;
         _processedRows = result.processedRows;
+        _cachedSortedRows = null; // Invalidate sort cache
         _isLoading = false;
       });
     } catch (e, stack) {
@@ -112,8 +113,19 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
         (trimmed.startsWith('[') && trimmed.endsWith(']'));
   }
 
+  // Cached sort state to avoid re-sorting on every build.
+  List<Map<String, dynamic>>? _cachedSortedRows;
+  String? _cachedSortColumn;
+  bool _cachedSortDescending = false;
+
   List<Map<String, dynamic>> get _sortedRows {
     if (_sortColumn == null) return _processedRows;
+    // Return cache if sort parameters haven't changed.
+    if (_cachedSortedRows != null &&
+        _cachedSortColumn == _sortColumn &&
+        _cachedSortDescending == _sortDescending) {
+      return _cachedSortedRows!;
+    }
     final sorted = List<Map<String, dynamic>>.from(_processedRows);
     sorted.sort((a, b) {
       final aVal = a[_sortColumn];
@@ -129,6 +141,9 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
       }
       return _sortDescending ? -cmp : cmp;
     });
+    _cachedSortedRows = sorted;
+    _cachedSortColumn = _sortColumn;
+    _cachedSortDescending = _sortDescending;
     return sorted;
   }
 

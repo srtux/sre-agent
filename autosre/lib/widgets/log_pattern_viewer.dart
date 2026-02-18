@@ -25,6 +25,9 @@ class _LogPatternViewerState extends State<LogPatternViewer>
   final TextEditingController _searchController = TextEditingController();
   String? _filterSeverity;
 
+  // Cached filtered+sorted patterns to avoid O(n log n) per frame.
+  List<LogPattern>? _cachedPatterns;
+
   @override
   void initState() {
     super.initState();
@@ -40,6 +43,14 @@ class _LogPatternViewerState extends State<LogPatternViewer>
   }
 
   @override
+  void didUpdateWidget(LogPatternViewer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.patterns.length != widget.patterns.length) {
+      _invalidateCache();
+    }
+  }
+
+  @override
   void dispose() {
     _animController.dispose();
     _searchController.dispose();
@@ -47,6 +58,8 @@ class _LogPatternViewerState extends State<LogPatternViewer>
   }
 
   List<LogPattern> get _filteredAndSortedPatterns {
+    if (_cachedPatterns != null) return _cachedPatterns!;
+
     var filtered = widget.patterns.where((p) {
       // Filter by search query
       if (_searchQuery.isNotEmpty &&
@@ -77,7 +90,13 @@ class _LogPatternViewerState extends State<LogPatternViewer>
       }
       return _sortAsc ? comparison : -comparison;
     });
+    _cachedPatterns = filtered;
     return filtered;
+  }
+
+  /// Invalidate the pattern cache whenever filter/sort state changes.
+  void _invalidateCache() {
+    _cachedPatterns = null;
   }
 
   @override
@@ -312,7 +331,7 @@ class _LogPatternViewerState extends State<LogPatternViewer>
             Expanded(
               child: TextField(
                 controller: _searchController,
-                onChanged: (value) => setState(() => _searchQuery = value),
+                onChanged: (value) { _invalidateCache(); setState(() => _searchQuery = value); },
                 style: const TextStyle(
                   fontSize: 13,
                   color: AppColors.textPrimary,
@@ -338,6 +357,7 @@ class _LogPatternViewerState extends State<LogPatternViewer>
                 ),
                 onPressed: () {
                   _searchController.clear();
+                  _invalidateCache();
                   setState(() => _searchQuery = '');
                 },
                 padding: EdgeInsets.zero,
@@ -380,7 +400,7 @@ class _LogPatternViewerState extends State<LogPatternViewer>
         : AppColors.primaryTeal;
 
     return GestureDetector(
-      onTap: () => setState(() => _filterSeverity = severity),
+      onTap: () { _invalidateCache(); setState(() => _filterSeverity = severity); },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
@@ -443,6 +463,7 @@ class _LogPatternViewerState extends State<LogPatternViewer>
     Widget content = sortKey != null
         ? InkWell(
             onTap: () {
+              _invalidateCache();
               setState(() {
                 if (_sortBy == sortKey) {
                   _sortAsc = !_sortAsc;
