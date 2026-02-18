@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 /// A single data point in a metric time series.
-class MetricPoint {
+final class MetricPoint {
   final DateTime timestamp;
   final double value;
   final bool isAnomaly;
@@ -13,12 +13,8 @@ class MetricPoint {
   });
 
   factory MetricPoint.fromJson(Map<String, dynamic> json) {
-    DateTime ts;
-    try {
-      ts = DateTime.parse(json['timestamp']?.toString() ?? '');
-    } catch (_) {
-      ts = DateTime.now();
-    }
+    final ts = DateTime.tryParse(json['timestamp']?.toString() ?? '') ??
+        DateTime.now();
     return MetricPoint(
       timestamp: ts,
       value: (json['value'] as num?)?.toDouble() ?? 0.0,
@@ -40,7 +36,7 @@ class MetricPoint {
 }
 
 /// A named series of metric data points with labels.
-class MetricSeries {
+final class MetricSeries {
   final String metricName;
   final List<MetricPoint> points;
   final Map<String, dynamic> labels;
@@ -101,19 +97,15 @@ class MetricSeries {
 }
 
 /// A single data point for dashboard metrics (timestamp + value only).
-class MetricDataPoint {
+final class MetricDataPoint {
   final DateTime timestamp;
   final double value;
 
   MetricDataPoint({required this.timestamp, required this.value});
 
   factory MetricDataPoint.fromJson(Map<String, dynamic> json) {
-    DateTime ts;
-    try {
-      ts = DateTime.parse(json['timestamp']?.toString() ?? '');
-    } catch (_) {
-      ts = DateTime.now();
-    }
+    final ts = DateTime.tryParse(json['timestamp']?.toString() ?? '') ??
+        DateTime.now();
     return MetricDataPoint(
       timestamp: ts,
       value: (json['value'] as num?)?.toDouble() ?? 0,
@@ -133,7 +125,7 @@ class MetricDataPoint {
 }
 
 /// A metric displayed on the dashboard with current/previous values and history.
-class DashboardMetric {
+final class DashboardMetric {
   final String id;
   final String name;
   final String unit;
@@ -208,7 +200,7 @@ class DashboardMetric {
 }
 
 /// Container for a metrics dashboard with multiple metrics.
-class MetricsDashboardData {
+final class MetricsDashboardData {
   final String title;
   final String? serviceName;
   final List<DashboardMetric> metrics;
@@ -222,14 +214,8 @@ class MetricsDashboardData {
   });
 
   factory MetricsDashboardData.fromJson(Map<String, dynamic> json) {
-    DateTime? lastUpdated;
-    if (json['last_updated'] != null) {
-      try {
-        lastUpdated = DateTime.parse(json['last_updated'].toString());
-      } catch (_) {
-        lastUpdated = null;
-      }
-    }
+    final lastUpdated =
+        DateTime.tryParse(json['last_updated']?.toString() ?? '');
 
     return MetricsDashboardData(
       title: json['title'] as String? ?? 'Metrics Dashboard',

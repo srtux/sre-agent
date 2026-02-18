@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 // =============================================================================
 
 /// A node in the agent activity visualization.
-class AgentNode {
+final class AgentNode {
   final String id;
   final String name;
   final String type; // 'coordinator', 'sub_agent', 'tool', 'data_source'
@@ -53,7 +53,7 @@ class AgentNode {
 }
 
 /// Data model for the agent activity visualization.
-class AgentActivityData {
+final class AgentActivityData {
   final List<AgentNode> nodes;
   final String currentPhase;
   final String? activeNodeId;
@@ -105,7 +105,7 @@ class AgentActivityData {
 // =============================================================================
 
 /// A single node in the flattened agent trace timeline.
-class AgentTraceNode {
+final class AgentTraceNode {
   final String spanId;
   final String? parentSpanId;
   final String name;
@@ -198,7 +198,7 @@ class AgentTraceNode {
 }
 
 /// Data model for the agent trace timeline widget.
-class AgentTraceData {
+final class AgentTraceData {
   final String traceId;
   final String? rootAgentName;
   final List<AgentTraceNode> nodes;
@@ -281,7 +281,7 @@ class AgentTraceData {
 }
 
 /// A node in the agent dependency graph.
-class AgentGraphNode {
+final class AgentGraphNode {
   final String id;
   final String label;
   final String type; // user, agent, tool, llm_model, sub_agent
@@ -327,7 +327,7 @@ class AgentGraphNode {
 }
 
 /// An edge in the agent dependency graph.
-class AgentGraphEdge {
+final class AgentGraphEdge {
   final String sourceId;
   final String targetId;
   final String label; // invokes, calls, delegates_to, generates
@@ -384,7 +384,7 @@ class AgentGraphEdge {
 }
 
 /// Data model for the agent dependency graph widget.
-class AgentGraphData {
+final class AgentGraphData {
   final List<AgentGraphNode> nodes;
   final List<AgentGraphEdge> edges;
   final String? rootAgentName;

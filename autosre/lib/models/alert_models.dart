@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 /// A single event in an incident timeline.
-class TimelineEvent {
+final class TimelineEvent {
   final String id;
   final DateTime timestamp;
   final String
@@ -24,12 +24,8 @@ class TimelineEvent {
   });
 
   factory TimelineEvent.fromJson(Map<String, dynamic> json) {
-    DateTime ts;
-    try {
-      ts = DateTime.parse(json['timestamp']?.toString() ?? '');
-    } catch (_) {
-      ts = DateTime.now();
-    }
+    final ts = DateTime.tryParse(json['timestamp']?.toString() ?? '') ??
+        DateTime.now();
     return TimelineEvent(
       id: json['id'] as String? ?? '',
       timestamp: ts,
@@ -71,7 +67,7 @@ class TimelineEvent {
 }
 
 /// Container for an incident timeline with events and metadata.
-class IncidentTimelineData {
+final class IncidentTimelineData {
   final String incidentId;
   final String title;
   final DateTime startTime;
@@ -95,20 +91,9 @@ class IncidentTimelineData {
   });
 
   factory IncidentTimelineData.fromJson(Map<String, dynamic> json) {
-    DateTime startTs;
-    try {
-      startTs = DateTime.parse(json['start_time']?.toString() ?? '');
-    } catch (_) {
-      startTs = DateTime.now();
-    }
-    DateTime? endTs;
-    if (json['end_time'] != null) {
-      try {
-        endTs = DateTime.parse(json['end_time'].toString());
-      } catch (_) {
-        endTs = null;
-      }
-    }
+    final startTs = DateTime.tryParse(json['start_time']?.toString() ?? '') ??
+        DateTime.now();
+    final endTs = DateTime.tryParse(json['end_time']?.toString() ?? '');
     return IncidentTimelineData(
       incidentId: json['incident_id'] as String? ?? '',
       title: json['title'] as String? ?? 'Incident',

@@ -1,20 +1,31 @@
 import 'package:intl/intl.dart';
 
 /// Presets for commonly used time ranges.
+///
+/// Each variant carries its own [duration] and [label], eliminating the need
+/// for separate switch statements when constructing or rendering time ranges.
 enum TimeRangePreset {
-  fiveMinutes,
-  fifteenMinutes,
-  thirtyMinutes,
-  oneHour,
-  threeHours,
-  sixHours,
-  twelveHours,
-  oneDay,
-  twoDays,
-  oneWeek,
-  fourteenDays,
-  thirtyDays,
-  custom,
+  fiveMinutes(Duration(minutes: 5), 'Last 5 minutes'),
+  fifteenMinutes(Duration(minutes: 15), 'Last 15 minutes'),
+  thirtyMinutes(Duration(minutes: 30), 'Last 30 minutes'),
+  oneHour(Duration(hours: 1), 'Last 1 hour'),
+  threeHours(Duration(hours: 3), 'Last 3 hours'),
+  sixHours(Duration(hours: 6), 'Last 6 hours'),
+  twelveHours(Duration(hours: 12), 'Last 12 hours'),
+  oneDay(Duration(days: 1), 'Last 1 day'),
+  twoDays(Duration(days: 2), 'Last 2 days'),
+  oneWeek(Duration(days: 7), 'Last 7 days'),
+  fourteenDays(Duration(days: 14), 'Last 14 days'),
+  thirtyDays(Duration(days: 30), 'Last 30 days'),
+  custom(Duration(hours: 1), null); // null label → computed from range bounds
+
+  /// Default lookback window for this preset.
+  final Duration duration;
+
+  /// Static display label, or `null` for [custom] (computed dynamically).
+  final String? label;
+
+  const TimeRangePreset(this.duration, this.label);
 }
 
 /// Represents a time range for telemetry queries.
@@ -31,86 +42,11 @@ class TimeRange {
 
   factory TimeRange.fromPreset(TimeRangePreset preset) {
     final now = DateTime.now();
-    switch (preset) {
-      case TimeRangePreset.fiveMinutes:
-        return TimeRange(
-          start: now.subtract(const Duration(minutes: 5)),
-          end: now,
-          preset: preset,
-        );
-      case TimeRangePreset.fifteenMinutes:
-        return TimeRange(
-          start: now.subtract(const Duration(minutes: 15)),
-          end: now,
-          preset: preset,
-        );
-      case TimeRangePreset.thirtyMinutes:
-        return TimeRange(
-          start: now.subtract(const Duration(minutes: 30)),
-          end: now,
-          preset: preset,
-        );
-      case TimeRangePreset.oneHour:
-        return TimeRange(
-          start: now.subtract(const Duration(hours: 1)),
-          end: now,
-          preset: preset,
-        );
-      case TimeRangePreset.threeHours:
-        return TimeRange(
-          start: now.subtract(const Duration(hours: 3)),
-          end: now,
-          preset: preset,
-        );
-      case TimeRangePreset.sixHours:
-        return TimeRange(
-          start: now.subtract(const Duration(hours: 6)),
-          end: now,
-          preset: preset,
-        );
-      case TimeRangePreset.twelveHours:
-        return TimeRange(
-          start: now.subtract(const Duration(hours: 12)),
-          end: now,
-          preset: preset,
-        );
-      case TimeRangePreset.oneDay:
-        return TimeRange(
-          start: now.subtract(const Duration(days: 1)),
-          end: now,
-          preset: preset,
-        );
-      case TimeRangePreset.twoDays:
-        return TimeRange(
-          start: now.subtract(const Duration(days: 2)),
-          end: now,
-          preset: preset,
-        );
-      case TimeRangePreset.oneWeek:
-        return TimeRange(
-          start: now.subtract(const Duration(days: 7)),
-          end: now,
-          preset: preset,
-        );
-      case TimeRangePreset.fourteenDays:
-        return TimeRange(
-          start: now.subtract(const Duration(days: 14)),
-          end: now,
-          preset: preset,
-        );
-      case TimeRangePreset.thirtyDays:
-        return TimeRange(
-          start: now.subtract(const Duration(days: 30)),
-          end: now,
-          preset: preset,
-        );
-      case TimeRangePreset.custom:
-        return TimeRange(
-          start: now.subtract(const Duration(hours: 1)),
-          end: now,
-          preset: preset,
-        );
-    }
+    return TimeRange(
+      start: now.subtract(preset.duration),
+      end: now,
+      preset: preset,
+    );
   }
 
   Duration get duration => end.difference(start);
@@ -118,35 +54,9 @@ class TimeRange {
   int get minutesAgo => duration.inMinutes;
 
   String get displayLabel {
-    switch (preset) {
-      case TimeRangePreset.fiveMinutes:
-        return 'Last 5 minutes';
-      case TimeRangePreset.fifteenMinutes:
-        return 'Last 15 minutes';
-      case TimeRangePreset.thirtyMinutes:
-        return 'Last 30 minutes';
-      case TimeRangePreset.oneHour:
-        return 'Last 1 hour';
-      case TimeRangePreset.threeHours:
-        return 'Last 3 hours';
-      case TimeRangePreset.sixHours:
-        return 'Last 6 hours';
-      case TimeRangePreset.twelveHours:
-        return 'Last 12 hours';
-      case TimeRangePreset.oneDay:
-        return 'Last 1 day';
-      case TimeRangePreset.twoDays:
-        return 'Last 2 days';
-      case TimeRangePreset.oneWeek:
-        return 'Last 7 days';
-      case TimeRangePreset.fourteenDays:
-        return 'Last 14 days';
-      case TimeRangePreset.thirtyDays:
-        return 'Last 30 days';
-      case TimeRangePreset.custom:
-        final fmt = DateFormat('MMM d HH:mm');
-        return '${fmt.format(start)} - ${fmt.format(end)}';
-    }
+    if (preset.label case String label) return label;
+    final fmt = DateFormat('MMM d HH:mm');
+    return '${fmt.format(start)} - ${fmt.format(end)}';
   }
 
   /// Returns a refreshed version with updated times.

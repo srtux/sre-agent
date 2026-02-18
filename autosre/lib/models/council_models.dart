@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 /// Represents a finding from a specialist panel in the council.
-class PanelFinding {
+final class PanelFinding {
   final String panel; // trace, metrics, logs, alerts
   final String summary;
   final String severity; // critical, warning, info, healthy
@@ -40,36 +40,22 @@ class PanelFinding {
   }
 
   /// Returns the display name for the panel
-  String get displayName {
-    switch (panel.toLowerCase()) {
-      case 'trace':
-        return 'Trace Analysis';
-      case 'metrics':
-        return 'Metrics Analysis';
-      case 'logs':
-        return 'Logs Analysis';
-      case 'alerts':
-        return 'Alerts Analysis';
-      default:
-        return panel;
-    }
-  }
+  String get displayName => switch (panel.toLowerCase()) {
+    'trace' => 'Trace Analysis',
+    'metrics' => 'Metrics Analysis',
+    'logs' => 'Logs Analysis',
+    'alerts' => 'Alerts Analysis',
+    _ => panel,
+  };
 
   /// Returns the icon name for the panel
-  String get iconName {
-    switch (panel.toLowerCase()) {
-      case 'trace':
-        return 'timeline';
-      case 'metrics':
-        return 'analytics';
-      case 'logs':
-        return 'description';
-      case 'alerts':
-        return 'notifications_active';
-      default:
-        return 'help';
-    }
-  }
+  String get iconName => switch (panel.toLowerCase()) {
+    'trace' => 'timeline',
+    'metrics' => 'analytics',
+    'logs' => 'description',
+    'alerts' => 'notifications_active',
+    _ => 'help',
+  };
 
   @override
   bool operator ==(Object other) =>
@@ -95,7 +81,7 @@ class PanelFinding {
 }
 
 /// Represents a critic's cross-examination report in debate mode.
-class CriticReport {
+final class CriticReport {
   final List<String> agreements;
   final List<String> contradictions;
   final List<String> gaps;
@@ -158,7 +144,7 @@ class CriticReport {
 }
 
 /// Represents a Vega-Lite chart returned by the CA Data Agent.
-class VegaChartData {
+final class VegaChartData {
   final String question;
   final String answer;
   final String? agentId;
@@ -209,54 +195,39 @@ class VegaChartData {
 // =============================================================================
 
 /// Enum for agent types in the council hierarchy.
+///
+/// Each variant carries its own [displayName] and [iconName], eliminating the
+/// need for separate switch statements when rendering UI.
 enum CouncilAgentType {
-  root,
-  orchestrator,
-  panel,
-  critic,
-  synthesizer,
-  subAgent;
+  root('Root Agent', 'account_tree'),
+  orchestrator('Orchestrator', 'hub'),
+  panel('Expert Panel', 'psychology'),
+  critic('Critic', 'forum'),
+  synthesizer('Synthesizer', 'summarize'),
+  subAgent('Sub-Agent', 'smart_toy');
 
-  static CouncilAgentType fromString(String value) {
-    switch (value.toLowerCase()) {
-      case 'root':
-        return CouncilAgentType.root;
-      case 'orchestrator':
-        return CouncilAgentType.orchestrator;
-      case 'panel':
-        return CouncilAgentType.panel;
-      case 'critic':
-        return CouncilAgentType.critic;
-      case 'synthesizer':
-        return CouncilAgentType.synthesizer;
-      case 'sub_agent':
-      case 'subagent':
-        return CouncilAgentType.subAgent;
-      default:
-        return CouncilAgentType.subAgent;
-    }
-  }
+  /// Human-readable label shown in the UI.
+  final String displayName;
 
-  String get displayName {
-    switch (this) {
-      case CouncilAgentType.root:
-        return 'Root Agent';
-      case CouncilAgentType.orchestrator:
-        return 'Orchestrator';
-      case CouncilAgentType.panel:
-        return 'Expert Panel';
-      case CouncilAgentType.critic:
-        return 'Critic';
-      case CouncilAgentType.synthesizer:
-        return 'Synthesizer';
-      case CouncilAgentType.subAgent:
-        return 'Sub-Agent';
-    }
-  }
+  /// Material icon name used for this agent type.
+  final String iconName;
+
+  const CouncilAgentType(this.displayName, this.iconName);
+
+  static CouncilAgentType fromString(String value) =>
+      switch (value.toLowerCase()) {
+        'root' => root,
+        'orchestrator' => orchestrator,
+        'panel' => panel,
+        'critic' => critic,
+        'synthesizer' => synthesizer,
+        'sub_agent' || 'subagent' => subAgent,
+        _ => subAgent,
+      };
 }
 
 /// Record of a single tool call made by an agent.
-class ToolCallRecord {
+final class ToolCallRecord {
   final String callId;
   final String toolName;
   final String argsSummary;
@@ -321,7 +292,7 @@ class ToolCallRecord {
 }
 
 /// Record of an LLM inference call made by an agent.
-class LLMCallRecord {
+final class LLMCallRecord {
   final String callId;
   final String model;
   final int inputTokens;
@@ -375,7 +346,7 @@ class LLMCallRecord {
 }
 
 /// Activity record for a single agent in the council hierarchy.
-class CouncilAgentActivity {
+final class CouncilAgentActivity {
   final String agentId;
   final String agentName;
   final CouncilAgentType agentType;
@@ -438,22 +409,7 @@ class CouncilAgentActivity {
   }
 
   /// Get the display icon for this agent type.
-  String get iconName {
-    switch (agentType) {
-      case CouncilAgentType.root:
-        return 'account_tree';
-      case CouncilAgentType.orchestrator:
-        return 'hub';
-      case CouncilAgentType.panel:
-        return 'psychology';
-      case CouncilAgentType.critic:
-        return 'forum';
-      case CouncilAgentType.synthesizer:
-        return 'summarize';
-      case CouncilAgentType.subAgent:
-        return 'smart_toy';
-    }
-  }
+  String get iconName => agentType.iconName;
 
   @override
   bool operator ==(Object other) =>
@@ -487,7 +443,7 @@ class CouncilAgentActivity {
 }
 
 /// Complete activity graph for a council investigation.
-class CouncilActivityGraph {
+final class CouncilActivityGraph {
   final String investigationId;
   final String mode;
   final String startedAt;
@@ -532,11 +488,10 @@ class CouncilActivityGraph {
 
   /// Find an agent by its ID.
   CouncilAgentActivity? getAgentById(String agentId) {
-    try {
-      return agents.firstWhere((a) => a.agentId == agentId);
-    } catch (_) {
-      return null;
+    for (final a in agents) {
+      if (a.agentId == agentId) return a;
     }
+    return null;
   }
 
   /// Get all direct children of an agent.
@@ -556,22 +511,18 @@ class CouncilActivityGraph {
 
   /// Get the critic agent if present.
   CouncilAgentActivity? get criticAgent {
-    try {
-      return agents.firstWhere((a) => a.agentType == CouncilAgentType.critic);
-    } catch (_) {
-      return null;
+    for (final a in agents) {
+      if (a.agentType == CouncilAgentType.critic) return a;
     }
+    return null;
   }
 
   /// Get the synthesizer agent if present.
   CouncilAgentActivity? get synthesizerAgent {
-    try {
-      return agents.firstWhere(
-        (a) => a.agentType == CouncilAgentType.synthesizer,
-      );
-    } catch (_) {
-      return null;
+    for (final a in agents) {
+      if (a.agentType == CouncilAgentType.synthesizer) return a;
     }
+    return null;
   }
 
   /// Get all tool calls across all agents, sorted by timestamp.
@@ -622,7 +573,7 @@ class CouncilActivityGraph {
 }
 
 /// Represents a council investigation synthesis result.
-class CouncilSynthesisData {
+final class CouncilSynthesisData {
   final String synthesis;
   final String overallSeverity;
   final double overallConfidence;
@@ -694,30 +645,26 @@ class CouncilSynthesisData {
       }
     }
 
-    // Parse panels
-    var panels = <PanelFinding>[];
-    if (data['panels'] != null && data['panels'] is List) {
-      panels = (data['panels'] as List)
+    // Parse panels (Dart 3 if-case pattern)
+    final panels = switch (data['panels']) {
+      List list => list
           .whereType<Map>()
           .map((p) => PanelFinding.fromJson(Map<String, dynamic>.from(p)))
-          .toList();
-    }
+          .toList(),
+      _ => <PanelFinding>[],
+    };
 
-    // Parse critic report
-    CriticReport? criticReport;
-    if (data['critic_report'] != null && data['critic_report'] is Map) {
-      criticReport = CriticReport.fromJson(
-        Map<String, dynamic>.from(data['critic_report'] as Map),
-      );
-    }
+    // Parse critic report (Dart 3 if-case pattern)
+    final criticReport = switch (data['critic_report']) {
+      Map m => CriticReport.fromJson(Map<String, dynamic>.from(m)),
+      _ => null,
+    };
 
-    // Parse activity graph
-    CouncilActivityGraph? activityGraph;
-    if (data['activity_graph'] != null && data['activity_graph'] is Map) {
-      activityGraph = CouncilActivityGraph.fromJson(
-        Map<String, dynamic>.from(data['activity_graph'] as Map),
-      );
-    }
+    // Parse activity graph (Dart 3 if-case pattern)
+    final activityGraph = switch (data['activity_graph']) {
+      Map m => CouncilActivityGraph.fromJson(Map<String, dynamic>.from(m)),
+      _ => null,
+    };
 
     return CouncilSynthesisData(
       synthesis: synthesis,
@@ -768,13 +715,11 @@ class CouncilSynthesisData {
 
   /// Get panel by type
   PanelFinding? getPanelByType(String type) {
-    try {
-      return panels.firstWhere(
-        (p) => p.panel.toLowerCase() == type.toLowerCase(),
-      );
-    } catch (_) {
-      return null;
+    final lower = type.toLowerCase();
+    for (final p in panels) {
+      if (p.panel.toLowerCase() == lower) return p;
     }
+    return null;
   }
 
   /// Get total tool calls from activity graph

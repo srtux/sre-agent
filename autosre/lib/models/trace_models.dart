@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 /// Information about a single span in a distributed trace.
-class SpanInfo {
+final class SpanInfo {
   final String spanId;
   final String traceId;
   final String name;
@@ -73,7 +73,7 @@ class SpanInfo {
 }
 
 /// A distributed trace containing multiple spans.
-class Trace {
+final class Trace {
   final String traceId;
   final List<SpanInfo> spans;
 

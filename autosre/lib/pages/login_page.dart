@@ -31,7 +31,7 @@ class LoginPage extends StatelessWidget {
                   ],
                 ),
               ),
-              child: const CustomPaint(painter: TechGridPainter()),
+              child: const RepaintBoundary(child: CustomPaint(painter: TechGridPainter())),
             ),
           ),
 

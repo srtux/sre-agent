@@ -103,7 +103,7 @@ class _HelpPageState extends State<HelpPage> {
       ),
       body: Stack(
         children: [
-          const Positioned.fill(child: CustomPaint(painter: TechGridPainter())),
+          const Positioned.fill(child: RepaintBoundary(child: CustomPaint(painter: TechGridPainter()))),
           Column(
             children: [
               // Hero Section
