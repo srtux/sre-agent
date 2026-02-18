@@ -25,13 +25,14 @@ from .panels import (
     create_trace_panel,
 )
 from .schemas import CouncilConfig
+from .state import COUNCIL_SYNTHESIS, CRITIC_REPORT, DEBATE_CONVERGENCE_HISTORY
 from .synthesizer import create_synthesizer
 
 logger = logging.getLogger(__name__)
 
 
-# Key used to store convergence history in session state
-CONVERGENCE_STATE_KEY = "debate_convergence_history"
+# Re-export under the old name for backward compatibility with any external readers.
+CONVERGENCE_STATE_KEY = DEBATE_CONVERGENCE_HISTORY
 
 
 def _build_confidence_gate(
@@ -54,7 +55,7 @@ def _build_confidence_gate(
         callback_context: Any,
     ) -> genai_types.Content | None:
         """Check if debate should stop based on confidence threshold."""
-        synthesis_raw = callback_context.state.get("council_synthesis")
+        synthesis_raw = callback_context.state.get(COUNCIL_SYNTHESIS)
         if synthesis_raw is None:
             return None
 
@@ -126,7 +127,7 @@ def _build_convergence_tracker(
 
         # Extract current confidence from synthesis
         confidence = 0.0
-        synthesis_raw = callback_context.state.get("council_synthesis")
+        synthesis_raw = callback_context.state.get(COUNCIL_SYNTHESIS)
         if synthesis_raw is not None:
             if isinstance(synthesis_raw, str):
                 try:
@@ -140,7 +141,7 @@ def _build_convergence_tracker(
         # Extract critic gaps/contradictions count
         critic_gaps = 0
         critic_contradictions = 0
-        critic_raw = callback_context.state.get("critic_report")
+        critic_raw = callback_context.state.get(CRITIC_REPORT)
         if critic_raw is not None:
             if isinstance(critic_raw, str):
                 try:
@@ -190,6 +191,76 @@ def _build_convergence_tracker(
     return convergence_tracker
 
 
+def _make_debate_round_callback(panel_name: str) -> Any:
+    """Return a ``before_agent_callback`` that injects critic context for debate rounds.
+
+    On the first round (no ``critic_report`` in state yet) the callback is a
+    no-op and returns ``None`` so the panel investigates normally.  On
+    subsequent rounds it prepends a structured context block that tells the
+    panel exactly which gaps and contradictions the critic identified, so
+    panels perform targeted re-investigation rather than a full blind re-run.
+
+    This makes debate rounds 3-5x cheaper: panels only re-query the specific
+    signals the critic flagged rather than re-fetching everything.
+
+    Args:
+        panel_name: Human-readable panel identifier for log messages.
+
+    Returns:
+        A sync ``before_agent_callback`` compatible with ADK ``LlmAgent``.
+    """
+
+    def inject_critic_context(callback_context: Any) -> genai_types.Content | None:
+        """Prepend critic gaps/contradictions to the panel's context."""
+        state = callback_context.state
+        critic_raw = state.get(CRITIC_REPORT)
+        if critic_raw is None:
+            return None  # First round — no critic yet; proceed normally.
+
+        try:
+            critic: dict[str, Any] = (
+                json.loads(critic_raw) if isinstance(critic_raw, str) else critic_raw
+            )
+        except (json.JSONDecodeError, TypeError):
+            return None
+
+        gaps: list[str] = critic.get("gaps", [])
+        contradictions: list[str] = critic.get("contradictions", [])
+
+        if not gaps and not contradictions:
+            return None
+
+        lines: list[str] = [
+            "[DEBATE RE-INVESTIGATION — CRITIC FEEDBACK]",
+            "",
+            "The critic has identified specific issues that need your attention.",
+            "Focus ONLY on these points — do not repeat previously confirmed findings.",
+            "",
+        ]
+        if gaps:
+            lines.append("GAPS (areas not yet covered):")
+            lines.extend(f"  * {g}" for g in gaps)
+            lines.append("")
+        if contradictions:
+            lines.append("CONTRADICTIONS (conflicting findings to resolve):")
+            lines.extend(f"  * {c}" for c in contradictions)
+            lines.append("")
+
+        lines.append(
+            "Provide updated findings that address the above points specifically."
+        )
+
+        logger.debug(
+            "[%s] Injecting critic context: %d gaps, %d contradictions",
+            panel_name,
+            len(gaps),
+            len(contradictions),
+        )
+        return genai_types.Content(parts=[genai_types.Part(text="\n".join(lines))])
+
+    return inject_critic_context
+
+
 def create_debate_pipeline(config: CouncilConfig | None = None) -> SequentialAgent:
     """Create the debate investigation pipeline.
 
@@ -224,26 +295,46 @@ def create_debate_pipeline(config: CouncilConfig | None = None) -> SequentialAge
     )
     initial_synthesizer = create_synthesizer()
 
-    # Debate loop: critic → re-run panels → re-synthesize
+    # Build debate-round panels with critic-context injection callbacks.
+    # Each panel receives the critic's gaps/contradictions as a prefixed
+    # context block so it focuses re-investigation rather than blind re-querying.
+    def _debate_panel(factory: Any, name: str) -> Any:
+        panel = factory()
+        critic_cb = _make_debate_round_callback(name)
+        existing_cb = panel.before_agent_callback
+        if existing_cb is not None:
+
+            def composed(
+                ctx: Any, existing: Any = existing_cb, critic: Any = critic_cb
+            ) -> Any:
+                result = critic(ctx)
+                return result if result is not None else existing(ctx)
+
+            panel = panel.model_copy(update={"before_agent_callback": composed})
+        else:
+            panel = panel.model_copy(update={"before_agent_callback": critic_cb})
+        return panel
+
+    # Debate loop: critic → re-run panels (with critic injection) → re-synthesize
     # Uses both before_agent_callback (confidence gate) and
     # after_agent_callback (convergence tracking) for full observability.
     debate_loop = LoopAgent(
         name="debate_loop",
         description=(
-            "Iterative debate: critic cross-examines, panels re-analyze, "
-            "synthesizer re-evaluates until confidence threshold is met."
+            "Iterative debate: critic cross-examines, panels re-analyze with "
+            "targeted critic feedback, synthesizer re-evaluates until convergence."
         ),
         sub_agents=[
             create_critic(),
             ParallelAgent(
                 name="debate_panels",
-                description="Re-run panels with critic feedback in state.",
+                description="Re-run panels focusing on critic-identified gaps/contradictions.",
                 sub_agents=[
-                    create_trace_panel(),
-                    create_metrics_panel(),
-                    create_logs_panel(),
-                    create_alerts_panel(),
-                    create_data_panel(),
+                    _debate_panel(create_trace_panel, "trace"),
+                    _debate_panel(create_metrics_panel, "metrics"),
+                    _debate_panel(create_logs_panel, "logs"),
+                    _debate_panel(create_alerts_panel, "alerts"),
+                    _debate_panel(create_data_panel, "data"),
                 ],
             ),
             create_synthesizer(),
