@@ -1,5 +1,7 @@
 """Tests for council session state key constants (sre_agent.council.state)."""
 
+from typing import ClassVar
+
 from sre_agent.council import state
 
 
@@ -29,7 +31,7 @@ class TestPanelFindingKeys:
 class TestAllConstants:
     """All exported string constants are non-empty strings with no duplicates."""
 
-    _all_string_constants = [
+    _all_string_constants: ClassVar[list[str]] = [
         "TRACE_FINDING",
         "METRICS_FINDING",
         "LOGS_FINDING",

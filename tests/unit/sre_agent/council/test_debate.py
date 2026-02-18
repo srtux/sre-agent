@@ -4,6 +4,7 @@ Validates the debate pipeline assembly and confidence gate logic.
 """
 
 import json
+from typing import Any
 
 from google.adk.agents import LoopAgent, ParallelAgent, SequentialAgent
 
@@ -183,8 +184,9 @@ class TestCreateDebatePipeline:
 class TestMakeDebateRoundCallback:
     """Tests for the critic-context injection callback."""
 
-    def _make_ctx(self, state: dict) -> "MagicMock":
+    def _make_ctx(self, state: dict) -> "Any":
         from unittest.mock import MagicMock
+
         ctx = MagicMock()
         ctx.state = state
         return ctx
@@ -192,6 +194,7 @@ class TestMakeDebateRoundCallback:
     def test_returns_none_when_no_critic_report(self) -> None:
         """First debate round has no critic report yet — callback must be a no-op."""
         from sre_agent.council.debate import _make_debate_round_callback
+
         cb = _make_debate_round_callback("trace")
         ctx = self._make_ctx({})
         result = cb(ctx)
@@ -199,8 +202,10 @@ class TestMakeDebateRoundCallback:
 
     def test_returns_content_with_gaps(self) -> None:
         import json
+
         from sre_agent.council.debate import _make_debate_round_callback
         from sre_agent.council.state import CRITIC_REPORT
+
         critic = {
             "gaps": ["No trace data for service B"],
             "contradictions": [],
@@ -217,8 +222,10 @@ class TestMakeDebateRoundCallback:
 
     def test_returns_content_with_contradictions(self) -> None:
         import json
+
         from sre_agent.council.debate import _make_debate_round_callback
         from sre_agent.council.state import CRITIC_REPORT
+
         critic = {
             "gaps": [],
             "contradictions": ["Metrics say healthy but logs show errors"],
@@ -235,8 +242,10 @@ class TestMakeDebateRoundCallback:
 
     def test_returns_none_when_gaps_and_contradictions_empty(self) -> None:
         import json
+
         from sre_agent.council.debate import _make_debate_round_callback
         from sre_agent.council.state import CRITIC_REPORT
+
         critic = {
             "gaps": [],
             "contradictions": [],
@@ -251,6 +260,7 @@ class TestMakeDebateRoundCallback:
     def test_handles_malformed_critic_json_gracefully(self) -> None:
         from sre_agent.council.debate import _make_debate_round_callback
         from sre_agent.council.state import CRITIC_REPORT
+
         ctx = self._make_ctx({CRITIC_REPORT: "NOT_VALID{{{"})
         cb = _make_debate_round_callback("trace")
         result = cb(ctx)

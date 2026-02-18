@@ -445,12 +445,17 @@ class TestComputeRuleBasedConfidence:
     """Tests for the signal-derived confidence scorer."""
 
     def test_imports(self) -> None:
-        from sre_agent.council.adaptive_classifier import _compute_rule_based_confidence  # noqa: F401
+        from sre_agent.council.adaptive_classifier import (
+            _compute_rule_based_confidence,  # noqa: F401
+        )
 
     def test_complex_query_higher_confidence_than_simple(self) -> None:
         from sre_agent.council.adaptive_classifier import _compute_rule_based_confidence
+
         ctx = ClassificationContext()
-        simple = _compute_rule_based_confidence("show logs", ctx, InvestigationMode.STANDARD)
+        simple = _compute_rule_based_confidence(
+            "show logs", ctx, InvestigationMode.STANDARD
+        )
         complex_ = _compute_rule_based_confidence(
             "investigate the latency anomaly and analyze trace errors for incident",
             ctx,
@@ -460,22 +465,33 @@ class TestComputeRuleBasedConfidence:
 
     def test_debate_penalized_on_low_budget(self) -> None:
         from sre_agent.council.adaptive_classifier import _compute_rule_based_confidence
+
         ctx_low = ClassificationContext(remaining_token_budget=5_000)
         ctx_high = ClassificationContext(remaining_token_budget=500_000)
-        low = _compute_rule_based_confidence("investigate", ctx_low, InvestigationMode.DEBATE)
-        high = _compute_rule_based_confidence("investigate", ctx_high, InvestigationMode.DEBATE)
+        low = _compute_rule_based_confidence(
+            "investigate", ctx_low, InvestigationMode.DEBATE
+        )
+        high = _compute_rule_based_confidence(
+            "investigate", ctx_high, InvestigationMode.DEBATE
+        )
         assert low < high
 
     def test_critical_alert_boosts_debate_confidence(self) -> None:
         from sre_agent.council.adaptive_classifier import _compute_rule_based_confidence
+
         ctx_no_alert = ClassificationContext()
         ctx_critical = ClassificationContext(alert_severity="critical")
-        no_alert = _compute_rule_based_confidence("investigate", ctx_no_alert, InvestigationMode.DEBATE)
-        critical = _compute_rule_based_confidence("investigate", ctx_critical, InvestigationMode.DEBATE)
+        no_alert = _compute_rule_based_confidence(
+            "investigate", ctx_no_alert, InvestigationMode.DEBATE
+        )
+        critical = _compute_rule_based_confidence(
+            "investigate", ctx_critical, InvestigationMode.DEBATE
+        )
         assert critical > no_alert
 
     def test_confidence_clipped_to_unit_interval(self) -> None:
         from sre_agent.council.adaptive_classifier import _compute_rule_based_confidence
+
         ctx = ClassificationContext()
         for mode in InvestigationMode:
             conf = _compute_rule_based_confidence("x" * 1000, ctx, mode)

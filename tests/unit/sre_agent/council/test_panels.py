@@ -7,6 +7,8 @@ Validates that each panel agent is correctly configured with:
 - Correct output_schema for structured output
 """
 
+from typing import Any
+
 from google.adk.agents import LlmAgent
 
 from sre_agent.council.panels import (
@@ -181,20 +183,24 @@ class TestPanelUniqueness:
 class TestPanelCompletionCallback:
     """Tests for the _make_panel_completion_callback factory."""
 
-    def _make_ctx(self, state: dict) -> "MagicMock":
+    def _make_ctx(self, state: dict) -> "Any":
         from unittest.mock import MagicMock
+
         ctx = MagicMock()
         ctx.state = state
         return ctx
 
     def test_returns_callable(self) -> None:
         from sre_agent.council.panels import _make_panel_completion_callback
+
         cb = _make_panel_completion_callback("trace", "trace_finding")
         assert callable(cb)
 
     def test_returns_none_when_finding_absent(self) -> None:
-        from sre_agent.council.panels import _make_panel_completion_callback
         from unittest.mock import MagicMock
+
+        from sre_agent.council.panels import _make_panel_completion_callback
+
         cb = _make_panel_completion_callback("trace", "trace_finding")
         ctx = self._make_ctx({})
         result = cb(ctx, MagicMock())
@@ -203,8 +209,10 @@ class TestPanelCompletionCallback:
     def test_writes_completion_to_state(self) -> None:
         import json
         from unittest.mock import MagicMock
+
         from sre_agent.council.panels import _make_panel_completion_callback
         from sre_agent.council.state import PANEL_COMPLETIONS
+
         finding = {
             "panel": "trace",
             "summary": "High latency detected",
@@ -226,7 +234,9 @@ class TestPanelCompletionCallback:
 
     def test_does_not_raise_on_malformed_json(self) -> None:
         from unittest.mock import MagicMock
+
         from sre_agent.council.panels import _make_panel_completion_callback
+
         state: dict = {"trace_finding": "NOT_VALID_JSON{{{"}
         ctx = self._make_ctx(state)
         cb = _make_panel_completion_callback("trace", "trace_finding")
@@ -234,7 +244,9 @@ class TestPanelCompletionCallback:
 
     def test_does_not_raise_on_exception(self) -> None:
         from unittest.mock import MagicMock
+
         from sre_agent.council.panels import _make_panel_completion_callback
+
         ctx = MagicMock()
         ctx.state = MagicMock(side_effect=RuntimeError("boom"))
         cb = _make_panel_completion_callback("trace", "trace_finding")
@@ -247,26 +259,31 @@ class TestPanelOutputKeys:
     def test_trace_panel_output_key(self) -> None:
         from sre_agent.council.panels import create_trace_panel
         from sre_agent.council.state import TRACE_FINDING
+
         assert create_trace_panel().output_key == TRACE_FINDING
 
     def test_metrics_panel_output_key(self) -> None:
         from sre_agent.council.panels import create_metrics_panel
         from sre_agent.council.state import METRICS_FINDING
+
         assert create_metrics_panel().output_key == METRICS_FINDING
 
     def test_logs_panel_output_key(self) -> None:
         from sre_agent.council.panels import create_logs_panel
         from sre_agent.council.state import LOGS_FINDING
+
         assert create_logs_panel().output_key == LOGS_FINDING
 
     def test_alerts_panel_output_key(self) -> None:
         from sre_agent.council.panels import create_alerts_panel
         from sre_agent.council.state import ALERTS_FINDING
+
         assert create_alerts_panel().output_key == ALERTS_FINDING
 
     def test_data_panel_output_key(self) -> None:
         from sre_agent.council.panels import create_data_panel
         from sre_agent.council.state import DATA_FINDING
+
         assert create_data_panel().output_key == DATA_FINDING
 
 
@@ -275,20 +292,25 @@ class TestPanelAfterAgentCallbacks:
 
     def test_trace_panel_has_after_agent_callback(self) -> None:
         from sre_agent.council.panels import create_trace_panel
+
         assert create_trace_panel().after_agent_callback is not None
 
     def test_metrics_panel_has_after_agent_callback(self) -> None:
         from sre_agent.council.panels import create_metrics_panel
+
         assert create_metrics_panel().after_agent_callback is not None
 
     def test_logs_panel_has_after_agent_callback(self) -> None:
         from sre_agent.council.panels import create_logs_panel
+
         assert create_logs_panel().after_agent_callback is not None
 
     def test_alerts_panel_has_after_agent_callback(self) -> None:
         from sre_agent.council.panels import create_alerts_panel
+
         assert create_alerts_panel().after_agent_callback is not None
 
     def test_data_panel_has_after_agent_callback(self) -> None:
         from sre_agent.council.panels import create_data_panel
+
         assert create_data_panel().after_agent_callback is not None
