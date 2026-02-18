@@ -282,6 +282,7 @@ class _ConversationPageState extends State<ConversationPage>
   void _startNewSession() {
     _controller.contentGenerator?.isProcessing.removeListener(_onProcessingChanged);
     _controller.clearSessionState();
+    if (!mounted) return;
     setState(() {
       _controller.initialize(
         widgetContentGenerator: widget.contentGenerator,
@@ -289,7 +290,9 @@ class _ConversationPageState extends State<ConversationPage>
       );
     });
     _controller.contentGenerator?.isProcessing.addListener(_onProcessingChanged);
-    StatusToast.show(context, 'Starting new investigation...');
+    if (mounted) {
+      StatusToast.show(context, 'Starting new investigation...');
+    }
   }
 
   Future<void> _loadSession(String sessionId) async {

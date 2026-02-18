@@ -269,6 +269,7 @@ class ADKContentGenerator implements ContentGenerator {
               }
             })
             .listen((data) {
+              if (_isDisposed) return;
               lineCount++;
               if (data == null) return;
               try {

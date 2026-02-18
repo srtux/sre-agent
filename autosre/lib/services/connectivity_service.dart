@@ -33,8 +33,9 @@ class ConnectivityService extends ChangeNotifier {
         ? ConnectivityStatus.connected
         : ConnectivityStatus.offline;
     if (_status.value != newStatus) {
+      // Setting .value already fires ValueNotifier listeners; calling
+      // notifyListeners() on top of that caused a redundant rebuild cycle.
       _status.value = newStatus;
-      notifyListeners();
     }
   }
 

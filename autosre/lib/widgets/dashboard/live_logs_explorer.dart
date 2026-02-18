@@ -87,6 +87,7 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
   }
