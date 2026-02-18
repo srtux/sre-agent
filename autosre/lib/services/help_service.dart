@@ -1,8 +1,11 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import '../utils/isolate_helper.dart';
 import 'auth_service.dart';
 import 'service_config.dart';
+
+List<dynamic> _parseJsonList(String json) => jsonDecode(json) as List<dynamic>;
 
 /// Model for a help topic fetched from the backend docs repository.
 class HelpTopic {
@@ -101,7 +104,7 @@ class HelpService {
             .timeout(ServiceConfig.defaultTimeout);
 
         if (response.statusCode == 200) {
-          final List<dynamic> data = jsonDecode(response.body);
+          final data = await AppIsolate.run(_parseJsonList, response.body);
           return data
               .map((item) => HelpTopic.fromJson(item as Map<String, dynamic>))
               .toList();

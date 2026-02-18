@@ -3,8 +3,12 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../utils/isolate_helper.dart';
 import 'auth_service.dart';
 import 'service_config.dart';
+
+Map<String, dynamic> _parseJsonMap(String json) =>
+    jsonDecode(json) as Map<String, dynamic>;
 
 /// A single recent or saved query entry.
 class QueryEntry {
@@ -90,7 +94,7 @@ class SavedQueryService extends ChangeNotifier {
       );
       final response = await _authedGet(uri);
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final data = await AppIsolate.run(_parseJsonMap, response.body);
         final list = (data['queries'] as List? ?? [])
             .map((e) => QueryEntry.fromJson(e as Map<String, dynamic>))
             .toList();
@@ -160,7 +164,7 @@ class SavedQueryService extends ChangeNotifier {
       );
       final response = await _authedGet(uri);
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final data = await AppIsolate.run(_parseJsonMap, response.body);
         final list = (data['queries'] as List? ?? [])
             .map((e) => QueryEntry.fromJson(e as Map<String, dynamic>))
             .toList();
@@ -190,7 +194,7 @@ class SavedQueryService extends ChangeNotifier {
         'language': language,
       });
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final data = await AppIsolate.run(_parseJsonMap, response.body);
         final entry =
             QueryEntry.fromJson(data['query'] as Map<String, dynamic>);
         // Update local cache

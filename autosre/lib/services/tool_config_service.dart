@@ -1,8 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import '../utils/isolate_helper.dart';
 import 'auth_service.dart';
 import 'service_config.dart';
+
+Map<String, dynamic> _parseJsonMap(String json) =>
+    jsonDecode(json) as Map<String, dynamic>;
 
 /// Categories of tools based on their functionality.
 enum ToolCategory {
@@ -264,7 +268,7 @@ class ToolConfigService {
             .timeout(ServiceConfig.defaultTimeout);
 
         if (response.statusCode == 200) {
-          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          final data = await AppIsolate.run(_parseJsonMap, response.body);
           final toolsMap = data['tools'] as Map<String, dynamic>? ?? {};
           final summaryData = data['summary'] as Map<String, dynamic>?;
 
@@ -374,7 +378,7 @@ class ToolConfigService {
             .timeout(ServiceConfig.queryTimeout);
 
         if (response.statusCode == 200) {
-          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          final data = await AppIsolate.run(_parseJsonMap, response.body);
 
           if (data['testable'] == false) {
             return ToolTestResult(
@@ -431,7 +435,7 @@ class ToolConfigService {
             .timeout(ServiceConfig.queryTimeout);
 
         if (response.statusCode == 200) {
-          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          final data = await AppIsolate.run(_parseJsonMap, response.body);
           final results = data['results'] as Map<String, dynamic>? ?? {};
 
           final parsedResults = <String, ToolTestResult>{};

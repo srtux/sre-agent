@@ -4,9 +4,13 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart' as gsi_lib;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/isolate_helper.dart';
 import 'api_client.dart';
 import 'project_service.dart';
 import 'service_config.dart';
+
+Map<String, dynamic> _parseJsonMap(String json) =>
+    jsonDecode(json) as Map<String, dynamic>;
 
 /// Service to handle authentication with Google Sign-In.
 ///
@@ -94,7 +98,7 @@ class AuthService extends ChangeNotifier {
           .get(Uri.parse('${ServiceConfig.baseUrl}/api/config'))
           .timeout(ServiceConfig.healthCheckTimeout);
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final data = await AppIsolate.run(_parseJsonMap, response.body);
         if (data.containsKey('auth_enabled')) {
           _isAuthEnabled = data['auth_enabled'] as bool;
         }

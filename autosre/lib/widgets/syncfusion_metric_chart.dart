@@ -35,7 +35,6 @@ class _SyncfusionMetricChartState extends State<SyncfusionMetricChart> {
   double _maxValue = 0;
   double _avgValue = 0;
   double _p95Value = 0;
-  int _lastPointCount = -1;
 
   @override
   void initState() {
@@ -69,7 +68,6 @@ class _SyncfusionMetricChartState extends State<SyncfusionMetricChart> {
 
     _anomalyPoints = _sortedPoints.where((p) => p.isAnomaly).toList();
     _movingAvgPoints = _calculateMovingAverage(_sortedPoints, 5);
-    _lastPointCount = points.length;
   }
 
   /// Calculate moving average with a centered window.

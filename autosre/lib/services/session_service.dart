@@ -1,8 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import '../utils/isolate_helper.dart';
 import 'auth_service.dart';
 import 'service_config.dart';
+
+Map<String, dynamic> _parseJsonMap(String json) =>
+    jsonDecode(json) as Map<String, dynamic>;
 
 /// Model representing a session message.
 class SessionMessage {
@@ -201,7 +205,7 @@ class SessionService {
             .timeout(ServiceConfig.defaultTimeout);
 
         if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
+          final data = await AppIsolate.run(_parseJsonMap, response.body);
           final sessionList = data['sessions'] as List<dynamic>? ?? [];
 
           _sessions.value = sessionList
@@ -248,7 +252,7 @@ class SessionService {
             .timeout(ServiceConfig.defaultTimeout);
 
         if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
+          final data = await AppIsolate.run(_parseJsonMap, response.body);
           final session = Session.fromJson(data);
 
           // Set as current session
@@ -288,7 +292,7 @@ class SessionService {
             .timeout(ServiceConfig.defaultTimeout);
 
         if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
+          final data = await AppIsolate.run(_parseJsonMap, response.body);
           return Session.fromJson(data);
         } else {
           _error.value = 'Failed to get session: ${response.statusCode}';

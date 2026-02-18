@@ -3,8 +3,12 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/isolate_helper.dart';
 import 'auth_service.dart';
 import 'service_config.dart';
+
+Map<String, dynamic> _parseJsonMap(String json) =>
+    jsonDecode(json) as Map<String, dynamic>;
 
 /// Model representing a GCP project.
 class GcpProject {
@@ -155,7 +159,7 @@ class ProjectService {
             .timeout(ServiceConfig.defaultTimeout);
 
         if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
+          final data = await AppIsolate.run(_parseJsonMap, response.body);
           final backendProjectId = data['project_id'] as String?;
 
           if (backendProjectId != null && backendProjectId.isNotEmpty) {
@@ -213,8 +217,8 @@ class ProjectService {
             .timeout(ServiceConfig.defaultTimeout);
 
         if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
-          if (data is Map && data['projects'] != null) {
+          final data = await AppIsolate.run(_parseJsonMap, response.body);
+          if (data['projects'] != null) {
             final list = (data['projects'] as List)
                 .map((p) => GcpProject.fromJson(p as Map<String, dynamic>))
                 .toList();
@@ -263,8 +267,8 @@ class ProjectService {
             .timeout(ServiceConfig.defaultTimeout);
 
         if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
-          if (data is Map && data['projects'] != null) {
+          final data = await AppIsolate.run(_parseJsonMap, response.body);
+          if (data['projects'] != null) {
             final list = (data['projects'] as List)
                 .map((p) => GcpProject.fromJson(p as Map<String, dynamic>))
                 .toList();
@@ -339,24 +343,18 @@ class ProjectService {
             .timeout(ServiceConfig.defaultTimeout);
 
         if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
+          final data = await AppIsolate.run(_parseJsonMap, response.body);
 
           // Handle different response formats:
           // 1. Plain list: [{"project_id": ...}, ...]
           // 2. Wrapped: {"projects": [...]}
           // 3. BaseToolResponse envelope
           List<dynamic> projectList;
-          if (data is List) {
-            projectList = data;
-          } else if (data is Map) {
-            if (data['projects'] != null) {
-              projectList = data['projects'] as List;
-            } else if (data['result'] is Map &&
-                data['result']['projects'] != null) {
-              projectList = data['result']['projects'] as List;
-            } else {
-              projectList = [];
-            }
+          if (data['projects'] != null) {
+            projectList = data['projects'] as List;
+          } else if (data['result'] is Map &&
+              data['result']['projects'] != null) {
+            projectList = data['result']['projects'] as List;
           } else {
             projectList = [];
           }

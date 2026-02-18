@@ -3,7 +3,11 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../utils/isolate_helper.dart';
 import 'service_config.dart';
+
+Map<String, dynamic> _parseJsonMap(String json) =>
+    jsonDecode(json) as Map<String, dynamic>;
 
 /// Summary of an OOTB dashboard template.
 class DashboardTemplateSummary {
@@ -117,7 +121,7 @@ class DashboardTemplateService extends ChangeNotifier {
           .timeout(ServiceConfig.defaultTimeout);
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final data = await AppIsolate.run(_parseJsonMap, response.body);
         final rawList = data['templates'] as List<dynamic>? ?? [];
         _templates = rawList
             .map(
@@ -156,8 +160,7 @@ class DashboardTemplateService extends ChangeNotifier {
           .timeout(ServiceConfig.defaultTimeout);
 
       if (response.statusCode == 201) {
-        final dashboard =
-            jsonDecode(response.body) as Map<String, dynamic>;
+        final dashboard = await AppIsolate.run(_parseJsonMap, response.body);
         // Refresh dashboard list
         await fetchDashboards();
         return dashboard;
@@ -194,7 +197,7 @@ class DashboardTemplateService extends ChangeNotifier {
           .timeout(ServiceConfig.defaultTimeout);
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final data = await AppIsolate.run(_parseJsonMap, response.body);
         final rawList = data['dashboards'] as List<dynamic>? ?? [];
         _dashboards = rawList
             .map(
@@ -237,8 +240,7 @@ class DashboardTemplateService extends ChangeNotifier {
           .timeout(ServiceConfig.defaultTimeout);
 
       if (response.statusCode == 201) {
-        final dashboard =
-            jsonDecode(response.body) as Map<String, dynamic>;
+        final dashboard = await AppIsolate.run(_parseJsonMap, response.body);
         await fetchDashboards();
         return dashboard;
       } else {
@@ -319,7 +321,7 @@ class DashboardTemplateService extends ChangeNotifier {
           .timeout(ServiceConfig.defaultTimeout);
 
       if (response.statusCode == 200) {
-        return jsonDecode(response.body) as Map<String, dynamic>;
+        return await AppIsolate.run(_parseJsonMap, response.body);
       }
       debugPrint(
         'Add metric panel failed: ${response.statusCode} ${response.body}',
@@ -358,7 +360,7 @@ class DashboardTemplateService extends ChangeNotifier {
           .timeout(ServiceConfig.defaultTimeout);
 
       if (response.statusCode == 200) {
-        return jsonDecode(response.body) as Map<String, dynamic>;
+        return await AppIsolate.run(_parseJsonMap, response.body);
       }
       debugPrint(
         'Add log panel failed: ${response.statusCode} ${response.body}',
@@ -393,7 +395,7 @@ class DashboardTemplateService extends ChangeNotifier {
           .timeout(ServiceConfig.defaultTimeout);
 
       if (response.statusCode == 200) {
-        return jsonDecode(response.body) as Map<String, dynamic>;
+        return await AppIsolate.run(_parseJsonMap, response.body);
       }
       debugPrint(
         'Add trace panel failed: ${response.statusCode} ${response.body}',
