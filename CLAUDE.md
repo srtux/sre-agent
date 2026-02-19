@@ -208,6 +208,18 @@ autosre/lib/
 ├── catalog.dart          # Widget catalog
 ├── agent/                # Agent integration
 │   └── adk_content_generator.dart # ADK content generator (streams, dashboard channel)
+├── features/             # Feature modules (Riverpod/Freezed architecture)
+│   ├── agent_graph/      #   Multi-Trace Agent Graph Dashboard (BQ GRAPH_TABLE visualization)
+│   │   ├── domain/       #     Freezed models (MultiTraceNode, MultiTraceEdge, MultiTraceGraphPayload)
+│   │   ├── data/         #     AgentGraphRepository (BQ query via Dio)
+│   │   ├── application/  #     AgentGraphNotifier (Riverpod state)
+│   │   └── presentation/ #     MultiTraceGraphPage, canvas, details panel
+│   ├── dashboards/       #   Custom dashboards CRUD
+│   ├── logs/             #   Log explorer (Riverpod)
+│   ├── metrics/          #   Metrics models
+│   ├── traces/           #   Trace models
+│   ├── agent/            #   Agent models
+│   └── shared/           #   Shared data layer (Dio, Drift, auth controller)
 ├── pages/                # Login, Conversation (main UI), Tool Config, Help
 ├── services/             # Auth, API client, session, dashboard state, connectivity,
 │   │                     #   explorer query, help, project, prompt history, tool config, version
@@ -244,6 +256,19 @@ tests/
 ├── e2e/                  # End-to-end tests (agent execution, investigation, analysis)
 ├── server/               # FastAPI server tests (session, cancellation, GenUI, widgets)
 └── api/                  # API endpoint tests (help)
+```
+
+### Flutter Tests (`autosre/test/`)
+```
+autosre/test/
+├── features/             # Feature-module tests (mirrors lib/features/)
+│   ├── agent_graph/      #   Multi-Trace Agent Graph tests (domain, data, application, presentation)
+│   └── logs/             #   Log feature tests (notifier, repository)
+├── models/               # ADK schema model tests
+├── services/             # Service tests (dashboard state, API client, connectivity)
+├── widgets/              # Widget tests (time picker, data explorer, trace waterfall, etc.)
+├── pages/                # Page tests (help page)
+└── test_helper.dart      # Mock services, wrapWithProviders helper
 ```
 
 ### Other Key Directories

@@ -1,0 +1,433 @@
+import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
+import 'package:graphview/GraphView.dart';
+
+import '../../../theme/app_theme.dart';
+import '../domain/models.dart';
+
+/// Visualizes an aggregated multi-trace agent graph using the graphview package.
+///
+/// Implements progressive disclosure:
+/// - Default: Node label + type icon, edge color-coded by error rate.
+/// - Hover: Tooltip with secondary metrics (tokens, duration).
+/// - Click: Emits [onNodeSelected] / [onEdgeSelected] for detail panel.
+class MultiTraceGraphCanvas extends StatefulWidget {
+  final MultiTraceGraphPayload payload;
+  final ValueChanged<MultiTraceNode>? onNodeSelected;
+  final ValueChanged<MultiTraceEdge>? onEdgeSelected;
+  final VoidCallback? onSelectionCleared;
+
+  const MultiTraceGraphCanvas({
+    super.key,
+    required this.payload,
+    this.onNodeSelected,
+    this.onEdgeSelected,
+    this.onSelectionCleared,
+  });
+
+  @override
+  State<MultiTraceGraphCanvas> createState() => _MultiTraceGraphCanvasState();
+}
+
+class _MultiTraceGraphCanvasState extends State<MultiTraceGraphCanvas> {
+  String? _selectedNodeId;
+  bool _useSugiyama = true;
+
+  Graph? _cachedGraph;
+  Algorithm? _cachedAlgorithm;
+  bool _cachedLayout = true;
+  int _cachedHash = -1;
+
+  // ---------------------------------------------------------------------------
+  // Graph caching
+  // ---------------------------------------------------------------------------
+
+  void _ensureGraphCached() {
+    final hash = Object.hash(
+      widget.payload.nodes.length,
+      widget.payload.edges.length,
+      _useSugiyama,
+    );
+    if (_cachedGraph != null && _cachedHash == hash && _cachedLayout == _useSugiyama) {
+      return;
+    }
+    _cachedHash = hash;
+    _cachedLayout = _useSugiyama;
+
+    _cachedGraph = _buildGraph();
+
+    if (_useSugiyama) {
+      final config = SugiyamaConfiguration()
+        ..bendPointShape = CurvedBendPointShape(curveLength: 20)
+        ..nodeSeparation = 50
+        ..levelSeparation = 80
+        ..orientation = SugiyamaConfiguration.ORIENTATION_LEFT_RIGHT;
+      _cachedAlgorithm = SugiyamaAlgorithm(config);
+    } else {
+      _cachedAlgorithm = FruchtermanReingoldAlgorithm(
+        FruchtermanReingoldConfiguration(),
+      );
+    }
+  }
+
+  Graph _buildGraph() {
+    final graph = Graph()..isTree = false;
+    final nodeMap = <String, Node>{};
+
+    for (final n in widget.payload.nodes) {
+      final node = Node.Id(n.id);
+      nodeMap[n.id] = node;
+      graph.addNode(node);
+    }
+
+    for (final e in widget.payload.edges) {
+      final source = nodeMap[e.sourceId];
+      final target = nodeMap[e.targetId];
+      if (source == null || target == null) continue;
+
+      // Edge thickness proportional to avg tokens per call.
+      final thickness = _edgeThickness(e.avgTokensPerCall);
+      final color = _edgeColor(e.errorRatePct);
+
+      final paint = Paint()
+        ..color = color
+        ..strokeWidth = thickness
+        ..style = PaintingStyle.stroke;
+      graph.addEdge(source, target, paint: paint);
+    }
+
+    return graph;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Visual mapping
+  // ---------------------------------------------------------------------------
+
+  Color _nodeColor(String type) {
+    switch (type.toLowerCase()) {
+      case 'agent':
+        return AppColors.primaryTeal;
+      case 'tool':
+        return AppColors.warning;
+      case 'llm':
+      case 'llm_model':
+        return AppColors.secondaryPurple;
+      case 'sub_agent':
+        return AppColors.primaryCyan;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _nodeIcon(String type) {
+    switch (type.toLowerCase()) {
+      case 'agent':
+      case 'sub_agent':
+        return Icons.psychology;
+      case 'tool':
+        return Icons.build;
+      case 'llm':
+      case 'llm_model':
+        return Icons.auto_awesome;
+      default:
+        return Icons.circle;
+    }
+  }
+
+  Color _edgeColor(double errorRatePct) {
+    if (errorRatePct <= 0) return Colors.white.withValues(alpha: 0.25);
+    if (errorRatePct < 10) return Colors.orange.withValues(alpha: 0.6);
+    return AppColors.error.withValues(alpha: 0.8);
+  }
+
+  double _edgeThickness(int avgTokens) {
+    if (avgTokens <= 0) return 1.0;
+    // Log scale: 1-4px range.
+    return math.min(1.0 + math.log(avgTokens / 100 + 1), 4.0);
+  }
+
+  String _formatTokens(int tokens) {
+    if (tokens >= 1000000) return '${(tokens / 1000000).toStringAsFixed(1)}M';
+    if (tokens >= 1000) return '${(tokens / 1000).toStringAsFixed(1)}K';
+    return '$tokens';
+  }
+
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
+
+  @override
+  Widget build(BuildContext context) {
+    final payload = widget.payload;
+    if (payload.nodes.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.account_tree_outlined, color: Colors.white24, size: 48),
+            SizedBox(height: 12),
+            Text(
+              'No graph data.\nRun a query to visualize agent traces.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white38, fontSize: 13),
+            ),
+          ],
+        ),
+      );
+    }
+
+    _ensureGraphCached();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildToolbar(),
+        const SizedBox(height: 4),
+        _buildLegend(),
+        const SizedBox(height: 4),
+        Expanded(
+          child: InteractiveViewer(
+            constrained: false,
+            boundaryMargin: const EdgeInsets.all(120),
+            minScale: 0.2,
+            maxScale: 3.0,
+            child: GraphView(
+              graph: _cachedGraph!,
+              algorithm: _cachedAlgorithm!,
+              paint: Paint()
+                ..color = Colors.white24
+                ..strokeWidth = 1
+                ..style = PaintingStyle.stroke,
+              builder: (Node node) {
+                final nodeId = node.key!.value as String;
+                return _buildNodeWidget(nodeId);
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Toolbar & legend
+  // ---------------------------------------------------------------------------
+
+  Widget _buildToolbar() {
+    final nodeCount = widget.payload.nodes.length;
+    final edgeCount = widget.payload.edges.length;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          const Icon(Icons.account_tree, color: AppColors.primaryCyan, size: 18),
+          const SizedBox(width: 8),
+          const Text(
+            'Multi-Trace Agent Graph',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              '$nodeCount nodes · $edgeCount edges',
+              style: const TextStyle(color: Colors.white38, fontSize: 10),
+            ),
+          ),
+          const Spacer(),
+          _buildLayoutToggle(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLayoutToggle() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _toggleButton('Hierarchical', _useSugiyama, () {
+            setState(() => _useSugiyama = true);
+          }),
+          _toggleButton('Force', !_useSugiyama, () {
+            setState(() => _useSugiyama = false);
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _toggleButton(String label, bool active, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: active
+              ? AppColors.primaryTeal.withValues(alpha: 0.3)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: active ? Colors.white : Colors.white38,
+            fontSize: 11,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLegend() {
+    const types = [
+      ('Agent', 'agent'),
+      ('Sub-agent', 'sub_agent'),
+      ('Tool', 'tool'),
+      ('LLM', 'llm'),
+    ];
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          ...types.map((t) {
+            return Padding(
+              padding: const EdgeInsets.only(right: 14),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(_nodeIcon(t.$2), color: _nodeColor(t.$2), size: 12),
+                  const SizedBox(width: 3),
+                  Text(t.$1,
+                      style:
+                          const TextStyle(color: Colors.white54, fontSize: 10)),
+                ],
+              ),
+            );
+          }),
+          const SizedBox(width: 12),
+          Container(width: 16, height: 2, color: Colors.white24),
+          const SizedBox(width: 4),
+          const Text('OK',
+              style: TextStyle(color: Colors.white38, fontSize: 9)),
+          const SizedBox(width: 8),
+          Container(
+              width: 16,
+              height: 2,
+              color: AppColors.error.withValues(alpha: 0.8)),
+          const SizedBox(width: 4),
+          const Text('Errors',
+              style: TextStyle(color: Colors.white38, fontSize: 9)),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Node widget
+  // ---------------------------------------------------------------------------
+
+  Widget _buildNodeWidget(String nodeId) {
+    final node = widget.payload.nodes.firstWhere(
+      (n) => n.id == nodeId,
+      orElse: () => MultiTraceNode(id: nodeId, type: 'unknown'),
+    );
+    final isSelected = _selectedNodeId == nodeId;
+    final color = _nodeColor(node.type);
+
+    return Tooltip(
+      message: '${node.id}\n'
+          'Type: ${node.type}\n'
+          'Tokens: ${_formatTokens(node.totalTokens)}',
+      waitDuration: const Duration(milliseconds: 400),
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            if (_selectedNodeId == nodeId) {
+              _selectedNodeId = null;
+              widget.onSelectionCleared?.call();
+            } else {
+              _selectedNodeId = nodeId;
+              widget.onNodeSelected?.call(node);
+            }
+          });
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          constraints: const BoxConstraints(minWidth: 80, maxWidth: 160),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: isSelected ? 0.25 : 0.12),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: node.hasError
+                  ? AppColors.error
+                  : isSelected
+                      ? color
+                      : color.withValues(alpha: 0.4),
+              width: node.hasError || isSelected ? 2 : 1,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.3),
+                      blurRadius: 12,
+                      spreadRadius: 1,
+                    )
+                  ]
+                : null,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(_nodeIcon(node.type), color: color, size: 20),
+              const SizedBox(height: 4),
+              Text(
+                node.id,
+                style: TextStyle(
+                  color: node.hasError ? AppColors.error : Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (node.isRoot)
+                Container(
+                  margin: const EdgeInsets.only(top: 3),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryCyan.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    'ROOT',
+                    style: TextStyle(
+                      color: AppColors.primaryCyan,
+                      fontSize: 8,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

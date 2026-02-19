@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../features/agent_graph/presentation/multi_trace_graph_page.dart';
 import '../../features/dashboards/presentation/pages/dashboards_page.dart';
 import '../../services/dashboard_state.dart';
 import '../../theme/app_theme.dart';
@@ -58,6 +59,21 @@ class InvestigationRail extends StatelessWidget {
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (context) => const DashboardsPage(),
+                    ),
+                  );
+                },
+              ),
+              // Agent Graph
+              _RailItem(
+                icon: Icons.account_tree_outlined,
+                label: 'Agent Graph',
+                color: AppColors.secondaryPurple,
+                isActive: false,
+                hasData: false,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const MultiTraceGraphPage(),
                     ),
                   );
                 },
