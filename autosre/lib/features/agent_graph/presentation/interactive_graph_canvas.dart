@@ -204,6 +204,18 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
         _controller.addLink(e.sourceId, 'out', e.targetId, 'in');
       }
     }
+
+    // Auto-center graph
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_controller.nodes.isNotEmpty) {
+        _controller.focusNodesById(
+          _controller.nodes.keys.toSet(),
+          animate: false,
+        );
+        // Deselect all after focusing
+        _controller.clearSelection();
+      }
+    });
   }
 
   void _addFlNode(
@@ -494,40 +506,54 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
     }
 
     // Wrap content with ports (Left -> Right flow)
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        // Input Port (Left)
-        if (inputPort != null)
-          Container(
-            key: inputPort.key,
-            width: 12,
-            height: 12,
-            margin: const EdgeInsets.only(right: 4),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white12, // Subtle visible target
-              border: Border.all(color: Colors.white24, width: 1),
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTapDown: (_) {
+        if (!nodeData.state.isSelected) {
+          _controller.selectNodesById({nodeData.id});
+        }
+      },
+      onPanUpdate: (details) {
+        if (!nodeData.state.isSelected) {
+          _controller.selectNodesById({nodeData.id});
+        }
+        _controller.dragSelection(details.delta);
+      },
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Input Port (Left)
+          if (inputPort != null)
+            Container(
+              key: inputPort.key,
+              width: 12,
+              height: 12,
+              margin: const EdgeInsets.only(right: 4),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white12, // Subtle visible target
+                border: Border.all(color: Colors.white24, width: 1),
+              ),
             ),
-          ),
 
-        content,
+          content,
 
-        // Output Port (Right)
-        if (outPort != null)
-          Container(
-            key: outPort.key,
-            width: 12,
-            height: 12,
-            margin: const EdgeInsets.only(left: 4),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.primaryTeal.withValues(alpha: 0.8),
-              border: Border.all(color: Colors.white, width: 1.5),
+          // Output Port (Right)
+          if (outPort != null)
+            Container(
+              key: outPort.key,
+              width: 12,
+              height: 12,
+              margin: const EdgeInsets.only(left: 4),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.primaryTeal.withValues(alpha: 0.8),
+                border: Border.all(color: Colors.white, width: 1.5),
+              ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 

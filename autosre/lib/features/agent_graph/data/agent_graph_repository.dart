@@ -35,7 +35,6 @@ WITH GraphPaths AS (
     `$dataset.agent_trace_graph`
     MATCH (src:Span)-[:ParentOf]->(dst:Span)
     WHERE src.node_type != 'Glue' AND dst.node_type != 'Glue' AND src.node_label != dst.node_label
-      AND src.node_type != 'LLM' AND dst.node_type != 'LLM' -- Exclude LLMs for a cleaner Service Map
       AND src.start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL $timeRangeHours HOUR)
     COLUMNS (
       src.node_label AS source_id, src.node_type AS source_type,
