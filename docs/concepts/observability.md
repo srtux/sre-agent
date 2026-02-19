@@ -178,7 +178,6 @@ Tool results are automatically mapped to dashboard categories via `TOOL_WIDGET_M
 | `logs` | `list_log_entries`, `extract_log_patterns` | Log stream, pattern clustering |
 | `alerts` | `list_alerts`, `list_alert_policies`, `get_alert` | Alert timeline, severity indicators |
 | `council` | Council panel findings, critic reports, synthesis | Council activity graph |
-| `remediation` | `generate_remediation_suggestions` | Remediation panel |
 
 ### Event Helpers
 

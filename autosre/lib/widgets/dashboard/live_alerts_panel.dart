@@ -136,7 +136,7 @@ class _LiveAlertsPanelState extends State<LiveAlertsPanel> {
           padding: const EdgeInsets.all(12),
           itemCount: widget.items.length,
           itemBuilder: (context, index) {
-            final item = widget.items[index];
+            final item = widget.items[widget.items.length - 1 - index];
             if (item.alertData == null) return const SizedBox.shrink();
 
             return DashboardCardWrapper(

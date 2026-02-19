@@ -474,7 +474,7 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
                   padding: const EdgeInsets.all(12),
                   itemCount: chartItems.length,
                   itemBuilder: (context, index) {
-                    final item = chartItems[index];
+                    final item = chartItems[chartItems.length - 1 - index];
                     if (item.chartData == null) return const SizedBox.shrink();
                     return DashboardCardWrapper(
                       onClose: () => widget.dashboardState.removeItem(item.id),

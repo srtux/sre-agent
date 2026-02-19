@@ -268,55 +268,6 @@ void main() {
     });
   });
 
-  // ===========================================================================
-  // RemediationStep and RemediationPlan
-  // ===========================================================================
-  group('RemediationStep', () {
-    test('fromJson parses valid data', () {
-      final step = RemediationStep.fromJson({
-        'command': 'kubectl rollout restart deployment/api',
-        'description': 'Restart the API deployment',
-      });
-      expect(step.command, 'kubectl rollout restart deployment/api');
-      expect(step.description, 'Restart the API deployment');
-    });
-
-    test('fromJson provides defaults', () {
-      final step = RemediationStep.fromJson(const {});
-      expect(step.command, '');
-      expect(step.description, '');
-    });
-  });
-
-  group('RemediationPlan', () {
-    test('fromJson parses valid plan', () {
-      final json = {
-        'issue': 'High memory usage in backend pods',
-        'risk': 'medium',
-        'steps': [
-          {'command': 'kubectl top pods', 'description': 'Check pod resources'},
-          {'command': 'kubectl scale --replicas=3', 'description': 'Scale up'},
-        ],
-      };
-      final plan = RemediationPlan.fromJson(json);
-      expect(plan.issue, 'High memory usage in backend pods');
-      expect(plan.risk, 'medium');
-      expect(plan.steps.length, 2);
-      expect(plan.steps[0].command, 'kubectl top pods');
-    });
-
-    test('fromJson provides defaults', () {
-      final plan = RemediationPlan.fromJson(const {});
-      expect(plan.issue, '');
-      expect(plan.risk, 'low');
-      expect(plan.steps, isEmpty);
-    });
-
-    test('fromJson handles null steps', () {
-      final plan = RemediationPlan.fromJson({'steps': null});
-      expect(plan.steps, isEmpty);
-    });
-  });
 
   // ===========================================================================
   // LogEntry

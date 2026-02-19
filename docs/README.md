@@ -174,8 +174,6 @@ for the design.
 | Root Cause Analysis | [rca.md](help/content/rca.md) | Structured detective methodology for diagnosing issues |
 | Incident Lifecycle | [incident_lifecycle.md](help/content/incident_lifecycle.md) | Standard SRE incident response lifecycle (detect, triage, mitigate, resolve) |
 | Incident Correlation | [changes.md](help/content/changes.md) | Change correlation -- audit logs, deployments, feature flags |
-| Remediation | [remediation.md](help/content/remediation.md) | Risk-ranked remediation suggestions |
-| Postmortems | [postmortems.md](help/content/postmortems.md) | Blameless incident report generation |
 | Deployment & Infrastructure | [deployment.md](help/content/deployment.md) | Cloud Run and Agent Engine deployment overview |
 | Telemetry Integration | [telemetry_source.md](help/content/telemetry_source.md) | GCP observability stack integration points |
 | Model Info | [model_info.md](help/content/model_info.md) | Gemini model capabilities and context window details |

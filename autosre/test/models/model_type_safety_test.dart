@@ -165,19 +165,6 @@ void main() {
       expect(series.points[1].value, 2.0);
     });
 
-    test('RemediationPlan.fromJson skips non-Map items in steps', () {
-      final plan = RemediationPlan.fromJson({
-        'issue': 'test',
-        'risk': 'low',
-        'steps': [
-          {'command': 'cmd1', 'description': 'desc1'},
-          'invalid',
-          null,
-          {'command': 'cmd2', 'description': 'desc2'},
-        ],
-      });
-      expect(plan.steps.length, 2);
-    });
 
     test('LogEntriesData.fromJson skips non-Map entries', () {
       final data = LogEntriesData.fromJson(<String, dynamic>{

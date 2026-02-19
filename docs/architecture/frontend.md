@@ -55,7 +55,6 @@ The SRE Agent uses a dynamic widget system to visualize telemetry. When the back
 | **TraceWaterfall** | Visualizes distributed tracing | `fetch_trace` |
 | **MetricChart**| Timeseries visualization | `query_promql` |
 | **LogPatternViewer**| Cluster log visualization | `extract_log_patterns` |
-| **RemediationPlan** | Interactive fix checklists | `generate_remediation_suggestions` |
 
 ---
 
@@ -73,7 +72,6 @@ The SRE Agent features a dedicated Investigation Dashboard that provides real-ti
   - `LiveCouncilPanel`: Council investigation activity.
   - `LiveLogsExplorer`: Log entry exploration.
   - `LiveMetricsPanel`: Metrics data display.
-  - `LiveRemediationPanel`: Remediation suggestion display.
   - `LiveTracePanel`: Trace data display.
 
 ### Visual Data Explorer

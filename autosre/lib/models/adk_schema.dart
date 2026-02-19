@@ -10,7 +10,6 @@
 //   import 'models/log_models.dart';
 //   import 'models/alert_models.dart';
 //   import 'models/agent_models.dart';
-//   import 'models/remediation_models.dart';
 //   import 'models/tool_models.dart';
 //   import 'models/council_models.dart';
 
@@ -19,6 +18,5 @@ export 'metric_models.dart';
 export '../features/logs/domain/models.dart';
 export 'alert_models.dart';
 export 'agent_models.dart';
-export 'remediation_models.dart';
 export 'tool_models.dart';
 export 'council_models.dart';

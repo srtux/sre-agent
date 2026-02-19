@@ -253,7 +253,7 @@ class _LiveTracePanelState extends State<LiveTracePanel> {
       padding: const EdgeInsets.all(12),
       itemCount: widget.items.length,
       itemBuilder: (context, index) {
-        final item = widget.items[index];
+        final item = widget.items[widget.items.length - 1 - index];
         final trace = item.traceData;
         if (trace == null) return const SizedBox.shrink();
 

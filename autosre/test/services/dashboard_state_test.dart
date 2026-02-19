@@ -154,14 +154,6 @@ void main() {
       expect(state.items.first.alertData, data);
     });
 
-    test('addRemediation adds a remediation item', () {
-      final plan = RemediationPlan(issue: 'High CPU', risk: 'low', steps: []);
-      state.addRemediation(plan, 'suggest_remediation', {});
-
-      expect(state.items.length, 1);
-      expect(state.items.first.type, DashboardDataType.remediation);
-      expect(state.items.first.remediationPlan, plan);
-    });
 
     test('addChart adds a chart item', () {
       final data = VegaChartData(question: 'Q', answer: 'A');
@@ -458,14 +450,6 @@ void main() {
       expect(result, isFalse);
     });
 
-    test('rejects empty remediation steps', () {
-      final result = state.addFromEvent({
-        'category': 'remediation',
-        'widget_type': 'x-sre-remediation-plan',
-        'data': {'issue': 'test', 'risk': 'low', 'steps': []},
-      });
-      expect(result, isFalse);
-    });
 
     test('auto-opens dashboard on first data', () {
       expect(state.isOpen, isFalse);
@@ -512,10 +496,6 @@ void main() {
       expect(
         classifyComponent('x-sre-incident-timeline'),
         DashboardDataType.alerts,
-      );
-      expect(
-        classifyComponent('x-sre-remediation-plan'),
-        DashboardDataType.remediation,
       );
       expect(
         classifyComponent('x-sre-council-synthesis'),

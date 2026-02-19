@@ -161,12 +161,6 @@ _TabConfig _tabConfig(DashboardDataType type) {
         Icons.notifications_active_outlined,
         AppColors.error,
       );
-    case DashboardDataType.remediation:
-      return const _TabConfig(
-        'Remediation',
-        Icons.build_circle_outlined,
-        AppColors.secondaryPurple,
-      );
     case DashboardDataType.council:
       return const _TabConfig(
         'Council',

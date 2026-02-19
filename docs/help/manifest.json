@@ -70,26 +70,6 @@
     "content_file": "circuit_breaker.md"
   },
   {
-    "id": "postmortems",
-    "title": "Postmortems",
-    "description": "Generate blameless incident reports with severity assessment and prioritized action items.",
-    "icon": "assignment",
-    "categories": [
-      "Remediation"
-    ],
-    "content_file": "postmortems.md"
-  },
-  {
-    "id": "remediation",
-    "title": "Remediation Suggestions",
-    "description": "Pattern-matched fix suggestions ranked by risk and effort, with ready-to-run commands.",
-    "icon": "build",
-    "categories": [
-      "Remediation"
-    ],
-    "content_file": "remediation.md"
-  },
-  {
     "id": "incident_lifecycle",
     "title": "Incident Lifecycle",
     "description": "Five-phase investigation from triage to completion with quality scoring.",

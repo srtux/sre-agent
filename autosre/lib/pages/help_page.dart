@@ -22,7 +22,6 @@ class _HelpPageState extends State<HelpPage> {
     'All',
     'Observability',
     'Analysis',
-    'Remediation',
     'Workflows',
     'FAQ',
   ];

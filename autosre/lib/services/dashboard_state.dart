@@ -15,7 +15,6 @@ enum DashboardDataType {
   metrics,
   traces,
   alerts,
-  remediation,
   council,
   analytics,
 }
@@ -48,7 +47,6 @@ class DashboardItem {
   final MetricsDashboardData? metricsDashboard;
   final Trace? traceData;
   final IncidentTimelineData? alertData;
-  final RemediationPlan? remediationPlan;
   final CouncilSynthesisData? councilData;
   final VegaChartData? chartData;
   final SqlResultSet? sqlData;
@@ -69,7 +67,6 @@ class DashboardItem {
     this.metricsDashboard,
     this.traceData,
     this.alertData,
-    this.remediationPlan,
     this.councilData,
     this.chartData,
     this.sqlData,
@@ -89,8 +86,6 @@ DashboardDataType? classifyComponent(String componentType) {
       return DashboardDataType.traces;
     case 'x-sre-incident-timeline':
       return DashboardDataType.alerts;
-    case 'x-sre-remediation-plan':
-      return DashboardDataType.remediation;
     case 'x-sre-council-synthesis':
       return DashboardDataType.council;
     case 'x-sre-vega-chart':
@@ -505,29 +500,6 @@ class DashboardState extends ChangeNotifier {
         alertData: data,
       ),
     );
-    notifyListeners();
-  }
-
-  /// Add a remediation plan result.
-  void addRemediation(
-    RemediationPlan plan,
-    String toolName,
-    Map<String, dynamic> raw, {
-    DataSource source = DataSource.agent,
-  }) {
-    _itemCounter++;
-    _addItemBounded(
-      DashboardItem(
-        id: 'remediation-$_itemCounter',
-        type: DashboardDataType.remediation,
-        toolName: toolName,
-        timestamp: DateTime.now(),
-        rawData: raw,
-        source: source,
-        remediationPlan: plan,
-      ),
-    );
-    notifyListeners();
   }
 
   /// Add a chart (Vega-Lite) result to the dashboard.
@@ -700,16 +672,6 @@ class DashboardState extends ChangeNotifier {
             alertData: timelineData,
           );
 
-        case 'x-sre-remediation-plan':
-          final plan = RemediationPlan.fromJson(dataMap);
-          if (plan.steps.isEmpty) return false;
-          _addItemSilent(
-            DashboardDataType.remediation,
-            toolName,
-            dataMap,
-            remediationPlan: plan,
-          );
-
         case 'x-sre-council-synthesis':
           final council = CouncilSynthesisData.fromJson(dataMap);
           _addItemSilent(
@@ -761,7 +723,6 @@ class DashboardState extends ChangeNotifier {
     MetricSeries? metricSeries,
     MetricsDashboardData? metricsDashboard,
     IncidentTimelineData? alertData,
-    RemediationPlan? remediationPlan,
     CouncilSynthesisData? councilData,
     VegaChartData? chartData,
   }) {
@@ -780,7 +741,6 @@ class DashboardState extends ChangeNotifier {
         metricSeries: metricSeries,
         metricsDashboard: metricsDashboard,
         alertData: alertData,
-        remediationPlan: remediationPlan,
         councilData: councilData,
         chartData: chartData,
       ),
@@ -797,8 +757,6 @@ class DashboardState extends ChangeNotifier {
         return DashboardDataType.metrics;
       case 'alerts':
         return DashboardDataType.alerts;
-      case 'remediation':
-        return DashboardDataType.remediation;
       case 'council':
         return DashboardDataType.council;
       case 'charts':

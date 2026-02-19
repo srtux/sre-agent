@@ -7,7 +7,6 @@ import 'theme/app_theme.dart';
 import 'widgets/error_placeholder.dart';
 import 'widgets/log_entries_viewer.dart';
 import 'widgets/log_pattern_viewer.dart';
-import 'widgets/remediation_plan.dart';
 import 'widgets/syncfusion_metric_chart.dart';
 import 'widgets/trace_waterfall.dart';
 import 'widgets/tool_log.dart';
@@ -115,29 +114,6 @@ class CatalogRegistry {
             );
           } catch (e) {
             return _logAndBuildError('x-sre-metric-chart', e);
-          }
-        },
-      ),
-      CatalogItem(
-        name: 'x-sre-remediation-plan',
-        dataSchema: S.any(),
-        widgetBuilder: (context) {
-          try {
-            final data = _unwrapComponentData(
-              context.data,
-              'x-sre-remediation-plan',
-            );
-
-            final plan = RemediationPlan.fromJson(data);
-            if (plan.steps.isEmpty) return const SizedBox.shrink();
-
-            return _buildWidgetContainer(
-              child: RemediationPlanWidget(plan: plan),
-              height: null, // Auto height based on content
-              minHeight: 200,
-            );
-          } catch (e) {
-            return _logAndBuildError('x-sre-remediation-plan', e);
           }
         },
       ),

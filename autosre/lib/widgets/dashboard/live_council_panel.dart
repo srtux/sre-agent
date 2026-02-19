@@ -66,7 +66,7 @@ class _LiveCouncilPanelState extends State<LiveCouncilPanel> {
                   separatorBuilder: (context, index) =>
                       const SizedBox(height: 12),
                   itemBuilder: (context, index) {
-                    final item = widget.items[index];
+                    final item = widget.items[widget.items.length - 1 - index];
 
                     return DashboardCardWrapper(
                       onClose: () => widget.dashboardState.removeItem(item.id),

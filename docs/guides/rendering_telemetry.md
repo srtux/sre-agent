@@ -65,7 +65,6 @@ The following table lists all registered A2UI components with their catalog name
 |---------------|-------------|------------|--------|-------------|
 | `x-sre-trace-waterfall` | `TraceWaterfall` | `Trace` | auto | Distributed trace span waterfall |
 | `x-sre-metric-chart` | `SyncfusionMetricChart` | `MetricSeries` | 380px | Time-series metric line chart |
-| `x-sre-remediation-plan` | `RemediationPlanWidget` | `RemediationPlan` | auto (min 200px) | Interactive remediation checklist |
 | `x-sre-log-pattern-viewer` | `LogPatternViewer` | `List<LogPattern>` | 450px | Clustered log pattern summary |
 | `x-sre-log-entries-viewer` | `LogEntriesViewer` | `LogEntriesData` | 500px | Raw log entries with severity colors |
 | `x-sre-agent-activity` | `AgentActivityCanvas` | `AgentActivityData` | 450px | Agent execution flow visualization |
@@ -95,7 +94,6 @@ The `classifyComponent()` function in `dashboard_state.dart` maps widget types t
 'x-sre-metrics-dashboard'    -> DashboardDataType.metrics
 'x-sre-trace-waterfall'      -> DashboardDataType.traces
 'x-sre-incident-timeline'    -> DashboardDataType.alerts
-'x-sre-remediation-plan'     -> DashboardDataType.remediation
 'x-sre-council-synthesis'    -> DashboardDataType.council
 'x-sre-vega-chart'           -> DashboardDataType.charts
 ```
@@ -202,27 +200,6 @@ Displays raw log entries with severity colors and expandable payloads.
 }
 ```
 
-### 5. Remediation Plan (`x-sre-remediation-plan`)
-
-Interactive checklist for fixing issues.
-
-**Data Source**: `generate_remediation_suggestions`
-**Adapter**: `sre_agent.tools.analysis.genui_adapter.transform_remediation`
-**Chat Widget**: `RemediationPlanWidget` (`lib/widgets/remediation_plan.dart`)
-**Dashboard Widget**: `LiveRemediationPanel`
-
-```json
-{
-  "issue": "High CPU Utilization",
-  "risk": "medium",
-  "steps": [
-    {
-      "description": "Scale up the replica count",
-      "command": "kubectl scale deployment frontend --replicas=5"
-    }
-  ]
-}
-```
 
 ### 6. Incident Timeline (`x-sre-incident-timeline`)
 

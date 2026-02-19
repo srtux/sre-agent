@@ -58,17 +58,6 @@ void main() {
         {'timestamp': '2024-01-01T00:00:00Z', 'value': 1.0},
       ],
       'labels': <String, dynamic>{},
-      'issue': 'test-issue',
-      'risk': 'low',
-      'steps': [
-        {
-          'id': 'step1',
-          'type': 'observation',
-          'content': 'test step',
-          'description': 'remediation step',
-          'command': 'ls',
-        },
-      ],
       'entries': [
         {
           'insert_id': 'id1',
@@ -113,7 +102,6 @@ void main() {
     final widgetsToTest = [
       'x-sre-trace-waterfall',
       'x-sre-metric-chart',
-      'x-sre-remediation-plan',
       'x-sre-log-entries-viewer',
       'x-sre-tool-log',
       'x-sre-agent-activity',

@@ -131,27 +131,6 @@ void main() {
     });
   });
 
-  // ===========================================================================
-  // RemediationStep / RemediationPlan equality
-  // ===========================================================================
-  group('RemediationStep equality', () {
-    test('equal steps are equal', () {
-      final a = RemediationStep(command: 'cmd', description: 'desc');
-      final b = RemediationStep(command: 'cmd', description: 'desc');
-      expect(a, equals(b));
-      expect(a.hashCode, equals(b.hashCode));
-    });
-  });
-
-  group('RemediationPlan equality', () {
-    test('equal plans are equal', () {
-      final step = RemediationStep(command: 'cmd', description: 'desc');
-      final a = RemediationPlan(issue: 'bug', risk: 'low', steps: [step]);
-      final b = RemediationPlan(issue: 'bug', risk: 'low', steps: [step]);
-      expect(a, equals(b));
-      expect(a.hashCode, equals(b.hashCode));
-    });
-  });
 
   // ===========================================================================
   // LogPattern equality

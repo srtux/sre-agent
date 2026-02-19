@@ -6,7 +6,6 @@ import 'live_logs_explorer.dart';
 import 'live_metrics_panel.dart';
 import 'live_trace_panel.dart';
 import 'live_alerts_panel.dart';
-import 'live_remediation_panel.dart';
 import 'live_council_panel.dart';
 import 'live_charts_panel.dart';
 import 'sre_toolbar.dart';
@@ -140,11 +139,6 @@ class _DashboardPanelState extends State<DashboardPanel>
               items: items,
               dashboardState: widget.state,
               onPromptRequest: widget.onPromptRequest,
-            );
-          case DashboardDataType.remediation:
-            return LiveRemediationPanel(
-              items: items,
-              dashboardState: widget.state,
             );
           case DashboardDataType.council:
             return LiveCouncilPanel(items: items, dashboardState: widget.state);
