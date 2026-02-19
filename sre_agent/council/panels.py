@@ -65,7 +65,6 @@ def _make_panel_completion_callback(panel_name: str, finding_key: str) -> Any:
 
     def panel_completion_callback(
         callback_context: Any,
-        agent_response: Any,
     ) -> None:
         try:
             state = callback_context.state

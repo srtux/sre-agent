@@ -197,18 +197,15 @@ class TestPanelCompletionCallback:
         assert callable(cb)
 
     def test_returns_none_when_finding_absent(self) -> None:
-        from unittest.mock import MagicMock
-
         from sre_agent.council.panels import _make_panel_completion_callback
 
         cb = _make_panel_completion_callback("trace", "trace_finding")
         ctx = self._make_ctx({})
-        result = cb(ctx, MagicMock())
+        result = cb(ctx)
         assert result is None
 
     def test_writes_completion_to_state(self) -> None:
         import json
-        from unittest.mock import MagicMock
 
         from sre_agent.council.panels import _make_panel_completion_callback
         from sre_agent.council.state import PANEL_COMPLETIONS
@@ -224,7 +221,7 @@ class TestPanelCompletionCallback:
         state: dict = {"trace_finding": json.dumps(finding)}
         ctx = self._make_ctx(state)
         cb = _make_panel_completion_callback("trace", "trace_finding")
-        cb(ctx, MagicMock())
+        cb(ctx)
         assert PANEL_COMPLETIONS in ctx.state
         completions = ctx.state[PANEL_COMPLETIONS]
         assert "trace" in completions
@@ -233,14 +230,12 @@ class TestPanelCompletionCallback:
         assert "High latency" in completions["trace"]["summary"]
 
     def test_does_not_raise_on_malformed_json(self) -> None:
-        from unittest.mock import MagicMock
-
         from sre_agent.council.panels import _make_panel_completion_callback
 
         state: dict = {"trace_finding": "NOT_VALID_JSON{{{"}
         ctx = self._make_ctx(state)
         cb = _make_panel_completion_callback("trace", "trace_finding")
-        cb(ctx, MagicMock())
+        cb(ctx)
 
     def test_does_not_raise_on_exception(self) -> None:
         from unittest.mock import MagicMock
@@ -250,7 +245,7 @@ class TestPanelCompletionCallback:
         ctx = MagicMock()
         ctx.state = MagicMock(side_effect=RuntimeError("boom"))
         cb = _make_panel_completion_callback("trace", "trace_finding")
-        cb(ctx, MagicMock())
+        cb(ctx)
 
 
 class TestPanelOutputKeys:
