@@ -773,8 +773,8 @@ class _HistogramPainter extends CustomPainter {
         canvas.drawRRect(
           RRect.fromRectAndCorners(
             Rect.fromLTWH(x, barTop, barWidth, totalHeight),
-            topLeft: Radius.circular(_barRadius),
-            topRight: Radius.circular(_barRadius),
+            topLeft: const Radius.circular(_barRadius),
+            topRight: const Radius.circular(_barRadius),
           ),
           borderPaint,
         );
@@ -854,7 +854,7 @@ class _HistogramPainter extends CustomPainter {
 
       final isTop = s == segments.length - 1;
       final isBottom = s == 0;
-      final topRadius = isTop ? Radius.circular(_barRadius) : Radius.zero;
+      final topRadius = isTop ? const Radius.circular(_barRadius) : Radius.zero;
       final bottomRadius = isBottom ? Radius.zero : Radius.zero;
 
       final paint = Paint()
@@ -935,11 +935,13 @@ class _HistogramPainter extends CustomPainter {
   }
 
   void _paintXAxisLabels(Canvas canvas, Size size, double barWidth) {
-    if (buckets.isEmpty) return;
-
-    final chartWidth = size.width - leftMargin;
+    if (buckets.isEmpty) {
+      return;
+    }
     final labelCount = math.min(6, buckets.length);
-    if (labelCount == 0) return;
+    if (labelCount == 0) {
+      return;
+    }
 
     final step = math.max(1, buckets.length ~/ labelCount);
     final useDateFormat =

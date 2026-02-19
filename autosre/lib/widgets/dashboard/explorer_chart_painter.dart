@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
@@ -94,8 +95,8 @@ class ExplorerChartPainter extends CustomPainter {
     if (data.isEmpty) return;
 
     // Chart area geometry differs between horizontal and standard orientations.
-    final bool isHorizontal = chartType == ExplorerChartType.horizontalBar;
-    final Rect chartArea = isHorizontal
+    final isHorizontal = chartType == ExplorerChartType.horizontalBar;
+    final chartArea = isHorizontal
         ? Rect.fromLTRB(110, 10, size.width - 50, size.height - 10)
         : Rect.fromLTRB(60, 20, size.width - 20, size.height - 40);
 
@@ -869,6 +870,6 @@ class ExplorerChartPainter extends CustomPainter {
       dimensionKey != oldDelegate.dimensionKey ||
       measureKey != oldDelegate.measureKey ||
       chartType != oldDelegate.chartType ||
-      measures != oldDelegate.measures ||
+      !listEquals(measures, oldDelegate.measures) ||
       seriesKey != oldDelegate.seriesKey;
 }

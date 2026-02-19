@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -223,7 +224,7 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
       if (projectId == null) return;
       await explorer.loadDefaultLogs(projectId: projectId);
       // Fetch full-range histogram in background after initial load.
-      _fetchHistogram(projectId: projectId);
+      unawaited(_fetchHistogram(projectId: projectId));
     } catch (e) {
       debugPrint('LiveLogsExplorer auto-load error: $e');
     }

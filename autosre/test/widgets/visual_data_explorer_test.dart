@@ -549,7 +549,7 @@ void main() {
     test('all colours are fully opaque or have explicit alpha', () {
       // Just ensure no colour is Color(0) which would be invisible.
       for (final c in explorerChartColors) {
-        expect(c.value, isNot(equals(0)));
+        expect(c.toARGB32(), isNot(equals(0)));
       }
     });
   });

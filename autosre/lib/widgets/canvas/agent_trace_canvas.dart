@@ -221,8 +221,9 @@ class _AgentTraceCanvasState extends State<AgentTraceCanvas> {
           onTap: () =>
               setState(() => _selectedIndex = isSelected ? null : index),
           child: Container(
-            margin: const EdgeInsets.only(bottom: 2),
-            padding: const EdgeInsets.symmetric(vertical: 4),
+            margin: const EdgeInsets.only(bottom: 0),
+            padding: const EdgeInsets.symmetric(vertical: 0),
+            constraints: const BoxConstraints(minHeight: 24, maxHeight: 28),
             decoration: BoxDecoration(
               color: isSelected
                   ? Colors.white.withValues(alpha: 0.05)
@@ -259,13 +260,10 @@ class _AgentTraceCanvasState extends State<AgentTraceCanvas> {
                       final maxWidth = constraints.maxWidth;
                       return Stack(
                         children: [
-                          // Background track
                           Container(
-                            height: 18,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.03),
-                              borderRadius: BorderRadius.circular(3),
-                            ),
+                            height: 1,
+                            margin: const EdgeInsets.only(top: 8),
+                            color: Colors.white.withValues(alpha: 0.1),
                           ),
                           // Bar
                           Positioned(
@@ -273,6 +271,7 @@ class _AgentTraceCanvasState extends State<AgentTraceCanvas> {
                             child: Container(
                               width: math.max(barWidth * maxWidth, 4),
                               height: 18,
+                              margin: const EdgeInsets.symmetric(vertical: 3),
                               decoration: BoxDecoration(
                                 color: _kindColor(
                                   node.kind,

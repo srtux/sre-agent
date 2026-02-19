@@ -5,32 +5,44 @@ import 'package:flutter/gestures.dart';
 import 'package:graphview/GraphView.dart';
 import 'package:vector_math/vector_math_64.dart' hide Colors;
 import 'package:provider/provider.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import '../models/adk_schema.dart';
 import '../services/explorer_query_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/chart_theme.dart';
+import 'tree_line_painter.dart';
 
-class _SpanBarData {
-  final String spanName;
-  final double startOffsetMs;
-  final double endOffsetMs;
-  final String serviceName;
-  final String status;
-  final bool isCriticalPath;
+class SpanNode {
   final SpanInfo span;
+  final String spanName;
+  final String serviceName;
+  final String type; // 'agent', 'llm', 'tool', 'system'
+  final String status;
   final int depth;
-  final bool hasChildren;
+  final bool isCriticalPath;
 
-  _SpanBarData({
+  double startOffsetMs;
+  double endOffsetMs;
+
+  bool hasChildren;
+  bool hasChildError;
+  int totalInputTokens;
+  int totalOutputTokens;
+
+  SpanNode({
+    required this.span,
     required this.spanName,
+    required this.serviceName,
+    required this.type,
+    required this.status,
+    required this.depth,
+    required this.isCriticalPath,
     required this.startOffsetMs,
     required this.endOffsetMs,
-    required this.serviceName,
-    required this.status,
-    required this.isCriticalPath,
-    required this.span,
-    required this.depth,
-    required this.hasChildren,
+    this.hasChildren = false,
+    this.hasChildError = false,
+    this.totalInputTokens = 0,
+    this.totalOutputTokens = 0,
   });
 
   double get durationMs => endOffsetMs - startOffsetMs;
@@ -41,6 +53,61 @@ class _SpanBarData {
 /// [timeline] displays a traditional cascading waterfall tree structure.
 /// [graph] displays a nodes-and-edges architectural view.
 enum TraceViewMode { timeline, graph }
+
+class _WaterfallBarPainter extends CustomPainter {
+  final double startOffset;
+  final double barWidth;
+  final Color color;
+  final double durationMs;
+
+  _WaterfallBarPainter({
+    required this.startOffset,
+    required this.barWidth,
+    required this.color,
+    required this.durationMs,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Draw track line
+    final trackPaint = Paint()
+      ..color = AppColors.surfaceBorder.withValues(alpha: 0.3)
+      ..strokeWidth = 1.0;
+    canvas.drawLine(
+      Offset(0, size.height / 2),
+      Offset(size.width, size.height / 2),
+      trackPaint,
+    );
+
+    // Draw the bar
+    final safeWidth = math.max(barWidth, 2.0);
+    final safeLeft = startOffset.clamp(0.0, size.width);
+
+    final barPaint = Paint()
+      ..color = color.withValues(alpha: 0.7)
+      ..style = PaintingStyle.fill;
+    final barBorderPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    final barRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(safeLeft, 4, safeWidth, size.height - 8),
+      const Radius.circular(2),
+    );
+
+    canvas.drawRRect(barRect, barPaint);
+    canvas.drawRRect(barRect, barBorderPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _WaterfallBarPainter oldDelegate) {
+    return oldDelegate.startOffset != startOffset ||
+        oldDelegate.barWidth != barWidth ||
+        oldDelegate.color != color ||
+        oldDelegate.durationMs != durationMs;
+  }
+}
 
 /// An interactive visualization of a distributed trace, representing the lifecycle
 /// of a request across multiple services.
@@ -56,7 +123,7 @@ class TraceWaterfall extends StatefulWidget {
 }
 
 class _TraceWaterfallState extends State<TraceWaterfall> {
-  late List<_SpanBarData> _spanBars;
+  late List<SpanNode> _spanBars;
   late Map<String, Color> _serviceColors;
   late double _totalDurationMs;
   int _errorCount = 0;
@@ -132,7 +199,8 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
 
     final rootSpans = sortedSpans
         .where(
-          (s) => s.parentSpanId == null || !_spanMap.containsKey(s.parentSpanId),
+          (s) =>
+              s.parentSpanId == null || !_spanMap.containsKey(s.parentSpanId),
         )
         .toList();
 
@@ -145,11 +213,11 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
       if (s.status == 'ERROR') _errorCount++;
     }
 
-    final flatData = <_SpanBarData>[];
+    final flatData = <SpanNode>[];
     _serviceColors = {};
     var colorIndex = 0;
 
-    void flatten(SpanInfo span, int depth) {
+    SpanNode flatten(SpanInfo span, int depth) {
       final children = _childrenMap[span.spanId] ?? [];
       final hasChildren = children.isNotEmpty;
 
@@ -164,26 +232,94 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
           span.startTime.difference(traceStart).inMicroseconds / 1000.0;
       final endMs = span.endTime.difference(traceStart).inMicroseconds / 1000.0;
 
-      flatData.add(
-        _SpanBarData(
-          spanName: span.name,
-          startOffsetMs: offsetMs,
-          endOffsetMs: math.max(endMs, offsetMs + 0.1),
-          serviceName: service,
-          status: span.status,
-          isCriticalPath: criticalPathIds.contains(span.spanId),
-          span: span,
-          depth: depth,
-          hasChildren: hasChildren,
-        ),
+      // Extract self tokens
+      var selfInputTokens = 0;
+      var selfOutputTokens = 0;
+      final inToks = span.attributes['gen_ai.usage.input_tokens'];
+      final outToks = span.attributes['gen_ai.usage.output_tokens'];
+      if (inToks != null) {
+        selfInputTokens = int.tryParse(inToks.toString()) ?? 0;
+      }
+      if (outToks != null) {
+        selfOutputTokens = int.tryParse(outToks.toString()) ?? 0;
+      }
+
+      var type = 'system';
+      final lowerName = span.name.toLowerCase();
+      if (lowerName.contains('agent')) {
+        type = 'agent';
+      } else if (lowerName.contains('tool') || lowerName.contains('execute')) {
+        type = 'tool';
+      } else if (lowerName.contains('llm') ||
+          lowerName.contains('generate_content') ||
+          span.attributes.keys.any((k) => k.startsWith('gen_ai.'))) {
+        type = 'llm';
+      }
+
+      final node = SpanNode(
+        spanName: span.name,
+        startOffsetMs: offsetMs,
+        endOffsetMs: math.max(endMs, offsetMs + 0.1),
+        serviceName: service,
+        type: type,
+        status: span.status,
+        isCriticalPath: criticalPathIds.contains(span.spanId),
+        span: span,
+        depth: depth,
+        hasChildren: hasChildren,
+        hasChildError: false,
+        totalInputTokens: selfInputTokens,
+        totalOutputTokens: selfOutputTokens,
       );
+
+      flatData.add(node);
+
+      // Default expand to depth 2, collapse 3+
+      if (depth >= 2) {
+        _collapsedSpanIds.add(span.spanId);
+      }
 
       if (!_collapsedSpanIds.contains(span.spanId)) {
         children.sort((a, b) => a.startTime.compareTo(b.startTime));
         for (final child in children) {
-          flatten(child, depth + 1);
+          final childNode = flatten(child, depth + 1);
+          node.hasChildError =
+              node.hasChildError ||
+              childNode.isError ||
+              childNode.hasChildError;
+          node.totalInputTokens += childNode.totalInputTokens;
+          node.totalOutputTokens += childNode.totalOutputTokens;
+          node.endOffsetMs = math.max(node.endOffsetMs, childNode.endOffsetMs);
+        }
+      } else {
+        // Also aggregate without adding to flatData if collapsed
+        void aggregateHidden(SpanInfo hiddenSpan) {
+          final hiddenChildren = _childrenMap[hiddenSpan.spanId] ?? [];
+
+          final hInToks = hiddenSpan.attributes['gen_ai.usage.input_tokens'];
+          final hOutToks = hiddenSpan.attributes['gen_ai.usage.output_tokens'];
+          if (hInToks != null) {
+            node.totalInputTokens += int.tryParse(hInToks.toString()) ?? 0;
+          }
+          if (hOutToks != null) {
+            node.totalOutputTokens += int.tryParse(hOutToks.toString()) ?? 0;
+          }
+          if (hiddenSpan.status == 'ERROR') node.hasChildError = true;
+
+          final hendMs =
+              hiddenSpan.endTime.difference(traceStart).inMicroseconds / 1000.0;
+          node.endOffsetMs = math.max(node.endOffsetMs, hendMs);
+
+          for (final hc in hiddenChildren) {
+            aggregateHidden(hc);
+          }
+        }
+
+        for (final child in children) {
+          aggregateHidden(child);
         }
       }
+      return node;
     }
 
     for (final root in rootSpans) {
@@ -304,7 +440,11 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
                     child: _SpanDetailPanel(
                       span: _selectedSpan!,
                       traceId: widget.trace.traceId,
-                      serviceColor: _serviceColors[_extractServiceName(_selectedSpan!.name)] ?? AppColors.primaryTeal,
+                      serviceColor:
+                          _serviceColors[_extractServiceName(
+                            _selectedSpan!.name,
+                          )] ??
+                          AppColors.primaryTeal,
                       onClose: () => setState(() => _selectedSpan = null),
                     ),
                   ),
@@ -659,7 +799,9 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
   }
 
   List<SpanInfo> _getImportantChildren(
-      String parentId, Map<String, List<SpanInfo>> childrenMap) {
+    String parentId,
+    Map<String, List<SpanInfo>> childrenMap,
+  ) {
     if (_importantChildrenMemo.containsKey(parentId)) {
       return _importantChildrenMemo[parentId]!;
     }
@@ -702,8 +844,10 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
 
       // Initialize root in expanded map if empty
       if (_expandedGraphNodes.isEmpty && widget.trace.spans.isNotEmpty) {
-        final root = widget.trace.spans.firstWhere((s) => s.parentSpanId == null,
-            orElse: () => widget.trace.spans.first);
+        final root = widget.trace.spans.firstWhere(
+          (s) => s.parentSpanId == null,
+          orElse: () => widget.trace.spans.first,
+        );
         _expandedGraphNodes.add(root.spanId);
       }
 
@@ -712,17 +856,22 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
         if (!nodeMap.containsKey(parentSpanId)) continue;
 
         final parentNode = nodeMap[parentSpanId]!;
-        final importantChildren =
-            _getImportantChildren(parentSpanId, _childrenMap);
+        final importantChildren = _getImportantChildren(
+          parentSpanId,
+          _childrenMap,
+        );
 
         for (final child in importantChildren) {
           if (nodeMap.containsKey(child.spanId)) {
             final childNode = nodeMap[child.spanId]!;
-            graph.addEdge(parentNode, childNode,
-                paint: Paint()
-                  ..color = AppColors.surfaceBorder
-                  ..strokeWidth = 2
-                  ..style = PaintingStyle.stroke);
+            graph.addEdge(
+              parentNode,
+              childNode,
+              paint: Paint()
+                ..color = AppColors.surfaceBorder
+                ..strokeWidth = 2
+                ..style = PaintingStyle.stroke,
+            );
           }
         }
       }
@@ -756,9 +905,15 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
           final localPosition = pointerSignal.localPosition;
 
           // Scale around the mouse position relative to the viewing window
-          newMatrix.translateByVector3(Vector3(localPosition.dx, localPosition.dy, 0.0));
-          newMatrix.scaleByVector3(Vector3(scaleAdjustment, scaleAdjustment, 1.0));
-          newMatrix.translateByVector3(Vector3(-localPosition.dx, -localPosition.dy, 0.0));
+          newMatrix.translateByVector3(
+            Vector3(localPosition.dx, localPosition.dy, 0.0),
+          );
+          newMatrix.scaleByVector3(
+            Vector3(scaleAdjustment, scaleAdjustment, 1.0),
+          );
+          newMatrix.translateByVector3(
+            Vector3(-localPosition.dx, -localPosition.dy, 0.0),
+          );
 
           // Constrain zoom scales between 10% and 400%
           final scale = newMatrix.getMaxScaleOnAxis();
@@ -781,7 +936,9 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
               ..style = PaintingStyle.stroke,
             builder: (Node node) {
               final spanId = node.key!.value as String;
-              final spanInfo = widget.trace.spans.firstWhere((s) => s.spanId == spanId);
+              final spanInfo = widget.trace.spans.firstWhere(
+                (s) => s.spanId == spanId,
+              );
               return _buildGraphNode(spanInfo);
             },
           ),
@@ -793,7 +950,9 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
   Widget _buildGraphNode(SpanInfo span) {
     final serviceName = _extractServiceName(span.name);
     final isSelected = _selectedSpan?.spanId == span.spanId;
-    final color = span.status == 'ERROR' ? AppColors.error : (_serviceColors[serviceName] ?? AppColors.primaryTeal);
+    final color = span.status == 'ERROR'
+        ? AppColors.error
+        : (_serviceColors[serviceName] ?? AppColors.primaryTeal);
 
     final importantChildren = _getImportantChildren(span.spanId, _childrenMap);
     final isExpanded = _expandedGraphNodes.contains(span.spanId);
@@ -838,7 +997,9 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
             Text(
               span.name,
               style: TextStyle(
-                color: span.status == 'ERROR' ? AppColors.error : AppColors.textPrimary,
+                color: span.status == 'ERROR'
+                    ? AppColors.error
+                    : AppColors.textPrimary,
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
               ),
@@ -866,11 +1027,16 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
                 },
                 borderRadius: BorderRadius.circular(4),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.05),
                     borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.1),
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -882,7 +1048,9 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        isExpanded ? 'Collapse' : '${importantChildren.length} calls',
+                        isExpanded
+                            ? 'Collapse'
+                            : '${importantChildren.length} calls',
                         style: const TextStyle(
                           fontSize: 10,
                           color: AppColors.textSecondary,
@@ -999,7 +1167,7 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
     );
   }
 
-  Widget _buildTableRow(_SpanBarData bar) {
+  Widget _buildTableRow(SpanNode bar) {
     final isSelected = _selectedSpan?.spanId == bar.span.spanId;
     final isCollapsed = _collapsedSpanIds.contains(bar.span.spanId);
     final rowBg = isSelected
@@ -1013,43 +1181,132 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
       }),
       child: Container(
         color: rowBg,
-        padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 8),
-        constraints: const BoxConstraints(minHeight: 28),
+        padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 8),
+        constraints: const BoxConstraints(minHeight: 24, maxHeight: 28),
         child: Row(
           children: [
             Expanded(
               flex: showWaterfall ? 3 : 2,
-              child: Padding(
-                padding: EdgeInsets.only(left: bar.depth * 16.0),
-                child: Row(
-                  children: [
-                    if (bar.hasChildren)
-                      InkWell(
-                        onTap: () => _toggleCollapse(bar.span.spanId),
-                        child: Icon(
-                          isCollapsed
-                              ? Icons.arrow_right
-                              : Icons.arrow_drop_down,
-                          size: 20,
-                          color: AppColors.textMuted,
-                        ),
-                      )
-                    else
-                      const SizedBox(width: 20),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        bar.spanName,
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 12,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: TreeLinePainter(
+                        depth: bar.depth,
+                        hasChildren: bar.hasChildren,
+                        isLastChild:
+                            false, // We'd need to compute this for exact correctness but good enough for now
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.only(left: bar.depth * 16.0),
+                    child: Row(
+                      children: [
+                        if (bar.hasChildren)
+                          InkWell(
+                            onTap: () => _toggleCollapse(bar.span.spanId),
+                            child: Icon(
+                              isCollapsed
+                                  ? Icons.arrow_right
+                                  : Icons.arrow_drop_down,
+                              size: 16,
+                              color: AppColors.textMuted,
+                            ),
+                          )
+                        else
+                          const SizedBox(width: 16),
+                        if (isCollapsed && bar.hasChildError)
+                          const Padding(
+                            padding: EdgeInsets.only(right: 4),
+                            child: Icon(
+                              Icons.circle,
+                              size: 6,
+                              color: AppColors.error,
+                            ),
+                          )
+                        else
+                          const SizedBox(width: 4),
+                        Icon(
+                          _getNodeIcon(bar.type),
+                          size: 12,
+                          color: _getNodeColor(bar.type),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  bar.spanName,
+                                  style: TextStyle(
+                                    color: bar.isError || bar.hasChildError
+                                        ? AppColors.error
+                                        : AppColors.textPrimary,
+                                    fontSize: 11,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (bar.span.attributes.containsKey(
+                                'gen_ai.request.model',
+                              )) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                    vertical: 1,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.textMuted.withValues(
+                                      alpha: 0.15,
+                                    ),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(
+                                      color: AppColors.surfaceBorder,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    bar.span.attributes['gen_ai.request.model']
+                                        .toString(),
+                                    style: const TextStyle(
+                                      fontSize: 9,
+                                      color: AppColors.textMuted,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                              if (bar.totalInputTokens > 0 ||
+                                  bar.totalOutputTokens > 0) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                    vertical: 1,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.secondaryPurple.withValues(
+                                      alpha: 0.15,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    '${_formatTokens(bar.totalInputTokens + bar.totalOutputTokens)} tok',
+                                    style: const TextStyle(
+                                      fontSize: 9,
+                                      color: AppColors.secondaryPurple,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
             Expanded(
@@ -1071,74 +1328,38 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
                   builder: (context, constraints) {
                     final width = constraints.maxWidth;
                     final left = (bar.startOffsetMs / _totalDurationMs) * width;
-                    final barWidth = (bar.durationMs / _totalDurationMs) * width;
-
-                    final safeWidth = math.max(barWidth, 3.0);
-                    final safeLeft = left.clamp(0.0, width);
+                    final barWidth =
+                        (bar.durationMs / _totalDurationMs) * width;
 
                     final barColor = bar.isError
                         ? AppColors.error
                         : (_serviceColors[bar.serviceName] ??
                               AppColors.primaryTeal);
 
-                    return SizedBox(
-                      height: 18,
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          Container(
-                            margin: const EdgeInsets.only(top: 8),
-                            width: width,
-                            height: 1,
-                            color: AppColors.surfaceBorder.withValues(alpha: 0.3),
+                    return Tooltip(
+                      message:
+                          '${bar.spanName}\nService: ${bar.serviceName}\nDuration: ${bar.durationMs.toStringAsFixed(2)}ms\nStatus: ${bar.status}',
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.backgroundCard,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppColors.surfaceBorder),
+                      ),
+                      textStyle: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 11,
+                      ),
+                      child: SizedBox(
+                        height: 24,
+                        width: width,
+                        child: CustomPaint(
+                          painter: _WaterfallBarPainter(
+                            startOffset: left,
+                            barWidth: barWidth,
+                            color: barColor,
+                            durationMs: bar.durationMs,
                           ),
-                          Positioned(
-                            left: safeLeft,
-                            width: safeWidth,
-                            top: 2,
-                            bottom: 2,
-                            child: Tooltip(
-                              message:
-                                  '${bar.spanName}\nService: ${bar.serviceName}\nDuration: ${bar.durationMs.toStringAsFixed(2)}ms\nStatus: ${bar.status}',
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: AppColors.backgroundCard,
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                  color: AppColors.surfaceBorder,
-                                ),
-                              ),
-                              textStyle: const TextStyle(
-                                color: AppColors.textPrimary,
-                                fontSize: 11,
-                              ),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: barColor.withValues(alpha: 0.7),
-                                  border: Border.all(color: barColor, width: 1),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                              ),
-                            ),
-                          ),
-                          if (safeLeft + safeWidth + 40 < width)
-                            Positioned(
-                              left: safeLeft + safeWidth + 4,
-                              top: 2,
-                              child: Tooltip(
-                                message: '${bar.durationMs.toStringAsFixed(2)}ms',
-                                child: Text(
-                                  '${bar.durationMs.toStringAsFixed(2)}ms',
-                                  style: const TextStyle(
-                                    color: AppColors.textMuted,
-                                    fontSize: 9,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.visible,
-                                ),
-                              ),
-                            ),
-                        ],
+                        ),
                       ),
                     );
                   },
@@ -1150,6 +1371,37 @@ class _TraceWaterfallState extends State<TraceWaterfall> {
     );
   }
 
+  IconData _getNodeIcon(String type) {
+    switch (type) {
+      case 'agent':
+        return Icons.smart_toy;
+      case 'llm':
+        return Icons.auto_awesome;
+      case 'tool':
+        return Icons.build;
+      default:
+        return Icons.circle;
+    }
+  }
+
+  Color _getNodeColor(String type) {
+    switch (type) {
+      case 'agent':
+        return AppColors.primaryTeal;
+      case 'llm':
+        return AppColors.secondaryPurple;
+      case 'tool':
+        return AppColors.warning;
+      default:
+        return AppColors.textMuted;
+    }
+  }
+
+  String _formatTokens(int tokens) {
+    if (tokens >= 1000000) return '${(tokens / 1000000).toStringAsFixed(1)}M';
+    if (tokens >= 1000) return '${(tokens / 1000).toStringAsFixed(1)}k';
+    return tokens.toString();
+  }
 }
 
 /// A side-panel that displays detailed metrics for a single span within a trace.
@@ -1235,8 +1487,11 @@ class _SpanDetailPanelState extends State<_SpanDetailPanel> {
             offset: const Offset(0, 4),
           ),
           BoxShadow(
-            color: (widget.span.status == 'ERROR' ? AppColors.error : widget.serviceColor)
-                .withValues(alpha: 0.15),
+            color:
+                (widget.span.status == 'ERROR'
+                        ? AppColors.error
+                        : widget.serviceColor)
+                    .withValues(alpha: 0.15),
             blurRadius: 24,
             spreadRadius: -4,
           ),
@@ -1264,32 +1519,34 @@ class _SpanDetailPanelState extends State<_SpanDetailPanel> {
               isScrollable: true,
             ),
             Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: TabBarView(
-                    children: [
-                      _buildOverviewTab(),
-                      _buildAttributesTab(),
-                      _buildLogsTab(),
-                    ],
-                  ),
-                ),
-                if (_hasSemanticAttributes())
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Expanded(
-                    flex: 2,
-                    child: Container(
-                      decoration: const BoxDecoration(
-                        border: Border(left: BorderSide(color: AppColors.surfaceBorder)),
-                      ),
-                      child: _buildSemanticAttributesPane(),
+                    flex: 3,
+                    child: TabBarView(
+                      children: [
+                        _buildOverviewTab(),
+                        _buildAttributesTab(),
+                        _buildLogsTab(),
+                      ],
                     ),
                   ),
-              ],
+                  if (_hasSemanticAttributes())
+                    Expanded(
+                      flex: 2,
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          border: Border(
+                            left: BorderSide(color: AppColors.surfaceBorder),
+                          ),
+                        ),
+                        child: _buildSemanticAttributesPane(),
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
           ],
         ),
       ),
@@ -1331,7 +1588,11 @@ class _SpanDetailPanelState extends State<_SpanDetailPanel> {
                 ),
                 Text(
                   'Span ID: ${widget.span.spanId}',
-                  style: const TextStyle(fontSize: 10, color: AppColors.textMuted, fontFamily: 'monospace'),
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: AppColors.textMuted,
+                    fontFamily: 'monospace',
+                  ),
                 ),
               ],
             ),
@@ -1379,7 +1640,10 @@ class _SpanDetailPanelState extends State<_SpanDetailPanel> {
   Widget _buildAttributesTab() {
     if (widget.span.attributes.isEmpty) {
       return const Center(
-        child: Text('No attributes', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+        child: Text(
+          'No attributes',
+          style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+        ),
       );
     }
 
@@ -1400,14 +1664,22 @@ class _SpanDetailPanelState extends State<_SpanDetailPanel> {
                 flex: 2,
                 child: SelectableText(
                   key,
-                  style: const TextStyle(fontSize: 11, color: AppColors.textPrimary, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               Expanded(
                 flex: 3,
                 child: SelectableText(
                   '$value',
-                  style: const TextStyle(fontSize: 11, color: AppColors.textSecondary, fontFamily: 'monospace'),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textSecondary,
+                    fontFamily: 'monospace',
+                  ),
                 ),
               ),
             ],
@@ -1418,7 +1690,12 @@ class _SpanDetailPanelState extends State<_SpanDetailPanel> {
   }
 
   bool _hasSemanticAttributes() {
-    return widget.span.attributes.keys.any((k) => k.startsWith('gen_ai.') || k.startsWith('http.') || k.startsWith('db.'));
+    return widget.span.attributes.keys.any(
+      (k) =>
+          k.startsWith('gen_ai.') ||
+          k.startsWith('http.') ||
+          k.startsWith('db.'),
+    );
   }
 
   Widget _buildSemanticAttributesPane() {
@@ -1428,6 +1705,8 @@ class _SpanDetailPanelState extends State<_SpanDetailPanel> {
 
     int? inputTokens;
     int? outputTokens;
+    String? prompt;
+    String? completion;
 
     for (final entry in widget.span.attributes.entries) {
       if (entry.key.startsWith('gen_ai.')) {
@@ -1435,6 +1714,10 @@ class _SpanDetailPanelState extends State<_SpanDetailPanel> {
           inputTokens = int.tryParse(entry.value.toString());
         } else if (entry.key == 'gen_ai.usage.output_tokens') {
           outputTokens = int.tryParse(entry.value.toString());
+        } else if (entry.key == 'gen_ai.prompt') {
+          prompt = entry.value.toString();
+        } else if (entry.key == 'gen_ai.completion') {
+          completion = entry.value.toString();
         } else {
           genAiAttrs[entry.key] = entry.value;
         }
@@ -1460,7 +1743,79 @@ class _SpanDetailPanelState extends State<_SpanDetailPanel> {
           const SizedBox(height: 6),
           Text(
             '${(inputTokens ?? 0) / 1000}K (in), ${(outputTokens ?? 0)} (out)',
-            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+            style: const TextStyle(
+              fontSize: 11,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+        if (prompt != null) ...[
+          const Text(
+            'Prompt',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: AppColors.surfaceBorder),
+            ),
+            child: MarkdownBody(
+              data: prompt,
+              styleSheet: MarkdownStyleSheet(
+                p: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 11,
+                ),
+                code: const TextStyle(
+                  color: AppColors.primaryTeal,
+                  fontSize: 10,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+
+        if (completion != null) ...[
+          const Text(
+            'Completion',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: AppColors.surfaceBorder),
+            ),
+            child: MarkdownBody(
+              data: completion,
+              styleSheet: MarkdownStyleSheet(
+                p: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 11,
+                ),
+                code: const TextStyle(
+                  color: AppColors.secondaryPurple,
+                  fontSize: 10,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ),
           ),
           const SizedBox(height: 16),
         ],
@@ -1548,20 +1903,73 @@ class _SpanDetailPanelState extends State<_SpanDetailPanel> {
 
   Widget _buildLogsTab() {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(strokeWidth: 2),
-      );
+      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
     }
     if (_logs == null || _logs!.isEmpty) {
       return const Center(
-        child: Text('No logs or events found for this span', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+        child: Text(
+          'No logs or events found for this span',
+          style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+        ),
+      );
+    }
+
+    final reasoningLogs = _logs!
+        .where(
+          (l) => l.payload is Map && l.payload['kind'] == 'agent_reasoning',
+        )
+        .toList();
+    final systemLogs = _logs!
+        .where(
+          (l) => !(l.payload is Map && l.payload['kind'] == 'agent_reasoning'),
+        )
+        .toList();
+
+    return DefaultTabController(
+      length: 2,
+      child: Column(
+        children: [
+          const TabBar(
+            tabs: [
+              Tab(text: 'Reasoning'),
+              Tab(text: 'System'),
+            ],
+            labelColor: AppColors.primaryTeal,
+            unselectedLabelColor: AppColors.textMuted,
+            indicatorColor: AppColors.primaryTeal,
+            dividerColor: Colors.transparent,
+            labelStyle: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+            unselectedLabelStyle: TextStyle(fontSize: 11),
+            tabAlignment: TabAlignment.start,
+            isScrollable: true,
+          ),
+          Expanded(
+            child: TabBarView(
+              children: [
+                _buildLogList(reasoningLogs, true),
+                _buildLogList(systemLogs, false),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLogList(List<LogEntry> logs, bool isReasoning) {
+    if (logs.isEmpty) {
+      return Center(
+        child: Text(
+          isReasoning ? 'No reasoning events' : 'No system logs',
+          style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+        ),
       );
     }
     return ListView.builder(
       padding: const EdgeInsets.all(14),
-      itemCount: _logs!.length,
+      itemCount: logs.length,
       itemBuilder: (context, index) {
-        final log = _logs![index];
+        final log = logs[index];
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(12),
@@ -1576,9 +1984,14 @@ class _SpanDetailPanelState extends State<_SpanDetailPanel> {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
-                      color: _getSeverityColor(log.severity).withValues(alpha: 0.2),
+                      color: _getSeverityColor(
+                        log.severity,
+                      ).withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
@@ -1586,14 +1999,17 @@ class _SpanDetailPanelState extends State<_SpanDetailPanel> {
                       style: TextStyle(
                         fontSize: 9,
                         fontWeight: FontWeight.bold,
-                        color: _getSeverityColor(log.severity)
+                        color: _getSeverityColor(log.severity),
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Text(
                     log.timestamp.toLocal().toString(),
-                    style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: AppColors.textMuted,
+                    ),
                   ),
                 ],
               ),
@@ -1603,7 +2019,11 @@ class _SpanDetailPanelState extends State<_SpanDetailPanel> {
               else
                 SelectableText(
                   log.payload.toString(),
-                  style: const TextStyle(fontSize: 11, color: AppColors.textPrimary, fontFamily: 'monospace'),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textPrimary,
+                    fontFamily: 'monospace',
+                  ),
                 ),
             ],
           ),
@@ -1614,11 +2034,30 @@ class _SpanDetailPanelState extends State<_SpanDetailPanel> {
 
   Widget _buildJsonLogPayload(dynamic payload) {
     if (payload is Map) {
+      if (payload['kind'] == 'agent_reasoning' &&
+          payload.containsKey('message')) {
+        return MarkdownBody(
+          data: payload['message'].toString(),
+          styleSheet: MarkdownStyleSheet(
+            p: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+            code: const TextStyle(
+              color: AppColors.primaryCyan,
+              fontSize: 10,
+              fontFamily: 'monospace',
+            ),
+          ),
+        );
+      }
+
       // Very basic formatting for JSON payloads
       final formatted = const JsonEncoder.withIndent('  ').convert(payload);
       return SelectableText(
         formatted,
-        style: const TextStyle(fontSize: 11, color: AppColors.textSecondary, fontFamily: 'monospace'),
+        style: const TextStyle(
+          fontSize: 11,
+          color: AppColors.textSecondary,
+          fontFamily: 'monospace',
+        ),
       );
     }
     return SelectableText(payload.toString());
@@ -1655,7 +2094,11 @@ class _SpanDetailPanelState extends State<_SpanDetailPanel> {
         children: [
           Text(
             label,
-            style: const TextStyle(fontSize: 9, color: AppColors.textMuted, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+              fontSize: 9,
+              color: AppColors.textMuted,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 2),
           Text(

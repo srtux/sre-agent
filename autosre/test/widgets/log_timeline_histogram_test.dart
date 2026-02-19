@@ -193,11 +193,17 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Drag downward on the widget to trigger the resize handle.
+      // Drag downward on the resize handle specifically (bottom of the widget).
+      final handleFinder = find
+          .descendant(
+            of: find.byType(LogTimelineHistogram),
+            matching: find.byType(GestureDetector),
+          )
+          .last;
+
       await tester.drag(
-        find.byType(LogTimelineHistogram),
+        handleFinder,
         const Offset(0, 50),
-        warnIfMissed: false,
       );
       await tester.pumpAndSettle();
 

@@ -525,12 +525,15 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
             children: [
               Icon(icon, size: 12, color: color),
               const SizedBox(width: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color: color,
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -583,7 +586,7 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
     VoidCallback? onTapAggregate,
   }) {
     // Dim index badge: show [1], [2] … for dimensions to indicate role.
-    final String? dimBadge = !isMeasure ? '[${index + 1}]' : null;
+    final dimBadge = !isMeasure ? '[${index + 1}]' : null;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
@@ -662,7 +665,7 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
       case null:
         return 'SUM';
       default:
-        return fn!.name.toUpperCase();
+        return fn.name.toUpperCase();
     }
   }
 
@@ -678,7 +681,7 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
         .toList();
 
     // Measures also offer a COUNT(*) virtual field that doesn't need a column.
-    final bool canAddCountStar =
+    final canAddCountStar =
         isMeasure && !_measures.any((m) => m.aggregate == AggregateFunction.countStar);
 
     if (available.isEmpty && !canAddCountStar) return const SizedBox.shrink();
@@ -715,7 +718,7 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
             height: 32,
             child: Row(
               children: [
-                Icon(
+                const Icon(
                   Icons.tag_rounded,
                   size: 12,
                   color: AppColors.warning,
@@ -854,12 +857,15 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
                 color: AppColors.secondaryPurple,
               ),
               SizedBox(width: 4),
-              Text(
-                'Filters',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.secondaryPurple,
+              Expanded(
+                child: Text(
+                  'Filters',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.secondaryPurple,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -1246,9 +1252,10 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
     }
 
     // Stacked / grouped bar charts need a 2nd dimension for series colouring.
-    final bool needsSecondDim = _chartType == ExplorerChartType.stackedBar ||
+    final needsSecondDim =
+        _chartType == ExplorerChartType.stackedBar ||
         _chartType == ExplorerChartType.groupedBar;
-    final bool hasSecondDim = _dimensions.length >= 2;
+    final hasSecondDim = _dimensions.length >= 2;
 
     if (needsSecondDim && !hasSecondDim) {
       return Center(
