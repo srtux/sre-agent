@@ -1497,16 +1497,25 @@ def transform_agent_trace(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def transform_agent_graph(data: dict[str, Any]) -> dict[str, Any]:
-    """Transform AgentInteractionGraph into nodes + edges for the graph widget.
+    """Transform AgentInteractionGraph into a hierarchical graph for progressive disclosure.
 
-    Deduplicates agents, tools, and models into graph nodes, and extracts
-    relationships from the span tree into directed edges.
+    Builds a scoped dependency graph where each agent's tools, models, and
+    sub-agents are grouped under their parent agent. This enables progressive
+    disclosure in the UI: initially only the user and root agents are shown,
+    and expanding an agent reveals its direct children (tools, models,
+    sub-agents). Sub-agents can be further expanded to reveal their own scope.
+
+    Node IDs use scoped naming for tools and models (e.g. ``tool:get_trace@sre_agent``)
+    so the same tool used by different agents appears as separate nodes in their
+    respective scopes.
 
     Args:
         data: AgentInteractionGraph dict (or wrapped in status/result).
 
     Returns:
-        Dict with nodes and edges lists for the graph widget.
+        Dict with nodes, edges, and root_agent_name for the graph widget.
+        Each node includes ``depth``, ``parent_agent_id``, ``children_count``,
+        and ``expandable`` fields for progressive disclosure.
     """
     # Unwrap
     if "status" in data and "result" in data:
@@ -1522,7 +1531,7 @@ def transform_agent_graph(data: dict[str, Any]) -> dict[str, Any]:
     node_map: dict[str, dict[str, Any]] = {}
     edge_map: dict[str, dict[str, Any]] = {}
 
-    # Always add a "user" node
+    # Always add a "user" node at depth 0
     node_map["user"] = {
         "id": "user",
         "label": "User",
@@ -1530,9 +1539,20 @@ def transform_agent_graph(data: dict[str, Any]) -> dict[str, Any]:
         "total_tokens": None,
         "call_count": None,
         "has_error": False,
+        "depth": 0,
+        "parent_agent_id": None,
+        "children_count": 0,
+        "expandable": False,
     }
 
-    def _ensure_node(node_id: str, label: str, node_type: str) -> dict[str, Any]:
+    def _ensure_node(
+        node_id: str,
+        label: str,
+        node_type: str,
+        *,
+        depth: int = 0,
+        parent_agent_id: str | None = None,
+    ) -> dict[str, Any]:
         if node_id not in node_map:
             node_map[node_id] = {
                 "id": node_id,
@@ -1541,6 +1561,10 @@ def transform_agent_graph(data: dict[str, Any]) -> dict[str, Any]:
                 "total_tokens": 0,
                 "call_count": 0,
                 "has_error": False,
+                "depth": depth,
+                "parent_agent_id": parent_agent_id,
+                "children_count": 0,
+                "expandable": False,
             }
         return node_map[node_id]
 
@@ -1572,7 +1596,11 @@ def transform_agent_graph(data: dict[str, Any]) -> dict[str, Any]:
         if has_error:
             edge["has_error"] = True
 
-    def _walk(span: dict[str, Any], parent_agent: str | None = None) -> None:
+    def _walk(
+        span: dict[str, Any],
+        parent_agent: str | None = None,
+        depth: int = 1,
+    ) -> None:
         kind = span.get("kind", "unknown")
         agent_name = span.get("agent_name")
         tool_name = span.get("tool_name")
@@ -1582,7 +1610,16 @@ def transform_agent_graph(data: dict[str, Any]) -> dict[str, Any]:
         duration = span.get("duration_ms", 0)
 
         if kind in ("agent_invocation", "sub_agent_delegation") and agent_name:
-            node = _ensure_node(f"agent:{agent_name}", agent_name, "agent")
+            agent_node_id = f"agent:{agent_name}"
+            parent_id = f"agent:{parent_agent}" if parent_agent else None
+            node_type = "sub_agent" if parent_agent else "agent"
+            node = _ensure_node(
+                agent_node_id,
+                agent_name,
+                node_type,
+                depth=depth,
+                parent_agent_id=parent_id,
+            )
             node["total_tokens"] = (node["total_tokens"] or 0) + tokens
             node["call_count"] = (node["call_count"] or 0) + 1
             if has_error:
@@ -1591,7 +1628,7 @@ def transform_agent_graph(data: dict[str, Any]) -> dict[str, Any]:
             if parent_agent:
                 _add_edge(
                     f"agent:{parent_agent}",
-                    f"agent:{agent_name}",
+                    agent_node_id,
                     "delegates_to",
                     duration,
                     tokens,
@@ -1601,17 +1638,30 @@ def transform_agent_graph(data: dict[str, Any]) -> dict[str, Any]:
                 # Root agent invoked by user
                 _add_edge(
                     "user",
-                    f"agent:{agent_name}",
+                    agent_node_id,
                     "invokes",
                     duration,
                     tokens,
                     has_error,
                 )
 
-            parent_agent = agent_name
+            # Children of this agent are one depth level deeper
+            for child in span.get("children", []):
+                _walk(child, agent_name, depth + 1)
+            return
 
-        elif kind == "tool_execution" and tool_name:
-            node = _ensure_node(f"tool:{tool_name}", tool_name, "tool")
+        if kind == "tool_execution" and tool_name:
+            # Scope tool nodes per parent agent
+            scope = parent_agent or "_root"
+            tool_node_id = f"tool:{tool_name}@{scope}"
+            parent_id = f"agent:{parent_agent}" if parent_agent else None
+            node = _ensure_node(
+                tool_node_id,
+                tool_name,
+                "tool",
+                depth=depth,
+                parent_agent_id=parent_id,
+            )
             node["call_count"] = (node["call_count"] or 0) + 1
             if has_error:
                 node["has_error"] = True
@@ -1619,7 +1669,7 @@ def transform_agent_graph(data: dict[str, Any]) -> dict[str, Any]:
             if parent_agent:
                 _add_edge(
                     f"agent:{parent_agent}",
-                    f"tool:{tool_name}",
+                    tool_node_id,
                     "calls",
                     duration,
                     tokens,
@@ -1627,14 +1677,24 @@ def transform_agent_graph(data: dict[str, Any]) -> dict[str, Any]:
                 )
 
         elif kind == "llm_call" and model:
-            node = _ensure_node(f"model:{model}", model, "llm_model")
+            # Scope model nodes per parent agent
+            scope = parent_agent or "_root"
+            model_node_id = f"model:{model}@{scope}"
+            parent_id = f"agent:{parent_agent}" if parent_agent else None
+            node = _ensure_node(
+                model_node_id,
+                model,
+                "llm_model",
+                depth=depth,
+                parent_agent_id=parent_id,
+            )
             node["total_tokens"] = (node["total_tokens"] or 0) + tokens
             node["call_count"] = (node["call_count"] or 0) + 1
 
             if parent_agent:
                 _add_edge(
                     f"agent:{parent_agent}",
-                    f"model:{model}",
+                    model_node_id,
                     "generates",
                     duration,
                     tokens,
@@ -1642,14 +1702,39 @@ def transform_agent_graph(data: dict[str, Any]) -> dict[str, Any]:
                 )
 
         for child in span.get("children", []):
-            _walk(child, parent_agent)
+            _walk(child, parent_agent, depth)
 
     for root in root_spans:
         _walk(root)
 
-    # Clean up internal tracking fields from edges
+    # Compute children_count and expandable for agent nodes
+    for node_id, node in node_map.items():
+        if node["type"] in ("agent", "sub_agent"):
+            children = [
+                n for n in node_map.values() if n.get("parent_agent_id") == node_id
+            ]
+            node["children_count"] = len(children)
+            node["expandable"] = len(children) > 0
+
+    # Update user node: its children are the root agents (depth 1, no parent)
+    root_agents = [
+        n
+        for n in node_map.values()
+        if n["type"] in ("agent", "sub_agent")
+        and n.get("parent_agent_id") is None
+        and n["id"] != "user"
+    ]
+    node_map["user"]["children_count"] = len(root_agents)
+
+    # Clean up internal tracking fields from edges; compute edge depth
     edges = []
     for edge in edge_map.values():
+        source_node = node_map.get(edge["source_id"], {})
+        target_node = node_map.get(edge["target_id"], {})
+        edge_depth = max(
+            source_node.get("depth", 0),
+            target_node.get("depth", 0),
+        )
         edges.append(
             {
                 "source_id": edge["source_id"],
@@ -1659,6 +1744,7 @@ def transform_agent_graph(data: dict[str, Any]) -> dict[str, Any]:
                 "avg_duration_ms": round(edge["avg_duration_ms"], 2),
                 "total_tokens": edge["total_tokens"],
                 "has_error": edge["has_error"],
+                "depth": edge_depth,
             }
         )
 

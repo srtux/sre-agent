@@ -281,6 +281,12 @@ final class AgentTraceData {
 }
 
 /// A node in the agent dependency graph.
+///
+/// Supports progressive disclosure: agent/sub_agent nodes may be [expandable],
+/// with [childrenCount] indicating how many scoped children (tools, models,
+/// sub-agents) are hidden until the node is expanded. [parentAgentId]
+/// identifies which agent scope owns this node, and [depth] encodes the
+/// hierarchy level (0 = user, 1 = root agent, 2+ = deeper).
 final class AgentGraphNode {
   final String id;
   final String label;
@@ -289,6 +295,18 @@ final class AgentGraphNode {
   final int? callCount;
   final bool hasError;
 
+  /// Hierarchy depth: 0 = user, 1 = root agents, 2+ = deeper scopes.
+  final int depth;
+
+  /// The agent node ID that owns this node's scope (null for user/root agents).
+  final String? parentAgentId;
+
+  /// Number of direct children hidden behind this node (tools + models + sub-agents).
+  final int childrenCount;
+
+  /// Whether this node can be expanded to reveal children.
+  final bool expandable;
+
   AgentGraphNode({
     required this.id,
     required this.label,
@@ -296,6 +314,10 @@ final class AgentGraphNode {
     this.totalTokens,
     this.callCount,
     required this.hasError,
+    this.depth = 0,
+    this.parentAgentId,
+    this.childrenCount = 0,
+    this.expandable = false,
   });
 
   factory AgentGraphNode.fromJson(Map<String, dynamic> json) {
@@ -306,6 +328,10 @@ final class AgentGraphNode {
       totalTokens: (json['total_tokens'] as num?)?.toInt(),
       callCount: (json['call_count'] as num?)?.toInt(),
       hasError: json['has_error'] as bool? ?? false,
+      depth: (json['depth'] as num?)?.toInt() ?? 0,
+      parentAgentId: json['parent_agent_id'] as String?,
+      childrenCount: (json['children_count'] as num?)?.toInt() ?? 0,
+      expandable: json['expandable'] as bool? ?? false,
     );
   }
 
@@ -319,11 +345,17 @@ final class AgentGraphNode {
           type == other.type &&
           totalTokens == other.totalTokens &&
           callCount == other.callCount &&
-          hasError == other.hasError;
+          hasError == other.hasError &&
+          depth == other.depth &&
+          parentAgentId == other.parentAgentId &&
+          childrenCount == other.childrenCount &&
+          expandable == other.expandable;
 
   @override
-  int get hashCode =>
-      Object.hash(id, label, type, totalTokens, callCount, hasError);
+  int get hashCode => Object.hash(
+    id, label, type, totalTokens, callCount, hasError,
+    depth, parentAgentId, childrenCount, expandable,
+  );
 }
 
 /// An edge in the agent dependency graph.
@@ -336,6 +368,10 @@ final class AgentGraphEdge {
   final int? totalTokens;
   final bool hasError;
 
+  /// The max depth of source/target nodes. Used for progressive disclosure
+  /// filtering — edges are only shown when both endpoints are visible.
+  final int depth;
+
   AgentGraphEdge({
     required this.sourceId,
     required this.targetId,
@@ -344,6 +380,7 @@ final class AgentGraphEdge {
     required this.avgDurationMs,
     this.totalTokens,
     required this.hasError,
+    this.depth = 0,
   });
 
   factory AgentGraphEdge.fromJson(Map<String, dynamic> json) {
@@ -355,6 +392,7 @@ final class AgentGraphEdge {
       avgDurationMs: (json['avg_duration_ms'] as num?)?.toDouble() ?? 0,
       totalTokens: (json['total_tokens'] as num?)?.toInt(),
       hasError: json['has_error'] as bool? ?? false,
+      depth: (json['depth'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -369,7 +407,8 @@ final class AgentGraphEdge {
           callCount == other.callCount &&
           avgDurationMs == other.avgDurationMs &&
           totalTokens == other.totalTokens &&
-          hasError == other.hasError;
+          hasError == other.hasError &&
+          depth == other.depth;
 
   @override
   int get hashCode => Object.hash(
@@ -380,6 +419,7 @@ final class AgentGraphEdge {
     avgDurationMs,
     totalTokens,
     hasError,
+    depth,
   );
 }
 
