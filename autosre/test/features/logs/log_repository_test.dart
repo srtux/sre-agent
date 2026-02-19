@@ -74,10 +74,40 @@ void main() {
       expect(mockDio.lastPath, '/api/tools/logs/query');
       expect(mockDio.lastParams?['filter'], 'severity=ERROR');
       expect(mockDio.lastParams?['project_id'], 'test-project');
+      // No page_token or cursor fields sent for a plain query
+      expect(mockDio.lastParams?.containsKey('page_token'), false);
+      expect(mockDio.lastParams?.containsKey('cursor_timestamp'), false);
 
       expect(result.entries.length, 1);
       expect(result.entries.first.payload, 'Test log');
-      expect(result.nextPageToken, 'token123');
+    });
+
+    test('queryLogs sends cursor_timestamp when provided', () async {
+      final cursor = DateTime.utc(2026, 2, 16, 12, 0, 0);
+      await repository.queryLogs(
+        filter: 'severity=ERROR',
+        projectId: 'test-project',
+        cursorTimestamp: cursor,
+        cursorInsertId: 'abc123',
+      );
+
+      expect(
+        mockDio.lastParams?['cursor_timestamp'],
+        '2026-02-16T12:00:00.000Z',
+      );
+      expect(mockDio.lastParams?['cursor_insert_id'], 'abc123');
+      // minutes_ago must NOT be sent when cursor is provided
+      expect(mockDio.lastParams?.containsKey('minutes_ago'), false);
+    });
+
+    test('queryLogs sends minutes_ago when no cursor provided', () async {
+      await repository.queryLogs(
+        filter: 'severity=ERROR',
+        minutesAgo: 30,
+      );
+
+      expect(mockDio.lastParams?['minutes_ago'], 30);
+      expect(mockDio.lastParams?.containsKey('cursor_timestamp'), false);
     });
 
     test('queryLogs throws exception on 500 error', () async {

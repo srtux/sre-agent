@@ -12,7 +12,11 @@ abstract class LogNotifierState with _$LogNotifierState {
     @Default([]) List<LogEntry> entries,
     @Default(false) bool isLoading,
     String? error,
-    String? nextPageToken,
+    /// Timestamp of the oldest loaded entry; used as the cursor for
+    /// loading older entries (cursor-based pagination).
+    DateTime? oldestEntryTimestamp,
+    String? oldestEntryInsertId,
+    @Default(false) bool noMoreOldEntries,
     String? currentFilter,
     String? projectId,
   }) = _LogNotifierState;
@@ -32,6 +36,8 @@ class LogNotifier extends _$LogNotifier {
     String? filter,
     String? projectId,
     bool append = false,
+    int minutesAgo = 15,
+    int limit = 50,
   }) async {
     state = state.copyWith(
       isLoading: true,
@@ -44,13 +50,32 @@ class LogNotifier extends _$LogNotifier {
       final data = await _repository.queryLogs(
         filter: state.currentFilter ?? '',
         projectId: state.projectId,
-        pageToken: append ? state.nextPageToken : null,
+        cursorTimestamp: append ? state.oldestEntryTimestamp : null,
+        cursorInsertId: append ? state.oldestEntryInsertId : null,
+        limit: limit,
+        minutesAgo: append ? null : minutesAgo,
       );
 
+      final allEntries =
+          append ? [...state.entries, ...data.entries] : data.entries;
+
+      // Track the oldest entry for next cursor page
+      DateTime? oldestTs;
+      String? oldestId;
+      if (allEntries.isNotEmpty) {
+        final oldest = allEntries.reduce(
+          (a, b) => a.timestamp.isBefore(b.timestamp) ? a : b,
+        );
+        oldestTs = oldest.timestamp;
+        oldestId = oldest.insertId;
+      }
+
       state = state.copyWith(
-        entries: append ? [...state.entries, ...data.entries] : data.entries,
+        entries: allEntries,
         isLoading: false,
-        nextPageToken: data.nextPageToken,
+        oldestEntryTimestamp: oldestTs,
+        oldestEntryInsertId: oldestId,
+        noMoreOldEntries: data.entries.length < limit,
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -58,7 +83,9 @@ class LogNotifier extends _$LogNotifier {
   }
 
   void loadMore() {
-    if (state.nextPageToken != null && !state.isLoading) {
+    if (!state.noMoreOldEntries &&
+        !state.isLoading &&
+        state.entries.isNotEmpty) {
       fetchLogs(append: true);
     }
   }

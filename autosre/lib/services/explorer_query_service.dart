@@ -120,27 +120,47 @@ class ExplorerQueryService {
     }
   }
 
-  Future<void> queryLogs({
+  /// Queries log entries from the backend.
+  ///
+  /// When [cursorTimestamp] + [cursorInsertId] are supplied the request uses
+  /// cursor-based pagination (entries *older* than the cursor) and the result
+  /// is **appended** to the existing buffer.  When they are absent a fresh
+  /// query is performed and the buffer is replaced.
+  ///
+  /// Returns `true` if more entries may exist (i.e. the backend returned a
+  /// full page), `false` when fewer than [limit] entries came back.
+  Future<bool> queryLogs({
     required String filter,
     String? projectId,
-    String? pageToken,
+    DateTime? cursorTimestamp,
+    String? cursorInsertId,
     int? limit,
     TimeRange? timeRange,
   }) async {
     final range = timeRange ?? _dashboardState.timeRange;
+    final bool isCursorPage = cursorTimestamp != null;
+    final int fetchLimit = limit ?? 50;
+
     _dashboardState.setLoading(DashboardDataType.logs, true);
     try {
       final payload = <String, dynamic>{
         'filter': filter,
         'project_id': projectId,
-        'minutes_ago': range.minutesAgo,
+        'limit': fetchLimit,
       };
-      if (pageToken != null) {
-        payload['page_token'] = pageToken;
+
+      if (isCursorPage) {
+        // Cursor-based pagination: tell the backend where to continue from.
+        // Do NOT send minutes_ago — the cursor is the time boundary.
+        payload['cursor_timestamp'] =
+            cursorTimestamp.toUtc().toIso8601String();
+        if (cursorInsertId != null) {
+          payload['cursor_insert_id'] = cursorInsertId;
+        }
+      } else {
+        payload['minutes_ago'] = range.minutesAgo;
       }
-      if (limit != null) {
-        payload['limit'] = limit;
-      }
+
       final body = jsonEncode(payload);
       final response = await _post('/api/tools/logs/query', body);
 
@@ -148,7 +168,7 @@ class ExplorerQueryService {
       final logData = await AppIsolate.run(_parseLogEntries, response.body);
 
       _dashboardState.batch(() {
-        if (pageToken != null) {
+        if (isCursorPage) {
           _dashboardState.appendLogEntries(
             logData,
             'manual_query',
@@ -166,9 +186,13 @@ class ExplorerQueryService {
         _dashboardState.openDashboard();
         _dashboardState.setActiveTab(DashboardDataType.logs);
       });
+
+      // A full page suggests there may be more entries to load.
+      return logData.entries.length >= fetchLimit;
     } catch (e) {
       _dashboardState.setError(DashboardDataType.logs, e.toString());
       debugPrint('ExplorerQueryService.queryLogs error: $e');
+      return false;
     } finally {
       _dashboardState.setLoading(DashboardDataType.logs, false);
     }
