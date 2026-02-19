@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../theme/app_theme.dart';
+import '../../../services/explorer_query_service.dart';
 import '../domain/models.dart';
 
 /// Right-hand detail panel showing full metadata for a selected node or edge.
@@ -34,8 +36,8 @@ class AgentGraphDetailsPanel extends StatelessWidget {
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: switch (sel) {
-                SelectedNode(:final node) => _buildNodeDetail(node),
-                SelectedEdge(:final edge) => _buildEdgeDetail(edge),
+                SelectedNode(:final node) => _buildNodeDetail(context, node),
+                SelectedEdge(:final edge) => _buildEdgeDetail(context, edge),
               },
             ),
           ),
@@ -102,7 +104,7 @@ class AgentGraphDetailsPanel extends StatelessWidget {
   // Node detail
   // ---------------------------------------------------------------------------
 
-  Widget _buildNodeDetail(MultiTraceNode node) {
+  Widget _buildNodeDetail(BuildContext context, MultiTraceNode node) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -155,6 +157,29 @@ class AgentGraphDetailsPanel extends StatelessWidget {
             ],
           ],
         ),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: () {
+              // Navigate back to the dashboard trace explorer
+              // Node IDs are typically either tool names like 'BigQueryTool' or agents like 'router'
+              // We'll search traces containing this node name
+              context.read<ExplorerQueryService>().queryTraceFilter(
+                filter: 'text:"${node.id}"',
+              );
+              Navigator.of(context).pop();
+            },
+            icon: const Icon(Icons.travel_explore, size: 16),
+            label: const Text('Explore Traces'),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primaryTeal.withValues(alpha: 0.2),
+              foregroundColor: AppColors.primaryTeal,
+              side: const BorderSide(color: AppColors.primaryTeal),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -163,7 +188,7 @@ class AgentGraphDetailsPanel extends StatelessWidget {
   // Edge detail
   // ---------------------------------------------------------------------------
 
-  Widget _buildEdgeDetail(MultiTraceEdge edge) {
+  Widget _buildEdgeDetail(BuildContext context, MultiTraceEdge edge) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -242,6 +267,27 @@ class AgentGraphDetailsPanel extends StatelessWidget {
             ),
           ),
         ],
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: () {
+              // Navigate back to the dashboard trace explorer
+              context.read<ExplorerQueryService>().queryTraceFilter(
+                filter: 'text:"${edge.sourceId}" text:"${edge.targetId}"',
+              );
+              Navigator.of(context).pop();
+            },
+            icon: const Icon(Icons.travel_explore, size: 16),
+            label: const Text('Explore Traces'),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primaryTeal.withValues(alpha: 0.2),
+              foregroundColor: AppColors.primaryTeal,
+              side: const BorderSide(color: AppColors.primaryTeal),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+          ),
+        ),
       ],
     );
   }

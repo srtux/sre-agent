@@ -135,7 +135,12 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
     final graph = gv.Graph()..isTree = false;
     final gvNodes = <String, gv.Node>{};
 
-    // Create GraphView nodes
+    // Create GraphView nodes and calculate max call count for edge scaling
+    var maxCallCount = 1;
+    for (var e in payload.edges) {
+      if (e.callCount > maxCallCount) maxCallCount = e.callCount;
+    }
+
     for (var n in payload.nodes) {
       final node = gv.Node.Id(n.id);
       gvNodes[n.id] = node;
@@ -162,7 +167,33 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
     for (var n in payload.nodes) {
       final gvNode = gvNodes[n.id];
       if (gvNode != null) {
-        _addFlNode(n.id, Offset(gvNode.x, gvNode.y));
+        // Collect all outgoing edges from this node
+        final outgoingEdges = payload.edges
+            .where((e) => e.sourceId == n.id)
+            .toList();
+
+        // Find if any outgoing edge has errors to color the port/links
+        final hasOutgoingError = outgoingEdges.any((e) => e.errorCount > 0);
+
+        // Find max call count for the outgoing edges from this node specifically to scale the thickness
+        var nodeMaxCallCount = 1;
+        if (outgoingEdges.isNotEmpty) {
+          nodeMaxCallCount = outgoingEdges
+              .map((e) => e.callCount)
+              .reduce((a, b) => a > b ? a : b);
+        }
+
+        var thickness = 2.0;
+        if (maxCallCount > 1) {
+          // Scale from 2.0 to 6.0 based on call count relative to global max
+          thickness = 2.0 + (4.0 * (nodeMaxCallCount / maxCallCount));
+        }
+
+        final linkColor = hasOutgoingError
+            ? AppColors.error
+            : AppColors.primaryTeal.withValues(alpha: 0.6);
+
+        _addFlNode(n.id, Offset(gvNode.x, gvNode.y), linkColor, thickness);
       }
     }
 
@@ -175,22 +206,41 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
     }
   }
 
-  void _addFlNode(String id, Offset offset) {
+  void _addFlNode(
+    String id,
+    Offset offset,
+    Color linkColor,
+    double linkThickness,
+  ) {
     if (_controller.isNodePresent(id)) return;
+
+    final prototype = _controller.nodePrototypes['universal_node']!;
 
     _controller.addNodeFromExisting(
       FlNodeDataModel(
         id: id,
-        prototype: _controller.nodePrototypes['universal_node']!,
+        prototype: prototype,
         ports: {
           'in': FlPortDataModel(
-            prototype: _controller.nodePrototypes['universal_node']!.ports
-                .firstWhere((p) => p.idName == 'in'),
+            prototype: prototype.ports.firstWhere((p) => p.idName == 'in'),
             state: FlPortState(),
           ),
           'out': FlPortDataModel(
-            prototype: _controller.nodePrototypes['universal_node']!.ports
-                .firstWhere((p) => p.idName == 'out'),
+            prototype: FlDataOutputPortPrototype(
+              idName: 'out',
+              displayName: (context) => 'Out',
+              styleBuilder: (state) => FlPortStyle(
+                shape: FlPortShape.circle,
+                color: linkColor,
+                radius: 6,
+                linkStyleBuilder: (state) => FlLinkStyle(
+                  color: linkColor,
+                  lineWidth: linkThickness,
+                  drawMode: FlLineDrawMode.solid,
+                  curveType: FlLinkCurveType.bezier,
+                ),
+              ),
+            ),
             state: FlPortState(),
           ),
         },
@@ -236,7 +286,7 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
     final outPort = nodeData.ports['out'];
 
     Widget content;
-    if (isAgent) {
+    if (isAgent || node.type.toLowerCase() == 'sub_agent') {
       // Pill shape for Agents
       content = Container(
         width: 160,
@@ -293,11 +343,99 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
                 ],
               ),
             ),
+            if (node.hasError) ...[
+              const SizedBox(width: 4),
+              const Icon(Icons.error, color: AppColors.error, size: 14),
+            ],
+          ],
+        ),
+      );
+    } else if (node.type.toLowerCase() == 'llm' ||
+        node.type.toLowerCase() == 'llm_model') {
+      // Distinct Card for LLMs
+      // Try to parse out the model name. Often IDs are like "generate_content gemini-2.5-flash"
+      var displayId = node.id;
+      final parts = node.id.split(' ');
+      if (parts.length > 1 && parts.first.contains('generate_content')) {
+        displayId = parts.sublist(1).join(' '); // e.g., "gemini-2.5-flash"
+      }
+      content = Container(
+        width: 150,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.backgroundCard,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected
+                ? AppColors.secondaryPurple
+                : (node.hasError
+                      ? AppColors.error
+                      : AppColors.secondaryPurple.withValues(alpha: 0.4)),
+            width: isSelected ? 2 : 1,
+          ),
+          boxShadow: [
+            if (isSelected)
+              BoxShadow(
+                color: AppColors.secondaryPurple.withValues(alpha: 0.2),
+                blurRadius: 8,
+                spreadRadius: 2,
+              ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(_nodeIcon(node.type), size: 14, color: color),
+                const SizedBox(width: 6),
+                const Text(
+                  'LLM',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (node.hasError) ...[
+                  const Spacer(),
+                  const Icon(Icons.error, color: AppColors.error, size: 12),
+                ],
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              displayId,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (node.totalTokens > 0) ...[
+              const SizedBox(height: 4),
+              Text(
+                '${_formatTokens(node.totalTokens)} toks',
+                style: TextStyle(
+                  color: AppColors.secondaryPurple.withValues(alpha: 0.8),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ]
           ],
         ),
       );
     } else {
-      // Default card for others (Tools, LLMs)
+      // Distinct Card for Tools
       content = Container(
         width: 140,
         padding: const EdgeInsets.all(8),
@@ -306,16 +444,32 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isSelected
-                ? AppColors.primaryTeal
+                ? AppColors.warning
                 : (node.hasError ? AppColors.error : AppColors.surfaceBorder),
             width: isSelected ? 2 : 1,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 2,
+              offset: const Offset(0, 1),
+            ),
+          ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(_nodeIcon(node.type), size: 16, color: color),
-            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(_nodeIcon(node.type), size: 14, color: color),
+                if (node.hasError) ...[
+                  const SizedBox(width: 4),
+                  const Icon(Icons.error, color: AppColors.error, size: 12),
+                ],
+              ],
+            ),
+            const SizedBox(height: 6),
             Text(
               node.id,
               style: const TextStyle(
@@ -327,6 +481,13 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
+            if (node.totalTokens > 0) ...[
+              const SizedBox(height: 4),
+              Text(
+                '${_formatTokens(node.totalTokens)} toks',
+                style: const TextStyle(color: Colors.white54, fontSize: 10),
+              ),
+            ]
           ],
         ),
       );
