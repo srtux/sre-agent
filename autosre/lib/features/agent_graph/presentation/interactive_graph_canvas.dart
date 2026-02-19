@@ -207,14 +207,17 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
 
     // Auto-center graph
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_controller.nodes.isNotEmpty) {
-        _controller.focusNodesById(
-          _controller.nodes.keys.toSet(),
-          animate: false,
-        );
-        // Deselect all after focusing
-        _controller.clearSelection();
-      }
+      Future.delayed(const Duration(milliseconds: 150), () {
+        if (!mounted) return;
+        if (_controller.nodes.isNotEmpty) {
+          _controller.focusNodesById(
+            _controller.nodes.keys.toSet(),
+            animate: false,
+          );
+          // Deselect all after focusing
+          _controller.clearSelection();
+        }
+      });
     });
   }
 
