@@ -35,6 +35,7 @@ class AgentGraphNotifier extends _$AgentGraphNotifier {
     int? timeRangeHours,
     String? projectId,
   }) async {
+    if (state.isLoading) return;
     final ds = dataset ?? state.dataset;
     final hours = timeRangeHours ?? state.timeRangeHours;
 

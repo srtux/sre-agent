@@ -19,8 +19,10 @@ class InvestigationRail extends StatelessWidget {
         final hasData = state.hasData;
         final counts = state.typeCounts;
 
-        return Container(
-          width: 56,
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeInOut,
+          width: state.isRailExpanded ? 180 : 56,
           decoration: BoxDecoration(
             color: AppColors.backgroundCard.withValues(alpha: 0.8),
             border: Border(
@@ -31,6 +33,7 @@ class InvestigationRail extends StatelessWidget {
             ),
           ),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 12),
               // Main Toggle
@@ -42,6 +45,7 @@ class InvestigationRail extends StatelessWidget {
                 color: AppColors.primaryCyan,
                 isActive: state.isOpen,
                 hasData: hasData,
+                isExpanded: state.isRailExpanded,
                 onTap: state.toggleDashboard,
               ),
               const Padding(
@@ -55,6 +59,7 @@ class InvestigationRail extends StatelessWidget {
                 color: AppColors.primaryTeal,
                 isActive: false,
                 hasData: false,
+                isExpanded: state.isRailExpanded,
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
@@ -70,6 +75,7 @@ class InvestigationRail extends StatelessWidget {
                 color: AppColors.secondaryPurple,
                 isActive: false,
                 hasData: false,
+                isExpanded: state.isRailExpanded,
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
@@ -83,7 +89,6 @@ class InvestigationRail extends StatelessWidget {
                 child: Divider(height: 1),
               ),
 
-              // Category Items
               Expanded(
                 child: ListView(
                   padding: EdgeInsets.zero,
@@ -100,6 +105,7 @@ class InvestigationRail extends StatelessWidget {
                       isActive: isCurrentTab,
                       hasData: count > 0,
                       count: count,
+                      isExpanded: state.isRailExpanded,
                       onTap: () {
                         if (!state.isOpen) {
                           state.openDashboard();
@@ -110,6 +116,47 @@ class InvestigationRail extends StatelessWidget {
                   }).toList(),
                 ),
               ),
+
+              // Expand/Collapse Toggle at bottom
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                child: InkWell(
+                  onTap: state.toggleRail,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    height: 40,
+                    width: double.infinity,
+                    padding: state.isRailExpanded
+                        ? const EdgeInsets.symmetric(horizontal: 10)
+                        : EdgeInsets.zero,
+                    child: Row(
+                      mainAxisAlignment: state.isRailExpanded
+                          ? MainAxisAlignment.start
+                          : MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          state.isRailExpanded
+                              ? Icons.chevron_left_rounded
+                              : Icons.chevron_right_rounded,
+                          color: AppColors.textMuted,
+                          size: 20,
+                        ),
+                        if (state.isRailExpanded) ...[
+                          const SizedBox(width: 12),
+                          const Text(
+                            'Collapse',
+                            style: TextStyle(
+                              color: AppColors.textMuted,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
             ],
           ),
         );
@@ -125,6 +172,7 @@ class _RailItem extends StatelessWidget {
   final bool isActive;
   final bool hasData;
   final int count;
+  final bool isExpanded;
   final VoidCallback onTap;
 
   const _RailItem({
@@ -134,100 +182,103 @@ class _RailItem extends StatelessWidget {
     required this.isActive,
     required this.hasData,
     this.count = 0,
+    this.isExpanded = false,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
       child: Tooltip(
-        message: label,
+        message: isExpanded ? '' : label,
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(8),
-          child: Stack(
-            alignment: Alignment.center,
+          child: Row(
             children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: isActive
-                      ? color.withValues(alpha: 0.15)
-                      : hasData
-                      ? color.withValues(alpha: 0.05)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isActive
-                        ? color.withValues(alpha: 0.4)
-                        : hasData
-                        ? color.withValues(alpha: 0.1)
-                        : Colors.transparent,
-                    width: 1,
-                  ),
-                  boxShadow: [
-                    if (isActive || (hasData && !isActive))
-                      BoxShadow(
-                        color: color.withValues(alpha: 0.1),
-                        blurRadius: 8,
-                        spreadRadius: -2,
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: isActive
+                          ? color.withValues(alpha: 0.15)
+                          : hasData
+                          ? color.withValues(alpha: 0.05)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: isActive
+                            ? color.withValues(alpha: 0.4)
+                            : hasData
+                            ? color.withValues(alpha: 0.1)
+                            : Colors.transparent,
+                        width: 1,
                       ),
-                  ],
-                ),
-                child: Icon(
-                  icon,
-                  size: 20,
-                  color: isActive || hasData ? color : AppColors.textMuted,
-                ),
-              ),
-              // Activity Indicator Glow
-              if (hasData && !isActive)
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Container(
-                    width: 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: color.withValues(alpha: 0.6),
-                          blurRadius: 4,
-                          spreadRadius: 1,
-                        ),
-                      ],
+                    ),
+                    child: Icon(
+                      icon,
+                      size: 20,
+                      color: isActive || hasData ? color : AppColors.textMuted,
                     ),
                   ),
+                  // Activity Indicator Glow
+                  if (hasData && !isActive)
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              if (isExpanded) ...[
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      color: isActive || hasData ? color : AppColors.textMuted,
+                      fontSize: 13,
+                      fontWeight: isActive
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              // Badge count
-              if (count > 0 && isActive)
-                Positioned(
-                  bottom: 4,
-                  right: 4,
-                  child: Container(
+                if (count > 0) ...[
+                  Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 4,
-                      vertical: 1,
+                      horizontal: 6,
+                      vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: color,
-                      borderRadius: BorderRadius.circular(6),
+                      color: color.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
                       '$count',
-                      style: const TextStyle(
-                        fontSize: 8,
+                      style: TextStyle(
+                        color: color,
+                        fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
                       ),
                     ),
                   ),
-                ),
+                  const SizedBox(width: 4),
+                ],
+              ],
             ],
           ),
         ),

@@ -7,7 +7,7 @@ import '../../../widgets/common/unified_time_picker.dart';
 import '../application/agent_graph_notifier.dart';
 import '../data/agent_graph_repository.dart';
 import 'agent_graph_details_panel.dart';
-import 'multi_trace_graph_canvas.dart';
+import 'interactive_graph_canvas.dart';
 
 /// Full-page view for the Multi-Trace Agent Graph Dashboard.
 ///
@@ -101,6 +101,13 @@ class _MultiTraceGraphPageState extends ConsumerState<MultiTraceGraphPage> {
       ),
       child: Row(
         children: [
+          IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white70),
+            onPressed: () => Navigator.of(context).pop(),
+            tooltip: 'Back to Dashboard',
+            visualDensity: VisualDensity.compact,
+          ),
+          const SizedBox(width: 8),
           const Icon(Icons.account_tree, color: AppColors.primaryCyan, size: 20),
           const SizedBox(width: 10),
           const Text(
@@ -243,7 +250,7 @@ class _MultiTraceGraphPageState extends ConsumerState<MultiTraceGraphPage> {
       return _buildEmptyState();
     }
 
-    return MultiTraceGraphCanvas(
+    return InteractiveGraphCanvas(
       payload: payload,
       onNodeSelected: (node) =>
           ref.read(agentGraphProvider.notifier).selectNode(node),

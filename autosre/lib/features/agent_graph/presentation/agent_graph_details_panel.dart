@@ -128,7 +128,7 @@ class AgentGraphDetailsPanel extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: AppColors.surfaceBorder),
             ),
-            child: Text(
+            child: SelectableText(
               node.description!,
               style: const TextStyle(color: Colors.white60, fontSize: 12),
             ),
@@ -232,7 +232,7 @@ class AgentGraphDetailsPanel extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
             ),
-            child: Text(
+            child: SelectableText(
               edge.sampleError!,
               style: const TextStyle(
                 color: AppColors.error,

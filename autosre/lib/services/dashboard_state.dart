@@ -142,6 +142,15 @@ class DashboardState extends ChangeNotifier {
   DashboardDataType _activeTab = DashboardDataType.logs;
   DashboardDataType get activeTab => _activeTab;
 
+  /// Whether the navigation rail is expanded.
+  bool _isRailExpanded = false;
+  bool get isRailExpanded => _isRailExpanded;
+
+  void toggleRail() {
+    _isRailExpanded = !_isRailExpanded;
+    notifyListeners();
+  }
+
   /// Time range for manual queries.
   TimeRange _timeRange = TimeRange.fromPreset(TimeRangePreset.fifteenMinutes);
   TimeRange get timeRange => _timeRange;

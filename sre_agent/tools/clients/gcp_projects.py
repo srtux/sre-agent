@@ -7,7 +7,7 @@ import google.auth
 import google.auth.transport.requests
 import httpx
 
-from ...auth import get_credentials_from_tool_context
+from ...auth import get_credentials_from_tool_context, is_guest_mode
 from ...schema import BaseToolResponse, ToolStatus
 from ..common import adk_tool
 
@@ -35,6 +35,22 @@ async def list_gcp_projects(
     """
     try:
         logger.info(f"list_gcp_projects called with query='{query}'")
+
+        # 1. Check for Guest Mode (Synthetic Data)
+        if is_guest_mode():
+            logger.info("Guest Mode active: returning synthetic project list")
+            return BaseToolResponse(
+                status=ToolStatus.SUCCESS,
+                result={
+                    "projects": [
+                        {
+                            "project_id": "cymbal-shops-demo",
+                            "display_name": "Cymbal Shops (Demo)",
+                        }
+                    ]
+                },
+            )
+
         # Use Any to avoid type mismatch between oauth2.credentials and google.auth.credentials
         auth_creds: Any = get_credentials_from_tool_context(tool_context)
 
