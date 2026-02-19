@@ -103,6 +103,8 @@ def start_frontend() -> bool:
         "localhost",
         "--web-port",
         "8080",
+        "--web-renderer",
+        "canvaskit",
     ]
 
     if client_id:
