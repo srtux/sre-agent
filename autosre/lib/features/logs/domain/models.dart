@@ -126,3 +126,63 @@ abstract class LogEntriesData with _$LogEntriesData {
     };
   }
 }
+
+/// A single time bucket from the backend histogram endpoint.
+class LogHistogramBucket {
+  final DateTime start;
+  final DateTime end;
+  final int debug;
+  final int info;
+  final int warning;
+  final int error;
+  final int critical;
+
+  const LogHistogramBucket({
+    required this.start,
+    required this.end,
+    this.debug = 0,
+    this.info = 0,
+    this.warning = 0,
+    this.error = 0,
+    this.critical = 0,
+  });
+
+  int get total => debug + info + warning + error + critical;
+
+  factory LogHistogramBucket.fromJson(Map<String, dynamic> json) {
+    return LogHistogramBucket(
+      start: DateTime.parse(json['start'] as String),
+      end: DateTime.parse(json['end'] as String),
+      debug: (json['debug'] as num?)?.toInt() ?? 0,
+      info: (json['info'] as num?)?.toInt() ?? 0,
+      warning: (json['warning'] as num?)?.toInt() ?? 0,
+      error: (json['error'] as num?)?.toInt() ?? 0,
+      critical: (json['critical'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+/// Response from the /api/tools/logs/histogram endpoint.
+class LogHistogramData {
+  final List<LogHistogramBucket> buckets;
+  final int totalCount;
+  final int scannedEntries;
+
+  const LogHistogramData({
+    required this.buckets,
+    this.totalCount = 0,
+    this.scannedEntries = 0,
+  });
+
+  factory LogHistogramData.fromJson(Map<String, dynamic> json) {
+    final bucketList = (json['buckets'] as List? ?? [])
+        .whereType<Map>()
+        .map((b) => LogHistogramBucket.fromJson(Map<String, dynamic>.from(b)))
+        .toList();
+    return LogHistogramData(
+      buckets: bucketList,
+      totalCount: (json['total_count'] as num?)?.toInt() ?? 0,
+      scannedEntries: (json['scanned_entries'] as num?)?.toInt() ?? 0,
+    );
+  }
+}

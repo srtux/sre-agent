@@ -23,6 +23,11 @@ LogEntriesData _parseLogEntries(String body) {
   return LogEntriesData.fromJson(data);
 }
 
+LogHistogramData _parseLogHistogram(String body) {
+  final data = jsonDecode(body) as Map<String, dynamic>;
+  return LogHistogramData.fromJson(data);
+}
+
 Trace _parseTrace(String body) {
   final data = jsonDecode(body) as Map<String, dynamic>;
   return Trace.fromJson(data);
@@ -195,6 +200,34 @@ class ExplorerQueryService {
       return false;
     } finally {
       _dashboardState.setLoading(DashboardDataType.logs, false);
+    }
+  }
+
+  /// Fetches aggregated histogram counts for the full time range.
+  ///
+  /// Returns null if the request fails. On success the caller receives
+  /// [LogHistogramData] with pre-bucketed severity counts.
+  Future<LogHistogramData?> queryLogHistogram({
+    String? filter,
+    String? projectId,
+    TimeRange? timeRange,
+    int bucketCount = 40,
+  }) async {
+    final range = timeRange ?? _dashboardState.timeRange;
+    try {
+      final payload = <String, dynamic>{
+        'filter': filter ?? '',
+        'project_id': projectId,
+        'start_time': range.start.toUtc().toIso8601String(),
+        'end_time': range.end.toUtc().toIso8601String(),
+        'bucket_count': bucketCount,
+      };
+      final body = jsonEncode(payload);
+      final response = await _post('/api/tools/logs/histogram', body);
+      return await AppIsolate.run(_parseLogHistogram, response.body);
+    } catch (e) {
+      debugPrint('ExplorerQueryService.queryLogHistogram error: $e');
+      return null;
     }
   }
 

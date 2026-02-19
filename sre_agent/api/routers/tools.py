@@ -131,6 +131,19 @@ class LogsQueryRequest(BaseModel):
     cursor_insert_id: str | None = None
 
 
+class LogsHistogramRequest(BaseModel):
+    """Request model for logs histogram endpoint."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    filter: str | None = None
+    start_time: str | None = None
+    end_time: str | None = None
+    minutes_ago: int | None = None
+    bucket_count: int = Field(default=40, ge=5, le=200)
+    project_id: str | None = None
+
+
 class NLQueryRequest(BaseModel):
     """Request model for natural language query endpoint."""
 
@@ -387,6 +400,162 @@ async def query_logs_endpoint(payload: LogsQueryRequest) -> Any:
         raise
     except Exception as e:
         logger.exception("Error querying logs")
+        raise HTTPException(
+            status_code=500, detail=f"Internal server error: {e}"
+        ) from e
+
+
+@router.post("/logs/histogram")
+async def query_logs_histogram_endpoint(payload: LogsHistogramRequest) -> Any:
+    """Return time-bucketed log counts across the full time range.
+
+    Unlike ``/logs/query`` which returns individual entries (limited to a page
+    size), this endpoint scans up to 5 000 entries and returns aggregated
+    counts per time bucket, broken down by severity.  This powers the timeline
+    histogram in the Logs Explorer.
+    """
+    try:
+        from datetime import datetime, timedelta, timezone
+
+        now = datetime.now(timezone.utc)
+
+        if payload.start_time and payload.end_time:
+            start = datetime.fromisoformat(payload.start_time)
+            end = datetime.fromisoformat(payload.end_time)
+        elif payload.minutes_ago is not None:
+            end = now
+            start = end - timedelta(minutes=payload.minutes_ago)
+        else:
+            end = now
+            start = end - timedelta(minutes=15)
+
+        # Ensure UTC
+        if start.tzinfo is None:
+            start = start.replace(tzinfo=timezone.utc)
+        if end.tzinfo is None:
+            end = end.replace(tzinfo=timezone.utc)
+
+        # Build filter with time bounds
+        filter_str = payload.filter or ""
+        time_filter = (
+            f'timestamp>="{start.isoformat()}" AND timestamp<="{end.isoformat()}"'
+        )
+        filter_str = f"({filter_str}) AND {time_filter}" if filter_str else time_filter
+
+        # Fetch up to 5000 entries for histogram aggregation.
+        # We only need timestamps + severity, but the API returns full entries.
+        result = await list_log_entries(
+            filter_str=filter_str,
+            project_id=payload.project_id,
+            limit=5000,
+        )
+        raw = _unwrap_tool_result(result)
+        entries = raw.get("entries", []) if isinstance(raw, dict) else []
+
+        # Compute bucket boundaries
+        total_duration = (end - start).total_seconds()
+        bucket_count = min(payload.bucket_count, max(5, int(total_duration / 60)))
+        bucket_seconds = total_duration / bucket_count if bucket_count > 0 else 1
+
+        # Initialize severity count arrays (parallel arrays for O(1) access)
+        sev_debug = [0] * bucket_count
+        sev_info = [0] * bucket_count
+        sev_warning = [0] * bucket_count
+        sev_error = [0] * bucket_count
+        sev_critical = [0] * bucket_count
+
+        bucket_starts: list[str] = []
+        bucket_ends: list[str] = []
+        for i in range(bucket_count):
+            bucket_start = start + timedelta(seconds=i * bucket_seconds)
+            bucket_end = start + timedelta(seconds=(i + 1) * bucket_seconds)
+            if i == bucket_count - 1:
+                bucket_end = end  # Ensure last bucket covers to the end
+            bucket_starts.append(bucket_start.isoformat())
+            bucket_ends.append(bucket_end.isoformat())
+
+        # Bucket entries by timestamp and severity
+        _SEVERITY_MAP: dict[str, str] = {
+            "DEBUG": "debug",
+            "DEFAULT": "debug",
+            "INFO": "info",
+            "NOTICE": "info",
+            "WARNING": "warning",
+            "ERROR": "error",
+            "CRITICAL": "critical",
+            "ALERT": "critical",
+            "EMERGENCY": "critical",
+        }
+
+        for entry in entries:
+            ts_str = entry.get("timestamp")
+            if not ts_str:
+                continue
+            try:
+                ts = datetime.fromisoformat(ts_str)
+                if ts.tzinfo is None:
+                    ts = ts.replace(tzinfo=timezone.utc)
+            except (ValueError, TypeError):
+                continue
+
+            # Find bucket index by offset
+            offset = (ts - start).total_seconds()
+            if offset < 0 or offset > total_duration:
+                continue
+            idx = int(offset / bucket_seconds)
+            if idx >= bucket_count:
+                idx = bucket_count - 1
+
+            severity = entry.get("severity", "INFO")
+            if isinstance(severity, str):
+                sev_key = _SEVERITY_MAP.get(severity.upper(), "info")
+            else:
+                sev_key = "info"
+
+            if sev_key == "debug":
+                sev_debug[idx] += 1
+            elif sev_key == "info":
+                sev_info[idx] += 1
+            elif sev_key == "warning":
+                sev_warning[idx] += 1
+            elif sev_key == "error":
+                sev_error[idx] += 1
+            else:
+                sev_critical[idx] += 1
+
+        # Build response buckets
+        buckets: list[dict[str, Any]] = []
+        total_count = 0
+        for i in range(bucket_count):
+            d = sev_debug[i]
+            inf = sev_info[i]
+            w = sev_warning[i]
+            e = sev_error[i]
+            c = sev_critical[i]
+            total_count += d + inf + w + e + c
+            buckets.append(
+                {
+                    "start": bucket_starts[i],
+                    "end": bucket_ends[i],
+                    "debug": d,
+                    "info": inf,
+                    "warning": w,
+                    "error": e,
+                    "critical": c,
+                }
+            )
+
+        return {
+            "buckets": buckets,
+            "total_count": total_count,
+            "scanned_entries": len(entries),
+            "start_time": start.isoformat(),
+            "end_time": end.isoformat(),
+        }
+    except (HTTPException, UserFacingError):
+        raise
+    except Exception as e:
+        logger.exception("Error building log histogram")
         raise HTTPException(
             status_code=500, detail=f"Internal server error: {e}"
         ) from e
