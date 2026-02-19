@@ -250,7 +250,7 @@ class _MultiTraceGraphCanvasState extends State<MultiTraceGraphCanvas> {
     return ListView.separated(
       padding: const EdgeInsets.all(16),
       itemCount: edges.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      separatorBuilder: (context, index) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         final edge = edges[index];
         return InkWell(
@@ -387,13 +387,15 @@ class _MultiTraceGraphCanvasState extends State<MultiTraceGraphCanvas> {
     // Current scale is determined by the matrix.
     // Ensure we don't go past minScale (0.2) or maxScale (3.0).
     final currentScale = _transformationController.value.getMaxScaleOnAxis();
-    if (factor > 1.0 && currentScale * factor > 3.0)
+    if (factor > 1.0 && currentScale * factor > 3.0) {
       factor = 3.0 / currentScale;
-    if (factor < 1.0 && currentScale * factor < 0.2)
+    }
+    if (factor < 1.0 && currentScale * factor < 0.2) {
       factor = 0.2 / currentScale;
+    }
 
     final matrix = _transformationController.value.clone();
-    matrix.scale(factor);
+    matrix.scaleByDouble(factor, factor, 1.0, 1.0);
     _transformationController.value = matrix;
   }
 

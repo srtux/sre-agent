@@ -22,7 +22,7 @@ class InvestigationRail extends StatelessWidget {
         return AnimatedContainer(
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeInOut,
-          width: state.isRailExpanded ? 180 : 56,
+          width: state.isRailExpanded ? 180 : 60,
           decoration: BoxDecoration(
             color: AppColors.backgroundCard.withValues(alpha: 0.8),
             border: Border(
