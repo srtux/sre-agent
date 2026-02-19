@@ -210,7 +210,7 @@ return $default(_that.user,_that.isLoading,_that.isGuestMode,_that.error);case _
 
 class _AuthState implements AuthState {
   const _AuthState({this.user, this.isLoading = true, this.isGuestMode = false, this.error});
-
+  
 
 @override final  GoogleSignInAccount? user;
 @override@JsonKey() final  bool isLoading;

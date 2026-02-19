@@ -1239,7 +1239,7 @@ as Map<String, dynamic>?,
 @override
 @pragma('vm:prefer-inline')
 $GridPositionCopyWith<$Res> get gridPosition {
-
+  
   return $GridPositionCopyWith<$Res>(_self.gridPosition, (value) {
     return _then(_self.copyWith(gridPosition: value));
   });
@@ -1522,7 +1522,7 @@ as Map<String, dynamic>?,
 @override
 @pragma('vm:prefer-inline')
 $GridPositionCopyWith<$Res> get gridPosition {
-
+  
   return $GridPositionCopyWith<$Res>(_self.gridPosition, (value) {
     return _then(_self.copyWith(gridPosition: value));
   });
@@ -2470,7 +2470,7 @@ as DashboardMetadata,
 @override
 @pragma('vm:prefer-inline')
 $TimeRangeCopyWith<$Res> get timeRange {
-
+  
   return $TimeRangeCopyWith<$Res>(_self.timeRange, (value) {
     return _then(_self.copyWith(timeRange: value));
   });
@@ -2479,7 +2479,7 @@ $TimeRangeCopyWith<$Res> get timeRange {
 @override
 @pragma('vm:prefer-inline')
 $DashboardMetadataCopyWith<$Res> get metadata {
-
+  
   return $DashboardMetadataCopyWith<$Res>(_self.metadata, (value) {
     return _then(_self.copyWith(metadata: value));
   });
@@ -2736,7 +2736,7 @@ as DashboardMetadata,
 @override
 @pragma('vm:prefer-inline')
 $TimeRangeCopyWith<$Res> get timeRange {
-
+  
   return $TimeRangeCopyWith<$Res>(_self.timeRange, (value) {
     return _then(_self.copyWith(timeRange: value));
   });
@@ -2745,7 +2745,7 @@ $TimeRangeCopyWith<$Res> get timeRange {
 @override
 @pragma('vm:prefer-inline')
 $DashboardMetadataCopyWith<$Res> get metadata {
-
+  
   return $DashboardMetadataCopyWith<$Res>(_self.metadata, (value) {
     return _then(_self.copyWith(metadata: value));
   });

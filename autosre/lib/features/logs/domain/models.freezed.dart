@@ -510,7 +510,7 @@ return $default(_that.insertId,_that.timestamp,_that.severity,_that.payload,_tha
 
 class _LogEntry extends LogEntry with DiagnosticableTreeMixin {
   const _LogEntry({@JsonKey(name: 'insert_id') required this.insertId, required this.timestamp, this.severity = 'INFO', required this.payload, @JsonKey(name: 'resource_labels') final  Map<String, String> resourceLabels = const {}, @JsonKey(name: 'resource_type') this.resourceType = 'unknown', @JsonKey(name: 'trace_id') this.traceId, @JsonKey(name: 'span_id') this.spanId, @JsonKey(name: 'http_request') final  Map<String, dynamic>? httpRequest}): _resourceLabels = resourceLabels,_httpRequest = httpRequest,super._();
-
+  
 
 @override@JsonKey(name: 'insert_id') final  String insertId;
 @override final  DateTime timestamp;
@@ -816,7 +816,7 @@ return $default(_that.entries,_that.filter,_that.projectId,_that.nextPageToken,_
 
 class _LogEntriesData extends LogEntriesData with DiagnosticableTreeMixin {
   const _LogEntriesData({required final  List<LogEntry> entries, this.filter, @JsonKey(name: 'project_id') this.projectId, @JsonKey(name: 'next_page_token') this.nextPageToken, this.limit}): _entries = entries,super._();
-
+  
 
  final  List<LogEntry> _entries;
 @override List<LogEntry> get entries {

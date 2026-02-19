@@ -216,7 +216,7 @@ return $default(_that.entries,_that.isLoading,_that.error,_that.oldestEntryTimes
 
 class _LogNotifierState implements LogNotifierState {
   const _LogNotifierState({final  List<LogEntry> entries = const [], this.isLoading = false, this.error, this.oldestEntryTimestamp, this.oldestEntryInsertId, this.noMoreOldEntries = false, this.currentFilter, this.projectId}): _entries = entries;
-
+  
 
  final  List<LogEntry> _entries;
 @override@JsonKey() List<LogEntry> get entries {
