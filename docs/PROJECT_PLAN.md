@@ -267,7 +267,7 @@ Grand total at Phase 3 completion: **2312 backend tests**, **74 Flutter tests** 
     - Achieved 100% pass rate across 500+ Flutter tests and 2300+ Python tests.
 
 #### Remaining
-- [x] **WasmGC & CanvasKit Migration**: Enabled high-performance WebAssembly with Garbage Collection and CanvasKit rendering for the Flutter web dashboard, resulting in 2-3x faster execution and smoother visualizations. Includes automatic JS fallback for legacy browsers.
+- [x] **Web Renderer Migration**: Switched the Flutter web dashboard to use the stable CanvasKit renderer by default (PR #176). This resolved UI freezing issues encountered with the experimental SkWasm/WasmGC renderer while maintaining high-performance visualizations.
 - [ ] **Observability-on-Self**: Fully link the agent's own trace IDs to the UI. Allow the user to "View Reasoning Trace" in Cloud Trace via deep links, leveraging native ADK instrumentation.
 - [ ] **Confirmation Bridge (HITL 2.0)**: Global interceptor for `IMPACT: HIGH` tool calls (e.g., Delete/Modify) that pauses the agent and requests user permission via UI banner. (Foundation in `core/approval.py` is ready.)
 - [ ] **Zero-Trust Identity Propagation**: 1:1 mapping of every tool execution to the *actual* end-user IAM identity, ensuring absolute auditability in massive GCP environments.

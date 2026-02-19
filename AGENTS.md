@@ -45,7 +45,7 @@
 - **Language**: Python 3.10+ (Backend), Dart/Flutter (Frontend)
 - **Agent Framework**: Google Agent Development Kit (ADK)
 - **LLM**: Gemini 2.5 Flash/Pro (via `get_model_name("fast"|"deep")`)
-- **Frontend**: Flutter Web (WasmGC + CanvasKit, Deep Space aesthetic, Riverpod 3.0)
+- **Frontend**: Flutter Web (CanvasKit, Deep Space aesthetic, Riverpod 3.0)
 - **Architecture**: Domain-Driven / Feature-First (Frontend & Backend)
 - **API Strategy**: Hybrid (MCP for heavy-lifting, Direct API for speed)
 - **Testing**: pytest (Backend), flutter test (Frontend)
@@ -701,7 +701,7 @@ Augments the rule-based `IntentClassifier` with an LLM-based classifier that con
 **Path**: `autosre/`
 
 **Key Components**:
-- **Framework**: Flutter Web (WasmGC + CanvasKit)
+- **Framework**: Flutter Web (CanvasKit)
 - **Structure**: Feature-First (`lib/features/`)
 - **Protocol**: GenUI (Generative UI) + A2UI
 - **State**: Riverpod 3.0 (`AsyncNotifier` + `@riverpod` generator)
