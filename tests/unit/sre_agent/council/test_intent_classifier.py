@@ -239,6 +239,7 @@ class TestStandardCouncilRouting:
     def test_standard_council_queries(self, query: str) -> None:
         """Multi-signal service-health queries should route to COUNCIL + STANDARD."""
         from sre_agent.council.schemas import InvestigationMode
+
         result = classify_routing(query)
         assert result.decision == RoutingDecision.COUNCIL, (
             f"Expected COUNCIL but got {result.decision} for: {query!r}"
@@ -250,6 +251,7 @@ class TestStandardCouncilRouting:
     def test_debate_still_wins_over_standard(self) -> None:
         """DEBATE-level queries must not be downgraded to STANDARD."""
         from sre_agent.council.schemas import InvestigationMode
+
         result = classify_routing("root cause of the payment service outage")
         assert result.decision == RoutingDecision.COUNCIL
         assert result.investigation_mode == InvestigationMode.DEBATE
