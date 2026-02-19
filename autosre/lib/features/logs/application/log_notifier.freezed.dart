@@ -14,7 +14,9 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$LogNotifierState {
 
- List<LogEntry> get entries; bool get isLoading; String? get error; String? get nextPageToken; String? get currentFilter; String? get projectId;
+ List<LogEntry> get entries; bool get isLoading; String? get error;/// Timestamp of the oldest loaded entry; used as the cursor for
+/// loading older entries (cursor-based pagination).
+ DateTime? get oldestEntryTimestamp; String? get oldestEntryInsertId; bool get noMoreOldEntries; String? get currentFilter; String? get projectId;
 /// Create a copy of LogNotifierState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -25,16 +27,16 @@ $LogNotifierStateCopyWith<LogNotifierState> get copyWith => _$LogNotifierStateCo
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is LogNotifierState&&const DeepCollectionEquality().equals(other.entries, entries)&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.error, error) || other.error == error)&&(identical(other.nextPageToken, nextPageToken) || other.nextPageToken == nextPageToken)&&(identical(other.currentFilter, currentFilter) || other.currentFilter == currentFilter)&&(identical(other.projectId, projectId) || other.projectId == projectId));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is LogNotifierState&&const DeepCollectionEquality().equals(other.entries, entries)&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.error, error) || other.error == error)&&(identical(other.oldestEntryTimestamp, oldestEntryTimestamp) || other.oldestEntryTimestamp == oldestEntryTimestamp)&&(identical(other.oldestEntryInsertId, oldestEntryInsertId) || other.oldestEntryInsertId == oldestEntryInsertId)&&(identical(other.noMoreOldEntries, noMoreOldEntries) || other.noMoreOldEntries == noMoreOldEntries)&&(identical(other.currentFilter, currentFilter) || other.currentFilter == currentFilter)&&(identical(other.projectId, projectId) || other.projectId == projectId));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(entries),isLoading,error,nextPageToken,currentFilter,projectId);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(entries),isLoading,error,oldestEntryTimestamp,oldestEntryInsertId,noMoreOldEntries,currentFilter,projectId);
 
 @override
 String toString() {
-  return 'LogNotifierState(entries: $entries, isLoading: $isLoading, error: $error, nextPageToken: $nextPageToken, currentFilter: $currentFilter, projectId: $projectId)';
+  return 'LogNotifierState(entries: $entries, isLoading: $isLoading, error: $error, oldestEntryTimestamp: $oldestEntryTimestamp, oldestEntryInsertId: $oldestEntryInsertId, noMoreOldEntries: $noMoreOldEntries, currentFilter: $currentFilter, projectId: $projectId)';
 }
 
 
@@ -45,7 +47,7 @@ abstract mixin class $LogNotifierStateCopyWith<$Res>  {
   factory $LogNotifierStateCopyWith(LogNotifierState value, $Res Function(LogNotifierState) _then) = _$LogNotifierStateCopyWithImpl;
 @useResult
 $Res call({
- List<LogEntry> entries, bool isLoading, String? error, String? nextPageToken, String? currentFilter, String? projectId
+ List<LogEntry> entries, bool isLoading, String? error, DateTime? oldestEntryTimestamp, String? oldestEntryInsertId, bool noMoreOldEntries, String? currentFilter, String? projectId
 });
 
 
@@ -62,13 +64,15 @@ class _$LogNotifierStateCopyWithImpl<$Res>
 
 /// Create a copy of LogNotifierState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? entries = null,Object? isLoading = null,Object? error = freezed,Object? nextPageToken = freezed,Object? currentFilter = freezed,Object? projectId = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? entries = null,Object? isLoading = null,Object? error = freezed,Object? oldestEntryTimestamp = freezed,Object? oldestEntryInsertId = freezed,Object? noMoreOldEntries = null,Object? currentFilter = freezed,Object? projectId = freezed,}) {
   return _then(_self.copyWith(
 entries: null == entries ? _self.entries : entries // ignore: cast_nullable_to_non_nullable
 as List<LogEntry>,isLoading: null == isLoading ? _self.isLoading : isLoading // ignore: cast_nullable_to_non_nullable
 as bool,error: freezed == error ? _self.error : error // ignore: cast_nullable_to_non_nullable
-as String?,nextPageToken: freezed == nextPageToken ? _self.nextPageToken : nextPageToken // ignore: cast_nullable_to_non_nullable
-as String?,currentFilter: freezed == currentFilter ? _self.currentFilter : currentFilter // ignore: cast_nullable_to_non_nullable
+as String?,oldestEntryTimestamp: freezed == oldestEntryTimestamp ? _self.oldestEntryTimestamp : oldestEntryTimestamp // ignore: cast_nullable_to_non_nullable
+as DateTime?,oldestEntryInsertId: freezed == oldestEntryInsertId ? _self.oldestEntryInsertId : oldestEntryInsertId // ignore: cast_nullable_to_non_nullable
+as String?,noMoreOldEntries: null == noMoreOldEntries ? _self.noMoreOldEntries : noMoreOldEntries // ignore: cast_nullable_to_non_nullable
+as bool,currentFilter: freezed == currentFilter ? _self.currentFilter : currentFilter // ignore: cast_nullable_to_non_nullable
 as String?,projectId: freezed == projectId ? _self.projectId : projectId // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
@@ -155,10 +159,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<LogEntry> entries,  bool isLoading,  String? error,  String? nextPageToken,  String? currentFilter,  String? projectId)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<LogEntry> entries,  bool isLoading,  String? error,  DateTime? oldestEntryTimestamp,  String? oldestEntryInsertId,  bool noMoreOldEntries,  String? currentFilter,  String? projectId)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _LogNotifierState() when $default != null:
-return $default(_that.entries,_that.isLoading,_that.error,_that.nextPageToken,_that.currentFilter,_that.projectId);case _:
+return $default(_that.entries,_that.isLoading,_that.error,_that.oldestEntryTimestamp,_that.oldestEntryInsertId,_that.noMoreOldEntries,_that.currentFilter,_that.projectId);case _:
   return orElse();
 
 }
@@ -176,10 +180,10 @@ return $default(_that.entries,_that.isLoading,_that.error,_that.nextPageToken,_t
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<LogEntry> entries,  bool isLoading,  String? error,  String? nextPageToken,  String? currentFilter,  String? projectId)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<LogEntry> entries,  bool isLoading,  String? error,  DateTime? oldestEntryTimestamp,  String? oldestEntryInsertId,  bool noMoreOldEntries,  String? currentFilter,  String? projectId)  $default,) {final _that = this;
 switch (_that) {
 case _LogNotifierState():
-return $default(_that.entries,_that.isLoading,_that.error,_that.nextPageToken,_that.currentFilter,_that.projectId);case _:
+return $default(_that.entries,_that.isLoading,_that.error,_that.oldestEntryTimestamp,_that.oldestEntryInsertId,_that.noMoreOldEntries,_that.currentFilter,_that.projectId);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -196,10 +200,10 @@ return $default(_that.entries,_that.isLoading,_that.error,_that.nextPageToken,_t
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<LogEntry> entries,  bool isLoading,  String? error,  String? nextPageToken,  String? currentFilter,  String? projectId)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<LogEntry> entries,  bool isLoading,  String? error,  DateTime? oldestEntryTimestamp,  String? oldestEntryInsertId,  bool noMoreOldEntries,  String? currentFilter,  String? projectId)?  $default,) {final _that = this;
 switch (_that) {
 case _LogNotifierState() when $default != null:
-return $default(_that.entries,_that.isLoading,_that.error,_that.nextPageToken,_that.currentFilter,_that.projectId);case _:
+return $default(_that.entries,_that.isLoading,_that.error,_that.oldestEntryTimestamp,_that.oldestEntryInsertId,_that.noMoreOldEntries,_that.currentFilter,_that.projectId);case _:
   return null;
 
 }
@@ -211,7 +215,7 @@ return $default(_that.entries,_that.isLoading,_that.error,_that.nextPageToken,_t
 
 
 class _LogNotifierState implements LogNotifierState {
-  const _LogNotifierState({final  List<LogEntry> entries = const [], this.isLoading = false, this.error, this.nextPageToken, this.currentFilter, this.projectId}): _entries = entries;
+  const _LogNotifierState({final  List<LogEntry> entries = const [], this.isLoading = false, this.error, this.oldestEntryTimestamp, this.oldestEntryInsertId, this.noMoreOldEntries = false, this.currentFilter, this.projectId}): _entries = entries;
 
 
  final  List<LogEntry> _entries;
@@ -223,7 +227,11 @@ class _LogNotifierState implements LogNotifierState {
 
 @override@JsonKey() final  bool isLoading;
 @override final  String? error;
-@override final  String? nextPageToken;
+/// Timestamp of the oldest loaded entry; used as the cursor for
+/// loading older entries (cursor-based pagination).
+@override final  DateTime? oldestEntryTimestamp;
+@override final  String? oldestEntryInsertId;
+@override@JsonKey() final  bool noMoreOldEntries;
 @override final  String? currentFilter;
 @override final  String? projectId;
 
@@ -237,16 +245,16 @@ _$LogNotifierStateCopyWith<_LogNotifierState> get copyWith => __$LogNotifierStat
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _LogNotifierState&&const DeepCollectionEquality().equals(other._entries, _entries)&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.error, error) || other.error == error)&&(identical(other.nextPageToken, nextPageToken) || other.nextPageToken == nextPageToken)&&(identical(other.currentFilter, currentFilter) || other.currentFilter == currentFilter)&&(identical(other.projectId, projectId) || other.projectId == projectId));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _LogNotifierState&&const DeepCollectionEquality().equals(other._entries, _entries)&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.error, error) || other.error == error)&&(identical(other.oldestEntryTimestamp, oldestEntryTimestamp) || other.oldestEntryTimestamp == oldestEntryTimestamp)&&(identical(other.oldestEntryInsertId, oldestEntryInsertId) || other.oldestEntryInsertId == oldestEntryInsertId)&&(identical(other.noMoreOldEntries, noMoreOldEntries) || other.noMoreOldEntries == noMoreOldEntries)&&(identical(other.currentFilter, currentFilter) || other.currentFilter == currentFilter)&&(identical(other.projectId, projectId) || other.projectId == projectId));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_entries),isLoading,error,nextPageToken,currentFilter,projectId);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_entries),isLoading,error,oldestEntryTimestamp,oldestEntryInsertId,noMoreOldEntries,currentFilter,projectId);
 
 @override
 String toString() {
-  return 'LogNotifierState(entries: $entries, isLoading: $isLoading, error: $error, nextPageToken: $nextPageToken, currentFilter: $currentFilter, projectId: $projectId)';
+  return 'LogNotifierState(entries: $entries, isLoading: $isLoading, error: $error, oldestEntryTimestamp: $oldestEntryTimestamp, oldestEntryInsertId: $oldestEntryInsertId, noMoreOldEntries: $noMoreOldEntries, currentFilter: $currentFilter, projectId: $projectId)';
 }
 
 
@@ -257,7 +265,7 @@ abstract mixin class _$LogNotifierStateCopyWith<$Res> implements $LogNotifierSta
   factory _$LogNotifierStateCopyWith(_LogNotifierState value, $Res Function(_LogNotifierState) _then) = __$LogNotifierStateCopyWithImpl;
 @override @useResult
 $Res call({
- List<LogEntry> entries, bool isLoading, String? error, String? nextPageToken, String? currentFilter, String? projectId
+ List<LogEntry> entries, bool isLoading, String? error, DateTime? oldestEntryTimestamp, String? oldestEntryInsertId, bool noMoreOldEntries, String? currentFilter, String? projectId
 });
 
 
@@ -274,13 +282,15 @@ class __$LogNotifierStateCopyWithImpl<$Res>
 
 /// Create a copy of LogNotifierState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? entries = null,Object? isLoading = null,Object? error = freezed,Object? nextPageToken = freezed,Object? currentFilter = freezed,Object? projectId = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? entries = null,Object? isLoading = null,Object? error = freezed,Object? oldestEntryTimestamp = freezed,Object? oldestEntryInsertId = freezed,Object? noMoreOldEntries = null,Object? currentFilter = freezed,Object? projectId = freezed,}) {
   return _then(_LogNotifierState(
 entries: null == entries ? _self._entries : entries // ignore: cast_nullable_to_non_nullable
 as List<LogEntry>,isLoading: null == isLoading ? _self.isLoading : isLoading // ignore: cast_nullable_to_non_nullable
 as bool,error: freezed == error ? _self.error : error // ignore: cast_nullable_to_non_nullable
-as String?,nextPageToken: freezed == nextPageToken ? _self.nextPageToken : nextPageToken // ignore: cast_nullable_to_non_nullable
-as String?,currentFilter: freezed == currentFilter ? _self.currentFilter : currentFilter // ignore: cast_nullable_to_non_nullable
+as String?,oldestEntryTimestamp: freezed == oldestEntryTimestamp ? _self.oldestEntryTimestamp : oldestEntryTimestamp // ignore: cast_nullable_to_non_nullable
+as DateTime?,oldestEntryInsertId: freezed == oldestEntryInsertId ? _self.oldestEntryInsertId : oldestEntryInsertId // ignore: cast_nullable_to_non_nullable
+as String?,noMoreOldEntries: null == noMoreOldEntries ? _self.noMoreOldEntries : noMoreOldEntries // ignore: cast_nullable_to_non_nullable
+as bool,currentFilter: freezed == currentFilter ? _self.currentFilter : currentFilter // ignore: cast_nullable_to_non_nullable
 as String?,projectId: freezed == projectId ? _self.projectId : projectId // ignore: cast_nullable_to_non_nullable
 as String?,
   ));

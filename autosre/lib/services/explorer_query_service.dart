@@ -138,8 +138,8 @@ class ExplorerQueryService {
     TimeRange? timeRange,
   }) async {
     final range = timeRange ?? _dashboardState.timeRange;
-    final bool isCursorPage = cursorTimestamp != null;
-    final int fetchLimit = limit ?? 50;
+    final isCursorPage = cursorTimestamp != null;
+    final fetchLimit = limit ?? 50;
 
     _dashboardState.setLoading(DashboardDataType.logs, true);
     try {

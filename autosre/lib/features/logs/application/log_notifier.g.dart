@@ -41,7 +41,7 @@ final class LogNotifierProvider
   }
 }
 
-String _$logNotifierHash() => r'7da6523dfcdaab4f4d30cc53cec28a65dc85c6ce';
+String _$logNotifierHash() => r'b07e070c4957cbff1ead81d35d392b92a8231d2a';
 
 abstract class _$LogNotifier extends $Notifier<LogNotifierState> {
   LogNotifierState build();

@@ -273,6 +273,7 @@ Map<String, dynamic> _$DashboardToJson(_Dashboard instance) =>
 const _$DashboardSourceEnumMap = {
   DashboardSource.local: 'local',
   DashboardSource.cloudMonitoring: 'cloud_monitoring',
+  DashboardSource.template: 'template',
 };
 
 _DashboardSummary _$DashboardSummaryFromJson(Map<String, dynamic> json) =>
