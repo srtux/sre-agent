@@ -549,6 +549,67 @@ async def test_query_logs_rejects_unknown_fields() -> None:
 
 
 # =============================================================================
+# LOGS HISTOGRAM ENDPOINT TESTS
+# =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_logs_histogram_returns_buckets(mock_tools) -> None:
+    """Histogram endpoint returns time-bucketed counts from entries."""
+    mock_tools["list_log_entries"].return_value = BaseToolResponse(
+        status=ToolStatus.SUCCESS,
+        result={
+            "entries": [
+                {"timestamp": "2024-06-01T12:05:00+00:00", "severity": "INFO"},
+                {"timestamp": "2024-06-01T12:10:00+00:00", "severity": "ERROR"},
+                {"timestamp": "2024-06-01T12:30:00+00:00", "severity": "WARNING"},
+            ],
+        },
+    )
+    payload = {
+        "filter": "severity>=INFO",
+        "start_time": "2024-06-01T12:00:00+00:00",
+        "end_time": "2024-06-01T13:00:00+00:00",
+        "bucket_count": 10,
+        "project_id": "test-proj",
+    }
+    response = client.post("/api/tools/logs/histogram", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert "buckets" in data
+    assert "total_count" in data
+    assert data["total_count"] == 3
+    assert len(data["buckets"]) > 0
+    # Each bucket should have severity keys
+    bucket = data["buckets"][0]
+    for key in ("start", "end", "debug", "info", "warning", "error", "critical"):
+        assert key in bucket
+
+
+@pytest.mark.asyncio
+async def test_logs_histogram_minutes_ago_fallback(mock_tools) -> None:
+    """Histogram uses minutes_ago when start_time/end_time not provided."""
+    mock_tools["list_log_entries"].return_value = BaseToolResponse(
+        status=ToolStatus.SUCCESS,
+        result={"entries": []},
+    )
+    payload = {"minutes_ago": 60, "project_id": "test-proj"}
+    response = client.post("/api/tools/logs/histogram", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total_count"] == 0
+    assert len(data["buckets"]) > 0
+
+
+@pytest.mark.asyncio
+async def test_logs_histogram_rejects_unknown_fields() -> None:
+    """Unknown fields are rejected (extra=forbid)."""
+    payload = {"filter": "", "unknown_field": "bad"}
+    response = client.post("/api/tools/logs/histogram", json=payload)
+    assert response.status_code == 422
+
+
+# =============================================================================
 # NATURAL LANGUAGE QUERY ENDPOINT TESTS
 # =============================================================================
 

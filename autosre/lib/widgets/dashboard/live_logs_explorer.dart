@@ -69,6 +69,13 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
   /// indicating there are no older entries left to load.
   bool _noMoreOldLogs = false;
 
+  /// Full-range histogram data fetched from the backend.
+  LogHistogramData? _histogramData;
+  bool _isLoadingHistogram = false;
+
+  /// User-controlled histogram chart height (drag to resize).
+  double _histogramHeight = LogTimelineHistogram.defaultHeight;
+
   @override
   void initState() {
     super.initState();
@@ -215,8 +222,39 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
       final projectId = context.read<ProjectService>().selectedProjectId;
       if (projectId == null) return;
       await explorer.loadDefaultLogs(projectId: projectId);
+      // Fetch full-range histogram in background after initial load.
+      _fetchHistogram(projectId: projectId);
     } catch (e) {
       debugPrint('LiveLogsExplorer auto-load error: $e');
+    }
+  }
+
+  /// Fetches full-range histogram data from the backend.
+  Future<void> _fetchHistogram({
+    String? filter,
+    String? projectId,
+  }) async {
+    if (!mounted) return;
+    setState(() => _isLoadingHistogram = true);
+    try {
+      final explorer = context.read<ExplorerQueryService>();
+      final data = await explorer.queryLogHistogram(
+        filter: filter ??
+            widget.dashboardState.getLastQueryFilter(DashboardDataType.logs) ??
+            '',
+        projectId: projectId,
+      );
+      if (mounted) {
+        setState(() {
+          _histogramData = data;
+          _isLoadingHistogram = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('LiveLogsExplorer histogram error: $e');
+      if (mounted) {
+        setState(() => _isLoadingHistogram = false);
+      }
     }
   }
 
@@ -325,6 +363,7 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
               ) ?? '';
               final explorer = context.read<ExplorerQueryService>();
               explorer.queryLogs(filter: filter);
+              _fetchHistogram(filter: filter);
             },
             languageLabel: 'LOG FILTER',
             languageLabelColor: AppColors.success,
@@ -349,6 +388,7 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
                 widget.onPromptRequest?.call(query);
               } else {
                 explorer.queryLogs(filter: query);
+                _fetchHistogram(filter: query);
               }
             },
             onSubmit: (filter) {
@@ -359,6 +399,7 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
               );
               final explorer = context.read<ExplorerQueryService>();
               explorer.queryLogs(filter: filter);
+              _fetchHistogram(filter: filter);
             },
           ),
         ),
@@ -393,10 +434,14 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
             ),
           )
         else ...[
-          // Timeline histogram
+          // Timeline histogram (vertically resizable)
           LogTimelineHistogram(
             entries: allEntries,
             timeRange: widget.dashboardState.timeRange,
+            histogramData: _histogramData,
+            isLoadingHistogram: _isLoadingHistogram,
+            chartHeight: _histogramHeight,
+            onHeightChanged: (h) => setState(() => _histogramHeight = h),
           ),
 
           // Pattern summary (if available)
@@ -526,6 +571,7 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
 
     final explorer = context.read<ExplorerQueryService>();
     explorer.queryLogs(filter: current);
+    _fetchHistogram(filter: current);
   }
 
   /// Dismissible help banner with 'X' button and persistent state.
