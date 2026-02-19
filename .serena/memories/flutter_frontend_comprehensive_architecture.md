@@ -385,6 +385,25 @@ Main UI orchestrator that:
 
 ---
 
+## 10. MULTI-TRACE AGENT GRAPH FEATURE
+
+### Architecture (features/agent_graph/)
+Feature-module structure following Riverpod/Freezed patterns:
+- **domain/models.dart**: Freezed models — `MultiTraceNode`, `MultiTraceEdge`, `MultiTraceGraphPayload`, `SelectedGraphElement` (sealed union)
+- **data/agent_graph_repository.dart**: Riverpod-provided `AgentGraphRepository` executing BQ GRAPH_TABLE SQL via Dio
+- **application/agent_graph_notifier.dart**: `AgentGraphNotifier` (Riverpod) holding `AgentGraphState` (payload, isLoading, error, selectedElement, dataset, timeRangeHours)
+- **presentation/**: `MultiTraceGraphPage` (full page), `MultiTraceGraphCanvas` (graphview-based), `AgentGraphDetailsPanel` (right-side metadata panel)
+
+### Key Details
+- **Data Source**: BigQuery GRAPH_TABLE query on `summitt-gcp.agent_graph.agent_trace_graph` (configurable)
+- **Graph Library**: `graphview` package (Sugiyama L→R hierarchical + force-directed layout toggle)
+- **Progressive Disclosure**: Default (label+icon), Hover (tooltip with tokens), Click (detail panel)
+- **Edge Visualization**: Color = error rate (grey→orange→red), Thickness = token cost (log scale)
+- **Navigation**: Accessible from InvestigationRail ("Agent Graph" entry)
+- **Provider name**: `agentGraphProvider` (not `agentGraphNotifierProvider` — Riverpod strips "Notifier")
+
+---
+
 ## Summary
 The Flutter frontend is a **modern, real-time investigation dashboard** where:
 - Backend agents execute tools and send results via WebSocket/HTTP streams
