@@ -60,6 +60,7 @@ class AuthService extends ChangeNotifier {
   bool _isAuthEnabled = true;
   bool _isGuestMode = false;
   bool _isGuestModeEnabled = false;
+  bool _isEnsuringAccessToken = false; // Mutex: prevents concurrent authorization popups
 
   @visibleForTesting
   set currentUser(gsi_lib.GoogleSignInAccount? user) => _currentUser = user;
@@ -171,10 +172,16 @@ class AuthService extends ChangeNotifier {
         debugPrint('AuthService: User signed in: ${event.user.email}');
         _currentUser = event.user;
 
-        // Authorize GCP scopes to get an access token.
-        // Interactive=true because the user just signed in and expects a
-        // consent screen if needed.
-        await _ensureAccessToken(interactive: true);
+        // First try to restore a previously cached token (e.g. after a page
+        // reload triggered by the OAuth redirect). If the cache is still valid
+        // we skip the interactive authorization popup entirely, which is what
+        // eliminates the duplicate-popup cycle on reload.
+        final restored = await _restoreCachedTokens();
+        if (!restored) {
+          // No usable cached token — the user signed in fresh or the old token
+          // expired. Request scope authorization interactively once.
+          await _ensureAccessToken(interactive: true);
+        }
         notifyListeners();
       } else if (event is gsi_lib.GoogleSignInAuthenticationEventSignOut) {
         debugPrint('AuthService: User signed out');
@@ -211,6 +218,15 @@ class AuthService extends ChangeNotifier {
       }
     }
 
+    // Mutex: if a concurrent call (e.g. from getAuthHeaders racing with
+    // _handleAuthEvent) is already running, bail out instead of opening a
+    // second authorization popup.
+    if (_isEnsuringAccessToken) {
+      debugPrint('AuthService: _ensureAccessToken already in progress, skipping.');
+      return;
+    }
+    _isEnsuringAccessToken = true;
+
     try {
       debugPrint(
         'AuthService: Authorizing GCP scopes (interactive: $interactive)...',
@@ -236,6 +252,8 @@ class AuthService extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('AuthService: Error authorizing scopes: $e');
+    } finally {
+      _isEnsuringAccessToken = false;
     }
   }
 
@@ -298,7 +316,9 @@ class AuthService extends ChangeNotifier {
 
   /// Get auth headers with a valid access token.
   ///
-  /// Refreshes the token if expired (silent first, then interactive).
+  /// Refreshes the token silently if expired. Never triggers an interactive
+  /// popup — callers should handle a missing token (e.g. 401 response) by
+  /// redirecting to the login page.
   Future<Map<String, String>> getAuthHeaders() async {
     if (!_isAuthEnabled) {
       final headers = {'Authorization': 'Bearer dev-mode-bypass-token'};
@@ -310,8 +330,12 @@ class AuthService extends ChangeNotifier {
 
     if (_currentUser == null) return {};
 
-    // Refresh token if needed
-    await _ensureAccessToken(interactive: true);
+    // Refresh token silently only. Never trigger an interactive popup here —
+    // getAuthHeaders is called from background API requests and a surprise
+    // consent popup mid-session would be jarring. If the silent refresh fails,
+    // the caller receives an empty-header map and the API returns 401, which
+    // the app should handle by sending the user back to the login page.
+    await _ensureAccessToken(interactive: false);
 
     if (_accessToken == null) return {};
 
