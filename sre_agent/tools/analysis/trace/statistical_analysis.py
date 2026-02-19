@@ -96,6 +96,14 @@ def _compute_latency_statistics_impl(
                 for s in trace_data["spans"]:
                     # Try to get duration from span
                     d = s.get("duration_ms")
+
+                    # Optimization: Use pre-calculated unix timestamps if available
+                    if d is None and "start_time_unix" in s and "end_time_unix" in s:
+                        try:
+                            d = (s["end_time_unix"] - s["start_time_unix"]) * 1000
+                        except (TypeError, ValueError):
+                            pass
+
                     if d is None and s.get("start_time") and s.get("end_time"):
                         try:
                             start = datetime.fromisoformat(
@@ -208,6 +216,13 @@ def _detect_latency_anomalies_impl(
             name = s.get("name")
             # Calc duration
             dur = s.get("duration_ms")
+
+            if dur is None and "start_time_unix" in s and "end_time_unix" in s:
+                try:
+                    dur = (s["end_time_unix"] - s["start_time_unix"]) * 1000
+                except (TypeError, ValueError):
+                    pass
+
             if dur is None and s.get("start_time"):
                 try:
                     start = datetime.fromisoformat(
@@ -322,16 +337,22 @@ def _analyze_critical_path_impl(trace_data: dict[str, Any]) -> dict[str, Any]:
     parsed_spans = {}
     for s in spans:
         try:
-            start = (
-                datetime.fromisoformat(
-                    s["start_time"].replace("Z", "+00:00")
-                ).timestamp()
-                * 1000
-            )
-            end = (
-                datetime.fromisoformat(s["end_time"].replace("Z", "+00:00")).timestamp()
-                * 1000
-            )
+            if "start_time_unix" in s and "end_time_unix" in s:
+                start = s["start_time_unix"] * 1000
+                end = s["end_time_unix"] * 1000
+            else:
+                start = (
+                    datetime.fromisoformat(
+                        s["start_time"].replace("Z", "+00:00")
+                    ).timestamp()
+                    * 1000
+                )
+                end = (
+                    datetime.fromisoformat(
+                        s["end_time"].replace("Z", "+00:00")
+                    ).timestamp()
+                    * 1000
+                )
             parsed_spans[s["span_id"]] = {
                 "id": s["span_id"],
                 "name": s.get("name"),
@@ -341,7 +362,7 @@ def _analyze_critical_path_impl(trace_data: dict[str, Any]) -> dict[str, Any]:
                 "parent": s.get("parent_span_id"),
                 "children": [],
             }
-        except (ValueError, KeyError):
+        except (ValueError, KeyError, TypeError):
             continue
 
     # Build tree (children links)
@@ -553,6 +574,19 @@ def perform_causal_analysis(
             continue
 
         target_duration = target_span.get("duration_ms")
+
+        if (
+            target_duration is None
+            and "start_time_unix" in target_span
+            and "end_time_unix" in target_span
+        ):
+            try:
+                target_duration = (
+                    target_span["end_time_unix"] - target_span["start_time_unix"]
+                ) * 1000
+            except (TypeError, ValueError):
+                pass
+
         if target_duration is None:
             try:
                 start = datetime.fromisoformat(
@@ -568,6 +602,17 @@ def perform_causal_analysis(
         baseline_durations = []
         for b_span in baseline_instances:
             b_dur = b_span.get("duration_ms")
+
+            if (
+                b_dur is None
+                and "start_time_unix" in b_span
+                and "end_time_unix" in b_span
+            ):
+                try:
+                    b_dur = (b_span["end_time_unix"] - b_span["start_time_unix"]) * 1000
+                except (TypeError, ValueError):
+                    pass
+
             if b_dur is None:
                 try:
                     start = datetime.fromisoformat(
@@ -673,6 +718,13 @@ def analyze_trace_patterns(
         for span in trace.get("spans", []):
             name = span.get("name", "unknown")
             dur = span.get("duration_ms")
+
+            if dur is None and "start_time_unix" in span and "end_time_unix" in span:
+                try:
+                    dur = (span["end_time_unix"] - span["start_time_unix"]) * 1000
+                except (TypeError, ValueError):
+                    pass
+
             if dur is None and span.get("start_time") and span.get("end_time"):
                 try:
                     start = datetime.fromisoformat(
@@ -779,7 +831,14 @@ def compute_service_level_stats(
             svc = labels.get("service.name") or labels.get("service") or "unknown"
 
             dur = 0.0
-            if s.get("start_time") and s.get("end_time"):
+
+            if "start_time_unix" in s and "end_time_unix" in s:
+                try:
+                    dur = (s["end_time_unix"] - s["start_time_unix"]) * 1000
+                except (TypeError, ValueError):
+                    pass
+
+            if dur == 0.0 and s.get("start_time") and s.get("end_time"):
                 try:
                     start = datetime.fromisoformat(
                         s["start_time"].replace("Z", "+00:00")
