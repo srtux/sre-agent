@@ -157,8 +157,8 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
     // Configure Sugiyama
     final builder = gv.SugiyamaConfiguration()
       ..orientation = gv.SugiyamaConfiguration.ORIENTATION_LEFT_RIGHT
-      ..levelSeparation = 150
-      ..nodeSeparation = 200;
+      ..levelSeparation = 300
+      ..nodeSeparation = 40;
 
     final algorithm = gv.SugiyamaAlgorithm(builder);
     algorithm.run(graph, 100, 100); // Shift X, Y
@@ -249,7 +249,7 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
                   color: linkColor,
                   lineWidth: linkThickness,
                   drawMode: FlLineDrawMode.solid,
-                  curveType: FlLinkCurveType.bezier,
+                  curveType: FlLinkCurveType.straight,
                 ),
               ),
             ),
@@ -290,7 +290,6 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
     FlNodeDataModel nodeData,
   ) {
     final isSelected = nodeData.state.isSelected;
-    final isAgent = node.type.toLowerCase() == 'agent';
     final color = _nodeColor(node.type);
 
     // Find ports
@@ -298,212 +297,107 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
     final outPort = nodeData.ports['out'];
 
     Widget content;
-    if (isAgent || node.type.toLowerCase() == 'sub_agent') {
-      // Pill shape for Agents
-      content = Container(
-        width: 160,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: AppColors.backgroundCard,
-          borderRadius: BorderRadius.circular(32),
-          border: Border.all(
-            color: isSelected
-                ? AppColors.primaryTeal
-                : (node.hasError
-                      ? AppColors.error
-                      : color.withValues(alpha: 0.5)),
-            width: isSelected ? 2 : 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.2),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
+    // Cloud Trace style single-line node card
+    // ID comes as something like "generate_content gemini-2.5-flash", parse it for display
+    var displayId = node.id;
+    if (displayId.contains('generate_content') &&
+        displayId.split(' ').length > 1) {
+      displayId = displayId.split(' ').sublist(1).join(' ');
+    }
+
+    content = Container(
+      width: 220,
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: AppColors.backgroundCard,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: isSelected
+              ? AppColors.secondaryPurple
+              : (node.hasError ? AppColors.error : AppColors.surfaceBorder),
+          width: isSelected ? 2 : 1,
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircleAvatar(
-              radius: 12,
-              backgroundColor: color.withValues(alpha: 0.2),
-              child: Icon(_nodeIcon(node.type), size: 14, color: color),
+        boxShadow: [
+          if (isSelected)
+            BoxShadow(
+              color: AppColors.secondaryPurple.withValues(alpha: 0.2),
+              blurRadius: 8,
+              spreadRadius: 2,
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Left accent / icon
+          Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Icon(_nodeIcon(node.type), size: 14, color: color),
+          ),
+          const SizedBox(width: 8),
+
+          // Label
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  displayId,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (node.description != null && node.description!.isNotEmpty)
                   Text(
-                    node.id,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    node.description!,
+                    style: const TextStyle(color: Colors.white54, fontSize: 10),
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  Text(
-                    '${_formatTokens(node.totalTokens)} toks',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.6),
-                      fontSize: 10,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (node.hasError) ...[
-              const SizedBox(width: 4),
-              const Icon(Icons.error, color: AppColors.error, size: 14),
-            ],
-          ],
-        ),
-      );
-    } else if (node.type.toLowerCase() == 'llm' ||
-        node.type.toLowerCase() == 'llm_model') {
-      // Distinct Card for LLMs
-      // Try to parse out the model name. Often IDs are like "generate_content gemini-2.5-flash"
-      var displayId = node.id;
-      final parts = node.id.split(' ');
-      if (parts.length > 1 && parts.first.contains('generate_content')) {
-        displayId = parts.sublist(1).join(' '); // e.g., "gemini-2.5-flash"
-      }
-      content = Container(
-        width: 150,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: AppColors.backgroundCard,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isSelected
-                ? AppColors.secondaryPurple
-                : (node.hasError
-                      ? AppColors.error
-                      : AppColors.secondaryPurple.withValues(alpha: 0.4)),
-            width: isSelected ? 2 : 1,
-          ),
-          boxShadow: [
-            if (isSelected)
-              BoxShadow(
-                color: AppColors.secondaryPurple.withValues(alpha: 0.2),
-                blurRadius: 8,
-                spreadRadius: 2,
-              ),
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.2),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(_nodeIcon(node.type), size: 14, color: color),
-                const SizedBox(width: 6),
-                const Text(
-                  'LLM',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                if (node.hasError) ...[
-                  const Spacer(),
-                  const Icon(Icons.error, color: AppColors.error, size: 12),
-                ],
               ],
             ),
-            const SizedBox(height: 6),
-            Text(
-              displayId,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+          ),
+
+          // Right metrics
+          if (node.hasError) ...[
+            const Icon(Icons.error, color: AppColors.error, size: 14),
+            const SizedBox(width: 4),
+          ],
+          if (node.totalTokens > 0)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppColors.secondaryPurple.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(4),
               ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            if (node.totalTokens > 0) ...[
-              const SizedBox(height: 4),
-              Text(
+              child: Text(
                 '${_formatTokens(node.totalTokens)} toks',
                 style: TextStyle(
-                  color: AppColors.secondaryPurple.withValues(alpha: 0.8),
+                  color: AppColors.secondaryPurple.withValues(alpha: 0.9),
                   fontSize: 10,
                   fontWeight: FontWeight.w500,
                 ),
               ),
-            ]
-          ],
-        ),
-      );
-    } else {
-      // Distinct Card for Tools
-      content = Container(
-        width: 140,
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: AppColors.backgroundCard,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isSelected
-                ? AppColors.warning
-                : (node.hasError ? AppColors.error : AppColors.surfaceBorder),
-            width: isSelected ? 2 : 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.2),
-              blurRadius: 2,
-              offset: const Offset(0, 1),
             ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(_nodeIcon(node.type), size: 14, color: color),
-                if (node.hasError) ...[
-                  const SizedBox(width: 4),
-                  const Icon(Icons.error, color: AppColors.error, size: 12),
-                ],
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              node.id,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            if (node.totalTokens > 0) ...[
-              const SizedBox(height: 4),
-              Text(
-                '${_formatTokens(node.totalTokens)} toks',
-                style: const TextStyle(color: Colors.white54, fontSize: 10),
-              ),
-            ]
-          ],
-        ),
-      );
-    }
+        ],
+      ),
+    );
 
     // Wrap content with ports (Left -> Right flow)
     return GestureDetector(
