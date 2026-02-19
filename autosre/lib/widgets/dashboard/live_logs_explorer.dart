@@ -65,6 +65,10 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
   final ScrollController _scrollController = ScrollController();
   bool _isLoadingMore = false;
 
+  /// Set to true once the backend returns fewer entries than the page limit,
+  /// indicating there are no older entries left to load.
+  bool _noMoreOldLogs = false;
+
   @override
   void initState() {
     super.initState();
@@ -100,34 +104,55 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
   }
 
   Future<void> _loadMoreLogs() async {
-    if (_isLoadingMore) return;
+    if (_isLoadingMore || _noMoreOldLogs) return;
 
-    DashboardItem? pageItem;
+    // Use the oldest visible entry as the pagination cursor so we ask the
+    // backend for entries that come before it in time.
+    final allEntries = _allEntries; // sorted timestamp desc → last = oldest
+    if (allEntries.isEmpty) return;
+    final oldestEntry = allEntries.last;
+
+    // Retrieve the filter and page limit from the most recent log item.
+    DashboardItem? logItem;
     for (final item in widget.items.reversed) {
-      if (item.type == DashboardDataType.logs &&
-          item.logData?.nextPageToken != null) {
-        pageItem = item;
+      if (item.type == DashboardDataType.logs && item.logData != null) {
+        logItem = item;
         break;
       }
     }
+    if (logItem == null) return;
+    final logData = logItem.logData!;
 
-    if (pageItem == null || pageItem.logData == null) return;
-    final logData = pageItem.logData!;
-
-    final pageToken = logData.nextPageToken;
-    if (pageToken == null) return;
-
-    final filter = logData.filter ?? widget.dashboardState.getLastQueryFilter(DashboardDataType.logs) ?? '';
+    final filter =
+        logData.filter ??
+        widget.dashboardState.getLastQueryFilter(DashboardDataType.logs) ??
+        '';
+    final limit = logData.limit ?? 50;
 
     setState(() => _isLoadingMore = true);
 
     try {
       final explorer = context.read<ExplorerQueryService>();
-      await explorer.queryLogs(filter: filter, pageToken: pageToken, limit: logData.limit);
+      final hasMore = await explorer.queryLogs(
+        filter: filter,
+        cursorTimestamp: oldestEntry.timestamp,
+        cursorInsertId: oldestEntry.insertId,
+        limit: limit,
+      );
+      if (!hasMore && mounted) {
+        setState(() => _noMoreOldLogs = true);
+      }
     } finally {
       if (mounted) {
         setState(() => _isLoadingMore = false);
       }
+    }
+  }
+
+  /// Resets the "no more old logs" flag when a fresh (non-cursor) query is run.
+  void _resetPagination() {
+    if (_noMoreOldLogs) {
+      setState(() => _noMoreOldLogs = false);
     }
   }
 
@@ -184,6 +209,7 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
 
   Future<void> _loadDefaultLogs() async {
     if (!mounted) return;
+    _resetPagination();
     try {
       final explorer = context.read<ExplorerQueryService>();
       final projectId = context.read<ProjectService>().selectedProjectId;
@@ -293,6 +319,7 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
             panelType: 'logs',
             dashboardState: widget.dashboardState,
             onRefresh: () {
+              _resetPagination();
               final filter = widget.dashboardState.getLastQueryFilter(
                 DashboardDataType.logs,
               ) ?? '';
@@ -312,6 +339,7 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
                 'Show me all errors from the payment service...',
             naturalLanguageExamples: loggingNaturalLanguageExamples,
             onSubmitWithMode: (query, isNl) {
+              _resetPagination();
               widget.dashboardState.setLastQueryFilter(
                 DashboardDataType.logs,
                 query,
@@ -324,6 +352,7 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
               }
             },
             onSubmit: (filter) {
+              _resetPagination();
               widget.dashboardState.setLastQueryFilter(
                 DashboardDataType.logs,
                 filter,
@@ -492,6 +521,7 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
     } else if (!current.contains(addition)) {
       current = '$current AND $addition';
     }
+    _resetPagination();
     widget.dashboardState.setLastQueryFilter(DashboardDataType.logs, current);
 
     final explorer = context.read<ExplorerQueryService>();
@@ -954,6 +984,7 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
                     ? filterAddition
                     : '$currentFilter AND $filterAddition';
 
+                _resetPagination();
                 widget.dashboardState.setLastQueryFilter(
                   DashboardDataType.logs,
                   newFilter,

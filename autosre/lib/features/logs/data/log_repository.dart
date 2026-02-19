@@ -18,19 +18,27 @@ class LogRepository {
   Future<LogEntriesData> queryLogs({
     required String filter,
     String? projectId,
-    String? pageToken,
+    DateTime? cursorTimestamp,
+    String? cursorInsertId,
     int? limit,
+    int? minutesAgo,
   }) async {
-    final response = await _dio.post(
-      '/api/tools/logs/query',
-      data: {
-        'filter': filter,
-        'project_id': projectId,
-        'page_token': pageToken,
-        'limit': limit,
-      },
-    );
+    final data = <String, dynamic>{
+      'filter': filter,
+      'project_id': projectId,
+      'limit': limit,
+    };
 
+    if (cursorTimestamp != null) {
+      data['cursor_timestamp'] = cursorTimestamp.toUtc().toIso8601String();
+      if (cursorInsertId != null) {
+        data['cursor_insert_id'] = cursorInsertId;
+      }
+    } else if (minutesAgo != null) {
+      data['minutes_ago'] = minutesAgo;
+    }
+
+    final response = await _dio.post('/api/tools/logs/query', data: data);
     return LogEntriesData.fromJson(response.data);
   }
 

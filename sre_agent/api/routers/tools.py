@@ -127,7 +127,8 @@ class LogsQueryRequest(BaseModel):
     minutes_ago: int | None = None
     limit: int = 50
     project_id: str | None = None
-    page_token: str | None = None
+    cursor_timestamp: str | None = None
+    cursor_insert_id: str | None = None
 
 
 class NLQueryRequest(BaseModel):
@@ -339,25 +340,46 @@ async def query_logs_endpoint(payload: LogsQueryRequest) -> Any:
     """Fetch raw log entries without pattern extraction (faster for explorer).
 
     Returns data in LogEntriesData-compatible format.
+
+    Pagination: when ``cursor_timestamp`` is provided the query returns
+    entries strictly before that timestamp (optionally refined by
+    ``cursor_insert_id`` for same-timestamp ties).  ``minutes_ago`` is
+    intentionally ignored for cursor pages so the caller can scroll back
+    beyond the initial time window.
     """
     try:
-        # Build filter with optional time constraint
-        filter_str = payload.filter or ""
-        if payload.minutes_ago is not None:
-            from datetime import datetime, timedelta, timezone
+        from datetime import datetime, timedelta, timezone
 
+        filter_str = payload.filter or ""
+
+        if payload.cursor_timestamp:
+            # Cursor-based pagination: fetch entries older than the cursor.
+            # For the same-timestamp boundary we use insertId to avoid
+            # re-returning the last entry already visible in the buffer.
+            if payload.cursor_insert_id:
+                cursor_filter = (
+                    f'(timestamp<"{payload.cursor_timestamp}" OR '
+                    f'(timestamp="{payload.cursor_timestamp}" AND '
+                    f'insertId>"{payload.cursor_insert_id}"))'
+                )
+            else:
+                cursor_filter = f'timestamp<"{payload.cursor_timestamp}"'
+            filter_str = (
+                f"({filter_str}) AND {cursor_filter}" if filter_str else cursor_filter
+            )
+            # Do NOT apply minutes_ago when paginating — the cursor IS the
+            # upper bound; applying a lower time-bound would conflict.
+        elif payload.minutes_ago is not None:
             cutoff = datetime.now(timezone.utc) - timedelta(minutes=payload.minutes_ago)
             time_filter = f'timestamp>="{cutoff.isoformat()}"'
-            if filter_str:
-                filter_str = f"{filter_str} AND {time_filter}"
-            else:
-                filter_str = time_filter
+            filter_str = (
+                f"{filter_str} AND {time_filter}" if filter_str else time_filter
+            )
 
         result = await list_log_entries(
             filter_str=filter_str,
             project_id=payload.project_id,
             limit=payload.limit,
-            page_token=payload.page_token,
         )
         raw = _unwrap_tool_result(result)
         return genui_adapter.transform_log_entries(raw)

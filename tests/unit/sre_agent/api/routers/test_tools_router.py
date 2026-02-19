@@ -488,6 +488,66 @@ async def test_query_logs_passes_limit(mock_tools) -> None:
     assert call_kwargs["limit"] == 25
 
 
+@pytest.mark.asyncio
+async def test_query_logs_cursor_timestamp_injected_into_filter(mock_tools) -> None:
+    """Cursor timestamp is injected into filter_str; minutes_ago is not applied."""
+    cursor_ts = "2024-06-01T12:00:00+00:00"
+    payload = {
+        "filter": "severity>=ERROR",
+        "cursor_timestamp": cursor_ts,
+        "project_id": "p1",
+    }
+    response = client.post("/api/tools/logs/query", json=payload)
+    assert response.status_code == 200
+    call_kwargs = mock_tools["list_log_entries"].call_args.kwargs
+    filter_used: str = call_kwargs["filter_str"]
+    # The cursor timestamp must appear as an upper bound
+    assert f'timestamp<"{cursor_ts}"' in filter_used
+    # The original user filter must be preserved
+    assert "severity>=ERROR" in filter_used
+    # page_token / minutes_ago must NOT be forwarded
+    assert "page_token" not in call_kwargs
+
+
+@pytest.mark.asyncio
+async def test_query_logs_cursor_with_insert_id_uses_or_filter(mock_tools) -> None:
+    """When cursor_insert_id is also supplied the filter handles same-ts ties."""
+    cursor_ts = "2024-06-01T12:00:00+00:00"
+    cursor_id = "abc123"
+    payload = {
+        "filter": "",
+        "cursor_timestamp": cursor_ts,
+        "cursor_insert_id": cursor_id,
+        "project_id": "p1",
+    }
+    response = client.post("/api/tools/logs/query", json=payload)
+    assert response.status_code == 200
+    call_kwargs = mock_tools["list_log_entries"].call_args.kwargs
+    filter_used: str = call_kwargs["filter_str"]
+    assert f'timestamp<"{cursor_ts}"' in filter_used
+    assert f'insertId>"{cursor_id}"' in filter_used
+
+
+@pytest.mark.asyncio
+async def test_query_logs_minutes_ago_applied_without_cursor(mock_tools) -> None:
+    """minutes_ago time filter is still applied when no cursor is provided."""
+    payload = {"filter": "", "minutes_ago": 30, "project_id": "p1"}
+    response = client.post("/api/tools/logs/query", json=payload)
+    assert response.status_code == 200
+    call_kwargs = mock_tools["list_log_entries"].call_args.kwargs
+    filter_used: str = call_kwargs["filter_str"]
+    # A timestamp>=... filter should be present
+    assert "timestamp>=" in filter_used
+
+
+@pytest.mark.asyncio
+async def test_query_logs_rejects_unknown_fields() -> None:
+    """page_token is no longer accepted; endpoint returns 422."""
+    payload = {"filter": "", "page_token": "old-token"}
+    response = client.post("/api/tools/logs/query", json=payload)
+    assert response.status_code == 422
+
+
 # =============================================================================
 # NATURAL LANGUAGE QUERY ENDPOINT TESTS
 # =============================================================================
