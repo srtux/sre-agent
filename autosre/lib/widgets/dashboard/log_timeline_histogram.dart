@@ -34,6 +34,22 @@ class LogTimelineHistogram extends StatefulWidget {
   /// Optional callback when a histogram bar/bucket is tapped for drill-down.
   final void Function(DateTime bucketStart, DateTime bucketEnd)? onBucketTap;
 
+  /// Chart height controlled by the parent. Falls back to [defaultHeight].
+  final double? chartHeight;
+
+  /// Fired when the user drags the resize handle. The parent should persist
+  /// the new value and pass it back via [chartHeight].
+  final ValueChanged<double>? onHeightChanged;
+
+  /// Default height when no [chartHeight] is provided.
+  static const double defaultHeight = 96;
+
+  /// Minimum allowed chart height.
+  static const double minHeight = 40;
+
+  /// Maximum allowed chart height.
+  static const double maxHeight = 300;
+
   const LogTimelineHistogram({
     super.key,
     required this.entries,
@@ -41,6 +57,8 @@ class LogTimelineHistogram extends StatefulWidget {
     this.histogramData,
     this.isLoadingHistogram = false,
     this.onBucketTap,
+    this.chartHeight,
+    this.onHeightChanged,
   });
 
   @override
@@ -51,7 +69,8 @@ class _LogTimelineHistogramState extends State<LogTimelineHistogram> {
   int? _hoveredBucketIndex;
   Offset? _hoverPosition;
 
-  static const double _chartHeight = 96;
+  double get _chartHeight =>
+      widget.chartHeight ?? LogTimelineHistogram.defaultHeight;
   static const double _barGap = 1.5;
   static const double _leftMargin = 36;
 
@@ -215,134 +234,143 @@ class _LogTimelineHistogramState extends State<LogTimelineHistogram> {
       return _buildEmptyState();
     }
 
-    return Container(
-      height: _chartHeight,
-      decoration: BoxDecoration(
-        color: AppColors.backgroundDark.withValues(alpha: 0.3),
-        border: Border(
-          bottom: BorderSide(
-            color: AppColors.surfaceBorder.withValues(alpha: 0.2),
+    final effectiveHeight = _chartHeight;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          height: effectiveHeight,
+          decoration: BoxDecoration(
+            color: AppColors.backgroundDark.withValues(alpha: 0.3),
+          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final chartWidth = constraints.maxWidth - _leftMargin;
+              return Stack(
+                children: [
+                  MouseRegion(
+                    onHover: (event) {
+                      final index = _bucketIndexAtX(
+                        event.localPosition.dx,
+                        buckets.length,
+                        chartWidth,
+                      );
+                      if (index != _hoveredBucketIndex) {
+                        setState(() {
+                          _hoveredBucketIndex = index;
+                          _hoverPosition = event.localPosition;
+                        });
+                      }
+                    },
+                    onExit: (_) => setState(() {
+                      _hoveredBucketIndex = null;
+                      _hoverPosition = null;
+                    }),
+                    child: GestureDetector(
+                      onTapUp: (details) {
+                        if (widget.onBucketTap == null) return;
+                        final index = _bucketIndexAtX(
+                          details.localPosition.dx,
+                          buckets.length,
+                          chartWidth,
+                        );
+                        if (index != null && index < buckets.length) {
+                          widget.onBucketTap!(
+                            buckets[index].start,
+                            buckets[index].end,
+                          );
+                        }
+                      },
+                      child: CustomPaint(
+                        painter: _HistogramPainter(
+                          buckets: buckets,
+                          hoveredIndex: _hoveredBucketIndex,
+                          leftMargin: _leftMargin,
+                        ),
+                        size: Size(constraints.maxWidth, effectiveHeight),
+                      ),
+                    ),
+                  ),
+                  // Loading shimmer overlay
+                  if (widget.isLoadingHistogram && !hasHistogram)
+                    Positioned.fill(
+                      child: Container(
+                        color:
+                            AppColors.backgroundDark.withValues(alpha: 0.4),
+                        alignment: Alignment.center,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              width: 12,
+                              height: 12,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.5,
+                                color: AppColors.primaryCyan.withValues(
+                                  alpha: 0.7,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: Spacing.sm),
+                            Text(
+                              'Loading full timeline...',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: AppColors.textMuted.withValues(
+                                  alpha: 0.7,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  // Source badge
+                  if (hasHistogram)
+                    Positioned(
+                      right: Spacing.sm,
+                      top: Spacing.xs,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.success.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(3),
+                          border: Border.all(
+                            color: AppColors.success.withValues(alpha: 0.2),
+                          ),
+                        ),
+                        child: Text(
+                          '${_formatCount(widget.histogramData!.totalCount)} entries',
+                          style: TextStyle(
+                            fontSize: 8,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.success.withValues(
+                              alpha: 0.8,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  // Tooltip
+                  if (_hoveredBucketIndex != null &&
+                      _hoverPosition != null &&
+                      _hoveredBucketIndex! < buckets.length)
+                    _buildTooltip(
+                      buckets[_hoveredBucketIndex!],
+                      constraints.maxWidth,
+                    ),
+                ],
+              );
+            },
           ),
         ),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final chartWidth = constraints.maxWidth - _leftMargin;
-          return Stack(
-            children: [
-              MouseRegion(
-                onHover: (event) {
-                  final index = _bucketIndexAtX(
-                    event.localPosition.dx,
-                    buckets.length,
-                    chartWidth,
-                  );
-                  if (index != _hoveredBucketIndex) {
-                    setState(() {
-                      _hoveredBucketIndex = index;
-                      _hoverPosition = event.localPosition;
-                    });
-                  }
-                },
-                onExit: (_) => setState(() {
-                  _hoveredBucketIndex = null;
-                  _hoverPosition = null;
-                }),
-                child: GestureDetector(
-                  onTapUp: (details) {
-                    if (widget.onBucketTap == null) return;
-                    final index = _bucketIndexAtX(
-                      details.localPosition.dx,
-                      buckets.length,
-                      chartWidth,
-                    );
-                    if (index != null && index < buckets.length) {
-                      widget.onBucketTap!(
-                        buckets[index].start,
-                        buckets[index].end,
-                      );
-                    }
-                  },
-                  child: CustomPaint(
-                    painter: _HistogramPainter(
-                      buckets: buckets,
-                      hoveredIndex: _hoveredBucketIndex,
-                      leftMargin: _leftMargin,
-                    ),
-                    size: Size(constraints.maxWidth, _chartHeight),
-                  ),
-                ),
-              ),
-              // Loading shimmer overlay
-              if (widget.isLoadingHistogram && !hasHistogram)
-                Positioned.fill(
-                  child: Container(
-                    color: AppColors.backgroundDark.withValues(alpha: 0.4),
-                    alignment: Alignment.center,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          width: 12,
-                          height: 12,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 1.5,
-                            color:
-                                AppColors.primaryCyan.withValues(alpha: 0.7),
-                          ),
-                        ),
-                        const SizedBox(width: Spacing.sm),
-                        Text(
-                          'Loading full timeline...',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color:
-                                AppColors.textMuted.withValues(alpha: 0.7),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              // Source badge
-              if (hasHistogram)
-                Positioned(
-                  right: Spacing.sm,
-                  top: Spacing.xs,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 5,
-                      vertical: 1,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.success.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(3),
-                      border: Border.all(
-                        color: AppColors.success.withValues(alpha: 0.2),
-                      ),
-                    ),
-                    child: Text(
-                      '${_formatCount(widget.histogramData!.totalCount)} entries',
-                      style: TextStyle(
-                        fontSize: 8,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.success.withValues(alpha: 0.8),
-                      ),
-                    ),
-                  ),
-                ),
-              // Tooltip
-              if (_hoveredBucketIndex != null &&
-                  _hoverPosition != null &&
-                  _hoveredBucketIndex! < buckets.length)
-                _buildTooltip(
-                  buckets[_hoveredBucketIndex!],
-                  constraints.maxWidth,
-                ),
-            ],
-          );
-        },
-      ),
+        // Resize drag handle
+        _buildResizeHandle(),
+      ],
     );
   }
 
@@ -353,46 +381,84 @@ class _LogTimelineHistogramState extends State<LogTimelineHistogram> {
   }
 
   Widget _buildEmptyState() {
-    return Container(
-      height: _chartHeight,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: AppColors.backgroundDark.withValues(alpha: 0.3),
-        border: Border(
-          bottom: BorderSide(
-            color: AppColors.surfaceBorder.withValues(alpha: 0.2),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          height: _chartHeight,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: AppColors.backgroundDark.withValues(alpha: 0.3),
           ),
-        ),
-      ),
-      child: widget.isLoadingHistogram
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  width: 12,
-                  height: 12,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 1.5,
-                    color: AppColors.primaryCyan.withValues(alpha: 0.7),
-                  ),
-                ),
-                const SizedBox(width: Spacing.sm),
-                Text(
-                  'Loading timeline...',
+          child: widget.isLoadingHistogram
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.5,
+                        color: AppColors.primaryCyan.withValues(alpha: 0.7),
+                      ),
+                    ),
+                    const SizedBox(width: Spacing.sm),
+                    Text(
+                      'Loading timeline...',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: AppColors.textMuted.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ],
+                )
+              : Text(
+                  'No log data in selected range',
                   style: TextStyle(
                     fontSize: 10,
                     color: AppColors.textMuted.withValues(alpha: 0.6),
                   ),
                 ),
-              ],
-            )
-          : Text(
-              'No log data in selected range',
-              style: TextStyle(
-                fontSize: 10,
-                color: AppColors.textMuted.withValues(alpha: 0.6),
+        ),
+        _buildResizeHandle(),
+      ],
+    );
+  }
+
+  Widget _buildResizeHandle() {
+    return MouseRegion(
+      cursor: SystemMouseCursors.resizeRow,
+      child: GestureDetector(
+        onVerticalDragUpdate: (details) {
+          if (widget.onHeightChanged == null) return;
+          final newHeight = (_chartHeight + details.delta.dy).clamp(
+            LogTimelineHistogram.minHeight,
+            LogTimelineHistogram.maxHeight,
+          );
+          widget.onHeightChanged!(newHeight);
+        },
+        child: Container(
+          height: 8,
+          decoration: BoxDecoration(
+            color: AppColors.backgroundDark.withValues(alpha: 0.3),
+            border: Border(
+              bottom: BorderSide(
+                color: AppColors.surfaceBorder.withValues(alpha: 0.2),
               ),
             ),
+          ),
+          child: Center(
+            child: Container(
+              width: 32,
+              height: 3,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceBorder.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(1.5),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 

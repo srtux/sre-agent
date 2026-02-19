@@ -73,6 +73,9 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
   LogHistogramData? _histogramData;
   bool _isLoadingHistogram = false;
 
+  /// User-controlled histogram chart height (drag to resize).
+  double _histogramHeight = LogTimelineHistogram.defaultHeight;
+
   @override
   void initState() {
     super.initState();
@@ -431,12 +434,14 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
             ),
           )
         else ...[
-          // Timeline histogram
+          // Timeline histogram (vertically resizable)
           LogTimelineHistogram(
             entries: allEntries,
             timeRange: widget.dashboardState.timeRange,
             histogramData: _histogramData,
             isLoadingHistogram: _isLoadingHistogram,
+            chartHeight: _histogramHeight,
+            onHeightChanged: (h) => setState(() => _histogramHeight = h),
           ),
 
           // Pattern summary (if available)

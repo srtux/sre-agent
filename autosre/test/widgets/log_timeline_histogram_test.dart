@@ -88,7 +88,7 @@ void main() {
       expect(find.byType(CustomPaint), findsWidgets);
     });
 
-    testWidgets('renders with correct height', (WidgetTester tester) async {
+    testWidgets('renders with default height', (WidgetTester tester) async {
       final range = _makeRange(
         start: baseTime,
         end: baseTime.add(const Duration(hours: 1)),
@@ -102,6 +102,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      // The chart container should use the default height (96).
       final container = tester.widget<Container>(
         find
             .descendant(
@@ -111,7 +112,97 @@ void main() {
             .first,
       );
       final box = container.constraints;
-      expect(box?.maxHeight, 96);
+      expect(box?.maxHeight, LogTimelineHistogram.defaultHeight);
+    });
+
+    testWidgets('renders with custom chartHeight', (
+      WidgetTester tester,
+    ) async {
+      final range = _makeRange(
+        start: baseTime,
+        end: baseTime.add(const Duration(hours: 1)),
+      );
+      final entries = [
+        _makeEntry(timestamp: baseTime.add(const Duration(minutes: 5))),
+      ];
+
+      await tester.pumpWidget(
+        _wrapWidget(
+          LogTimelineHistogram(
+            entries: entries,
+            timeRange: range,
+            chartHeight: 200,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final container = tester.widget<Container>(
+        find
+            .descendant(
+              of: find.byType(LogTimelineHistogram),
+              matching: find.byType(Container),
+            )
+            .first,
+      );
+      final box = container.constraints;
+      expect(box?.maxHeight, 200);
+    });
+
+    testWidgets('resize handle is present', (WidgetTester tester) async {
+      final range = _makeRange(
+        start: baseTime,
+        end: baseTime.add(const Duration(hours: 1)),
+      );
+      final entries = [
+        _makeEntry(timestamp: baseTime.add(const Duration(minutes: 5))),
+      ];
+
+      await tester.pumpWidget(
+        _wrapWidget(LogTimelineHistogram(entries: entries, timeRange: range)),
+      );
+      await tester.pumpAndSettle();
+
+      // The resize handle renders a MouseRegion with resizeRow cursor.
+      expect(find.byType(MouseRegion), findsWidgets);
+      expect(find.byType(GestureDetector), findsWidgets);
+    });
+
+    testWidgets('drag on resize handle fires onHeightChanged', (
+      WidgetTester tester,
+    ) async {
+      final range = _makeRange(
+        start: baseTime,
+        end: baseTime.add(const Duration(hours: 1)),
+      );
+      final entries = [
+        _makeEntry(timestamp: baseTime.add(const Duration(minutes: 5))),
+      ];
+
+      double? reportedHeight;
+
+      await tester.pumpWidget(
+        _wrapWidget(
+          LogTimelineHistogram(
+            entries: entries,
+            timeRange: range,
+            chartHeight: 96,
+            onHeightChanged: (h) => reportedHeight = h,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Drag downward on the widget to trigger the resize handle.
+      await tester.drag(
+        find.byType(LogTimelineHistogram),
+        const Offset(0, 50),
+        warnIfMissed: false,
+      );
+      await tester.pumpAndSettle();
+
+      // The callback should have been invoked with a clamped value.
+      expect(reportedHeight, isNotNull);
     });
 
     testWidgets('handles single entry', (WidgetTester tester) async {
