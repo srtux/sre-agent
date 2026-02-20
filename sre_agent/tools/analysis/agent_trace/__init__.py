@@ -4,6 +4,7 @@ This package provides tools for analyzing AI agent interactions
 via OpenTelemetry traces with GenAI semantic conventions.
 """
 
+from .graph import get_agent_graph
 from .parsing import (
     build_interaction_tree,
     classify_span,
@@ -32,6 +33,7 @@ __all__ = [
     "compute_graph_aggregates",
     "detect_agent_anti_patterns",
     "detect_anti_patterns",
+    "get_agent_graph",
     "get_agent_token_usage_query",
     "get_agent_tool_usage_query",
     "get_agent_trace_spans_query",

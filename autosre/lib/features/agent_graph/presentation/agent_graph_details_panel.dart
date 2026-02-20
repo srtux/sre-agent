@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../theme/app_theme.dart';
 import '../../../services/explorer_query_service.dart';
 import '../domain/models.dart';
+import '../application/agent_graph_notifier.dart';
 
 /// Right-hand detail panel showing full metadata for a selected node or edge.
-class AgentGraphDetailsPanel extends StatelessWidget {
+class AgentGraphDetailsPanel extends ConsumerWidget {
   final MultiTraceGraphPayload payload;
   final SelectedGraphElement? selected;
   final VoidCallback? onClose;
@@ -19,7 +21,7 @@ class AgentGraphDetailsPanel extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final sel = selected;
     if (sel == null) return const SizedBox.shrink();
 
@@ -38,8 +40,16 @@ class AgentGraphDetailsPanel extends StatelessWidget {
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: switch (sel) {
-                SelectedNode(:final node) => _buildNodeDetail(context, node),
-                SelectedEdge(:final edge) => _buildEdgeDetail(context, edge),
+                SelectedNode(:final node) => _buildNodeDetail(
+                  context,
+                  ref,
+                  node,
+                ),
+                SelectedEdge(:final edge) => _buildEdgeDetail(
+                  context,
+                  ref,
+                  edge,
+                ),
               },
             ),
           ),
@@ -106,7 +116,15 @@ class AgentGraphDetailsPanel extends StatelessWidget {
   // Node detail
   // ---------------------------------------------------------------------------
 
-  Widget _buildNodeDetail(BuildContext context, MultiTraceNode node) {
+  Widget _buildNodeDetail(
+    BuildContext context,
+    WidgetRef ref,
+    MultiTraceNode node,
+  ) {
+    final extendedDetails = ref.watch(
+      fetchExtendedNodeDetailsProvider(node.id),
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -249,6 +267,51 @@ class AgentGraphDetailsPanel extends StatelessWidget {
             ),
           ),
         ),
+        const SizedBox(height: 16),
+        const Divider(color: AppColors.surfaceBorder, height: 24),
+        const Text(
+          'Latency Details (Extended)',
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        extendedDetails.when(
+          data: (data) =>
+              _buildExtendedLatency(data['latency'] as Map<String, dynamic>?),
+          loading: () => const Center(
+            child: Padding(
+              padding: EdgeInsets.all(8.0),
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          ),
+          error: (e, st) => Text(
+            'Failed to load: $e',
+            style: const TextStyle(color: AppColors.error, fontSize: 10),
+          ),
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          'Recent Errors (Extended)',
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        extendedDetails.when(
+          data: (data) =>
+              _buildExtendedErrors(data['top_errors'] as List<dynamic>?),
+          loading: () => const SizedBox.shrink(),
+          error: (e, st) => const SizedBox.shrink(),
+        ),
       ],
     );
   }
@@ -257,7 +320,15 @@ class AgentGraphDetailsPanel extends StatelessWidget {
   // Edge detail
   // ---------------------------------------------------------------------------
 
-  Widget _buildEdgeDetail(BuildContext context, MultiTraceEdge edge) {
+  Widget _buildEdgeDetail(
+    BuildContext context,
+    WidgetRef ref,
+    MultiTraceEdge edge,
+  ) {
+    final extendedDetails = ref.watch(
+      fetchExtendedEdgeDetailsProvider(edge.sourceId, edge.targetId),
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -371,7 +442,118 @@ class AgentGraphDetailsPanel extends StatelessWidget {
             ),
           ),
         ),
+        const SizedBox(height: 16),
+        const Divider(color: AppColors.surfaceBorder, height: 24),
+        const Text(
+          'Latency Details (Extended)',
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        extendedDetails.when(
+          data: (data) =>
+              _buildExtendedLatency(data['latency'] as Map<String, dynamic>?),
+          loading: () => const Center(
+            child: Padding(
+              padding: EdgeInsets.all(8.0),
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          ),
+          error: (e, st) => Text(
+            'Failed to load: $e',
+            style: const TextStyle(color: AppColors.error, fontSize: 10),
+          ),
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          'Recent Errors (Extended)',
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        extendedDetails.when(
+          data: (data) =>
+              _buildExtendedErrors(data['top_errors'] as List<dynamic>?),
+          loading: () => const SizedBox.shrink(),
+          error: (e, st) => const SizedBox.shrink(),
+        ),
       ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Extended Details Formatting
+  // ---------------------------------------------------------------------------
+
+  Widget _buildExtendedLatency(Map<String, dynamic>? latencyData) {
+    if (latencyData == null || latencyData.isEmpty) {
+      return const Text(
+        'No extended latency data available.',
+        style: TextStyle(color: Colors.white38, fontSize: 12),
+      );
+    }
+
+    final p50 = (latencyData['p50'] as num?)?.toDouble() ?? 0.0;
+    final p90 = (latencyData['p90'] as num?)?.toDouble() ?? 0.0;
+    final p99 = (latencyData['p99'] as num?)?.toDouble() ?? 0.0;
+    final maxVal = (latencyData['max_val'] as num?)?.toDouble() ?? 0.0;
+
+    return Column(
+      children: [
+        _metricRow('P50', '${p50.toStringAsFixed(1)} ms', Icons.speed),
+        _metricRow('P90', '${p90.toStringAsFixed(1)} ms', Icons.speed),
+        _metricRow('P99', '${p99.toStringAsFixed(1)} ms', Icons.speed),
+        _metricRow('Max', '${maxVal.toStringAsFixed(1)} ms', Icons.timer),
+      ],
+    );
+  }
+
+  Widget _buildExtendedErrors(List<dynamic>? errors) {
+    if (errors == null || errors.isEmpty) {
+      return const Text(
+        'No recent errors found.',
+        style: TextStyle(color: Colors.white38, fontSize: 12),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: errors
+          .map(
+            (err) => Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: AppColors.error.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Text(
+                  err.toString(),
+                  style: const TextStyle(
+                    color: AppColors.error,
+                    fontSize: 11,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ),
+            ),
+          )
+          .toList(),
     );
   }
 

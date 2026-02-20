@@ -92,3 +92,35 @@ class AgentGraphNotifier extends _$AgentGraphNotifier {
     state = state.copyWith(sampleLimit: limit);
   }
 }
+
+// -----------------------------------------------------------------------------
+// Extended Detail Loaders
+// -----------------------------------------------------------------------------
+
+@riverpod
+Future<Map<String, dynamic>> fetchExtendedNodeDetails(
+  Ref ref,
+  String nodeId,
+) async {
+  final repo = ref.watch(agentGraphRepositoryProvider);
+  return repo.fetchNodeDetails(
+    dataset: ref.read(agentGraphProvider).dataset,
+    nodeId: nodeId,
+    timeRangeHours: ref.read(agentGraphProvider).timeRangeHours,
+  );
+}
+
+@riverpod
+Future<Map<String, dynamic>> fetchExtendedEdgeDetails(
+  Ref ref,
+  String sourceId,
+  String targetId,
+) async {
+  final repo = ref.watch(agentGraphRepositoryProvider);
+  return repo.fetchEdgeDetails(
+    dataset: ref.read(agentGraphProvider).dataset,
+    sourceId: sourceId,
+    targetId: targetId,
+    timeRangeHours: ref.read(agentGraphProvider).timeRangeHours,
+  );
+}

@@ -2,9 +2,46 @@ import 'package:autosre/features/agent_graph/domain/models.dart';
 import 'package:autosre/features/agent_graph/presentation/agent_graph_details_panel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:autosre/features/agent_graph/data/agent_graph_repository.dart';
+
+class FakeAgentGraphRepository implements AgentGraphRepository {
+  @override
+  Future<Map<String, dynamic>> fetchNodeDetails({
+    required String dataset,
+    required String nodeId,
+    required int timeRangeHours,
+    String? projectId,
+  }) async => {
+    'latency': {'p50': 100, 'p90': 200, 'p99': 300, 'max_val': 400},
+    'top_errors': [],
+  };
+
+  @override
+  Future<Map<String, dynamic>> fetchEdgeDetails({
+    required String dataset,
+    required String sourceId,
+    required String targetId,
+    required int timeRangeHours,
+    String? projectId,
+  }) async => {
+    'latency': {'p50': 100, 'p90': 200, 'p99': 300, 'max_val': 400},
+    'top_errors': [],
+  };
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 Widget _wrap(Widget child) {
-  return MaterialApp(home: Scaffold(body: child));
+  return ProviderScope(
+    overrides: [
+      agentGraphRepositoryProvider.overrideWithValue(
+        FakeAgentGraphRepository(),
+      ),
+    ],
+    child: MaterialApp(home: Scaffold(body: child)),
+  );
 }
 
 void main() {
@@ -45,6 +82,7 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
 
       // The header displays the node id as title text.
       expect(find.text('orchestrator'), findsOneWidget);
@@ -69,6 +107,7 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
 
       expect(find.text('Description'), findsOneWidget);
       expect(find.text('Analyzes distributed traces'), findsOneWidget);
@@ -91,6 +130,7 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
 
       expect(find.text('Has Errors'), findsOneWidget);
     });
@@ -112,6 +152,7 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
 
       expect(find.text('Root'), findsOneWidget);
     });
@@ -134,6 +175,7 @@ void main() {
             ),
           ),
         );
+        await tester.pumpAndSettle();
 
         // Header shows source -> target.
         expect(find.textContaining('agent_1'), findsOneWidget);
@@ -165,6 +207,7 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
 
       expect(find.text('Sample Error'), findsOneWidget);
       expect(find.text('Connection refused'), findsOneWidget);
@@ -209,6 +252,7 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
 
       // Check for "75.0% of total"
       expect(find.text('75.0% of total'), findsOneWidget);
@@ -233,6 +277,7 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
 
       // Latency
       expect(find.text('Avg Latency'), findsOneWidget);
