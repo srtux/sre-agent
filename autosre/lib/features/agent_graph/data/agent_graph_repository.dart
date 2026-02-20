@@ -43,7 +43,7 @@ class AgentGraphRepository {
         ? 'ORDER BY call_count DESC LIMIT $sampleLimit'
         : '';
     return '''
-WITH HourlyData AS (
+WITH RECURSIVE HourlyData AS (
   SELECT * FROM `$dataset.agent_graph_hourly`
   WHERE time_bucket >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL $timeRangeHours HOUR)
 ),
@@ -125,10 +125,10 @@ ChildMap AS (
 NodeDepths AS (
   SELECT id, 0 AS depth FROM AggregatedNodes WHERE is_root
   UNION ALL
-  SELECT ae.target_id AS id, nd.depth + 1
-  FROM NodeDepths nd
-  JOIN AggregatedEdges ae ON ae.source_id = nd.id
-  WHERE NOT ae.is_back_edge AND nd.depth < 10
+  SELECT ae.target_id AS id, node_depths.depth + 1
+  FROM NodeDepths node_depths
+  JOIN AggregatedEdges ae ON ae.source_id = node_depths.id
+  WHERE NOT ae.is_back_edge AND node_depths.depth < 10
 ),
 FinalDepths AS (
   SELECT id, MIN(depth) AS depth FROM NodeDepths GROUP BY id
@@ -165,19 +165,19 @@ DownstreamRollup AS (
 UserNode AS (
   SELECT
     'User::session' AS id, 'User' AS type, 'Session Entry Point' AS description,
-    SUM(total_tokens) AS total_tokens, SUM(input_tokens) AS input_tokens,
-    SUM(output_tokens) AS output_tokens, LOGICAL_OR(has_error) AS has_error,
+    CAST(SUM(total_tokens) AS INT64) AS total_tokens, CAST(SUM(input_tokens) AS INT64) AS input_tokens,
+    CAST(SUM(output_tokens) AS INT64) AS output_tokens, LOGICAL_OR(has_error) AS has_error,
     ROUND(AVG(avg_duration_ms), 2) AS avg_duration_ms,
     ROUND(MAX(p95_duration_ms), 2) AS p95_duration_ms,
     ROUND(SAFE_DIVIDE(SUM(CAST(error_rate_pct * total_tokens AS FLOAT64)), NULLIF(SUM(total_tokens), 0)), 2) AS error_rate_pct,
     ROUND(SUM(COALESCE(total_cost, 0)), 6) AS total_cost,
     TRUE AS is_root, FALSE AS is_leaf, TRUE AS is_user_entry_point,
-    SUM(tool_call_count) AS tool_call_count, SUM(llm_call_count) AS llm_call_count,
+    CAST(SUM(tool_call_count) AS INT64) AS tool_call_count, CAST(SUM(llm_call_count) AS INT64) AS llm_call_count,
     TRUE AS is_user_node, 0 AS depth,
-    SUM(total_tokens) AS downstream_total_tokens,
+    CAST(SUM(total_tokens) AS INT64) AS downstream_total_tokens,
     ROUND(SUM(COALESCE(total_cost, 0)), 6) AS downstream_total_cost,
-    SUM(tool_call_count) AS downstream_tool_call_count,
-    SUM(llm_call_count) AS downstream_llm_call_count,
+    CAST(SUM(tool_call_count) AS INT64) AS downstream_tool_call_count,
+    CAST(SUM(llm_call_count) AS INT64) AS downstream_llm_call_count,
     ARRAY_AGG(id) AS child_node_ids
   FROM AggregatedNodes
   WHERE is_root
@@ -187,34 +187,38 @@ UserEdges AS (
   SELECT
     'User::session' AS source_id, id AS target_id,
     'User' AS source_type, type AS target_type,
-    1 AS call_count, 0 AS error_count, 0.0 AS error_rate_pct,
+    CAST(1 AS INT64) AS call_count, CAST(0 AS INT64) AS error_count, 0.0 AS error_rate_pct,
     CAST(NULL AS STRING) AS sample_error,
-    total_tokens, input_tokens, output_tokens,
-    total_tokens AS avg_tokens_per_call,
+    CAST(total_tokens AS INT64) AS total_tokens,
+    CAST(input_tokens AS INT64) AS input_tokens,
+    CAST(output_tokens AS INT64) AS output_tokens,
+    CAST(total_tokens AS FLOAT64) AS avg_tokens_per_call,
     avg_duration_ms, p95_duration_ms,
-    0 AS unique_sessions,
+    CAST(0 AS INT64) AS unique_sessions,
     total_cost, FALSE AS is_back_edge
   FROM AggregatedNodes
   WHERE is_root
 ),
 -- Combine all edges with flow_weight
-AllEdges AS (
-  SELECT *, ROUND(SAFE_DIVIDE(call_count, (SELECT MAX(call_count) FROM AggregatedEdges)), 4) AS flow_weight
+FinalEdges AS (
+  SELECT source_id, target_id, source_type, target_type, call_count, error_count, error_rate_pct, sample_error, total_tokens, input_tokens, output_tokens, avg_tokens_per_call, avg_duration_ms, p95_duration_ms, unique_sessions, total_cost, is_back_edge,
+    ROUND(SAFE_DIVIDE(call_count, (SELECT MAX(call_count) FROM AggregatedEdges)), 4) AS flow_weight
   FROM AggregatedEdges
   UNION ALL
-  SELECT *, 1.0 AS flow_weight FROM UserEdges
+  SELECT source_id, target_id, source_type, target_type, call_count, error_count, error_rate_pct, sample_error, total_tokens, input_tokens, output_tokens, avg_tokens_per_call, avg_duration_ms, p95_duration_ms, unique_sessions, total_cost, is_back_edge,
+    1.0 AS flow_weight FROM UserEdges
 ),
 -- Combine all nodes
 AllNodes AS (
-  SELECT an.id, an.type, an.description, an.total_tokens, an.input_tokens, an.output_tokens,
+  SELECT an.id, an.type, an.description, CAST(an.total_tokens AS INT64) AS total_tokens, CAST(an.input_tokens AS INT64) AS input_tokens, CAST(an.output_tokens AS INT64) AS output_tokens,
     an.has_error, an.avg_duration_ms, an.p95_duration_ms, an.error_rate_pct, an.total_cost,
-    an.is_root, an.is_leaf, an.is_user_entry_point, an.tool_call_count, an.llm_call_count,
+    an.is_root, an.is_leaf, an.is_user_entry_point, CAST(an.tool_call_count AS INT64) AS tool_call_count, CAST(an.llm_call_count AS INT64) AS llm_call_count,
     FALSE AS is_user_node,
-    COALESCE(fd.depth, 0) + 1 AS depth,
-    COALESCE(dr.downstream_total_tokens, an.total_tokens) AS downstream_total_tokens,
+    CAST(COALESCE(fd.depth, 0) + 1 AS INT64) AS depth,
+    CAST(COALESCE(dr.downstream_total_tokens, an.total_tokens) AS INT64) AS downstream_total_tokens,
     COALESCE(dr.downstream_total_cost, an.total_cost) AS downstream_total_cost,
-    COALESCE(dr.downstream_tool_call_count, an.tool_call_count) AS downstream_tool_call_count,
-    COALESCE(dr.downstream_llm_call_count, an.llm_call_count) AS downstream_llm_call_count,
+    CAST(COALESCE(dr.downstream_tool_call_count, an.tool_call_count) AS INT64) AS downstream_tool_call_count,
+    CAST(COALESCE(dr.downstream_llm_call_count, an.llm_call_count) AS INT64) AS downstream_llm_call_count,
     COALESCE(cm.child_node_ids, []) AS child_node_ids
   FROM AggregatedNodes an
   LEFT JOIN FinalDepths fd ON an.id = fd.id
@@ -241,7 +245,7 @@ SELECT TO_JSON_STRING(STRUCT(
     error_rate_pct, sample_error, total_tokens, input_tokens, output_tokens,
     avg_tokens_per_call, avg_duration_ms, p95_duration_ms, unique_sessions,
     total_cost, is_back_edge, flow_weight
-  )) FROM AllEdges) AS edges
+  )) FROM FinalEdges) AS edges
 )) AS flutter_graph_payload;
 ''';
   }
@@ -266,7 +270,7 @@ SELECT TO_JSON_STRING(STRUCT(
     return '''
 DECLARE start_ts TIMESTAMP DEFAULT TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL $timeRangeHours HOUR);
 
-WITH
+WITH RECURSIVE
 FilteredNodes AS (
   SELECT
     logical_node_id AS id,
@@ -355,9 +359,9 @@ ChildMap AS (
 NodeDepths AS (
   SELECT id, 0 AS depth FROM EnrichedNodes WHERE is_root
   UNION ALL
-  SELECT fe.target_id AS id, nd.depth + 1
-  FROM NodeDepths nd JOIN FilteredEdges fe ON fe.source_id = nd.id
-  WHERE NOT fe.is_back_edge AND nd.depth < 10
+  SELECT fe.target_id AS id, node_depths.depth + 1
+  FROM NodeDepths node_depths JOIN FilteredEdges fe ON fe.source_id = node_depths.id
+  WHERE NOT fe.is_back_edge AND node_depths.depth < 10
 ),
 FinalDepths AS (
   SELECT id, MIN(depth) AS depth FROM NodeDepths GROUP BY id
@@ -391,48 +395,52 @@ DownstreamRollup AS (
 UserNode AS (
   SELECT
     'User::session' AS id, 'User' AS type, 'Session Entry Point' AS description,
-    SUM(total_tokens) AS total_tokens, SUM(input_tokens) AS input_tokens,
-    SUM(output_tokens) AS output_tokens, LOGICAL_OR(has_error) AS has_error,
+    CAST(SUM(total_tokens) AS INT64) AS total_tokens, CAST(SUM(input_tokens) AS INT64) AS input_tokens,
+    CAST(SUM(output_tokens) AS INT64) AS output_tokens, LOGICAL_OR(has_error) AS has_error,
     ROUND(AVG(avg_duration_ms), 2) AS avg_duration_ms,
     ROUND(MAX(p95_duration_ms), 2) AS p95_duration_ms,
     0.0 AS error_rate_pct,
     ROUND(SUM(COALESCE(total_cost, 0)), 6) AS total_cost,
-    0 AS unique_sessions, TRUE AS is_root, FALSE AS is_leaf, TRUE AS is_user_entry_point,
-    SUM(tool_call_count) AS tool_call_count, SUM(llm_call_count) AS llm_call_count,
-    TRUE AS is_user_node, 0 AS depth,
-    SUM(total_tokens) AS downstream_total_tokens,
+    CAST(0 AS INT64) AS unique_sessions, TRUE AS is_root, FALSE AS is_leaf, TRUE AS is_user_entry_point,
+    CAST(SUM(tool_call_count) AS INT64) AS tool_call_count, CAST(SUM(llm_call_count) AS INT64) AS llm_call_count,
+    TRUE AS is_user_node, CAST(0 AS INT64) AS depth,
+    CAST(SUM(total_tokens) AS INT64) AS downstream_total_tokens,
     ROUND(SUM(COALESCE(total_cost, 0)), 6) AS downstream_total_cost,
-    SUM(tool_call_count) AS downstream_tool_call_count,
-    SUM(llm_call_count) AS downstream_llm_call_count,
-    ARRAY_AGG(id) AS child_node_ids, SUM(error_count) AS error_count
+    CAST(SUM(tool_call_count) AS INT64) AS downstream_tool_call_count,
+    CAST(SUM(llm_call_count) AS INT64) AS downstream_llm_call_count,
+    ARRAY_AGG(id) AS child_node_ids
   FROM EnrichedNodes WHERE is_root
 ),
 UserEdges AS (
   SELECT 'User::session' AS source_id, id AS target_id,
     'User' AS source_type, type AS target_type,
-    1 AS call_count, 0 AS error_count, 0.0 AS error_rate_pct,
-    total_tokens, input_tokens, output_tokens,
-    avg_duration_ms, p95_duration_ms, unique_sessions,
+    CAST(1 AS INT64) AS call_count, CAST(0 AS INT64) AS error_count, 0.0 AS error_rate_pct,
+    CAST(total_tokens AS INT64) AS total_tokens,
+    CAST(input_tokens AS INT64) AS input_tokens,
+    CAST(output_tokens AS INT64) AS output_tokens,
+    avg_duration_ms, p95_duration_ms, CAST(unique_sessions AS INT64) AS unique_sessions,
     COALESCE(total_cost, 0.0) AS total_cost, FALSE AS is_back_edge
   FROM EnrichedNodes WHERE is_root
 ),
-AllEdges AS (
-  SELECT *, ROUND(SAFE_DIVIDE(call_count, (SELECT MAX(call_count) FROM FilteredEdges)), 4) AS flow_weight
+FinalEdges AS (
+  SELECT source_id, target_id, source_type, target_type, call_count, error_count, error_rate_pct, total_tokens, input_tokens, output_tokens, avg_duration_ms, p95_duration_ms, unique_sessions, total_cost, is_back_edge,
+    ROUND(SAFE_DIVIDE(call_count, (SELECT MAX(call_count) FROM FilteredEdges)), 4) AS flow_weight
   FROM FilteredEdges
   UNION ALL
-  SELECT *, 1.0 AS flow_weight FROM UserEdges
+  SELECT source_id, target_id, source_type, target_type, call_count, error_count, error_rate_pct, total_tokens, input_tokens, output_tokens, avg_duration_ms, p95_duration_ms, unique_sessions, total_cost, is_back_edge,
+    1.0 AS flow_weight FROM UserEdges
 ),
 AllNodes AS (
-  SELECT en.id, en.type, en.label AS description, en.total_tokens, en.input_tokens,
-    en.output_tokens, en.has_error, en.avg_duration_ms, en.p95_duration_ms,
+  SELECT en.id, en.type, en.label AS description, CAST(en.total_tokens AS INT64) AS total_tokens, CAST(en.input_tokens AS INT64) AS input_tokens,
+    CAST(en.output_tokens AS INT64) AS output_tokens, en.has_error, en.avg_duration_ms, en.p95_duration_ms,
     en.error_rate_pct, COALESCE(en.total_cost, 0.0) AS total_cost,
-    en.is_root, en.is_leaf, en.is_user_entry_point, en.tool_call_count, en.llm_call_count,
+    en.is_root, en.is_leaf, en.is_user_entry_point, CAST(en.tool_call_count AS INT64) AS tool_call_count, CAST(en.llm_call_count AS INT64) AS llm_call_count,
     FALSE AS is_user_node,
-    COALESCE(fd.depth, 0) + 1 AS depth,
-    COALESCE(dr.downstream_total_tokens, en.total_tokens) AS downstream_total_tokens,
+    CAST(COALESCE(fd.depth, 0) + 1 AS INT64) AS depth,
+    CAST(COALESCE(dr.downstream_total_tokens, en.total_tokens) AS INT64) AS downstream_total_tokens,
     COALESCE(dr.downstream_total_cost, en.total_cost, 0.0) AS downstream_total_cost,
-    COALESCE(dr.downstream_tool_call_count, en.tool_call_count) AS downstream_tool_call_count,
-    COALESCE(dr.downstream_llm_call_count, en.llm_call_count) AS downstream_llm_call_count,
+    CAST(COALESCE(dr.downstream_tool_call_count, en.tool_call_count) AS INT64) AS downstream_tool_call_count,
+    CAST(COALESCE(dr.downstream_llm_call_count, en.llm_call_count) AS INT64) AS downstream_llm_call_count,
     COALESCE(cm.child_node_ids, []) AS child_node_ids
   FROM EnrichedNodes en
   LEFT JOIN FinalDepths fd ON en.id = fd.id
@@ -461,7 +469,7 @@ SELECT TO_JSON_STRING(STRUCT(
      error_rate_pct, total_tokens, input_tokens, output_tokens,
      avg_duration_ms, p95_duration_ms, unique_sessions, total_cost,
      is_back_edge, flow_weight
-   )) FROM AllEdges
+   )) FROM FinalEdges
   ) AS edges
 )) AS flutter_graph_payload;
 ''';
