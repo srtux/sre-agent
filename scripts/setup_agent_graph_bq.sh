@@ -120,9 +120,239 @@ CREATE OR REPLACE PROPERTY GRAPH \`$PROJECT_ID.$GRAPH_DATASET.agent_trace_graph\
 
 bq query --use_legacy_sql=false --project_id "$PROJECT_ID" "$GRAPH_SQL"
 
+# 5. Create pre-aggregated hourly table
+# This table stores hourly pre-computed edge and node aggregations,
+# avoiding the expensive GRAPH_TABLE recursive traversal at query time.
+echo "🔹 Creating pre-aggregated hourly table: agent_graph_hourly..."
+bq rm -f -t "$PROJECT_ID:$GRAPH_DATASET.agent_graph_hourly" > /dev/null 2>&1 || true
+
+HOURLY_TABLE_SQL="
+CREATE TABLE \`$PROJECT_ID.$GRAPH_DATASET.agent_graph_hourly\`
+(
+  -- Bucketing
+  time_bucket TIMESTAMP NOT NULL,
+  -- Edge identity
+  source_id STRING NOT NULL,
+  target_id STRING NOT NULL,
+  source_type STRING,
+  target_type STRING,
+  -- Edge metrics (pre-aggregated per hour)
+  call_count INT64,
+  error_count INT64,
+  edge_tokens INT64,
+  input_tokens INT64,
+  output_tokens INT64,
+  total_cost FLOAT64,
+  sum_duration_ms FLOAT64,
+  max_p95_duration_ms FLOAT64,
+  unique_sessions INT64,
+  sample_error STRING,
+  -- Target-node metrics (pre-aggregated per hour for the dst span)
+  node_total_tokens INT64,
+  node_input_tokens INT64,
+  node_output_tokens INT64,
+  node_has_error BOOL,
+  node_sum_duration_ms FLOAT64,
+  node_max_p95_duration_ms FLOAT64,
+  node_error_count INT64,
+  node_call_count INT64,
+  node_total_cost FLOAT64,
+  node_description STRING,
+  -- Source-node subcall counts
+  tool_call_count INT64,
+  llm_call_count INT64,
+  -- Session tracking (stored as repeated for cross-bucket dedup)
+  session_ids ARRAY<STRING>
+)
+PARTITION BY DATE(time_bucket)
+CLUSTER BY source_id, target_id
+OPTIONS (
+  description = 'Pre-aggregated hourly agent graph data for sub-second UI queries'
+);
+"
+
+bq query --use_legacy_sql=false --project_id "$PROJECT_ID" "$HOURLY_TABLE_SQL"
+
+# 6. Backfill the hourly table with the last 30 days of data
+echo "🔹 Backfilling hourly table (last 30 days)..."
+BACKFILL_SQL="
+INSERT INTO \`$PROJECT_ID.$GRAPH_DATASET.agent_graph_hourly\`
+WITH GraphPaths AS (
+  SELECT * FROM GRAPH_TABLE(
+    \`$PROJECT_ID.$GRAPH_DATASET.agent_trace_graph\`
+    MATCH (src:Span)-[:ParentOf]->{1,5}(dst:Span)
+    WHERE src.node_type != 'Glue' AND dst.node_type != 'Glue' AND src.node_label != dst.node_label
+      AND src.start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 720 HOUR)
+    COLUMNS (
+      src.node_label AS source_id, src.node_type AS source_type,
+      dst.node_label AS target_id, dst.node_type AS target_type,
+      dst.trace_id AS trace_id, dst.session_id AS session_id,
+      dst.duration_ms AS duration_ms,
+      dst.input_tokens AS input_tokens, dst.output_tokens AS output_tokens,
+      dst.status_code AS status_code, dst.error_type AS error_type,
+      dst.agent_description AS agent_description, dst.tool_description AS tool_description,
+      dst.response_model AS response_model,
+      dst.start_time AS start_time
+    )
+  )
+),
+CostPaths AS (
+  SELECT gp.*,
+    TIMESTAMP_TRUNC(start_time, HOUR) AS time_bucket,
+    COALESCE(input_tokens, 0) * CASE
+      WHEN response_model LIKE '%flash%' THEN 0.00000015
+      WHEN response_model LIKE '%2.5-pro%' THEN 0.00000125
+      WHEN response_model LIKE '%1.5-pro%' THEN 0.00000125
+      ELSE 0.0000005
+    END
+    + COALESCE(output_tokens, 0) * CASE
+      WHEN response_model LIKE '%flash%' THEN 0.0000006
+      WHEN response_model LIKE '%2.5-pro%' THEN 0.00001
+      WHEN response_model LIKE '%1.5-pro%' THEN 0.000005
+      ELSE 0.000002
+    END AS span_cost
+  FROM GraphPaths gp
+)
+SELECT
+  time_bucket,
+  source_id, target_id, source_type, target_type,
+  -- Edge metrics
+  COUNT(*) AS call_count,
+  COUNTIF(status_code = 2) AS error_count,
+  SUM(COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)) AS edge_tokens,
+  SUM(COALESCE(input_tokens, 0)) AS input_tokens,
+  SUM(COALESCE(output_tokens, 0)) AS output_tokens,
+  ROUND(SUM(span_cost), 6) AS total_cost,
+  SUM(duration_ms) AS sum_duration_ms,
+  ROUND(APPROX_QUANTILES(duration_ms, 100)[OFFSET(95)], 2) AS max_p95_duration_ms,
+  COUNT(DISTINCT session_id) AS unique_sessions,
+  ANY_VALUE(error_type) AS sample_error,
+  -- Target-node metrics
+  SUM(COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)) AS node_total_tokens,
+  SUM(COALESCE(input_tokens, 0)) AS node_input_tokens,
+  SUM(COALESCE(output_tokens, 0)) AS node_output_tokens,
+  COUNTIF(status_code = 2) > 0 AS node_has_error,
+  SUM(duration_ms) AS node_sum_duration_ms,
+  ROUND(APPROX_QUANTILES(duration_ms, 100)[OFFSET(95)], 2) AS node_max_p95_duration_ms,
+  COUNTIF(status_code = 2) AS node_error_count,
+  COUNT(*) AS node_call_count,
+  ROUND(SUM(span_cost), 6) AS node_total_cost,
+  ANY_VALUE(COALESCE(agent_description, tool_description)) AS node_description,
+  -- Subcall counts
+  COUNTIF(target_type = 'Tool') AS tool_call_count,
+  COUNTIF(target_type = 'LLM') AS llm_call_count,
+  -- Session IDs for cross-bucket dedup
+  ARRAY_AGG(DISTINCT session_id) AS session_ids
+FROM CostPaths
+GROUP BY time_bucket, source_id, target_id, source_type, target_type;
+"
+
+bq query --use_legacy_sql=false --project_id "$PROJECT_ID" "$BACKFILL_SQL"
+
+# 7. Create scheduled query for hourly incremental updates
+echo "🔹 Creating scheduled query for hourly updates..."
+echo "NOTE: Run the following command to create a scheduled query via bq CLI or Cloud Console:"
+echo ""
+cat << 'SCHEDULED_QUERY_EOF'
+-- Scheduled Query: agent_graph_hourly_refresh
+-- Schedule: Every 1 hour
+-- Destination: agent_graph_hourly (WRITE_APPEND)
+--
+-- Create via Cloud Console > BigQuery > Scheduled Queries, or use:
+--   bq mk --transfer_config \
+--     --project_id=<PROJECT_ID> \
+--     --target_dataset=<GRAPH_DATASET> \
+--     --display_name="Agent Graph Hourly Refresh" \
+--     --schedule="every 1 hours" \
+--     --data_source=scheduled_query \
+--     --params='{"query":"<SQL>","destination_table_name_template":"agent_graph_hourly","write_disposition":"WRITE_APPEND"}'
+
+INSERT INTO `<PROJECT_ID>.<GRAPH_DATASET>.agent_graph_hourly`
+WITH GraphPaths AS (
+  SELECT * FROM GRAPH_TABLE(
+    `<PROJECT_ID>.<GRAPH_DATASET>.agent_trace_graph`
+    MATCH (src:Span)-[:ParentOf]->{1,5}(dst:Span)
+    WHERE src.node_type != 'Glue' AND dst.node_type != 'Glue' AND src.node_label != dst.node_label
+      AND src.start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 2 HOUR)
+      AND src.start_time < TIMESTAMP_TRUNC(CURRENT_TIMESTAMP(), HOUR)
+    COLUMNS (
+      src.node_label AS source_id, src.node_type AS source_type,
+      dst.node_label AS target_id, dst.node_type AS target_type,
+      dst.trace_id AS trace_id, dst.session_id AS session_id,
+      dst.duration_ms AS duration_ms,
+      dst.input_tokens AS input_tokens, dst.output_tokens AS output_tokens,
+      dst.status_code AS status_code, dst.error_type AS error_type,
+      dst.agent_description AS agent_description, dst.tool_description AS tool_description,
+      dst.response_model AS response_model,
+      dst.start_time AS start_time
+    )
+  )
+),
+CostPaths AS (
+  SELECT gp.*,
+    TIMESTAMP_TRUNC(start_time, HOUR) AS time_bucket,
+    COALESCE(input_tokens, 0) * CASE
+      WHEN response_model LIKE '%flash%' THEN 0.00000015
+      WHEN response_model LIKE '%2.5-pro%' THEN 0.00000125
+      WHEN response_model LIKE '%1.5-pro%' THEN 0.00000125
+      ELSE 0.0000005
+    END
+    + COALESCE(output_tokens, 0) * CASE
+      WHEN response_model LIKE '%flash%' THEN 0.0000006
+      WHEN response_model LIKE '%2.5-pro%' THEN 0.00001
+      WHEN response_model LIKE '%1.5-pro%' THEN 0.000005
+      ELSE 0.000002
+    END AS span_cost
+  FROM GraphPaths gp
+),
+-- Deduplicate: skip buckets that were already processed
+ExistingBuckets AS (
+  SELECT DISTINCT time_bucket FROM `<PROJECT_ID>.<GRAPH_DATASET>.agent_graph_hourly`
+  WHERE time_bucket >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 2 HOUR)
+),
+NewPaths AS (
+  SELECT cp.* FROM CostPaths cp
+  LEFT JOIN ExistingBuckets eb ON cp.time_bucket = eb.time_bucket
+  WHERE eb.time_bucket IS NULL
+)
+SELECT
+  time_bucket,
+  source_id, target_id, source_type, target_type,
+  COUNT(*) AS call_count,
+  COUNTIF(status_code = 2) AS error_count,
+  SUM(COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)) AS edge_tokens,
+  SUM(COALESCE(input_tokens, 0)) AS input_tokens,
+  SUM(COALESCE(output_tokens, 0)) AS output_tokens,
+  ROUND(SUM(span_cost), 6) AS total_cost,
+  SUM(duration_ms) AS sum_duration_ms,
+  ROUND(APPROX_QUANTILES(duration_ms, 100)[OFFSET(95)], 2) AS max_p95_duration_ms,
+  COUNT(DISTINCT session_id) AS unique_sessions,
+  ANY_VALUE(error_type) AS sample_error,
+  SUM(COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)) AS node_total_tokens,
+  SUM(COALESCE(input_tokens, 0)) AS node_input_tokens,
+  SUM(COALESCE(output_tokens, 0)) AS node_output_tokens,
+  COUNTIF(status_code = 2) > 0 AS node_has_error,
+  SUM(duration_ms) AS node_sum_duration_ms,
+  ROUND(APPROX_QUANTILES(duration_ms, 100)[OFFSET(95)], 2) AS node_max_p95_duration_ms,
+  COUNTIF(status_code = 2) AS node_error_count,
+  COUNT(*) AS node_call_count,
+  ROUND(SUM(span_cost), 6) AS node_total_cost,
+  ANY_VALUE(COALESCE(agent_description, tool_description)) AS node_description,
+  COUNTIF(target_type = 'Tool') AS tool_call_count,
+  COUNTIF(target_type = 'LLM') AS llm_call_count,
+  ARRAY_AGG(DISTINCT session_id) AS session_ids
+FROM NewPaths
+GROUP BY time_bucket, source_id, target_id, source_type, target_type;
+SCHEDULED_QUERY_EOF
+
 echo "---------------------------------------------------"
 echo "✅ Setup Successful!"
 echo "---------------------------------------------------"
 echo "You can now visualize your agent chains in AutoSRE."
 echo "Use dataset path: $PROJECT_ID.$GRAPH_DATASET"
+echo ""
+echo "Pre-aggregation:"
+echo "  Table: $PROJECT_ID.$GRAPH_DATASET.agent_graph_hourly"
+echo "  Backfilled with last 30 days of data."
+echo "  Set up the scheduled query above for hourly incremental updates."
 echo "---------------------------------------------------"

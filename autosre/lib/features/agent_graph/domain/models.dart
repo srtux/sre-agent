@@ -12,11 +12,18 @@ abstract class MultiTraceNode with _$MultiTraceNode {
     required String type,
     String? description,
     @JsonKey(name: 'total_tokens') @Default(0) int totalTokens,
+    @JsonKey(name: 'input_tokens') @Default(0) int inputTokens,
+    @JsonKey(name: 'output_tokens') @Default(0) int outputTokens,
     @JsonKey(name: 'has_error') @Default(false) bool hasError,
     @JsonKey(name: 'avg_duration_ms') @Default(0.0) double avgDurationMs,
+    @JsonKey(name: 'p95_duration_ms') @Default(0.0) double p95DurationMs,
     @JsonKey(name: 'error_rate_pct') @Default(0.0) double errorRatePct,
+    @JsonKey(name: 'total_cost') double? totalCost,
+    @JsonKey(name: 'tool_call_count') @Default(0) int toolCallCount,
+    @JsonKey(name: 'llm_call_count') @Default(0) int llmCallCount,
     @JsonKey(name: 'is_root') @Default(false) bool isRoot,
     @JsonKey(name: 'is_leaf') @Default(false) bool isLeaf,
+    @JsonKey(name: 'is_user_entry_point') @Default(false) bool isUserEntryPoint,
   }) = _MultiTraceNode;
 
   factory MultiTraceNode.fromJson(Map<String, dynamic> json) =>
@@ -37,10 +44,13 @@ abstract class MultiTraceEdge with _$MultiTraceEdge {
     @JsonKey(name: 'error_rate_pct') @Default(0.0) double errorRatePct,
     @JsonKey(name: 'sample_error') String? sampleError,
     @JsonKey(name: 'edge_tokens') @Default(0) int edgeTokens,
+    @JsonKey(name: 'input_tokens') @Default(0) int inputTokens,
+    @JsonKey(name: 'output_tokens') @Default(0) int outputTokens,
     @JsonKey(name: 'avg_tokens_per_call') @Default(0) int avgTokensPerCall,
     @JsonKey(name: 'avg_duration_ms') @Default(0.0) double avgDurationMs,
     @JsonKey(name: 'p95_duration_ms') @Default(0.0) double p95DurationMs,
     @JsonKey(name: 'unique_sessions') @Default(0) int uniqueSessions,
+    @JsonKey(name: 'total_cost') double? totalCost,
   }) = _MultiTraceEdge;
 
   factory MultiTraceEdge.fromJson(Map<String, dynamic> json) =>

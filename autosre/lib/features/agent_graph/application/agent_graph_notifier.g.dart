@@ -42,7 +42,7 @@ final class AgentGraphNotifierProvider
 }
 
 String _$agentGraphNotifierHash() =>
-    r'aa078ef42633570df6156aefed6a9382acd3d392';
+    r'd14e5b19aff1690ece6b6b0843d0419abe1730a5';
 
 abstract class _$AgentGraphNotifier extends $Notifier<AgentGraphState> {
   AgentGraphState build();

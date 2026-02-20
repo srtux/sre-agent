@@ -237,7 +237,7 @@ return $default(_that.payload,_that.isLoading,_that.error,_that.selectedElement,
 
 class _AgentGraphState implements AgentGraphState {
   const _AgentGraphState({this.payload = null, this.isLoading = false, this.error, this.selectedElement = null, this.dataset = kDefaultDataset, this.timeRangeHours = 6, this.sampleLimit = null});
-
+  
 
 @override@JsonKey() final  MultiTraceGraphPayload? payload;
 @override@JsonKey() final  bool isLoading;

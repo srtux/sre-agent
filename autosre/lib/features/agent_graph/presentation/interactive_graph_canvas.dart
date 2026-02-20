@@ -179,6 +179,17 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
               linkStyleBuilder: (state) => const FlLinkStyle.basic(),
             ),
           ),
+          // Separate port for back-edges (cycles) rendered with dashed lines
+          FlDataOutputPortPrototype(
+            idName: 'back_out',
+            displayName: (context) => 'Back',
+            styleBuilder: (state) => FlPortStyle(
+              shape: FlPortShape.circle,
+              color: Colors.transparent,
+              radius: 0,
+              linkStyleBuilder: (state) => const FlLinkStyle.basic(),
+            ),
+          ),
         ],
         onExecute: (ports, fields, state, forward, put) async {
           // No-op for visualization
@@ -338,6 +349,17 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
       }
     }
 
+    // Build depth map from layout positions for back-edge detection.
+    // In our LR layout (swapped from TB), the X position (gvNode.y * 1.5)
+    // determines the "layer". Higher gvNode.y = further right = deeper layer.
+    final depthMap = <String, double>{};
+    for (var n in nodes) {
+      final gvNode = gvNodes[n.id];
+      if (gvNode != null) {
+        depthMap[n.id] = gvNode.y;
+      }
+    }
+
     for (var n in nodes) {
       final gvNode = gvNodes[n.id];
       if (gvNode != null) {
@@ -365,6 +387,13 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
             ? AppColors.error
             : AppColors.primaryTeal.withValues(alpha: 0.6);
 
+        // Detect if this node has any back-edges (target at same or earlier layer)
+        final hasBackEdge = outgoingEdges.any((e) {
+          final srcDepth = depthMap[e.sourceId] ?? 0;
+          final tgtDepth = depthMap[e.targetId] ?? 0;
+          return tgtDepth <= srcDepth;
+        });
+
         // SWAP X and Y for Left-to-Right layout since we used Top-Bottom algorithm
         // Also increase scaling if needed manually
         _addFlNode(
@@ -372,15 +401,20 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
           Offset(gvNode.y * 1.5, gvNode.x * 1.2),
           linkColor,
           thickness,
+          hasBackEdge: hasBackEdge,
         );
       }
     }
 
-    // Add links
+    // Add links — use 'back_out' port for back-edges (dashed) and 'out' for forward
     for (var e in edges) {
       if (_controller.isNodePresent(e.sourceId) &&
           _controller.isNodePresent(e.targetId)) {
-        _controller.addLink(e.sourceId, 'out', e.targetId, 'in');
+        final srcDepth = depthMap[e.sourceId] ?? 0;
+        final tgtDepth = depthMap[e.targetId] ?? 0;
+        final isBackEdge = tgtDepth <= srcDepth;
+        final outPort = isBackEdge ? 'back_out' : 'out';
+        _controller.addLink(e.sourceId, outPort, e.targetId, 'in');
       }
     }
 
@@ -408,11 +442,14 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
     String id,
     Offset offset,
     Color linkColor,
-    double linkThickness,
-  ) {
+    double linkThickness, {
+    bool hasBackEdge = false,
+  }) {
     if (_controller.isNodePresent(id)) return;
 
     final prototype = _controller.nodePrototypes['universal_node']!;
+
+    final backEdgeColor = linkColor.withValues(alpha: 0.4);
 
     _controller.addNodeFromExisting(
       FlNodeDataModel(
@@ -435,6 +472,24 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
                   color: linkColor,
                   lineWidth: linkThickness,
                   drawMode: FlLineDrawMode.solid,
+                  curveType: FlLinkCurveType.bezier,
+                ),
+              ),
+            ),
+            state: FlPortState(),
+          ),
+          'back_out': FlPortDataModel(
+            prototype: FlDataOutputPortPrototype(
+              idName: 'back_out',
+              displayName: (context) => 'Back',
+              styleBuilder: (state) => FlPortStyle(
+                shape: FlPortShape.circle,
+                color: hasBackEdge ? backEdgeColor : Colors.transparent,
+                radius: hasBackEdge ? 4 : 0,
+                linkStyleBuilder: (state) => FlLinkStyle(
+                  color: backEdgeColor,
+                  lineWidth: linkThickness.clamp(1.0, 2.0),
+                  drawMode: FlLineDrawMode.dashed,
                   curveType: FlLinkCurveType.bezier,
                 ),
               ),
@@ -562,6 +617,10 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
     MultiTraceNode node,
     FlNodeDataModel nodeData,
   ) {
+    if (node.isUserEntryPoint) {
+      return _buildUserEntryNode(context, node, nodeData);
+    }
+
     if (widget.viewMode != GraphViewMode.standard) {
       return _buildGenericNode(context, node, nodeData);
     }
@@ -589,6 +648,50 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
       nodeData,
       forceColor: _getNodeColorForMode(node),
     );
+  }
+
+  Widget _buildUserEntryNode(
+    BuildContext context,
+    MultiTraceNode node,
+    FlNodeDataModel nodeData,
+  ) {
+    final isSelected = nodeData.state.isSelected;
+    const color = AppColors.primaryBlue;
+
+    final content = Container(
+      width: 80,
+      height: 80,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: const Color(0xFF1A2744),
+        border: Border.all(
+          color: isSelected ? AppColors.primaryCyan : color.withValues(alpha: 0.5),
+          width: isSelected ? 2.5 : 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: isSelected ? 0.4 : 0.15),
+            blurRadius: isSelected ? 16 : 8,
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.person, size: 28, color: color),
+          const SizedBox(height: 2),
+          Text(
+            'User',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.9),
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+    return _wrapWithPorts(content, nodeData, color: color);
   }
 
   Color _getNodeColorForMode(MultiTraceNode node) {
@@ -624,6 +727,7 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
   }) {
     final inputPort = nodeData.ports['in'];
     final outPort = nodeData.ports['out'];
+    final backOutPort = nodeData.ports['back_out'];
     final effectiveColor = color ?? Colors.grey;
 
     return GestureDetector(
@@ -662,24 +766,33 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
               ),
             ),
           content,
-          if (outPort != null)
-            Container(
-              key: outPort.key,
-              width: 10,
-              height: 10,
-              margin: const EdgeInsets.only(left: 2),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: effectiveColor,
-                border: Border.all(color: Colors.white24, width: 1.5),
-                boxShadow: [
-                  BoxShadow(
-                    color: effectiveColor.withValues(alpha: 0.4),
-                    blurRadius: 4,
+          // Stack the forward and back-edge ports together
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              if (outPort != null)
+                Container(
+                  key: outPort.key,
+                  width: 10,
+                  height: 10,
+                  margin: const EdgeInsets.only(left: 2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: effectiveColor,
+                    border: Border.all(color: Colors.white24, width: 1.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: effectiveColor.withValues(alpha: 0.4),
+                        blurRadius: 4,
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
+                ),
+              // Invisible anchor for back-edge links (co-located with out port)
+              if (backOutPort != null)
+                SizedBox(key: backOutPort.key, width: 0, height: 0),
+            ],
+          ),
         ],
       ),
     );
@@ -692,6 +805,11 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
   ) {
     final isSelected = nodeData.state.isSelected;
     const color = AppColors.primaryTeal;
+    final borderColor = isSelected
+        ? AppColors.primaryCyan
+        : node.isRoot
+            ? AppColors.primaryCyan.withValues(alpha: 0.5)
+            : Colors.white10;
 
     final content = Container(
       width: 260,
@@ -699,7 +817,7 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
         color: const Color(0xFF181825),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isSelected ? AppColors.primaryCyan : Colors.white10,
+          color: borderColor,
           width: isSelected ? 2 : 1,
         ),
         boxShadow: isSelected
@@ -783,6 +901,7 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
                   const SizedBox(height: 12),
                 ],
                 _buildMetricsRow(node, color),
+                _buildOutgoingEdgeSummary(node),
               ],
             ),
           ),
@@ -915,22 +1034,25 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
     Color accentColor, {
     bool compact = false,
   }) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+    final isAgent = node.type.toLowerCase() == 'agent' ||
+        node.type.toLowerCase() == 'sub_agent';
+    final showCost = node.totalCost != null && node.totalCost! > 0;
+    final showSubcalls =
+        isAgent && (node.toolCallCount > 0 || node.llmCallCount > 0);
+
+    return Wrap(
+      spacing: 4,
+      runSpacing: 4,
       children: [
-        if (node.hasError) ...[
-          _buildErrorRateBadge(node.errorRatePct),
-          const SizedBox(width: 4),
-        ],
-        if (node.avgDurationMs > 0) ...[
+        if (node.hasError) _buildErrorRateBadge(node.errorRatePct),
+        if (node.avgDurationMs > 0)
           _buildLatencyBadge(node.avgDurationMs, accentColor),
-          const SizedBox(width: 4),
-        ],
-        if (node.totalTokens > 0) ...[
-          if (!compact) const Spacer(),
-          if (compact) const SizedBox(width: 4),
+        if (node.totalTokens > 0)
           _buildTokenBadge(node.totalTokens, accentColor),
-        ],
+        if (showCost)
+          _buildCostBadge(node.totalCost!, const Color(0xFF00E676)),
+        if (showSubcalls)
+          _buildSubcallBadge(node.toolCallCount, node.llmCallCount),
       ],
     );
   }
@@ -996,6 +1118,97 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
         ],
       ),
     );
+  }
+
+  Widget _buildCostBadge(double cost, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        '\$${_formatCost(cost)}',
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSubcallBadge(int toolCount, int llmCount) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        '${toolCount}T ${llmCount}L',
+        style: TextStyle(
+          color: Colors.white.withValues(alpha: 0.6),
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOutgoingEdgeSummary(MultiTraceNode node) {
+    final outgoing = widget.payload.edges
+        .where((e) => e.sourceId == node.id)
+        .toList();
+    if (outgoing.isEmpty) return const SizedBox.shrink();
+
+    final totalCalls =
+        outgoing.fold<int>(0, (sum, e) => sum + e.callCount);
+    final avgDuration = outgoing
+            .where((e) => e.avgDurationMs > 0)
+            .fold<double>(0, (sum, e) => sum + e.avgDurationMs) /
+        (outgoing.where((e) => e.avgDurationMs > 0).length.clamp(1, 9999));
+    final totalCost = outgoing.fold<double>(
+      0,
+      (sum, e) => sum + (e.totalCost ?? 0),
+    );
+
+    final parts = <String>[
+      '$totalCalls calls',
+      if (avgDuration > 0) 'avg ${avgDuration.toStringAsFixed(1)}ms',
+      if (totalCost > 0) '\$${_formatCost(totalCost)}',
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        children: [
+          Icon(
+            Icons.arrow_forward,
+            size: 10,
+            color: Colors.white.withValues(alpha: 0.3),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Text(
+              parts.join(' | '),
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.35),
+                fontSize: 10,
+                fontStyle: FontStyle.italic,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatCost(double cost) {
+    if (cost >= 1.0) return cost.toStringAsFixed(2);
+    if (cost >= 0.01) return cost.toStringAsFixed(3);
+    return cost.toStringAsFixed(4);
   }
 
   String _formatTokens(int tokens) {
