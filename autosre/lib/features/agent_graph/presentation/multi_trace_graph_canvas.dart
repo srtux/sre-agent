@@ -98,8 +98,8 @@ class _MultiTraceGraphCanvasState extends State<MultiTraceGraphCanvas> {
       final target = nodeMap[e.targetId];
       if (source == null || target == null) continue;
 
-      // Edge thickness proportional to avg tokens per call.
-      final thickness = _edgeThickness(e.avgTokensPerCall);
+      // Edge thickness proportional to call count (traffic).
+      final thickness = _edgeThickness(e.callCount);
       final color = _edgeColor(e.errorRatePct);
 
       final paint = Paint()
@@ -153,10 +153,10 @@ class _MultiTraceGraphCanvasState extends State<MultiTraceGraphCanvas> {
     return AppColors.error.withValues(alpha: 0.8);
   }
 
-  double _edgeThickness(int avgTokens) {
-    if (avgTokens <= 0) return 1.0;
-    // Log scale: 1-4px range.
-    return math.min(1.0 + math.log(avgTokens / 100 + 1), 4.0);
+  double _edgeThickness(int callCount) {
+    if (callCount <= 0) return 1.0;
+    // Log scale: 1-6px range based on calls.
+    return math.min(1.0 + math.log(callCount + 1), 6.0);
   }
 
   String _formatTokens(int tokens) {
@@ -236,7 +236,7 @@ class _MultiTraceGraphCanvasState extends State<MultiTraceGraphCanvas> {
 
   Widget _buildEdgeListView() {
     final edges = widget.payload.edges.toList()
-      ..sort((a, b) => b.edgeTokens.compareTo(a.edgeTokens));
+      ..sort((a, b) => b.callCount.compareTo(a.callCount));
 
     if (edges.isEmpty) {
       return const Center(
@@ -591,10 +591,18 @@ class _MultiTraceGraphCanvasState extends State<MultiTraceGraphCanvas> {
     final isSelected = _selectedNodeId == nodeId;
     final color = _nodeColor(node.type);
 
+    // Scale node width based on execution count
+    // Base 80, max 200. Log scale.
+    final count = node.executionCount > 0 ? node.executionCount : 1;
+    final widthScale = math.min(1.0 + math.log(count) * 0.3, 2.5);
+    final width = 80.0 * widthScale;
+
     return Tooltip(
       message:
-          '${node.id}\n'
+          '${node.label ?? node.id}\n'
           'Type: ${node.type}\n'
+          'Calls: ${node.executionCount}\n'
+          'Errors: ${node.errorCount}\n'
           'Tokens: ${_formatTokens(node.totalTokens)}',
       waitDuration: const Duration(milliseconds: 400),
       child: GestureDetector(
@@ -611,7 +619,7 @@ class _MultiTraceGraphCanvasState extends State<MultiTraceGraphCanvas> {
         },
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          constraints: const BoxConstraints(minWidth: 80, maxWidth: 160),
+          constraints: BoxConstraints(minWidth: width, maxWidth: width * 2),
           decoration: BoxDecoration(
             color: color.withValues(alpha: isSelected ? 0.25 : 0.12),
             borderRadius: BorderRadius.circular(10),
@@ -639,7 +647,7 @@ class _MultiTraceGraphCanvasState extends State<MultiTraceGraphCanvas> {
               Icon(_nodeIcon(node.type), color: color, size: 20),
               const SizedBox(height: 4),
               Text(
-                node.id,
+                node.label ?? node.id,
                 style: TextStyle(
                   color: node.hasError ? AppColors.error : Colors.white,
                   fontSize: 11,

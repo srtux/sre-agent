@@ -151,5 +151,12 @@ To maintain high signal-to-noise ratios, the agent uses standard Python logging 
 | `SRE_AGENT_ENCRYPTION_KEY` | Encryption key for session state | auto-generated |
 | `SRE_AGENT_TOKEN_BUDGET` | Max token budget per request | unset (unlimited) |
 
+
+## 8. Agent Graph Visualization
+
+The SRE Agent includes a topology graph visualization powered by BigQuery Materialized Views and the Sugiyama layout algorithm.
+For detailed setup instructions, architecture, and query logic, see:
+[Agent Graph Setup Guide](AGENT_GRAPH_SETUP.md)
+
 ---
-*Last verified: 2026-02-15 -- Auto SRE Team*
+*Last verified: 2026-02-19 -- Auto SRE Team*

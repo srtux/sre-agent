@@ -30,7 +30,7 @@ void main() {
         'error_count': 2,
         'error_rate_pct': 20.0,
         'sample_error': 'timeout',
-        'edge_tokens': 1024,
+    'total_tokens': 1024,
         'avg_tokens_per_call': 102,
         'avg_duration_ms': 45.5,
         'p95_duration_ms': 120.3,
@@ -209,7 +209,7 @@ void main() {
         expect(json['error_count'], original['error_count']);
         expect(json['error_rate_pct'], original['error_rate_pct']);
         expect(json['sample_error'], original['sample_error']);
-        expect(json['edge_tokens'], original['edge_tokens']);
+        expect(json['total_tokens'], original['total_tokens']);
         expect(json['avg_tokens_per_call'], original['avg_tokens_per_call']);
         expect(json['avg_duration_ms'], original['avg_duration_ms']);
         expect(json['p95_duration_ms'], original['p95_duration_ms']);

@@ -42,7 +42,7 @@ final class AgentGraphNotifierProvider
 }
 
 String _$agentGraphNotifierHash() =>
-    r'aa078ef42633570df6156aefed6a9382acd3d392';
+    r'd14e5b19aff1690ece6b6b0843d0419abe1730a5';
 
 abstract class _$AgentGraphNotifier extends $Notifier<AgentGraphState> {
   AgentGraphState build();
@@ -60,4 +60,169 @@ abstract class _$AgentGraphNotifier extends $Notifier<AgentGraphState> {
             >;
     element.handleCreate(ref, build);
   }
+}
+
+@ProviderFor(fetchExtendedNodeDetails)
+final fetchExtendedNodeDetailsProvider = FetchExtendedNodeDetailsFamily._();
+
+final class FetchExtendedNodeDetailsProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<Map<String, dynamic>>,
+          Map<String, dynamic>,
+          FutureOr<Map<String, dynamic>>
+        >
+    with
+        $FutureModifier<Map<String, dynamic>>,
+        $FutureProvider<Map<String, dynamic>> {
+  FetchExtendedNodeDetailsProvider._({
+    required FetchExtendedNodeDetailsFamily super.from,
+    required String super.argument,
+  }) : super(
+         retry: null,
+         name: r'fetchExtendedNodeDetailsProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$fetchExtendedNodeDetailsHash();
+
+  @override
+  String toString() {
+    return r'fetchExtendedNodeDetailsProvider'
+        ''
+        '($argument)';
+  }
+
+  @$internal
+  @override
+  $FutureProviderElement<Map<String, dynamic>> $createElement(
+    $ProviderPointer pointer,
+  ) => $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<Map<String, dynamic>> create(Ref ref) {
+    final argument = this.argument as String;
+    return fetchExtendedNodeDetails(ref, argument);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is FetchExtendedNodeDetailsProvider &&
+        other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$fetchExtendedNodeDetailsHash() =>
+    r'f194b85dd985887309940bb02651dedcc4c2d4a8';
+
+final class FetchExtendedNodeDetailsFamily extends $Family
+    with $FunctionalFamilyOverride<FutureOr<Map<String, dynamic>>, String> {
+  FetchExtendedNodeDetailsFamily._()
+    : super(
+        retry: null,
+        name: r'fetchExtendedNodeDetailsProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  FetchExtendedNodeDetailsProvider call(String nodeId) =>
+      FetchExtendedNodeDetailsProvider._(argument: nodeId, from: this);
+
+  @override
+  String toString() => r'fetchExtendedNodeDetailsProvider';
+}
+
+@ProviderFor(fetchExtendedEdgeDetails)
+final fetchExtendedEdgeDetailsProvider = FetchExtendedEdgeDetailsFamily._();
+
+final class FetchExtendedEdgeDetailsProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<Map<String, dynamic>>,
+          Map<String, dynamic>,
+          FutureOr<Map<String, dynamic>>
+        >
+    with
+        $FutureModifier<Map<String, dynamic>>,
+        $FutureProvider<Map<String, dynamic>> {
+  FetchExtendedEdgeDetailsProvider._({
+    required FetchExtendedEdgeDetailsFamily super.from,
+    required (String, String) super.argument,
+  }) : super(
+         retry: null,
+         name: r'fetchExtendedEdgeDetailsProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$fetchExtendedEdgeDetailsHash();
+
+  @override
+  String toString() {
+    return r'fetchExtendedEdgeDetailsProvider'
+        ''
+        '$argument';
+  }
+
+  @$internal
+  @override
+  $FutureProviderElement<Map<String, dynamic>> $createElement(
+    $ProviderPointer pointer,
+  ) => $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<Map<String, dynamic>> create(Ref ref) {
+    final argument = this.argument as (String, String);
+    return fetchExtendedEdgeDetails(ref, argument.$1, argument.$2);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is FetchExtendedEdgeDetailsProvider &&
+        other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$fetchExtendedEdgeDetailsHash() =>
+    r'98e57af38dedfbebe517956582164f26e1c39df2';
+
+final class FetchExtendedEdgeDetailsFamily extends $Family
+    with
+        $FunctionalFamilyOverride<
+          FutureOr<Map<String, dynamic>>,
+          (String, String)
+        > {
+  FetchExtendedEdgeDetailsFamily._()
+    : super(
+        retry: null,
+        name: r'fetchExtendedEdgeDetailsProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  FetchExtendedEdgeDetailsProvider call(String sourceId, String targetId) =>
+      FetchExtendedEdgeDetailsProvider._(
+        argument: (sourceId, targetId),
+        from: this,
+      );
+
+  @override
+  String toString() => r'fetchExtendedEdgeDetailsProvider';
 }

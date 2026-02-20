@@ -885,7 +885,6 @@ async def mcp_execute_sql(
     args = {
         "query": sql_query,
         "projectId": pid,
-        "project_id": pid,  # Unify naming to be safe across different versions
     }
 
     res = await call_mcp_tool_with_retry(
@@ -922,7 +921,7 @@ async def mcp_list_dataset_ids(
         raise ValueError("tool_context is required for MCP tools")
 
     pid = project_id or get_project_id_with_fallback()
-    args = {"projectId": pid, "project_id": pid}
+    args = {"projectId": pid}
 
     res = await call_mcp_tool_with_retry(
         create_bigquery_mcp_toolset,
@@ -958,7 +957,7 @@ async def mcp_list_table_ids(
         raise ValueError("tool_context is required for MCP tools")
 
     pid = project_id or get_project_id_with_fallback()
-    args = {"datasetId": dataset_id, "projectId": pid, "project_id": pid}
+    args = {"datasetId": dataset_id, "projectId": pid}
 
     res = await call_mcp_tool_with_retry(
         create_bigquery_mcp_toolset,
@@ -1000,7 +999,6 @@ async def mcp_get_table_info(
         "datasetId": dataset_id,
         "tableId": table_id,
         "projectId": pid,
-        "project_id": pid,
     }
 
     res = await call_mcp_tool_with_retry(

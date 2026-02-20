@@ -7,7 +7,7 @@ const _mockGraphJson = '{"nodes":[{"id":"agent_1","type":"Agent",'
     '"error_rate_pct":0.0,"is_root":true,"is_leaf":false}],'
     '"edges":[{"source_id":"agent_1","target_id":"tool_1",'
     '"source_type":"Agent","target_type":"Tool","call_count":5,'
-    '"error_count":1,"error_rate_pct":20.0,"edge_tokens":500,'
+    '"error_count":1,"error_rate_pct":20.0,"total_tokens":500,'
     '"avg_tokens_per_call":100,"avg_duration_ms":150.5,'
     '"p95_duration_ms":300.0,"unique_sessions":3}]}';
 
@@ -76,7 +76,7 @@ void main() {
           timeRangeHours: 12,
         );
 
-        expect(sql, contains('`my-project.my_dataset.agent_trace_graph`'));
+        expect(sql, contains('`my-project.my_dataset.agent_topology_nodes`'));
         expect(sql, contains('INTERVAL 12 HOUR'));
         expect(sql, contains('flutter_graph_payload'));
       });

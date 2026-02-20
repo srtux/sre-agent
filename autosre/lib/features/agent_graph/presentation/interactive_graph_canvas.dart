@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 
 import 'package:graphview/GraphView.dart' as gv;
 import '../../../theme/app_theme.dart';
-import '../domain/graph_view_mode.dart';
 import '../domain/models.dart';
 
 /// A next-generation interactive graph canvas using fl_nodes.
@@ -17,7 +16,6 @@ import '../domain/models.dart';
 /// - Auto-layout using a custom tree layout algorithm on initial load
 class InteractiveGraphCanvas extends StatefulWidget {
   final MultiTraceGraphPayload payload;
-  final GraphViewMode viewMode;
   final ValueChanged<MultiTraceNode>? onNodeSelected;
   final ValueChanged<MultiTraceEdge>? onEdgeSelected;
   final VoidCallback? onSelectionCleared;
@@ -25,7 +23,6 @@ class InteractiveGraphCanvas extends StatefulWidget {
   const InteractiveGraphCanvas({
     super.key,
     required this.payload,
-    this.viewMode = GraphViewMode.standard,
     this.onNodeSelected,
     this.onEdgeSelected,
     this.onSelectionCleared,
@@ -52,6 +49,7 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
   void initState() {
     super.initState();
     _controller = FlNodeEditorController(
+      config: const FlNodeEditorConfig(minZoom: 0.001, maxZoom: 10.0),
       style: const FlNodeEditorStyle(
         gridStyle: FlGridStyle(
           gridSpacingX: 48,
@@ -64,6 +62,8 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
         ),
       ),
     );
+    // Start significantly zoomed out (20x more than 1.0) for a bird's eye view
+    _controller.viewportZoomNotifier.value = 0.05;
     _registerPrototypes();
     _initialCollapse();
     _processGraphData();
@@ -131,6 +131,7 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
     return t == 'agent' || t == 'sub_agent';
   }
 
+  // ignore: unused_element
   void _toggleCollapse(String nodeId) {
     setState(() {
       if (_collapsedNodeIds.contains(nodeId)) {
@@ -146,11 +147,15 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
   void didUpdateWidget(InteractiveGraphCanvas oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.payload != oldWidget.payload) {
-      // Reset collapse state on new payload? Or try to preserve?
-      // For now, reset to avoid stale IDs, or maybe re-run initial collapse
-      _collapsedNodeIds.clear();
-      _initialCollapse();
-      _processGraphData();
+      // Sync processing to ensure data is ready, but also use microtask to avoid
+      // modifying controller during the same build/layout pass that triggered this.
+      scheduleMicrotask(() {
+        if (!mounted) return;
+        _collapsedNodeIds.clear();
+        _initialCollapse();
+        _processGraphData();
+        setState(() {}); // Ensure build is called after controller modification
+      });
     }
   }
 
@@ -187,23 +192,32 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
     );
   }
 
-  void _processGraphData() {
+  void _processGraphData({bool force = false}) {
     final payload = widget.payload;
-    // Hash includes collapsed state now
+    // Hash includes collapsed state and node contents to detect changes better
+    final nodeHash = payload.nodes.fold(
+      0,
+      (acc, n) => acc ^ n.id.hashCode ^ n.hasError.hashCode ^ n.executionCount,
+    );
     final hash = Object.hash(
       payload.nodes.length,
       payload.edges.length,
       _collapsedNodeIds.length,
       _collapsedNodeIds.join(','),
+      nodeHash,
     );
-    if (_cachedHash == hash) return;
+
+    if (!force && _cachedHash == hash) return;
     _cachedHash = hash;
 
     // 1. Clear existing
     _controller.clear();
     _nodeDataMap.clear();
 
-    if (payload.nodes.isEmpty) return;
+    if (payload.nodes.isEmpty) {
+      if (mounted && _cachedHash != -1) setState(() {});
+      return;
+    }
 
     // 2. Filter Graph based on Collapsed State (Refined Visibility)
     final visibleNodes = <String, MultiTraceNode>{};
@@ -225,7 +239,30 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
       return n.isRoot || !incomingEdges.containsKey(n.id);
     }).toList();
     if (roots.isEmpty && payload.nodes.isNotEmpty) {
-      roots.add(payload.nodes.first); // Fallback
+      // Fallback: Cycle detected or complex graph.
+      // Pick the node with the highest number of outgoing edges (Hub/Orchestrator).
+      final nodeOutDegree = <String, int>{};
+      for (var e in payload.edges) {
+        nodeOutDegree[e.sourceId] = (nodeOutDegree[e.sourceId] ?? 0) + 1;
+      }
+
+      var bestNode = payload.nodes.first;
+      var maxOut = -1;
+
+      for (var n in payload.nodes) {
+        final out = nodeOutDegree[n.id] ?? 0;
+        if (out > maxOut) {
+          maxOut = out;
+          bestNode = n;
+        } else if (out == maxOut) {
+          // Tie-break: prefer 'Agent' type or 'sre_agent' ID
+          if (n.id.contains('sre_agent') &&
+              !bestNode.id.contains('sre_agent')) {
+            bestNode = n;
+          }
+        }
+      }
+      roots.add(bestNode);
     }
 
     final queue = <String>[];
@@ -275,17 +312,34 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
   void _sugiyamaLayout(List<MultiTraceNode> nodes, List<MultiTraceEdge> edges) {
     if (nodes.isEmpty) return;
 
-    final graph = gv.Graph()..isTree = false;
-    final gvNodes = <String, gv.Node>{};
-
     // Calculate max call count for edge scaling
     var maxCallCount = 1;
     for (var e in edges) {
       if (e.callCount > maxCallCount) maxCallCount = e.callCount;
     }
 
+    // 3. Build GraphView Graph
+    final graph = gv.Graph()..isTree = false;
+    final gvNodes = <String, gv.Node>{};
+    final uniqueIds = <String>{};
+
     for (var n in nodes) {
+      if (uniqueIds.contains(n.id)) continue;
+      uniqueIds.add(n.id);
+
       final node = gv.Node.Id(n.id);
+
+      // Set node size for Sugiyama algorithm to prevent overlap
+      // Width/Height estimates based on _build*Node widgets
+      final type = n.type.toLowerCase();
+      if (type == 'agent' || type == 'sub_agent') {
+        node.size = const Size(260, 150);
+      } else if (type == 'llm') {
+        node.size = const Size(240, 100);
+      } else {
+        node.size = const Size(200, 80); // Tool
+      }
+
       gvNodes[n.id] = node;
       graph.addNode(node);
     }
@@ -296,52 +350,34 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
       }
     }
 
+    // 4. Run Sugiyama Layout
     final builder = gv.SugiyamaConfiguration()
-      ..orientation = gv
-          .SugiyamaConfiguration
-          .ORIENTATION_TOP_BOTTOM // Use standard TB and rotate manually
-      ..levelSeparation =
-          150 // Vertical in TB -> Horizontal in LR
-      ..nodeSeparation = 50; // Horizontal in TB -> Vertical in LR
+      ..orientation = gv.SugiyamaConfiguration.ORIENTATION_LEFT_RIGHT
+      ..levelSeparation = 120
+      ..nodeSeparation = 60;
 
     final algorithm = gv.SugiyamaAlgorithm(builder);
     algorithm.run(graph, 100, 100);
 
-    // Debug: Check if nodes are spread out
-    if (nodes.isNotEmpty) {
-      final first = gvNodes[nodes.first.id]!;
-      debugPrint(
-        'LAYOUT DEBUG: First Node ${nodes.first.id} at ${first.x}, ${first.y}',
-      );
-      var allSame = true;
-      for (var n in nodes) {
-        final g = gvNodes[n.id]!;
-        if (g.x != first.x || g.y != first.y) {
-          allSame = false;
-          break;
-        }
-      }
-      if (allSame) {
-        debugPrint(
-          'LAYOUT ERROR: All nodes at same position! Algorithm failed.',
-        );
-        // Fallback to simple grid
-        var i = 0;
-        for (var n in nodes) {
-          final row = i ~/ 5;
-          final col = i % 5;
-          gvNodes[n.id]!
-            ..x = col * 300.0
-            ..y = row * 150.0;
-          i++;
-        }
-      }
+    // 5. Calculate Center to Normalize
+    var minX = double.infinity;
+    var minY = double.infinity;
+    var maxX = double.negativeInfinity;
+    var maxY = double.negativeInfinity;
+
+    for (var gvNode in gvNodes.values) {
+      if (gvNode.x < minX) minX = gvNode.x;
+      if (gvNode.y < minY) minY = gvNode.y;
+      if (gvNode.x > maxX) maxX = gvNode.x;
+      if (gvNode.y > maxY) maxY = gvNode.y;
     }
+
+    final centerX = (minX + maxX) / 2;
+    final centerY = (minY + maxY) / 2;
 
     for (var n in nodes) {
       final gvNode = gvNodes[n.id];
       if (gvNode != null) {
-
         final outgoingEdges = edges.where((e) => e.sourceId == n.id).toList();
         final hasOutgoingError = outgoingEdges.any((e) => e.errorCount > 0);
 
@@ -353,11 +389,8 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
               .reduce((a, b) => a > b ? a : b);
         }
 
-        var thickness = 1.0; // Base thickness
-        // User requested: "edges that have higher usage (more traces) ... slightly thicker"
-        // "don't make lines too thick" -> Use range 1.0 to 3.0
+        var thickness = 1.0;
         if (maxCallCount > 1) {
-          // Linear scale: 1.0 to 3.0
           thickness = 1.0 + (2.0 * (nodeMaxCallCount / maxCallCount));
         }
 
@@ -365,11 +398,10 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
             ? AppColors.error
             : AppColors.primaryTeal.withValues(alpha: 0.6);
 
-        // SWAP X and Y for Left-to-Right layout since we used Top-Bottom algorithm
-        // Also increase scaling if needed manually
         _addFlNode(
           n.id,
-          Offset(gvNode.y * 1.5, gvNode.x * 1.2),
+          // Center the graph at (0,0) so "Center View" works correctly
+          Offset(gvNode.x - centerX, gvNode.y - centerY),
           linkColor,
           thickness,
         );
@@ -390,13 +422,15 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
   void _handleAutoFit() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _layoutTimer?.cancel();
-      _layoutTimer = Timer(const Duration(milliseconds: 300), () {
+      _layoutTimer = Timer(const Duration(milliseconds: 500), () {
         if (!mounted) return;
         if (_controller.nodes.isNotEmpty) {
           _controller.focusNodesById(
             _controller.nodes.keys.toSet(),
             animate: true,
           );
+          // After fitting, zoom out significantly more as requested
+          _controller.setViewportZoom(0.05, absolute: true, animate: true);
           // Deselect all after focusing
           _controller.clearSelection();
         }
@@ -435,7 +469,8 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
                   color: linkColor,
                   lineWidth: linkThickness,
                   drawMode: FlLineDrawMode.solid,
-                  curveType: FlLinkCurveType.bezier,
+                  curveType: FlLinkCurveType
+                      .bezier, // User requested "start from right edge" -> bezier Tangent
                 ),
               ),
             ),
@@ -447,25 +482,6 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
         offset: offset,
       ),
     );
-  }
-
-  int _getMaxTokens() {
-    var max = 0;
-    for (var n in widget.payload.nodes) {
-      if (n.totalTokens > max) max = n.totalTokens;
-    }
-    return max > 0 ? max : 1;
-  }
-
-  Color _getTokenHeatmapColor(int tokens, int maxTokens) {
-    if (tokens == 0) return Colors.grey.withValues(alpha: 0.3);
-    final ratio = tokens / maxTokens;
-    // Green -> Yellow -> Red gradient
-    if (ratio < 0.5) {
-      return Color.lerp(Colors.green, Colors.yellow, ratio * 2)!;
-    } else {
-      return Color.lerp(Colors.yellow, Colors.red, (ratio - 0.5) * 2)!;
-    }
   }
 
   @override
@@ -496,7 +512,7 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
           // Hide default headers/fields since we use custom nodeBuilder
         ),
         Positioned(
-          bottom: 24,
+          top: 24,
           right: 24,
           child: Container(
             padding: const EdgeInsets.all(8),
@@ -518,7 +534,10 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
                 _buildIconButton(
                   Icons.refresh,
                   'Auto Layout',
-                  () => _processGraphData(),
+                  () {
+                  _processGraphData(force: true);
+                  setState(() {});
+                },
                 ),
                 const SizedBox(width: 8),
                 Container(width: 1, height: 24, color: Colors.white10),
@@ -562,10 +581,6 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
     MultiTraceNode node,
     FlNodeDataModel nodeData,
   ) {
-    if (widget.viewMode != GraphViewMode.standard) {
-      return _buildGenericNode(context, node, nodeData);
-    }
-
     switch (node.type.toLowerCase()) {
       case 'agent':
       case 'sub_agent':
@@ -575,45 +590,6 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
       case 'tool':
       default:
         return _buildToolNode(context, node, nodeData);
-    }
-  }
-
-  Widget _buildGenericNode(
-    BuildContext context,
-    MultiTraceNode node,
-    FlNodeDataModel nodeData,
-  ) {
-    return _buildToolNode(
-      context,
-      node,
-      nodeData,
-      forceColor: _getNodeColorForMode(node),
-    );
-  }
-
-  Color _getNodeColorForMode(MultiTraceNode node) {
-    if (widget.viewMode == GraphViewMode.tokenHeatmap) {
-      return _getTokenHeatmapColor(node.totalTokens, _getMaxTokens());
-    }
-    if (widget.viewMode == GraphViewMode.errorHeatmap) {
-      return node.hasError
-          ? AppColors.error
-          : AppColors.primaryTeal.withValues(alpha: 0.3);
-    }
-    return _nodeColor(node.type);
-  }
-
-  Color _nodeColor(String type) {
-    switch (type.toLowerCase()) {
-      case 'agent':
-      case 'sub_agent':
-        return AppColors.primaryTeal;
-      case 'tool':
-        return AppColors.warning;
-      case 'llm':
-        return AppColors.secondaryPurple;
-      default:
-        return Colors.grey;
     }
   }
 
@@ -644,40 +620,44 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           if (inputPort != null)
-            Container(
-              key: inputPort.key,
-              width: 10,
-              height: 10,
-              margin: const EdgeInsets.only(right: 2),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white24,
-                border: Border.all(color: Colors.white54, width: 1),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.3),
-                    blurRadius: 2,
-                  ),
-                ],
+            IgnorePointer(
+              child: Container(
+                key: inputPort.key,
+                width: 10,
+                height: 10,
+                margin: const EdgeInsets.only(right: 2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white24,
+                  border: Border.all(color: Colors.white54, width: 1),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      blurRadius: 2,
+                    ),
+                  ],
+                ),
               ),
             ),
           content,
           if (outPort != null)
-            Container(
-              key: outPort.key,
-              width: 10,
-              height: 10,
-              margin: const EdgeInsets.only(left: 2),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: effectiveColor,
-                border: Border.all(color: Colors.white24, width: 1.5),
-                boxShadow: [
-                  BoxShadow(
-                    color: effectiveColor.withValues(alpha: 0.4),
-                    blurRadius: 4,
-                  ),
-                ],
+            IgnorePointer(
+              child: Container(
+                key: outPort.key,
+                width: 10,
+                height: 10,
+                margin: const EdgeInsets.only(left: 2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: effectiveColor,
+                  border: Border.all(color: Colors.white24, width: 1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: effectiveColor.withValues(alpha: 0.4),
+                      blurRadius: 4,
+                    ),
+                  ],
+                ),
               ),
             ),
         ],
@@ -691,105 +671,120 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
     FlNodeDataModel nodeData,
   ) {
     final isSelected = nodeData.state.isSelected;
-    const color = AppColors.primaryTeal;
+    final hasError = node.hasError;
+    final Color borderColor;
+    if (isSelected) {
+      borderColor = const Color(0xFF64B5F6); // Lighter blue for selection
+    } else {
+      borderColor = hasError
+          ? const Color(0xFFE53935)
+          : const Color(0xFF1565C0);
+    }
+    // Robot icon for Agents
+    const iconData = Icons.smart_toy;
 
     final content = Container(
-      width: 260,
+      width: 280,
+      constraints: const BoxConstraints(maxHeight: 140),
       decoration: BoxDecoration(
-        color: const Color(0xFF181825),
-        borderRadius: BorderRadius.circular(16),
+        color: const Color(0xFF0D1B2A), // Darker background
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isSelected ? AppColors.primaryCyan : Colors.white10,
-          width: isSelected ? 2 : 1,
+          color: borderColor,
+          width: hasError ? 2 : 1, // Thicker if error
         ),
-        boxShadow: isSelected
-            ? [
-                BoxShadow(
-                  color: AppColors.primaryCyan.withValues(alpha: 0.3),
-                  blurRadius: 16,
-                ),
-              ]
-            : [
-                const BoxShadow(
-                  color: Colors.black54,
-                  blurRadius: 8,
-                  offset: Offset(0, 4),
-                ),
-              ],
+        boxShadow: [
+          BoxShadow(
+            color: borderColor.withValues(alpha: hasError ? 0.6 : 0.3),
+            blurRadius: 12,
+            spreadRadius: 2,
+          ),
+        ],
       ),
-      child: Column(
+      child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(15),
-              ),
-            ),
-            child: Row(
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.smart_toy, size: 16, color: color),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    node.id.toUpperCase(),
-                    style: const TextStyle(
-                      color: color,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                      letterSpacing: 1.0,
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1565C0).withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        iconData,
+                        color: Color(0xFF42A5F5),
+                        size: 18,
+                      ),
                     ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        node.label ?? node.id,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
-                // Expand/Collapse Button
-                InkWell(
-                  onTap: () => _toggleCollapse(node.id),
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
+                const SizedBox(height: 16),
+                // Stats Row
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _buildStatBadge(
+                      Icons.timer,
+                      _formatDuration(node.avgDurationMs),
+                      Colors.grey,
                     ),
-                    child: Icon(
-                      _collapsedNodeIds.contains(node.id)
-                          ? Icons.add
-                          : Icons.remove,
-                      size: 14,
-                      color: color,
-                    ),
-                  ),
+                    if (node.errorRatePct > 0)
+                      _buildStatBadge(
+                        Icons.warning,
+                        '${node.errorRatePct.toStringAsFixed(1)}%',
+                        const Color(0xFFEF5350),
+                      ),
+                  ],
                 ),
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (node.description != null) ...[
-                  Text(
-                    node.description!,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 13,
-                      height: 1.4,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                _buildMetricsRow(node, color),
-              ],
+          // Execution Count Badge
+          Positioned(
+            top: -6,
+            right: -6,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1565C0),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF0D1B2A), width: 2),
+              ),
+              child: Text(
+                '${node.executionCount}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ),
         ],
       ),
     );
-    return _wrapWithPorts(content, nodeData, color: color);
+    return _wrapWithPorts(content, nodeData, color: borderColor);
   }
 
   Widget _buildLLMNode(
@@ -798,55 +793,123 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
     FlNodeDataModel nodeData,
   ) {
     final isSelected = nodeData.state.isSelected;
-    const color = AppColors.secondaryPurple;
-    const secondaryPink = Color(0xFFF472B6); // Pink 400
+    final hasError = node.hasError;
+    final Color borderColor;
+    if (isSelected) {
+      borderColor = const Color(0xFFD1C4E9); // Lighter purple for selection
+    } else {
+      borderColor = hasError
+          ? const Color(0xFFE53935)
+          : const Color(0xFF673AB7);
+    }
+    // Sparkles for LLM
+    const iconData = Icons.auto_awesome;
 
     final content = Container(
       width: 240,
-      padding: const EdgeInsets.all(12),
+      constraints: const BoxConstraints(maxHeight: 110),
       decoration: BoxDecoration(
-        color: const Color(0xFF2A1E3E),
-        borderRadius: BorderRadius.circular(24),
+        color: const Color(0xFF1A1025), // Dark purple tint
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isSelected ? secondaryPink : color.withValues(alpha: 0.3),
-          width: isSelected ? 2 : 1,
+          color: borderColor, width: hasError ? 2 : 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: color.withValues(alpha: isSelected ? 0.4 : 0.1),
-            blurRadius: 12,
-            spreadRadius: isSelected ? 2 : 0,
+            color: borderColor.withValues(alpha: hasError ? 0.6 : 0.2),
+            blurRadius: 10,
           ),
         ],
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.auto_awesome, size: 18, color: secondaryPink),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  _cleanId(node.id),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                  overflow: TextOverflow.ellipsis,
+          Padding(
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(iconData, color: Color(0xFF9575CD), size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        node.label?.replaceAll('generate_content ', '') ??
+                            node.id,
+                        style: const TextStyle(
+                          color: Color(0xFFD1C4E9),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Text(
+                      _formatDuration(node.avgDurationMs),
+                      style: const TextStyle(color: Colors.grey, fontSize: 11),
+                    ),
+                    const Spacer(),
+                    if (node.totalTokens > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF673AB7).withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          '${(node.totalTokens / 1000).toStringAsFixed(1)}k',
+                          style: const TextStyle(
+                            color: Color(0xFFB39DDB),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            top: -6,
+            right: -6,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: const Color(0xFF512DA8),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFF1A1025), width: 2),
+              ),
+              child: Text(
+                '${node.executionCount}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-            ],
+            ),
           ),
-          const SizedBox(height: 8),
-          _buildMetricsRow(node, secondaryPink, compact: true),
         ],
       ),
     );
-    return _wrapWithPorts(content, nodeData, color: color);
+    return _wrapWithPorts(content, nodeData, color: borderColor);
   }
+
+
+
+
 
   Widget _buildToolNode(
     BuildContext context,
@@ -855,152 +918,127 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
     Color? forceColor,
   }) {
     final isSelected = nodeData.state.isSelected;
-    final color = forceColor ?? AppColors.warning;
+    final hasError = node.hasError;
+
+    Color borderColor;
+    if (isSelected) {
+      borderColor = Colors
+          .white; // Explicit white for selection across all tool/generic modes
+    } else if (forceColor != null) {
+      borderColor = forceColor;
+    } else {
+      borderColor = hasError
+          ? const Color(0xFFE53935)
+          : const Color(0xFF546E7A);
+    }
+    // Wrench for Tool
+    const iconData = Icons.build;
 
     final content = Container(
       width: 200,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      constraints: const BoxConstraints(maxHeight: 90),
       decoration: BoxDecoration(
-        color: const Color(0xFF252525),
+        color: const Color(0xFF181C1F), // Dark grey
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: isSelected ? color : Colors.white12,
-          width: isSelected ? 2 : 1,
+          color: borderColor, width: hasError ? 2 : 1,
         ),
-        boxShadow: isSelected
-            ? [BoxShadow(color: color.withValues(alpha: 0.3), blurRadius: 8)]
-            : [],
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          Row(
-            children: [
-              Icon(Icons.build_circle_outlined, size: 14, color: color),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  _cleanId(node.id),
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.9),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    fontFamily: 'Roboto Mono',
+          Padding(
+            padding: const EdgeInsets.all(8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Row(
+                  children: [
+                    const Icon(iconData, color: Color(0xFF90A4AE), size: 14),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        node.label ?? node.id,
+                        style: const TextStyle(
+                          color: Color(0xFFCFD8DC),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _formatDuration(node.avgDurationMs),
+                  style: const TextStyle(color: Colors.grey, fontSize: 10),
+                ),
+              ],
+            ),
+          ),
+          if (node.executionCount > 1)
+            Positioned(
+              top: -4,
+              right: -4,
+              child: Container(
+                width: 18,
+                height: 18,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF455A64),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: const Color(0xFF181C1F),
+                    width: 1.5,
                   ),
-                  overflow: TextOverflow.ellipsis,
+                ),
+                child: Text(
+                  '${node.executionCount}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-            ],
-          ),
-          if (node.hasError || node.avgDurationMs > 0) ...[
-            const SizedBox(height: 6),
-            _buildMetricsRow(node, color, compact: true),
-          ],
+            ),
         ],
       ),
     );
-    return _wrapWithPorts(content, nodeData, color: color);
+    return _wrapWithPorts(content, nodeData, color: borderColor);
   }
 
-  String _cleanId(String id) {
-    if (id.contains('generate_content') && id.split(' ').length > 1) {
-      return id.split(' ').sublist(1).join(' ');
-    }
-    return id;
-  }
-
-  Widget _buildMetricsRow(
-    MultiTraceNode node,
-    Color accentColor, {
-    bool compact = false,
-  }) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (node.hasError) ...[
-          _buildErrorRateBadge(node.errorRatePct),
-          const SizedBox(width: 4),
-        ],
-        if (node.avgDurationMs > 0) ...[
-          _buildLatencyBadge(node.avgDurationMs, accentColor),
-          const SizedBox(width: 4),
-        ],
-        if (node.totalTokens > 0) ...[
-          if (!compact) const Spacer(),
-          if (compact) const SizedBox(width: 4),
-          _buildTokenBadge(node.totalTokens, accentColor),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildTokenBadge(int tokens, Color color) {
+  Widget _buildStatBadge(IconData icon, String text, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        '${_formatTokens(tokens)} toks',
-        style: TextStyle(
-          color: color.withValues(alpha: 1.0),
-          fontSize: 10,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLatencyBadge(double latencyMs, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        '${latencyMs.toStringAsFixed(0)}ms',
-        style: TextStyle(
-          color: color.withValues(alpha: 1.0),
-          fontSize: 10,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildErrorRateBadge(double errorRate) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      decoration: BoxDecoration(
-        color: AppColors.error.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.error, color: AppColors.error, size: 10),
-          if (errorRate > 0) ...[
-            const SizedBox(width: 2),
-            Text(
-              '${errorRate.toStringAsFixed(0)}%',
-              style: const TextStyle(
-                color: AppColors.error,
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-              ),
+          Icon(icon, size: 10, color: color),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: TextStyle(
+              color: color,
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
             ),
-          ],
+          ),
         ],
       ),
     );
   }
 
-  String _formatTokens(int tokens) {
-    if (tokens >= 1000000) return '${(tokens / 1000000).toStringAsFixed(1)}M';
-    if (tokens >= 1000) return '${(tokens / 1000).toStringAsFixed(1)}K';
-    return '$tokens';
+  String _formatDuration(double ms) {
+    if (ms < 1) return '<1ms';
+    if (ms < 1000) return '${ms.round()}ms';
+    return '${(ms / 1000).toStringAsFixed(1)}s';
   }
 }
