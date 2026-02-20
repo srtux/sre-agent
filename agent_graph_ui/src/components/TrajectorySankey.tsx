@@ -6,13 +6,35 @@ interface TrajectorySankeyProps {
 }
 
 export default function TrajectorySankey({ data }: TrajectorySankeyProps) {
+  // Build a Set of node IDs involved in detected loops
+  const loopNodeIds = new Set<string>()
+  const loopEdges = new Set<string>()
+  if (data.loopTraces) {
+    for (const lt of data.loopTraces) {
+      for (const loop of lt.loops) {
+        for (const nodeId of loop.cycle) {
+          loopNodeIds.add(nodeId)
+        }
+        // Mark edges between consecutive cycle nodes
+        for (let i = 0; i < loop.cycle.length; i++) {
+          const src = loop.cycle[i]
+          const tgt = loop.cycle[(i + 1) % loop.cycle.length]
+          loopEdges.add(`${src}->${tgt}`)
+        }
+      }
+    }
+  }
+
+  const hasLoops = loopNodeIds.size > 0
+
   return (
-    <div style={{ height: '600px', background: '#0d1117', borderRadius: '8px' }}>
+    <div style={{ height: '600px', background: '#0d1117', borderRadius: hasLoops ? '8px 8px 0 0' : '8px' }}>
       <ResponsiveSankey
         data={data}
         margin={{ top: 20, right: 160, bottom: 20, left: 160 }}
         align="justify"
         colors={(node) => {
+          if (loopNodeIds.has(node.id)) return '#FF6D00' // bright orange for loop nodes
           const matched = data.nodes.find((n) => n.id === node.id)
           return matched?.nodeColor ?? '#8b949e'
         }}
@@ -31,6 +53,27 @@ export default function TrajectorySankey({ data }: TrajectorySankeyProps) {
         labelOrientation="horizontal"
         labelPadding={16}
         labelTextColor="#c9d1d9"
+        nodeTooltip={(props) => {
+          const nodeId = props.node.id
+          const isLoop = loopNodeIds.has(String(nodeId))
+          return (
+            <div style={{
+              background: '#161b22',
+              color: '#c9d1d9',
+              padding: '8px 12px',
+              borderRadius: '6px',
+              border: '1px solid #30363d',
+              fontSize: '13px',
+            }}>
+              <div style={{ fontWeight: 600 }}>{String(nodeId)}</div>
+              {isLoop && (
+                <div style={{ color: '#FF6D00', marginTop: '4px', fontSize: '12px' }}>
+                  {'\u26A0'} Pathological loop detected
+                </div>
+              )}
+            </div>
+          )
+        }}
         theme={{
           background: '#0d1117',
           text: {
@@ -49,6 +92,26 @@ export default function TrajectorySankey({ data }: TrajectorySankeyProps) {
           },
         }}
       />
+      {hasLoops && (
+        <div style={{
+          padding: '8px 16px',
+          background: 'rgba(255, 109, 0, 0.1)',
+          border: '1px solid #FF6D00',
+          borderRadius: '0 0 8px 8px',
+          borderTop: 'none',
+          color: '#FF6D00',
+          fontSize: '13px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+        }}>
+          <span>{'\u26A0'}</span>
+          <span>
+            {data.loopTraces!.length} trace{data.loopTraces!.length !== 1 ? 's' : ''} with pathological loops detected.
+            Highlighted nodes are stuck in retry cycles.
+          </span>
+        </div>
+      )}
     </div>
   )
 }

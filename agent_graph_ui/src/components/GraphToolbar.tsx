@@ -1,10 +1,12 @@
-import type { GraphFilters } from '../types'
+import type { GraphFilters, ViewMode } from '../types'
 
 interface GraphToolbarProps {
   filters: GraphFilters
   onChange: (filters: GraphFilters) => void
   onLoad: () => void
   loading: boolean
+  viewMode: ViewMode
+  onViewModeChange: (mode: ViewMode) => void
 }
 
 const hoursOptions = [
@@ -102,6 +104,8 @@ export default function GraphToolbar({
   onChange,
   onLoad,
   loading,
+  viewMode,
+  onViewModeChange,
 }: GraphToolbarProps) {
   const canLoad = !loading && filters.projectId.trim().length > 0
 
@@ -136,6 +140,39 @@ export default function GraphToolbar({
           </option>
         ))}
       </select>
+
+      {/* View Mode segmented control */}
+      <span style={styles.label}>View</span>
+      <div style={{ display: 'flex', gap: '0px' }}>
+        {(['topology', 'cost', 'latency'] as ViewMode[]).map((mode, idx) => {
+          const isActive = viewMode === mode
+          const labels: Record<ViewMode, string> = {
+            topology: 'Topology',
+            cost: 'Cost Hotspots',
+            latency: 'Latency',
+          }
+          return (
+            <button
+              key={mode}
+              onClick={() => onViewModeChange(mode)}
+              style={{
+                padding: '6px 14px',
+                fontSize: '13px',
+                fontWeight: isActive ? 600 : 400,
+                cursor: 'pointer',
+                border: '1px solid #30363d',
+                borderLeft: idx === 0 ? '1px solid #30363d' : 'none',
+                borderRadius: idx === 0 ? '6px 0 0 6px' : idx === 2 ? '0 6px 6px 0' : '0',
+                background: isActive ? '#1f6feb' : '#0d1117',
+                color: isActive ? '#ffffff' : '#8b949e',
+                transition: 'background 0.15s, color 0.15s',
+              }}
+            >
+              {labels[mode]}
+            </button>
+          )
+        })}
+      </div>
 
       {/* Errors-only pill toggle */}
       <div

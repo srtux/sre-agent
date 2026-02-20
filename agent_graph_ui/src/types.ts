@@ -43,6 +43,7 @@ export interface SankeyLink {
 export interface SankeyResponse {
   nodes: SankeyNode[];
   links: SankeyLink[];
+  loopTraces?: LoopTrace[];
 }
 
 // --- Phase 2: Detail panel types ---
@@ -59,6 +60,7 @@ export interface NodeDetail {
   estimatedCost: number;
   latency: { p50: number; p95: number; p99: number };
   topErrors: Array<{ message: string; count: number }>;
+  recentPayloads: PayloadEntry[];
 }
 
 export interface EdgeDetail {
@@ -87,4 +89,29 @@ export interface GraphFilters {
   errorsOnly: boolean;
   startTime?: string;
   endTime?: string;
+}
+
+// --- Phase 3: View mode and payload types ---
+
+export type ViewMode = 'topology' | 'cost' | 'latency'
+
+export interface PayloadEntry {
+  spanId: string
+  timestamp: string | null
+  nodeType: string
+  prompt: string | null
+  completion: string | null
+  toolInput: string | null
+  toolOutput: string | null
+}
+
+export interface LoopInfo {
+  cycle: string[]
+  repetitions: number
+  startIndex: number
+}
+
+export interface LoopTrace {
+  traceId: string
+  loops: LoopInfo[]
 }

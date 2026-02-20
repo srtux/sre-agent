@@ -1,6 +1,13 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
-import type { SelectedElement, NodeDetail, EdgeDetail } from '../types'
+import { Light as SyntaxHighlighter } from 'react-syntax-highlighter'
+import json from 'react-syntax-highlighter/dist/esm/languages/hljs/json'
+import sql from 'react-syntax-highlighter/dist/esm/languages/hljs/sql'
+import { atomOneDark } from 'react-syntax-highlighter/dist/esm/styles/hljs'
+import type { SelectedElement, NodeDetail, EdgeDetail, PayloadEntry } from '../types'
+
+SyntaxHighlighter.registerLanguage('json', json)
+SyntaxHighlighter.registerLanguage('sql', sql)
 
 interface SidePanelProps {
   selected: SelectedElement | null
@@ -415,6 +422,9 @@ function NodeDetailView({ detail }: { detail: NodeDetail }) {
           ))}
         </div>
       )}
+
+      {/* Raw Payloads */}
+      <PayloadAccordion payloads={detail.recentPayloads ?? []} />
     </>
   )
 }
@@ -500,4 +510,127 @@ function EdgeDetailView({ detail }: { detail: EdgeDetail }) {
       </div>
     </>
   )
+}
+
+function PayloadAccordion({ payloads }: { payloads: PayloadEntry[] }) {
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
+
+  if (payloads.length === 0) {
+    return (
+      <div style={styles.section}>
+        <div style={styles.sectionTitle}>Raw Payloads</div>
+        <div style={{ fontSize: '13px', color: '#484f58' }}>No recent payloads available.</div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={styles.section}>
+      <div style={styles.sectionTitle}>Raw Payloads ({payloads.length})</div>
+      {payloads.map((p, idx) => {
+        const isExpanded = expandedIdx === idx
+        const timestamp = p.timestamp
+          ? new Date(p.timestamp).toLocaleString()
+          : 'Unknown time'
+
+        // Determine which fields have data
+        const fields: Array<{ label: string; value: string; lang: string }> = []
+        if (p.prompt) fields.push({ label: 'Prompt', value: p.prompt, lang: 'json' })
+        if (p.completion) fields.push({ label: 'Completion', value: p.completion, lang: 'json' })
+        if (p.toolInput) fields.push({ label: 'Tool Input', value: p.toolInput, lang: 'json' })
+        if (p.toolOutput) fields.push({ label: 'Tool Output', value: p.toolOutput, lang: 'json' })
+
+        return (
+          <div key={p.spanId || idx} style={{ marginBottom: '6px' }}>
+            <button
+              onClick={() => setExpandedIdx(isExpanded ? null : idx)}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '8px 10px',
+                background: '#1c2128',
+                border: '1px solid #30363d',
+                borderRadius: isExpanded ? '6px 6px 0 0' : '6px',
+                color: '#c9d1d9',
+                fontSize: '12px',
+                cursor: 'pointer',
+                textAlign: 'left',
+              }}
+            >
+              <span>
+                <span style={{ color: '#8b949e', marginRight: '8px' }}>
+                  {isExpanded ? '\u25BC' : '\u25B6'}
+                </span>
+                {timestamp}
+              </span>
+              <span style={{
+                fontSize: '11px',
+                padding: '1px 6px',
+                borderRadius: '8px',
+                background: 'rgba(88,166,255,0.15)',
+                color: '#58a6ff',
+              }}>
+                {p.nodeType}
+              </span>
+            </button>
+            {isExpanded && (
+              <div style={{
+                border: '1px solid #30363d',
+                borderTop: 'none',
+                borderRadius: '0 0 6px 6px',
+                background: '#0d1117',
+                padding: '8px',
+              }}>
+                {fields.length === 0 ? (
+                  <div style={{ fontSize: '12px', color: '#484f58', padding: '8px' }}>
+                    No payload data captured for this span.
+                  </div>
+                ) : (
+                  fields.map((f) => (
+                    <div key={f.label} style={{ marginBottom: '8px' }}>
+                      <div style={{
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        color: '#8b949e',
+                        marginBottom: '4px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                      }}>
+                        {f.label}
+                      </div>
+                      <SyntaxHighlighter
+                        language={f.lang}
+                        style={atomOneDark}
+                        customStyle={{
+                          margin: 0,
+                          borderRadius: '4px',
+                          fontSize: '11px',
+                          maxHeight: '200px',
+                          overflow: 'auto',
+                        }}
+                        wrapLongLines
+                      >
+                        {tryFormatJson(f.value)}
+                      </SyntaxHighlighter>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/** Try to parse and pretty-print JSON, fallback to raw string. */
+function tryFormatJson(value: string): string {
+  try {
+    return JSON.stringify(JSON.parse(value), null, 2)
+  } catch {
+    return value
+  }
 }

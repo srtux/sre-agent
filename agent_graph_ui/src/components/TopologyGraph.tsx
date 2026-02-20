@@ -14,7 +14,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import dagre from 'dagre'
-import type { TopologyNode, TopologyEdge } from '../types'
+import type { TopologyNode, TopologyEdge, ViewMode } from '../types'
 
 const NODE_WIDTH = 180
 const NODE_HEIGHT = 60
@@ -28,7 +28,10 @@ function getLayoutedElements(
   g.setGraph({ rankdir: 'LR', nodesep: 80, ranksep: 150 })
 
   nodes.forEach((node) => {
-    g.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT })
+    const d = node.data as Record<string, unknown>
+    const w = (d._scaledWidth as number) ?? NODE_WIDTH
+    const h = (d._scaledHeight as number) ?? NODE_HEIGHT
+    g.setNode(node.id, { width: w, height: h })
   })
 
   edges.forEach((edge) => {
@@ -39,11 +42,14 @@ function getLayoutedElements(
 
   const layoutedNodes = nodes.map((node) => {
     const pos = g.node(node.id)
+    const d = node.data as Record<string, unknown>
+    const w = (d._scaledWidth as number) ?? NODE_WIDTH
+    const h = (d._scaledHeight as number) ?? NODE_HEIGHT
     return {
       ...node,
       position: {
-        x: pos.x - NODE_WIDTH / 2,
-        y: pos.y - NODE_HEIGHT / 2,
+        x: pos.x - w / 2,
+        y: pos.y - h / 2,
       },
     }
   })
@@ -153,6 +159,44 @@ function formatLatency(ms: number | undefined): string {
   return `${(ms / 1000).toFixed(1)}s`
 }
 
+/** Interpolate between white and deep red based on a 0-1 value. */
+function heatmapColor(t: number): string {
+  // Clamp to [0, 1]
+  const v = Math.max(0, Math.min(1, t))
+  // White (#ffffff) -> Yellow (#ffcc00) -> Deep Red (#cc0000)
+  if (v < 0.5) {
+    const sub = v * 2 // 0-1 within first half
+    const r = 255
+    const g = Math.round(255 - sub * (255 - 204))
+    const b = Math.round(255 - sub * 255)
+    return `rgb(${r},${g},${b})`
+  }
+  const sub = (v - 0.5) * 2 // 0-1 within second half
+  const r = Math.round(255 - sub * (255 - 204))
+  const g = Math.round(204 - sub * 204)
+  const b = 0
+  return `rgb(${r},${g},${b})`
+}
+
+/** Compute the maximum value for a metric across all nodes. */
+function getMaxMetric(nodes: TopologyNode[], key: 'totalTokens' | 'avgDurationMs'): number {
+  let max = 0
+  for (const n of nodes) {
+    const val = n.data[key]
+    if (typeof val === 'number' && val > max) max = val
+  }
+  return max || 1 // avoid division by zero
+}
+
+/** Scale a node's dimensions based on its normalized metric value. */
+function getScaledDimensions(t: number): { width: number; height: number } {
+  const scale = 1 + t * 0.6 // 1x to 1.6x
+  return {
+    width: Math.round(NODE_WIDTH * scale),
+    height: Math.round(NODE_HEIGHT * scale),
+  }
+}
+
 function MetricBadges({ nodeData }: { nodeData: TopologyNode['data'] }) {
   return (
     <div style={badgeContainerStyle}>
@@ -169,10 +213,24 @@ function MetricBadges({ nodeData }: { nodeData: TopologyNode['data'] }) {
 }
 
 function AgentNode({ data }: NodeProps) {
-  const nodeData = data as TopologyNode['data']
+  const nodeData = data as TopologyNode['data'] & {
+    _heatColor?: string
+    _scaledWidth?: number
+    _scaledHeight?: number
+  }
   const errorOverrides = getErrorStyles(nodeData.errorCount)
+  const heatOverrides: React.CSSProperties = nodeData._heatColor
+    ? {
+        background: nodeData._heatColor,
+        border: `2px solid ${nodeData._heatColor}`,
+        boxShadow: `0 2px 8px ${nodeData._heatColor}40`,
+        width: nodeData._scaledWidth ?? NODE_WIDTH,
+        height: nodeData._scaledHeight ?? NODE_HEIGHT,
+        color: '#1a1a1a',
+      }
+    : {}
   return (
-    <div style={{ ...nodeStyles.agent, ...errorOverrides }}>
+    <div style={{ ...nodeStyles.agent, ...errorOverrides, ...heatOverrides }}>
       <Handle type="target" position={Position.Left} />
       <div>{nodeData.label}</div>
       <div style={subtextStyle}>Executions: {nodeData.executionCount}</div>
@@ -183,10 +241,24 @@ function AgentNode({ data }: NodeProps) {
 }
 
 function ToolNode({ data }: NodeProps) {
-  const nodeData = data as TopologyNode['data']
+  const nodeData = data as TopologyNode['data'] & {
+    _heatColor?: string
+    _scaledWidth?: number
+    _scaledHeight?: number
+  }
   const errorOverrides = getErrorStyles(nodeData.errorCount)
+  const heatOverrides: React.CSSProperties = nodeData._heatColor
+    ? {
+        background: nodeData._heatColor,
+        border: `2px solid ${nodeData._heatColor}`,
+        boxShadow: `0 2px 8px ${nodeData._heatColor}40`,
+        width: nodeData._scaledWidth ?? NODE_WIDTH,
+        height: nodeData._scaledHeight ?? NODE_HEIGHT,
+        color: '#1a1a1a',
+      }
+    : {}
   return (
-    <div style={{ ...nodeStyles.tool, ...errorOverrides }}>
+    <div style={{ ...nodeStyles.tool, ...errorOverrides, ...heatOverrides }}>
       <Handle type="target" position={Position.Left} />
       <div>{nodeData.label}</div>
       <div style={subtextStyle}>Calls: {nodeData.executionCount}</div>
@@ -197,10 +269,24 @@ function ToolNode({ data }: NodeProps) {
 }
 
 function LLMNode({ data }: NodeProps) {
-  const nodeData = data as TopologyNode['data']
+  const nodeData = data as TopologyNode['data'] & {
+    _heatColor?: string
+    _scaledWidth?: number
+    _scaledHeight?: number
+  }
   const errorOverrides = getErrorStyles(nodeData.errorCount)
+  const heatOverrides: React.CSSProperties = nodeData._heatColor
+    ? {
+        background: nodeData._heatColor,
+        border: `2px solid ${nodeData._heatColor}`,
+        boxShadow: `0 2px 8px ${nodeData._heatColor}40`,
+        width: nodeData._scaledWidth ?? NODE_WIDTH,
+        height: nodeData._scaledHeight ?? NODE_HEIGHT,
+        color: '#1a1a1a',
+      }
+    : {}
   return (
-    <div style={{ ...nodeStyles.llm, ...errorOverrides }}>
+    <div style={{ ...nodeStyles.llm, ...errorOverrides, ...heatOverrides }}>
       <Handle type="target" position={Position.Left} />
       <div>{nodeData.label}</div>
       <div style={subtextStyle}>Tokens: {nodeData.totalTokens}</div>
@@ -221,14 +307,54 @@ function mapNodeType(nodeType: string): string {
   return 'agent'
 }
 
+function HeatmapLegend({ mode }: { mode: ViewMode }) {
+  if (mode === 'topology') return null
+
+  const label = mode === 'cost' ? 'Token Cost' : 'Avg Latency'
+  const lowLabel = mode === 'cost' ? 'Low' : '0ms'
+  const highLabel = mode === 'cost' ? 'High' : 'High ms'
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        bottom: 16,
+        right: 16,
+        background: '#161b22',
+        border: '1px solid #30363d',
+        borderRadius: '8px',
+        padding: '10px 14px',
+        zIndex: 10,
+        fontSize: '12px',
+        color: '#c9d1d9',
+      }}
+    >
+      <div style={{ fontWeight: 600, marginBottom: '6px' }}>{label} Heatmap</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <span style={{ color: '#8b949e' }}>{lowLabel}</span>
+        <div
+          style={{
+            width: '120px',
+            height: '12px',
+            borderRadius: '6px',
+            background: 'linear-gradient(to right, #ffffff, #ffcc00, #cc0000)',
+          }}
+        />
+        <span style={{ color: '#8b949e' }}>{highLabel}</span>
+      </div>
+    </div>
+  )
+}
+
 interface TopologyGraphProps {
   nodes: TopologyNode[]
   edges: TopologyEdge[]
+  viewMode?: ViewMode
   onNodeClick?: (nodeId: string) => void
   onEdgeClick?: (sourceId: string, targetId: string) => void
 }
 
-export default function TopologyGraph({ nodes, edges, onNodeClick, onEdgeClick }: TopologyGraphProps) {
+export default function TopologyGraph({ nodes, edges, viewMode = 'topology', onNodeClick, onEdgeClick }: TopologyGraphProps) {
   // Inject errorPulse keyframe animation into document head
   useEffect(() => {
     const styleEl = document.createElement('style')
@@ -245,13 +371,43 @@ export default function TopologyGraph({ nodes, edges, onNodeClick, onEdgeClick }
   }, [])
 
   const toReactFlowNodes = useCallback((): Node[] => {
-    return nodes.map((n) => ({
-      id: n.id,
-      type: mapNodeType(n.data.nodeType),
-      data: n.data,
-      position: n.position,
-    }))
-  }, [nodes])
+    const maxTokens = getMaxMetric(nodes, 'totalTokens')
+    const maxLatency = getMaxMetric(nodes, 'avgDurationMs')
+
+    return nodes.map((n) => {
+      let heatColor: string | undefined
+      let scaledWidth = NODE_WIDTH
+      let scaledHeight = NODE_HEIGHT
+
+      if (viewMode === 'cost') {
+        const tokens = n.data.totalTokens ?? 0
+        const t = tokens / maxTokens
+        heatColor = heatmapColor(t)
+        const dims = getScaledDimensions(t)
+        scaledWidth = dims.width
+        scaledHeight = dims.height
+      } else if (viewMode === 'latency') {
+        const lat = n.data.avgDurationMs ?? 0
+        const t = lat / maxLatency
+        heatColor = heatmapColor(t)
+        const dims = getScaledDimensions(t)
+        scaledWidth = dims.width
+        scaledHeight = dims.height
+      }
+
+      return {
+        id: n.id,
+        type: mapNodeType(n.data.nodeType),
+        data: {
+          ...n.data,
+          _heatColor: heatColor,
+          _scaledWidth: scaledWidth,
+          _scaledHeight: scaledHeight,
+        },
+        position: n.position,
+      }
+    })
+  }, [nodes, viewMode])
 
   const toReactFlowEdges = useCallback((): Edge[] => {
     return edges.map((e) => {
@@ -306,7 +462,7 @@ export default function TopologyGraph({ nodes, edges, onNodeClick, onEdgeClick }
   )
 
   return (
-    <div style={{ flex: 1, minHeight: '500px', background: '#0d1117', borderRadius: '8px' }}>
+    <div style={{ flex: 1, minHeight: '500px', background: '#0d1117', borderRadius: '8px', position: 'relative' }}>
       <ReactFlow
         nodes={rfNodes}
         edges={rfEdges}
@@ -331,6 +487,7 @@ export default function TopologyGraph({ nodes, edges, onNodeClick, onEdgeClick }
           style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: '6px' }}
         />
       </ReactFlow>
+      <HeatmapLegend mode={viewMode} />
     </div>
   )
 }

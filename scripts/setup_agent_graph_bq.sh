@@ -58,6 +58,7 @@ bq query --use_legacy_sql=false --project_id "$PROJECT_ID" \
 bq rm -f -t "$PROJECT_ID:$GRAPH_DATASET.agent_topology_edges" > /dev/null 2>&1 || true
 bq rm -f -t "$PROJECT_ID:$GRAPH_DATASET.agent_topology_nodes" > /dev/null 2>&1 || true
 bq rm -f -t "$PROJECT_ID:$GRAPH_DATASET.agent_trajectories" > /dev/null 2>&1 || true
+bq rm -f -t "$PROJECT_ID:$GRAPH_DATASET.agent_span_payloads" > /dev/null 2>&1 || true
 
 # Try deleting as both Materialized View and Table
 bq rm -f -m "$PROJECT_ID:$GRAPH_DATASET.agent_spans_raw" > /dev/null 2>&1 || true

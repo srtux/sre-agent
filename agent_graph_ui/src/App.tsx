@@ -9,6 +9,7 @@ import type {
   SankeyResponse,
   SelectedElement,
   GraphFilters,
+  ViewMode,
 } from './types'
 
 type Tab = 'topology' | 'trajectory'
@@ -141,6 +142,7 @@ function App() {
     hours: 1,
     errorsOnly: false,
   })
+  const [viewMode, setViewMode] = useState<ViewMode>('topology')
   const [selected, setSelected] = useState<SelectedElement | null>(null)
   const [topologyData, setTopologyData] = useState<TopologyResponse | null>(null)
   const [sankeyData, setSankeyData] = useState<SankeyResponse | null>(null)
@@ -244,6 +246,8 @@ function App() {
         onChange={setFilters}
         onLoad={handleLoad}
         loading={isLoading}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
       />
 
       <div style={styles.tabBar}>
@@ -272,6 +276,7 @@ function App() {
                   <TopologyGraph
                     nodes={topologyData.nodes}
                     edges={topologyData.edges}
+                    viewMode={viewMode}
                     onNodeClick={(nodeId) =>
                       setSelected({ kind: 'node', id: nodeId })
                     }

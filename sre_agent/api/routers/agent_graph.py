@@ -169,6 +169,54 @@ def _node_type_to_rf_type(node_type: str | None) -> str:
     return mapping.get(node_type or "", "agent")
 
 
+def _detect_loops(sequence: list[str], min_repeats: int = 3) -> list[dict[str, Any]]:
+    """Detect pathological loops in a step sequence.
+
+    A pathological loop is a cyclical pattern that repeats
+    consecutively *min_repeats* or more times.
+
+    Args:
+        sequence: Ordered list of logical node IDs from a single trace.
+        min_repeats: Minimum number of consecutive repetitions to
+            qualify as a loop (default 3).
+
+    Returns:
+        A list of dicts, each describing one detected loop::
+
+            {"cycle": ["A", "B"], "repetitions": 5, "startIndex": 3}
+    """
+    results: list[dict[str, Any]] = []
+    n = len(sequence)
+    if n < min_repeats:
+        return results
+
+    max_cycle_len = n // min_repeats
+
+    for cycle_len in range(1, max_cycle_len + 1):
+        i = 0
+        while i <= n - cycle_len * min_repeats:
+            cycle = sequence[i : i + cycle_len]
+            reps = 1
+            j = i + cycle_len
+            while j + cycle_len <= n and sequence[j : j + cycle_len] == cycle:
+                reps += 1
+                j += cycle_len
+            if reps >= min_repeats:
+                results.append(
+                    {
+                        "cycle": cycle,
+                        "repetitions": reps,
+                        "startIndex": i,
+                    }
+                )
+                # Skip past this detected loop to avoid overlapping reports
+                i = j
+            else:
+                i += 1
+
+    return results
+
+
 @router.get("/topology")
 async def get_topology(
     project_id: str,
@@ -399,6 +447,7 @@ async def get_topology(
 async def get_trajectories(
     project_id: str,
     dataset: str = "agent_graph",
+    trace_dataset: str = "traces",
     hours: int = Query(default=24, ge=0, le=720),
     start_time: str | None = None,
     end_time: str | None = None,
@@ -409,22 +458,26 @@ async def get_trajectories(
     Queries the ``agent_trajectories`` view which contains
     chronological step-transition counts aggregated across traces.
     Time filtering is applied by joining back to the underlying
-    ``agent_spans_raw`` materialized view.
+    ``agent_spans_raw`` materialized view.  Also performs loop
+    detection to identify pathological cycles within individual
+    traces.
 
     Args:
         project_id: GCP project that owns the BigQuery dataset.
         dataset: BigQuery dataset name.
+        trace_dataset: BigQuery dataset containing ``_AllSpans``.
         hours: Look-back window in hours (0-720).
         start_time: Optional ISO 8601 lower bound (overrides *hours*).
         end_time: Optional ISO 8601 upper bound (defaults to now).
         errors_only: When True only return nodes/edges with errors.
 
     Returns:
-        A dict with ``nodes`` and ``links`` lists formatted for
-        Nivo Sankey consumption.
+        A dict with ``nodes``, ``links``, and ``loopTraces`` lists
+        formatted for Nivo Sankey consumption with loop annotations.
     """
     _validate_identifier(project_id, "project_id")
     _validate_identifier(dataset, "dataset")
+    _validate_identifier(trace_dataset, "trace_dataset")
     if start_time is not None:
         start_time = _validate_iso8601(start_time, "start_time")
     if end_time is not None:
@@ -508,7 +561,37 @@ async def get_trajectories(
             for node_id, node_type in seen_nodes.items()
         ]
 
-        return {"nodes": nodes, "links": links}
+        # --- Loop detection ---
+        loop_query = f"""
+            SELECT
+                trace_id,
+                ARRAY_AGG(logical_node_id ORDER BY start_time ASC) AS step_sequence
+            FROM `{project_id}.{dataset}.agent_spans_raw`
+            WHERE node_type != 'Glue'
+              AND {time_filter}
+              {errors_only_clause}
+            GROUP BY trace_id
+        """
+
+        loop_rows = client.query(loop_query).result()
+
+        loop_results: dict[str, list[dict[str, Any]]] = {}
+        for row in loop_rows:
+            detected = _detect_loops(list(row.step_sequence))
+            if detected:
+                loop_results[row.trace_id] = detected
+
+        return {
+            "nodes": nodes,
+            "links": links,
+            "loopTraces": [
+                {
+                    "traceId": trace_id,
+                    "loops": loops_detected,
+                }
+                for trace_id, loops_detected in loop_results.items()
+            ],
+        }
 
     except Exception as exc:
         logger.exception("Failed to fetch agent trajectories")
@@ -523,25 +606,30 @@ async def get_node_detail(
     logical_node_id: str,
     project_id: str,
     dataset: str = "agent_graph",
+    trace_dataset: str = "traces",
     hours: int = Query(default=24, ge=0, le=720),
 ) -> dict[str, Any]:
     """Return detailed metrics for a single topology node.
 
     Queries the ``agent_spans_raw`` materialized view to compute
     invocation counts, error rates, token breakdowns, cost estimates,
-    and latency percentiles for the given node.
+    and latency percentiles for the given node.  Also returns the 3
+    most recent raw payloads by joining back to the source
+    ``_AllSpans`` table for prompt/completion/tool data.
 
     Args:
         logical_node_id: URL-encoded node ID in ``Type::label`` format.
         project_id: GCP project that owns the BigQuery dataset.
         dataset: BigQuery dataset name.
+        trace_dataset: BigQuery dataset containing ``_AllSpans``.
         hours: Look-back window in hours (0-720).
 
     Returns:
-        A dict with detailed node metrics.
+        A dict with detailed node metrics and recent payloads.
     """
     _validate_identifier(project_id, "project_id")
     _validate_identifier(dataset, "dataset")
+    _validate_identifier(trace_dataset, "trace_dataset")
     node_id = _validate_logical_node_id(logical_node_id)
 
     try:
@@ -615,6 +703,29 @@ async def get_node_detail(
 
         error_rows = list(client.query(errors_query, job_config=job_config).result())
 
+        # --- Recent payloads (join raw MV back to source _AllSpans) ---
+        payload_query = f"""
+            SELECT
+                r.span_id,
+                r.start_time,
+                r.node_type,
+                JSON_VALUE(s.attributes, '$.\"gen_ai.prompt\"') AS prompt,
+                JSON_VALUE(s.attributes, '$.\"gen_ai.completion\"') AS completion,
+                JSON_VALUE(s.attributes, '$.\"tool.input\"') AS tool_input,
+                JSON_VALUE(s.attributes, '$.\"tool.output\"') AS tool_output
+            FROM `{project_id}.{dataset}.agent_spans_raw` r
+            JOIN `{project_id}.{trace_dataset}._AllSpans` s
+              ON r.span_id = s.span_id AND r.trace_id = s.trace_id
+            WHERE r.logical_node_id = @node_id
+              AND r.start_time >= TIMESTAMP_SUB(
+                  CURRENT_TIMESTAMP(), INTERVAL {hours} HOUR
+              )
+            ORDER BY r.start_time DESC
+            LIMIT 3
+        """
+
+        payload_rows = list(client.query(payload_query, job_config=job_config).result())
+
         # Decompose node_id into type and label
         if "::" in node_id:
             node_type, label = node_id.split("::", 1)
@@ -638,6 +749,20 @@ async def get_node_detail(
             },
             "topErrors": [
                 {"message": row.message or "", "count": row.count} for row in error_rows
+            ],
+            "recentPayloads": [
+                {
+                    "spanId": row.span_id,
+                    "timestamp": (
+                        row.start_time.isoformat() if row.start_time else None
+                    ),
+                    "nodeType": row.node_type,
+                    "prompt": row.prompt,
+                    "completion": row.completion,
+                    "toolInput": row.tool_input,
+                    "toolOutput": row.tool_output,
+                }
+                for row in payload_rows
             ],
         }
 
