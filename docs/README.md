@@ -70,6 +70,7 @@ Philosophical and design documents explaining the "why" behind the architecture.
 | [Memory & State](concepts/memory.md) | How the agent persists context across sessions |
 | [Online Research & Self-Healing](concepts/online_research_and_self_healing.md) | Web search tools and autonomous self-improvement architecture |
 | [Auth Learnings](concepts/auth_learnings.md) | Evolution of the authentication system |
+| [Agent Graph](concepts/agent_graph.md) | Multi-agent observability theory, reasoning trajectories, and BQ Property Graph implementation |
 | [GCP Enhancements Roadmap](concepts/gcp_enhancements.md) | Vision for future capabilities |
 
 ---
@@ -89,6 +90,7 @@ Practical how-to instructions for developers.
 | [Dashboard UI](guides/dashboard_ui.md) | Observability Explorer dashboard usage and architecture |
 | [Frontend Testing](guides/frontend_testing.md) | Flutter test strategy with Provider-based injection |
 | [Project Selector](guides/project_selector.md) | GCP project picker implementation and data flow |
+| [Agent Graph Setup](guides/bigquery_agent_graph_setup.md) | BigQuery Property Graph visualization and pre-aggregation |
 
 ### Deployment
 | Guide | Description |
@@ -210,6 +212,7 @@ for the design.
 
 | Module | Path | Description |
 |--------|------|-------------|
+| **Agent Graph** | `lib/features/agent_graph/` | Multi-trace BQ Property Graph visualization (domain, data, application, presentation) |
 | **Pages** | `lib/pages/` | Login, conversation, tool configuration |
 | **Services** | `lib/services/` | Auth, API client, session, dashboard state |
 | **Widgets** | `lib/widgets/` | Canvas visualizations, dashboard panels, UI components |

@@ -9,11 +9,24 @@ void main() {
   Map<String, dynamic> fullNodeJson() => {
         'id': 'node-1',
         'type': 'agent',
+        'label': 'root-agent',
         'description': 'Root agent',
+        'execution_count': 7,
         'total_tokens': 512,
+        'input_tokens': 300,
+        'output_tokens': 212,
+        'error_count': 1,
+        'unique_sessions': 4,
         'has_error': true,
+        'avg_duration_ms': 50.5,
+        'p95_duration_ms': 120.0,
+        'error_rate_pct': 10.0,
+        'total_cost': 0.0042,
+        'tool_call_count': 5,
+        'llm_call_count': 3,
         'is_root': true,
         'is_leaf': false,
+        'is_user_entry_point': true,
       };
 
   Map<String, dynamic> minimalNodeJson() => {
@@ -30,11 +43,14 @@ void main() {
         'error_count': 2,
         'error_rate_pct': 20.0,
         'sample_error': 'timeout',
-    'total_tokens': 1024,
+        'total_tokens': 1024,
+        'input_tokens': 600,
+        'output_tokens': 424,
         'avg_tokens_per_call': 102,
         'avg_duration_ms': 45.5,
         'p95_duration_ms': 120.3,
         'unique_sessions': 3,
+        'total_cost': 0.0085,
       };
 
   Map<String, dynamic> minimalEdgeJson() => {
@@ -53,11 +69,24 @@ void main() {
 
         expect(node.id, 'node-1');
         expect(node.type, 'agent');
+        expect(node.label, 'root-agent');
         expect(node.description, 'Root agent');
+        expect(node.executionCount, 7);
         expect(node.totalTokens, 512);
+        expect(node.inputTokens, 300);
+        expect(node.outputTokens, 212);
+        expect(node.errorCount, 1);
+        expect(node.uniqueSessions, 4);
         expect(node.hasError, true);
+        expect(node.avgDurationMs, 50.5);
+        expect(node.p95DurationMs, 120.0);
+        expect(node.errorRatePct, 10.0);
+        expect(node.totalCost, 0.0042);
+        expect(node.toolCallCount, 5);
+        expect(node.llmCallCount, 3);
         expect(node.isRoot, true);
         expect(node.isLeaf, false);
+        expect(node.isUserEntryPoint, true);
       });
 
       test('applies defaults for missing optional fields', () {
@@ -65,11 +94,24 @@ void main() {
 
         expect(node.id, 'node-2');
         expect(node.type, 'tool');
+        expect(node.label, isNull);
         expect(node.description, isNull);
+        expect(node.executionCount, 0);
         expect(node.totalTokens, 0);
+        expect(node.inputTokens, 0);
+        expect(node.outputTokens, 0);
+        expect(node.errorCount, 0);
+        expect(node.uniqueSessions, 0);
         expect(node.hasError, false);
+        expect(node.avgDurationMs, 0.0);
+        expect(node.p95DurationMs, 0.0);
+        expect(node.errorRatePct, 0.0);
+        expect(node.totalCost, isNull);
+        expect(node.toolCallCount, 0);
+        expect(node.llmCallCount, 0);
         expect(node.isRoot, false);
         expect(node.isLeaf, false);
+        expect(node.isUserEntryPoint, false);
       });
     });
 
@@ -81,11 +123,24 @@ void main() {
 
         expect(json['id'], original['id']);
         expect(json['type'], original['type']);
+        expect(json['label'], original['label']);
         expect(json['description'], original['description']);
+        expect(json['execution_count'], original['execution_count']);
         expect(json['total_tokens'], original['total_tokens']);
+        expect(json['input_tokens'], original['input_tokens']);
+        expect(json['output_tokens'], original['output_tokens']);
+        expect(json['error_count'], original['error_count']);
+        expect(json['unique_sessions'], original['unique_sessions']);
         expect(json['has_error'], original['has_error']);
+        expect(json['avg_duration_ms'], original['avg_duration_ms']);
+        expect(json['p95_duration_ms'], original['p95_duration_ms']);
+        expect(json['error_rate_pct'], original['error_rate_pct']);
+        expect(json['total_cost'], original['total_cost']);
+        expect(json['tool_call_count'], original['tool_call_count']);
+        expect(json['llm_call_count'], original['llm_call_count']);
         expect(json['is_root'], original['is_root']);
         expect(json['is_leaf'], original['is_leaf']);
+        expect(json['is_user_entry_point'], original['is_user_entry_point']);
       });
     });
 
@@ -170,10 +225,13 @@ void main() {
         expect(edge.errorRatePct, 20.0);
         expect(edge.sampleError, 'timeout');
         expect(edge.edgeTokens, 1024);
+        expect(edge.inputTokens, 600);
+        expect(edge.outputTokens, 424);
         expect(edge.avgTokensPerCall, 102);
         expect(edge.avgDurationMs, 45.5);
         expect(edge.p95DurationMs, 120.3);
         expect(edge.uniqueSessions, 3);
+        expect(edge.totalCost, 0.0085);
       });
 
       test('applies defaults for missing optional fields', () {
@@ -188,10 +246,13 @@ void main() {
         expect(edge.errorRatePct, 0.0);
         expect(edge.sampleError, isNull);
         expect(edge.edgeTokens, 0);
+        expect(edge.inputTokens, 0);
+        expect(edge.outputTokens, 0);
         expect(edge.avgTokensPerCall, 0);
         expect(edge.avgDurationMs, 0.0);
         expect(edge.p95DurationMs, 0.0);
         expect(edge.uniqueSessions, 0);
+        expect(edge.totalCost, isNull);
       });
     });
 
@@ -210,10 +271,13 @@ void main() {
         expect(json['error_rate_pct'], original['error_rate_pct']);
         expect(json['sample_error'], original['sample_error']);
         expect(json['total_tokens'], original['total_tokens']);
+        expect(json['input_tokens'], original['input_tokens']);
+        expect(json['output_tokens'], original['output_tokens']);
         expect(json['avg_tokens_per_call'], original['avg_tokens_per_call']);
         expect(json['avg_duration_ms'], original['avg_duration_ms']);
         expect(json['p95_duration_ms'], original['p95_duration_ms']);
         expect(json['unique_sessions'], original['unique_sessions']);
+        expect(json['total_cost'], original['total_cost']);
       });
     });
 

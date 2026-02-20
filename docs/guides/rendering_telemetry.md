@@ -73,7 +73,7 @@ The following table lists all registered A2UI components with their catalog name
 | `x-sre-metrics-dashboard` | `MetricsDashboardCanvas` | `MetricsDashboardData` | 400px | Multi-metric golden signals dashboard |
 | `x-sre-ai-reasoning` | `AIReasoningCanvas` | `AIReasoningData` | 480px | Agent reasoning chain visualization |
 | `x-sre-agent-trace` | `AgentTraceCanvas` | `AgentTraceData` | 550px | Agent self-analysis trace view |
-| `x-sre-agent-graph` | `AgentGraphCanvas` | `AgentGraphData` | 500px | Agent hierarchy graph |
+| `x-sre-agent-graph` | `AgentGraphCanvas` | `AgentGraphData` | 500px | Multi-trace agent property graph (BQ GRAPH_TABLE) |
 | `x-sre-vega-chart` | *(dashboard only)* | `VegaChartData` | varies | Vega-Lite chart specification |
 | `x-sre-council-synthesis` | *(dashboard only)* | `CouncilSynthesisData` | varies | Council of Experts synthesis |
 | `x-sre-tool-log` | `ToolLogWidget` | `ToolLog` | auto | Inline tool call status log |
@@ -320,9 +320,10 @@ Agent self-analysis trace showing internal execution flow.
 
 ### 12. Agent Graph (`x-sre-agent-graph`)
 
-Agent hierarchy and delegation graph.
+Multi-trace agent property graph visualization built on BigQuery GRAPH_TABLE. Displays the full agent hierarchy (User -> Root Agent -> Sub-Agents -> Tools -> LLMs) with per-node metrics (tokens, cost, latency, error rate) and per-edge statistics (call count, error count, token flow). Supports hierarchical (Sugiyama) and force-directed layouts with interactive node selection and detail panel drill-down.
 
-**Data Source**: Council orchestration events
+**Data Source**: BigQuery Property Graph (`agent_trace_graph`) via pre-aggregated hourly table
+**Feature Module**: `lib/features/agent_graph/` (domain, data, application, presentation)
 **Chat Widget**: `AgentGraphCanvas` (`lib/widgets/canvas/agent_graph_canvas.dart`)
 
 ### 13. Council Synthesis (`x-sre-council-synthesis`)

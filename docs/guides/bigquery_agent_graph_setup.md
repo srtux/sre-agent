@@ -253,7 +253,84 @@ ORDER BY accumulated_tokens DESC
 LIMIT 10;
 ```
 
-## 6. Configuration in AutoSRE
+## 6. Pre-Aggregated Hourly Table (Performance Optimization)
+
+For sub-second graph loading on time ranges >= 1 hour, the system uses a pre-aggregated hourly table (`agent_graph_hourly`) instead of the expensive live `GRAPH_TABLE` recursive traversal.
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Scheduled Query (every 1 hour)                             │
+│  ┌──────────────────┐      ┌──────────────────────────┐     │
+│  │ GRAPH_TABLE       │ ──▶  │ agent_graph_hourly        │     │
+│  │ (recursive, slow) │      │ (pre-aggregated, fast)   │     │
+│  └──────────────────┘      └──────────────────────────┘     │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│  Flutter UI Query Routing                                   │
+│                                                             │
+│  timeRange >= 1h  ──▶  SELECT ... FROM agent_graph_hourly   │
+│                        (GROUP BY + SUM, sub-second)         │
+│                                                             │
+│  timeRange < 1h   ──▶  SELECT ... FROM GRAPH_TABLE(...)     │
+│                        (live recursive fallback, 1-3s)      │
+│                        NOTE: UI clamps min to 1h currently  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Table Schema: `agent_graph_hourly`
+
+| Column | Type | Description |
+| :--- | :--- | :--- |
+| `time_bucket` | TIMESTAMP | Hour-aligned bucket (PARTITION key) |
+| `source_id` | STRING | Source node label (CLUSTER key) |
+| `target_id` | STRING | Target node label (CLUSTER key) |
+| `source_type` | STRING | Source node type (Agent, Tool, LLM) |
+| `target_type` | STRING | Target node type |
+| `call_count` | INT64 | Number of calls in this hour |
+| `error_count` | INT64 | Number of errors in this hour |
+| `edge_tokens` | INT64 | Total tokens on this edge |
+| `input_tokens` | INT64 | Input tokens on this edge |
+| `output_tokens` | INT64 | Output tokens on this edge |
+| `total_cost` | FLOAT64 | Estimated USD cost |
+| `sum_duration_ms` | FLOAT64 | Sum of durations (for avg calculation) |
+| `max_p95_duration_ms` | FLOAT64 | P95 duration within this hour |
+| `unique_sessions` | INT64 | Distinct sessions in this hour |
+| `sample_error` | STRING | Sample error message |
+| `node_*` | various | Target-node metrics (tokens, errors, cost) |
+| `tool_call_count` | INT64 | Downstream tool calls from source |
+| `llm_call_count` | INT64 | Downstream LLM calls from source |
+| `session_ids` | ARRAY\<STRING\> | Session IDs for cross-bucket dedup |
+
+### Setup
+
+Run the setup script which creates the table and backfills 30 days:
+
+```bash
+./scripts/setup_agent_graph_bq.sh <project_id> <trace_dataset> [graph_dataset]
+```
+
+Then set up the scheduled query (printed by the script) in Cloud Console > BigQuery > Scheduled Queries.
+
+### Performance Characteristics
+
+| Time Range | Query Path | Expected Latency |
+| :--- | :--- | :--- |
+| 1h – 30d | Pre-aggregated table | < 1s |
+
+> **Note**: The UI currently clamps all time ranges to a minimum of 1 hour, so the pre-aggregated path is always used. The live GRAPH_TABLE fallback exists in the repository layer for programmatic use.
+
+### Metric Approximations
+
+When aggregating across hourly buckets:
+- **avg_duration_ms**: Weighted average via `SUM(sum_duration_ms) / SUM(call_count)`
+- **p95_duration_ms**: Conservative upper bound via `MAX(max_p95_duration_ms)` across buckets
+- **unique_sessions**: Approximated by `SUM(unique_sessions)` (may overcount across bucket boundaries)
+- **error_rate_pct**: Recomputed as `SUM(error_count) / SUM(call_count) * 100`
+
+## 7. Configuration in AutoSRE
 
 To use your custom dataset:
 1.  Open `lib/features/agent_graph/data/agent_graph_repository.dart`.
@@ -263,6 +340,6 @@ To use your custom dataset:
     ```
 3.  Alternatively, the application can be configured to fetch the dataset path from an environment variable or user settings in future updates.
 
-## 7. Mock Data for Testing
+## 8. Mock Data for Testing
 
 If you are running in **Guest Mode**, the backend (`sre_agent/api/routers/tools.py`) will redirect calls to a synthetic demo project `cymbal-shops-demo`. You do not need a real BigQuery setup for local demonstration.

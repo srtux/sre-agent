@@ -11,6 +11,12 @@ class MockAgentGraphRepository extends Fake implements AgentGraphRepository {
   Object? mockError;
   Completer<MultiTraceGraphPayload>? completer;
 
+  /// Captures the last arguments passed to [fetchGraph].
+  String? lastDataset;
+  int? lastTimeRangeHours;
+  int? lastSampleLimit;
+  String? lastProjectId;
+
   @override
   Future<MultiTraceGraphPayload> fetchGraph({
     String dataset = kDefaultDataset,
@@ -18,6 +24,10 @@ class MockAgentGraphRepository extends Fake implements AgentGraphRepository {
     int? sampleLimit,
     String? projectId,
   }) async {
+    lastDataset = dataset;
+    lastTimeRangeHours = timeRangeHours;
+    lastSampleLimit = sampleLimit;
+    lastProjectId = projectId;
     if (completer != null) return completer!.future;
     if (mockError != null) throw mockError!;
     return mockResult ?? const MultiTraceGraphPayload();
@@ -198,6 +208,63 @@ void main() {
       notifier.updateTimeRange(24);
 
       expect(container.read(agentGraphProvider).timeRangeHours, 24);
+    });
+
+    test('fetchGraph passes timeRangeHours to repository', () async {
+      final container = createContainer(mockRepository: mockRepository);
+      final notifier = container.read(agentGraphProvider.notifier);
+
+      await notifier.fetchGraph(timeRangeHours: 24);
+
+      expect(mockRepository.lastTimeRangeHours, 24);
+    });
+
+    test('fetchGraph passes dataset to repository', () async {
+      final container = createContainer(mockRepository: mockRepository);
+      final notifier = container.read(agentGraphProvider.notifier);
+
+      await notifier.fetchGraph(dataset: 'custom-project.custom_dataset');
+
+      expect(mockRepository.lastDataset, 'custom-project.custom_dataset');
+    });
+
+    test('fetchGraph passes sampleLimit to repository', () async {
+      final container = createContainer(mockRepository: mockRepository);
+      final notifier = container.read(agentGraphProvider.notifier);
+
+      await notifier.fetchGraph(sampleLimit: 50);
+
+      expect(mockRepository.lastSampleLimit, 50);
+    });
+
+    test('fetchGraph uses default timeRangeHours from state', () async {
+      final container = createContainer(mockRepository: mockRepository);
+      final notifier = container.read(agentGraphProvider.notifier);
+
+      // Default is 6 hours (from AgentGraphState).
+      await notifier.fetchGraph();
+
+      expect(mockRepository.lastTimeRangeHours, 6);
+    });
+
+    test('fetchGraph uses updated timeRangeHours from state', () async {
+      final container = createContainer(mockRepository: mockRepository);
+      final notifier = container.read(agentGraphProvider.notifier);
+
+      notifier.updateTimeRange(12);
+      await notifier.fetchGraph();
+
+      expect(mockRepository.lastTimeRangeHours, 12);
+    });
+
+    test('fetchGraph persists timeRangeHours in state after call', () async {
+      final container = createContainer(mockRepository: mockRepository);
+      final notifier = container.read(agentGraphProvider.notifier);
+
+      await notifier.fetchGraph(timeRangeHours: 72);
+
+      final state = container.read(agentGraphProvider);
+      expect(state.timeRangeHours, 72);
     });
   });
 }

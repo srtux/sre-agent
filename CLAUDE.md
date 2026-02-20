@@ -211,7 +211,7 @@ autosre/lib/
 ├── features/             # Feature modules (Riverpod/Freezed architecture)
 │   ├── agent_graph/      #   Multi-Trace Agent Graph Dashboard (BQ GRAPH_TABLE visualization)
 │   │   ├── domain/       #     Freezed models (MultiTraceNode, MultiTraceEdge, MultiTraceGraphPayload)
-│   │   ├── data/         #     AgentGraphRepository (BQ query via Dio)
+│   │   ├── data/         #     AgentGraphRepository (dual-path: pre-aggregated hourly + live GRAPH_TABLE)
 │   │   ├── application/  #     AgentGraphNotifier (Riverpod state)
 │   │   └── presentation/ #     MultiTraceGraphPage, canvas, details panel
 │   ├── dashboards/       #   Custom dashboards CRUD

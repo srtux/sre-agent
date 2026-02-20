@@ -163,6 +163,24 @@ class AgentGraphDetailsPanel extends ConsumerWidget {
           icon: Icons.token,
           color: AppColors.primaryCyan,
         ),
+        if (node.totalCost != null && node.totalCost! > 0) ...[
+          const SizedBox(height: 8),
+          _metricCard(
+            label: 'Estimated Cost',
+            value: '\$${_formatCost(node.totalCost!)}',
+            icon: Icons.attach_money,
+            color: const Color(0xFF00E676),
+          ),
+        ],
+        const SizedBox(height: 12),
+        const Text('Token Breakdown',
+            style: TextStyle(
+                color: Colors.white70,
+                fontSize: 11,
+                fontWeight: FontWeight.w600)),
+        const SizedBox(height: 8),
+        _metricRow('Input Tokens', _formatTokens(node.inputTokens), Icons.input),
+        _metricRow('Output Tokens', _formatTokens(node.outputTokens), Icons.output),
         if (node.avgDurationMs > 0) ...[
           const SizedBox(height: 8),
           _metricCard(
@@ -170,6 +188,15 @@ class AgentGraphDetailsPanel extends ConsumerWidget {
             value: '${node.avgDurationMs.toStringAsFixed(1)} ms',
             icon: Icons.timer,
             color: AppColors.primaryTeal,
+          ),
+        ],
+        if (node.p95DurationMs > 0) ...[
+          const SizedBox(height: 8),
+          _metricCard(
+            label: 'P95 Latency',
+            value: '${node.p95DurationMs.toStringAsFixed(1)} ms',
+            icon: Icons.speed,
+            color: AppColors.warning,
           ),
         ],
         if (node.hasError) ...[
@@ -185,6 +212,20 @@ class AgentGraphDetailsPanel extends ConsumerWidget {
           const SizedBox(height: 8),
           _buildTokenPercentage(node.totalTokens),
         ],
+        if ((node.type.toLowerCase() == 'agent' ||
+                node.type.toLowerCase() == 'sub_agent') &&
+            (node.toolCallCount > 0 || node.llmCallCount > 0)) ...[
+          const SizedBox(height: 12),
+          const Text('Sub-call Distribution',
+              style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          _metricRow('Tool Calls', node.toolCallCount.toString(), Icons.build),
+          _metricRow(
+              'LLM Calls', node.llmCallCount.toString(), Icons.auto_awesome),
+        ],
         const SizedBox(height: 8),
         Row(
           children: [
@@ -196,6 +237,10 @@ class AgentGraphDetailsPanel extends ConsumerWidget {
             if (node.hasError) ...[
               const SizedBox(width: 8),
               _badge('Has Errors', AppColors.error),
+            ],
+            if (node.isUserEntryPoint) ...[
+              const SizedBox(width: 8),
+              _badge('User Entry', AppColors.primaryBlue),
             ],
           ],
         ),
@@ -290,6 +335,10 @@ class AgentGraphDetailsPanel extends ConsumerWidget {
         _metricRow('Call Count', edge.callCount.toString(), Icons.repeat),
         _metricRow('Unique Sessions', edge.uniqueSessions.toString(),
             Icons.people_outline),
+        if (edge.totalCost != null && edge.totalCost! > 0)
+          _metricRow('Estimated Cost', '\$${_formatCost(edge.totalCost!)}',
+              Icons.attach_money,
+              valueColor: const Color(0xFF00E676)),
         const Divider(color: AppColors.surfaceBorder, height: 24),
         const Text('Performance',
             style: TextStyle(
@@ -316,6 +365,16 @@ class AgentGraphDetailsPanel extends ConsumerWidget {
           'Total Edge Tokens',
           _formatTokens(edge.edgeTokens),
           Icons.data_usage,
+        ),
+        _metricRow(
+          'Input Tokens',
+          _formatTokens(edge.inputTokens),
+          Icons.input,
+        ),
+        _metricRow(
+          'Output Tokens',
+          _formatTokens(edge.outputTokens),
+          Icons.output,
         ),
         const Divider(color: AppColors.surfaceBorder, height: 24),
         const Text('Errors',
@@ -651,5 +710,11 @@ class AgentGraphDetailsPanel extends ConsumerWidget {
     if (tokens >= 1000000) return '${(tokens / 1000000).toStringAsFixed(1)}M';
     if (tokens >= 1000) return '${(tokens / 1000).toStringAsFixed(1)}K';
     return '$tokens';
+  }
+
+  String _formatCost(double cost) {
+    if (cost >= 1.0) return cost.toStringAsFixed(2);
+    if (cost >= 0.01) return cost.toStringAsFixed(3);
+    return cost.toStringAsFixed(4);
   }
 }

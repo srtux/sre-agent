@@ -58,6 +58,45 @@ The SRE Agent uses a dynamic widget system to visualize telemetry. When the back
 
 ---
 
+## Agent Graph Feature (`lib/features/agent_graph/`)
+
+The Agent Graph feature provides an interactive multi-trace property graph visualization built on BigQuery's GRAPH_TABLE. It visualizes the full agent execution hierarchy across multiple traces and sessions.
+
+### Architecture
+
+The feature follows the Feature-First pattern with clean separation:
+
+| Layer | Path | Responsibility |
+| :--- | :--- | :--- |
+| **Domain** | `domain/models.dart` | Freezed models: `MultiTraceNode`, `MultiTraceEdge`, `MultiTraceGraphPayload`, `SelectedGraphElement` |
+| **Data** | `data/agent_graph_repository.dart` | BQ query generation (live + pre-aggregated), HTTP via Dio, JSON parsing |
+| **Application** | `application/agent_graph_notifier.dart` | Riverpod state management (`AgentGraphState`: payload, loading, error, selection, time range) |
+| **Presentation** | `presentation/` | `MultiTraceGraphPage`, `InteractiveGraphCanvas` (fl_nodes + graphview Sugiyama), `AgentGraphDetailsPanel` |
+
+### Dual-Path Query Routing
+
+For performance, the repository uses two query paths:
+
+- **Pre-aggregated** (time range >= 1 hour): Queries the `agent_graph_hourly` table with simple GROUP BY + SUM. Sub-second response times.
+- **Live GRAPH_TABLE** (sub-hour ranges): Performs the recursive BQ Property Graph traversal. Used for small data volumes where the cost is acceptable.
+
+### Node Types & Visual Grammar
+
+| Type | Icon | Color | Shape |
+| :--- | :--- | :--- | :--- |
+| **User Entry** (root Agent) | Person | Blue | Circular |
+| **Agent** / **Sub-Agent** | Brain | Teal / Cyan | Rounded rectangle |
+| **Tool** | Build | Orange | Rounded rectangle |
+| **LLM** | Sparkle | Purple | Rounded rectangle |
+
+Each node displays: token count, cost badge, latency, error rate, and subcall distribution (tool/LLM calls).
+
+### Setup
+
+See [BigQuery Agent Graph Setup](../guides/bigquery_agent_graph_setup.md) for the complete BQ schema, Property Graph, and pre-aggregation setup.
+
+---
+
 ## The Investigation Dashboard (Decoupled)
 
 The SRE Agent features a dedicated Investigation Dashboard that provides real-time situational awareness. Unlike standard GenUI widgets that are nested within the chat, the dashboard data is transmitted via a **Dedicated Data Channel** (`type: dashboard` events).

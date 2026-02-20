@@ -121,7 +121,7 @@ final class FetchExtendedNodeDetailsProvider
 }
 
 String _$fetchExtendedNodeDetailsHash() =>
-    r'f194b85dd985887309940bb02651dedcc4c2d4a8';
+    r'd156318de6255bc4f61b0d4ab70b17594eecd473';
 
 final class FetchExtendedNodeDetailsFamily extends $Family
     with $FunctionalFamilyOverride<FutureOr<Map<String, dynamic>>, String> {
@@ -200,7 +200,7 @@ final class FetchExtendedEdgeDetailsProvider
 }
 
 String _$fetchExtendedEdgeDetailsHash() =>
-    r'98e57af38dedfbebe517956582164f26e1c39df2';
+    r'b98390e674c1eb883cc3b74cb5d9f870e5c8cef0';
 
 final class FetchExtendedEdgeDetailsFamily extends $Family
     with

@@ -69,7 +69,7 @@ void main() {
   });
 
   group('AgentGraphRepository', () {
-    group('buildGraphSql', () {
+    group('buildGraphSql (live GRAPH_TABLE)', () {
       test('produces SQL with correct dataset and time range substituted', () {
         final sql = repository.buildGraphSql(
           dataset: 'my-project.my_dataset',
@@ -79,6 +79,41 @@ void main() {
         expect(sql, contains('`my-project.my_dataset.agent_topology_nodes`'));
         expect(sql, contains('INTERVAL 12 HOUR'));
         expect(sql, contains('flutter_graph_payload'));
+        expect(sql, contains('agent_topology_edges'));
+      });
+    });
+
+    group('buildPrecomputedGraphSql', () {
+      test('produces SQL against agent_graph_hourly table', () {
+        final sql = repository.buildPrecomputedGraphSql(
+          dataset: 'my-project.my_dataset',
+          timeRangeHours: 6,
+        );
+
+        expect(sql, contains('`my-project.my_dataset.agent_graph_hourly`'));
+        expect(sql, contains('INTERVAL 6 HOUR'));
+        expect(sql, contains('flutter_graph_payload'));
+        // Must NOT use GRAPH_TABLE — that's the whole point.
+        expect(sql, isNot(contains('GRAPH_TABLE')));
+      });
+
+      test('includes edge limit when sampleLimit is provided', () {
+        final sql = repository.buildPrecomputedGraphSql(
+          dataset: 'my-project.my_dataset',
+          timeRangeHours: 24,
+          sampleLimit: 50,
+        );
+
+        expect(sql, contains('LIMIT 50'));
+      });
+
+      test('omits edge limit when sampleLimit is null', () {
+        final sql = repository.buildPrecomputedGraphSql(
+          dataset: 'my-project.my_dataset',
+          timeRangeHours: 24,
+        );
+
+        expect(sql, isNot(contains('LIMIT')));
       });
     });
 
@@ -89,6 +124,31 @@ void main() {
         expect(mockDio.postCount, 1);
         expect(mockDio.lastPath, '/api/tools/bigquery/query');
         expect(mockDio.lastData?['sql'], isA<String>());
+      });
+
+      test('uses precomputed query for timeRangeHours >= 1', () async {
+        await repository.fetchGraph(timeRangeHours: 6);
+
+        final sql = mockDio.lastData?['sql'] as String;
+        expect(sql, contains('agent_graph_hourly'));
+        expect(sql, isNot(contains('GRAPH_TABLE')));
+      });
+
+      test('uses precomputed query for timeRangeHours == 1', () async {
+        await repository.fetchGraph(timeRangeHours: 1);
+
+        final sql = mockDio.lastData?['sql'] as String;
+        expect(sql, contains('agent_graph_hourly'));
+      });
+
+      test('uses live topology query for sub-hour ranges', () async {
+        // timeRangeHours < kPrecomputedMinHours should fall back to live query.
+        // The UI passes fractional hours as 0 for sub-hour presets (5m, 15m, 30m).
+        await repository.fetchGraph(timeRangeHours: 0);
+
+        final sql = mockDio.lastData?['sql'] as String;
+        expect(sql, contains('agent_topology_nodes'));
+        expect(sql, isNot(contains('agent_graph_hourly')));
       });
 
       test('parses response into MultiTraceGraphPayload with correct nodes '

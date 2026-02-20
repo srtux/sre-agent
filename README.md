@@ -98,6 +98,76 @@ graph TD
     UI -.->|Direct Data Channel| DashDB
 ```
 
+### High-Level System Map
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  FRONTEND (Flutter Web — Material 3 Deep Space Theme)                      │
+│                                                                             │
+│  ┌─────────────┐  ┌──────────────┐  ┌──────────────┐  ┌───────────────┐   │
+│  │ Conversation │  │ Observability│  │ Agent Graph  │  │ Custom        │   │
+│  │ Page (Chat + │  │ Explorer     │  │ Dashboard    │  │ Dashboards    │   │
+│  │ GenUI)       │  │ (Traces/Logs │  │ (BQ Property │  │ (CRUD)        │   │
+│  │              │  │  /Metrics/BQ)│  │  Graph Viz)  │  │               │   │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘  └───────────────┘   │
+│         │                 │                 │                               │
+│  ┌──────┴─────────────────┴─────────────────┴───────────────────────────┐   │
+│  │  Services: Auth · API Client (Dio) · Session · Dashboard State      │   │
+│  │            Explorer Query · Project · Version · Help                 │   │
+│  └──────────────────────────┬───────────────────────────────────────────┘   │
+└─────────────────────────────┼───────────────────────────────────────────────┘
+                              │ HTTPS (NDJSON stream / REST)
+┌─────────────────────────────┼───────────────────────────────────────────────┐
+│  BACKEND (FastAPI + Google ADK)                                             │
+│                              │                                              │
+│  ┌───────────────────────────┴──────────────────────────────────────────┐   │
+│  │  API Layer: Routers (agent, sessions, tools, health, system)        │   │
+│  │             Middleware (auth, tracing, CORS)                         │   │
+│  └───────────────────────────┬──────────────────────────────────────────┘   │
+│                              │                                              │
+│  ┌───────────────────────────┴──────────────────────────────────────────┐   │
+│  │  Core Engine                                                         │   │
+│  │  ┌─────────┐  ┌──────────┐  ┌────────────┐  ┌───────────────────┐  │   │
+│  │  │ 3-Tier  │  │ Policy   │  │ Circuit    │  │ Context Compactor │  │   │
+│  │  │ Router  │  │ Engine   │  │ Breaker    │  │ + Budget Enforcer │  │   │
+│  │  └────┬────┘  └──────────┘  └────────────┘  └───────────────────┘  │   │
+│  │       │                                                              │   │
+│  │  ┌────┴──────────────────────────────────────────────────────────┐  │   │
+│  │  │  Orchestrator (SRE Agent)                                     │  │   │
+│  │  │  ┌─────────────────────────────────────────────────────────┐  │  │   │
+│  │  │  │  Council of Experts (5 Parallel Panels)                 │  │   │   │
+│  │  │  │  ┌───────┐ ┌─────────┐ ┌──────┐ ┌────────┐ ┌───────┐  │  │   │   │
+│  │  │  │  │ Trace │ │ Metrics │ │ Logs │ │ Alerts │ │ Data  │  │  │   │   │
+│  │  │  │  └───┬───┘ └────┬────┘ └──┬───┘ └───┬────┘ └───┬───┘  │  │   │   │
+│  │  │  │      └──────────┴─────────┴─────────┴──────────┘       │  │   │   │
+│  │  │  │               Synthesizer ←→ Critic (Debate)            │  │   │   │
+│  │  │  └─────────────────────────────────────────────────────────┘  │   │   │
+│  │  │  ┌─────────────────────────────────────────────────────────┐  │   │   │
+│  │  │  │  Sub-Agents: Trace · Logs · Metrics · Alerts · RCA     │  │   │   │
+│  │  │  └─────────────────────────────────────────────────────────┘  │   │   │
+│  │  └───────────────────────────────────────────────────────────────┘  │   │
+│  └────────────────────────────────────────────────────────────────────┘   │
+│                              │                                              │
+│  ┌───────────────────────────┴──────────────────────────────────────────┐   │
+│  │  Tools (108+): GCP Clients · Analysis · MCP · BigQuery · Sandbox    │   │
+│  │                 Playbooks · GitHub · Research · Memory               │   │
+│  └───────────────────────────┬──────────────────────────────────────────┘   │
+└─────────────────────────────┼───────────────────────────────────────────────┘
+                              │
+┌─────────────────────────────┼───────────────────────────────────────────────┐
+│  GOOGLE CLOUD PLATFORM                                                      │
+│  ┌────────────┐ ┌──────────┐ ┌────────────┐ ┌──────────┐ ┌──────────────┐  │
+│  │Cloud Trace │ │Cloud     │ │Cloud       │ │BigQuery  │ │Vertex AI     │  │
+│  │            │ │Logging   │ │Monitoring  │ │(GRAPH_   │ │Agent Engine  │  │
+│  │            │ │          │ │            │ │ TABLE)   │ │              │  │
+│  └────────────┘ └──────────┘ └────────────┘ └──────────┘ └──────────────┘  │
+│  ┌────────────┐ ┌──────────┐ ┌────────────┐ ┌──────────┐                   │
+│  │Firestore / │ │Cloud Run │ │GKE         │ │Cloud SQL │                   │
+│  │SQLite      │ │          │ │            │ │          │                   │
+│  └────────────┘ └──────────┘ └────────────┘ └──────────┘                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
 ---
 
 ## How It Works: The Investigation Lifecycle
@@ -129,6 +199,7 @@ When you describe an incident or ask a diagnostic question, Auto SRE executes a 
 - **108+ Investigation Tools**: Comprehensive tool suite spanning observability data retrieval, statistical analysis, cross-signal correlation, SLO burn rate analysis, change correlation, remediation planning, and postmortem generation.
 - **Generative UI (GenUI)**: Context-aware charts, trace waterfalls (Syncfusion), log explorers, SLO burn rate cards, and postmortem cards rendered directly in the investigation thread.
 - **Observability Explorer Dashboard**: Active GCP-style dashboard where users can directly query Cloud Trace, Logging, Monitoring, and BigQuery alongside agent-provided insights. Includes manual query bars, time range selectors, and auto-refresh.
+- **Agent Graph Visualization**: Interactive multi-trace property graph dashboard built on BigQuery GRAPH_TABLE. Visualizes the full agent hierarchy (User -> Root Agent -> Sub-Agents -> Tools -> LLMs) with per-node token/cost/latency metrics, edge call counts, error rates, and sub-call distributions. Pre-aggregated hourly table ensures sub-second loading for time ranges up to 30 days.
 - **Decoupled Dashboard Data Channel**: High-performance data channel (via Firestore/SQLite) that updates investigation metrics in real-time, independent of the chat streaming protocol.
 - **End-User Credentials (EUC)**: Operates within your identity's permissions. OAuth2 tokens are encrypted (AES-256 Fernet), stored in session state, and propagated to every GCP API call. Strict enforcement mode blocks ADC fallback.
 - **Safety Guardrails**: Policy engine intercepts every tool call. Multi-tenant isolation enforced at context level. Project IDs derived from user session context.
@@ -435,6 +506,11 @@ autosre/lib/
 ├── main.dart             # App entry point
 ├── app.dart              # Root widget with Riverpod ProviderScope
 ├── features/             # Feature-First architectural layer
+│   ├── agent_graph/      #   Multi-Trace Agent Graph (BQ Property Graph visualization)
+│   │   ├── domain/       #     Freezed models (nodes, edges, payload)
+│   │   ├── data/         #     Repository (BQ query via Dio, pre-aggregated hourly table)
+│   │   ├── application/  #     Riverpod state management (AgentGraphNotifier)
+│   │   └── presentation/ #     Graph page, interactive canvas, details panel
 │   ├── logs/             #   Log Explorer feature (PlutoGrid, Riverpod)
 │   ├── dashboards/       #   Custom Dashboards feature (CRUD, Notifiers)
 │   ├── metrics/          #   Metrics Exploration feature (Syncfusion)
@@ -496,6 +572,7 @@ docs/                      # Documentation
 
 scripts/                   # Development utilities
 ├── start_dev.py           #   Full-stack dev server launcher
+├── setup_agent_graph_bq.sh #  BigQuery Agent Graph setup (MV, Property Graph, hourly table)
 ├── analyze_health.py      #   Health analysis script
 └── migrate_default_sessions.py # Session migration utility
 
@@ -634,6 +711,7 @@ uv run poe delete          # Delete agent (--resource_id ID)
 | [Tool Reference](docs/reference/tools.md) | Complete tool catalog |
 | [Observability](docs/OBSERVABILITY.md) | Tracing and logging guide |
 | [Dashboard UI](docs/guides/dashboard_ui.md) | Investigation dashboard guide |
+| [Agent Graph Setup](docs/guides/bigquery_agent_graph_setup.md) | BigQuery Property Graph and pre-aggregation setup |
 | [AGENTS.md](AGENTS.md) | Single Source of Truth for coding patterns |
 | [CLAUDE.md](CLAUDE.md) | Claude Code session reference |
 | [Project Plan](docs/PROJECT_PLAN.md) | Living roadmap and completed milestones |
