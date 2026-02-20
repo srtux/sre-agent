@@ -281,72 +281,72 @@ bq query --use_legacy_sql=false --project_id "$PROJECT_ID" "$HOURLY_TABLE_SQL"
 echo "🔹 Backfilling hourly table (last 30 days)..."
 BACKFILL_SQL="
 INSERT INTO \`$PROJECT_ID.$GRAPH_DATASET.agent_graph_hourly\`
-WITH GraphPaths AS (
-  SELECT * FROM GRAPH_TABLE(
-    \`$PROJECT_ID.$GRAPH_DATASET.agent_trace_graph\`
-    MATCH (src:Span)-[:ParentOf]->{1,5}(dst:Span)
-    WHERE src.node_type != 'Glue' AND dst.node_type != 'Glue' AND src.node_label != dst.node_label
-      AND src.start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 720 HOUR)
-    COLUMNS (
-      src.node_label AS source_id, src.node_type AS source_type,
-      dst.node_label AS target_id, dst.node_type AS target_type,
-      dst.trace_id AS trace_id, dst.session_id AS session_id,
-      dst.duration_ms AS duration_ms,
-      dst.input_tokens AS input_tokens, dst.output_tokens AS output_tokens,
-      dst.status_code AS status_code, dst.error_type AS error_type,
-      dst.agent_description AS agent_description, dst.tool_description AS tool_description,
-      dst.response_model AS response_model,
-      dst.start_time AS start_time
-    )
-  )
+WITH RawEdges AS (
+  SELECT
+    e.trace_id, e.session_id,
+    TIMESTAMP_TRUNC(n_dst.start_time, HOUR) as time_bucket,
+    e.source_node_id as source_id, n_src.node_type as source_type,
+    e.destination_node_id as target_id, n_dst.node_type as target_type,
+    e.edge_weight as call_count,
+    e.total_duration_ms,
+    e.total_tokens,
+    e.error_count as edge_error_count,
+    n_dst.total_input_tokens as input_tokens,
+    n_dst.total_output_tokens as output_tokens,
+    n_dst.start_time
+  FROM \`$PROJECT_ID.$GRAPH_DATASET.agent_topology_edges\` e
+  JOIN \`$PROJECT_ID.$GRAPH_DATASET.agent_topology_nodes\` n_dst
+    ON e.trace_id = n_dst.trace_id AND e.destination_node_id = n_dst.logical_node_id
+  JOIN \`$PROJECT_ID.$GRAPH_DATASET.agent_topology_nodes\` n_src
+    ON e.trace_id = n_src.trace_id AND e.source_node_id = n_src.logical_node_id
+  WHERE n_dst.start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 720 HOUR)
 ),
 CostPaths AS (
-  SELECT gp.*,
-    TIMESTAMP_TRUNC(start_time, HOUR) AS time_bucket,
+  SELECT re.*,
     COALESCE(input_tokens, 0) * CASE
-      WHEN response_model LIKE '%flash%' THEN 0.00000015
-      WHEN response_model LIKE '%2.5-pro%' THEN 0.00000125
-      WHEN response_model LIKE '%1.5-pro%' THEN 0.00000125
+      WHEN target_id LIKE '%flash%' THEN 0.00000015
+      WHEN target_id LIKE '%2.5-pro%' THEN 0.00000125
+      WHEN target_id LIKE '%1.5-pro%' THEN 0.00000125
       ELSE 0.0000005
     END
     + COALESCE(output_tokens, 0) * CASE
-      WHEN response_model LIKE '%flash%' THEN 0.0000006
-      WHEN response_model LIKE '%2.5-pro%' THEN 0.00001
-      WHEN response_model LIKE '%1.5-pro%' THEN 0.000005
+      WHEN target_id LIKE '%flash%' THEN 0.0000006
+      WHEN target_id LIKE '%2.5-pro%' THEN 0.00001
+      WHEN target_id LIKE '%1.5-pro%' THEN 0.000005
       ELSE 0.000002
     END AS span_cost
-  FROM GraphPaths gp
+  FROM RawEdges re
 )
 SELECT
   time_bucket,
   source_id, target_id, source_type, target_type,
   -- Edge metrics
-  COUNT(*) AS call_count,
-  COUNTIF(status_code = 2) AS error_count,
-  SUM(COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)) AS edge_tokens,
-  SUM(COALESCE(input_tokens, 0)) AS input_tokens,
-  SUM(COALESCE(output_tokens, 0)) AS output_tokens,
+  SUM(call_count) AS call_count,
+  SUM(edge_error_count) AS error_count,
+  SUM(total_tokens) AS edge_tokens,
+  SUM(input_tokens) AS input_tokens,
+  SUM(output_tokens) AS output_tokens,
   ROUND(SUM(span_cost), 6) AS total_cost,
-  SUM(duration_ms) AS sum_duration_ms,
-  ROUND(APPROX_QUANTILES(IFNULL(duration_ms, 0), 100)[OFFSET(95)], 2) AS max_p95_duration_ms,
+  SUM(total_duration_ms) AS sum_duration_ms,
+  ROUND(MAX(total_duration_ms), 2) AS max_p95_duration_ms,
   COUNT(DISTINCT session_id) AS unique_sessions,
-  ANY_VALUE(error_type) AS sample_error,
+  CAST(NULL AS STRING) AS sample_error,
   -- Target-node metrics
-  SUM(COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)) AS node_total_tokens,
-  SUM(COALESCE(input_tokens, 0)) AS node_input_tokens,
-  SUM(COALESCE(output_tokens, 0)) AS node_output_tokens,
-  COUNTIF(status_code = 2) > 0 AS node_has_error,
-  SUM(duration_ms) AS node_sum_duration_ms,
-  ROUND(APPROX_QUANTILES(IFNULL(duration_ms, 0), 100)[OFFSET(95)], 2) AS node_max_p95_duration_ms,
-  COUNTIF(status_code = 2) AS node_error_count,
-  COUNT(*) AS node_call_count,
+  SUM(total_tokens) AS node_total_tokens,
+  SUM(input_tokens) AS node_input_tokens,
+  SUM(output_tokens) AS node_output_tokens,
+  SUM(edge_error_count) > 0 AS node_has_error,
+  SUM(total_duration_ms) AS node_sum_duration_ms,
+  ROUND(MAX(total_duration_ms), 2) AS node_max_p95_duration_ms,
+  SUM(edge_error_count) AS node_error_count,
+  SUM(call_count) AS node_call_count,
   ROUND(SUM(span_cost), 6) AS node_total_cost,
-  ANY_VALUE(COALESCE(agent_description, tool_description)) AS node_description,
+  target_id AS node_description,
   -- Subcall counts
-  COUNTIF(target_type = 'Tool') AS tool_call_count,
-  COUNTIF(target_type = 'LLM') AS llm_call_count,
+  SUM(IF(target_type = 'Tool', call_count, 0)) AS tool_call_count,
+  SUM(IF(target_type = 'LLM', call_count, 0)) AS llm_call_count,
   -- Session IDs for cross-bucket dedup
-  ARRAY_AGG(DISTINCT session_id) AS session_ids
+  ARRAY_AGG(DISTINCT session_id IGNORE NULLS) AS session_ids
 FROM CostPaths
 GROUP BY time_bucket, source_id, target_id, source_type, target_type;
 "
@@ -372,42 +372,42 @@ cat << 'SCHEDULED_QUERY_EOF'
 --     --params='{"query":"<SQL>","destination_table_name_template":"agent_graph_hourly","write_disposition":"WRITE_APPEND"}'
 
 INSERT INTO `<PROJECT_ID>.<GRAPH_DATASET>.agent_graph_hourly`
-WITH GraphPaths AS (
-  SELECT * FROM GRAPH_TABLE(
-    `<PROJECT_ID>.<GRAPH_DATASET>.agent_trace_graph`
-    MATCH (src:Span)-[:ParentOf]->{1,5}(dst:Span)
-    WHERE src.node_type != 'Glue' AND dst.node_type != 'Glue' AND src.node_label != dst.node_label
-      AND src.start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 2 HOUR)
-      AND src.start_time < TIMESTAMP_TRUNC(CURRENT_TIMESTAMP(), HOUR)
-    COLUMNS (
-      src.node_label AS source_id, src.node_type AS source_type,
-      dst.node_label AS target_id, dst.node_type AS target_type,
-      dst.trace_id AS trace_id, dst.session_id AS session_id,
-      dst.duration_ms AS duration_ms,
-      dst.input_tokens AS input_tokens, dst.output_tokens AS output_tokens,
-      dst.status_code AS status_code, dst.error_type AS error_type,
-      dst.agent_description AS agent_description, dst.tool_description AS tool_description,
-      dst.response_model AS response_model,
-      dst.start_time AS start_time
-    )
-  )
+WITH RawEdges AS (
+  SELECT
+    e.trace_id, e.session_id,
+    TIMESTAMP_TRUNC(n_dst.start_time, HOUR) as time_bucket,
+    e.source_node_id as source_id, n_src.node_type as source_type,
+    e.destination_node_id as target_id, n_dst.node_type as target_type,
+    e.edge_weight as call_count,
+    e.total_duration_ms,
+    e.total_tokens,
+    e.error_count as edge_error_count,
+    n_dst.total_input_tokens as input_tokens,
+    n_dst.total_output_tokens as output_tokens,
+    n_dst.start_time
+  FROM `<PROJECT_ID>.<GRAPH_DATASET>.agent_topology_edges` e
+  JOIN `<PROJECT_ID>.<GRAPH_DATASET>.agent_topology_nodes` n_dst
+    ON e.trace_id = n_dst.trace_id AND e.destination_node_id = n_dst.logical_node_id
+  JOIN `<PROJECT_ID>.<GRAPH_DATASET>.agent_topology_nodes` n_src
+    ON e.trace_id = n_src.trace_id AND e.source_node_id = n_src.logical_node_id
+  WHERE n_dst.start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 2 HOUR)
+    AND n_dst.start_time < TIMESTAMP_TRUNC(CURRENT_TIMESTAMP(), HOUR)
 ),
 CostPaths AS (
-  SELECT gp.*,
-    TIMESTAMP_TRUNC(start_time, HOUR) AS time_bucket,
+  SELECT re.*,
     COALESCE(input_tokens, 0) * CASE
-      WHEN response_model LIKE '%flash%' THEN 0.00000015
-      WHEN response_model LIKE '%2.5-pro%' THEN 0.00000125
-      WHEN response_model LIKE '%1.5-pro%' THEN 0.00000125
+      WHEN target_id LIKE '%flash%' THEN 0.00000015
+      WHEN target_id LIKE '%2.5-pro%' THEN 0.00000125
+      WHEN target_id LIKE '%1.5-pro%' THEN 0.00000125
       ELSE 0.0000005
     END
     + COALESCE(output_tokens, 0) * CASE
-      WHEN response_model LIKE '%flash%' THEN 0.0000006
-      WHEN response_model LIKE '%2.5-pro%' THEN 0.00001
-      WHEN response_model LIKE '%1.5-pro%' THEN 0.000005
+      WHEN target_id LIKE '%flash%' THEN 0.0000006
+      WHEN target_id LIKE '%2.5-pro%' THEN 0.00001
+      WHEN target_id LIKE '%1.5-pro%' THEN 0.000005
       ELSE 0.000002
     END AS span_cost
-  FROM GraphPaths gp
+  FROM RawEdges re
 ),
 -- Deduplicate: skip buckets that were already processed
 ExistingBuckets AS (
@@ -422,29 +422,29 @@ NewPaths AS (
 SELECT
   time_bucket,
   source_id, target_id, source_type, target_type,
-  COUNT(*) AS call_count,
-  COUNTIF(status_code = 2) AS error_count,
-  SUM(COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)) AS edge_tokens,
-  SUM(COALESCE(input_tokens, 0)) AS input_tokens,
-  SUM(COALESCE(output_tokens, 0)) AS output_tokens,
+  SUM(call_count) AS call_count,
+  SUM(edge_error_count) AS error_count,
+  SUM(total_tokens) AS edge_tokens,
+  SUM(input_tokens) AS input_tokens,
+  SUM(output_tokens) AS output_tokens,
   ROUND(SUM(span_cost), 6) AS total_cost,
-  SUM(duration_ms) AS sum_duration_ms,
-  ROUND(APPROX_QUANTILES(IFNULL(duration_ms, 0), 100)[OFFSET(95)], 2) AS max_p95_duration_ms,
+  SUM(total_duration_ms) AS sum_duration_ms,
+  ROUND(MAX(total_duration_ms), 2) AS max_p95_duration_ms,
   COUNT(DISTINCT session_id) AS unique_sessions,
-  ANY_VALUE(error_type) AS sample_error,
-  SUM(COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)) AS node_total_tokens,
-  SUM(COALESCE(input_tokens, 0)) AS node_input_tokens,
-  SUM(COALESCE(output_tokens, 0)) AS node_output_tokens,
-  COUNTIF(status_code = 2) > 0 AS node_has_error,
-  SUM(duration_ms) AS node_sum_duration_ms,
-  ROUND(APPROX_QUANTILES(IFNULL(duration_ms, 0), 100)[OFFSET(95)], 2) AS node_max_p95_duration_ms,
-  COUNTIF(status_code = 2) AS node_error_count,
-  COUNT(*) AS node_call_count,
+  CAST(NULL AS STRING) AS sample_error,
+  SUM(total_tokens) AS node_total_tokens,
+  SUM(input_tokens) AS node_input_tokens,
+  SUM(output_tokens) AS node_output_tokens,
+  SUM(edge_error_count) > 0 AS node_has_error,
+  SUM(total_duration_ms) AS node_sum_duration_ms,
+  ROUND(MAX(total_duration_ms), 2) AS node_max_p95_duration_ms,
+  SUM(edge_error_count) AS node_error_count,
+  SUM(call_count) AS node_call_count,
   ROUND(SUM(span_cost), 6) AS node_total_cost,
-  ANY_VALUE(COALESCE(agent_description, tool_description)) AS node_description,
-  COUNTIF(target_type = 'Tool') AS tool_call_count,
-  COUNTIF(target_type = 'LLM') AS llm_call_count,
-  ARRAY_AGG(DISTINCT session_id) AS session_ids
+  target_id AS node_description,
+  SUM(IF(target_type = 'Tool', call_count, 0)) AS tool_call_count,
+  SUM(IF(target_type = 'LLM', call_count, 0)) AS llm_call_count,
+  ARRAY_AGG(DISTINCT session_id IGNORE NULLS) AS session_ids
 FROM NewPaths
 GROUP BY time_bucket, source_id, target_id, source_type, target_type;
 SCHEDULED_QUERY_EOF
