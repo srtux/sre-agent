@@ -869,7 +869,7 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
 
     final content = Container(
       width: 280,
-      constraints: const BoxConstraints(maxHeight: 140),
+      constraints: const BoxConstraints(minHeight: 140),
       decoration: BoxDecoration(
         color: const Color(0xFF0D1B2A), // Darker background
         borderRadius: BorderRadius.circular(12),
@@ -1007,7 +1007,7 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
 
     final content = Container(
       width: 240,
-      constraints: const BoxConstraints(maxHeight: 110),
+      constraints: const BoxConstraints(minHeight: 110),
       decoration: BoxDecoration(
         color: const Color(0xFF1A1025), // Dark purple tint
         borderRadius: BorderRadius.circular(12),
@@ -1130,7 +1130,7 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
 
     final content = Container(
       width: 200,
-      constraints: const BoxConstraints(maxHeight: 90),
+      constraints: const BoxConstraints(minHeight: 90),
       decoration: BoxDecoration(
         color: const Color(0xFF181C1F), // Dark grey
         borderRadius: BorderRadius.circular(8),
@@ -1213,9 +1213,7 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
 
   Widget _buildMetricsRow(
     MultiTraceNode node,
-    Color accentColor, {
-    bool compact = false,
-  }) {
+    Color accentColor) {
     final isAgent =
         node.type.toLowerCase() == 'agent' ||
         node.type.toLowerCase() == 'sub_agent';
@@ -1249,11 +1247,11 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.error_outline, size: 10, color: AppColors.error),
+          const Icon(Icons.error_outline, size: 10, color: AppColors.error),
           const SizedBox(width: 2),
           Text(
             '${errorRatePct.toStringAsFixed(1)}%',
-            style: TextStyle(
+            style: const TextStyle(
               color: AppColors.error,
               fontSize: 10,
               fontWeight: FontWeight.w500,
