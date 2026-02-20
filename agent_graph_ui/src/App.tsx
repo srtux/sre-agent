@@ -10,6 +10,8 @@ import type {
   SelectedElement,
   GraphFilters,
   ViewMode,
+  AutoRefreshConfig,
+  TimeSeriesData,
 } from './types'
 
 type Tab = 'topology' | 'trajectory'
@@ -146,9 +148,15 @@ function App() {
   const [selected, setSelected] = useState<SelectedElement | null>(null)
   const [topologyData, setTopologyData] = useState<TopologyResponse | null>(null)
   const [sankeyData, setSankeyData] = useState<SankeyResponse | null>(null)
+  const [timeseriesData, setTimeseriesData] = useState<TimeSeriesData | null>(null)
   const [loadingTopology, setLoadingTopology] = useState(false)
   const [loadingSankey, setLoadingSankey] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [autoRefresh, setAutoRefresh] = useState<AutoRefreshConfig>({
+    enabled: false,
+    intervalSeconds: 60,
+  })
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
   // --- URL deep linking: parse on mount ---
   useEffect(() => {
@@ -190,11 +198,13 @@ function App() {
     window.history.replaceState(null, '', newUrl)
   }, [filters, selected, activeTab])
 
-  const handleLoad = useCallback(async () => {
+  const fetchAll = useCallback(async (isSilent: boolean) => {
     if (!filters.projectId.trim()) return
 
-    setSelected(null)
-    setError(null)
+    if (!isSilent) {
+      setSelected(null)
+      setError(null)
+    }
     setLoadingTopology(true)
     setLoadingSankey(true)
 
@@ -205,33 +215,69 @@ function App() {
     }
 
     try {
-      const [topoRes, sankeyRes] = await Promise.allSettled([
+      const fetches: [
+        Promise<import('axios').AxiosResponse<TopologyResponse>>,
+        Promise<import('axios').AxiosResponse<SankeyResponse>>,
+        ...Promise<import('axios').AxiosResponse<TimeSeriesData>>[],
+      ] = [
         axios.get<TopologyResponse>('/api/v1/graph/topology', { params }),
         axios.get<SankeyResponse>('/api/v1/graph/trajectories', { params }),
-      ])
+      ]
+
+      // Fetch timeseries when hours >= 2 (endpoint requires ge=2)
+      if (filters.hours >= 2) {
+        fetches.push(
+          axios.get<TimeSeriesData>('/api/v1/graph/timeseries', { params }),
+        )
+      }
+
+      const results = await Promise.allSettled(fetches)
+
+      const topoRes = results[0]
+      const sankeyRes = results[1]
+      const tsRes = results.length > 2 ? results[2] : null
 
       if (topoRes.status === 'fulfilled') {
         setTopologyData(topoRes.value.data)
-      } else {
+      } else if (!isSilent) {
         setError(`Topology fetch failed: ${topoRes.reason}`)
       }
 
       if (sankeyRes.status === 'fulfilled') {
         setSankeyData(sankeyRes.value.data)
-      } else {
+      } else if (!isSilent) {
         setError((prev) =>
           prev
             ? `${prev} | Trajectory fetch failed: ${sankeyRes.reason}`
             : `Trajectory fetch failed: ${sankeyRes.reason}`,
         )
       }
+
+      if (tsRes && tsRes.status === 'fulfilled') {
+        setTimeseriesData(tsRes.value.data)
+      } else {
+        setTimeseriesData(null)
+      }
+
+      setLastUpdated(new Date())
     } catch (err) {
-      setError(`Unexpected error: ${err}`)
+      if (!isSilent) {
+        setError(`Unexpected error: ${err}`)
+      }
     } finally {
       setLoadingTopology(false)
       setLoadingSankey(false)
     }
   }, [filters])
+
+  const handleLoad = useCallback(() => fetchAll(false), [fetchAll])
+
+  // Auto-refresh timer
+  useEffect(() => {
+    if (!autoRefresh.enabled || lastUpdated === null) return
+    const id = setInterval(() => fetchAll(true), autoRefresh.intervalSeconds * 1000)
+    return () => clearInterval(id)
+  }, [autoRefresh.enabled, autoRefresh.intervalSeconds, lastUpdated, fetchAll])
 
   const isLoading = loadingTopology || loadingSankey
 
@@ -248,6 +294,9 @@ function App() {
         loading={isLoading}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
+        autoRefresh={autoRefresh}
+        onAutoRefreshChange={setAutoRefresh}
+        lastUpdated={lastUpdated}
       />
 
       <div style={styles.tabBar}>
@@ -277,6 +326,7 @@ function App() {
                     nodes={topologyData.nodes}
                     edges={topologyData.edges}
                     viewMode={viewMode}
+                    sparklineData={timeseriesData}
                     onNodeClick={(nodeId) =>
                       setSelected({ kind: 'node', id: nodeId })
                     }
@@ -314,6 +364,8 @@ function App() {
             projectId={filters.projectId}
             hours={filters.hours}
             onClose={() => setSelected(null)}
+            viewMode={viewMode}
+            sparklineData={timeseriesData}
           />
         </div>
       </div>

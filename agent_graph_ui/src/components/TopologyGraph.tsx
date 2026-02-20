@@ -14,7 +14,8 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import dagre from 'dagre'
-import type { TopologyNode, TopologyEdge, ViewMode } from '../types'
+import type { TopologyNode, TopologyEdge, ViewMode, TimeSeriesData, TimeSeriesPoint } from '../types'
+import Sparkline, { SPARK_H, extractSparkSeries, sparkColor } from './Sparkline'
 
 const NODE_WIDTH = 180
 const NODE_HEIGHT = 60
@@ -212,12 +213,23 @@ function MetricBadges({ nodeData }: { nodeData: TopologyNode['data'] }) {
   )
 }
 
+type NodeDataExtended = TopologyNode['data'] & {
+  _heatColor?: string
+  _scaledWidth?: number
+  _scaledHeight?: number
+  _sparklinePoints?: TimeSeriesPoint[]
+  _viewMode?: ViewMode
+}
+
+function NodeSparkline({ nodeData }: { nodeData: NodeDataExtended }) {
+  if (!nodeData._sparklinePoints || nodeData._sparklinePoints.length < 2) return null
+  const vm = nodeData._viewMode ?? 'topology'
+  const series = extractSparkSeries(nodeData._sparklinePoints, vm)
+  return <Sparkline points={series} color={sparkColor(vm)} />
+}
+
 function AgentNode({ data }: NodeProps) {
-  const nodeData = data as TopologyNode['data'] & {
-    _heatColor?: string
-    _scaledWidth?: number
-    _scaledHeight?: number
-  }
+  const nodeData = data as NodeDataExtended
   const errorOverrides = getErrorStyles(nodeData.errorCount)
   const heatOverrides: React.CSSProperties = nodeData._heatColor
     ? {
@@ -235,17 +247,14 @@ function AgentNode({ data }: NodeProps) {
       <div>{nodeData.label}</div>
       <div style={subtextStyle}>Executions: {nodeData.executionCount}</div>
       <MetricBadges nodeData={nodeData} />
+      <NodeSparkline nodeData={nodeData} />
       <Handle type="source" position={Position.Right} />
     </div>
   )
 }
 
 function ToolNode({ data }: NodeProps) {
-  const nodeData = data as TopologyNode['data'] & {
-    _heatColor?: string
-    _scaledWidth?: number
-    _scaledHeight?: number
-  }
+  const nodeData = data as NodeDataExtended
   const errorOverrides = getErrorStyles(nodeData.errorCount)
   const heatOverrides: React.CSSProperties = nodeData._heatColor
     ? {
@@ -263,17 +272,14 @@ function ToolNode({ data }: NodeProps) {
       <div>{nodeData.label}</div>
       <div style={subtextStyle}>Calls: {nodeData.executionCount}</div>
       <MetricBadges nodeData={nodeData} />
+      <NodeSparkline nodeData={nodeData} />
       <Handle type="source" position={Position.Right} />
     </div>
   )
 }
 
 function LLMNode({ data }: NodeProps) {
-  const nodeData = data as TopologyNode['data'] & {
-    _heatColor?: string
-    _scaledWidth?: number
-    _scaledHeight?: number
-  }
+  const nodeData = data as NodeDataExtended
   const errorOverrides = getErrorStyles(nodeData.errorCount)
   const heatOverrides: React.CSSProperties = nodeData._heatColor
     ? {
@@ -291,6 +297,7 @@ function LLMNode({ data }: NodeProps) {
       <div>{nodeData.label}</div>
       <div style={subtextStyle}>Tokens: {nodeData.totalTokens}</div>
       <MetricBadges nodeData={nodeData} />
+      <NodeSparkline nodeData={nodeData} />
       <Handle type="source" position={Position.Right} />
     </div>
   )
@@ -350,11 +357,12 @@ interface TopologyGraphProps {
   nodes: TopologyNode[]
   edges: TopologyEdge[]
   viewMode?: ViewMode
+  sparklineData?: TimeSeriesData | null
   onNodeClick?: (nodeId: string) => void
   onEdgeClick?: (sourceId: string, targetId: string) => void
 }
 
-export default function TopologyGraph({ nodes, edges, viewMode = 'topology', onNodeClick, onEdgeClick }: TopologyGraphProps) {
+export default function TopologyGraph({ nodes, edges, viewMode = 'topology', sparklineData, onNodeClick, onEdgeClick }: TopologyGraphProps) {
   // Inject errorPulse keyframe animation into document head
   useEffect(() => {
     const styleEl = document.createElement('style')
@@ -395,6 +403,13 @@ export default function TopologyGraph({ nodes, edges, viewMode = 'topology', onN
         scaledHeight = dims.height
       }
 
+      // Inject sparkline data if available
+      let sparkPoints: TimeSeriesPoint[] | undefined
+      if (sparklineData?.series[n.id] && sparklineData.series[n.id].length >= 2) {
+        sparkPoints = sparklineData.series[n.id]
+        scaledHeight += SPARK_H + 4
+      }
+
       return {
         id: n.id,
         type: mapNodeType(n.data.nodeType),
@@ -403,11 +418,13 @@ export default function TopologyGraph({ nodes, edges, viewMode = 'topology', onN
           _heatColor: heatColor,
           _scaledWidth: scaledWidth,
           _scaledHeight: scaledHeight,
+          _sparklinePoints: sparkPoints,
+          _viewMode: viewMode,
         },
         position: n.position,
       }
     })
-  }, [nodes, viewMode])
+  }, [nodes, viewMode, sparklineData])
 
   const toReactFlowEdges = useCallback((): Edge[] => {
     return edges.map((e) => {
