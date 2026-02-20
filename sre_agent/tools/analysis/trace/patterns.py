@@ -88,7 +88,9 @@ def _extract_span_info(span: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _detect_retry_storm_impl(trace: dict[str, Any], threshold: int = 3) -> dict[str, Any]:
+def _detect_retry_storm_impl(
+    trace: dict[str, Any], threshold: int = 3
+) -> dict[str, Any]:
     """Internal implementation of retry storm detection logic."""
     spans = trace.get("spans", [])
     retry_patterns = []
