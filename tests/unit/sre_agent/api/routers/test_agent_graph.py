@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from sre_agent.api.routers.agent_graph import (
     _build_time_filter,
+    _detect_loops,
     _get_node_color,
     _node_type_to_rf_type,
     _validate_identifier,
@@ -660,6 +661,7 @@ class TestNodeDetailEndpoint:
         bq.query.side_effect = [
             _mock_query_result([metrics_row]),
             _mock_query_result([error_row]),
+            _mock_query_result([]),  # payloads query
         ]
 
         resp = client.get(
@@ -683,6 +685,8 @@ class TestNodeDetailEndpoint:
         assert len(data["topErrors"]) == 1
         assert data["topErrors"][0]["message"] == "Connection timeout"
         assert data["topErrors"][0]["count"] == 3
+        assert "recentPayloads" in data
+        assert data["recentPayloads"] == []
 
     @patch("sre_agent.api.routers.agent_graph._get_bq_client")
     def test_returns_404_when_no_data(
@@ -736,6 +740,7 @@ class TestNodeDetailEndpoint:
         bq.query.side_effect = [
             _mock_query_result([metrics_row]),
             _mock_query_result([]),
+            _mock_query_result([]),  # payloads query
         ]
 
         client.get(
@@ -743,7 +748,7 @@ class TestNodeDetailEndpoint:
             params={"project_id": "test-project"},
         )
 
-        # Both calls should include a job_config with query_parameters
+        # All 3 calls should include a job_config with query_parameters
         for call in bq.query.call_args_list:
             job_config = call[1].get("job_config") or call.kwargs.get("job_config")
             assert job_config is not None
@@ -939,3 +944,203 @@ class TestRouterConfiguration:
         """The /edge/{source_id}/{target_id} route should be registered."""
         paths = [route.path for route in router.routes]
         assert "/api/v1/graph/edge/{source_id:path}/{target_id:path}" in paths
+
+
+class TestDetectLoops:
+    """Tests for the _detect_loops function."""
+
+    def test_no_loop_in_short_sequence(self) -> None:
+        assert _detect_loops(["A", "B"]) == []
+
+    def test_no_loop_in_non_repeating_sequence(self) -> None:
+        assert _detect_loops(["A", "B", "C", "D", "E"]) == []
+
+    def test_detects_single_node_loop(self) -> None:
+        """A->A->A should be detected as a loop."""
+        result = _detect_loops(["A", "A", "A"])
+        assert len(result) == 1
+        assert result[0]["cycle"] == ["A"]
+        assert result[0]["repetitions"] == 3
+
+    def test_detects_two_node_cycle(self) -> None:
+        """A->B->A->B->A->B should be detected."""
+        result = _detect_loops(["A", "B", "A", "B", "A", "B"])
+        assert len(result) >= 1
+        two_cycles = [r for r in result if r["cycle"] == ["A", "B"]]
+        assert len(two_cycles) == 1
+        assert two_cycles[0]["repetitions"] == 3
+
+    def test_detects_loop_with_prefix(self) -> None:
+        """Non-looping prefix followed by loop should be detected."""
+        result = _detect_loops(["X", "Y", "A", "B", "A", "B", "A", "B"])
+        two_cycles = [r for r in result if r["cycle"] == ["A", "B"]]
+        assert len(two_cycles) == 1
+        assert two_cycles[0]["startIndex"] == 2
+
+    def test_min_repeats_respected(self) -> None:
+        """Two repetitions should not be detected with min_repeats=3."""
+        result = _detect_loops(["A", "B", "A", "B"])
+        assert result == []
+
+    def test_custom_min_repeats(self) -> None:
+        """min_repeats=2 should detect 2 repetitions."""
+        result = _detect_loops(["A", "B", "A", "B"], min_repeats=2)
+        assert len(result) >= 1
+
+    def test_empty_sequence(self) -> None:
+        assert _detect_loops([]) == []
+
+
+class TestNodeDetailPayloads:
+    """Tests for Phase 3 payload data in node detail endpoint."""
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_returns_recent_payloads(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        """Node detail should include recentPayloads array."""
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+
+        metrics_row = _make_row(
+            total_invocations=10,
+            error_count=0,
+            error_rate=0.0,
+            input_tokens=1000,
+            output_tokens=500,
+            estimated_cost=0.001,
+            p50=50.0,
+            p95=100.0,
+            p99=200.0,
+        )
+        payload_row = _make_row(
+            span_id="span-123",
+            start_time=None,
+            node_type="LLM",
+            prompt='{"text": "hello"}',
+            completion='{"text": "world"}',
+            tool_input=None,
+            tool_output=None,
+        )
+
+        bq.query.side_effect = [
+            _mock_query_result([metrics_row]),
+            _mock_query_result([]),  # errors
+            _mock_query_result([payload_row]),  # payloads
+        ]
+
+        resp = client.get(
+            "/api/v1/graph/node/LLM%3A%3Agemini",
+            params={"project_id": "test-project"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["recentPayloads"]) == 1
+        p = data["recentPayloads"][0]
+        assert p["spanId"] == "span-123"
+        assert p["nodeType"] == "LLM"
+        assert p["prompt"] == '{"text": "hello"}'
+        assert p["completion"] == '{"text": "world"}'
+        assert p["toolInput"] is None
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_payload_query_uses_trace_dataset(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        """Payload query should reference the trace_dataset parameter."""
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+
+        metrics_row = _make_row(
+            total_invocations=1,
+            error_count=0,
+            error_rate=0.0,
+            input_tokens=100,
+            output_tokens=50,
+            estimated_cost=0.0001,
+            p50=10.0,
+            p95=20.0,
+            p99=30.0,
+        )
+        bq.query.side_effect = [
+            _mock_query_result([metrics_row]),
+            _mock_query_result([]),
+            _mock_query_result([]),
+        ]
+
+        client.get(
+            "/api/v1/graph/node/Agent%3A%3Aroot",
+            params={
+                "project_id": "test-project",
+                "trace_dataset": "my_traces",
+            },
+        )
+
+        # The third query (payloads) should reference the trace dataset
+        payload_call = bq.query.call_args_list[2]
+        assert "my_traces._AllSpans" in payload_call[0][0]
+
+
+class TestTrajectoriesLoopDetection:
+    """Tests for Phase 3 loop detection in trajectories endpoint."""
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_response_includes_loop_traces(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        """Trajectories response should include loopTraces key."""
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+
+        sankey_row = _make_row(
+            source_node="Agent::root",
+            source_type="Agent",
+            target_node="Tool::search",
+            target_type="Tool",
+            trace_count=5,
+        )
+        loop_row = _make_row(
+            trace_id="trace-abc",
+            step_sequence=["A", "B", "A", "B", "A", "B"],
+        )
+
+        bq.query.side_effect = [
+            _mock_query_result([sankey_row]),
+            _mock_query_result([loop_row]),
+        ]
+
+        resp = client.get(
+            "/api/v1/graph/trajectories",
+            params={"project_id": "test-project"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "loopTraces" in data
+        assert len(data["loopTraces"]) == 1
+        assert data["loopTraces"][0]["traceId"] == "trace-abc"
+        assert len(data["loopTraces"][0]["loops"]) >= 1
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_no_loops_returns_empty_list(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        """No loops should return empty loopTraces."""
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+
+        loop_row = _make_row(
+            trace_id="trace-xyz",
+            step_sequence=["A", "B", "C"],
+        )
+
+        bq.query.side_effect = [
+            _mock_query_result([]),  # sankey
+            _mock_query_result([loop_row]),
+        ]
+
+        data = client.get(
+            "/api/v1/graph/trajectories",
+            params={"project_id": "test-project"},
+        ).json()
+
+        assert data["loopTraces"] == []
