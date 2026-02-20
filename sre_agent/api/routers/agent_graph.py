@@ -8,6 +8,7 @@ trajectory diagrams.
 import logging
 import re
 from typing import Any
+from urllib.parse import unquote
 
 from fastapi import APIRouter, HTTPException, Query
 from google.cloud import bigquery
@@ -17,6 +18,16 @@ router = APIRouter(tags=["agent_graph"], prefix="/api/v1/graph")
 
 # Allow only valid GCP identifier characters (alphanumeric, hyphens, underscores, dots)
 _IDENTIFIER_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$")
+
+# Logical node ID format: "Type::label" (e.g. "Agent::root", "Tool::search_logs")
+_NODE_ID_RE = re.compile(
+    r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}::[a-zA-Z0-9][a-zA-Z0-9._/ -]{0,127}$"
+)
+
+# ISO 8601 basic validation (e.g. 2026-02-20T12:00:00Z or with offset)
+_ISO8601_RE = re.compile(
+    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$"
+)
 
 
 def _validate_identifier(value: str, name: str) -> str:
@@ -38,6 +49,88 @@ def _validate_identifier(value: str, name: str) -> str:
             detail=f"Invalid {name}: must match [a-zA-Z0-9._-]{{1,128}}",
         )
     return value
+
+
+def _validate_logical_node_id(value: str) -> str:
+    """URL-decode and validate a logical node ID.
+
+    Node IDs follow the ``Type::label`` format (e.g. ``Agent::root``).
+    Path parameters may arrive URL-encoded (``Agent%3A%3Aroot``).
+
+    Args:
+        value: The raw path parameter value.
+
+    Returns:
+        The decoded and validated node ID.
+
+    Raises:
+        HTTPException: If the node ID format is invalid.
+    """
+    decoded = unquote(value)
+    if not _NODE_ID_RE.match(decoded):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Invalid node ID: must match 'Type::label' format (e.g. 'Agent::root')"
+            ),
+        )
+    return decoded
+
+
+def _validate_iso8601(value: str, name: str) -> str:
+    """Validate that a string looks like an ISO 8601 timestamp.
+
+    Args:
+        value: The timestamp string to validate.
+        name: Human-readable parameter name for error messages.
+
+    Returns:
+        The validated timestamp string.
+
+    Raises:
+        HTTPException: If the format does not match ISO 8601.
+    """
+    if not _ISO8601_RE.match(value):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Invalid {name}: must be ISO 8601 format (e.g. '2026-02-20T12:00:00Z')"
+            ),
+        )
+    return value
+
+
+def _build_time_filter(
+    *,
+    timestamp_col: str,
+    hours: int,
+    start_time: str | None,
+    end_time: str | None,
+) -> str:
+    """Build a SQL time-filter clause.
+
+    If *start_time* is provided it takes precedence over the *hours*
+    INTERVAL calculation.
+
+    Args:
+        timestamp_col: The column name to filter on.
+        hours: Look-back window in hours (used when start_time is None).
+        start_time: Optional validated ISO 8601 lower bound.
+        end_time: Optional validated ISO 8601 upper bound (defaults to
+            ``CURRENT_TIMESTAMP()``).
+
+    Returns:
+        A SQL fragment suitable for inclusion in a WHERE clause.
+    """
+    end_expr = f"TIMESTAMP('{end_time}')" if end_time else "CURRENT_TIMESTAMP()"
+
+    if start_time:
+        return (
+            f"{timestamp_col} >= TIMESTAMP('{start_time}') "
+            f"AND {timestamp_col} <= {end_expr}"
+        )
+
+    return f"{timestamp_col} >= TIMESTAMP_SUB({end_expr}, INTERVAL {hours} HOUR)"
 
 
 def _get_bq_client(project_id: str) -> bigquery.Client:
@@ -81,6 +174,9 @@ async def get_topology(
     project_id: str,
     dataset: str = "agent_graph",
     hours: int = Query(default=24, ge=0, le=720),
+    start_time: str | None = None,
+    end_time: str | None = None,
+    errors_only: bool = False,
 ) -> dict[str, list[dict[str, Any]]]:
     """Return aggregated topology nodes and edges for React Flow.
 
@@ -93,6 +189,9 @@ async def get_topology(
         project_id: GCP project that owns the BigQuery dataset.
         dataset: BigQuery dataset name.
         hours: Look-back window in hours (0-720).
+        start_time: Optional ISO 8601 lower bound (overrides *hours*).
+        end_time: Optional ISO 8601 upper bound (defaults to now).
+        errors_only: When True only return nodes/edges with errors.
 
     Returns:
         A dict with ``nodes`` and ``edges`` lists formatted for
@@ -100,11 +199,27 @@ async def get_topology(
     """
     _validate_identifier(project_id, "project_id")
     _validate_identifier(dataset, "dataset")
+    if start_time is not None:
+        start_time = _validate_iso8601(start_time, "start_time")
+    if end_time is not None:
+        end_time = _validate_iso8601(end_time, "end_time")
+
+    errors_only_edge_having = "HAVING SUM(error_count) > 0" if errors_only else ""
+    errors_only_node_having = "HAVING SUM(error_count) > 0" if errors_only else ""
 
     try:
         client = _get_bq_client(project_id)
 
-        if hours >= 1:
+        # Determine whether to use start_time or hours for the path decision
+        use_hourly = hours >= 1 and start_time is None
+
+        if use_hourly:
+            time_filter = _build_time_filter(
+                timestamp_col="time_bucket",
+                hours=hours,
+                start_time=start_time,
+                end_time=end_time,
+            )
             # The agent_graph_hourly table is edge-centric.
             # We derive both nodes and edges from it in a single query.
             query = f"""
@@ -120,10 +235,9 @@ async def get_topology(
                         SUM(error_count) AS error_count,
                         SUM(edge_tokens) AS total_tokens
                     FROM `{project_id}.{dataset}.agent_graph_hourly`
-                    WHERE time_bucket >= TIMESTAMP_SUB(
-                        CURRENT_TIMESTAMP(), INTERVAL {hours} HOUR
-                    )
+                    WHERE {time_filter}
                     GROUP BY source_id, source_type, target_id, target_type
+                    {errors_only_edge_having}
                 ),
                 all_nodes AS (
                     SELECT source_id AS node_id, source_type AS node_type
@@ -149,6 +263,7 @@ async def get_topology(
                     LEFT JOIN edges e
                         ON n.node_id = e.target_id
                     GROUP BY n.node_id, n.node_type
+                    {errors_only_node_having}
                 )
                 SELECT 'node' AS record_kind, * FROM node_metrics
             """
@@ -164,15 +279,27 @@ async def get_topology(
                     SUM(error_count) AS error_count,
                     SUM(edge_tokens) AS total_tokens
                 FROM `{project_id}.{dataset}.agent_graph_hourly`
-                WHERE time_bucket >= TIMESTAMP_SUB(
-                    CURRENT_TIMESTAMP(), INTERVAL {hours} HOUR
-                )
+                WHERE {time_filter}
                 GROUP BY source_id, target_id
+                {errors_only_edge_having}
             """
             edge_rows = list(client.query(edges_query).result())
 
         else:
-            # Real-time views for sub-hour ranges
+            # Real-time views for sub-hour ranges or explicit start_time
+            nodes_time_filter = _build_time_filter(
+                timestamp_col="start_time",
+                hours=hours,
+                start_time=start_time,
+                end_time=end_time,
+            )
+            edges_time_filter = _build_time_filter(
+                timestamp_col="start_time",
+                hours=hours,
+                start_time=start_time,
+                end_time=end_time,
+            )
+
             nodes_query = f"""
                 SELECT
                     logical_node_id AS node_id,
@@ -186,7 +313,9 @@ async def get_topology(
                         NULLIF(SUM(execution_count), 0)
                     ) AS avg_duration_ms
                 FROM `{project_id}.{dataset}.agent_topology_nodes`
+                WHERE {nodes_time_filter}
                 GROUP BY logical_node_id
+                {errors_only_node_having}
             """
             edges_query = f"""
                 SELECT
@@ -200,7 +329,9 @@ async def get_topology(
                     SUM(error_count) AS error_count,
                     SUM(total_tokens) AS total_tokens
                 FROM `{project_id}.{dataset}.agent_topology_edges`
+                WHERE {edges_time_filter}
                 GROUP BY source_node_id, destination_node_id
+                {errors_only_edge_having}
             """
             node_rows = list(client.query(nodes_query).result())
             edge_rows = list(client.query(edges_query).result())
@@ -235,8 +366,9 @@ async def get_topology(
             for row in node_rows
         ]
 
-        edges: list[dict[str, Any]] = [
-            {
+        formatted_edges: list[dict[str, Any]] = []
+        for row in edge_rows:
+            edge: dict[str, Any] = {
                 "id": f"{row.source_id}->{row.target_id}",
                 "source": row.source_id,
                 "target": row.target_id,
@@ -247,10 +379,13 @@ async def get_topology(
                     "totalTokens": row.total_tokens or 0,
                 },
             }
-            for row in edge_rows
-        ]
+            error_count = row.error_count or 0
+            if error_count > 0:
+                edge["animated"] = True
+                edge["style"] = {"stroke": "#f85149", "strokeWidth": 2}
+            formatted_edges.append(edge)
 
-        return {"nodes": nodes, "edges": edges}
+        return {"nodes": nodes, "edges": formatted_edges}
 
     except Exception as exc:
         logger.exception("Failed to fetch agent graph topology")
@@ -265,6 +400,9 @@ async def get_trajectories(
     project_id: str,
     dataset: str = "agent_graph",
     hours: int = Query(default=24, ge=0, le=720),
+    start_time: str | None = None,
+    end_time: str | None = None,
+    errors_only: bool = False,
 ) -> dict[str, list[dict[str, Any]]]:
     """Return trajectory links for a Nivo Sankey diagram.
 
@@ -277,6 +415,9 @@ async def get_trajectories(
         project_id: GCP project that owns the BigQuery dataset.
         dataset: BigQuery dataset name.
         hours: Look-back window in hours (0-720).
+        start_time: Optional ISO 8601 lower bound (overrides *hours*).
+        end_time: Optional ISO 8601 upper bound (defaults to now).
+        errors_only: When True only return nodes/edges with errors.
 
     Returns:
         A dict with ``nodes`` and ``links`` lists formatted for
@@ -284,6 +425,19 @@ async def get_trajectories(
     """
     _validate_identifier(project_id, "project_id")
     _validate_identifier(dataset, "dataset")
+    if start_time is not None:
+        start_time = _validate_iso8601(start_time, "start_time")
+    if end_time is not None:
+        end_time = _validate_iso8601(end_time, "end_time")
+
+    time_filter = _build_time_filter(
+        timestamp_col="start_time",
+        hours=hours,
+        start_time=start_time,
+        end_time=end_time,
+    )
+
+    errors_only_clause = "AND status_code = 'ERROR'" if errors_only else ""
 
     try:
         client = _get_bq_client(project_id)
@@ -302,9 +456,8 @@ async def get_trajectories(
                     ) AS step_sequence
                 FROM `{project_id}.{dataset}.agent_spans_raw`
                 WHERE node_type != 'Glue'
-                  AND start_time >= TIMESTAMP_SUB(
-                      CURRENT_TIMESTAMP(), INTERVAL {hours} HOUR
-                  )
+                  AND {time_filter}
+                  {errors_only_clause}
             ),
             trajectory_links AS (
                 SELECT
@@ -362,4 +515,241 @@ async def get_trajectories(
         raise HTTPException(
             status_code=500,
             detail="Failed to query trajectory data. Check server logs for details.",
+        ) from exc
+
+
+@router.get("/node/{logical_node_id:path}")
+async def get_node_detail(
+    logical_node_id: str,
+    project_id: str,
+    dataset: str = "agent_graph",
+    hours: int = Query(default=24, ge=0, le=720),
+) -> dict[str, Any]:
+    """Return detailed metrics for a single topology node.
+
+    Queries the ``agent_spans_raw`` materialized view to compute
+    invocation counts, error rates, token breakdowns, cost estimates,
+    and latency percentiles for the given node.
+
+    Args:
+        logical_node_id: URL-encoded node ID in ``Type::label`` format.
+        project_id: GCP project that owns the BigQuery dataset.
+        dataset: BigQuery dataset name.
+        hours: Look-back window in hours (0-720).
+
+    Returns:
+        A dict with detailed node metrics.
+    """
+    _validate_identifier(project_id, "project_id")
+    _validate_identifier(dataset, "dataset")
+    node_id = _validate_logical_node_id(logical_node_id)
+
+    try:
+        client = _get_bq_client(project_id)
+
+        # --- Aggregate metrics ---
+        metrics_query = f"""
+            SELECT
+                COUNT(*) AS total_invocations,
+                COUNTIF(status_code = 'ERROR') AS error_count,
+                SAFE_DIVIDE(
+                    COUNTIF(status_code = 'ERROR'),
+                    COUNT(*)
+                ) AS error_rate,
+                SUM(COALESCE(input_tokens, 0)) AS input_tokens,
+                SUM(COALESCE(output_tokens, 0)) AS output_tokens,
+                SUM(
+                    CASE
+                        WHEN LOWER(model_id) LIKE '%pro%' THEN
+                            COALESCE(input_tokens, 0) * 0.00000125
+                            + COALESCE(output_tokens, 0) * 0.000005
+                        WHEN LOWER(model_id) LIKE '%flash%' THEN
+                            COALESCE(input_tokens, 0) * 0.000000075
+                            + COALESCE(output_tokens, 0) * 0.0000003
+                        ELSE
+                            COALESCE(input_tokens, 0) * 0.000000075
+                            + COALESCE(output_tokens, 0) * 0.0000003
+                    END
+                ) AS estimated_cost,
+                APPROX_QUANTILES(duration_ms, 100)[OFFSET(50)] AS p50,
+                APPROX_QUANTILES(duration_ms, 100)[OFFSET(95)] AS p95,
+                APPROX_QUANTILES(duration_ms, 100)[OFFSET(99)] AS p99
+            FROM `{project_id}.{dataset}.agent_spans_raw`
+            WHERE logical_node_id = @node_id
+              AND start_time >= TIMESTAMP_SUB(
+                  CURRENT_TIMESTAMP(), INTERVAL {hours} HOUR
+              )
+        """
+
+        job_config = bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("node_id", "STRING", node_id),
+            ]
+        )
+
+        metrics_rows = list(client.query(metrics_query, job_config=job_config).result())
+
+        if not metrics_rows or metrics_rows[0].total_invocations == 0:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No data found for node '{node_id}' in the last {hours}h.",
+            )
+
+        m = metrics_rows[0]
+
+        # --- Top errors ---
+        errors_query = f"""
+            SELECT
+                status_message AS message,
+                COUNT(*) AS count
+            FROM `{project_id}.{dataset}.agent_spans_raw`
+            WHERE logical_node_id = @node_id
+              AND status_code = 'ERROR'
+              AND start_time >= TIMESTAMP_SUB(
+                  CURRENT_TIMESTAMP(), INTERVAL {hours} HOUR
+              )
+            GROUP BY status_message
+            ORDER BY count DESC
+            LIMIT 3
+        """
+
+        error_rows = list(client.query(errors_query, job_config=job_config).result())
+
+        # Decompose node_id into type and label
+        if "::" in node_id:
+            node_type, label = node_id.split("::", 1)
+        else:
+            node_type, label = "Agent", node_id
+
+        return {
+            "nodeId": node_id,
+            "nodeType": node_type,
+            "label": label,
+            "totalInvocations": m.total_invocations,
+            "errorRate": round(m.error_rate or 0, 4),
+            "errorCount": m.error_count or 0,
+            "inputTokens": m.input_tokens or 0,
+            "outputTokens": m.output_tokens or 0,
+            "estimatedCost": round(m.estimated_cost or 0, 6),
+            "latency": {
+                "p50": round(float(m.p50 or 0), 1),
+                "p95": round(float(m.p95 or 0), 1),
+                "p99": round(float(m.p99 or 0), 1),
+            },
+            "topErrors": [
+                {"message": row.message or "", "count": row.count} for row in error_rows
+            ],
+        }
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to fetch node detail for %s", node_id)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to query node detail. Check server logs for details.",
+        ) from exc
+
+
+@router.get("/edge/{source_id:path}/{target_id:path}")
+async def get_edge_detail(
+    source_id: str,
+    target_id: str,
+    project_id: str,
+    dataset: str = "agent_graph",
+    hours: int = Query(default=24, ge=0, le=720),
+) -> dict[str, Any]:
+    """Return detailed metrics for a single topology edge.
+
+    Queries the ``agent_topology_edges`` view filtered by source and
+    destination node IDs.
+
+    Args:
+        source_id: URL-encoded source node ID in ``Type::label`` format.
+        target_id: URL-encoded target node ID in ``Type::label`` format.
+        project_id: GCP project that owns the BigQuery dataset.
+        dataset: BigQuery dataset name.
+        hours: Look-back window in hours (0-720).
+
+    Returns:
+        A dict with detailed edge metrics.
+    """
+    _validate_identifier(project_id, "project_id")
+    _validate_identifier(dataset, "dataset")
+    validated_source = _validate_logical_node_id(source_id)
+    validated_target = _validate_logical_node_id(target_id)
+
+    try:
+        client = _get_bq_client(project_id)
+
+        query = f"""
+            SELECT
+                SUM(edge_weight) AS call_count,
+                SUM(error_count) AS error_count,
+                SAFE_DIVIDE(
+                    SUM(error_count),
+                    NULLIF(SUM(edge_weight), 0)
+                ) AS error_rate,
+                SAFE_DIVIDE(
+                    SUM(total_duration_ms),
+                    NULLIF(SUM(edge_weight), 0)
+                ) AS avg_duration_ms,
+                APPROX_QUANTILES(avg_duration_ms, 100)[OFFSET(95)] AS p95_duration_ms,
+                APPROX_QUANTILES(avg_duration_ms, 100)[OFFSET(99)] AS p99_duration_ms,
+                SUM(total_tokens) AS total_tokens,
+                SUM(input_tokens) AS input_tokens,
+                SUM(output_tokens) AS output_tokens
+            FROM `{project_id}.{dataset}.agent_topology_edges`
+            WHERE source_node_id = @source_id
+              AND destination_node_id = @target_id
+              AND start_time >= TIMESTAMP_SUB(
+                  CURRENT_TIMESTAMP(), INTERVAL {hours} HOUR
+              )
+        """
+
+        job_config = bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("source_id", "STRING", validated_source),
+                bigquery.ScalarQueryParameter("target_id", "STRING", validated_target),
+            ]
+        )
+
+        rows = list(client.query(query, job_config=job_config).result())
+
+        if not rows or rows[0].call_count is None or rows[0].call_count == 0:
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    f"No data found for edge '{validated_source}' -> "
+                    f"'{validated_target}' in the last {hours}h."
+                ),
+            )
+
+        r = rows[0]
+
+        return {
+            "sourceId": validated_source,
+            "targetId": validated_target,
+            "callCount": r.call_count or 0,
+            "errorCount": r.error_count or 0,
+            "errorRate": round(r.error_rate or 0, 4),
+            "avgDurationMs": round(float(r.avg_duration_ms or 0), 1),
+            "p95DurationMs": round(float(r.p95_duration_ms or 0), 1),
+            "p99DurationMs": round(float(r.p99_duration_ms or 0), 1),
+            "totalTokens": r.total_tokens or 0,
+            "inputTokens": r.input_tokens or 0,
+            "outputTokens": r.output_tokens or 0,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception(
+            "Failed to fetch edge detail for %s -> %s",
+            validated_source,
+            validated_target,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to query edge detail. Check server logs for details.",
         ) from exc

@@ -1,17 +1,59 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import axios from 'axios'
 import TopologyGraph from './components/TopologyGraph'
 import TrajectorySankey from './components/TrajectorySankey'
-import type { TopologyResponse, SankeyResponse } from './types'
+import SidePanel from './components/SidePanel'
+import GraphToolbar from './components/GraphToolbar'
+import type {
+  TopologyResponse,
+  SankeyResponse,
+  SelectedElement,
+  GraphFilters,
+} from './types'
 
 type Tab = 'topology' | 'trajectory'
 
-const hoursOptions = [
-  { label: '1h', value: 1 },
-  { label: '6h', value: 6 },
-  { label: '24h', value: 24 },
-  { label: '7d', value: 168 },
-]
+/** Parse a time_range string like "1h", "6h", "24h", "7d" into hours. */
+function parseTimeRange(raw: string): number | null {
+  const match = raw.match(/^(\d+)(h|d)$/)
+  if (!match) return null
+  const value = parseInt(match[1], 10)
+  const unit = match[2]
+  return unit === 'd' ? value * 24 : value
+}
+
+/** Build a URLSearchParams from current app state. */
+function buildSearchParams(
+  filters: GraphFilters,
+  selected: SelectedElement | null,
+  activeTab: Tab,
+): URLSearchParams {
+  const params = new URLSearchParams()
+
+  if (filters.projectId) {
+    params.set('project_id', filters.projectId)
+  }
+
+  // Convert hours back to a human-readable time_range
+  if (filters.hours === 168) {
+    params.set('time_range', '7d')
+  } else {
+    params.set('time_range', `${filters.hours}h`)
+  }
+
+  if (selected) {
+    if (selected.kind === 'node') {
+      params.set('node', selected.id)
+    }
+  }
+
+  if (activeTab === 'trajectory') {
+    // Only set tab param when not on the default
+    params.set('tab', 'trajectory')
+  }
+
+  return params
+}
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
@@ -36,58 +78,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     color: '#e6edf3',
     marginRight: 'auto',
-  },
-  controlsBar: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    padding: '12px 24px',
-    borderBottom: '1px solid #21262d',
-    background: '#161b22',
-  },
-  label: {
-    fontSize: '13px',
-    color: '#8b949e',
-  },
-  input: {
-    padding: '6px 12px',
-    background: '#0d1117',
-    border: '1px solid #30363d',
-    borderRadius: '6px',
-    color: '#c9d1d9',
-    fontSize: '14px',
-    outline: 'none',
-    width: '220px',
-  },
-  select: {
-    padding: '6px 12px',
-    background: '#0d1117',
-    border: '1px solid #30363d',
-    borderRadius: '6px',
-    color: '#c9d1d9',
-    fontSize: '14px',
-    outline: 'none',
-    cursor: 'pointer',
-  },
-  loadButton: {
-    padding: '6px 16px',
-    background: '#238636',
-    border: '1px solid #2ea043',
-    borderRadius: '6px',
-    color: '#ffffff',
-    fontSize: '14px',
-    fontWeight: 600,
-    cursor: 'pointer',
-  },
-  loadButtonDisabled: {
-    padding: '6px 16px',
-    background: '#21262d',
-    border: '1px solid #30363d',
-    borderRadius: '6px',
-    color: '#484f58',
-    fontSize: '14px',
-    fontWeight: 600,
-    cursor: 'not-allowed',
   },
   tabBar: {
     display: 'flex',
@@ -119,9 +109,11 @@ const styles: Record<string, React.CSSProperties> = {
   },
   content: {
     flex: 1,
-    padding: '16px 24px',
+    position: 'relative',
+    overflow: 'hidden',
     display: 'flex',
     flexDirection: 'column',
+    padding: '16px 24px',
   },
   placeholder: {
     flex: 1,
@@ -144,22 +136,71 @@ const styles: Record<string, React.CSSProperties> = {
 
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>('topology')
-  const [projectId, setProjectId] = useState('')
-  const [hours, setHours] = useState(1)
+  const [filters, setFilters] = useState<GraphFilters>({
+    projectId: '',
+    hours: 1,
+    errorsOnly: false,
+  })
+  const [selected, setSelected] = useState<SelectedElement | null>(null)
   const [topologyData, setTopologyData] = useState<TopologyResponse | null>(null)
   const [sankeyData, setSankeyData] = useState<SankeyResponse | null>(null)
   const [loadingTopology, setLoadingTopology] = useState(false)
   const [loadingSankey, setLoadingSankey] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const handleLoad = useCallback(async () => {
-    if (!projectId.trim()) return
+  // --- URL deep linking: parse on mount ---
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
 
+    const urlProjectId = params.get('project_id')
+    const urlTimeRange = params.get('time_range')
+    const urlNode = params.get('node')
+    const urlTraceId = params.get('trace_id')
+    const urlTab = params.get('tab')
+
+    let hours = 1
+    if (urlTimeRange) {
+      const parsed = parseTimeRange(urlTimeRange)
+      if (parsed !== null) {
+        hours = parsed
+      }
+    }
+
+    setFilters((prev) => ({
+      ...prev,
+      projectId: urlProjectId ?? prev.projectId,
+      hours,
+    }))
+
+    if (urlNode) {
+      setSelected({ kind: 'node', id: urlNode })
+    }
+
+    if (urlTraceId || urlTab === 'trajectory') {
+      setActiveTab('trajectory')
+    }
+  }, [])
+
+  // --- URL deep linking: sync state back to URL ---
+  useEffect(() => {
+    const params = buildSearchParams(filters, selected, activeTab)
+    const newUrl = `${window.location.pathname}?${params.toString()}`
+    window.history.replaceState(null, '', newUrl)
+  }, [filters, selected, activeTab])
+
+  const handleLoad = useCallback(async () => {
+    if (!filters.projectId.trim()) return
+
+    setSelected(null)
     setError(null)
     setLoadingTopology(true)
     setLoadingSankey(true)
 
-    const params = { project_id: projectId.trim(), hours }
+    const params = {
+      project_id: filters.projectId.trim(),
+      hours: filters.hours,
+      errors_only: filters.errorsOnly,
+    }
 
     try {
       const [topoRes, sankeyRes] = await Promise.allSettled([
@@ -188,7 +229,7 @@ function App() {
       setLoadingTopology(false)
       setLoadingSankey(false)
     }
-  }, [projectId, hours])
+  }, [filters])
 
   const isLoading = loadingTopology || loadingSankey
 
@@ -198,39 +239,12 @@ function App() {
         <span style={styles.title}>Agent Graph Dashboard</span>
       </div>
 
-      <div style={styles.controlsBar}>
-        <span style={styles.label}>Project ID</span>
-        <input
-          style={styles.input}
-          type="text"
-          placeholder="my-gcp-project"
-          value={projectId}
-          onChange={(e) => setProjectId(e.target.value)}
-        />
-        <span style={styles.label}>Time Range</span>
-        <select
-          style={styles.select}
-          value={hours}
-          onChange={(e) => setHours(Number(e.target.value))}
-        >
-          {hoursOptions.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        <button
-          style={
-            isLoading || !projectId.trim()
-              ? styles.loadButtonDisabled
-              : styles.loadButton
-          }
-          onClick={handleLoad}
-          disabled={isLoading || !projectId.trim()}
-        >
-          {isLoading ? 'Loading...' : 'Load'}
-        </button>
-      </div>
+      <GraphToolbar
+        filters={filters}
+        onChange={setFilters}
+        onLoad={handleLoad}
+        loading={isLoading}
+      />
 
       <div style={styles.tabBar}>
         <button
@@ -250,36 +264,53 @@ function App() {
       <div style={styles.content}>
         {error && <div style={styles.error}>{error}</div>}
 
-        {activeTab === 'topology' && (
-          <>
-            {topologyData ? (
-              <TopologyGraph
-                nodes={topologyData.nodes}
-                edges={topologyData.edges}
-              />
-            ) : (
-              <div style={styles.placeholder}>
-                {loadingTopology
-                  ? 'Loading topology data...'
-                  : 'Enter a project ID and click Load to visualize the agent topology.'}
-              </div>
+        <div style={{ display: 'flex', flex: 1, position: 'relative', overflow: 'hidden' }}>
+          <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            {activeTab === 'topology' && (
+              <>
+                {topologyData ? (
+                  <TopologyGraph
+                    nodes={topologyData.nodes}
+                    edges={topologyData.edges}
+                    onNodeClick={(nodeId) =>
+                      setSelected({ kind: 'node', id: nodeId })
+                    }
+                    onEdgeClick={(sourceId, targetId) =>
+                      setSelected({ kind: 'edge', sourceId, targetId })
+                    }
+                  />
+                ) : (
+                  <div style={styles.placeholder}>
+                    {loadingTopology
+                      ? 'Loading topology data...'
+                      : 'Enter a project ID and click Load to visualize the agent topology.'}
+                  </div>
+                )}
+              </>
             )}
-          </>
-        )}
 
-        {activeTab === 'trajectory' && (
-          <>
-            {sankeyData ? (
-              <TrajectorySankey data={sankeyData} />
-            ) : (
-              <div style={styles.placeholder}>
-                {loadingSankey
-                  ? 'Loading trajectory data...'
-                  : 'Enter a project ID and click Load to visualize agent trajectories.'}
-              </div>
+            {activeTab === 'trajectory' && (
+              <>
+                {sankeyData ? (
+                  <TrajectorySankey data={sankeyData} />
+                ) : (
+                  <div style={styles.placeholder}>
+                    {loadingSankey
+                      ? 'Loading trajectory data...'
+                      : 'Enter a project ID and click Load to visualize agent trajectories.'}
+                  </div>
+                )}
+              </>
             )}
-          </>
-        )}
+          </div>
+
+          <SidePanel
+            selected={selected}
+            projectId={filters.projectId}
+            hours={filters.hours}
+            onClose={() => setSelected(null)}
+          />
+        </div>
       </div>
     </div>
   )
