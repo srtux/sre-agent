@@ -9,6 +9,7 @@ from typing import Any
 # Global process handles for cleanup
 backend_proc: subprocess.Popen[Any] | None = None
 frontend_proc: subprocess.Popen[Any] | None = None
+react_proc: subprocess.Popen[Any] | None = None
 
 
 def cleanup(signum: int | None, frame: object) -> None:
@@ -22,6 +23,14 @@ def cleanup(signum: int | None, frame: object) -> None:
             frontend_proc.wait(timeout=5)
         except subprocess.TimeoutExpired:
             frontend_proc.kill()
+
+    if react_proc:
+        print("Killing React UI...")
+        react_proc.terminate()
+        try:
+            react_proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            react_proc.kill()
 
     if backend_proc:
         print("Killing Backend...")
@@ -120,6 +129,24 @@ def start_frontend() -> bool:
     return True
 
 
+def start_react() -> bool:
+    """Start the React Agent Graph UI."""
+    global react_proc
+    print("🚀 Starting React UI (Vite)...")
+
+    react_dir = os.path.join(os.getcwd(), "agent_graph_ui")
+
+    react_proc = subprocess.Popen(
+        ["npm", "run", "dev"],
+        cwd=react_dir,
+    )
+
+    if react_proc and react_proc.poll() is not None:
+        print("❌ React UI failed to start!")
+        return False
+    return True
+
+
 def main() -> None:
     """Run the development environment."""
     # Register signal handlers
@@ -137,8 +164,13 @@ def main() -> None:
         cleanup(None, None)
         return
 
+    if not start_react():
+        cleanup(None, None)
+        return
+
     print("\n✅ API running at http://127.0.0.1:8001")
     print("✅ Web UI starting in Chrome (Flutter)")
+    print("✅ React UI starting via Vite")
     print("\nPRESS CTRL+C TO STOP ALL SERVICES\n")
 
     # Keep main thread alive
@@ -151,6 +183,10 @@ def main() -> None:
 
             if frontend_proc and frontend_proc.poll() is not None:
                 print("\n❌ Frontend crashed unexpectedly!")
+                cleanup(None, None)
+
+            if react_proc and react_proc.poll() is not None:
+                print("\n❌ React UI crashed unexpectedly!")
                 cleanup(None, None)
 
             time.sleep(1)

@@ -24,11 +24,11 @@ if [[ -z "$PROJECT_ID" ]]; then
   echo "Usage: $0 [project_id] [trace_dataset] [graph_dataset]"
   echo ""
   echo "Arguments (optional if set in .env):"
-  echo "  project_id:    The GCP Project ID where traces are stored (e.g. my-sre-project)"
+  echo "  project_id:    The GCP Project ID where traces are stored (e.g. my-project)"
   echo "  trace_dataset: The dataset name containing the _AllSpans table (default: traces)"
   echo "  graph_dataset: The target dataset for the graph objects (default: agent_graph)"
   echo ""
-  echo "Example: $0 summitt-gcp traces agent_graph"
+  echo "Example: $0 my-project traces agent_graph"
   exit 1
 fi
 

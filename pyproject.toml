@@ -146,9 +146,10 @@ agent_directory = "sre_agent"
 
 [tool.poe.tasks]
 dev = { help = "Run the full dev stack (backend + frontend)", cmd = "python scripts/start_dev.py", envfile = ".env" }
-sync = { help = "Sync all dependencies (uv + flutter)", sequence = ["_sync_uv", "_sync_flutter"] }
+sync = { help = "Sync all dependencies (uv + flutter + npm)", sequence = ["_sync_uv", "_sync_flutter", "_sync_npm"] }
 _sync_uv = { cmd = "uv sync" }
 _sync_flutter = { cmd = "flutter pub get", cwd = "autosre" }
+_sync_npm = { cmd = "npm install", cwd = "agent_graph_ui" }
 run = { help = "Run agent in terminal", cmd = "adk run sre_agent", env = { OTEL_TO_CLOUD = "true" }, envfile = ".env" }
 web = { help = "Run agent web UI & Tools API", cmd = "python server.py", envfile = ".env" }
 list = { help = "List deployed agents", cmd = "python deploy/deploy.py --list", envfile = ".env" }
