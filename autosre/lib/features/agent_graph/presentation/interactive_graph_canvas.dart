@@ -439,11 +439,20 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
     var maxY = double.negativeInfinity;
 
     for (var gvNode in gvNodes.values) {
-      if (gvNode.x < minX) minX = gvNode.x;
-      if (gvNode.y < minY) minY = gvNode.y;
-      if (gvNode.x > maxX) maxX = gvNode.x;
-      if (gvNode.y > maxY) maxY = gvNode.y;
+      // GraphView can sometimes yield NaN coordinates for disconnected subgraphs or cycles
+      final nx = gvNode.x.isNaN ? 0.0 : gvNode.x;
+      final ny = gvNode.y.isNaN ? 0.0 : gvNode.y;
+
+      if (nx < minX) minX = nx;
+      if (ny < minY) minY = ny;
+      if (nx > maxX) maxX = nx;
+      if (ny > maxY) maxY = ny;
     }
+
+    if (minX == double.infinity) minX = 0.0;
+    if (minY == double.infinity) minY = 0.0;
+    if (maxX == double.negativeInfinity) maxX = 0.0;
+    if (maxY == double.negativeInfinity) maxY = 0.0;
 
     // Build depth map from layout positions for back-edge detection.
     // In our LR layout (swapped from TB), the X position (gvNode.y * 1.5)
@@ -491,10 +500,13 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
 
         // SWAP X and Y for Left-to-Right layout since we used Top-Bottom algorithm
         // Also increase scaling if needed manually
+        final nx = gvNode.x.isNaN ? 0.0 : gvNode.x;
+        final ny = gvNode.y.isNaN ? 0.0 : gvNode.y;
+
         _addFlNode(
           n.id,
           // Center the graph at (0,0) so "Center View" works correctly
-          Offset(gvNode.x - centerX, gvNode.y - centerY),
+          Offset(nx - centerX, ny - centerY),
           linkColor,
           thickness,
           hasBackEdge: hasBackEdge,
