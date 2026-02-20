@@ -28,6 +28,26 @@ abstract class MultiTraceNode with _$MultiTraceNode {
     @JsonKey(name: 'is_root') @Default(false) bool isRoot,
     @JsonKey(name: 'is_leaf') @Default(false) bool isLeaf,
     @JsonKey(name: 'is_user_entry_point') @Default(false) bool isUserEntryPoint,
+
+    // User node flag
+    @JsonKey(name: 'is_user_node') @Default(false) bool isUserNode,
+
+    // Tree/DAG hierarchy support
+    @JsonKey(name: 'child_node_ids') @Default([]) List<String> childNodeIds,
+    @JsonKey(includeFromJson: false, includeToJson: false)
+    @Default(true)
+    bool isExpanded,
+    @JsonKey(name: 'depth') @Default(0) int depth,
+
+    // Hierarchical rollup metrics (includes all downstream descendants)
+    @JsonKey(name: 'downstream_total_tokens') @Default(0) int downstreamTotalTokens,
+    @JsonKey(name: 'downstream_total_cost') double? downstreamTotalCost,
+    @JsonKey(name: 'downstream_tool_call_count')
+    @Default(0)
+    int downstreamToolCallCount,
+    @JsonKey(name: 'downstream_llm_call_count')
+    @Default(0)
+    int downstreamLlmCallCount,
   }) = _MultiTraceNode;
 
   factory MultiTraceNode.fromJson(Map<String, dynamic> json) =>
@@ -55,6 +75,12 @@ abstract class MultiTraceEdge with _$MultiTraceEdge {
     @JsonKey(name: 'p95_duration_ms') @Default(0.0) double p95DurationMs,
     @JsonKey(name: 'unique_sessions') @Default(0) int uniqueSessions,
     @JsonKey(name: 'total_cost') double? totalCost,
+
+    // Back-edge detection (for cycle rendering)
+    @JsonKey(name: 'is_back_edge') @Default(false) bool isBackEdge,
+
+    // Normalized flow weight (0.0 to 1.0) for animation speed
+    @JsonKey(name: 'flow_weight') @Default(0.5) double flowWeight,
   }) = _MultiTraceEdge;
 
   factory MultiTraceEdge.fromJson(Map<String, dynamic> json) =>
@@ -79,4 +105,6 @@ abstract class MultiTraceGraphPayload with _$MultiTraceGraphPayload {
 sealed class SelectedGraphElement with _$SelectedGraphElement {
   const factory SelectedGraphElement.node(MultiTraceNode node) = SelectedNode;
   const factory SelectedGraphElement.edge(MultiTraceEdge edge) = SelectedEdge;
+  const factory SelectedGraphElement.path(List<String> nodeIds, {String? label}) =
+      SelectedPath;
 }

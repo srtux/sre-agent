@@ -50,6 +50,8 @@ class AgentGraphDetailsPanel extends ConsumerWidget {
                   ref,
                   edge,
                 ),
+                SelectedPath(:final nodeIds, :final label) =>
+                  _buildPathDetail(nodeIds, label),
               },
             ),
           ),
@@ -73,6 +75,11 @@ class AgentGraphDetailsPanel extends ConsumerWidget {
           Icons.arrow_forward,
           '${edge.sourceId} → ${edge.targetId}',
           AppColors.primaryBlue,
+        ),
+      SelectedPath(:final nodeIds, :final label) => (
+          Icons.timeline,
+          label ?? 'Path (${nodeIds.length} nodes)',
+          AppColors.secondaryPurple,
         ),
     };
 
@@ -134,6 +141,10 @@ class AgentGraphDetailsPanel extends ConsumerWidget {
           icon: _nodeIcon(node.type),
           color: _nodeColor(node.type),
         ),
+        if (node.depth > 0) ...[
+          const SizedBox(height: 8),
+          _metricRow('Depth', 'Level ${node.depth}', Icons.layers),
+        ],
         if (node.description != null && node.description!.isNotEmpty) ...[
           const SizedBox(height: 12),
           const Text('Description',
@@ -181,6 +192,14 @@ class AgentGraphDetailsPanel extends ConsumerWidget {
         const SizedBox(height: 8),
         _metricRow('Input Tokens', _formatTokens(node.inputTokens), Icons.input),
         _metricRow('Output Tokens', _formatTokens(node.outputTokens), Icons.output),
+        if (node.totalTokens > 0) ...[
+          const SizedBox(height: 8),
+          _buildMetricBar('Input / Total', node.inputTokens.toDouble(),
+              node.totalTokens.toDouble(), AppColors.primaryCyan),
+          const SizedBox(height: 4),
+          _buildMetricBar('Output / Total', node.outputTokens.toDouble(),
+              node.totalTokens.toDouble(), AppColors.warning),
+        ],
         if (node.avgDurationMs > 0) ...[
           const SizedBox(height: 8),
           _metricCard(
@@ -207,16 +226,47 @@ class AgentGraphDetailsPanel extends ConsumerWidget {
             icon: Icons.error_outline,
             color: AppColors.error,
           ),
+          const SizedBox(height: 8),
+          _buildMetricBar(
+              'Error Rate', node.errorRatePct, 100.0, AppColors.error),
         ],
         if (payload.nodes.isNotEmpty) ...[
           const SizedBox(height: 8),
           _buildTokenPercentage(node.totalTokens),
         ],
+        if (node.downstreamTotalTokens > node.totalTokens) ...[
+          const Divider(color: AppColors.surfaceBorder, height: 24),
+          const Text('Downstream Impact',
+              style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          _metricRow('Downstream Tokens',
+              _formatTokens(node.downstreamTotalTokens), Icons.token),
+          if (node.downstreamTotalCost != null &&
+              node.downstreamTotalCost! > 0)
+            _metricRow(
+                'Downstream Cost',
+                '\$${_formatCost(node.downstreamTotalCost!)}',
+                Icons.attach_money,
+                valueColor: const Color(0xFF00E676)),
+          _metricRow('Downstream Tools',
+              '${node.downstreamToolCallCount} calls', Icons.build),
+          _metricRow('Downstream LLMs',
+              '${node.downstreamLlmCallCount} calls', Icons.auto_awesome),
+          const SizedBox(height: 8),
+          _buildMetricBar(
+              'Node / Downstream Tokens',
+              node.totalTokens.toDouble(),
+              node.downstreamTotalTokens.toDouble(),
+              AppColors.primaryCyan),
+        ],
         if ((node.type.toLowerCase() == 'agent' ||
                 node.type.toLowerCase() == 'sub_agent') &&
             (node.toolCallCount > 0 || node.llmCallCount > 0)) ...[
-          const SizedBox(height: 12),
-          const Text('Sub-call Distribution',
+          const Divider(color: AppColors.surfaceBorder, height: 24),
+          const Text('Subcall Distribution',
               style: TextStyle(
                   color: Colors.white70,
                   fontSize: 11,
@@ -225,6 +275,18 @@ class AgentGraphDetailsPanel extends ConsumerWidget {
           _metricRow('Tool Calls', node.toolCallCount.toString(), Icons.build),
           _metricRow(
               'LLM Calls', node.llmCallCount.toString(), Icons.auto_awesome),
+          const SizedBox(height: 8),
+          _buildMetricBar(
+              'Tools',
+              node.toolCallCount.toDouble(),
+              (node.toolCallCount + node.llmCallCount).toDouble(),
+              AppColors.warning),
+          const SizedBox(height: 4),
+          _buildMetricBar(
+              'LLMs',
+              node.llmCallCount.toDouble(),
+              (node.toolCallCount + node.llmCallCount).toDouble(),
+              AppColors.secondaryPurple),
         ],
         const SizedBox(height: 8),
         Row(
@@ -242,8 +304,49 @@ class AgentGraphDetailsPanel extends ConsumerWidget {
               const SizedBox(width: 8),
               _badge('User Entry', AppColors.primaryBlue),
             ],
+            if (node.isUserNode) ...[
+              const SizedBox(width: 8),
+              _badge('Session Entry Point', AppColors.secondaryPurple),
+            ],
           ],
         ),
+        if (node.childNodeIds.isNotEmpty) ...[
+          const Divider(color: AppColors.surfaceBorder, height: 24),
+          Text('Children (${node.childNodeIds.length} nodes)',
+              style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          ...node.childNodeIds.take(8).map(
+                (childId) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.subdirectory_arrow_right,
+                          size: 14, color: Colors.white24),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(childId,
+                            style: const TextStyle(
+                                color: Colors.white60, fontSize: 12)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          if (node.childNodeIds.length > 8)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                'and ${node.childNodeIds.length - 8} more...',
+                style: TextStyle(
+                    color: Colors.grey[500],
+                    fontSize: 11,
+                    fontStyle: FontStyle.italic),
+              ),
+            ),
+        ],
         const SizedBox(height: 16),
         SizedBox(
           width: double.infinity,
@@ -319,6 +422,104 @@ class AgentGraphDetailsPanel extends ConsumerWidget {
   // ---------------------------------------------------------------------------
   // Edge detail
   // ---------------------------------------------------------------------------
+
+  Widget _buildPathDetail(List<String> nodeIds, String? label) {
+    // Build a lookup map from payload for node type coloring.
+    final nodeMap = {for (final n in payload.nodes) n.id: n};
+
+    // Compute path-level token total.
+    var pathTokens = 0;
+    for (final id in nodeIds) {
+      final n = nodeMap[id];
+      if (n != null) pathTokens += n.totalTokens;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (label != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(label,
+                style: const TextStyle(
+                    color: Colors.white, fontSize: 14,
+                    fontWeight: FontWeight.w600)),
+          ),
+        Row(
+          children: [
+            Icon(Icons.timeline, size: 14, color: Colors.grey[400]),
+            const SizedBox(width: 6),
+            Text(
+              '${nodeIds.length} nodes  ·  ${nodeIds.isNotEmpty ? '${nodeIds.first} → ${nodeIds.last}' : ''}',
+              style: TextStyle(color: Colors.grey[400], fontSize: 12),
+            ),
+          ],
+        ),
+        if (pathTokens > 0) ...[
+          const SizedBox(height: 6),
+          _metricRow('Path Tokens', _formatTokens(pathTokens), Icons.token),
+        ],
+        const SizedBox(height: 12),
+        ...nodeIds.asMap().entries.map((entry) {
+          final idx = entry.key;
+          final id = entry.value;
+          final node = nodeMap[id];
+          final dotColor = node != null
+              ? _pathNodeColor(node.type)
+              : Colors.grey;
+          final isLast = idx == nodeIds.length - 1;
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 1),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.circle, size: 8, color: dotColor),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(id,
+                          style: const TextStyle(
+                              color: Colors.white70, fontSize: 13)),
+                    ),
+                    if (node != null)
+                      Text(node.type,
+                          style: TextStyle(
+                              color: dotColor.withValues(alpha: 0.7),
+                              fontSize: 10)),
+                  ],
+                ),
+                if (!isLast)
+                  const Padding(
+                    padding: EdgeInsets.only(left: 3, top: 1, bottom: 1),
+                    child: Icon(Icons.arrow_downward,
+                        size: 12, color: Colors.white24),
+                  ),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Color _pathNodeColor(String type) {
+    switch (type.toLowerCase()) {
+      case 'agent':
+      case 'sub_agent':
+        return AppColors.primaryTeal;
+      case 'tool':
+        return AppColors.warning;
+      case 'llm':
+      case 'llm_model':
+        return AppColors.secondaryPurple;
+      case 'user':
+        return AppColors.primaryBlue;
+      default:
+        return Colors.grey;
+    }
+  }
 
   Widget _buildEdgeDetail(
     BuildContext context,
@@ -716,5 +917,38 @@ class AgentGraphDetailsPanel extends ConsumerWidget {
     if (cost >= 1.0) return cost.toStringAsFixed(2);
     if (cost >= 0.01) return cost.toStringAsFixed(3);
     return cost.toStringAsFixed(4);
+  }
+
+  Widget _buildMetricBar(
+    String label,
+    double value,
+    double maxValue,
+    Color color,
+  ) {
+    final ratio = maxValue > 0 ? (value / maxValue).clamp(0.0, 1.0) : 0.0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label,
+                style: TextStyle(color: Colors.grey[400], fontSize: 11)),
+            Text(value.toStringAsFixed(1),
+                style: const TextStyle(color: Colors.white70, fontSize: 11)),
+          ],
+        ),
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(2),
+          child: LinearProgressIndicator(
+            value: ratio,
+            backgroundColor: Colors.white.withValues(alpha: 0.05),
+            valueColor: AlwaysStoppedAnimation(color),
+            minHeight: 4,
+          ),
+        ),
+      ],
+    );
   }
 }

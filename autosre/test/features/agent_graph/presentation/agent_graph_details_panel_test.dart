@@ -283,8 +283,8 @@ void main() {
       expect(find.text('Avg Latency'), findsOneWidget);
       expect(find.text('123.4 ms'), findsOneWidget);
 
-      // Error Rate
-      expect(find.text('Error Rate'), findsOneWidget);
+      // Error Rate (shown as metric card + metric bar label)
+      expect(find.text('Error Rate'), findsAtLeast(1));
       expect(find.text('5.6%'), findsOneWidget);
     });
   });

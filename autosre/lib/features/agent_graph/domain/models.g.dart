@@ -28,6 +28,20 @@ _MultiTraceNode _$MultiTraceNodeFromJson(Map<String, dynamic> json) =>
       isRoot: json['is_root'] as bool? ?? false,
       isLeaf: json['is_leaf'] as bool? ?? false,
       isUserEntryPoint: json['is_user_entry_point'] as bool? ?? false,
+      isUserNode: json['is_user_node'] as bool? ?? false,
+      childNodeIds:
+          (json['child_node_ids'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          const [],
+      depth: (json['depth'] as num?)?.toInt() ?? 0,
+      downstreamTotalTokens:
+          (json['downstream_total_tokens'] as num?)?.toInt() ?? 0,
+      downstreamTotalCost: (json['downstream_total_cost'] as num?)?.toDouble(),
+      downstreamToolCallCount:
+          (json['downstream_tool_call_count'] as num?)?.toInt() ?? 0,
+      downstreamLlmCallCount:
+          (json['downstream_llm_call_count'] as num?)?.toInt() ?? 0,
     );
 
 Map<String, dynamic> _$MultiTraceNodeToJson(_MultiTraceNode instance) =>
@@ -52,6 +66,13 @@ Map<String, dynamic> _$MultiTraceNodeToJson(_MultiTraceNode instance) =>
       'is_root': instance.isRoot,
       'is_leaf': instance.isLeaf,
       'is_user_entry_point': instance.isUserEntryPoint,
+      'is_user_node': instance.isUserNode,
+      'child_node_ids': instance.childNodeIds,
+      'depth': instance.depth,
+      'downstream_total_tokens': instance.downstreamTotalTokens,
+      'downstream_total_cost': instance.downstreamTotalCost,
+      'downstream_tool_call_count': instance.downstreamToolCallCount,
+      'downstream_llm_call_count': instance.downstreamLlmCallCount,
     };
 
 _MultiTraceEdge _$MultiTraceEdgeFromJson(Map<String, dynamic> json) =>
@@ -72,6 +93,8 @@ _MultiTraceEdge _$MultiTraceEdgeFromJson(Map<String, dynamic> json) =>
       p95DurationMs: (json['p95_duration_ms'] as num?)?.toDouble() ?? 0.0,
       uniqueSessions: (json['unique_sessions'] as num?)?.toInt() ?? 0,
       totalCost: (json['total_cost'] as num?)?.toDouble(),
+      isBackEdge: json['is_back_edge'] as bool? ?? false,
+      flowWeight: (json['flow_weight'] as num?)?.toDouble() ?? 0.5,
     );
 
 Map<String, dynamic> _$MultiTraceEdgeToJson(_MultiTraceEdge instance) =>
@@ -92,6 +115,8 @@ Map<String, dynamic> _$MultiTraceEdgeToJson(_MultiTraceEdge instance) =>
       'p95_duration_ms': instance.p95DurationMs,
       'unique_sessions': instance.uniqueSessions,
       'total_cost': instance.totalCost,
+      'is_back_edge': instance.isBackEdge,
+      'flow_weight': instance.flowWeight,
     };
 
 _MultiTraceGraphPayload _$MultiTraceGraphPayloadFromJson(

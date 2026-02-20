@@ -15,7 +15,10 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$MultiTraceNode {
 
- String get id; String get type; String? get label; String? get description;@JsonKey(name: 'execution_count') int get executionCount;@JsonKey(name: 'total_tokens') int get totalTokens;@JsonKey(name: 'input_tokens') int get inputTokens;@JsonKey(name: 'output_tokens') int get outputTokens;@JsonKey(name: 'error_count') int get errorCount;@JsonKey(name: 'has_error') bool get hasError;@JsonKey(name: 'avg_duration_ms') double get avgDurationMs;@JsonKey(name: 'p95_duration_ms') double get p95DurationMs;@JsonKey(name: 'error_rate_pct') double get errorRatePct;@JsonKey(name: 'total_cost') double? get totalCost;@JsonKey(name: 'tool_call_count') int get toolCallCount;@JsonKey(name: 'llm_call_count') int get llmCallCount;@JsonKey(name: 'unique_sessions') int get uniqueSessions;@JsonKey(name: 'is_root') bool get isRoot;@JsonKey(name: 'is_leaf') bool get isLeaf;@JsonKey(name: 'is_user_entry_point') bool get isUserEntryPoint;
+ String get id; String get type; String? get label; String? get description;@JsonKey(name: 'execution_count') int get executionCount;@JsonKey(name: 'total_tokens') int get totalTokens;@JsonKey(name: 'input_tokens') int get inputTokens;@JsonKey(name: 'output_tokens') int get outputTokens;@JsonKey(name: 'error_count') int get errorCount;@JsonKey(name: 'has_error') bool get hasError;@JsonKey(name: 'avg_duration_ms') double get avgDurationMs;@JsonKey(name: 'p95_duration_ms') double get p95DurationMs;@JsonKey(name: 'error_rate_pct') double get errorRatePct;@JsonKey(name: 'total_cost') double? get totalCost;@JsonKey(name: 'tool_call_count') int get toolCallCount;@JsonKey(name: 'llm_call_count') int get llmCallCount;@JsonKey(name: 'unique_sessions') int get uniqueSessions;@JsonKey(name: 'is_root') bool get isRoot;@JsonKey(name: 'is_leaf') bool get isLeaf;@JsonKey(name: 'is_user_entry_point') bool get isUserEntryPoint;// User node flag
+@JsonKey(name: 'is_user_node') bool get isUserNode;// Tree/DAG hierarchy support
+@JsonKey(name: 'child_node_ids') List<String> get childNodeIds;@JsonKey(includeFromJson: false, includeToJson: false) bool get isExpanded;@JsonKey(name: 'depth') int get depth;// Hierarchical rollup metrics (includes all downstream descendants)
+@JsonKey(name: 'downstream_total_tokens') int get downstreamTotalTokens;@JsonKey(name: 'downstream_total_cost') double? get downstreamTotalCost;@JsonKey(name: 'downstream_tool_call_count') int get downstreamToolCallCount;@JsonKey(name: 'downstream_llm_call_count') int get downstreamLlmCallCount;
 /// Create a copy of MultiTraceNode
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +31,16 @@ $MultiTraceNodeCopyWith<MultiTraceNode> get copyWith => _$MultiTraceNodeCopyWith
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is MultiTraceNode&&(identical(other.id, id) || other.id == id)&&(identical(other.type, type) || other.type == type)&&(identical(other.label, label) || other.label == label)&&(identical(other.description, description) || other.description == description)&&(identical(other.executionCount, executionCount) || other.executionCount == executionCount)&&(identical(other.totalTokens, totalTokens) || other.totalTokens == totalTokens)&&(identical(other.inputTokens, inputTokens) || other.inputTokens == inputTokens)&&(identical(other.outputTokens, outputTokens) || other.outputTokens == outputTokens)&&(identical(other.errorCount, errorCount) || other.errorCount == errorCount)&&(identical(other.hasError, hasError) || other.hasError == hasError)&&(identical(other.avgDurationMs, avgDurationMs) || other.avgDurationMs == avgDurationMs)&&(identical(other.p95DurationMs, p95DurationMs) || other.p95DurationMs == p95DurationMs)&&(identical(other.errorRatePct, errorRatePct) || other.errorRatePct == errorRatePct)&&(identical(other.totalCost, totalCost) || other.totalCost == totalCost)&&(identical(other.toolCallCount, toolCallCount) || other.toolCallCount == toolCallCount)&&(identical(other.llmCallCount, llmCallCount) || other.llmCallCount == llmCallCount)&&(identical(other.uniqueSessions, uniqueSessions) || other.uniqueSessions == uniqueSessions)&&(identical(other.isRoot, isRoot) || other.isRoot == isRoot)&&(identical(other.isLeaf, isLeaf) || other.isLeaf == isLeaf)&&(identical(other.isUserEntryPoint, isUserEntryPoint) || other.isUserEntryPoint == isUserEntryPoint));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is MultiTraceNode&&(identical(other.id, id) || other.id == id)&&(identical(other.type, type) || other.type == type)&&(identical(other.label, label) || other.label == label)&&(identical(other.description, description) || other.description == description)&&(identical(other.executionCount, executionCount) || other.executionCount == executionCount)&&(identical(other.totalTokens, totalTokens) || other.totalTokens == totalTokens)&&(identical(other.inputTokens, inputTokens) || other.inputTokens == inputTokens)&&(identical(other.outputTokens, outputTokens) || other.outputTokens == outputTokens)&&(identical(other.errorCount, errorCount) || other.errorCount == errorCount)&&(identical(other.hasError, hasError) || other.hasError == hasError)&&(identical(other.avgDurationMs, avgDurationMs) || other.avgDurationMs == avgDurationMs)&&(identical(other.p95DurationMs, p95DurationMs) || other.p95DurationMs == p95DurationMs)&&(identical(other.errorRatePct, errorRatePct) || other.errorRatePct == errorRatePct)&&(identical(other.totalCost, totalCost) || other.totalCost == totalCost)&&(identical(other.toolCallCount, toolCallCount) || other.toolCallCount == toolCallCount)&&(identical(other.llmCallCount, llmCallCount) || other.llmCallCount == llmCallCount)&&(identical(other.uniqueSessions, uniqueSessions) || other.uniqueSessions == uniqueSessions)&&(identical(other.isRoot, isRoot) || other.isRoot == isRoot)&&(identical(other.isLeaf, isLeaf) || other.isLeaf == isLeaf)&&(identical(other.isUserEntryPoint, isUserEntryPoint) || other.isUserEntryPoint == isUserEntryPoint)&&(identical(other.isUserNode, isUserNode) || other.isUserNode == isUserNode)&&const DeepCollectionEquality().equals(other.childNodeIds, childNodeIds)&&(identical(other.isExpanded, isExpanded) || other.isExpanded == isExpanded)&&(identical(other.depth, depth) || other.depth == depth)&&(identical(other.downstreamTotalTokens, downstreamTotalTokens) || other.downstreamTotalTokens == downstreamTotalTokens)&&(identical(other.downstreamTotalCost, downstreamTotalCost) || other.downstreamTotalCost == downstreamTotalCost)&&(identical(other.downstreamToolCallCount, downstreamToolCallCount) || other.downstreamToolCallCount == downstreamToolCallCount)&&(identical(other.downstreamLlmCallCount, downstreamLlmCallCount) || other.downstreamLlmCallCount == downstreamLlmCallCount));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hashAll([runtimeType,id,type,label,description,executionCount,totalTokens,inputTokens,outputTokens,errorCount,hasError,avgDurationMs,p95DurationMs,errorRatePct,totalCost,toolCallCount,llmCallCount,uniqueSessions,isRoot,isLeaf,isUserEntryPoint]);
+int get hashCode => Object.hashAll([runtimeType,id,type,label,description,executionCount,totalTokens,inputTokens,outputTokens,errorCount,hasError,avgDurationMs,p95DurationMs,errorRatePct,totalCost,toolCallCount,llmCallCount,uniqueSessions,isRoot,isLeaf,isUserEntryPoint,isUserNode,const DeepCollectionEquality().hash(childNodeIds),isExpanded,depth,downstreamTotalTokens,downstreamTotalCost,downstreamToolCallCount,downstreamLlmCallCount]);
 
 @override
 String toString() {
-  return 'MultiTraceNode(id: $id, type: $type, label: $label, description: $description, executionCount: $executionCount, totalTokens: $totalTokens, inputTokens: $inputTokens, outputTokens: $outputTokens, errorCount: $errorCount, hasError: $hasError, avgDurationMs: $avgDurationMs, p95DurationMs: $p95DurationMs, errorRatePct: $errorRatePct, totalCost: $totalCost, toolCallCount: $toolCallCount, llmCallCount: $llmCallCount, uniqueSessions: $uniqueSessions, isRoot: $isRoot, isLeaf: $isLeaf, isUserEntryPoint: $isUserEntryPoint)';
+  return 'MultiTraceNode(id: $id, type: $type, label: $label, description: $description, executionCount: $executionCount, totalTokens: $totalTokens, inputTokens: $inputTokens, outputTokens: $outputTokens, errorCount: $errorCount, hasError: $hasError, avgDurationMs: $avgDurationMs, p95DurationMs: $p95DurationMs, errorRatePct: $errorRatePct, totalCost: $totalCost, toolCallCount: $toolCallCount, llmCallCount: $llmCallCount, uniqueSessions: $uniqueSessions, isRoot: $isRoot, isLeaf: $isLeaf, isUserEntryPoint: $isUserEntryPoint, isUserNode: $isUserNode, childNodeIds: $childNodeIds, isExpanded: $isExpanded, depth: $depth, downstreamTotalTokens: $downstreamTotalTokens, downstreamTotalCost: $downstreamTotalCost, downstreamToolCallCount: $downstreamToolCallCount, downstreamLlmCallCount: $downstreamLlmCallCount)';
 }
 
 
@@ -48,7 +51,7 @@ abstract mixin class $MultiTraceNodeCopyWith<$Res>  {
   factory $MultiTraceNodeCopyWith(MultiTraceNode value, $Res Function(MultiTraceNode) _then) = _$MultiTraceNodeCopyWithImpl;
 @useResult
 $Res call({
- String id, String type, String? label, String? description,@JsonKey(name: 'execution_count') int executionCount,@JsonKey(name: 'total_tokens') int totalTokens,@JsonKey(name: 'input_tokens') int inputTokens,@JsonKey(name: 'output_tokens') int outputTokens,@JsonKey(name: 'error_count') int errorCount,@JsonKey(name: 'has_error') bool hasError,@JsonKey(name: 'avg_duration_ms') double avgDurationMs,@JsonKey(name: 'p95_duration_ms') double p95DurationMs,@JsonKey(name: 'error_rate_pct') double errorRatePct,@JsonKey(name: 'total_cost') double? totalCost,@JsonKey(name: 'tool_call_count') int toolCallCount,@JsonKey(name: 'llm_call_count') int llmCallCount,@JsonKey(name: 'unique_sessions') int uniqueSessions,@JsonKey(name: 'is_root') bool isRoot,@JsonKey(name: 'is_leaf') bool isLeaf,@JsonKey(name: 'is_user_entry_point') bool isUserEntryPoint
+ String id, String type, String? label, String? description,@JsonKey(name: 'execution_count') int executionCount,@JsonKey(name: 'total_tokens') int totalTokens,@JsonKey(name: 'input_tokens') int inputTokens,@JsonKey(name: 'output_tokens') int outputTokens,@JsonKey(name: 'error_count') int errorCount,@JsonKey(name: 'has_error') bool hasError,@JsonKey(name: 'avg_duration_ms') double avgDurationMs,@JsonKey(name: 'p95_duration_ms') double p95DurationMs,@JsonKey(name: 'error_rate_pct') double errorRatePct,@JsonKey(name: 'total_cost') double? totalCost,@JsonKey(name: 'tool_call_count') int toolCallCount,@JsonKey(name: 'llm_call_count') int llmCallCount,@JsonKey(name: 'unique_sessions') int uniqueSessions,@JsonKey(name: 'is_root') bool isRoot,@JsonKey(name: 'is_leaf') bool isLeaf,@JsonKey(name: 'is_user_entry_point') bool isUserEntryPoint,@JsonKey(name: 'is_user_node') bool isUserNode,@JsonKey(name: 'child_node_ids') List<String> childNodeIds,@JsonKey(includeFromJson: false, includeToJson: false) bool isExpanded,@JsonKey(name: 'depth') int depth,@JsonKey(name: 'downstream_total_tokens') int downstreamTotalTokens,@JsonKey(name: 'downstream_total_cost') double? downstreamTotalCost,@JsonKey(name: 'downstream_tool_call_count') int downstreamToolCallCount,@JsonKey(name: 'downstream_llm_call_count') int downstreamLlmCallCount
 });
 
 
@@ -65,7 +68,7 @@ class _$MultiTraceNodeCopyWithImpl<$Res>
 
 /// Create a copy of MultiTraceNode
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? type = null,Object? label = freezed,Object? description = freezed,Object? executionCount = null,Object? totalTokens = null,Object? inputTokens = null,Object? outputTokens = null,Object? errorCount = null,Object? hasError = null,Object? avgDurationMs = null,Object? p95DurationMs = null,Object? errorRatePct = null,Object? totalCost = freezed,Object? toolCallCount = null,Object? llmCallCount = null,Object? uniqueSessions = null,Object? isRoot = null,Object? isLeaf = null,Object? isUserEntryPoint = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? type = null,Object? label = freezed,Object? description = freezed,Object? executionCount = null,Object? totalTokens = null,Object? inputTokens = null,Object? outputTokens = null,Object? errorCount = null,Object? hasError = null,Object? avgDurationMs = null,Object? p95DurationMs = null,Object? errorRatePct = null,Object? totalCost = freezed,Object? toolCallCount = null,Object? llmCallCount = null,Object? uniqueSessions = null,Object? isRoot = null,Object? isLeaf = null,Object? isUserEntryPoint = null,Object? isUserNode = null,Object? childNodeIds = null,Object? isExpanded = null,Object? depth = null,Object? downstreamTotalTokens = null,Object? downstreamTotalCost = freezed,Object? downstreamToolCallCount = null,Object? downstreamLlmCallCount = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,type: null == type ? _self.type : type // ignore: cast_nullable_to_non_nullable
@@ -87,7 +90,15 @@ as int,uniqueSessions: null == uniqueSessions ? _self.uniqueSessions : uniqueSes
 as int,isRoot: null == isRoot ? _self.isRoot : isRoot // ignore: cast_nullable_to_non_nullable
 as bool,isLeaf: null == isLeaf ? _self.isLeaf : isLeaf // ignore: cast_nullable_to_non_nullable
 as bool,isUserEntryPoint: null == isUserEntryPoint ? _self.isUserEntryPoint : isUserEntryPoint // ignore: cast_nullable_to_non_nullable
-as bool,
+as bool,isUserNode: null == isUserNode ? _self.isUserNode : isUserNode // ignore: cast_nullable_to_non_nullable
+as bool,childNodeIds: null == childNodeIds ? _self.childNodeIds : childNodeIds // ignore: cast_nullable_to_non_nullable
+as List<String>,isExpanded: null == isExpanded ? _self.isExpanded : isExpanded // ignore: cast_nullable_to_non_nullable
+as bool,depth: null == depth ? _self.depth : depth // ignore: cast_nullable_to_non_nullable
+as int,downstreamTotalTokens: null == downstreamTotalTokens ? _self.downstreamTotalTokens : downstreamTotalTokens // ignore: cast_nullable_to_non_nullable
+as int,downstreamTotalCost: freezed == downstreamTotalCost ? _self.downstreamTotalCost : downstreamTotalCost // ignore: cast_nullable_to_non_nullable
+as double?,downstreamToolCallCount: null == downstreamToolCallCount ? _self.downstreamToolCallCount : downstreamToolCallCount // ignore: cast_nullable_to_non_nullable
+as int,downstreamLlmCallCount: null == downstreamLlmCallCount ? _self.downstreamLlmCallCount : downstreamLlmCallCount // ignore: cast_nullable_to_non_nullable
+as int,
   ));
 }
 
@@ -172,10 +183,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String type,  String? label,  String? description, @JsonKey(name: 'execution_count')  int executionCount, @JsonKey(name: 'total_tokens')  int totalTokens, @JsonKey(name: 'input_tokens')  int inputTokens, @JsonKey(name: 'output_tokens')  int outputTokens, @JsonKey(name: 'error_count')  int errorCount, @JsonKey(name: 'has_error')  bool hasError, @JsonKey(name: 'avg_duration_ms')  double avgDurationMs, @JsonKey(name: 'p95_duration_ms')  double p95DurationMs, @JsonKey(name: 'error_rate_pct')  double errorRatePct, @JsonKey(name: 'total_cost')  double? totalCost, @JsonKey(name: 'tool_call_count')  int toolCallCount, @JsonKey(name: 'llm_call_count')  int llmCallCount, @JsonKey(name: 'unique_sessions')  int uniqueSessions, @JsonKey(name: 'is_root')  bool isRoot, @JsonKey(name: 'is_leaf')  bool isLeaf, @JsonKey(name: 'is_user_entry_point')  bool isUserEntryPoint)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String type,  String? label,  String? description, @JsonKey(name: 'execution_count')  int executionCount, @JsonKey(name: 'total_tokens')  int totalTokens, @JsonKey(name: 'input_tokens')  int inputTokens, @JsonKey(name: 'output_tokens')  int outputTokens, @JsonKey(name: 'error_count')  int errorCount, @JsonKey(name: 'has_error')  bool hasError, @JsonKey(name: 'avg_duration_ms')  double avgDurationMs, @JsonKey(name: 'p95_duration_ms')  double p95DurationMs, @JsonKey(name: 'error_rate_pct')  double errorRatePct, @JsonKey(name: 'total_cost')  double? totalCost, @JsonKey(name: 'tool_call_count')  int toolCallCount, @JsonKey(name: 'llm_call_count')  int llmCallCount, @JsonKey(name: 'unique_sessions')  int uniqueSessions, @JsonKey(name: 'is_root')  bool isRoot, @JsonKey(name: 'is_leaf')  bool isLeaf, @JsonKey(name: 'is_user_entry_point')  bool isUserEntryPoint, @JsonKey(name: 'is_user_node')  bool isUserNode, @JsonKey(name: 'child_node_ids')  List<String> childNodeIds, @JsonKey(includeFromJson: false, includeToJson: false)  bool isExpanded, @JsonKey(name: 'depth')  int depth, @JsonKey(name: 'downstream_total_tokens')  int downstreamTotalTokens, @JsonKey(name: 'downstream_total_cost')  double? downstreamTotalCost, @JsonKey(name: 'downstream_tool_call_count')  int downstreamToolCallCount, @JsonKey(name: 'downstream_llm_call_count')  int downstreamLlmCallCount)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _MultiTraceNode() when $default != null:
-return $default(_that.id,_that.type,_that.label,_that.description,_that.executionCount,_that.totalTokens,_that.inputTokens,_that.outputTokens,_that.errorCount,_that.hasError,_that.avgDurationMs,_that.p95DurationMs,_that.errorRatePct,_that.totalCost,_that.toolCallCount,_that.llmCallCount,_that.uniqueSessions,_that.isRoot,_that.isLeaf,_that.isUserEntryPoint);case _:
+return $default(_that.id,_that.type,_that.label,_that.description,_that.executionCount,_that.totalTokens,_that.inputTokens,_that.outputTokens,_that.errorCount,_that.hasError,_that.avgDurationMs,_that.p95DurationMs,_that.errorRatePct,_that.totalCost,_that.toolCallCount,_that.llmCallCount,_that.uniqueSessions,_that.isRoot,_that.isLeaf,_that.isUserEntryPoint,_that.isUserNode,_that.childNodeIds,_that.isExpanded,_that.depth,_that.downstreamTotalTokens,_that.downstreamTotalCost,_that.downstreamToolCallCount,_that.downstreamLlmCallCount);case _:
   return orElse();
 
 }
@@ -193,10 +204,10 @@ return $default(_that.id,_that.type,_that.label,_that.description,_that.executio
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String type,  String? label,  String? description, @JsonKey(name: 'execution_count')  int executionCount, @JsonKey(name: 'total_tokens')  int totalTokens, @JsonKey(name: 'input_tokens')  int inputTokens, @JsonKey(name: 'output_tokens')  int outputTokens, @JsonKey(name: 'error_count')  int errorCount, @JsonKey(name: 'has_error')  bool hasError, @JsonKey(name: 'avg_duration_ms')  double avgDurationMs, @JsonKey(name: 'p95_duration_ms')  double p95DurationMs, @JsonKey(name: 'error_rate_pct')  double errorRatePct, @JsonKey(name: 'total_cost')  double? totalCost, @JsonKey(name: 'tool_call_count')  int toolCallCount, @JsonKey(name: 'llm_call_count')  int llmCallCount, @JsonKey(name: 'unique_sessions')  int uniqueSessions, @JsonKey(name: 'is_root')  bool isRoot, @JsonKey(name: 'is_leaf')  bool isLeaf, @JsonKey(name: 'is_user_entry_point')  bool isUserEntryPoint)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String type,  String? label,  String? description, @JsonKey(name: 'execution_count')  int executionCount, @JsonKey(name: 'total_tokens')  int totalTokens, @JsonKey(name: 'input_tokens')  int inputTokens, @JsonKey(name: 'output_tokens')  int outputTokens, @JsonKey(name: 'error_count')  int errorCount, @JsonKey(name: 'has_error')  bool hasError, @JsonKey(name: 'avg_duration_ms')  double avgDurationMs, @JsonKey(name: 'p95_duration_ms')  double p95DurationMs, @JsonKey(name: 'error_rate_pct')  double errorRatePct, @JsonKey(name: 'total_cost')  double? totalCost, @JsonKey(name: 'tool_call_count')  int toolCallCount, @JsonKey(name: 'llm_call_count')  int llmCallCount, @JsonKey(name: 'unique_sessions')  int uniqueSessions, @JsonKey(name: 'is_root')  bool isRoot, @JsonKey(name: 'is_leaf')  bool isLeaf, @JsonKey(name: 'is_user_entry_point')  bool isUserEntryPoint, @JsonKey(name: 'is_user_node')  bool isUserNode, @JsonKey(name: 'child_node_ids')  List<String> childNodeIds, @JsonKey(includeFromJson: false, includeToJson: false)  bool isExpanded, @JsonKey(name: 'depth')  int depth, @JsonKey(name: 'downstream_total_tokens')  int downstreamTotalTokens, @JsonKey(name: 'downstream_total_cost')  double? downstreamTotalCost, @JsonKey(name: 'downstream_tool_call_count')  int downstreamToolCallCount, @JsonKey(name: 'downstream_llm_call_count')  int downstreamLlmCallCount)  $default,) {final _that = this;
 switch (_that) {
 case _MultiTraceNode():
-return $default(_that.id,_that.type,_that.label,_that.description,_that.executionCount,_that.totalTokens,_that.inputTokens,_that.outputTokens,_that.errorCount,_that.hasError,_that.avgDurationMs,_that.p95DurationMs,_that.errorRatePct,_that.totalCost,_that.toolCallCount,_that.llmCallCount,_that.uniqueSessions,_that.isRoot,_that.isLeaf,_that.isUserEntryPoint);case _:
+return $default(_that.id,_that.type,_that.label,_that.description,_that.executionCount,_that.totalTokens,_that.inputTokens,_that.outputTokens,_that.errorCount,_that.hasError,_that.avgDurationMs,_that.p95DurationMs,_that.errorRatePct,_that.totalCost,_that.toolCallCount,_that.llmCallCount,_that.uniqueSessions,_that.isRoot,_that.isLeaf,_that.isUserEntryPoint,_that.isUserNode,_that.childNodeIds,_that.isExpanded,_that.depth,_that.downstreamTotalTokens,_that.downstreamTotalCost,_that.downstreamToolCallCount,_that.downstreamLlmCallCount);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -213,10 +224,10 @@ return $default(_that.id,_that.type,_that.label,_that.description,_that.executio
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String type,  String? label,  String? description, @JsonKey(name: 'execution_count')  int executionCount, @JsonKey(name: 'total_tokens')  int totalTokens, @JsonKey(name: 'input_tokens')  int inputTokens, @JsonKey(name: 'output_tokens')  int outputTokens, @JsonKey(name: 'error_count')  int errorCount, @JsonKey(name: 'has_error')  bool hasError, @JsonKey(name: 'avg_duration_ms')  double avgDurationMs, @JsonKey(name: 'p95_duration_ms')  double p95DurationMs, @JsonKey(name: 'error_rate_pct')  double errorRatePct, @JsonKey(name: 'total_cost')  double? totalCost, @JsonKey(name: 'tool_call_count')  int toolCallCount, @JsonKey(name: 'llm_call_count')  int llmCallCount, @JsonKey(name: 'unique_sessions')  int uniqueSessions, @JsonKey(name: 'is_root')  bool isRoot, @JsonKey(name: 'is_leaf')  bool isLeaf, @JsonKey(name: 'is_user_entry_point')  bool isUserEntryPoint)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String type,  String? label,  String? description, @JsonKey(name: 'execution_count')  int executionCount, @JsonKey(name: 'total_tokens')  int totalTokens, @JsonKey(name: 'input_tokens')  int inputTokens, @JsonKey(name: 'output_tokens')  int outputTokens, @JsonKey(name: 'error_count')  int errorCount, @JsonKey(name: 'has_error')  bool hasError, @JsonKey(name: 'avg_duration_ms')  double avgDurationMs, @JsonKey(name: 'p95_duration_ms')  double p95DurationMs, @JsonKey(name: 'error_rate_pct')  double errorRatePct, @JsonKey(name: 'total_cost')  double? totalCost, @JsonKey(name: 'tool_call_count')  int toolCallCount, @JsonKey(name: 'llm_call_count')  int llmCallCount, @JsonKey(name: 'unique_sessions')  int uniqueSessions, @JsonKey(name: 'is_root')  bool isRoot, @JsonKey(name: 'is_leaf')  bool isLeaf, @JsonKey(name: 'is_user_entry_point')  bool isUserEntryPoint, @JsonKey(name: 'is_user_node')  bool isUserNode, @JsonKey(name: 'child_node_ids')  List<String> childNodeIds, @JsonKey(includeFromJson: false, includeToJson: false)  bool isExpanded, @JsonKey(name: 'depth')  int depth, @JsonKey(name: 'downstream_total_tokens')  int downstreamTotalTokens, @JsonKey(name: 'downstream_total_cost')  double? downstreamTotalCost, @JsonKey(name: 'downstream_tool_call_count')  int downstreamToolCallCount, @JsonKey(name: 'downstream_llm_call_count')  int downstreamLlmCallCount)?  $default,) {final _that = this;
 switch (_that) {
 case _MultiTraceNode() when $default != null:
-return $default(_that.id,_that.type,_that.label,_that.description,_that.executionCount,_that.totalTokens,_that.inputTokens,_that.outputTokens,_that.errorCount,_that.hasError,_that.avgDurationMs,_that.p95DurationMs,_that.errorRatePct,_that.totalCost,_that.toolCallCount,_that.llmCallCount,_that.uniqueSessions,_that.isRoot,_that.isLeaf,_that.isUserEntryPoint);case _:
+return $default(_that.id,_that.type,_that.label,_that.description,_that.executionCount,_that.totalTokens,_that.inputTokens,_that.outputTokens,_that.errorCount,_that.hasError,_that.avgDurationMs,_that.p95DurationMs,_that.errorRatePct,_that.totalCost,_that.toolCallCount,_that.llmCallCount,_that.uniqueSessions,_that.isRoot,_that.isLeaf,_that.isUserEntryPoint,_that.isUserNode,_that.childNodeIds,_that.isExpanded,_that.depth,_that.downstreamTotalTokens,_that.downstreamTotalCost,_that.downstreamToolCallCount,_that.downstreamLlmCallCount);case _:
   return null;
 
 }
@@ -228,7 +239,7 @@ return $default(_that.id,_that.type,_that.label,_that.description,_that.executio
 @JsonSerializable()
 
 class _MultiTraceNode implements MultiTraceNode {
-  const _MultiTraceNode({required this.id, required this.type, this.label, this.description, @JsonKey(name: 'execution_count') this.executionCount = 0, @JsonKey(name: 'total_tokens') this.totalTokens = 0, @JsonKey(name: 'input_tokens') this.inputTokens = 0, @JsonKey(name: 'output_tokens') this.outputTokens = 0, @JsonKey(name: 'error_count') this.errorCount = 0, @JsonKey(name: 'has_error') this.hasError = false, @JsonKey(name: 'avg_duration_ms') this.avgDurationMs = 0.0, @JsonKey(name: 'p95_duration_ms') this.p95DurationMs = 0.0, @JsonKey(name: 'error_rate_pct') this.errorRatePct = 0.0, @JsonKey(name: 'total_cost') this.totalCost, @JsonKey(name: 'tool_call_count') this.toolCallCount = 0, @JsonKey(name: 'llm_call_count') this.llmCallCount = 0, @JsonKey(name: 'unique_sessions') this.uniqueSessions = 0, @JsonKey(name: 'is_root') this.isRoot = false, @JsonKey(name: 'is_leaf') this.isLeaf = false, @JsonKey(name: 'is_user_entry_point') this.isUserEntryPoint = false});
+  const _MultiTraceNode({required this.id, required this.type, this.label, this.description, @JsonKey(name: 'execution_count') this.executionCount = 0, @JsonKey(name: 'total_tokens') this.totalTokens = 0, @JsonKey(name: 'input_tokens') this.inputTokens = 0, @JsonKey(name: 'output_tokens') this.outputTokens = 0, @JsonKey(name: 'error_count') this.errorCount = 0, @JsonKey(name: 'has_error') this.hasError = false, @JsonKey(name: 'avg_duration_ms') this.avgDurationMs = 0.0, @JsonKey(name: 'p95_duration_ms') this.p95DurationMs = 0.0, @JsonKey(name: 'error_rate_pct') this.errorRatePct = 0.0, @JsonKey(name: 'total_cost') this.totalCost, @JsonKey(name: 'tool_call_count') this.toolCallCount = 0, @JsonKey(name: 'llm_call_count') this.llmCallCount = 0, @JsonKey(name: 'unique_sessions') this.uniqueSessions = 0, @JsonKey(name: 'is_root') this.isRoot = false, @JsonKey(name: 'is_leaf') this.isLeaf = false, @JsonKey(name: 'is_user_entry_point') this.isUserEntryPoint = false, @JsonKey(name: 'is_user_node') this.isUserNode = false, @JsonKey(name: 'child_node_ids') final  List<String> childNodeIds = const [], @JsonKey(includeFromJson: false, includeToJson: false) this.isExpanded = true, @JsonKey(name: 'depth') this.depth = 0, @JsonKey(name: 'downstream_total_tokens') this.downstreamTotalTokens = 0, @JsonKey(name: 'downstream_total_cost') this.downstreamTotalCost, @JsonKey(name: 'downstream_tool_call_count') this.downstreamToolCallCount = 0, @JsonKey(name: 'downstream_llm_call_count') this.downstreamLlmCallCount = 0}): _childNodeIds = childNodeIds;
   factory _MultiTraceNode.fromJson(Map<String, dynamic> json) => _$MultiTraceNodeFromJson(json);
 
 @override final  String id;
@@ -251,6 +262,24 @@ class _MultiTraceNode implements MultiTraceNode {
 @override@JsonKey(name: 'is_root') final  bool isRoot;
 @override@JsonKey(name: 'is_leaf') final  bool isLeaf;
 @override@JsonKey(name: 'is_user_entry_point') final  bool isUserEntryPoint;
+// User node flag
+@override@JsonKey(name: 'is_user_node') final  bool isUserNode;
+// Tree/DAG hierarchy support
+ final  List<String> _childNodeIds;
+// Tree/DAG hierarchy support
+@override@JsonKey(name: 'child_node_ids') List<String> get childNodeIds {
+  if (_childNodeIds is EqualUnmodifiableListView) return _childNodeIds;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_childNodeIds);
+}
+
+@override@JsonKey(includeFromJson: false, includeToJson: false) final  bool isExpanded;
+@override@JsonKey(name: 'depth') final  int depth;
+// Hierarchical rollup metrics (includes all downstream descendants)
+@override@JsonKey(name: 'downstream_total_tokens') final  int downstreamTotalTokens;
+@override@JsonKey(name: 'downstream_total_cost') final  double? downstreamTotalCost;
+@override@JsonKey(name: 'downstream_tool_call_count') final  int downstreamToolCallCount;
+@override@JsonKey(name: 'downstream_llm_call_count') final  int downstreamLlmCallCount;
 
 /// Create a copy of MultiTraceNode
 /// with the given fields replaced by the non-null parameter values.
@@ -265,16 +294,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _MultiTraceNode&&(identical(other.id, id) || other.id == id)&&(identical(other.type, type) || other.type == type)&&(identical(other.label, label) || other.label == label)&&(identical(other.description, description) || other.description == description)&&(identical(other.executionCount, executionCount) || other.executionCount == executionCount)&&(identical(other.totalTokens, totalTokens) || other.totalTokens == totalTokens)&&(identical(other.inputTokens, inputTokens) || other.inputTokens == inputTokens)&&(identical(other.outputTokens, outputTokens) || other.outputTokens == outputTokens)&&(identical(other.errorCount, errorCount) || other.errorCount == errorCount)&&(identical(other.hasError, hasError) || other.hasError == hasError)&&(identical(other.avgDurationMs, avgDurationMs) || other.avgDurationMs == avgDurationMs)&&(identical(other.p95DurationMs, p95DurationMs) || other.p95DurationMs == p95DurationMs)&&(identical(other.errorRatePct, errorRatePct) || other.errorRatePct == errorRatePct)&&(identical(other.totalCost, totalCost) || other.totalCost == totalCost)&&(identical(other.toolCallCount, toolCallCount) || other.toolCallCount == toolCallCount)&&(identical(other.llmCallCount, llmCallCount) || other.llmCallCount == llmCallCount)&&(identical(other.uniqueSessions, uniqueSessions) || other.uniqueSessions == uniqueSessions)&&(identical(other.isRoot, isRoot) || other.isRoot == isRoot)&&(identical(other.isLeaf, isLeaf) || other.isLeaf == isLeaf)&&(identical(other.isUserEntryPoint, isUserEntryPoint) || other.isUserEntryPoint == isUserEntryPoint));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _MultiTraceNode&&(identical(other.id, id) || other.id == id)&&(identical(other.type, type) || other.type == type)&&(identical(other.label, label) || other.label == label)&&(identical(other.description, description) || other.description == description)&&(identical(other.executionCount, executionCount) || other.executionCount == executionCount)&&(identical(other.totalTokens, totalTokens) || other.totalTokens == totalTokens)&&(identical(other.inputTokens, inputTokens) || other.inputTokens == inputTokens)&&(identical(other.outputTokens, outputTokens) || other.outputTokens == outputTokens)&&(identical(other.errorCount, errorCount) || other.errorCount == errorCount)&&(identical(other.hasError, hasError) || other.hasError == hasError)&&(identical(other.avgDurationMs, avgDurationMs) || other.avgDurationMs == avgDurationMs)&&(identical(other.p95DurationMs, p95DurationMs) || other.p95DurationMs == p95DurationMs)&&(identical(other.errorRatePct, errorRatePct) || other.errorRatePct == errorRatePct)&&(identical(other.totalCost, totalCost) || other.totalCost == totalCost)&&(identical(other.toolCallCount, toolCallCount) || other.toolCallCount == toolCallCount)&&(identical(other.llmCallCount, llmCallCount) || other.llmCallCount == llmCallCount)&&(identical(other.uniqueSessions, uniqueSessions) || other.uniqueSessions == uniqueSessions)&&(identical(other.isRoot, isRoot) || other.isRoot == isRoot)&&(identical(other.isLeaf, isLeaf) || other.isLeaf == isLeaf)&&(identical(other.isUserEntryPoint, isUserEntryPoint) || other.isUserEntryPoint == isUserEntryPoint)&&(identical(other.isUserNode, isUserNode) || other.isUserNode == isUserNode)&&const DeepCollectionEquality().equals(other._childNodeIds, _childNodeIds)&&(identical(other.isExpanded, isExpanded) || other.isExpanded == isExpanded)&&(identical(other.depth, depth) || other.depth == depth)&&(identical(other.downstreamTotalTokens, downstreamTotalTokens) || other.downstreamTotalTokens == downstreamTotalTokens)&&(identical(other.downstreamTotalCost, downstreamTotalCost) || other.downstreamTotalCost == downstreamTotalCost)&&(identical(other.downstreamToolCallCount, downstreamToolCallCount) || other.downstreamToolCallCount == downstreamToolCallCount)&&(identical(other.downstreamLlmCallCount, downstreamLlmCallCount) || other.downstreamLlmCallCount == downstreamLlmCallCount));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hashAll([runtimeType,id,type,label,description,executionCount,totalTokens,inputTokens,outputTokens,errorCount,hasError,avgDurationMs,p95DurationMs,errorRatePct,totalCost,toolCallCount,llmCallCount,uniqueSessions,isRoot,isLeaf,isUserEntryPoint]);
+int get hashCode => Object.hashAll([runtimeType,id,type,label,description,executionCount,totalTokens,inputTokens,outputTokens,errorCount,hasError,avgDurationMs,p95DurationMs,errorRatePct,totalCost,toolCallCount,llmCallCount,uniqueSessions,isRoot,isLeaf,isUserEntryPoint,isUserNode,const DeepCollectionEquality().hash(_childNodeIds),isExpanded,depth,downstreamTotalTokens,downstreamTotalCost,downstreamToolCallCount,downstreamLlmCallCount]);
 
 @override
 String toString() {
-  return 'MultiTraceNode(id: $id, type: $type, label: $label, description: $description, executionCount: $executionCount, totalTokens: $totalTokens, inputTokens: $inputTokens, outputTokens: $outputTokens, errorCount: $errorCount, hasError: $hasError, avgDurationMs: $avgDurationMs, p95DurationMs: $p95DurationMs, errorRatePct: $errorRatePct, totalCost: $totalCost, toolCallCount: $toolCallCount, llmCallCount: $llmCallCount, uniqueSessions: $uniqueSessions, isRoot: $isRoot, isLeaf: $isLeaf, isUserEntryPoint: $isUserEntryPoint)';
+  return 'MultiTraceNode(id: $id, type: $type, label: $label, description: $description, executionCount: $executionCount, totalTokens: $totalTokens, inputTokens: $inputTokens, outputTokens: $outputTokens, errorCount: $errorCount, hasError: $hasError, avgDurationMs: $avgDurationMs, p95DurationMs: $p95DurationMs, errorRatePct: $errorRatePct, totalCost: $totalCost, toolCallCount: $toolCallCount, llmCallCount: $llmCallCount, uniqueSessions: $uniqueSessions, isRoot: $isRoot, isLeaf: $isLeaf, isUserEntryPoint: $isUserEntryPoint, isUserNode: $isUserNode, childNodeIds: $childNodeIds, isExpanded: $isExpanded, depth: $depth, downstreamTotalTokens: $downstreamTotalTokens, downstreamTotalCost: $downstreamTotalCost, downstreamToolCallCount: $downstreamToolCallCount, downstreamLlmCallCount: $downstreamLlmCallCount)';
 }
 
 
@@ -285,7 +314,7 @@ abstract mixin class _$MultiTraceNodeCopyWith<$Res> implements $MultiTraceNodeCo
   factory _$MultiTraceNodeCopyWith(_MultiTraceNode value, $Res Function(_MultiTraceNode) _then) = __$MultiTraceNodeCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String type, String? label, String? description,@JsonKey(name: 'execution_count') int executionCount,@JsonKey(name: 'total_tokens') int totalTokens,@JsonKey(name: 'input_tokens') int inputTokens,@JsonKey(name: 'output_tokens') int outputTokens,@JsonKey(name: 'error_count') int errorCount,@JsonKey(name: 'has_error') bool hasError,@JsonKey(name: 'avg_duration_ms') double avgDurationMs,@JsonKey(name: 'p95_duration_ms') double p95DurationMs,@JsonKey(name: 'error_rate_pct') double errorRatePct,@JsonKey(name: 'total_cost') double? totalCost,@JsonKey(name: 'tool_call_count') int toolCallCount,@JsonKey(name: 'llm_call_count') int llmCallCount,@JsonKey(name: 'unique_sessions') int uniqueSessions,@JsonKey(name: 'is_root') bool isRoot,@JsonKey(name: 'is_leaf') bool isLeaf,@JsonKey(name: 'is_user_entry_point') bool isUserEntryPoint
+ String id, String type, String? label, String? description,@JsonKey(name: 'execution_count') int executionCount,@JsonKey(name: 'total_tokens') int totalTokens,@JsonKey(name: 'input_tokens') int inputTokens,@JsonKey(name: 'output_tokens') int outputTokens,@JsonKey(name: 'error_count') int errorCount,@JsonKey(name: 'has_error') bool hasError,@JsonKey(name: 'avg_duration_ms') double avgDurationMs,@JsonKey(name: 'p95_duration_ms') double p95DurationMs,@JsonKey(name: 'error_rate_pct') double errorRatePct,@JsonKey(name: 'total_cost') double? totalCost,@JsonKey(name: 'tool_call_count') int toolCallCount,@JsonKey(name: 'llm_call_count') int llmCallCount,@JsonKey(name: 'unique_sessions') int uniqueSessions,@JsonKey(name: 'is_root') bool isRoot,@JsonKey(name: 'is_leaf') bool isLeaf,@JsonKey(name: 'is_user_entry_point') bool isUserEntryPoint,@JsonKey(name: 'is_user_node') bool isUserNode,@JsonKey(name: 'child_node_ids') List<String> childNodeIds,@JsonKey(includeFromJson: false, includeToJson: false) bool isExpanded,@JsonKey(name: 'depth') int depth,@JsonKey(name: 'downstream_total_tokens') int downstreamTotalTokens,@JsonKey(name: 'downstream_total_cost') double? downstreamTotalCost,@JsonKey(name: 'downstream_tool_call_count') int downstreamToolCallCount,@JsonKey(name: 'downstream_llm_call_count') int downstreamLlmCallCount
 });
 
 
@@ -302,7 +331,7 @@ class __$MultiTraceNodeCopyWithImpl<$Res>
 
 /// Create a copy of MultiTraceNode
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? type = null,Object? label = freezed,Object? description = freezed,Object? executionCount = null,Object? totalTokens = null,Object? inputTokens = null,Object? outputTokens = null,Object? errorCount = null,Object? hasError = null,Object? avgDurationMs = null,Object? p95DurationMs = null,Object? errorRatePct = null,Object? totalCost = freezed,Object? toolCallCount = null,Object? llmCallCount = null,Object? uniqueSessions = null,Object? isRoot = null,Object? isLeaf = null,Object? isUserEntryPoint = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? type = null,Object? label = freezed,Object? description = freezed,Object? executionCount = null,Object? totalTokens = null,Object? inputTokens = null,Object? outputTokens = null,Object? errorCount = null,Object? hasError = null,Object? avgDurationMs = null,Object? p95DurationMs = null,Object? errorRatePct = null,Object? totalCost = freezed,Object? toolCallCount = null,Object? llmCallCount = null,Object? uniqueSessions = null,Object? isRoot = null,Object? isLeaf = null,Object? isUserEntryPoint = null,Object? isUserNode = null,Object? childNodeIds = null,Object? isExpanded = null,Object? depth = null,Object? downstreamTotalTokens = null,Object? downstreamTotalCost = freezed,Object? downstreamToolCallCount = null,Object? downstreamLlmCallCount = null,}) {
   return _then(_MultiTraceNode(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,type: null == type ? _self.type : type // ignore: cast_nullable_to_non_nullable
@@ -324,7 +353,15 @@ as int,uniqueSessions: null == uniqueSessions ? _self.uniqueSessions : uniqueSes
 as int,isRoot: null == isRoot ? _self.isRoot : isRoot // ignore: cast_nullable_to_non_nullable
 as bool,isLeaf: null == isLeaf ? _self.isLeaf : isLeaf // ignore: cast_nullable_to_non_nullable
 as bool,isUserEntryPoint: null == isUserEntryPoint ? _self.isUserEntryPoint : isUserEntryPoint // ignore: cast_nullable_to_non_nullable
-as bool,
+as bool,isUserNode: null == isUserNode ? _self.isUserNode : isUserNode // ignore: cast_nullable_to_non_nullable
+as bool,childNodeIds: null == childNodeIds ? _self._childNodeIds : childNodeIds // ignore: cast_nullable_to_non_nullable
+as List<String>,isExpanded: null == isExpanded ? _self.isExpanded : isExpanded // ignore: cast_nullable_to_non_nullable
+as bool,depth: null == depth ? _self.depth : depth // ignore: cast_nullable_to_non_nullable
+as int,downstreamTotalTokens: null == downstreamTotalTokens ? _self.downstreamTotalTokens : downstreamTotalTokens // ignore: cast_nullable_to_non_nullable
+as int,downstreamTotalCost: freezed == downstreamTotalCost ? _self.downstreamTotalCost : downstreamTotalCost // ignore: cast_nullable_to_non_nullable
+as double?,downstreamToolCallCount: null == downstreamToolCallCount ? _self.downstreamToolCallCount : downstreamToolCallCount // ignore: cast_nullable_to_non_nullable
+as int,downstreamLlmCallCount: null == downstreamLlmCallCount ? _self.downstreamLlmCallCount : downstreamLlmCallCount // ignore: cast_nullable_to_non_nullable
+as int,
   ));
 }
 
@@ -335,7 +372,9 @@ as bool,
 /// @nodoc
 mixin _$MultiTraceEdge {
 
-@JsonKey(name: 'source_id') String get sourceId;@JsonKey(name: 'target_id') String get targetId;@JsonKey(name: 'source_type') String get sourceType;@JsonKey(name: 'target_type') String get targetType;@JsonKey(name: 'call_count') int get callCount;@JsonKey(name: 'error_count') int get errorCount;@JsonKey(name: 'error_rate_pct') double get errorRatePct;@JsonKey(name: 'sample_error') String? get sampleError;@JsonKey(name: 'total_tokens') int get edgeTokens;@JsonKey(name: 'input_tokens') int get inputTokens;@JsonKey(name: 'output_tokens') int get outputTokens;@JsonKey(name: 'avg_tokens_per_call') int get avgTokensPerCall;@JsonKey(name: 'avg_duration_ms') double get avgDurationMs;@JsonKey(name: 'p95_duration_ms') double get p95DurationMs;@JsonKey(name: 'unique_sessions') int get uniqueSessions;@JsonKey(name: 'total_cost') double? get totalCost;
+@JsonKey(name: 'source_id') String get sourceId;@JsonKey(name: 'target_id') String get targetId;@JsonKey(name: 'source_type') String get sourceType;@JsonKey(name: 'target_type') String get targetType;@JsonKey(name: 'call_count') int get callCount;@JsonKey(name: 'error_count') int get errorCount;@JsonKey(name: 'error_rate_pct') double get errorRatePct;@JsonKey(name: 'sample_error') String? get sampleError;@JsonKey(name: 'total_tokens') int get edgeTokens;@JsonKey(name: 'input_tokens') int get inputTokens;@JsonKey(name: 'output_tokens') int get outputTokens;@JsonKey(name: 'avg_tokens_per_call') int get avgTokensPerCall;@JsonKey(name: 'avg_duration_ms') double get avgDurationMs;@JsonKey(name: 'p95_duration_ms') double get p95DurationMs;@JsonKey(name: 'unique_sessions') int get uniqueSessions;@JsonKey(name: 'total_cost') double? get totalCost;// Back-edge detection (for cycle rendering)
+@JsonKey(name: 'is_back_edge') bool get isBackEdge;// Normalized flow weight (0.0 to 1.0) for animation speed
+@JsonKey(name: 'flow_weight') double get flowWeight;
 /// Create a copy of MultiTraceEdge
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -348,16 +387,16 @@ $MultiTraceEdgeCopyWith<MultiTraceEdge> get copyWith => _$MultiTraceEdgeCopyWith
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is MultiTraceEdge&&(identical(other.sourceId, sourceId) || other.sourceId == sourceId)&&(identical(other.targetId, targetId) || other.targetId == targetId)&&(identical(other.sourceType, sourceType) || other.sourceType == sourceType)&&(identical(other.targetType, targetType) || other.targetType == targetType)&&(identical(other.callCount, callCount) || other.callCount == callCount)&&(identical(other.errorCount, errorCount) || other.errorCount == errorCount)&&(identical(other.errorRatePct, errorRatePct) || other.errorRatePct == errorRatePct)&&(identical(other.sampleError, sampleError) || other.sampleError == sampleError)&&(identical(other.edgeTokens, edgeTokens) || other.edgeTokens == edgeTokens)&&(identical(other.inputTokens, inputTokens) || other.inputTokens == inputTokens)&&(identical(other.outputTokens, outputTokens) || other.outputTokens == outputTokens)&&(identical(other.avgTokensPerCall, avgTokensPerCall) || other.avgTokensPerCall == avgTokensPerCall)&&(identical(other.avgDurationMs, avgDurationMs) || other.avgDurationMs == avgDurationMs)&&(identical(other.p95DurationMs, p95DurationMs) || other.p95DurationMs == p95DurationMs)&&(identical(other.uniqueSessions, uniqueSessions) || other.uniqueSessions == uniqueSessions)&&(identical(other.totalCost, totalCost) || other.totalCost == totalCost));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is MultiTraceEdge&&(identical(other.sourceId, sourceId) || other.sourceId == sourceId)&&(identical(other.targetId, targetId) || other.targetId == targetId)&&(identical(other.sourceType, sourceType) || other.sourceType == sourceType)&&(identical(other.targetType, targetType) || other.targetType == targetType)&&(identical(other.callCount, callCount) || other.callCount == callCount)&&(identical(other.errorCount, errorCount) || other.errorCount == errorCount)&&(identical(other.errorRatePct, errorRatePct) || other.errorRatePct == errorRatePct)&&(identical(other.sampleError, sampleError) || other.sampleError == sampleError)&&(identical(other.edgeTokens, edgeTokens) || other.edgeTokens == edgeTokens)&&(identical(other.inputTokens, inputTokens) || other.inputTokens == inputTokens)&&(identical(other.outputTokens, outputTokens) || other.outputTokens == outputTokens)&&(identical(other.avgTokensPerCall, avgTokensPerCall) || other.avgTokensPerCall == avgTokensPerCall)&&(identical(other.avgDurationMs, avgDurationMs) || other.avgDurationMs == avgDurationMs)&&(identical(other.p95DurationMs, p95DurationMs) || other.p95DurationMs == p95DurationMs)&&(identical(other.uniqueSessions, uniqueSessions) || other.uniqueSessions == uniqueSessions)&&(identical(other.totalCost, totalCost) || other.totalCost == totalCost)&&(identical(other.isBackEdge, isBackEdge) || other.isBackEdge == isBackEdge)&&(identical(other.flowWeight, flowWeight) || other.flowWeight == flowWeight));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,sourceId,targetId,sourceType,targetType,callCount,errorCount,errorRatePct,sampleError,edgeTokens,inputTokens,outputTokens,avgTokensPerCall,avgDurationMs,p95DurationMs,uniqueSessions,totalCost);
+int get hashCode => Object.hash(runtimeType,sourceId,targetId,sourceType,targetType,callCount,errorCount,errorRatePct,sampleError,edgeTokens,inputTokens,outputTokens,avgTokensPerCall,avgDurationMs,p95DurationMs,uniqueSessions,totalCost,isBackEdge,flowWeight);
 
 @override
 String toString() {
-  return 'MultiTraceEdge(sourceId: $sourceId, targetId: $targetId, sourceType: $sourceType, targetType: $targetType, callCount: $callCount, errorCount: $errorCount, errorRatePct: $errorRatePct, sampleError: $sampleError, edgeTokens: $edgeTokens, inputTokens: $inputTokens, outputTokens: $outputTokens, avgTokensPerCall: $avgTokensPerCall, avgDurationMs: $avgDurationMs, p95DurationMs: $p95DurationMs, uniqueSessions: $uniqueSessions, totalCost: $totalCost)';
+  return 'MultiTraceEdge(sourceId: $sourceId, targetId: $targetId, sourceType: $sourceType, targetType: $targetType, callCount: $callCount, errorCount: $errorCount, errorRatePct: $errorRatePct, sampleError: $sampleError, edgeTokens: $edgeTokens, inputTokens: $inputTokens, outputTokens: $outputTokens, avgTokensPerCall: $avgTokensPerCall, avgDurationMs: $avgDurationMs, p95DurationMs: $p95DurationMs, uniqueSessions: $uniqueSessions, totalCost: $totalCost, isBackEdge: $isBackEdge, flowWeight: $flowWeight)';
 }
 
 
@@ -368,7 +407,7 @@ abstract mixin class $MultiTraceEdgeCopyWith<$Res>  {
   factory $MultiTraceEdgeCopyWith(MultiTraceEdge value, $Res Function(MultiTraceEdge) _then) = _$MultiTraceEdgeCopyWithImpl;
 @useResult
 $Res call({
-@JsonKey(name: 'source_id') String sourceId,@JsonKey(name: 'target_id') String targetId,@JsonKey(name: 'source_type') String sourceType,@JsonKey(name: 'target_type') String targetType,@JsonKey(name: 'call_count') int callCount,@JsonKey(name: 'error_count') int errorCount,@JsonKey(name: 'error_rate_pct') double errorRatePct,@JsonKey(name: 'sample_error') String? sampleError,@JsonKey(name: 'total_tokens') int edgeTokens,@JsonKey(name: 'input_tokens') int inputTokens,@JsonKey(name: 'output_tokens') int outputTokens,@JsonKey(name: 'avg_tokens_per_call') int avgTokensPerCall,@JsonKey(name: 'avg_duration_ms') double avgDurationMs,@JsonKey(name: 'p95_duration_ms') double p95DurationMs,@JsonKey(name: 'unique_sessions') int uniqueSessions,@JsonKey(name: 'total_cost') double? totalCost
+@JsonKey(name: 'source_id') String sourceId,@JsonKey(name: 'target_id') String targetId,@JsonKey(name: 'source_type') String sourceType,@JsonKey(name: 'target_type') String targetType,@JsonKey(name: 'call_count') int callCount,@JsonKey(name: 'error_count') int errorCount,@JsonKey(name: 'error_rate_pct') double errorRatePct,@JsonKey(name: 'sample_error') String? sampleError,@JsonKey(name: 'total_tokens') int edgeTokens,@JsonKey(name: 'input_tokens') int inputTokens,@JsonKey(name: 'output_tokens') int outputTokens,@JsonKey(name: 'avg_tokens_per_call') int avgTokensPerCall,@JsonKey(name: 'avg_duration_ms') double avgDurationMs,@JsonKey(name: 'p95_duration_ms') double p95DurationMs,@JsonKey(name: 'unique_sessions') int uniqueSessions,@JsonKey(name: 'total_cost') double? totalCost,@JsonKey(name: 'is_back_edge') bool isBackEdge,@JsonKey(name: 'flow_weight') double flowWeight
 });
 
 
@@ -385,7 +424,7 @@ class _$MultiTraceEdgeCopyWithImpl<$Res>
 
 /// Create a copy of MultiTraceEdge
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? sourceId = null,Object? targetId = null,Object? sourceType = null,Object? targetType = null,Object? callCount = null,Object? errorCount = null,Object? errorRatePct = null,Object? sampleError = freezed,Object? edgeTokens = null,Object? inputTokens = null,Object? outputTokens = null,Object? avgTokensPerCall = null,Object? avgDurationMs = null,Object? p95DurationMs = null,Object? uniqueSessions = null,Object? totalCost = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? sourceId = null,Object? targetId = null,Object? sourceType = null,Object? targetType = null,Object? callCount = null,Object? errorCount = null,Object? errorRatePct = null,Object? sampleError = freezed,Object? edgeTokens = null,Object? inputTokens = null,Object? outputTokens = null,Object? avgTokensPerCall = null,Object? avgDurationMs = null,Object? p95DurationMs = null,Object? uniqueSessions = null,Object? totalCost = freezed,Object? isBackEdge = null,Object? flowWeight = null,}) {
   return _then(_self.copyWith(
 sourceId: null == sourceId ? _self.sourceId : sourceId // ignore: cast_nullable_to_non_nullable
 as String,targetId: null == targetId ? _self.targetId : targetId // ignore: cast_nullable_to_non_nullable
@@ -403,7 +442,9 @@ as int,avgDurationMs: null == avgDurationMs ? _self.avgDurationMs : avgDurationM
 as double,p95DurationMs: null == p95DurationMs ? _self.p95DurationMs : p95DurationMs // ignore: cast_nullable_to_non_nullable
 as double,uniqueSessions: null == uniqueSessions ? _self.uniqueSessions : uniqueSessions // ignore: cast_nullable_to_non_nullable
 as int,totalCost: freezed == totalCost ? _self.totalCost : totalCost // ignore: cast_nullable_to_non_nullable
-as double?,
+as double?,isBackEdge: null == isBackEdge ? _self.isBackEdge : isBackEdge // ignore: cast_nullable_to_non_nullable
+as bool,flowWeight: null == flowWeight ? _self.flowWeight : flowWeight // ignore: cast_nullable_to_non_nullable
+as double,
   ));
 }
 
@@ -488,10 +529,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'source_id')  String sourceId, @JsonKey(name: 'target_id')  String targetId, @JsonKey(name: 'source_type')  String sourceType, @JsonKey(name: 'target_type')  String targetType, @JsonKey(name: 'call_count')  int callCount, @JsonKey(name: 'error_count')  int errorCount, @JsonKey(name: 'error_rate_pct')  double errorRatePct, @JsonKey(name: 'sample_error')  String? sampleError, @JsonKey(name: 'total_tokens')  int edgeTokens, @JsonKey(name: 'input_tokens')  int inputTokens, @JsonKey(name: 'output_tokens')  int outputTokens, @JsonKey(name: 'avg_tokens_per_call')  int avgTokensPerCall, @JsonKey(name: 'avg_duration_ms')  double avgDurationMs, @JsonKey(name: 'p95_duration_ms')  double p95DurationMs, @JsonKey(name: 'unique_sessions')  int uniqueSessions, @JsonKey(name: 'total_cost')  double? totalCost)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'source_id')  String sourceId, @JsonKey(name: 'target_id')  String targetId, @JsonKey(name: 'source_type')  String sourceType, @JsonKey(name: 'target_type')  String targetType, @JsonKey(name: 'call_count')  int callCount, @JsonKey(name: 'error_count')  int errorCount, @JsonKey(name: 'error_rate_pct')  double errorRatePct, @JsonKey(name: 'sample_error')  String? sampleError, @JsonKey(name: 'total_tokens')  int edgeTokens, @JsonKey(name: 'input_tokens')  int inputTokens, @JsonKey(name: 'output_tokens')  int outputTokens, @JsonKey(name: 'avg_tokens_per_call')  int avgTokensPerCall, @JsonKey(name: 'avg_duration_ms')  double avgDurationMs, @JsonKey(name: 'p95_duration_ms')  double p95DurationMs, @JsonKey(name: 'unique_sessions')  int uniqueSessions, @JsonKey(name: 'total_cost')  double? totalCost, @JsonKey(name: 'is_back_edge')  bool isBackEdge, @JsonKey(name: 'flow_weight')  double flowWeight)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _MultiTraceEdge() when $default != null:
-return $default(_that.sourceId,_that.targetId,_that.sourceType,_that.targetType,_that.callCount,_that.errorCount,_that.errorRatePct,_that.sampleError,_that.edgeTokens,_that.inputTokens,_that.outputTokens,_that.avgTokensPerCall,_that.avgDurationMs,_that.p95DurationMs,_that.uniqueSessions,_that.totalCost);case _:
+return $default(_that.sourceId,_that.targetId,_that.sourceType,_that.targetType,_that.callCount,_that.errorCount,_that.errorRatePct,_that.sampleError,_that.edgeTokens,_that.inputTokens,_that.outputTokens,_that.avgTokensPerCall,_that.avgDurationMs,_that.p95DurationMs,_that.uniqueSessions,_that.totalCost,_that.isBackEdge,_that.flowWeight);case _:
   return orElse();
 
 }
@@ -509,10 +550,10 @@ return $default(_that.sourceId,_that.targetId,_that.sourceType,_that.targetType,
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'source_id')  String sourceId, @JsonKey(name: 'target_id')  String targetId, @JsonKey(name: 'source_type')  String sourceType, @JsonKey(name: 'target_type')  String targetType, @JsonKey(name: 'call_count')  int callCount, @JsonKey(name: 'error_count')  int errorCount, @JsonKey(name: 'error_rate_pct')  double errorRatePct, @JsonKey(name: 'sample_error')  String? sampleError, @JsonKey(name: 'total_tokens')  int edgeTokens, @JsonKey(name: 'input_tokens')  int inputTokens, @JsonKey(name: 'output_tokens')  int outputTokens, @JsonKey(name: 'avg_tokens_per_call')  int avgTokensPerCall, @JsonKey(name: 'avg_duration_ms')  double avgDurationMs, @JsonKey(name: 'p95_duration_ms')  double p95DurationMs, @JsonKey(name: 'unique_sessions')  int uniqueSessions, @JsonKey(name: 'total_cost')  double? totalCost)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'source_id')  String sourceId, @JsonKey(name: 'target_id')  String targetId, @JsonKey(name: 'source_type')  String sourceType, @JsonKey(name: 'target_type')  String targetType, @JsonKey(name: 'call_count')  int callCount, @JsonKey(name: 'error_count')  int errorCount, @JsonKey(name: 'error_rate_pct')  double errorRatePct, @JsonKey(name: 'sample_error')  String? sampleError, @JsonKey(name: 'total_tokens')  int edgeTokens, @JsonKey(name: 'input_tokens')  int inputTokens, @JsonKey(name: 'output_tokens')  int outputTokens, @JsonKey(name: 'avg_tokens_per_call')  int avgTokensPerCall, @JsonKey(name: 'avg_duration_ms')  double avgDurationMs, @JsonKey(name: 'p95_duration_ms')  double p95DurationMs, @JsonKey(name: 'unique_sessions')  int uniqueSessions, @JsonKey(name: 'total_cost')  double? totalCost, @JsonKey(name: 'is_back_edge')  bool isBackEdge, @JsonKey(name: 'flow_weight')  double flowWeight)  $default,) {final _that = this;
 switch (_that) {
 case _MultiTraceEdge():
-return $default(_that.sourceId,_that.targetId,_that.sourceType,_that.targetType,_that.callCount,_that.errorCount,_that.errorRatePct,_that.sampleError,_that.edgeTokens,_that.inputTokens,_that.outputTokens,_that.avgTokensPerCall,_that.avgDurationMs,_that.p95DurationMs,_that.uniqueSessions,_that.totalCost);case _:
+return $default(_that.sourceId,_that.targetId,_that.sourceType,_that.targetType,_that.callCount,_that.errorCount,_that.errorRatePct,_that.sampleError,_that.edgeTokens,_that.inputTokens,_that.outputTokens,_that.avgTokensPerCall,_that.avgDurationMs,_that.p95DurationMs,_that.uniqueSessions,_that.totalCost,_that.isBackEdge,_that.flowWeight);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -529,10 +570,10 @@ return $default(_that.sourceId,_that.targetId,_that.sourceType,_that.targetType,
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'source_id')  String sourceId, @JsonKey(name: 'target_id')  String targetId, @JsonKey(name: 'source_type')  String sourceType, @JsonKey(name: 'target_type')  String targetType, @JsonKey(name: 'call_count')  int callCount, @JsonKey(name: 'error_count')  int errorCount, @JsonKey(name: 'error_rate_pct')  double errorRatePct, @JsonKey(name: 'sample_error')  String? sampleError, @JsonKey(name: 'total_tokens')  int edgeTokens, @JsonKey(name: 'input_tokens')  int inputTokens, @JsonKey(name: 'output_tokens')  int outputTokens, @JsonKey(name: 'avg_tokens_per_call')  int avgTokensPerCall, @JsonKey(name: 'avg_duration_ms')  double avgDurationMs, @JsonKey(name: 'p95_duration_ms')  double p95DurationMs, @JsonKey(name: 'unique_sessions')  int uniqueSessions, @JsonKey(name: 'total_cost')  double? totalCost)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'source_id')  String sourceId, @JsonKey(name: 'target_id')  String targetId, @JsonKey(name: 'source_type')  String sourceType, @JsonKey(name: 'target_type')  String targetType, @JsonKey(name: 'call_count')  int callCount, @JsonKey(name: 'error_count')  int errorCount, @JsonKey(name: 'error_rate_pct')  double errorRatePct, @JsonKey(name: 'sample_error')  String? sampleError, @JsonKey(name: 'total_tokens')  int edgeTokens, @JsonKey(name: 'input_tokens')  int inputTokens, @JsonKey(name: 'output_tokens')  int outputTokens, @JsonKey(name: 'avg_tokens_per_call')  int avgTokensPerCall, @JsonKey(name: 'avg_duration_ms')  double avgDurationMs, @JsonKey(name: 'p95_duration_ms')  double p95DurationMs, @JsonKey(name: 'unique_sessions')  int uniqueSessions, @JsonKey(name: 'total_cost')  double? totalCost, @JsonKey(name: 'is_back_edge')  bool isBackEdge, @JsonKey(name: 'flow_weight')  double flowWeight)?  $default,) {final _that = this;
 switch (_that) {
 case _MultiTraceEdge() when $default != null:
-return $default(_that.sourceId,_that.targetId,_that.sourceType,_that.targetType,_that.callCount,_that.errorCount,_that.errorRatePct,_that.sampleError,_that.edgeTokens,_that.inputTokens,_that.outputTokens,_that.avgTokensPerCall,_that.avgDurationMs,_that.p95DurationMs,_that.uniqueSessions,_that.totalCost);case _:
+return $default(_that.sourceId,_that.targetId,_that.sourceType,_that.targetType,_that.callCount,_that.errorCount,_that.errorRatePct,_that.sampleError,_that.edgeTokens,_that.inputTokens,_that.outputTokens,_that.avgTokensPerCall,_that.avgDurationMs,_that.p95DurationMs,_that.uniqueSessions,_that.totalCost,_that.isBackEdge,_that.flowWeight);case _:
   return null;
 
 }
@@ -544,7 +585,7 @@ return $default(_that.sourceId,_that.targetId,_that.sourceType,_that.targetType,
 @JsonSerializable()
 
 class _MultiTraceEdge implements MultiTraceEdge {
-  const _MultiTraceEdge({@JsonKey(name: 'source_id') required this.sourceId, @JsonKey(name: 'target_id') required this.targetId, @JsonKey(name: 'source_type') this.sourceType = '', @JsonKey(name: 'target_type') this.targetType = '', @JsonKey(name: 'call_count') this.callCount = 0, @JsonKey(name: 'error_count') this.errorCount = 0, @JsonKey(name: 'error_rate_pct') this.errorRatePct = 0.0, @JsonKey(name: 'sample_error') this.sampleError, @JsonKey(name: 'total_tokens') this.edgeTokens = 0, @JsonKey(name: 'input_tokens') this.inputTokens = 0, @JsonKey(name: 'output_tokens') this.outputTokens = 0, @JsonKey(name: 'avg_tokens_per_call') this.avgTokensPerCall = 0, @JsonKey(name: 'avg_duration_ms') this.avgDurationMs = 0.0, @JsonKey(name: 'p95_duration_ms') this.p95DurationMs = 0.0, @JsonKey(name: 'unique_sessions') this.uniqueSessions = 0, @JsonKey(name: 'total_cost') this.totalCost});
+  const _MultiTraceEdge({@JsonKey(name: 'source_id') required this.sourceId, @JsonKey(name: 'target_id') required this.targetId, @JsonKey(name: 'source_type') this.sourceType = '', @JsonKey(name: 'target_type') this.targetType = '', @JsonKey(name: 'call_count') this.callCount = 0, @JsonKey(name: 'error_count') this.errorCount = 0, @JsonKey(name: 'error_rate_pct') this.errorRatePct = 0.0, @JsonKey(name: 'sample_error') this.sampleError, @JsonKey(name: 'total_tokens') this.edgeTokens = 0, @JsonKey(name: 'input_tokens') this.inputTokens = 0, @JsonKey(name: 'output_tokens') this.outputTokens = 0, @JsonKey(name: 'avg_tokens_per_call') this.avgTokensPerCall = 0, @JsonKey(name: 'avg_duration_ms') this.avgDurationMs = 0.0, @JsonKey(name: 'p95_duration_ms') this.p95DurationMs = 0.0, @JsonKey(name: 'unique_sessions') this.uniqueSessions = 0, @JsonKey(name: 'total_cost') this.totalCost, @JsonKey(name: 'is_back_edge') this.isBackEdge = false, @JsonKey(name: 'flow_weight') this.flowWeight = 0.5});
   factory _MultiTraceEdge.fromJson(Map<String, dynamic> json) => _$MultiTraceEdgeFromJson(json);
 
 @override@JsonKey(name: 'source_id') final  String sourceId;
@@ -563,6 +604,10 @@ class _MultiTraceEdge implements MultiTraceEdge {
 @override@JsonKey(name: 'p95_duration_ms') final  double p95DurationMs;
 @override@JsonKey(name: 'unique_sessions') final  int uniqueSessions;
 @override@JsonKey(name: 'total_cost') final  double? totalCost;
+// Back-edge detection (for cycle rendering)
+@override@JsonKey(name: 'is_back_edge') final  bool isBackEdge;
+// Normalized flow weight (0.0 to 1.0) for animation speed
+@override@JsonKey(name: 'flow_weight') final  double flowWeight;
 
 /// Create a copy of MultiTraceEdge
 /// with the given fields replaced by the non-null parameter values.
@@ -577,16 +622,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _MultiTraceEdge&&(identical(other.sourceId, sourceId) || other.sourceId == sourceId)&&(identical(other.targetId, targetId) || other.targetId == targetId)&&(identical(other.sourceType, sourceType) || other.sourceType == sourceType)&&(identical(other.targetType, targetType) || other.targetType == targetType)&&(identical(other.callCount, callCount) || other.callCount == callCount)&&(identical(other.errorCount, errorCount) || other.errorCount == errorCount)&&(identical(other.errorRatePct, errorRatePct) || other.errorRatePct == errorRatePct)&&(identical(other.sampleError, sampleError) || other.sampleError == sampleError)&&(identical(other.edgeTokens, edgeTokens) || other.edgeTokens == edgeTokens)&&(identical(other.inputTokens, inputTokens) || other.inputTokens == inputTokens)&&(identical(other.outputTokens, outputTokens) || other.outputTokens == outputTokens)&&(identical(other.avgTokensPerCall, avgTokensPerCall) || other.avgTokensPerCall == avgTokensPerCall)&&(identical(other.avgDurationMs, avgDurationMs) || other.avgDurationMs == avgDurationMs)&&(identical(other.p95DurationMs, p95DurationMs) || other.p95DurationMs == p95DurationMs)&&(identical(other.uniqueSessions, uniqueSessions) || other.uniqueSessions == uniqueSessions)&&(identical(other.totalCost, totalCost) || other.totalCost == totalCost));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _MultiTraceEdge&&(identical(other.sourceId, sourceId) || other.sourceId == sourceId)&&(identical(other.targetId, targetId) || other.targetId == targetId)&&(identical(other.sourceType, sourceType) || other.sourceType == sourceType)&&(identical(other.targetType, targetType) || other.targetType == targetType)&&(identical(other.callCount, callCount) || other.callCount == callCount)&&(identical(other.errorCount, errorCount) || other.errorCount == errorCount)&&(identical(other.errorRatePct, errorRatePct) || other.errorRatePct == errorRatePct)&&(identical(other.sampleError, sampleError) || other.sampleError == sampleError)&&(identical(other.edgeTokens, edgeTokens) || other.edgeTokens == edgeTokens)&&(identical(other.inputTokens, inputTokens) || other.inputTokens == inputTokens)&&(identical(other.outputTokens, outputTokens) || other.outputTokens == outputTokens)&&(identical(other.avgTokensPerCall, avgTokensPerCall) || other.avgTokensPerCall == avgTokensPerCall)&&(identical(other.avgDurationMs, avgDurationMs) || other.avgDurationMs == avgDurationMs)&&(identical(other.p95DurationMs, p95DurationMs) || other.p95DurationMs == p95DurationMs)&&(identical(other.uniqueSessions, uniqueSessions) || other.uniqueSessions == uniqueSessions)&&(identical(other.totalCost, totalCost) || other.totalCost == totalCost)&&(identical(other.isBackEdge, isBackEdge) || other.isBackEdge == isBackEdge)&&(identical(other.flowWeight, flowWeight) || other.flowWeight == flowWeight));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,sourceId,targetId,sourceType,targetType,callCount,errorCount,errorRatePct,sampleError,edgeTokens,inputTokens,outputTokens,avgTokensPerCall,avgDurationMs,p95DurationMs,uniqueSessions,totalCost);
+int get hashCode => Object.hash(runtimeType,sourceId,targetId,sourceType,targetType,callCount,errorCount,errorRatePct,sampleError,edgeTokens,inputTokens,outputTokens,avgTokensPerCall,avgDurationMs,p95DurationMs,uniqueSessions,totalCost,isBackEdge,flowWeight);
 
 @override
 String toString() {
-  return 'MultiTraceEdge(sourceId: $sourceId, targetId: $targetId, sourceType: $sourceType, targetType: $targetType, callCount: $callCount, errorCount: $errorCount, errorRatePct: $errorRatePct, sampleError: $sampleError, edgeTokens: $edgeTokens, inputTokens: $inputTokens, outputTokens: $outputTokens, avgTokensPerCall: $avgTokensPerCall, avgDurationMs: $avgDurationMs, p95DurationMs: $p95DurationMs, uniqueSessions: $uniqueSessions, totalCost: $totalCost)';
+  return 'MultiTraceEdge(sourceId: $sourceId, targetId: $targetId, sourceType: $sourceType, targetType: $targetType, callCount: $callCount, errorCount: $errorCount, errorRatePct: $errorRatePct, sampleError: $sampleError, edgeTokens: $edgeTokens, inputTokens: $inputTokens, outputTokens: $outputTokens, avgTokensPerCall: $avgTokensPerCall, avgDurationMs: $avgDurationMs, p95DurationMs: $p95DurationMs, uniqueSessions: $uniqueSessions, totalCost: $totalCost, isBackEdge: $isBackEdge, flowWeight: $flowWeight)';
 }
 
 
@@ -597,7 +642,7 @@ abstract mixin class _$MultiTraceEdgeCopyWith<$Res> implements $MultiTraceEdgeCo
   factory _$MultiTraceEdgeCopyWith(_MultiTraceEdge value, $Res Function(_MultiTraceEdge) _then) = __$MultiTraceEdgeCopyWithImpl;
 @override @useResult
 $Res call({
-@JsonKey(name: 'source_id') String sourceId,@JsonKey(name: 'target_id') String targetId,@JsonKey(name: 'source_type') String sourceType,@JsonKey(name: 'target_type') String targetType,@JsonKey(name: 'call_count') int callCount,@JsonKey(name: 'error_count') int errorCount,@JsonKey(name: 'error_rate_pct') double errorRatePct,@JsonKey(name: 'sample_error') String? sampleError,@JsonKey(name: 'total_tokens') int edgeTokens,@JsonKey(name: 'input_tokens') int inputTokens,@JsonKey(name: 'output_tokens') int outputTokens,@JsonKey(name: 'avg_tokens_per_call') int avgTokensPerCall,@JsonKey(name: 'avg_duration_ms') double avgDurationMs,@JsonKey(name: 'p95_duration_ms') double p95DurationMs,@JsonKey(name: 'unique_sessions') int uniqueSessions,@JsonKey(name: 'total_cost') double? totalCost
+@JsonKey(name: 'source_id') String sourceId,@JsonKey(name: 'target_id') String targetId,@JsonKey(name: 'source_type') String sourceType,@JsonKey(name: 'target_type') String targetType,@JsonKey(name: 'call_count') int callCount,@JsonKey(name: 'error_count') int errorCount,@JsonKey(name: 'error_rate_pct') double errorRatePct,@JsonKey(name: 'sample_error') String? sampleError,@JsonKey(name: 'total_tokens') int edgeTokens,@JsonKey(name: 'input_tokens') int inputTokens,@JsonKey(name: 'output_tokens') int outputTokens,@JsonKey(name: 'avg_tokens_per_call') int avgTokensPerCall,@JsonKey(name: 'avg_duration_ms') double avgDurationMs,@JsonKey(name: 'p95_duration_ms') double p95DurationMs,@JsonKey(name: 'unique_sessions') int uniqueSessions,@JsonKey(name: 'total_cost') double? totalCost,@JsonKey(name: 'is_back_edge') bool isBackEdge,@JsonKey(name: 'flow_weight') double flowWeight
 });
 
 
@@ -614,7 +659,7 @@ class __$MultiTraceEdgeCopyWithImpl<$Res>
 
 /// Create a copy of MultiTraceEdge
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? sourceId = null,Object? targetId = null,Object? sourceType = null,Object? targetType = null,Object? callCount = null,Object? errorCount = null,Object? errorRatePct = null,Object? sampleError = freezed,Object? edgeTokens = null,Object? inputTokens = null,Object? outputTokens = null,Object? avgTokensPerCall = null,Object? avgDurationMs = null,Object? p95DurationMs = null,Object? uniqueSessions = null,Object? totalCost = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? sourceId = null,Object? targetId = null,Object? sourceType = null,Object? targetType = null,Object? callCount = null,Object? errorCount = null,Object? errorRatePct = null,Object? sampleError = freezed,Object? edgeTokens = null,Object? inputTokens = null,Object? outputTokens = null,Object? avgTokensPerCall = null,Object? avgDurationMs = null,Object? p95DurationMs = null,Object? uniqueSessions = null,Object? totalCost = freezed,Object? isBackEdge = null,Object? flowWeight = null,}) {
   return _then(_MultiTraceEdge(
 sourceId: null == sourceId ? _self.sourceId : sourceId // ignore: cast_nullable_to_non_nullable
 as String,targetId: null == targetId ? _self.targetId : targetId // ignore: cast_nullable_to_non_nullable
@@ -632,7 +677,9 @@ as int,avgDurationMs: null == avgDurationMs ? _self.avgDurationMs : avgDurationM
 as double,p95DurationMs: null == p95DurationMs ? _self.p95DurationMs : p95DurationMs // ignore: cast_nullable_to_non_nullable
 as double,uniqueSessions: null == uniqueSessions ? _self.uniqueSessions : uniqueSessions // ignore: cast_nullable_to_non_nullable
 as int,totalCost: freezed == totalCost ? _self.totalCost : totalCost // ignore: cast_nullable_to_non_nullable
-as double?,
+as double?,isBackEdge: null == isBackEdge ? _self.isBackEdge : isBackEdge // ignore: cast_nullable_to_non_nullable
+as bool,flowWeight: null == flowWeight ? _self.flowWeight : flowWeight // ignore: cast_nullable_to_non_nullable
+as double,
   ));
 }
 
@@ -961,12 +1008,13 @@ extension SelectedGraphElementPatterns on SelectedGraphElement {
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( SelectedNode value)?  node,TResult Function( SelectedEdge value)?  edge,required TResult orElse(),}){
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( SelectedNode value)?  node,TResult Function( SelectedEdge value)?  edge,TResult Function( SelectedPath value)?  path,required TResult orElse(),}){
 final _that = this;
 switch (_that) {
 case SelectedNode() when node != null:
 return node(_that);case SelectedEdge() when edge != null:
-return edge(_that);case _:
+return edge(_that);case SelectedPath() when path != null:
+return path(_that);case _:
   return orElse();
 
 }
@@ -984,12 +1032,13 @@ return edge(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( SelectedNode value)  node,required TResult Function( SelectedEdge value)  edge,}){
+@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( SelectedNode value)  node,required TResult Function( SelectedEdge value)  edge,required TResult Function( SelectedPath value)  path,}){
 final _that = this;
 switch (_that) {
 case SelectedNode():
 return node(_that);case SelectedEdge():
-return edge(_that);}
+return edge(_that);case SelectedPath():
+return path(_that);}
 }
 /// A variant of `map` that fallback to returning `null`.
 ///
@@ -1003,12 +1052,13 @@ return edge(_that);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( SelectedNode value)?  node,TResult? Function( SelectedEdge value)?  edge,}){
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( SelectedNode value)?  node,TResult? Function( SelectedEdge value)?  edge,TResult? Function( SelectedPath value)?  path,}){
 final _that = this;
 switch (_that) {
 case SelectedNode() when node != null:
 return node(_that);case SelectedEdge() when edge != null:
-return edge(_that);case _:
+return edge(_that);case SelectedPath() when path != null:
+return path(_that);case _:
   return null;
 
 }
@@ -1025,11 +1075,12 @@ return edge(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( MultiTraceNode node)?  node,TResult Function( MultiTraceEdge edge)?  edge,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( MultiTraceNode node)?  node,TResult Function( MultiTraceEdge edge)?  edge,TResult Function( List<String> nodeIds,  String? label)?  path,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case SelectedNode() when node != null:
 return node(_that.node);case SelectedEdge() when edge != null:
-return edge(_that.edge);case _:
+return edge(_that.edge);case SelectedPath() when path != null:
+return path(_that.nodeIds,_that.label);case _:
   return orElse();
 
 }
@@ -1047,11 +1098,12 @@ return edge(_that.edge);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( MultiTraceNode node)  node,required TResult Function( MultiTraceEdge edge)  edge,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( MultiTraceNode node)  node,required TResult Function( MultiTraceEdge edge)  edge,required TResult Function( List<String> nodeIds,  String? label)  path,}) {final _that = this;
 switch (_that) {
 case SelectedNode():
 return node(_that.node);case SelectedEdge():
-return edge(_that.edge);}
+return edge(_that.edge);case SelectedPath():
+return path(_that.nodeIds,_that.label);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -1065,11 +1117,12 @@ return edge(_that.edge);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( MultiTraceNode node)?  node,TResult? Function( MultiTraceEdge edge)?  edge,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( MultiTraceNode node)?  node,TResult? Function( MultiTraceEdge edge)?  edge,TResult? Function( List<String> nodeIds,  String? label)?  path,}) {final _that = this;
 switch (_that) {
 case SelectedNode() when node != null:
 return node(_that.node);case SelectedEdge() when edge != null:
-return edge(_that.edge);case _:
+return edge(_that.edge);case SelectedPath() when path != null:
+return path(_that.nodeIds,_that.label);case _:
   return null;
 
 }
@@ -1225,6 +1278,80 @@ $MultiTraceEdgeCopyWith<$Res> get edge {
     return _then(_self.copyWith(edge: value));
   });
 }
+}
+
+/// @nodoc
+
+
+class SelectedPath implements SelectedGraphElement {
+  const SelectedPath(final  List<String> nodeIds, {this.label}): _nodeIds = nodeIds;
+  
+
+ final  List<String> _nodeIds;
+ List<String> get nodeIds {
+  if (_nodeIds is EqualUnmodifiableListView) return _nodeIds;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_nodeIds);
+}
+
+ final  String? label;
+
+/// Create a copy of SelectedGraphElement
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$SelectedPathCopyWith<SelectedPath> get copyWith => _$SelectedPathCopyWithImpl<SelectedPath>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is SelectedPath&&const DeepCollectionEquality().equals(other._nodeIds, _nodeIds)&&(identical(other.label, label) || other.label == label));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_nodeIds),label);
+
+@override
+String toString() {
+  return 'SelectedGraphElement.path(nodeIds: $nodeIds, label: $label)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $SelectedPathCopyWith<$Res> implements $SelectedGraphElementCopyWith<$Res> {
+  factory $SelectedPathCopyWith(SelectedPath value, $Res Function(SelectedPath) _then) = _$SelectedPathCopyWithImpl;
+@useResult
+$Res call({
+ List<String> nodeIds, String? label
+});
+
+
+
+
+}
+/// @nodoc
+class _$SelectedPathCopyWithImpl<$Res>
+    implements $SelectedPathCopyWith<$Res> {
+  _$SelectedPathCopyWithImpl(this._self, this._then);
+
+  final SelectedPath _self;
+  final $Res Function(SelectedPath) _then;
+
+/// Create a copy of SelectedGraphElement
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? nodeIds = null,Object? label = freezed,}) {
+  return _then(SelectedPath(
+null == nodeIds ? _self._nodeIds : nodeIds // ignore: cast_nullable_to_non_nullable
+as List<String>,label: freezed == label ? _self.label : label // ignore: cast_nullable_to_non_nullable
+as String?,
+  ));
+}
+
+
 }
 
 // dart format on

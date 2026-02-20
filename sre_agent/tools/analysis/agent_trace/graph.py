@@ -56,17 +56,49 @@ async def get_agent_graph(
     # Defaulting to 'agent_graph' if not specified, matching the setup script
     graph_ds = dataset_id or "agent_graph"
 
-    # 1. Fetch Nodes
+    # 1. Fetch Nodes (enriched with p95, cost, subcall counts)
     nodes_sql = f"""
         SELECT
             logical_node_id AS id,
             node_type AS type,
             node_label AS label,
             SUM(execution_count) AS execution_count,
-            AVG(total_duration_ms / execution_count) AS avg_duration_ms, -- Average per call
+            ROUND(AVG(total_duration_ms / execution_count), 2) AS avg_duration_ms,
+            ROUND(APPROX_QUANTILES(
+              IFNULL(total_duration_ms / NULLIF(execution_count, 0), 0), 100
+            )[OFFSET(95)], 2) AS p95_duration_ms,
+            SUM(total_input_tokens) AS input_tokens,
+            SUM(total_output_tokens) AS output_tokens,
             SUM(total_input_tokens + total_output_tokens) AS total_tokens,
             SUM(error_count) AS error_count,
-            COUNT(DISTINCT session_id) AS unique_sessions
+            ROUND(SAFE_DIVIDE(SUM(error_count), SUM(execution_count)) * 100, 2) AS error_rate_pct,
+            COUNT(DISTINCT session_id) AS unique_sessions,
+            -- Cost estimation using model-based pricing
+            ROUND(SUM(
+              COALESCE(total_input_tokens, 0) * CASE
+                WHEN node_label LIKE '%flash%' THEN 0.00000015
+                WHEN node_label LIKE '%2.5-pro%' THEN 0.00000125
+                WHEN node_label LIKE '%1.5-pro%' THEN 0.00000125
+                ELSE 0.0000005
+              END
+              + COALESCE(total_output_tokens, 0) * CASE
+                WHEN node_label LIKE '%flash%' THEN 0.0000006
+                WHEN node_label LIKE '%2.5-pro%' THEN 0.00001
+                WHEN node_label LIKE '%1.5-pro%' THEN 0.000005
+                ELSE 0.000002
+              END
+            ), 6) AS total_cost,
+            -- Subcall counts (count edges by target type from this node)
+            (SELECT COUNTIF(e.destination_node_id LIKE 'Tool%%')
+             FROM `{pid}.{graph_ds}.agent_topology_edges` e
+             WHERE e.source_node_id = logical_node_id
+               AND e.trace_id IN (SELECT trace_id FROM `{pid}.{graph_ds}.agent_topology_nodes` WHERE start_time >= @start AND start_time <= @end)
+            ) AS tool_call_count,
+            (SELECT COUNTIF(e.destination_node_id LIKE 'LLM%%')
+             FROM `{pid}.{graph_ds}.agent_topology_edges` e
+             WHERE e.source_node_id = logical_node_id
+               AND e.trace_id IN (SELECT trace_id FROM `{pid}.{graph_ds}.agent_topology_nodes` WHERE start_time >= @start AND start_time <= @end)
+            ) AS llm_call_count
         FROM `{pid}.{graph_ds}.agent_topology_nodes`
         WHERE start_time >= @start AND start_time <= @end
         GROUP BY 1, 2, 3
@@ -74,21 +106,36 @@ async def get_agent_graph(
         LIMIT {limit}
     """
 
-    # 2. Fetch Edges
-    # We group by source/target to aggregate across multiple traces
+    # 2. Fetch Edges (enriched with cost, token breakdown)
     edges_sql = f"""
         SELECT
-            source_node_id,
-            destination_node_id,
+            source_node_id AS source_id,
+            destination_node_id AS target_id,
             SUM(edge_weight) AS call_count,
-            SUM(total_duration_ms) / SUM(edge_weight) AS avg_duration_ms,
+            ROUND(SUM(total_duration_ms) / SUM(edge_weight), 2) AS avg_duration_ms,
             SUM(total_tokens) AS total_tokens,
-            SUM(error_count) AS error_count
+            SUM(IFNULL(input_tokens, 0)) AS input_tokens,
+            SUM(IFNULL(output_tokens, 0)) AS output_tokens,
+            SUM(error_count) AS error_count,
+            ROUND(SAFE_DIVIDE(SUM(error_count), SUM(edge_weight)) * 100, 2) AS error_rate_pct,
+            COUNT(DISTINCT session_id) AS unique_sessions,
+            -- Cost estimation using model-based pricing on destination node
+            ROUND(SUM(
+              COALESCE(input_tokens, 0) * CASE
+                WHEN destination_node_id LIKE '%flash%' THEN 0.00000015
+                WHEN destination_node_id LIKE '%2.5-pro%' THEN 0.00000125
+                WHEN destination_node_id LIKE '%1.5-pro%' THEN 0.00000125
+                ELSE 0.0000005
+              END
+              + COALESCE(output_tokens, 0) * CASE
+                WHEN destination_node_id LIKE '%flash%' THEN 0.0000006
+                WHEN destination_node_id LIKE '%2.5-pro%' THEN 0.00001
+                WHEN destination_node_id LIKE '%1.5-pro%' THEN 0.000005
+                ELSE 0.000002
+              END
+            ), 6) AS total_cost
         FROM `{pid}.{graph_ds}.agent_topology_edges`
         WHERE trace_id IN (
-            -- Only include edges for traces in our time window
-            -- This is a bit expensive, but ensures consistency.
-            -- Alternatively we could trust partition pruning if we had start_time in edges.
             SELECT trace_id FROM `{pid}.{graph_ds}.agent_topology_nodes`
             WHERE start_time >= @start AND start_time <= @end
         )

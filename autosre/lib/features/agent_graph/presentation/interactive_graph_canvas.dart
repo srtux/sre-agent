@@ -35,7 +35,8 @@ class InteractiveGraphCanvas extends StatefulWidget {
   State<InteractiveGraphCanvas> createState() => _InteractiveGraphCanvasState();
 }
 
-class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
+class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
+    with TickerProviderStateMixin {
   late FlNodeEditorController _controller;
   // State for gradual disclosure
   final Set<String> _collapsedNodeIds = {};
@@ -47,6 +48,16 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
   int _cachedHash = -1;
 
   Timer? _layoutTimer;
+
+  // Animation for expand/collapse transitions
+  late final AnimationController _layoutAnimController;
+  late final Animation<double> _layoutAnimation;
+  Map<String, Offset> _previousPositions = {};
+  Map<String, Offset> _targetPositions = {};
+
+  // Path highlighting state
+  Set<String> _highlightedPath = {};
+  String? _lockedSelectionId;
 
   @override
   void initState() {
@@ -67,6 +78,15 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
     );
     // Start significantly zoomed out (20x more than 1.0) for a bird's eye view
     _controller.viewportZoomNotifier.value = 0.05;
+    _layoutAnimController = AnimationController(
+      duration: const Duration(milliseconds: 400),
+      vsync: this,
+    );
+    _layoutAnimation = CurvedAnimation(
+      parent: _layoutAnimController,
+      curve: Curves.easeInOut,
+    );
+    _layoutAnimation.addListener(_onLayoutAnimationTick);
     _registerPrototypes();
     _initialCollapse();
     _processGraphData();
@@ -134,16 +154,50 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
     return t == 'agent' || t == 'sub_agent';
   }
 
-  // ignore: unused_element
+  bool _hasChildren(String nodeId) {
+    return widget.payload.edges.any((e) => e.sourceId == nodeId);
+  }
+
   void _toggleCollapse(String nodeId) {
-    setState(() {
-      if (_collapsedNodeIds.contains(nodeId)) {
-        _collapsedNodeIds.remove(nodeId);
-      } else {
-        _collapsedNodeIds.add(nodeId);
+    // Save current positions before reprocessing
+    _previousPositions = {};
+    for (final entry in _controller.nodes.entries) {
+      _previousPositions[entry.key] = entry.value.offset;
+    }
+
+    // Toggle collapsed state
+    if (_collapsedNodeIds.contains(nodeId)) {
+      _collapsedNodeIds.remove(nodeId);
+    } else {
+      _collapsedNodeIds.add(nodeId);
+    }
+
+    // Reprocess to compute new layout
+    _processGraphData();
+
+    // Save target positions and reset to previous for animation
+    _targetPositions = {};
+    for (final entry in _controller.nodes.entries) {
+      _targetPositions[entry.key] = entry.value.offset;
+      // Start from previous position if available, otherwise stay at target
+      entry.value.offset = _previousPositions[entry.key] ?? entry.value.offset;
+    }
+
+    // Animate from previous to target positions
+    _layoutAnimController.forward(from: 0.0);
+    setState(() {});
+  }
+
+  void _onLayoutAnimationTick() {
+    final t = _layoutAnimation.value;
+    for (final entry in _controller.nodes.entries) {
+      final prev = _previousPositions[entry.key];
+      final target = _targetPositions[entry.key];
+      if (prev != null && target != null) {
+        entry.value.offset = Offset.lerp(prev, target, t)!;
       }
-      _processGraphData();
-    });
+    }
+    if (mounted) setState(() {});
   }
 
   @override
@@ -162,7 +216,12 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
     }
   }
 
-  // ... (dispose and registerPrototypes stay same)
+  @override
+  void dispose() {
+    _layoutTimer?.cancel();
+    _layoutAnimController.dispose();
+    super.dispose();
+  }
 
   void _registerPrototypes() {
     // Register a universal node prototype that acts as a container for all our node types.
@@ -637,24 +696,30 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
     MultiTraceNode node,
     FlNodeDataModel nodeData,
   ) {
-    if (node.isUserEntryPoint) {
-      return _buildUserEntryNode(context, node, nodeData);
+    if (node.isUserNode || node.isUserEntryPoint) {
+      return RepaintBoundary(
+        child: _buildUserEntryNode(context, node, nodeData),
+      );
     }
 
     if (widget.viewMode != GraphViewMode.standard) {
-      return _buildGenericNode(context, node, nodeData);
+      return RepaintBoundary(
+        child: _buildGenericNode(context, node, nodeData),
+      );
     }
 
+    Widget content;
     switch (node.type.toLowerCase()) {
       case 'agent':
       case 'sub_agent':
-        return _buildAgentNode(context, node, nodeData);
+        content = _buildAgentNode(context, node, nodeData);
       case 'llm':
-        return _buildLLMNode(context, node, nodeData);
+        content = _buildLLMNode(context, node, nodeData);
       case 'tool':
       default:
-        return _buildToolNode(context, node, nodeData);
+        content = _buildToolNode(context, node, nodeData);
     }
+    return RepaintBoundary(child: content);
   }
 
   Widget _buildGenericNode(
@@ -725,6 +790,14 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
           ? AppColors.error
           : AppColors.primaryTeal.withValues(alpha: 0.3);
     }
+    if (widget.viewMode == GraphViewMode.costHeatmap) {
+      final maxCost = widget.payload.nodes
+          .map((n) => n.totalCost ?? 0)
+          .fold<double>(0, (a, b) => a > b ? a : b);
+      if (maxCost <= 0) return Colors.grey;
+      final ratio = ((node.totalCost ?? 0) / maxCost).clamp(0.0, 1.0);
+      return _getTokenHeatmapColor((ratio * 1000).toInt(), 1000);
+    }
     return _nodeColor(node.type);
   }
 
@@ -774,12 +847,31 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
     final outPort = nodeData.ports['out'];
     final backOutPort = nodeData.ports['back_out'];
     final effectiveColor = color ?? Colors.grey;
+    final isDimmed =
+        _highlightedPath.isNotEmpty && !_highlightedPath.contains(nodeData.id);
 
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onTapDown: (_) {
-        if (!nodeData.state.isSelected) {
-          _controller.selectNodesById({nodeData.id});
+        final nodeId = nodeData.id;
+        if (_lockedSelectionId == nodeId) {
+          // Deselect
+          setState(() {
+            _lockedSelectionId = null;
+            _highlightedPath.clear();
+          });
+          _controller.clearSelection();
+          widget.onSelectionCleared?.call();
+        } else {
+          setState(() {
+            _lockedSelectionId = nodeId;
+            _highlightedPath = _computePath(nodeId);
+          });
+          _controller.selectNodesById({nodeId});
+          final node = _nodeDataMap[nodeId];
+          if (node != null) {
+            widget.onNodeSelected?.call(node);
+          }
         }
       },
       onPanUpdate: (details) {
@@ -788,7 +880,9 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
         }
         _controller.dragSelection(details.delta);
       },
-      child: Row(
+      child: Opacity(
+        opacity: isDimmed ? 0.2 : 1.0,
+        child: Row(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -842,7 +936,39 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
           ),
         ],
       ),
+      ),
     );
+  }
+
+  Set<String> _computePath(String nodeId) {
+    final path = <String>{nodeId};
+    final adjForward = <String, List<String>>{};
+    final adjReverse = <String, List<String>>{};
+    for (final e in widget.payload.edges) {
+      adjForward.putIfAbsent(e.sourceId, () => []).add(e.targetId);
+      adjReverse.putIfAbsent(e.targetId, () => []).add(e.sourceId);
+    }
+    // BFS downstream
+    final queue = [nodeId];
+    while (queue.isNotEmpty) {
+      final u = queue.removeAt(0);
+      for (final v in (adjForward[u] ?? [])) {
+        if (path.add(v)) queue.add(v);
+      }
+    }
+    // BFS upstream
+    queue.add(nodeId);
+    final visited = <String>{nodeId};
+    while (queue.isNotEmpty) {
+      final u = queue.removeAt(0);
+      for (final v in (adjReverse[u] ?? [])) {
+        if (visited.add(v)) {
+          path.add(v);
+          queue.add(v);
+        }
+      }
+    }
+    return path;
   }
 
   Widget _buildAgentNode(
@@ -921,6 +1047,18 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    // Expand/collapse toggle for agent nodes with children
+                    if (_hasChildren(node.id))
+                      GestureDetector(
+                        onTap: () => _toggleCollapse(node.id),
+                        child: Icon(
+                          _collapsedNodeIds.contains(node.id)
+                              ? Icons.expand_more
+                              : Icons.expand_less,
+                          color: Colors.white54,
+                          size: 18,
+                        ),
+                      ),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -981,6 +1119,34 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
               ),
             ),
           ),
+          // Expand/Collapse toggle (only if node has children)
+          if (widget.payload.edges.any((e) => e.sourceId == node.id))
+            Positioned(
+              bottom: -12,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: GestureDetector(
+                  onTap: () => _toggleCollapse(node.id),
+                  child: Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0D1B2A),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: borderColor, width: 1.5),
+                    ),
+                    child: Icon(
+                      _collapsedNodeIds.contains(node.id)
+                          ? Icons.chevron_right
+                          : Icons.expand_more,
+                      color: Colors.white70,
+                      size: 16,
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -1213,9 +1379,8 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
 
   Widget _buildMetricsRow(
     MultiTraceNode node,
-    Color accentColor, {
-    bool compact = false,
-  }) {
+    Color accentColor,
+  ) {
     final isAgent =
         node.type.toLowerCase() == 'agent' ||
         node.type.toLowerCase() == 'sub_agent';
@@ -1249,11 +1414,11 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.error_outline, size: 10, color: AppColors.error),
+          const Icon(Icons.error_outline, size: 10, color: AppColors.error),
           const SizedBox(width: 2),
           Text(
             '${errorRatePct.toStringAsFixed(1)}%',
-            style: TextStyle(
+            style: const TextStyle(
               color: AppColors.error,
               fontSize: 10,
               fontWeight: FontWeight.w500,

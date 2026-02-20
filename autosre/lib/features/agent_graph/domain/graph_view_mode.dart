@@ -9,4 +9,7 @@ enum GraphViewMode {
 
   /// Heatmap view: Colored by error rate.
   errorHeatmap,
+
+  /// Heatmap view: Colored by cost per node.
+  costHeatmap,
 }
