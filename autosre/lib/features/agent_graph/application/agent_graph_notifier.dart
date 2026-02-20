@@ -16,6 +16,7 @@ abstract class AgentGraphState with _$AgentGraphState {
     @Default(null) SelectedGraphElement? selectedElement,
     @Default(kDefaultDataset) String dataset,
     @Default(6) int timeRangeHours,
+    @Default(null) int? sampleLimit,
   }) = _AgentGraphState;
 }
 
@@ -33,17 +34,20 @@ class AgentGraphNotifier extends _$AgentGraphNotifier {
   Future<void> fetchGraph({
     String? dataset,
     int? timeRangeHours,
+    int? sampleLimit,
     String? projectId,
   }) async {
     if (state.isLoading) return;
     final ds = dataset ?? state.dataset;
     final hours = timeRangeHours ?? state.timeRangeHours;
+    final limit = sampleLimit ?? state.sampleLimit;
 
     state = state.copyWith(
       isLoading: true,
       error: null,
       dataset: ds,
       timeRangeHours: hours,
+      sampleLimit: limit,
       selectedElement: null,
     );
 
@@ -51,6 +55,7 @@ class AgentGraphNotifier extends _$AgentGraphNotifier {
       final payload = await _repository.fetchGraph(
         dataset: ds,
         timeRangeHours: hours,
+        sampleLimit: limit,
         projectId: projectId,
       );
       state = state.copyWith(payload: payload, isLoading: false);
@@ -81,5 +86,9 @@ class AgentGraphNotifier extends _$AgentGraphNotifier {
 
   void updateTimeRange(int hours) {
     state = state.copyWith(timeRangeHours: hours);
+  }
+
+  void updateSampleLimit(int? limit) {
+    state = state.copyWith(sampleLimit: limit);
   }
 }

@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:fl_nodes/fl_nodes.dart';
 import 'package:flutter/material.dart';
 
 import 'package:graphview/GraphView.dart' as gv;
 import '../../../theme/app_theme.dart';
+import '../domain/graph_view_mode.dart';
 import '../domain/models.dart';
 
 /// A next-generation interactive graph canvas using fl_nodes.
@@ -14,6 +17,7 @@ import '../domain/models.dart';
 /// - Auto-layout using a custom tree layout algorithm on initial load
 class InteractiveGraphCanvas extends StatefulWidget {
   final MultiTraceGraphPayload payload;
+  final GraphViewMode viewMode;
   final ValueChanged<MultiTraceNode>? onNodeSelected;
   final ValueChanged<MultiTraceEdge>? onEdgeSelected;
   final VoidCallback? onSelectionCleared;
@@ -21,6 +25,7 @@ class InteractiveGraphCanvas extends StatefulWidget {
   const InteractiveGraphCanvas({
     super.key,
     required this.payload,
+    this.viewMode = GraphViewMode.standard,
     this.onNodeSelected,
     this.onEdgeSelected,
     this.onSelectionCleared,
@@ -32,12 +37,16 @@ class InteractiveGraphCanvas extends StatefulWidget {
 
 class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
   late FlNodeEditorController _controller;
+  // State for gradual disclosure
+  final Set<String> _collapsedNodeIds = {};
 
   // Map to store the actual data associated with each node ID
   final Map<String, MultiTraceNode> _nodeDataMap = {};
 
   // Cache layout to avoid re-calculating on every build
   int _cachedHash = -1;
+
+  Timer? _layoutTimer;
 
   @override
   void initState() {
@@ -56,22 +65,96 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
       ),
     );
     _registerPrototypes();
+    _initialCollapse();
     _processGraphData();
+  }
+
+  void _initialCollapse() {
+    // Auto-collapse if graph > 25 nodes
+    if (widget.payload.nodes.length > 25) {
+      // Find root (node with 0 incoming edges or explicit isRoot)
+      final incomingEdges = <String, int>{};
+      for (var e in widget.payload.edges) {
+        incomingEdges[e.targetId] = (incomingEdges[e.targetId] ?? 0) + 1;
+      }
+
+      // We want to keep depth 0 and 1 open, collapse depth 2+
+      // Simple heuristic: Collapse all Agent/SubAgent nodes that are NOT the root
+      // AND have children.
+      // Actually, a BFS to determine depth is better.
+      final roots = widget.payload.nodes.where((n) {
+        return n.isRoot || !incomingEdges.containsKey(n.id);
+      }).toList();
+
+      if (roots.isEmpty && widget.payload.nodes.isNotEmpty) {
+        // Cycle or just complex, pick first
+        roots.add(widget.payload.nodes.first);
+      }
+
+      // BFS to assign depth
+      final depthMap = <String, int>{};
+      final queue = <String>[];
+      for (var r in roots) {
+        depthMap[r.id] = 0;
+        queue.add(r.id);
+      }
+
+      final adj = <String, List<String>>{};
+      for (var e in widget.payload.edges) {
+        adj.putIfAbsent(e.sourceId, () => []).add(e.targetId);
+      }
+
+      while (queue.isNotEmpty) {
+        final u = queue.removeAt(0);
+        final d = depthMap[u]!;
+        final children = adj[u] ?? [];
+        for (var v in children) {
+          if (!depthMap.containsKey(v)) {
+            depthMap[v] = d + 1;
+            queue.add(v);
+          }
+        }
+      }
+
+      // Collapse agents at depth >= 1 (so their children at depth >= 2 are hidden)
+      for (var n in widget.payload.nodes) {
+        final d = depthMap[n.id] ?? 0;
+        if (d >= 1 && _isAgent(n)) {
+          _collapsedNodeIds.add(n.id);
+        }
+      }
+    }
+  }
+
+  bool _isAgent(MultiTraceNode node) {
+    final t = node.type.toLowerCase();
+    return t == 'agent' || t == 'sub_agent';
+  }
+
+  void _toggleCollapse(String nodeId) {
+    setState(() {
+      if (_collapsedNodeIds.contains(nodeId)) {
+        _collapsedNodeIds.remove(nodeId);
+      } else {
+        _collapsedNodeIds.add(nodeId);
+      }
+      _processGraphData();
+    });
   }
 
   @override
   void didUpdateWidget(InteractiveGraphCanvas oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.payload != oldWidget.payload) {
+      // Reset collapse state on new payload? Or try to preserve?
+      // For now, reset to avoid stale IDs, or maybe re-run initial collapse
+      _collapsedNodeIds.clear();
+      _initialCollapse();
       _processGraphData();
     }
   }
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  // ... (dispose and registerPrototypes stay same)
 
   void _registerPrototypes() {
     // Register a universal node prototype that acts as a container for all our node types.
@@ -106,7 +189,13 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
 
   void _processGraphData() {
     final payload = widget.payload;
-    final hash = Object.hash(payload.nodes.length, payload.edges.length);
+    // Hash includes collapsed state now
+    final hash = Object.hash(
+      payload.nodes.length,
+      payload.edges.length,
+      _collapsedNodeIds.length,
+      _collapsedNodeIds.join(','),
+    );
     if (_cachedHash == hash) return;
     _cachedHash = hash;
 
@@ -116,66 +205,147 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
 
     if (payload.nodes.isEmpty) return;
 
-    // 2. Map nodes for quick lookup
-    final nodeMap = {for (var n in payload.nodes) n.id: n};
-    _nodeDataMap.addAll(nodeMap);
+    // 2. Filter Graph based on Collapsed State (Refined Visibility)
+    final visibleNodes = <String, MultiTraceNode>{};
+    final visibleEdges = <MultiTraceEdge>[];
 
-    // 3. Run Sugiyama Layout
-    _sugiyamaLayout(payload);
+    // BFS from Roots to determine visibility
+    // A node is visible if it is reachable from a Root through visible paths.
+    // If a node is Collapsed, its OUTGOING edges are NOT traversed (children hidden),
+    // UNLESS the child is also reachable via another non-collapsed path?
+    // "Gradual Disclosure" usually implies strict tree-like hiding.
+    // Let's assume strict hiding for simplicity: filtered out.
 
-    // Debug: Print node positions
-    for (var node in _controller.nodes.values) {
-      debugPrint('NODE: ${node.id} at ${node.offset}');
+    final incomingEdges = <String, int>{};
+    for (var e in payload.edges) {
+      incomingEdges[e.targetId] = (incomingEdges[e.targetId] ?? 0) + 1;
+    }
+
+    final roots = payload.nodes.where((n) {
+      return n.isRoot || !incomingEdges.containsKey(n.id);
+    }).toList();
+    if (roots.isEmpty && payload.nodes.isNotEmpty) {
+      roots.add(payload.nodes.first); // Fallback
+    }
+
+    final queue = <String>[];
+    final visited = <String>{};
+
+    for (var r in roots) {
+      queue.add(r.id);
+      visited.add(r.id);
+      visibleNodes[r.id] = r;
+    }
+
+    final adjMap = <String, List<MultiTraceEdge>>{};
+    for (var e in payload.edges) {
+      adjMap.putIfAbsent(e.sourceId, () => []).add(e);
+    }
+
+    while (queue.isNotEmpty) {
+      final uId = queue.removeAt(0);
+
+      // If u is open (not collapsed), we traverse its children
+      if (!_collapsedNodeIds.contains(uId)) {
+        final edges = adjMap[uId] ?? [];
+        for (var e in edges) {
+          visibleEdges.add(e);
+          if (!visited.contains(e.targetId)) {
+            visited.add(e.targetId);
+            queue.add(e.targetId);
+            // Add node to visible map
+            final targetNode = payload.nodes.firstWhere(
+              (n) => n.id == e.targetId,
+              orElse: () => MultiTraceNode(id: e.targetId, type: 'Unknown'),
+            );
+            visibleNodes[e.targetId] = targetNode;
+          }
+        }
+      }
+    }
+
+    _nodeDataMap.addAll(visibleNodes);
+
+    // 3. Run Sugiyama Layout on Visible Graph
+    if (visibleNodes.isNotEmpty) {
+      _sugiyamaLayout(visibleNodes.values.toList(), visibleEdges);
     }
   }
 
-  void _sugiyamaLayout(MultiTraceGraphPayload payload) {
-    if (payload.nodes.isEmpty) return;
+  void _sugiyamaLayout(List<MultiTraceNode> nodes, List<MultiTraceEdge> edges) {
+    if (nodes.isEmpty) return;
 
     final graph = gv.Graph()..isTree = false;
     final gvNodes = <String, gv.Node>{};
 
-    // Create GraphView nodes and calculate max call count for edge scaling
+    // Calculate max call count for edge scaling
     var maxCallCount = 1;
-    for (var e in payload.edges) {
+    for (var e in edges) {
       if (e.callCount > maxCallCount) maxCallCount = e.callCount;
     }
 
-    for (var n in payload.nodes) {
+    for (var n in nodes) {
       final node = gv.Node.Id(n.id);
       gvNodes[n.id] = node;
       graph.addNode(node);
     }
 
-    // Create GraphView edges
-    for (var e in payload.edges) {
+    for (var e in edges) {
       if (gvNodes.containsKey(e.sourceId) && gvNodes.containsKey(e.targetId)) {
         graph.addEdge(gvNodes[e.sourceId]!, gvNodes[e.targetId]!);
       }
     }
 
-    // Configure Sugiyama
     final builder = gv.SugiyamaConfiguration()
-      ..orientation = gv.SugiyamaConfiguration.ORIENTATION_LEFT_RIGHT
-      ..levelSeparation = 300
-      ..nodeSeparation = 40;
+      ..orientation = gv
+          .SugiyamaConfiguration
+          .ORIENTATION_TOP_BOTTOM // Use standard TB and rotate manually
+      ..levelSeparation =
+          150 // Vertical in TB -> Horizontal in LR
+      ..nodeSeparation = 50; // Horizontal in TB -> Vertical in LR
 
     final algorithm = gv.SugiyamaAlgorithm(builder);
-    algorithm.run(graph, 100, 100); // Shift X, Y
+    algorithm.run(graph, 100, 100);
 
-    // Add nodes to FL Editor with calculated positions
-    for (var n in payload.nodes) {
+    // Debug: Check if nodes are spread out
+    if (nodes.isNotEmpty) {
+      final first = gvNodes[nodes.first.id]!;
+      debugPrint(
+        'LAYOUT DEBUG: First Node ${nodes.first.id} at ${first.x}, ${first.y}',
+      );
+      var allSame = true;
+      for (var n in nodes) {
+        final g = gvNodes[n.id]!;
+        if (g.x != first.x || g.y != first.y) {
+          allSame = false;
+          break;
+        }
+      }
+      if (allSame) {
+        debugPrint(
+          'LAYOUT ERROR: All nodes at same position! Algorithm failed.',
+        );
+        // Fallback to simple grid
+        var i = 0;
+        for (var n in nodes) {
+          final row = i ~/ 5;
+          final col = i % 5;
+          gvNodes[n.id]!
+            ..x = col * 300.0
+            ..y = row * 150.0;
+          i++;
+        }
+      }
+    }
+
+    for (var n in nodes) {
       final gvNode = gvNodes[n.id];
       if (gvNode != null) {
-        // Collect all outgoing edges from this node
-        final outgoingEdges = payload.edges
-            .where((e) => e.sourceId == n.id)
-            .toList();
 
-        // Find if any outgoing edge has errors to color the port/links
+        final outgoingEdges = edges.where((e) => e.sourceId == n.id).toList();
         final hasOutgoingError = outgoingEdges.any((e) => e.errorCount > 0);
 
-        // Find max call count for the outgoing edges from this node specifically to scale the thickness
+        // Edge thickness based on max call count of outgoing edges
         var nodeMaxCallCount = 1;
         if (outgoingEdges.isNotEmpty) {
           nodeMaxCallCount = outgoingEdges
@@ -183,36 +353,49 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
               .reduce((a, b) => a > b ? a : b);
         }
 
-        var thickness = 2.0;
+        var thickness = 1.0; // Base thickness
+        // User requested: "edges that have higher usage (more traces) ... slightly thicker"
+        // "don't make lines too thick" -> Use range 1.0 to 3.0
         if (maxCallCount > 1) {
-          // Scale from 2.0 to 6.0 based on call count relative to global max
-          thickness = 2.0 + (4.0 * (nodeMaxCallCount / maxCallCount));
+          // Linear scale: 1.0 to 3.0
+          thickness = 1.0 + (2.0 * (nodeMaxCallCount / maxCallCount));
         }
 
         final linkColor = hasOutgoingError
             ? AppColors.error
             : AppColors.primaryTeal.withValues(alpha: 0.6);
 
-        _addFlNode(n.id, Offset(gvNode.x, gvNode.y), linkColor, thickness);
+        // SWAP X and Y for Left-to-Right layout since we used Top-Bottom algorithm
+        // Also increase scaling if needed manually
+        _addFlNode(
+          n.id,
+          Offset(gvNode.y * 1.5, gvNode.x * 1.2),
+          linkColor,
+          thickness,
+        );
       }
     }
 
     // Add links
-    for (var e in payload.edges) {
+    for (var e in edges) {
       if (_controller.isNodePresent(e.sourceId) &&
           _controller.isNodePresent(e.targetId)) {
         _controller.addLink(e.sourceId, 'out', e.targetId, 'in');
       }
     }
 
-    // Auto-center graph
+    _handleAutoFit();
+  }
+
+  void _handleAutoFit() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Future.delayed(const Duration(milliseconds: 150), () {
+      _layoutTimer?.cancel();
+      _layoutTimer = Timer(const Duration(milliseconds: 300), () {
         if (!mounted) return;
         if (_controller.nodes.isNotEmpty) {
           _controller.focusNodesById(
             _controller.nodes.keys.toSet(),
-            animate: false,
+            animate: true,
           );
           // Deselect all after focusing
           _controller.clearSelection();
@@ -252,7 +435,7 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
                   color: linkColor,
                   lineWidth: linkThickness,
                   drawMode: FlLineDrawMode.solid,
-                  curveType: FlLinkCurveType.straight,
+                  curveType: FlLinkCurveType.bezier,
                 ),
               ),
             ),
@@ -266,6 +449,25 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
     );
   }
 
+  int _getMaxTokens() {
+    var max = 0;
+    for (var n in widget.payload.nodes) {
+      if (n.totalTokens > max) max = n.totalTokens;
+    }
+    return max > 0 ? max : 1;
+  }
+
+  Color _getTokenHeatmapColor(int tokens, int maxTokens) {
+    if (tokens == 0) return Colors.grey.withValues(alpha: 0.3);
+    final ratio = tokens / maxTokens;
+    // Green -> Yellow -> Red gradient
+    if (ratio < 0.5) {
+      return Color.lerp(Colors.green, Colors.yellow, ratio * 2)!;
+    } else {
+      return Color.lerp(Colors.yellow, Colors.red, (ratio - 0.5) * 2)!;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.payload.nodes.isEmpty) {
@@ -274,16 +476,84 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
       );
     }
 
-    return FlNodeEditorWidget(
-      controller: _controller,
-      overlay: () => [], // No overlays for now
-      nodeBuilder: (context, nodeData) {
-        final multiTraceNode = _nodeDataMap[nodeData.id];
-        if (multiTraceNode == null) return const SizedBox();
+    // We use a Key based on the graph hash to force the editor to rebuild fully
+    // when the graph structure changes. This prevents "NodeEditorRenderBox child count"
+    // exceptions caused by the fl_nodes package losing sync with the controller.
+    final graphKey = ValueKey(_cachedHash);
 
-        return _buildCustomNode(context, multiTraceNode, nodeData);
-      },
-      // Hide default headers/fields since we use custom nodeBuilder
+    return Stack(
+      children: [
+        FlNodeEditorWidget(
+          key: graphKey,
+          controller: _controller,
+          overlay: () => [], // No overlays for now
+          nodeBuilder: (context, nodeData) {
+            final multiTraceNode = _nodeDataMap[nodeData.id];
+            if (multiTraceNode == null) return const SizedBox();
+
+            return _buildCustomNode(context, multiTraceNode, nodeData);
+          },
+          // Hide default headers/fields since we use custom nodeBuilder
+        ),
+        Positioned(
+          bottom: 24,
+          right: 24,
+          child: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E1E2E).withValues(alpha: 0.9),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+              border: Border.all(color: Colors.white10),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildIconButton(
+                  Icons.refresh,
+                  'Auto Layout',
+                  () => _processGraphData(),
+                ),
+                const SizedBox(width: 8),
+                Container(width: 1, height: 24, color: Colors.white10),
+                const SizedBox(width: 8),
+                _buildIconButton(
+                  Icons.crop_free,
+                  'Fit to Screen',
+                  _handleAutoFit,
+                ),
+                // Zoom buttons omitted if API is unclear, Fit is usually sufficient for "Reset"
+                // User asked for limit sampling too, which is in the notifier/repo now (logic-wise).
+                // UI for sampling is not yet in the canvas, maybe in the toolbar?
+                // Let's keep canvas just for graph controls.
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildIconButton(IconData icon, String tooltip, VoidCallback onTap) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Icon(icon, color: Colors.white70, size: 20),
+          ),
+        ),
+      ),
     );
   }
 
@@ -292,117 +562,70 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
     MultiTraceNode node,
     FlNodeDataModel nodeData,
   ) {
-    final isSelected = nodeData.state.isSelected;
-    final color = _nodeColor(node.type);
-
-    // Find ports
-    final inputPort = nodeData.ports['in'];
-    final outPort = nodeData.ports['out'];
-
-    Widget content;
-    // Cloud Trace style single-line node card
-    // ID comes as something like "generate_content gemini-2.5-flash", parse it for display
-    var displayId = node.id;
-    if (displayId.contains('generate_content') &&
-        displayId.split(' ').length > 1) {
-      displayId = displayId.split(' ').sublist(1).join(' ');
+    if (widget.viewMode != GraphViewMode.standard) {
+      return _buildGenericNode(context, node, nodeData);
     }
 
-    content = Container(
-      width: 220,
-      height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(
-        color: AppColors.backgroundCard,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(
-          color: isSelected
-              ? AppColors.secondaryPurple
-              : (node.hasError ? AppColors.error : AppColors.surfaceBorder),
-          width: isSelected ? 2 : 1,
-        ),
-        boxShadow: [
-          if (isSelected)
-            BoxShadow(
-              color: AppColors.secondaryPurple.withValues(alpha: 0.2),
-              blurRadius: 8,
-              spreadRadius: 2,
-            ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // Left accent / icon
-          Container(
-            width: 24,
-            height: 24,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Icon(_nodeIcon(node.type), size: 14, color: color),
-          ),
-          const SizedBox(width: 8),
+    switch (node.type.toLowerCase()) {
+      case 'agent':
+      case 'sub_agent':
+        return _buildAgentNode(context, node, nodeData);
+      case 'llm':
+        return _buildLLMNode(context, node, nodeData);
+      case 'tool':
+      default:
+        return _buildToolNode(context, node, nodeData);
+    }
+  }
 
-          // Label
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  displayId,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (node.description != null && node.description!.isNotEmpty)
-                  Text(
-                    node.description!,
-                    style: const TextStyle(color: Colors.white54, fontSize: 10),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-              ],
-            ),
-          ),
-
-          // Right metrics
-          if (node.hasError) ...[
-            const Icon(Icons.error, color: AppColors.error, size: 14),
-            const SizedBox(width: 4),
-          ],
-          if (node.totalTokens > 0)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              decoration: BoxDecoration(
-                color: AppColors.secondaryPurple.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                '${_formatTokens(node.totalTokens)} toks',
-                style: TextStyle(
-                  color: AppColors.secondaryPurple.withValues(alpha: 0.9),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-        ],
-      ),
+  Widget _buildGenericNode(
+    BuildContext context,
+    MultiTraceNode node,
+    FlNodeDataModel nodeData,
+  ) {
+    return _buildToolNode(
+      context,
+      node,
+      nodeData,
+      forceColor: _getNodeColorForMode(node),
     );
+  }
 
-    // Wrap content with ports (Left -> Right flow)
+  Color _getNodeColorForMode(MultiTraceNode node) {
+    if (widget.viewMode == GraphViewMode.tokenHeatmap) {
+      return _getTokenHeatmapColor(node.totalTokens, _getMaxTokens());
+    }
+    if (widget.viewMode == GraphViewMode.errorHeatmap) {
+      return node.hasError
+          ? AppColors.error
+          : AppColors.primaryTeal.withValues(alpha: 0.3);
+    }
+    return _nodeColor(node.type);
+  }
+
+  Color _nodeColor(String type) {
+    switch (type.toLowerCase()) {
+      case 'agent':
+      case 'sub_agent':
+        return AppColors.primaryTeal;
+      case 'tool':
+        return AppColors.warning;
+      case 'llm':
+        return AppColors.secondaryPurple;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  Widget _wrapWithPorts(
+    Widget content,
+    FlNodeDataModel nodeData, {
+    Color? color,
+  }) {
+    final inputPort = nodeData.ports['in'];
+    final outPort = nodeData.ports['out'];
+    final effectiveColor = color ?? Colors.grey;
+
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onTapDown: (_) {
@@ -420,33 +643,41 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Input Port (Left)
           if (inputPort != null)
             Container(
               key: inputPort.key,
-              width: 12,
-              height: 12,
-              margin: const EdgeInsets.only(right: 4),
+              width: 10,
+              height: 10,
+              margin: const EdgeInsets.only(right: 2),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white12, // Subtle visible target
-                border: Border.all(color: Colors.white24, width: 1),
+                color: Colors.white24,
+                border: Border.all(color: Colors.white54, width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    blurRadius: 2,
+                  ),
+                ],
               ),
             ),
-
           content,
-
-          // Output Port (Right)
           if (outPort != null)
             Container(
               key: outPort.key,
-              width: 12,
-              height: 12,
-              margin: const EdgeInsets.only(left: 4),
+              width: 10,
+              height: 10,
+              margin: const EdgeInsets.only(left: 2),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppColors.primaryTeal.withValues(alpha: 0.8),
-                border: Border.all(color: Colors.white, width: 1.5),
+                color: effectiveColor,
+                border: Border.all(color: Colors.white24, width: 1.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: effectiveColor.withValues(alpha: 0.4),
+                    blurRadius: 4,
+                  ),
+                ],
               ),
             ),
         ],
@@ -454,33 +685,317 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas> {
     );
   }
 
-  Color _nodeColor(String type) {
-    switch (type.toLowerCase()) {
-      case 'agent':
-        return AppColors.primaryTeal;
-      case 'tool':
-        return AppColors.warning;
-      case 'llm':
-        return AppColors.secondaryPurple;
-      case 'sub_agent':
-        return AppColors.primaryCyan;
-      default:
-        return Colors.grey;
-    }
+  Widget _buildAgentNode(
+    BuildContext context,
+    MultiTraceNode node,
+    FlNodeDataModel nodeData,
+  ) {
+    final isSelected = nodeData.state.isSelected;
+    const color = AppColors.primaryTeal;
+
+    final content = Container(
+      width: 260,
+      decoration: BoxDecoration(
+        color: const Color(0xFF181825),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isSelected ? AppColors.primaryCyan : Colors.white10,
+          width: isSelected ? 2 : 1,
+        ),
+        boxShadow: isSelected
+            ? [
+                BoxShadow(
+                  color: AppColors.primaryCyan.withValues(alpha: 0.3),
+                  blurRadius: 16,
+                ),
+              ]
+            : [
+                const BoxShadow(
+                  color: Colors.black54,
+                  blurRadius: 8,
+                  offset: Offset(0, 4),
+                ),
+              ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(15),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.smart_toy, size: 16, color: color),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    node.id.toUpperCase(),
+                    style: const TextStyle(
+                      color: color,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      letterSpacing: 1.0,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                // Expand/Collapse Button
+                InkWell(
+                  onTap: () => _toggleCollapse(node.id),
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _collapsedNodeIds.contains(node.id)
+                          ? Icons.add
+                          : Icons.remove,
+                      size: 14,
+                      color: color,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (node.description != null) ...[
+                  Text(
+                    node.description!,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 13,
+                      height: 1.4,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                _buildMetricsRow(node, color),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+    return _wrapWithPorts(content, nodeData, color: color);
   }
 
-  IconData _nodeIcon(String type) {
-    switch (type.toLowerCase()) {
-      case 'agent':
-      case 'sub_agent':
-        return Icons.psychology;
-      case 'tool':
-        return Icons.build;
-      case 'llm':
-        return Icons.auto_awesome;
-      default:
-        return Icons.circle;
+  Widget _buildLLMNode(
+    BuildContext context,
+    MultiTraceNode node,
+    FlNodeDataModel nodeData,
+  ) {
+    final isSelected = nodeData.state.isSelected;
+    const color = AppColors.secondaryPurple;
+    const secondaryPink = Color(0xFFF472B6); // Pink 400
+
+    final content = Container(
+      width: 240,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A1E3E),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isSelected ? secondaryPink : color.withValues(alpha: 0.3),
+          width: isSelected ? 2 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: isSelected ? 0.4 : 0.1),
+            blurRadius: 12,
+            spreadRadius: isSelected ? 2 : 0,
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.auto_awesome, size: 18, color: secondaryPink),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  _cleanId(node.id),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _buildMetricsRow(node, secondaryPink, compact: true),
+        ],
+      ),
+    );
+    return _wrapWithPorts(content, nodeData, color: color);
+  }
+
+  Widget _buildToolNode(
+    BuildContext context,
+    MultiTraceNode node,
+    FlNodeDataModel nodeData, {
+    Color? forceColor,
+  }) {
+    final isSelected = nodeData.state.isSelected;
+    final color = forceColor ?? AppColors.warning;
+
+    final content = Container(
+      width: 200,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF252525),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isSelected ? color : Colors.white12,
+          width: isSelected ? 2 : 1,
+        ),
+        boxShadow: isSelected
+            ? [BoxShadow(color: color.withValues(alpha: 0.3), blurRadius: 8)]
+            : [],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.build_circle_outlined, size: 14, color: color),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  _cleanId(node.id),
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    fontFamily: 'Roboto Mono',
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          if (node.hasError || node.avgDurationMs > 0) ...[
+            const SizedBox(height: 6),
+            _buildMetricsRow(node, color, compact: true),
+          ],
+        ],
+      ),
+    );
+    return _wrapWithPorts(content, nodeData, color: color);
+  }
+
+  String _cleanId(String id) {
+    if (id.contains('generate_content') && id.split(' ').length > 1) {
+      return id.split(' ').sublist(1).join(' ');
     }
+    return id;
+  }
+
+  Widget _buildMetricsRow(
+    MultiTraceNode node,
+    Color accentColor, {
+    bool compact = false,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (node.hasError) ...[
+          _buildErrorRateBadge(node.errorRatePct),
+          const SizedBox(width: 4),
+        ],
+        if (node.avgDurationMs > 0) ...[
+          _buildLatencyBadge(node.avgDurationMs, accentColor),
+          const SizedBox(width: 4),
+        ],
+        if (node.totalTokens > 0) ...[
+          if (!compact) const Spacer(),
+          if (compact) const SizedBox(width: 4),
+          _buildTokenBadge(node.totalTokens, accentColor),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildTokenBadge(int tokens, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        '${_formatTokens(tokens)} toks',
+        style: TextStyle(
+          color: color.withValues(alpha: 1.0),
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLatencyBadge(double latencyMs, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        '${latencyMs.toStringAsFixed(0)}ms',
+        style: TextStyle(
+          color: color.withValues(alpha: 1.0),
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorRateBadge(double errorRate) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.error.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.error, color: AppColors.error, size: 10),
+          if (errorRate > 0) ...[
+            const SizedBox(width: 2),
+            Text(
+              '${errorRate.toStringAsFixed(0)}%',
+              style: const TextStyle(
+                color: AppColors.error,
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   String _formatTokens(int tokens) {

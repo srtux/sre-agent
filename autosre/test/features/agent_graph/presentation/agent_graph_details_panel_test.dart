@@ -8,12 +8,22 @@ Widget _wrap(Widget child) {
 }
 
 void main() {
+  const testPayload = MultiTraceGraphPayload(
+    nodes: [
+      MultiTraceNode(id: 'root-agent', type: 'agent', totalTokens: 100),
+      MultiTraceNode(id: 'tool-1', type: 'tool', totalTokens: 300),
+    ],
+    edges: [],
+  );
+
   group('AgentGraphDetailsPanel', () {
     testWidgets('renders nothing when selected is null', (
       WidgetTester tester,
     ) async {
       await tester.pumpWidget(
-        _wrap(const AgentGraphDetailsPanel(selected: null)),
+        _wrap(
+          const AgentGraphDetailsPanel(payload: testPayload, selected: null),
+        ),
       );
 
       // SizedBox.shrink has zero dimensions and no children.
@@ -30,6 +40,7 @@ void main() {
       await tester.pumpWidget(
         _wrap(
           const AgentGraphDetailsPanel(
+            payload: testPayload,
             selected: SelectedGraphElement.node(node),
           ),
         ),
@@ -53,6 +64,7 @@ void main() {
       await tester.pumpWidget(
         _wrap(
           const AgentGraphDetailsPanel(
+            payload: testPayload,
             selected: SelectedGraphElement.node(node),
           ),
         ),
@@ -74,6 +86,7 @@ void main() {
       await tester.pumpWidget(
         _wrap(
           const AgentGraphDetailsPanel(
+            payload: testPayload,
             selected: SelectedGraphElement.node(node),
           ),
         ),
@@ -94,6 +107,7 @@ void main() {
       await tester.pumpWidget(
         _wrap(
           const AgentGraphDetailsPanel(
+            payload: testPayload,
             selected: SelectedGraphElement.node(node),
           ),
         ),
@@ -115,6 +129,7 @@ void main() {
         await tester.pumpWidget(
           _wrap(
             const AgentGraphDetailsPanel(
+              payload: testPayload,
               selected: SelectedGraphElement.edge(edge),
             ),
           ),
@@ -145,6 +160,7 @@ void main() {
       await tester.pumpWidget(
         _wrap(
           const AgentGraphDetailsPanel(
+            payload: testPayload,
             selected: SelectedGraphElement.edge(edge),
           ),
         ),
@@ -164,6 +180,7 @@ void main() {
       await tester.pumpWidget(
         _wrap(
           AgentGraphDetailsPanel(
+            payload: testPayload,
             selected: const SelectedGraphElement.node(node),
             onClose: () => closeCalled = true,
           ),
@@ -175,6 +192,55 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(closeCalled, isTrue);
+    });
+
+    testWidgets('shows token percentage relative to total graph tokens', (
+      WidgetTester tester,
+    ) async {
+      // testPayload has 400 tokens total (100 + 300).
+      // We'll select 'tool-1' which has 300 tokens (75%).
+      final node = testPayload.nodes.firstWhere((n) => n.id == 'tool-1');
+
+      await tester.pumpWidget(
+        _wrap(
+          AgentGraphDetailsPanel(
+            payload: testPayload,
+            selected: SelectedGraphElement.node(node),
+          ),
+        ),
+      );
+
+      // Check for "75.0% of total"
+      expect(find.text('75.0% of total'), findsOneWidget);
+    });
+
+    testWidgets('shows Latency and Error Rate rows when present', (
+      WidgetTester tester,
+    ) async {
+      const node = MultiTraceNode(
+        id: 'perf-node',
+        type: 'agent',
+        avgDurationMs: 123.4,
+        hasError: true,
+        errorRatePct: 5.6,
+      );
+
+      await tester.pumpWidget(
+        _wrap(
+          const AgentGraphDetailsPanel(
+            payload: testPayload,
+            selected: SelectedGraphElement.node(node),
+          ),
+        ),
+      );
+
+      // Latency
+      expect(find.text('Avg Latency'), findsOneWidget);
+      expect(find.text('123.4 ms'), findsOneWidget);
+
+      // Error Rate
+      expect(find.text('Error Rate'), findsOneWidget);
+      expect(find.text('5.6%'), findsOneWidget);
     });
   });
 }

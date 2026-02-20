@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$MultiTraceNode {
 
- String get id; String get type; String? get description;@JsonKey(name: 'total_tokens') int get totalTokens;@JsonKey(name: 'has_error') bool get hasError;@JsonKey(name: 'is_root') bool get isRoot;@JsonKey(name: 'is_leaf') bool get isLeaf;
+ String get id; String get type; String? get description;@JsonKey(name: 'total_tokens') int get totalTokens;@JsonKey(name: 'has_error') bool get hasError;@JsonKey(name: 'avg_duration_ms') double get avgDurationMs;@JsonKey(name: 'error_rate_pct') double get errorRatePct;@JsonKey(name: 'is_root') bool get isRoot;@JsonKey(name: 'is_leaf') bool get isLeaf;
 /// Create a copy of MultiTraceNode
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +28,16 @@ $MultiTraceNodeCopyWith<MultiTraceNode> get copyWith => _$MultiTraceNodeCopyWith
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is MultiTraceNode&&(identical(other.id, id) || other.id == id)&&(identical(other.type, type) || other.type == type)&&(identical(other.description, description) || other.description == description)&&(identical(other.totalTokens, totalTokens) || other.totalTokens == totalTokens)&&(identical(other.hasError, hasError) || other.hasError == hasError)&&(identical(other.isRoot, isRoot) || other.isRoot == isRoot)&&(identical(other.isLeaf, isLeaf) || other.isLeaf == isLeaf));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is MultiTraceNode&&(identical(other.id, id) || other.id == id)&&(identical(other.type, type) || other.type == type)&&(identical(other.description, description) || other.description == description)&&(identical(other.totalTokens, totalTokens) || other.totalTokens == totalTokens)&&(identical(other.hasError, hasError) || other.hasError == hasError)&&(identical(other.avgDurationMs, avgDurationMs) || other.avgDurationMs == avgDurationMs)&&(identical(other.errorRatePct, errorRatePct) || other.errorRatePct == errorRatePct)&&(identical(other.isRoot, isRoot) || other.isRoot == isRoot)&&(identical(other.isLeaf, isLeaf) || other.isLeaf == isLeaf));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,type,description,totalTokens,hasError,isRoot,isLeaf);
+int get hashCode => Object.hash(runtimeType,id,type,description,totalTokens,hasError,avgDurationMs,errorRatePct,isRoot,isLeaf);
 
 @override
 String toString() {
-  return 'MultiTraceNode(id: $id, type: $type, description: $description, totalTokens: $totalTokens, hasError: $hasError, isRoot: $isRoot, isLeaf: $isLeaf)';
+  return 'MultiTraceNode(id: $id, type: $type, description: $description, totalTokens: $totalTokens, hasError: $hasError, avgDurationMs: $avgDurationMs, errorRatePct: $errorRatePct, isRoot: $isRoot, isLeaf: $isLeaf)';
 }
 
 
@@ -48,7 +48,7 @@ abstract mixin class $MultiTraceNodeCopyWith<$Res>  {
   factory $MultiTraceNodeCopyWith(MultiTraceNode value, $Res Function(MultiTraceNode) _then) = _$MultiTraceNodeCopyWithImpl;
 @useResult
 $Res call({
- String id, String type, String? description,@JsonKey(name: 'total_tokens') int totalTokens,@JsonKey(name: 'has_error') bool hasError,@JsonKey(name: 'is_root') bool isRoot,@JsonKey(name: 'is_leaf') bool isLeaf
+ String id, String type, String? description,@JsonKey(name: 'total_tokens') int totalTokens,@JsonKey(name: 'has_error') bool hasError,@JsonKey(name: 'avg_duration_ms') double avgDurationMs,@JsonKey(name: 'error_rate_pct') double errorRatePct,@JsonKey(name: 'is_root') bool isRoot,@JsonKey(name: 'is_leaf') bool isLeaf
 });
 
 
@@ -65,14 +65,16 @@ class _$MultiTraceNodeCopyWithImpl<$Res>
 
 /// Create a copy of MultiTraceNode
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? type = null,Object? description = freezed,Object? totalTokens = null,Object? hasError = null,Object? isRoot = null,Object? isLeaf = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? type = null,Object? description = freezed,Object? totalTokens = null,Object? hasError = null,Object? avgDurationMs = null,Object? errorRatePct = null,Object? isRoot = null,Object? isLeaf = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,type: null == type ? _self.type : type // ignore: cast_nullable_to_non_nullable
 as String,description: freezed == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
 as String?,totalTokens: null == totalTokens ? _self.totalTokens : totalTokens // ignore: cast_nullable_to_non_nullable
 as int,hasError: null == hasError ? _self.hasError : hasError // ignore: cast_nullable_to_non_nullable
-as bool,isRoot: null == isRoot ? _self.isRoot : isRoot // ignore: cast_nullable_to_non_nullable
+as bool,avgDurationMs: null == avgDurationMs ? _self.avgDurationMs : avgDurationMs // ignore: cast_nullable_to_non_nullable
+as double,errorRatePct: null == errorRatePct ? _self.errorRatePct : errorRatePct // ignore: cast_nullable_to_non_nullable
+as double,isRoot: null == isRoot ? _self.isRoot : isRoot // ignore: cast_nullable_to_non_nullable
 as bool,isLeaf: null == isLeaf ? _self.isLeaf : isLeaf // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
@@ -159,10 +161,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String type,  String? description, @JsonKey(name: 'total_tokens')  int totalTokens, @JsonKey(name: 'has_error')  bool hasError, @JsonKey(name: 'is_root')  bool isRoot, @JsonKey(name: 'is_leaf')  bool isLeaf)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String type,  String? description, @JsonKey(name: 'total_tokens')  int totalTokens, @JsonKey(name: 'has_error')  bool hasError, @JsonKey(name: 'avg_duration_ms')  double avgDurationMs, @JsonKey(name: 'error_rate_pct')  double errorRatePct, @JsonKey(name: 'is_root')  bool isRoot, @JsonKey(name: 'is_leaf')  bool isLeaf)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _MultiTraceNode() when $default != null:
-return $default(_that.id,_that.type,_that.description,_that.totalTokens,_that.hasError,_that.isRoot,_that.isLeaf);case _:
+return $default(_that.id,_that.type,_that.description,_that.totalTokens,_that.hasError,_that.avgDurationMs,_that.errorRatePct,_that.isRoot,_that.isLeaf);case _:
   return orElse();
 
 }
@@ -180,10 +182,10 @@ return $default(_that.id,_that.type,_that.description,_that.totalTokens,_that.ha
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String type,  String? description, @JsonKey(name: 'total_tokens')  int totalTokens, @JsonKey(name: 'has_error')  bool hasError, @JsonKey(name: 'is_root')  bool isRoot, @JsonKey(name: 'is_leaf')  bool isLeaf)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String type,  String? description, @JsonKey(name: 'total_tokens')  int totalTokens, @JsonKey(name: 'has_error')  bool hasError, @JsonKey(name: 'avg_duration_ms')  double avgDurationMs, @JsonKey(name: 'error_rate_pct')  double errorRatePct, @JsonKey(name: 'is_root')  bool isRoot, @JsonKey(name: 'is_leaf')  bool isLeaf)  $default,) {final _that = this;
 switch (_that) {
 case _MultiTraceNode():
-return $default(_that.id,_that.type,_that.description,_that.totalTokens,_that.hasError,_that.isRoot,_that.isLeaf);case _:
+return $default(_that.id,_that.type,_that.description,_that.totalTokens,_that.hasError,_that.avgDurationMs,_that.errorRatePct,_that.isRoot,_that.isLeaf);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -200,10 +202,10 @@ return $default(_that.id,_that.type,_that.description,_that.totalTokens,_that.ha
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String type,  String? description, @JsonKey(name: 'total_tokens')  int totalTokens, @JsonKey(name: 'has_error')  bool hasError, @JsonKey(name: 'is_root')  bool isRoot, @JsonKey(name: 'is_leaf')  bool isLeaf)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String type,  String? description, @JsonKey(name: 'total_tokens')  int totalTokens, @JsonKey(name: 'has_error')  bool hasError, @JsonKey(name: 'avg_duration_ms')  double avgDurationMs, @JsonKey(name: 'error_rate_pct')  double errorRatePct, @JsonKey(name: 'is_root')  bool isRoot, @JsonKey(name: 'is_leaf')  bool isLeaf)?  $default,) {final _that = this;
 switch (_that) {
 case _MultiTraceNode() when $default != null:
-return $default(_that.id,_that.type,_that.description,_that.totalTokens,_that.hasError,_that.isRoot,_that.isLeaf);case _:
+return $default(_that.id,_that.type,_that.description,_that.totalTokens,_that.hasError,_that.avgDurationMs,_that.errorRatePct,_that.isRoot,_that.isLeaf);case _:
   return null;
 
 }
@@ -215,7 +217,7 @@ return $default(_that.id,_that.type,_that.description,_that.totalTokens,_that.ha
 @JsonSerializable()
 
 class _MultiTraceNode implements MultiTraceNode {
-  const _MultiTraceNode({required this.id, required this.type, this.description, @JsonKey(name: 'total_tokens') this.totalTokens = 0, @JsonKey(name: 'has_error') this.hasError = false, @JsonKey(name: 'is_root') this.isRoot = false, @JsonKey(name: 'is_leaf') this.isLeaf = false});
+  const _MultiTraceNode({required this.id, required this.type, this.description, @JsonKey(name: 'total_tokens') this.totalTokens = 0, @JsonKey(name: 'has_error') this.hasError = false, @JsonKey(name: 'avg_duration_ms') this.avgDurationMs = 0.0, @JsonKey(name: 'error_rate_pct') this.errorRatePct = 0.0, @JsonKey(name: 'is_root') this.isRoot = false, @JsonKey(name: 'is_leaf') this.isLeaf = false});
   factory _MultiTraceNode.fromJson(Map<String, dynamic> json) => _$MultiTraceNodeFromJson(json);
 
 @override final  String id;
@@ -223,6 +225,8 @@ class _MultiTraceNode implements MultiTraceNode {
 @override final  String? description;
 @override@JsonKey(name: 'total_tokens') final  int totalTokens;
 @override@JsonKey(name: 'has_error') final  bool hasError;
+@override@JsonKey(name: 'avg_duration_ms') final  double avgDurationMs;
+@override@JsonKey(name: 'error_rate_pct') final  double errorRatePct;
 @override@JsonKey(name: 'is_root') final  bool isRoot;
 @override@JsonKey(name: 'is_leaf') final  bool isLeaf;
 
@@ -239,16 +243,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _MultiTraceNode&&(identical(other.id, id) || other.id == id)&&(identical(other.type, type) || other.type == type)&&(identical(other.description, description) || other.description == description)&&(identical(other.totalTokens, totalTokens) || other.totalTokens == totalTokens)&&(identical(other.hasError, hasError) || other.hasError == hasError)&&(identical(other.isRoot, isRoot) || other.isRoot == isRoot)&&(identical(other.isLeaf, isLeaf) || other.isLeaf == isLeaf));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _MultiTraceNode&&(identical(other.id, id) || other.id == id)&&(identical(other.type, type) || other.type == type)&&(identical(other.description, description) || other.description == description)&&(identical(other.totalTokens, totalTokens) || other.totalTokens == totalTokens)&&(identical(other.hasError, hasError) || other.hasError == hasError)&&(identical(other.avgDurationMs, avgDurationMs) || other.avgDurationMs == avgDurationMs)&&(identical(other.errorRatePct, errorRatePct) || other.errorRatePct == errorRatePct)&&(identical(other.isRoot, isRoot) || other.isRoot == isRoot)&&(identical(other.isLeaf, isLeaf) || other.isLeaf == isLeaf));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,type,description,totalTokens,hasError,isRoot,isLeaf);
+int get hashCode => Object.hash(runtimeType,id,type,description,totalTokens,hasError,avgDurationMs,errorRatePct,isRoot,isLeaf);
 
 @override
 String toString() {
-  return 'MultiTraceNode(id: $id, type: $type, description: $description, totalTokens: $totalTokens, hasError: $hasError, isRoot: $isRoot, isLeaf: $isLeaf)';
+  return 'MultiTraceNode(id: $id, type: $type, description: $description, totalTokens: $totalTokens, hasError: $hasError, avgDurationMs: $avgDurationMs, errorRatePct: $errorRatePct, isRoot: $isRoot, isLeaf: $isLeaf)';
 }
 
 
@@ -259,7 +263,7 @@ abstract mixin class _$MultiTraceNodeCopyWith<$Res> implements $MultiTraceNodeCo
   factory _$MultiTraceNodeCopyWith(_MultiTraceNode value, $Res Function(_MultiTraceNode) _then) = __$MultiTraceNodeCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String type, String? description,@JsonKey(name: 'total_tokens') int totalTokens,@JsonKey(name: 'has_error') bool hasError,@JsonKey(name: 'is_root') bool isRoot,@JsonKey(name: 'is_leaf') bool isLeaf
+ String id, String type, String? description,@JsonKey(name: 'total_tokens') int totalTokens,@JsonKey(name: 'has_error') bool hasError,@JsonKey(name: 'avg_duration_ms') double avgDurationMs,@JsonKey(name: 'error_rate_pct') double errorRatePct,@JsonKey(name: 'is_root') bool isRoot,@JsonKey(name: 'is_leaf') bool isLeaf
 });
 
 
@@ -276,14 +280,16 @@ class __$MultiTraceNodeCopyWithImpl<$Res>
 
 /// Create a copy of MultiTraceNode
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? type = null,Object? description = freezed,Object? totalTokens = null,Object? hasError = null,Object? isRoot = null,Object? isLeaf = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? type = null,Object? description = freezed,Object? totalTokens = null,Object? hasError = null,Object? avgDurationMs = null,Object? errorRatePct = null,Object? isRoot = null,Object? isLeaf = null,}) {
   return _then(_MultiTraceNode(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,type: null == type ? _self.type : type // ignore: cast_nullable_to_non_nullable
 as String,description: freezed == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
 as String?,totalTokens: null == totalTokens ? _self.totalTokens : totalTokens // ignore: cast_nullable_to_non_nullable
 as int,hasError: null == hasError ? _self.hasError : hasError // ignore: cast_nullable_to_non_nullable
-as bool,isRoot: null == isRoot ? _self.isRoot : isRoot // ignore: cast_nullable_to_non_nullable
+as bool,avgDurationMs: null == avgDurationMs ? _self.avgDurationMs : avgDurationMs // ignore: cast_nullable_to_non_nullable
+as double,errorRatePct: null == errorRatePct ? _self.errorRatePct : errorRatePct // ignore: cast_nullable_to_non_nullable
+as double,isRoot: null == isRoot ? _self.isRoot : isRoot // ignore: cast_nullable_to_non_nullable
 as bool,isLeaf: null == isLeaf ? _self.isLeaf : isLeaf // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
@@ -1034,7 +1040,7 @@ return edge(_that.edge);case _:
 
 class SelectedNode implements SelectedGraphElement {
   const SelectedNode(this.node);
-  
+
 
  final  MultiTraceNode node;
 
@@ -1097,7 +1103,7 @@ as MultiTraceNode,
 @override
 @pragma('vm:prefer-inline')
 $MultiTraceNodeCopyWith<$Res> get node {
-  
+
   return $MultiTraceNodeCopyWith<$Res>(_self.node, (value) {
     return _then(_self.copyWith(node: value));
   });
@@ -1109,7 +1115,7 @@ $MultiTraceNodeCopyWith<$Res> get node {
 
 class SelectedEdge implements SelectedGraphElement {
   const SelectedEdge(this.edge);
-  
+
 
  final  MultiTraceEdge edge;
 
@@ -1172,7 +1178,7 @@ as MultiTraceEdge,
 @override
 @pragma('vm:prefer-inline')
 $MultiTraceEdgeCopyWith<$Res> get edge {
-  
+
   return $MultiTraceEdgeCopyWith<$Res>(_self.edge, (value) {
     return _then(_self.copyWith(edge: value));
   });

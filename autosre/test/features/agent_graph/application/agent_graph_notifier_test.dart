@@ -15,6 +15,7 @@ class MockAgentGraphRepository extends Fake implements AgentGraphRepository {
   Future<MultiTraceGraphPayload> fetchGraph({
     String dataset = kDefaultDataset,
     int timeRangeHours = 6,
+    int? sampleLimit,
     String? projectId,
   }) async {
     if (completer != null) return completer!.future;

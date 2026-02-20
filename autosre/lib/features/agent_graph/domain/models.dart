@@ -13,6 +13,8 @@ abstract class MultiTraceNode with _$MultiTraceNode {
     String? description,
     @JsonKey(name: 'total_tokens') @Default(0) int totalTokens,
     @JsonKey(name: 'has_error') @Default(false) bool hasError,
+    @JsonKey(name: 'avg_duration_ms') @Default(0.0) double avgDurationMs,
+    @JsonKey(name: 'error_rate_pct') @Default(0.0) double errorRatePct,
     @JsonKey(name: 'is_root') @Default(false) bool isRoot,
     @JsonKey(name: 'is_leaf') @Default(false) bool isLeaf,
   }) = _MultiTraceNode;

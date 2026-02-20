@@ -7,11 +7,13 @@ import '../domain/models.dart';
 
 /// Right-hand detail panel showing full metadata for a selected node or edge.
 class AgentGraphDetailsPanel extends StatelessWidget {
+  final MultiTraceGraphPayload payload;
   final SelectedGraphElement? selected;
   final VoidCallback? onClose;
 
   const AgentGraphDetailsPanel({
     super.key,
+    required this.payload,
     required this.selected,
     this.onClose,
   });
@@ -143,6 +145,28 @@ class AgentGraphDetailsPanel extends StatelessWidget {
           icon: Icons.token,
           color: AppColors.primaryCyan,
         ),
+        if (node.avgDurationMs > 0) ...[
+          const SizedBox(height: 8),
+          _metricCard(
+            label: 'Avg Latency',
+            value: '${node.avgDurationMs.toStringAsFixed(1)} ms',
+            icon: Icons.timer,
+            color: AppColors.primaryTeal,
+          ),
+        ],
+        if (node.hasError) ...[
+          const SizedBox(height: 8),
+          _metricCard(
+            label: 'Error Rate',
+            value: '${node.errorRatePct.toStringAsFixed(1)}%',
+            icon: Icons.error_outline,
+            color: AppColors.error,
+          ),
+        ],
+        if (payload.nodes.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          _buildTokenPercentage(node.totalTokens),
+        ],
         const SizedBox(height: 8),
         Row(
           children: [
@@ -373,6 +397,36 @@ class AgentGraphDetailsPanel extends StatelessWidget {
         label,
         style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w600),
       ),
+    );
+  }
+
+  Widget _buildTokenPercentage(int nodeTokens) {
+    if (nodeTokens == 0) return const SizedBox.shrink();
+
+    final totalGraphTokens = payload.nodes.fold(
+      0,
+      (sum, n) => sum + n.totalTokens,
+    );
+    if (totalGraphTokens == 0) return const SizedBox.shrink();
+
+    final pct = (nodeTokens / totalGraphTokens * 100);
+
+    return Row(
+      children: [
+        Expanded(
+          child: LinearProgressIndicator(
+            value: pct / 100,
+            backgroundColor: Colors.white10,
+            color: AppColors.primaryCyan,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          '${pct.toStringAsFixed(1)}% of total',
+          style: const TextStyle(color: Colors.white54, fontSize: 10),
+        ),
+      ],
     );
   }
 

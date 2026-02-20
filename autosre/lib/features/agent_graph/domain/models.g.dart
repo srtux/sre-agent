@@ -13,6 +13,8 @@ _MultiTraceNode _$MultiTraceNodeFromJson(Map<String, dynamic> json) =>
       description: json['description'] as String?,
       totalTokens: (json['total_tokens'] as num?)?.toInt() ?? 0,
       hasError: json['has_error'] as bool? ?? false,
+      avgDurationMs: (json['avg_duration_ms'] as num?)?.toDouble() ?? 0.0,
+      errorRatePct: (json['error_rate_pct'] as num?)?.toDouble() ?? 0.0,
       isRoot: json['is_root'] as bool? ?? false,
       isLeaf: json['is_leaf'] as bool? ?? false,
     );
@@ -24,6 +26,8 @@ Map<String, dynamic> _$MultiTraceNodeToJson(_MultiTraceNode instance) =>
       'description': instance.description,
       'total_tokens': instance.totalTokens,
       'has_error': instance.hasError,
+      'avg_duration_ms': instance.avgDurationMs,
+      'error_rate_pct': instance.errorRatePct,
       'is_root': instance.isRoot,
       'is_leaf': instance.isLeaf,
     };

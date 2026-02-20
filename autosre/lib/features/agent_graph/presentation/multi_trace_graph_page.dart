@@ -6,6 +6,7 @@ import '../../../theme/app_theme.dart';
 import '../../../widgets/common/unified_time_picker.dart';
 import '../application/agent_graph_notifier.dart';
 import '../data/agent_graph_repository.dart';
+import '../domain/graph_view_mode.dart';
 import 'agent_graph_details_panel.dart';
 import 'interactive_graph_canvas.dart';
 
@@ -30,6 +31,7 @@ class MultiTraceGraphPage extends ConsumerStatefulWidget {
 class _MultiTraceGraphPageState extends ConsumerState<MultiTraceGraphPage> {
   late final TextEditingController _datasetController;
   late TimeRange _timeRange;
+  GraphViewMode _viewMode = GraphViewMode.standard;
 
   @override
   void initState() {
@@ -71,8 +73,10 @@ class _MultiTraceGraphPageState extends ConsumerState<MultiTraceGraphPage> {
                 // Main canvas area.
                 Expanded(child: _buildCanvasArea(graphState)),
                 // Detail panel (shown when an element is selected).
-                if (graphState.selectedElement != null)
+                if (graphState.selectedElement != null &&
+                    graphState.payload != null)
                   AgentGraphDetailsPanel(
+                    payload: graphState.payload!,
                     selected: graphState.selectedElement,
                     onClose: () => ref
                         .read(agentGraphProvider.notifier)
@@ -119,6 +123,10 @@ class _MultiTraceGraphPageState extends ConsumerState<MultiTraceGraphPage> {
             ),
           ),
           const SizedBox(width: 24),
+
+          // View Mode Selector
+          _buildViewModeSelector(),
+          const SizedBox(width: 16),
 
           // Time picker.
           SizedBox(
@@ -175,6 +183,79 @@ class _MultiTraceGraphPageState extends ConsumerState<MultiTraceGraphPage> {
             onPressed: _runQuery,
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildViewModeSelector() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.surfaceBorder),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _viewModeButton(
+            GraphViewMode.standard,
+            Icons.account_tree,
+            'Standard',
+          ),
+          const SizedBox(width: 4),
+          _viewModeButton(
+            GraphViewMode.tokenHeatmap,
+            Icons.local_fire_department,
+            'Tokens',
+          ),
+          const SizedBox(width: 4),
+          _viewModeButton(
+            GraphViewMode.errorHeatmap,
+            Icons.warning_amber,
+            'Errors',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _viewModeButton(GraphViewMode mode, IconData icon, String label) {
+    final isSelected = _viewMode == mode;
+    return InkWell(
+      onTap: () => setState(() => _viewMode = mode),
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.primaryCyan.withValues(alpha: 0.2)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isSelected
+                ? AppColors.primaryCyan.withValues(alpha: 0.4)
+                : Colors.transparent,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 14,
+              color: isSelected ? AppColors.primaryCyan : Colors.white38,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.white38,
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -252,6 +333,7 @@ class _MultiTraceGraphPageState extends ConsumerState<MultiTraceGraphPage> {
 
     return InteractiveGraphCanvas(
       payload: payload,
+      viewMode: _viewMode,
       onNodeSelected: (node) =>
           ref.read(agentGraphProvider.notifier).selectNode(node),
       onEdgeSelected: (edge) =>

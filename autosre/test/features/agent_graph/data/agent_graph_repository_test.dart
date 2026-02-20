@@ -3,7 +3,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _mockGraphJson = '{"nodes":[{"id":"agent_1","type":"Agent",'
-    '"total_tokens":1000,"has_error":false,"is_root":true,"is_leaf":false}],'
+    '"total_tokens":1000,"has_error":false,"avg_duration_ms":100.5,'
+    '"error_rate_pct":0.0,"is_root":true,"is_leaf":false}],'
     '"edges":[{"source_id":"agent_1","target_id":"tool_1",'
     '"source_type":"Agent","target_type":"Tool","call_count":5,'
     '"error_count":1,"error_rate_pct":20.0,"edge_tokens":500,'

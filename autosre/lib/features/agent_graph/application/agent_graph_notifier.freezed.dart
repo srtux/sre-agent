@@ -14,7 +14,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$AgentGraphState {
 
- MultiTraceGraphPayload? get payload; bool get isLoading; String? get error; SelectedGraphElement? get selectedElement; String get dataset; int get timeRangeHours;
+ MultiTraceGraphPayload? get payload; bool get isLoading; String? get error; SelectedGraphElement? get selectedElement; String get dataset; int get timeRangeHours; int? get sampleLimit;
 /// Create a copy of AgentGraphState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -25,16 +25,16 @@ $AgentGraphStateCopyWith<AgentGraphState> get copyWith => _$AgentGraphStateCopyW
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is AgentGraphState&&(identical(other.payload, payload) || other.payload == payload)&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.error, error) || other.error == error)&&(identical(other.selectedElement, selectedElement) || other.selectedElement == selectedElement)&&(identical(other.dataset, dataset) || other.dataset == dataset)&&(identical(other.timeRangeHours, timeRangeHours) || other.timeRangeHours == timeRangeHours));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is AgentGraphState&&(identical(other.payload, payload) || other.payload == payload)&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.error, error) || other.error == error)&&(identical(other.selectedElement, selectedElement) || other.selectedElement == selectedElement)&&(identical(other.dataset, dataset) || other.dataset == dataset)&&(identical(other.timeRangeHours, timeRangeHours) || other.timeRangeHours == timeRangeHours)&&(identical(other.sampleLimit, sampleLimit) || other.sampleLimit == sampleLimit));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,payload,isLoading,error,selectedElement,dataset,timeRangeHours);
+int get hashCode => Object.hash(runtimeType,payload,isLoading,error,selectedElement,dataset,timeRangeHours,sampleLimit);
 
 @override
 String toString() {
-  return 'AgentGraphState(payload: $payload, isLoading: $isLoading, error: $error, selectedElement: $selectedElement, dataset: $dataset, timeRangeHours: $timeRangeHours)';
+  return 'AgentGraphState(payload: $payload, isLoading: $isLoading, error: $error, selectedElement: $selectedElement, dataset: $dataset, timeRangeHours: $timeRangeHours, sampleLimit: $sampleLimit)';
 }
 
 
@@ -45,7 +45,7 @@ abstract mixin class $AgentGraphStateCopyWith<$Res>  {
   factory $AgentGraphStateCopyWith(AgentGraphState value, $Res Function(AgentGraphState) _then) = _$AgentGraphStateCopyWithImpl;
 @useResult
 $Res call({
- MultiTraceGraphPayload? payload, bool isLoading, String? error, SelectedGraphElement? selectedElement, String dataset, int timeRangeHours
+ MultiTraceGraphPayload? payload, bool isLoading, String? error, SelectedGraphElement? selectedElement, String dataset, int timeRangeHours, int? sampleLimit
 });
 
 
@@ -62,7 +62,7 @@ class _$AgentGraphStateCopyWithImpl<$Res>
 
 /// Create a copy of AgentGraphState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? payload = freezed,Object? isLoading = null,Object? error = freezed,Object? selectedElement = freezed,Object? dataset = null,Object? timeRangeHours = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? payload = freezed,Object? isLoading = null,Object? error = freezed,Object? selectedElement = freezed,Object? dataset = null,Object? timeRangeHours = null,Object? sampleLimit = freezed,}) {
   return _then(_self.copyWith(
 payload: freezed == payload ? _self.payload : payload // ignore: cast_nullable_to_non_nullable
 as MultiTraceGraphPayload?,isLoading: null == isLoading ? _self.isLoading : isLoading // ignore: cast_nullable_to_non_nullable
@@ -70,7 +70,8 @@ as bool,error: freezed == error ? _self.error : error // ignore: cast_nullable_t
 as String?,selectedElement: freezed == selectedElement ? _self.selectedElement : selectedElement // ignore: cast_nullable_to_non_nullable
 as SelectedGraphElement?,dataset: null == dataset ? _self.dataset : dataset // ignore: cast_nullable_to_non_nullable
 as String,timeRangeHours: null == timeRangeHours ? _self.timeRangeHours : timeRangeHours // ignore: cast_nullable_to_non_nullable
-as int,
+as int,sampleLimit: freezed == sampleLimit ? _self.sampleLimit : sampleLimit // ignore: cast_nullable_to_non_nullable
+as int?,
   ));
 }
 /// Create a copy of AgentGraphState
@@ -179,10 +180,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( MultiTraceGraphPayload? payload,  bool isLoading,  String? error,  SelectedGraphElement? selectedElement,  String dataset,  int timeRangeHours)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( MultiTraceGraphPayload? payload,  bool isLoading,  String? error,  SelectedGraphElement? selectedElement,  String dataset,  int timeRangeHours,  int? sampleLimit)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _AgentGraphState() when $default != null:
-return $default(_that.payload,_that.isLoading,_that.error,_that.selectedElement,_that.dataset,_that.timeRangeHours);case _:
+return $default(_that.payload,_that.isLoading,_that.error,_that.selectedElement,_that.dataset,_that.timeRangeHours,_that.sampleLimit);case _:
   return orElse();
 
 }
@@ -200,10 +201,10 @@ return $default(_that.payload,_that.isLoading,_that.error,_that.selectedElement,
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( MultiTraceGraphPayload? payload,  bool isLoading,  String? error,  SelectedGraphElement? selectedElement,  String dataset,  int timeRangeHours)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( MultiTraceGraphPayload? payload,  bool isLoading,  String? error,  SelectedGraphElement? selectedElement,  String dataset,  int timeRangeHours,  int? sampleLimit)  $default,) {final _that = this;
 switch (_that) {
 case _AgentGraphState():
-return $default(_that.payload,_that.isLoading,_that.error,_that.selectedElement,_that.dataset,_that.timeRangeHours);case _:
+return $default(_that.payload,_that.isLoading,_that.error,_that.selectedElement,_that.dataset,_that.timeRangeHours,_that.sampleLimit);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -220,10 +221,10 @@ return $default(_that.payload,_that.isLoading,_that.error,_that.selectedElement,
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( MultiTraceGraphPayload? payload,  bool isLoading,  String? error,  SelectedGraphElement? selectedElement,  String dataset,  int timeRangeHours)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( MultiTraceGraphPayload? payload,  bool isLoading,  String? error,  SelectedGraphElement? selectedElement,  String dataset,  int timeRangeHours,  int? sampleLimit)?  $default,) {final _that = this;
 switch (_that) {
 case _AgentGraphState() when $default != null:
-return $default(_that.payload,_that.isLoading,_that.error,_that.selectedElement,_that.dataset,_that.timeRangeHours);case _:
+return $default(_that.payload,_that.isLoading,_that.error,_that.selectedElement,_that.dataset,_that.timeRangeHours,_that.sampleLimit);case _:
   return null;
 
 }
@@ -235,8 +236,8 @@ return $default(_that.payload,_that.isLoading,_that.error,_that.selectedElement,
 
 
 class _AgentGraphState implements AgentGraphState {
-  const _AgentGraphState({this.payload = null, this.isLoading = false, this.error, this.selectedElement = null, this.dataset = kDefaultDataset, this.timeRangeHours = 6});
-  
+  const _AgentGraphState({this.payload = null, this.isLoading = false, this.error, this.selectedElement = null, this.dataset = kDefaultDataset, this.timeRangeHours = 6, this.sampleLimit = null});
+
 
 @override@JsonKey() final  MultiTraceGraphPayload? payload;
 @override@JsonKey() final  bool isLoading;
@@ -244,6 +245,7 @@ class _AgentGraphState implements AgentGraphState {
 @override@JsonKey() final  SelectedGraphElement? selectedElement;
 @override@JsonKey() final  String dataset;
 @override@JsonKey() final  int timeRangeHours;
+@override@JsonKey() final  int? sampleLimit;
 
 /// Create a copy of AgentGraphState
 /// with the given fields replaced by the non-null parameter values.
@@ -255,16 +257,16 @@ _$AgentGraphStateCopyWith<_AgentGraphState> get copyWith => __$AgentGraphStateCo
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _AgentGraphState&&(identical(other.payload, payload) || other.payload == payload)&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.error, error) || other.error == error)&&(identical(other.selectedElement, selectedElement) || other.selectedElement == selectedElement)&&(identical(other.dataset, dataset) || other.dataset == dataset)&&(identical(other.timeRangeHours, timeRangeHours) || other.timeRangeHours == timeRangeHours));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _AgentGraphState&&(identical(other.payload, payload) || other.payload == payload)&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.error, error) || other.error == error)&&(identical(other.selectedElement, selectedElement) || other.selectedElement == selectedElement)&&(identical(other.dataset, dataset) || other.dataset == dataset)&&(identical(other.timeRangeHours, timeRangeHours) || other.timeRangeHours == timeRangeHours)&&(identical(other.sampleLimit, sampleLimit) || other.sampleLimit == sampleLimit));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,payload,isLoading,error,selectedElement,dataset,timeRangeHours);
+int get hashCode => Object.hash(runtimeType,payload,isLoading,error,selectedElement,dataset,timeRangeHours,sampleLimit);
 
 @override
 String toString() {
-  return 'AgentGraphState(payload: $payload, isLoading: $isLoading, error: $error, selectedElement: $selectedElement, dataset: $dataset, timeRangeHours: $timeRangeHours)';
+  return 'AgentGraphState(payload: $payload, isLoading: $isLoading, error: $error, selectedElement: $selectedElement, dataset: $dataset, timeRangeHours: $timeRangeHours, sampleLimit: $sampleLimit)';
 }
 
 
@@ -275,7 +277,7 @@ abstract mixin class _$AgentGraphStateCopyWith<$Res> implements $AgentGraphState
   factory _$AgentGraphStateCopyWith(_AgentGraphState value, $Res Function(_AgentGraphState) _then) = __$AgentGraphStateCopyWithImpl;
 @override @useResult
 $Res call({
- MultiTraceGraphPayload? payload, bool isLoading, String? error, SelectedGraphElement? selectedElement, String dataset, int timeRangeHours
+ MultiTraceGraphPayload? payload, bool isLoading, String? error, SelectedGraphElement? selectedElement, String dataset, int timeRangeHours, int? sampleLimit
 });
 
 
@@ -292,7 +294,7 @@ class __$AgentGraphStateCopyWithImpl<$Res>
 
 /// Create a copy of AgentGraphState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? payload = freezed,Object? isLoading = null,Object? error = freezed,Object? selectedElement = freezed,Object? dataset = null,Object? timeRangeHours = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? payload = freezed,Object? isLoading = null,Object? error = freezed,Object? selectedElement = freezed,Object? dataset = null,Object? timeRangeHours = null,Object? sampleLimit = freezed,}) {
   return _then(_AgentGraphState(
 payload: freezed == payload ? _self.payload : payload // ignore: cast_nullable_to_non_nullable
 as MultiTraceGraphPayload?,isLoading: null == isLoading ? _self.isLoading : isLoading // ignore: cast_nullable_to_non_nullable
@@ -300,7 +302,8 @@ as bool,error: freezed == error ? _self.error : error // ignore: cast_nullable_t
 as String?,selectedElement: freezed == selectedElement ? _self.selectedElement : selectedElement // ignore: cast_nullable_to_non_nullable
 as SelectedGraphElement?,dataset: null == dataset ? _self.dataset : dataset // ignore: cast_nullable_to_non_nullable
 as String,timeRangeHours: null == timeRangeHours ? _self.timeRangeHours : timeRangeHours // ignore: cast_nullable_to_non_nullable
-as int,
+as int,sampleLimit: freezed == sampleLimit ? _self.sampleLimit : sampleLimit // ignore: cast_nullable_to_non_nullable
+as int?,
   ));
 }
 
