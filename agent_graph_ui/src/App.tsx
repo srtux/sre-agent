@@ -327,6 +327,7 @@ function App() {
                     edges={topologyData.edges}
                     viewMode={viewMode}
                     sparklineData={timeseriesData}
+                    selectedNodeId={selected?.kind === 'node' ? selected.id : null}
                     onNodeClick={(nodeId) =>
                       setSelected({ kind: 'node', id: nodeId })
                     }

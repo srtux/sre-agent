@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import type { TimeSeriesPoint, ViewMode } from '../types'
 
 const SPARK_W = 160
