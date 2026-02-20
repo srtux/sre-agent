@@ -434,6 +434,7 @@ void main() {
       final result = switch (element) {
         SelectedNode(:final node) => 'node:${node.id}',
         SelectedEdge(:final edge) => 'edge:${edge.sourceId}',
+        SelectedPath(:final nodeIds) => 'path:${nodeIds.length}',
       };
 
       expect(result, 'node:node-1');
@@ -444,6 +445,7 @@ void main() {
       final result = switch (element) {
         SelectedNode(:final node) => 'node:${node.id}',
         SelectedEdge(:final edge) => 'edge:${edge.sourceId}',
+        SelectedPath(:final nodeIds) => 'path:${nodeIds.length}',
       };
 
       expect(result, 'edge:a');

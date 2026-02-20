@@ -122,9 +122,11 @@ bq query --use_legacy_sql=false --project_id "$PROJECT_ID" "$MV_SQL"
 
 # 2. Create the Topological Nodes View
 # This pre-aggregates metrics per component per trace so the UI can easily colorize them (e.g., Red for errors).
-echo "🔹 Creating Topological Nodes View..."
+# Includes a synthetic 'User::session' node so the graph always has a visible entry point.
+echo "🔹 Creating Topological Nodes View (with User entry node)..."
 NODES_SQL="
 CREATE OR REPLACE VIEW \`$PROJECT_ID.$GRAPH_DATASET.agent_topology_nodes\` AS
+-- Real agent/tool/LLM nodes from spans
 SELECT
   trace_id,
   session_id,
@@ -139,7 +141,30 @@ SELECT
   MIN(start_time) AS start_time
 FROM \`$PROJECT_ID.$GRAPH_DATASET.agent_spans_raw\`
 WHERE node_type != 'Glue'
-GROUP BY 1, 2, 3;
+GROUP BY 1, 2, 3
+
+UNION ALL
+
+-- Synthetic User node: one per (trace, session), aggregating all root agent metrics
+SELECT
+  trace_id,
+  session_id,
+  'User::session' AS logical_node_id,
+  'User' AS node_type,
+  'session' AS node_label,
+  COUNT(DISTINCT span_id) AS execution_count,
+  SUM(duration_ms) AS total_duration_ms,
+  SUM(input_tokens) AS total_input_tokens,
+  SUM(output_tokens) AS total_output_tokens,
+  COUNTIF(status_code = 'ERROR') AS error_count,
+  MIN(start_time) AS start_time
+FROM \`$PROJECT_ID.$GRAPH_DATASET.agent_spans_raw\`
+WHERE node_type = 'Agent'
+  AND (parent_id IS NULL OR parent_id NOT IN (
+    SELECT span_id FROM \`$PROJECT_ID.$GRAPH_DATASET.agent_spans_raw\`
+    WHERE node_type != 'Glue'
+  ))
+GROUP BY 1, 2;
 "
 bq query --use_legacy_sql=false --project_id "$PROJECT_ID" "$NODES_SQL"
 
@@ -193,11 +218,33 @@ SELECT
   COUNT(*) as edge_weight,
   SUM(duration_ms) as total_duration_ms,
   SUM(IFNULL(input_tokens, 0) + IFNULL(output_tokens, 0)) as total_tokens,
+  SUM(IFNULL(input_tokens, 0)) as input_tokens,
+  SUM(IFNULL(output_tokens, 0)) as output_tokens,
   COUNTIF(status_code = 'ERROR') as error_count
 FROM span_tree
 WHERE node_type != 'Glue'
   AND ancestor_logical_id IS NOT NULL
   AND ancestor_logical_id != logical_node_id
+GROUP BY 1, 2, 3, 4
+
+UNION ALL
+
+-- Synthetic User -> Root Agent edges
+-- Root agents are those with no meaningful (non-Glue) ancestor
+SELECT
+  trace_id,
+  session_id,
+  'User::session' AS source_node_id,
+  logical_node_id AS destination_node_id,
+  COUNT(*) as edge_weight,
+  SUM(duration_ms) as total_duration_ms,
+  SUM(IFNULL(input_tokens, 0) + IFNULL(output_tokens, 0)) as total_tokens,
+  SUM(IFNULL(input_tokens, 0)) as input_tokens,
+  SUM(IFNULL(output_tokens, 0)) as output_tokens,
+  COUNTIF(status_code = 'ERROR') as error_count
+FROM span_tree
+WHERE node_type = 'Agent'
+  AND ancestor_logical_id IS NULL
 GROUP BY 1, 2, 3, 4;
 "
 bq query --use_legacy_sql=false --project_id "$PROJECT_ID" "$EDGES_SQL"
@@ -265,6 +312,11 @@ CREATE TABLE \`$PROJECT_ID.$GRAPH_DATASET.agent_graph_hourly\`
   -- Source-node subcall counts
   tool_call_count INT64,
   llm_call_count INT64,
+  -- Hierarchical rollup metrics (downstream totals, computed at query time)
+  downstream_total_tokens INT64,
+  downstream_total_cost FLOAT64,
+  downstream_tool_call_count INT64,
+  downstream_llm_call_count INT64,
   -- Session tracking (stored as repeated for cross-bucket dedup)
   session_ids ARRAY<STRING>
 )
@@ -345,6 +397,11 @@ SELECT
   -- Subcall counts
   SUM(IF(target_type = 'Tool', call_count, 0)) AS tool_call_count,
   SUM(IF(target_type = 'LLM', call_count, 0)) AS llm_call_count,
+  -- Downstream rollup (populated with direct values; full rollup computed at query time)
+  SUM(COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)) AS downstream_total_tokens,
+  ROUND(SUM(span_cost), 6) AS downstream_total_cost,
+  SUM(IF(target_type = 'Tool', call_count, 0)) AS downstream_tool_call_count,
+  SUM(IF(target_type = 'LLM', call_count, 0)) AS downstream_llm_call_count,
   -- Session IDs for cross-bucket dedup
   ARRAY_AGG(DISTINCT session_id IGNORE NULLS) AS session_ids
 FROM CostPaths
@@ -444,6 +501,11 @@ SELECT
   target_id AS node_description,
   SUM(IF(target_type = 'Tool', call_count, 0)) AS tool_call_count,
   SUM(IF(target_type = 'LLM', call_count, 0)) AS llm_call_count,
+  -- Downstream rollup (populated with direct values; full rollup computed at query time)
+  SUM(COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)) AS downstream_total_tokens,
+  ROUND(SUM(span_cost), 6) AS downstream_total_cost,
+  SUM(IF(target_type = 'Tool', call_count, 0)) AS downstream_tool_call_count,
+  SUM(IF(target_type = 'LLM', call_count, 0)) AS downstream_llm_call_count,
   ARRAY_AGG(DISTINCT session_id IGNORE NULLS) AS session_ids
 FROM NewPaths
 GROUP BY time_bucket, source_id, target_id, source_type, target_type;
