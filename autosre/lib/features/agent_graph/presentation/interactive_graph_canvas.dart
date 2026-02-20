@@ -354,6 +354,26 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
     }
   }
 
+  Offset _getOutPortOffset(String nodeId) {
+    final n = _nodeDataMap[nodeId];
+    if (n == null) return const Offset(100, 50);
+    final type = n.type.toLowerCase();
+    if (type == 'agent' || type == 'sub_agent') return const Offset(280, 70);
+    if (type == 'llm') return const Offset(240, 55);
+    if (n.isUserNode || n.isUserEntryPoint) return const Offset(80, 40);
+    return const Offset(200, 45);
+  }
+
+  Offset _getInPortOffset(String nodeId) {
+    final n = _nodeDataMap[nodeId];
+    if (n == null) return const Offset(0, 50);
+    final type = n.type.toLowerCase();
+    if (type == 'agent' || type == 'sub_agent') return const Offset(0, 70);
+    if (type == 'llm') return const Offset(0, 55);
+    if (n.isUserNode || n.isUserEntryPoint) return const Offset(0, 40);
+    return const Offset(0, 45);
+  }
+
   List<BackEdgePath> _buildBackEdgePaths(List<MultiTraceEdge> backEdges) {
     final paths = <BackEdgePath>[];
     for (var i = 0; i < backEdges.length; i++) {
@@ -362,10 +382,13 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
       final end = _currentPositions[e.targetId];
       if (start == null || end == null) continue;
 
+      final srcOffset = _getOutPortOffset(e.sourceId);
+      final tgtOffset = _getInPortOffset(e.targetId);
+
       final hasError = e.errorCount > 0;
       paths.add(BackEdgePath(
-        start: start,
-        end: end,
+          start: start + srcOffset,
+          end: end + tgtOffset,
         color: hasError
             ? AppColors.error.withValues(alpha: 0.6)
             : AppColors.primaryTeal.withValues(alpha: 0.4),
@@ -456,13 +479,33 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
         if (_backEdgePaths.isNotEmpty)
           Positioned.fill(
             child: AnimatedBuilder(
-              animation: _marchingAntsController,
-              builder: (context, _) => CustomPaint(
-                painter: BackEdgePainter(
-                  edges: _backEdgePaths,
-                  marchingAntsPhase: _marchingAntsController.value,
-                  highlightedPath: _highlightedPath,
-                ),
+              animation: Listenable.merge([
+                _marchingAntsController,
+                _controller.viewportOffsetNotifier,
+                _controller.viewportZoomNotifier,
+              ]),
+              builder: (context, _) => LayoutBuilder(
+                builder: (context, constraints) {
+                  return Transform.translate(
+                    offset: Offset(
+                      constraints.maxWidth / 2,
+                      constraints.maxHeight / 2,
+                    ),
+                    child: Transform.scale(
+                      scale: _controller.viewportZoom,
+                      child: Transform.translate(
+                        offset: _controller.viewportOffset,
+                        child: CustomPaint(
+                          painter: BackEdgePainter(
+                            edges: _backEdgePaths,
+                            marchingAntsPhase: _marchingAntsController.value,
+                            highlightedPath: _highlightedPath,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
           ),

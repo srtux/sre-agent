@@ -89,6 +89,7 @@ SELECT
     WHEN 2 THEN 'ERROR'
     ELSE CAST(status.code AS STRING)
   END AS status_code,
+  status.message AS status_desc,
   SAFE_CAST(JSON_VALUE(attributes, '\$.\"gen_ai.usage.input_tokens\"') AS INT64) AS input_tokens,
   SAFE_CAST(JSON_VALUE(attributes, '\$.\"gen_ai.usage.output_tokens\"') AS INT64) AS output_tokens,
   -- Node Classification
