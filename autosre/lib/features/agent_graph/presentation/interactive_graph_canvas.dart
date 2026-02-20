@@ -1134,6 +1134,7 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
           Padding(
             padding: const EdgeInsets.all(8),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
