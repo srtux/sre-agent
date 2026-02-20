@@ -1,4 +1,4 @@
-import type { GraphFilters, ViewMode } from '../types'
+import type { GraphFilters, ViewMode, AutoRefreshConfig, RefreshInterval } from '../types'
 
 interface GraphToolbarProps {
   filters: GraphFilters
@@ -7,6 +7,9 @@ interface GraphToolbarProps {
   loading: boolean
   viewMode: ViewMode
   onViewModeChange: (mode: ViewMode) => void
+  autoRefresh: AutoRefreshConfig
+  onAutoRefreshChange: (config: AutoRefreshConfig) => void
+  lastUpdated: Date | null
 }
 
 const hoursOptions = [
@@ -99,6 +102,10 @@ const styles: Record<string, React.CSSProperties> = {
   },
 }
 
+function formatTime(date: Date): string {
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+}
+
 export default function GraphToolbar({
   filters,
   onChange,
@@ -106,6 +113,9 @@ export default function GraphToolbar({
   loading,
   viewMode,
   onViewModeChange,
+  autoRefresh,
+  onAutoRefreshChange,
+  lastUpdated,
 }: GraphToolbarProps) {
   const canLoad = !loading && filters.projectId.trim().length > 0
 
@@ -210,6 +220,69 @@ export default function GraphToolbar({
           Errors Only
         </span>
       </div>
+
+      {/* Auto-Refresh pill toggle */}
+      <div
+        style={styles.toggleContainer}
+        onClick={() =>
+          onAutoRefreshChange({ ...autoRefresh, enabled: !autoRefresh.enabled })
+        }
+        role="switch"
+        aria-checked={autoRefresh.enabled}
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            onAutoRefreshChange({ ...autoRefresh, enabled: !autoRefresh.enabled })
+          }
+        }}
+      >
+        <div
+          style={{
+            ...styles.toggleTrack,
+            background: autoRefresh.enabled ? '#58a6ff' : '#21262d',
+          }}
+        >
+          <div
+            style={{
+              ...styles.toggleThumb,
+              left: autoRefresh.enabled ? '25px' : '3px',
+            }}
+          />
+        </div>
+        <span
+          style={{
+            ...styles.toggleLabel,
+            color: autoRefresh.enabled ? '#58a6ff' : '#8b949e',
+          }}
+        >
+          Auto-Refresh
+        </span>
+      </div>
+
+      {autoRefresh.enabled && (
+        <>
+          <select
+            style={styles.select}
+            value={autoRefresh.intervalSeconds}
+            onChange={(e) =>
+              onAutoRefreshChange({
+                ...autoRefresh,
+                intervalSeconds: Number(e.target.value) as RefreshInterval,
+              })
+            }
+          >
+            <option value={30}>30s</option>
+            <option value={60}>1m</option>
+            <option value={300}>5m</option>
+          </select>
+          {lastUpdated && (
+            <span style={{ fontSize: '12px', color: '#8b949e' }}>
+              Updated {formatTime(lastUpdated)}
+            </span>
+          )}
+        </>
+      )}
 
       <button
         style={canLoad ? styles.loadButton : styles.loadButtonDisabled}

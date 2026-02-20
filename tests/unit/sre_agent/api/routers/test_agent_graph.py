@@ -945,6 +945,11 @@ class TestRouterConfiguration:
         paths = [route.path for route in router.routes]
         assert "/api/v1/graph/edge/{source_id:path}/{target_id:path}" in paths
 
+    def test_timeseries_route_exists(self) -> None:
+        """The /timeseries route should be registered."""
+        paths = [route.path for route in router.routes]
+        assert "/api/v1/graph/timeseries" in paths
+
 
 class TestDetectLoops:
     """Tests for the _detect_loops function."""
@@ -1144,3 +1149,261 @@ class TestTrajectoriesLoopDetection:
         ).json()
 
         assert data["loopTraces"] == []
+
+
+class TestTimeSeriesEndpoint:
+    """Tests for GET /api/v1/graph/timeseries."""
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_returns_200_with_series_dict(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        """Timeseries endpoint should return 200 with a series dict."""
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+
+        row = _make_row(
+            time_bucket="2026-02-20T10:00:00+00:00",
+            node_id="Agent::root",
+            call_count=12,
+            error_count=1,
+            avg_duration_ms=432.1,
+            total_tokens=840,
+            total_cost=0.001234,
+        )
+        bq.query.return_value = _mock_query_result([row])
+
+        resp = client.get(
+            "/api/v1/graph/timeseries",
+            params={"project_id": "test-project", "hours": 24},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "series" in data
+        assert isinstance(data["series"], dict)
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_series_point_has_required_fields(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        """Each series point should have all required metric fields."""
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+
+        row = _make_row(
+            time_bucket="2026-02-20T10:00:00+00:00",
+            node_id="Agent::root",
+            call_count=12,
+            error_count=1,
+            avg_duration_ms=432.1,
+            total_tokens=840,
+            total_cost=0.001234,
+        )
+        bq.query.return_value = _mock_query_result([row])
+
+        data = client.get(
+            "/api/v1/graph/timeseries",
+            params={"project_id": "test-project", "hours": 24},
+        ).json()
+
+        point = data["series"]["Agent::root"][0]
+        assert "bucket" in point
+        assert "callCount" in point
+        assert "errorCount" in point
+        assert "avgDurationMs" in point
+        assert "totalTokens" in point
+        assert "totalCost" in point
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_multiple_nodes_returned_as_separate_keys(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        """Different node_ids should appear as separate keys in series."""
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+
+        row1 = _make_row(
+            time_bucket="2026-02-20T10:00:00+00:00",
+            node_id="Agent::root",
+            call_count=5,
+            error_count=0,
+            avg_duration_ms=100.0,
+            total_tokens=400,
+            total_cost=0.001,
+        )
+        row2 = _make_row(
+            time_bucket="2026-02-20T10:00:00+00:00",
+            node_id="Tool::search",
+            call_count=8,
+            error_count=2,
+            avg_duration_ms=200.0,
+            total_tokens=600,
+            total_cost=0.002,
+        )
+        bq.query.return_value = _mock_query_result([row1, row2])
+
+        data = client.get(
+            "/api/v1/graph/timeseries",
+            params={"project_id": "test-project", "hours": 6},
+        ).json()
+
+        assert "Agent::root" in data["series"]
+        assert "Tool::search" in data["series"]
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_multiple_buckets_per_node_are_ordered(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        """Multiple buckets for the same node should preserve order."""
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+
+        row1 = _make_row(
+            time_bucket="2026-02-20T10:00:00+00:00",
+            node_id="Agent::root",
+            call_count=5,
+            error_count=0,
+            avg_duration_ms=100.0,
+            total_tokens=400,
+            total_cost=0.001,
+        )
+        row2 = _make_row(
+            time_bucket="2026-02-20T11:00:00+00:00",
+            node_id="Agent::root",
+            call_count=8,
+            error_count=1,
+            avg_duration_ms=150.0,
+            total_tokens=600,
+            total_cost=0.002,
+        )
+        bq.query.return_value = _mock_query_result([row1, row2])
+
+        data = client.get(
+            "/api/v1/graph/timeseries",
+            params={"project_id": "test-project", "hours": 6},
+        ).json()
+
+        points = data["series"]["Agent::root"]
+        assert len(points) == 2
+        assert points[0]["bucket"] == "2026-02-20T10:00:00+00:00"
+        assert points[1]["bucket"] == "2026-02-20T11:00:00+00:00"
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_empty_result_returns_empty_series(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        """Empty BigQuery result should return empty series dict."""
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        bq.query.return_value = _mock_query_result([])
+
+        data = client.get(
+            "/api/v1/graph/timeseries",
+            params={"project_id": "test-project", "hours": 24},
+        ).json()
+
+        assert data["series"] == {}
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_bq_error_returns_500(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        """BigQuery errors should return HTTP 500."""
+        mock_client_fn.side_effect = Exception("Connection refused")
+
+        resp = client.get(
+            "/api/v1/graph/timeseries",
+            params={"project_id": "test-project", "hours": 24},
+        )
+        assert resp.status_code == 500
+
+    def test_missing_project_id_returns_422(self, client: TestClient) -> None:
+        """Missing required project_id should return 422."""
+        resp = client.get("/api/v1/graph/timeseries")
+        assert resp.status_code == 422
+
+    def test_invalid_project_id_returns_400(self, client: TestClient) -> None:
+        """SQL-injection-style project_id should be rejected."""
+        resp = client.get(
+            "/api/v1/graph/timeseries",
+            params={"project_id": "proj; DROP TABLE x--"},
+        )
+        assert resp.status_code == 400
+
+    def test_hours_below_minimum_returns_422(self, client: TestClient) -> None:
+        """hours=1 should be rejected since ge=2."""
+        resp = client.get(
+            "/api/v1/graph/timeseries",
+            params={"project_id": "test-project", "hours": 1},
+        )
+        assert resp.status_code == 422
+
+    def test_hours_above_maximum_returns_422(self, client: TestClient) -> None:
+        """hours=721 should be rejected since le=720."""
+        resp = client.get(
+            "/api/v1/graph/timeseries",
+            params={"project_id": "test-project", "hours": 721},
+        )
+        assert resp.status_code == 422
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_start_time_param_accepted(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        """start_time parameter should be used in the time filter."""
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        bq.query.return_value = _mock_query_result([])
+
+        resp = client.get(
+            "/api/v1/graph/timeseries",
+            params={
+                "project_id": "test-project",
+                "start_time": "2026-02-20T00:00:00Z",
+            },
+        )
+        assert resp.status_code == 200
+
+    def test_invalid_start_time_returns_400(self, client: TestClient) -> None:
+        """Invalid start_time should be rejected."""
+        resp = client.get(
+            "/api/v1/graph/timeseries",
+            params={
+                "project_id": "test-project",
+                "start_time": "not-a-timestamp",
+            },
+        )
+        assert resp.status_code == 400
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_uses_time_bucket_column_in_query(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        """SQL should reference time_bucket column."""
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        bq.query.return_value = _mock_query_result([])
+
+        client.get(
+            "/api/v1/graph/timeseries",
+            params={"project_id": "test-project", "hours": 6},
+        )
+
+        sql = bq.query.call_args[0][0]
+        assert "time_bucket" in sql
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_only_one_bq_query_issued(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        """Timeseries should issue exactly one BigQuery query."""
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        bq.query.return_value = _mock_query_result([])
+
+        client.get(
+            "/api/v1/graph/timeseries",
+            params={"project_id": "test-project", "hours": 24},
+        )
+
+        assert bq.query.call_count == 1

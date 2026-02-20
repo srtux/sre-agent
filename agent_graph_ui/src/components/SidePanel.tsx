@@ -4,7 +4,8 @@ import { Light as SyntaxHighlighter } from 'react-syntax-highlighter'
 import json from 'react-syntax-highlighter/dist/esm/languages/hljs/json'
 import sql from 'react-syntax-highlighter/dist/esm/languages/hljs/sql'
 import { atomOneDark } from 'react-syntax-highlighter/dist/esm/styles/hljs'
-import type { SelectedElement, NodeDetail, EdgeDetail, PayloadEntry } from '../types'
+import type { SelectedElement, NodeDetail, EdgeDetail, PayloadEntry, ViewMode, TimeSeriesData } from '../types'
+import Sparkline, { extractSparkSeries, sparkColor, sparkLabel } from './Sparkline'
 
 SyntaxHighlighter.registerLanguage('json', json)
 SyntaxHighlighter.registerLanguage('sql', sql)
@@ -14,6 +15,8 @@ interface SidePanelProps {
   projectId: string
   hours: number
   onClose: () => void
+  viewMode?: ViewMode
+  sparklineData?: TimeSeriesData | null
 }
 
 /** Format a number into a compact human-readable string (e.g. 12500 -> "12.5K"). */
@@ -202,6 +205,8 @@ export default function SidePanel({
   projectId,
   hours,
   onClose,
+  viewMode = 'topology',
+  sparklineData,
 }: SidePanelProps) {
   const [nodeDetail, setNodeDetail] = useState<NodeDetail | null>(null)
   const [edgeDetail, setEdgeDetail] = useState<EdgeDetail | null>(null)
@@ -300,7 +305,11 @@ export default function SidePanel({
         {error && <div style={styles.errorBox}>{error}</div>}
 
         {nodeDetail && !loading && !error && (
-          <NodeDetailView detail={nodeDetail} />
+          <NodeDetailView
+            detail={nodeDetail}
+            viewMode={viewMode}
+            sparklineData={sparklineData}
+          />
         )}
 
         {edgeDetail && !loading && !error && (
@@ -311,12 +320,37 @@ export default function SidePanel({
   )
 }
 
-function NodeDetailView({ detail }: { detail: NodeDetail }) {
+function NodeDetailView({
+  detail,
+  viewMode = 'topology',
+  sparklineData,
+}: {
+  detail: NodeDetail
+  viewMode?: ViewMode
+  sparklineData?: TimeSeriesData | null
+}) {
   const errColor = errorRateColor(detail.errorRate)
   const maxLatency = detail.latency.p99 || 1
 
+  // Resolve sparkline points for this node
+  const nodePoints = sparklineData?.series[detail.nodeId]
+  const hasSparkline = nodePoints && nodePoints.length >= 2
+
   return (
     <>
+      {/* Trend sparkline */}
+      {hasSparkline && (
+        <div style={styles.section}>
+          <div style={styles.sectionTitle}>{sparkLabel(viewMode)}</div>
+          <Sparkline
+            points={extractSparkSeries(nodePoints, viewMode)}
+            color={sparkColor(viewMode)}
+            width={320}
+            height={40}
+          />
+        </div>
+      )}
+
       {/* Metrics */}
       <div style={styles.section}>
         <div style={styles.sectionTitle}>Metrics</div>

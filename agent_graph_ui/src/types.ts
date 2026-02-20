@@ -115,3 +115,25 @@ export interface LoopTrace {
   traceId: string
   loops: LoopInfo[]
 }
+
+// --- Phase 4: Auto-refresh and time-series types ---
+
+export type RefreshInterval = 30 | 60 | 300
+
+export interface AutoRefreshConfig {
+  enabled: boolean
+  intervalSeconds: RefreshInterval
+}
+
+export interface TimeSeriesPoint {
+  bucket: string
+  callCount: number
+  errorCount: number
+  avgDurationMs: number
+  totalTokens: number
+  totalCost: number
+}
+
+export interface TimeSeriesData {
+  series: Record<string, TimeSeriesPoint[]>
+}

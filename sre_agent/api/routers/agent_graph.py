@@ -7,6 +7,7 @@ trajectory diagrams.
 
 import logging
 import re
+from collections import defaultdict
 from typing import Any
 from urllib.parse import unquote
 
@@ -877,4 +878,94 @@ async def get_edge_detail(
         raise HTTPException(
             status_code=500,
             detail="Failed to query edge detail. Check server logs for details.",
+        ) from exc
+
+
+@router.get("/timeseries")
+async def get_timeseries(
+    project_id: str,
+    dataset: str = "agent_graph",
+    hours: int = Query(default=24, ge=2, le=720),
+    start_time: str | None = None,
+    end_time: str | None = None,
+) -> dict[str, Any]:
+    """Return per-bucket time-series metrics for each node.
+
+    Queries the ``agent_graph_hourly`` table grouped by
+    ``time_bucket`` and ``target_id`` to produce trend data suitable
+    for sparkline rendering.
+
+    Args:
+        project_id: GCP project that owns the BigQuery dataset.
+        dataset: BigQuery dataset name.
+        hours: Look-back window in hours (2-720).
+        start_time: Optional ISO 8601 lower bound (overrides *hours*).
+        end_time: Optional ISO 8601 upper bound (defaults to now).
+
+    Returns:
+        A dict with a ``series`` mapping of node IDs to ordered
+        time-series points.
+    """
+    _validate_identifier(project_id, "project_id")
+    _validate_identifier(dataset, "dataset")
+    if start_time is not None:
+        start_time = _validate_iso8601(start_time, "start_time")
+    if end_time is not None:
+        end_time = _validate_iso8601(end_time, "end_time")
+
+    time_filter = _build_time_filter(
+        timestamp_col="time_bucket",
+        hours=hours,
+        start_time=start_time,
+        end_time=end_time,
+    )
+
+    try:
+        client = _get_bq_client(project_id)
+
+        query = f"""
+            SELECT
+                time_bucket,
+                target_id AS node_id,
+                SUM(node_call_count) AS call_count,
+                SUM(node_error_count) AS error_count,
+                SAFE_DIVIDE(
+                    SUM(node_sum_duration_ms),
+                    NULLIF(SUM(node_call_count), 0)
+                ) AS avg_duration_ms,
+                SUM(node_total_tokens) AS total_tokens,
+                SUM(node_total_cost) AS total_cost
+            FROM `{project_id}.{dataset}.agent_graph_hourly`
+            WHERE {time_filter}
+              AND node_call_count IS NOT NULL
+            GROUP BY time_bucket, target_id
+            ORDER BY target_id, time_bucket ASC
+        """
+
+        rows = list(client.query(query).result())
+
+        series: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for row in rows:
+            series[row.node_id].append(
+                {
+                    "bucket": (
+                        row.time_bucket.isoformat()
+                        if hasattr(row.time_bucket, "isoformat")
+                        else str(row.time_bucket)
+                    ),
+                    "callCount": row.call_count or 0,
+                    "errorCount": row.error_count or 0,
+                    "avgDurationMs": round(float(row.avg_duration_ms or 0), 1),
+                    "totalTokens": row.total_tokens or 0,
+                    "totalCost": round(float(row.total_cost or 0), 6),
+                }
+            )
+
+        return {"series": dict(series)}
+
+    except Exception as exc:
+        logger.exception("Failed to fetch timeseries data")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to query timeseries data. Check server logs for details.",
         ) from exc
