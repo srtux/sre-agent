@@ -1,5 +1,6 @@
 import { ResponsiveSankey } from '@nivo/sankey'
 import type { SankeyResponse } from '../types'
+import { removeCyclicLinks } from '../utils/sankeyUtils'
 
 interface TrajectorySankeyProps {
   data: SankeyResponse
@@ -26,11 +27,12 @@ export default function TrajectorySankey({ data }: TrajectorySankeyProps) {
   }
 
   const hasLoops = loopNodeIds.size > 0
+  const safeData = removeCyclicLinks(data)
 
   return (
-    <div style={{ height: '600px', background: '#0d1117', borderRadius: hasLoops ? '8px 8px 0 0' : '8px' }}>
+    <div style={{ width: '100vw', height: '100vh', paddingBottom: '100px', background: '#0d1117', borderRadius: hasLoops ? '8px 8px 0 0' : '8px' }}>
       <ResponsiveSankey
-        data={data}
+        data={safeData}
         margin={{ top: 20, right: 160, bottom: 20, left: 160 }}
         align="justify"
         colors={(node) => {

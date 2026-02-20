@@ -139,7 +139,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<Tab>('topology')
   const [filters, setFilters] = useState<GraphFilters>({
     projectId: '',
-    hours: 1,
+    hours: 24,
     errorsOnly: false,
   })
   const [viewMode, setViewMode] = useState<ViewMode>('topology')

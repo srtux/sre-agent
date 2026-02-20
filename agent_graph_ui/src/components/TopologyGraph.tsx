@@ -221,13 +221,13 @@ function AgentNode({ data }: NodeProps) {
   const errorOverrides = getErrorStyles(nodeData.errorCount)
   const heatOverrides: React.CSSProperties = nodeData._heatColor
     ? {
-        background: nodeData._heatColor,
-        border: `2px solid ${nodeData._heatColor}`,
-        boxShadow: `0 2px 8px ${nodeData._heatColor}40`,
-        width: nodeData._scaledWidth ?? NODE_WIDTH,
-        height: nodeData._scaledHeight ?? NODE_HEIGHT,
-        color: '#1a1a1a',
-      }
+      background: nodeData._heatColor,
+      border: `2px solid ${nodeData._heatColor}`,
+      boxShadow: `0 2px 8px ${nodeData._heatColor}40`,
+      width: nodeData._scaledWidth ?? NODE_WIDTH,
+      height: nodeData._scaledHeight ?? NODE_HEIGHT,
+      color: '#1a1a1a',
+    }
     : {}
   return (
     <div style={{ ...nodeStyles.agent, ...errorOverrides, ...heatOverrides }}>
@@ -249,13 +249,13 @@ function ToolNode({ data }: NodeProps) {
   const errorOverrides = getErrorStyles(nodeData.errorCount)
   const heatOverrides: React.CSSProperties = nodeData._heatColor
     ? {
-        background: nodeData._heatColor,
-        border: `2px solid ${nodeData._heatColor}`,
-        boxShadow: `0 2px 8px ${nodeData._heatColor}40`,
-        width: nodeData._scaledWidth ?? NODE_WIDTH,
-        height: nodeData._scaledHeight ?? NODE_HEIGHT,
-        color: '#1a1a1a',
-      }
+      background: nodeData._heatColor,
+      border: `2px solid ${nodeData._heatColor}`,
+      boxShadow: `0 2px 8px ${nodeData._heatColor}40`,
+      width: nodeData._scaledWidth ?? NODE_WIDTH,
+      height: nodeData._scaledHeight ?? NODE_HEIGHT,
+      color: '#1a1a1a',
+    }
     : {}
   return (
     <div style={{ ...nodeStyles.tool, ...errorOverrides, ...heatOverrides }}>
@@ -277,13 +277,13 @@ function LLMNode({ data }: NodeProps) {
   const errorOverrides = getErrorStyles(nodeData.errorCount)
   const heatOverrides: React.CSSProperties = nodeData._heatColor
     ? {
-        background: nodeData._heatColor,
-        border: `2px solid ${nodeData._heatColor}`,
-        boxShadow: `0 2px 8px ${nodeData._heatColor}40`,
-        width: nodeData._scaledWidth ?? NODE_WIDTH,
-        height: nodeData._scaledHeight ?? NODE_HEIGHT,
-        color: '#1a1a1a',
-      }
+      background: nodeData._heatColor,
+      border: `2px solid ${nodeData._heatColor}`,
+      boxShadow: `0 2px 8px ${nodeData._heatColor}40`,
+      width: nodeData._scaledWidth ?? NODE_WIDTH,
+      height: nodeData._scaledHeight ?? NODE_HEIGHT,
+      color: '#1a1a1a',
+    }
     : {}
   return (
     <div style={{ ...nodeStyles.llm, ...errorOverrides, ...heatOverrides }}>
@@ -462,7 +462,7 @@ export default function TopologyGraph({ nodes, edges, viewMode = 'topology', onN
   )
 
   return (
-    <div style={{ flex: 1, minHeight: '500px', background: '#0d1117', borderRadius: '8px', position: 'relative' }}>
+    <div style={{ width: '100vw', height: '100vh', paddingBottom: '100px', background: '#0d1117', position: 'relative' }}>
       <ReactFlow
         nodes={rfNodes}
         edges={rfEdges}
