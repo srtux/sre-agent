@@ -3,18 +3,22 @@ import 'dart:async';
 import 'package:fl_nodes/fl_nodes.dart';
 import 'package:flutter/material.dart';
 
-import 'package:graphview/GraphView.dart' as gv;
 import '../../../theme/app_theme.dart';
 import '../domain/graph_view_mode.dart';
 import '../domain/models.dart';
+import 'back_edge_painter.dart';
+import 'graph_animation_controller.dart';
+import 'graph_layout_engine.dart';
+import 'graph_topology_helper.dart';
 
-/// A next-generation interactive graph canvas using fl_nodes.
+/// Interactive graph canvas using fl_nodes, with modular layout, topology
+/// analysis, and animation.
 ///
-/// Features:
-/// - Drag-and-drop node editing
-/// - Smooth bezier connections
-/// - Custom node widgets
-/// - Auto-layout using a custom tree layout algorithm on initial load
+/// Delegates to:
+/// - [GraphTopologyHelper] for DFS cycle detection and visible-graph filtering
+/// - [GraphLayoutEngine] for Sugiyama position computation
+/// - [GraphTransitionState] for sprouting/collapsing animation interpolation
+/// - [BackEdgePainter] for sweeping bezier arc back-edges
 class InteractiveGraphCanvas extends StatefulWidget {
   final MultiTraceGraphPayload payload;
   final ValueChanged<MultiTraceNode>? onNodeSelected;
@@ -38,24 +42,32 @@ class InteractiveGraphCanvas extends StatefulWidget {
 class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
     with TickerProviderStateMixin {
   late FlNodeEditorController _controller;
-  // State for gradual disclosure
-  final Set<String> _collapsedNodeIds = {};
 
-  // Map to store the actual data associated with each node ID
+  // --- Topology ---
+  late GraphTopologyHelper _topology;
+
+  // --- Expand/Collapse state (positive semantics: expanded = children visible) ---
+  Set<String> _expandedNodeIds = {};
+
+  // --- Visible graph cache ---
+  late VisibleGraph _visibleGraph;
   final Map<String, MultiTraceNode> _nodeDataMap = {};
+  List<BackEdgePath> _backEdgePaths = [];
 
   // Cache layout to avoid re-calculating on every build
   int _cachedHash = -1;
-
   Timer? _layoutTimer;
 
-  // Animation for expand/collapse transitions
+  // --- Layout transition animation (400ms easeOutCubic) ---
   late final AnimationController _layoutAnimController;
   late final Animation<double> _layoutAnimation;
-  Map<String, Offset> _previousPositions = {};
-  Map<String, Offset> _targetPositions = {};
+  GraphTransitionState _transition = GraphTransitionState.empty;
+  Map<String, Offset> _currentPositions = {};
 
-  // Path highlighting state
+  // --- Back-edge marching ants animation (5s repeating) ---
+  late final AnimationController _marchingAntsController;
+
+  // --- Path highlighting ---
   Set<String> _highlightedPath = {};
   String? _lockedSelectionId;
 
@@ -76,126 +88,122 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
         ),
       ),
     );
-    // Start significantly zoomed out (20x more than 1.0) for a bird's eye view
     _controller.viewportZoomNotifier.value = 0.05;
+
     _layoutAnimController = AnimationController(
       duration: const Duration(milliseconds: 400),
       vsync: this,
     );
     _layoutAnimation = CurvedAnimation(
       parent: _layoutAnimController,
-      curve: Curves.easeInOut,
+      curve: Curves.easeOutCubic,
     );
     _layoutAnimation.addListener(_onLayoutAnimationTick);
+
+    _marchingAntsController = AnimationController(
+      duration: const Duration(seconds: 5),
+      vsync: this,
+    );
+
     _registerPrototypes();
-    _initialCollapse();
+    _analyzeAndLayout();
+  }
+
+  /// Analyse topology, determine initial expand state, compute layout.
+  void _analyzeAndLayout() {
+    _topology = GraphTopologyHelper.analyze(widget.payload);
+    _initializeExpandState();
     _processGraphData();
   }
 
-  void _initialCollapse() {
-    // Auto-collapse if graph > 25 nodes
-    if (widget.payload.nodes.length > 25) {
-      // Find root (node with 0 incoming edges or explicit isRoot)
-      final incomingEdges = <String, int>{};
-      for (var e in widget.payload.edges) {
-        incomingEdges[e.targetId] = (incomingEdges[e.targetId] ?? 0) + 1;
-      }
+  /// Compute initial expand state: for small graphs expand everything,
+  /// for large graphs expand only roots and depth-0 agents.
+  void _initializeExpandState() {
+    _expandedNodeIds = {};
 
-      // We want to keep depth 0 and 1 open, collapse depth 2+
-      // Simple heuristic: Collapse all Agent/SubAgent nodes that are NOT the root
-      // AND have children.
-      // Actually, a BFS to determine depth is better.
-      final roots = widget.payload.nodes.where((n) {
-        return n.isRoot || !incomingEdges.containsKey(n.id);
-      }).toList();
-
-      if (roots.isEmpty && widget.payload.nodes.isNotEmpty) {
-        // Cycle or just complex, pick first
-        roots.add(widget.payload.nodes.first);
-      }
-
-      // BFS to assign depth
-      final depthMap = <String, int>{};
-      final queue = <String>[];
-      for (var r in roots) {
-        depthMap[r.id] = 0;
-        queue.add(r.id);
-      }
-
-      final adj = <String, List<String>>{};
-      for (var e in widget.payload.edges) {
-        adj.putIfAbsent(e.sourceId, () => []).add(e.targetId);
-      }
-
-      while (queue.isNotEmpty) {
-        final u = queue.removeAt(0);
-        final d = depthMap[u]!;
-        final children = adj[u] ?? [];
-        for (var v in children) {
-          if (!depthMap.containsKey(v)) {
-            depthMap[v] = d + 1;
-            queue.add(v);
-          }
+    if (widget.payload.nodes.length <= 25) {
+      // Small graph: expand everything.
+      for (final n in widget.payload.nodes) {
+        if (_hasChildren(n.id)) {
+          _expandedNodeIds.add(n.id);
         }
       }
-
-      // Collapse agents at depth >= 1 (so their children at depth >= 2 are hidden)
-      for (var n in widget.payload.nodes) {
-        final d = depthMap[n.id] ?? 0;
-        if (d >= 1 && _isAgent(n)) {
-          _collapsedNodeIds.add(n.id);
-        }
+    } else {
+      // Large graph: only expand roots (depth 0).
+      for (final rootId in _topology.rootIds) {
+        _expandedNodeIds.add(rootId);
       }
     }
-  }
-
-  bool _isAgent(MultiTraceNode node) {
-    final t = node.type.toLowerCase();
-    return t == 'agent' || t == 'sub_agent';
   }
 
   bool _hasChildren(String nodeId) {
     return widget.payload.edges.any((e) => e.sourceId == nodeId);
   }
 
-  void _toggleCollapse(String nodeId) {
-    // Save current positions before reprocessing
-    _previousPositions = {};
-    for (final entry in _controller.nodes.entries) {
-      _previousPositions[entry.key] = entry.value.offset;
-    }
+  void _handleNodeExpand(String nodeId) {
+    // Capture old state for animation.
+    final oldPositions = Map<String, Offset>.from(_currentPositions);
+    final oldVisibleIds = _visibleGraph.nodes.map((n) => n.id).toSet();
 
-    // Toggle collapsed state
-    if (_collapsedNodeIds.contains(nodeId)) {
-      _collapsedNodeIds.remove(nodeId);
+    // Toggle expand/collapse.
+    if (_expandedNodeIds.contains(nodeId)) {
+      _expandedNodeIds.remove(nodeId);
+      // Also collapse all descendants to match "collapse subtree" semantics.
+      _collapseDescendants(nodeId);
     } else {
-      _collapsedNodeIds.add(nodeId);
+      _expandedNodeIds.add(nodeId);
     }
 
-    // Reprocess to compute new layout
+    // Recompute layout.
     _processGraphData();
 
-    // Save target positions and reset to previous for animation
-    _targetPositions = {};
-    for (final entry in _controller.nodes.entries) {
-      _targetPositions[entry.key] = entry.value.offset;
-      // Start from previous position if available, otherwise stay at target
-      entry.value.offset = _previousPositions[entry.key] ?? entry.value.offset;
+    // Compute animation transition.
+    final newVisibleIds = _visibleGraph.nodes.map((n) => n.id).toSet();
+    final childToParent =
+        GraphTopologyHelper.buildChildToParent(_visibleGraph.dagEdges);
+    // Also include old DAG edges for collapsing nodes' parent lookup.
+    final allDagEdges = _topology.dagEdges;
+    for (final e in allDagEdges) {
+      childToParent.putIfAbsent(e.targetId, () => e.sourceId);
     }
 
-    // Animate from previous to target positions
+    _transition = GraphTransitionState.compute(
+      oldPositions: oldPositions,
+      newPositions: _currentPositions,
+      oldVisibleIds: oldVisibleIds,
+      newVisibleIds: newVisibleIds,
+      childToParent: childToParent,
+    );
+
+    // Apply start positions for animation.
+    for (final entry in _controller.nodes.entries) {
+      entry.value.offset = _transition.positionAt(entry.key, 0.0);
+    }
+
     _layoutAnimController.forward(from: 0.0);
     setState(() {});
+  }
+
+  /// Remove all descendants of [nodeId] from _expandedNodeIds.
+  void _collapseDescendants(String nodeId) {
+    final queue = <String>[nodeId];
+    final adj = <String, List<String>>{};
+    for (final e in _topology.dagEdges) {
+      adj.putIfAbsent(e.sourceId, () => []).add(e.targetId);
+    }
+    while (queue.isNotEmpty) {
+      final current = queue.removeAt(0);
+      for (final child in (adj[current] ?? [])) {
+        _expandedNodeIds.remove(child);
+        queue.add(child);
+      }
+    }
   }
 
   void _onLayoutAnimationTick() {
     final t = _layoutAnimation.value;
     for (final entry in _controller.nodes.entries) {
-      final prev = _previousPositions[entry.key];
-      final target = _targetPositions[entry.key];
-      if (prev != null && target != null) {
-        entry.value.offset = Offset.lerp(prev, target, t)!;
-      }
+      entry.value.offset = _transition.positionAt(entry.key, t);
     }
     if (mounted) setState(() {});
   }
@@ -204,14 +212,10 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
   void didUpdateWidget(InteractiveGraphCanvas oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.payload != oldWidget.payload) {
-      // Sync processing to ensure data is ready, but also use microtask to avoid
-      // modifying controller during the same build/layout pass that triggered this.
       scheduleMicrotask(() {
         if (!mounted) return;
-        _collapsedNodeIds.clear();
-        _initialCollapse();
-        _processGraphData();
-        setState(() {}); // Ensure build is called after controller modification
+        _analyzeAndLayout();
+        setState(() {});
       });
     }
   }
@@ -220,12 +224,11 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
   void dispose() {
     _layoutTimer?.cancel();
     _layoutAnimController.dispose();
+    _marchingAntsController.dispose();
     super.dispose();
   }
 
   void _registerPrototypes() {
-    // Register a universal node prototype that acts as a container for all our node types.
-    // We differentiate visually based on the data we attach.
     _controller.registerNodePrototype(
       FlNodePrototype(
         idName: 'universal_node',
@@ -246,28 +249,14 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
               linkStyleBuilder: (state) => const FlLinkStyle.basic(),
             ),
           ),
-          // Separate port for back-edges (cycles) rendered with dashed lines
-          FlDataOutputPortPrototype(
-            idName: 'back_out',
-            displayName: (context) => 'Back',
-            styleBuilder: (state) => FlPortStyle(
-              shape: FlPortShape.circle,
-              color: Colors.transparent,
-              radius: 0,
-              linkStyleBuilder: (state) => const FlLinkStyle.basic(),
-            ),
-          ),
         ],
-        onExecute: (ports, fields, state, forward, put) async {
-          // No-op for visualization
-        },
+        onExecute: (ports, fields, state, forward, put) async {},
       ),
     );
   }
 
   void _processGraphData({bool force = false}) {
     final payload = widget.payload;
-    // Hash includes collapsed state and node contents to detect changes better
     final nodeHash = payload.nodes.fold(
       0,
       (acc, n) => acc ^ n.id.hashCode ^ n.hasError.hashCode ^ n.executionCount,
@@ -275,246 +264,118 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
     final hash = Object.hash(
       payload.nodes.length,
       payload.edges.length,
-      _collapsedNodeIds.length,
-      _collapsedNodeIds.join(','),
+      _expandedNodeIds.length,
+      _expandedNodeIds.join(','),
       nodeHash,
     );
 
     if (!force && _cachedHash == hash) return;
     _cachedHash = hash;
 
-    // 1. Clear existing
     _controller.clear();
     _nodeDataMap.clear();
 
     if (payload.nodes.isEmpty) {
+      _visibleGraph = const VisibleGraph(nodes: [], dagEdges: [], backEdges: []);
+      _backEdgePaths = [];
       if (mounted && _cachedHash != -1) setState(() {});
       return;
     }
 
-    // 2. Filter Graph based on Collapsed State (Refined Visibility)
-    final visibleNodes = <String, MultiTraceNode>{};
-    final visibleEdges = <MultiTraceEdge>[];
+    // 1. Get visible graph from topology helper.
+    _visibleGraph = _topology.getVisibleGraph(_expandedNodeIds);
 
-    // BFS from Roots to determine visibility
-    // A node is visible if it is reachable from a Root through visible paths.
-    // If a node is Collapsed, its OUTGOING edges are NOT traversed (children hidden),
-    // UNLESS the child is also reachable via another non-collapsed path?
-    // "Gradual Disclosure" usually implies strict tree-like hiding.
-    // Let's assume strict hiding for simplicity: filtered out.
-
-    final incomingEdges = <String, int>{};
-    for (var e in payload.edges) {
-      incomingEdges[e.targetId] = (incomingEdges[e.targetId] ?? 0) + 1;
+    for (final n in _visibleGraph.nodes) {
+      _nodeDataMap[n.id] = n;
     }
 
-    final roots = payload.nodes.where((n) {
-      return n.isRoot || !incomingEdges.containsKey(n.id);
-    }).toList();
-    if (roots.isEmpty && payload.nodes.isNotEmpty) {
-      // Fallback: Cycle detected or complex graph.
-      // Pick the node with the highest number of outgoing edges (Hub/Orchestrator).
-      final nodeOutDegree = <String, int>{};
-      for (var e in payload.edges) {
-        nodeOutDegree[e.sourceId] = (nodeOutDegree[e.sourceId] ?? 0) + 1;
-      }
+    if (_visibleGraph.nodes.isEmpty) return;
 
-      var bestNode = payload.nodes.first;
-      var maxOut = -1;
+    // 2. Compute positions via layout engine (DAG edges only).
+    _currentPositions = GraphLayoutEngine.computePositions(
+      nodes: _visibleGraph.nodes,
+      dagEdges: _visibleGraph.dagEdges,
+    );
 
-      for (var n in payload.nodes) {
-        final out = nodeOutDegree[n.id] ?? 0;
-        if (out > maxOut) {
-          maxOut = out;
-          bestNode = n;
-        } else if (out == maxOut) {
-          // Tie-break: prefer 'Agent' type or 'sre_agent' ID
-          if (n.id.contains('sre_agent') &&
-              !bestNode.id.contains('sre_agent')) {
-            bestNode = n;
-          }
-        }
-      }
-      roots.add(bestNode);
-    }
+    // 3. Calculate edge styling and add fl_nodes.
+    _addFlNodes(_visibleGraph.nodes, _visibleGraph.dagEdges);
 
-    final queue = <String>[];
-    final visited = <String>{};
+    // 4. Build back-edge paths for the painter.
+    _backEdgePaths = _buildBackEdgePaths(_visibleGraph.backEdges);
 
-    for (var r in roots) {
-      queue.add(r.id);
-      visited.add(r.id);
-      visibleNodes[r.id] = r;
-    }
-
-    final adjMap = <String, List<MultiTraceEdge>>{};
-    for (var e in payload.edges) {
-      adjMap.putIfAbsent(e.sourceId, () => []).add(e);
-    }
-
-    while (queue.isNotEmpty) {
-      final uId = queue.removeAt(0);
-
-      // If u is open (not collapsed), we traverse its children
-      if (!_collapsedNodeIds.contains(uId)) {
-        final edges = adjMap[uId] ?? [];
-        for (var e in edges) {
-          visibleEdges.add(e);
-          if (!visited.contains(e.targetId)) {
-            visited.add(e.targetId);
-            queue.add(e.targetId);
-            // Add node to visible map
-            final targetNode = payload.nodes.firstWhere(
-              (n) => n.id == e.targetId,
-              orElse: () => MultiTraceNode(id: e.targetId, type: 'Unknown'),
-            );
-            visibleNodes[e.targetId] = targetNode;
-          }
-        }
-      }
-    }
-
-    _nodeDataMap.addAll(visibleNodes);
-
-    // 3. Run Sugiyama Layout on Visible Graph
-    if (visibleNodes.isNotEmpty) {
-      _sugiyamaLayout(visibleNodes.values.toList(), visibleEdges);
-    }
-  }
-
-  void _sugiyamaLayout(List<MultiTraceNode> nodes, List<MultiTraceEdge> edges) {
-    if (nodes.isEmpty) return;
-
-    // Calculate max call count for edge scaling
-    var maxCallCount = 1;
-    for (var e in edges) {
-      if (e.callCount > maxCallCount) maxCallCount = e.callCount;
-    }
-
-    // 3. Build GraphView Graph
-    final graph = gv.Graph()..isTree = false;
-    final gvNodes = <String, gv.Node>{};
-    final uniqueIds = <String>{};
-
-    for (var n in nodes) {
-      if (uniqueIds.contains(n.id)) continue;
-      uniqueIds.add(n.id);
-
-      final node = gv.Node.Id(n.id);
-
-      // Set node size for Sugiyama algorithm to prevent overlap
-      // Width/Height estimates based on _build*Node widgets
-      final type = n.type.toLowerCase();
-      if (type == 'agent' || type == 'sub_agent') {
-        node.size = const Size(260, 150);
-      } else if (type == 'llm') {
-        node.size = const Size(240, 100);
-      } else {
-        node.size = const Size(200, 80); // Tool
-      }
-
-      gvNodes[n.id] = node;
-      graph.addNode(node);
-    }
-
-    for (var e in edges) {
-      if (gvNodes.containsKey(e.sourceId) && gvNodes.containsKey(e.targetId)) {
-        graph.addEdge(gvNodes[e.sourceId]!, gvNodes[e.targetId]!);
-      }
-    }
-
-    // 4. Run Sugiyama Layout
-    final builder = gv.SugiyamaConfiguration()
-      ..orientation = gv.SugiyamaConfiguration.ORIENTATION_LEFT_RIGHT
-      ..levelSeparation = 120
-      ..nodeSeparation = 60;
-
-    final algorithm = gv.SugiyamaAlgorithm(builder);
-    algorithm.run(graph, 100, 100);
-
-    // 5. Calculate Center to Normalize
-    var minX = double.infinity;
-    var minY = double.infinity;
-    var maxX = double.negativeInfinity;
-    var maxY = double.negativeInfinity;
-
-    for (var gvNode in gvNodes.values) {
-      if (gvNode.x < minX) minX = gvNode.x;
-      if (gvNode.y < minY) minY = gvNode.y;
-      if (gvNode.x > maxX) maxX = gvNode.x;
-      if (gvNode.y > maxY) maxY = gvNode.y;
-    }
-
-    // Build depth map from layout positions for back-edge detection.
-    // In our LR layout (swapped from TB), the X position (gvNode.y * 1.5)
-    // determines the "layer". Higher gvNode.y = further right = deeper layer.
-    final depthMap = <String, double>{};
-    for (var n in nodes) {
-      final gvNode = gvNodes[n.id];
-      if (gvNode != null) {
-        depthMap[n.id] = gvNode.y;
-      }
-    }
-
-    final centerX = (minX + maxX) / 2;
-    final centerY = (minY + maxY) / 2;
-
-    for (var n in nodes) {
-      final gvNode = gvNodes[n.id];
-      if (gvNode != null) {
-        final outgoingEdges = edges.where((e) => e.sourceId == n.id).toList();
-        final hasOutgoingError = outgoingEdges.any((e) => e.errorCount > 0);
-
-        // Edge thickness based on max call count of outgoing edges
-        var nodeMaxCallCount = 1;
-        if (outgoingEdges.isNotEmpty) {
-          nodeMaxCallCount = outgoingEdges
-              .map((e) => e.callCount)
-              .reduce((a, b) => a > b ? a : b);
-        }
-
-        var thickness = 1.0;
-        if (maxCallCount > 1) {
-          thickness = 1.0 + (2.0 * (nodeMaxCallCount / maxCallCount));
-        }
-
-        final linkColor = hasOutgoingError
-            ? AppColors.error
-            : AppColors.primaryTeal.withValues(alpha: 0.6);
-
-        // Detect if this node has any back-edges (target at same or earlier layer)
-        final hasBackEdge = outgoingEdges.any((e) {
-          final srcDepth = depthMap[e.sourceId] ?? 0;
-          final tgtDepth = depthMap[e.targetId] ?? 0;
-          return tgtDepth <= srcDepth;
-        });
-
-        // SWAP X and Y for Left-to-Right layout since we used Top-Bottom algorithm
-        // Also increase scaling if needed manually
-        _addFlNode(
-          n.id,
-          // Center the graph at (0,0) so "Center View" works correctly
-          Offset(gvNode.x - centerX, gvNode.y - centerY),
-          linkColor,
-          thickness,
-          hasBackEdge: hasBackEdge,
-        );
-      }
-    }
-
-    // Add links -- use 'back_out' port for back-edges (dashed) and 'out' for forward
-    for (var e in edges) {
-      if (_controller.isNodePresent(e.sourceId) &&
-          _controller.isNodePresent(e.targetId)) {
-        final srcDepth = depthMap[e.sourceId] ?? 0;
-        final tgtDepth = depthMap[e.targetId] ?? 0;
-        final isBackEdge = tgtDepth <= srcDepth;
-        final outPort = isBackEdge ? 'back_out' : 'out';
-        _controller.addLink(e.sourceId, outPort, e.targetId, 'in');
-      }
+    // Start/stop marching ants animation based on whether back-edges exist.
+    if (_backEdgePaths.isNotEmpty && !_marchingAntsController.isAnimating) {
+      _marchingAntsController.repeat();
+    } else if (_backEdgePaths.isEmpty && _marchingAntsController.isAnimating) {
+      _marchingAntsController.stop();
     }
 
     _handleAutoFit();
+  }
+
+  void _addFlNodes(List<MultiTraceNode> nodes, List<MultiTraceEdge> dagEdges) {
+    var maxCallCount = 1;
+    for (final e in dagEdges) {
+      if (e.callCount > maxCallCount) maxCallCount = e.callCount;
+    }
+
+    for (final n in nodes) {
+      final position = _currentPositions[n.id];
+      if (position == null) continue;
+
+      final outgoingEdges = dagEdges.where((e) => e.sourceId == n.id).toList();
+      final hasOutgoingError = outgoingEdges.any((e) => e.errorCount > 0);
+
+      var nodeMaxCallCount = 1;
+      if (outgoingEdges.isNotEmpty) {
+        nodeMaxCallCount = outgoingEdges
+            .map((e) => e.callCount)
+            .reduce((a, b) => a > b ? a : b);
+      }
+
+      var thickness = 1.0;
+      if (maxCallCount > 1) {
+        thickness = 1.0 + (2.0 * (nodeMaxCallCount / maxCallCount));
+      }
+
+      final linkColor = hasOutgoingError
+          ? AppColors.error
+          : AppColors.primaryTeal.withValues(alpha: 0.6);
+
+      _addFlNode(n.id, position, linkColor, thickness);
+    }
+
+    // Add DAG links.
+    for (final e in dagEdges) {
+      if (_controller.isNodePresent(e.sourceId) &&
+          _controller.isNodePresent(e.targetId)) {
+        _controller.addLink(e.sourceId, 'out', e.targetId, 'in');
+      }
+    }
+  }
+
+  List<BackEdgePath> _buildBackEdgePaths(List<MultiTraceEdge> backEdges) {
+    final paths = <BackEdgePath>[];
+    for (var i = 0; i < backEdges.length; i++) {
+      final e = backEdges[i];
+      final start = _currentPositions[e.sourceId];
+      final end = _currentPositions[e.targetId];
+      if (start == null || end == null) continue;
+
+      final hasError = e.errorCount > 0;
+      paths.add(BackEdgePath(
+        start: start,
+        end: end,
+        color: hasError
+            ? AppColors.error.withValues(alpha: 0.6)
+            : AppColors.primaryTeal.withValues(alpha: 0.4),
+        thickness: 1.5,
+        sourceId: e.sourceId,
+        targetId: e.targetId,
+        edgeIndex: i,
+      ));
+    }
+    return paths;
   }
 
   void _handleAutoFit() {
@@ -527,9 +388,7 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
             _controller.nodes.keys.toSet(),
             animate: true,
           );
-          // After fitting, zoom out significantly more as requested
           _controller.setViewportZoom(0.05, absolute: true, animate: true);
-          // Deselect all after focusing
           _controller.clearSelection();
         }
       });
@@ -540,14 +399,11 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
     String id,
     Offset offset,
     Color linkColor,
-    double linkThickness, {
-    bool hasBackEdge = false,
-  }) {
+    double linkThickness,
+  ) {
     if (_controller.isNodePresent(id)) return;
 
     final prototype = _controller.nodePrototypes['universal_node']!;
-
-    final backEdgeColor = linkColor.withValues(alpha: 0.4);
 
     _controller.addNodeFromExisting(
       FlNodeDataModel(
@@ -570,25 +426,6 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
                   color: linkColor,
                   lineWidth: linkThickness,
                   drawMode: FlLineDrawMode.solid,
-                  curveType: FlLinkCurveType
-                      .bezier, // User requested "start from right edge" -> bezier Tangent
-                ),
-              ),
-            ),
-            state: FlPortState(),
-          ),
-          'back_out': FlPortDataModel(
-            prototype: FlDataOutputPortPrototype(
-              idName: 'back_out',
-              displayName: (context) => 'Back',
-              styleBuilder: (state) => FlPortStyle(
-                shape: FlPortShape.circle,
-                color: hasBackEdge ? backEdgeColor : Colors.transparent,
-                radius: hasBackEdge ? 4 : 0,
-                linkStyleBuilder: (state) => FlLinkStyle(
-                  color: backEdgeColor,
-                  lineWidth: linkThickness.clamp(1.0, 2.0),
-                  drawMode: FlLineDrawMode.dashed,
                   curveType: FlLinkCurveType.bezier,
                 ),
               ),
@@ -611,66 +448,77 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
       );
     }
 
-    // We use a Key based on the graph hash to force the editor to rebuild fully
-    // when the graph structure changes. This prevents "NodeEditorRenderBox child count"
-    // exceptions caused by the fl_nodes package losing sync with the controller.
     final graphKey = ValueKey(_cachedHash);
 
     return Stack(
       children: [
+        // Layer 1: Back-edge painter (BEHIND nodes)
+        if (_backEdgePaths.isNotEmpty)
+          Positioned.fill(
+            child: AnimatedBuilder(
+              animation: _marchingAntsController,
+              builder: (context, _) => CustomPaint(
+                painter: BackEdgePainter(
+                  edges: _backEdgePaths,
+                  marchingAntsPhase: _marchingAntsController.value,
+                  highlightedPath: _highlightedPath,
+                ),
+              ),
+            ),
+          ),
+        // Layer 2: FlNodeEditorWidget (nodes + DAG edges)
         FlNodeEditorWidget(
           key: graphKey,
           controller: _controller,
-          overlay: () => [], // No overlays for now
+          overlay: () => [],
           nodeBuilder: (context, nodeData) {
             final multiTraceNode = _nodeDataMap[nodeData.id];
             if (multiTraceNode == null) return const SizedBox();
-
             return _buildCustomNode(context, multiTraceNode, nodeData);
           },
-          // Hide default headers/fields since we use custom nodeBuilder
         ),
-        Positioned(
-          top: 24,
-          right: 24,
-          child: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E1E2E).withValues(alpha: 0.9),
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-              border: Border.all(color: Colors.white10),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildIconButton(Icons.refresh, 'Auto Layout', () {
-                  _processGraphData(force: true);
-                  setState(() {});
-                }),
-                const SizedBox(width: 8),
-                Container(width: 1, height: 24, color: Colors.white10),
-                const SizedBox(width: 8),
-                _buildIconButton(
-                  Icons.crop_free,
-                  'Fit to Screen',
-                  _handleAutoFit,
-                ),
-                // Zoom buttons omitted if API is unclear, Fit is usually sufficient for "Reset"
-                // User asked for limit sampling too, which is in the notifier/repo now (logic-wise).
-                // UI for sampling is not yet in the canvas, maybe in the toolbar?
-                // Let's keep canvas just for graph controls.
-              ],
-            ),
-          ),
-        ),
+        // Layer 3: Controls overlay
+        _buildControls(),
       ],
+    );
+  }
+
+  Widget _buildControls() {
+    return Positioned(
+      top: 24,
+      right: 24,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E1E2E).withValues(alpha: 0.9),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+          border: Border.all(color: Colors.white10),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildIconButton(Icons.refresh, 'Auto Layout', () {
+              _processGraphData(force: true);
+              setState(() {});
+            }),
+            const SizedBox(width: 8),
+            Container(width: 1, height: 24, color: Colors.white10),
+            const SizedBox(width: 8),
+            _buildIconButton(
+              Icons.crop_free,
+              'Fit to Screen',
+              _handleAutoFit,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -803,7 +651,7 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
 
   int _getMaxTokens() {
     var maxTokens = 1;
-    for (var n in widget.payload.nodes) {
+    for (final n in widget.payload.nodes) {
       if (n.totalTokens > maxTokens) maxTokens = n.totalTokens;
     }
     return maxTokens;
@@ -812,7 +660,6 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
   Color _getTokenHeatmapColor(int tokens, int maxTokens) {
     if (maxTokens <= 0) return Colors.grey;
     final ratio = (tokens / maxTokens).clamp(0.0, 1.0);
-    // Gradient from cool (low tokens) to hot (high tokens)
     if (ratio < 0.25) {
       return Color.lerp(Colors.blue.shade900, Colors.blue, ratio * 4)!;
     } else if (ratio < 0.5) {
@@ -845,7 +692,6 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
   }) {
     final inputPort = nodeData.ports['in'];
     final outPort = nodeData.ports['out'];
-    final backOutPort = nodeData.ports['back_out'];
     final effectiveColor = color ?? Colors.grey;
     final isDimmed =
         _highlightedPath.isNotEmpty && !_highlightedPath.contains(nodeData.id);
@@ -855,7 +701,6 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
       onTapDown: (_) {
         final nodeId = nodeData.id;
         if (_lockedSelectionId == nodeId) {
-          // Deselect
           setState(() {
             _lockedSelectionId = null;
             _highlightedPath.clear();
@@ -883,59 +728,50 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
       child: Opacity(
         opacity: isDimmed ? 0.2 : 1.0,
         child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          if (inputPort != null)
-            IgnorePointer(
-              child: Container(
-                key: inputPort.key,
-                width: 10,
-                height: 10,
-                margin: const EdgeInsets.only(right: 2),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white24,
-                  border: Border.all(color: Colors.white54, width: 1),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      blurRadius: 2,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          content,
-          // Stack the forward and back-edge ports together
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              if (outPort != null)
-                Container(
-                  key: outPort.key,
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            if (inputPort != null)
+              IgnorePointer(
+                child: Container(
+                  key: inputPort.key,
                   width: 10,
                   height: 10,
-                  margin: const EdgeInsets.only(left: 2),
+                  margin: const EdgeInsets.only(right: 2),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: effectiveColor,
-                    border: Border.all(color: Colors.white24, width: 1.5),
+                    color: Colors.white24,
+                    border: Border.all(color: Colors.white54, width: 1),
                     boxShadow: [
                       BoxShadow(
-                        color: effectiveColor.withValues(alpha: 0.4),
-                        blurRadius: 4,
+                        color: Colors.black.withValues(alpha: 0.3),
+                        blurRadius: 2,
                       ),
                     ],
                   ),
                 ),
-              // Invisible anchor for back-edge links (co-located with out port)
-              if (backOutPort != null)
-                SizedBox(key: backOutPort.key, width: 0, height: 0),
-            ],
-          ),
-        ],
-      ),
+              ),
+            content,
+            if (outPort != null)
+              Container(
+                key: outPort.key,
+                width: 10,
+                height: 10,
+                margin: const EdgeInsets.only(left: 2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: effectiveColor,
+                  border: Border.all(color: Colors.white24, width: 1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: effectiveColor.withValues(alpha: 0.4),
+                      blurRadius: 4,
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -979,7 +815,6 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
     final isSelected = nodeData.state.isSelected;
     final hasError = node.hasError;
     const color = AppColors.primaryTeal;
-    // Robot icon for Agents
     const iconData = Icons.smart_toy;
 
     final Color borderColor;
@@ -993,11 +828,13 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
       borderColor = const Color(0xFF1565C0);
     }
 
+    final isExpanded = _expandedNodeIds.contains(node.id);
+
     final content = Container(
       width: 280,
       constraints: const BoxConstraints(minHeight: 140),
       decoration: BoxDecoration(
-        color: const Color(0xFF0D1B2A), // Darker background
+        color: const Color(0xFF0D1B2A),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: borderColor,
@@ -1047,14 +884,11 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    // Expand/collapse toggle for agent nodes with children
                     if (_hasChildren(node.id))
                       GestureDetector(
-                        onTap: () => _toggleCollapse(node.id),
+                        onTap: () => _handleNodeExpand(node.id),
                         child: Icon(
-                          _collapsedNodeIds.contains(node.id)
-                              ? Icons.expand_more
-                              : Icons.expand_less,
+                          isExpanded ? Icons.expand_less : Icons.expand_more,
                           color: Colors.white54,
                           size: 18,
                         ),
@@ -1075,7 +909,6 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
                   ),
                   const SizedBox(height: 8),
                 ],
-                // Stats Row
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -1098,7 +931,6 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
               ],
             ),
           ),
-          // Execution Count Badge
           Positioned(
             top: -6,
             right: -6,
@@ -1119,15 +951,14 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
               ),
             ),
           ),
-          // Expand/Collapse toggle (only if node has children)
-          if (widget.payload.edges.any((e) => e.sourceId == node.id))
+          if (_hasChildren(node.id))
             Positioned(
               bottom: -12,
               left: 0,
               right: 0,
               child: Center(
                 child: GestureDetector(
-                  onTap: () => _toggleCollapse(node.id),
+                  onTap: () => _handleNodeExpand(node.id),
                   child: Container(
                     width: 24,
                     height: 24,
@@ -1137,9 +968,7 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
                       border: Border.all(color: borderColor, width: 1.5),
                     ),
                     child: Icon(
-                      _collapsedNodeIds.contains(node.id)
-                          ? Icons.chevron_right
-                          : Icons.expand_more,
+                      isExpanded ? Icons.expand_more : Icons.chevron_right,
                       color: Colors.white70,
                       size: 16,
                     ),
@@ -1162,20 +991,19 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
     final hasError = node.hasError;
     final Color borderColor;
     if (isSelected) {
-      borderColor = const Color(0xFFD1C4E9); // Lighter purple for selection
+      borderColor = const Color(0xFFD1C4E9);
     } else {
       borderColor = hasError
           ? const Color(0xFFE53935)
           : const Color(0xFF673AB7);
     }
-    // Sparkles for LLM
     const iconData = Icons.auto_awesome;
 
     final content = Container(
       width: 240,
       constraints: const BoxConstraints(minHeight: 110),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1025), // Dark purple tint
+        color: const Color(0xFF1A1025),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: borderColor, width: hasError ? 2 : 1),
         boxShadow: [
@@ -1282,8 +1110,7 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
 
     Color borderColor;
     if (isSelected) {
-      borderColor = Colors
-          .white; // Explicit white for selection across all tool/generic modes
+      borderColor = Colors.white;
     } else if (forceColor != null) {
       borderColor = forceColor;
     } else {
@@ -1291,14 +1118,13 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
           ? const Color(0xFFE53935)
           : const Color(0xFF546E7A);
     }
-    // Wrench for Tool
     const iconData = Icons.build;
 
     final content = Container(
       width: 200,
       constraints: const BoxConstraints(minHeight: 90),
       decoration: BoxDecoration(
-        color: const Color(0xFF181C1F), // Dark grey
+        color: const Color(0xFF181C1F),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: borderColor, width: hasError ? 2 : 1),
       ),
@@ -1369,18 +1195,7 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
     return _wrapWithPorts(content, nodeData, color: borderColor);
   }
 
-  // ignore: unused_element
-  String _cleanId(String id) {
-    if (id.contains('generate_content') && id.split(' ').length > 1) {
-      return id.split(' ').sublist(1).join(' ');
-    }
-    return id;
-  }
-
-  Widget _buildMetricsRow(
-    MultiTraceNode node,
-    Color accentColor,
-  ) {
+  Widget _buildMetricsRow(MultiTraceNode node, Color accentColor) {
     final isAgent =
         node.type.toLowerCase() == 'agent' ||
         node.type.toLowerCase() == 'sub_agent';
