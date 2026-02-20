@@ -44,3 +44,47 @@ export interface SankeyResponse {
   nodes: SankeyNode[];
   links: SankeyLink[];
 }
+
+// --- Phase 2: Detail panel types ---
+
+export interface NodeDetail {
+  nodeId: string;
+  nodeType: string;
+  label: string;
+  totalInvocations: number;
+  errorRate: number;
+  errorCount: number;
+  inputTokens: number;
+  outputTokens: number;
+  estimatedCost: number;
+  latency: { p50: number; p95: number; p99: number };
+  topErrors: Array<{ message: string; count: number }>;
+}
+
+export interface EdgeDetail {
+  sourceId: string;
+  targetId: string;
+  callCount: number;
+  errorCount: number;
+  errorRate: number;
+  avgDurationMs: number;
+  p95DurationMs: number;
+  p99DurationMs: number;
+  totalTokens: number;
+  inputTokens: number;
+  outputTokens: number;
+}
+
+export type SelectedElement =
+  | { kind: 'node'; id: string }
+  | { kind: 'edge'; sourceId: string; targetId: string };
+
+// --- Phase 2: Filter types ---
+
+export interface GraphFilters {
+  projectId: string;
+  hours: number;
+  errorsOnly: boolean;
+  startTime?: string;
+  endTime?: string;
+}

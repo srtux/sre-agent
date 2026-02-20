@@ -8,9 +8,12 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from sre_agent.api.routers.agent_graph import (
+    _build_time_filter,
     _get_node_color,
     _node_type_to_rf_type,
     _validate_identifier,
+    _validate_iso8601,
+    _validate_logical_node_id,
     router,
 )
 
@@ -369,6 +372,543 @@ class TestTrajectoriesEndpoint:
         assert resp.status_code == 422
 
 
+class TestValidateLogicalNodeId:
+    """Tests for _validate_logical_node_id."""
+
+    def test_accepts_valid_node_id(self) -> None:
+        assert _validate_logical_node_id("Agent::root") == "Agent::root"
+
+    def test_accepts_url_encoded_node_id(self) -> None:
+        assert _validate_logical_node_id("Agent%3A%3Aroot") == "Agent::root"
+
+    def test_accepts_node_id_with_slash(self) -> None:
+        assert _validate_logical_node_id("Tool::search/logs") == "Tool::search/logs"
+
+    def test_rejects_missing_double_colon(self) -> None:
+        from fastapi import HTTPException
+
+        with pytest.raises(HTTPException) as exc_info:
+            _validate_logical_node_id("AgentRoot")
+        assert exc_info.value.status_code == 400
+
+    def test_rejects_empty_string(self) -> None:
+        from fastapi import HTTPException
+
+        with pytest.raises(HTTPException) as exc_info:
+            _validate_logical_node_id("")
+        assert exc_info.value.status_code == 400
+
+    def test_rejects_sql_injection_attempt(self) -> None:
+        from fastapi import HTTPException
+
+        with pytest.raises(HTTPException) as exc_info:
+            _validate_logical_node_id("Agent::root'; DROP TABLE--")
+        assert exc_info.value.status_code == 400
+
+
+class TestValidateIso8601:
+    """Tests for _validate_iso8601."""
+
+    def test_accepts_utc_timestamp(self) -> None:
+        assert (
+            _validate_iso8601("2026-02-20T12:00:00Z", "start") == "2026-02-20T12:00:00Z"
+        )
+
+    def test_accepts_offset_timestamp(self) -> None:
+        assert (
+            _validate_iso8601("2026-02-20T12:00:00+05:30", "start")
+            == "2026-02-20T12:00:00+05:30"
+        )
+
+    def test_accepts_fractional_seconds(self) -> None:
+        assert (
+            _validate_iso8601("2026-02-20T12:00:00.123Z", "start")
+            == "2026-02-20T12:00:00.123Z"
+        )
+
+    def test_rejects_bare_date(self) -> None:
+        from fastapi import HTTPException
+
+        with pytest.raises(HTTPException) as exc_info:
+            _validate_iso8601("2026-02-20", "start")
+        assert exc_info.value.status_code == 400
+
+    def test_rejects_sql_injection(self) -> None:
+        from fastapi import HTTPException
+
+        with pytest.raises(HTTPException) as exc_info:
+            _validate_iso8601("2026'); DROP TABLE--", "start")
+        assert exc_info.value.status_code == 400
+
+    def test_rejects_empty_string(self) -> None:
+        from fastapi import HTTPException
+
+        with pytest.raises(HTTPException) as exc_info:
+            _validate_iso8601("", "start")
+        assert exc_info.value.status_code == 400
+
+
+class TestBuildTimeFilter:
+    """Tests for _build_time_filter."""
+
+    def test_hours_only(self) -> None:
+        result = _build_time_filter(
+            timestamp_col="ts", hours=6, start_time=None, end_time=None
+        )
+        assert "INTERVAL 6 HOUR" in result
+        assert "CURRENT_TIMESTAMP()" in result
+
+    def test_start_time_overrides_hours(self) -> None:
+        result = _build_time_filter(
+            timestamp_col="ts",
+            hours=6,
+            start_time="2026-02-20T00:00:00Z",
+            end_time=None,
+        )
+        assert "2026-02-20T00:00:00Z" in result
+        assert "INTERVAL" not in result
+
+    def test_end_time_used_when_provided(self) -> None:
+        result = _build_time_filter(
+            timestamp_col="ts",
+            hours=6,
+            start_time=None,
+            end_time="2026-02-20T23:59:59Z",
+        )
+        assert "2026-02-20T23:59:59Z" in result
+
+    def test_both_start_and_end(self) -> None:
+        result = _build_time_filter(
+            timestamp_col="ts",
+            hours=6,
+            start_time="2026-02-20T00:00:00Z",
+            end_time="2026-02-20T12:00:00Z",
+        )
+        assert "2026-02-20T00:00:00Z" in result
+        assert "2026-02-20T12:00:00Z" in result
+
+
+class TestTopologyFiltering:
+    """Tests for Phase 2 filtering on topology endpoint."""
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_errors_only_adds_having_clause(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        """errors_only=true should add HAVING clause to SQL."""
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        bq.query.side_effect = [
+            _mock_query_result([]),
+            _mock_query_result([]),
+        ]
+
+        client.get(
+            "/api/v1/graph/topology",
+            params={"project_id": "test-project", "hours": 6, "errors_only": "true"},
+        )
+
+        calls = bq.query.call_args_list
+        # First query (nodes CTE) should have HAVING
+        assert "HAVING SUM(error_count) > 0" in calls[0][0][0]
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_start_time_param_accepted(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        """start_time parameter should be used in the time filter."""
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        bq.query.side_effect = [
+            _mock_query_result([]),
+            _mock_query_result([]),
+        ]
+
+        resp = client.get(
+            "/api/v1/graph/topology",
+            params={
+                "project_id": "test-project",
+                "start_time": "2026-02-20T00:00:00Z",
+            },
+        )
+        assert resp.status_code == 200
+
+    def test_invalid_start_time_returns_400(self, client: TestClient) -> None:
+        """Invalid start_time should be rejected."""
+        resp = client.get(
+            "/api/v1/graph/topology",
+            params={
+                "project_id": "test-project",
+                "start_time": "not-a-timestamp",
+            },
+        )
+        assert resp.status_code == 400
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_error_edges_have_animated_and_style(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        """Edges with errors should have animated=true and red stroke style."""
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+
+        edge_row = _make_row(
+            source_id="Agent::root",
+            target_id="Tool::broken",
+            call_count=5,
+            avg_duration_ms=100.0,
+            error_count=3,
+            total_tokens=500,
+        )
+        bq.query.side_effect = [
+            _mock_query_result([]),
+            _mock_query_result([edge_row]),
+        ]
+
+        data = client.get(
+            "/api/v1/graph/topology",
+            params={"project_id": "test-project", "hours": 1},
+        ).json()
+
+        edge = data["edges"][0]
+        assert edge["animated"] is True
+        assert edge["style"]["stroke"] == "#f85149"
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_non_error_edges_no_animated(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        """Edges without errors should not have animated or style keys."""
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+
+        edge_row = _make_row(
+            source_id="Agent::root",
+            target_id="Tool::ok",
+            call_count=10,
+            avg_duration_ms=80.0,
+            error_count=0,
+            total_tokens=400,
+        )
+        bq.query.side_effect = [
+            _mock_query_result([]),
+            _mock_query_result([edge_row]),
+        ]
+
+        data = client.get(
+            "/api/v1/graph/topology",
+            params={"project_id": "test-project", "hours": 2},
+        ).json()
+
+        edge = data["edges"][0]
+        assert "animated" not in edge
+        assert "style" not in edge
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_node_data_includes_avg_duration_ms(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        """Node data should include avgDurationMs field."""
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+
+        node_row = _make_row(
+            node_id="Agent::root",
+            node_type="Agent",
+            execution_count=10,
+            total_tokens=2000,
+            error_count=0,
+            avg_duration_ms=345.6,
+        )
+        bq.query.side_effect = [
+            _mock_query_result([node_row]),
+            _mock_query_result([]),
+        ]
+
+        data = client.get(
+            "/api/v1/graph/topology",
+            params={"project_id": "test-project", "hours": 6},
+        ).json()
+
+        assert data["nodes"][0]["data"]["avgDurationMs"] == 345.6
+
+
+class TestNodeDetailEndpoint:
+    """Tests for GET /api/v1/graph/node/{logical_node_id}."""
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_returns_200_with_metrics(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        """Node detail should return 200 with metrics for a valid node."""
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+
+        metrics_row = _make_row(
+            total_invocations=100,
+            error_count=5,
+            error_rate=0.05,
+            input_tokens=50000,
+            output_tokens=10000,
+            estimated_cost=0.01234,
+            p50=120.0,
+            p95=450.0,
+            p99=980.0,
+        )
+        error_row = _make_row(message="Connection timeout", count=3)
+
+        bq.query.side_effect = [
+            _mock_query_result([metrics_row]),
+            _mock_query_result([error_row]),
+        ]
+
+        resp = client.get(
+            "/api/v1/graph/node/Agent%3A%3Aroot",
+            params={"project_id": "test-project", "hours": 24},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["nodeId"] == "Agent::root"
+        assert data["nodeType"] == "Agent"
+        assert data["label"] == "root"
+        assert data["totalInvocations"] == 100
+        assert data["errorRate"] == 0.05
+        assert data["errorCount"] == 5
+        assert data["inputTokens"] == 50000
+        assert data["outputTokens"] == 10000
+        assert data["estimatedCost"] == 0.01234
+        assert data["latency"]["p50"] == 120.0
+        assert data["latency"]["p95"] == 450.0
+        assert data["latency"]["p99"] == 980.0
+        assert len(data["topErrors"]) == 1
+        assert data["topErrors"][0]["message"] == "Connection timeout"
+        assert data["topErrors"][0]["count"] == 3
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_returns_404_when_no_data(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        """Node detail should return 404 when no invocations found."""
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+
+        empty_row = _make_row(total_invocations=0)
+        bq.query.return_value = _mock_query_result([empty_row])
+
+        resp = client.get(
+            "/api/v1/graph/node/Agent%3A%3Amissing",
+            params={"project_id": "test-project"},
+        )
+        assert resp.status_code == 404
+
+    def test_invalid_node_id_returns_400(self, client: TestClient) -> None:
+        """Invalid node ID format should be rejected."""
+        resp = client.get(
+            "/api/v1/graph/node/invalid-no-double-colon",
+            params={"project_id": "test-project"},
+        )
+        assert resp.status_code == 400
+
+    def test_missing_project_id_returns_422(self, client: TestClient) -> None:
+        """Missing project_id should return 422."""
+        resp = client.get("/api/v1/graph/node/Agent%3A%3Aroot")
+        assert resp.status_code == 422
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_uses_parameterized_query(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        """Node detail should use parameterized BQ query (not string interpolation)."""
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+
+        metrics_row = _make_row(
+            total_invocations=1,
+            error_count=0,
+            error_rate=0.0,
+            input_tokens=100,
+            output_tokens=50,
+            estimated_cost=0.0001,
+            p50=10.0,
+            p95=20.0,
+            p99=30.0,
+        )
+        bq.query.side_effect = [
+            _mock_query_result([metrics_row]),
+            _mock_query_result([]),
+        ]
+
+        client.get(
+            "/api/v1/graph/node/Tool%3A%3Asearch",
+            params={"project_id": "test-project"},
+        )
+
+        # Both calls should include a job_config with query_parameters
+        for call in bq.query.call_args_list:
+            job_config = call[1].get("job_config") or call.kwargs.get("job_config")
+            assert job_config is not None
+            assert len(job_config.query_parameters) > 0
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_bq_error_returns_500(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        """BigQuery failure should return 500."""
+        mock_client_fn.side_effect = Exception("BQ timeout")
+
+        resp = client.get(
+            "/api/v1/graph/node/Agent%3A%3Aroot",
+            params={"project_id": "test-project"},
+        )
+        assert resp.status_code == 500
+        assert "server logs" in resp.json()["detail"].lower()
+
+
+class TestEdgeDetailEndpoint:
+    """Tests for GET /api/v1/graph/edge/{source_id}/{target_id}."""
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_returns_200_with_metrics(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        """Edge detail should return 200 with metrics."""
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+
+        row = _make_row(
+            call_count=50,
+            error_count=2,
+            error_rate=0.04,
+            avg_duration_ms=75.5,
+            p95_duration_ms=200.0,
+            p99_duration_ms=400.0,
+            total_tokens=5000,
+            input_tokens=3000,
+            output_tokens=2000,
+        )
+        bq.query.return_value = _mock_query_result([row])
+
+        resp = client.get(
+            "/api/v1/graph/edge/Agent%3A%3Aroot/Tool%3A%3Asearch",
+            params={"project_id": "test-project", "hours": 24},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["sourceId"] == "Agent::root"
+        assert data["targetId"] == "Tool::search"
+        assert data["callCount"] == 50
+        assert data["errorCount"] == 2
+        assert data["errorRate"] == 0.04
+        assert data["avgDurationMs"] == 75.5
+        assert data["p95DurationMs"] == 200.0
+        assert data["p99DurationMs"] == 400.0
+        assert data["totalTokens"] == 5000
+        assert data["inputTokens"] == 3000
+        assert data["outputTokens"] == 2000
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_returns_404_when_no_data(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        """Edge detail should return 404 when no matching edge data found."""
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+
+        row = _make_row(call_count=None)
+        bq.query.return_value = _mock_query_result([row])
+
+        resp = client.get(
+            "/api/v1/graph/edge/Agent%3A%3Aroot/Tool%3A%3Amissing",
+            params={"project_id": "test-project"},
+        )
+        assert resp.status_code == 404
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_returns_404_when_zero_calls(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        """Edge detail should return 404 when call_count is zero."""
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+
+        row = _make_row(call_count=0)
+        bq.query.return_value = _mock_query_result([row])
+
+        resp = client.get(
+            "/api/v1/graph/edge/Agent%3A%3Aroot/Tool%3A%3Aempty",
+            params={"project_id": "test-project"},
+        )
+        assert resp.status_code == 404
+
+    def test_invalid_source_id_returns_400(self, client: TestClient) -> None:
+        """Invalid source node ID should return 400."""
+        resp = client.get(
+            "/api/v1/graph/edge/invalid/Tool%3A%3Asearch",
+            params={"project_id": "test-project"},
+        )
+        assert resp.status_code == 400
+
+    def test_invalid_target_id_returns_400(self, client: TestClient) -> None:
+        """Invalid target node ID should return 400."""
+        resp = client.get(
+            "/api/v1/graph/edge/Agent%3A%3Aroot/invalid",
+            params={"project_id": "test-project"},
+        )
+        assert resp.status_code == 400
+
+    def test_missing_project_id_returns_422(self, client: TestClient) -> None:
+        """Missing project_id should return 422."""
+        resp = client.get("/api/v1/graph/edge/Agent%3A%3Aroot/Tool%3A%3Asearch")
+        assert resp.status_code == 422
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_uses_parameterized_query(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        """Edge detail should use parameterized BQ query."""
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+
+        row = _make_row(
+            call_count=10,
+            error_count=0,
+            error_rate=0.0,
+            avg_duration_ms=50.0,
+            p95_duration_ms=100.0,
+            p99_duration_ms=150.0,
+            total_tokens=1000,
+            input_tokens=600,
+            output_tokens=400,
+        )
+        bq.query.return_value = _mock_query_result([row])
+
+        client.get(
+            "/api/v1/graph/edge/Agent%3A%3Aroot/Tool%3A%3Asearch",
+            params={"project_id": "test-project"},
+        )
+
+        call = bq.query.call_args
+        job_config = call[1].get("job_config") or call.kwargs.get("job_config")
+        assert job_config is not None
+        param_names = [p.name for p in job_config.query_parameters]
+        assert "source_id" in param_names
+        assert "target_id" in param_names
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_bq_error_returns_500(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        """BigQuery failure should return 500."""
+        mock_client_fn.side_effect = Exception("Network error")
+
+        resp = client.get(
+            "/api/v1/graph/edge/Agent%3A%3Aroot/Tool%3A%3Asearch",
+            params={"project_id": "test-project"},
+        )
+        assert resp.status_code == 500
+        assert "server logs" in resp.json()["detail"].lower()
+
+
 class TestRouterConfiguration:
     """Tests for the router object itself."""
 
@@ -389,3 +929,13 @@ class TestRouterConfiguration:
         """The /trajectories route should be registered."""
         paths = [route.path for route in router.routes]
         assert "/api/v1/graph/trajectories" in paths
+
+    def test_node_detail_route_exists(self) -> None:
+        """The /node/{logical_node_id} route should be registered."""
+        paths = [route.path for route in router.routes]
+        assert "/api/v1/graph/node/{logical_node_id:path}" in paths
+
+    def test_edge_detail_route_exists(self) -> None:
+        """The /edge/{source_id}/{target_id} route should be registered."""
+        paths = [route.path for route in router.routes]
+        assert "/api/v1/graph/edge/{source_id:path}/{target_id:path}" in paths
