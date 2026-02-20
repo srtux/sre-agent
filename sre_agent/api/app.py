@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 
 from sre_agent.api.middleware import configure_middleware
 from sre_agent.api.routers import (
+    agent_graph_router,
     agent_router,
     dashboards_router,
     health_router,
@@ -77,6 +78,7 @@ def create_app(
     app.include_router(permissions_router)
     app.include_router(help_router)
     app.include_router(dashboards_router)
+    app.include_router(agent_graph_router)
 
     # Register tool test functions
     register_all_test_functions()
@@ -98,6 +100,15 @@ def create_app(
     # Optionally mount ADK agent routes
     if include_adk_routes:
         _mount_adk_routes(app)
+
+    # Mount React Agent Graph UI at /graph (before Flutter catch-all)
+    if os.path.exists("agent_graph_web"):
+        app.mount(
+            "/graph",
+            StaticFiles(directory="agent_graph_web", html=True),
+            name="agent_graph",
+        )
+        logger.info("Mounted Agent Graph UI from 'agent_graph_web' at /graph")
 
     # Mount static files for the frontend if they exist
     # In Cloud Run, the build artifacts are copied to /app/web

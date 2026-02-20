@@ -45,6 +45,8 @@ Thumbs.db
 
 # Package Managers
 # uv.lock
+node_modules/
+agent_graph_ui/dist/
 
 # Artifacts
 health_report*.txt

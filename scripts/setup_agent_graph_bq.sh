@@ -57,6 +57,7 @@ bq query --use_legacy_sql=false --project_id "$PROJECT_ID" \
 # Drop the views that depend on the raw table
 bq rm -f -t "$PROJECT_ID:$GRAPH_DATASET.agent_topology_edges" > /dev/null 2>&1 || true
 bq rm -f -t "$PROJECT_ID:$GRAPH_DATASET.agent_topology_nodes" > /dev/null 2>&1 || true
+bq rm -f -t "$PROJECT_ID:$GRAPH_DATASET.agent_trajectories" > /dev/null 2>&1 || true
 
 # Try deleting as both Materialized View and Table
 bq rm -f -m "$PROJECT_ID:$GRAPH_DATASET.agent_spans_raw" > /dev/null 2>&1 || true
@@ -248,6 +249,79 @@ WHERE node_type = 'Agent'
 GROUP BY 1, 2, 3, 4;
 "
 bq query --use_legacy_sql=false --project_id "$PROJECT_ID" "$EDGES_SQL"
+
+# 3b. Create the Path Trajectories View (for Sankey diagrams)
+# This view sequences meaningful spans chronologically within each trace_id,
+# then self-joins to create step-to-step links for trajectory visualization.
+echo "🔹 Cleaning up existing trajectory view..."
+bq rm -f -t "$PROJECT_ID:$GRAPH_DATASET.agent_trajectories" > /dev/null 2>&1 || true
+
+echo "🔹 Creating Path Trajectories View: agent_trajectories..."
+TRAJECTORIES_SQL="
+CREATE OR REPLACE VIEW \`$PROJECT_ID.$GRAPH_DATASET.agent_trajectories\` AS
+WITH sequenced_steps AS (
+  -- Sequence meaningful spans chronologically within each trace
+  SELECT
+    trace_id,
+    session_id,
+    span_id,
+    node_type,
+    node_label,
+    logical_node_id,
+    start_time,
+    duration_ms,
+    status_code,
+    input_tokens,
+    output_tokens,
+    ROW_NUMBER() OVER(
+      PARTITION BY trace_id
+      ORDER BY start_time ASC
+    ) AS step_sequence
+  FROM \`$PROJECT_ID.$GRAPH_DATASET.agent_spans_raw\`
+  WHERE node_type != 'Glue'
+),
+trajectory_links AS (
+  -- Self-join to create chronological step-to-step links
+  SELECT
+    a.trace_id,
+    a.session_id,
+    a.logical_node_id AS source_node,
+    a.node_type AS source_type,
+    a.node_label AS source_label,
+    b.logical_node_id AS target_node,
+    b.node_type AS target_type,
+    b.node_label AS target_label,
+    a.step_sequence AS source_step,
+    b.step_sequence AS target_step,
+    a.duration_ms AS source_duration_ms,
+    b.duration_ms AS target_duration_ms,
+    a.status_code AS source_status,
+    b.status_code AS target_status,
+    COALESCE(a.input_tokens, 0) + COALESCE(a.output_tokens, 0) AS source_tokens,
+    COALESCE(b.input_tokens, 0) + COALESCE(b.output_tokens, 0) AS target_tokens
+  FROM sequenced_steps a
+  JOIN sequenced_steps b
+    ON a.trace_id = b.trace_id
+    AND a.step_sequence + 1 = b.step_sequence
+)
+-- Aggregate across traces to get flow volumes
+SELECT
+  source_node,
+  source_type,
+  source_label,
+  target_node,
+  target_type,
+  target_label,
+  COUNT(DISTINCT trace_id) AS trace_count,
+  SUM(source_duration_ms) AS total_source_duration_ms,
+  SUM(target_duration_ms) AS total_target_duration_ms,
+  SUM(source_tokens) AS total_source_tokens,
+  SUM(target_tokens) AS total_target_tokens,
+  COUNTIF(source_status = 'ERROR' OR target_status = 'ERROR') AS error_transition_count
+FROM trajectory_links
+GROUP BY 1, 2, 3, 4, 5, 6;
+"
+bq query --use_legacy_sql=false --project_id "$PROJECT_ID" "$TRAJECTORIES_SQL"
 
 
 # 4. Create the Logical Property Graph
