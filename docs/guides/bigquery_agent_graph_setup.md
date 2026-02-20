@@ -275,7 +275,8 @@ For sub-second graph loading on time ranges >= 1 hour, the system uses a pre-agg
 │                        (GROUP BY + SUM, sub-second)         │
 │                                                             │
 │  timeRange < 1h   ──▶  SELECT ... FROM GRAPH_TABLE(...)     │
-│                        (live recursive, 1-3s)               │
+│                        (live recursive fallback, 1-3s)      │
+│                        NOTE: UI clamps min to 1h currently  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -317,8 +318,9 @@ Then set up the scheduled query (printed by the script) in Cloud Console > BigQu
 
 | Time Range | Query Path | Expected Latency |
 | :--- | :--- | :--- |
-| 5m – 30m | Live GRAPH_TABLE | 1–3s |
 | 1h – 30d | Pre-aggregated table | < 1s |
+
+> **Note**: The UI currently clamps all time ranges to a minimum of 1 hour, so the pre-aggregated path is always used. The live GRAPH_TABLE fallback exists in the repository layer for programmatic use.
 
 ### Metric Approximations
 

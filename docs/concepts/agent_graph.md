@@ -304,8 +304,9 @@ The recursive `GRAPH_TABLE` traversal is expensive (seconds to minutes for large
 
 | Time Range | Query Path | Expected Latency |
 | :--- | :--- | :--- |
-| 5m – 30m | Live GRAPH_TABLE | 1–3s (small data volume) |
 | 1h – 30d | Pre-aggregated hourly table | < 1s |
+
+> **Note**: The UI currently clamps all time ranges to a minimum of 1 hour, so the pre-aggregated path is always used. The live GRAPH_TABLE fallback exists in the repository layer for programmatic use (e.g., future sub-hour presets or API callers).
 
 ---
 

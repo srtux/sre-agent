@@ -17,8 +17,9 @@ AgentGraphRepository agentGraphRepository(Ref ref) {
 }
 
 /// Minimum time range (in hours) to use the pre-aggregated hourly table.
-/// Sub-hour ranges fall back to the live GRAPH_TABLE query since data volume
-/// is small enough to be fast.
+/// Sub-hour ranges fall back to the live GRAPH_TABLE query. Note: the UI
+/// currently clamps time ranges to a minimum of 1 hour, so the live path
+/// is only reachable programmatically.
 const kPrecomputedMinHours = 1;
 
 class AgentGraphRepository {
@@ -190,7 +191,7 @@ AggregatedEdges AS (
     ROUND(SAFE_DIVIDE(COUNTIF(status_code = 2), COUNT(*)) * 100, 2) AS error_rate_pct,
     ROUND(SAFE_DIVIDE(SUM(COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)), COUNT(*)), 0) AS avg_tokens_per_call,
     ROUND(AVG(duration_ms), 2) AS avg_duration_ms,
-    ROUND(APPROX_QUANTILES(duration_ms, 100)[OFFSET(95)], 2) AS p95_duration_ms,
+    ROUND(APPROX_QUANTILES(IFNULL(duration_ms, 0), 100)[OFFSET(95)], 2) AS p95_duration_ms,
     ANY_VALUE(error_type) AS sample_error,
     SUM(COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)) AS edge_tokens,
     SUM(COALESCE(input_tokens, 0)) AS input_tokens,
@@ -214,7 +215,7 @@ BaseNodes AS (
     SUM(COALESCE(output_tokens, 0)) AS output_tokens,
     COUNTIF(status_code = 2) > 0 AS has_error,
     ROUND(AVG(duration_ms), 2) AS avg_duration_ms,
-    ROUND(APPROX_QUANTILES(duration_ms, 100)[OFFSET(95)], 2) AS p95_duration_ms,
+    ROUND(APPROX_QUANTILES(IFNULL(duration_ms, 0), 100)[OFFSET(95)], 2) AS p95_duration_ms,
     ROUND(SAFE_DIVIDE(COUNTIF(status_code = 2), COUNT(*)) * 100, 2) AS error_rate_pct,
     ROUND(SUM(span_cost), 6) AS total_cost
   FROM CostPaths GROUP BY target_id, target_type
