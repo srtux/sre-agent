@@ -2,7 +2,9 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-/// Describes a directed edge path between two graph nodes for rendering.
+/// Describes a directed DAG edge path between two graph nodes for rendering.
+///
+/// Back-edges are handled separately by [BackEdgePainter].
 class EdgePath {
   /// Starting point of the edge.
   final Offset start;
@@ -15,9 +17,6 @@ class EdgePath {
 
   /// Stroke width (1-6), typically scaled by call count.
   final double thickness;
-
-  /// Whether this edge represents a back-edge (cycle).
-  final bool isBackEdge;
 
   /// Normalized flow weight (0-1) controlling animation speed.
   final double flowWeight;
@@ -33,7 +32,6 @@ class EdgePath {
     required this.end,
     required this.color,
     this.thickness = 2.0,
-    this.isBackEdge = false,
     this.flowWeight = 0.5,
     required this.sourceId,
     required this.targetId,
@@ -80,12 +78,12 @@ class AnimatedEdgePainter extends CustomPainter {
 
     final effectiveOpacity = isHighlighted ? 1.0 : dimOpacity;
 
-    // Build the Bezier path
+    // Build the Bezier path for forward/DAG edges.
     final path = Path();
     path.moveTo(edge.start.dx, edge.start.dy);
 
     final dx = edge.end.dx - edge.start.dx;
-    final controlOffset = edge.isBackEdge ? 0.6 : 0.3;
+    const controlOffset = 0.3;
 
     final cp1 = Offset(
       edge.start.dx + dx * controlOffset,
@@ -103,10 +101,6 @@ class AnimatedEdgePainter extends CustomPainter {
       ..strokeWidth = edge.thickness
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
-
-    if (edge.isBackEdge) {
-      basePaint.strokeWidth = edge.thickness * 0.8;
-    }
 
     canvas.drawPath(path, basePaint);
 
