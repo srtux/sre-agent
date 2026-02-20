@@ -43,7 +43,7 @@ class AgentGraphRepository {
         ? 'ORDER BY call_count DESC LIMIT $sampleLimit'
         : '';
     return '''
-WITH HourlyData AS (
+WITH RECURSIVE HourlyData AS (
   SELECT * FROM `$dataset.agent_graph_hourly`
   WHERE time_bucket >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL $timeRangeHours HOUR)
 ),
@@ -125,10 +125,10 @@ ChildMap AS (
 NodeDepths AS (
   SELECT id, 0 AS depth FROM AggregatedNodes WHERE is_root
   UNION ALL
-  SELECT ae.target_id AS id, nd.depth + 1
-  FROM NodeDepths nd
-  JOIN AggregatedEdges ae ON ae.source_id = nd.id
-  WHERE NOT ae.is_back_edge AND nd.depth < 10
+  SELECT ae.target_id AS id, node_depths.depth + 1
+  FROM NodeDepths node_depths
+  JOIN AggregatedEdges ae ON ae.source_id = node_depths.id
+  WHERE NOT ae.is_back_edge AND node_depths.depth < 10
 ),
 FinalDepths AS (
   SELECT id, MIN(depth) AS depth FROM NodeDepths GROUP BY id
@@ -198,7 +198,7 @@ UserEdges AS (
   WHERE is_root
 ),
 -- Combine all edges with flow_weight
-AllEdges AS (
+FinalEdges AS (
   SELECT *, ROUND(SAFE_DIVIDE(call_count, (SELECT MAX(call_count) FROM AggregatedEdges)), 4) AS flow_weight
   FROM AggregatedEdges
   UNION ALL
@@ -241,7 +241,7 @@ SELECT TO_JSON_STRING(STRUCT(
     error_rate_pct, sample_error, total_tokens, input_tokens, output_tokens,
     avg_tokens_per_call, avg_duration_ms, p95_duration_ms, unique_sessions,
     total_cost, is_back_edge, flow_weight
-  )) FROM AllEdges) AS edges
+  )) FROM FinalEdges) AS edges
 )) AS flutter_graph_payload;
 ''';
   }
@@ -266,7 +266,7 @@ SELECT TO_JSON_STRING(STRUCT(
     return '''
 DECLARE start_ts TIMESTAMP DEFAULT TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL $timeRangeHours HOUR);
 
-WITH
+WITH RECURSIVE
 FilteredNodes AS (
   SELECT
     logical_node_id AS id,
@@ -355,9 +355,9 @@ ChildMap AS (
 NodeDepths AS (
   SELECT id, 0 AS depth FROM EnrichedNodes WHERE is_root
   UNION ALL
-  SELECT fe.target_id AS id, nd.depth + 1
-  FROM NodeDepths nd JOIN FilteredEdges fe ON fe.source_id = nd.id
-  WHERE NOT fe.is_back_edge AND nd.depth < 10
+  SELECT fe.target_id AS id, node_depths.depth + 1
+  FROM NodeDepths node_depths JOIN FilteredEdges fe ON fe.source_id = node_depths.id
+  WHERE NOT fe.is_back_edge AND node_depths.depth < 10
 ),
 FinalDepths AS (
   SELECT id, MIN(depth) AS depth FROM NodeDepths GROUP BY id
@@ -416,7 +416,7 @@ UserEdges AS (
     COALESCE(total_cost, 0.0) AS total_cost, FALSE AS is_back_edge
   FROM EnrichedNodes WHERE is_root
 ),
-AllEdges AS (
+FinalEdges AS (
   SELECT *, ROUND(SAFE_DIVIDE(call_count, (SELECT MAX(call_count) FROM FilteredEdges)), 4) AS flow_weight
   FROM FilteredEdges
   UNION ALL
@@ -461,7 +461,7 @@ SELECT TO_JSON_STRING(STRUCT(
      error_rate_pct, total_tokens, input_tokens, output_tokens,
      avg_duration_ms, p95_duration_ms, unique_sessions, total_cost,
      is_back_edge, flow_weight
-   )) FROM AllEdges
+   )) FROM FinalEdges
   ) AS edges
 )) AS flutter_graph_payload;
 ''';
