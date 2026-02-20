@@ -995,7 +995,7 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
 
     final content = Container(
       width: 280,
-      constraints: const BoxConstraints(maxHeight: 140),
+      constraints: const BoxConstraints(minHeight: 140),
       decoration: BoxDecoration(
         color: const Color(0xFF0D1B2A), // Darker background
         borderRadius: BorderRadius.circular(12),
@@ -1173,7 +1173,7 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
 
     final content = Container(
       width: 240,
-      constraints: const BoxConstraints(maxHeight: 110),
+      constraints: const BoxConstraints(minHeight: 110),
       decoration: BoxDecoration(
         color: const Color(0xFF1A1025), // Dark purple tint
         borderRadius: BorderRadius.circular(12),
@@ -1296,7 +1296,7 @@ class _InteractiveGraphCanvasState extends State<InteractiveGraphCanvas>
 
     final content = Container(
       width: 200,
-      constraints: const BoxConstraints(maxHeight: 90),
+      constraints: const BoxConstraints(minHeight: 90),
       decoration: BoxDecoration(
         color: const Color(0xFF181C1F), // Dark grey
         borderRadius: BorderRadius.circular(8),
