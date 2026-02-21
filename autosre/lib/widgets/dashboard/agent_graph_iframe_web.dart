@@ -26,7 +26,7 @@ class _AgentGraphIframePanelState extends State<AgentGraphIframePanel> {
     _currentProjectId = ProjectService.instance.selectedProjectId ?? '';
     _viewId = 'agent-graph-iframe-${DateTime.now().millisecondsSinceEpoch}';
 
-    final String baseUrl = kDebugMode ? 'http://localhost:5174' : '';
+    const baseUrl = kDebugMode ? 'http://localhost:5174' : '';
     final src = _currentProjectId.isNotEmpty
         ? '$baseUrl/graph/?project_id=$_currentProjectId'
         : 'about:blank';
@@ -49,7 +49,7 @@ class _AgentGraphIframePanelState extends State<AgentGraphIframePanel> {
       final iframe =
           html.document.getElementById(_viewId) as html.IFrameElement?;
       if (iframe != null) {
-        final String baseUrl = kDebugMode ? 'http://localhost:5174' : '';
+        const baseUrl = kDebugMode ? 'http://localhost:5174' : '';
         iframe.src = '$baseUrl/graph/?project_id=$_currentProjectId';
       }
     }
