@@ -317,7 +317,7 @@ _RailIconConfig _tabIconConfig(DashboardDataType type) {
       );
     case DashboardDataType.agentGraph:
       return const _RailIconConfig(
-        'Agent Graph',
+        'AgentOps',
         Icons.account_tree_outlined,
         AppColors.secondaryPurple,
       );

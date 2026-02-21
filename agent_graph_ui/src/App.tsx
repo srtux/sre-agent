@@ -15,7 +15,7 @@ import type {
 } from './types'
 import RegistryPage from './components/RegistryPage'
 
-type Tab = 'registry' | 'topology' | 'trajectory'
+type Tab = 'agents' | 'tools' | 'topology' | 'trajectory'
 
 /** Parse a time_range string like "1h", "6h", "24h", "7d" into hours. */
 function parseTimeRange(raw: string): number | null {
@@ -55,7 +55,7 @@ function buildSearchParams(
     }
   }
 
-  if (activeTab && activeTab !== 'registry') {
+  if (activeTab) {
     params.set('tab', activeTab)
   }
 
@@ -134,7 +134,7 @@ const styles: Record<string, React.CSSProperties> = {
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState<Tab>('registry')
+  const [activeTab, setActiveTab] = useState<Tab>('agents')
   const [filters, setFilters] = useState<GraphFilters>({
     projectId: localStorage.getItem('agent_graph_project_id') || '',
     hours: 24,
@@ -229,7 +229,7 @@ function App() {
       ]
 
       // Fetch timeseries when hours >= 2 (endpoint requires ge=2)
-      if (filters.hours >= 2 && activeTab !== 'registry') {
+      if (filters.hours >= 2 && activeTab !== 'agents' && activeTab !== 'tools') {
         fetches.push(
           axios.get<TimeSeriesData>('/api/v1/graph/timeseries', { params }),
         )
@@ -347,10 +347,16 @@ function App() {
 
       <div style={styles.tabBar}>
         <button
-          style={activeTab === 'registry' ? styles.tabActive : styles.tab}
-          onClick={() => setActiveTab('registry')}
+          style={activeTab === 'agents' ? styles.tabActive : styles.tab}
+          onClick={() => setActiveTab('agents')}
         >
-          Registry
+          Agents
+        </button>
+        <button
+          style={activeTab === 'tools' ? styles.tabActive : styles.tab}
+          onClick={() => setActiveTab('tools')}
+        >
+          Tools
         </button>
         <button
           style={activeTab === 'topology' ? styles.tabActive : styles.tab}
@@ -385,14 +391,30 @@ function App() {
         ) : (
             <div style={{ display: 'flex', flex: 1, position: 'relative', overflow: 'hidden' }}>
               <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                {activeTab === 'registry' && (
+                {activeTab === 'agents' && (
                   <RegistryPage
                     filters={filters}
+                    mode="agents"
                     onSelectAgent={(serviceName) => {
                       setFilters(prev => ({ ...prev, serviceName }))
                       localStorage.setItem('agent_graph_service_name', serviceName)
                       setActiveTab('topology')
                       // need to trigger a re-fetch with new serviceName
+                      setTimeout(() => fetchAll(false), 0)
+                    }}
+                  />
+                )}
+
+                {activeTab === 'tools' && (
+                  <RegistryPage
+                    filters={filters}
+                    mode="tools"
+                    onSelectAgent={(serviceName) => {
+                      // Optionally, selecting a tool navigates to topology?
+                      // We can keep the same pattern just mapping serviceName.
+                      setFilters(prev => ({ ...prev, serviceName }))
+                      localStorage.setItem('agent_graph_service_name', serviceName)
+                      setActiveTab('topology')
                       setTimeout(() => fetchAll(false), 0)
                     }}
                   />

@@ -141,13 +141,11 @@ const styles: Record<string, React.CSSProperties> = {
 
 interface Props {
   filters: GraphFilters
+  mode: 'agents' | 'tools'
   onSelectAgent: (serviceName: string) => void
 }
 
-type TabMode = 'agents' | 'tools'
-
-export default function RegistryPage({ filters, onSelectAgent }: Props) {
-  const [activeTab, setActiveTab] = useState<TabMode>('agents')
+export default function RegistryPage({ filters, mode, onSelectAgent }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -168,13 +166,13 @@ export default function RegistryPage({ filters, onSelectAgent }: Props) {
     if (filters.startTime) params.start_time = filters.startTime
     if (filters.endTime) params.end_time = filters.endTime
 
-    const endpoint = activeTab === 'agents' ? '/api/v1/graph/registry/agents' : '/api/v1/graph/registry/tools'
+    const endpoint = mode === 'agents' ? '/api/v1/graph/registry/agents' : '/api/v1/graph/registry/tools'
 
     axios
       .get(endpoint, { params })
       .then((res) => {
         if (!isMounted) return
-        if (activeTab === 'agents') {
+        if (mode === 'agents') {
           setAgents((res.data as AgentRegistryResponse).agents || [])
         } else {
           setTools((res.data as ToolRegistryResponse).tools || [])
@@ -191,7 +189,7 @@ export default function RegistryPage({ filters, onSelectAgent }: Props) {
     return () => {
       isMounted = false
     }
-  }, [filters, activeTab])
+  }, [filters, mode])
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M'
@@ -318,26 +316,8 @@ export default function RegistryPage({ filters, onSelectAgent }: Props) {
 
   return (
     <div style={styles.container}>
-      <h1 style={styles.header}>Agent Platform Registry</h1>
-      <p style={styles.subtitle}>Discover and analyze agents and tools across your infrastructure.</p>
-
-      <div style={styles.tabGroup}>
-        <button
-          style={activeTab === 'agents' ? styles.activeTab : styles.tab}
-          onClick={() => setActiveTab('agents')}
-        >
-          Agents
-        </button>
-        <button
-          style={activeTab === 'tools' ? styles.activeTab : styles.tab}
-          onClick={() => setActiveTab('tools')}
-        >
-          Tools
-        </button>
-      </div>
-
       <div style={{ flex: 1, position: 'relative' }}>
-        {activeTab === 'agents' ? renderAgentsList() : renderToolsList()}
+        {mode === 'agents' ? renderAgentsList() : renderToolsList()}
       </div>
     </div>
   )

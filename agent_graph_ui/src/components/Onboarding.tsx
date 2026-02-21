@@ -94,7 +94,7 @@ export default function Onboarding({ projectId, onSetup, loading, error }: Onboa
   return (
     <div style={styles.container}>
       <div style={styles.card}>
-        <h2 style={styles.title}>Welcome to Agent Graph</h2>
+        <h2 style={styles.title}>Welcome to AgentOps</h2>
         <p style={styles.desc}>
           It looks like BigQuery is not yet configured for project <strong>{projectId}</strong>.
           AutoSRE needs to create materialized views to visualize your agent traces.

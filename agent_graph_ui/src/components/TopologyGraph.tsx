@@ -488,7 +488,7 @@ export default function TopologyGraph({
   selectedNodeId
 }: TopologyGraphProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
-  const [layoutMode, setLayoutMode] = useState<LayoutMode>('horizontal')
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>('vertical')
   const [highlightedPath, setHighlightedPath] = useState<Set<string>>(new Set())
 
   const topology = useMemo(() => {
