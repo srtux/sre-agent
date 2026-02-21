@@ -381,8 +381,10 @@ function NodeContent({ nodeData, icon: IconComponent, iconColor, labelOverride }
           {label}
         </span>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', width: '100%', flexGrow: 1, gap: 0, justifyContent: 'flex-end' }}>
-        <NodeSparkline nodeData={nodeData} />
+      <div style={{ display: 'flex', flexDirection: 'column', width: '100%', flexGrow: 1 }}>
+        <div style={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <NodeSparkline nodeData={nodeData} />
+        </div>
         <MetricBadges nodeData={nodeData} />
       </div>
       <ExpandButton nodeData={nodeData} />

@@ -91,8 +91,16 @@ export default function Sparkline({
   const innerW = width - pad * 2
   const innerH = height - pad * 2
 
-  const gap = 2
-  const barWidth = Math.max(2, (innerW - (gap * (data.length - 1))) / data.length)
+  let gap = 2
+  let barWidth = (innerW - (gap * (data.length - 1))) / data.length
+  if (barWidth < 1.5) {
+    gap = 1
+    barWidth = (innerW - (gap * (data.length - 1))) / data.length
+  }
+  if (barWidth < 1) {
+    gap = 0
+    barWidth = innerW / data.length
+  }
 
   return (
     <svg
