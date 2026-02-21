@@ -2,7 +2,7 @@ import { ResponsiveSankey } from '@nivo/sankey'
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch'
 import type { SankeyResponse } from '../types'
 import { removeCyclicLinks } from '../utils/sankeyUtils'
-import { ZoomIn, ZoomOut, Maximize } from 'lucide-react'
+import { ZoomIn, ZoomOut, Maximize, Bot, Wrench, Cpu } from 'lucide-react'
 
 const agentColors: Record<string, string> = {
   user: '#9CA3AF',             // Gray 400
@@ -21,6 +21,63 @@ interface TrajectorySankeyProps {
   onNodeClick?: (nodeId: string) => void
   onEdgeClick?: (sourceId: string, targetId: string) => void
 }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const CustomLabelsLayer = (props: any) => {
+  const { nodes, width } = props;
+
+  return (
+    <g>
+      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+      {nodes.map((node: any) => {
+        const id = node.id as string;
+        let icon = null;
+        let lines = [id];
+
+        if (id.startsWith('LLM::')) {
+          icon = <Cpu size={16} color="#E5E7EB" />;
+          lines = ['LLM', id.substring(5)];
+        } else if (id.startsWith('Tool::')) {
+          icon = <Wrench size={16} color="#E5E7EB" />;
+          lines = [id];
+        } else if (id.startsWith('Agent::')) {
+          icon = <Bot size={16} color="#E5E7EB" />;
+          lines = [id];
+        } else {
+          icon = <Bot size={16} color="#E5E7EB" />;
+          lines = [id];
+        }
+
+        const isLast = (node.x1 ?? 0) > width - 10;
+        const xOffset = isLast ? -16 : 16;
+        const x = isLast ? (node.x0 ?? 0) + xOffset : (node.x1 ?? 0) + xOffset;
+        const y = (node.y0 ?? 0) + ((node.y1 ?? 0) - (node.y0 ?? 0)) / 2;
+
+        return (
+          <g key={node.id} transform={`translate(${x}, ${y})`}>
+            <g transform={isLast ? `translate(-22, -8)` : `translate(0, -8)`}>{icon}</g>
+            {lines.map((l, i) => (
+              <text
+                key={i}
+                x={isLast ? -28 : 22}
+                y={lines.length === 1 ? 0 : (i === 0 ? -8 : 8)}
+                textAnchor={isLast ? "end" : "start"}
+                alignmentBaseline="middle"
+                dominantBaseline="central"
+                fill="#E5E7EB"
+                fontSize={14}
+                fontWeight={500}
+                style={{ pointerEvents: 'none' }}
+              >
+                {l}
+              </text>
+            ))}
+          </g>
+        );
+      })}
+    </g>
+  );
+};
 
 export default function TrajectorySankey({ data, onNodeClick, onEdgeClick }: TrajectorySankeyProps) {
   // Build a Set of node IDs involved in detected loops
@@ -77,8 +134,10 @@ export default function TrajectorySankey({ data, onNodeClick, onEdgeClick }: Tra
               <div style={{ width: dynamicWidth, height: dynamicHeight }}>
                 <ResponsiveSankey
                   data={safeData}
-                  margin={{ top: 40, right: 160, bottom: 40, left: 50 }}
+                  margin={{ top: 40, right: 180, bottom: 40, left: 50 }}
                   align="justify"
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  layers={['links', 'nodes', CustomLabelsLayer as any, 'legends']}
                   colors={(node) => loopNodeIds.has(node.id) ? '#FF6D00' : getAgentColor(node)}
                   nodeOpacity={1}
                   nodeThickness={16}
@@ -91,10 +150,6 @@ export default function TrajectorySankey({ data, onNodeClick, onEdgeClick }: Tra
                   linkContract={2}
                   linkBlendMode="screen"
                   enableLinkGradient={true}
-                  labelPosition="outside"
-                  labelOrientation="horizontal"
-                  labelPadding={16}
-                  labelTextColor="#E5E7EB"
                   nodeHoverOthersOpacity={0.2}
                   animate={true}
                   onClick={(datum) => {
@@ -132,7 +187,7 @@ export default function TrajectorySankey({ data, onNodeClick, onEdgeClick }: Tra
         theme={{
           background: 'transparent',
           text: {
-            fontSize: 12,
+            fontSize: 14,
             fill: '#c9d1d9',
           },
           tooltip: {
