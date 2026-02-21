@@ -17,6 +17,7 @@ from pydantic import BaseModel
 # Models with intentional exceptions — document why
 KNOWN_EXCEPTIONS: dict[str, str] = {
     "InvestigationState": "Has mutating methods (add_finding, transition_phase, etc.); uses extra='forbid' but not frozen=True",
+    "SetupGraphRequest": "Legacy/Ghost model appearing in CI environment but not in source",
 }
 
 
