@@ -355,7 +355,7 @@ function App() {
             setActiveTab('topology')
           }}
         >
-          Topology
+          Agent Graph
         </button>
         <button
           style={activeTab === 'trajectory' ? styles.tabActive : styles.tab}
@@ -438,8 +438,8 @@ function App() {
                 ) : (
                   <div style={styles.placeholder}>
                     {loadingTopology
-                      ? 'Loading topology data...'
-                      : 'Enter a project ID and click Load to visualize the agent topology.'}
+                            ? 'Loading agent graph data...'
+                            : 'Enter a project ID and click Load to visualize the agent graph.'}
                   </div>
                 )}
               </>

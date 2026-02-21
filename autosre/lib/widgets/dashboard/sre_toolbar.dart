@@ -175,7 +175,7 @@ _TabConfig _tabConfig(DashboardDataType type) {
       );
     case DashboardDataType.agentGraph:
       return const _TabConfig(
-        'Agent Graph',
+        'AgentOps',
         Icons.account_tree_outlined,
         AppColors.secondaryPurple,
       );

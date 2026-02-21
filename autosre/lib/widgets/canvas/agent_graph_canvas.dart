@@ -290,7 +290,7 @@ class _AgentGraphCanvasState extends State<AgentGraphCanvas>
           ),
           const SizedBox(width: 8),
           Text(
-            data.rootAgentName ?? 'Agent Graph',
+            data.rootAgentName ?? 'AgentOps',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 15,
