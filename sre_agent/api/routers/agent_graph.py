@@ -709,7 +709,7 @@ async def get_node_detail(
         # --- Top errors ---
         errors_query = f"""
             SELECT
-                status_message AS message,
+                status_code AS message,
                 COUNT(*) AS count
             FROM `{project_id}.{dataset}.agent_spans_raw`
             WHERE logical_node_id = @node_id
@@ -717,7 +717,7 @@ async def get_node_detail(
               AND start_time >= TIMESTAMP_SUB(
                   CURRENT_TIMESTAMP(), INTERVAL {hours} HOUR
               )
-            GROUP BY status_message
+            GROUP BY status_code
             ORDER BY count DESC
             LIMIT 3
         """
@@ -742,7 +742,7 @@ async def get_node_detail(
                   CURRENT_TIMESTAMP(), INTERVAL {hours} HOUR
               )
             ORDER BY r.start_time DESC
-            LIMIT 3
+            LIMIT 10
         """
 
         payload_rows = list(client.query(payload_query, job_config=job_config).result())

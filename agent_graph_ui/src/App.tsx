@@ -10,7 +10,6 @@ import type {
   SankeyResponse,
   SelectedElement,
   GraphFilters,
-  ViewMode,
   AutoRefreshConfig,
   TimeSeriesData,
 } from './types'
@@ -137,7 +136,6 @@ function App() {
     hours: 24,
     errorsOnly: false,
   })
-  const [viewMode, setViewMode] = useState<ViewMode>('topology')
   const [selected, setSelected] = useState<SelectedElement | null>(null)
   const [topologyData, setTopologyData] = useState<TopologyResponse | null>(null)
   const [sankeyData, setSankeyData] = useState<SankeyResponse | null>(null)
@@ -238,10 +236,14 @@ function App() {
         setNeedsSetup(false)
       } else if (!isSilent) {
         // Handle setup required
-        if ((topoRes.reason as any)?.response?.data?.code === 'NOT_SETUP') {
+        const err = topoRes.reason as import('axios').AxiosError<{ code?: string, detail?: string }>
+        const code = err?.response?.data?.code
+        const detail = err?.response?.data?.detail
+
+        if (code === 'NOT_SETUP') {
           setNeedsSetup(true)
         } else {
-          setError(`Topology fetch failed: ${(topoRes.reason as any)?.response?.data?.detail || topoRes.reason}`)
+          setError(`Topology fetch failed: ${detail || err.message || String(err)}`)
         }
       }
 
@@ -294,8 +296,9 @@ function App() {
       })
       setNeedsSetup(false)
       fetchAll(false)
-    } catch (err: any) {
-      setSetupError(err?.response?.data?.detail || String(err))
+    } catch (err) {
+      const axiosErr = err as import('axios').AxiosError<{ detail?: string }>
+      setSetupError(axiosErr?.response?.data?.detail || String(err))
     } finally {
       setSettingUp(false)
     }
@@ -318,8 +321,6 @@ function App() {
         onChange={setFilters}
         onLoad={handleLoad}
         loading={isLoading}
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
         autoRefresh={autoRefresh}
         onAutoRefreshChange={setAutoRefresh}
         lastUpdated={lastUpdated}
@@ -358,8 +359,7 @@ function App() {
                 {topologyData ? (
                   <TopologyGraph
                     nodes={topologyData.nodes}
-                    edges={topologyData.edges}
-                    viewMode={viewMode}
+                        edges={topologyData.edges}
                     sparklineData={timeseriesData}
                     selectedNodeId={selected?.kind === 'node' ? selected.id : null}
                     onNodeClick={(nodeId) =>
@@ -398,8 +398,7 @@ function App() {
             selected={selected}
             projectId={filters.projectId}
             hours={filters.hours}
-            onClose={() => setSelected(null)}
-            viewMode={viewMode}
+                onClose={() => setSelected(null)}
             sparklineData={timeseriesData}
           />
         </div>

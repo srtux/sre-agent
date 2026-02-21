@@ -664,7 +664,7 @@ function PayloadAccordion({ payloads }: { payloads: PayloadEntry[] }) {
                           margin: 0,
                           borderRadius: '4px',
                           fontSize: '11px',
-                          maxHeight: '200px',
+                          maxHeight: '400px',
                           overflow: 'auto',
                         }}
                         wrapLongLines

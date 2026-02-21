@@ -15,7 +15,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import dagre from 'dagre'
-import type { TopologyNode, TopologyEdge, ViewMode, TimeSeriesData, TimeSeriesPoint } from '../types'
+import type { TopologyNode, TopologyEdge, TimeSeriesData, TimeSeriesPoint } from '../types'
 import Sparkline, { SPARK_H, extractSparkSeries, sparkColor } from './Sparkline'
 import { GraphTopologyHelper } from '../utils/topology'
 import BackEdge from './BackEdge'
@@ -169,22 +169,33 @@ const nodeStyles: Record<string, React.CSSProperties> = {
 
 const BaseNodeStyle = (nodeData: NodeDataExtended, baseStyle: React.CSSProperties) => {
   const errorOverrides = getErrorStyles(nodeData.errorCount)
-  const heatOverrides: React.CSSProperties = nodeData._heatColor
-    ? {
-      background: nodeData._heatColor,
-      border: `2px solid ${nodeData._heatColor}`,
-      boxShadow: `0 2px 8px ${nodeData._heatColor}40`,
-      width: nodeData._scaledWidth ?? NODE_WIDTH,
-      height: nodeData._scaledHeight ?? NODE_HEIGHT,
-      color: '#1a1a1a',
+
+  let boxOverrides = {}
+  if (nodeData._isHighCost && nodeData._isHighLatency) {
+    boxOverrides = {
+      boxShadow: '0 0 16px 4px rgba(255, 167, 38, 0.4), 0 0 16px 4px rgba(204, 0, 0, 0.4)',
+      borderColor: '#FFB74D',
     }
-    : {}
+  } else if (nodeData._isHighCost) {
+    boxOverrides = {
+      boxShadow: '0 0 16px 4px rgba(255, 204, 0, 0.4)',
+      borderColor: '#FFCA28',
+    }
+  } else if (nodeData._isHighLatency) {
+    boxOverrides = {
+      boxShadow: '0 0 16px 4px rgba(204, 0, 0, 0.4)',
+      borderColor: '#EF5350',
+    }
+  }
+
   return {
     ...baseStyle,
     ...errorOverrides,
-    ...heatOverrides,
+    ...boxOverrides,
+    width: nodeData._scaledWidth ?? NODE_WIDTH,
+    height: nodeData._scaledHeight ?? NODE_HEIGHT,
     opacity: nodeData._isDimmed ? 0.2 : 1.0,
-    transition: 'opacity 0.3s ease, background 0.3s ease, border 0.3s ease, width 0.3s ease, height 0.3s ease',
+    transition: 'opacity 0.3s ease, background 0.3s ease, border 0.3s ease, width 0.3s ease, height 0.3s ease, box-shadow 0.3s ease',
   }
 }
 
@@ -207,21 +218,7 @@ function formatLatency(ms: number | undefined): string {
   return `${(ms / 1000).toFixed(1)}s`
 }
 
-function heatmapColor(t: number): string {
-  const v = Math.max(0, Math.min(1, t))
-  if (v < 0.5) {
-    const sub = v * 2
-    const r = 255
-    const g = Math.round(255 - sub * (255 - 204))
-    const b = Math.round(255 - sub * 255)
-    return `rgb(${r},${g},${b})`
-  }
-  const sub = (v - 0.5) * 2
-  const r = Math.round(255 - sub * (255 - 204))
-  const g = Math.round(204 - sub * 204)
-  const b = 0
-  return `rgb(${r},${g},${b})`
-}
+
 
 function getMaxMetric(nodes: TopologyNode[], key: 'totalTokens' | 'avgDurationMs'): number {
   let max = 0
@@ -246,12 +243,14 @@ function formatTokens(n: number | undefined): string {
   return String(n)
 }
 
-function MetricBadges({ nodeData }: { nodeData: TopologyNode['data'] }) {
+function MetricBadges({ nodeData: baseNodeData }: { nodeData: TopologyNode['data'] }) {
+  const nodeData = baseNodeData as NodeDataExtended
+
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginTop: 'auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#94A3B8', fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }}>
         {nodeData.avgDurationMs !== undefined && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2, color: nodeData._isHighLatency ? '#EF5350' : '#94A3B8', textShadow: nodeData._isHighLatency ? '0 0 8px rgba(239, 83, 80, 0.5)' : 'none' }}>
             <Activity size={12} />
             {formatLatency(nodeData.avgDurationMs)}
           </div>
@@ -260,7 +259,7 @@ function MetricBadges({ nodeData }: { nodeData: TopologyNode['data'] }) {
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }}>
         {nodeData.totalTokens !== undefined && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 2, color: '#94A3B8' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2, color: nodeData._isHighCost ? '#FFCA28' : '#94A3B8', textShadow: nodeData._isHighCost ? '0 0 8px rgba(255, 202, 40, 0.5)' : 'none' }}>
             <FileDigit size={12} />
             {formatTokens(nodeData.totalTokens)}
           </div>
@@ -280,8 +279,9 @@ type NodeDataExtended = TopologyNode['data'] & {
   _heatColor?: string
   _scaledWidth?: number
   _scaledHeight?: number
+  _isHighCost?: boolean
+  _isHighLatency?: boolean
   _sparklinePoints?: TimeSeriesPoint[]
-  _viewMode?: ViewMode
   _isDimmed?: boolean
   _expanded?: boolean
   _hasChildren?: boolean
@@ -291,9 +291,8 @@ type NodeDataExtended = TopologyNode['data'] & {
 
 function NodeSparkline({ nodeData }: { nodeData: NodeDataExtended }) {
   if (!nodeData._sparklinePoints || nodeData._sparklinePoints.length < 2) return null
-  const vm = nodeData._viewMode ?? 'topology'
-  const series = extractSparkSeries(nodeData._sparklinePoints, vm)
-  return <Sparkline points={series} color={sparkColor(vm)} />
+  const series = extractSparkSeries(nodeData._sparklinePoints, 'latency')
+  return <Sparkline points={series} color={sparkColor('latency')} />
 }
 
 function ExpandButton({ nodeData }: { nodeData: NodeDataExtended }) {
@@ -426,49 +425,9 @@ function mapNodeType(nodeType: string, label: string): string {
   return 'agent'
 }
 
-function HeatmapLegend({ mode }: { mode: ViewMode }) {
-  if (mode === 'topology') return null
-
-  const label = mode === 'cost' ? 'Token Cost' : 'Avg Latency'
-  const lowLabel = mode === 'cost' ? 'Low' : '0ms'
-  const highLabel = mode === 'cost' ? 'High' : 'High ms'
-
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        bottom: 16,
-        right: 16,
-        background: '#1E293B',
-        border: '1px solid #334155',
-        borderRadius: '8px',
-        padding: '10px 14px',
-        zIndex: 10,
-        fontSize: '12px',
-        color: '#F0F4F8',
-      }}
-    >
-      <div style={{ fontWeight: 600, marginBottom: '6px' }}>{label} Heatmap</div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <span style={{ color: '#78909C' }}>{lowLabel}</span>
-        <div
-          style={{
-            width: '120px',
-            height: '12px',
-            borderRadius: '6px',
-            background: 'linear-gradient(to right, #ffffff, #ffcc00, #cc0000)',
-          }}
-        />
-        <span style={{ color: '#78909C' }}>{highLabel}</span>
-      </div>
-    </div>
-  )
-}
-
 interface TopologyGraphProps {
   nodes: TopologyNode[]
   edges: TopologyEdge[]
-  viewMode?: ViewMode
   sparklineData?: TimeSeriesData | null
   onNodeClick?: (nodeId: string) => void
   onEdgeClick?: (sourceId: string, targetId: string) => void
@@ -478,7 +437,6 @@ interface TopologyGraphProps {
 export default function TopologyGraph({
   nodes,
   edges,
-  viewMode = 'topology',
   sparklineData,
   onNodeClick,
   onEdgeClick,
@@ -543,22 +501,27 @@ export default function TopologyGraph({
     const visibleGraph = topology.getVisibleGraph(expandedIds)
 
     return visibleGraph.nodes.map((n) => {
-      let heatColor: string | undefined
       let scaledWidth: number | undefined
       let scaledHeight: number | undefined
+      let isHighCost = false
+      let isHighLatency = false
 
-      if (viewMode === 'cost') {
-        const tokens = n.data.totalTokens ?? 0
-        const t = tokens / maxTokens
-        heatColor = heatmapColor(t)
-        const dims = getScaledDimensions(t)
-        scaledWidth = dims.width
-        scaledHeight = dims.height
-      } else if (viewMode === 'latency') {
-        const lat = n.data.avgDurationMs ?? 0
-        const t = lat / maxLatency
-        heatColor = heatmapColor(t)
-        const dims = getScaledDimensions(t)
+      const tokens = n.data.totalTokens ?? 0
+      const costRatio = maxTokens > 0 ? tokens / maxTokens : 0
+      if (costRatio > 0.7 && tokens > 1000) {
+        isHighCost = true
+      }
+
+      const lat = n.data.avgDurationMs ?? 0
+      const latRatio = maxLatency > 0 ? lat / maxLatency : 0
+      if (latRatio > 0.7 && lat > 500) {
+        isHighLatency = true
+      }
+
+      // Slightly scale up nodes that are hotspots
+      const maxRatio = Math.max(costRatio, latRatio)
+      if (maxRatio > 0.5) {
+        const dims = getScaledDimensions(maxRatio * 0.5) // Less aggressive scaling
         scaledWidth = dims.width
         scaledHeight = dims.height
       }
@@ -577,11 +540,11 @@ export default function TopologyGraph({
         type: mapNodeType(n.data.nodeType, n.data.label),
         data: {
           ...n.data,
-          _heatColor: heatColor,
           _scaledWidth: scaledWidth,
           _scaledHeight: scaledHeight,
+          _isHighCost: isHighCost,
+          _isHighLatency: isHighLatency,
           _sparklinePoints: sparkPoints,
-          _viewMode: viewMode,
           _isDimmed: isDimmed,
           _expanded: expandedIds.has(n.id),
           _hasChildren: topology.hasChildren(n.id),
@@ -602,7 +565,7 @@ export default function TopologyGraph({
         position: n.position,
       }
     })
-  }, [nodes, viewMode, sparklineData, expandedIds, topology, selectedNodeId, highlightedPath])
+  }, [nodes, sparklineData, expandedIds, topology, selectedNodeId, highlightedPath])
 
   const toReactFlowEdges = useCallback((): Edge[] => {
     const visibleGraph = topology.getVisibleGraph(expandedIds)
@@ -731,7 +694,6 @@ export default function TopologyGraph({
         />
 
       </ReactFlow>
-      <HeatmapLegend mode={viewMode} />
     </div>
   )
 }
