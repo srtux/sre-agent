@@ -11,6 +11,8 @@ interface GraphToolbarProps {
 }
 
 import TimeRangeSelector from './TimeRangeSelector'
+import { useAgentContext } from '../contexts/AgentContext'
+import { Bot } from 'lucide-react'
 
 const styles: Record<string, React.CSSProperties> = {
   bar: {
@@ -110,6 +112,7 @@ export default function GraphToolbar({
   onAutoRefreshChange,
   lastUpdated,
 }: GraphToolbarProps) {
+  const { serviceName, setServiceName, availableAgents, loadingAgents } = useAgentContext()
   const canLoad = !loading && filters.projectId.trim().length > 0
 
   const handleToggle = () => {
@@ -118,6 +121,28 @@ export default function GraphToolbar({
 
   return (
     <div style={styles.bar}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <Bot size={16} color="#06B6D4" />
+        <select
+          style={{ ...styles.select, fontFamily: "'JetBrains Mono', monospace" }}
+          value={serviceName}
+          onChange={(e) => setServiceName(e.target.value)}
+          disabled={loadingAgents || availableAgents.length === 0}
+        >
+          {loadingAgents ? (
+            <option value={serviceName}>Loading agents...</option>
+          ) : availableAgents.length === 0 ? (
+            <option value={serviceName}>{serviceName}</option>
+          ) : (
+            availableAgents.map((a) => (
+              <option key={a.serviceName} value={a.serviceName}>
+                {a.serviceName}
+              </option>
+            ))
+          )}
+        </select>
+      </div>
+
       <TimeRangeSelector filters={filters} onChange={onChange} />
 
       {/* Errors-only pill toggle */}
