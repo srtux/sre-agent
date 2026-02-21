@@ -3,6 +3,7 @@
 import 'dart:html' as html;
 import 'dart:ui_web' as ui_web;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/project_service.dart';
@@ -27,7 +28,8 @@ class _AgentGraphIframePanelState extends State<AgentGraphIframePanel> {
     if (_currentProjectId.isEmpty) _currentProjectId = 'summitt-gcp';
     _viewId = 'agent-graph-iframe-${DateTime.now().millisecondsSinceEpoch}';
 
-    final src = 'http://localhost:5174/graph/?project_id=$_currentProjectId';
+    final String baseUrl = kDebugMode ? 'http://localhost:5174' : '';
+    final src = '$baseUrl/graph/?project_id=$_currentProjectId';
 
     // ignore: undefined_prefixed_name
     ui_web.platformViewRegistry.registerViewFactory(_viewId, (int viewId) {
@@ -47,8 +49,8 @@ class _AgentGraphIframePanelState extends State<AgentGraphIframePanel> {
       final iframe =
           html.document.getElementById(_viewId) as html.IFrameElement?;
       if (iframe != null) {
-        iframe.src =
-            'http://localhost:5174/graph/?project_id=$_currentProjectId';
+        final String baseUrl = kDebugMode ? 'http://localhost:5174' : '';
+        iframe.src = '$baseUrl/graph/?project_id=$_currentProjectId';
       }
     }
   }
