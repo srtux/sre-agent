@@ -4,7 +4,7 @@ import { Light as SyntaxHighlighter } from 'react-syntax-highlighter'
 import json from 'react-syntax-highlighter/dist/esm/languages/hljs/json'
 import sql from 'react-syntax-highlighter/dist/esm/languages/hljs/sql'
 import { atomOneDark } from 'react-syntax-highlighter/dist/esm/styles/hljs'
-import type { SelectedElement, NodeDetail, EdgeDetail, PayloadEntry, ViewMode, TimeSeriesData } from '../types'
+import type { SelectedElement, NodeDetail, EdgeDetail, PayloadEntry, ViewMode, TimeSeriesData, SpanDetails, TraceLogsData, SpanDetailsException, TraceLog, GraphFilters } from '../types'
 import Sparkline, { extractSparkSeries, sparkColor, sparkLabel } from './Sparkline'
 import {
   User,
@@ -32,6 +32,7 @@ interface SidePanelProps {
   onClose: () => void
   viewMode?: ViewMode
   sparklineData?: TimeSeriesData | null
+  filters?: GraphFilters
 }
 
 /** Format a number into a compact human-readable string (e.g. 12500 -> "12.5K"). */
@@ -238,6 +239,7 @@ export default function SidePanel({
   onClose,
   viewMode = 'topology',
   sparklineData,
+  filters,
 }: SidePanelProps) {
   const [nodeDetail, setNodeDetail] = useState<NodeDetail | null>(null)
   const [edgeDetail, setEdgeDetail] = useState<EdgeDetail | null>(null)
@@ -258,7 +260,7 @@ export default function SidePanel({
     setNodeDetail(null)
     setEdgeDetail(null)
 
-    const params = { project_id: projectId, hours }
+    const params = { project_id: projectId, hours, errors_only: !!filters?.errorsOnly }
 
     const fetchData = async () => {
       try {
@@ -293,7 +295,7 @@ export default function SidePanel({
     return () => {
       cancelled = true
     }
-  }, [selected, projectId, hours])
+  }, [selected, projectId, hours, filters?.errorsOnly])
 
   const isOpen = selected !== null
 
@@ -340,6 +342,7 @@ export default function SidePanel({
         {nodeDetail && !loading && !error && (
           <NodeDetailView
             detail={nodeDetail}
+            projectId={projectId}
             viewMode={viewMode}
             sparklineData={sparklineData}
           />
@@ -355,10 +358,12 @@ export default function SidePanel({
 
 function NodeDetailView({
   detail,
+  projectId,
   viewMode = 'topology',
   sparklineData,
 }: {
   detail: NodeDetail
+    projectId: string
   viewMode?: ViewMode
   sparklineData?: TimeSeriesData | null
 }) {
@@ -478,7 +483,7 @@ function NodeDetailView({
       )}
 
       {/* Raw Payloads */}
-      <PayloadAccordion payloads={detail.recentPayloads ?? []} />
+      <PayloadAccordion payloads={detail.recentPayloads ?? []} projectId={projectId} />
     </>
   )
 }
@@ -569,8 +574,11 @@ function EdgeDetailView({ detail }: { detail: EdgeDetail }) {
   )
 }
 
-function PayloadAccordion({ payloads }: { payloads: PayloadEntry[] }) {
+function PayloadAccordion({ payloads, projectId }: { payloads: PayloadEntry[], projectId: string }) {
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
+  const [spanDetailsCache, setSpanDetailsCache] = useState<Record<string, SpanDetails>>({})
+  const [traceLogsCache, setTraceLogsCache] = useState<Record<string, TraceLogsData>>({})
+  const [loadingIds, setLoadingIds] = useState<Set<number>>(new Set())
 
   if (payloads.length === 0) {
     return (
@@ -579,6 +587,48 @@ function PayloadAccordion({ payloads }: { payloads: PayloadEntry[] }) {
         <div style={{ fontSize: '13px', color: '#484f58', paddingLeft: '20px' }}>No recent payloads available.</div>
       </div>
     )
+  }
+
+  const handleToggle = async (p: PayloadEntry, idx: number) => {
+    if (expandedIdx === idx) {
+      setExpandedIdx(null)
+      return
+    }
+    setExpandedIdx(idx)
+
+    if (p.traceId && p.spanId && !spanDetailsCache[p.spanId] && !loadingIds.has(idx)) {
+      setLoadingIds(prev => {
+        const next = new Set(prev)
+        next.add(idx)
+        return next
+      })
+
+      try {
+        const spanRes = await axios.get(`/api/v1/graph/trace/${p.traceId}/span/${p.spanId}/details`, {
+          params: { project_id: projectId }
+        })
+        setSpanDetailsCache(prev => ({ ...prev, [p.spanId]: spanRes.data }))
+      } catch (e) {
+        console.error("Failed to fetch span details", e)
+      }
+
+      try {
+        if (!traceLogsCache[p.traceId]) {
+          const logsRes = await axios.get(`/api/v1/graph/trace/${p.traceId}/logs`, {
+            params: { project_id: projectId }
+          })
+          setTraceLogsCache(prev => ({ ...prev, [p.traceId!]: logsRes.data }))
+        }
+      } catch (e) {
+        console.error("Failed to fetch trace logs", e)
+      }
+
+      setLoadingIds(prev => {
+        const next = new Set(prev)
+        next.delete(idx)
+        return next
+      })
+    }
   }
 
   return (
@@ -597,10 +647,16 @@ function PayloadAccordion({ payloads }: { payloads: PayloadEntry[] }) {
         if (p.toolInput) fields.push({ label: 'Tool Input', value: p.toolInput, lang: 'json' })
         if (p.toolOutput) fields.push({ label: 'Tool Output', value: p.toolOutput, lang: 'json' })
 
+        const spanDetails = spanDetailsCache[p.spanId]
+        const traceLogs = p.traceId ? traceLogsCache[p.traceId] : null
+        const exceptions = spanDetails?.exceptions || []
+        const logs = traceLogs?.logs || []
+        const isLoadingExtras = loadingIds.has(idx)
+
         return (
           <div key={p.spanId || idx} style={{ marginBottom: '6px' }}>
             <button
-              onClick={() => setExpandedIdx(isExpanded ? null : idx)}
+              onClick={() => handleToggle(p, idx)}
               style={{
                 width: '100%',
                 display: 'flex',
@@ -640,6 +696,60 @@ function PayloadAccordion({ payloads }: { payloads: PayloadEntry[] }) {
                 background: '#0F172A',
                 padding: '8px',
               }}>
+                {isLoadingExtras && (
+                  <div style={{ fontSize: '12px', color: '#78909C', padding: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    Loading error details...
+                  </div>
+                )}
+
+                {exceptions.length > 0 && (
+                  <div style={{ marginBottom: '12px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 600, color: '#FF5252', marginBottom: '8px' }}>
+                      <AlertCircle size={12} style={{ marginRight: '4px', verticalAlign: '-2px' }} />
+                      EXCEPTIONS
+                    </div>
+                    {exceptions.map((exc: SpanDetailsException, i: number) => (
+                      <div key={i} style={{ background: 'rgba(255, 82, 82, 0.08)', border: '1px solid rgba(255, 82, 82, 0.3)', borderRadius: '4px', padding: '8px', marginBottom: '8px' }}>
+                        <div style={{ color: '#FF5252', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>{exc.type}: {exc.message}</div>
+                        {exc.stacktrace && (
+                          <SyntaxHighlighter
+                            language="python"
+                            style={atomOneDark}
+                            customStyle={{ margin: 0, borderRadius: '4px', fontSize: '11px', maxHeight: '200px', overflow: 'auto' }}
+                          >
+                            {exc.stacktrace}
+                          </SyntaxHighlighter>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {logs.length > 0 && (
+                  <div style={{ marginBottom: '12px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 600, color: '#FBBF24', marginBottom: '8px' }}>
+                      TRACE LOGS
+                    </div>
+                    <div style={{ background: '#1E293B', borderRadius: '4px', padding: '8px', maxHeight: '200px', overflow: 'auto' }}>
+                      {logs.map((log: TraceLog, i: number) => {
+                        let payloadStr = log.payload;
+                        if (typeof payloadStr === 'object') {
+                          payloadStr = JSON.stringify(payloadStr, null, 2);
+                        }
+                        const color = log.severity === 'ERROR' || log.severity === 'CRITICAL' ? '#FF5252' : '#F0F4F8';
+                        return (
+                          <div key={i} style={{ marginBottom: '6px', fontSize: '11px', color }}>
+                            <span style={{ color: '#78909C', marginRight: '8px' }}>
+                              [{log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : 'Unknown'}]
+                            </span>
+                            {String(payloadStr)}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {fields.length === 0 ? (
                   <div style={{ fontSize: '12px', color: '#484f58', padding: '8px' }}>
                     No payload data captured for this span.

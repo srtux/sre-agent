@@ -96,6 +96,7 @@ export interface GraphFilters {
 export type ViewMode = 'topology' | 'cost' | 'latency'
 
 export interface PayloadEntry {
+  traceId?: string
   spanId: string
   timestamp: string | null
   nodeType: string
@@ -136,4 +137,30 @@ export interface TimeSeriesPoint {
 
 export interface TimeSeriesData {
   series: Record<string, TimeSeriesPoint[]>
+}
+
+export interface SpanDetailsException {
+  message: string
+  stacktrace?: string
+  type: string
+}
+
+export interface SpanDetails {
+  traceId: string
+  spanId: string
+  statusCode: number
+  statusMessage: string
+  exceptions: SpanDetailsException[]
+  attributes: Record<string, unknown>
+}
+
+export interface TraceLog {
+  timestamp: string | null
+  severity: string
+  payload: unknown
+}
+
+export interface TraceLogsData {
+  traceId: string
+  logs: TraceLog[]
 }

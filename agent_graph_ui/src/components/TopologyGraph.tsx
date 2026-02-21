@@ -31,7 +31,9 @@ import {
   UnfoldHorizontal,
   FoldHorizontal,
   LayoutTemplate,
-  Network
+  Network,
+  Plus,
+  Minus
 } from 'lucide-react'
 
 export type LayoutMode = 'horizontal' | 'vertical' | 'cluster'
@@ -348,9 +350,10 @@ function ExpandButton({ nodeData }: { nodeData: NodeDataExtended }) {
       }}
       style={{
         position: 'absolute',
-        bottom: -12,
+        top: -10,
+        right: -10,
         background: '#1E293B',
-        border: '1px solid #334155',
+        border: '1px solid #06B6D4',
         borderRadius: 12,
         padding: '2px 8px',
         fontSize: 10,
@@ -364,7 +367,14 @@ function ExpandButton({ nodeData }: { nodeData: NodeDataExtended }) {
         boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
       }}
     >
-      {nodeData._expanded ? '🔽 Collapse' : `▶ Expand (${nodeData._childrenCount})`}
+      {nodeData._expanded ? (
+        <Minus size={12} color="#EF4444" strokeWidth={3} />
+      ) : (
+        <>
+          <Plus size={12} color="#10B981" strokeWidth={3} />
+          <span>({nodeData._childrenCount})</span>
+        </>
+      )}
     </div>
   )
 }

@@ -408,6 +408,7 @@ function App() {
             hours={filters.hours}
                 onClose={() => setSelected(null)}
             sparklineData={timeseriesData}
+                filters={filters}
           />
         </div>
         )}

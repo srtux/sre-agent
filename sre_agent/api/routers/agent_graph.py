@@ -630,6 +630,7 @@ async def get_node_detail(
     dataset: str = "agent_graph",
     trace_dataset: str = "traces",
     hours: float = Query(default=24.0, ge=0.0, le=720.0),
+    errors_only: bool = False,
 ) -> dict[str, Any]:
     """Return detailed metrics for a single topology node.
 
@@ -645,6 +646,7 @@ async def get_node_detail(
         dataset: BigQuery dataset name.
         trace_dataset: BigQuery dataset containing ``_AllSpans``.
         hours: Look-back window in hours (0-720).
+        errors_only: Only fetch error payloads if True.
 
     Returns:
         A dict with detailed node metrics and recent payloads.
@@ -728,6 +730,7 @@ async def get_node_detail(
         # --- Recent payloads (join raw MV back to source _AllSpans) ---
         payload_query = f"""
             SELECT
+                r.trace_id,
                 r.span_id,
                 r.start_time,
                 r.node_type,
@@ -742,6 +745,7 @@ async def get_node_detail(
               AND r.start_time >= TIMESTAMP_SUB(
                   CURRENT_TIMESTAMP(), INTERVAL {int(hours * 60)} MINUTE
               )
+              {"AND r.status_code = 'ERROR'" if errors_only else ""}
             ORDER BY r.start_time DESC
             LIMIT 10
         """
@@ -774,6 +778,7 @@ async def get_node_detail(
             ],
             "recentPayloads": [
                 {
+                    "traceId": row.trace_id,
                     "spanId": row.span_id,
                     "timestamp": (
                         row.start_time.isoformat() if row.start_time else None
@@ -1044,4 +1049,117 @@ async def get_timeseries(
         raise HTTPException(
             status_code=500,
             detail="Failed to query timeseries data. Check server logs for details.",
+        ) from exc
+
+
+@router.get("/trace/{trace_id}/logs")
+async def get_trace_logs(trace_id: str, project_id: str) -> dict[str, Any]:
+    """Fetch logs from Cloud Logging for a specific trace ID."""
+    _validate_identifier(project_id, "project_id")
+    # Quick sanity check on trace ID to avoid injection
+    if not re.match(r"^[a-fA-F0-9]{32}$", trace_id):
+        raise HTTPException(status_code=400, detail="Invalid trace ID format.")
+
+    try:
+        from google.cloud import logging as cloud_logging
+
+        client = cloud_logging.Client(project=project_id)
+        filter_str = f'trace="projects/{project_id}/traces/{trace_id}"'
+        entries = client.list_entries(filter_=filter_str, max_results=100)
+
+        logs = []
+        for entry in entries:
+            logs.append(
+                {
+                    "timestamp": entry.timestamp.isoformat()
+                    if entry.timestamp
+                    else None,
+                    "severity": entry.severity,
+                    "payload": entry.payload,
+                }
+            )
+
+        return {"traceId": trace_id, "logs": logs}
+    except Exception as exc:
+        logger.exception("Failed to fetch trace logs from Cloud Logging")
+        raise HTTPException(
+            status_code=500, detail="Failed to query Cloud Logging."
+        ) from exc
+
+
+@router.get("/trace/{trace_id}/span/{span_id}/details")
+async def get_span_details(
+    trace_id: str,
+    span_id: str,
+    project_id: str,
+    trace_dataset: str = "traces",
+) -> dict[str, Any]:
+    """Fetch rich details (including errors) for a specific span from BigQuery."""
+    _validate_identifier(project_id, "project_id")
+    _validate_identifier(trace_dataset, "trace_dataset")
+
+    if not re.match(r"^[a-fA-F0-9]{32}$", trace_id):
+        raise HTTPException(status_code=400, detail="Invalid trace ID format.")
+    if not re.match(r"^[a-fA-F0-9]{16}$", span_id):
+        raise HTTPException(status_code=400, detail="Invalid span ID format.")
+
+    try:
+        client = _get_bq_client(project_id)
+
+        query = f"""
+            SELECT
+                status.code as status_code,
+                status.message as status_message,
+                TO_JSON_STRING(events) as events_json,
+                TO_JSON_STRING(attributes) as attributes_json
+            FROM `{project_id}.{trace_dataset}._AllSpans`
+            WHERE trace_id = @trace_id AND span_id = @span_id
+            LIMIT 1
+        """
+
+        job_config = bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("trace_id", "STRING", trace_id),
+                bigquery.ScalarQueryParameter("span_id", "STRING", span_id),
+            ]
+        )
+
+        rows = list(client.query(query, job_config=job_config).result())
+
+        if not rows:
+            raise HTTPException(status_code=404, detail="Span not found.")
+
+        row = rows[0]
+
+        import json
+
+        events = json.loads(row.events_json) if row.events_json else []
+        attributes = json.loads(row.attributes_json) if row.attributes_json else {}
+
+        # Extract exceptions
+        exceptions = []
+        for evt in events:
+            if evt.get("name") == "exception":
+                attrs = evt.get("attributes", {})
+                exc_obj = {
+                    "message": attrs.get("exception.message"),
+                    "stacktrace": attrs.get("exception.stacktrace"),
+                    "type": attrs.get("exception.type"),
+                }
+                exceptions.append(exc_obj)
+
+        return {
+            "traceId": trace_id,
+            "spanId": span_id,
+            "statusCode": row.status_code,
+            "statusMessage": row.status_message,
+            "exceptions": exceptions,
+            "attributes": attributes,
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to fetch span details")
+        raise HTTPException(
+            status_code=500, detail="Failed to fetch span details."
         ) from exc
