@@ -18,6 +18,8 @@ from google.api_core.exceptions import NotFound
 from google.cloud import bigquery
 from pydantic import BaseModel, ConfigDict
 
+from sre_agent.api.helpers.cache import async_ttl_cache
+
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["agent_graph"], prefix="/api/v1/graph")
 
@@ -224,6 +226,7 @@ def _detect_loops(sequence: list[str], min_repeats: int = 3) -> list[dict[str, A
 
 
 @router.get("/topology")
+@async_ttl_cache(ttl_seconds=300)
 async def get_topology(
     project_id: str,
     dataset: str = "agent_graph",
@@ -471,6 +474,7 @@ async def get_topology(
 
 
 @router.get("/trajectories")
+@async_ttl_cache(ttl_seconds=300)
 async def get_trajectories(
     project_id: str,
     dataset: str = "agent_graph",
@@ -1217,6 +1221,7 @@ async def get_span_details(
 
 
 @router.get("/registry/agents")
+@async_ttl_cache(ttl_seconds=300)
 async def get_agent_registry(
     project_id: str,
     dataset: str = "agent_graph",
@@ -1317,6 +1322,7 @@ async def get_agent_registry(
 
 
 @router.get("/registry/tools")
+@async_ttl_cache(ttl_seconds=300)
 async def get_tool_registry(
     project_id: str,
     dataset: str = "agent_graph",

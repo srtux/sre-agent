@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import axios from 'axios'
 import { AgentProvider, useAgentContext } from './AgentContext'
@@ -25,18 +26,25 @@ function TestConsumer() {
 }
 
 describe('AgentContext', () => {
+  let queryClient: QueryClient
+
   beforeEach(() => {
     vi.clearAllMocks()
     localStorage.clear()
+    queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
   })
 
   it('fetches agents and auto-selects the highest volume agent', async () => {
     vi.mocked(axios.get).mockResolvedValue({ data: mockAgents })
 
     render(
-      <AgentProvider projectId="test-project">
-        <TestConsumer />
-      </AgentProvider>
+      <QueryClientProvider client={queryClient}>
+        <AgentProvider projectId="test-project">
+          <TestConsumer />
+        </AgentProvider>
+      </QueryClientProvider>
     )
 
     // Should initially be empty and loading
@@ -60,9 +68,11 @@ describe('AgentContext', () => {
     localStorage.setItem('agent_graph_service_name', 'agent-C')
 
     render(
-      <AgentProvider projectId="test-project">
-        <TestConsumer />
-      </AgentProvider>
+      <QueryClientProvider client={queryClient}>
+        <AgentProvider projectId="test-project">
+          <TestConsumer />
+        </AgentProvider>
+      </QueryClientProvider>
     )
 
     await waitFor(() => {

@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react'
+import React from 'react'
+import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import type {
   GraphFilters,
   RegistryAgent,
   RegistryTool,
-  AgentRegistryResponse,
-  ToolRegistryResponse,
 } from '../types'
 
 const styles: Record<string, React.CSSProperties> = {
@@ -146,50 +145,30 @@ interface Props {
 }
 
 export default function RegistryPage({ filters, mode, onSelectAgent }: Props) {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const params: Record<string, string | number> = {
+    project_id: filters.projectId,
+    hours: filters.hours,
+  }
+  if (filters.startTime) params.start_time = filters.startTime
+  if (filters.endTime) params.end_time = filters.endTime
 
-  const [agents, setAgents] = useState<RegistryAgent[]>([])
-  const [tools, setTools] = useState<RegistryTool[]>([])
+  const endpoint = mode === 'agents' ? '/api/v1/graph/registry/agents' : '/api/v1/graph/registry/tools'
 
-  useEffect(() => {
-    if (!filters.projectId) return
+  const { data, isLoading: loading, error } = useQuery({
+    queryKey: ['registry', mode, filters.projectId, filters.hours, filters.startTime, filters.endTime],
+    queryFn: async () => {
+      const res = await axios.get(endpoint, { params })
+      return res.data
+    },
+    enabled: !!filters.projectId,
+    staleTime: 5 * 60 * 1000,
+  })
 
-    let isMounted = true
-    setLoading(true)
-    setError(null)
+  // Extract the arrays dynamically based on current mode
+  const agents: RegistryAgent[] = mode === 'agents' ? data?.agents || [] : []
+  const tools: RegistryTool[] = mode === 'tools' ? data?.tools || [] : []
 
-    const params: Record<string, string | number> = {
-      project_id: filters.projectId,
-      hours: filters.hours,
-    }
-    if (filters.startTime) params.start_time = filters.startTime
-    if (filters.endTime) params.end_time = filters.endTime
-
-    const endpoint = mode === 'agents' ? '/api/v1/graph/registry/agents' : '/api/v1/graph/registry/tools'
-
-    axios
-      .get(endpoint, { params })
-      .then((res) => {
-        if (!isMounted) return
-        if (mode === 'agents') {
-          setAgents((res.data as AgentRegistryResponse).agents || [])
-        } else {
-          setTools((res.data as ToolRegistryResponse).tools || [])
-        }
-      })
-      .catch((err) => {
-        if (!isMounted) return
-        setError(err?.response?.data?.detail || err.message)
-      })
-      .finally(() => {
-        if (isMounted) setLoading(false)
-      })
-
-    return () => {
-      isMounted = false
-    }
-  }, [filters, mode])
+  const errorMessage = error instanceof Error ? error.message : (error as any)?.response?.data?.detail;
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M'
@@ -199,7 +178,7 @@ export default function RegistryPage({ filters, mode, onSelectAgent }: Props) {
 
   const renderAgentsList = () => {
     if (loading) return <div style={styles.loading}>Loading agents...</div>
-    if (error) return <div style={{ ...styles.loading, ...styles.error }}>{error}</div>
+    if (error) return <div style={{ ...styles.loading, ...styles.error }}>{errorMessage}</div>
 
     if (agents.length === 0) {
       return (
@@ -264,7 +243,7 @@ export default function RegistryPage({ filters, mode, onSelectAgent }: Props) {
 
   const renderToolsList = () => {
     if (loading) return <div style={styles.loading}>Loading tools...</div>
-    if (error) return <div style={{ ...styles.loading, ...styles.error }}>{error}</div>
+    if (error) return <div style={{ ...styles.loading, ...styles.error }}>{errorMessage}</div>
 
     if (tools.length === 0) {
       return (
