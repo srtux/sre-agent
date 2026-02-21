@@ -395,7 +395,7 @@ Feature-module structure following Riverpod/Freezed patterns:
 - **presentation/**: `MultiTraceGraphPage` (full page), `MultiTraceGraphCanvas` (graphview-based), `AgentGraphDetailsPanel` (right-side metadata panel)
 
 ### Key Details
-- **Data Source**: BigQuery GRAPH_TABLE query on `summitt-gcp.agent_graph.agent_trace_graph` (configurable)
+- **Data Source**: BigQuery GRAPH_TABLE query on `my-project.agent_graph.agent_trace_graph` (configurable)
 - **Graph Library**: `graphview` package (Sugiyama L→R hierarchical + force-directed layout toggle)
 - **Progressive Disclosure**: Default (label+icon), Hover (tooltip with tokens), Click (detail panel)
 - **Edge Visualization**: Color = error rate (grey→orange→red), Thickness = token cost (log scale)

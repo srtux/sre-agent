@@ -188,7 +188,7 @@ enum GraphViewMode {
 ## 4. Flutter Data Layer (`autosre/lib/features/agent_graph/data/agent_graph_repository.dart`)
 
 ### 4.1 Repository Pattern with Riverpod
-- **Default Dataset**: `kDefaultDataset = 'summitt-gcp.agent_graph'`
+- **Default Dataset**: `kDefaultDataset = 'my-project.agent_graph'`
 - **Precomputed Min Hours**: `kPrecomputedMinHours = 1` (use hourly table for >= 1 hour)
 
 ### 4.2 SQL Builders
@@ -562,7 +562,7 @@ BigQuery Setup:
 
 Backend:
   sre_agent/tools/analysis/agent_trace/graph.py
-  
+
 Flutter Domain:
   autosre/lib/features/agent_graph/domain/
     - models.dart (MultiTraceNode, MultiTraceEdge, MultiTraceGraphPayload, SelectedGraphElement)
@@ -594,7 +594,7 @@ Tests:
 
 ## 12. Key Constants
 
-- **kDefaultDataset**: 'summitt-gcp.agent_graph'
+- **kDefaultDataset**: 'my-project.agent_graph'
 - **kPrecomputedMinHours**: 1 (use agent_graph_hourly if timeRangeHours >= 1)
 - **Zoom**: Default 0.05 (20x out for overview)
 - **Auto-collapse threshold**: 25 nodes
