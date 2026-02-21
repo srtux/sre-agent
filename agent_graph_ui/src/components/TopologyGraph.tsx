@@ -3,6 +3,7 @@ import {
   ReactFlow,
   Background,
   Controls,
+  ControlButton,
   MiniMap,
   useNodesState,
   useEdgesState,
@@ -11,7 +12,6 @@ import {
   type NodeProps,
   Handle,
   Position,
-  Panel,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import dagre from 'dagre'
@@ -27,8 +27,8 @@ import {
   Activity,
   AlertCircle,
   FileDigit,
-  ChevronDown,
-  ChevronRight
+  UnfoldHorizontal,
+  FoldHorizontal
 } from 'lucide-react'
 
 const NODE_WIDTH = 240
@@ -678,7 +678,7 @@ export default function TopologyGraph({
   )
 
   return (
-    <div style={{ width: '100vw', height: '100vh', paddingBottom: '100px', background: '#0F172A', position: 'relative' }}>
+    <div style={{ width: '100%', height: '100%', background: '#0F172A', position: 'relative' }}>
       <ReactFlow
         nodes={rfNodes}
         edges={rfEdges}
@@ -690,11 +690,32 @@ export default function TopologyGraph({
         edgeTypes={edgeTypes}
         fitView
         proOptions={{ hideAttribution: true }}
+        colorMode="dark"
       >
         <Background color="#334155" gap={20} />
         <Controls
+          position="top-right"
           style={{ background: '#1E293B', border: '1px solid #334155', borderRadius: '6px' }}
-        />
+        >
+          <ControlButton
+            title="Expand All"
+            onClick={() => {
+              const allIds = new Set(nodes.map(n => n.id))
+              setExpandedIds(allIds)
+            }}
+          >
+            <UnfoldHorizontal size={16} />
+          </ControlButton>
+          <ControlButton
+            title="Collapse Sub-Agents"
+            onClick={() => {
+              const rootIds = new Set(topology.rootIds)
+              setExpandedIds(rootIds)
+            }}
+          >
+            <FoldHorizontal size={16} />
+          </ControlButton>
+        </Controls>
         <MiniMap
           nodeColor={(node) => {
             const nt = (node.data as NodeDataExtended)?.nodeType ?? 'agent'
@@ -708,34 +729,7 @@ export default function TopologyGraph({
           maskColor="rgba(15, 23, 42, 0.8)"
           style={{ background: '#1E293B', border: '1px solid #334155', borderRadius: '6px' }}
         />
-        <Panel position="bottom-center" style={{ marginBottom: 40, display: 'flex', gap: 8 }}>
-          <button
-            onClick={() => {
-              const allIds = new Set(nodes.map(n => n.id))
-              setExpandedIds(allIds)
-            }}
-            style={{
-              background: '#1E293B', border: '1px solid #334155', color: '#F0F4F8',
-              padding: '6px 12px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: 6,
-            }}
-          >
-            <ChevronDown size={14} /> Expand All
-          </button>
-          <button
-            onClick={() => {
-              const rootIds = new Set(topology.rootIds)
-              setExpandedIds(rootIds)
-            }}
-            style={{
-              background: '#1E293B', border: '1px solid #334155', color: '#F0F4F8',
-              padding: '6px 12px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: 6,
-            }}
-          >
-            <ChevronRight size={14} /> Collapse Sub-Agents
-          </button>
-        </Panel>
+
       </ReactFlow>
       <HeatmapLegend mode={viewMode} />
     </div>

@@ -4,6 +4,7 @@ import TopologyGraph from './components/TopologyGraph'
 import TrajectorySankey from './components/TrajectorySankey'
 import SidePanel from './components/SidePanel'
 import GraphToolbar from './components/GraphToolbar'
+import Onboarding from './components/Onboarding'
 import type {
   TopologyResponse,
   SankeyResponse,
@@ -144,6 +145,9 @@ function App() {
   const [loadingTopology, setLoadingTopology] = useState(false)
   const [loadingSankey, setLoadingSankey] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [needsSetup, setNeedsSetup] = useState(false)
+  const [settingUp, setSettingUp] = useState(false)
+  const [setupError, setSetupError] = useState<string | null>(null)
   const [autoRefresh, setAutoRefresh] = useState<AutoRefreshConfig>({
     enabled: false,
     intervalSeconds: 60,
@@ -231,8 +235,14 @@ function App() {
 
       if (topoRes.status === 'fulfilled') {
         setTopologyData(topoRes.value.data)
+        setNeedsSetup(false)
       } else if (!isSilent) {
-        setError(`Topology fetch failed: ${topoRes.reason}`)
+        // Handle setup required
+        if ((topoRes.reason as any)?.response?.data?.code === 'NOT_SETUP') {
+          setNeedsSetup(true)
+        } else {
+          setError(`Topology fetch failed: ${(topoRes.reason as any)?.response?.data?.detail || topoRes.reason}`)
+        }
       }
 
       if (sankeyRes.status === 'fulfilled') {
@@ -263,6 +273,33 @@ function App() {
   }, [filters])
 
   const handleLoad = useCallback(() => fetchAll(false), [fetchAll])
+
+  // Auto-load on initial project_id
+  const [hasAutoLoaded, setHasAutoLoaded] = useState(false)
+  useEffect(() => {
+    if (filters.projectId && !hasAutoLoaded) {
+      setHasAutoLoaded(true)
+      fetchAll(false)
+    }
+  }, [filters.projectId, hasAutoLoaded, fetchAll])
+
+  const handleSetup = async (dataset: string, serviceName: string) => {
+    setSettingUp(true)
+    setSetupError(null)
+    try {
+      await axios.post('/api/v1/graph/setup', {
+        project_id: filters.projectId,
+        trace_dataset: dataset,
+        service_name: serviceName
+      })
+      setNeedsSetup(false)
+      fetchAll(false)
+    } catch (err: any) {
+      setSetupError(err?.response?.data?.detail || String(err))
+    } finally {
+      setSettingUp(false)
+    }
+  }
 
   // Auto-refresh timer
   useEffect(() => {
@@ -304,10 +341,18 @@ function App() {
       </div>
 
       <div style={styles.content}>
-        {error && <div style={styles.error}>{error}</div>}
+        {error && !needsSetup && <div style={styles.error}>{error}</div>}
 
-        <div style={{ display: 'flex', flex: 1, position: 'relative', overflow: 'hidden' }}>
-          <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        {needsSetup ? (
+          <Onboarding
+            projectId={filters.projectId}
+            onSetup={handleSetup}
+            loading={settingUp}
+            error={setupError}
+          />
+        ) : (
+            <div style={{ display: 'flex', flex: 1, position: 'relative', overflow: 'hidden' }}>
+              <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             {activeTab === 'topology' && (
               <>
                 {topologyData ? (
@@ -358,6 +403,7 @@ function App() {
             sparklineData={timeseriesData}
           />
         </div>
+        )}
       </div>
     </div>
   )

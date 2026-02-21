@@ -16,9 +16,9 @@ fi
 
 # Usage: ./scripts/setup_agent_graph_bq.sh [project_id] [trace_dataset] [graph_dataset]
 PROJECT_ID=${1:-${PROJECT_ID}}
-# If TRACE_DATASET is not set, try to default to 'traces' if PROJECT_ID is set
 TRACE_DATASET=${2:-${TRACE_DATASET:-traces}}
 GRAPH_DATASET=${3:-${GRAPH_DATASET:-agent_graph}}
+SERVICE_NAME=${4:-${SERVICE_NAME:-sre-agent}}
 
 if [[ -z "$PROJECT_ID" ]]; then
   echo "Usage: $0 [project_id] [trace_dataset] [graph_dataset]"
@@ -118,7 +118,7 @@ SELECT
     COALESCE(JSON_VALUE(attributes, '\$.\"gen_ai.agent.name\"'), JSON_VALUE(attributes, '\$.\"gen_ai.tool.name\"'), JSON_VALUE(attributes, '\$.\"gen_ai.response.model\"'), name)
   ) AS logical_node_id
 FROM \`$PROJECT_ID.$TRACE_DATASET._AllSpans\`
-WHERE JSON_VALUE(resource.attributes, '\$.\"service.name\"') = 'sre-agent';
+WHERE JSON_VALUE(resource.attributes, '\$.\"service.name\"') = '$SERVICE_NAME';
 "
 bq query --use_legacy_sql=false --project_id "$PROJECT_ID" "$MV_SQL"
 

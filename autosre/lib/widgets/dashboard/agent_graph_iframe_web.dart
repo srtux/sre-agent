@@ -20,11 +20,9 @@ class _AgentGraphIframePanelState extends State<AgentGraphIframePanel> {
   @override
   void initState() {
     super.initState();
-    final projectId =
-        ProjectService.instance.selectedProjectId?.isNotEmpty == true
-        ? ProjectService.instance.selectedProjectId!
-        : 'summitt-gcp';
-    _currentProjectId = projectId;
+    _currentProjectId =
+        ProjectService.instance.selectedProjectId ?? 'summitt-gcp';
+    if (_currentProjectId.isEmpty) _currentProjectId = 'summitt-gcp';
     _viewId = 'agent-graph-iframe-${DateTime.now().millisecondsSinceEpoch}';
 
     final src = 'http://localhost:5174/graph/?project_id=$_currentProjectId';
@@ -32,12 +30,25 @@ class _AgentGraphIframePanelState extends State<AgentGraphIframePanel> {
     // ignore: undefined_prefixed_name
     ui_web.platformViewRegistry.registerViewFactory(_viewId, (int viewId) {
       final iframe = html.IFrameElement()
+        ..id = _viewId
         ..src = src
         ..style.border = 'none'
         ..style.height = '100%'
         ..style.width = '100%';
       return iframe;
     });
+  }
+
+  void _updateIframeSrc(String newProjectId) {
+    if (newProjectId != _currentProjectId) {
+      _currentProjectId = newProjectId;
+      final iframe =
+          html.document.getElementById(_viewId) as html.IFrameElement?;
+      if (iframe != null) {
+        iframe.src =
+            'http://localhost:5174/graph/?project_id=$_currentProjectId';
+      }
+    }
   }
 
   @override
@@ -47,6 +58,13 @@ class _AgentGraphIframePanelState extends State<AgentGraphIframePanel> {
       child: ValueListenableBuilder(
         valueListenable: ProjectService.instance.selectedProject,
         builder: (context, project, child) {
+          final newProject = project?.projectId.isNotEmpty == true
+              ? project!.projectId
+              : 'summitt-gcp';
+          // Schedule URL update after the build phase
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _updateIframeSrc(newProject);
+          });
           return HtmlElementView(viewType: _viewId);
         },
       ),

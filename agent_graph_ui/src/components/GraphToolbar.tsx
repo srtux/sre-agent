@@ -127,17 +127,6 @@ export default function GraphToolbar({
 
   return (
     <div style={styles.bar}>
-      <span style={styles.label}>Project ID</span>
-      <input
-        style={styles.input}
-        type="text"
-        placeholder="my-gcp-project"
-        value={filters.projectId}
-        onChange={(e) =>
-          onChange({ ...filters, projectId: e.target.value })
-        }
-      />
-
       <span style={styles.label}>Time Range</span>
       <select
         style={styles.select}

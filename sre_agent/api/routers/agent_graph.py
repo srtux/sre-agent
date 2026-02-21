@@ -6,13 +6,17 @@ trajectory diagrams.
 """
 
 import logging
+import os
 import re
+import subprocess
 from collections import defaultdict
 from typing import Any
 from urllib.parse import unquote
 
 from fastapi import APIRouter, HTTPException, Query
+from google.api_core.exceptions import NotFound
 from google.cloud import bigquery
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["agent_graph"], prefix="/api/v1/graph")
@@ -436,6 +440,14 @@ async def get_topology(
 
         return {"nodes": nodes, "edges": formatted_edges}
 
+    except NotFound as exc:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "NOT_SETUP",
+                "detail": "BigQuery agent graph is not configured for this project.",
+            },
+        ) from exc
     except Exception as exc:
         logger.exception("Failed to fetch agent graph topology")
         raise HTTPException(
@@ -594,6 +606,14 @@ async def get_trajectories(
             ],
         }
 
+    except NotFound as exc:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "NOT_SETUP",
+                "detail": "BigQuery trajectories are not configured for this project.",
+            },
+        ) from exc
     except Exception as exc:
         logger.exception("Failed to fetch agent trajectories")
         raise HTTPException(
@@ -649,10 +669,10 @@ async def get_node_detail(
                 SUM(COALESCE(output_tokens, 0)) AS output_tokens,
                 SUM(
                     CASE
-                        WHEN LOWER(model_id) LIKE '%pro%' THEN
+                        WHEN LOWER(logical_node_id) LIKE '%pro%' THEN
                             COALESCE(input_tokens, 0) * 0.00000125
                             + COALESCE(output_tokens, 0) * 0.000005
-                        WHEN LOWER(model_id) LIKE '%flash%' THEN
+                        WHEN LOWER(logical_node_id) LIKE '%flash%' THEN
                             COALESCE(input_tokens, 0) * 0.000000075
                             + COALESCE(output_tokens, 0) * 0.0000003
                         ELSE
@@ -775,6 +795,59 @@ async def get_node_detail(
             status_code=500,
             detail="Failed to query node detail. Check server logs for details.",
         ) from exc
+
+
+class SetupGraphRequest(BaseModel):
+    """Request model for auto-setting up the Agent Graph BigQuery resources."""
+
+    project_id: str
+    trace_dataset: str
+    service_name: str
+
+
+@router.post("/setup")
+async def setup_agent_graph(req: SetupGraphRequest) -> dict[str, str]:
+    """Execute the bigquery setup script."""
+    _validate_identifier(req.project_id, "project_id")
+    _validate_identifier(req.trace_dataset, "trace_dataset")
+
+    script_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
+        "scripts",
+        "setup_agent_graph_bq.sh",
+    )
+
+    if not os.path.exists(script_path):
+        raise HTTPException(status_code=500, detail="Setup script not found.")
+
+    env = os.environ.copy()
+    env["PROJECT_ID"] = req.project_id
+    env["TRACE_DATASET"] = req.trace_dataset
+    env["SERVICE_NAME"] = req.service_name
+
+    try:
+        subprocess.run(
+            [
+                script_path,
+                req.project_id,
+                req.trace_dataset,
+                "agent_graph",
+                req.service_name,
+            ],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return {
+            "status": "success",
+            "message": "BigQuery agent graph configured successfully.",
+        }
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Setup script failed: {e.stderr}")
+        raise HTTPException(
+            status_code=500, detail=f"Setup script failed: {e.stderr}"
+        ) from e
 
 
 @router.get("/edge/{source_id:path}/{target_id:path}")
