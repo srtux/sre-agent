@@ -210,6 +210,7 @@ WITH RECURSIVE span_tree AS (
     node_type,
     logical_node_id,
     CAST(NULL AS STRING) AS ancestor_logical_id,
+    service_name,
     duration_ms,
     input_tokens,
     output_tokens,
@@ -230,6 +231,7 @@ WITH RECURSIVE span_tree AS (
     -- If the parent was meaningful, it becomes the ancestor for the child.
     -- If the parent was Glue, we pass down the inherited ancestor from higher up.
     IF(parent.node_type != 'Glue', parent.logical_node_id, parent.ancestor_logical_id),
+    child.service_name,
     child.duration_ms,
     child.input_tokens,
     child.output_tokens,
@@ -455,6 +457,7 @@ WITH RawEdges AS (
     e.error_count as edge_error_count,
     n_dst.total_input_tokens as input_tokens,
     n_dst.total_output_tokens as output_tokens,
+    n_dst.service_name,
     n_dst.start_time
   FROM \`$PROJECT_ID.$GRAPH_DATASET.agent_topology_edges\` e
   JOIN \`$PROJECT_ID.$GRAPH_DATASET.agent_topology_nodes\` n_dst
@@ -481,7 +484,6 @@ CostPaths AS (
 )
 SELECT
   time_bucket,
-  ANY_VALUE(service_name) AS service_name,
   source_id, target_id, source_type, target_type,
   -- Edge metrics
   SUM(call_count) AS call_count,
@@ -514,9 +516,10 @@ SELECT
   SUM(IF(target_type = 'Tool', call_count, 0)) AS downstream_tool_call_count,
   SUM(IF(target_type = 'LLM', call_count, 0)) AS downstream_llm_call_count,
   -- Session IDs for cross-bucket dedup
-  ARRAY_AGG(DISTINCT session_id IGNORE NULLS) AS session_ids
+  ARRAY_AGG(DISTINCT session_id IGNORE NULLS) AS session_ids,
+  ANY_VALUE(service_name) AS service_name
 FROM CostPaths
-GROUP BY time_bucket, service_name, source_id, target_id, source_type, target_type;
+GROUP BY time_bucket, source_id, target_id, source_type, target_type;
 "
 
 bq query --use_legacy_sql=false --project_id "$PROJECT_ID" "$BACKFILL_SQL"
@@ -552,6 +555,7 @@ WITH RawEdges AS (
     e.error_count as edge_error_count,
     n_dst.total_input_tokens as input_tokens,
     n_dst.total_output_tokens as output_tokens,
+    n_dst.service_name,
     n_dst.start_time
   FROM `<PROJECT_ID>.<GRAPH_DATASET>.agent_topology_edges` e
   JOIN `<PROJECT_ID>.<GRAPH_DATASET>.agent_topology_nodes` n_dst
@@ -589,7 +593,6 @@ NewPaths AS (
 )
 SELECT
   time_bucket,
-  ANY_VALUE(service_name) AS service_name,
   source_id, target_id, source_type, target_type,
   SUM(call_count) AS call_count,
   SUM(edge_error_count) AS error_count,
@@ -618,9 +621,10 @@ SELECT
   ROUND(SUM(span_cost), 6) AS downstream_total_cost,
   SUM(IF(target_type = 'Tool', call_count, 0)) AS downstream_tool_call_count,
   SUM(IF(target_type = 'LLM', call_count, 0)) AS downstream_llm_call_count,
-  ARRAY_AGG(DISTINCT session_id IGNORE NULLS) AS session_ids
+  ARRAY_AGG(DISTINCT session_id IGNORE NULLS) AS session_ids,
+  ANY_VALUE(service_name) AS service_name
 FROM NewPaths
-GROUP BY time_bucket, service_name, source_id, target_id, source_type, target_type;
+GROUP BY time_bucket, source_id, target_id, source_type, target_type;
 SCHEDULED_QUERY_EOF
 
 # 8. Create Agent Registry
