@@ -173,5 +173,11 @@ _TabConfig _tabConfig(DashboardDataType type) {
         Icons.insights_rounded,
         AppColors.warning,
       );
+    case DashboardDataType.agentGraph:
+      return const _TabConfig(
+        'Agent Graph',
+        Icons.account_tree_outlined,
+        AppColors.secondaryPurple,
+      );
   }
 }

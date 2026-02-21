@@ -19,9 +19,20 @@ import type { TopologyNode, TopologyEdge, ViewMode, TimeSeriesData, TimeSeriesPo
 import Sparkline, { SPARK_H, extractSparkSeries, sparkColor } from './Sparkline'
 import { GraphTopologyHelper } from '../utils/topology'
 import BackEdge from './BackEdge'
+import {
+  User,
+  Bot,
+  Wrench,
+  Sparkles,
+  Activity,
+  AlertCircle,
+  FileDigit,
+  ChevronDown,
+  ChevronRight
+} from 'lucide-react'
 
-const NODE_WIDTH = 180
-const NODE_HEIGHT = 60
+const NODE_WIDTH = 240
+const NODE_HEIGHT = 80
 
 function getLayoutedElements(
   nodes: Node[],
@@ -67,86 +78,91 @@ function getLayoutedElements(
 const nodeStyles: Record<string, React.CSSProperties> = {
   user: {
     background: '#1A2744',
-    color: '#ffffff',
-    borderRadius: '50%',
-    padding: '10px',
-    fontSize: '11px',
-    fontWeight: 600,
-    width: 80,
-    height: 80,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    border: '2px solid #58a6ff',
-    boxShadow: '0 2px 12px rgba(88, 166, 255, 0.2)',
-  },
-  agent: {
-    background: '#26A69A',
-    color: '#ffffff',
-    borderRadius: '10px',
-    padding: '10px 16px',
+    color: '#F0F4F8',
+    fontFamily: "'JetBrains Mono', monospace",
+    borderRadius: '8px',
+    padding: '12px 16px',
     fontSize: '13px',
     fontWeight: 600,
     width: NODE_WIDTH,
     height: NODE_HEIGHT,
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    border: '2px solid #2bbbad',
-    boxShadow: '0 2px 8px rgba(38, 166, 154, 0.3)',
+    justifyContent: 'space-between',
+    border: '1px solid #06B6D4',
+    boxShadow: '0 4px 12px rgba(6, 182, 212, 0.1)',
+    position: 'relative',
+  },
+  agent: {
+    background: '#1E293B',
+    color: '#F0F4F8',
+    fontFamily: "'JetBrains Mono', monospace",
+    borderRadius: '8px',
+    padding: '12px 16px',
+    fontSize: '13px',
+    fontWeight: 600,
+    width: NODE_WIDTH,
+    height: NODE_HEIGHT,
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+    border: '1px solid #26A69A',
+    borderLeftWidth: '4px',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
     position: 'relative',
   },
   sub_agent: {
-    background: '#00838F', // Darker Teal for sub-agents
-    color: '#ffffff',
-    borderRadius: '10px',
-    padding: '10px 16px',
+    background: '#1E293B',
+    color: '#F0F4F8',
+    fontFamily: "'JetBrains Mono', monospace",
+    borderRadius: '8px',
+    padding: '12px 16px',
     fontSize: '13px',
     fontWeight: 600,
     width: NODE_WIDTH,
     height: NODE_HEIGHT,
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    border: '2px solid #00ACC1',
-    boxShadow: '0 2px 8px rgba(0, 172, 193, 0.3)',
+    justifyContent: 'space-between',
+    border: '1px solid #00ACC1',
+    borderLeftWidth: '4px',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
     position: 'relative',
   },
   tool: {
-    background: '#FFA726',
-    color: '#1a1a1a',
-    borderRadius: '10px',
-    padding: '10px 16px',
+    background: '#1E293B',
+    color: '#F0F4F8',
+    fontFamily: "'JetBrains Mono', monospace",
+    borderRadius: '8px',
+    padding: '12px 16px',
     fontSize: '13px',
     fontWeight: 600,
     width: NODE_WIDTH,
     height: NODE_HEIGHT,
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    border: '2px solid #ffb74d',
-    boxShadow: '0 2px 8px rgba(255, 167, 38, 0.3)',
+    justifyContent: 'space-between',
+    border: '1px solid #FFA726',
+    borderLeftWidth: '4px',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
     position: 'relative',
   },
   llm: {
-    background: '#AB47BC',
-    color: '#ffffff',
-    borderRadius: '10px',
-    padding: '10px 16px',
+    background: '#1E293B',
+    color: '#F0F4F8',
+    fontFamily: "'JetBrains Mono', monospace",
+    borderRadius: '8px',
+    padding: '12px 16px',
     fontSize: '13px',
     fontWeight: 600,
     width: NODE_WIDTH,
     height: NODE_HEIGHT,
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    border: '2px solid #ba68c8',
-    boxShadow: '0 2px 8px rgba(171, 71, 188, 0.3)',
+    justifyContent: 'space-between',
+    border: '1px solid #AB47BC',
+    borderLeftWidth: '4px',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
     position: 'relative',
   },
 }
@@ -172,40 +188,14 @@ const BaseNodeStyle = (nodeData: NodeDataExtended, baseStyle: React.CSSPropertie
   }
 }
 
-const subtextStyle: React.CSSProperties = {
-  fontSize: '11px',
-  fontWeight: 400,
-  opacity: 0.85,
-  marginTop: '2px',
-}
+// Unused legacy styles removed
 
-const badgeContainerStyle: React.CSSProperties = {
-  display: 'inline-flex',
-  gap: 4,
-  marginTop: '4px',
-}
-
-const latencyBadgeStyle: React.CSSProperties = {
-  fontSize: 10,
-  padding: '1px 6px',
-  borderRadius: 8,
-  background: 'rgba(255,255,255,0.15)',
-  color: '#c9d1d9',
-}
-
-const errorBadgeStyle: React.CSSProperties = {
-  fontSize: 10,
-  padding: '1px 6px',
-  borderRadius: 8,
-  background: 'rgba(248,81,73,0.2)',
-  color: '#f85149',
-}
 
 function getErrorStyles(errorCount: number): React.CSSProperties {
   if (errorCount > 0) {
     return {
-      border: '2px solid #f85149',
-      animation: 'errorPulse 2s ease-in-out infinite',
+      borderColor: '#FF5252',
+      boxShadow: '0 0 12px rgba(255, 82, 82, 0.4)',
     }
   }
   return {}
@@ -249,17 +239,39 @@ function getScaledDimensions(t: number): { width: number; height: number } {
   return { width: scaledW, height: scaledH }
 }
 
+function formatTokens(n: number | undefined): string {
+  if (n === undefined || n === null) return '0'
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
+  return String(n)
+}
+
 function MetricBadges({ nodeData }: { nodeData: TopologyNode['data'] }) {
   return (
-    <div style={badgeContainerStyle}>
-      <span style={latencyBadgeStyle}>
-        {formatLatency(nodeData.avgDurationMs)}
-      </span>
-      {nodeData.errorCount > 0 && (
-        <span style={errorBadgeStyle}>
-          {nodeData.errorCount} {nodeData.errorCount === 1 ? 'error' : 'errors'}
-        </span>
-      )}
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginTop: 'auto' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#94A3B8', fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }}>
+        {nodeData.avgDurationMs !== undefined && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Activity size={12} />
+            {formatLatency(nodeData.avgDurationMs)}
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }}>
+        {nodeData.totalTokens !== undefined && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2, color: '#94A3B8' }}>
+            <FileDigit size={12} />
+            {formatTokens(nodeData.totalTokens)}
+          </div>
+        )}
+        {nodeData.errorCount > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2, color: '#FF5252' }}>
+            <AlertCircle size={12} />
+            {nodeData.errorCount}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -295,12 +307,13 @@ function ExpandButton({ nodeData }: { nodeData: NodeDataExtended }) {
       style={{
         position: 'absolute',
         bottom: -12,
-        background: '#161b22',
-        border: '1px solid #30363d',
+        background: '#1E293B',
+        border: '1px solid #334155',
         borderRadius: 12,
         padding: '2px 8px',
         fontSize: 10,
-        color: '#c9d1d9',
+        fontFamily: "'JetBrains Mono', monospace",
+        color: '#F0F4F8',
         cursor: 'pointer',
         display: 'flex',
         alignItems: 'center',
@@ -318,9 +331,13 @@ function UserNode({ data }: NodeProps) {
   const nodeData = data as NodeDataExtended
   return (
     <div style={BaseNodeStyle(nodeData, nodeStyles.user)}>
-      <div style={{ fontSize: 24, marginBottom: 4 }}>👤</div>
-      <div>User</div>
-      <Handle type="source" position={Position.Right} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <User size={16} color="#06B6D4" />
+        <span style={{ fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          User
+        </span>
+      </div>
+      <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
     </div>
   )
 }
@@ -330,13 +347,19 @@ function AgentNode({ data }: NodeProps) {
   const isSubAgent = nodeData.nodeType?.toLowerCase() === 'sub_agent'
   return (
     <div style={BaseNodeStyle(nodeData, isSubAgent ? nodeStyles.sub_agent : nodeStyles.agent)}>
-      <Handle type="target" position={Position.Left} />
-      <div>{nodeData.label}</div>
-      <div style={subtextStyle}>Executions: {nodeData.executionCount}</div>
+      <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <Bot size={16} color={isSubAgent ? "#00ACC1" : "#26A69A"} style={{ flexShrink: 0 }} />
+        <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {nodeData.label}
+        </span>
+      </div>
       <MetricBadges nodeData={nodeData} />
-      <NodeSparkline nodeData={nodeData} />
+      <div style={{ position: 'absolute', bottom: -20, left: 0, width: '100%' }}>
+        <NodeSparkline nodeData={nodeData} />
+      </div>
       <ExpandButton nodeData={nodeData} />
-      <Handle type="source" position={Position.Right} />
+      <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
     </div>
   )
 }
@@ -345,13 +368,19 @@ function ToolNode({ data }: NodeProps) {
   const nodeData = data as NodeDataExtended
   return (
     <div style={BaseNodeStyle(nodeData, nodeStyles.tool)}>
-      <Handle type="target" position={Position.Left} />
-      <div>{nodeData.label}</div>
-      <div style={subtextStyle}>Calls: {nodeData.executionCount}</div>
+      <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <Wrench size={16} color="#FFA726" style={{ flexShrink: 0 }} />
+        <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {nodeData.label}
+        </span>
+      </div>
       <MetricBadges nodeData={nodeData} />
-      <NodeSparkline nodeData={nodeData} />
+      <div style={{ position: 'absolute', bottom: -20, left: 0, width: '100%' }}>
+        <NodeSparkline nodeData={nodeData} />
+      </div>
       <ExpandButton nodeData={nodeData} />
-      <Handle type="source" position={Position.Right} />
+      <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
     </div>
   )
 }
@@ -360,13 +389,19 @@ function LLMNode({ data }: NodeProps) {
   const nodeData = data as NodeDataExtended
   return (
     <div style={BaseNodeStyle(nodeData, nodeStyles.llm)}>
-      <Handle type="target" position={Position.Left} />
-      <div>{nodeData.label}</div>
-      <div style={subtextStyle}>Tokens: {nodeData.totalTokens}</div>
+      <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <Sparkles size={16} color="#ba68c8" style={{ flexShrink: 0 }} />
+        <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {nodeData.label}
+        </span>
+      </div>
       <MetricBadges nodeData={nodeData} />
-      <NodeSparkline nodeData={nodeData} />
+      <div style={{ position: 'absolute', bottom: -20, left: 0, width: '100%' }}>
+        <NodeSparkline nodeData={nodeData} />
+      </div>
       <ExpandButton nodeData={nodeData} />
-      <Handle type="source" position={Position.Right} />
+      <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
     </div>
   )
 }
@@ -404,18 +439,18 @@ function HeatmapLegend({ mode }: { mode: ViewMode }) {
         position: 'absolute',
         bottom: 16,
         right: 16,
-        background: '#161b22',
-        border: '1px solid #30363d',
+        background: '#1E293B',
+        border: '1px solid #334155',
         borderRadius: '8px',
         padding: '10px 14px',
         zIndex: 10,
         fontSize: '12px',
-        color: '#c9d1d9',
+        color: '#F0F4F8',
       }}
     >
       <div style={{ fontWeight: 600, marginBottom: '6px' }}>{label} Heatmap</div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <span style={{ color: '#8b949e' }}>{lowLabel}</span>
+        <span style={{ color: '#78909C' }}>{lowLabel}</span>
         <div
           style={{
             width: '120px',
@@ -424,7 +459,7 @@ function HeatmapLegend({ mode }: { mode: ViewMode }) {
             background: 'linear-gradient(to right, #ffffff, #ffcc00, #cc0000)',
           }}
         />
-        <span style={{ color: '#8b949e' }}>{highLabel}</span>
+        <span style={{ color: '#78909C' }}>{highLabel}</span>
       </div>
     </div>
   )
@@ -483,8 +518,8 @@ export default function TopologyGraph({
     const styleEl = document.createElement('style')
     styleEl.textContent = `
       @keyframes errorPulse {
-        0%, 100% { box-shadow: 0 0 0 0 rgba(248, 81, 73, 0.4); }
-        50% { box-shadow: 0 0 12px 4px rgba(248, 81, 73, 0.6); }
+        0%, 100% { box-shadow: 0 0 0 0 rgba(255, 82, 82, 0.4); }
+        50% { box-shadow: 0 0 12px 4px rgba(255, 82, 82, 0.6); }
       }
       @keyframes marchingAnts {
         from { stroke-dashoffset: 20; }
@@ -595,14 +630,14 @@ export default function TopologyGraph({
         animated: hasErrors,
         className: isBackEdge ? 'back-edge' : '',
         style: {
-          stroke: hasErrors ? '#f85149' : (isBackEdge ? '#2bbbad' : '#30363d'),
+          stroke: hasErrors ? '#FF5252' : (isBackEdge ? '#06B6D4' : '#334155'),
           strokeWidth,
           opacity: isDimmed ? 0.2 : 1.0,
           transition: 'opacity 0.3s ease',
         },
         label: `${e.data.callCount} calls`,
-        labelStyle: { fill: '#8b949e', fontSize: 11, opacity: isDimmed ? 0.2 : 1.0 },
-        labelBgStyle: { fill: '#0d1117', fillOpacity: isDimmed ? 0.2 : 0.8 },
+        labelStyle: { fill: '#78909C', fontSize: 11, opacity: isDimmed ? 0.2 : 1.0, fontFamily: "'JetBrains Mono', monospace" },
+        labelBgStyle: { fill: '#0F172A', fillOpacity: isDimmed ? 0.2 : 0.8 },
         labelBgPadding: [4, 2] as [number, number],
         labelBgBorderRadius: 4,
       }
@@ -643,7 +678,7 @@ export default function TopologyGraph({
   )
 
   return (
-    <div style={{ width: '100vw', height: '100vh', paddingBottom: '100px', background: '#0d1117', position: 'relative' }}>
+    <div style={{ width: '100vw', height: '100vh', paddingBottom: '100px', background: '#0F172A', position: 'relative' }}>
       <ReactFlow
         nodes={rfNodes}
         edges={rfEdges}
@@ -656,9 +691,9 @@ export default function TopologyGraph({
         fitView
         proOptions={{ hideAttribution: true }}
       >
-        <Background color="#21262d" gap={20} />
+        <Background color="#334155" gap={20} />
         <Controls
-          style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: '6px' }}
+          style={{ background: '#1E293B', border: '1px solid #334155', borderRadius: '6px' }}
         />
         <MiniMap
           nodeColor={(node) => {
@@ -670,8 +705,8 @@ export default function TopologyGraph({
             if (nt.toLowerCase() === 'llm') return '#AB47BC'
             return '#8b949e'
           }}
-          maskColor="rgba(13, 17, 23, 0.8)"
-          style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: '6px' }}
+          maskColor="rgba(15, 23, 42, 0.8)"
+          style={{ background: '#1E293B', border: '1px solid #334155', borderRadius: '6px' }}
         />
         <Panel position="bottom-center" style={{ marginBottom: 40, display: 'flex', gap: 8 }}>
           <button
@@ -680,11 +715,12 @@ export default function TopologyGraph({
               setExpandedIds(allIds)
             }}
             style={{
-              background: '#21262d', border: '1px solid #30363d', color: '#c9d1d9',
-              padding: '4px 12px', borderRadius: 6, fontSize: 12, cursor: 'pointer'
+              background: '#1E293B', border: '1px solid #334155', color: '#F0F4F8',
+              padding: '6px 12px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 6,
             }}
           >
-            Expand All
+            <ChevronDown size={14} /> Expand All
           </button>
           <button
             onClick={() => {
@@ -692,11 +728,12 @@ export default function TopologyGraph({
               setExpandedIds(rootIds)
             }}
             style={{
-              background: '#21262d', border: '1px solid #30363d', color: '#c9d1d9',
-              padding: '4px 12px', borderRadius: 6, fontSize: 12, cursor: 'pointer'
+              background: '#1E293B', border: '1px solid #334155', color: '#F0F4F8',
+              padding: '6px 12px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 6,
             }}
           >
-            Collapse Sub-Agents
+            <ChevronRight size={14} /> Collapse Sub-Agents
           </button>
         </Panel>
       </ReactFlow>

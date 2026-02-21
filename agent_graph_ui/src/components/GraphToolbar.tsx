@@ -25,38 +25,40 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: '12px',
     padding: '12px 24px',
-    borderBottom: '1px solid #21262d',
-    background: '#161b22',
+    background: '#1E293B',
     flexWrap: 'wrap',
+    borderRadius: '16px',
+    margin: '16px 24px',
+    border: '1px solid #334155',
   },
   label: {
     fontSize: '13px',
-    color: '#8b949e',
+    color: '#78909C',
   },
   input: {
     padding: '6px 12px',
-    background: '#0d1117',
-    border: '1px solid #30363d',
+    background: 'rgba(255, 255, 255, 0.05)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
     borderRadius: '6px',
-    color: '#c9d1d9',
+    color: '#F0F4F8',
     fontSize: '14px',
     outline: 'none',
     width: '220px',
   },
   select: {
     padding: '6px 12px',
-    background: '#0d1117',
-    border: '1px solid #30363d',
+    background: 'rgba(255, 255, 255, 0.05)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
     borderRadius: '6px',
-    color: '#c9d1d9',
+    color: '#F0F4F8',
     fontSize: '14px',
     outline: 'none',
     cursor: 'pointer',
   },
   loadButton: {
     padding: '6px 16px',
-    background: '#238636',
-    border: '1px solid #2ea043',
+    background: '#06B6D4',
+    border: '1px solid #06B6D4',
     borderRadius: '6px',
     color: '#ffffff',
     fontSize: '14px',
@@ -65,10 +67,10 @@ const styles: Record<string, React.CSSProperties> = {
   },
   loadButtonDisabled: {
     padding: '6px 16px',
-    background: '#21262d',
-    border: '1px solid #30363d',
+    background: 'rgba(6, 182, 212, 0.3)',
+    border: '1px solid rgba(6, 182, 212, 0.3)',
     borderRadius: '6px',
-    color: '#484f58',
+    color: 'rgba(255, 255, 255, 0.54)',
     fontSize: '14px',
     fontWeight: 600,
     cursor: 'not-allowed',
@@ -170,11 +172,11 @@ export default function GraphToolbar({
                 fontSize: '13px',
                 fontWeight: isActive ? 600 : 400,
                 cursor: 'pointer',
-                border: '1px solid #30363d',
-                borderLeft: idx === 0 ? '1px solid #30363d' : 'none',
+                border: '1px solid #334155',
+                borderLeft: idx === 0 ? '1px solid #334155' : 'none',
                 borderRadius: idx === 0 ? '6px 0 0 6px' : idx === 2 ? '0 6px 6px 0' : '0',
-                background: isActive ? '#1f6feb' : '#0d1117',
-                color: isActive ? '#ffffff' : '#8b949e',
+                background: isActive ? '#06B6D4' : 'rgba(255, 255, 255, 0.05)',
+                color: isActive ? '#ffffff' : '#78909C',
                 transition: 'background 0.15s, color 0.15s',
               }}
             >
@@ -201,7 +203,7 @@ export default function GraphToolbar({
         <div
           style={{
             ...styles.toggleTrack,
-            background: filters.errorsOnly ? '#f85149' : '#21262d',
+            background: filters.errorsOnly ? '#FF5252' : '#334155',
           }}
         >
           <div
@@ -214,7 +216,7 @@ export default function GraphToolbar({
         <span
           style={{
             ...styles.toggleLabel,
-            color: filters.errorsOnly ? '#f85149' : '#8b949e',
+            color: filters.errorsOnly ? '#FF5252' : '#78909C',
           }}
         >
           Errors Only
@@ -240,7 +242,7 @@ export default function GraphToolbar({
         <div
           style={{
             ...styles.toggleTrack,
-            background: autoRefresh.enabled ? '#58a6ff' : '#21262d',
+            background: autoRefresh.enabled ? '#06B6D4' : '#334155',
           }}
         >
           <div
@@ -253,7 +255,7 @@ export default function GraphToolbar({
         <span
           style={{
             ...styles.toggleLabel,
-            color: autoRefresh.enabled ? '#58a6ff' : '#8b949e',
+            color: autoRefresh.enabled ? '#06B6D4' : '#78909C',
           }}
         >
           Auto-Refresh
@@ -277,7 +279,7 @@ export default function GraphToolbar({
             <option value={300}>5m</option>
           </select>
           {lastUpdated && (
-            <span style={{ fontSize: '12px', color: '#8b949e' }}>
+            <span style={{ fontSize: '12px', color: '#78909C' }}>
               Updated {formatTime(lastUpdated)}
             </span>
           )}

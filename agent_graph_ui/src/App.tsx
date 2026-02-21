@@ -61,33 +61,25 @@ function buildSearchParams(
 const styles: Record<string, React.CSSProperties> = {
   container: {
     minHeight: '100vh',
-    background: '#0d1117',
-    color: '#c9d1d9',
-    fontFamily:
-      "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif",
+    background: '#0F172A',
+    color: '#F0F4F8',
+    fontFamily: "'Outfit', sans-serif",
+
     display: 'flex',
     flexDirection: 'column',
-  },
-  header: {
-    padding: '16px 24px',
-    borderBottom: '1px solid #21262d',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '16px',
-    flexWrap: 'wrap',
   },
   title: {
     fontSize: '20px',
     fontWeight: 600,
-    color: '#e6edf3',
+    color: '#F0F4F8',
     marginRight: 'auto',
   },
   tabBar: {
     display: 'flex',
     gap: '0px',
     padding: '0 24px',
-    borderBottom: '1px solid #21262d',
-    background: '#161b22',
+    borderBottom: '1px solid #334155',
+    background: '#1E293B',
   },
   tab: {
     padding: '10px 20px',
@@ -96,7 +88,7 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     border: 'none',
     background: 'transparent',
-    color: '#8b949e',
+    color: '#78909C',
     borderBottom: '2px solid transparent',
     transition: 'color 0.15s, border-color 0.15s',
   },
@@ -107,8 +99,8 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     border: 'none',
     background: 'transparent',
-    color: '#e6edf3',
-    borderBottom: '2px solid #58a6ff',
+    color: '#F0F4F8',
+    borderBottom: '2px solid #06B6D4',
   },
   content: {
     flex: 1,
@@ -123,15 +115,15 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: '#484f58',
+    color: '#B0BEC5',
     fontSize: '16px',
   },
   error: {
     padding: '12px 16px',
-    background: '#3d1a1a',
-    border: '1px solid #f85149',
+    background: 'rgba(255, 82, 82, 0.08)',
+    border: '1px solid rgba(255, 82, 82, 0.3)',
     borderRadius: '6px',
-    color: '#f85149',
+    color: '#FF5252',
     fontSize: '14px',
     marginBottom: '16px',
   },
@@ -283,9 +275,6 @@ function App() {
 
   return (
     <div style={styles.container}>
-      <div style={styles.header}>
-        <span style={styles.title}>Agent Graph Dashboard</span>
-      </div>
 
       <GraphToolbar
         filters={filters}

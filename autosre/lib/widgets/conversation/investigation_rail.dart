@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../features/agent_graph/presentation/multi_trace_graph_page.dart';
 import '../../features/dashboards/presentation/pages/dashboards_page.dart';
 import '../../services/dashboard_state.dart';
 import '../../theme/app_theme.dart';
@@ -55,7 +54,7 @@ class InvestigationRail extends StatelessWidget {
               // Dashboards Browser
               _RailItem(
                 icon: Icons.dashboard_customize_outlined,
-                label: 'Custom Dashboards',
+                label: 'Dashboard',
                 color: AppColors.primaryTeal,
                 isActive: false,
                 hasData: false,
@@ -64,22 +63,6 @@ class InvestigationRail extends StatelessWidget {
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (context) => const DashboardsPage(),
-                    ),
-                  );
-                },
-              ),
-              // Agent Graph
-              _RailItem(
-                icon: Icons.account_tree_outlined,
-                label: 'Agent Graph',
-                color: AppColors.secondaryPurple,
-                isActive: false,
-                hasData: false,
-                isExpanded: state.isRailExpanded,
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => const MultiTraceGraphPage(),
                     ),
                   );
                 },
@@ -103,7 +86,8 @@ class InvestigationRail extends StatelessWidget {
                       label: config.label,
                       color: config.color,
                       isActive: isCurrentTab,
-                      hasData: count > 0,
+                      hasData:
+                          count > 0 || type == DashboardDataType.agentGraph,
                       count: count,
                       isExpanded: state.isRailExpanded,
                       onTap: () {
@@ -331,6 +315,12 @@ _RailIconConfig _tabIconConfig(DashboardDataType type) {
         'Analytics',
         Icons.insights_rounded,
         AppColors.primaryBlue,
+      );
+    case DashboardDataType.agentGraph:
+      return const _RailIconConfig(
+        'Agent Graph',
+        Icons.account_tree_outlined,
+        AppColors.secondaryPurple,
       );
   }
 }

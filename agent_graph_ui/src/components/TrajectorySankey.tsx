@@ -29,8 +29,10 @@ export default function TrajectorySankey({ data }: TrajectorySankeyProps) {
   const hasLoops = loopNodeIds.size > 0
   const safeData = removeCyclicLinks(data)
 
+  const colorPalette = ['#06B6D4', '#3B82F6', '#10B981', '#F59E0B', '#F43F5E', '#8B5CF6', '#EC4899']
+
   return (
-    <div style={{ width: '100vw', height: '100vh', paddingBottom: '100px', background: '#0d1117', borderRadius: hasLoops ? '8px 8px 0 0' : '8px' }}>
+    <div style={{ width: '100vw', height: '100vh', paddingBottom: '100px', background: 'transparent', borderRadius: hasLoops ? '8px 8px 0 0' : '8px' }}>
       <ResponsiveSankey
         data={safeData}
         margin={{ top: 20, right: 160, bottom: 20, left: 160 }}
@@ -38,7 +40,13 @@ export default function TrajectorySankey({ data }: TrajectorySankeyProps) {
         colors={(node) => {
           if (loopNodeIds.has(node.id)) return '#FF6D00' // bright orange for loop nodes
           const matched = data.nodes.find((n) => n.id === node.id)
-          return matched?.nodeColor ?? '#8b949e'
+          if (matched?.nodeColor) return matched.nodeColor
+
+          let hash = 0
+          for (let i = 0; i < String(node.id).length; i++) {
+            hash = String(node.id).charCodeAt(i) + ((hash << 5) - hash)
+          }
+          return colorPalette[Math.abs(hash) % colorPalette.length]
         }}
         nodeOpacity={0.85}
         nodeHoverOpacity={1}
@@ -77,7 +85,7 @@ export default function TrajectorySankey({ data }: TrajectorySankeyProps) {
           )
         }}
         theme={{
-          background: '#0d1117',
+          background: 'transparent',
           text: {
             fontSize: 12,
             fill: '#c9d1d9',

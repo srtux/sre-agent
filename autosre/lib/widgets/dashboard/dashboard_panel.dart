@@ -8,6 +8,7 @@ import 'live_trace_panel.dart';
 import 'live_alerts_panel.dart';
 import 'live_council_panel.dart';
 import 'live_charts_panel.dart';
+import 'agent_graph_iframe_panel.dart';
 import 'sre_toolbar.dart';
 
 /// The main investigation dashboard panel.
@@ -148,6 +149,8 @@ class _DashboardPanelState extends State<DashboardPanel>
               dashboardState: widget.state,
               onPromptRequest: widget.onPromptRequest,
             );
+          case DashboardDataType.agentGraph:
+            return const AgentGraphIframePanel();
         }
       },
     );

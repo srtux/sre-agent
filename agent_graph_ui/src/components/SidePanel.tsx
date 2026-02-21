@@ -6,6 +6,21 @@ import sql from 'react-syntax-highlighter/dist/esm/languages/hljs/sql'
 import { atomOneDark } from 'react-syntax-highlighter/dist/esm/styles/hljs'
 import type { SelectedElement, NodeDetail, EdgeDetail, PayloadEntry, ViewMode, TimeSeriesData } from '../types'
 import Sparkline, { extractSparkSeries, sparkColor, sparkLabel } from './Sparkline'
+import {
+  User,
+  Bot,
+  Wrench,
+  Sparkles,
+  Activity,
+  AlertCircle,
+  FileDigit,
+  Hash,
+  Database,
+  ArrowRight,
+  ChevronDown,
+  ChevronRight,
+  Clock
+} from 'lucide-react'
 
 SyntaxHighlighter.registerLanguage('json', json)
 SyntaxHighlighter.registerLanguage('sql', sql)
@@ -41,18 +56,18 @@ function formatLatency(ms: number): string {
 
 /** Return a color for the given error rate percentage. */
 function errorRateColor(rate: number): string {
-  if (rate > 5) return '#f85149'
-  if (rate > 1) return '#d29922'
-  return '#3fb950'
+  if (rate > 5) return '#FF5252'
+  if (rate > 1) return '#FBBF24'
+  return '#34D399'
 }
 
-/** Map node types to simple icons. */
-function nodeTypeIcon(nodeType: string): string {
+/** Map node types to React elements (Lucide icons). */
+function NodeTypeIcon({ nodeType, size = 16, color = '#78909C' }: { nodeType: string, size?: number, color?: string }) {
   const t = nodeType.toLowerCase()
-  if (t.includes('agent') || t.includes('orchestrator')) return '\u2B22' // hexagon
-  if (t.includes('tool')) return '\u2699' // gear
-  if (t.includes('model') || t.includes('llm')) return '\u25C6' // diamond
-  return '\u25CF' // circle
+  if (t === 'user') return <User size={size} color={color} />
+  if (t === 'tool') return <Wrench size={size} color={color} />
+  if (t.includes('model') || t.includes('llm')) return <Sparkles size={size} color={color} />
+  return <Bot size={size} color={color} />
 }
 
 const styles: Record<string, React.CSSProperties> = {
@@ -62,8 +77,8 @@ const styles: Record<string, React.CSSProperties> = {
     right: 0,
     bottom: 0,
     width: '360px',
-    background: '#161b22',
-    borderLeft: '1px solid #21262d',
+    background: '#1E293B',
+    borderLeft: '1px solid #334155',
     zIndex: 50,
     display: 'flex',
     flexDirection: 'column',
@@ -75,12 +90,12 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: '16px',
-    borderBottom: '1px solid #21262d',
+    borderBottom: '1px solid #334155',
   },
   headerTitle: {
     fontSize: '15px',
     fontWeight: 600,
-    color: '#e6edf3',
+    color: '#F0F4F8',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
@@ -89,7 +104,7 @@ const styles: Record<string, React.CSSProperties> = {
   closeButton: {
     background: 'transparent',
     border: 'none',
-    color: '#8b949e',
+    color: '#78909C',
     fontSize: '18px',
     cursor: 'pointer',
     padding: '4px 8px',
@@ -108,10 +123,11 @@ const styles: Record<string, React.CSSProperties> = {
   sectionTitle: {
     fontSize: '12px',
     fontWeight: 600,
-    color: '#8b949e',
-    textTransform: 'uppercase' as const,
-    letterSpacing: '0.5px',
+    color: '#F0F4F8',
     marginBottom: '10px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
   },
   row: {
     display: 'flex',
@@ -121,12 +137,13 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '13px',
   },
   rowLabel: {
-    color: '#8b949e',
+    color: '#78909C',
   },
   rowValue: {
-    color: '#c9d1d9',
-    fontWeight: 500,
+    color: '#F0F4F8',
+    fontWeight: 600,
     fontVariantNumeric: 'tabular-nums',
+    fontFamily: "'JetBrains Mono', monospace",
   },
   badge: {
     padding: '2px 8px',
@@ -142,14 +159,14 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '13px',
   },
   latencyLabel: {
-    color: '#8b949e',
+    color: '#78909C',
     width: '32px',
     flexShrink: 0,
   },
   latencyTrack: {
     flex: 1,
     height: '6px',
-    background: '#21262d',
+    background: '#334155',
     borderRadius: '3px',
     overflow: 'hidden',
   },
@@ -158,7 +175,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '3px',
   },
   latencyValue: {
-    color: '#c9d1d9',
+    color: '#F0F4F8',
     fontSize: '12px',
     fontVariantNumeric: 'tabular-nums',
     width: '56px',
@@ -167,19 +184,19 @@ const styles: Record<string, React.CSSProperties> = {
   },
   errorItem: {
     padding: '8px 10px',
-    background: '#1c1a1a',
-    border: '1px solid #30363d',
+    background: 'rgba(255, 82, 82, 0.08)',
+    border: '1px solid rgba(255, 82, 82, 0.3)',
     borderRadius: '6px',
     marginBottom: '6px',
     fontSize: '12px',
   },
   errorMessage: {
-    color: '#f85149',
+    color: '#FF5252',
     wordBreak: 'break-word' as const,
     marginBottom: '2px',
   },
   errorCount: {
-    color: '#8b949e',
+    color: '#78909C',
     fontSize: '11px',
   },
   spinner: {
@@ -187,17 +204,31 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
-    color: '#8b949e',
+    color: '#78909C',
     fontSize: '14px',
   },
   errorBox: {
     padding: '12px',
-    background: '#3d1a1a',
-    border: '1px solid #f85149',
+    background: 'rgba(255, 82, 82, 0.08)',
+    border: '1px solid rgba(255, 82, 82, 0.3)',
     borderRadius: '6px',
-    color: '#f85149',
+    color: '#FF5252',
     fontSize: '13px',
   },
+  cardBlock: {
+    background: '#0F172A',
+    border: '1px solid #334155',
+    borderRadius: '8px',
+    padding: '12px',
+    marginBottom: '16px',
+  },
+  highlightBlock: {
+    background: 'rgba(6, 182, 212, 0.05)',
+    border: '1px solid rgba(6, 182, 212, 0.2)',
+    borderRadius: '8px',
+    padding: '12px',
+    marginBottom: '16px',
+  }
 }
 
 export default function SidePanel({
@@ -277,15 +308,17 @@ export default function SidePanel({
       <div style={styles.header}>
         <span style={styles.headerTitle}>
           {selected?.kind === 'node' && nodeDetail && (
-            <>
-              <span style={{ marginRight: '6px' }}>
-                {nodeTypeIcon(nodeDetail.nodeType)}
-              </span>
-              {nodeDetail.label}
-            </>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <NodeTypeIcon nodeType={nodeDetail.nodeType} color="#06B6D4" size={20} />
+              <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{nodeDetail.label}</span>
+            </div>
           )}
           {selected?.kind === 'edge' && edgeDetail && (
-            <>{edgeDetail.sourceId} &rarr; {edgeDetail.targetId}</>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{edgeDetail.sourceId}</span>
+              <ArrowRight size={16} color="#78909C" />
+              <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{edgeDetail.targetId}</span>
+            </div>
           )}
           {loading && 'Loading...'}
           {error && 'Error'}
@@ -338,10 +371,89 @@ function NodeDetailView({
 
   return (
     <>
-      {/* Trend sparkline */}
+      <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
+        <div style={{ ...styles.cardBlock, flex: 1, marginBottom: 0 }}>
+          <div style={{ fontSize: '11px', color: '#78909C', marginBottom: '8px' }}>Type</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#F0F4F8', fontWeight: 600 }}>
+            <NodeTypeIcon nodeType={detail.nodeType} color="#06B6D4" size={16} />
+            {detail.nodeType === 'llm' ? 'Model' : (detail.nodeType.charAt(0).toUpperCase() + detail.nodeType.slice(1))}
+          </div>
+        </div>
+      </div>
+
+      <div style={styles.highlightBlock}>
+        <div style={{ fontSize: '11px', color: '#06B6D4', marginBottom: '8px' }}>Total Tokens</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#F0F4F8', fontSize: '24px', fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
+          <Database size={20} color="#06B6D4" />
+          {formatTokens(detail.inputTokens + detail.outputTokens)}
+        </div>
+      </div>
+
+      <div style={styles.cardBlock}>
+        <div style={styles.sectionTitle}><Hash size={14} /> Token Breakdown</div>
+        <div style={{ paddingLeft: '20px' }}>
+          <div style={styles.row}>
+            <span style={styles.rowLabel}>Input Tokens</span>
+            <span style={styles.rowValue}>{formatTokens(detail.inputTokens)}</span>
+          </div>
+          <div style={styles.row}>
+            <span style={styles.rowLabel}>Output Tokens</span>
+            <span style={styles.rowValue}>{formatTokens(detail.outputTokens)}</span>
+          </div>
+          <div style={{ height: '1px', background: '#334155', margin: '8px 0' }}></div>
+          <div style={styles.row}>
+            <span style={styles.rowLabel}>Estimated Cost</span>
+            <span style={{ ...styles.rowValue, color: '#34D399' }}>{formatCost(detail.estimatedCost)}</span>
+          </div>
+        </div>
+      </div>
+
+      <div style={styles.cardBlock}>
+        <div style={styles.sectionTitle}><Activity size={14} /> Invocations & Performance</div>
+        <div style={{ paddingLeft: '20px' }}>
+          <div style={styles.row}>
+            <span style={styles.rowLabel}>Total Executions</span>
+            <span style={styles.rowValue}>{detail.totalInvocations.toLocaleString()}</span>
+          </div>
+          <div style={styles.row}>
+            <span style={styles.rowLabel}>Error Rate</span>
+            <span style={{ ...styles.badge, color: '#fff', background: errColor }}>
+              {detail.errorRate.toFixed(1)}%
+            </span>
+          </div>
+          <div style={styles.row}>
+            <span style={styles.rowLabel}>Error Count</span>
+            <span style={{ ...styles.rowValue, color: detail.errorCount > 0 ? '#FF5252' : '#F0F4F8' }}>
+              {detail.errorCount.toLocaleString()}
+            </span>
+          </div>
+
+          <div style={{ height: '1px', background: '#334155', margin: '12px 0' }}></div>
+          <div style={{ fontSize: '11px', color: '#78909C', marginBottom: '8px', fontWeight: 600 }}>LATENCY PERCENTILES</div>
+          {(['p50', 'p95', 'p99'] as const).map((pct) => {
+            const value = detail.latency[pct]
+            const widthPct = maxLatency > 0 ? (value / maxLatency) * 100 : 0
+            const barColors: Record<string, string> = {
+              p50: '#34D399',
+              p95: '#FBBF24',
+              p99: '#FF5252',
+            }
+            return (
+              <div key={pct} style={styles.latencyBar}>
+                <span style={styles.latencyLabel}>{pct.toUpperCase()}</span>
+                <div style={styles.latencyTrack}>
+                  <div style={{ ...styles.latencyFill, width: `${Math.min(widthPct, 100)}%`, background: barColors[pct] }} />
+                </div>
+                <span style={styles.latencyValue}>{formatLatency(value)}</span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
       {hasSparkline && (
-        <div style={styles.section}>
-          <div style={styles.sectionTitle}>{sparkLabel(viewMode)}</div>
+        <div style={{ ...styles.cardBlock, paddingBottom: '16px' }}>
+          <div style={styles.sectionTitle}><Clock size={14} /> {sparkLabel(viewMode)} Trend</div>
           <Sparkline
             points={extractSparkSeries(nodePoints, viewMode)}
             color={sparkColor(viewMode)}
@@ -351,101 +463,9 @@ function NodeDetailView({
         </div>
       )}
 
-      {/* Metrics */}
-      <div style={styles.section}>
-        <div style={styles.sectionTitle}>Metrics</div>
-        <div style={styles.row}>
-          <span style={styles.rowLabel}>Total Invocations</span>
-          <span style={styles.rowValue}>
-            {detail.totalInvocations.toLocaleString()}
-          </span>
-        </div>
-        <div style={styles.row}>
-          <span style={styles.rowLabel}>Error Rate</span>
-          <span
-            style={{
-              ...styles.badge,
-              color: '#fff',
-              background: errColor,
-            }}
-          >
-            {detail.errorRate.toFixed(1)}%
-          </span>
-        </div>
-        <div style={styles.row}>
-          <span style={styles.rowLabel}>Error Count</span>
-          <span style={{ ...styles.rowValue, color: detail.errorCount > 0 ? '#f85149' : '#c9d1d9' }}>
-            {detail.errorCount.toLocaleString()}
-          </span>
-        </div>
-      </div>
-
-      {/* Tokens */}
-      <div style={styles.section}>
-        <div style={styles.sectionTitle}>Tokens</div>
-        <div style={styles.row}>
-          <span style={styles.rowLabel}>Input Tokens</span>
-          <span style={styles.rowValue}>
-            {formatTokens(detail.inputTokens)}
-          </span>
-        </div>
-        <div style={styles.row}>
-          <span style={styles.rowLabel}>Output Tokens</span>
-          <span style={styles.rowValue}>
-            {formatTokens(detail.outputTokens)}
-          </span>
-        </div>
-        <div style={styles.row}>
-          <span style={styles.rowLabel}>Total</span>
-          <span style={styles.rowValue}>
-            {formatTokens(detail.inputTokens + detail.outputTokens)}
-          </span>
-        </div>
-        <div style={styles.row}>
-          <span style={styles.rowLabel}>Estimated Cost</span>
-          <span style={styles.rowValue}>
-            {formatCost(detail.estimatedCost)}
-          </span>
-        </div>
-      </div>
-
-      {/* Latency */}
-      <div style={styles.section}>
-        <div style={styles.sectionTitle}>Latency</div>
-        {(['p50', 'p95', 'p99'] as const).map((pct) => {
-          const value = detail.latency[pct]
-          const widthPct = maxLatency > 0 ? (value / maxLatency) * 100 : 0
-          const barColors: Record<string, string> = {
-            p50: '#3fb950',
-            p95: '#d29922',
-            p99: '#f85149',
-          }
-          return (
-            <div key={pct} style={styles.latencyBar}>
-              <span style={styles.latencyLabel}>
-                {pct.toUpperCase()}
-              </span>
-              <div style={styles.latencyTrack}>
-                <div
-                  style={{
-                    ...styles.latencyFill,
-                    width: `${Math.min(widthPct, 100)}%`,
-                    background: barColors[pct],
-                  }}
-                />
-              </div>
-              <span style={styles.latencyValue}>
-                {formatLatency(value)}
-              </span>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Top Errors */}
       {detail.topErrors.length > 0 && (
-        <div style={styles.section}>
-          <div style={styles.sectionTitle}>Top Errors</div>
+        <div style={styles.cardBlock}>
+          <div style={{ ...styles.sectionTitle, color: '#FF5252' }}><AlertCircle size={14} /> Top Errors</div>
           {detail.topErrors.map((err, idx) => (
             <div key={idx} style={styles.errorItem}>
               <div style={styles.errorMessage}>{err.message}</div>
@@ -468,78 +488,81 @@ function EdgeDetailView({ detail }: { detail: EdgeDetail }) {
 
   return (
     <>
-      {/* Call metrics */}
-      <div style={styles.section}>
-        <div style={styles.sectionTitle}>Call Metrics</div>
-        <div style={styles.row}>
-          <span style={styles.rowLabel}>Call Count</span>
-          <span style={styles.rowValue}>
-            {detail.callCount.toLocaleString()}
-          </span>
-        </div>
-        <div style={styles.row}>
-          <span style={styles.rowLabel}>Error Count</span>
-          <span style={{ ...styles.rowValue, color: detail.errorCount > 0 ? '#f85149' : '#c9d1d9' }}>
-            {detail.errorCount.toLocaleString()}
-          </span>
-        </div>
-        <div style={styles.row}>
-          <span style={styles.rowLabel}>Error Rate</span>
-          <span
-            style={{
-              ...styles.badge,
-              color: '#fff',
-              background: errColor,
-            }}
-          >
-            {detail.errorRate.toFixed(1)}%
-          </span>
-        </div>
-      </div>
-
-      {/* Performance */}
-      <div style={styles.section}>
-        <div style={styles.sectionTitle}>Performance</div>
-        <div style={styles.row}>
-          <span style={styles.rowLabel}>Avg Duration</span>
-          <span style={styles.rowValue}>
-            {formatLatency(detail.avgDurationMs)}
-          </span>
-        </div>
-        <div style={styles.row}>
-          <span style={styles.rowLabel}>P95 Duration</span>
-          <span style={styles.rowValue}>
-            {formatLatency(detail.p95DurationMs)}
-          </span>
-        </div>
-        <div style={styles.row}>
-          <span style={styles.rowLabel}>P99 Duration</span>
-          <span style={styles.rowValue}>
-            {formatLatency(detail.p99DurationMs)}
-          </span>
+      <div style={styles.cardBlock}>
+        <div style={styles.sectionTitle}><Activity size={14} /> Call Metrics</div>
+        <div style={{ paddingLeft: '20px' }}>
+          <div style={styles.row}>
+            <span style={styles.rowLabel}>Call Count</span>
+            <span style={styles.rowValue}>
+              {detail.callCount.toLocaleString()}
+            </span>
+          </div>
+          <div style={styles.row}>
+            <span style={styles.rowLabel}>Error Count</span>
+            <span style={{ ...styles.rowValue, color: detail.errorCount > 0 ? '#FF5252' : '#F0F4F8' }}>
+              {detail.errorCount.toLocaleString()}
+            </span>
+          </div>
+          <div style={styles.row}>
+            <span style={styles.rowLabel}>Error Rate</span>
+            <span
+              style={{
+                ...styles.badge,
+                color: '#fff',
+                background: errColor,
+              }}
+            >
+              {detail.errorRate.toFixed(1)}%
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Tokens */}
-      <div style={styles.section}>
-        <div style={styles.sectionTitle}>Tokens</div>
-        <div style={styles.row}>
-          <span style={styles.rowLabel}>Total</span>
-          <span style={styles.rowValue}>
-            {formatTokens(detail.totalTokens)}
-          </span>
+      <div style={styles.cardBlock}>
+        <div style={styles.sectionTitle}><Clock size={14} /> Performance</div>
+        <div style={{ paddingLeft: '20px' }}>
+          <div style={styles.row}>
+            <span style={styles.rowLabel}>Avg Duration</span>
+            <span style={styles.rowValue}>
+              {formatLatency(detail.avgDurationMs)}
+            </span>
+          </div>
+          <div style={styles.row}>
+            <span style={styles.rowLabel}>P95 Duration</span>
+            <span style={styles.rowValue}>
+              {formatLatency(detail.p95DurationMs)}
+            </span>
+          </div>
+          <div style={styles.row}>
+            <span style={styles.rowLabel}>P99 Duration</span>
+            <span style={styles.rowValue}>
+              {formatLatency(detail.p99DurationMs)}
+            </span>
+          </div>
         </div>
-        <div style={styles.row}>
-          <span style={styles.rowLabel}>Input</span>
-          <span style={styles.rowValue}>
-            {formatTokens(detail.inputTokens)}
-          </span>
-        </div>
-        <div style={styles.row}>
-          <span style={styles.rowLabel}>Output</span>
-          <span style={styles.rowValue}>
-            {formatTokens(detail.outputTokens)}
-          </span>
+      </div>
+
+      <div style={styles.cardBlock}>
+        <div style={styles.sectionTitle}><Database size={14} /> Tokens</div>
+        <div style={{ paddingLeft: '20px' }}>
+          <div style={styles.row}>
+            <span style={styles.rowLabel}>Total</span>
+            <span style={styles.rowValue}>
+              {formatTokens(detail.totalTokens)}
+            </span>
+          </div>
+          <div style={styles.row}>
+            <span style={styles.rowLabel}>Input</span>
+            <span style={styles.rowValue}>
+              {formatTokens(detail.inputTokens)}
+            </span>
+          </div>
+          <div style={styles.row}>
+            <span style={styles.rowLabel}>Output</span>
+            <span style={styles.rowValue}>
+              {formatTokens(detail.outputTokens)}
+            </span>
+          </div>
         </div>
       </div>
     </>
@@ -551,16 +574,16 @@ function PayloadAccordion({ payloads }: { payloads: PayloadEntry[] }) {
 
   if (payloads.length === 0) {
     return (
-      <div style={styles.section}>
+      <div style={styles.cardBlock}>
         <div style={styles.sectionTitle}>Raw Payloads</div>
-        <div style={{ fontSize: '13px', color: '#484f58' }}>No recent payloads available.</div>
+        <div style={{ fontSize: '13px', color: '#484f58', paddingLeft: '20px' }}>No recent payloads available.</div>
       </div>
     )
   }
 
   return (
-    <div style={styles.section}>
-      <div style={styles.sectionTitle}>Raw Payloads ({payloads.length})</div>
+    <div style={styles.cardBlock}>
+      <div style={styles.sectionTitle}><FileDigit size={14} /> Raw Payloads ({payloads.length})</div>
       {payloads.map((p, idx) => {
         const isExpanded = expandedIdx === idx
         const timestamp = p.timestamp
@@ -584,18 +607,18 @@ function PayloadAccordion({ payloads }: { payloads: PayloadEntry[] }) {
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 padding: '8px 10px',
-                background: '#1c2128',
-                border: '1px solid #30363d',
+                background: '#0F172A',
+                border: '1px solid #334155',
                 borderRadius: isExpanded ? '6px 6px 0 0' : '6px',
-                color: '#c9d1d9',
+                color: '#F0F4F8',
                 fontSize: '12px',
                 cursor: 'pointer',
                 textAlign: 'left',
               }}
             >
-              <span>
-                <span style={{ color: '#8b949e', marginRight: '8px' }}>
-                  {isExpanded ? '\u25BC' : '\u25B6'}
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ color: '#78909C' }}>
+                  {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                 </span>
                 {timestamp}
               </span>
@@ -603,18 +626,18 @@ function PayloadAccordion({ payloads }: { payloads: PayloadEntry[] }) {
                 fontSize: '11px',
                 padding: '1px 6px',
                 borderRadius: '8px',
-                background: 'rgba(88,166,255,0.15)',
-                color: '#58a6ff',
+                background: 'rgba(6,182,212,0.15)',
+                color: '#06B6D4',
               }}>
                 {p.nodeType}
               </span>
             </button>
             {isExpanded && (
               <div style={{
-                border: '1px solid #30363d',
+                border: '1px solid #334155',
                 borderTop: 'none',
                 borderRadius: '0 0 6px 6px',
-                background: '#0d1117',
+                background: '#0F172A',
                 padding: '8px',
               }}>
                 {fields.length === 0 ? (
@@ -627,7 +650,7 @@ function PayloadAccordion({ payloads }: { payloads: PayloadEntry[] }) {
                       <div style={{
                         fontSize: '11px',
                         fontWeight: 600,
-                        color: '#8b949e',
+                        color: '#78909C',
                         marginBottom: '4px',
                         textTransform: 'uppercase',
                         letterSpacing: '0.5px',

@@ -17,6 +17,7 @@ enum DashboardDataType {
   alerts,
   council,
   analytics,
+  agentGraph,
 }
 
 /// A set of tabular results from an SQL query.
@@ -772,6 +773,8 @@ class DashboardState extends ChangeNotifier {
       case 'sql':
       case 'analytics':
         return DashboardDataType.analytics;
+      case 'agentGraph':
+        return DashboardDataType.agentGraph;
       default:
         return null;
     }
