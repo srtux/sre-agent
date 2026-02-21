@@ -1137,10 +1137,10 @@ The scheduled query:
 
 ### 10.4 React Dashboard Setup
 
-The Agent Graph React UI is located at `agent_graph_ui/` and communicates with the FastAPI backend endpoints at `/api/v1/graph/*`.
+The Agent Graph React UI is located at `agent_ops_ui/` and communicates with the FastAPI backend endpoints at `/api/v1/graph/*`.
 
 ```bash
-cd agent_graph_ui
+cd agent_ops_ui
 npm install
 npm run dev    # Development server (proxies API to backend)
 npm run build  # Production build

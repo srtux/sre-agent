@@ -335,16 +335,6 @@ function App() {
   return (
     <div style={styles.container}>
 
-      <GraphToolbar
-        filters={filters}
-        onChange={setFilters}
-        onLoad={handleLoad}
-        loading={isLoading}
-        autoRefresh={autoRefresh}
-        onAutoRefreshChange={setAutoRefresh}
-        lastUpdated={lastUpdated}
-      />
-
       <div style={styles.tabBar}>
         <button
           style={activeTab === 'agents' ? styles.tabActive : styles.tab}
@@ -377,6 +367,16 @@ function App() {
           Trajectory Flow
         </button>
       </div>
+
+      <GraphToolbar
+        filters={filters}
+        onChange={setFilters}
+        onLoad={handleLoad}
+        loading={isLoading}
+        autoRefresh={autoRefresh}
+        onAutoRefreshChange={setAutoRefresh}
+        lastUpdated={lastUpdated}
+      />
 
       <div style={styles.content}>
         {error && !needsSetup && <div style={styles.error}>{error}</div>}

@@ -134,7 +134,7 @@ def start_react() -> bool:
     global react_proc
     print("🚀 Starting React UI (Vite)...")
 
-    react_dir = os.path.join(os.getcwd(), "agent_graph_ui")
+    react_dir = os.path.join(os.getcwd(), "agent_ops_ui")
 
     react_proc = subprocess.Popen(
         ["npm", "run", "dev"],

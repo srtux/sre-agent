@@ -128,7 +128,7 @@ url = "https://pypi.org/simple"
 default = true
 
 [tool.codespell]
-skip = "*.json,*.test.json,*.js,*.lock,./web/node_modules/*,./web/.next/*,./.venv/*,./.git/*,pyproject.toml,./autosre/build/*,./autosre/.dart_tool/*,./adk-docs/*,./adk-python/*,./autosre/linux/*,./autosre/windows/*,./autosre/macos/*,./agent_graph_ui/node_modules/*,./agent_graph_ui/dist/*,./agent_graph_ui/build/*"
+skip = "*.json,*.test.json,*.js,*.lock,./web/node_modules/*,./web/.next/*,./.venv/*,./.git/*,pyproject.toml,./autosre/build/*,./autosre/.dart_tool/*,./adk-docs/*,./adk-python/*,./autosre/linux/*,./autosre/windows/*,./autosre/macos/*,./agent_ops_ui/node_modules/*,./agent_ops_ui/dist/*,./agent_ops_ui/build/*"
 ignore-words-list = "already,ot,alledges"
 
 [tool.deptry]
@@ -149,7 +149,7 @@ dev = { help = "Run the full dev stack (backend + frontend)", cmd = "python scri
 sync = { help = "Sync all dependencies (uv + flutter + npm)", sequence = ["_sync_uv", "_sync_flutter", "_sync_npm"] }
 _sync_uv = { cmd = "uv sync" }
 _sync_flutter = { cmd = "flutter pub get", cwd = "autosre" }
-_sync_npm = { cmd = "npm install", cwd = "agent_graph_ui" }
+_sync_npm = { cmd = "npm install", cwd = "agent_ops_ui" }
 run = { help = "Run agent in terminal", cmd = "adk run sre_agent", env = { OTEL_TO_CLOUD = "true" }, envfile = ".env" }
 web = { help = "Run agent web UI & Tools API", cmd = "python server.py", envfile = ".env" }
 list = { help = "List deployed agents", cmd = "python deploy/deploy.py --list", envfile = ".env" }
@@ -160,13 +160,13 @@ typecheck = { help = "Run type checking", cmd = "mypy .", envfile = ".env" }
 spell = { help = "Check spelling", cmd = "codespell", envfile = ".env" }
 deptry = { help = "Check for unused/missing dependencies", cmd = "deptry .", envfile = ".env" }
 lint-flutter = { help = "Run Flutter frontend analysis", cmd = "flutter analyze", cwd = "autosre" }
-lint-ui = { help = "Run React frontend analysis", cmd = "npm run lint", cwd = "agent_graph_ui" }
-typecheck-ui = { help = "Run React frontend type checking", cmd = "npm run typecheck", cwd = "agent_graph_ui" }
+lint-ui = { help = "Run React frontend analysis", cmd = "npm run lint", cwd = "agent_ops_ui" }
+typecheck-ui = { help = "Run React frontend type checking", cmd = "npm run typecheck", cwd = "agent_ops_ui" }
 lint-all = { help = "Run backend and all frontend linters", sequence = ["lint", "lint-flutter", "lint-ui", "typecheck-ui"] }
 test = { help = "Run tests with coverage guard (parallel)", cmd = "pytest tests --cov=sre_agent --cov-report=term-missing --cov-fail-under=80", env = { GOOGLE_CLOUD_PROJECT = "test-project", STRICT_EUC_ENFORCEMENT = "false", DISABLE_TELEMETRY = "true", GOOGLE_GENAI_USE_VERTEXAI = "false", SRE_AGENT_DEPLOYMENT_MODE = "true" }, envfile = ".env" }
 test-fast = { help = "Run tests without coverage (fastest)", cmd = "pytest tests --no-cov -q", env = { GOOGLE_CLOUD_PROJECT = "test-project", STRICT_EUC_ENFORCEMENT = "false", DISABLE_TELEMETRY = "true", GOOGLE_GENAI_USE_VERTEXAI = "false", SRE_AGENT_DEPLOYMENT_MODE = "true" }, envfile = ".env" }
 test-flutter = { help = "Run Flutter frontend tests", cmd = "flutter test", cwd = "autosre" }
-test-ui = { help = "Run React frontend tests", cmd = "npm run test", cwd = "agent_graph_ui" }
+test-ui = { help = "Run React frontend tests", cmd = "npm run test", cwd = "agent_ops_ui" }
 test-all = { help = "Run backend and all frontend tests", sequence = ["test", "test-flutter", "test-ui"] }
 eval = { help = "Run agent evaluations", cmd = "python deploy/run_eval.py", envfile = ".env" }
 

@@ -17,13 +17,13 @@ RUN flutter pub get
 RUN flutter pub run build_runner build --delete-conflicting-outputs
 RUN flutter build web --release
 
-# --- Builder Stage for React Agent Graph UI ---
+# --- Builder Stage for React AgentOps UI ---
 FROM node:20-slim AS react-builder
 
-WORKDIR /app/agent_graph_ui
-COPY agent_graph_ui/package.json agent_graph_ui/package-lock.json* ./
+WORKDIR /app/agent_ops_ui
+COPY agent_ops_ui/package.json agent_ops_ui/package-lock.json* ./
 RUN npm ci
-COPY agent_graph_ui/ .
+COPY agent_ops_ui/ .
 RUN npm run build
 
 # --- Production Stage ---
@@ -51,8 +51,8 @@ RUN uv pip install --system --no-cache . uvicorn fastapi google-adk google-cloud
 # 2. Setup Flutter Web Frontend (from builder)
 COPY --from=builder /app/autosre/build/web ./web/
 
-# 3. Setup React Agent Graph UI (from react-builder)
-COPY --from=react-builder /app/agent_graph_ui/dist ./agent_graph_web/
+# 3. Setup React AgentOps UI (from react-builder)
+COPY --from=react-builder /app/agent_ops_ui/dist ./agent_graph_web/
 
 # 4. Startup Script
 COPY scripts/start_unified.sh .

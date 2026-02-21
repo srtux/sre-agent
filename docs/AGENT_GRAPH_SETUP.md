@@ -60,9 +60,9 @@ This pattern allows the frontend (or an intermediate executor) to run the querie
 
 ---
 
-## 4. Frontend Visualization (`agent_graph_ui` React App)
+## 4. Frontend Visualization (`agent_ops_ui` React App)
 
-Located in `agent_graph_ui/src/components/`. We have transitioned to a high-performance React application using `@xyflow/react` and `@nivo/sankey`.
+Located in `agent_ops_ui/src/components/`. We have transitioned to a high-performance React application using `@xyflow/react` and `@nivo/sankey`.
 
 ### 4.1. Layout Modes & Engine (`TopologyGraph`)
 We use the **Dagre** layout engine to perform deterministic, layered directed graph routing, supporting multiple interactive modes:
