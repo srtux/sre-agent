@@ -6,7 +6,25 @@ set -e
 # required for the AutoSRE Agent Graph visualization.
 #
 # See docs/AGENT_GRAPH_SETUP.md for detailed architecture and schema verification.
-
+#
+# OTel GenAI Semantic Conventions Verification:
+#   This script relies on the following OpenTelemetry attributes being present
+#   on spans exported to Google Cloud Trace / BigQuery export:
+#     - cloud.platform = "gcp.agent_engine"      (filters out non-agent traffic)
+#     - service.name                             (differentiates backend services)
+#     - gen_ai.operation.name                    (classified into LLM, Tool, Agent)
+#     - gen_ai.agent.name / gen_ai.agent.description
+#     - gen_ai.tool.name / gen_ai.tool.description
+#     - gen_ai.response.model
+#     - gen_ai.usage.input_tokens / gen_ai.usage.output_tokens
+#
+# BigQuery Dry-Run Testing:
+#   To verify that these views and queries compile cleanly for your dataset,
+#   you can run dry-run tests using the bq CLI natively:
+#   bq query --use_legacy_sql=false --dry_run "SELECT * FROM \\\`$PROJECT_ID.${GRAPH_DATASET:-agent_graph}.agent_registry\\\`"
+#   bq query --use_legacy_sql=false --dry_run "SELECT * FROM \\\`$PROJECT_ID.${GRAPH_DATASET:-agent_graph}.tool_registry\\\`"
+#   bq query --use_legacy_sql=false --dry_run "SELECT * FROM \\\`$PROJECT_ID.${GRAPH_DATASET:-agent_graph}.agent_topology_edges\\\`"
+#
 # Usage: ./scripts/setup_agent_graph_bq.sh [project_id] [trace_dataset] [graph_dataset] [service_name]
 # Sourcing .env if it exists
 if [ -f .env ]; then
@@ -107,6 +125,8 @@ SELECT
     JSON_VALUE(attributes, '\$.\"gen_ai.response.model\"'),
     name
   ) AS node_label,
+  -- NEW: Extract service.name for multi-agent filtering
+  JSON_VALUE(resource.attributes, '\$.\"service.name\"') AS service_name,
   -- NEW: Create a unique logical identifier for the topology
   CONCAT(
     CASE
@@ -119,7 +139,7 @@ SELECT
     COALESCE(JSON_VALUE(attributes, '\$.\"gen_ai.agent.name\"'), JSON_VALUE(attributes, '\$.\"gen_ai.tool.name\"'), JSON_VALUE(attributes, '\$.\"gen_ai.response.model\"'), name)
   ) AS logical_node_id
 FROM \`$PROJECT_ID.$TRACE_DATASET._AllSpans\`
-WHERE JSON_VALUE(resource.attributes, '\$.\"service.name\"') = '$SERVICE_NAME';
+WHERE JSON_VALUE(resource.attributes, '\$.\"cloud.platform\"') = 'gcp.agent_engine';
 "
 bq query --use_legacy_sql=false --project_id "$PROJECT_ID" "$MV_SQL"
 
@@ -135,6 +155,7 @@ SELECT
   trace_id,
   session_id,
   logical_node_id,
+  ANY_VALUE(service_name) AS service_name,
   ANY_VALUE(node_type) AS node_type,
   ANY_VALUE(node_label) AS node_label,
   COUNT(span_id) AS execution_count,
@@ -154,6 +175,7 @@ SELECT
   trace_id,
   session_id,
   'User::session' AS logical_node_id,
+  ANY_VALUE(service_name) AS service_name,
   'User' AS node_type,
   'session' AS node_label,
   COUNT(DISTINCT span_id) AS execution_count,
@@ -219,6 +241,7 @@ WITH RECURSIVE span_tree AS (
 SELECT
   trace_id,
   session_id,
+  ANY_VALUE(service_name) AS service_name,
   ancestor_logical_id AS source_node_id,
   logical_node_id AS destination_node_id,
   COUNT(*) as edge_weight,
@@ -232,7 +255,7 @@ FROM span_tree
 WHERE node_type != 'Glue'
   AND ancestor_logical_id IS NOT NULL
   AND ancestor_logical_id != logical_node_id
-GROUP BY 1, 2, 3, 4
+GROUP BY 1, 2, 4, 5
 
 UNION ALL
 
@@ -241,6 +264,7 @@ UNION ALL
 SELECT
   trace_id,
   session_id,
+  ANY_VALUE(service_name) AS service_name,
   'User::session' AS source_node_id,
   logical_node_id AS destination_node_id,
   COUNT(*) as edge_weight,
@@ -253,7 +277,7 @@ SELECT
 FROM span_tree
 WHERE node_type = 'Agent'
   AND ancestor_logical_id IS NULL
-GROUP BY 1, 2, 3, 4;
+GROUP BY 1, 2, 4, 5;
 "
 bq query --use_legacy_sql=false --project_id "$PROJECT_ID" "$EDGES_SQL"
 
@@ -271,6 +295,7 @@ WITH sequenced_steps AS (
   SELECT
     trace_id,
     session_id,
+    service_name,
     span_id,
     node_type,
     node_label,
@@ -292,6 +317,7 @@ trajectory_links AS (
   SELECT
     a.trace_id,
     a.session_id,
+    a.service_name,
     a.logical_node_id AS source_node,
     a.node_type AS source_type,
     a.node_label AS source_label,
@@ -313,6 +339,7 @@ trajectory_links AS (
 )
 -- Aggregate across traces to get flow volumes
 SELECT
+  ANY_VALUE(service_name) AS service_name,
   source_node,
   source_type,
   source_label,
@@ -326,7 +353,7 @@ SELECT
   SUM(target_tokens) AS total_target_tokens,
   COUNTIF(source_status = 'ERROR' OR target_status = 'ERROR') AS error_transition_count
 FROM trajectory_links
-GROUP BY 1, 2, 3, 4, 5, 6;
+GROUP BY 2, 3, 4, 5, 6, 7;
 "
 bq query --use_legacy_sql=false --project_id "$PROJECT_ID" "$TRAJECTORIES_SQL"
 
@@ -393,16 +420,18 @@ CREATE TABLE \`$PROJECT_ID.$GRAPH_DATASET.agent_graph_hourly\`
   -- Source-node subcall counts
   tool_call_count INT64,
   llm_call_count INT64,
-  -- Hierarchical rollup metrics (downstream totals, computed at query time)
+  -- Downstream rollup (populated with direct values; full rollup computed at query time)
   downstream_total_tokens INT64,
   downstream_total_cost FLOAT64,
   downstream_tool_call_count INT64,
   downstream_llm_call_count INT64,
   -- Session tracking (stored as repeated for cross-bucket dedup)
-  session_ids ARRAY<STRING>
+  session_ids ARRAY<STRING>,
+  -- Multi-agent grouping
+  service_name STRING
 )
 PARTITION BY DATE(time_bucket)
-CLUSTER BY source_id, target_id
+CLUSTER BY service_name, source_id, target_id
 OPTIONS (
   description = 'Pre-aggregated hourly agent graph data for sub-second UI queries'
 );
@@ -452,6 +481,7 @@ CostPaths AS (
 )
 SELECT
   time_bucket,
+  ANY_VALUE(service_name) AS service_name,
   source_id, target_id, source_type, target_type,
   -- Edge metrics
   SUM(call_count) AS call_count,
@@ -486,7 +516,7 @@ SELECT
   -- Session IDs for cross-bucket dedup
   ARRAY_AGG(DISTINCT session_id IGNORE NULLS) AS session_ids
 FROM CostPaths
-GROUP BY time_bucket, source_id, target_id, source_type, target_type;
+GROUP BY time_bucket, service_name, source_id, target_id, source_type, target_type;
 "
 
 bq query --use_legacy_sql=false --project_id "$PROJECT_ID" "$BACKFILL_SQL"
@@ -559,6 +589,7 @@ NewPaths AS (
 )
 SELECT
   time_bucket,
+  ANY_VALUE(service_name) AS service_name,
   source_id, target_id, source_type, target_type,
   SUM(call_count) AS call_count,
   SUM(edge_error_count) AS error_count,
@@ -589,8 +620,79 @@ SELECT
   SUM(IF(target_type = 'LLM', call_count, 0)) AS downstream_llm_call_count,
   ARRAY_AGG(DISTINCT session_id IGNORE NULLS) AS session_ids
 FROM NewPaths
-GROUP BY time_bucket, source_id, target_id, source_type, target_type;
+GROUP BY time_bucket, service_name, source_id, target_id, source_type, target_type;
 SCHEDULED_QUERY_EOF
+
+# 8. Create Agent Registry
+echo "🔹 Creating Agent Registry view..."
+AGENT_REGISTRY_SQL="
+CREATE OR REPLACE VIEW \`$PROJECT_ID.$GRAPH_DATASET.agent_registry\` AS
+WITH ParsedAgents AS (
+  SELECT
+    trace_id,
+    session_id,
+    TIMESTAMP_TRUNC(start_time, HOUR) as time_bucket,
+    service_name,
+    logical_node_id,
+    duration_ms,
+    input_tokens,
+    output_tokens,
+    status_code,
+    node_label,
+    node_type
+  FROM \`$PROJECT_ID.$GRAPH_DATASET.agent_spans_raw\`
+  WHERE node_type = 'Agent'
+)
+SELECT
+  time_bucket,
+  service_name,
+  logical_node_id AS agent_id,
+  ANY_VALUE(node_label) AS agent_name,
+  COUNT(DISTINCT session_id) AS total_sessions,
+  COUNT(*) AS total_turns,
+  SUM(input_tokens) AS total_input_tokens,
+  SUM(output_tokens) AS total_output_tokens,
+  COUNTIF(status_code = 'ERROR') AS error_count,
+  APPROX_QUANTILES(duration_ms, 100)[OFFSET(50)] AS p50_duration_ms,
+  APPROX_QUANTILES(duration_ms, 100)[OFFSET(95)] AS p95_duration_ms
+FROM ParsedAgents
+GROUP BY time_bucket, service_name, agent_id;
+"
+bq query --use_legacy_sql=false --project_id "$PROJECT_ID" "$AGENT_REGISTRY_SQL"
+
+
+# 9. Create Tool Registry
+echo "🔹 Creating Tool Registry view..."
+TOOL_REGISTRY_SQL="
+CREATE OR REPLACE VIEW \`$PROJECT_ID.$GRAPH_DATASET.tool_registry\` AS
+WITH ParsedTools AS (
+  SELECT
+    trace_id,
+    session_id,
+    TIMESTAMP_TRUNC(start_time, HOUR) as time_bucket,
+    service_name,
+    logical_node_id,
+    duration_ms,
+    status_code,
+    node_label,
+    node_type
+  FROM \`$PROJECT_ID.$GRAPH_DATASET.agent_spans_raw\`
+  WHERE node_type = 'Tool'
+)
+SELECT
+  time_bucket,
+  service_name,
+  logical_node_id AS tool_id,
+  ANY_VALUE(node_label) AS tool_name,
+  COUNT(*) AS execution_count,
+  COUNTIF(status_code = 'ERROR') AS error_count,
+  SAFE_DIVIDE(COUNTIF(status_code = 'ERROR'), COUNT(*)) AS error_rate,
+  AVG(duration_ms) AS avg_duration_ms,
+  APPROX_QUANTILES(duration_ms, 100)[OFFSET(95)] AS p95_duration_ms
+FROM ParsedTools
+GROUP BY time_bucket, service_name, tool_id;
+"
+bq query --use_legacy_sql=false --project_id "$PROJECT_ID" "$TOOL_REGISTRY_SQL"
 
 echo "---------------------------------------------------"
 echo "✅ Setup Successful!"
@@ -602,4 +704,8 @@ echo "Pre-aggregation:"
 echo "  Table: $PROJECT_ID.$GRAPH_DATASET.agent_graph_hourly"
 echo "  Backfilled with last 30 days of data."
 echo "  Set up the scheduled query above for hourly incremental updates."
+echo ""
+echo "Registries Created:"
+echo "  - $PROJECT_ID.$GRAPH_DATASET.agent_registry"
+echo "  - $PROJECT_ID.$GRAPH_DATASET.tool_registry"
 echo "---------------------------------------------------"

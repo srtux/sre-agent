@@ -231,6 +231,7 @@ async def get_topology(
     start_time: str | None = None,
     end_time: str | None = None,
     errors_only: bool = False,
+    service_name: str | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
     """Return aggregated topology nodes and edges for React Flow.
 
@@ -246,6 +247,8 @@ async def get_topology(
         start_time: Optional ISO 8601 lower bound (overrides *hours*).
         end_time: Optional ISO 8601 upper bound (defaults to now).
         errors_only: When True only return nodes/edges with errors.
+        service_name: Optional service name to filter the topology graph for.
+
 
     Returns:
         A dict with ``nodes`` and ``edges`` lists formatted for
@@ -258,9 +261,17 @@ async def get_topology(
     if end_time is not None:
         end_time = _validate_iso8601(end_time, "end_time")
 
+    # Time filtering
     errors_only_edge_having = "HAVING SUM(error_count) > 0" if errors_only else ""
     errors_only_node_having = "HAVING SUM(error_count) > 0" if errors_only else ""
 
+    service_name_clause = (
+        f"AND service_name = '{_validate_identifier(service_name, 'service_name')}'"
+        if service_name
+        else ""
+    )
+
+    # Use where to append the service name to existing time filters
     try:
         client = _get_bq_client(project_id)
 
@@ -289,7 +300,7 @@ async def get_topology(
                         SUM(error_count) AS error_count,
                         SUM(edge_tokens) AS total_tokens
                     FROM `{project_id}.{dataset}.agent_graph_hourly`
-                    WHERE {time_filter}
+                    WHERE {time_filter} {service_name_clause}
                     GROUP BY source_id, source_type, target_id, target_type
                     {errors_only_edge_having}
                 ),
@@ -333,7 +344,7 @@ async def get_topology(
                     SUM(error_count) AS error_count,
                     SUM(edge_tokens) AS total_tokens
                 FROM `{project_id}.{dataset}.agent_graph_hourly`
-                WHERE {time_filter}
+                WHERE {time_filter} {service_name_clause}
                 GROUP BY source_id, target_id
                 {errors_only_edge_having}
             """
@@ -367,7 +378,7 @@ async def get_topology(
                         NULLIF(SUM(execution_count), 0)
                     ) AS avg_duration_ms
                 FROM `{project_id}.{dataset}.agent_topology_nodes`
-                WHERE {nodes_time_filter}
+                WHERE {nodes_time_filter} {service_name_clause}
                 GROUP BY logical_node_id
                 {errors_only_node_having}
             """
@@ -383,7 +394,7 @@ async def get_topology(
                     SUM(error_count) AS error_count,
                     SUM(total_tokens) AS total_tokens
                 FROM `{project_id}.{dataset}.agent_topology_edges`
-                WHERE {edges_time_filter}
+                WHERE {edges_time_filter} {service_name_clause}
                 GROUP BY source_node_id, destination_node_id
                 {errors_only_edge_having}
             """
@@ -468,6 +479,7 @@ async def get_trajectories(
     start_time: str | None = None,
     end_time: str | None = None,
     errors_only: bool = False,
+    service_name: str | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
     """Return trajectory links for a Nivo Sankey diagram.
 
@@ -486,6 +498,7 @@ async def get_trajectories(
         start_time: Optional ISO 8601 lower bound (overrides *hours*).
         end_time: Optional ISO 8601 upper bound (defaults to now).
         errors_only: When True only return nodes/edges with errors.
+        service_name: Optional service name to filter trajectories for.
 
     Returns:
         A dict with ``nodes``, ``links``, and ``loopTraces`` lists
@@ -507,6 +520,11 @@ async def get_trajectories(
     )
 
     errors_only_clause = "AND status_code = 'ERROR'" if errors_only else ""
+    service_name_clause = (
+        f"AND service_name = '{_validate_identifier(service_name, 'service_name')}'"
+        if service_name
+        else ""
+    )
 
     try:
         client = _get_bq_client(project_id)
@@ -527,6 +545,7 @@ async def get_trajectories(
                 WHERE node_type != 'Glue'
                   AND {time_filter}
                   {errors_only_clause}
+                  {service_name_clause}
             ),
             trajectory_links AS (
                 SELECT
@@ -586,6 +605,7 @@ async def get_trajectories(
             WHERE node_type != 'Glue'
               AND {time_filter}
               {errors_only_clause}
+              {service_name_clause}
             GROUP BY trace_id
         """
 
@@ -632,6 +652,7 @@ async def get_node_detail(
     trace_dataset: str = "traces",
     hours: float = Query(default=24.0, ge=0.0, le=720.0),
     errors_only: bool = False,
+    service_name: str | None = None,
 ) -> dict[str, Any]:
     """Return detailed metrics for a single topology node.
 
@@ -648,6 +669,8 @@ async def get_node_detail(
         trace_dataset: BigQuery dataset containing ``_AllSpans``.
         hours: Look-back window in hours (0-720).
         errors_only: Only fetch error payloads if True.
+        service_name: Optional service name to filter node metrics for.
+
 
     Returns:
         A dict with detailed node metrics and recent payloads.
@@ -692,6 +715,7 @@ async def get_node_detail(
               AND start_time >= TIMESTAMP_SUB(
                   CURRENT_TIMESTAMP(), INTERVAL {int(hours * 60)} MINUTE
               )
+              {f"AND service_name = '{_validate_identifier(service_name, 'service_name')}'" if service_name else ""}
         """
 
         job_config = bigquery.QueryJobConfig(
@@ -721,6 +745,7 @@ async def get_node_detail(
               AND start_time >= TIMESTAMP_SUB(
                   CURRENT_TIMESTAMP(), INTERVAL {int(hours * 60)} MINUTE
               )
+              {f"AND service_name = '{_validate_identifier(service_name, 'service_name')}'" if service_name else ""}
             GROUP BY status_code
             ORDER BY count DESC
             LIMIT 3
@@ -747,6 +772,7 @@ async def get_node_detail(
                   CURRENT_TIMESTAMP(), INTERVAL {int(hours * 60)} MINUTE
               )
               {"AND r.status_code = 'ERROR'" if errors_only else ""}
+              {f"AND r.service_name = '{_validate_identifier(service_name, 'service_name')}'" if service_name else ""}
             ORDER BY r.start_time DESC
             LIMIT 10
         """
@@ -1187,4 +1213,201 @@ async def get_span_details(
         logger.exception("Failed to fetch span details")
         raise HTTPException(
             status_code=500, detail="Failed to fetch span details."
+        ) from exc
+
+
+@router.get("/registry/agents")
+async def get_agent_registry(
+    project_id: str,
+    dataset: str = "agent_graph",
+    hours: float = Query(default=24.0, ge=0.0, le=720.0),
+    start_time: str | None = None,
+    end_time: str | None = None,
+) -> dict[str, list[dict[str, Any]]]:
+    """Return pre-aggregated agent stats for the multi-agent UI registry.
+
+    Queries the ``agent_registry`` view which aggregates spans grouped
+    by service_name and agent logical_node_id.
+
+    Args:
+        project_id: GCP project that owns the BigQuery dataset.
+        dataset: BigQuery dataset name.
+        hours: Look-back window in hours (0-720).
+        start_time: Optional ISO 8601 lower bound (overrides *hours*).
+        end_time: Optional ISO 8601 upper bound (defaults to now).
+
+    Returns:
+        A dict with an ``agents`` list containing aggregated stats.
+    """
+    _validate_identifier(project_id, "project_id")
+    _validate_identifier(dataset, "dataset")
+    if start_time is not None:
+        start_time = _validate_iso8601(start_time, "start_time")
+    if end_time is not None:
+        end_time = _validate_iso8601(end_time, "end_time")
+
+    time_filter = _build_time_filter(
+        timestamp_col="time_bucket",
+        hours=hours,
+        start_time=start_time,
+        end_time=end_time,
+    )
+
+    try:
+        client = _get_bq_client(project_id)
+
+        query = f"""
+            SELECT
+                service_name,
+                agent_id,
+                ANY_VALUE(agent_name) AS agent_name,
+                SUM(total_sessions) AS total_sessions,
+                SUM(total_turns) AS total_turns,
+                SUM(total_input_tokens) AS input_tokens,
+                SUM(total_output_tokens) AS output_tokens,
+                SUM(error_count) AS error_count,
+                SAFE_DIVIDE(
+                    SUM(error_count),
+                    NULLIF(SUM(total_turns), 0)
+                ) AS error_rate,
+                MAX(p50_duration_ms) AS p50_duration_ms,
+                MAX(p95_duration_ms) AS p95_duration_ms
+            FROM `{project_id}.{dataset}.agent_registry`
+            WHERE {time_filter}
+            GROUP BY service_name, agent_id
+            ORDER BY total_sessions DESC
+        """
+
+        rows = list(client.query(query).result())
+
+        agents: list[dict[str, Any]] = []
+        for row in rows:
+            agents.append(
+                {
+                    "serviceName": row.service_name,
+                    "agentId": row.agent_id,
+                    "agentName": row.agent_name,
+                    "totalSessions": row.total_sessions or 0,
+                    "totalTurns": row.total_turns or 0,
+                    "inputTokens": row.input_tokens or 0,
+                    "outputTokens": row.output_tokens or 0,
+                    "errorCount": row.error_count or 0,
+                    "errorRate": round(float(row.error_rate or 0), 4),
+                    "p50DurationMs": round(float(row.p50_duration_ms or 0), 1),
+                    "p95DurationMs": round(float(row.p95_duration_ms or 0), 1),
+                }
+            )
+
+        return {"agents": agents}
+
+    except NotFound as exc:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "NOT_SETUP",
+                "detail": "BigQuery agent registry is not configured for this project.",
+            },
+        ) from exc
+    except Exception as exc:
+        logger.exception("Failed to fetch agent registry")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to query agent registry: {exc!s}",
+        ) from exc
+
+
+@router.get("/registry/tools")
+async def get_tool_registry(
+    project_id: str,
+    dataset: str = "agent_graph",
+    hours: float = Query(default=24.0, ge=0.0, le=720.0),
+    start_time: str | None = None,
+    end_time: str | None = None,
+) -> dict[str, list[dict[str, Any]]]:
+    """Return pre-aggregated tool stats for the multi-agent UI registry.
+
+    Queries the ``tool_registry`` view which aggregates tool spans grouped
+    by service_name and tool logical_node_id.
+
+    Args:
+        project_id: GCP project that owns the BigQuery dataset.
+        dataset: BigQuery dataset name.
+        hours: Look-back window in hours (0-720).
+        start_time: Optional ISO 8601 lower bound (overrides *hours*).
+        end_time: Optional ISO 8601 upper bound (defaults to now).
+
+    Returns:
+        A dict with a ``tools`` list containing aggregated stats.
+    """
+    _validate_identifier(project_id, "project_id")
+    _validate_identifier(dataset, "dataset")
+    if start_time is not None:
+        start_time = _validate_iso8601(start_time, "start_time")
+    if end_time is not None:
+        end_time = _validate_iso8601(end_time, "end_time")
+
+    time_filter = _build_time_filter(
+        timestamp_col="time_bucket",
+        hours=hours,
+        start_time=start_time,
+        end_time=end_time,
+    )
+
+    try:
+        client = _get_bq_client(project_id)
+
+        query = f"""
+            SELECT
+                service_name,
+                tool_id,
+                ANY_VALUE(tool_name) AS tool_name,
+                SUM(execution_count) AS execution_count,
+                SUM(error_count) AS error_count,
+                SAFE_DIVIDE(
+                    SUM(error_count),
+                    NULLIF(SUM(execution_count), 0)
+                ) AS error_rate,
+                SAFE_DIVIDE(
+                    SUM(avg_duration_ms * execution_count),
+                    NULLIF(SUM(execution_count), 0)
+                ) AS avg_duration_ms,
+                MAX(p95_duration_ms) AS p95_duration_ms
+            FROM `{project_id}.{dataset}.tool_registry`
+            WHERE {time_filter}
+            GROUP BY service_name, tool_id
+            ORDER BY execution_count DESC
+        """
+
+        rows = list(client.query(query).result())
+
+        tools: list[dict[str, Any]] = []
+        for row in rows:
+            tools.append(
+                {
+                    "serviceName": row.service_name,
+                    "toolId": row.tool_id,
+                    "toolName": row.tool_name,
+                    "executionCount": row.execution_count or 0,
+                    "errorCount": row.error_count or 0,
+                    "errorRate": round(float(row.error_rate or 0), 4),
+                    "avgDurationMs": round(float(row.avg_duration_ms or 0), 1),
+                    "p95DurationMs": round(float(row.p95_duration_ms or 0), 1),
+                }
+            )
+
+        return {"tools": tools}
+
+    except NotFound as exc:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "NOT_SETUP",
+                "detail": "BigQuery tool registry is not configured for this project.",
+            },
+        ) from exc
+    except Exception as exc:
+        logger.exception("Failed to fetch tool registry")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to query tool registry: {exc!s}",
         ) from exc

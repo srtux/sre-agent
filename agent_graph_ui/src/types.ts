@@ -166,3 +166,38 @@ export interface TraceLogsData {
   traceId: string
   logs: TraceLog[]
 }
+
+// --- Phase 5: Registry types ---
+
+export interface RegistryAgent {
+  serviceName: string
+  agentId: string
+  agentName: string
+  totalSessions: number
+  totalTurns: number
+  inputTokens: number
+  outputTokens: number
+  errorCount: number
+  errorRate: number
+  p50DurationMs: number
+  p95DurationMs: number
+}
+
+export interface AgentRegistryResponse {
+  agents: RegistryAgent[]
+}
+
+export interface RegistryTool {
+  serviceName: string
+  toolId: string
+  toolName: string
+  executionCount: number
+  errorCount: number
+  errorRate: number
+  avgDurationMs: number
+  p95DurationMs: number
+}
+
+export interface ToolRegistryResponse {
+  tools: RegistryTool[]
+}

@@ -1407,3 +1407,77 @@ class TestTimeSeriesEndpoint:
         )
 
         assert bq.query.call_count == 1
+
+
+class TestRegistryEndpoints:
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_get_agent_registry_success(self, mock_get_client, client):
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+
+        # Mock the BigQuery RowIterator
+        mock_query_job = MagicMock()
+        mock_row = MagicMock()
+        mock_row.service_name = "test-service"
+        mock_row.agent_id = "Agent::test-agent"
+        mock_row.agent_name = "test-agent"
+        mock_row.total_sessions = 10
+        mock_row.total_turns = 50
+        mock_row.input_tokens = 1000
+        mock_row.output_tokens = 2000
+        mock_row.error_count = 2
+        mock_row.error_rate = 0.04
+        mock_row.p50_duration_ms = 150.0
+        mock_row.p95_duration_ms = 500.0
+        mock_query_job.result.return_value = [mock_row]
+        mock_client.query.return_value = mock_query_job
+
+        response = client.get(
+            "/api/v1/graph/registry/agents?project_id=test-project&dataset=test_ds"
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "agents" in data
+        assert len(data["agents"]) == 1
+        agent = data["agents"][0]
+        assert agent["serviceName"] == "test-service"
+        assert agent["agentId"] == "Agent::test-agent"
+        assert agent["agentName"] == "test-agent"
+        assert agent["totalSessions"] == 10
+        assert agent["errorRate"] == 0.04
+        assert agent["p95DurationMs"] == 500.0
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_get_tool_registry_success(self, mock_get_client, client):
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+
+        mock_query_job = MagicMock()
+        mock_row = MagicMock()
+        mock_row.service_name = "test-service"
+        mock_row.tool_id = "Tool::search"
+        mock_row.tool_name = "search"
+        mock_row.execution_count = 100
+        mock_row.error_count = 5
+        mock_row.error_rate = 0.05
+        mock_row.avg_duration_ms = 200.0
+        mock_row.p95_duration_ms = 600.0
+        mock_query_job.result.return_value = [mock_row]
+        mock_client.query.return_value = mock_query_job
+
+        response = client.get(
+            "/api/v1/graph/registry/tools?project_id=test-project&dataset=test_ds"
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "tools" in data
+        assert len(data["tools"]) == 1
+        tool = data["tools"][0]
+        assert tool["serviceName"] == "test-service"
+        assert tool["toolId"] == "Tool::search"
+        assert tool["toolName"] == "search"
+        assert tool["executionCount"] == 100
+        assert tool["errorRate"] == 0.05
+        assert tool["p95DurationMs"] == 600.0

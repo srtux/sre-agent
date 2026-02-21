@@ -13,8 +13,9 @@ import type {
   AutoRefreshConfig,
   TimeSeriesData,
 } from './types'
+import RegistryPage from './components/RegistryPage'
 
-type Tab = 'topology' | 'trajectory'
+type Tab = 'registry' | 'topology' | 'trajectory'
 
 /** Parse a time_range string like "1h", "6h", "24h", "7d" into hours. */
 function parseTimeRange(raw: string): number | null {
@@ -54,9 +55,8 @@ function buildSearchParams(
     }
   }
 
-  if (activeTab === 'trajectory') {
-    // Only set tab param when not on the default
-    params.set('tab', 'trajectory')
+  if (activeTab && activeTab !== 'registry') {
+    params.set('tab', activeTab)
   }
 
   return params
@@ -134,7 +134,7 @@ const styles: Record<string, React.CSSProperties> = {
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState<Tab>('topology')
+  const [activeTab, setActiveTab] = useState<Tab>('registry')
   const [filters, setFilters] = useState<GraphFilters>({
     projectId: localStorage.getItem('agent_graph_project_id') || '',
     hours: 24,
@@ -186,8 +186,10 @@ function App() {
       setSelected({ kind: 'node', id: urlNode })
     }
 
-    if (urlTraceId || urlTab === 'trajectory') {
+    if (urlTraceId) {
       setActiveTab('trajectory')
+    } else if (urlTab === 'topology' || urlTab === 'trajectory') {
+      setActiveTab(urlTab as Tab)
     }
   }, [])
 
@@ -227,7 +229,7 @@ function App() {
       ]
 
       // Fetch timeseries when hours >= 2 (endpoint requires ge=2)
-      if (filters.hours >= 2) {
+      if (filters.hours >= 2 && activeTab !== 'registry') {
         fetches.push(
           axios.get<TimeSeriesData>('/api/v1/graph/timeseries', { params }),
         )
@@ -280,7 +282,7 @@ function App() {
       setLoadingTopology(false)
       setLoadingSankey(false)
     }
-  }, [filters])
+  }, [filters, activeTab])
 
   const handleLoad = useCallback(() => fetchAll(false), [fetchAll])
 
@@ -345,14 +347,26 @@ function App() {
 
       <div style={styles.tabBar}>
         <button
+          style={activeTab === 'registry' ? styles.tabActive : styles.tab}
+          onClick={() => setActiveTab('registry')}
+        >
+          Registry
+        </button>
+        <button
           style={activeTab === 'topology' ? styles.tabActive : styles.tab}
-          onClick={() => setActiveTab('topology')}
+          onClick={() => {
+            if (activeTab !== 'topology') fetchAll(false)
+            setActiveTab('topology')
+          }}
         >
           Topology
         </button>
         <button
           style={activeTab === 'trajectory' ? styles.tabActive : styles.tab}
-          onClick={() => setActiveTab('trajectory')}
+          onClick={() => {
+            if (activeTab !== 'trajectory') fetchAll(false)
+            setActiveTab('trajectory')
+          }}
         >
           Trajectory Flow
         </button>
@@ -371,6 +385,19 @@ function App() {
         ) : (
             <div style={{ display: 'flex', flex: 1, position: 'relative', overflow: 'hidden' }}>
               <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                {activeTab === 'registry' && (
+                  <RegistryPage
+                    filters={filters}
+                    onSelectAgent={(serviceName) => {
+                      setFilters(prev => ({ ...prev, serviceName }))
+                      localStorage.setItem('agent_graph_service_name', serviceName)
+                      setActiveTab('topology')
+                      // need to trigger a re-fetch with new serviceName
+                      setTimeout(() => fetchAll(false), 0)
+                    }}
+                  />
+                )}
+
             {activeTab === 'topology' && (
               <>
                 {topologyData ? (
