@@ -260,7 +260,13 @@ export default function SidePanel({
     setNodeDetail(null)
     setEdgeDetail(null)
 
-    const params = { project_id: projectId, hours, errors_only: !!filters?.errorsOnly }
+    const params = {
+      project_id: projectId,
+      hours,
+      errors_only: !!filters?.errorsOnly,
+      trace_dataset: filters?.traceDataset,
+      service_name: filters?.serviceName,
+    }
 
     const fetchData = async () => {
       try {
@@ -295,7 +301,7 @@ export default function SidePanel({
     return () => {
       cancelled = true
     }
-  }, [selected, projectId, hours, filters?.errorsOnly])
+  }, [selected, projectId, hours, filters?.errorsOnly, filters?.traceDataset, filters?.serviceName])
 
   const isOpen = selected !== null
 
@@ -345,6 +351,7 @@ export default function SidePanel({
             projectId={projectId}
             viewMode={viewMode}
             sparklineData={sparklineData}
+            filters={filters}
           />
         )}
 
@@ -361,11 +368,13 @@ function NodeDetailView({
   projectId,
   viewMode = 'topology',
   sparklineData,
+  filters,
 }: {
   detail: NodeDetail
     projectId: string
   viewMode?: ViewMode
   sparklineData?: TimeSeriesData | null
+    filters?: GraphFilters
 }) {
   const errColor = errorRateColor(detail.errorRate)
   const maxLatency = detail.latency.p99 || 1
@@ -483,7 +492,11 @@ function NodeDetailView({
       )}
 
       {/* Raw Payloads */}
-      <PayloadAccordion payloads={detail.recentPayloads ?? []} projectId={projectId} />
+      <PayloadAccordion
+        payloads={detail.recentPayloads ?? []}
+        projectId={projectId}
+        filters={filters}
+      />
     </>
   )
 }
@@ -574,7 +587,15 @@ function EdgeDetailView({ detail }: { detail: EdgeDetail }) {
   )
 }
 
-function PayloadAccordion({ payloads, projectId }: { payloads: PayloadEntry[], projectId: string }) {
+function PayloadAccordion({
+  payloads,
+  projectId,
+  filters,
+}: {
+  payloads: PayloadEntry[]
+  projectId: string
+  filters?: GraphFilters
+}) {
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
   const [spanDetailsCache, setSpanDetailsCache] = useState<Record<string, SpanDetails>>({})
   const [traceLogsCache, setTraceLogsCache] = useState<Record<string, TraceLogsData>>({})
@@ -605,7 +626,10 @@ function PayloadAccordion({ payloads, projectId }: { payloads: PayloadEntry[], p
 
       try {
         const spanRes = await axios.get(`/api/v1/graph/trace/${p.traceId}/span/${p.spanId}/details`, {
-          params: { project_id: projectId }
+          params: {
+            project_id: projectId,
+            trace_dataset: filters?.traceDataset,
+          }
         })
         setSpanDetailsCache(prev => ({ ...prev, [p.spanId]: spanRes.data }))
       } catch (e) {
@@ -615,7 +639,10 @@ function PayloadAccordion({ payloads, projectId }: { payloads: PayloadEntry[], p
       try {
         if (!traceLogsCache[p.traceId]) {
           const logsRes = await axios.get(`/api/v1/graph/trace/${p.traceId}/logs`, {
-            params: { project_id: projectId }
+            params: {
+              project_id: projectId,
+              trace_dataset: filters?.traceDataset,
+            }
           })
           setTraceLogsCache(prev => ({ ...prev, [p.traceId!]: logsRes.data }))
         }

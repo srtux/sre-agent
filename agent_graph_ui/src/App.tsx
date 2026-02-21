@@ -136,9 +136,11 @@ const styles: Record<string, React.CSSProperties> = {
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>('topology')
   const [filters, setFilters] = useState<GraphFilters>({
-    projectId: '',
+    projectId: localStorage.getItem('agent_graph_project_id') || '',
     hours: 24,
     errorsOnly: false,
+    traceDataset: localStorage.getItem('agent_graph_trace_dataset') || 'traces',
+    serviceName: localStorage.getItem('agent_graph_service_name') || 'sre-agent',
   })
   const [selected, setSelected] = useState<SelectedElement | null>(null)
   const [topologyData, setTopologyData] = useState<TopologyResponse | null>(null)
@@ -210,6 +212,8 @@ function App() {
       project_id: filters.projectId.trim(),
       hours: filters.hours,
       errors_only: filters.errorsOnly,
+      trace_dataset: filters.traceDataset,
+      service_name: filters.serviceName,
     }
 
     try {
@@ -298,6 +302,15 @@ function App() {
         trace_dataset: dataset,
         service_name: serviceName
       })
+      localStorage.setItem('agent_graph_project_id', filters.projectId)
+      localStorage.setItem('agent_graph_trace_dataset', dataset)
+      localStorage.setItem('agent_graph_service_name', serviceName)
+
+      setFilters(prev => ({
+        ...prev,
+        traceDataset: dataset,
+        serviceName: serviceName
+      }))
       setNeedsSetup(false)
       fetchAll(false)
     } catch (err) {

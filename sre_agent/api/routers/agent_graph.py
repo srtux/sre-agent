@@ -391,11 +391,13 @@ async def get_topology(
             edge_rows = list(client.query(edges_query).result())
 
         # Extract label from logical_node_id format "Type::label"
-        def _extract_label(node_id: str) -> str:
+        def _extract_label(node_id: str | None) -> str:
+            if not node_id:
+                return "Unknown"
             return node_id.split("::", 1)[1] if "::" in node_id else node_id
 
-        def _extract_type(node_id: str, fallback: str | None) -> str:
-            if "::" in node_id:
+        def _extract_type(node_id: str | None, fallback: str | None) -> str:
+            if node_id and "::" in node_id:
                 return node_id.split("::", 1)[0]
             return fallback or "Agent"
 
@@ -453,7 +455,7 @@ async def get_topology(
         logger.exception("Failed to fetch agent graph topology")
         raise HTTPException(
             status_code=500,
-            detail="Failed to query topology data. Check server logs for details.",
+            detail=f"Failed to query topology data: {exc!s}",
         ) from exc
 
 
@@ -594,7 +596,6 @@ async def get_trajectories(
             detected = _detect_loops(list(row.step_sequence))
             if detected:
                 loop_results[row.trace_id] = detected
-
         return {
             "nodes": nodes,
             "links": links,
@@ -619,7 +620,7 @@ async def get_trajectories(
         logger.exception("Failed to fetch agent trajectories")
         raise HTTPException(
             status_code=500,
-            detail="Failed to query trajectory data. Check server logs for details.",
+            detail=f"Failed to query trajectory data: {exc!s}",
         ) from exc
 
 
@@ -795,11 +796,19 @@ async def get_node_detail(
 
     except HTTPException:
         raise
+    except NotFound as exc:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "NOT_SETUP",
+                "detail": "BigQuery agent graph is not configured for this project.",
+            },
+        ) from exc
     except Exception as exc:
-        logger.exception("Failed to fetch node detail for %s", node_id)
+        logger.exception("Failed to fetch node detail from BigQuery")
         raise HTTPException(
             status_code=500,
-            detail="Failed to query node detail. Check server logs for details.",
+            detail=f"Failed to fetch node detail from BigQuery: {exc!s}",
         ) from exc
 
 
@@ -950,6 +959,14 @@ async def get_edge_detail(
 
     except HTTPException:
         raise
+    except NotFound as exc:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "NOT_SETUP",
+                "detail": "BigQuery agent graph is not configured for this project.",
+            },
+        ) from exc
     except Exception as exc:
         logger.exception(
             "Failed to fetch edge detail for %s -> %s",
@@ -958,7 +975,7 @@ async def get_edge_detail(
         )
         raise HTTPException(
             status_code=500,
-            detail="Failed to query edge detail. Check server logs for details.",
+            detail=f"Failed to query edge detail: {exc!s}",
         ) from exc
 
 
@@ -1044,11 +1061,19 @@ async def get_timeseries(
 
         return {"series": dict(series)}
 
+    except NotFound as exc:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "NOT_SETUP",
+                "detail": "BigQuery timeseries are not configured for this project.",
+            },
+        ) from exc
     except Exception as exc:
-        logger.exception("Failed to fetch timeseries data")
+        logger.exception("Failed to fetch timeseries data from BigQuery")
         raise HTTPException(
             status_code=500,
-            detail="Failed to query timeseries data. Check server logs for details.",
+            detail=f"Failed to fetch timeseries data from BigQuery: {exc!s}",
         ) from exc
 
 

@@ -89,6 +89,8 @@ export interface GraphFilters {
   errorsOnly: boolean;
   startTime?: string;
   endTime?: string;
+  traceDataset?: string;
+  serviceName?: string;
 }
 
 // --- Phase 3: View mode and payload types ---

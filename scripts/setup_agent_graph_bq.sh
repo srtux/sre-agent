@@ -363,8 +363,8 @@ CREATE TABLE \`$PROJECT_ID.$GRAPH_DATASET.agent_graph_hourly\`
   -- Bucketing
   time_bucket TIMESTAMP NOT NULL,
   -- Edge identity
-  source_id STRING NOT NULL,
-  target_id STRING NOT NULL,
+  source_id STRING,
+  target_id STRING,
   source_type STRING,
   target_type STRING,
   -- Edge metrics (pre-aggregated per hour)
@@ -429,7 +429,7 @@ WITH RawEdges AS (
   FROM \`$PROJECT_ID.$GRAPH_DATASET.agent_topology_edges\` e
   JOIN \`$PROJECT_ID.$GRAPH_DATASET.agent_topology_nodes\` n_dst
     ON e.trace_id = n_dst.trace_id AND e.destination_node_id = n_dst.logical_node_id
-  JOIN \`$PROJECT_ID.$GRAPH_DATASET.agent_topology_nodes\` n_src
+  LEFT JOIN \`$PROJECT_ID.$GRAPH_DATASET.agent_topology_nodes\` n_src
     ON e.trace_id = n_src.trace_id AND e.source_node_id = n_src.logical_node_id
   WHERE n_dst.start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 720 HOUR)
 ),
