@@ -3,10 +3,10 @@
 import 'dart:html' as html;
 import 'dart:ui_web' as ui_web;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/project_service.dart';
+import '../../services/service_config.dart';
 import '../../theme/app_theme.dart';
 
 class AgentGraphIframePanel extends StatefulWidget {
@@ -26,7 +26,7 @@ class _AgentGraphIframePanelState extends State<AgentGraphIframePanel> {
     _currentProjectId = ProjectService.instance.selectedProjectId ?? '';
     _viewId = 'agent-graph-iframe-${DateTime.now().millisecondsSinceEpoch}';
 
-    const baseUrl = kDebugMode ? 'http://localhost:5174' : '';
+    final baseUrl = ServiceConfig.agentGraphBaseUrl;
     final src = _currentProjectId.isNotEmpty
         ? '$baseUrl/graph/?project_id=$_currentProjectId'
         : 'about:blank';
@@ -49,7 +49,7 @@ class _AgentGraphIframePanelState extends State<AgentGraphIframePanel> {
       final iframe =
           html.document.getElementById(_viewId) as html.IFrameElement?;
       if (iframe != null) {
-        const baseUrl = kDebugMode ? 'http://localhost:5174' : '';
+        final baseUrl = ServiceConfig.agentGraphBaseUrl;
         iframe.src = '$baseUrl/graph/?project_id=$_currentProjectId';
       }
     }
