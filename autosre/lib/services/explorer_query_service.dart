@@ -282,7 +282,7 @@ class ExplorerQueryService {
   }) async {
     try {
       final filter =
-          'trace="projects/${projectId ?? 'summitt-gcp'}/traces/$traceId" AND spanId="$spanId"';
+          'trace="projects/${projectId ?? 'my-project'}/traces/$traceId" AND spanId="$spanId"';
       final payload = <String, dynamic>{
         'filter': filter,
         'project_id': projectId,

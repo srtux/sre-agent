@@ -32,7 +32,7 @@ The visualization aggregates data from a BigQuery table named `agent_spans_raw`.
 To avoid limitations with "Incremental" Materialized Views (such as the `ARRAY function` error), start with a standard **View**. BigQuery's "Smart Tuning" will still optimize queries against this view.
 
 ```sql
-CREATE OR REPLACE VIEW `summitt-gcp.GRAPH_DATASET.agent_spans_raw`
+CREATE OR REPLACE VIEW `my-project.GRAPH_DATASET.agent_spans_raw`
 AS
 SELECT
   span_id,
@@ -68,7 +68,7 @@ SELECT
     JSON_VALUE(attributes, '$.\"gen_ai.response.model\"'),
     name
   ) AS node_label
-FROM `summitt-gcp.traces._AllSpans`
+FROM `my-project.traces._AllSpans`
 WHERE JSON_VALUE(resource.attributes, '$.\"service.name\"') = "sre-agent";
 ```
 
@@ -77,7 +77,7 @@ WHERE JSON_VALUE(resource.attributes, '$.\"service.name\"') = "sre-agent";
 If you have millions of traces and the graph is slow, you can use a **Materialized View**. Note that MVs have stricter SQL requirements.
 
 ```sql
-CREATE MATERIALIZED VIEW `summitt-gcp.agent_graph.agent_spans_raw`
+CREATE MATERIALIZED VIEW `my-project.agent_graph.agent_spans_raw`
 CLUSTER BY trace_id, session_id, node_label
 OPTIONS (
   enable_refresh = true,
@@ -120,7 +120,7 @@ SELECT
     JSON_VALUE(attributes, '$.\"gen_ai.response.model\"'),
     name
   ) AS node_label
-FROM `summitt-gcp.TRACE_DATASET._AllSpans`
+FROM `my-project.TRACE_DATASET._AllSpans`
 WHERE JSON_VALUE(resource.attributes, '$.\"service.name\"') = "sre-agent";
 ```
 
@@ -130,15 +130,15 @@ WHERE JSON_VALUE(resource.attributes, '$.\"service.name\"') = "sre-agent";
 The application uses the **BigQuery Property Graph** feature to model relationships between spans. Create the property graph referencing your Materialized View:
 
 ```sql
-CREATE OR REPLACE PROPERTY GRAPH `summitt-gcp.GRAPH_DATASET.agent_trace_graph`
+CREATE OR REPLACE PROPERTY GRAPH `my-project.GRAPH_DATASET.agent_trace_graph`
   NODE TABLES (
-    `summitt-gcp.GRAPH_DATASET.agent_spans_raw` AS Span
+    `my-project.GRAPH_DATASET.agent_spans_raw` AS Span
       KEY (span_id)
       LABEL Span
       PROPERTIES ALL COLUMNS
   )
   EDGE TABLES (
-    `summitt-gcp.GRAPH_DATASET.agent_spans_raw` AS ParentOf
+    `my-project.GRAPH_DATASET.agent_spans_raw` AS ParentOf
       KEY (span_id)
       SOURCE KEY (parent_id) REFERENCES Span (span_id)
       DESTINATION KEY (span_id) REFERENCES Span (span_id)
@@ -158,7 +158,7 @@ WITH GraphPaths AS (
   -- 1. Traverse the graph to find parent->child paths (1 to 5 hops)
   SELECT *
   FROM GRAPH_TABLE(
-    `summitt-gcp.GRAPH_DATASET.agent_trace_graph`
+    `my-project.GRAPH_DATASET.agent_trace_graph`
     MATCH (src:Span)-[:ParentOf]->{1,5}(dst:Span)
     -- Filter out 'Glue' noise and self-referential loops
     WHERE src.node_type != 'Glue'
@@ -224,7 +224,7 @@ SELECT
   ROUND(APPROX_QUANTILES(duration_ms, 100)[OFFSET(95)], 2) AS p95_latency_ms,
   COUNT(*) as call_volume
 FROM GRAPH_TABLE(
-  `summitt-gcp.GRAPH_DATASET.agent_trace_graph`
+  `my-project.GRAPH_DATASET.agent_trace_graph`
   MATCH (src:Span)-[:ParentOf]->(dst:Span)
   COLUMNS (src.node_label AS source_id, dst.node_label AS target_id, dst.duration_ms)
 )
@@ -243,7 +243,7 @@ SELECT
   dst.node_type AS tool_type,
   SUM(dst.input_tokens + dst.output_tokens) AS accumulated_tokens
 FROM GRAPH_TABLE(
-  `summitt-gcp.GRAPH_DATASET.agent_trace_graph`
+  `my-project.GRAPH_DATASET.agent_trace_graph`
   MATCH (src:Span)-[:ParentOf]->{1,10}(dst:Span)
   WHERE src.node_type = 'Agent'
   COLUMNS (src.node_label, dst.node_label, dst.node_type, dst.input_tokens, dst.output_tokens)

@@ -48,7 +48,7 @@ class LogRepository {
     String? projectId,
   }) async {
     final filter =
-        'trace="projects/${projectId ?? 'summitt-gcp'}/traces/$traceId" AND spanId="$spanId"';
+        'trace="projects/${projectId ?? 'my-project'}/traces/$traceId" AND spanId="$spanId"';
     final data = await queryLogs(filter: filter, projectId: projectId);
     return data.entries;
   }

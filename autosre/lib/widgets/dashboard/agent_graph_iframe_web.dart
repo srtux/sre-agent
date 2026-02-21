@@ -24,8 +24,8 @@ class _AgentGraphIframePanelState extends State<AgentGraphIframePanel> {
   void initState() {
     super.initState();
     _currentProjectId =
-        ProjectService.instance.selectedProjectId ?? 'summitt-gcp';
-    if (_currentProjectId.isEmpty) _currentProjectId = 'summitt-gcp';
+        ProjectService.instance.selectedProjectId ?? 'my-project';
+    if (_currentProjectId.isEmpty) _currentProjectId = 'my-project';
     _viewId = 'agent-graph-iframe-${DateTime.now().millisecondsSinceEpoch}';
 
     final String baseUrl = kDebugMode ? 'http://localhost:5174' : '';
@@ -64,7 +64,7 @@ class _AgentGraphIframePanelState extends State<AgentGraphIframePanel> {
         builder: (context, project, child) {
           final newProject = project?.projectId.isNotEmpty == true
               ? project!.projectId
-              : 'summitt-gcp';
+              : 'my-project';
           // Schedule URL update after the build phase
           WidgetsBinding.instance.addPostFrameCallback((_) {
             _updateIframeSrc(newProject);
