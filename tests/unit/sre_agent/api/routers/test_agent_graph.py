@@ -766,7 +766,7 @@ class TestNodeDetailEndpoint:
             params={"project_id": "test-project"},
         )
         assert resp.status_code == 500
-        assert "server logs" in resp.json()["detail"].lower()
+        assert "bq timeout" in resp.json()["detail"].lower()
 
 
 class TestEdgeDetailEndpoint:
@@ -911,7 +911,7 @@ class TestEdgeDetailEndpoint:
             params={"project_id": "test-project"},
         )
         assert resp.status_code == 500
-        assert "server logs" in resp.json()["detail"].lower()
+        assert "network error" in resp.json()["detail"].lower()
 
 
 class TestRouterConfiguration:
