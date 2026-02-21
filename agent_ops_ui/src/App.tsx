@@ -147,8 +147,6 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
   const [loadingSankey, setLoadingSankey] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [needsSetup, setNeedsSetup] = useState(false)
-  const [settingUp, setSettingUp] = useState(false)
-  const [setupError, setSetupError] = useState<string | null>(null)
   const [autoRefresh, setAutoRefresh] = useState<AutoRefreshConfig>({
     enabled: false,
     intervalSeconds: 60,
@@ -268,32 +266,18 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
     }
   }, [filters.projectId, serviceName, fetchAll])
 
-  const handleSetup = async (dataset: string, setupServiceName: string) => {
-    setSettingUp(true)
-    setSetupError(null)
-    try {
-      await axios.post('/api/v1/graph/setup', {
-        project_id: filters.projectId,
-        trace_dataset: dataset,
-        service_name: setupServiceName
-      })
-      localStorage.setItem('agent_graph_project_id', filters.projectId)
-      localStorage.setItem('agent_graph_trace_dataset', dataset)
-      localStorage.setItem('agent_graph_service_name', setupServiceName)
+  const handleSetupDone = async (dataset: string, setupServiceName: string) => {
+    localStorage.setItem('agent_graph_project_id', filters.projectId)
+    localStorage.setItem('agent_graph_trace_dataset', dataset)
+    localStorage.setItem('agent_graph_service_name', setupServiceName)
 
-      setFilters(prev => ({
-        ...prev,
-        traceDataset: dataset,
-      }))
-      setServiceName(setupServiceName)
-      setNeedsSetup(false)
-      // fetchAll is triggered by serviceName dependency effect
-    } catch (err) {
-      const axiosErr = err as import('axios').AxiosError<{ detail?: string }>
-      setSetupError(axiosErr?.response?.data?.detail || String(err))
-    } finally {
-      setSettingUp(false)
-    }
+    setFilters(prev => ({
+      ...prev,
+      traceDataset: dataset,
+    }))
+    setServiceName(setupServiceName)
+    setNeedsSetup(false)
+    // fetchAll is triggered by serviceName dependency effect
   }
 
   // Auto-refresh timer
@@ -357,9 +341,9 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
         {needsSetup ? (
           <Onboarding
             projectId={filters.projectId}
-            onSetup={handleSetup}
-            loading={settingUp}
-            error={setupError}
+            onSetup={handleSetupDone}
+            loading={loadingTopology}
+            error={error}
           />
         ) : (
             <div style={{ display: 'flex', flex: 1, position: 'relative', overflow: 'hidden' }}>
