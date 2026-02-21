@@ -19,10 +19,13 @@ import {
   ArrowRight,
   ChevronDown,
   ChevronRight,
-  Clock
+  Clock,
+  ExternalLink,
+  X,
+  List,
+  Code,
+  FileText
 } from 'lucide-react'
-
-SyntaxHighlighter.registerLanguage('json', json)
 SyntaxHighlighter.registerLanguage('sql', sql)
 
 interface SidePanelProps {
@@ -393,6 +396,31 @@ function NodeDetailView({
             {detail.nodeType === 'llm' ? 'Model' : (detail.nodeType.charAt(0).toUpperCase() + detail.nodeType.slice(1))}
           </div>
         </div>
+        {(detail.nodeType === 'agent' || detail.nodeType === 'sub_agent') && (
+          <button
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              background: 'rgba(6, 182, 212, 0.1)',
+              border: '1px solid rgba(6, 182, 212, 0.3)',
+              borderRadius: '6px',
+              color: '#06B6D4',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              height: 'fit-content',
+            }}
+            onClick={() => {
+              // Open Cloud Trace or whatever is the traces route
+              window.open(`https://console.cloud.google.com/traces/list?project=${projectId}`, '_blank')
+            }}
+          >
+            <ExternalLink size={14} />
+            View Traces
+          </button>
+        )}
       </div>
 
       <div style={styles.highlightBlock}>

@@ -5,6 +5,7 @@ import TrajectorySankey from './components/TrajectorySankey'
 import SidePanel from './components/SidePanel'
 import GraphToolbar from './components/GraphToolbar'
 import Onboarding from './components/Onboarding'
+import { AgentProvider, useAgentContext } from './contexts/AgentContext'
 import type {
   TopologyResponse,
   SankeyResponse,
@@ -32,7 +33,7 @@ function parseTimeRange(raw: string): number | null {
 function buildSearchParams(
   filters: GraphFilters,
   selected: SelectedElement | null,
-  activeTab: Tab,
+  activeTab: Tab
 ): URLSearchParams {
   const params = new URLSearchParams()
 
@@ -133,15 +134,11 @@ const styles: Record<string, React.CSSProperties> = {
   },
 }
 
-function App() {
-  const [activeTab, setActiveTab] = useState<Tab>('agents')
-  const [filters, setFilters] = useState<GraphFilters>({
-    projectId: localStorage.getItem('agent_graph_project_id') || '',
-    hours: 24,
-    errorsOnly: false,
-    traceDataset: localStorage.getItem('agent_graph_trace_dataset') || 'traces',
-    serviceName: localStorage.getItem('agent_graph_service_name') || 'sre-agent',
-  })
+function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
+  activeTab: Tab, setActiveTab: React.Dispatch<React.SetStateAction<Tab>>,
+  filters: GraphFilters, setFilters: React.Dispatch<React.SetStateAction<GraphFilters>>
+}) {
+  const { serviceName, setServiceName } = useAgentContext()
   const [selected, setSelected] = useState<SelectedElement | null>(null)
   const [topologyData, setTopologyData] = useState<TopologyResponse | null>(null)
   const [sankeyData, setSankeyData] = useState<SankeyResponse | null>(null)
@@ -158,41 +155,6 @@ function App() {
   })
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
-  // --- URL deep linking: parse on mount ---
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-
-    const urlProjectId = params.get('project_id')
-    const urlTimeRange = params.get('time_range')
-    const urlNode = params.get('node')
-    const urlTraceId = params.get('trace_id')
-    const urlTab = params.get('tab')
-
-    let hours = 1
-    if (urlTimeRange) {
-      const parsed = parseTimeRange(urlTimeRange)
-      if (parsed !== null) {
-        hours = parsed
-      }
-    }
-
-    setFilters((prev) => ({
-      ...prev,
-      projectId: urlProjectId ?? prev.projectId,
-      hours,
-    }))
-
-    if (urlNode) {
-      setSelected({ kind: 'node', id: urlNode })
-    }
-
-    if (urlTraceId) {
-      setActiveTab('trajectory')
-    } else if (urlTab === 'topology' || urlTab === 'trajectory') {
-      setActiveTab(urlTab as Tab)
-    }
-  }, [])
-
   // --- URL deep linking: sync state back to URL ---
   useEffect(() => {
     const params = buildSearchParams(filters, selected, activeTab)
@@ -200,8 +162,17 @@ function App() {
     window.history.replaceState(null, '', newUrl)
   }, [filters, selected, activeTab])
 
+  // --- Initial URL parsing for selected node ---
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const urlNode = params.get('node')
+    if (urlNode) {
+      setSelected({ kind: 'node', id: urlNode })
+    }
+  }, [])
+
   const fetchAll = useCallback(async (isSilent: boolean) => {
-    if (!filters.projectId.trim()) return
+    if (!filters.projectId.trim() || !serviceName.trim()) return
 
     if (!isSilent) {
       setSelected(null)
@@ -215,7 +186,7 @@ function App() {
       hours: filters.hours,
       errors_only: filters.errorsOnly,
       trace_dataset: filters.traceDataset,
-      service_name: filters.serviceName,
+      service_name: serviceName.trim(),
     }
 
     try {
@@ -282,39 +253,41 @@ function App() {
       setLoadingTopology(false)
       setLoadingSankey(false)
     }
-  }, [filters, activeTab])
+  }, [filters, activeTab, serviceName])
 
   const handleLoad = useCallback(() => fetchAll(false), [fetchAll])
 
-  // Auto-load on initial project_id
+  // Auto-load on initial project_id and serviceName change
   const [hasAutoLoaded, setHasAutoLoaded] = useState(false)
   useEffect(() => {
-    if (filters.projectId && !hasAutoLoaded) {
+    if (filters.projectId && serviceName && !hasAutoLoaded) {
       setHasAutoLoaded(true)
+    }
+    if (filters.projectId && serviceName) {
       fetchAll(false)
     }
-  }, [filters.projectId, hasAutoLoaded, fetchAll])
+  }, [filters.projectId, serviceName, fetchAll])
 
-  const handleSetup = async (dataset: string, serviceName: string) => {
+  const handleSetup = async (dataset: string, setupServiceName: string) => {
     setSettingUp(true)
     setSetupError(null)
     try {
       await axios.post('/api/v1/graph/setup', {
         project_id: filters.projectId,
         trace_dataset: dataset,
-        service_name: serviceName
+        service_name: setupServiceName
       })
       localStorage.setItem('agent_graph_project_id', filters.projectId)
       localStorage.setItem('agent_graph_trace_dataset', dataset)
-      localStorage.setItem('agent_graph_service_name', serviceName)
+      localStorage.setItem('agent_graph_service_name', setupServiceName)
 
       setFilters(prev => ({
         ...prev,
         traceDataset: dataset,
-        serviceName: serviceName
       }))
+      setServiceName(setupServiceName)
       setNeedsSetup(false)
-      fetchAll(false)
+      // fetchAll is triggered by serviceName dependency effect
     } catch (err) {
       const axiosErr = err as import('axios').AxiosError<{ detail?: string }>
       setSetupError(axiosErr?.response?.data?.detail || String(err))
@@ -369,7 +342,7 @@ function App() {
       </div>
 
       <GraphToolbar
-        filters={filters}
+        filters={{ ...filters, serviceName }}
         onChange={setFilters}
         onLoad={handleLoad}
         loading={isLoading}
@@ -393,29 +366,22 @@ function App() {
               <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                 {activeTab === 'agents' && (
                   <RegistryPage
-                    filters={filters}
+                    filters={{ ...filters, serviceName }}
                     mode="agents"
-                    onSelectAgent={(serviceName) => {
-                      setFilters(prev => ({ ...prev, serviceName }))
-                      localStorage.setItem('agent_graph_service_name', serviceName)
+                    onSelectAgent={(name) => {
+                      setServiceName(name)
                       setActiveTab('topology')
-                      // need to trigger a re-fetch with new serviceName
-                      setTimeout(() => fetchAll(false), 0)
                     }}
                   />
                 )}
 
                 {activeTab === 'tools' && (
                   <RegistryPage
-                    filters={filters}
+                    filters={{ ...filters, serviceName }}
                     mode="tools"
-                    onSelectAgent={(serviceName) => {
-                      // Optionally, selecting a tool navigates to topology?
-                      // We can keep the same pattern just mapping serviceName.
-                      setFilters(prev => ({ ...prev, serviceName }))
-                      localStorage.setItem('agent_graph_service_name', serviceName)
+                    onSelectAgent={(name) => {
+                      setServiceName(name)
                       setActiveTab('topology')
-                      setTimeout(() => fetchAll(false), 0)
                     }}
                   />
                 )}
@@ -470,12 +436,63 @@ function App() {
             hours={filters.hours}
                 onClose={() => setSelected(null)}
             sparklineData={timeseriesData}
-                filters={filters}
+                filters={{ ...filters, serviceName }}
           />
         </div>
         )}
       </div>
     </div>
+  )
+}
+
+function App() {
+  const [activeTab, setActiveTab] = useState<Tab>('agents')
+  const [filters, setFilters] = useState<GraphFilters>({
+    projectId: localStorage.getItem('agent_graph_project_id') || '',
+    hours: 24,
+    errorsOnly: false,
+    traceDataset: localStorage.getItem('agent_graph_trace_dataset') || 'traces',
+  })
+
+  // --- URL deep linking: parse on mount ---
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+
+    const urlProjectId = params.get('project_id')
+    const urlTimeRange = params.get('time_range')
+    const urlTraceId = params.get('trace_id')
+    const urlTab = params.get('tab')
+
+    let hours: number | undefined
+    if (urlTimeRange) {
+      const parsed = parseTimeRange(urlTimeRange)
+      if (parsed !== null) {
+        hours = parsed
+      }
+    }
+
+    setFilters((prev) => ({
+      ...prev,
+      ...(urlProjectId && { projectId: urlProjectId }),
+      ...(hours !== undefined && { hours }),
+    }))
+
+    if (urlTraceId) {
+      setActiveTab('trajectory')
+    } else if (urlTab === 'topology' || urlTab === 'trajectory' || urlTab === 'agents' || urlTab === 'tools') {
+      setActiveTab(urlTab as Tab)
+    }
+  }, [])
+
+  return (
+    <AgentProvider projectId={filters.projectId}>
+      <AppContent
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        filters={filters}
+        setFilters={setFilters}
+      />
+    </AgentProvider>
   )
 }
 
