@@ -53,7 +53,7 @@ class InvestigationRail extends StatelessWidget {
               // Dashboards Browser
               _RailItem(
                 icon: Icons.dashboard_customize_outlined,
-                label: 'Dashboard',
+                label: 'Dashboards',
                 color: AppColors.primaryTeal,
                 isActive: false,
                 hasData: false,

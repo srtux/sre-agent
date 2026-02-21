@@ -849,11 +849,15 @@ void main() {
         wrapWithProviders(
           MaterialApp(
             home: Scaffold(
-              body: DashboardPanelWrapper(
-                dashboardState: dashboardState,
-                totalWidth: 1000,
-                isChatOpen: false,
-                onPromptRequest: (_) {},
+              body: Row(
+                children: [
+                  DashboardPanelWrapper(
+                    dashboardState: dashboardState,
+                    totalWidth: 1000,
+                    isChatOpen: false,
+                    onPromptRequest: (_) {},
+                  ),
+                ],
               ),
             ),
           ),
@@ -863,17 +867,13 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      final animatedContainerFinder = find.ancestor(
-        of: find.byType(DashboardPanel),
-        matching: find.byType(AnimatedContainer),
-      );
-      final size = tester.getSize(animatedContainerFinder);
+      final size = tester.getSize(find.byType(DashboardPanel));
 
-      // Should NOT be 600px (which would be 0.6 factor)
+      // Since isChatOpen is false, it uses Expanded and takes the full width (1000px)
       expect(
         size.width,
-        isNot(600.0),
-        reason: 'Dashboard width should not be 60% (old default)',
+        1000.0,
+        reason: 'Dashboard should take full width when chat is closed',
       );
     });
 
@@ -936,11 +936,15 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: DashboardPanelWrapper(
-              dashboardState: dashboardState,
-              totalWidth: 1000,
-              isChatOpen: false,
-              onPromptRequest: (_) {},
+            body: Row(
+              children: [
+                DashboardPanelWrapper(
+                  dashboardState: dashboardState,
+                  totalWidth: 1000,
+                  isChatOpen: false,
+                  onPromptRequest: (_) {},
+                ),
+              ],
             ),
           ),
         ),
