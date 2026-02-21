@@ -7,28 +7,29 @@ set -e
 #
 # See docs/AGENT_GRAPH_SETUP.md for detailed architecture and schema verification.
 
-# Usage: ./scripts/setup_agent_graph_bq.sh <project_id> <trace_dataset> [graph_dataset]
+# Usage: ./scripts/setup_agent_graph_bq.sh [project_id] [trace_dataset] [graph_dataset] [service_name]
 # Sourcing .env if it exists
 if [ -f .env ]; then
   # shellcheck source=.env
   source .env
 fi
 
-# Usage: ./scripts/setup_agent_graph_bq.sh [project_id] [trace_dataset] [graph_dataset]
+# Usage: ./scripts/setup_agent_graph_bq.sh [project_id] [trace_dataset] [graph_dataset] [service_name]
 PROJECT_ID=${1:-${PROJECT_ID}}
 TRACE_DATASET=${2:-${TRACE_DATASET:-traces}}
 GRAPH_DATASET=${3:-${GRAPH_DATASET:-agent_graph}}
 SERVICE_NAME=${4:-${SERVICE_NAME:-sre-agent}}
 
 if [[ -z "$PROJECT_ID" ]]; then
-  echo "Usage: $0 [project_id] [trace_dataset] [graph_dataset]"
+  echo "Usage: $0 [project_id] [trace_dataset] [graph_dataset] [service_name]"
   echo ""
   echo "Arguments (optional if set in .env):"
   echo "  project_id:    The GCP Project ID where traces are stored (e.g. my-project)"
   echo "  trace_dataset: The dataset name containing the _AllSpans table (default: traces)"
   echo "  graph_dataset: The target dataset for the graph objects (default: agent_graph)"
+  echo "  service_name:  The service name emitting traces (default: sre-agent)"
   echo ""
-  echo "Example: $0 my-project traces agent_graph"
+  echo "Example: $0 my-project traces agent_graph sre-agent"
   exit 1
 fi
 
