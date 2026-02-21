@@ -182,8 +182,13 @@ void main() {
     expect(find.text('Related Attributes'), findsOneWidget);
 
     // SelectableText creates an EditableText child, so find.text might not spot it reliably in some configs
-    final selectableTexts = tester.widgetList<SelectableText>(find.byType(SelectableText));
-    expect(selectableTexts.any((st) => st.data == 'gen_ai.request.model'), isTrue);
+    final selectableTexts = tester.widgetList<SelectableText>(
+      find.byType(SelectableText),
+    );
+    expect(
+      selectableTexts.any((st) => st.data == 'gen_ai.request.model'),
+      isTrue,
+    );
     expect(selectableTexts.any((st) => st.data == 'gemini-2.5-flash'), isTrue);
   });
 

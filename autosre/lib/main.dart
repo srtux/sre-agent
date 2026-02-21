@@ -6,11 +6,7 @@ import 'app.dart';
 void main() {
   runZonedGuarded(
     () {
-      runApp(
-        const ProviderScope(
-          child: SreNexusApp(),
-        ),
-      );
+      runApp(const ProviderScope(child: SreNexusApp()));
     },
     (error, stack) {
       debugPrint('🔥 CRITICAL ERROR IN MAIN: $error');

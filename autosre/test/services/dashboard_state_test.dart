@@ -154,7 +154,6 @@ void main() {
       expect(state.items.first.alertData, data);
     });
 
-
     test('addChart adds a chart item', () {
       final data = VegaChartData(question: 'Q', answer: 'A');
       state.addChart(data, 'query', {});
@@ -449,7 +448,6 @@ void main() {
       });
       expect(result, isFalse);
     });
-
 
     test('auto-opens dashboard on first data', () {
       expect(state.isOpen, isFalse);

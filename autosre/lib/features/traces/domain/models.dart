@@ -19,7 +19,8 @@ abstract class SpanInfo with _$SpanInfo {
     @JsonKey(name: 'parent_span_id') String? parentSpanId,
   }) = _SpanInfo;
 
-  factory SpanInfo.fromJson(Map<String, dynamic> json) => _$SpanInfoFromJson(json);
+  factory SpanInfo.fromJson(Map<String, dynamic> json) =>
+      _$SpanInfoFromJson(json);
 
   Duration get duration => endTime.difference(startTime);
 }

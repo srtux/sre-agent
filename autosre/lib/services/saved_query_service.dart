@@ -43,14 +43,14 @@ class QueryEntry {
   }
 
   Map<String, dynamic> toJson() => {
-        if (id != null) 'id': id,
-        'query': query,
-        'panel_type': panelType,
-        'language': language,
-        if (name != null) 'name': name,
-        if (timestamp != null) 'timestamp': timestamp,
-        if (createdAt != null) 'created_at': createdAt,
-      };
+    if (id != null) 'id': id,
+    'query': query,
+    'panel_type': panelType,
+    'language': language,
+    if (name != null) 'name': name,
+    if (timestamp != null) 'timestamp': timestamp,
+    if (createdAt != null) 'created_at': createdAt,
+  };
 }
 
 /// Service for managing recent and saved explorer queries via the backend API.
@@ -59,8 +59,7 @@ class QueryEntry {
 /// keep data up to date.
 class SavedQueryService extends ChangeNotifier {
   static SavedQueryService? _mockInstance;
-  static SavedQueryService get instance =>
-      _mockInstance ?? _internalInstance;
+  static SavedQueryService get instance => _mockInstance ?? _internalInstance;
   static final SavedQueryService _internalInstance =
       SavedQueryService._internal();
 
@@ -195,8 +194,9 @@ class SavedQueryService extends ChangeNotifier {
       });
       if (response.statusCode == 200) {
         final data = await AppIsolate.run(_parseJsonMap, response.body);
-        final entry =
-            QueryEntry.fromJson(data['query'] as Map<String, dynamic>);
+        final entry = QueryEntry.fromJson(
+          data['query'] as Map<String, dynamic>,
+        );
         // Update local cache
         final cached = _savedCache[panelType] ?? [];
         cached.insert(0, entry);
@@ -219,8 +219,7 @@ class SavedQueryService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final uri =
-          Uri.parse('$_baseUrl/api/preferences/queries/saved/$queryId');
+      final uri = Uri.parse('$_baseUrl/api/preferences/queries/saved/$queryId');
       await _authedDelete(uri);
     } catch (e) {
       debugPrint('SavedQueryService.deleteSavedQuery error: $e');
@@ -235,11 +234,12 @@ class SavedQueryService extends ChangeNotifier {
 
   Future<http.Response> _authedGet(Uri uri) async {
     final headers = await AuthService.instance.getAuthHeaders();
-    return http.get(uri, headers: headers).timeout(ServiceConfig.defaultTimeout);
+    return http
+        .get(uri, headers: headers)
+        .timeout(ServiceConfig.defaultTimeout);
   }
 
-  Future<http.Response> _authedPost(
-      Uri uri, Map<String, dynamic> body) async {
+  Future<http.Response> _authedPost(Uri uri, Map<String, dynamic> body) async {
     final headers = await AuthService.instance.getAuthHeaders();
     headers['Content-Type'] = 'application/json';
     return http

@@ -292,8 +292,10 @@ class _CustomDashboardPanelState extends State<CustomDashboardPanel>
               ),
               const SizedBox(width: 8),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.primaryCyan.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(6),
@@ -315,8 +317,7 @@ class _CustomDashboardPanelState extends State<CustomDashboardPanel>
   }
 
   Future<void> _provisionTemplate(DashboardTemplateSummary template) async {
-    final result =
-        await widget.templateService.provisionTemplate(template.id);
+    final result = await widget.templateService.provisionTemplate(template.id);
     if (result != null && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -364,8 +365,10 @@ class _CustomDashboardPanelState extends State<CustomDashboardPanel>
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
               ),
             ),
           ),
@@ -383,8 +386,7 @@ class _CustomDashboardPanelState extends State<CustomDashboardPanel>
                   ),
                 )
               : ListView.builder(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   itemCount: dashboards.length,
                   itemBuilder: (context, index) {
                     final dash = dashboards[index];
@@ -482,10 +484,7 @@ class _CustomDashboardPanelState extends State<CustomDashboardPanel>
         color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(4),
       ),
-      child: Text(
-        text,
-        style: GoogleFonts.inter(fontSize: 10, color: color),
-      ),
+      child: Text(text, style: GoogleFonts.inter(fontSize: 10, color: color)),
     );
   }
 
@@ -623,8 +622,11 @@ class _CustomDashboardPanelState extends State<CustomDashboardPanel>
           _buildSectionHeader('Panel Configuration'),
           const SizedBox(height: 8),
           _buildFormField('Title', _panelTitleController, 'My Custom Panel'),
-          _buildFormField('Description', _descriptionController,
-              'Optional description'),
+          _buildFormField(
+            'Description',
+            _descriptionController,
+            'Optional description',
+          ),
           const SizedBox(height: 8),
           if (_panelType == 'metric') ..._buildMetricFields(),
           if (_panelType == 'log') ..._buildLogFields(),
@@ -636,14 +638,13 @@ class _CustomDashboardPanelState extends State<CustomDashboardPanel>
             child: FilledButton.icon(
               onPressed: _addPanel,
               icon: const Icon(Icons.add, size: 16),
-              label: Text(
-                'Add Panel',
-                style: GoogleFonts.inter(fontSize: 12),
-              ),
+              label: Text('Add Panel', style: GoogleFonts.inter(fontSize: 12)),
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.primaryCyan,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -670,14 +671,21 @@ class _CustomDashboardPanelState extends State<CustomDashboardPanel>
   Widget _buildPanelTypeSelector() {
     return Row(
       children: [
-        _buildTypeChip('Metric', 'metric', Icons.show_chart_rounded,
-            AppColors.warning),
+        _buildTypeChip(
+          'Metric',
+          'metric',
+          Icons.show_chart_rounded,
+          AppColors.warning,
+        ),
+        const SizedBox(width: 6),
+        _buildTypeChip('Log', 'log', Icons.article_outlined, AppColors.success),
         const SizedBox(width: 6),
         _buildTypeChip(
-            'Log', 'log', Icons.article_outlined, AppColors.success),
-        const SizedBox(width: 6),
-        _buildTypeChip(
-            'Trace', 'trace', Icons.alt_route_rounded, AppColors.primaryCyan),
+          'Trace',
+          'trace',
+          Icons.alt_route_rounded,
+          AppColors.primaryCyan,
+        ),
       ],
     );
   }
@@ -708,8 +716,11 @@ class _CustomDashboardPanelState extends State<CustomDashboardPanel>
           ),
           child: Column(
             children: [
-              Icon(icon, color: isSelected ? color : AppColors.textMuted,
-                  size: 18),
+              Icon(
+                icon,
+                color: isSelected ? color : AppColors.textMuted,
+                size: 18,
+              ),
               const SizedBox(height: 4),
               Text(
                 label,
@@ -735,24 +746,28 @@ class _CustomDashboardPanelState extends State<CustomDashboardPanel>
       padding: const EdgeInsets.only(bottom: 10),
       child: TextField(
         controller: controller,
-        style: GoogleFonts.inter(
-          fontSize: 12,
-          color: AppColors.textPrimary,
-        ),
+        style: GoogleFonts.inter(fontSize: 12, color: AppColors.textPrimary),
         decoration: InputDecoration(
           labelText: label,
           hintText: hint,
-          labelStyle:
-              GoogleFonts.inter(fontSize: 11, color: AppColors.textMuted),
-          hintStyle:
-              GoogleFonts.inter(fontSize: 11, color: AppColors.textMuted),
+          labelStyle: GoogleFonts.inter(
+            fontSize: 11,
+            color: AppColors.textMuted,
+          ),
+          hintStyle: GoogleFonts.inter(
+            fontSize: 11,
+            color: AppColors.textMuted,
+          ),
           isDense: true,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: 10,
+          ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(6),
             borderSide: BorderSide(
-                color: AppColors.surfaceBorder.withValues(alpha: 0.4)),
+              color: AppColors.surfaceBorder.withValues(alpha: 0.4),
+            ),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(6),

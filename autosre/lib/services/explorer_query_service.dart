@@ -71,7 +71,6 @@ List<Map<String, dynamic>> _parseTableSchema(String body) {
   return items?.map((e) => Map<String, dynamic>.from(e as Map)).toList() ?? [];
 }
 
-
 /// Service for executing manual telemetry queries from the explorer UI.
 ///
 /// Calls backend API endpoints directly and feeds results into [DashboardState]
@@ -157,8 +156,7 @@ class ExplorerQueryService {
       if (isCursorPage) {
         // Cursor-based pagination: tell the backend where to continue from.
         // Do NOT send minutes_ago — the cursor is the time boundary.
-        payload['cursor_timestamp'] =
-            cursorTimestamp.toUtc().toIso8601String();
+        payload['cursor_timestamp'] = cursorTimestamp.toUtc().toIso8601String();
         if (cursorInsertId != null) {
           payload['cursor_insert_id'] = cursorInsertId;
         }
@@ -283,7 +281,8 @@ class ExplorerQueryService {
     String? projectId,
   }) async {
     try {
-      final filter = 'trace="projects/${projectId ?? 'summitt-gcp'}/traces/$traceId" AND spanId="$spanId"';
+      final filter =
+          'trace="projects/${projectId ?? 'summitt-gcp'}/traces/$traceId" AND spanId="$spanId"';
       final payload = <String, dynamic>{
         'filter': filter,
         'project_id': projectId,
@@ -533,7 +532,10 @@ class ExplorerQueryService {
         '/api/tools/bigquery/datasets',
         projectId: projectId,
       );
-      return await AppIsolate.run(_parseStringList, {'body': response.body, 'key': 'datasets'});
+      return await AppIsolate.run(_parseStringList, {
+        'body': response.body,
+        'key': 'datasets',
+      });
     } catch (e) {
       debugPrint('ExplorerQueryService.getDatasets error: $e');
       return [];
@@ -546,7 +548,10 @@ class ExplorerQueryService {
         '/api/tools/logs/names',
         projectId: projectId,
       );
-      return await AppIsolate.run(_parseStringList, {'body': response.body, 'key': 'logs'});
+      return await AppIsolate.run(_parseStringList, {
+        'body': response.body,
+        'key': 'logs',
+      });
     } catch (e) {
       debugPrint('ExplorerQueryService.getLogNames error: $e');
       return [];
@@ -577,7 +582,10 @@ class ExplorerQueryService {
         '/api/tools/bigquery/datasets/${Uri.encodeComponent(datasetId)}/tables',
         projectId: projectId,
       );
-      return await AppIsolate.run(_parseStringList, {'body': response.body, 'key': 'tables'});
+      return await AppIsolate.run(_parseStringList, {
+        'body': response.body,
+        'key': 'tables',
+      });
     } catch (e) {
       debugPrint('ExplorerQueryService.getTables error: $e');
       return [];
@@ -612,7 +620,10 @@ class ExplorerQueryService {
         '/api/tools/bigquery/datasets/${Uri.encodeComponent(datasetId)}/tables/${Uri.encodeComponent(tableId)}/columns/${Uri.encodeComponent(columnName)}/json-keys',
         projectId: projectId,
       );
-      return await AppIsolate.run(_parseStringList, {'body': response.body, 'key': 'keys'});
+      return await AppIsolate.run(_parseStringList, {
+        'body': response.body,
+        'key': 'keys',
+      });
     } catch (e) {
       debugPrint('ExplorerQueryService.getJsonKeys error: $e');
       return [];

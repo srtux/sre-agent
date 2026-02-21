@@ -34,8 +34,10 @@ class DashboardTemplateSummary {
       description: json['description'] as String? ?? '',
       service: json['service'] as String? ?? '',
       panelCount: json['panel_count'] as int? ?? 0,
-      labels: (json['labels'] as Map<String, dynamic>?)
-              ?.map((k, v) => MapEntry(k, v.toString())) ??
+      labels:
+          (json['labels'] as Map<String, dynamic>?)?.map(
+            (k, v) => MapEntry(k, v.toString()),
+          ) ??
           {},
     );
   }
@@ -66,8 +68,10 @@ class DashboardSummary {
       description: json['description'] as String? ?? '',
       source: json['source'] as String? ?? 'local',
       panelCount: json['panel_count'] as int? ?? 0,
-      labels: (json['labels'] as Map<String, dynamic>?)
-              ?.map((k, v) => MapEntry(k, v.toString())) ??
+      labels:
+          (json['labels'] as Map<String, dynamic>?)?.map(
+            (k, v) => MapEntry(k, v.toString()),
+          ) ??
           {},
     );
   }
@@ -84,8 +88,7 @@ class DashboardTemplateService extends ChangeNotifier {
   final http.Client _client;
 
   List<DashboardTemplateSummary> _templates = [];
-  List<DashboardTemplateSummary> get templates =>
-      List.unmodifiable(_templates);
+  List<DashboardTemplateSummary> get templates => List.unmodifiable(_templates);
 
   List<DashboardSummary> _dashboards = [];
   List<DashboardSummary> get dashboards => List.unmodifiable(_dashboards);
@@ -101,7 +104,7 @@ class DashboardTemplateService extends ChangeNotifier {
   String? get selectedDashboardId => _selectedDashboardId;
 
   DashboardTemplateService({http.Client? client})
-      : _client = client ?? http.Client();
+    : _client = client ?? http.Client();
 
   String get _baseUrl => '${ServiceConfig.baseUrl}/api/dashboards';
 
@@ -184,11 +187,9 @@ class DashboardTemplateService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final uri = Uri.parse(_baseUrl).replace(
-        queryParameters: {
-          'include_cloud': includeCloud.toString(),
-        },
-      );
+      final uri = Uri.parse(
+        _baseUrl,
+      ).replace(queryParameters: {'include_cloud': includeCloud.toString()});
       final response = await _client
           .get(uri)
           .timeout(ServiceConfig.defaultTimeout);

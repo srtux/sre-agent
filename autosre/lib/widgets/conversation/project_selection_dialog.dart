@@ -175,8 +175,9 @@ class _ProjectSelectionDialogState extends State<ProjectSelectionDialog> {
                         return _ProjectTile(
                           project: project,
                           onTap: () {
-                            widget.projectService
-                                .selectProjectInstance(project);
+                            widget.projectService.selectProjectInstance(
+                              project,
+                            );
                             widget.onProjectSelected();
                             Navigator.of(context).pop();
                           },

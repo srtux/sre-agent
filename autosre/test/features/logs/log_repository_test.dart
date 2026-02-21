@@ -37,17 +37,19 @@ class MockDio extends Fake implements Dio {
     }
 
     return Response<T>(
-      data: {
-        'entries': [
+      data:
           {
-            'insert_id': '1',
-            'timestamp': '2026-02-16T00:00:00Z',
-            'severity': 'INFO',
-            'payload': 'Test log',
-          }
-        ],
-        'next_page_token': 'token123',
-      } as T,
+                'entries': [
+                  {
+                    'insert_id': '1',
+                    'timestamp': '2026-02-16T00:00:00Z',
+                    'severity': 'INFO',
+                    'payload': 'Test log',
+                  },
+                ],
+                'next_page_token': 'token123',
+              }
+              as T,
       statusCode: 200,
       requestOptions: RequestOptions(path: path),
     );
@@ -101,10 +103,7 @@ void main() {
     });
 
     test('queryLogs sends minutes_ago when no cursor provided', () async {
-      await repository.queryLogs(
-        filter: 'severity=ERROR',
-        minutesAgo: 30,
-      );
+      await repository.queryLogs(filter: 'severity=ERROR', minutesAgo: 30);
 
       expect(mockDio.lastParams?['minutes_ago'], 30);
       expect(mockDio.lastParams?.containsKey('cursor_timestamp'), false);

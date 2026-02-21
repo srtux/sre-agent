@@ -331,7 +331,10 @@ class _LogPatternViewerState extends State<LogPatternViewer>
             Expanded(
               child: TextField(
                 controller: _searchController,
-                onChanged: (value) { _invalidateCache(); setState(() => _searchQuery = value); },
+                onChanged: (value) {
+                  _invalidateCache();
+                  setState(() => _searchQuery = value);
+                },
                 style: const TextStyle(
                   fontSize: 13,
                   color: AppColors.textPrimary,
@@ -400,7 +403,10 @@ class _LogPatternViewerState extends State<LogPatternViewer>
         : AppColors.primaryTeal;
 
     return GestureDetector(
-      onTap: () { _invalidateCache(); setState(() => _filterSeverity = severity); },
+      onTap: () {
+        _invalidateCache();
+        setState(() => _filterSeverity = severity);
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(

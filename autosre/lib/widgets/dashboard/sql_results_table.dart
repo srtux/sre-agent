@@ -53,10 +53,7 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
 
     try {
       _ProcessRowsResult result;
-      final args = _ProcessRowsArgs(
-        columns: widget.columns,
-        rows: widget.rows,
-      );
+      final args = _ProcessRowsArgs(columns: widget.columns, rows: widget.rows);
 
       // Avoid isolate overhead for small datasets (also bypasses compute in widget tests)
       if (widget.rows.length < 500) {
@@ -196,7 +193,11 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: SizedBox(
-                  width: allColumns.fold(0.0, (sum, col) => (sum as double) + (_columnWidths[col] ?? 150.0)),
+                  width: allColumns.fold(
+                    0.0,
+                    (sum, col) =>
+                        (sum as double) + (_columnWidths[col] ?? 150.0),
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -205,8 +206,13 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
                         child: ListView.builder(
                           itemCount: pagedRows.length,
                           itemBuilder: (context, index) {
-                            final actualIndex = _currentPage * _pageSize + index;
-                            return _buildRow(pagedRows[index], actualIndex, allColumns);
+                            final actualIndex =
+                                _currentPage * _pageSize + index;
+                            return _buildRow(
+                              pagedRows[index],
+                              actualIndex,
+                              allColumns,
+                            );
                           },
                         ),
                       ),
@@ -276,7 +282,9 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
             icon: const Icon(Icons.chevron_left, size: 16),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
-            color: _currentPage > 0 ? AppColors.textPrimary : AppColors.textMuted,
+            color: _currentPage > 0
+                ? AppColors.textPrimary
+                : AppColors.textMuted,
             onPressed: _currentPage > 0
                 ? () => setState(() => _currentPage--)
                 : null,
@@ -454,10 +462,7 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
                         _columnWidths[col] = newWidth.clamp(30.0, 800.0);
                       });
                     },
-                    child: Container(
-                      width: 4,
-                      color: Colors.transparent,
-                    ),
+                    child: Container(width: 4, color: Colors.transparent),
                   ),
                 ),
               ],
@@ -638,9 +643,7 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
     }
     try {
       // Data is already pre-decoded by isolate
-      final map = val is Map<String, dynamic>
-          ? val
-          : {'data': val};
+      final map = val is Map<String, dynamic> ? val : {'data': val};
 
       return JsonPayloadViewer(
         json: map,
@@ -661,39 +664,41 @@ class _SqlResultsTableState extends State<SqlResultsTable> {
   }
 
   String _formatValue(dynamic val, _ColumnType colType, {bool compact = true}) {
-  if (val == null) return 'NULL';
+    if (val == null) return 'NULL';
 
-  if (colType == _ColumnType.timestamp) {
-    DateTime? dt;
-    final numVal = val is num ? val.toDouble() : double.tryParse(val.toString());
+    if (colType == _ColumnType.timestamp) {
+      DateTime? dt;
+      final numVal = val is num
+          ? val.toDouble()
+          : double.tryParse(val.toString());
 
-    if (numVal != null) {
-      // Auto-detect precision based on magnitude
-      if (numVal > 1e16) {
-        // nanoseconds
-        dt = DateTime.fromMillisecondsSinceEpoch(numVal ~/ 1e6);
-      } else if (numVal > 1e14) {
-        // microseconds
-        dt = DateTime.fromMillisecondsSinceEpoch(numVal ~/ 1e3);
-      } else if (numVal > 1e11) {
-        // milliseconds
-        dt = DateTime.fromMillisecondsSinceEpoch(numVal.toInt());
+      if (numVal != null) {
+        // Auto-detect precision based on magnitude
+        if (numVal > 1e16) {
+          // nanoseconds
+          dt = DateTime.fromMillisecondsSinceEpoch(numVal ~/ 1e6);
+        } else if (numVal > 1e14) {
+          // microseconds
+          dt = DateTime.fromMillisecondsSinceEpoch(numVal ~/ 1e3);
+        } else if (numVal > 1e11) {
+          // milliseconds
+          dt = DateTime.fromMillisecondsSinceEpoch(numVal.toInt());
+        } else {
+          // seconds
+          dt = DateTime.fromMillisecondsSinceEpoch((numVal * 1000).toInt());
+        }
       } else {
-        // seconds
-        dt = DateTime.fromMillisecondsSinceEpoch((numVal * 1000).toInt());
+        dt = DateTime.tryParse(val.toString());
       }
-    } else {
-      dt = DateTime.tryParse(val.toString());
+      if (dt != null) {
+        final loc = dt.toLocal();
+        return '${loc.year}-${loc.month.toString().padLeft(2, '0')}-${loc.day.toString().padLeft(2, '0')} '
+            '${loc.hour.toString().padLeft(2, '0')}:${loc.minute.toString().padLeft(2, '0')}:${loc.second.toString().padLeft(2, '0')}';
+      }
     }
-    if (dt != null) {
-      final loc = dt.toLocal();
-      return '${loc.year}-${loc.month.toString().padLeft(2, '0')}-${loc.day.toString().padLeft(2, '0')} '
-          '${loc.hour.toString().padLeft(2, '0')}:${loc.minute.toString().padLeft(2, '0')}:${loc.second.toString().padLeft(2, '0')}';
-    }
-  }
 
-  if (val is double) {
-    if (val == val.roundToDouble() && val.abs() < 1e15) {
+    if (val is double) {
+      if (val == val.roundToDouble() && val.abs() < 1e15) {
         return _formatNumber(val.toInt());
       }
       return val.toStringAsFixed(4);
@@ -784,7 +789,10 @@ class _ProcessRowsArgs {
 class _ProcessRowsResult {
   final Map<String, _ColumnType> columnTypes;
   final List<Map<String, dynamic>> processedRows;
-  const _ProcessRowsResult({required this.columnTypes, required this.processedRows});
+  const _ProcessRowsResult({
+    required this.columnTypes,
+    required this.processedRows,
+  });
 }
 
 class _ProcessRowsTask {
@@ -814,7 +822,9 @@ class _ProcessRowsTask {
           final parsedDouble = double.tryParse(s);
           if (parsedDouble != null) {
             final colLower = col.toLowerCase();
-            if ((colLower.contains('time') || colLower.contains('date') || colLower.contains('timestamp')) &&
+            if ((colLower.contains('time') ||
+                    colLower.contains('date') ||
+                    colLower.contains('timestamp')) &&
                 parsedDouble > 1000000000) {
               detected = _ColumnType.timestamp;
             } else {
@@ -855,9 +865,6 @@ class _ProcessRowsTask {
       processedRows.add(processedRow);
     }
 
-    return _ProcessRowsResult(
-      columnTypes: types,
-      processedRows: processedRows,
-    );
+    return _ProcessRowsResult(columnTypes: types, processedRows: processedRows);
   }
 }

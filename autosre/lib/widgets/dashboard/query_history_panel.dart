@@ -139,10 +139,7 @@ class _QueryHistoryPanelState extends State<QueryHistoryPanel>
               Flexible(
                 child: TabBarView(
                   controller: _tabController,
-                  children: [
-                    _buildRecentTab(),
-                    _buildSavedTab(),
-                  ],
+                  children: [_buildRecentTab(), _buildSavedTab()],
                 ),
               ),
           ],
@@ -159,7 +156,11 @@ class _QueryHistoryPanelState extends State<QueryHistoryPanel>
           padding: const EdgeInsets.fromLTRB(16, 10, 8, 0),
           child: Row(
             children: [
-              const Icon(Icons.history_rounded, size: 16, color: AppColors.primaryCyan),
+              const Icon(
+                Icons.history_rounded,
+                size: 16,
+                color: AppColors.primaryCyan,
+              ),
               const SizedBox(width: 8),
               Text(
                 'Query History',
@@ -178,7 +179,10 @@ class _QueryHistoryPanelState extends State<QueryHistoryPanel>
                     icon: const Icon(Icons.bookmark_add_outlined, size: 16),
                     color: AppColors.warning,
                     onPressed: () => _showSaveDialogFor(widget.currentQuery),
-                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
                     padding: EdgeInsets.zero,
                   ),
                 ),
@@ -196,7 +200,10 @@ class _QueryHistoryPanelState extends State<QueryHistoryPanel>
           controller: _tabController,
           labelColor: AppColors.primaryCyan,
           unselectedLabelColor: AppColors.textMuted,
-          labelStyle: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600),
+          labelStyle: GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
           unselectedLabelStyle: GoogleFonts.inter(fontSize: 12),
           indicatorColor: AppColors.primaryCyan,
           indicatorSize: TabBarIndicatorSize.label,
@@ -251,9 +258,7 @@ class _QueryHistoryPanelState extends State<QueryHistoryPanel>
       decoration: BoxDecoration(
         color: AppColors.backgroundDark,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: AppColors.warning.withValues(alpha: 0.3),
-        ),
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -312,10 +317,14 @@ class _QueryHistoryPanelState extends State<QueryHistoryPanel>
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(6),
-                        borderSide: const BorderSide(color: AppColors.primaryCyan),
+                        borderSide: const BorderSide(
+                          color: AppColors.primaryCyan,
+                        ),
                       ),
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       isDense: true,
                     ),
                     onSubmitted: (_) => _saveQuery(),
@@ -369,8 +378,9 @@ class _QueryHistoryPanelState extends State<QueryHistoryPanel>
     return ListenableBuilder(
       listenable: SavedQueryService.instance,
       builder: (context, _) {
-        final queries =
-            SavedQueryService.instance.getRecentQueries(widget.panelType);
+        final queries = SavedQueryService.instance.getRecentQueries(
+          widget.panelType,
+        );
         if (queries.isEmpty) {
           return _buildEmptyState(
             icon: Icons.schedule_rounded,
@@ -410,8 +420,9 @@ class _QueryHistoryPanelState extends State<QueryHistoryPanel>
     return ListenableBuilder(
       listenable: SavedQueryService.instance,
       builder: (context, _) {
-        final queries =
-            SavedQueryService.instance.getSavedQueries(widget.panelType);
+        final queries = SavedQueryService.instance.getSavedQueries(
+          widget.panelType,
+        );
         if (queries.isEmpty) {
           return _buildEmptyState(
             icon: Icons.bookmark_rounded,
@@ -438,8 +449,10 @@ class _QueryHistoryPanelState extends State<QueryHistoryPanel>
                 color: AppColors.error.withValues(alpha: 0.6),
                 onPressed: () {
                   if (q.id != null) {
-                    SavedQueryService.instance
-                        .deleteSavedQuery(q.id!, widget.panelType);
+                    SavedQueryService.instance.deleteSavedQuery(
+                      q.id!,
+                      widget.panelType,
+                    );
                   }
                 },
                 constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
@@ -468,7 +481,9 @@ class _QueryHistoryPanelState extends State<QueryHistoryPanel>
         child: Row(
           children: [
             Icon(
-              isSaved ? Icons.bookmark_rounded : Icons.subdirectory_arrow_right_rounded,
+              isSaved
+                  ? Icons.bookmark_rounded
+                  : Icons.subdirectory_arrow_right_rounded,
               size: 14,
               color: isSaved ? AppColors.warning : AppColors.textMuted,
             ),
@@ -507,13 +522,17 @@ class _QueryHistoryPanelState extends State<QueryHistoryPanel>
                       padding: const EdgeInsets.only(top: 2),
                       child: Row(
                         children: [
-                          if (languageLabel != null && languageLabel.isNotEmpty) ...[
+                          if (languageLabel != null &&
+                              languageLabel.isNotEmpty) ...[
                             Container(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                                vertical: 1,
+                              ),
                               decoration: BoxDecoration(
-                                color:
-                                    AppColors.primaryCyan.withValues(alpha: 0.1),
+                                color: AppColors.primaryCyan.withValues(
+                                  alpha: 0.1,
+                                ),
                                 borderRadius: BorderRadius.circular(3),
                               ),
                               child: Text(
@@ -557,7 +576,11 @@ class _QueryHistoryPanelState extends State<QueryHistoryPanel>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 32, color: AppColors.textMuted.withValues(alpha: 0.4)),
+            Icon(
+              icon,
+              size: 32,
+              color: AppColors.textMuted.withValues(alpha: 0.4),
+            ),
             const SizedBox(height: 12),
             Text(
               message,

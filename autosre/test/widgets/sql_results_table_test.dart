@@ -4,7 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('SqlResultsTable Tests', () {
-    testWidgets('renders table with columns and generic data', (WidgetTester tester) async {
+    testWidgets('renders table with columns and generic data', (
+      WidgetTester tester,
+    ) async {
       final columns = ['id', 'name'];
       final rows = [
         {'id': 1, 'name': 'Alice'},
@@ -58,7 +60,9 @@ void main() {
       expect(find.text('ID-100'), findsWidgets);
     });
 
-    testWidgets('sorts data when column header is clicked', (WidgetTester tester) async {
+    testWidgets('sorts data when column header is clicked', (
+      WidgetTester tester,
+    ) async {
       final columns = ['value'];
       final rows = [
         {'value': 10},
@@ -81,7 +85,8 @@ void main() {
 
       // First click: Ascending -> 10, 20, 30
       // Check order
-      final texts = tester.widgetList<Text>(find.byType(Text))
+      final texts = tester
+          .widgetList<Text>(find.byType(Text))
           .map((t) => t.data)
           .where((data) => data == '10' || data == '20' || data == '30')
           .toList();
@@ -92,14 +97,17 @@ void main() {
       await tester.tap(find.text('value'));
       await tester.pumpAndSettle();
 
-      final descTexts = tester.widgetList<Text>(find.byType(Text))
+      final descTexts = tester
+          .widgetList<Text>(find.byType(Text))
           .map((t) => t.data)
           .where((data) => data == '10' || data == '20' || data == '30')
           .toList();
       expect(descTexts, ['30', '20', '10']);
     });
 
-    testWidgets('formats float timestamps correctly', (WidgetTester tester) async {
+    testWidgets('formats float timestamps correctly', (
+      WidgetTester tester,
+    ) async {
       final columns = ['timestamp'];
       final rows = [
         // Using a BigQuery-like numeric string that is > 1e9

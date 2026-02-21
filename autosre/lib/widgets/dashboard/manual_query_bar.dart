@@ -387,8 +387,9 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
     // Basic heuristic SQL formatting
     var formatted = text.replaceAll(RegExp(r'\s+'), ' ').trim();
     final kwRegex = RegExp(
-        r'\b(SELECT|FROM|WHERE|GROUP BY|ORDER BY|LIMIT|HAVING|LEFT JOIN|RIGHT JOIN|INNER JOIN|FULL OUTER JOIN|CROSS JOIN|JOIN|UNION ALL|UNION|WITH|ON|AND|OR)\b',
-        caseSensitive: false);
+      r'\b(SELECT|FROM|WHERE|GROUP BY|ORDER BY|LIMIT|HAVING|LEFT JOIN|RIGHT JOIN|INNER JOIN|FULL OUTER JOIN|CROSS JOIN|JOIN|UNION ALL|UNION|WITH|ON|AND|OR)\b',
+      caseSensitive: false,
+    );
 
     formatted = formatted.replaceAllMapped(kwRegex, (m) {
       final kw = m[1]!.toUpperCase();
@@ -483,8 +484,9 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
                 language: _currentLanguageLabel(),
                 onSelectQuery: (query) {
                   _controller.text = query;
-                  _controller.selection =
-                      TextSelection.collapsed(offset: query.length);
+                  _controller.selection = TextSelection.collapsed(
+                    offset: query.length,
+                  );
                   _focusNode.requestFocus();
                 },
                 onDismiss: _removeHistoryOverlay,
@@ -669,8 +671,7 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
                     ),
                   ),
                   // Query history button
-                  if (widget.panelType != null)
-                    _buildHistoryButton(),
+                  if (widget.panelType != null) _buildHistoryButton(),
                   // Helper templates button
                   if (widget.templates.isNotEmpty ||
                       widget.naturalLanguageExamples.isNotEmpty)
@@ -766,8 +767,7 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
                       (widget.languages != null &&
                           widget.languages!.isNotEmpty))
                     _buildLanguageSelector(),
-                  if (widget.panelType != null)
-                    _buildHistoryButton(),
+                  if (widget.panelType != null) _buildHistoryButton(),
                   if (widget.templates.isNotEmpty ||
                       widget.naturalLanguageExamples.isNotEmpty)
                     _buildHelperButton(),
@@ -777,7 +777,10 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
                     Tooltip(
                       message: 'Format Query',
                       child: IconButton(
-                        icon: const Icon(Icons.format_align_left_rounded, size: 14),
+                        icon: const Icon(
+                          Icons.format_align_left_rounded,
+                          size: 14,
+                        ),
                         color: AppColors.textMuted,
                         onPressed: _handleFormatSql,
                         padding: EdgeInsets.zero,
@@ -848,7 +851,10 @@ class _ManualQueryBarState extends State<ManualQueryBar> {
                         hintText: effectiveHint,
                         hintStyle:
                             (_isNaturalLanguage
-                                    ? GoogleFonts.inter(fontSize: 12, height: 1.5)
+                                    ? GoogleFonts.inter(
+                                        fontSize: 12,
+                                        height: 1.5,
+                                      )
                                     : GoogleFonts.jetBrainsMono(
                                         fontSize: 12,
                                         height: 1.5,

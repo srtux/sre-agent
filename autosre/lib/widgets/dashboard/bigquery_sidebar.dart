@@ -509,12 +509,11 @@ class _BigQuerySidebarState extends State<BigQuerySidebar> {
           minTileHeight: 32.0,
           controlAffinity: ListTileControlAffinity.leading,
           title: InkWell(
-            onTap:
-                isJson
-                    ? () => _inferJsonKeys(tableId, fullPath)
-                    : widget.onInsertColumn != null
-                    ? () => widget.onInsertColumn!(fullPath)
-                    : null,
+            onTap: isJson
+                ? () => _inferJsonKeys(tableId, fullPath)
+                : widget.onInsertColumn != null
+                ? () => widget.onInsertColumn!(fullPath)
+                : null,
             child: Row(
               children: [
                 Icon(_iconForType(type), size: 12, color: _colorForType(type)),
@@ -594,10 +593,9 @@ class _BigQuerySidebarState extends State<BigQuerySidebar> {
     // Leaf fields
     // Add additional padding so leaf fields align horizontally with the labels inside ExpansionTiles (which have a leading chevron)
     return InkWell(
-      onTap:
-          widget.onInsertColumn != null
-              ? () => widget.onInsertColumn!(fullPath)
-              : null,
+      onTap: widget.onInsertColumn != null
+          ? () => widget.onInsertColumn!(fullPath)
+          : null,
       child: Tooltip(
         message: description.isNotEmpty ? description : '$fullPath ($type)',
         waitDuration: const Duration(milliseconds: 500),
@@ -627,10 +625,9 @@ class _BigQuerySidebarState extends State<BigQuerySidebar> {
   }) {
     final leftPadding = 24.0 + (depth * 16.0);
     return InkWell(
-      onTap:
-          widget.onInsertColumn != null
-              ? () => widget.onInsertColumn!(fullPath)
-              : null,
+      onTap: widget.onInsertColumn != null
+          ? () => widget.onInsertColumn!(fullPath)
+          : null,
       child: Padding(
         padding: EdgeInsets.only(
           left: leftPadding + 32.0,

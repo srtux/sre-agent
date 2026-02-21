@@ -9,10 +9,13 @@ abstract class LogPattern with _$LogPattern {
   const factory LogPattern({
     @Default('') String template,
     @Default(0) int count,
-    @Default({}) @JsonKey(name: 'severity_counts') Map<String, int> severityCounts,
+    @Default({})
+    @JsonKey(name: 'severity_counts')
+    Map<String, int> severityCounts,
   }) = _LogPattern;
 
-  factory LogPattern.fromJson(Map<String, dynamic> json) => _$LogPatternFromJson(json);
+  factory LogPattern.fromJson(Map<String, dynamic> json) =>
+      _$LogPatternFromJson(json);
 }
 
 @freezed
@@ -22,9 +25,12 @@ abstract class LogEntry with _$LogEntry {
   const factory LogEntry({
     @JsonKey(name: 'insert_id') required String insertId,
     required DateTime timestamp,
-    @Default('INFO') String severity, // 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'
+    @Default('INFO')
+    String severity, // 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'
     required dynamic payload, // Can be String (text) or Map (JSON)
-    @JsonKey(name: 'resource_labels') @Default({}) Map<String, String> resourceLabels,
+    @JsonKey(name: 'resource_labels')
+    @Default({})
+    Map<String, String> resourceLabels,
     @JsonKey(name: 'resource_type') @Default('unknown') String resourceType,
     @JsonKey(name: 'trace_id') String? traceId,
     @JsonKey(name: 'span_id') String? spanId,
@@ -106,19 +112,23 @@ abstract class LogEntriesData with _$LogEntriesData {
 
   Map<String, dynamic> toJson() {
     return {
-      'entries': entries.map((e) => {
-        // LogEntry toJson doesn't exist either? We can just pass minimal representation or empty for dashboard cache.
-        // Actually, logData.toJson() is just stored in the dashboard item as `raw`.
-        'timestamp': e.timestamp.toIso8601String(),
-        'severity': e.severity,
-        'payload': e.payload,
-        'insert_id': e.insertId,
-        'resource_type': e.resourceType,
-        'resource_labels': e.resourceLabels,
-        'trace_id': e.traceId,
-        'span_id': e.spanId,
-        'http_request': e.httpRequest,
-      }).toList(),
+      'entries': entries
+          .map(
+            (e) => {
+              // LogEntry toJson doesn't exist either? We can just pass minimal representation or empty for dashboard cache.
+              // Actually, logData.toJson() is just stored in the dashboard item as `raw`.
+              'timestamp': e.timestamp.toIso8601String(),
+              'severity': e.severity,
+              'payload': e.payload,
+              'insert_id': e.insertId,
+              'resource_type': e.resourceType,
+              'resource_labels': e.resourceLabels,
+              'trace_id': e.traceId,
+              'span_id': e.spanId,
+              'http_request': e.httpRequest,
+            },
+          )
+          .toList(),
       'filter': filter,
       'project_id': projectId,
       'next_page_token': nextPageToken,

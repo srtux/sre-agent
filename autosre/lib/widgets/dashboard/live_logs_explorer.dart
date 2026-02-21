@@ -231,16 +231,14 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
   }
 
   /// Fetches full-range histogram data from the backend.
-  Future<void> _fetchHistogram({
-    String? filter,
-    String? projectId,
-  }) async {
+  Future<void> _fetchHistogram({String? filter, String? projectId}) async {
     if (!mounted) return;
     setState(() => _isLoadingHistogram = true);
     try {
       final explorer = context.read<ExplorerQueryService>();
       final data = await explorer.queryLogHistogram(
-        filter: filter ??
+        filter:
+            filter ??
             widget.dashboardState.getLastQueryFilter(DashboardDataType.logs) ??
             '',
         projectId: projectId,
@@ -359,9 +357,11 @@ class _LiveLogsExplorerState extends State<LiveLogsExplorer> {
             dashboardState: widget.dashboardState,
             onRefresh: () {
               _resetPagination();
-              final filter = widget.dashboardState.getLastQueryFilter(
-                DashboardDataType.logs,
-              ) ?? '';
+              final filter =
+                  widget.dashboardState.getLastQueryFilter(
+                    DashboardDataType.logs,
+                  ) ??
+                  '';
               final explorer = context.read<ExplorerQueryService>();
               explorer.queryLogs(filter: filter);
               _fetchHistogram(filter: filter);

@@ -94,7 +94,11 @@ class MockProjectService implements ProjectService {
 
 class MockExplorerQueryService implements ExplorerQueryService {
   @override
-  Future<void> queryMetrics({required String filter, String? projectId, TimeRange? timeRange}) async {}
+  Future<void> queryMetrics({
+    required String filter,
+    String? projectId,
+    TimeRange? timeRange,
+  }) async {}
   @override
   Future<bool> queryLogs({
     required String filter,
@@ -112,29 +116,59 @@ class MockExplorerQueryService implements ExplorerQueryService {
     String? projectId,
   }) async {}
   @override
-  Future<List<LogEntry>> fetchLogsForSpan({required String traceId, required String spanId, String? projectId}) async => [];
+  Future<List<LogEntry>> fetchLogsForSpan({
+    required String traceId,
+    required String spanId,
+    String? projectId,
+  }) async => [];
   @override
   Future<void> queryTrace({required String traceId, String? projectId}) async {}
   @override
-  Future<void> queryTraceFilter({required String filter, String? projectId, TimeRange? timeRange}) async {}
+  Future<void> queryTraceFilter({
+    required String filter,
+    String? projectId,
+    TimeRange? timeRange,
+  }) async {}
   @override
-  Future<void> queryMetricsPromQL({required String query, String? projectId, TimeRange? timeRange}) async {}
+  Future<void> queryMetricsPromQL({
+    required String query,
+    String? projectId,
+    TimeRange? timeRange,
+  }) async {}
   @override
   Future<void> queryBigQuery({required String sql, String? projectId}) async {}
   @override
-  Future<void> queryAlerts({String? filter, String? projectId, TimeRange? timeRange}) async {}
+  Future<void> queryAlerts({
+    String? filter,
+    String? projectId,
+    TimeRange? timeRange,
+  }) async {}
   @override
   Future<List<String>> getDatasets({String? projectId}) async => [];
   @override
   Future<List<String>> getLogNames({String? projectId}) async => [];
   @override
-  Future<List<Map<String, dynamic>>> getResourceKeys({String? projectId}) async => [];
+  Future<List<Map<String, dynamic>>> getResourceKeys({
+    String? projectId,
+  }) async => [];
   @override
-  Future<List<String>> getTables({required String datasetId, String? projectId}) async => [];
+  Future<List<String>> getTables({
+    required String datasetId,
+    String? projectId,
+  }) async => [];
   @override
-  Future<List<Map<String, dynamic>>?> getTableSchema({required String datasetId, required String tableId, String? projectId}) async => [];
+  Future<List<Map<String, dynamic>>?> getTableSchema({
+    required String datasetId,
+    required String tableId,
+    String? projectId,
+  }) async => [];
   @override
-  Future<List<String>> getJsonKeys({required String datasetId, required String tableId, required String columnName, String? projectId}) async => [];
+  Future<List<String>> getJsonKeys({
+    required String datasetId,
+    required String tableId,
+    required String columnName,
+    String? projectId,
+  }) async => [];
   @override
   Future<void> loadDefaultLogs({String? projectId}) async {}
   @override

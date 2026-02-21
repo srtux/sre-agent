@@ -39,9 +39,7 @@ void main() {
     required MockLogRepository mockRepository,
   }) {
     final container = ProviderContainer(
-      overrides: [
-        logRepositoryProvider.overrideWithValue(mockRepository),
-      ],
+      overrides: [logRepositoryProvider.overrideWithValue(mockRepository)],
     );
     addTearDown(container.dispose);
     return container;
@@ -92,9 +90,7 @@ void main() {
       final oldTs = DateTime.parse('2026-02-16T00:00:00Z');
       // Prime the state with an existing entry so there's a cursor to pass
       mockRepository.mockResult = LogEntriesData(
-        entries: [
-          LogEntry(insertId: 'old1', timestamp: oldTs, payload: 'Old'),
-        ],
+        entries: [LogEntry(insertId: 'old1', timestamp: oldTs, payload: 'Old')],
       );
       await notifier.fetchLogs(filter: 'test');
 

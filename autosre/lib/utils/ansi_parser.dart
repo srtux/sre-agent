@@ -89,10 +89,13 @@ class AnsiParser {
       switch (index) {
         0 => bright ? Colors.grey[400]! : Colors.grey[800]!, // Black/Grey
         1 => bright ? const Color(0xFFFF5252) : const Color(0xFFE57373), // Red
-        2 => bright ? const Color(0xFF69F0AE) : const Color(0xFF81C784), // Green
-        3 => bright ? const Color(0xFFFFD740) : const Color(0xFFFFF176), // Yellow
+        2 =>
+          bright ? const Color(0xFF69F0AE) : const Color(0xFF81C784), // Green
+        3 =>
+          bright ? const Color(0xFFFFD740) : const Color(0xFFFFF176), // Yellow
         4 => bright ? const Color(0xFF448AFF) : const Color(0xFF64B5F6), // Blue
-        5 => bright ? const Color(0xFFE040FB) : const Color(0xFFF06292), // Magenta
+        5 =>
+          bright ? const Color(0xFFE040FB) : const Color(0xFFF06292), // Magenta
         6 => bright ? const Color(0xFF18FFFF) : const Color(0xFF4DD0E1), // Cyan
         7 => bright ? Colors.white : Colors.grey[300]!, // White
         _ => Colors.white,

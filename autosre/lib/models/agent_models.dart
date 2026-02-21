@@ -353,8 +353,16 @@ final class AgentGraphNode {
 
   @override
   int get hashCode => Object.hash(
-    id, label, type, totalTokens, callCount, hasError,
-    depth, parentAgentId, childrenCount, expandable,
+    id,
+    label,
+    type,
+    totalTokens,
+    callCount,
+    hasError,
+    depth,
+    parentAgentId,
+    childrenCount,
+    expandable,
   );
 }
 

@@ -42,7 +42,11 @@ class HeroEmptyState extends StatelessWidget {
 
     return Stack(
       children: [
-        const Positioned.fill(child: RepaintBoundary(child: CustomPaint(painter: TechGridPainter()))),
+        const Positioned.fill(
+          child: RepaintBoundary(
+            child: CustomPaint(painter: TechGridPainter()),
+          ),
+        ),
         Center(
           child: SingleChildScrollView(
             child: Padding(

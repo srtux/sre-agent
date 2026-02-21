@@ -15,7 +15,9 @@ class ServiceConfig {
     // In local development, the frontend usually runs on port 8080
     // while the backend runs on port 8001.
     if (kDebugMode) {
-      debugPrint('ServiceConfig: Using local dev baseUrl: http://localhost:8001');
+      debugPrint(
+        'ServiceConfig: Using local dev baseUrl: http://localhost:8001',
+      );
       return 'http://localhost:8001';
     }
 

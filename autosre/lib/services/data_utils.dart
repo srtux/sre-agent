@@ -26,8 +26,9 @@ dynamic flattenBigQueryValue(dynamic value, {int depth = 0}) {
     if (value.containsKey('f') && value['f'] is List) {
       final fields = value['f'] as List;
       // If it's a list of {v: ...}, it's a record/struct
-      final flattened =
-          fields.map((f) => flattenBigQueryValue(f, depth: depth + 1)).toList();
+      final flattened = fields
+          .map((f) => flattenBigQueryValue(f, depth: depth + 1))
+          .toList();
 
       // If all elements are simple values, or if we want to try to keep it as a list,
       // return as is. BQ sometimes returns STRUCTs as lists in this format.
@@ -47,7 +48,8 @@ dynamic flattenBigQueryValue(dynamic value, {int depth = 0}) {
 
     // It's a normal map - recurse into its entries
     return value.map(
-      (k, v) => MapEntry(k.toString(), flattenBigQueryValue(v, depth: depth + 1)),
+      (k, v) =>
+          MapEntry(k.toString(), flattenBigQueryValue(v, depth: depth + 1)),
     );
   }
 

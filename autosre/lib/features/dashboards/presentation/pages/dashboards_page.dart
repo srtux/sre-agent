@@ -69,10 +69,16 @@ class _DashboardsPageState extends ConsumerState<DashboardsPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.error_outline, color: Colors.redAccent, size: 48),
+                    const Icon(
+                      Icons.error_outline,
+                      color: Colors.redAccent,
+                      size: 48,
+                    ),
                     const SizedBox(height: 16),
-                    Text('Failed to load dashboards: $err',
-                        style: const TextStyle(color: Colors.white70)),
+                    Text(
+                      'Failed to load dashboards: $err',
+                      style: const TextStyle(color: Colors.white70),
+                    ),
                     const SizedBox(height: 16),
                     ElevatedButton(
                       onPressed: () => ref.invalidate(dashboardsProvider),
@@ -104,7 +110,10 @@ class _DashboardsPageState extends ConsumerState<DashboardsPage> {
         decoration: InputDecoration(
           hintText: 'Search dashboards...',
           hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
-          prefixIcon: Icon(Icons.search, color: Colors.white.withValues(alpha: 0.5)),
+          prefixIcon: Icon(
+            Icons.search,
+            color: Colors.white.withValues(alpha: 0.5),
+          ),
           filled: true,
           fillColor: AppColors.backgroundCard,
           border: OutlineInputBorder(
@@ -158,10 +167,10 @@ class _DashboardsPageState extends ConsumerState<DashboardsPage> {
         final crossAxisCount = constraints.maxWidth > 1200
             ? 4
             : constraints.maxWidth > 800
-                ? 3
-                : constraints.maxWidth > 500
-                    ? 2
-                    : 1;
+            ? 3
+            : constraints.maxWidth > 500
+            ? 2
+            : 1;
         return GridView.builder(
           padding: const EdgeInsets.all(16),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -183,8 +192,11 @@ class _DashboardsPageState extends ConsumerState<DashboardsPage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.dashboard_outlined,
-              size: 64, color: Colors.white.withValues(alpha: 0.3)),
+          Icon(
+            Icons.dashboard_outlined,
+            size: 64,
+            color: Colors.white.withValues(alpha: 0.3),
+          ),
           const SizedBox(height: 16),
           Text(
             _searchController.text.isNotEmpty
@@ -199,7 +211,9 @@ class _DashboardsPageState extends ConsumerState<DashboardsPage> {
           Text(
             'Create a dashboard to get started',
             style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.3), fontSize: 14),
+              color: Colors.white.withValues(alpha: 0.3),
+              fontSize: 14,
+            ),
           ),
         ],
       ),
@@ -219,8 +233,7 @@ class _DashboardsPageState extends ConsumerState<DashboardsPage> {
         onTap: () {
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) =>
-                  DashboardViewPage(dashboardId: dashboard.id),
+              builder: (_) => DashboardViewPage(dashboardId: dashboard.id),
             ),
           );
         },
@@ -252,7 +265,9 @@ class _DashboardsPageState extends ConsumerState<DashboardsPage> {
                   child: Text(
                     dashboard.description,
                     style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.5), fontSize: 13),
+                      color: Colors.white.withValues(alpha: 0.5),
+                      fontSize: 13,
+                    ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -260,20 +275,26 @@ class _DashboardsPageState extends ConsumerState<DashboardsPage> {
               const Spacer(),
               Row(
                 children: [
-                  Icon(Icons.widgets_outlined,
-                      size: 14,
-                      color: Colors.white.withValues(alpha: 0.4)),
+                  Icon(
+                    Icons.widgets_outlined,
+                    size: 14,
+                    color: Colors.white.withValues(alpha: 0.4),
+                  ),
                   const SizedBox(width: 4),
                   Text(
                     '${dashboard.panelCount} panels',
                     style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.4),
-                        fontSize: 12),
+                      color: Colors.white.withValues(alpha: 0.4),
+                      fontSize: 12,
+                    ),
                   ),
                   const Spacer(),
                   if (dashboard.metadata?.starred == true)
-                    Icon(Icons.star,
-                        size: 16, color: Colors.amber.withValues(alpha: 0.7)),
+                    Icon(
+                      Icons.star,
+                      size: 16,
+                      color: Colors.amber.withValues(alpha: 0.7),
+                    ),
                 ],
               ),
             ],
@@ -317,8 +338,10 @@ class _DashboardsPageState extends ConsumerState<DashboardsPage> {
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.backgroundCard,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('New Dashboard',
-            style: TextStyle(color: Colors.white)),
+        title: const Text(
+          'New Dashboard',
+          style: TextStyle(color: Colors.white),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -328,16 +351,17 @@ class _DashboardsPageState extends ConsumerState<DashboardsPage> {
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 labelText: 'Name',
-                labelStyle:
-                    TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+                labelStyle: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.5),
+                ),
                 enabledBorder: OutlineInputBorder(
                   borderSide: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.2)),
+                    color: Colors.white.withValues(alpha: 0.2),
+                  ),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderSide:
-                      const BorderSide(color: AppColors.primaryCyan),
+                  borderSide: const BorderSide(color: AppColors.primaryCyan),
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
@@ -349,16 +373,17 @@ class _DashboardsPageState extends ConsumerState<DashboardsPage> {
               maxLines: 2,
               decoration: InputDecoration(
                 labelText: 'Description (optional)',
-                labelStyle:
-                    TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+                labelStyle: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.5),
+                ),
                 enabledBorder: OutlineInputBorder(
                   borderSide: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.2)),
+                    color: Colors.white.withValues(alpha: 0.2),
+                  ),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderSide:
-                      const BorderSide(color: AppColors.primaryCyan),
+                  borderSide: const BorderSide(color: AppColors.primaryCyan),
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
@@ -368,18 +393,22 @@ class _DashboardsPageState extends ConsumerState<DashboardsPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel',
-                style: TextStyle(color: Colors.white54)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.white54),
+            ),
           ),
           FilledButton(
             onPressed: () async {
               if (nameController.text.trim().isEmpty) return;
               Navigator.of(ctx).pop();
 
-              await ref.read(dashboardsProvider().notifier).createDashboard(
-                displayName: nameController.text.trim(),
-                description: descController.text.trim(),
-              );
+              await ref
+                  .read(dashboardsProvider().notifier)
+                  .createDashboard(
+                    displayName: nameController.text.trim(),
+                    description: descController.text.trim(),
+                  );
 
               // Note: The UI will react to the invalidation and update the grid.
               // We could navigate to the new dashboard but we'd need its ID.

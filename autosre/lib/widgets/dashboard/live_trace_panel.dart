@@ -203,7 +203,9 @@ class _LiveTracePanelState extends State<LiveTracePanel> {
         decoration: BoxDecoration(
           color: AppColors.primaryCyan.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.primaryCyan.withValues(alpha: 0.1)),
+          border: Border.all(
+            color: AppColors.primaryCyan.withValues(alpha: 0.1),
+          ),
         ),
         child: Row(
           children: [

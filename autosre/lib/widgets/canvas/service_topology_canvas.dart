@@ -157,7 +157,8 @@ class _ServiceTopologyCanvasState extends State<ServiceTopologyCanvas>
 
   /// Only run pulse animation when there is an active incident or affected path.
   void _syncAnimations() {
-    final needsAnimation = widget.data.affectedPath.isNotEmpty ||
+    final needsAnimation =
+        widget.data.affectedPath.isNotEmpty ||
         widget.data.incidentSourceId != null;
     if (needsAnimation) {
       if (!_pulseController.isAnimating) {

@@ -117,16 +117,20 @@ final class Trace {
   Map<String, dynamic> toJson() {
     return {
       'trace_id': traceId,
-      'spans': spans.map((s) => {
-        'span_id': s.spanId,
-        'trace_id': s.traceId,
-        'name': s.name,
-        'start_time': s.startTime.toIso8601String(),
-        'end_time': s.endTime.toIso8601String(),
-        'attributes': s.attributes,
-        'status': s.status,
-        'parent_span_id': s.parentSpanId,
-      }).toList(),
+      'spans': spans
+          .map(
+            (s) => {
+              'span_id': s.spanId,
+              'trace_id': s.traceId,
+              'name': s.name,
+              'start_time': s.startTime.toIso8601String(),
+              'end_time': s.endTime.toIso8601String(),
+              'attributes': s.attributes,
+              'status': s.status,
+              'parent_span_id': s.parentSpanId,
+            },
+          )
+          .toList(),
     };
   }
 

@@ -96,132 +96,118 @@ void main() {
       service.dispose();
     });
 
-    test(
-      'needsProjectSelection should be true after fetchProjects '
-      'completes with no saved project',
-      () async {
-        final mockClient = MockClient((request) async {
-          if (request.url.path.contains('projects/list')) {
-            return http.Response(
-              jsonEncode({
-                'projects': [
-                  {'project_id': 'proj-1', 'display_name': 'Project 1'},
-                  {'project_id': 'proj-2', 'display_name': 'Project 2'},
-                ],
-              }),
-              200,
-            );
-          }
-          if (request.url.path.contains('preferences')) {
-            return http.Response('{}', 200);
-          }
-          if (request.url.path.contains('recent')) {
-            return http.Response('{"projects": []}', 200);
-          }
-          if (request.url.path.contains('starred')) {
-            return http.Response('{"projects": []}', 200);
-          }
+    test('needsProjectSelection should be true after fetchProjects '
+        'completes with no saved project', () async {
+      final mockClient = MockClient((request) async {
+        if (request.url.path.contains('projects/list')) {
+          return http.Response(
+            jsonEncode({
+              'projects': [
+                {'project_id': 'proj-1', 'display_name': 'Project 1'},
+                {'project_id': 'proj-2', 'display_name': 'Project 2'},
+              ],
+            }),
+            200,
+          );
+        }
+        if (request.url.path.contains('preferences')) {
           return http.Response('{}', 200);
-        });
-        Future<http.Client> clientFactory() async => mockClient;
+        }
+        if (request.url.path.contains('recent')) {
+          return http.Response('{"projects": []}', 200);
+        }
+        if (request.url.path.contains('starred')) {
+          return http.Response('{"projects": []}', 200);
+        }
+        return http.Response('{}', 200);
+      });
+      Future<http.Client> clientFactory() async => mockClient;
 
-        final service = ProjectService.newInstance(clientFactory: clientFactory);
+      final service = ProjectService.newInstance(clientFactory: clientFactory);
 
-        // No saved project in SharedPreferences
-        await service.fetchProjects();
+      // No saved project in SharedPreferences
+      await service.fetchProjects();
 
-        // Since no project was previously saved, needsProjectSelection
-        // should be set to true
-        expect(service.needsProjectSelection.value, isTrue);
-        service.dispose();
-      },
-    );
+      // Since no project was previously saved, needsProjectSelection
+      // should be set to true
+      expect(service.needsProjectSelection.value, isTrue);
+      service.dispose();
+    });
 
-    test(
-      'needsProjectSelection should remain false when fetchProjects '
-      'finds a saved project',
-      () async {
-        SharedPreferences.setMockInitialValues({
-          'selected_project_id': 'proj-1',
-        });
+    test('needsProjectSelection should remain false when fetchProjects '
+        'finds a saved project', () async {
+      SharedPreferences.setMockInitialValues({'selected_project_id': 'proj-1'});
 
-        final mockClient = MockClient((request) async {
-          if (request.url.path.contains('projects/list')) {
-            return http.Response(
-              jsonEncode({
-                'projects': [
-                  {'project_id': 'proj-1', 'display_name': 'Project 1'},
-                ],
-              }),
-              200,
-            );
-          }
-          if (request.url.path.contains('recent')) {
-            return http.Response('{"projects": []}', 200);
-          }
-          if (request.url.path.contains('starred')) {
-            return http.Response('{"projects": []}', 200);
-          }
+      final mockClient = MockClient((request) async {
+        if (request.url.path.contains('projects/list')) {
+          return http.Response(
+            jsonEncode({
+              'projects': [
+                {'project_id': 'proj-1', 'display_name': 'Project 1'},
+              ],
+            }),
+            200,
+          );
+        }
+        if (request.url.path.contains('recent')) {
+          return http.Response('{"projects": []}', 200);
+        }
+        if (request.url.path.contains('starred')) {
+          return http.Response('{"projects": []}', 200);
+        }
+        return http.Response('{}', 200);
+      });
+      Future<http.Client> clientFactory() async => mockClient;
+
+      final service = ProjectService.newInstance(clientFactory: clientFactory);
+      await service.fetchProjects();
+
+      // Project was found from saved preferences
+      expect(service.needsProjectSelection.value, isFalse);
+      expect(service.selectedProjectId, 'proj-1');
+      service.dispose();
+    });
+
+    test('needsProjectSelection should be cleared to false '
+        'when selectProjectInstance is called', () async {
+      final mockClient = MockClient((request) async {
+        if (request.url.path.contains('projects/list')) {
+          return http.Response(
+            jsonEncode({
+              'projects': [
+                {'project_id': 'proj-1', 'display_name': 'Project 1'},
+              ],
+            }),
+            200,
+          );
+        }
+        if (request.url.path.contains('preferences')) {
           return http.Response('{}', 200);
-        });
-        Future<http.Client> clientFactory() async => mockClient;
+        }
+        if (request.url.path.contains('recent')) {
+          return http.Response('{"projects": []}', 200);
+        }
+        if (request.url.path.contains('starred')) {
+          return http.Response('{"projects": []}', 200);
+        }
+        return http.Response('{}', 200);
+      });
+      Future<http.Client> clientFactory() async => mockClient;
 
-        final service = ProjectService.newInstance(clientFactory: clientFactory);
-        await service.fetchProjects();
+      final service = ProjectService.newInstance(clientFactory: clientFactory);
 
-        // Project was found from saved preferences
-        expect(service.needsProjectSelection.value, isFalse);
-        expect(service.selectedProjectId, 'proj-1');
-        service.dispose();
-      },
-    );
+      // Fetch projects with no saved project -> needsProjectSelection = true
+      await service.fetchProjects();
+      expect(service.needsProjectSelection.value, isTrue);
 
-    test(
-      'needsProjectSelection should be cleared to false '
-      'when selectProjectInstance is called',
-      () async {
-        final mockClient = MockClient((request) async {
-          if (request.url.path.contains('projects/list')) {
-            return http.Response(
-              jsonEncode({
-                'projects': [
-                  {'project_id': 'proj-1', 'display_name': 'Project 1'},
-                ],
-              }),
-              200,
-            );
-          }
-          if (request.url.path.contains('preferences')) {
-            return http.Response('{}', 200);
-          }
-          if (request.url.path.contains('recent')) {
-            return http.Response('{"projects": []}', 200);
-          }
-          if (request.url.path.contains('starred')) {
-            return http.Response('{"projects": []}', 200);
-          }
-          return http.Response('{}', 200);
-        });
-        Future<http.Client> clientFactory() async => mockClient;
+      // Select a project -> needsProjectSelection should be cleared
+      const project = GcpProject(projectId: 'proj-1', displayName: 'Project 1');
+      service.selectProjectInstance(project);
 
-        final service = ProjectService.newInstance(clientFactory: clientFactory);
-
-        // Fetch projects with no saved project -> needsProjectSelection = true
-        await service.fetchProjects();
-        expect(service.needsProjectSelection.value, isTrue);
-
-        // Select a project -> needsProjectSelection should be cleared
-        const project = GcpProject(
-          projectId: 'proj-1',
-          displayName: 'Project 1',
-        );
-        service.selectProjectInstance(project);
-
-        expect(service.needsProjectSelection.value, isFalse);
-        expect(service.selectedProjectId, 'proj-1');
-        service.dispose();
-      },
-    );
+      expect(service.needsProjectSelection.value, isFalse);
+      expect(service.selectedProjectId, 'proj-1');
+      service.dispose();
+    });
 
     test(
       'selectProjectInstance with null still clears needsProjectSelection',
@@ -243,7 +229,9 @@ void main() {
         });
         Future<http.Client> clientFactory() async => mockClient;
 
-        final service = ProjectService.newInstance(clientFactory: clientFactory);
+        final service = ProjectService.newInstance(
+          clientFactory: clientFactory,
+        );
 
         await service.fetchProjects();
         expect(service.needsProjectSelection.value, isTrue);
@@ -255,45 +243,42 @@ void main() {
       },
     );
 
-    test(
-      'selectProject (by ID) also clears needsProjectSelection',
-      () async {
-        final mockClient = MockClient((request) async {
-          if (request.url.path.contains('projects/list')) {
-            return http.Response(
-              jsonEncode({
-                'projects': [
-                  {'project_id': 'proj-1', 'display_name': 'Project 1'},
-                ],
-              }),
-              200,
-            );
-          }
-          if (request.url.path.contains('preferences')) {
-            return http.Response('{}', 200);
-          }
-          if (request.url.path.contains('recent')) {
-            return http.Response('{"projects": []}', 200);
-          }
-          if (request.url.path.contains('starred')) {
-            return http.Response('{"projects": []}', 200);
-          }
+    test('selectProject (by ID) also clears needsProjectSelection', () async {
+      final mockClient = MockClient((request) async {
+        if (request.url.path.contains('projects/list')) {
+          return http.Response(
+            jsonEncode({
+              'projects': [
+                {'project_id': 'proj-1', 'display_name': 'Project 1'},
+              ],
+            }),
+            200,
+          );
+        }
+        if (request.url.path.contains('preferences')) {
           return http.Response('{}', 200);
-        });
-        Future<http.Client> clientFactory() async => mockClient;
+        }
+        if (request.url.path.contains('recent')) {
+          return http.Response('{"projects": []}', 200);
+        }
+        if (request.url.path.contains('starred')) {
+          return http.Response('{"projects": []}', 200);
+        }
+        return http.Response('{}', 200);
+      });
+      Future<http.Client> clientFactory() async => mockClient;
 
-        final service = ProjectService.newInstance(clientFactory: clientFactory);
+      final service = ProjectService.newInstance(clientFactory: clientFactory);
 
-        await service.fetchProjects();
-        expect(service.needsProjectSelection.value, isTrue);
+      await service.fetchProjects();
+      expect(service.needsProjectSelection.value, isTrue);
 
-        // selectProject calls selectProjectInstance internally
-        service.selectProject('proj-1');
-        expect(service.needsProjectSelection.value, isFalse);
-        expect(service.selectedProjectId, 'proj-1');
-        service.dispose();
-      },
-    );
+      // selectProject calls selectProjectInstance internally
+      service.selectProject('proj-1');
+      expect(service.needsProjectSelection.value, isFalse);
+      expect(service.selectedProjectId, 'proj-1');
+      service.dispose();
+    });
   });
 
   // ===========================================================================
@@ -306,45 +291,47 @@ void main() {
       dashboardState = DashboardState();
     });
 
-    test('loadDefaultLogs calls /api/tools/logs/query with minutes_ago=15',
-        () async {
-      final capturedRequests = <http.Request>[];
+    test(
+      'loadDefaultLogs calls /api/tools/logs/query with minutes_ago=15',
+      () async {
+        final capturedRequests = <http.Request>[];
 
-      final mockClient = MockClient((request) async {
-        capturedRequests.add(request);
-        return http.Response(
-          jsonEncode({
-            'entries': [
-              {
-                'insert_id': 'log-1',
-                'timestamp': '2025-01-01T00:00:00Z',
-                'severity': 'INFO',
-                'payload': 'test log',
-              },
-            ],
-          }),
-          200,
+        final mockClient = MockClient((request) async {
+          capturedRequests.add(request);
+          return http.Response(
+            jsonEncode({
+              'entries': [
+                {
+                  'insert_id': 'log-1',
+                  'timestamp': '2025-01-01T00:00:00Z',
+                  'severity': 'INFO',
+                  'payload': 'test log',
+                },
+              ],
+            }),
+            200,
+          );
+        });
+
+        final service = ExplorerQueryService(
+          dashboardState: dashboardState,
+          clientFactory: () async => mockClient,
+          baseUrl: 'http://localhost:8001',
         );
-      });
 
-      final service = ExplorerQueryService(
-        dashboardState: dashboardState,
-        clientFactory: () async => mockClient,
-        baseUrl: 'http://localhost:8001',
-      );
+        await service.loadDefaultLogs(projectId: 'test-project');
 
-      await service.loadDefaultLogs(projectId: 'test-project');
+        expect(capturedRequests, isNotEmpty);
+        final request = capturedRequests.first;
+        expect(request.url.path, '/api/tools/logs/query');
 
-      expect(capturedRequests, isNotEmpty);
-      final request = capturedRequests.first;
-      expect(request.url.path, '/api/tools/logs/query');
-
-      final body = jsonDecode(request.body) as Map<String, dynamic>;
-      expect(body['minutes_ago'], 15);
-      expect(body['limit'], 100);
-      expect(body['filter'], '');
-      expect(body['project_id'], 'test-project');
-    });
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        expect(body['minutes_ago'], 15);
+        expect(body['limit'], 100);
+        expect(body['filter'], '');
+        expect(body['project_id'], 'test-project');
+      },
+    );
 
     test('loadDefaultLogs adds log entries to dashboard state', () async {
       final mockClient = MockClient((request) async {
@@ -384,10 +371,7 @@ void main() {
       });
 
       final mockClient = MockClient((request) async {
-        return http.Response(
-          jsonEncode({'entries': []}),
-          200,
-        );
+        return http.Response(jsonEncode({'entries': []}), 200);
       });
 
       final service = ExplorerQueryService(
@@ -415,10 +399,7 @@ void main() {
 
       await service.loadDefaultLogs();
 
-      expect(
-        dashboardState.errorFor(DashboardDataType.logs),
-        isNotNull,
-      );
+      expect(dashboardState.errorFor(DashboardDataType.logs), isNotNull);
       expect(dashboardState.isLoading(DashboardDataType.logs), isFalse);
     });
 
@@ -447,10 +428,7 @@ void main() {
 
       await service.loadDefaultLogs();
 
-      expect(
-        dashboardState.getLastQueryFilter(DashboardDataType.logs),
-        '',
-      );
+      expect(dashboardState.getLastQueryFilter(DashboardDataType.logs), '');
     });
   });
 
@@ -544,10 +522,7 @@ void main() {
       final mockClient = MockClient((request) async {
         return http.Response(
           jsonEncode([
-            {
-              'trace_id': 'trace-empty',
-              'spans': [],
-            },
+            {'trace_id': 'trace-empty', 'spans': []},
             {
               'trace_id': 'trace-valid',
               'spans': [
@@ -574,30 +549,29 @@ void main() {
 
       // Only the trace with non-empty spans should be added
       expect(dashboardState.items.length, 1);
-      expect(
-        dashboardState.items.first.traceData?.traceId,
-        'trace-valid',
-      );
+      expect(dashboardState.items.first.traceData?.traceId, 'trace-valid');
     });
 
-    test('loadSlowTraces does not open dashboard when no traces found',
-        () async {
-      final mockClient = MockClient((request) async {
-        return http.Response(jsonEncode([]), 200);
-      });
+    test(
+      'loadSlowTraces does not open dashboard when no traces found',
+      () async {
+        final mockClient = MockClient((request) async {
+          return http.Response(jsonEncode([]), 200);
+        });
 
-      final service = ExplorerQueryService(
-        dashboardState: dashboardState,
-        clientFactory: () async => mockClient,
-        baseUrl: 'http://localhost:8001',
-      );
+        final service = ExplorerQueryService(
+          dashboardState: dashboardState,
+          clientFactory: () async => mockClient,
+          baseUrl: 'http://localhost:8001',
+        );
 
-      await service.loadSlowTraces();
+        await service.loadSlowTraces();
 
-      expect(dashboardState.items, isEmpty);
-      // Dashboard should not be opened when there are no results
-      expect(dashboardState.isOpen, isFalse);
-    });
+        expect(dashboardState.items, isEmpty);
+        // Dashboard should not be opened when there are no results
+        expect(dashboardState.isOpen, isFalse);
+      },
+    );
 
     test('loadSlowTraces sets loading state correctly', () async {
       final mockClient = MockClient((request) async {
@@ -628,10 +602,7 @@ void main() {
 
       await service.loadSlowTraces();
 
-      expect(
-        dashboardState.errorFor(DashboardDataType.traces),
-        isNotNull,
-      );
+      expect(dashboardState.errorFor(DashboardDataType.traces), isNotNull);
       expect(dashboardState.isLoading(DashboardDataType.traces), isFalse);
     });
   });
@@ -688,45 +659,42 @@ void main() {
       },
     );
 
-    test(
-      'loadRecentAlerts minutes_ago equals 7 days in minutes',
-      () async {
-        final capturedRequests = <http.Request>[];
+    test('loadRecentAlerts minutes_ago equals 7 days in minutes', () async {
+      final capturedRequests = <http.Request>[];
 
-        final mockClient = MockClient((request) async {
-          capturedRequests.add(request);
-          return http.Response(
-            jsonEncode({
-              'incident_id': 'inc-1',
-              'title': 'Alert',
-              'start_time': '2025-01-01T00:00:00Z',
-              'status': 'resolved',
-              'events': [
-                {
-                  'timestamp': '2025-01-01T00:00:00Z',
-                  'type': 'opened',
-                  'description': 'Alert opened',
-                },
-              ],
-            }),
-            200,
-          );
-        });
-
-        final service = ExplorerQueryService(
-          dashboardState: dashboardState,
-          clientFactory: () async => mockClient,
-          baseUrl: 'http://localhost:8001',
+      final mockClient = MockClient((request) async {
+        capturedRequests.add(request);
+        return http.Response(
+          jsonEncode({
+            'incident_id': 'inc-1',
+            'title': 'Alert',
+            'start_time': '2025-01-01T00:00:00Z',
+            'status': 'resolved',
+            'events': [
+              {
+                'timestamp': '2025-01-01T00:00:00Z',
+                'type': 'opened',
+                'description': 'Alert opened',
+              },
+            ],
+          }),
+          200,
         );
+      });
 
-        await service.loadRecentAlerts();
+      final service = ExplorerQueryService(
+        dashboardState: dashboardState,
+        clientFactory: () async => mockClient,
+        baseUrl: 'http://localhost:8001',
+      );
 
-        final body =
-            jsonDecode(capturedRequests.first.body) as Map<String, dynamic>;
-        // 7 days = 7 * 24 * 60 = 10080 minutes
-        expect(body['minutes_ago'], 7 * 24 * 60);
-      },
-    );
+      await service.loadRecentAlerts();
+
+      final body =
+          jsonDecode(capturedRequests.first.body) as Map<String, dynamic>;
+      // 7 days = 7 * 24 * 60 = 10080 minutes
+      expect(body['minutes_ago'], 7 * 24 * 60);
+    });
 
     test('loadRecentAlerts adds alert data to dashboard state', () async {
       final mockClient = MockClient((request) async {
@@ -800,10 +768,7 @@ void main() {
 
       await service.loadRecentAlerts();
 
-      expect(
-        dashboardState.errorFor(DashboardDataType.alerts),
-        isNotNull,
-      );
+      expect(dashboardState.errorFor(DashboardDataType.alerts), isNotNull);
       expect(dashboardState.isLoading(DashboardDataType.alerts), isFalse);
     });
   });

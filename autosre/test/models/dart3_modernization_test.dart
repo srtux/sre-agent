@@ -51,10 +51,7 @@ void main() {
         CouncilAgentType.fromString('subagent'),
         CouncilAgentType.subAgent,
       );
-      expect(
-        CouncilAgentType.fromString('unknown'),
-        CouncilAgentType.subAgent,
-      );
+      expect(CouncilAgentType.fromString('unknown'), CouncilAgentType.subAgent);
     });
 
     test('fromString is case-insensitive', () {
@@ -82,10 +79,7 @@ void main() {
   // ===========================================================================
   group('TimeRangePreset enhanced enum', () {
     test('each preset has correct duration', () {
-      expect(
-        TimeRangePreset.fiveMinutes.duration,
-        const Duration(minutes: 5),
-      );
+      expect(TimeRangePreset.fiveMinutes.duration, const Duration(minutes: 5));
       expect(
         TimeRangePreset.fifteenMinutes.duration,
         const Duration(minutes: 15),
@@ -152,20 +146,14 @@ void main() {
       final range = TimeRange.fromPreset(TimeRangePreset.fiveMinutes);
       const expectedDuration = Duration(minutes: 5);
       // Allow 1 second tolerance for test execution time
-      expect(
-        range.duration.inSeconds,
-        closeTo(expectedDuration.inSeconds, 1),
-      );
+      expect(range.duration.inSeconds, closeTo(expectedDuration.inSeconds, 1));
     });
 
     test('refresh recalculates from now for standard presets', () {
       final old = TimeRange.fromPreset(TimeRangePreset.oneHour);
       final refreshed = old.refresh();
       expect(refreshed.preset, TimeRangePreset.oneHour);
-      expect(
-        refreshed.duration.inMinutes,
-        closeTo(60, 1),
-      );
+      expect(refreshed.duration.inMinutes, closeTo(60, 1));
     });
 
     test('refresh preserves duration for custom preset', () {
@@ -185,13 +173,13 @@ void main() {
   // ===========================================================================
   group('PanelFinding switch expressions', () {
     PanelFinding makeFinding(String panel) => PanelFinding(
-          panel: panel,
-          summary: '',
-          severity: 'info',
-          confidence: 0.5,
-          evidence: [],
-          recommendedActions: [],
-        );
+      panel: panel,
+      summary: '',
+      severity: 'info',
+      confidence: 0.5,
+      evidence: [],
+      recommendedActions: [],
+    );
 
     test('displayName maps all known panels', () {
       expect(makeFinding('trace').displayName, 'Trace Analysis');
@@ -229,8 +217,18 @@ void main() {
       final data = CouncilSynthesisData.fromJson({
         'synthesis': 'test',
         'panels': [
-          {'panel': 'trace', 'summary': 's', 'severity': 'info', 'confidence': 0.5},
-          {'panel': 'logs', 'summary': 's', 'severity': 'info', 'confidence': 0.5},
+          {
+            'panel': 'trace',
+            'summary': 's',
+            'severity': 'info',
+            'confidence': 0.5,
+          },
+          {
+            'panel': 'logs',
+            'summary': 's',
+            'severity': 'info',
+            'confidence': 0.5,
+          },
         ],
       });
       expect(data.panels.length, 2);
@@ -324,8 +322,14 @@ void main() {
         'title': 'Test',
       });
       final after = DateTime.now();
-      expect(event.timestamp.isAfter(before.subtract(const Duration(seconds: 1))), isTrue);
-      expect(event.timestamp.isBefore(after.add(const Duration(seconds: 1))), isTrue);
+      expect(
+        event.timestamp.isAfter(before.subtract(const Duration(seconds: 1))),
+        isTrue,
+      );
+      expect(
+        event.timestamp.isBefore(after.add(const Duration(seconds: 1))),
+        isTrue,
+      );
     });
 
     test('IncidentTimelineData parses end_time with tryParse', () {
@@ -374,10 +378,7 @@ void main() {
     });
 
     test('MetricPoint defaults to now for invalid timestamp', () {
-      final point = MetricPoint.fromJson({
-        'timestamp': 'bad',
-        'value': 42.0,
-      });
+      final point = MetricPoint.fromJson({'timestamp': 'bad', 'value': 42.0});
       expect(point.timestamp.year, DateTime.now().year);
     });
 

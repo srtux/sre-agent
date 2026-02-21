@@ -827,16 +827,13 @@ class DashboardState extends ChangeNotifier {
     _refreshTimer?.cancel();
     _refreshTimer = null;
     if (_autoRefresh) {
-      _refreshTimer = Timer.periodic(
-        const Duration(seconds: 30),
-        (_) {
-          try {
-            _onAutoRefresh?.call();
-          } catch (e) {
-            debugPrint('Error in auto-refresh callback: $e');
-          }
-        },
-      );
+      _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+        try {
+          _onAutoRefresh?.call();
+        } catch (e) {
+          debugPrint('Error in auto-refresh callback: $e');
+        }
+      });
     }
     notifyListeners();
   }

@@ -56,22 +56,38 @@ enum PanelType {
 
   String get displayName {
     switch (this) {
-      case PanelType.timeSeries: return 'Time Series';
-      case PanelType.gauge: return 'Gauge';
-      case PanelType.stat: return 'Stat';
-      case PanelType.table: return 'Table';
-      case PanelType.logs: return 'Logs';
-      case PanelType.traces: return 'Traces';
-      case PanelType.pie: return 'Pie Chart';
-      case PanelType.heatmap: return 'Heatmap';
-      case PanelType.bar: return 'Bar Chart';
-      case PanelType.text: return 'Text';
-      case PanelType.alertChart: return 'Alert Chart';
-      case PanelType.scorecard: return 'Scorecard';
-      case PanelType.scatter: return 'Scatter Plot';
-      case PanelType.treemap: return 'Treemap';
-      case PanelType.errorReporting: return 'Error Reporting';
-      case PanelType.incidentList: return 'Incident List';
+      case PanelType.timeSeries:
+        return 'Time Series';
+      case PanelType.gauge:
+        return 'Gauge';
+      case PanelType.stat:
+        return 'Stat';
+      case PanelType.table:
+        return 'Table';
+      case PanelType.logs:
+        return 'Logs';
+      case PanelType.traces:
+        return 'Traces';
+      case PanelType.pie:
+        return 'Pie Chart';
+      case PanelType.heatmap:
+        return 'Heatmap';
+      case PanelType.bar:
+        return 'Bar Chart';
+      case PanelType.text:
+        return 'Text';
+      case PanelType.alertChart:
+        return 'Alert Chart';
+      case PanelType.scorecard:
+        return 'Scorecard';
+      case PanelType.scatter:
+        return 'Scatter Plot';
+      case PanelType.treemap:
+        return 'Treemap';
+      case PanelType.errorReporting:
+        return 'Error Reporting';
+      case PanelType.incidentList:
+        return 'Incident List';
     }
   }
 
@@ -194,7 +210,9 @@ abstract class DashboardPanel with _$DashboardPanel {
     required String title,
     @Default(PanelType.timeSeries) PanelType type,
     @Default('') String description,
-    @JsonKey(name: 'grid_position') @Default(GridPosition()) GridPosition gridPosition,
+    @JsonKey(name: 'grid_position')
+    @Default(GridPosition())
+    GridPosition gridPosition,
     @Default([]) List<PanelQuery> queries,
     @Default([]) List<Map<String, dynamic>> thresholds,
     Map<String, dynamic>? display,

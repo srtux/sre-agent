@@ -41,12 +41,18 @@ void main() {
     });
 
     test('returns SUM(col) for sum aggregate', () {
-      const cfg = FieldConfig(column: 'revenue', aggregate: AggregateFunction.sum);
+      const cfg = FieldConfig(
+        column: 'revenue',
+        aggregate: AggregateFunction.sum,
+      );
       expect(cfg.displayName, 'SUM(revenue)');
     });
 
     test('returns AVG(col) for avg', () {
-      const cfg = FieldConfig(column: 'latency', aggregate: AggregateFunction.avg);
+      const cfg = FieldConfig(
+        column: 'latency',
+        aggregate: AggregateFunction.avg,
+      );
       expect(cfg.displayName, 'AVG(latency)');
     });
 
@@ -66,12 +72,18 @@ void main() {
     });
 
     test('returns COUNTDISTINCT(col) for countDistinct', () {
-      const cfg = FieldConfig(column: 'user_id', aggregate: AggregateFunction.countDistinct);
+      const cfg = FieldConfig(
+        column: 'user_id',
+        aggregate: AggregateFunction.countDistinct,
+      );
       expect(cfg.displayName, 'COUNTDISTINCT(user_id)');
     });
 
     test('returns COUNT(*) for countStar regardless of column', () {
-      const cfg = FieldConfig(column: 'anything', aggregate: AggregateFunction.countStar);
+      const cfg = FieldConfig(
+        column: 'anything',
+        aggregate: AggregateFunction.countStar,
+      );
       expect(cfg.displayName, 'COUNT(*)');
     });
   });
@@ -157,9 +169,11 @@ void main() {
 
     test('returns true when data changes', () {
       final p1 = makePainter(data: baseData);
-      final p2 = makePainter(data: [
-        {'dim': 'B', 'SUM(val)': 20.0},
-      ]);
+      final p2 = makePainter(
+        data: [
+          {'dim': 'B', 'SUM(val)': 20.0},
+        ],
+      );
       expect(p1.shouldRepaint(p2), isTrue);
     });
 
@@ -204,8 +218,9 @@ void main() {
       expect(find.text('Sort'), findsOneWidget);
     });
 
-    testWidgets('renders field shelves with Dimensions and Measures labels',
-        (tester) async {
+    testWidgets('renders field shelves with Dimensions and Measures labels', (
+      tester,
+    ) async {
       await pumpExplorer(tester, columns: columns, rows: rows);
 
       expect(find.text('Dimensions'), findsOneWidget);
@@ -213,14 +228,13 @@ void main() {
       expect(find.text('Filters'), findsOneWidget);
     });
 
-    testWidgets('shows all chart type icons via Tooltip labels', (tester) async {
+    testWidgets('shows all chart type icons via Tooltip labels', (
+      tester,
+    ) async {
       await pumpExplorer(tester, columns: columns, rows: rows);
 
       // Each chart type should have a Tooltip widget.
-      expect(
-        find.byType(Tooltip),
-        findsWidgets,
-      );
+      expect(find.byType(Tooltip), findsWidgets);
     });
 
     testWidgets('does NOT show Limit dropdown', (tester) async {
@@ -275,25 +289,31 @@ void main() {
       {'region': 'EU', 'revenue': 200},
     ];
 
-    testWidgets('shows 2nd-dimension prompt when stackedBar selected with 1 dim',
-        (tester) async {
-      await pumpExplorer(tester, columns: columns, rows: rows);
+    testWidgets(
+      'shows 2nd-dimension prompt when stackedBar selected with 1 dim',
+      (tester) async {
+        await pumpExplorer(tester, columns: columns, rows: rows);
 
-      // Tap the stacked bar chip (it's a Tooltip-wrapped InkWell).
-      final stackedTooltip = find.byWidgetPredicate(
-        (w) => w is Tooltip && w.message == 'Stacked Bar (2 dims)',
-      );
-      expect(stackedTooltip, findsOneWidget);
-      await tester.tap(stackedTooltip);
-      await tester.pumpAndSettle();
+        // Tap the stacked bar chip (it's a Tooltip-wrapped InkWell).
+        final stackedTooltip = find.byWidgetPredicate(
+          (w) => w is Tooltip && w.message == 'Stacked Bar (2 dims)',
+        );
+        expect(stackedTooltip, findsOneWidget);
+        await tester.tap(stackedTooltip);
+        await tester.pumpAndSettle();
 
-      // Should show "Add a 2nd dimension" prompt.
-      expect(find.textContaining('Add a 2nd dimension'), findsOneWidget);
-      expect(find.text('1st dimension → X axis  ·  2nd dimension → colour series'), findsOneWidget);
-    });
+        // Should show "Add a 2nd dimension" prompt.
+        expect(find.textContaining('Add a 2nd dimension'), findsOneWidget);
+        expect(
+          find.text('1st dimension → X axis  ·  2nd dimension → colour series'),
+          findsOneWidget,
+        );
+      },
+    );
 
-    testWidgets('shows info hint in shelves when stackedBar active',
-        (tester) async {
+    testWidgets('shows info hint in shelves when stackedBar active', (
+      tester,
+    ) async {
       await pumpExplorer(tester, columns: columns, rows: rows);
 
       // Select stackedBar
@@ -304,25 +324,24 @@ void main() {
       await tester.pumpAndSettle();
 
       // The shelf hint should appear
-      expect(
-        find.textContaining('1st dimension = X axis'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('1st dimension = X axis'), findsOneWidget);
     });
 
-    testWidgets('shows 2nd-dimension prompt when groupedBar selected with 1 dim',
-        (tester) async {
-      await pumpExplorer(tester, columns: columns, rows: rows);
+    testWidgets(
+      'shows 2nd-dimension prompt when groupedBar selected with 1 dim',
+      (tester) async {
+        await pumpExplorer(tester, columns: columns, rows: rows);
 
-      final groupedTooltip = find.byWidgetPredicate(
-        (w) => w is Tooltip && w.message == 'Grouped Bar (2 dims)',
-      );
-      expect(groupedTooltip, findsOneWidget);
-      await tester.tap(groupedTooltip);
-      await tester.pumpAndSettle();
+        final groupedTooltip = find.byWidgetPredicate(
+          (w) => w is Tooltip && w.message == 'Grouped Bar (2 dims)',
+        );
+        expect(groupedTooltip, findsOneWidget);
+        await tester.tap(groupedTooltip);
+        await tester.pumpAndSettle();
 
-      expect(find.textContaining('Add a 2nd dimension'), findsOneWidget);
-    });
+        expect(find.textContaining('Add a 2nd dimension'), findsOneWidget);
+      },
+    );
   });
 
   // -------------------------------------------------------------------------
@@ -330,35 +349,34 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('VisualDataExplorer no-limit behaviour', () {
-    test('aggregatedData returns all groups when input has many distinct values',
-        () {
-      // Generate 500 distinct category values each with a numeric field.
-      final rows = List.generate(
-        500,
-        (i) => {'cat': 'cat_$i', 'val': i},
-      );
-      // We can't directly access _aggregatedData but we can observe the row
-      // count label through the widget test below.
-      expect(rows.length, 500);
-    });
+    test(
+      'aggregatedData returns all groups when input has many distinct values',
+      () {
+        // Generate 500 distinct category values each with a numeric field.
+        final rows = List.generate(500, (i) => {'cat': 'cat_$i', 'val': i});
+        // We can't directly access _aggregatedData but we can observe the row
+        // count label through the widget test below.
+        expect(rows.length, 500);
+      },
+    );
 
-    testWidgets('shows all 500 data points in chart annotation', (tester) async {
+    testWidgets('shows all 500 data points in chart annotation', (
+      tester,
+    ) async {
       final rows = List.generate(
         500,
         (i) => {'cat': 'cat_$i', 'val': i.toDouble()},
       );
 
-      await pumpExplorer(
-        tester,
-        columns: ['cat', 'val'],
-        rows: rows,
-      );
+      await pumpExplorer(tester, columns: ['cat', 'val'], rows: rows);
 
       // Each unique 'cat' value is its own group → 500 data points.
       expect(find.text('500 data points'), findsOneWidget);
     });
 
-    testWidgets('shows correct data-point count after filtering', (tester) async {
+    testWidgets('shows correct data-point count after filtering', (
+      tester,
+    ) async {
       // 10 rows but the numeric column has values 0-9.  With the categorical
       // column having unique values per row, we expect 10 groups → 10 points.
       final rows = List.generate(
@@ -366,11 +384,7 @@ void main() {
         (i) => {'label': 'L$i', 'amount': i.toDouble()},
       );
 
-      await pumpExplorer(
-        tester,
-        columns: ['label', 'amount'],
-        rows: rows,
-      );
+      await pumpExplorer(tester, columns: ['label', 'amount'], rows: rows);
 
       expect(find.text('10 data points'), findsOneWidget);
     });
@@ -433,13 +447,19 @@ void main() {
 
   group('Aggregation: countStar produces COUNT(*) display name', () {
     test('countStar displayName is COUNT(*)', () {
-      const f = FieldConfig(column: 'irrelevant', aggregate: AggregateFunction.countStar);
+      const f = FieldConfig(
+        column: 'irrelevant',
+        aggregate: AggregateFunction.countStar,
+      );
       expect(f.displayName, 'COUNT(*)');
     });
 
     test('countStar displayName is COUNT(*) for any column', () {
       for (final col in ['a', 'b', 'my_col', '']) {
-        final f = FieldConfig(column: col, aggregate: AggregateFunction.countStar);
+        final f = FieldConfig(
+          column: col,
+          aggregate: AggregateFunction.countStar,
+        );
         expect(f.displayName, 'COUNT(*)');
       }
     });
@@ -510,31 +530,33 @@ void main() {
       );
     });
 
-    test('shouldRepaint: returns true when seriesKey changes from null to value',
-        () {
-      final p1 = ExplorerChartPainter(
-        data: multiData,
-        dimensionKey: 'region',
-        measureKey: 'SUM(revenue)',
-        measures: ['SUM(revenue)'],
-        chartType: ExplorerChartType.stackedBar,
-        color: const Color(0xFF00FFFF),
-        textColor: const Color(0xFFFFFFFF),
-        gridColor: const Color(0xFF888888),
-      );
-      final p2 = ExplorerChartPainter(
-        data: multiData,
-        dimensionKey: 'region',
-        measureKey: 'SUM(revenue)',
-        measures: ['SUM(revenue)'],
-        chartType: ExplorerChartType.stackedBar,
-        color: const Color(0xFF00FFFF),
-        textColor: const Color(0xFFFFFFFF),
-        gridColor: const Color(0xFF888888),
-        seriesKey: 'product',
-      );
-      expect(p1.shouldRepaint(p2), isTrue);
-    });
+    test(
+      'shouldRepaint: returns true when seriesKey changes from null to value',
+      () {
+        final p1 = ExplorerChartPainter(
+          data: multiData,
+          dimensionKey: 'region',
+          measureKey: 'SUM(revenue)',
+          measures: ['SUM(revenue)'],
+          chartType: ExplorerChartType.stackedBar,
+          color: const Color(0xFF00FFFF),
+          textColor: const Color(0xFFFFFFFF),
+          gridColor: const Color(0xFF888888),
+        );
+        final p2 = ExplorerChartPainter(
+          data: multiData,
+          dimensionKey: 'region',
+          measureKey: 'SUM(revenue)',
+          measures: ['SUM(revenue)'],
+          chartType: ExplorerChartType.stackedBar,
+          color: const Color(0xFF00FFFF),
+          textColor: const Color(0xFFFFFFFF),
+          gridColor: const Color(0xFF888888),
+          seriesKey: 'product',
+        );
+        expect(p1.shouldRepaint(p2), isTrue);
+      },
+    );
   });
 
   // -------------------------------------------------------------------------

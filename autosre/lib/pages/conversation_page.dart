@@ -109,7 +109,9 @@ class _ConversationPageState extends State<ConversationPage>
     );
 
     // Drive typing animation from processing state changes.
-    _controller.contentGenerator?.isProcessing.addListener(_onProcessingChanged);
+    _controller.contentGenerator?.isProcessing.addListener(
+      _onProcessingChanged,
+    );
 
     _projectService.fetchProjects();
     _sessionService.fetchSessions();
@@ -193,7 +195,8 @@ class _ConversationPageState extends State<ConversationPage>
   // --------------- Processing & Typing Animation ---------------
 
   void _onProcessingChanged() {
-    final processing = _controller.contentGenerator?.isProcessing.value ?? false;
+    final processing =
+        _controller.contentGenerator?.isProcessing.value ?? false;
     if (processing) {
       if (!_typingController.isAnimating) {
         _typingController.repeat();
@@ -280,7 +283,9 @@ class _ConversationPageState extends State<ConversationPage>
   }
 
   void _startNewSession() {
-    _controller.contentGenerator?.isProcessing.removeListener(_onProcessingChanged);
+    _controller.contentGenerator?.isProcessing.removeListener(
+      _onProcessingChanged,
+    );
     _controller.clearSessionState();
     if (!mounted) return;
     setState(() {
@@ -289,7 +294,9 @@ class _ConversationPageState extends State<ConversationPage>
         projectId: _projectService.selectedProjectId,
       );
     });
-    _controller.contentGenerator?.isProcessing.addListener(_onProcessingChanged);
+    _controller.contentGenerator?.isProcessing.addListener(
+      _onProcessingChanged,
+    );
     if (mounted) {
       StatusToast.show(context, 'Starting new investigation...');
     }
@@ -304,7 +311,9 @@ class _ConversationPageState extends State<ConversationPage>
       return;
     }
 
-    _controller.contentGenerator?.isProcessing.removeListener(_onProcessingChanged);
+    _controller.contentGenerator?.isProcessing.removeListener(
+      _onProcessingChanged,
+    );
     _controller.contentGenerator?.sessionId = sessionId;
     _sessionService.setCurrentSession(sessionId);
 
@@ -316,7 +325,9 @@ class _ConversationPageState extends State<ConversationPage>
         projectId: _projectService.selectedProjectId,
       );
     });
-    _controller.contentGenerator?.isProcessing.addListener(_onProcessingChanged);
+    _controller.contentGenerator?.isProcessing.addListener(
+      _onProcessingChanged,
+    );
 
     if (session.messages.isNotEmpty) {
       final history = <ChatMessage>[];
@@ -446,7 +457,9 @@ class _ConversationPageState extends State<ConversationPage>
                             builder: (context, messages, _) {
                               return ValueListenableBuilder<bool>(
                                 valueListenable:
-                                    _controller.contentGenerator?.isProcessing ??
+                                    _controller
+                                        .contentGenerator
+                                        ?.isProcessing ??
                                     ValueNotifier(false),
                                 builder: (context, isProcessing, _) {
                                   if (messages.isEmpty) {
@@ -456,9 +469,11 @@ class _ConversationPageState extends State<ConversationPage>
                                       textController: _textController,
                                       focusNode: _focusNode,
                                       onSend: _sendMessage,
-                                      onCancel: () => _controller.contentGenerator
+                                      onCancel: () => _controller
+                                          .contentGenerator
                                           ?.cancelRequest(),
-                                      suggestedActions: _controller.suggestedActions,
+                                      suggestedActions:
+                                          _controller.suggestedActions,
                                     );
                                   }
                                   return Column(
@@ -468,9 +483,11 @@ class _ConversationPageState extends State<ConversationPage>
                                           messages: messages,
                                           isProcessing: isProcessing,
                                           scrollController: _scrollController,
-                                          conversation: _controller.conversation!,
+                                          conversation:
+                                              _controller.conversation!,
                                           typingAnimation: _typingController,
-                                          toolCallState: _controller.toolCallState,
+                                          toolCallState:
+                                              _controller.toolCallState,
                                         ),
                                       ),
                                       ChatInputArea(
@@ -479,7 +496,8 @@ class _ConversationPageState extends State<ConversationPage>
                                         textController: _textController,
                                         focusNode: _focusNode,
                                         onSend: _sendMessage,
-                                        onCancel: () => _controller.contentGenerator
+                                        onCancel: () => _controller
+                                            .contentGenerator
                                             ?.cancelRequest(),
                                         suggestedActions:
                                             _controller.suggestedActions,
@@ -532,10 +550,14 @@ class _ConversationPageState extends State<ConversationPage>
 
   @override
   void dispose() {
-    _controller.contentGenerator?.isProcessing.removeListener(_onProcessingChanged);
+    _controller.contentGenerator?.isProcessing.removeListener(
+      _onProcessingChanged,
+    );
     _controller.dispose();
     // Note: _dashboardState is managed by Provider — do NOT dispose here.
-    _projectService.needsProjectSelection.removeListener(_onNeedsProjectSelection);
+    _projectService.needsProjectSelection.removeListener(
+      _onNeedsProjectSelection,
+    );
     _projectService.selectedProject.removeListener(_onProjectChanged);
     _typingController.dispose();
     _textController.dispose();

@@ -251,10 +251,7 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
                         DashboardDataType.analytics,
                       ),
                       isLoading: isLoading,
-                      snippets: [
-                        ...sqlSnippets,
-                        ..._schemaSnippets,
-                      ],
+                      snippets: [...sqlSnippets, ..._schemaSnippets],
                       templates: sqlTemplates,
                       enableNaturalLanguage: true,
                       naturalLanguageHint:
@@ -285,7 +282,8 @@ class _LiveChartsPanelState extends State<LiveChartsPanel> {
                     ),
                   ),
                   // Syntax help
-                  if (_helpDismissedLoaded && !_helpDismissed) _buildSqlSyntaxHelp(),
+                  if (_helpDismissedLoaded && !_helpDismissed)
+                    _buildSqlSyntaxHelp(),
                   if (error != null)
                     ErrorBanner(
                       message: error,
@@ -524,10 +522,7 @@ class _SqlResultCard extends StatefulWidget {
   final DashboardItem item;
   final DashboardState dashboardState;
 
-  const _SqlResultCard({
-    required this.item,
-    required this.dashboardState,
-  });
+  const _SqlResultCard({required this.item, required this.dashboardState});
 
   @override
   State<_SqlResultCard> createState() => _SqlResultCardState();
@@ -572,10 +567,7 @@ class _SqlResultCardState extends State<_SqlResultCard> {
           const SizedBox(width: 8),
           Text(
             '${sqlData.rows.length} rows',
-            style: const TextStyle(
-              fontSize: 9,
-              color: AppColors.textMuted,
-            ),
+            style: const TextStyle(fontSize: 9, color: AppColors.textMuted),
           ),
           const SizedBox(width: 12),
           // View Toggle
@@ -609,14 +601,8 @@ class _SqlResultCardState extends State<_SqlResultCard> {
       child: SizedBox(
         height: 600, // Larger fixed height for each result card
         child: _showVisualizer
-            ? VisualDataExplorer(
-                columns: sqlData.columns,
-                rows: sqlData.rows,
-              )
-            : SqlResultsTable(
-                columns: sqlData.columns,
-                rows: sqlData.rows,
-              ),
+            ? VisualDataExplorer(columns: sqlData.columns, rows: sqlData.rows)
+            : SqlResultsTable(columns: sqlData.columns, rows: sqlData.rows),
       ),
     );
   }

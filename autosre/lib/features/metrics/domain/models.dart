@@ -12,7 +12,8 @@ abstract class MetricPoint with _$MetricPoint {
     @Default(false) @JsonKey(name: 'is_anomaly') bool isAnomaly,
   }) = _MetricPoint;
 
-  factory MetricPoint.fromJson(Map<String, dynamic> json) => _$MetricPointFromJson(json);
+  factory MetricPoint.fromJson(Map<String, dynamic> json) =>
+      _$MetricPointFromJson(json);
 }
 
 @freezed
@@ -23,7 +24,8 @@ abstract class MetricSeries with _$MetricSeries {
     @Default({}) Map<String, dynamic> labels,
   }) = _MetricSeries;
 
-  factory MetricSeries.fromJson(Map<String, dynamic> json) => _$MetricSeriesFromJson(json);
+  factory MetricSeries.fromJson(Map<String, dynamic> json) =>
+      _$MetricSeriesFromJson(json);
 }
 
 @freezed
@@ -33,7 +35,8 @@ abstract class MetricDataPoint with _$MetricDataPoint {
     required double value,
   }) = _MetricDataPoint;
 
-  factory MetricDataPoint.fromJson(Map<String, dynamic> json) => _$MetricDataPointFromJson(json);
+  factory MetricDataPoint.fromJson(Map<String, dynamic> json) =>
+      _$MetricDataPointFromJson(json);
 }
 
 @freezed
@@ -52,7 +55,8 @@ abstract class DashboardMetric with _$DashboardMetric {
     @JsonKey(name: 'anomaly_description') String? anomalyDescription,
   }) = _DashboardMetric;
 
-  factory DashboardMetric.fromJson(Map<String, dynamic> json) => _$DashboardMetricFromJson(json);
+  factory DashboardMetric.fromJson(Map<String, dynamic> json) =>
+      _$DashboardMetricFromJson(json);
 
   double get changePercent {
     if (previousValue == null || previousValue == 0) return 0;
@@ -69,5 +73,6 @@ abstract class MetricsDashboardData with _$MetricsDashboardData {
     @JsonKey(name: 'last_updated') DateTime? lastUpdated,
   }) = _MetricsDashboardData;
 
-  factory MetricsDashboardData.fromJson(Map<String, dynamic> json) => _$MetricsDashboardDataFromJson(json);
+  factory MetricsDashboardData.fromJson(Map<String, dynamic> json) =>
+      _$MetricsDashboardDataFromJson(json);
 }

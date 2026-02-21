@@ -258,7 +258,6 @@ class _ToolLogWidgetState extends State<ToolLogWidget>
     );
   }
 
-
   Widget _buildCollapsedHeader(bool isRunning, bool isError, bool isCompleted) {
     final toolIcon = _getToolIcon(widget.log.toolName);
 

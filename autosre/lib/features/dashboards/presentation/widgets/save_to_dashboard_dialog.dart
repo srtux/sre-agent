@@ -33,7 +33,8 @@ class SaveToDashboardDialog extends ConsumerStatefulWidget {
   }
 
   @override
-  ConsumerState<SaveToDashboardDialog> createState() => _SaveToDashboardDialogState();
+  ConsumerState<SaveToDashboardDialog> createState() =>
+      _SaveToDashboardDialogState();
 }
 
 class _SaveToDashboardDialogState extends ConsumerState<SaveToDashboardDialog> {
@@ -65,9 +66,16 @@ class _SaveToDashboardDialogState extends ConsumerState<SaveToDashboardDialog> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: const Row(
         children: [
-          Icon(Icons.dashboard_customize, color: AppColors.primaryCyan, size: 22),
+          Icon(
+            Icons.dashboard_customize,
+            color: AppColors.primaryCyan,
+            size: 22,
+          ),
           SizedBox(width: 8),
-          Text('Save to Dashboard', style: TextStyle(color: Colors.white, fontSize: 18)),
+          Text(
+            'Save to Dashboard',
+            style: TextStyle(color: Colors.white, fontSize: 18),
+          ),
         ],
       ),
       content: SizedBox(
@@ -87,7 +95,10 @@ class _SaveToDashboardDialogState extends ConsumerState<SaveToDashboardDialog> {
               const SizedBox(height: 20),
               _buildModeToggle(),
               const SizedBox(height: 16),
-              if (_createNew) _buildCreateNewSection() else _buildExistingSection(),
+              if (_createNew)
+                _buildCreateNewSection()
+              else
+                _buildExistingSection(),
             ],
           ),
         ),
@@ -104,7 +115,10 @@ class _SaveToDashboardDialogState extends ConsumerState<SaveToDashboardDialog> {
               ? const SizedBox(
                   width: 16,
                   height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
                 )
               : const Text('Save'),
         ),
@@ -128,7 +142,11 @@ class _SaveToDashboardDialogState extends ConsumerState<SaveToDashboardDialog> {
               color: AppColors.primaryTeal.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(_getPanelIcon(widget.panelType), color: AppColors.primaryCyan, size: 20),
+            child: Icon(
+              _getPanelIcon(widget.panelType),
+              color: AppColors.primaryCyan,
+              size: 20,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -137,7 +155,11 @@ class _SaveToDashboardDialogState extends ConsumerState<SaveToDashboardDialog> {
               children: [
                 Text(
                   widget.panelType.displayName,
-                  style: const TextStyle(color: AppColors.primaryCyan, fontSize: 12, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    color: AppColors.primaryCyan,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -158,31 +180,56 @@ class _SaveToDashboardDialogState extends ConsumerState<SaveToDashboardDialog> {
     return Row(
       children: [
         Expanded(
-          child: _buildToggleOption('Create New', Icons.add_circle_outline, _createNew, () => setState(() => _createNew = true)),
+          child: _buildToggleOption(
+            'Create New',
+            Icons.add_circle_outline,
+            _createNew,
+            () => setState(() => _createNew = true),
+          ),
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: _buildToggleOption('Add to Existing', Icons.dashboard, !_createNew, () => setState(() => _createNew = false)),
+          child: _buildToggleOption(
+            'Add to Existing',
+            Icons.dashboard,
+            !_createNew,
+            () => setState(() => _createNew = false),
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildToggleOption(String label, IconData icon, bool selected, VoidCallback onTap) {
+  Widget _buildToggleOption(
+    String label,
+    IconData icon,
+    bool selected,
+    VoidCallback onTap,
+  ) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
         decoration: BoxDecoration(
-          color: selected ? AppColors.primaryTeal.withValues(alpha: 0.15) : Colors.transparent,
+          color: selected
+              ? AppColors.primaryTeal.withValues(alpha: 0.15)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: selected ? AppColors.primaryCyan.withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.15)),
+          border: Border.all(
+            color: selected
+                ? AppColors.primaryCyan.withValues(alpha: 0.5)
+                : Colors.white.withValues(alpha: 0.15),
+          ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 18, color: selected ? AppColors.primaryCyan : Colors.white38),
+            Icon(
+              icon,
+              size: 18,
+              color: selected ? AppColors.primaryCyan : Colors.white38,
+            ),
             const SizedBox(width: 8),
             Text(
               label,
@@ -202,7 +249,10 @@ class _SaveToDashboardDialogState extends ConsumerState<SaveToDashboardDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Dashboard Name', style: TextStyle(color: Colors.white70, fontSize: 13)),
+        const Text(
+          'Dashboard Name',
+          style: TextStyle(color: Colors.white70, fontSize: 13),
+        ),
         const SizedBox(height: 8),
         TextField(
           controller: _dashboardNameController,
@@ -226,10 +276,17 @@ class _SaveToDashboardDialogState extends ConsumerState<SaveToDashboardDialog> {
           decoration: InputDecoration(
             hintText: 'Search dashboards...',
             hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
-            prefixIcon: Icon(Icons.search, size: 18, color: Colors.white.withValues(alpha: 0.3)),
+            prefixIcon: Icon(
+              Icons.search,
+              size: 18,
+              color: Colors.white.withValues(alpha: 0.3),
+            ),
             filled: true,
             fillColor: AppColors.backgroundDark,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide.none,
+            ),
             contentPadding: const EdgeInsets.symmetric(vertical: 10),
           ),
         ),
@@ -239,15 +296,23 @@ class _SaveToDashboardDialogState extends ConsumerState<SaveToDashboardDialog> {
             final filtered = dashboards
                 .where((d) => d.source == DashboardSource.local)
                 .where((d) {
-              final query = _searchController.text.toLowerCase();
-              return query.isEmpty || d.displayName.toLowerCase().contains(query);
-            }).toList();
+                  final query = _searchController.text.toLowerCase();
+                  return query.isEmpty ||
+                      d.displayName.toLowerCase().contains(query);
+                })
+                .toList();
 
             if (filtered.isEmpty) {
               return Padding(
                 padding: const EdgeInsets.all(16),
                 child: Center(
-                  child: Text('No local dashboards found', style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 13)),
+                  child: Text(
+                    'No local dashboards found',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.4),
+                      fontSize: 13,
+                    ),
+                  ),
                 ),
               );
             }
@@ -263,20 +328,59 @@ class _SaveToDashboardDialogState extends ConsumerState<SaveToDashboardDialog> {
                   return ListTile(
                     dense: true,
                     selected: selected,
-                    selectedTileColor: AppColors.primaryTeal.withValues(alpha: 0.15),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    leading: Icon(Icons.dashboard, size: 18, color: selected ? AppColors.primaryCyan : Colors.white38),
-                    title: Text(d.displayName, style: TextStyle(color: selected ? AppColors.primaryCyan : Colors.white, fontSize: 14)),
-                    subtitle: Text('${d.panelCount} panels', style: const TextStyle(color: Colors.white38, fontSize: 12)),
-                    trailing: selected ? const Icon(Icons.check_circle, color: AppColors.primaryCyan, size: 18) : null,
+                    selectedTileColor: AppColors.primaryTeal.withValues(
+                      alpha: 0.15,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    leading: Icon(
+                      Icons.dashboard,
+                      size: 18,
+                      color: selected ? AppColors.primaryCyan : Colors.white38,
+                    ),
+                    title: Text(
+                      d.displayName,
+                      style: TextStyle(
+                        color: selected ? AppColors.primaryCyan : Colors.white,
+                        fontSize: 14,
+                      ),
+                    ),
+                    subtitle: Text(
+                      '${d.panelCount} panels',
+                      style: const TextStyle(
+                        color: Colors.white38,
+                        fontSize: 12,
+                      ),
+                    ),
+                    trailing: selected
+                        ? const Icon(
+                            Icons.check_circle,
+                            color: AppColors.primaryCyan,
+                            size: 18,
+                          )
+                        : null,
                     onTap: () => setState(() => _selectedDashboardId = d.id),
                   );
                 },
               ),
             );
           },
-          loading: () => const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator(color: AppColors.primaryTeal, strokeWidth: 2))),
-          error: (err, _) => Center(child: Text('Error: $err', style: const TextStyle(color: Colors.redAccent, fontSize: 12))),
+          loading: () => const Center(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: CircularProgressIndicator(
+                color: AppColors.primaryTeal,
+                strokeWidth: 2,
+              ),
+            ),
+          ),
+          error: (err, _) => Center(
+            child: Text(
+              'Error: $err',
+              style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+            ),
+          ),
         ),
       ],
     );
@@ -286,29 +390,51 @@ class _SaveToDashboardDialogState extends ConsumerState<SaveToDashboardDialog> {
     return InputDecoration(
       labelText: label,
       labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
-      enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)), borderRadius: BorderRadius.circular(8)),
-      focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: AppColors.primaryCyan), borderRadius: BorderRadius.circular(8)),
+      enabledBorder: OutlineInputBorder(
+        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderSide: const BorderSide(color: AppColors.primaryCyan),
+        borderRadius: BorderRadius.circular(8),
+      ),
     );
   }
 
   IconData _getPanelIcon(PanelType type) {
     switch (type) {
-      case PanelType.timeSeries: return Icons.show_chart;
-      case PanelType.gauge: return Icons.speed;
-      case PanelType.stat: return Icons.numbers;
-      case PanelType.table: return Icons.table_chart;
-      case PanelType.logs: return Icons.subject;
-      case PanelType.traces: return Icons.timeline;
-      case PanelType.pie: return Icons.pie_chart;
-      case PanelType.heatmap: return Icons.grid_on;
-      case PanelType.bar: return Icons.bar_chart;
-      case PanelType.text: return Icons.text_fields;
-      case PanelType.alertChart: return Icons.warning_amber;
-      case PanelType.scorecard: return Icons.score;
-      case PanelType.scatter: return Icons.scatter_plot;
-      case PanelType.treemap: return Icons.account_tree;
-      case PanelType.errorReporting: return Icons.error_outline;
-      case PanelType.incidentList: return Icons.list_alt;
+      case PanelType.timeSeries:
+        return Icons.show_chart;
+      case PanelType.gauge:
+        return Icons.speed;
+      case PanelType.stat:
+        return Icons.numbers;
+      case PanelType.table:
+        return Icons.table_chart;
+      case PanelType.logs:
+        return Icons.subject;
+      case PanelType.traces:
+        return Icons.timeline;
+      case PanelType.pie:
+        return Icons.pie_chart;
+      case PanelType.heatmap:
+        return Icons.grid_on;
+      case PanelType.bar:
+        return Icons.bar_chart;
+      case PanelType.text:
+        return Icons.text_fields;
+      case PanelType.alertChart:
+        return Icons.warning_amber;
+      case PanelType.scorecard:
+        return Icons.score;
+      case PanelType.scatter:
+        return Icons.scatter_plot;
+      case PanelType.treemap:
+        return Icons.account_tree;
+      case PanelType.errorReporting:
+        return Icons.error_outline;
+      case PanelType.incidentList:
+        return Icons.list_alt;
     }
   }
 
@@ -331,18 +457,24 @@ class _SaveToDashboardDialogState extends ConsumerState<SaveToDashboardDialog> {
           setState(() => _saving = false);
           return;
         }
-        await ref.read(dashboardsProvider().notifier).createDashboard(displayName: dashName, panels: [panelData]);
+        await ref
+            .read(dashboardsProvider().notifier)
+            .createDashboard(displayName: dashName, panels: [panelData]);
       } else {
         if (_selectedDashboardId == null) {
           setState(() => _saving = false);
           return;
         }
-        await ref.read(dashboardDetailProvider(_selectedDashboardId!).notifier).addPanel(panelData);
+        await ref
+            .read(dashboardDetailProvider(_selectedDashboardId!).notifier)
+            .addPanel(panelData);
       }
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to save: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to save: $e')));
         setState(() => _saving = false);
       }
     }

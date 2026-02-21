@@ -647,10 +647,11 @@ final class CouncilSynthesisData {
 
     // Parse panels (Dart 3 if-case pattern)
     final panels = switch (data['panels']) {
-      List list => list
-          .whereType<Map>()
-          .map((p) => PanelFinding.fromJson(Map<String, dynamic>.from(p)))
-          .toList(),
+      List list =>
+        list
+            .whereType<Map>()
+            .map((p) => PanelFinding.fromJson(Map<String, dynamic>.from(p)))
+            .toList(),
       _ => <PanelFinding>[],
     };
 

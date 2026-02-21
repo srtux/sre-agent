@@ -13,7 +13,8 @@ final class MetricPoint {
   });
 
   factory MetricPoint.fromJson(Map<String, dynamic> json) {
-    final ts = DateTime.tryParse(json['timestamp']?.toString() ?? '') ??
+    final ts =
+        DateTime.tryParse(json['timestamp']?.toString() ?? '') ??
         DateTime.now();
     return MetricPoint(
       timestamp: ts,
@@ -74,11 +75,15 @@ final class MetricSeries {
   Map<String, dynamic> toJson() {
     return {
       'metric_name': metricName,
-      'points': points.map((p) => {
-        'timestamp': p.timestamp.toIso8601String(),
-        'value': p.value,
-        'is_anomaly': p.isAnomaly,
-      }).toList(),
+      'points': points
+          .map(
+            (p) => {
+              'timestamp': p.timestamp.toIso8601String(),
+              'value': p.value,
+              'is_anomaly': p.isAnomaly,
+            },
+          )
+          .toList(),
       'labels': labels,
     };
   }
@@ -104,7 +109,8 @@ final class MetricDataPoint {
   MetricDataPoint({required this.timestamp, required this.value});
 
   factory MetricDataPoint.fromJson(Map<String, dynamic> json) {
-    final ts = DateTime.tryParse(json['timestamp']?.toString() ?? '') ??
+    final ts =
+        DateTime.tryParse(json['timestamp']?.toString() ?? '') ??
         DateTime.now();
     return MetricDataPoint(
       timestamp: ts,
@@ -214,8 +220,9 @@ final class MetricsDashboardData {
   });
 
   factory MetricsDashboardData.fromJson(Map<String, dynamic> json) {
-    final lastUpdated =
-        DateTime.tryParse(json['last_updated']?.toString() ?? '');
+    final lastUpdated = DateTime.tryParse(
+      json['last_updated']?.toString() ?? '',
+    );
 
     return MetricsDashboardData(
       title: json['title'] as String? ?? 'Metrics Dashboard',

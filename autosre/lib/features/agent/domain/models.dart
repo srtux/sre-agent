@@ -15,7 +15,8 @@ abstract class AgentNode with _$AgentNode {
     Map<String, dynamic>? metadata,
   }) = _AgentNode;
 
-  factory AgentNode.fromJson(Map<String, dynamic> json) => _$AgentNodeFromJson(json);
+  factory AgentNode.fromJson(Map<String, dynamic> json) =>
+      _$AgentNodeFromJson(json);
 }
 
 @freezed
@@ -28,5 +29,6 @@ abstract class AgentActivityData with _$AgentActivityData {
     String? message,
   }) = _AgentActivityData;
 
-  factory AgentActivityData.fromJson(Map<String, dynamic> json) => _$AgentActivityDataFromJson(json);
+  factory AgentActivityData.fromJson(Map<String, dynamic> json) =>
+      _$AgentActivityDataFromJson(json);
 }

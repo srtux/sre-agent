@@ -3,7 +3,6 @@ import '../../features/dashboards/presentation/pages/dashboards_page.dart';
 import '../../services/dashboard_state.dart';
 import '../../theme/app_theme.dart';
 
-
 /// A vertical rail on the left side providing quick access to dashboard categories.
 class InvestigationRail extends StatelessWidget {
   final DashboardState state;

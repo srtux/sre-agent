@@ -115,9 +115,7 @@ void main() {
       expect(box?.maxHeight, LogTimelineHistogram.defaultHeight);
     });
 
-    testWidgets('renders with custom chartHeight', (
-      WidgetTester tester,
-    ) async {
+    testWidgets('renders with custom chartHeight', (WidgetTester tester) async {
       final range = _makeRange(
         start: baseTime,
         end: baseTime.add(const Duration(hours: 1)),
@@ -201,10 +199,7 @@ void main() {
           )
           .last;
 
-      await tester.drag(
-        handleFinder,
-        const Offset(0, 50),
-      );
+      await tester.drag(handleFinder, const Offset(0, 50));
       await tester.pumpAndSettle();
 
       // The callback should have been invoked with a clamped value.
@@ -253,27 +248,35 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-  testWidgets('handles entries outside time range gracefully (dynamic expanding bounds)', (
-      WidgetTester tester,
-    ) async {
-      final range = _makeRange(
-        start: baseTime,
-        end: baseTime.add(const Duration(hours: 1)),
-      );
-      final entries = [
-        _makeEntry(timestamp: baseTime.subtract(const Duration(hours: 2))), // before explicitly bound
-        _makeEntry(timestamp: baseTime.add(const Duration(hours: 4))), // after explicitly bound
-      ];
+    testWidgets(
+      'handles entries outside time range gracefully (dynamic expanding bounds)',
+      (WidgetTester tester) async {
+        final range = _makeRange(
+          start: baseTime,
+          end: baseTime.add(const Duration(hours: 1)),
+        );
+        final entries = [
+          _makeEntry(
+            timestamp: baseTime.subtract(const Duration(hours: 2)),
+          ), // before explicitly bound
+          _makeEntry(
+            timestamp: baseTime.add(const Duration(hours: 4)),
+          ), // after explicitly bound
+        ];
 
-      await tester.pumpWidget(
-        _wrapWidget(LogTimelineHistogram(entries: entries, timeRange: range)),
-      );
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(
+          _wrapWidget(LogTimelineHistogram(entries: entries, timeRange: range)),
+        );
+        await tester.pumpAndSettle();
 
-      expect(find.byType(LogTimelineHistogram), findsOneWidget);
-      expect(find.byType(CustomPaint), findsWidgets); // Should not assert and successfully paint
-      expect(tester.takeException(), isNull);
-    });
+        expect(find.byType(LogTimelineHistogram), findsOneWidget);
+        expect(
+          find.byType(CustomPaint),
+          findsWidgets,
+        ); // Should not assert and successfully paint
+        expect(tester.takeException(), isNull);
+      },
+    );
 
     testWidgets('calls onBucketTap when provided', (WidgetTester tester) async {
       final range = _makeRange(

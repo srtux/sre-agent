@@ -12,6 +12,7 @@ abstract class LogNotifierState with _$LogNotifierState {
     @Default([]) List<LogEntry> entries,
     @Default(false) bool isLoading,
     String? error,
+
     /// Timestamp of the oldest loaded entry; used as the cursor for
     /// loading older entries (cursor-based pagination).
     DateTime? oldestEntryTimestamp,
@@ -56,8 +57,9 @@ class LogNotifier extends _$LogNotifier {
         minutesAgo: append ? null : minutesAgo,
       );
 
-      final allEntries =
-          append ? [...state.entries, ...data.entries] : data.entries;
+      final allEntries = append
+          ? [...state.entries, ...data.entries]
+          : data.entries;
 
       // Track the oldest entry for next cursor page
       DateTime? oldestTs;

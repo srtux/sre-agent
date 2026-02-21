@@ -296,8 +296,7 @@ class _LogTimelineHistogramState extends State<LogTimelineHistogram> {
                   if (widget.isLoadingHistogram && !hasHistogram)
                     Positioned.fill(
                       child: Container(
-                        color:
-                            AppColors.backgroundDark.withValues(alpha: 0.4),
+                        color: AppColors.backgroundDark.withValues(alpha: 0.4),
                         alignment: Alignment.center,
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -348,9 +347,7 @@ class _LogTimelineHistogramState extends State<LogTimelineHistogram> {
                           style: TextStyle(
                             fontSize: 8,
                             fontWeight: FontWeight.w500,
-                            color: AppColors.success.withValues(
-                              alpha: 0.8,
-                            ),
+                            color: AppColors.success.withValues(alpha: 0.8),
                           ),
                         ),
                       ),
@@ -466,8 +463,7 @@ class _LogTimelineHistogramState extends State<LogTimelineHistogram> {
     final buckets = _getEffectiveBuckets();
     final numBuckets = buckets.length;
     final chartWidth = containerWidth - _leftMargin;
-    final barWidth =
-        (chartWidth - (numBuckets - 1) * _barGap) / numBuckets;
+    final barWidth = (chartWidth - (numBuckets - 1) * _barGap) / numBuckets;
     final barCenterX =
         _leftMargin +
         _hoveredBucketIndex! * (barWidth + _barGap) +
@@ -646,8 +642,18 @@ class _LogTimelineHistogramState extends State<LogTimelineHistogram> {
         return '$h:$m';
       case _TimeFormat.date:
         const months = [
-          'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+          'Jan',
+          'Feb',
+          'Mar',
+          'Apr',
+          'May',
+          'Jun',
+          'Jul',
+          'Aug',
+          'Sep',
+          'Oct',
+          'Nov',
+          'Dec',
         ];
         return '${months[dt.month - 1]} ${dt.day}';
     }
@@ -806,10 +812,7 @@ class _HistogramPainter extends CustomPainter {
     final gradient = ui.Gradient.linear(
       Offset(leftMargin, _topPadding),
       Offset(leftMargin, chartHeight + _topPadding),
-      [
-        Colors.white.withValues(alpha: 0.01),
-        Colors.transparent,
-      ],
+      [Colors.white.withValues(alpha: 0.01), Colors.transparent],
     );
     canvas.drawRect(rect, Paint()..shader = gradient);
   }
@@ -828,19 +831,44 @@ class _HistogramPainter extends CustomPainter {
     // Segment proportions
     final segments = <_BarSegment>[];
     if (bucket.debugCount > 0) {
-      segments.add(_BarSegment(bucket.debugCount, _infoColor.withValues(alpha: 0.4 * alphaMult)));
+      segments.add(
+        _BarSegment(
+          bucket.debugCount,
+          _infoColor.withValues(alpha: 0.4 * alphaMult),
+        ),
+      );
     }
     if (bucket.infoCount > 0) {
-      segments.add(_BarSegment(bucket.infoCount, _infoColor.withValues(alpha: 0.7 * alphaMult)));
+      segments.add(
+        _BarSegment(
+          bucket.infoCount,
+          _infoColor.withValues(alpha: 0.7 * alphaMult),
+        ),
+      );
     }
     if (bucket.warningCount > 0) {
-      segments.add(_BarSegment(bucket.warningCount, _warningColor.withValues(alpha: 0.8 * alphaMult)));
+      segments.add(
+        _BarSegment(
+          bucket.warningCount,
+          _warningColor.withValues(alpha: 0.8 * alphaMult),
+        ),
+      );
     }
     if (bucket.errorCount > 0) {
-      segments.add(_BarSegment(bucket.errorCount, _errorColor.withValues(alpha: 0.85 * alphaMult)));
+      segments.add(
+        _BarSegment(
+          bucket.errorCount,
+          _errorColor.withValues(alpha: 0.85 * alphaMult),
+        ),
+      );
     }
     if (bucket.criticalCount > 0) {
-      segments.add(_BarSegment(bucket.criticalCount, _criticalColor.withValues(alpha: 0.9 * alphaMult)));
+      segments.add(
+        _BarSegment(
+          bucket.criticalCount,
+          _criticalColor.withValues(alpha: 0.9 * alphaMult),
+        ),
+      );
     }
 
     if (segments.isEmpty) return;
@@ -875,18 +903,11 @@ class _HistogramPainter extends CustomPainter {
     // Subtle top glow for bars with errors
     if (bucket.errorCount > 0 || bucket.criticalCount > 0) {
       final glowPaint = Paint()
-        ..shader = ui.Gradient.linear(
-          Offset(x, yPos),
-          Offset(x, yPos + 4),
-          [
-            _errorColor.withValues(alpha: 0.3),
-            Colors.transparent,
-          ],
-        );
-      canvas.drawRect(
-        Rect.fromLTWH(x, yPos - 2, barWidth, 6),
-        glowPaint,
-      );
+        ..shader = ui.Gradient.linear(Offset(x, yPos), Offset(x, yPos + 4), [
+          _errorColor.withValues(alpha: 0.3),
+          Colors.transparent,
+        ]);
+      canvas.drawRect(Rect.fromLTWH(x, yPos - 2, barWidth, 6), glowPaint);
     }
   }
 
@@ -897,11 +918,7 @@ class _HistogramPainter extends CustomPainter {
 
     for (final fraction in [0.25, 0.5, 0.75]) {
       final y = _topPadding + chartHeight * (1 - fraction);
-      canvas.drawLine(
-        Offset(leftMargin, y),
-        Offset(size.width, y),
-        linePaint,
-      );
+      canvas.drawLine(Offset(leftMargin, y), Offset(size.width, y), linePaint);
     }
   }
 
@@ -927,10 +944,7 @@ class _HistogramPainter extends CustomPainter {
         textDirection: TextDirection.ltr,
       )..layout();
 
-      tp.paint(
-        canvas,
-        Offset(leftMargin - tp.width - 4, y - tp.height / 2),
-      );
+      tp.paint(canvas, Offset(leftMargin - tp.width - 4, y - tp.height / 2));
     }
   }
 
@@ -967,10 +981,7 @@ class _HistogramPainter extends CustomPainter {
       final x =
           leftMargin + i * (barWidth + _barGap) + barWidth / 2 - tp.width / 2;
       final clampedX = x.clamp(leftMargin, size.width - tp.width);
-      tp.paint(
-        canvas,
-        Offset(clampedX, size.height - _bottomMargin + 4),
-      );
+      tp.paint(canvas, Offset(clampedX, size.height - _bottomMargin + 4));
     }
   }
 
@@ -1015,8 +1026,18 @@ class _HistogramPainter extends CustomPainter {
 
   String _formatDate(DateTime dt) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[dt.month - 1]} ${dt.day}';
   }

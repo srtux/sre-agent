@@ -107,8 +107,7 @@ class _AgentGraphCanvasState extends State<AgentGraphCanvas>
   /// An edge is visible when both its source and target nodes are visible.
   List<AgentGraphEdge> _visibleEdges(Set<String> visibleIds) {
     return widget.data.edges.where((e) {
-      return visibleIds.contains(e.sourceId) &&
-          visibleIds.contains(e.targetId);
+      return visibleIds.contains(e.sourceId) && visibleIds.contains(e.targetId);
     }).toList();
   }
 
@@ -161,7 +160,8 @@ class _AgentGraphCanvasState extends State<AgentGraphCanvas>
     List<AgentGraphEdge> edges,
   ) {
     final expandedHash = Object.hashAll(_expandedAgentIds);
-    final needsRebuild = _cachedGraph == null ||
+    final needsRebuild =
+        _cachedGraph == null ||
         _cachedNodeCount != nodes.length ||
         _cachedEdgeCount != edges.length ||
         _cachedUseSugiyama != _useSugiyama ||
@@ -242,10 +242,7 @@ class _AgentGraphCanvasState extends State<AgentGraphCanvas>
     );
   }
 
-  Graph _buildGraph(
-    List<AgentGraphNode> nodes,
-    List<AgentGraphEdge> edges,
-  ) {
+  Graph _buildGraph(List<AgentGraphNode> nodes, List<AgentGraphEdge> edges) {
     final graph = Graph()..isTree = false;
     final nodeMap = <String, Node>{};
 
@@ -466,9 +463,7 @@ class _AgentGraphCanvasState extends State<AgentGraphCanvas>
       onTap: () => setState(() {
         _selectedNodeId = isSelected ? null : nodeId;
       }),
-      onDoubleTap: gNode.expandable
-          ? () => _toggleExpansion(nodeId)
-          : null,
+      onDoubleTap: gNode.expandable ? () => _toggleExpansion(nodeId) : null,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         constraints: const BoxConstraints(minWidth: 80),
@@ -519,11 +514,7 @@ class _AgentGraphCanvasState extends State<AgentGraphCanvas>
   }
 
   /// A compact expand/collapse control showing the children count and a chevron.
-  Widget _buildExpandHint(
-    AgentGraphNode gNode,
-    bool isExpanded,
-    Color color,
-  ) {
+  Widget _buildExpandHint(AgentGraphNode gNode, bool isExpanded, Color color) {
     return GestureDetector(
       onTap: () => _toggleExpansion(gNode.id),
       behavior: HitTestBehavior.opaque,

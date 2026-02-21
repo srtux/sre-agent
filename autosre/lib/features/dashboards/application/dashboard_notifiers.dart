@@ -11,11 +11,9 @@ class Dashboards extends _$Dashboards {
     String? projectId,
     bool includeCloud = true,
   }) async {
-
-    return ref.watch(dashboardRepositoryProvider).listDashboards(
-          projectId: projectId,
-          includeCloud: includeCloud,
-        );
+    return ref
+        .watch(dashboardRepositoryProvider)
+        .listDashboards(projectId: projectId, includeCloud: includeCloud);
   }
 
   Future<void> refresh() async {
@@ -23,14 +21,15 @@ class Dashboards extends _$Dashboards {
     await future;
   }
 
-
   Future<void> createDashboard({
     required String displayName,
     String description = '',
     List<Map<String, dynamic>>? panels,
     String? projectId,
   }) async {
-    await ref.read(dashboardRepositoryProvider).createDashboard(
+    await ref
+        .read(dashboardRepositoryProvider)
+        .createDashboard(
           displayName: displayName,
           description: description,
           panels: panels,
@@ -40,7 +39,9 @@ class Dashboards extends _$Dashboards {
   }
 
   Future<void> deleteDashboard(String dashboardId) async {
-    final success = await ref.read(dashboardRepositoryProvider).deleteDashboard(dashboardId);
+    final success = await ref
+        .read(dashboardRepositoryProvider)
+        .deleteDashboard(dashboardId);
     if (success) {
       ref.invalidateSelf();
     }
@@ -51,8 +52,9 @@ class Dashboards extends _$Dashboards {
 class DashboardDetail extends _$DashboardDetail {
   @override
   Future<Dashboard> build(String dashboardId) async {
-
-    final dashboard = await ref.watch(dashboardRepositoryProvider).getDashboard(dashboardId);
+    final dashboard = await ref
+        .watch(dashboardRepositoryProvider)
+        .getDashboard(dashboardId);
     if (dashboard == null) {
       throw Exception('Dashboard not found');
     }
@@ -60,24 +62,35 @@ class DashboardDetail extends _$DashboardDetail {
   }
 
   Future<void> updateDashboard(Map<String, dynamic> updates) async {
-    final updated = await ref.read(dashboardRepositoryProvider).updateDashboard(dashboardId, updates);
+    final updated = await ref
+        .read(dashboardRepositoryProvider)
+        .updateDashboard(dashboardId, updates);
     state = AsyncValue.data(updated);
     // Also invalidate the list as names/summaries might have changed
     ref.invalidate(dashboardsProvider);
   }
 
   Future<void> addPanel(Map<String, dynamic> panelData) async {
-    final updated = await ref.read(dashboardRepositoryProvider).addPanel(dashboardId, panelData);
+    final updated = await ref
+        .read(dashboardRepositoryProvider)
+        .addPanel(dashboardId, panelData);
     state = AsyncValue.data(updated);
   }
 
   Future<void> removePanel(String panelId) async {
-    final updated = await ref.read(dashboardRepositoryProvider).removePanel(dashboardId, panelId);
+    final updated = await ref
+        .read(dashboardRepositoryProvider)
+        .removePanel(dashboardId, panelId);
     state = AsyncValue.data(updated);
   }
 
-  Future<void> updatePanelPosition(String panelId, GridPosition position) async {
-    final updated = await ref.read(dashboardRepositoryProvider).updatePanelPosition(dashboardId, panelId, position);
+  Future<void> updatePanelPosition(
+    String panelId,
+    GridPosition position,
+  ) async {
+    final updated = await ref
+        .read(dashboardRepositoryProvider)
+        .updatePanelPosition(dashboardId, panelId, position);
     state = AsyncValue.data(updated);
   }
 }

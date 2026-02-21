@@ -15,7 +15,6 @@ Map<String, dynamic>? _decodeHugeJson(String source) {
   }
 }
 
-
 /// A ContentGenerator that connects to the Python SRE Agent.
 class ADKContentGenerator implements ContentGenerator {
   final StreamController<A2uiMessage> _a2uiController =

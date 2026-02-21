@@ -25,8 +25,9 @@ class DashboardRepository {
     final dynamic rawData = response.data;
     if (rawData is! Map<String, dynamic>) {
       throw Exception(
-          'Expected JSON Map from /api/dashboards, but got ${rawData.runtimeType}. '
-          'This often happens if the request falls back to the frontend index.html due to an incorrect baseUrl.');
+        'Expected JSON Map from /api/dashboards, but got ${rawData.runtimeType}. '
+        'This often happens if the request falls back to the frontend index.html due to an incorrect baseUrl.',
+      );
     }
     final data = rawData;
     final list = data['dashboards'] as List<dynamic>? ?? [];
@@ -85,10 +86,7 @@ class DashboardRepository {
     return Dashboard.fromJson(response.data as Map<String, dynamic>);
   }
 
-  Future<Dashboard> removePanel(
-    String dashboardId,
-    String panelId,
-  ) async {
+  Future<Dashboard> removePanel(String dashboardId, String panelId) async {
     final response = await _dio.delete(
       '/api/dashboards/$dashboardId/panels/$panelId',
     );
@@ -110,6 +108,5 @@ class DashboardRepository {
 
 @riverpod
 DashboardRepository dashboardRepository(Ref ref) {
-
   return DashboardRepository(ref.watch(dioProvider));
 }

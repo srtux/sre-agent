@@ -203,10 +203,9 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
               .map((r) => r[measure.column])
               .where((v) => v != null && v.toString().isNotEmpty)
               .toList();
-          aggregatedRow[measure.displayName] =
-              aggFn == AggregateFunction.count
-                  ? values.length.toDouble()
-                  : values.toSet().length.toDouble();
+          aggregatedRow[measure.displayName] = aggFn == AggregateFunction.count
+              ? values.length.toDouble()
+              : values.toSet().length.toDouble();
         } else {
           final values = groupRows
               .map((r) => _toDouble(r[measure.column]))
@@ -615,8 +614,7 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
             InkWell(
               onTap: onTapAggregate,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                 margin: const EdgeInsets.only(right: 4),
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.15),
@@ -634,7 +632,8 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
             ),
           Text(
             field.aggregate == AggregateFunction.countStar
-                ? field.column // column shown dimly for context
+                ? field
+                      .column // column shown dimly for context
                 : field.column,
             style: GoogleFonts.jetBrainsMono(
               fontSize: 10,
@@ -682,7 +681,8 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
 
     // Measures also offer a COUNT(*) virtual field that doesn't need a column.
     final canAddCountStar =
-        isMeasure && !_measures.any((m) => m.aggregate == AggregateFunction.countStar);
+        isMeasure &&
+        !_measures.any((m) => m.aggregate == AggregateFunction.countStar);
 
     if (available.isEmpty && !canAddCountStar) return const SizedBox.shrink();
 
@@ -744,13 +744,9 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
             child: Row(
               children: [
                 Icon(
-                  isNumeric
-                      ? Icons.tag_rounded
-                      : Icons.text_fields_rounded,
+                  isNumeric ? Icons.tag_rounded : Icons.text_fields_rounded,
                   size: 12,
-                  color: isNumeric
-                      ? AppColors.warning
-                      : AppColors.primaryCyan,
+                  color: isNumeric ? AppColors.warning : AppColors.primaryCyan,
                 ),
                 const SizedBox(width: 6),
                 Text(
@@ -886,12 +882,12 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
                         vertical: 3,
                       ),
                       decoration: BoxDecoration(
-                        color:
-                            AppColors.secondaryPurple.withValues(alpha: 0.1),
+                        color: AppColors.secondaryPurple.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(
-                          color: AppColors.secondaryPurple
-                              .withValues(alpha: 0.2),
+                          color: AppColors.secondaryPurple.withValues(
+                            alpha: 0.2,
+                          ),
                         ),
                       ),
                       child: Row(
@@ -906,13 +902,12 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
                           ),
                           const SizedBox(width: 4),
                           InkWell(
-                            onTap: () => setState(
-                                () => _filters.removeAt(entry.key)),
+                            onTap: () =>
+                                setState(() => _filters.removeAt(entry.key)),
                             child: Icon(
                               Icons.close_rounded,
                               size: 10,
-                              color:
-                                  AppColors.textMuted.withValues(alpha: 0.7),
+                              color: AppColors.textMuted.withValues(alpha: 0.7),
                             ),
                           ),
                         ],
@@ -975,16 +970,11 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
         child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.add_rounded,
-              size: 12,
-              color: AppColors.secondaryPurple,
-            ),
+            Icon(Icons.add_rounded, size: 12, color: AppColors.secondaryPurple),
             SizedBox(width: 2),
             Text(
               'Add',
-              style: TextStyle(
-                  fontSize: 10, color: AppColors.secondaryPurple),
+              style: TextStyle(fontSize: 10, color: AppColors.secondaryPurple),
             ),
           ],
         ),
@@ -994,8 +984,9 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
 
   void _showFilterDialog(String column) {
     final isNumeric = _numericColumns.contains(column);
-    final operators =
-        isNumeric ? ['=', '!=', '>', '<'] : ['=', '!=', 'contains'];
+    final operators = isNumeric
+        ? ['=', '!=', '>', '<']
+        : ['=', '!=', 'contains'];
     var selectedOp = operators.first;
     final valueController = TextEditingController();
 
@@ -1023,8 +1014,7 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
                       return Padding(
                         padding: const EdgeInsets.only(right: 4),
                         child: InkWell(
-                          onTap: () =>
-                              setDialogState(() => selectedOp = op),
+                          onTap: () => setDialogState(() => selectedOp = op),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 8,
@@ -1032,8 +1022,9 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
                             ),
                             decoration: BoxDecoration(
                               color: isSelected
-                                  ? AppColors.secondaryPurple
-                                      .withValues(alpha: 0.2)
+                                  ? AppColors.secondaryPurple.withValues(
+                                      alpha: 0.2,
+                                    )
                                   : Colors.transparent,
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(
@@ -1270,14 +1261,12 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
             const SizedBox(height: 10),
             Text(
               'Add a 2nd dimension to use ${_chartTypeLabel(_chartType)}',
-              style: const TextStyle(
-                  fontSize: 12, color: AppColors.textMuted),
+              style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
             ),
             const SizedBox(height: 4),
             const Text(
               '1st dimension → X axis  ·  2nd dimension → colour series',
-              style: TextStyle(
-                  fontSize: 10, color: AppColors.textMuted),
+              style: TextStyle(fontSize: 10, color: AppColors.textMuted),
             ),
           ],
         ),
@@ -1285,8 +1274,9 @@ class _VisualDataExplorerState extends State<VisualDataExplorer> {
     }
 
     final dimensionKey = _dimensions.first.column;
-    final seriesKey =
-        (needsSecondDim && hasSecondDim) ? _dimensions[1].column : null;
+    final seriesKey = (needsSecondDim && hasSecondDim)
+        ? _dimensions[1].column
+        : null;
     final measureKey = _measures.first.displayName;
 
     // Legend entries: series values for stacked/grouped, measure names otherwise.

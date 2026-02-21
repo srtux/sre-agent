@@ -7,7 +7,9 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   FlutterError.onError = (FlutterErrorDetails details) {
     if (details.exceptionAsString().contains('A RenderFlex overflowed')) {
       // Dump the exception to the failure queue
-      throw Exception('RenderFlex overflow detected during a test.\n\n$details');
+      throw Exception(
+        'RenderFlex overflow detected during a test.\n\n$details',
+      );
     }
     FlutterError.dumpErrorToConsole(details);
   };

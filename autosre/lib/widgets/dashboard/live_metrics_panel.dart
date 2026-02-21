@@ -39,7 +39,6 @@ class LiveMetricsPanel extends StatefulWidget {
 }
 
 class _LiveMetricsPanelState extends State<LiveMetricsPanel> {
-
   static const _languages = ['MQL Filter', 'PromQL'];
 
   static const _hints = [
@@ -89,7 +88,9 @@ class _LiveMetricsPanelState extends State<LiveMetricsPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final isLoading = widget.dashboardState.isLoading(DashboardDataType.metrics);
+    final isLoading = widget.dashboardState.isLoading(
+      DashboardDataType.metrics,
+    );
     final error = widget.dashboardState.errorFor(DashboardDataType.metrics);
 
     return ListenableBuilder(
@@ -171,12 +172,15 @@ class _LiveMetricsPanelState extends State<LiveMetricsPanel> {
               ),
             ),
             // Syntax reference + inline help
-            if (_helpDismissedLoaded && !_helpDismissed) _buildSyntaxHelp(langIndex),
+            if (_helpDismissedLoaded && !_helpDismissed)
+              _buildSyntaxHelp(langIndex),
             if (error != null)
               ErrorBanner(
                 message: error,
-                onDismiss: () =>
-                    widget.dashboardState.setError(DashboardDataType.metrics, null),
+                onDismiss: () => widget.dashboardState.setError(
+                  DashboardDataType.metrics,
+                  null,
+                ),
               ),
             Expanded(
               child: isLoading && widget.items.isEmpty
@@ -265,7 +269,9 @@ class _LiveMetricsPanelState extends State<LiveMetricsPanel> {
                               e.$2,
                               style: TextStyle(
                                 fontSize: 9,
-                                color: AppColors.textMuted.withValues(alpha: 0.8),
+                                color: AppColors.textMuted.withValues(
+                                  alpha: 0.8,
+                                ),
                               ),
                             ),
                           ),

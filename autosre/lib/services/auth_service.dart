@@ -60,7 +60,8 @@ class AuthService extends ChangeNotifier {
   bool _isAuthEnabled = true;
   bool _isGuestMode = false;
   bool _isGuestModeEnabled = false;
-  bool _isEnsuringAccessToken = false; // Mutex: prevents concurrent authorization popups
+  bool _isEnsuringAccessToken =
+      false; // Mutex: prevents concurrent authorization popups
 
   @visibleForTesting
   set currentUser(gsi_lib.GoogleSignInAccount? user) => _currentUser = user;
@@ -222,7 +223,9 @@ class AuthService extends ChangeNotifier {
     // _handleAuthEvent) is already running, bail out instead of opening a
     // second authorization popup.
     if (_isEnsuringAccessToken) {
-      debugPrint('AuthService: _ensureAccessToken already in progress, skipping.');
+      debugPrint(
+        'AuthService: _ensureAccessToken already in progress, skipping.',
+      );
       return;
     }
     _isEnsuringAccessToken = true;

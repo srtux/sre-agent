@@ -41,7 +41,11 @@ void main() {
         'timestamp': '2026-01-01T00:00:00Z',
         'severity': 'INFO',
         'payload': 'test',
-        'resource_labels': <String, dynamic>{'project_id': 'proj', 'count': 42, 'flag': true},
+        'resource_labels': <String, dynamic>{
+          'project_id': 'proj',
+          'count': 42,
+          'flag': true,
+        },
         'resource_type': 'gce',
       });
       // Should not throw — converts non-strings to string
@@ -164,7 +168,6 @@ void main() {
       expect(series.points[0].value, 1.0);
       expect(series.points[1].value, 2.0);
     });
-
 
     test('LogEntriesData.fromJson skips non-Map entries', () {
       final data = LogEntriesData.fromJson(<String, dynamic>{

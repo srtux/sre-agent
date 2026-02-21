@@ -17,7 +17,6 @@ String _encodeJsonMap(dynamic obj) {
   }
 }
 
-
 /// Callback signature for showing status/error toasts.
 typedef ToastCallback = void Function(String message, {bool isError});
 

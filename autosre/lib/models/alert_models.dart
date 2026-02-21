@@ -24,7 +24,8 @@ final class TimelineEvent {
   });
 
   factory TimelineEvent.fromJson(Map<String, dynamic> json) {
-    final ts = DateTime.tryParse(json['timestamp']?.toString() ?? '') ??
+    final ts =
+        DateTime.tryParse(json['timestamp']?.toString() ?? '') ??
         DateTime.now();
     return TimelineEvent(
       id: json['id'] as String? ?? '',
@@ -91,7 +92,8 @@ final class IncidentTimelineData {
   });
 
   factory IncidentTimelineData.fromJson(Map<String, dynamic> json) {
-    final startTs = DateTime.tryParse(json['start_time']?.toString() ?? '') ??
+    final startTs =
+        DateTime.tryParse(json['start_time']?.toString() ?? '') ??
         DateTime.now();
     final endTs = DateTime.tryParse(json['end_time']?.toString() ?? '');
     return IncidentTimelineData(
@@ -145,16 +147,20 @@ final class IncidentTimelineData {
       'start_time': startTime.toIso8601String(),
       'end_time': endTime?.toIso8601String(),
       'status': status,
-      'events': events.map((e) => {
-        'id': e.id,
-        'timestamp': e.timestamp.toIso8601String(),
-        'type': e.type,
-        'title': e.title,
-        'description': e.description,
-        'severity': e.severity,
-        'metadata': e.metadata,
-        'is_correlated': e.isCorrelatedToIncident,
-      }).toList(),
+      'events': events
+          .map(
+            (e) => {
+              'id': e.id,
+              'timestamp': e.timestamp.toIso8601String(),
+              'type': e.type,
+              'title': e.title,
+              'description': e.description,
+              'severity': e.severity,
+              'metadata': e.metadata,
+              'is_correlated': e.isCorrelatedToIncident,
+            },
+          )
+          .toList(),
       'root_cause': rootCause,
       'ttd_seconds': timeToDetect?.inSeconds,
       'ttm_seconds': timeToMitigate?.inSeconds,

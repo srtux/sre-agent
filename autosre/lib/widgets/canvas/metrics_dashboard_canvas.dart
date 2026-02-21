@@ -51,7 +51,9 @@ class _MetricsDashboardCanvasState extends State<MetricsDashboardCanvas>
   @override
   void didUpdateWidget(MetricsDashboardCanvas oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final hadAnomalies = oldWidget.data.metrics.any((m) => m.status != 'normal');
+    final hadAnomalies = oldWidget.data.metrics.any(
+      (m) => m.status != 'normal',
+    );
     final hasAnomalies = widget.data.metrics.any((m) => m.status != 'normal');
     if (hadAnomalies != hasAnomalies) {
       _syncAnimations();

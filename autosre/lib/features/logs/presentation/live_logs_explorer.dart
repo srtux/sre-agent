@@ -43,7 +43,11 @@ class _LiveLogsExplorerState extends ConsumerState<LiveLogsExplorer> {
           ),
           child: Text(
             severity,
-            style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12),
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
           ),
         );
       },
@@ -66,12 +70,18 @@ class _LiveLogsExplorerState extends ConsumerState<LiveLogsExplorer> {
 
   static Color _getSeverityColor(String severity) {
     switch (severity.toUpperCase()) {
-      case 'CRITICAL': return Colors.purple;
-      case 'ERROR': return AppColors.error;
-      case 'WARNING': return AppColors.warning;
-      case 'INFO': return AppColors.info;
-      case 'DEBUG': return AppColors.textMuted;
-      default: return AppColors.textSecondary;
+      case 'CRITICAL':
+        return Colors.purple;
+      case 'ERROR':
+        return AppColors.error;
+      case 'WARNING':
+        return AppColors.warning;
+      case 'INFO':
+        return AppColors.info;
+      case 'DEBUG':
+        return AppColors.textMuted;
+      default:
+        return AppColors.textSecondary;
     }
   }
 
@@ -79,7 +89,11 @@ class _LiveLogsExplorerState extends ConsumerState<LiveLogsExplorer> {
     return entries.map((entry) {
       return PlutoRow(
         cells: {
-          'timestamp': PlutoCell(value: DateFormat('yyyy-MM-dd HH:mm:ss.SSS').format(entry.timestamp)),
+          'timestamp': PlutoCell(
+            value: DateFormat(
+              'yyyy-MM-dd HH:mm:ss.SSS',
+            ).format(entry.timestamp),
+          ),
           'severity': PlutoCell(value: entry.severity),
           'message': PlutoCell(value: entry.payloadPreview),
           'resource': PlutoCell(value: entry.resourceType),
@@ -120,8 +134,14 @@ class _LiveLogsExplorerState extends ConsumerState<LiveLogsExplorer> {
                       style: PlutoGridStyleConfig(
                         gridBackgroundColor: Colors.transparent,
                         rowColor: Colors.transparent,
-                        columnTextStyle: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
-                        cellTextStyle: TextStyle(color: AppColors.textPrimary, fontSize: 13),
+                        columnTextStyle: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        cellTextStyle: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 13,
+                        ),
                         gridBorderColor: AppColors.surfaceBorder,
                       ),
                     ),
@@ -139,7 +159,10 @@ class _LiveLogsExplorerState extends ConsumerState<LiveLogsExplorer> {
         children: [
           const Icon(Icons.article_outlined, color: AppColors.primaryBlue),
           const SizedBox(width: 8),
-          const Text('Live Logs', style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text(
+            'Live Logs',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           const Spacer(),
           IconButton(
             icon: const Icon(Icons.refresh),

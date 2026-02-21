@@ -20,7 +20,9 @@ class _DashboardViewPageState extends ConsumerState<DashboardViewPage> {
 
   @override
   Widget build(BuildContext context) {
-    final dashboardAsync = ref.watch(dashboardDetailProvider(widget.dashboardId));
+    final dashboardAsync = ref.watch(
+      dashboardDetailProvider(widget.dashboardId),
+    );
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
@@ -37,7 +39,6 @@ class _DashboardViewPageState extends ConsumerState<DashboardViewPage> {
 
   PreferredSizeWidget _buildAppBar(AsyncValue<Dashboard> dashboardAsync) {
     final dashboard = dashboardAsync.value;
-
 
     return AppBar(
       backgroundColor: AppColors.backgroundCard,
@@ -65,10 +66,7 @@ class _DashboardViewPageState extends ConsumerState<DashboardViewPage> {
           },
           itemBuilder: (_) => TimeRangePreset.values
               .where((p) => p != TimeRangePreset.custom)
-              .map((p) => PopupMenuItem(
-                    value: p,
-                    child: Text(p.displayName),
-                  ))
+              .map((p) => PopupMenuItem(value: p, child: Text(p.displayName)))
               .toList(),
         ),
         IconButton(
@@ -96,7 +94,10 @@ class _DashboardViewPageState extends ConsumerState<DashboardViewPage> {
             if (dashboard?.source == DashboardSource.local)
               const PopupMenuItem(
                 value: 'delete',
-                child: Text('Delete', style: TextStyle(color: Colors.redAccent)),
+                child: Text(
+                  'Delete',
+                  style: TextStyle(color: Colors.redAccent),
+                ),
               ),
           ],
         ),
@@ -117,7 +118,8 @@ class _DashboardViewPageState extends ConsumerState<DashboardViewPage> {
           ),
           const SizedBox(height: 16),
           ElevatedButton(
-            onPressed: () => ref.invalidate(dashboardDetailProvider(widget.dashboardId)),
+            onPressed: () =>
+                ref.invalidate(dashboardDetailProvider(widget.dashboardId)),
             child: const Text('Retry'),
           ),
         ],
@@ -141,31 +143,53 @@ class _DashboardViewPageState extends ConsumerState<DashboardViewPage> {
       color: AppColors.backgroundCard.withValues(alpha: 0.5),
       child: Row(
         children: [
-          const Icon(Icons.filter_alt_outlined, size: 16, color: Colors.white54),
+          const Icon(
+            Icons.filter_alt_outlined,
+            size: 16,
+            color: Colors.white54,
+          ),
           const SizedBox(width: 8),
           if (dashboard.filters.isEmpty)
-            const Text('No filters configured', style: TextStyle(color: Colors.white38, fontSize: 13))
+            const Text(
+              'No filters configured',
+              style: TextStyle(color: Colors.white38, fontSize: 13),
+            )
           else
-            ...dashboard.filters.map((f) => Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Chip(
-                    label: Text('${f.key} ${f.operator} ${f.value}',
-                        style: const TextStyle(color: Colors.white70, fontSize: 12)),
-                    backgroundColor: AppColors.backgroundDark,
-                    side: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+            ...dashboard.filters.map(
+              (f) => Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Chip(
+                  label: Text(
+                    '${f.key} ${f.operator} ${f.value}',
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
                   ),
-                )),
+                  backgroundColor: AppColors.backgroundDark,
+                  side: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+                ),
+              ),
+            ),
           const Spacer(),
           if (dashboard.variables.isNotEmpty)
-            ...dashboard.variables.map((v) => Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Chip(
-                    label: Text('\$${v.name}',
-                        style: const TextStyle(color: AppColors.primaryCyan, fontSize: 12)),
-                    backgroundColor: AppColors.primaryTeal.withValues(alpha: 0.15),
-                    side: BorderSide(color: AppColors.primaryCyan.withValues(alpha: 0.3)),
+            ...dashboard.variables.map(
+              (v) => Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Chip(
+                  label: Text(
+                    '\$${v.name}',
+                    style: const TextStyle(
+                      color: AppColors.primaryCyan,
+                      fontSize: 12,
+                    ),
                   ),
-                )),
+                  backgroundColor: AppColors.primaryTeal.withValues(
+                    alpha: 0.15,
+                  ),
+                  side: BorderSide(
+                    color: AppColors.primaryCyan.withValues(alpha: 0.3),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -177,11 +201,18 @@ class _DashboardViewPageState extends ConsumerState<DashboardViewPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.add_chart, size: 64, color: Colors.white.withValues(alpha: 0.2)),
+            Icon(
+              Icons.add_chart,
+              size: 64,
+              color: Colors.white.withValues(alpha: 0.2),
+            ),
             const SizedBox(height: 16),
             Text(
               'No panels yet',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 16),
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.4),
+                fontSize: 16,
+              ),
             ),
             if (_editMode) ...[
               const SizedBox(height: 16),
@@ -189,7 +220,9 @@ class _DashboardViewPageState extends ConsumerState<DashboardViewPage> {
                 onPressed: () => _showAddPanelDialog(context, dashboard),
                 icon: const Icon(Icons.add),
                 label: const Text('Add Panel'),
-                style: FilledButton.styleFrom(backgroundColor: AppColors.primaryTeal),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primaryTeal,
+                ),
               ),
             ],
           ],
@@ -205,7 +238,8 @@ class _DashboardViewPageState extends ConsumerState<DashboardViewPage> {
 
         double maxBottom = 0;
         for (final panel in dashboard.panels) {
-          final bottom = (panel.gridPosition.y + panel.gridPosition.height) * cellHeight;
+          final bottom =
+              (panel.gridPosition.y + panel.gridPosition.height) * cellHeight;
           if (bottom > maxBottom) maxBottom = bottom;
         }
 
@@ -248,7 +282,9 @@ class _DashboardViewPageState extends ConsumerState<DashboardViewPage> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: AppColors.backgroundCard,
-        border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
+        border: Border(
+          top: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+        ),
       ),
       child: Row(
         children: [
@@ -256,7 +292,9 @@ class _DashboardViewPageState extends ConsumerState<DashboardViewPage> {
             onPressed: () => _showAddPanelDialog(context, dashboard),
             icon: const Icon(Icons.add, size: 18),
             label: const Text('Add Panel'),
-            style: FilledButton.styleFrom(backgroundColor: AppColors.primaryTeal),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primaryTeal,
+            ),
           ),
           const Spacer(),
           Text(
@@ -273,17 +311,28 @@ class _DashboardViewPageState extends ConsumerState<DashboardViewPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.backgroundCard,
-        title: const Text('Remove Panel', style: TextStyle(color: Colors.white)),
-        content: const Text('Are you sure you want to remove this panel?', style: TextStyle(color: Colors.white70)),
+        title: const Text(
+          'Remove Panel',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          'Are you sure you want to remove this panel?',
+          style: TextStyle(color: Colors.white70),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.white54),
+            ),
           ),
           FilledButton(
             onPressed: () {
               Navigator.of(ctx).pop();
-              ref.read(dashboardDetailProvider(dashboardId).notifier).removePanel(panelId);
+              ref
+                  .read(dashboardDetailProvider(dashboardId).notifier)
+                  .removePanel(panelId);
             },
             style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
             child: const Text('Remove'),
@@ -302,7 +351,9 @@ class _DashboardViewPageState extends ConsumerState<DashboardViewPage> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           backgroundColor: AppColors.backgroundCard,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: const Text('Add Panel', style: TextStyle(color: Colors.white)),
           content: SizedBox(
             width: 400,
@@ -316,19 +367,28 @@ class _DashboardViewPageState extends ConsumerState<DashboardViewPage> {
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
                     labelText: 'Panel Title',
-                    labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+                    labelStyle: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.5),
+                    ),
                     enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                      borderSide: BorderSide(
+                        color: Colors.white.withValues(alpha: 0.2),
+                      ),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderSide: const BorderSide(color: AppColors.primaryCyan),
+                      borderSide: const BorderSide(
+                        color: AppColors.primaryCyan,
+                      ),
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text('Panel Type', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                const Text(
+                  'Panel Type',
+                  style: TextStyle(color: Colors.white70, fontSize: 13),
+                ),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -341,14 +401,20 @@ class _DashboardViewPageState extends ConsumerState<DashboardViewPage> {
                       onSelected: (_) {
                         setDialogState(() => selectedType = type);
                       },
-                      selectedColor: AppColors.primaryTeal.withValues(alpha: 0.3),
+                      selectedColor: AppColors.primaryTeal.withValues(
+                        alpha: 0.3,
+                      ),
                       labelStyle: TextStyle(
-                        color: isSelected ? AppColors.primaryCyan : Colors.white70,
+                        color: isSelected
+                            ? AppColors.primaryCyan
+                            : Colors.white70,
                         fontSize: 12,
                       ),
                       backgroundColor: AppColors.backgroundDark,
                       side: BorderSide(
-                        color: isSelected ? AppColors.primaryCyan.withValues(alpha: 0.5) : Colors.white24,
+                        color: isSelected
+                            ? AppColors.primaryCyan.withValues(alpha: 0.5)
+                            : Colors.white24,
                       ),
                     );
                   }).toList(),
@@ -359,18 +425,25 @@ class _DashboardViewPageState extends ConsumerState<DashboardViewPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: Colors.white54),
+              ),
             ),
             FilledButton(
               onPressed: () {
                 if (titleController.text.trim().isEmpty) return;
                 Navigator.of(ctx).pop();
-                ref.read(dashboardDetailProvider(dashboard.id).notifier).addPanel({
-                  'title': titleController.text.trim(),
-                  'type': selectedType.name, // Fixed to use name for JSON
-                });
+                ref
+                    .read(dashboardDetailProvider(dashboard.id).notifier)
+                    .addPanel({
+                      'title': titleController.text.trim(),
+                      'type': selectedType.name, // Fixed to use name for JSON
+                    });
               },
-              style: FilledButton.styleFrom(backgroundColor: AppColors.primaryTeal),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primaryTeal,
+              ),
               child: const Text('Add'),
             ),
           ],
@@ -391,7 +464,10 @@ class _DashboardViewPageState extends ConsumerState<DashboardViewPage> {
           context: context,
           builder: (ctx) => AlertDialog(
             backgroundColor: AppColors.backgroundCard,
-            title: const Text('Delete Dashboard', style: TextStyle(color: Colors.white)),
+            title: const Text(
+              'Delete Dashboard',
+              style: TextStyle(color: Colors.white),
+            ),
             content: Text(
               'Are you sure you want to delete "${dashboard.displayName}"?',
               style: const TextStyle(color: Colors.white70),
@@ -399,16 +475,23 @@ class _DashboardViewPageState extends ConsumerState<DashboardViewPage> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(color: Colors.white54),
+                ),
               ),
               FilledButton(
                 onPressed: () async {
                   Navigator.of(ctx).pop();
-                  await ref.read(dashboardsProvider().notifier).deleteDashboard(dashboard.id);
+                  await ref
+                      .read(dashboardsProvider().notifier)
+                      .deleteDashboard(dashboard.id);
                   if (!mounted) return;
                   Navigator.of(context).pop();
                 },
-                style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                ),
                 child: const Text('Delete'),
               ),
             ],
@@ -455,7 +538,9 @@ class _DashboardPanelCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.06))),
+              border: Border(
+                bottom: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
+              ),
             ),
             child: Row(
               children: [
@@ -476,7 +561,11 @@ class _DashboardPanelCard extends StatelessWidget {
                 if (editMode)
                   InkWell(
                     onTap: onDelete,
-                    child: const Icon(Icons.close, size: 16, color: Colors.white38),
+                    child: const Icon(
+                      Icons.close,
+                      size: 16,
+                      color: Colors.white38,
+                    ),
                   ),
               ],
             ),
@@ -489,22 +578,38 @@ class _DashboardPanelCard extends StatelessWidget {
 
   IconData _getPanelIcon() {
     switch (panel.type) {
-      case PanelType.timeSeries: return Icons.show_chart;
-      case PanelType.gauge: return Icons.speed;
-      case PanelType.stat: return Icons.numbers;
-      case PanelType.table: return Icons.table_chart;
-      case PanelType.logs: return Icons.subject;
-      case PanelType.traces: return Icons.timeline;
-      case PanelType.pie: return Icons.pie_chart;
-      case PanelType.heatmap: return Icons.grid_on;
-      case PanelType.bar: return Icons.bar_chart;
-      case PanelType.text: return Icons.text_fields;
-      case PanelType.alertChart: return Icons.warning_amber;
-      case PanelType.scorecard: return Icons.score;
-      case PanelType.scatter: return Icons.scatter_plot;
-      case PanelType.treemap: return Icons.account_tree;
-      case PanelType.errorReporting: return Icons.error_outline;
-      case PanelType.incidentList: return Icons.list_alt;
+      case PanelType.timeSeries:
+        return Icons.show_chart;
+      case PanelType.gauge:
+        return Icons.speed;
+      case PanelType.stat:
+        return Icons.numbers;
+      case PanelType.table:
+        return Icons.table_chart;
+      case PanelType.logs:
+        return Icons.subject;
+      case PanelType.traces:
+        return Icons.timeline;
+      case PanelType.pie:
+        return Icons.pie_chart;
+      case PanelType.heatmap:
+        return Icons.grid_on;
+      case PanelType.bar:
+        return Icons.bar_chart;
+      case PanelType.text:
+        return Icons.text_fields;
+      case PanelType.alertChart:
+        return Icons.warning_amber;
+      case PanelType.scorecard:
+        return Icons.score;
+      case PanelType.scatter:
+        return Icons.scatter_plot;
+      case PanelType.treemap:
+        return Icons.account_tree;
+      case PanelType.errorReporting:
+        return Icons.error_outline;
+      case PanelType.incidentList:
+        return Icons.list_alt;
     }
   }
 
@@ -543,18 +648,28 @@ class _DashboardPanelCard extends StatelessWidget {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(_getPanelIcon(), size: 28, color: Colors.white.withValues(alpha: 0.15)),
+        Icon(
+          _getPanelIcon(),
+          size: 28,
+          color: Colors.white.withValues(alpha: 0.15),
+        ),
         const SizedBox(height: 4),
         Text(
           panel.type.displayName,
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.25), fontSize: 11),
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.25),
+            fontSize: 11,
+          ),
         ),
         if (panel.queries.isEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
               'No data source configured',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.15), fontSize: 10),
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.15),
+                fontSize: 10,
+              ),
             ),
           ),
       ],
@@ -585,5 +700,6 @@ class _GridPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _GridPainter oldDelegate) =>
-      cellWidth != oldDelegate.cellWidth || cellHeight != oldDelegate.cellHeight;
+      cellWidth != oldDelegate.cellWidth ||
+      cellHeight != oldDelegate.cellHeight;
 }

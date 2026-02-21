@@ -30,7 +30,10 @@ Dio dio(Ref ref) {
 
 class AuthInterceptor extends Interceptor {
   @override
-  Future<void> onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
+  Future<void> onRequest(
+    RequestOptions options,
+    RequestInterceptorHandler handler,
+  ) async {
     final token = AuthService.instance.accessToken;
     if (token != null) {
       options.headers['Authorization'] = 'Bearer $token';
@@ -43,7 +46,8 @@ class TraceInterceptor extends Interceptor {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     // Inject SRE Trace ID if available (placeholder example)
-    options.headers['X-SRE-Trace-ID'] = 'trace-${DateTime.now().millisecondsSinceEpoch}';
+    options.headers['X-SRE-Trace-ID'] =
+        'trace-${DateTime.now().millisecondsSinceEpoch}';
     super.onRequest(options, handler);
   }
 }

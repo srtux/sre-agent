@@ -107,8 +107,14 @@ class ExplorerChartPainter extends CustomPainter {
         final maxVal = values.isEmpty ? 0.0 : values.reduce(max);
         final minVal = values.isEmpty ? 0.0 : values.reduce(min);
         _drawGrid(canvas, chartArea, maxVal, minVal);
-        _drawBarChart(canvas, chartArea, values, labels, maxVal,
-            maxVal - minVal);
+        _drawBarChart(
+          canvas,
+          chartArea,
+          values,
+          labels,
+          maxVal,
+          maxVal - minVal,
+        );
         _drawAxisLabels(canvas, chartArea, labels);
 
       case ExplorerChartType.horizontalBar:
@@ -151,7 +157,13 @@ class ExplorerChartPainter extends CustomPainter {
         final minVal = values.reduce(min);
         _drawGrid(canvas, chartArea, maxVal, minVal);
         _drawScatterChart(
-            canvas, chartArea, values, labels, minVal, maxVal - minVal);
+          canvas,
+          chartArea,
+          values,
+          labels,
+          minVal,
+          maxVal - minVal,
+        );
         _drawAxisLabels(canvas, chartArea, labels);
 
       case ExplorerChartType.pie:
@@ -187,9 +199,7 @@ class ExplorerChartPainter extends CustomPainter {
   }
 
   List<String> _extractLabels() {
-    return data
-        .map((row) => row[dimensionKey]?.toString() ?? '')
-        .toList();
+    return data.map((row) => row[dimensionKey]?.toString() ?? '').toList();
   }
 
   double _getDoubleValue(dynamic v) {
@@ -319,7 +329,10 @@ class ExplorerChartPainter extends CustomPainter {
       final tp = TextPainter(
         text: TextSpan(
           text: _formatAxisValue(val),
-          style: TextStyle(fontSize: 8, color: textColor.withValues(alpha: 0.6)),
+          style: TextStyle(
+            fontSize: 8,
+            color: textColor.withValues(alpha: 0.6),
+          ),
         ),
         textDirection: TextDirection.ltr,
       )..layout();
@@ -352,7 +365,10 @@ class ExplorerChartPainter extends CustomPainter {
       final labelTp = TextPainter(
         text: TextSpan(
           text: labelText,
-          style: TextStyle(fontSize: 9, color: textColor.withValues(alpha: 0.8)),
+          style: TextStyle(
+            fontSize: 9,
+            color: textColor.withValues(alpha: 0.8),
+          ),
         ),
         textDirection: TextDirection.ltr,
       )..layout(maxWidth: area.left - 8);
@@ -369,8 +385,10 @@ class ExplorerChartPainter extends CustomPainter {
         final valTp = TextPainter(
           text: TextSpan(
             text: _formatAxisValue(values[i]),
-            style:
-                TextStyle(fontSize: 8, color: textColor.withValues(alpha: 0.7)),
+            style: TextStyle(
+              fontSize: 8,
+              color: textColor.withValues(alpha: 0.7),
+            ),
           ),
           textDirection: TextDirection.ltr,
         )..layout();
@@ -400,8 +418,10 @@ class ExplorerChartPainter extends CustomPainter {
     var maxStacked = 0.0;
     for (final d0 in dim0Values) {
       final groupVals = lookup[d0] ?? {};
-      final total =
-          seriesValues.fold(0.0, (sum, s) => sum + (groupVals[s] ?? 0.0));
+      final total = seriesValues.fold(
+        0.0,
+        (sum, s) => sum + (groupVals[s] ?? 0.0),
+      );
       if (total > maxStacked) maxStacked = total;
     }
     if (maxStacked == 0) return;
@@ -425,13 +445,13 @@ class ExplorerChartPainter extends CustomPainter {
         if (val <= 0) continue;
 
         final segH = (val / maxStacked) * area.height;
-        final isTop = si == seriesValues.length - 1 ||
+        final isTop =
+            si == seriesValues.length - 1 ||
             seriesValues
                 .skip(si + 1)
                 .every((ns) => (groupVals[ns] ?? 0.0) <= 0);
 
-        final barColor =
-            explorerChartColors[si % explorerChartColors.length];
+        final barColor = explorerChartColors[si % explorerChartColors.length];
 
         canvas.drawRRect(
           RRect.fromRectAndCorners(
@@ -493,8 +513,7 @@ class ExplorerChartPainter extends CustomPainter {
         final x = groupLeft + subBarWidth * si;
         final y = area.bottom - barH;
 
-        final barColor =
-            explorerChartColors[si % explorerChartColors.length];
+        final barColor = explorerChartColors[si % explorerChartColors.length];
 
         canvas.drawRRect(
           RRect.fromRectAndCorners(
@@ -600,7 +619,8 @@ class ExplorerChartPainter extends CustomPainter {
     final effectiveMin = range == 0 ? minVal - 0.5 : minVal;
 
     for (var i = 0; i < values.length; i++) {
-      final x = area.left +
+      final x =
+          area.left +
           (area.width * i / values.length) +
           (area.width / values.length / 2);
       final normalized = (values[i] - effectiveMin) / effectiveRange;
@@ -787,8 +807,7 @@ class ExplorerChartPainter extends CustomPainter {
     )..layout();
     highTp.paint(
       canvas,
-      Offset(
-          scaleX + scaleWidth - highTp.width, scaleY - highTp.height - 1),
+      Offset(scaleX + scaleWidth - highTp.width, scaleY - highTp.height - 1),
     );
   }
 
@@ -826,7 +845,8 @@ class ExplorerChartPainter extends CustomPainter {
     final maxChars = max(4, min(20, (labelWidth / 6).floor()));
 
     for (var i = 0; i < labels.length; i++) {
-      final x = area.left +
+      final x =
+          area.left +
           (area.width * i / labels.length) +
           (area.width / labels.length / 2);
       final label = labels[i].length > maxChars
