@@ -1679,9 +1679,7 @@ def _inject_global_credentials(agent_to_patch: Any, force: bool = False) -> Any:
 
             # Use the Base Agent project for Vertex AI Generation (to avoid 403s on cross-projects)
             # The SRE analysis context (logs/traces) will independently use get_current_project_id()
-            base_project = (
-                project_id  # The one initialized at module scope
-            )
+            base_project = project_id  # The one initialized at module scope
             base_location = location or "us-central1"
 
             # Use Vertex AI by default for these models
