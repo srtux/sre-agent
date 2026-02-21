@@ -271,6 +271,40 @@ autosre/test/
 └── test_helper.dart      # Mock services, wrapWithProviders helper
 ```
 
+### AgentOps UI (`agent_ops_ui/`)
+```
+agent_ops_ui/src/
+├── hooks/
+│   ├── useDashboardMetrics.ts   # React Query hook for KPI/chart data
+│   └── useDashboardTables.ts    # React Query hook for model calls, tool calls, agent logs (1000+ rows)
+├── contexts/
+│   ├── AgentContext.tsx          # Agent selection context (project, service name)
+│   └── DashboardFilterContext.tsx # Dashboard filter state (time range, agent selection, grouping)
+├── components/
+│   ├── tables/
+│   │   └── VirtualizedDataTable.tsx # TanStack Table + Virtual — sortable, virtualized data table
+│   ├── charts/
+│   │   └── EChartWrapper.tsx     # ECharts wrapper component
+│   ├── dashboard/
+│   │   ├── AgentDashboard.tsx    # Main dashboard layout (KPIs, charts, tables, logs)
+│   │   ├── DashboardToolbar.tsx  # Time range, agent filter, group-by controls
+│   │   └── panels/
+│   │       ├── KpiGrid.tsx             # KPI cards with trend indicators
+│   │       ├── InteractionMetricsPanel.tsx # Latency, QPS, token usage charts
+│   │       ├── ModelAndToolPanel.tsx    # Side-by-side model usage & tool performance tables
+│   │       └── AgentLogsPanel.tsx       # Full-width agent log stream table
+│   ├── TopologyGraph.tsx         # React Flow agent topology graph
+│   ├── TrajectorySankey.tsx      # Nivo Sankey trajectory visualization
+│   ├── SidePanel.tsx             # Node/edge detail drill-down
+│   ├── GraphToolbar.tsx          # Graph-specific controls
+│   ├── Onboarding.tsx            # Setup wizard
+│   └── RegistryPage.tsx          # Agent/tool registry browser
+├── utils/                        # Sankey/topology helpers
+├── types.ts                      # Shared TypeScript types
+├── App.tsx                       # Root app with tab navigation
+└── main.tsx                      # Entry point
+```
+
 ### Other Key Directories
 - `eval/` — Agent evaluation framework (ADK AgentEvaluator, shared conftest.py, 9 test scenario JSON files)
 - `deploy/` — Deployment scripts (Agent Engine, Cloud Run, GKE) + k8s manifests + Dockerfile.unified

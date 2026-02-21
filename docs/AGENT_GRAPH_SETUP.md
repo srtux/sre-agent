@@ -80,6 +80,16 @@ We use the **Dagre** layout engine to perform deterministic, layered directed gr
 ### 4.3. Performance Optimizations
 -   **Topology Analysis**: A unified `GraphTopologyHelper` processes the raw nodes and edges into a pure DAG, extracting back-edges and recursive tree hierarchies so that custom React Flow logic can render cyclic agent loops purely and cleanly without crashing the layout engine.
 
+### 4.4. Dashboard Data Tables
+
+The AgentOps Dashboard includes high-density data tables for operational visibility into model and tool performance, and agent log streams. These are located in `agent_ops_ui/src/components/dashboard/panels/`.
+
+-   **`ModelAndToolPanel`**: Side-by-side (responsive, stacks on narrow viewports) virtualized tables for Model Usage (model name, calls, P95 latency, error rate, quota exits, tokens) and Tool Performance (tool name, calls, P95 latency, error rate). Error rates above 5% are highlighted in red. Duration formatting automatically switches between `ms` and `s` units.
+-   **`AgentLogsPanel`**: Full-width virtualized log table showing timestamp, agent ID, severity (color-coded badges for INFO/WARNING/ERROR/DEBUG), message (with ellipsis truncation), and truncated trace IDs. Sorted newest-first.
+-   **`useDashboardTables`** hook (`src/hooks/useDashboardTables.ts`): React Query hook providing mock data (1000+ model calls, 1200+ tool calls, 1500+ agent logs) with deterministic seeded random generation. Respects the shared `DashboardFilterContext` for time range and agent filtering.
+
+All tables use `VirtualizedDataTable` (TanStack Table + TanStack Virtual) for efficient rendering of large datasets with sorting, sticky headers, and row virtualization.
+
 ---
 
 ## 5. Troubleshooting

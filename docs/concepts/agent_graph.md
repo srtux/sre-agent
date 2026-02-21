@@ -825,6 +825,28 @@ The `extractSparkSeries()` function maps `TimeSeriesPoint[]` to `number[]` based
 
 Points are normalized to the `[min, max]` range of the series, with 2px padding on all sides. The polyline uses `strokeLinejoin="round"` and `strokeLinecap="round"` for smooth visual rendering.
 
+### 6.6 Dashboard Data Tables
+
+The AgentOps Dashboard supplements the graph visualizations with high-density data tables for operational monitoring. These components live in `agent_ops_ui/src/components/dashboard/panels/` and use `VirtualizedDataTable` (TanStack Table + TanStack Virtual) for efficient rendering of datasets with 1000+ rows.
+
+**ModelAndToolPanel** (`ModelAndToolPanel.tsx`):
+A responsive side-by-side layout (stacks on viewports < 960px) containing two virtualized tables:
+- **Model Usage table**: Columns — Model Name, Total Calls, P95 Latency (formatted as `ms`/`s`), Error Rate (highlighted red when > 5%), Quota Exits, Tokens Used
+- **Tool Performance table**: Columns — Tool Name, Total Calls, P95 Latency, Error Rate (highlighted red when > 5%)
+
+**AgentLogsPanel** (`AgentLogsPanel.tsx`):
+A full-width virtualized log stream table designed to fill remaining vertical space:
+- **Columns**: Timestamp (monospace, formatted to locale), Agent ID, Severity (color-coded badges: cyan=INFO, amber=WARNING, red=ERROR, gray=DEBUG), Message (truncated with ellipsis and title tooltip), Trace ID (truncated to 12 chars)
+- Logs are sorted newest-first
+
+**Data Hook** (`src/hooks/useDashboardTables.ts`):
+A React Query hook (`useDashboardTables`) providing mock data with deterministic seeded random generation:
+- 1000+ `ModelCallRow` entries across 8 model variants
+- 1200+ `ToolCallRow` entries across 15 tool types
+- 1500+ `AgentLogRow` entries with weighted severity distribution (60% INFO, 20% WARNING, 10% ERROR, 10% DEBUG)
+
+The hook integrates with the shared `DashboardFilterContext` to respect time range and agent selection filters. Data is cached for 30 seconds via React Query's `staleTime`.
+
 ---
 
 ## 7. API Layer
