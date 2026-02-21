@@ -23,8 +23,8 @@ const mockAgentContextValue = {
   serviceName: 'agent-A',
   setServiceName: vi.fn(),
   availableAgents: [
-    { serviceName: 'agent-A', agentId: 'a', agentName: 'A', totalSessions: 10, firstSeen: '1', lastSeen: '1', tools: [], totalTurns: 0, inputTokens: 0, outputTokens: 0, errorCount: 0 },
-    { serviceName: 'agent-B', agentId: 'b', agentName: 'B', totalSessions: 20, firstSeen: '1', lastSeen: '1', tools: [], totalTurns: 0, inputTokens: 0, outputTokens: 0, errorCount: 0 }
+    { serviceName: 'agent-A', agentId: 'a', agentName: 'A', totalSessions: 10, firstSeen: '1', lastSeen: '1', tools: [], totalTurns: 0, inputTokens: 0, outputTokens: 0, errorCount: 0, errorRate: 0, p50DurationMs: 0, p95DurationMs: 0 },
+    { serviceName: 'agent-B', agentId: 'b', agentName: 'B', totalSessions: 20, firstSeen: '1', lastSeen: '1', tools: [], totalTurns: 0, inputTokens: 0, outputTokens: 0, errorCount: 0, errorRate: 0, p50DurationMs: 0, p95DurationMs: 0 }
   ],
   loadingAgents: false,
   errorAgents: null,

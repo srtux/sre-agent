@@ -11,6 +11,7 @@ describe('Onboarding Component', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockedAxios.isAxiosError.mockImplementation((e: unknown) => typeof e === 'object' && e !== null && 'isAxiosError' in e && (e as { isAxiosError: boolean }).isAxiosError === true);
   });
 
   it('completes fast-path setup when everything is verified', async () => {
@@ -64,8 +65,9 @@ describe('Onboarding Component', () => {
     mockedAxios.get.mockImplementation(async (url) => {
       if (url.includes('/check_bucket')) return { data: { exists: true, buckets: [{ name: 'projects/123/buckets/traces' }] } };
       if (url.includes('/verify')) {
-        const error: any = new Error('Not found');
+        const error = new Error('Not found') as Error & { response: { status: number }, isAxiosError: boolean };
         error.response = { status: 404 };
+        error.isAxiosError = true;
         throw error;
       }
       return { data: {} };

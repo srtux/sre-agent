@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
 import { Light as SyntaxHighlighter } from 'react-syntax-highlighter'
-import json from 'react-syntax-highlighter/dist/esm/languages/hljs/json'
 import sql from 'react-syntax-highlighter/dist/esm/languages/hljs/sql'
 import { atomOneDark } from 'react-syntax-highlighter/dist/esm/styles/hljs'
 import type { SelectedElement, NodeDetail, EdgeDetail, PayloadEntry, ViewMode, TimeSeriesData, SpanDetails, TraceLogsData, SpanDetailsException, TraceLog, GraphFilters } from '../types'
@@ -20,11 +19,7 @@ import {
   ChevronDown,
   ChevronRight,
   Clock,
-  ExternalLink,
-  X,
-  List,
-  Code,
-  FileText
+  ExternalLink
 } from 'lucide-react'
 SyntaxHighlighter.registerLanguage('sql', sql)
 

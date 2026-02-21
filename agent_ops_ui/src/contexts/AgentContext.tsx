@@ -34,16 +34,18 @@ export function AgentProvider({ children, projectId }: { children: ReactNode, pr
         // Auto-select highest volume agent if the currently cached one doesn't exist
         // or we just want to default to the highest volume one if none is selected
         if (agents.length > 0) {
-          const highestVolumeAgent = agents.reduce((prev, current) =>
-            (prev.totalSessions > current.totalSessions) ? prev : current
-          );
-
-          const currentExists = agents.some(a => a.serviceName === serviceName);
-          if (!currentExists) {
-            const defaultName = highestVolumeAgent.serviceName;
-            setServiceName(defaultName);
-            localStorage.setItem('agent_graph_service_name', defaultName);
-          }
+          setServiceName(prevServiceName => {
+            const currentExists = agents.some(a => a.serviceName === prevServiceName);
+            if (!currentExists) {
+              const highestVolumeAgent = agents.reduce((prev, current) =>
+                (prev.totalSessions > current.totalSessions) ? prev : current
+              );
+              const defaultName = highestVolumeAgent.serviceName;
+              localStorage.setItem('agent_graph_service_name', defaultName);
+              return defaultName;
+            }
+            return prevServiceName;
+          });
         }
       })
       .catch(err => {
@@ -79,6 +81,7 @@ export function AgentProvider({ children, projectId }: { children: ReactNode, pr
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAgentContext() {
   const context = useContext(AgentContext);
   if (context === undefined) {

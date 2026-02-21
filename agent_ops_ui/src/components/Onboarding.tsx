@@ -98,8 +98,8 @@ export default function Onboarding({ projectId, onSetup, loading: globalLoading,
         safeSetState<Phase>(setPhase, 'schema_exec');
         runSchemaSteps();
         return;
-      } catch (e: any) {
-        if (e.response && e.response.status === 404) {
+      } catch (e) {
+        if (axios.isAxiosError(e) && e.response && e.response.status === 404) {
           // Normal, needs linking
           safeSetState<Phase>(setPhase, 'link_dataset');
           linkDataset(defaultBucket);
@@ -108,7 +108,7 @@ export default function Onboarding({ projectId, onSetup, loading: globalLoading,
         }
       }
 
-    } catch (e: any) {
+    } catch (e) {
       handleError(e);
     }
   }
@@ -131,7 +131,7 @@ export default function Onboarding({ projectId, onSetup, loading: globalLoading,
         safeSetState<Phase>(setPhase, 'poll_lro');
         pollLro(res.data.operation.name);
       }
-    } catch (e: any) {
+    } catch (e) {
       handleError(e);
     }
   }
@@ -158,7 +158,7 @@ export default function Onboarding({ projectId, onSetup, loading: globalLoading,
         // Poll again in 3s
         setTimeout(() => pollLro(opName), 3000);
       }
-    } catch (e: any) {
+    } catch (e) {
       handleError(e);
     }
   }
@@ -191,9 +191,15 @@ export default function Onboarding({ projectId, onSetup, loading: globalLoading,
           next[i].status = 'success';
           return next;
         });
-      } catch (e: any) {
-        const detail = e.response?.data?.detail || e.message;
-        const isRetryable = e.response?.status === 403;
+      } catch (e) {
+        let detail = 'Unknown error';
+        let isRetryable = false;
+        if (axios.isAxiosError(e)) {
+          detail = e.response?.data?.detail || e.message;
+          isRetryable = e.response?.status === 403;
+        } else if (e instanceof Error) {
+          detail = e.message;
+        }
 
         safeSetState(setSchemaSteps, prev => {
           const next = [...prev];
@@ -210,8 +216,13 @@ export default function Onboarding({ projectId, onSetup, loading: globalLoading,
     safeSetState<Phase>(setPhase, 'success');
   }
 
-  const handleError = (e: any) => {
-    const detail = e.response?.data?.detail || e.message || String(e);
+  const handleError = (e: unknown) => {
+    let detail = String(e);
+    if (axios.isAxiosError(e)) {
+      detail = e.response?.data?.detail || e.message || String(e);
+    } else if (e instanceof Error) {
+      detail = e.message;
+    }
     safeSetState<string | null>(setErrorMsg, detail);
     safeSetState<Phase>(setPhase, 'manual_input');
   }

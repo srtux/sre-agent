@@ -20,4 +20,16 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-xyflow': ['@xyflow/react'],
+          'vendor-nivo': ['@nivo/sankey'],
+          'vendor-icons': ['lucide-react'],
+          'vendor-syntax': ['react-syntax-highlighter']
+        }
+      }
+    }
+  }
 })

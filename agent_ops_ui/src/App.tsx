@@ -264,7 +264,7 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
     if (filters.projectId && serviceName) {
       fetchAll(false)
     }
-  }, [filters.projectId, serviceName, fetchAll])
+  }, [filters.projectId, serviceName, fetchAll, hasAutoLoaded])
 
   const handleSetupDone = async (dataset: string, setupServiceName: string) => {
     localStorage.setItem('agent_graph_project_id', filters.projectId)

@@ -1,29 +1,20 @@
 import { render } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import TrajectorySankey from './TrajectorySankey'
-import React from 'react'
+
+import type { SankeyResponse } from '../types'
 
 vi.mock('axios')
 
-const mockFilters = {
-  projectId: 'test-project',
-  hours: 24,
-  errorsOnly: false,
-  traceDataset: 'traces',
-  serviceName: 'agent-A',
-}
+const mockData: SankeyResponse = { nodes: [], links: [] };
 
 describe('TrajectorySankey', () => {
   it('renders without crashing', () => {
     const { container } = render(
       <TrajectorySankey
-        filters={mockFilters}
-        activeTab="sankey"
-        onNodeSelect={vi.fn()}
-        onEdgeSelect={vi.fn()}
-        triggerLoad={0}
-        onLoadComplete={vi.fn()}
-        autoRefresh={{ enabled: false, intervalSeconds: 60 }}
+        data={mockData}
+        onNodeClick={vi.fn()}
+        onEdgeClick={vi.fn()}
       />
     )
     expect(container).toBeInTheDocument()
