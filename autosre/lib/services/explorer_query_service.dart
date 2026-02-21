@@ -280,9 +280,12 @@ class ExplorerQueryService {
     required String spanId,
     String? projectId,
   }) async {
+    if (projectId == null || projectId.isEmpty) {
+      throw Exception('Project ID is required. Please select a project first.');
+    }
     try {
       final filter =
-          'trace="projects/${projectId ?? 'my-project'}/traces/$traceId" AND spanId="$spanId"';
+          'trace="projects/$projectId/traces/$traceId" AND spanId="$spanId"';
       final payload = <String, dynamic>{
         'filter': filter,
         'project_id': projectId,

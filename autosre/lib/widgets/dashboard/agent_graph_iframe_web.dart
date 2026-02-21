@@ -23,13 +23,13 @@ class _AgentGraphIframePanelState extends State<AgentGraphIframePanel> {
   @override
   void initState() {
     super.initState();
-    _currentProjectId =
-        ProjectService.instance.selectedProjectId ?? 'my-project';
-    if (_currentProjectId.isEmpty) _currentProjectId = 'my-project';
+    _currentProjectId = ProjectService.instance.selectedProjectId ?? '';
     _viewId = 'agent-graph-iframe-${DateTime.now().millisecondsSinceEpoch}';
 
     final String baseUrl = kDebugMode ? 'http://localhost:5174' : '';
-    final src = '$baseUrl/graph/?project_id=$_currentProjectId';
+    final src = _currentProjectId.isNotEmpty
+        ? '$baseUrl/graph/?project_id=$_currentProjectId'
+        : 'about:blank';
 
     // ignore: undefined_prefixed_name
     ui_web.platformViewRegistry.registerViewFactory(_viewId, (int viewId) {
@@ -64,7 +64,17 @@ class _AgentGraphIframePanelState extends State<AgentGraphIframePanel> {
         builder: (context, project, child) {
           final newProject = project?.projectId.isNotEmpty == true
               ? project!.projectId
-              : 'my-project';
+              : '';
+
+          if (newProject.isEmpty) {
+            return const Center(
+              child: Text(
+                'Please select a project from the top menu to view the agent graph.',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            );
+          }
+
           // Schedule URL update after the build phase
           WidgetsBinding.instance.addPostFrameCallback((_) {
             _updateIframeSrc(newProject);
