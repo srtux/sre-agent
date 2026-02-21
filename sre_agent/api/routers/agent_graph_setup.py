@@ -42,7 +42,7 @@ def _get_auth_token() -> str:
         credentials, _ = default(
             scopes=["https://www.googleapis.com/auth/cloud-platform"]
         )
-        credentials.refresh(Request())
+        credentials.refresh(Request())  # type: ignore
         if not credentials.token:
             raise HTTPException(
                 status_code=401, detail="Failed to obtain Google Cloud access token."
@@ -214,7 +214,8 @@ async def get_lro_status(project_id: str, operation_name: str) -> dict[str, Any]
         try:
             resp = await client.get(url, headers=headers, timeout=10.0)
             resp.raise_for_status()
-            return resp.json()
+            result: dict[str, Any] = resp.json()
+            return result
         except httpx.HTTPStatusError as exc:
             logger.exception(f"Failed to get LRO status for {operation_name}")
             raise HTTPException(
@@ -540,6 +541,8 @@ async def execute_schema_step(step: str, req: SchemaStepRequest) -> dict[str, An
             """
             run_query(sql2)
             return {"status": "success", "message": "Created registries."}
+
+        return {"status": "error", "message": f"Step {step} not implemented."}
 
     except HTTPException:
         raise
