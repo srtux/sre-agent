@@ -16,7 +16,7 @@ from urllib.parse import unquote
 from fastapi import APIRouter, HTTPException, Query
 from google.api_core.exceptions import NotFound
 from google.cloud import bigquery
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["agent_graph"], prefix="/api/v1/graph")
@@ -108,7 +108,7 @@ def _validate_iso8601(value: str, name: str) -> str:
 def _build_time_filter(
     *,
     timestamp_col: str,
-    hours: int,
+    hours: float,
     start_time: str | None,
     end_time: str | None,
 ) -> str:
@@ -135,7 +135,8 @@ def _build_time_filter(
             f"AND {timestamp_col} <= {end_expr}"
         )
 
-    return f"{timestamp_col} >= TIMESTAMP_SUB({end_expr}, INTERVAL {hours} HOUR)"
+    minutes = int(hours * 60)
+    return f"{timestamp_col} >= TIMESTAMP_SUB({end_expr}, INTERVAL {minutes} MINUTE)"
 
 
 def _get_bq_client(project_id: str) -> bigquery.Client:
@@ -226,7 +227,7 @@ def _detect_loops(sequence: list[str], min_repeats: int = 3) -> list[dict[str, A
 async def get_topology(
     project_id: str,
     dataset: str = "agent_graph",
-    hours: int = Query(default=24, ge=0, le=720),
+    hours: float = Query(default=24.0, ge=0.0, le=720.0),
     start_time: str | None = None,
     end_time: str | None = None,
     errors_only: bool = False,
@@ -461,7 +462,7 @@ async def get_trajectories(
     project_id: str,
     dataset: str = "agent_graph",
     trace_dataset: str = "traces",
-    hours: int = Query(default=24, ge=0, le=720),
+    hours: float = Query(default=24.0, ge=0.0, le=720.0),
     start_time: str | None = None,
     end_time: str | None = None,
     errors_only: bool = False,
@@ -628,7 +629,7 @@ async def get_node_detail(
     project_id: str,
     dataset: str = "agent_graph",
     trace_dataset: str = "traces",
-    hours: int = Query(default=24, ge=0, le=720),
+    hours: float = Query(default=24.0, ge=0.0, le=720.0),
 ) -> dict[str, Any]:
     """Return detailed metrics for a single topology node.
 
@@ -686,7 +687,7 @@ async def get_node_detail(
             FROM `{project_id}.{dataset}.agent_spans_raw`
             WHERE logical_node_id = @node_id
               AND start_time >= TIMESTAMP_SUB(
-                  CURRENT_TIMESTAMP(), INTERVAL {hours} HOUR
+                  CURRENT_TIMESTAMP(), INTERVAL {int(hours * 60)} MINUTE
               )
         """
 
@@ -715,7 +716,7 @@ async def get_node_detail(
             WHERE logical_node_id = @node_id
               AND status_code = 'ERROR'
               AND start_time >= TIMESTAMP_SUB(
-                  CURRENT_TIMESTAMP(), INTERVAL {hours} HOUR
+                  CURRENT_TIMESTAMP(), INTERVAL {int(hours * 60)} MINUTE
               )
             GROUP BY status_code
             ORDER BY count DESC
@@ -739,7 +740,7 @@ async def get_node_detail(
               ON r.span_id = s.span_id AND r.trace_id = s.trace_id
             WHERE r.logical_node_id = @node_id
               AND r.start_time >= TIMESTAMP_SUB(
-                  CURRENT_TIMESTAMP(), INTERVAL {hours} HOUR
+                  CURRENT_TIMESTAMP(), INTERVAL {int(hours * 60)} MINUTE
               )
             ORDER BY r.start_time DESC
             LIMIT 10
@@ -800,6 +801,8 @@ async def get_node_detail(
 class SetupGraphRequest(BaseModel):
     """Request model for auto-setting up the Agent Graph BigQuery resources."""
 
+    model_config = ConfigDict(extra="forbid")
+
     project_id: str
     trace_dataset: str
     service_name: str
@@ -856,7 +859,7 @@ async def get_edge_detail(
     target_id: str,
     project_id: str,
     dataset: str = "agent_graph",
-    hours: int = Query(default=24, ge=0, le=720),
+    hours: float = Query(default=24.0, ge=0.0, le=720.0),
 ) -> dict[str, Any]:
     """Return detailed metrics for a single topology edge.
 
@@ -893,8 +896,8 @@ async def get_edge_detail(
                     SUM(total_duration_ms),
                     NULLIF(SUM(edge_weight), 0)
                 ) AS avg_duration_ms,
-                APPROX_QUANTILES(avg_duration_ms, 100)[OFFSET(95)] AS p95_duration_ms,
-                APPROX_QUANTILES(avg_duration_ms, 100)[OFFSET(99)] AS p99_duration_ms,
+                APPROX_QUANTILES(total_duration_ms, 100)[OFFSET(95)] AS p95_duration_ms,
+                APPROX_QUANTILES(total_duration_ms, 100)[OFFSET(99)] AS p99_duration_ms,
                 SUM(total_tokens) AS total_tokens,
                 SUM(input_tokens) AS input_tokens,
                 SUM(output_tokens) AS output_tokens
@@ -902,7 +905,7 @@ async def get_edge_detail(
             WHERE source_node_id = @source_id
               AND destination_node_id = @target_id
               AND start_time >= TIMESTAMP_SUB(
-                  CURRENT_TIMESTAMP(), INTERVAL {hours} HOUR
+                  CURRENT_TIMESTAMP(), INTERVAL {int(hours * 60)} MINUTE
               )
         """
 
@@ -958,7 +961,7 @@ async def get_edge_detail(
 async def get_timeseries(
     project_id: str,
     dataset: str = "agent_graph",
-    hours: int = Query(default=24, ge=2, le=720),
+    hours: float = Query(default=24.0, ge=0.0, le=720.0),
     start_time: str | None = None,
     end_time: str | None = None,
 ) -> dict[str, Any]:

@@ -455,7 +455,7 @@ function NodeDetailView({
         <div style={{ ...styles.cardBlock, paddingBottom: '16px' }}>
           <div style={styles.sectionTitle}><Clock size={14} /> {sparkLabel(viewMode)} Trend</div>
           <Sparkline
-            points={extractSparkSeries(nodePoints, viewMode)}
+            data={extractSparkSeries(nodePoints, viewMode)}
             color={sparkColor(viewMode)}
             width={320}
             height={40}

@@ -53,19 +53,26 @@ class _DashboardPanelWrapperState extends State<DashboardPanelWrapper> {
         final isOpen = widget.dashboardState.isOpen;
         if (!isOpen) return const SizedBox.shrink();
 
+        if (!widget.isChatOpen) {
+          return Expanded(
+            child: DashboardPanel(
+              state: widget.dashboardState,
+              onClose: widget.dashboardState.closeDashboard,
+              onToggleMaximize: null, // Disabled when full screen
+              isMaximized: true,
+              onPromptRequest: widget.onPromptRequest,
+            ),
+          );
+        }
+
         // Ensure we leave room for the investigation rail (approx 72px) and the chat panel (min 350px)
         const railWidth = 72.0;
-        final minChatWidth = widget.isChatOpen ? 350.0 : 0.0;
+        const minChatWidth = 350.0;
         final maxAllowedWidth = widget.totalWidth - railWidth - minChatWidth;
 
-        double targetWidth;
-        if (!widget.isChatOpen) {
+        var targetWidth = widget.totalWidth * _dashboardWidthFactor;
+        if (targetWidth > maxAllowedWidth && maxAllowedWidth > 0) {
           targetWidth = maxAllowedWidth;
-        } else {
-          targetWidth = widget.totalWidth * _dashboardWidthFactor;
-          if (targetWidth > maxAllowedWidth && maxAllowedWidth > 0) {
-            targetWidth = maxAllowedWidth;
-          }
         }
 
         return Row(

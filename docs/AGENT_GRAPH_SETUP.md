@@ -14,7 +14,7 @@ The Agent Graph visualizes the topology of your AI Agents, Tools, and LLM calls.
 1.  **Ingestion**: Spans are ingested into the `_AllSpans` table in BigQuery (standard OTel export).
 2.  **Processing**: A Materialized View (`agent_spans_raw`) and derivative views (`agent_topology_nodes`, `agent_topology_edges`) aggregate raw spans into a graph structure.
 3.  **API**: The `get_agent_graph` tool generates the SQL queries to fetch this aggregated data for a specific time range.
-4.  **Frontend**: The `InteractiveGraphCanvas` executes these queries (via `mcp_server`) and renders the graph using the Sugiyama layout algorithm.
+4.  **Frontend**: The React-based `TopologyGraph` and `TrajectorySankey` components fetch the parsed queries and render the graph interactively using dagre and React Flow.
 
 ---
 
@@ -60,34 +60,25 @@ This pattern allows the frontend (or an intermediate executor) to run the querie
 
 ---
 
-## 4. Frontend Visualization (`InteractiveGraphCanvas`)
+## 4. Frontend Visualization (`agent_graph_ui` React App)
 
-Located in `autosre/lib/features/agent_graph/presentation/`.
+Located in `agent_graph_ui/src/components/`. We have transitioned to a high-performance React application using `@xyflow/react` and `@nivo/sankey`.
 
-### 4.1. Layout Algorithm (Sugiyama)
-We use the **Sugiyama** algorithm (via `graphview` package) for layered graph layout.
--   **Orientation**: Top-to-Bottom calculation, manually rotated to Left-to-Right for rendering.
--   **Node Sizing**: Critical for preventing overlap. We assign estimated sizes before layout:
-    -   **Agents**: 260x150 (Large card with metrics)
-    -   **LLMs**: 240x100
-    -   **Tools**: 200x80
--   **Root Detection**:
-    -   Topological Sort is used to find roots.
-    -   **Cyclic Graphs**: If cycles exist (no topological root), we heuristically select the node with the **highest Out-Degree** (e.g., `sre_agent`) as the root to ensure full traversal.
+### 4.1. Layout Modes & Engine (`TopologyGraph`)
+We use the **Dagre** layout engine to perform deterministic, layered directed graph routing, supporting multiple interactive modes:
+-   **Horizontal**: Standard Left-to-Right temporal flow. Connections mount to left/right handles.
+-   **Vertical**: Top-to-Bottom layout for deep step-by-step pipelines. Connections automatically adapt to top/bottom handles.
+-   **Grouped by Type**: Dynamically clusters identical node types (Agent, LLM, Tool) into bounded compound layout boxes.
+-   **Node Sizing**: Fixed compact dimensions (`200x64`) ensure tight layouts without excessive negative space, while preventing rendering overlaps and edge crossings.
 
-### 4.2. Fallback Mechanism (Grid Layout)
-If the Sugiyama algorithm fails (e.g., places all nodes at a single point due to complex cycles or math errors):
--   The error is detected (`all nodes at same position`).
--   We automatically fall back to a **Grid Layout**.
--   Nodes are arranged in a 6-column grid to ensure they are visible and editable.
+### 4.2. Interactive Elements
+-   **Click-to-Expand**: Parent agent and sub-agent nodes natively feature inline expansion, allowing users to progressively disclose nested sub-agent trees to reduce visual noise.
+-   **Node Overlays**: Each node features real-time calculated inline sparklines illustrating latency trends, colored metrics for token usage, and pulsing red shadows for error statuses.
+-   **Edge Styling**: Edge thickness dynamically scales with the `callCount` of the path. Back-edges (cyclical retries) are styled natively with marching ants animations.
+-   **Sankey Trajectories**: A separate `TrajectorySankey` visualization provides a deep dive into specific trace spans, cleanly routing complex flow paths and identifying pathological retry loops.
 
-### 4.3. Rendering Features
--   **Zoom & Pan**: Interactive canvas with `InteractiveViewer`.
--   **Auto-Fit**: On load (with a 500ms delay for rendering), the graph automatically zooms and centers to fit the screen.
--   **Tooltips**: Detailed hover cards showing Token Usage, Latency, and Error rates.
--   **Edge Styling**:
-    -   Thickness scales with `call_count` (Traffic).
-    -   Color turns Red if `error_count > 0` on that path.
+### 4.3. Performance Optimizations
+-   **Topology Analysis**: A unified `GraphTopologyHelper` processes the raw nodes and edges into a pure DAG, extracting back-edges and recursive tree hierarchies so that custom React Flow logic can render cyclic agent loops purely and cleanly without crashing the layout engine.
 
 ---
 

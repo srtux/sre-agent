@@ -454,9 +454,9 @@ class TestBuildTimeFilter:
 
     def test_hours_only(self) -> None:
         result = _build_time_filter(
-            timestamp_col="ts", hours=6, start_time=None, end_time=None
+            timestamp_col="ts", hours=6.0, start_time=None, end_time=None
         )
-        assert "INTERVAL 6 HOUR" in result
+        assert "INTERVAL 360 MINUTE" in result
         assert "CURRENT_TIMESTAMP()" in result
 
     def test_start_time_overrides_hours(self) -> None:
@@ -1331,10 +1331,10 @@ class TestTimeSeriesEndpoint:
         assert resp.status_code == 400
 
     def test_hours_below_minimum_returns_422(self, client: TestClient) -> None:
-        """hours=1 should be rejected since ge=2."""
+        """hours=-1 should be rejected since ge=0.0."""
         resp = client.get(
             "/api/v1/graph/timeseries",
-            params={"project_id": "test-project", "hours": 1},
+            params={"project_id": "test-project", "hours": -1.0},
         )
         assert resp.status_code == 422
 

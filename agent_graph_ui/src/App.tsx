@@ -18,11 +18,13 @@ type Tab = 'topology' | 'trajectory'
 
 /** Parse a time_range string like "1h", "6h", "24h", "7d" into hours. */
 function parseTimeRange(raw: string): number | null {
-  const match = raw.match(/^(\d+)(h|d)$/)
+  const match = raw.match(/^(\d+)(m|h|d)$/)
   if (!match) return null
   const value = parseInt(match[1], 10)
   const unit = match[2]
-  return unit === 'd' ? value * 24 : value
+  if (unit === 'm') return value / 60
+  if (unit === 'd') return value * 24
+  return value
 }
 
 /** Build a URLSearchParams from current app state. */
@@ -40,6 +42,8 @@ function buildSearchParams(
   // Convert hours back to a human-readable time_range
   if (filters.hours === 168) {
     params.set('time_range', '7d')
+  } else if (filters.hours < 1) {
+    params.set('time_range', `${Math.round(filters.hours * 60)}m`)
   } else {
     params.set('time_range', `${filters.hours}h`)
   }
@@ -382,7 +386,11 @@ function App() {
             {activeTab === 'trajectory' && (
               <>
                 {sankeyData ? (
-                  <TrajectorySankey data={sankeyData} />
+                      <TrajectorySankey
+                        data={sankeyData}
+                        onNodeClick={(nodeId) => setSelected({ kind: 'node', id: nodeId })}
+                        onEdgeClick={(sourceId, targetId) => setSelected({ kind: 'edge', sourceId, targetId })}
+                      />
                 ) : (
                   <div style={styles.placeholder}>
                     {loadingSankey

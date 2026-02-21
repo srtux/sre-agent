@@ -12,6 +12,7 @@ import {
   type NodeProps,
   Handle,
   Position,
+  Panel,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import dagre from 'dagre'
@@ -28,25 +29,45 @@ import {
   AlertCircle,
   FileDigit,
   UnfoldHorizontal,
-  FoldHorizontal
+  FoldHorizontal,
+  LayoutTemplate,
+  Network
 } from 'lucide-react'
 
-const NODE_WIDTH = 240
-const NODE_HEIGHT = 80
+export type LayoutMode = 'horizontal' | 'vertical' | 'cluster'
+
+const NODE_WIDTH = 200
+const NODE_HEIGHT = 64
 
 function getLayoutedElements(
   nodes: Node[],
   edges: Edge[],
+  layoutMode: LayoutMode
 ): { nodes: Node[]; edges: Edge[] } {
-  const g = new dagre.graphlib.Graph()
+  const isCluster = layoutMode === 'cluster'
+  const g = new dagre.graphlib.Graph({ compound: isCluster })
   g.setDefaultEdgeLabel(() => ({}))
-  g.setGraph({ rankdir: 'LR', nodesep: 80, ranksep: 150 })
+  g.setGraph({ rankdir: layoutMode === 'vertical' ? 'TB' : 'LR', nodesep: 80, ranksep: 150 })
+
+  const types = new Set<string>()
+  if (isCluster) {
+    nodes.forEach(n => {
+      const t = String(n.type)
+      types.add(t)
+    })
+    types.forEach(t => {
+      g.setNode('group_' + t, { label: t, clusterLabelPos: 'top' })
+    })
+  }
 
   nodes.forEach((node) => {
     const d = node.data as Record<string, unknown>
     const w = (d._scaledWidth as number) ?? NODE_WIDTH
     const h = (d._scaledHeight as number) ?? NODE_HEIGHT
     g.setNode(node.id, { width: w, height: h })
+    if (isCluster) {
+      g.setParent(node.id, 'group_' + String(node.type))
+    }
   })
 
   // Only layout DAG edges
@@ -58,18 +79,52 @@ function getLayoutedElements(
 
   dagre.layout(g)
 
-  const layoutedNodes = nodes.map((node) => {
+  const layoutedNodes: Node[] = []
+
+  if (isCluster) {
+    types.forEach(t => {
+      const pNode = g.node('group_' + t)
+      if (pNode) {
+        layoutedNodes.push({
+          id: 'group_' + t,
+          type: 'group',
+          data: { label: t },
+          position: { x: pNode.x - pNode.width / 2, y: pNode.y - pNode.height / 2 },
+          style: {
+            width: pNode.width,
+            height: pNode.height,
+            backgroundColor: 'rgba(255, 255, 255, 0.02)',
+            border: '2px dashed rgba(255,255,255,0.1)',
+            borderRadius: '16px',
+            zIndex: -1
+          }
+        })
+      }
+    })
+  }
+
+  nodes.forEach((node) => {
     const pos = g.node(node.id)
     const d = node.data as Record<string, unknown>
     const w = (d._scaledWidth as number) ?? NODE_WIDTH
     const h = (d._scaledHeight as number) ?? NODE_HEIGHT
-    return {
-      ...node,
-      position: {
-        x: pos.x - w / 2,
-        y: pos.y - h / 2,
-      },
+
+    let x = pos.x - w / 2
+    let y = pos.y - h / 2
+
+    if (isCluster) {
+      const pNode = g.node('group_' + String(node.type))
+      if (pNode) {
+        node.parentId = 'group_' + String(node.type)
+        x = x - (pNode.x - pNode.width / 2)
+        y = y - (pNode.y - pNode.height / 2)
+      }
     }
+
+    layoutedNodes.push({
+      ...node,
+      position: { x, y },
+    })
   })
 
   return { nodes: layoutedNodes, edges }
@@ -81,11 +136,8 @@ const nodeStyles: Record<string, React.CSSProperties> = {
     color: '#F0F4F8',
     fontFamily: "'JetBrains Mono', monospace",
     borderRadius: '8px',
-    padding: '12px 16px',
     fontSize: '13px',
     fontWeight: 600,
-    width: NODE_WIDTH,
-    height: NODE_HEIGHT,
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'space-between',
@@ -98,11 +150,8 @@ const nodeStyles: Record<string, React.CSSProperties> = {
     color: '#F0F4F8',
     fontFamily: "'JetBrains Mono', monospace",
     borderRadius: '8px',
-    padding: '12px 16px',
     fontSize: '13px',
     fontWeight: 600,
-    width: NODE_WIDTH,
-    height: NODE_HEIGHT,
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'space-between',
@@ -116,11 +165,8 @@ const nodeStyles: Record<string, React.CSSProperties> = {
     color: '#F0F4F8',
     fontFamily: "'JetBrains Mono', monospace",
     borderRadius: '8px',
-    padding: '12px 16px',
     fontSize: '13px',
     fontWeight: 600,
-    width: NODE_WIDTH,
-    height: NODE_HEIGHT,
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'space-between',
@@ -134,11 +180,8 @@ const nodeStyles: Record<string, React.CSSProperties> = {
     color: '#F0F4F8',
     fontFamily: "'JetBrains Mono', monospace",
     borderRadius: '8px',
-    padding: '12px 16px',
     fontSize: '13px',
     fontWeight: 600,
-    width: NODE_WIDTH,
-    height: NODE_HEIGHT,
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'space-between',
@@ -152,11 +195,8 @@ const nodeStyles: Record<string, React.CSSProperties> = {
     color: '#F0F4F8',
     fontFamily: "'JetBrains Mono', monospace",
     borderRadius: '8px',
-    padding: '12px 16px',
     fontSize: '13px',
     fontWeight: 600,
-    width: NODE_WIDTH,
-    height: NODE_HEIGHT,
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'space-between',
@@ -194,8 +234,9 @@ const BaseNodeStyle = (nodeData: NodeDataExtended, baseStyle: React.CSSPropertie
     ...boxOverrides,
     width: nodeData._scaledWidth ?? NODE_WIDTH,
     height: nodeData._scaledHeight ?? NODE_HEIGHT,
+    padding: '6px 10px',
     opacity: nodeData._isDimmed ? 0.2 : 1.0,
-    transition: 'opacity 0.3s ease, background 0.3s ease, border 0.3s ease, width 0.3s ease, height 0.3s ease, box-shadow 0.3s ease',
+    transition: 'opacity 0.3s ease, background 0.3s ease, border 0.3s ease, width 0.3s ease, height 0.3s ease, box-shadow 0.3s ease, padding 0.3s ease',
   }
 }
 
@@ -276,6 +317,7 @@ function MetricBadges({ nodeData: baseNodeData }: { nodeData: TopologyNode['data
 }
 
 type NodeDataExtended = TopologyNode['data'] & {
+  _layoutMode?: string
   _heatColor?: string
   _scaledWidth?: number
   _scaledHeight?: number
@@ -292,7 +334,8 @@ type NodeDataExtended = TopologyNode['data'] & {
 function NodeSparkline({ nodeData }: { nodeData: NodeDataExtended }) {
   if (!nodeData._sparklinePoints || nodeData._sparklinePoints.length < 2) return null
   const series = extractSparkSeries(nodeData._sparklinePoints, 'latency')
-  return <Sparkline points={series} color={sparkColor('latency')} />
+  const width = nodeData._scaledWidth ? nodeData._scaledWidth - 24 : NODE_WIDTH - 24
+  return <Sparkline data={series} color={sparkColor('latency')} width={width} />
 }
 
 function ExpandButton({ nodeData }: { nodeData: NodeDataExtended }) {
@@ -326,17 +369,34 @@ function ExpandButton({ nodeData }: { nodeData: NodeDataExtended }) {
   )
 }
 
-function UserNode({ data }: NodeProps) {
-  const nodeData = data as NodeDataExtended
+
+function NodeContent({ nodeData, icon: IconComponent, iconColor, labelOverride }: { nodeData: NodeDataExtended, icon: React.ElementType, iconColor: string, labelOverride?: string }) {
+  const label = labelOverride || nodeData.label || 'User'
+
   return (
-    <div style={BaseNodeStyle(nodeData, nodeStyles.user)}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <User size={16} color="#06B6D4" />
-        <span style={{ fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          User
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+        <IconComponent size={14} color={iconColor} style={{ flexShrink: 0 }} />
+        <span style={{ fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexGrow: 1 }}>
+          {label}
         </span>
       </div>
-      <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
+      <div style={{ display: 'flex', flexDirection: 'column', width: '100%', flexGrow: 1, gap: 0, justifyContent: 'flex-end' }}>
+        <NodeSparkline nodeData={nodeData} />
+        <MetricBadges nodeData={nodeData} />
+      </div>
+      <ExpandButton nodeData={nodeData} />
+    </div>
+  )
+}
+
+function UserNode({ data }: NodeProps) {
+  const nodeData = data as NodeDataExtended
+  const isVertical = nodeData._layoutMode === 'vertical'
+  return (
+    <div style={BaseNodeStyle(nodeData, nodeStyles.user)}>
+      <NodeContent nodeData={nodeData} icon={User} iconColor="#06B6D4" labelOverride="User" />
+      <Handle type="source" position={isVertical ? Position.Bottom : Position.Right} style={{ opacity: 0 }} />
     </div>
   )
 }
@@ -344,63 +404,36 @@ function UserNode({ data }: NodeProps) {
 function AgentNode({ data }: NodeProps) {
   const nodeData = data as NodeDataExtended
   const isSubAgent = nodeData.nodeType?.toLowerCase() === 'sub_agent'
+  const isVertical = nodeData._layoutMode === 'vertical'
   return (
     <div style={BaseNodeStyle(nodeData, isSubAgent ? nodeStyles.sub_agent : nodeStyles.agent)}>
-      <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <Bot size={16} color={isSubAgent ? "#00ACC1" : "#26A69A"} style={{ flexShrink: 0 }} />
-        <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {nodeData.label}
-        </span>
-      </div>
-      <MetricBadges nodeData={nodeData} />
-      <div style={{ position: 'absolute', bottom: -20, left: 0, width: '100%' }}>
-        <NodeSparkline nodeData={nodeData} />
-      </div>
-      <ExpandButton nodeData={nodeData} />
-      <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
+      <Handle type="target" position={isVertical ? Position.Top : Position.Left} style={{ opacity: 0 }} />
+      <NodeContent nodeData={nodeData} icon={Bot} iconColor={isSubAgent ? "#00ACC1" : "#26A69A"} />
+      <Handle type="source" position={isVertical ? Position.Bottom : Position.Right} style={{ opacity: 0 }} />
     </div>
   )
 }
 
 function ToolNode({ data }: NodeProps) {
   const nodeData = data as NodeDataExtended
+  const isVertical = nodeData._layoutMode === 'vertical'
   return (
     <div style={BaseNodeStyle(nodeData, nodeStyles.tool)}>
-      <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <Wrench size={16} color="#FFA726" style={{ flexShrink: 0 }} />
-        <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {nodeData.label}
-        </span>
-      </div>
-      <MetricBadges nodeData={nodeData} />
-      <div style={{ position: 'absolute', bottom: -20, left: 0, width: '100%' }}>
-        <NodeSparkline nodeData={nodeData} />
-      </div>
-      <ExpandButton nodeData={nodeData} />
-      <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
+      <Handle type="target" position={isVertical ? Position.Top : Position.Left} style={{ opacity: 0 }} />
+      <NodeContent nodeData={nodeData} icon={Wrench} iconColor="#FFA726" />
+      <Handle type="source" position={isVertical ? Position.Bottom : Position.Right} style={{ opacity: 0 }} />
     </div>
   )
 }
 
 function LLMNode({ data }: NodeProps) {
   const nodeData = data as NodeDataExtended
+  const isVertical = nodeData._layoutMode === 'vertical'
   return (
     <div style={BaseNodeStyle(nodeData, nodeStyles.llm)}>
-      <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <Sparkles size={16} color="#ba68c8" style={{ flexShrink: 0 }} />
-        <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {nodeData.label}
-        </span>
-      </div>
-      <MetricBadges nodeData={nodeData} />
-      <div style={{ position: 'absolute', bottom: -20, left: 0, width: '100%' }}>
-        <NodeSparkline nodeData={nodeData} />
-      </div>
-      <ExpandButton nodeData={nodeData} />
-      <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
+      <Handle type="target" position={isVertical ? Position.Top : Position.Left} style={{ opacity: 0 }} />
+      <NodeContent nodeData={nodeData} icon={Sparkles} iconColor="#ba68c8" />
+      <Handle type="source" position={isVertical ? Position.Bottom : Position.Right} style={{ opacity: 0 }} />
     </div>
   )
 }
@@ -442,8 +475,8 @@ export default function TopologyGraph({
   onEdgeClick,
   selectedNodeId
 }: TopologyGraphProps) {
-
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>('horizontal')
   const [highlightedPath, setHighlightedPath] = useState<Set<string>>(new Set())
 
   const topology = useMemo(() => {
@@ -540,6 +573,7 @@ export default function TopologyGraph({
         type: mapNodeType(n.data.nodeType, n.data.label),
         data: {
           ...n.data,
+          _layoutMode: layoutMode,
           _scaledWidth: scaledWidth,
           _scaledHeight: scaledHeight,
           _isHighCost: isHighCost,
@@ -565,7 +599,7 @@ export default function TopologyGraph({
         position: n.position,
       }
     })
-  }, [nodes, sparklineData, expandedIds, topology, selectedNodeId, highlightedPath])
+  }, [nodes, sparklineData, expandedIds, topology, selectedNodeId, highlightedPath, layoutMode])
 
   const toReactFlowEdges = useCallback((): Edge[] => {
     const visibleGraph = topology.getVisibleGraph(expandedIds)
@@ -610,21 +644,24 @@ export default function TopologyGraph({
   const [rfNodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [rfEdges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
 
-  useEffect(() => {
+  const doLayout = useCallback((mode: LayoutMode = layoutMode) => {
     const rawNodes = toReactFlowNodes()
     const rawEdges = toReactFlowEdges()
     const { nodes: layouted, edges: layoutedEdges } = getLayoutedElements(
       rawNodes,
       rawEdges,
+      mode
     )
     setNodes(layouted)
     setEdges(layoutedEdges)
-  }, [toReactFlowNodes, toReactFlowEdges, setNodes, setEdges])
+  }, [toReactFlowNodes, toReactFlowEdges, setNodes, setEdges, layoutMode])
+
+  useEffect(() => {
+    doLayout(layoutMode)
+  }, [doLayout, layoutMode])
 
   const handleNodeClick = useCallback(
     (_event: React.MouseEvent, node: Node) => {
-      // Toggle selection logic handles in App or here?
-      // Handled in App via onNodeClick. App will set selected null if clicked again maybe?
       onNodeClick?.(node.id)
     },
     [onNodeClick],
@@ -656,6 +693,27 @@ export default function TopologyGraph({
         colorMode="dark"
       >
         <Background color="#334155" gap={20} />
+        <Panel position="top-left" style={{ margin: 16, background: '#1E293B', border: '1px solid #334155', borderRadius: '8px', padding: '8px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <span style={{ fontSize: '13px', color: '#94A3B8', fontFamily: "'JetBrains Mono', monospace", display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Network size={14} /> Layout:
+          </span>
+          <select
+            style={{
+              background: '#0F172A', color: '#F0F4F8', border: '1px solid #334155',
+              borderRadius: '4px', padding: '4px 8px', fontSize: '12px', outline: 'none', cursor: 'pointer'
+            }}
+            value={layoutMode}
+            onChange={(e) => {
+              const val = e.target.value as LayoutMode
+              setLayoutMode(val)
+            }}
+          >
+            <option value="horizontal">Horizontal</option>
+            <option value="vertical">Vertical</option>
+            <option value="cluster">Grouped by Type</option>
+          </select>
+        </Panel>
+
         <Controls
           position="top-right"
           style={{ background: '#1E293B', border: '1px solid #334155', borderRadius: '6px' }}
@@ -677,6 +735,12 @@ export default function TopologyGraph({
             }}
           >
             <FoldHorizontal size={16} />
+          </ControlButton>
+          <ControlButton
+            title="Re-layout Graph"
+            onClick={() => doLayout()}
+          >
+            <LayoutTemplate size={16} />
           </ControlButton>
         </Controls>
         <MiniMap

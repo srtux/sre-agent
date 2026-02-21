@@ -190,7 +190,8 @@ WITH RECURSIVE span_tree AS (
     duration_ms,
     input_tokens,
     output_tokens,
-    status_code
+    status_code,
+    start_time
   FROM \`$PROJECT_ID.$GRAPH_DATASET.agent_spans_raw\`
   WHERE parent_id IS NULL OR parent_id NOT IN (SELECT span_id FROM \`$PROJECT_ID.$GRAPH_DATASET.agent_spans_raw\`)
 
@@ -209,7 +210,8 @@ WITH RECURSIVE span_tree AS (
     child.duration_ms,
     child.input_tokens,
     child.output_tokens,
-    child.status_code
+    child.status_code,
+    child.start_time
   FROM \`$PROJECT_ID.$GRAPH_DATASET.agent_spans_raw\` child
   JOIN span_tree parent ON child.parent_id = parent.span_id
 )
@@ -223,7 +225,8 @@ SELECT
   SUM(IFNULL(input_tokens, 0) + IFNULL(output_tokens, 0)) as total_tokens,
   SUM(IFNULL(input_tokens, 0)) as input_tokens,
   SUM(IFNULL(output_tokens, 0)) as output_tokens,
-  COUNTIF(status_code = 'ERROR') as error_count
+  COUNTIF(status_code = 'ERROR') as error_count,
+  MIN(start_time) as start_time
 FROM span_tree
 WHERE node_type != 'Glue'
   AND ancestor_logical_id IS NOT NULL
@@ -244,7 +247,8 @@ SELECT
   SUM(IFNULL(input_tokens, 0) + IFNULL(output_tokens, 0)) as total_tokens,
   SUM(IFNULL(input_tokens, 0)) as input_tokens,
   SUM(IFNULL(output_tokens, 0)) as output_tokens,
-  COUNTIF(status_code = 'ERROR') as error_count
+  COUNTIF(status_code = 'ERROR') as error_count,
+  MIN(start_time) as start_time
 FROM span_tree
 WHERE node_type = 'Agent'
   AND ancestor_logical_id IS NULL

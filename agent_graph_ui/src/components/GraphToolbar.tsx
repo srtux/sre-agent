@@ -10,12 +10,7 @@ interface GraphToolbarProps {
   lastUpdated: Date | null
 }
 
-const hoursOptions = [
-  { label: '1h', value: 1 },
-  { label: '6h', value: 6 },
-  { label: '24h', value: 24 },
-  { label: '7d', value: 168 },
-]
+import TimeRangeSelector from './TimeRangeSelector'
 
 const styles: Record<string, React.CSSProperties> = {
   bar: {
@@ -123,20 +118,7 @@ export default function GraphToolbar({
 
   return (
     <div style={styles.bar}>
-      <span style={styles.label}>Time Range</span>
-      <select
-        style={styles.select}
-        value={filters.hours}
-        onChange={(e) =>
-          onChange({ ...filters, hours: Number(e.target.value) })
-        }
-      >
-        {hoursOptions.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
+      <TimeRangeSelector filters={filters} onChange={onChange} />
 
       {/* Errors-only pill toggle */}
       <div
