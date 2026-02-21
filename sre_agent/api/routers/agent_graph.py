@@ -1063,9 +1063,9 @@ async def get_trace_logs(trace_id: str, project_id: str) -> dict[str, Any]:
     try:
         from google.cloud import logging as cloud_logging
 
-        client = cloud_logging.Client(project=project_id)
+        client = cloud_logging.Client(project=project_id)  # type: ignore[no-untyped-call]
         filter_str = f'trace="projects/{project_id}/traces/{trace_id}"'
-        entries = client.list_entries(filter_=filter_str, max_results=100)
+        entries = client.list_entries(filter_=filter_str, max_results=100)  # type: ignore[no-untyped-call]
 
         logs = []
         for entry in entries:
