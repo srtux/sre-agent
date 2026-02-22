@@ -22,7 +22,7 @@ export function AgentProvider({ children, projectId }: { children: ReactNode, pr
   const queryClient = useQueryClient();
 
   const { data: agentsData, isLoading, error } = useQuery({
-    queryKey: ['agents', projectId],
+    queryKey: ['agents', projectId, 720],
     queryFn: async () => {
       const res = await axios.get<AgentRegistryResponse>('/api/v1/graph/registry/agents', {
         params: { project_id: projectId, hours: 720 }
@@ -71,7 +71,7 @@ export function AgentProvider({ children, projectId }: { children: ReactNode, pr
 
     // Prefetch tools and topology for the current UI state to speed up initial view switch
     queryClient.prefetchQuery({
-      queryKey: ['tools', projectId],
+      queryKey: ['tools', projectId, 720],
       queryFn: async () => {
         const res = await axios.get('/api/v1/graph/registry/tools', { params: { project_id: projectId, hours: 720 } });
         return res.data;
@@ -80,7 +80,7 @@ export function AgentProvider({ children, projectId }: { children: ReactNode, pr
     });
 
     queryClient.prefetchQuery({
-      queryKey: ['topology', projectId],
+      queryKey: ['topology', projectId, 720],
       queryFn: async () => {
         const res = await axios.get('/api/v1/graph/topology', { params: { project_id: projectId, hours: 720 } });
         return res.data;

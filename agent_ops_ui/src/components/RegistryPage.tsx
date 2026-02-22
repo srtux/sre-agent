@@ -146,7 +146,7 @@ interface Props {
 }
 
 export default function RegistryPage({ filters, mode, onSelectAgent }: Props) {
-  const { availableAgents } = useAgentContext()
+  const { availableAgents, loadingAgents } = useAgentContext()
   const params: Record<string, string | number> = {
     project_id: filters.projectId,
     hours: filters.hours,
@@ -179,7 +179,7 @@ export default function RegistryPage({ filters, mode, onSelectAgent }: Props) {
   }
 
   const renderAgentsList = () => {
-    if (loading) return <div style={styles.loading}>Loading agents...</div>
+    if (loading || loadingAgents) return <div style={styles.loading}>Loading agents...</div>
     if (error) return <div style={{ ...styles.loading, ...styles.error }}>{errorMessage}</div>
 
     if (agents.length === 0) {
@@ -255,7 +255,7 @@ export default function RegistryPage({ filters, mode, onSelectAgent }: Props) {
   }
 
   const renderToolsList = () => {
-    if (loading) return <div style={styles.loading}>Loading tools...</div>
+    if (loading || loadingAgents) return <div style={styles.loading}>Loading tools...</div>
     if (error) return <div style={{ ...styles.loading, ...styles.error }}>{errorMessage}</div>
 
     if (tools.length === 0) {
