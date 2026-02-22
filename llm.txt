@@ -356,33 +356,45 @@ docs/
     project_structure.md  <- Detailed directory tree
     backend.md            <- FastAPI, middleware, services
     frontend.md           <- Flutter, state management, GenUI
-    authentication.md     <- OAuth, session management, EUC
     telemetry.md          <- OTel instrumentation
     decisions.md          <- Architectural decision records
     help_system.md        <- In-app help system architecture
     AGENTS_AND_TOOLS.md   <- Agent and tool catalog
+  agent_ops/
+    README.md             <- AgentOps index
+    architecture.md       <- Agent Graph reasoning trajectories
+    bigquery_setup.md     <- BQ Property Graph setup
+    bq_schema.md          <- OTel payload extraction schemas
+    dashboard.md          <- AgentOps dashboard capabilities
+    dashboards_legacy.md  <- Perses dashboard fallback
+    explorer_ui.md        <- Observability Explorer usage
+    observability_theory.md <- Theory on graph and log operations
+    visualization_setup.md  <- Graph rendering logic
+  authentication/
+    authentication.md     <- OAuth, session management, EUC
+    auth_learnings.md     <- Auth system evolution
   concepts/
     autonomous_reliability.md  <- "Unrolled Codex" event loop pattern
     agent_orchestration.md     <- Council of Experts design
     observability.md           <- Traces, spans, metrics deep dive
     memory.md                  <- State management across sessions
     online_research_and_self_healing.md <- Web search tools + self-healing architecture
-    auth_learnings.md          <- Auth system evolution
     gcp_enhancements.md        <- Future roadmap
-  guides/
-    getting_started.md         <- Setup and configuration
-    development.md             <- "Vibe Coding" handbook
-    testing.md                 <- Testing strategy and style guide
-    linting.md                 <- Code quality policy
-    deployment.md              <- Cloud Run and Agent Engine
-    evaluation.md              <- Agent benchmarking
-    dashboard_ui.md            <- Dashboard UI guide
+  debugging/
     debugging_connectivity.md  <- Network troubleshooting
     debugging_telemetry_and_auth.md  <- Trace/auth diagnosis
     debugging_genui.md         <- Widget rendering issues
-    rendering_telemetry.md     <- GenUI/A2UI architecture
-    frontend_testing.md        <- Flutter testing guide
+  guides/
+    getting_started.md         <- Setup and configuration
+    development.md             <- "Vibe Coding" handbook
+    deployment.md              <- Cloud Run and Agent Engine
     project_selector.md        <- Project selection UX
+    dashboard_query_language.md <- MQL, PromQL, SQL capabilities
+    rendering_telemetry.md     <- GenUI/A2UI architecture
+  testing/
+    testing.md                 <- Testing strategy and style guide
+    frontend_testing.md        <- Flutter testing guide
+    linting.md                 <- Code quality policy
   reference/
     api.md                <- Agent API specification
     configuration.md      <- Environment variable reference

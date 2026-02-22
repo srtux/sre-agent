@@ -6,7 +6,7 @@
 *   **[Project Plan](docs/PROJECT_PLAN.md)**: Roadmap. **Update after every major change.**
 *   **[Rules & Vibe](docs/guides/development.md)**: Core rules.
 *   **[System Architecture](docs/architecture/system_overview.md)**: Topology.
-*   **[Testing Strategy](docs/guides/testing.md)**: Standards.
+*   **[Testing Strategy](docs/testing/testing.md)**: Standards.
 *   **[Reference](docs/reference/)**: Specs.
 
 ## ⚡ Quick Rules
@@ -31,7 +31,7 @@
 
 **The Loop**: If any checks fail, fix and repeat. Never present failing code.
 
-**Testing Guide**: [docs/guides/testing.md](./docs/guides/testing.md)
+**Testing Guide**: [docs/testing/testing.md](./docs/testing/testing.md)
 
 ---
 
@@ -1172,7 +1172,7 @@ result = await fetch_trace(project, trace_id)
 
 **Solution**:
 - Check if the backend is sending nested `component` wrappers (it shouldn't).
-- See **[`docs/guides/debugging_genui.md`](docs/guides/debugging_genui.md)** for detailed debugging steps and the "wrapper issue" explanation.
+- See **[`docs/debugging/debugging_genui.md`](docs/debugging/debugging_genui.md)** for detailed debugging steps and the "wrapper issue" explanation.
 
 ---
 
@@ -1537,4 +1537,4 @@ Before committing code, verify:
 **Happy Coding! 🚀**
 
 ---
-*Last verified: 2026-02-15 — Auto SRE Team*
+*Last verified: 2026-02-21

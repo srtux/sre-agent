@@ -469,7 +469,7 @@ See `.env.example` for full list and `docs/reference/configuration.md` for detai
 - **Pydantic `extra="forbid"` missing**: Causes silent hallucination acceptance
 - **Forgetting `await`**: All tool functions are async — `RuntimeWarning: coroutine was never awaited`
 - **Import errors**: Run `uv run poe sync` to ensure dependencies are installed
-- **GenUI rendering issues**: See `docs/guides/debugging_genui.md`
+- **GenUI rendering issues**: See `docs/debugging/debugging_genui.md`
 - **Large tool outputs**: If a tool can return >50 items, integrate with `large_payload_handler.py` for auto-sandbox processing
 - **SRE_AGENT_DEPLOYMENT_MODE not set in tests**: Tests must set `SRE_AGENT_DEPLOYMENT_MODE=true` to avoid agent init side-effects (see `pyproject.toml` test task)
 - **Circuit breaker tripping**: The `@adk_tool` decorator includes a circuit breaker (env `SRE_AGENT_CIRCUIT_BREAKER`). If a tool fails repeatedly, the breaker opens and blocks calls. Check tool health before assuming bugs.
@@ -478,4 +478,4 @@ See `.env.example` for full list and `docs/reference/configuration.md` for detai
 > **Always refer to [`AGENTS.md`](AGENTS.md) for the single source of truth on coding patterns.**
 
 ---
-*Last verified: 2026-02-15 — Auto SRE Team*
+*Last verified: 2026-02-21
