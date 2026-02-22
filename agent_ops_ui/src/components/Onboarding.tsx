@@ -19,6 +19,14 @@ interface SchemaStep {
   retryable?: boolean;
 }
 
+interface LroOperation {
+  name: string;
+  done: boolean;
+  error?: { message: string };
+  metadata?: { createTime: string;[key: string]: unknown };
+  response?: unknown;
+}
+
 const SCHEMA_STEPS: SchemaStep[] = [
   { name: 'create_dataset', label: 'Create Dataset', status: 'pending' },
   { name: 'cleanup', label: 'Cleanup Legacy Objects', status: 'pending' },
@@ -44,7 +52,7 @@ export default function Onboarding({ projectId, onSetup, loading: globalLoading,
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [schemaSteps, setSchemaSteps] = useState<SchemaStep[]>(SCHEMA_STEPS)
   const [expandedStep, setExpandedStep] = useState<number | null>(null)
-  const [lroDetails, setLroDetails] = useState<any>(null)
+  const [lroDetails, setLroDetails] = useState<LroOperation | null>(null)
 
   // Ref to prevent double-execution in StrictMode
   const hasStartedRef = useRef(false)
@@ -76,7 +84,7 @@ export default function Onboarding({ projectId, onSetup, loading: globalLoading,
           const cleanParsed = parsed.map(s => s.status === 'success' ? s : { ...s, status: 'pending', error: undefined, retryable: undefined });
           safeSetState(setSchemaSteps, cleanParsed);
         }
-      } catch (e) {
+      } catch {
         // ignore
       }
     }
@@ -91,6 +99,7 @@ export default function Onboarding({ projectId, onSetup, loading: globalLoading,
       if (!exists) {
         safeSetState<string | null>(setErrorMsg, "No Observability Bucket found. Please create one in the Cloud Console.");
         safeSetState<Phase>(setPhase, 'manual_input');
+        hasStartedRef.current = false;
         return;
       }
 
@@ -148,7 +157,7 @@ export default function Onboarding({ projectId, onSetup, loading: globalLoading,
         pollVerify(lid);
       } else if (res.data.status === 'creating') {
         safeSetState<string | null>(setLroName, res.data.operation.name);
-        safeSetState<any>(setLroDetails, res.data.operation);
+        safeSetState<LroOperation | null>(setLroDetails, res.data.operation);
         safeSetState<Phase>(setPhase, 'poll_lro');
         pollLro(res.data.operation.name);
       }
@@ -215,7 +224,9 @@ export default function Onboarding({ projectId, onSetup, loading: globalLoading,
       try {
         const parsed = JSON.parse(saved);
         if (parsed.length === SCHEMA_STEPS.length) currentSteps = parsed;
-      } catch (e) { }
+      } catch {
+        // ignore
+      }
     }
 
     for (let i = 0; i < currentSteps.length; i++) {
@@ -276,6 +287,7 @@ export default function Onboarding({ projectId, onSetup, loading: globalLoading,
     }
     safeSetState<string | null>(setErrorMsg, detail);
     safeSetState<Phase>(setPhase, 'manual_input');
+    hasStartedRef.current = false;
   }
 
   // --- RENDER HELPERS ---
@@ -459,7 +471,10 @@ export default function Onboarding({ projectId, onSetup, loading: globalLoading,
         {phase === 'manual_input' && (
           <button
             style={{ ...styles.button, background: '#334155' }}
-            onClick={() => setPhase('init')}
+            onClick={() => {
+              setPhase('init');
+              hasStartedRef.current = false;
+            }}
           >
             Start Over
           </button>

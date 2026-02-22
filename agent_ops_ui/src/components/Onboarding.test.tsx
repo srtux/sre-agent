@@ -13,8 +13,8 @@ describe('Onboarding Component', () => {
     vi.clearAllMocks();
     mockedAxios.isAxiosError.mockImplementation((e: unknown) => typeof e === 'object' && e !== null && 'isAxiosError' in e && (e as { isAxiosError: boolean }).isAxiosError === true);
     const realSetTimeout = window.setTimeout;
-    vi.spyOn(window, 'setTimeout').mockImplementation((cb: any, ms?: number) => {
-      return realSetTimeout(cb, ms === 10000 ? 10 : ms) as any;
+    vi.spyOn(window, 'setTimeout').mockImplementation((cb: TimerHandler, ms?: number) => {
+      return realSetTimeout(cb, ms === 10000 ? 10 : ms) as unknown as number;
     });
   });
 

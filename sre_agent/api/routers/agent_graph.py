@@ -1753,7 +1753,7 @@ async def get_dashboard_models(
 
         query = f"""
             SELECT
-                COALESCE(request_model, response_model, 'unknown') AS model_name,
+                COALESCE(request_model, 'unknown') AS model_name,
                 COUNT(*) AS total_calls,
                 ROUND(APPROX_QUANTILES(
                     duration_ms, 100
@@ -1767,7 +1767,7 @@ async def get_dashboard_models(
                     + COALESCE(output_tokens, 0)
                 ) AS tokens_used
             FROM `{project_id}.{dataset}.agent_spans_raw`
-            WHERE node_type = 'LLM'
+            WHERE (node_type = 'LLM' OR (node_type = 'Glue' AND node_label = 'call_llm'))
               AND start_time >= TIMESTAMP_SUB(
                   CURRENT_TIMESTAMP(), INTERVAL {minutes} MINUTE)
               {service_clause}
