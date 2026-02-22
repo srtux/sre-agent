@@ -1455,3 +1455,560 @@ async def get_tool_registry(
             status_code=500,
             detail=f"Failed to query tool registry: {exc!s}",
         ) from exc
+
+
+# ---------------------------------------------------------------------------
+# Dashboard Data Endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.get("/dashboard/kpis")
+@async_ttl_cache(ttl_seconds=300)
+async def get_dashboard_kpis(
+    project_id: str,
+    dataset: str = "agentops",
+    hours: float = Query(default=24.0, ge=1.0, le=720.0),
+    service_name: str | None = None,
+) -> dict[str, Any]:
+    """Return dashboard KPI metrics with trend comparisons.
+
+    Queries ``agent_spans_raw`` for the current and previous time
+    periods to compute KPIs and percentage-change trends.
+
+    Args:
+        project_id: GCP project that owns the BigQuery dataset.
+        dataset: BigQuery dataset name.
+        hours: Look-back window in hours (1-720).
+        service_name: Optional service name filter.
+
+    Returns:
+        A dict with a ``kpis`` object containing values and trends.
+    """
+    _validate_identifier(project_id, "project_id")
+    _validate_identifier(dataset, "dataset")
+
+    service_clause = (
+        f"AND service_name = '{_validate_identifier(service_name, 'service_name')}'"
+        if service_name
+        else ""
+    )
+    minutes = int(hours * 60)
+
+    try:
+        client = _get_bq_client(project_id)
+
+        query = f"""
+            WITH current_period AS (
+                SELECT
+                    COUNT(DISTINCT session_id) AS total_sessions,
+                    COUNT(DISTINCT trace_id) AS root_invocations,
+                    SAFE_DIVIDE(
+                        COUNTIF(status_code = 2),
+                        NULLIF(COUNT(*), 0)
+                    ) AS error_rate
+                FROM `{project_id}.{dataset}.agent_spans_raw`
+                WHERE start_time >= TIMESTAMP_SUB(
+                    CURRENT_TIMESTAMP(), INTERVAL {minutes} MINUTE)
+                  AND node_type != 'Glue'
+                  {service_clause}
+            ),
+            previous_period AS (
+                SELECT
+                    COUNT(DISTINCT session_id) AS total_sessions,
+                    COUNT(DISTINCT trace_id) AS root_invocations,
+                    SAFE_DIVIDE(
+                        COUNTIF(status_code = 2),
+                        NULLIF(COUNT(*), 0)
+                    ) AS error_rate
+                FROM `{project_id}.{dataset}.agent_spans_raw`
+                WHERE start_time >= TIMESTAMP_SUB(
+                    CURRENT_TIMESTAMP(), INTERVAL {minutes * 2} MINUTE)
+                  AND start_time < TIMESTAMP_SUB(
+                    CURRENT_TIMESTAMP(), INTERVAL {minutes} MINUTE)
+                  AND node_type != 'Glue'
+                  {service_clause}
+            )
+            SELECT
+                c.total_sessions,
+                c.root_invocations,
+                SAFE_DIVIDE(
+                    c.root_invocations,
+                    NULLIF(c.total_sessions, 0)
+                ) AS avg_turns,
+                c.error_rate,
+                p.total_sessions AS prev_total_sessions,
+                p.root_invocations AS prev_root_invocations,
+                SAFE_DIVIDE(
+                    p.root_invocations,
+                    NULLIF(p.total_sessions, 0)
+                ) AS prev_avg_turns,
+                p.error_rate AS prev_error_rate
+            FROM current_period c, previous_period p
+        """
+
+        rows = list(await anyio.to_thread.run_sync(client.query_and_wait, query))
+        row = rows[0] if rows else None
+
+        def _trend(current: float | None, previous: float | None) -> float:
+            c = float(current or 0)
+            p = float(previous or 0)
+            if p == 0:
+                return 0.0 if c == 0 else 100.0
+            return round(((c - p) / abs(p)) * 100, 1)
+
+        if not row or row.total_sessions is None:
+            return {
+                "kpis": {
+                    "totalSessions": 0,
+                    "avgTurns": 0,
+                    "rootInvocations": 0,
+                    "errorRate": 0,
+                    "totalSessionsTrend": 0,
+                    "avgTurnsTrend": 0,
+                    "rootInvocationsTrend": 0,
+                    "errorRateTrend": 0,
+                }
+            }
+
+        return {
+            "kpis": {
+                "totalSessions": row.total_sessions or 0,
+                "avgTurns": round(float(row.avg_turns or 0), 1),
+                "rootInvocations": row.root_invocations or 0,
+                "errorRate": round(float(row.error_rate or 0), 4),
+                "totalSessionsTrend": _trend(
+                    row.total_sessions, row.prev_total_sessions
+                ),
+                "avgTurnsTrend": _trend(row.avg_turns, row.prev_avg_turns),
+                "rootInvocationsTrend": _trend(
+                    row.root_invocations, row.prev_root_invocations
+                ),
+                "errorRateTrend": _trend(row.error_rate, row.prev_error_rate),
+            }
+        }
+
+    except NotFound as exc:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "NOT_SETUP",
+                "detail": "BigQuery agent data is not configured for this project.",
+            },
+        ) from exc
+    except Exception as exc:
+        logger.exception("Failed to fetch dashboard KPIs")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to query dashboard KPIs: {exc!s}",
+        ) from exc
+
+
+@router.get("/dashboard/timeseries")
+@async_ttl_cache(ttl_seconds=300)
+async def get_dashboard_timeseries(
+    project_id: str,
+    dataset: str = "agentops",
+    hours: float = Query(default=24.0, ge=1.0, le=720.0),
+    service_name: str | None = None,
+) -> dict[str, Any]:
+    """Return time-bucketed metrics for dashboard charts.
+
+    Queries ``agent_graph_hourly`` to produce latency, QPS, and
+    token usage time series suitable for ECharts rendering.
+
+    Args:
+        project_id: GCP project that owns the BigQuery dataset.
+        dataset: BigQuery dataset name.
+        hours: Look-back window in hours (1-720).
+        service_name: Optional service name filter.
+
+    Returns:
+        A dict with ``latency``, ``qps``, and ``tokens`` arrays.
+    """
+    _validate_identifier(project_id, "project_id")
+    _validate_identifier(dataset, "dataset")
+
+    service_clause = (
+        f"AND service_name = '{_validate_identifier(service_name, 'service_name')}'"
+        if service_name
+        else ""
+    )
+
+    time_filter = _build_time_filter(
+        timestamp_col="time_bucket",
+        hours=hours,
+        start_time=None,
+        end_time=None,
+    )
+
+    try:
+        client = _get_bq_client(project_id)
+
+        query = f"""
+            SELECT
+                time_bucket,
+                SUM(call_count) AS total_calls,
+                SUM(error_count) AS total_errors,
+                SAFE_DIVIDE(
+                    SUM(sum_duration_ms),
+                    NULLIF(SUM(call_count), 0)
+                ) AS avg_duration_ms,
+                MAX(max_p95_duration_ms) AS p95_duration_ms,
+                SUM(input_tokens) AS input_tokens,
+                SUM(output_tokens) AS output_tokens
+            FROM `{project_id}.{dataset}.agent_graph_hourly`
+            WHERE {time_filter} {service_clause}
+            GROUP BY time_bucket
+            ORDER BY time_bucket ASC
+        """
+
+        rows = list(await anyio.to_thread.run_sync(client.query_and_wait, query))
+
+        latency: list[dict[str, Any]] = []
+        qps: list[dict[str, Any]] = []
+        tokens: list[dict[str, Any]] = []
+
+        for row in rows:
+            ts = (
+                row.time_bucket.isoformat()
+                if hasattr(row.time_bucket, "isoformat")
+                else str(row.time_bucket)
+            )
+            total_calls = row.total_calls or 0
+            total_errors = row.total_errors or 0
+
+            latency.append(
+                {
+                    "timestamp": ts,
+                    "p50": round(float(row.avg_duration_ms or 0), 1),
+                    "p95": round(float(row.p95_duration_ms or 0), 1),
+                }
+            )
+            qps.append(
+                {
+                    "timestamp": ts,
+                    "qps": round(total_calls / 3600.0, 2),
+                    "errorRate": round(float(total_errors) / max(total_calls, 1), 4),
+                }
+            )
+            tokens.append(
+                {
+                    "timestamp": ts,
+                    "input": row.input_tokens or 0,
+                    "output": row.output_tokens or 0,
+                }
+            )
+
+        return {"latency": latency, "qps": qps, "tokens": tokens}
+
+    except NotFound as exc:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "NOT_SETUP",
+                "detail": "BigQuery hourly data is not configured for this project.",
+            },
+        ) from exc
+    except Exception as exc:
+        logger.exception("Failed to fetch dashboard timeseries")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to query dashboard timeseries: {exc!s}",
+        ) from exc
+
+
+@router.get("/dashboard/models")
+@async_ttl_cache(ttl_seconds=300)
+async def get_dashboard_models(
+    project_id: str,
+    dataset: str = "agentops",
+    hours: float = Query(default=24.0, ge=1.0, le=720.0),
+    service_name: str | None = None,
+) -> dict[str, Any]:
+    """Return model usage statistics for the dashboard table.
+
+    Queries ``agent_spans_raw`` for LLM spans grouped by model name.
+
+    Args:
+        project_id: GCP project that owns the BigQuery dataset.
+        dataset: BigQuery dataset name.
+        hours: Look-back window in hours (1-720).
+        service_name: Optional service name filter.
+
+    Returns:
+        A dict with a ``modelCalls`` list of per-model stats.
+    """
+    _validate_identifier(project_id, "project_id")
+    _validate_identifier(dataset, "dataset")
+
+    service_clause = (
+        f"AND service_name = '{_validate_identifier(service_name, 'service_name')}'"
+        if service_name
+        else ""
+    )
+    minutes = int(hours * 60)
+
+    try:
+        client = _get_bq_client(project_id)
+
+        query = f"""
+            SELECT
+                COALESCE(request_model, response_model, 'unknown') AS model_name,
+                COUNT(*) AS total_calls,
+                ROUND(APPROX_QUANTILES(
+                    duration_ms, 100
+                )[OFFSET(95)], 1) AS p95_duration,
+                ROUND(SAFE_DIVIDE(
+                    COUNTIF(status_code = 2),
+                    NULLIF(COUNT(*), 0)
+                ) * 100, 2) AS error_rate,
+                SUM(
+                    COALESCE(input_tokens, 0)
+                    + COALESCE(output_tokens, 0)
+                ) AS tokens_used
+            FROM `{project_id}.{dataset}.agent_spans_raw`
+            WHERE node_type = 'LLM'
+              AND start_time >= TIMESTAMP_SUB(
+                  CURRENT_TIMESTAMP(), INTERVAL {minutes} MINUTE)
+              {service_clause}
+            GROUP BY model_name
+            ORDER BY total_calls DESC
+        """
+
+        rows = list(await anyio.to_thread.run_sync(client.query_and_wait, query))
+
+        model_calls: list[dict[str, Any]] = []
+        for row in rows:
+            model_calls.append(
+                {
+                    "modelName": row.model_name,
+                    "totalCalls": row.total_calls or 0,
+                    "p95Duration": round(float(row.p95_duration or 0), 1),
+                    "errorRate": round(float(row.error_rate or 0), 2),
+                    "quotaExits": 0,
+                    "tokensUsed": row.tokens_used or 0,
+                }
+            )
+
+        return {"modelCalls": model_calls}
+
+    except NotFound as exc:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "NOT_SETUP",
+                "detail": "BigQuery agent data is not configured for this project.",
+            },
+        ) from exc
+    except Exception as exc:
+        logger.exception("Failed to fetch dashboard model data")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to query dashboard model data: {exc!s}",
+        ) from exc
+
+
+@router.get("/dashboard/tools")
+@async_ttl_cache(ttl_seconds=300)
+async def get_dashboard_tools(
+    project_id: str,
+    dataset: str = "agentops",
+    hours: float = Query(default=24.0, ge=1.0, le=720.0),
+    service_name: str | None = None,
+) -> dict[str, Any]:
+    """Return tool performance statistics for the dashboard table.
+
+    Queries ``agent_spans_raw`` for Tool spans grouped by tool name.
+
+    Args:
+        project_id: GCP project that owns the BigQuery dataset.
+        dataset: BigQuery dataset name.
+        hours: Look-back window in hours (1-720).
+        service_name: Optional service name filter.
+
+    Returns:
+        A dict with a ``toolCalls`` list of per-tool stats.
+    """
+    _validate_identifier(project_id, "project_id")
+    _validate_identifier(dataset, "dataset")
+
+    service_clause = (
+        f"AND service_name = '{_validate_identifier(service_name, 'service_name')}'"
+        if service_name
+        else ""
+    )
+    minutes = int(hours * 60)
+
+    try:
+        client = _get_bq_client(project_id)
+
+        query = f"""
+            SELECT
+                node_label AS tool_name,
+                COUNT(*) AS total_calls,
+                ROUND(APPROX_QUANTILES(
+                    duration_ms, 100
+                )[OFFSET(95)], 1) AS p95_duration,
+                ROUND(SAFE_DIVIDE(
+                    COUNTIF(status_code = 2),
+                    NULLIF(COUNT(*), 0)
+                ) * 100, 2) AS error_rate
+            FROM `{project_id}.{dataset}.agent_spans_raw`
+            WHERE node_type = 'Tool'
+              AND start_time >= TIMESTAMP_SUB(
+                  CURRENT_TIMESTAMP(), INTERVAL {minutes} MINUTE)
+              {service_clause}
+            GROUP BY node_label
+            ORDER BY total_calls DESC
+        """
+
+        rows = list(await anyio.to_thread.run_sync(client.query_and_wait, query))
+
+        tool_calls: list[dict[str, Any]] = []
+        for row in rows:
+            tool_calls.append(
+                {
+                    "toolName": row.tool_name,
+                    "totalCalls": row.total_calls or 0,
+                    "p95Duration": round(float(row.p95_duration or 0), 1),
+                    "errorRate": round(float(row.error_rate or 0), 2),
+                }
+            )
+
+        return {"toolCalls": tool_calls}
+
+    except NotFound as exc:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "NOT_SETUP",
+                "detail": "BigQuery agent data is not configured for this project.",
+            },
+        ) from exc
+    except Exception as exc:
+        logger.exception("Failed to fetch dashboard tool data")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to query dashboard tool data: {exc!s}",
+        ) from exc
+
+
+@router.get("/dashboard/logs")
+@async_ttl_cache(ttl_seconds=60)
+async def get_dashboard_logs(
+    project_id: str,
+    dataset: str = "agentops",
+    hours: float = Query(default=24.0, ge=1.0, le=720.0),
+    service_name: str | None = None,
+    limit: int = Query(default=2000, ge=100, le=5000),
+) -> dict[str, Any]:
+    """Return agent activity logs for the dashboard log stream.
+
+    Queries ``agent_spans_raw`` for recent span events, mapping
+    them to log-like entries with severity derived from status and
+    duration characteristics.
+
+    Args:
+        project_id: GCP project that owns the BigQuery dataset.
+        dataset: BigQuery dataset name.
+        hours: Look-back window in hours (1-720).
+        service_name: Optional service name filter.
+        limit: Maximum number of log entries (100-5000).
+
+    Returns:
+        A dict with an ``agentLogs`` list of log entries.
+    """
+    _validate_identifier(project_id, "project_id")
+    _validate_identifier(dataset, "dataset")
+
+    service_clause = (
+        f"AND service_name = '{_validate_identifier(service_name, 'service_name')}'"
+        if service_name
+        else ""
+    )
+    minutes = int(hours * 60)
+
+    try:
+        client = _get_bq_client(project_id)
+
+        query = f"""
+            SELECT
+                start_time,
+                node_type,
+                node_label,
+                duration_ms,
+                status_code,
+                status_desc,
+                input_tokens,
+                output_tokens,
+                trace_id,
+                error_type
+            FROM `{project_id}.{dataset}.agent_spans_raw`
+            WHERE start_time >= TIMESTAMP_SUB(
+                CURRENT_TIMESTAMP(), INTERVAL {minutes} MINUTE)
+              AND node_type != 'Glue'
+              {service_clause}
+            ORDER BY start_time DESC
+            LIMIT {limit}
+        """
+
+        rows = list(await anyio.to_thread.run_sync(client.query_and_wait, query))
+
+        agent_logs: list[dict[str, Any]] = []
+        for row in rows:
+            status = row.status_code or 0
+            dur = float(row.duration_ms or 0)
+            err_type = row.error_type or ""
+
+            if status == 2 or err_type:
+                severity = "ERROR"
+            elif dur > 10000:
+                severity = "WARNING"
+            elif row.node_type == "LLM":
+                severity = "DEBUG"
+            else:
+                severity = "INFO"
+
+            total_tokens = (row.input_tokens or 0) + (row.output_tokens or 0)
+            msg_parts = [f"{row.node_type}::{row.node_label}"]
+            if dur > 0:
+                msg_parts.append(f"{dur:.0f}ms")
+            if total_tokens > 0:
+                msg_parts.append(f"{total_tokens} tokens")
+            if err_type:
+                msg_parts.append(f"error={err_type}")
+            elif row.status_desc:
+                msg_parts.append(str(row.status_desc))
+
+            ts = (
+                row.start_time.isoformat()
+                if hasattr(row.start_time, "isoformat")
+                else str(row.start_time)
+            )
+
+            agent_logs.append(
+                {
+                    "timestamp": ts,
+                    "agentId": row.node_label or "unknown",
+                    "severity": severity,
+                    "message": " | ".join(msg_parts),
+                    "traceId": row.trace_id or "",
+                }
+            )
+
+        return {"agentLogs": agent_logs}
+
+    except NotFound as exc:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "NOT_SETUP",
+                "detail": "BigQuery agent data is not configured for this project.",
+            },
+        ) from exc
+    except Exception as exc:
+        logger.exception("Failed to fetch dashboard logs")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to query dashboard logs: {exc!s}",
+        ) from exc

@@ -15,9 +15,10 @@ const mockAgents = {
 }
 
 function TestConsumer() {
-  const { serviceName, availableAgents, loadingAgents } = useAgentContext()
+  const { projectId, serviceName, availableAgents, loadingAgents } = useAgentContext()
   return (
     <div>
+      <span data-testid="projectId">{projectId}</span>
       <span data-testid="serviceName">{serviceName}</span>
       <span data-testid="loading">{loadingAgents.toString()}</span>
       <span data-testid="count">{availableAgents.length}</span>

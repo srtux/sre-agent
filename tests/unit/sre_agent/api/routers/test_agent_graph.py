@@ -1493,3 +1493,573 @@ class TestRegistryEndpoints:
         assert tool["executionCount"] == 100
         assert tool["errorRate"] == 0.05
         assert tool["p95DurationMs"] == 600.0
+
+
+class TestDashboardKpis:
+    """Tests for GET /dashboard/kpis endpoint."""
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_returns_kpis_with_trends(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        bq.query_and_wait.return_value = [
+            _make_row(
+                total_sessions=42,
+                root_invocations=28,
+                avg_turns=3.5,
+                error_rate=0.02,
+                prev_total_sessions=30,
+                prev_root_invocations=20,
+                prev_avg_turns=4.0,
+                prev_error_rate=0.03,
+            )
+        ]
+
+        resp = client.get(
+            "/api/v1/graph/dashboard/kpis",
+            params={"project_id": "test-project"},
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        kpis = data["kpis"]
+        assert kpis["totalSessions"] == 42
+        assert kpis["avgTurns"] == 3.5
+        assert kpis["rootInvocations"] == 28
+        assert kpis["errorRate"] == 0.02
+        assert isinstance(kpis["totalSessionsTrend"], (int, float))
+        assert isinstance(kpis["errorRateTrend"], (int, float))
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_returns_zeroes_when_no_data(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        bq.query_and_wait.return_value = []
+
+        resp = client.get(
+            "/api/v1/graph/dashboard/kpis",
+            params={"project_id": "test-project"},
+        )
+
+        assert resp.status_code == 200
+        kpis = resp.json()["kpis"]
+        assert kpis["totalSessions"] == 0
+        assert kpis["avgTurns"] == 0
+        assert kpis["rootInvocations"] == 0
+        assert kpis["errorRate"] == 0
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_not_found_returns_404_not_setup(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        from google.api_core.exceptions import NotFound
+
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        bq.query_and_wait.side_effect = NotFound("Table not found")
+
+        resp = client.get(
+            "/api/v1/graph/dashboard/kpis",
+            params={"project_id": "test-project"},
+        )
+
+        assert resp.status_code == 404
+        assert resp.json()["detail"]["code"] == "NOT_SETUP"
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_unexpected_error_returns_500(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        bq.query_and_wait.side_effect = RuntimeError("boom")
+
+        resp = client.get(
+            "/api/v1/graph/dashboard/kpis",
+            params={"project_id": "test-project"},
+        )
+
+        assert resp.status_code == 500
+
+    def test_invalid_project_id_returns_400(self, client: TestClient) -> None:
+        resp = client.get(
+            "/api/v1/graph/dashboard/kpis",
+            params={"project_id": "bad;sql"},
+        )
+        assert resp.status_code == 400
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_service_name_filter_included_in_sql(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        bq.query_and_wait.return_value = [
+            _make_row(
+                total_sessions=1,
+                root_invocations=1,
+                avg_turns=1.0,
+                error_rate=0.0,
+                prev_total_sessions=0,
+                prev_root_invocations=0,
+                prev_avg_turns=0.0,
+                prev_error_rate=0.0,
+            )
+        ]
+
+        client.get(
+            "/api/v1/graph/dashboard/kpis",
+            params={"project_id": "test-project", "service_name": "my-agent"},
+        )
+
+        sql = bq.query_and_wait.call_args[0][0]
+        assert "my-agent" in sql
+
+
+class TestDashboardTimeseries:
+    """Tests for GET /dashboard/timeseries endpoint."""
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_returns_latency_qps_tokens(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        from datetime import datetime
+
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        bq.query_and_wait.return_value = [
+            _make_row(
+                time_bucket=datetime(2026, 2, 22, 12, 0),
+                total_calls=360,
+                total_errors=4,
+                avg_duration_ms=120.5,
+                p95_duration_ms=350.3,
+                input_tokens=5000,
+                output_tokens=2000,
+            )
+        ]
+
+        resp = client.get(
+            "/api/v1/graph/dashboard/timeseries",
+            params={"project_id": "test-project", "hours": 24},
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["latency"]) == 1
+        assert len(data["qps"]) == 1
+        assert len(data["tokens"]) == 1
+        assert data["latency"][0]["p50"] == 120.5
+        assert data["latency"][0]["p95"] == 350.3
+        assert data["qps"][0]["qps"] == round(360 / 3600.0, 2)
+        assert data["tokens"][0]["input"] == 5000
+        assert data["tokens"][0]["output"] == 2000
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_empty_data_returns_empty_arrays(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        bq.query_and_wait.return_value = []
+
+        resp = client.get(
+            "/api/v1/graph/dashboard/timeseries",
+            params={"project_id": "test-project"},
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data == {"latency": [], "qps": [], "tokens": []}
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_not_found_returns_404(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        from google.api_core.exceptions import NotFound
+
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        bq.query_and_wait.side_effect = NotFound("Table not found")
+
+        resp = client.get(
+            "/api/v1/graph/dashboard/timeseries",
+            params={"project_id": "test-project"},
+        )
+
+        assert resp.status_code == 404
+        assert resp.json()["detail"]["code"] == "NOT_SETUP"
+
+    def test_hours_below_minimum_returns_422(self, client: TestClient) -> None:
+        resp = client.get(
+            "/api/v1/graph/dashboard/timeseries",
+            params={"project_id": "test-project", "hours": 0.5},
+        )
+        assert resp.status_code == 422
+
+
+class TestDashboardModels:
+    """Tests for GET /dashboard/models endpoint."""
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_returns_model_calls(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        bq.query_and_wait.return_value = [
+            _make_row(
+                model_name="gemini-2.5-flash",
+                total_calls=100,
+                p95_duration=1200.5,
+                error_rate=2.5,
+                tokens_used=50000,
+            )
+        ]
+
+        resp = client.get(
+            "/api/v1/graph/dashboard/models",
+            params={"project_id": "test-project"},
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["modelCalls"]) == 1
+        row = data["modelCalls"][0]
+        assert row["modelName"] == "gemini-2.5-flash"
+        assert row["totalCalls"] == 100
+        assert row["p95Duration"] == 1200.5
+        assert row["errorRate"] == 2.5
+        assert row["quotaExits"] == 0
+        assert row["tokensUsed"] == 50000
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_empty_returns_empty_list(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        bq.query_and_wait.return_value = []
+
+        resp = client.get(
+            "/api/v1/graph/dashboard/models",
+            params={"project_id": "test-project"},
+        )
+
+        assert resp.status_code == 200
+        assert resp.json() == {"modelCalls": []}
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_not_found_returns_404(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        from google.api_core.exceptions import NotFound
+
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        bq.query_and_wait.side_effect = NotFound("Table not found")
+
+        resp = client.get(
+            "/api/v1/graph/dashboard/models",
+            params={"project_id": "test-project"},
+        )
+
+        assert resp.status_code == 404
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_multiple_models_sorted(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        bq.query_and_wait.return_value = [
+            _make_row(
+                model_name="flash",
+                total_calls=200,
+                p95_duration=100.0,
+                error_rate=1.0,
+                tokens_used=80000,
+            ),
+            _make_row(
+                model_name="pro",
+                total_calls=50,
+                p95_duration=300.0,
+                error_rate=0.5,
+                tokens_used=20000,
+            ),
+        ]
+
+        resp = client.get(
+            "/api/v1/graph/dashboard/models",
+            params={"project_id": "test-project"},
+        )
+
+        assert resp.status_code == 200
+        models = resp.json()["modelCalls"]
+        assert len(models) == 2
+        assert models[0]["modelName"] == "flash"
+        assert models[1]["modelName"] == "pro"
+
+
+class TestDashboardTools:
+    """Tests for GET /dashboard/tools endpoint."""
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_returns_tool_calls(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        bq.query_and_wait.return_value = [
+            _make_row(
+                tool_name="fetch_traces",
+                total_calls=80,
+                p95_duration=500.3,
+                error_rate=1.2,
+            )
+        ]
+
+        resp = client.get(
+            "/api/v1/graph/dashboard/tools",
+            params={"project_id": "test-project"},
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["toolCalls"]) == 1
+        row = data["toolCalls"][0]
+        assert row["toolName"] == "fetch_traces"
+        assert row["totalCalls"] == 80
+        assert row["p95Duration"] == 500.3
+        assert row["errorRate"] == 1.2
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_empty_returns_empty_list(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        bq.query_and_wait.return_value = []
+
+        resp = client.get(
+            "/api/v1/graph/dashboard/tools",
+            params={"project_id": "test-project"},
+        )
+
+        assert resp.status_code == 200
+        assert resp.json() == {"toolCalls": []}
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_not_found_returns_404(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        from google.api_core.exceptions import NotFound
+
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        bq.query_and_wait.side_effect = NotFound("Table not found")
+
+        resp = client.get(
+            "/api/v1/graph/dashboard/tools",
+            params={"project_id": "test-project"},
+        )
+
+        assert resp.status_code == 404
+
+    def test_invalid_dataset_returns_400(self, client: TestClient) -> None:
+        resp = client.get(
+            "/api/v1/graph/dashboard/tools",
+            params={"project_id": "test-project", "dataset": "drop;table"},
+        )
+        assert resp.status_code == 400
+
+
+class TestDashboardLogs:
+    """Tests for GET /dashboard/logs endpoint."""
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_returns_agent_logs(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        from datetime import datetime
+
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        bq.query_and_wait.return_value = [
+            _make_row(
+                start_time=datetime(2026, 2, 22, 12, 0),
+                node_type="Agent",
+                node_label="sre_agent",
+                duration_ms=500.0,
+                status_code=0,
+                status_desc="OK",
+                input_tokens=800,
+                output_tokens=200,
+                trace_id="abc123def456",
+                error_type=None,
+            )
+        ]
+
+        resp = client.get(
+            "/api/v1/graph/dashboard/logs",
+            params={"project_id": "test-project"},
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["agentLogs"]) == 1
+        log = data["agentLogs"][0]
+        assert log["agentId"] == "sre_agent"
+        assert log["severity"] == "INFO"
+        assert log["traceId"] == "abc123def456"
+        assert "sre_agent" in log["message"]
+        assert "500ms" in log["message"]
+        assert "1000 tokens" in log["message"]
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_error_status_yields_error_severity(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        from datetime import datetime
+
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        bq.query_and_wait.return_value = [
+            _make_row(
+                start_time=datetime(2026, 2, 22, 12, 0),
+                node_type="Tool",
+                node_label="fetch_traces",
+                duration_ms=2000.0,
+                status_code=2,
+                status_desc="TIMEOUT",
+                input_tokens=0,
+                output_tokens=0,
+                trace_id="err123",
+                error_type="timeout",
+            )
+        ]
+
+        resp = client.get(
+            "/api/v1/graph/dashboard/logs",
+            params={"project_id": "test-project"},
+        )
+
+        assert resp.status_code == 200
+        log = resp.json()["agentLogs"][0]
+        assert log["severity"] == "ERROR"
+        assert "error=timeout" in log["message"]
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_slow_duration_yields_warning(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        from datetime import datetime
+
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        bq.query_and_wait.return_value = [
+            _make_row(
+                start_time=datetime(2026, 2, 22, 12, 0),
+                node_type="Agent",
+                node_label="slow_agent",
+                duration_ms=15000.0,
+                status_code=0,
+                status_desc="OK",
+                input_tokens=0,
+                output_tokens=0,
+                trace_id="slow123",
+                error_type=None,
+            )
+        ]
+
+        resp = client.get(
+            "/api/v1/graph/dashboard/logs",
+            params={"project_id": "test-project"},
+        )
+
+        assert resp.status_code == 200
+        log = resp.json()["agentLogs"][0]
+        assert log["severity"] == "WARNING"
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_llm_node_yields_debug_severity(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        from datetime import datetime
+
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        bq.query_and_wait.return_value = [
+            _make_row(
+                start_time=datetime(2026, 2, 22, 12, 0),
+                node_type="LLM",
+                node_label="gemini-flash",
+                duration_ms=300.0,
+                status_code=0,
+                status_desc=None,
+                input_tokens=500,
+                output_tokens=100,
+                trace_id="llm123",
+                error_type=None,
+            )
+        ]
+
+        resp = client.get(
+            "/api/v1/graph/dashboard/logs",
+            params={"project_id": "test-project"},
+        )
+
+        assert resp.status_code == 200
+        log = resp.json()["agentLogs"][0]
+        assert log["severity"] == "DEBUG"
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_custom_limit_param(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        bq.query_and_wait.return_value = []
+
+        client.get(
+            "/api/v1/graph/dashboard/logs",
+            params={"project_id": "test-project", "limit": 500},
+        )
+
+        sql = bq.query_and_wait.call_args[0][0]
+        assert "LIMIT 500" in sql
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_not_found_returns_404(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        from google.api_core.exceptions import NotFound
+
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        bq.query_and_wait.side_effect = NotFound("Table not found")
+
+        resp = client.get(
+            "/api/v1/graph/dashboard/logs",
+            params={"project_id": "test-project"},
+        )
+
+        assert resp.status_code == 404
+
+    def test_limit_below_minimum_returns_422(self, client: TestClient) -> None:
+        resp = client.get(
+            "/api/v1/graph/dashboard/logs",
+            params={"project_id": "test-project", "limit": 10},
+        )
+        assert resp.status_code == 422
+
+    def test_limit_above_maximum_returns_422(self, client: TestClient) -> None:
+        resp = client.get(
+            "/api/v1/graph/dashboard/logs",
+            params={"project_id": "test-project", "limit": 10000},
+        )
+        assert resp.status_code == 422

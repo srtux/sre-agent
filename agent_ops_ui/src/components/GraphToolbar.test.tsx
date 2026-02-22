@@ -20,6 +20,7 @@ vi.mock('../contexts/AgentContext', () => ({
 import { useAgentContext } from '../contexts/AgentContext'
 
 const mockAgentContextValue = {
+  projectId: 'test-project',
   serviceName: 'agent-A',
   setServiceName: vi.fn(),
   availableAgents: [
