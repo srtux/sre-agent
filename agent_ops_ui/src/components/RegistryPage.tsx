@@ -179,6 +179,17 @@ export default function RegistryPage({ filters, mode, onSelectAgent }: Props) {
   }
 
   const renderAgentsList = () => {
+    if (!filters.projectId) {
+      return (
+        <div style={styles.emptyState}>
+          <h3 style={{ margin: '0 0 8px 0', color: '#F8FAFC' }}>No Project Selected</h3>
+          <p style={{ margin: '0', color: '#94A3B8', maxWidth: '400px' }}>
+            Enter a project ID in the toolbar and click Load to visualize agents.
+          </p>
+        </div>
+      )
+    }
+
     if (loading || loadingAgents) return <div style={styles.loading}>Loading agents...</div>
     if (error) return <div style={{ ...styles.loading, ...styles.error }}>{errorMessage}</div>
 
@@ -255,6 +266,17 @@ export default function RegistryPage({ filters, mode, onSelectAgent }: Props) {
   }
 
   const renderToolsList = () => {
+    if (!filters.projectId) {
+      return (
+        <div style={styles.emptyState}>
+          <h3 style={{ margin: '0 0 8px 0', color: '#F8FAFC' }}>No Project Selected</h3>
+          <p style={{ margin: '0', color: '#94A3B8', maxWidth: '400px' }}>
+            Enter a project ID in the toolbar and click Load to visualize tools.
+          </p>
+        </div>
+      )
+    }
+
     if (loading || loadingAgents) return <div style={styles.loading}>Loading tools...</div>
     if (error) return <div style={{ ...styles.loading, ...styles.error }}>{errorMessage}</div>
 
