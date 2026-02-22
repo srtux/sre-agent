@@ -572,6 +572,9 @@ async def run_aggregate_analysis(
     tool_context: Any | None = None,
 ) -> BaseToolResponse:
     """Run Stage 0: Aggregate analysis using BigQuery."""
+    if tool_context is None:
+        raise ValueError("tool_context is required for run_async")
+
     logger.info(
         f"🎺 Running aggregate analysis (Dataset: {dataset_id}, Table: {table_name})"
     )
@@ -690,6 +693,8 @@ Compare them and report your findings on Latency, Errors, and Structure.
 """
 
     # Run Trace Analyst and Log Analyst in parallel
+    if tool_context is None:
+        raise ValueError("tool_context is required for run_async")
     results = await asyncio.gather(
         AgentTool(trace_analyst).run_async(
             args={"request": prompt}, tool_context=tool_context
@@ -740,6 +745,9 @@ async def run_deep_dive_analysis(
         project_id: GCP project ID.
         tool_context: ADK tool context.
     """
+    if tool_context is None:
+        raise ValueError("tool_context is required for run_async")
+
     if not project_id:
         project_id = get_project_id_with_fallback()
 
@@ -794,6 +802,9 @@ async def run_log_pattern_analysis(
     tool_context: Any | None = None,
 ) -> BaseToolResponse:
     """Run log pattern analysis to find emergent issues."""
+    if tool_context is None:
+        raise ValueError("tool_context is required for run_async")
+
     if not project_id:
         project_id = get_project_id_with_fallback()
 
@@ -1012,6 +1023,11 @@ async def run_council_investigation(
 
             pipeline = create_debate_pipeline(config)
         else:
+            if tool_context is None:
+                from sre_agent.api.dependencies import get_tool_context
+
+                tool_context = await get_tool_context()
+
             pipeline = create_council_pipeline(config)
 
         # Build the investigation prompt with project context
@@ -1024,6 +1040,8 @@ Please analyze the relevant telemetry data and provide your findings as a struct
 """
 
         # Run the pipeline via AgentTool
+        if tool_context is None:
+            raise ValueError("tool_context is required for run_async")
         result = await AgentTool(pipeline).run_async(
             args={"request": investigation_prompt},
             tool_context=tool_context,

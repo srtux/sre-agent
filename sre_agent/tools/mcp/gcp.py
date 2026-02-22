@@ -20,7 +20,6 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, cast
 
 import httpx
-from google.adk.tools import ToolContext  # type: ignore[attr-defined]
 from google.adk.tools.api_registry import ApiRegistry
 
 from ...auth import (
@@ -363,7 +362,7 @@ async def call_mcp_tool_with_retry(
     create_toolset_fn: Callable[[str | None], Any],
     tool_name: str,
     args: dict[str, Any],
-    tool_context: ToolContext | None,
+    tool_context: Any | None,
     project_id: str | None = None,
     max_retries: int = 3,
     base_delay: float = 1.0,

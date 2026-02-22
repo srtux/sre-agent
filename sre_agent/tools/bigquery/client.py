@@ -2,7 +2,6 @@ import logging
 import os
 from typing import Any
 
-from google.adk.tools import ToolContext  # type: ignore[attr-defined]
 from google.cloud import bigquery
 
 from ...auth import (
@@ -20,9 +19,7 @@ logger = logging.getLogger(__name__)
 class BigQueryClient:
     """Wrapper around BigQuery MCP toolset for SQL execution with direct SDK fallback."""
 
-    def __init__(
-        self, project_id: str | None = None, tool_context: ToolContext | None = None
-    ):
+    def __init__(self, project_id: str | None = None, tool_context: Any | None = None):
         """Initialize BigQuery Client.
 
         Args:
