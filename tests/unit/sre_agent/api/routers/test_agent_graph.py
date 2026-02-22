@@ -1917,7 +1917,6 @@ class TestDashboardLogs:
                 input_tokens=800,
                 output_tokens=200,
                 trace_id="abc123def456",
-                error_type=None,
             )
         ]
 
@@ -1932,7 +1931,7 @@ class TestDashboardLogs:
         log = data["agentLogs"][0]
         assert log["agentId"] == "sre_agent"
         assert log["severity"] == "INFO"
-        assert log["traceId"] == "abc123def456"
+        assert log["traceId"] == "abc123def456"  # pragma: allowlist secret
         assert "sre_agent" in log["message"]
         assert "500ms" in log["message"]
         assert "1000 tokens" in log["message"]
@@ -1956,7 +1955,6 @@ class TestDashboardLogs:
                 input_tokens=0,
                 output_tokens=0,
                 trace_id="err123",
-                error_type="timeout",
             )
         ]
 
@@ -1968,7 +1966,7 @@ class TestDashboardLogs:
         assert resp.status_code == 200
         log = resp.json()["agentLogs"][0]
         assert log["severity"] == "ERROR"
-        assert "error=timeout" in log["message"]
+        assert "error=TIMEOUT" in log["message"]
 
     @patch("sre_agent.api.routers.agent_graph._get_bq_client")
     def test_slow_duration_yields_warning(
@@ -1989,7 +1987,6 @@ class TestDashboardLogs:
                 input_tokens=0,
                 output_tokens=0,
                 trace_id="slow123",
-                error_type=None,
             )
         ]
 
@@ -2021,7 +2018,6 @@ class TestDashboardLogs:
                 input_tokens=500,
                 output_tokens=100,
                 trace_id="llm123",
-                error_type=None,
             )
         ]
 

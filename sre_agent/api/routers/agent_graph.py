@@ -1503,7 +1503,7 @@ async def get_dashboard_kpis(
                     COUNT(DISTINCT session_id) AS total_sessions,
                     COUNT(DISTINCT trace_id) AS root_invocations,
                     SAFE_DIVIDE(
-                        COUNTIF(status_code = 2),
+                        COUNTIF(status_code = '2'),
                         NULLIF(COUNT(*), 0)
                     ) AS error_rate
                 FROM `{project_id}.{dataset}.agent_spans_raw`
@@ -1517,7 +1517,7 @@ async def get_dashboard_kpis(
                     COUNT(DISTINCT session_id) AS total_sessions,
                     COUNT(DISTINCT trace_id) AS root_invocations,
                     SAFE_DIVIDE(
-                        COUNTIF(status_code = 2),
+                        COUNTIF(status_code = '2'),
                         NULLIF(COUNT(*), 0)
                     ) AS error_rate
                 FROM `{project_id}.{dataset}.agent_spans_raw`
@@ -1759,7 +1759,7 @@ async def get_dashboard_models(
                     duration_ms, 100
                 )[OFFSET(95)], 1) AS p95_duration,
                 ROUND(SAFE_DIVIDE(
-                    COUNTIF(status_code = 2),
+                    COUNTIF(status_code = '2'),
                     NULLIF(COUNT(*), 0)
                 ) * 100, 2) AS error_rate,
                 SUM(
@@ -1850,7 +1850,7 @@ async def get_dashboard_tools(
                     duration_ms, 100
                 )[OFFSET(95)], 1) AS p95_duration,
                 ROUND(SAFE_DIVIDE(
-                    COUNTIF(status_code = 2),
+                    COUNTIF(status_code = '2'),
                     NULLIF(COUNT(*), 0)
                 ) * 100, 2) AS error_rate
             FROM `{project_id}.{dataset}.agent_spans_raw`
@@ -1941,8 +1941,7 @@ async def get_dashboard_logs(
                 status_desc,
                 input_tokens,
                 output_tokens,
-                trace_id,
-                error_type
+                trace_id
             FROM `{project_id}.{dataset}.agent_spans_raw`
             WHERE start_time >= TIMESTAMP_SUB(
                 CURRENT_TIMESTAMP(), INTERVAL {minutes} MINUTE)
@@ -1956,11 +1955,11 @@ async def get_dashboard_logs(
 
         agent_logs: list[dict[str, Any]] = []
         for row in rows:
-            status = row.status_code or 0
+            status = str(row.status_code) if row.status_code is not None else "0"
             dur = float(row.duration_ms or 0)
-            err_type = row.error_type or ""
+            err_type = str(row.status_desc) if status == "2" and row.status_desc else ""
 
-            if status == 2 or err_type:
+            if status == "2" or err_type:
                 severity = "ERROR"
             elif dur > 10000:
                 severity = "WARNING"
