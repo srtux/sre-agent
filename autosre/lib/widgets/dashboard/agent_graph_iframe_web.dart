@@ -1,10 +1,14 @@
 // ignore_for_file: deprecated_member_use, avoid_web_libraries_in_flutter
 
+import 'dart:async';
+import 'dart:convert';
 import 'dart:html' as html;
 import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../services/explorer_query_service.dart';
 import '../../services/project_service.dart';
 import '../../services/service_config.dart';
 import '../../theme/app_theme.dart';
@@ -20,6 +24,7 @@ class _AgentGraphIframePanelState extends State<AgentGraphIframePanel> {
   late String _viewId;
   late String _currentProjectId;
   html.IFrameElement? _iframeElement;
+  StreamSubscription<html.MessageEvent>? _messageSubscription;
 
   @override
   void initState() {
@@ -42,6 +47,27 @@ class _AgentGraphIframePanelState extends State<AgentGraphIframePanel> {
         ..style.width = '100%';
       return _iframeElement!;
     });
+
+    _messageSubscription = html.window.onMessage.listen((event) {
+      if (event.data is String) {
+        try {
+          final data = jsonDecode(event.data as String);
+          if (data['type'] == 'OPEN_TRACE' && data['traceId'] != null) {
+            final traceId = data['traceId'] as String;
+            context.read<ExplorerQueryService>().queryTrace(
+              traceId: traceId,
+              projectId: _currentProjectId,
+            );
+          }
+        } catch (_) {}
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _messageSubscription?.cancel();
+    super.dispose();
   }
 
   void _updateIframeSrc(String newProjectId) {
