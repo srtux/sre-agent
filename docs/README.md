@@ -71,6 +71,7 @@ Philosophical and design documents explaining the "why" behind the architecture.
 | [Online Research & Self-Healing](concepts/online_research_and_self_healing.md) | Web search tools and autonomous self-improvement architecture |
 | [Auth Learnings](concepts/auth_learnings.md) | Evolution of the authentication system |
 | [Agent Graph](concepts/agent_graph.md) | Multi-agent observability theory, reasoning trajectories, and BQ Property Graph implementation |
+| [Multi-Agent Observability](concepts/multi_agent_observability.md) | How Agent Graph, AgentOps Dashboard, and Self-Analysis Tools provide observability for multi-agent AI systems |
 | [GCP Enhancements Roadmap](concepts/gcp_enhancements.md) | Vision for future capabilities |
 
 ---
@@ -91,6 +92,7 @@ Practical how-to instructions for developers.
 | [Frontend Testing](guides/frontend_testing.md) | Flutter test strategy with Provider-based injection |
 | [Project Selector](guides/project_selector.md) | GCP project picker implementation and data flow |
 | [Agent Graph Setup](guides/bigquery_agent_graph_setup.md) | BigQuery Property Graph visualization and pre-aggregation |
+| [Agent Ops Dashboard](guides/agent_ops_dashboard.md) | AgentOps Dashboard with KPIs, charts, model/tool tables, and agent logs |
 
 ### Deployment
 | Guide | Description |
@@ -257,4 +259,4 @@ If you are an LLM agent (Claude Code, Gemini, etc.), follow this reading order:
    - Understanding the help system? Read [Help System Architecture](architecture/help_system.md) + [Help Content](#help-system-content)
 
 ---
-*Last verified: 2026-02-15 -- Auto SRE Team*
+*Last verified: 2026-02-21 -- Auto SRE Team*

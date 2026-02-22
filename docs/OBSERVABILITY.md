@@ -158,5 +158,22 @@ The SRE Agent includes a topology graph visualization powered by BigQuery Materi
 For detailed setup instructions, architecture, and query logic, see:
 [Agent Graph Setup Guide](AGENT_GRAPH_SETUP.md)
 
+## 9. Multi-Agent Observability (AgentOps)
+
+Beyond the BigQuery-powered Agent Graph, the AgentOps Dashboard provides fleet-wide operational monitoring for the multi-agent system:
+
+- **KPI Cards**: Total sessions, average turns, root invocations, error rate with trend indicators
+- **Interaction Metrics**: Latency over time (P50/P95), QPS and error rate charts, token usage stacked area charts
+- **Model Performance**: Per-model call counts, P95 latency, error rates, quota exits, token consumption
+- **Tool Performance**: Per-tool call counts, P95 latency, error rates
+- **Agent Logs**: Full-width virtualized log stream with color-coded severity badges
+
+The dashboard is the fifth tab in the AgentOps UI alongside Agents, Tools, Agent Graph, and Trajectory Flow.
+
+For the complete conceptual overview of multi-agent observability, see:
+- [Multi-Agent Observability Concepts](concepts/multi_agent_observability.md)
+- [AgentOps Dashboard Guide](guides/agent_ops_dashboard.md)
+- [Agent Graph Deep Dive](concepts/agent_graph.md)
+
 ---
-*Last verified: 2026-02-19 -- Auto SRE Team*
+*Last verified: 2026-02-21 -- Auto SRE Team*

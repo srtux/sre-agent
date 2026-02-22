@@ -237,15 +237,29 @@ The agent provides several utilities in `sre_agent/tools/common/telemetry.py` to
 
 ---
 
+## Multi-Agent Observability
+
+While the sections above describe observability for **target systems** that the SRE Agent investigates, the agent itself is a complex multi-agent system that requires its own observability. The Agent Graph, AgentOps Dashboard, and Agent Self-Analysis Tools provide three complementary surfaces for understanding agent behavior:
+
+- **Agent Graph**: Aggregated topology and trajectory visualization across thousands of executions -- see [Agent Graph](agent_graph.md) for the full architecture
+- **AgentOps Dashboard**: Fleet-wide KPIs, latency charts, model/tool performance tables, and agent log streams -- see [AgentOps Dashboard Guide](../guides/agent_ops_dashboard.md)
+- **Self-Analysis Tools**: Agent introspection for detecting anti-patterns and token waste -- see [Agent Self-Analysis](../reference/tools.md)
+
+For the complete conceptual overview, see [Multi-Agent Observability](multi_agent_observability.md).
+
+---
+
 ## Further Reading
 
 *   [OpenTelemetry Documentation](https://opentelemetry.io/docs/)
 *   [Google Cloud Trace Concepts](https://cloud.google.com/trace/docs/overview)
 *   [Google SRE Book - Monitoring Distributed Systems](https://sre.google/sre-book/monitoring-distributed-systems/)
 *   [Langfuse - OpenTelemetry Integration](https://langfuse.com/integrations/native/opentelemetry)
+*   [Multi-Agent Observability](multi_agent_observability.md) -- How the three observability surfaces work together
+*   [AgentOps Dashboard Guide](../guides/agent_ops_dashboard.md) -- Operational monitoring with KPIs and charts
 *   [Memory Best Practices](memory.md) -- Memory event visibility system
 *   [Agent Orchestration](agent_orchestration.md) -- Council activity graph for frontend
 
 ---
 
-*Last verified: 2026-02-15 -- Auto SRE Team*
+*Last verified: 2026-02-21 -- Auto SRE Team*

@@ -6,6 +6,8 @@ As AI agents evolve from single-prompt models into multi-agent orchestration sys
 
 This document describes the theory, strategy, and implementation of Auto SRE's Agent Graph — a property graph visualization built on BigQuery `GRAPH_TABLE` that aggregates multi-trace telemetry into an interactive, explorable topology of agent behavior. It covers the full data pipeline from OpenTelemetry span emission through BigQuery materialized views and pre-aggregated hourly tables, to two complementary visualization surfaces: a React Flow topology graph and a Nivo Sankey trajectory diagram. It details the SQL constructs — recursive CTEs, property graph path matching, model-specific cost estimation, and deduplication-safe scheduled queries — that make sub-second multi-trace aggregation possible. It describes the use cases that make this system indispensable for debugging, cost optimization, and architectural understanding of production reasoning systems.
 
+> **See also**: [Multi-Agent Observability](multi_agent_observability.md) for a high-level overview of how the Agent Graph fits within Auto SRE's broader observability strategy.
+
 ---
 
 ## Table of Contents
@@ -173,6 +175,16 @@ The toolbar provides three view modes that control both the node heatmap colorin
 ### 3.4 Time Range and Performance
 
 The graph supports time ranges from 2 hours to 30 days. All queries use the pre-aggregated hourly table that loads in under 1 second, even for graphs with hundreds of nodes.
+
+### 3.5 Agent/Tool Registry
+
+The AgentOps UI includes two registry tabs that serve as discovery and navigation surfaces for the agent ecosystem. Both are rendered by the `RegistryPage` component (`agent_ops_ui/src/components/RegistryPage.tsx`).
+
+**Agents tab**: Lists all agent services discovered from BigQuery telemetry data. Each agent card displays the service name, total sessions, call counts, and error rates within the selected time window. Clicking an agent name sets the `serviceName` in `AgentContext` (see Section 7.7) and navigates to the Topology tab, filtering all views to that specific service.
+
+**Tools tab**: Lists discovered tools with usage statistics aggregated from the same telemetry pipeline. Each tool card shows the tool name, total invocations, error rate, and latency metrics.
+
+The registry endpoints (`/api/v1/graph/registry/agents` and `/api/v1/graph/registry/tools`) query the `agent_graph_hourly` table to discover distinct services and tools within the requested time window. The registry acts as the primary entry point for exploring agent behavior — users start by selecting an agent from the registry, then drill into topology and trajectory views for that service.
 
 ---
 
@@ -731,6 +743,9 @@ The Agent Graph Dashboard provides two visualization surfaces implemented as a R
 | **Sankey diagram** | @nivo/sankey (ResponsiveSankey) | Flow visualization with link gradients |
 | **Side panel** | Custom React components | Detail drill-down with syntax-highlighted payload inspection |
 | **Sparklines** | Custom SVG polyline (zero dependencies) | Inline trend charts on nodes and in detail panel |
+| **State management** | React Context (AgentContext, DashboardFilterContext) | Cross-tab state for agent selection, time range, and filter coordination |
+| **Data fetching** | React Query (@tanstack/react-query) with 30s staleTime | Cached data fetching with automatic background refetch |
+| **Table rendering** | TanStack Table + TanStack Virtual | Sortable, virtualized data tables for 1000+ row datasets |
 | **HTTP client** | axios | API communication |
 | **Code highlighting** | react-syntax-highlighter (hljs) | JSON/SQL payload rendering |
 
@@ -956,6 +971,17 @@ ORDER BY target_id, time_bucket ASC
 
 The `hours >= 2` constraint ensures at least 2 data points for a meaningful sparkline. Rows are grouped into a `defaultdict(list)` keyed by `node_id`, then ordered by `time_bucket ASC` to produce chronologically sorted series.
 
+### 7.7 AgentContext and Service Filtering
+
+The `AgentContext` (`agent_ops_ui/src/contexts/AgentContext.tsx`) provides cross-tab state management for agent service selection. It exposes two key values consumed by all tabs:
+
+- **`serviceName`**: The currently selected agent service (e.g., `"sre-agent"`). Persisted to `localStorage` under the key `agent_graph_service_name`. Defaults to `"sre-agent"` on first load, then auto-selects the highest-volume agent if the cached name is not found in the current telemetry data.
+- **`availableAgents`**: The list of `RegistryAgent` objects fetched from `/api/v1/registry/agents` on mount. Used to populate agent selection dropdowns and the Agents registry tab.
+
+The `serviceName` is passed as the `service_name` query parameter to all API calls (topology, trajectories, timeseries, registry). This allows filtering the entire dashboard — topology graph, trajectory Sankey, sparkline timeseries, and registry views — to a specific agent service. When a user clicks an agent in the Agents registry tab, the context is updated and the UI navigates to the Topology tab, immediately reflecting the filtered view.
+
+The `DashboardFilterContext` (`agent_ops_ui/src/contexts/DashboardFilterContext.tsx`) provides a separate filter state for the Dashboard tab, including time range (`TimeRange`: `"1h"`, `"6h"`, `"24h"`, `"7d"`, `"30d"`), selected agents, and group-by-agent toggle. This context is consumed by the Dashboard KPIs, charts, and data tables.
+
 ---
 
 ## 8. Real-Time Auto-Refresh and Time-Series Sparklines
@@ -1012,6 +1038,31 @@ useEffect(() => {
 3. When sparkline data has >= 2 points, the node's dagre height is increased by `SPARK_H + 4` (28px) to prevent edge overlaps
 4. Each node component renders a `<Sparkline>` after its metric badges
 5. `SidePanel` receives the same data and renders a wider sparkline (320x40px) in the node detail view with a contextual label ("Error Rate Trend", "Token Usage Trend", or "Latency Trend")
+
+### 8.3 URL Deep Linking
+
+The dashboard serializes its full state to URL query parameters, enabling shareable links to specific views and selected nodes. This is implemented in `App.tsx` via two functions:
+
+**`buildSearchParams(filters, selected, activeTab)`** converts the current application state to `URLSearchParams`:
+
+| URL Parameter | Source | Example |
+| :--- | :--- | :--- |
+| `project_id` | `filters.projectId` | `my-gcp-project` |
+| `time_range` | `filters.hours` (converted) | `1h`, `6h`, `24h`, `7d` |
+| `tab` | `activeTab` | `agents`, `tools`, `topology`, `trajectory`, `dashboard` |
+| `node` | `selected.id` (if kind is `node`) | `Agent::root` |
+
+The time range is converted back from hours to a human-readable format: 168 hours becomes `7d`, sub-hour values use minutes (e.g., `30m`), and all other values use hours (e.g., `24h`).
+
+**`parseTimeRange(raw)`** handles the inverse conversion on page load, parsing strings like `"1h"`, `"6h"`, `"24h"`, `"7d"` into numeric hours. It supports three unit suffixes: `m` (minutes, divided by 60), `h` (hours), and `d` (days, multiplied by 24).
+
+**State synchronization**: On every state change, the URL is updated via `window.history.replaceState()` (no page reload, no new history entry). On initial mount, URL parameters are parsed to restore the previous state — including project ID, time range, active tab, and selected node. This means a user can bookmark or share a URL like:
+
+```
+/agent-graph?project_id=my-project&time_range=24h&tab=topology&node=Tool::fetch_trace
+```
+
+and the recipient will see the exact same view with the same node selected and the side panel open.
 
 ---
 
@@ -1170,6 +1221,8 @@ npm run build  # Production build
 
 The dashboard is served as part of the FastAPI application in production.
 
+The AgentOps UI contains five tabs: Agents, Tools, Topology, Trajectory, and Dashboard. The **Dashboard** tab (5th tab) provides fleet-wide KPIs, interaction metrics charts, model/tool performance tables, and an agent log stream. It operates independently of the graph visualization tabs and uses the `DashboardFilterContext` for its own time range and agent selection state. See [Agent Dashboard Guide](../guides/agent_ops_dashboard.md) for detailed documentation on the Dashboard tab's panels and data hooks.
+
 ---
 
 ## 11. Test Coverage
@@ -1221,4 +1274,4 @@ The Flutter-based native dashboard (used in the mobile/desktop app) has its own 
 
 ---
 
-*Last updated: 2026-02-20*
+*Last updated: 2026-02-21*

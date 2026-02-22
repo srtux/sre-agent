@@ -116,3 +116,17 @@ While we prefer native ADK tracing for production, **Langfuse** is supported for
 1.  **Use Logging for Context**: Instead of a manual span attribute, use `logger.info()` or `logger.debug()`. These are automatically correlated with the active trace by the Agent Engine logging service.
 2.  **Trust the Decorator**: Let `@adk_tool` handle the standard execution tracing.
 3.  **Monitor via BigQuery**: For historical analysis, use BigQuery tools to query the `_AllSpans` table (where ADK exports spans) rather than searching for manual instrumentation code.
+
+---
+
+## Agent Performance Monitoring (AgentOps)
+
+The telemetry captured by the ADK and OTel instrumentation described above feeds directly into the AgentOps observability surfaces:
+
+- **Agent Graph**: Aggregates OTel spans from BigQuery into an interactive topology showing agent-tool delegation, error rates, and cost -- see [Agent Graph](../concepts/agent_graph.md)
+- **AgentOps Dashboard**: Provides fleet-wide KPIs, latency/QPS charts, and model/tool performance tables -- see [AgentOps Dashboard Guide](../guides/agent_ops_dashboard.md)
+
+For the conceptual overview, see [Multi-Agent Observability](../concepts/multi_agent_observability.md).
+
+---
+*Last verified: 2026-02-21 -- Auto SRE Team*

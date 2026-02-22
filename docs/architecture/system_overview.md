@@ -145,6 +145,8 @@ Backend emits `{"type": "dashboard", ...}` events via `api/helpers/tool_events.p
 - [Authentication](authentication.md): IAM and Session security.
 - [Telemetry](telemetry.md): Observability and tracing architecture.
 - [Technical Decisions](decisions.md): Records of dependency constraints and implementation rationale.
+- [Multi-Agent Observability](../concepts/multi_agent_observability.md): Agent Graph, AgentOps Dashboard, and self-analysis tools.
+- [AgentOps Dashboard](../guides/agent_ops_dashboard.md): Fleet-wide agent performance monitoring.
 
 ---
-*Last verified: 2026-02-15 -- Auto SRE Team*
+*Last verified: 2026-02-21 -- Auto SRE Team*
