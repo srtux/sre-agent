@@ -2076,3 +2076,117 @@ class TestDashboardLogs:
             params={"project_id": "test-project", "limit": 10000},
         )
         assert resp.status_code == 422
+
+
+class TestDashboardSessions:
+    """Tests for GET /dashboard/sessions endpoint."""
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_returns_sessions(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        from datetime import datetime
+
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        bq.query_and_wait.return_value = [
+            _make_row(
+                session_id="session123",
+                start_time=datetime(2026, 2, 22, 12, 0),
+                turns=5,
+                latest_trace_id="traceXYZ",
+                total_tokens=1500,
+                error_count=1,
+                avg_latency_ms=400.0,
+                p95_latency_ms=800.0,
+            )
+        ]
+
+        resp = client.get(
+            "/api/v1/graph/dashboard/sessions",
+            params={"project_id": "test-project"},
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["agentSessions"]) == 1
+        session = data["agentSessions"][0]
+        assert session["sessionId"] == "session123"
+        assert session["turns"] == 5
+        assert session["latestTraceId"] == "traceXYZ"
+        assert session["totalTokens"] == 1500
+        assert session["errorCount"] == 1
+        assert session["avgLatencyMs"] == 400.0
+        assert session["p95LatencyMs"] == 800.0
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_not_found_returns_404(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        from google.api_core.exceptions import NotFound
+
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        bq.query_and_wait.side_effect = NotFound("Table not found")
+
+        resp = client.get(
+            "/api/v1/graph/dashboard/sessions",
+            params={"project_id": "test-project"},
+        )
+
+        assert resp.status_code == 404
+
+
+class TestDashboardTraces:
+    """Tests for GET /dashboard/traces endpoint."""
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_returns_traces(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        from datetime import datetime
+
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        bq.query_and_wait.return_value = [
+            _make_row(
+                trace_id="traceabc",
+                session_id="session123",
+                start_time=datetime(2026, 2, 22, 12, 5),
+                total_tokens=500,
+                error_count=0,
+                latency_ms=750.0,
+            )
+        ]
+
+        resp = client.get(
+            "/api/v1/graph/dashboard/traces",
+            params={"project_id": "test-project"},
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["agentTraces"]) == 1
+        trace = data["agentTraces"][0]
+        assert trace["traceId"] == "traceabc"
+        assert trace["sessionId"] == "session123"
+        assert trace["totalTokens"] == 500
+        assert trace["errorCount"] == 0
+        assert trace["latencyMs"] == 750.0
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_not_found_returns_404(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        from google.api_core.exceptions import NotFound
+
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        bq.query_and_wait.side_effect = NotFound("Table not found")
+
+        resp = client.get(
+            "/api/v1/graph/dashboard/traces",
+            params={"project_id": "test-project"},
+        )
+
+        assert resp.status_code == 404

@@ -1,7 +1,6 @@
 import KpiGrid from './panels/KpiGrid'
 import InteractionMetricsPanel from './panels/InteractionMetricsPanel'
 import ModelAndToolPanel from './panels/ModelAndToolPanel'
-import AgentLogsPanel from './panels/AgentLogsPanel'
 
 // --- Styles ---
 
@@ -45,13 +44,8 @@ export default function AgentDashboard({ hours }: { hours: number }) {
           {/* Row 3: Model & Tool Stats (side-by-side tables) */}
           <div style={styles.fullWidth}>
           <ModelAndToolPanel hours={hours} />
-          </div>
-
-          {/* Row 4: Agent Logs (full-width) */}
-          <div style={{ ...styles.fullWidth, minHeight: '300px', display: 'flex', flexDirection: 'column' }}>
-          <AgentLogsPanel hours={hours} />
-          </div>
         </div>
+      </div>
     </div>
   )
 }

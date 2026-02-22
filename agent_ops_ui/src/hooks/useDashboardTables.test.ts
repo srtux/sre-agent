@@ -39,6 +39,18 @@ const mockLogs = {
   ],
 }
 
+const mockSessions = {
+  agentSessions: [
+    { timestamp: '2026-02-22T12:00:00Z', sessionId: 'sess123', turns: 5, latestTraceId: 'trace1', totalTokens: 5000, errorCount: 0, avgLatencyMs: 1500, p95LatencyMs: 2500 },
+  ],
+}
+
+const mockTraces = {
+  agentTraces: [
+    { timestamp: '2026-02-22T12:00:00Z', traceId: 'trace1', sessionId: 'sess123', totalTokens: 1000, errorCount: 0, latencyMs: 800 },
+  ],
+}
+
 function createWrapper() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -64,6 +76,12 @@ describe('useDashboardTables', () => {
       }
       if (typeof url === 'string' && url.includes('/dashboard/logs')) {
         return { data: mockLogs }
+      }
+      if (typeof url === 'string' && url.includes('/dashboard/sessions')) {
+        return { data: mockSessions }
+      }
+      if (typeof url === 'string' && url.includes('/dashboard/traces')) {
+        return { data: mockTraces }
       }
       return { data: {} }
     })

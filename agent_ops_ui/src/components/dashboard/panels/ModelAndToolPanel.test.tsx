@@ -89,6 +89,8 @@ const mockData: DashboardTablesData = {
     },
   ],
   agentLogs: [],
+  agentSessions: [],
+  agentTraces: [],
 }
 
 vi.mock('../../../hooks/useDashboardTables', () => ({

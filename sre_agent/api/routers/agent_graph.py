@@ -2009,3 +2009,178 @@ async def get_dashboard_logs(
             status_code=500,
             detail=f"Failed to query dashboard logs: {exc!s}",
         ) from exc
+
+
+@router.get("/dashboard/sessions")
+@async_ttl_cache(ttl_seconds=60)
+async def get_dashboard_sessions(
+    project_id: str,
+    dataset: str = "agentops",
+    hours: float = Query(default=24.0, ge=1.0, le=720.0),
+    service_name: str | None = None,
+    limit: int = Query(default=2000, ge=100, le=5000),
+) -> dict[str, Any]:
+    """Return aggregated agent sessions for the dashboard.
+
+    Queries ``agent_spans_raw`` grouped by session_id to provide
+    session-level metrics like turns, total latency, and tokens.
+    """
+    _validate_identifier(project_id, "project_id")
+    _validate_identifier(dataset, "dataset")
+
+    service_clause = (
+        f"AND service_name = '{_validate_identifier(service_name, 'service_name')}'"
+        if service_name
+        else ""
+    )
+    minutes = int(hours * 60)
+
+    try:
+        client = _get_bq_client(project_id)
+        # We use AVG and APPROX_QUANTILES for average and p95 latency.
+        query = f"""
+            SELECT
+                session_id,
+                MIN(start_time) AS start_time,
+                COUNT(DISTINCT trace_id) AS turns,
+                ARRAY_AGG(trace_id ORDER BY start_time DESC LIMIT 1)[OFFSET(0)] AS latest_trace_id,
+                SUM(COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)) AS total_tokens,
+                COUNTIF(status_code = 'ERROR') AS error_count,
+                AVG(duration_ms) AS avg_latency_ms,
+                APPROX_QUANTILES(duration_ms, 100)[OFFSET(95)] AS p95_latency_ms
+            FROM `{project_id}.{dataset}.agent_spans_raw`
+            WHERE session_id IS NOT NULL
+              AND start_time >= TIMESTAMP_SUB(
+                  CURRENT_TIMESTAMP(), INTERVAL {minutes} MINUTE)
+              AND node_type != 'Glue'
+              {service_clause}
+            GROUP BY session_id
+            ORDER BY start_time DESC
+            LIMIT {limit}
+        """
+
+        rows = list(await anyio.to_thread.run_sync(client.query_and_wait, query))
+
+        agent_sessions: list[dict[str, Any]] = []
+        for row in rows:
+            ts = (
+                row.start_time.isoformat()
+                if hasattr(row.start_time, "isoformat")
+                else str(row.start_time)
+            )
+
+            agent_sessions.append(
+                {
+                    "timestamp": ts,
+                    "sessionId": row.session_id or "unknown",
+                    "turns": row.turns or 1,
+                    "latestTraceId": row.latest_trace_id or "",
+                    "totalTokens": row.total_tokens or 0,
+                    "errorCount": row.error_count or 0,
+                    "avgLatencyMs": float(row.avg_latency_ms or 0),
+                    "p95LatencyMs": float(row.p95_latency_ms or 0),
+                }
+            )
+
+        return {"agentSessions": agent_sessions}
+
+    except NotFound as exc:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "NOT_SETUP",
+                "detail": "BigQuery agent data is not configured for this project.",
+            },
+        ) from exc
+    except Exception as exc:
+        logger.exception("Failed to fetch dashboard sessions")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to query dashboard sessions: {exc!s}",
+        ) from exc
+
+
+@router.get("/dashboard/traces")
+@async_ttl_cache(ttl_seconds=60)
+async def get_dashboard_traces(
+    project_id: str,
+    dataset: str = "agentops",
+    hours: float = Query(default=24.0, ge=1.0, le=720.0),
+    service_name: str | None = None,
+    limit: int = Query(default=2000, ge=100, le=5000),
+) -> dict[str, Any]:
+    """Return aggregated agent traces (turns) for the dashboard.
+
+    Queries ``agent_spans_raw`` grouped by trace_id to provide
+    trace-level metrics like status, duration, and tokens.
+    """
+    _validate_identifier(project_id, "project_id")
+    _validate_identifier(dataset, "dataset")
+
+    service_clause = (
+        f"AND service_name = '{_validate_identifier(service_name, 'service_name')}'"
+        if service_name
+        else ""
+    )
+    minutes = int(hours * 60)
+
+    try:
+        client = _get_bq_client(project_id)
+
+        # Use MAX(duration_ms) as a proxy for the root invocation latency since the root span encapsulates all children durations
+        query = f"""
+            SELECT
+                trace_id,
+                ANY_VALUE(session_id) AS session_id,
+                MIN(start_time) AS start_time,
+                SUM(COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)) AS total_tokens,
+                COUNTIF(status_code = 'ERROR') AS error_count,
+                MAX(duration_ms) AS latency_ms
+            FROM `{project_id}.{dataset}.agent_spans_raw`
+            WHERE trace_id IS NOT NULL
+              AND start_time >= TIMESTAMP_SUB(
+                  CURRENT_TIMESTAMP(), INTERVAL {minutes} MINUTE)
+              AND node_type != 'Glue'
+              {service_clause}
+            GROUP BY trace_id
+            ORDER BY start_time DESC
+            LIMIT {limit}
+        """
+
+        rows = list(await anyio.to_thread.run_sync(client.query_and_wait, query))
+
+        agent_traces: list[dict[str, Any]] = []
+        for row in rows:
+            ts = (
+                row.start_time.isoformat()
+                if hasattr(row.start_time, "isoformat")
+                else str(row.start_time)
+            )
+
+            agent_traces.append(
+                {
+                    "timestamp": ts,
+                    "traceId": row.trace_id or "unknown",
+                    "sessionId": row.session_id or "",
+                    "totalTokens": row.total_tokens or 0,
+                    "errorCount": row.error_count or 0,
+                    "latencyMs": float(row.latency_ms or 0),
+                }
+            )
+
+        return {"agentTraces": agent_traces}
+
+    except NotFound as exc:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "NOT_SETUP",
+                "detail": "BigQuery agent data is not configured for this project.",
+            },
+        ) from exc
+    except Exception as exc:
+        logger.exception("Failed to fetch dashboard traces")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to query dashboard traces: {exc!s}",
+        ) from exc

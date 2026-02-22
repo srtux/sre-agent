@@ -53,9 +53,18 @@ class _AgentGraphIframePanelState extends State<AgentGraphIframePanel> {
         try {
           final data = jsonDecode(event.data as String);
           if (data['type'] == 'OPEN_TRACE' && data['traceId'] != null) {
+            if (!mounted) return;
             final traceId = data['traceId'] as String;
             context.read<ExplorerQueryService>().queryTrace(
               traceId: traceId,
+              projectId: _currentProjectId,
+            );
+          } else if (data['type'] == 'OPEN_SESSION' &&
+              data['sessionId'] != null) {
+            if (!mounted) return;
+            final sessionId = data['sessionId'] as String;
+            context.read<ExplorerQueryService>().queryTraceFilter(
+              filter: 'attributes.gen_ai.conversation.id:"$sessionId"',
               projectId: _currentProjectId,
             );
           }

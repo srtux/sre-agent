@@ -18,6 +18,7 @@ import type {
 } from './types'
 import RegistryPage from './components/RegistryPage'
 import AgentDashboard from './components/dashboard/AgentDashboard'
+import AgentTracesPage from './components/traces/AgentTracesPage'
 import { DashboardFilterProvider } from './contexts/DashboardFilterContext'
 
 const queryClient = new QueryClient({
@@ -209,7 +210,7 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
       ]
 
       // Fetch timeseries when hours >= 2 (endpoint requires ge=2)
-      if (filters.hours >= 2 && activeTab !== 'agents' && activeTab !== 'tools') {
+      if (filters.hours >= 2 && activeTab !== 'agents' && activeTab !== 'tools' && activeTab !== 'traces') {
         fetches.push(
           axios.get<TimeSeriesData>('/api/v1/graph/timeseries', { params }),
         )
@@ -339,6 +340,15 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
           Dashboard
         </button>
         <button
+          style={activeTab === 'traces' ? styles.tabActive : styles.tab}
+          onClick={() => {
+            setActiveTab('traces')
+            setFilters(prev => ({ ...prev, hours: 24 }))
+          }}
+        >
+          Agent Traces
+        </button>
+        <button
           style={activeTab === 'topology' ? styles.tabActive : styles.tab}
           onClick={() => {
             if (activeTab !== 'topology') fetchAll(false)
@@ -410,6 +420,10 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
                   <AgentDashboard hours={filters.hours} />
                 )}
 
+                {activeTab === 'traces' && (
+                  <AgentTracesPage hours={filters.hours} />
+                )}
+
             {activeTab === 'topology' && (
               <>
                 {topologyData ? (
@@ -476,7 +490,7 @@ function App() {
     const urlTab = params.get('tab')
 
     if (urlTraceId) return 'trajectory'
-    if (urlTab === 'topology' || urlTab === 'trajectory' || urlTab === 'agents' || urlTab === 'tools' || urlTab === 'dashboard') {
+    if (urlTab === 'topology' || urlTab === 'trajectory' || urlTab === 'agents' || urlTab === 'tools' || urlTab === 'dashboard' || urlTab === 'traces') {
       return urlTab as Tab
     }
     return 'agents'
@@ -493,7 +507,7 @@ function App() {
       const tId = p.get('trace_id')
       const tTab = p.get('tab')
       if (tId) return 'trajectory'
-      if (tTab === 'topology' || tTab === 'trajectory' || tTab === 'agents' || tTab === 'tools' || tTab === 'dashboard') {
+      if (tTab === 'topology' || tTab === 'trajectory' || tTab === 'agents' || tTab === 'tools' || tTab === 'dashboard' || tTab === 'traces') {
         return tTab as Tab
       }
       return 'agents'

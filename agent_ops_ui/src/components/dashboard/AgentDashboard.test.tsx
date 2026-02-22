@@ -37,11 +37,7 @@ vi.mock('./panels/ModelAndToolPanel', () => ({
   },
 }))
 
-vi.mock('./panels/AgentLogsPanel', () => ({
-  default: function MockAgentLogs() {
-    return <div data-testid="agent-logs-panel">Agent Logs</div>
-  },
-}))
+
 
 function renderWithQuery(ui: React.ReactElement) {
   const queryClient = new QueryClient({
@@ -74,10 +70,7 @@ describe('AgentDashboard', () => {
     expect(screen.getByTestId('model-tool-panel')).toBeInTheDocument()
   })
 
-  it('renders the agent logs section', () => {
-    renderWithQuery(<AgentDashboard hours={24} />)
-    expect(screen.getByTestId('agent-logs-panel')).toBeInTheDocument()
-  })
+
 
   it('renders all sections in correct order', () => {
     renderWithQuery(<AgentDashboard hours={24} />)
@@ -85,12 +78,9 @@ describe('AgentDashboard', () => {
     const kpi = screen.getByTestId('kpi-grid')
     const metrics = screen.getByTestId('interaction-metrics')
     const modelTool = screen.getByTestId('model-tool-panel')
-    const logs = screen.getByTestId('agent-logs-panel')
-
     // All sections should be present
     expect(kpi).toBeInTheDocument()
     expect(metrics).toBeInTheDocument()
     expect(modelTool).toBeInTheDocument()
-    expect(logs).toBeInTheDocument()
   })
 })
