@@ -71,6 +71,7 @@ The human-facing operational surfaces for the multi-agent system.
 | [Agent Graph Architecture](agent_ops/architecture.md) | Reasoning trajectories, and BQ Property Graph implementation |
 | [BigQuery Graph Setup](agent_ops/bigquery_setup.md) | BigQuery Property Graph visualization and pre-aggregation instructions |
 | [BigQuery Schema Details](agent_ops/bq_schema.md) | OpenTelemetry payload extraction definitions |
+| [Visualization Data Flow](agent_ops/visualization_setup.md) | End-to-end overview of Graph rendering logic |
 | [Legacy Dashboards](agent_ops/dashboards_legacy.md) | Perses dashboard fallback compatibility |
 
 ---

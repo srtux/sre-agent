@@ -156,7 +156,7 @@ To maintain high signal-to-noise ratios, the agent uses standard Python logging 
 
 The SRE Agent includes a topology graph visualization powered by BigQuery Materialized Views and the Sugiyama layout algorithm.
 For detailed setup instructions, architecture, and query logic, see:
-[Agent Graph Setup Guide](AGENT_GRAPH_SETUP.md)
+[Agent Graph Setup Guide](agent_ops/visualization_setup.md)
 
 ## 9. Multi-Agent Observability (AgentOps)
 

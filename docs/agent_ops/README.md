@@ -22,6 +22,7 @@ Understanding the schema, database setup, and telemetry ingestion.
 - [BigQuery Schema & OpenTelemetry Extraction](bq_schema.md)
 - [Agent Graph Fast Setup](setup.md)
 - [BigQuery Agent Graph Deep Dive Setup](bigquery_setup.md)
+- [Visualization Data Flow Overview](visualization_setup.md)
 
 ---
 *For general architecture or development guides, return to the [main documentation index](../README.md).*
