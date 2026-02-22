@@ -363,7 +363,7 @@ async def call_mcp_tool_with_retry(
     create_toolset_fn: Callable[[str | None], Any],
     tool_name: str,
     args: dict[str, Any],
-    tool_context: ToolContext,
+    tool_context: ToolContext | None,
     project_id: str | None = None,
     max_retries: int = 3,
     base_delay: float = 1.0,
@@ -668,9 +668,6 @@ async def mcp_list_log_entries(
         - 'timestamp>="2024-01-01T00:00:00Z"' - Time-bounded queries
         - 'labels.env="production" AND severity>=WARNING' - Combined filters
     """
-    if tool_context is None:
-        raise ValueError("tool_context is required for MCP tools")
-
     args = {
         "filter": filter,
         "page_size": page_size,
@@ -734,9 +731,6 @@ async def mcp_list_timeseries(
         - 'resource.labels.instance_id="12345"' - Filter by instance
         - 'metric.labels.response_code="500"' - Filter by metric label
     """
-    if tool_context is None:
-        raise ValueError("tool_context is required for MCP tools")
-
     import json
 
     pid = project_id or get_project_id_with_fallback()
@@ -821,9 +815,6 @@ async def mcp_query_range(
         - 'histogram_quantile(0.95, http_request_duration_bucket)' - P95 latency
         - 'increase(errors_total[1h])' - Error count increase over 1 hour
     """
-    if tool_context is None:
-        raise ValueError("tool_context is required for MCP tools")
-
     import time as time_module
 
     # Build time range
@@ -878,9 +869,6 @@ async def mcp_execute_sql(
     Returns:
         Query results or error.
     """
-    if tool_context is None:
-        raise ValueError("tool_context is required for MCP tools")
-
     pid = project_id or get_project_id_with_fallback()
     args = {
         "query": sql_query,
@@ -917,9 +905,6 @@ async def mcp_list_dataset_ids(
     Returns:
         List of dataset IDs.
     """
-    if tool_context is None:
-        raise ValueError("tool_context is required for MCP tools")
-
     pid = project_id or get_project_id_with_fallback()
     args = {"projectId": pid}
 
@@ -953,9 +938,6 @@ async def mcp_list_table_ids(
     Returns:
         List of table IDs.
     """
-    if tool_context is None:
-        raise ValueError("tool_context is required for MCP tools")
-
     pid = project_id or get_project_id_with_fallback()
     args = {"datasetId": dataset_id, "projectId": pid}
 
@@ -991,9 +973,6 @@ async def mcp_get_table_info(
     Returns:
         Table information including schema.
     """
-    if tool_context is None:
-        raise ValueError("tool_context is required for MCP tools")
-
     pid = project_id or get_project_id_with_fallback()
     args = {
         "datasetId": dataset_id,

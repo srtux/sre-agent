@@ -42,12 +42,10 @@ async def discover_telemetry_sources(
         Standardized response containing discovered telemetry sources.
     """
     logger.info("ENTER discover_telemetry_sources")
-    if tool_context is None:
-        raise ValueError("tool_context is required for MCP tools")
-
     from sre_agent.tools.mcp.gcp import set_mcp_tool_context
 
-    set_mcp_tool_context(tool_context)
+    if tool_context:
+        set_mcp_tool_context(tool_context)
     pid = project_id or get_project_id_with_fallback()
     if not pid:
         return BaseToolResponse(

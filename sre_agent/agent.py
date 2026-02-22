@@ -576,9 +576,6 @@ async def run_aggregate_analysis(
         f"🎺 Running aggregate analysis (Dataset: {dataset_id}, Table: {table_name})"
     )
 
-    if tool_context is None:
-        raise ValueError("tool_context is required")
-
     try:
         # 1. Auto-Discovery if needed
         if not dataset_id or not table_name:
@@ -667,9 +664,6 @@ async def run_triage_analysis(
         project_id: GCP project ID.
         tool_context: ADK tool context (required).
     """
-    if tool_context is None:
-        raise ValueError("tool_context is required")
-
     if not project_id:
         project_id = get_project_id_with_fallback()
 
@@ -746,9 +740,6 @@ async def run_deep_dive_analysis(
         project_id: GCP project ID.
         tool_context: ADK tool context.
     """
-    if tool_context is None:
-        raise ValueError("tool_context is required")
-
     if not project_id:
         project_id = get_project_id_with_fallback()
 
@@ -807,9 +798,6 @@ async def run_log_pattern_analysis(
         project_id = get_project_id_with_fallback()
 
     logger.info(f"Running log pattern analysis for filter: {log_filter}")
-
-    if tool_context is None:
-        raise ValueError("tool_context is required")
 
     try:
         result = await AgentTool(log_analyst).run_async(
@@ -999,9 +987,6 @@ async def run_council_investigation(
     """
     from sre_agent.council.parallel_council import create_council_pipeline
     from sre_agent.council.schemas import CouncilConfig, InvestigationMode
-
-    if tool_context is None:
-        raise ValueError("tool_context is required")
 
     if not project_id:
         project_id = get_project_id_with_fallback()
