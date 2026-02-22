@@ -43,9 +43,9 @@ describe('VirtualizedDataTable', () => {
       />,
     )
 
-    // The table should have a tbody even if virtualizer doesn't render rows in jsdom
-    const tbody = container.querySelector('tbody')
-    expect(tbody).toBeTruthy()
+    // The table should render even if virtualizer doesn't render rows in jsdom
+    const table = container.querySelector('table')
+    expect(table).toBeTruthy()
     // Footer shows the correct count regardless of virtualization
     expect(screen.getByText('3 rows')).toBeInTheDocument()
   })

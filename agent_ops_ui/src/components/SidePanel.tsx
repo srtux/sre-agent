@@ -80,7 +80,7 @@ const styles: Record<string, React.CSSProperties> = {
     width: '360px',
     background: '#1E293B',
     borderLeft: '1px solid #334155',
-    zIndex: 50,
+    zIndex: 500,
     display: 'flex',
     flexDirection: 'column',
     overflow: 'hidden',
@@ -785,7 +785,7 @@ function PayloadAccordion({
 
     prefix()
     return () => { isMounted = false }
-  }, [payloads, projectId, filters])
+  }, [payloads, projectId, filters, onComputedErrors, spanDetailsCache, traceLogsCache])
 
 
   if (payloads.length === 0) {

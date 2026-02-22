@@ -361,17 +361,10 @@ async def execute_schema_step(step: str, req: SchemaStepRequest) -> dict[str, An
               JSON_VALUE(attributes, '$."gen_ai.request.model"') AS request_model,
               JSON_VALUE(attributes, '$."gen_ai.response.finish_reasons"') AS finish_reasons,
               JSON_VALUE(attributes, '$."gen_ai.system"') AS system,
-              CASE
-                WHEN JSON_VALUE(attributes, '$."gen_ai.operation.name"') = 'invoke_agent' THEN 'Agent'
-                WHEN JSON_VALUE(attributes, '$."gen_ai.operation.name"') = 'execute_tool' THEN 'Tool'
-                WHEN JSON_VALUE(attributes, '$."gen_ai.operation.name"') = 'generate_content' THEN 'LLM'
-                ELSE 'Glue'
-              END AS node_type,
-              COALESCE(
-                JSON_VALUE(attributes, '$."gen_ai.agent.name"'), JSON_VALUE(attributes, '$."gen_ai.tool.name"'),
-                JSON_VALUE(attributes, '$."gen_ai.response.model"'), name
-              ) AS node_label,
+              CASE WHEN JSON_VALUE(attributes, '$."gen_ai.operation.name"') = 'invoke_agent' THEN 'Agent' WHEN JSON_VALUE(attributes, '$."gen_ai.operation.name"') = 'execute_tool' THEN 'Tool' WHEN JSON_VALUE(attributes, '$."gen_ai.operation.name"') = 'generate_content' THEN 'LLM' ELSE 'Glue' END AS node_type,
+              COALESCE(JSON_VALUE(attributes, '$."gen_ai.agent.name"'), JSON_VALUE(attributes, '$."gen_ai.tool.name"'), JSON_VALUE(attributes, '$."gen_ai.response.model"'), name) AS node_label,
               JSON_VALUE(resource.attributes, '$."service.name"') AS service_name,
+              JSON_VALUE(resource.attributes, '$."gcp.resource_id"') AS resource_id,
               CONCAT(
                 CASE
                   WHEN JSON_VALUE(attributes, '$."gen_ai.operation.name"') = 'invoke_agent' THEN 'Agent'

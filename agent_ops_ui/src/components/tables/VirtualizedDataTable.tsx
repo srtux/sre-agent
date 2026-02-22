@@ -13,141 +13,156 @@ import { ArrowUp, ArrowDown, ArrowUpDown, Search } from 'lucide-react'
 
 // --- Styles ---
 
-const styles = {
+const styles: Record<string, React.CSSProperties> = {
   wrapper: {
-    background: '#1E293B',
-    border: '1px solid #334155',
-    borderRadius: '8px',
+    background: 'rgba(30, 41, 59, 0.2)',
+    backdropFilter: 'blur(8px)',
+    border: '1px solid rgba(255, 255, 255, 0.05)',
+    borderRadius: '16px',
     overflow: 'hidden',
     display: 'flex',
     flexDirection: 'column',
-  } satisfies React.CSSProperties,
-
+  },
   scrollContainer: {
     overflow: 'auto',
     flex: 1,
-  } satisfies React.CSSProperties,
-
+    scrollbarWidth: 'thin',
+    scrollbarColor: 'rgba(56, 189, 248, 0.2) transparent',
+  },
   toolbar: {
     display: 'flex',
-    padding: '12px 16px',
-    borderBottom: '1px solid #334155',
-    background: '#1E293B',
+    padding: '16px 20px',
+    borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+    background: 'rgba(15, 23, 42, 0.2)',
     alignItems: 'center',
-    gap: '8px',
-  } satisfies React.CSSProperties,
-
+    gap: '12px',
+    position: 'relative',
+  },
+  searchWrapper: {
+    position: 'relative',
+    display: 'flex',
+    alignItems: 'center',
+  },
   searchInput: {
-    background: '#0F172A',
-    border: '1px solid #334155',
-    borderRadius: '6px',
-    padding: '6px 12px 6px 32px',
-    color: '#F0F4F8',
-    fontSize: '13px',
-    width: '250px',
+    background: 'rgba(2, 6, 23, 0.4)',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+    borderRadius: '10px',
+    padding: '8px 12px 8px 36px',
+    color: '#F1F5F9',
+    fontSize: '14px',
+    width: '300px',
     outline: 'none',
-  } satisfies React.CSSProperties,
-
+    transition: 'all 0.2s',
+  },
   searchIcon: {
     position: 'absolute',
-    left: '28px',
-    color: '#78909C',
-  } satisfies React.CSSProperties,
-
+    left: '12px',
+    color: '#64748B',
+  },
   table: {
-    width: '100%',
-    borderCollapse: 'collapse',
+    borderCollapse: 'separate',
+    borderSpacing: 0,
     tableLayout: 'fixed',
-  } satisfies React.CSSProperties,
-
+  },
   thead: {
     position: 'sticky',
     top: 0,
     zIndex: 10,
     background: '#0F172A',
-  } satisfies React.CSSProperties,
-
+  },
   th: {
-    padding: '10px 12px',
+    padding: '14px 16px',
     fontSize: '11px',
-    fontWeight: 600,
-    color: '#78909C',
+    fontWeight: 700,
+    color: '#94A3B8',
     textTransform: 'uppercase',
-    letterSpacing: '0.5px',
+    letterSpacing: '0.1em',
     textAlign: 'left',
-    borderBottom: '1px solid #334155',
+    borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
     whiteSpace: 'nowrap',
     userSelect: 'none',
     cursor: 'pointer',
-  } satisfies React.CSSProperties,
-
+    position: 'relative',
+    overflow: 'visible',
+    transition: 'background 0.2s',
+  },
   thNotSortable: {
     cursor: 'default',
-  } satisfies React.CSSProperties,
-
+  },
   thContent: {
-    display: 'inline-flex',
+    display: 'flex',
     alignItems: 'center',
-    gap: '4px',
-  } satisfies React.CSSProperties,
-
+    gap: '6px',
+    height: '100%',
+    overflow: 'hidden',
+  },
+  resizer: {
+    position: 'absolute',
+    right: 0,
+    top: '25%',
+    height: '50%',
+    width: '1px',
+    background: 'rgba(255, 255, 255, 0.15)',
+    cursor: 'col-resize',
+    userSelect: 'none',
+    touchAction: 'none',
+    zIndex: 1,
+  },
   td: {
-    padding: '8px 12px',
-    fontSize: '13px',
-    color: '#F0F4F8',
-    borderBottom: '1px solid rgba(51, 65, 85, 0.5)',
+    padding: '12px 16px',
+    fontSize: '14px',
+    color: '#CBD5E1',
+    borderBottom: '1px solid rgba(255, 255, 255, 0.03)',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
-  } satisfies React.CSSProperties,
-
+    transition: 'background 0.2s',
+  },
   rowEven: {
     background: 'transparent',
-  } satisfies React.CSSProperties,
-
+  },
   rowOdd: {
-    background: 'rgba(15, 23, 42, 0.3)',
-  } satisfies React.CSSProperties,
-
+    background: 'rgba(255, 255, 255, 0.01)',
+  },
   empty: {
     display: 'flex',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '32px 16px',
-    color: '#475569',
-    fontSize: '13px',
-  } satisfies React.CSSProperties,
-
+    padding: '64px 24px',
+    color: '#64748B',
+    fontSize: '14px',
+    gap: '8px',
+  },
   loadingOverlay: {
     position: 'absolute',
     inset: 0,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    background: 'rgba(15, 23, 42, 0.6)',
-    backdropFilter: 'blur(2px)',
+    background: 'rgba(2, 6, 23, 0.6)',
+    backdropFilter: 'blur(4px)',
     zIndex: 20,
-  } satisfies React.CSSProperties,
-
+  },
   spinner: {
-    width: '20px',
-    height: '20px',
-    border: '2px solid #334155',
-    borderTopColor: '#06B6D4',
+    width: '28px',
+    height: '28px',
+    border: '3px solid rgba(56, 189, 248, 0.1)',
+    borderTopColor: '#38BDF8',
     borderRadius: '50%',
-    animation: 'vdt-spin 0.7s linear infinite',
-  } satisfies React.CSSProperties,
-
+    animation: 'vdt-spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite',
+  },
   footer: {
-    padding: '8px 12px',
-    fontSize: '11px',
-    color: '#78909C',
-    borderTop: '1px solid #334155',
-    background: '#0F172A',
+    padding: '10px 16px',
+    fontSize: '12px',
+    color: '#64748B',
+    borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+    background: 'rgba(15, 23, 42, 0.4)',
     display: 'flex',
     justifyContent: 'space-between',
-  } satisfies React.CSSProperties,
-} as const
+    alignItems: 'center',
+  },
+}
 
 // Inject keyframe once
 const SPIN_ID = '__vdt-spin-keyframe'
@@ -164,8 +179,13 @@ if (typeof document !== 'undefined' && !document.getElementById(HOVER_ID)) {
   const el = document.createElement('style')
   el.id = HOVER_ID
   el.textContent = `
-    [data-vdt-row]:hover { background: rgba(6, 182, 212, 0.06) !important; }
+    [data-vdt-row]:hover { background: rgba(56, 189, 248, 0.04) !important; }
     [data-vdt-row-clickable="true"] { cursor: pointer; }
+    .vdt-resizer { opacity: 0; transition: opacity 0.2s; }
+    th:hover { background: rgba(255, 255, 255, 0.02) !important; }
+    th:hover .vdt-resizer { opacity: 1; }
+    .vdt-resizer.isResizing { opacity: 1; background: #38BDF8; width: 2px; }
+    input:focus { border-color: rgba(56, 189, 248, 0.5) !important; box-shadow: 0 0 10px rgba(56, 189, 248, 0.1); }
   `
   document.head.appendChild(el)
 }
@@ -207,6 +227,12 @@ export interface VirtualizedDataTableProps<TData> {
   searchPlaceholder?: string
   /** Make the table fill its parent container height. @default false */
   fullHeight?: boolean
+  /** ID of the row that is currently expanded */
+  expandedRowId?: string | null
+  /** Function to render the expanded content for a row */
+  renderExpandedRow?: (row: TData) => React.ReactNode
+  /** Function to get a unique ID for a row to match expandedRowId */
+  getRowId?: (row: TData) => string
 }
 
 export default function VirtualizedDataTable<TData>({
@@ -223,6 +249,9 @@ export default function VirtualizedDataTable<TData>({
   enableSearch = false,
   searchPlaceholder = 'Search...',
   fullHeight = false,
+  expandedRowId,
+  renderExpandedRow,
+  getRowId,
 }: VirtualizedDataTableProps<TData>) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [sorting, setSorting] = useState<SortingState>([])
@@ -237,6 +266,7 @@ export default function VirtualizedDataTable<TData>({
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: sortable ? getSortedRowModel() : undefined,
     getFilteredRowModel: getFilteredRowModel(),
+    columnResizeMode: 'onChange',
   })
 
   const { rows } = table.getRowModel()
@@ -265,14 +295,16 @@ export default function VirtualizedDataTable<TData>({
     }}>
       {enableSearch && (
         <div style={styles.toolbar}>
-          <Search size={16} style={styles.searchIcon} />
-          <input
-            type="text"
-            value={globalFilter ?? ''}
-            onChange={(e) => setGlobalFilter(e.target.value)}
-            placeholder={searchPlaceholder}
-            style={styles.searchInput}
-          />
+          <div style={styles.searchWrapper}>
+            <Search size={16} style={styles.searchIcon} />
+            <input
+              type="text"
+              value={globalFilter ?? ''}
+              onChange={(e) => setGlobalFilter(e.target.value)}
+              placeholder={searchPlaceholder}
+              style={styles.searchInput}
+            />
+          </div>
         </div>
       )}
 
@@ -284,7 +316,7 @@ export default function VirtualizedDataTable<TData>({
           maxHeight: fullHeight ? '100%' : `${maxHeight}px`
         }}
       >
-        <table style={styles.table}>
+        <table style={{ ...styles.table, width: table.getCenterTotalSize() }}>
           {/* Sticky header */}
           <thead style={styles.thead}>
             {headerGroups.map((headerGroup) => (
@@ -298,19 +330,28 @@ export default function VirtualizedDataTable<TData>({
                       style={{
                         ...styles.th,
                         ...(!canSort ? styles.thNotSortable : {}),
-                        width:
-                          header.getSize() !== 150
-                            ? `${header.getSize()}px`
-                            : undefined,
+                        width: `${header.getSize()}px`,
                       }}
-                      onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
                     >
-                      <span style={styles.thContent}>
+                      <div
+                        style={styles.thContent}
+                        onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
+                      >
                         {header.isPlaceholder
                           ? null
                           : flexRender(header.column.columnDef.header, header.getContext())}
                         {canSort && <SortIndicator direction={sorted} />}
-                      </span>
+                      </div>
+
+                      {header.column.getCanResize() && (
+                        <div
+                          onMouseDown={header.getResizeHandler()}
+                          onTouchStart={header.getResizeHandler()}
+                          className={`vdt-resizer ${header.column.getIsResizing() ? 'isResizing' : ''
+                            }`}
+                          style={styles.resizer}
+                        />
+                      )}
                     </th>
                   )
                 })}
@@ -319,8 +360,8 @@ export default function VirtualizedDataTable<TData>({
           </thead>
 
           {/* Virtualized body */}
-          <tbody>
-            {rows.length === 0 ? (
+          {rows.length === 0 ? (
+            <tbody>
               <tr>
                 <td
                   colSpan={columns.length}
@@ -329,28 +370,35 @@ export default function VirtualizedDataTable<TData>({
                   <div style={styles.empty}>{emptyMessage}</div>
                 </td>
               </tr>
-            ) : (
-              <>
-                {/* Top spacer */}
-                {virtualRows.length > 0 && virtualRows[0].start > 0 && (
+            </tbody>
+          ) : (
+            <>
+              {/* Top spacer */}
+              {virtualRows.length > 0 && virtualRows[0].start > 0 && (
+                  <tbody>
                   <tr>
                     <td
                       colSpan={columns.length}
                       style={{ height: `${virtualRows[0].start}px`, padding: 0, border: 'none' }}
                     />
                   </tr>
+                  </tbody>
                 )}
 
                 {virtualRows.map((virtualRow) => {
                   const row = rows[virtualRow.index]
                   const isOdd = virtualRow.index % 2 === 1
+                  const isExpanded = getRowId ? expandedRowId === getRowId(row.original) : false;
+
                   return (
+                  <tbody
+                    key={row.id}
+                    data-index={virtualRow.index}
+                    ref={virtualizer.measureElement}
+                  >
                     <tr
-                      key={row.id}
                       data-vdt-row=""
                       data-vdt-row-clickable={!!onRowClick}
-                      data-index={virtualRow.index}
-                      ref={virtualizer.measureElement}
                       style={isOdd ? styles.rowOdd : styles.rowEven}
                       onClick={() => onRowClick?.(row.original)}
                     >
@@ -360,11 +408,20 @@ export default function VirtualizedDataTable<TData>({
                         </td>
                       ))}
                     </tr>
+                    {isExpanded && renderExpandedRow && (
+                      <tr>
+                        <td colSpan={columns.length} style={{ padding: 0, borderBottom: '1px solid rgba(51, 65, 85, 0.5)' }}>
+                          {renderExpandedRow(row.original)}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
                   )
                 })}
 
                 {/* Bottom spacer */}
                 {virtualRows.length > 0 && (
+                  <tbody>
                   <tr>
                     <td
                       colSpan={columns.length}
@@ -375,10 +432,10 @@ export default function VirtualizedDataTable<TData>({
                       }}
                     />
                   </tr>
-                )}
-              </>
-            )}
-          </tbody>
+                  </tbody>
+              )}
+            </>
+          )}
         </table>
       </div>
 

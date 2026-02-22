@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import { useAgentContext } from '../../contexts/AgentContext'
 import { useDashboardTables, type AgentLogRow, type AgentSessionRow, type AgentTraceRow } from '../../hooks/useDashboardTables'
 import VirtualizedDataTable from '../tables/VirtualizedDataTable'
@@ -61,6 +61,8 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: 'hidden',
     display: 'flex',
     flexDirection: 'column',
+    position: 'relative',
+    zIndex: 1,
   },
   error: {
     color: '#ef4444',
@@ -97,20 +99,20 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
   }, [data?.agentTraces, sessionFilter])
   const spanData = useMemo(() => data?.agentLogs ?? [], [data?.agentLogs])
 
-  const handleOpenTrace = (traceId: string) => {
+  const handleOpenTrace = useCallback((traceId: string) => {
     window.parent.postMessage(
       JSON.stringify({ type: 'OPEN_TRACE', traceId }),
       '*',
     )
-  }
+  }, [])
 
 
 
 
 
   // --- Session Columns ---
-  const sessionColumns = useMemo(
-    () => [
+  const sessionColumns = useMemo(() => {
+    const baseColumns = [
       {
         accessorKey: 'timestamp',
         header: 'Started At',
@@ -192,13 +194,36 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
           )
         },
       }
-    ],
-    []
-  )
+    ]
+
+    if (serviceName === '') {
+      baseColumns.push(
+        {
+          accessorKey: 'agentName',
+          header: 'Agent Name',
+          size: 150,
+          cell: ({ getValue }: any) => {
+            const val = getValue() as string
+            return <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>{val || '-'}</span>
+          }
+        },
+        {
+          accessorKey: 'resourceId',
+          header: 'Resource ID',
+          size: 150,
+          cell: ({ getValue }: any) => {
+            const val = getValue() as string
+            return <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>{val || '-'}</span>
+          }
+        }
+      )
+    }
+    return baseColumns
+  }, [serviceName])
 
   // --- Trace Columns ---
-  const traceColumns = useMemo(
-    () => [
+  const traceColumns = useMemo(() => {
+    const baseColumns = [
       {
         accessorKey: 'timestamp',
         header: 'Timestamp',
@@ -281,13 +306,36 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
           )
         },
       }
-    ],
-    []
-  )
+    ]
+
+    if (serviceName === '') {
+      baseColumns.push(
+        {
+          accessorKey: 'agentName',
+          header: 'Agent Name',
+          size: 150,
+          cell: ({ getValue }: any) => {
+            const val = getValue() as string
+            return <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>{val || '-'}</span>
+          }
+        },
+        {
+          accessorKey: 'resourceId',
+          header: 'Resource ID',
+          size: 150,
+          cell: ({ getValue }: any) => {
+            const val = getValue() as string
+            return <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>{val || '-'}</span>
+          }
+        }
+      )
+    }
+    return baseColumns
+  }, [serviceName, handleOpenTrace])
 
   // --- Span Columns ---
-  const spanColumns = useMemo(
-    () => [
+  const spanColumns = useMemo(() => {
+    const baseColumns = [
       {
         accessorKey: 'timestamp',
         header: 'Timestamp',
@@ -417,9 +465,32 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
           )
         },
       },
-    ],
-    []
-  )
+    ]
+
+    if (serviceName === '') {
+      baseColumns.push(
+        {
+          accessorKey: 'agentName',
+          header: 'Agent Name',
+          size: 150,
+          cell: ({ getValue }: any) => {
+            const val = getValue() as string
+            return <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>{val || '-'}</span>
+          }
+        },
+        {
+          accessorKey: 'resourceId',
+          header: 'Resource ID',
+          size: 150,
+          cell: ({ getValue }: any) => {
+            const val = getValue() as string
+            return <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>{val || '-'}</span>
+          }
+        }
+      )
+    }
+    return baseColumns
+  }, [serviceName, handleOpenTrace])
 
   if (isError) {
     return <div style={styles.error}>Failed to load agent traces.</div>

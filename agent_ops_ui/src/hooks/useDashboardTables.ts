@@ -29,6 +29,8 @@ export interface AgentLogRow {
   severity: LogSeverity
   message: string
   traceId: string
+  agentName?: string
+  resourceId?: string
 }
 
 export interface AgentSessionRow {
@@ -40,6 +42,8 @@ export interface AgentSessionRow {
   errorCount: number
   avgLatencyMs: number
   p95LatencyMs: number
+  agentName?: string
+  resourceId?: string
 }
 
 export interface AgentTraceRow {
@@ -49,6 +53,8 @@ export interface AgentTraceRow {
   totalTokens: number
   errorCount: number
   latencyMs: number
+  agentName?: string
+  resourceId?: string
 }
 
 export interface DashboardTablesData {

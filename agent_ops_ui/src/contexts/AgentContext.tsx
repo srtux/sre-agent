@@ -10,6 +10,8 @@ interface AgentContextType {
   availableAgents: RegistryAgent[];
   loadingAgents: boolean;
   errorAgents: string | null;
+  registryViewMode: 'card' | 'table';
+  setRegistryViewMode: (mode: 'card' | 'table') => void;
 }
 
 const AgentContext = createContext<AgentContextType | undefined>(undefined);
@@ -21,6 +23,9 @@ export function AgentProvider({ children, projectId }: { children: ReactNode, pr
   const [availableAgents, setAvailableAgents] = useState<RegistryAgent[]>([]);
   const [loadingAgents, setLoadingAgents] = useState<boolean>(true);
   const [errorAgents, setErrorAgents] = useState<string | null>(null);
+  const [registryViewMode, setRegistryViewMode] = useState<'card' | 'table'>(
+    (localStorage.getItem('agent_graph_registry_view_mode') as 'card' | 'table') ?? 'card'
+  );
 
   const queryClient = useQueryClient();
 
@@ -98,6 +103,10 @@ export function AgentProvider({ children, projectId }: { children: ReactNode, pr
     localStorage.setItem('agent_graph_service_name', serviceName);
   }, [serviceName]);
 
+  useEffect(() => {
+    localStorage.setItem('agent_graph_registry_view_mode', registryViewMode);
+  }, [registryViewMode]);
+
   return (
     <AgentContext.Provider
       value={{
@@ -107,6 +116,8 @@ export function AgentProvider({ children, projectId }: { children: ReactNode, pr
         availableAgents,
         loadingAgents,
         errorAgents,
+        registryViewMode,
+        setRegistryViewMode,
       }}
     >
       {children}

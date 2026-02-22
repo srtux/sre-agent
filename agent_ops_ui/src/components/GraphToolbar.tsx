@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import type { GraphFilters, AutoRefreshConfig, RefreshInterval, Tab } from '../types'
-import { Bot, ChevronDown, Check } from 'lucide-react'
+import { Bot, ChevronDown, Check, LayoutGrid, List } from 'lucide-react'
 import TimeRangeSelector from './TimeRangeSelector'
 import { useAgentContext } from '../contexts/AgentContext'
 import { useDashboardFilters } from '../contexts/DashboardFilterContext'
@@ -20,13 +20,16 @@ const styles: Record<string, React.CSSProperties> = {
   bar: {
     display: 'flex',
     alignItems: 'center',
-    gap: '12px',
+    gap: '16px',
     padding: '12px 24px',
-    background: '#1E293B',
+    background: 'rgba(30, 41, 59, 0.4)',
+    backdropFilter: 'blur(10px)',
     flexWrap: 'wrap',
     borderRadius: '16px',
     margin: '16px 24px',
-    border: '1px solid #334155',
+    border: '1px solid rgba(255, 255, 255, 0.05)',
+    position: 'relative',
+    zIndex: 100,
   },
   label: {
     fontSize: '13px',
@@ -140,29 +143,53 @@ const styles: Record<string, React.CSSProperties> = {
   dropdownItemHover: {
     background: 'rgba(6, 182, 212, 0.1)',
   },
+  viewToggle: {
+    display: 'flex',
+    background: 'rgba(15, 23, 42, 0.4)',
+    borderRadius: '10px',
+    padding: '4px',
+    border: '1px solid rgba(255, 255, 255, 0.05)',
+    marginLeft: 'auto',
+  },
+  viewToggleButton: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '6px 14px',
+    borderRadius: '8px',
+    border: 'none',
+    background: 'transparent',
+    color: '#64748B',
+    cursor: 'pointer',
+    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+  },
+  viewToggleButtonActive: {
+    background: '#38BDF8',
+    color: '#0F172A',
+  },
   checkBox: {
-    width: '16px',
-    height: '16px',
-    borderRadius: '3px',
-    border: '1px solid #475569',
+    width: '18px',
+    height: '18px',
+    borderRadius: '4px',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
+    transition: 'border-color 0.2s',
   },
   checkBoxChecked: {
-    width: '16px',
-    height: '16px',
-    borderRadius: '3px',
-    border: '1px solid #06B6D4',
-    background: '#06B6D4',
+    width: '18px',
+    height: '18px',
+    borderRadius: '4px',
+    border: '1px solid #38BDF8',
+    background: '#38BDF8',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
   },
 }
-
 function formatTime(date: Date): string {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
@@ -200,7 +227,7 @@ function AgentMultiSelect({ availableAgents, selectedAgents, onToggle, loading }
     <div ref={ref} style={{ position: 'relative' }}>
       <button
         style={styles.multiSelectTrigger}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen((v: boolean) => !v)}
         type="button"
       >
         <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -253,7 +280,7 @@ export default function GraphToolbar({
   lastUpdated,
   activeTab,
 }: GraphToolbarProps) {
-  const { serviceName, setServiceName, availableAgents, loadingAgents } = useAgentContext()
+  const { serviceName, setServiceName, availableAgents, loadingAgents, registryViewMode, setRegistryViewMode } = useAgentContext()
   const { selectedAgents, toggleAgent, groupByAgent, setGroupByAgent } = useDashboardFilters()
 
   const canLoad = !loading && filters.projectId.trim().length > 0
@@ -284,7 +311,9 @@ export default function GraphToolbar({
                 onChange={(e) => setServiceName(e.target.value)}
                 disabled={loadingAgents}
               >
-                <option value="">All Agents</option>
+                {activeTab !== 'topology' && activeTab !== 'trajectory' && (
+                  <option value="">All Agents</option>
+                )}
                 {loadingAgents ? (
                   <option disabled value={serviceName}>Loading agents...</option>
                 ) : availableAgents.length === 0 ? (
@@ -419,7 +448,6 @@ export default function GraphToolbar({
           </span>
         </div>
       )}
-
       {(activeTab === 'dashboard' || activeTab === 'topology' || activeTab === 'trajectory') && autoRefresh.enabled && (
         <>
           <select
@@ -442,6 +470,33 @@ export default function GraphToolbar({
             </span>
           )}
         </>
+      )}
+
+      {(activeTab === 'agents' || activeTab === 'tools') && (
+        <div style={styles.viewToggle}>
+          <button
+            onClick={() => setRegistryViewMode('card')}
+            style={{
+              ...styles.viewToggleButton,
+              ...(registryViewMode === 'card' ? styles.viewToggleButtonActive : {}),
+            }}
+            title="Card View"
+            aria-label="Card View"
+          >
+            <LayoutGrid size={16} />
+          </button>
+          <button
+            onClick={() => setRegistryViewMode('table')}
+            style={{
+              ...styles.viewToggleButton,
+              ...(registryViewMode === 'table' ? styles.viewToggleButtonActive : {}),
+            }}
+            title="Table View"
+            aria-label="Table View"
+          >
+            <List size={16} />
+          </button>
+        </div>
       )}
 
       {activeTab !== 'agents' && activeTab !== 'tools' && (

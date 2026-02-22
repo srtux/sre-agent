@@ -1943,7 +1943,9 @@ async def get_dashboard_logs(
                 status_desc,
                 input_tokens,
                 output_tokens,
-                trace_id
+                trace_id,
+                service_name,
+                resource_id
             FROM `{project_id}.{dataset}.agent_spans_raw`
             WHERE start_time >= TIMESTAMP_SUB(
                 CURRENT_TIMESTAMP(), INTERVAL {minutes} MINUTE)
@@ -1994,6 +1996,8 @@ async def get_dashboard_logs(
                     "severity": severity,
                     "message": " | ".join(msg_parts),
                     "traceId": row.trace_id or "",
+                    "agentName": row.service_name or "unknown",
+                    "resourceId": row.resource_id or "",
                 }
             )
 
@@ -2051,7 +2055,9 @@ async def get_dashboard_sessions(
                 SUM(COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)) AS total_tokens,
                 COUNTIF(status_code = 'ERROR') AS error_count,
                 AVG(duration_ms) AS avg_latency_ms,
-                APPROX_QUANTILES(duration_ms, 100)[OFFSET(95)] AS p95_latency_ms
+                APPROX_QUANTILES(duration_ms, 100)[OFFSET(95)] AS p95_latency_ms,
+                ANY_VALUE(service_name) AS service_name,
+                ANY_VALUE(resource_id) AS resource_id
             FROM `{project_id}.{dataset}.agent_spans_raw`
             WHERE session_id IS NOT NULL
               AND start_time >= TIMESTAMP_SUB(
@@ -2083,6 +2089,8 @@ async def get_dashboard_sessions(
                     "errorCount": row.error_count or 0,
                     "avgLatencyMs": float(row.avg_latency_ms or 0),
                     "p95LatencyMs": float(row.p95_latency_ms or 0),
+                    "agentName": row.service_name or "unknown",
+                    "resourceId": row.resource_id or "",
                 }
             )
 
@@ -2139,7 +2147,9 @@ async def get_dashboard_traces(
                 MIN(start_time) AS start_time,
                 SUM(COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)) AS total_tokens,
                 COUNTIF(status_code = 'ERROR') AS error_count,
-                MAX(duration_ms) AS latency_ms
+                MAX(duration_ms) AS latency_ms,
+                ANY_VALUE(service_name) AS service_name,
+                ANY_VALUE(resource_id) AS resource_id
             FROM `{project_id}.{dataset}.agent_spans_raw`
             WHERE trace_id IS NOT NULL
               AND start_time >= TIMESTAMP_SUB(
@@ -2169,6 +2179,8 @@ async def get_dashboard_traces(
                     "totalTokens": row.total_tokens or 0,
                     "errorCount": row.error_count or 0,
                     "latencyMs": float(row.latency_ms or 0),
+                    "agentName": row.service_name or "unknown",
+                    "resourceId": row.resource_id or "",
                 }
             )
 

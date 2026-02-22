@@ -44,7 +44,10 @@ interface TimeRangeSelectorProps {
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
+    display: 'flex',
+    flexDirection: 'column',
     position: 'relative',
+    zIndex: 1,
   },
   trigger: {
     display: 'flex',
@@ -72,7 +75,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid #334155',
     borderRadius: '12px',
     boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
-    zIndex: 100,
+    zIndex: 500000,
     padding: '8px 0',
     maxHeight: '400px',
     overflowY: 'auto',

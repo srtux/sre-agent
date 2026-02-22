@@ -162,7 +162,7 @@ export default function TrajectorySankey({ data, errorsOnly, onNodeClick, onEdge
                   nodeHoverOthersOpacity={0.2}
                   // @ts-expect-error Nivo types for Sankey links are occasionally outdated
                   enableLinkLabels={errorsOnly}
-                  linkLabel={(link: any) => `${link.value} error${link.value !== 1 ? 's' : ''}`}
+                  linkLabel={(link: { value: number }) => `${link.value} error${link.value !== 1 ? 's' : ''}`}
                   linkLabelsTextColor="#FF5252"
                   animate={true}
                   onClick={(datum) => {

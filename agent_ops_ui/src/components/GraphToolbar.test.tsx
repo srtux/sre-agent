@@ -33,6 +33,8 @@ const mockAgentContextValue = {
   ],
   loadingAgents: false,
   errorAgents: null,
+  registryViewMode: 'card' as const,
+  setRegistryViewMode: vi.fn(),
 }
 
 const mockDashboardFilterValue = {

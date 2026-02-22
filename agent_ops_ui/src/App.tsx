@@ -343,8 +343,10 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
           style={activeTab === 'topology' ? styles.tabActive : styles.tab}
           onClick={() => {
             if (activeTab !== 'topology') fetchAll(false)
+            if (activeTab !== 'trajectory') {
+              setFilters(prev => ({ ...prev, hours: prev.hours === 720 ? 24 : prev.hours }))
+            }
             setActiveTab('topology')
-            setFilters(prev => ({ ...prev, hours: 24 }))
           }}
         >
           Graph
@@ -353,8 +355,10 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
           style={activeTab === 'trajectory' ? styles.tabActive : styles.tab}
           onClick={() => {
             if (activeTab !== 'trajectory') fetchAll(false)
+            if (activeTab !== 'topology') {
+              setFilters(prev => ({ ...prev, hours: prev.hours === 720 ? 24 : prev.hours }))
+            }
             setActiveTab('trajectory')
-            setFilters(prev => ({ ...prev, hours: 24 }))
           }}
         >
           Trajectory
@@ -389,9 +393,9 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
                   <RegistryPage
                     filters={{ ...filters, serviceName }}
                     mode="agents"
-                    onSelectAgent={(name) => {
+                    onNavigate={(name, tab) => {
                       setServiceName(name)
-                      setActiveTab('topology')
+                      setActiveTab(tab as Tab)
                     }}
                   />
                 )}
@@ -400,9 +404,9 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
                   <RegistryPage
                     filters={{ ...filters, serviceName }}
                     mode="tools"
-                    onSelectAgent={(name) => {
+                    onNavigate={(name, tab) => {
                       setServiceName(name)
-                      setActiveTab('topology')
+                      setActiveTab(tab as Tab)
                     }}
                   />
                 )}
