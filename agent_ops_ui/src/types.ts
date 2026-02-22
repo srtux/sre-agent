@@ -77,6 +77,8 @@ export interface EdgeDetail {
   outputTokens: number;
 }
 
+export type Tab = 'agents' | 'tools' | 'topology' | 'trajectory' | 'dashboard';
+
 export type SelectedElement =
   | { kind: 'node'; id: string }
   | { kind: 'edge'; sourceId: string; targetId: string };

@@ -1,7 +1,3 @@
-import { useMemo } from 'react'
-import { DashboardFilterProvider } from '../../contexts/DashboardFilterContext'
-import { useAgentContext } from '../../contexts/AgentContext'
-import DashboardToolbar from './DashboardToolbar'
 import KpiGrid from './panels/KpiGrid'
 import InteractionMetricsPanel from './panels/InteractionMetricsPanel'
 import ModelAndToolPanel from './panels/ModelAndToolPanel'
@@ -33,21 +29,9 @@ const styles: Record<string, React.CSSProperties> = {
 // --- Main dashboard ---
 
 export default function AgentDashboard() {
-  const { availableAgents, loadingAgents } = useAgentContext()
-  const agentNames = useMemo(
-    () => availableAgents.map((a) => a.agentName || a.serviceName),
-    [availableAgents],
-  )
-
   return (
-    <DashboardFilterProvider>
-      <div style={styles.wrapper}>
-        <DashboardToolbar
-          availableAgents={agentNames}
-          loadingAgents={loadingAgents}
-        />
-
-        <div style={styles.grid}>
+    <div style={styles.wrapper}>
+      <div style={styles.grid}>
           {/* Row 1: KPIs */}
           <div style={styles.kpis}>
             <KpiGrid />
@@ -68,7 +52,6 @@ export default function AgentDashboard() {
             <AgentLogsPanel />
           </div>
         </div>
-      </div>
-    </DashboardFilterProvider>
+    </div>
   )
 }

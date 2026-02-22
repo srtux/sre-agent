@@ -1,4 +1,9 @@
-import type { GraphFilters, AutoRefreshConfig, RefreshInterval } from '../types'
+import { useState, useEffect, useRef } from 'react'
+import type { GraphFilters, AutoRefreshConfig, RefreshInterval, Tab } from '../types'
+import { Bot, ChevronDown, Check } from 'lucide-react'
+import TimeRangeSelector from './TimeRangeSelector'
+import { useAgentContext } from '../contexts/AgentContext'
+import { useDashboardFilters } from '../contexts/DashboardFilterContext'
 
 interface GraphToolbarProps {
   filters: GraphFilters
@@ -8,11 +13,8 @@ interface GraphToolbarProps {
   autoRefresh: AutoRefreshConfig
   onAutoRefreshChange: (config: AutoRefreshConfig) => void
   lastUpdated: Date | null
+  activeTab: Tab
 }
-
-import TimeRangeSelector from './TimeRangeSelector'
-import { useAgentContext } from '../contexts/AgentContext'
-import { Bot } from 'lucide-react'
 
 const styles: Record<string, React.CSSProperties> = {
   bar: {
@@ -97,10 +99,148 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '13px',
     transition: 'color 0.2s ease',
   },
+  multiSelectTrigger: {
+    background: 'rgba(255, 255, 255, 0.05)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    borderRadius: '6px',
+    color: '#F0F4F8',
+    fontSize: '14px',
+    padding: '6px 12px',
+    cursor: 'pointer',
+    minWidth: '160px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    textAlign: 'left' as const,
+  },
+  dropdown: {
+    position: 'absolute' as const,
+    top: '100%',
+    left: '0',
+    marginTop: '4px',
+    background: '#1E293B',
+    border: '1px solid #334155',
+    borderRadius: '6px',
+    minWidth: '200px',
+    maxHeight: '240px',
+    overflowY: 'auto' as const,
+    zIndex: 50,
+    boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+  },
+  dropdownItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '8px 12px',
+    fontSize: '13px',
+    color: '#F0F4F8',
+    cursor: 'pointer',
+    transition: 'background 0.1s',
+  },
+  dropdownItemHover: {
+    background: 'rgba(6, 182, 212, 0.1)',
+  },
+  checkBox: {
+    width: '16px',
+    height: '16px',
+    borderRadius: '3px',
+    border: '1px solid #475569',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  checkBoxChecked: {
+    width: '16px',
+    height: '16px',
+    borderRadius: '3px',
+    border: '1px solid #06B6D4',
+    background: '#06B6D4',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
 }
 
 function formatTime(date: Date): string {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+}
+
+interface AgentMultiSelectProps {
+  availableAgents: string[]
+  selectedAgents: string[]
+  onToggle: (agentId: string) => void
+  loading?: boolean
+}
+
+function AgentMultiSelect({ availableAgents, selectedAgents, onToggle, loading }: AgentMultiSelectProps) {
+  const [open, setOpen] = useState(false)
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const displayLabel =
+    selectedAgents.length === 0
+      ? 'All Agents'
+      : selectedAgents.length === 1
+        ? selectedAgents[0]
+        : `${selectedAgents.length} agents`
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button
+        style={styles.multiSelectTrigger}
+        onClick={() => setOpen((v) => !v)}
+        type="button"
+      >
+        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {displayLabel}
+        </span>
+        <ChevronDown size={14} style={{ color: '#78909C', flexShrink: 0 }} />
+      </button>
+
+      {open && (
+        <div style={styles.dropdown}>
+          {loading ? (
+            <div style={{ padding: '16px', fontSize: '13px', color: '#78909C' }}>Loading agents...</div>
+          ) : availableAgents.length === 0 ? (
+            <div style={{ padding: '16px', fontSize: '13px', color: '#78909C' }}>No agents found</div>
+          ) : (
+            availableAgents.map((agent, idx) => {
+              const isChecked = selectedAgents.includes(agent)
+              return (
+                <div
+                  key={agent}
+                  style={{
+                    ...styles.dropdownItem,
+                    ...(hoveredIdx === idx ? styles.dropdownItemHover : {}),
+                  }}
+                  onMouseEnter={() => setHoveredIdx(idx)}
+                  onMouseLeave={() => setHoveredIdx(null)}
+                  onClick={() => onToggle(agent)}
+                >
+                  <div style={isChecked ? styles.checkBoxChecked : styles.checkBox}>
+                    {isChecked && <Check size={12} color="#0F172A" />}
+                  </div>
+                  <span>{agent}</span>
+                </div>
+              )
+            })
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function GraphToolbar({
@@ -111,9 +251,13 @@ export default function GraphToolbar({
   autoRefresh,
   onAutoRefreshChange,
   lastUpdated,
+  activeTab,
 }: GraphToolbarProps) {
   const { serviceName, setServiceName, availableAgents, loadingAgents } = useAgentContext()
+  const { selectedAgents, toggleAgent, groupByAgent, setGroupByAgent } = useDashboardFilters()
+
   const canLoad = !loading && filters.projectId.trim().length > 0
+  const agentNames = availableAgents.map(a => a.serviceName)
 
   const handleToggle = () => {
     onChange({ ...filters, errorsOnly: !filters.errorsOnly })
@@ -121,107 +265,161 @@ export default function GraphToolbar({
 
   return (
     <div style={styles.bar}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <Bot size={16} color="#06B6D4" />
-        <select
-          style={{ ...styles.select, fontFamily: "'JetBrains Mono', monospace" }}
-          value={serviceName}
-          onChange={(e) => setServiceName(e.target.value)}
-          disabled={loadingAgents || availableAgents.length === 0}
-        >
-          {loadingAgents ? (
-            <option value={serviceName}>Loading agents...</option>
-          ) : availableAgents.length === 0 ? (
-            <option value={serviceName}>{serviceName}</option>
+      {/* Agent Selector / Multi-select */}
+      {activeTab !== 'agents' && activeTab !== 'tools' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Bot size={16} color="#06B6D4" />
+
+          {activeTab === 'dashboard' ? (
+            <AgentMultiSelect
+              availableAgents={agentNames}
+              selectedAgents={selectedAgents}
+              onToggle={toggleAgent}
+              loading={loadingAgents}
+            />
           ) : (
-            availableAgents.map((a) => (
-              <option key={a.serviceName} value={a.serviceName}>
-                {a.serviceName}
-              </option>
-            ))
+              <select
+                style={{ ...styles.select, fontFamily: "'JetBrains Mono', monospace" }}
+                value={serviceName}
+                onChange={(e) => setServiceName(e.target.value)}
+                disabled={loadingAgents || availableAgents.length === 0}
+              >
+                {loadingAgents ? (
+                  <option value={serviceName}>Loading agents...</option>
+                ) : availableAgents.length === 0 ? (
+                  <option value={serviceName}>{serviceName}</option>
+                ) : (
+                  availableAgents.map((a) => (
+                    <option key={a.serviceName} value={a.serviceName}>
+                      {a.serviceName}
+                    </option>
+                  ))
+                )}
+              </select>
           )}
-        </select>
-      </div>
+        </div>
+      )}
+
+      {/* Group by Agent Toggle (Dashboard Only) */}
+      {activeTab === 'dashboard' && (
+        <div
+          style={styles.toggleContainer}
+          onClick={() => setGroupByAgent(!groupByAgent)}
+          role="switch"
+          aria-checked={groupByAgent}
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              setGroupByAgent(!groupByAgent)
+            }
+          }}
+        >
+          <div
+            style={{
+              ...styles.toggleTrack,
+              background: groupByAgent ? '#06B6D4' : '#334155',
+            }}
+          >
+            <div
+              style={{
+                ...styles.toggleThumb,
+                left: groupByAgent ? '25px' : '3px',
+              }}
+            />
+          </div>
+          <span
+            style={{
+              ...styles.toggleLabel,
+              color: groupByAgent ? '#06B6D4' : '#78909C',
+            }}
+          >
+            Group by Agent
+          </span>
+        </div>
+      )}
 
       <TimeRangeSelector filters={filters} onChange={onChange} />
 
-      {/* Errors-only pill toggle */}
-      <div
-        style={styles.toggleContainer}
-        onClick={handleToggle}
-        role="switch"
-        aria-checked={filters.errorsOnly}
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault()
-            handleToggle()
-          }
-        }}
-      >
+      {(activeTab === 'topology' || activeTab === 'trajectory') && (
         <div
-          style={{
-            ...styles.toggleTrack,
-            background: filters.errorsOnly ? '#FF5252' : '#334155',
+          style={styles.toggleContainer}
+          onClick={handleToggle}
+          role="switch"
+          aria-checked={filters.errorsOnly}
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              handleToggle()
+            }
           }}
         >
           <div
             style={{
-              ...styles.toggleThumb,
-              left: filters.errorsOnly ? '25px' : '3px',
+              ...styles.toggleTrack,
+              background: filters.errorsOnly ? '#FF5252' : '#334155',
             }}
-          />
+          >
+            <div
+              style={{
+                ...styles.toggleThumb,
+                left: filters.errorsOnly ? '25px' : '3px',
+              }}
+            />
+          </div>
+          <span
+            style={{
+              ...styles.toggleLabel,
+              color: filters.errorsOnly ? '#FF5252' : '#78909C',
+            }}
+          >
+            Errors Only
+          </span>
         </div>
-        <span
-          style={{
-            ...styles.toggleLabel,
-            color: filters.errorsOnly ? '#FF5252' : '#78909C',
-          }}
-        >
-          Errors Only
-        </span>
-      </div>
+      )}
 
-      {/* Auto-Refresh pill toggle */}
-      <div
-        style={styles.toggleContainer}
-        onClick={() =>
-          onAutoRefreshChange({ ...autoRefresh, enabled: !autoRefresh.enabled })
-        }
-        role="switch"
-        aria-checked={autoRefresh.enabled}
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault()
+      {(activeTab === 'dashboard' || activeTab === 'topology' || activeTab === 'trajectory') && (
+        <div
+          style={styles.toggleContainer}
+          onClick={() =>
             onAutoRefreshChange({ ...autoRefresh, enabled: !autoRefresh.enabled })
           }
-        }}
-      >
-        <div
-          style={{
-            ...styles.toggleTrack,
-            background: autoRefresh.enabled ? '#06B6D4' : '#334155',
+          role="switch"
+          aria-checked={autoRefresh.enabled}
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              onAutoRefreshChange({ ...autoRefresh, enabled: !autoRefresh.enabled })
+            }
           }}
         >
           <div
             style={{
-              ...styles.toggleThumb,
-              left: autoRefresh.enabled ? '25px' : '3px',
+              ...styles.toggleTrack,
+              background: autoRefresh.enabled ? '#06B6D4' : '#334155',
             }}
-          />
+          >
+            <div
+              style={{
+                ...styles.toggleThumb,
+                left: autoRefresh.enabled ? '25px' : '3px',
+              }}
+            />
+          </div>
+          <span
+            style={{
+              ...styles.toggleLabel,
+              color: autoRefresh.enabled ? '#06B6D4' : '#78909C',
+            }}
+          >
+            Auto-Refresh
+          </span>
         </div>
-        <span
-          style={{
-            ...styles.toggleLabel,
-            color: autoRefresh.enabled ? '#06B6D4' : '#78909C',
-          }}
-        >
-          Auto-Refresh
-        </span>
-      </div>
+      )}
 
-      {autoRefresh.enabled && (
+      {(activeTab === 'dashboard' || activeTab === 'topology' || activeTab === 'trajectory') && autoRefresh.enabled && (
         <>
           <select
             style={styles.select}
@@ -245,13 +443,15 @@ export default function GraphToolbar({
         </>
       )}
 
-      <button
-        style={canLoad ? styles.loadButton : styles.loadButtonDisabled}
-        onClick={onLoad}
-        disabled={!canLoad}
-      >
-        {loading ? 'Loading...' : 'Load'}
-      </button>
+      {activeTab !== 'agents' && activeTab !== 'tools' && (
+        <button
+          style={canLoad ? styles.loadButton : styles.loadButtonDisabled}
+          onClick={onLoad}
+          disabled={!canLoad}
+        >
+          {loading ? 'Loading...' : 'Load'}
+        </button>
+      )}
     </div>
   )
 }

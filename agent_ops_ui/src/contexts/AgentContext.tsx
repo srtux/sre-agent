@@ -36,12 +36,16 @@ export function AgentProvider({ children, projectId }: { children: ReactNode, pr
 
   useEffect(() => {
     if (agentsData?.agents && agentsData.agents.length > 0) {
-      setAvailableAgents(agentsData.agents);
+      // Deduplicate by serviceName
+      const uniqueAgents = agentsData.agents.filter((agent, index, self) =>
+        index === self.findIndex((a) => a.serviceName === agent.serviceName)
+      );
+      setAvailableAgents(uniqueAgents);
 
       setServiceName(prevServiceName => {
-        const currentExists = agentsData.agents.some(a => a.serviceName === prevServiceName);
+        const currentExists = uniqueAgents.some(a => a.serviceName === prevServiceName);
         if (!currentExists) {
-          const highestVolumeAgent = agentsData.agents.reduce((prev, current) =>
+          const highestVolumeAgent = uniqueAgents.reduce((prev, current) =>
             (prev.totalSessions > current.totalSessions) ? prev : current
           );
           const defaultName = highestVolumeAgent.serviceName;

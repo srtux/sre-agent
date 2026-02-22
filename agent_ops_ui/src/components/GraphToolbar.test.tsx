@@ -17,7 +17,11 @@ const mockOnAutoRefreshChange = vi.fn()
 vi.mock('../contexts/AgentContext', () => ({
   useAgentContext: vi.fn(),
 }))
+vi.mock('../contexts/DashboardFilterContext', () => ({
+  useDashboardFilters: vi.fn(),
+}))
 import { useAgentContext } from '../contexts/AgentContext'
+import { useDashboardFilters } from '../contexts/DashboardFilterContext'
 
 const mockAgentContextValue = {
   projectId: 'test-project',
@@ -31,10 +35,22 @@ const mockAgentContextValue = {
   errorAgents: null,
 }
 
+const mockDashboardFilterValue = {
+  timeRange: '24h' as const,
+  selectedAgents: [],
+  setSelectedAgents: vi.fn(),
+  toggleAgent: vi.fn(),
+  groupByAgent: false,
+  setGroupByAgent: vi.fn(),
+  resetFilters: vi.fn(),
+  setTimeRange: vi.fn(),
+}
+
 describe('GraphToolbar', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(useAgentContext).mockReturnValue(mockAgentContextValue)
+    vi.mocked(useDashboardFilters).mockReturnValue(mockDashboardFilterValue)
   })
 
   it('renders Agent Selector and Time Range', () => {
@@ -47,6 +63,7 @@ describe('GraphToolbar', () => {
         autoRefresh={{ enabled: false, intervalSeconds: 60 }}
         onAutoRefreshChange={mockOnAutoRefreshChange}
         lastUpdated={null}
+        activeTab="topology"
       />
     )
 
@@ -67,6 +84,7 @@ describe('GraphToolbar', () => {
         autoRefresh={{ enabled: false, intervalSeconds: 60 }}
         onAutoRefreshChange={mockOnAutoRefreshChange}
         lastUpdated={null}
+        activeTab="topology"
       />
     )
 
@@ -85,6 +103,7 @@ describe('GraphToolbar', () => {
         autoRefresh={{ enabled: false, intervalSeconds: 60 }}
         onAutoRefreshChange={mockOnAutoRefreshChange}
         lastUpdated={null}
+        activeTab="topology"
       />
     )
 
@@ -99,9 +118,44 @@ describe('GraphToolbar', () => {
         autoRefresh={{ enabled: false, intervalSeconds: 60 }}
         onAutoRefreshChange={mockOnAutoRefreshChange}
         lastUpdated={null}
+        activeTab="topology"
       />
     )
 
     expect(screen.getByText('Loading...')).toHaveProperty('disabled', true)
+  })
+
+  it('hides Agent Selector and Load button on agents or tools tab', () => {
+    const { rerender } = render(
+      <GraphToolbar
+        filters={mockFilters}
+        onChange={mockOnChange}
+        onLoad={mockOnLoad}
+        loading={false}
+        autoRefresh={{ enabled: false, intervalSeconds: 60 }}
+        onAutoRefreshChange={mockOnAutoRefreshChange}
+        lastUpdated={null}
+        activeTab="agents"
+      />
+    )
+
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+    expect(screen.queryByText('Load')).not.toBeInTheDocument()
+
+    rerender(
+      <GraphToolbar
+        filters={mockFilters}
+        onChange={mockOnChange}
+        onLoad={mockOnLoad}
+        loading={false}
+        autoRefresh={{ enabled: false, intervalSeconds: 60 }}
+        onAutoRefreshChange={mockOnAutoRefreshChange}
+        lastUpdated={null}
+        activeTab="tools"
+      />
+    )
+
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+    expect(screen.queryByText('Load')).not.toBeInTheDocument()
   })
 })

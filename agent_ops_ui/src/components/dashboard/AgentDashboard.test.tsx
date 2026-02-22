@@ -18,11 +18,6 @@ vi.mock('../../contexts/AgentContext', () => ({
 }))
 
 // Mock child components to isolate the layout test
-vi.mock('./DashboardToolbar', () => ({
-  default: function MockToolbar() {
-    return <div data-testid="dashboard-toolbar">Toolbar</div>
-  },
-}))
 
 vi.mock('./panels/KpiGrid', () => ({
   default: function MockKpiGrid() {
@@ -64,11 +59,6 @@ describe('AgentDashboard', () => {
     vi.clearAllMocks()
   })
 
-  it('renders the toolbar', () => {
-    renderWithQuery(<AgentDashboard />)
-    expect(screen.getByTestId('dashboard-toolbar')).toBeInTheDocument()
-  })
-
   it('renders the KPI grid section', () => {
     renderWithQuery(<AgentDashboard />)
     expect(screen.getByTestId('kpi-grid')).toBeInTheDocument()
@@ -92,14 +82,12 @@ describe('AgentDashboard', () => {
   it('renders all sections in correct order', () => {
     renderWithQuery(<AgentDashboard />)
 
-    const toolbar = screen.getByTestId('dashboard-toolbar')
     const kpi = screen.getByTestId('kpi-grid')
     const metrics = screen.getByTestId('interaction-metrics')
     const modelTool = screen.getByTestId('model-tool-panel')
     const logs = screen.getByTestId('agent-logs-panel')
 
     // All sections should be present
-    expect(toolbar).toBeInTheDocument()
     expect(kpi).toBeInTheDocument()
     expect(metrics).toBeInTheDocument()
     expect(modelTool).toBeInTheDocument()

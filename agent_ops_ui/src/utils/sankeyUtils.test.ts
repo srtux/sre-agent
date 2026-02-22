@@ -81,4 +81,62 @@ describe('removeCyclicLinks', () => {
     expect(result.links.find((l) => l.source === 'D' && l.target === 'E')).toBeDefined()
     expect(result.links.find((l) => l.source === 'E' && l.target === 'D')).toBeUndefined()
   })
+
+  it('handles self-loops correctly without infinite recursion', () => {
+    const data: SankeyResponse = {
+      nodes: [{ id: 'A', nodeColor: '#000' }],
+      links: [{ source: 'A', target: 'A', value: 1 }],
+    }
+    const result = removeCyclicLinks(data)
+    expect(result.nodes).toHaveLength(1)
+    expect(result.links).toHaveLength(0)
+  })
+
+  it('handles nested cycles correctly', () => {
+    // A -> B -> C -> A
+    //      B -> D -> B
+    const data: SankeyResponse = {
+      nodes: [
+        { id: 'A', nodeColor: '#000' },
+        { id: 'B', nodeColor: '#000' },
+        { id: 'C', nodeColor: '#000' },
+        { id: 'D', nodeColor: '#000' },
+      ],
+      links: [
+        { source: 'A', target: 'B', value: 1 },
+        { source: 'B', target: 'C', value: 1 },
+        { source: 'C', target: 'A', value: 1 },
+        { source: 'B', target: 'D', value: 1 },
+        { source: 'D', target: 'B', value: 1 },
+      ],
+    }
+    const result = removeCyclicLinks(data)
+    expect(result.links.length).toBeLessThan(data.links.length)
+    // We expect at least A->B, B->C, B->D to be kept if we start at A
+    // C->A and D->B are back-edges
+  })
+
+  it('handles a figure-8 cycle', () => {
+    // A -> B -> C -> A
+    // C -> D -> E -> C
+    const data: SankeyResponse = {
+      nodes: [
+        { id: 'A', nodeColor: '#000' },
+        { id: 'B', nodeColor: '#000' },
+        { id: 'C', nodeColor: '#000' },
+        { id: 'D', nodeColor: '#000' },
+        { id: 'E', nodeColor: '#000' },
+      ],
+      links: [
+        { source: 'A', target: 'B', value: 1 },
+        { source: 'B', target: 'C', value: 1 },
+        { source: 'C', target: 'A', value: 1 },
+        { source: 'C', target: 'D', value: 1 },
+        { source: 'D', target: 'E', value: 1 },
+        { source: 'E', target: 'C', value: 1 },
+      ],
+    }
+    const result = removeCyclicLinks(data)
+    expect(result.links.length).toBe(4) // A->B, B->C, C->D, D->E
+  })
 })

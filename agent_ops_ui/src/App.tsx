@@ -14,11 +14,11 @@ import type {
   GraphFilters,
   AutoRefreshConfig,
   TimeSeriesData,
+  Tab,
 } from './types'
 import RegistryPage from './components/RegistryPage'
 import AgentDashboard from './components/dashboard/AgentDashboard'
-
-type Tab = 'agents' | 'tools' | 'topology' | 'trajectory' | 'dashboard'
+import { DashboardFilterProvider } from './contexts/DashboardFilterContext'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -313,19 +313,28 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
       <div style={styles.tabBar}>
         <button
           style={activeTab === 'agents' ? styles.tabActive : styles.tab}
-          onClick={() => setActiveTab('agents')}
+          onClick={() => {
+            setActiveTab('agents')
+            setFilters(prev => ({ ...prev, hours: 720 }))
+          }}
         >
           Agents
         </button>
         <button
           style={activeTab === 'tools' ? styles.tabActive : styles.tab}
-          onClick={() => setActiveTab('tools')}
+          onClick={() => {
+            setActiveTab('tools')
+            setFilters(prev => ({ ...prev, hours: 720 }))
+          }}
         >
           Tools
         </button>
         <button
           style={activeTab === 'dashboard' ? styles.tabActive : styles.tab}
-          onClick={() => setActiveTab('dashboard')}
+          onClick={() => {
+            setActiveTab('dashboard')
+            setFilters(prev => ({ ...prev, hours: 24 }))
+          }}
         >
           Dashboard
         </button>
@@ -334,6 +343,7 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
           onClick={() => {
             if (activeTab !== 'topology') fetchAll(false)
             setActiveTab('topology')
+            setFilters(prev => ({ ...prev, hours: 24 }))
           }}
         >
           Agent Graph
@@ -343,23 +353,23 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
           onClick={() => {
             if (activeTab !== 'trajectory') fetchAll(false)
             setActiveTab('trajectory')
+            setFilters(prev => ({ ...prev, hours: 24 }))
           }}
         >
           Trajectory Flow
         </button>
       </div>
 
-      {activeTab !== 'dashboard' && (
-        <GraphToolbar
-          filters={{ ...filters, serviceName }}
-          onChange={setFilters}
-          onLoad={handleLoad}
-          loading={isLoading}
-          autoRefresh={autoRefresh}
-          onAutoRefreshChange={setAutoRefresh}
-          lastUpdated={lastUpdated}
-        />
-      )}
+      <GraphToolbar
+        filters={{ ...filters, serviceName }}
+        onChange={setFilters}
+        onLoad={handleLoad}
+        loading={isLoading}
+        autoRefresh={autoRefresh}
+        onAutoRefreshChange={setAutoRefresh}
+        lastUpdated={lastUpdated}
+        activeTab={activeTab}
+      />
 
       <div style={styles.content}>
         {error && !needsSetup && <div style={styles.error}>{error}</div>}
@@ -478,7 +488,18 @@ function App() {
     const urlProjectId = params.get('project_id')
     const urlTimeRange = params.get('time_range')
 
-    let hours: number = 24
+    const initialTab = (() => {
+      const p = new URLSearchParams(window.location.search)
+      const tId = p.get('trace_id')
+      const tTab = p.get('tab')
+      if (tId) return 'trajectory'
+      if (tTab === 'topology' || tTab === 'trajectory' || tTab === 'agents' || tTab === 'tools' || tTab === 'dashboard') {
+        return tTab as Tab
+      }
+      return 'agents'
+    })()
+
+    let hours: number = (initialTab === 'agents' || initialTab === 'tools') ? 720 : 24
     if (urlTimeRange) {
       const parsed = parseTimeRange(urlTimeRange)
       if (parsed !== null) {
@@ -497,12 +518,14 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AgentProvider projectId={filters.projectId}>
-        <AppContent
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          filters={filters}
-          setFilters={setFilters}
-        />
+        <DashboardFilterProvider>
+          <AppContent
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            filters={filters}
+            setFilters={setFilters}
+          />
+        </DashboardFilterProvider>
       </AgentProvider>
     </QueryClientProvider>
   )
