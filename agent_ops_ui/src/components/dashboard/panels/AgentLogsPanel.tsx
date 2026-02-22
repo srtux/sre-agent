@@ -110,36 +110,83 @@ const logColumns: ColumnDef<AgentLogRow, unknown>[] = [
   {
     accessorKey: 'message',
     header: 'Message',
-    cell: ({ getValue }) => (
-      <span
-        title={getValue() as string}
-        style={{
-          display: 'block',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          maxWidth: '100%',
-        }}
-      >
-        {getValue() as string}
-      </span>
-    ),
+    cell: ({ getValue }) => {
+      const msg = getValue() as string
+      const parts = msg.split('|').map(s => s.trim())
+      return (
+        <span
+          title={parts[0]}
+          style={{
+            display: 'block',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            maxWidth: '100%',
+          }}
+        >
+          {parts[0]}
+        </span>
+      )
+    },
+  },
+  {
+    id: 'latency',
+    header: 'Latency',
+    size: 100,
+    cell: ({ row }) => {
+      const msg = row.original.message
+      const parts = msg.split('|').map(s => s.trim())
+      // Check if the part is exclusively a latency string like '120ms' or '2s'
+      const latencyPart = parts.find(p => /^[\d.]+(ms|s)$/i.test(p))
+      return (
+        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>
+          {latencyPart || '-'}
+        </span>
+      )
+    },
+  },
+  {
+    id: 'tokens',
+    header: 'Tokens',
+    size: 100,
+    cell: ({ row }) => {
+      const msg = row.original.message
+      const parts = msg.split('|').map(s => s.trim())
+      const tokensPart = parts.find(p => p.toLowerCase().endsWith('tokens'))
+      return (
+        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>
+          {tokensPart ? tokensPart.replace(/ tokens/i, '') : '-'}
+        </span>
+      )
+    },
   },
   {
     accessorKey: 'traceId',
     header: 'Trace ID',
     size: 140,
-    cell: ({ getValue }) => (
-      <span
-        style={{
-          fontFamily: "'JetBrains Mono', monospace",
-          fontSize: '11px',
-          color: '#78909C',
-        }}
-      >
-        {(getValue() as string).slice(0, 12)}...
-      </span>
-    ),
+    cell: ({ getValue }) => {
+      const traceId = getValue() as string
+      return (
+        <span
+          onClick={() => {
+            window.parent.postMessage(
+              JSON.stringify({ type: 'OPEN_TRACE', traceId }),
+              '*'
+            )
+          }}
+          style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: '11px',
+            color: '#06B6D4',
+            cursor: 'pointer',
+            textDecoration: 'underline',
+          }}
+          title="Open in Trace Explorer"
+        >
+          {traceId.slice(0, 12)}...
+        </span>
+      )
+    },
   },
 ]
 
@@ -156,14 +203,14 @@ export default function AgentLogsPanel({ hours }: { hours: number }) {
 
   return (
     <div style={styles.wrapper}>
-      <div style={styles.header}>Agent Logs</div>
+      <div style={styles.header}>Agent Traces</div>
       <VirtualizedDataTable<AgentLogRow>
         data={logData}
         columns={logColumns}
         maxHeight={500}
         estimatedRowHeight={36}
         loading={isLoading}
-        emptyMessage="No logs available"
+        emptyMessage="No traces available"
       />
     </div>
   )

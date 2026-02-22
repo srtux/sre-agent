@@ -62,15 +62,17 @@ Two side-by-side virtualized data tables (responsive — stacks on mobile):
 
 Both tables support sorting by clicking column headers and are virtualized for efficient rendering of 1000+ rows.
 
-### Section 4: Agent Logs
+### Section 4: Agent Traces
 
-A full-width virtualized log table showing:
+A full-width virtualized table showing the stream of agent activity with deep-linking to the trace explorer:
 
 - **Timestamp**: Log entry time (formatted by locale)
 - **Agent**: Which agent generated the log
 - **Severity**: Color-coded badge (INFO/WARNING/ERROR/DEBUG)
-- **Message**: Log message (truncated with ellipsis, full text on hover)
-- **Trace ID**: First 12 characters of the trace ID for cross-referencing
+- **Message**: Core message content (parsed from the log span)
+- **Latency**: Duration of the agent step (e.g., `120ms`)
+- **Tokens**: AI token consumption for this step
+- **Trace ID**: Clickable unique identifier that navigates directly to the **Trace Explorer** waterfall for that specific trace.
 
 ## Technical Details
 

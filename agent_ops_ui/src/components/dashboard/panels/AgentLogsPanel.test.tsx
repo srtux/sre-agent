@@ -63,14 +63,14 @@ const mockData: DashboardTablesData = {
       timestamp: '2026-02-21T10:30:00.000Z',
       agentId: 'root-orchestrator',
       severity: 'INFO',
-      message: 'Starting investigation for incident INC-4821',
+      message: 'Starting investigation for incident INC-4821 | 120ms | 350 tokens',
       traceId: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6', // pragma: allowlist secret
     },
     {
       timestamp: '2026-02-21T10:29:55.000Z',
       agentId: 'trace-analyst',
       severity: 'ERROR',
-      message: 'Circuit breaker OPEN for tool fetch_metrics after 3 failures',
+      message: 'Circuit breaker OPEN for tool fetch_metrics after 3 failures | 2000ms | 1000 tokens',
       traceId: 'f1e2d3c4b5a6f7e8d9c0b1a2f3e4d5c6', // pragma: allowlist secret
     },
     {
@@ -84,7 +84,7 @@ const mockData: DashboardTablesData = {
       timestamp: '2026-02-21T10:29:45.000Z',
       agentId: 'council-synthesizer',
       severity: 'DEBUG',
-      message: 'Synthesizer merged findings from 5 panels with confidence 0.87',
+      message: 'Synthesizer merged findings from 5 panels with confidence 0.87 | 500ms',
       traceId: 'abcdef1234567890abcdef1234567890', // pragma: allowlist secret
     },
   ],
@@ -120,7 +120,7 @@ describe('AgentLogsPanel', () => {
     } as ReturnType<typeof useDashboardTables>)
 
     renderWithProviders(<AgentLogsPanel hours={24} />)
-    expect(screen.getByText('Agent Logs')).toBeInTheDocument()
+    expect(screen.getByText('Agent Traces')).toBeInTheDocument()
   })
 
   it('renders error state', () => {
@@ -189,6 +189,21 @@ describe('AgentLogsPanel', () => {
 
     // 'a1b2c3d4e5f6' is first 12 chars of first trace ID // pragma: allowlist secret
     expect(screen.getByText('a1b2c3d4e5f6...')).toBeInTheDocument()
+  })
+
+  it('renders latency and token columns', () => {
+    vi.mocked(useDashboardTables).mockReturnValue({
+      data: mockData,
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useDashboardTables>)
+
+    renderWithProviders(<AgentLogsPanel hours={24} />)
+
+    expect(screen.getByText('120ms')).toBeInTheDocument()
+    expect(screen.getByText('350')).toBeInTheDocument()
+    expect(screen.getByText('2000ms')).toBeInTheDocument()
+    expect(screen.getByText('1000')).toBeInTheDocument()
   })
 
   it('shows row count in footer', () => {
