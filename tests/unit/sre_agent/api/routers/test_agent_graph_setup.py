@@ -28,7 +28,7 @@ async def test_check_observability_bucket(client: AsyncClient):
         "sre_agent.api.routers.agent_graph_setup.httpx.AsyncClient"
     ) as mock_client_class:
         mock_instance = mock_client_class.return_value.__aenter__.return_value
-        mock_response = MagicMock()
+        mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 200
         mock_response.json.return_value = {
             "observabilityBuckets": [
@@ -61,7 +61,7 @@ async def test_check_observability_bucket_not_found(client: AsyncClient):
         "sre_agent.api.routers.agent_graph_setup.httpx.AsyncClient"
     ) as mock_client_class:
         mock_instance = mock_client_class.return_value.__aenter__.return_value
-        mock_response = MagicMock()
+        mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 404
         mock_response.text = "Not Found"
         # Simulate HTTTPX HTTPStatusError for 404
@@ -100,7 +100,7 @@ async def test_link_dataset(client: AsyncClient):
         mock_bq.return_value = mock_bq_instance
 
         # Mock Observation API response
-        mock_response = MagicMock()
+        mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 200
         mock_response.json.return_value = {
             "name": "operations/test-op",
@@ -138,7 +138,7 @@ async def test_link_dataset_already_exists(client: AsyncClient):
         mock_bq_instance = MagicMock()
         mock_bq.return_value = mock_bq_instance
 
-        mock_response = MagicMock()
+        mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 409  # Already exists
         mock_response.text = "Conflict"
         mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
@@ -171,7 +171,7 @@ async def test_lro_status(client: AsyncClient):
         ),
     ):
         mock_instance = mock_client_class.return_value.__aenter__.return_value
-        mock_response = MagicMock()
+        mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 200
         mock_response.json.return_value = {"done": True, "response": {}}
         mock_instance.get = AsyncMock(return_value=mock_response)
