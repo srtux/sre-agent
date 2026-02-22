@@ -6,6 +6,7 @@ import type {
   RegistryAgent,
   RegistryTool,
 } from '../types'
+import { useAgentContext } from '../contexts/AgentContext'
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
@@ -145,6 +146,7 @@ interface Props {
 }
 
 export default function RegistryPage({ filters, mode, onSelectAgent }: Props) {
+  const { availableAgents } = useAgentContext()
   const params: Record<string, string | number> = {
     project_id: filters.projectId,
     hours: filters.hours,
@@ -181,14 +183,25 @@ export default function RegistryPage({ filters, mode, onSelectAgent }: Props) {
     if (error) return <div style={{ ...styles.loading, ...styles.error }}>{errorMessage}</div>
 
     if (agents.length === 0) {
-      return (
-        <div style={styles.emptyState}>
-          <h3 style={{ margin: '0 0 8px 0', color: '#F8FAFC' }}>No Agents Found</h3>
-          <p style={{ margin: '0 0 16px 0', color: '#94A3B8', maxWidth: '400px' }}>
-            We couldn't find any agent telemetry for this time range. Ensure your application is instrumented with the OpenTelemetry GenAI SDK and using <code>cloud.platform="gcp.agent_engine"</code>.
-          </p>
-        </div>
-      )
+      if (availableAgents.length > 0) {
+        return (
+          <div style={styles.emptyState}>
+            <h3 style={{ margin: '0 0 8px 0', color: '#F8FAFC' }}>No Agents Found</h3>
+            <p style={{ margin: '0 0 16px 0', color: '#94A3B8', maxWidth: '400px' }}>
+              We couldn't find any agent telemetry for this time range. Try expanding your time window (e.g. to Last 7 days).
+            </p>
+          </div>
+        )
+      } else {
+        return (
+          <div style={styles.emptyState}>
+            <h3 style={{ margin: '0 0 8px 0', color: '#F8FAFC' }}>No Agents Found</h3>
+            <p style={{ margin: '0 0 16px 0', color: '#94A3B8', maxWidth: '400px' }}>
+              We couldn't find any agent telemetry for this time range. Ensure your application is instrumented with the OpenTelemetry GenAI SDK and using <code>cloud.platform="gcp.agent_engine"</code>.
+            </p>
+          </div>
+        )
+      }
     }
 
     return (
@@ -250,7 +263,9 @@ export default function RegistryPage({ filters, mode, onSelectAgent }: Props) {
         <div style={styles.emptyState}>
           <h3 style={{ margin: '0 0 8px 0', color: '#F8FAFC' }}>No Tools Found</h3>
           <p style={{ margin: '0 0 16px 0', color: '#94A3B8', maxWidth: '400px' }}>
-            We couldn't find any tool execution telemetry for this time range.
+            {availableAgents.length > 0
+              ? "We couldn't find any tool execution telemetry for this time range. Try expanding your time window."
+              : "We couldn't find any tool execution telemetry for this time range."}
           </p>
         </div>
       )
