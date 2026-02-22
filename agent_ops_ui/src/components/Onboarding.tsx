@@ -8,7 +8,7 @@ interface OnboardingProps {
   error: string | null;
 }
 
-type Phase = 'init' | 'bucket_check' | 'link_dataset' | 'poll_lro' | 'verify_bq' | 'schema_exec' | 'success' | 'manual_input';
+type Phase = 'init' | 'bucket_check' | 'link_dataset' | 'poll_lro' | 'poll_verify' | 'verify_bq' | 'schema_exec' | 'success' | 'manual_input';
 
 interface SchemaStep {
   name: string;
@@ -62,6 +62,19 @@ export default function Onboarding({ projectId, onSetup, loading: globalLoading,
     hasStartedRef.current = true;
     safeSetState<Phase>(setPhase, 'bucket_check');
     safeSetState<string | null>(setErrorMsg, null);
+
+    const savedSteps = localStorage.getItem(`agent_ops_schema_steps_${projectId}_${dataset}`);
+    if (savedSteps) {
+      try {
+        const parsed = JSON.parse(savedSteps);
+        if (Array.isArray(parsed) && parsed.length === SCHEMA_STEPS.length) {
+          const cleanParsed = parsed.map(s => s.status === 'success' ? s : { ...s, status: 'pending', error: undefined, retryable: undefined });
+          safeSetState(setSchemaSteps, cleanParsed);
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
 
     try {
       // 1. Bucket Check
@@ -148,10 +161,8 @@ export default function Onboarding({ projectId, onSetup, loading: globalLoading,
           safeSetState<Phase>(setPhase, 'manual_input');
         } else {
           // LRO Done! Give BQ a few seconds to propagate
-          setTimeout(() => {
-            safeSetState<Phase>(setPhase, 'schema_exec');
-            runSchemaSteps();
-          }, 5000)
+          safeSetState<Phase>(setPhase, 'poll_verify');
+          setTimeout(pollVerify, 10000);
         }
       } else {
         // Poll again in 3s
@@ -162,12 +173,40 @@ export default function Onboarding({ projectId, onSetup, loading: globalLoading,
     }
   }
 
+  const pollVerify = async () => {
+    if (!isComponentMounted.current) return;
+    try {
+      await axios.get('/api/v1/graph/setup/verify', {
+        params: { project_id: projectId, dataset_id: dataset }
+      });
+      // Verified!
+      safeSetState<Phase>(setPhase, 'schema_exec');
+      runSchemaSteps();
+    } catch (e) {
+      if (axios.isAxiosError(e) && e.response?.status === 404) {
+        // Still not found, wait and retry
+        setTimeout(pollVerify, 10000);
+      } else {
+        handleError(e);
+      }
+    }
+  }
+
   const runSchemaSteps = async () => {
     if (!isComponentMounted.current) return;
     safeSetState<string | null>(setErrorMsg, null);
 
-    for (let i = 0; i < schemaSteps.length; i++) {
-      const step = schemaSteps[i];
+    let currentSteps = schemaSteps;
+    const saved = localStorage.getItem(`agent_ops_schema_steps_${projectId}_${dataset}`);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.length === SCHEMA_STEPS.length) currentSteps = parsed;
+      } catch (e) { }
+    }
+
+    for (let i = 0; i < currentSteps.length; i++) {
+      const step = currentSteps[i];
       if (step.status === 'success') continue;
 
       safeSetState(setSchemaSteps, prev => {
@@ -187,14 +226,14 @@ export default function Onboarding({ projectId, onSetup, loading: globalLoading,
         safeSetState(setSchemaSteps, prev => {
           const next = [...prev];
           next[i].status = 'success';
+          localStorage.setItem(`agent_ops_schema_steps_${projectId}_${dataset}`, JSON.stringify(next));
           return next;
         });
       } catch (e) {
         let detail = 'Unknown error';
-        let isRetryable = false;
+        const isRetryable = true; // Make ALL failed steps retryable
         if (axios.isAxiosError(e)) {
           detail = e.response?.data?.detail || e.message;
-          isRetryable = e.response?.status === 403;
         } else if (e instanceof Error) {
           detail = e.message;
         }
@@ -292,11 +331,13 @@ export default function Onboarding({ projectId, onSetup, loading: globalLoading,
           </div>
         )}
 
-        {phase === 'poll_lro' && (
+        {(phase === 'poll_lro' || phase === 'poll_verify') && (
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 0 8px 0' }}>
               {renderIcon('running')}
-              <span style={styles.desc}>Provisioning BigQuery Dataset Link (Takes 1-2 mins)...</span>
+              <span style={styles.desc}>
+                {phase === 'poll_lro' ? 'Provisioning BigQuery Dataset Link...' : 'Waiting for _AllSpans to propagate (Takes 1-2 mins)...'}
+              </span>
             </div>
             <div style={styles.progressBarBg}>
               <div style={styles.progressBarFill}></div>
@@ -320,9 +361,16 @@ export default function Onboarding({ projectId, onSetup, loading: globalLoading,
                       {step.retryable && (
                         <button
                           style={styles.retryButton}
-                          onClick={runSchemaSteps}
+                          onClick={() => {
+                            safeSetState(setSchemaSteps, prev => {
+                              const next = [...prev];
+                              next[idx].status = 'pending';
+                              return next;
+                            });
+                            runSchemaSteps();
+                          }}
                         >
-                          Permissions Granted, Retry
+                          Retry Failed Step
                         </button>
                       )}
                     </div>
