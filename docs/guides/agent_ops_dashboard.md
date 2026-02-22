@@ -83,6 +83,12 @@ Currently, the dashboard uses mock data generators for development. The hooks (`
 - `POST /api/dashboards/agents/models` — Model performance data
 - `POST /api/dashboards/agents/tools` — Tool performance data
 
+### Backend Caching
+
+The backend API routes for the Agent Graph (e.g. `/topology`, `/trajectories`, `/registry/agents`, `/registry/tools`) are decorated with a custom `@async_ttl_cache(ttl_seconds=300)` decorator found in `sre_agent/api/helpers/cache.py`.
+
+This TTL memory cache significantly reduces the load on BigQuery by reusing aggregated analytics results for up to 5 minutes, aligning with the default 30-second `staleTime` and background refetch behaviors of the React Query frontend.
+
 ### Dependencies
 
 - **React Query** (`@tanstack/react-query`): Data fetching, caching, background refetch
