@@ -58,6 +58,23 @@ System design documents explaining how Auto SRE is built.
 
 ---
 
+## AgentOps & Observability
+
+The human-facing operational surfaces for the multi-agent system.
+
+| Document | Description |
+|----------|-------------|
+| [AgentOps Index](agent_ops/README.md) | Central landing page for all AgentOps ecosystem documentation |
+| [AgentOps Dashboard](agent_ops/dashboard.md) | AgentOps Dashboard with KPIs, charts, model/tool tables, and agent logs |
+| [Observability Explorer](agent_ops/explorer_ui.md) | Observability Explorer dashboard usage and architecture |
+| [Multi-Agent Observability](agent_ops/observability_theory.md) | Theory on how Agent Graph, Dashboards, and logs empower operations |
+| [Agent Graph Architecture](agent_ops/architecture.md) | Reasoning trajectories, and BQ Property Graph implementation |
+| [BigQuery Graph Setup](agent_ops/bigquery_setup.md) | BigQuery Property Graph visualization and pre-aggregation instructions |
+| [BigQuery Schema Details](agent_ops/bq_schema.md) | OpenTelemetry payload extraction definitions |
+| [Legacy Dashboards](agent_ops/dashboards_legacy.md) | Perses dashboard fallback compatibility |
+
+---
+
 ## Core Concepts
 
 Philosophical and design documents explaining the "why" behind the architecture.
@@ -70,8 +87,6 @@ Philosophical and design documents explaining the "why" behind the architecture.
 | [Memory & State](concepts/memory.md) | How the agent persists context across sessions |
 | [Online Research & Self-Healing](concepts/online_research_and_self_healing.md) | Web search tools and autonomous self-improvement architecture |
 | [Auth Learnings](concepts/auth_learnings.md) | Evolution of the authentication system |
-| [Agent Graph](concepts/agent_graph.md) | Multi-agent observability theory, reasoning trajectories, and BQ Property Graph implementation |
-| [Multi-Agent Observability](concepts/multi_agent_observability.md) | How Agent Graph, AgentOps Dashboard, and Self-Analysis Tools provide observability for multi-agent AI systems |
 | [GCP Enhancements Roadmap](concepts/gcp_enhancements.md) | Vision for future capabilities |
 
 ---
@@ -88,11 +103,8 @@ Practical how-to instructions for developers.
 | [Testing Strategy](guides/testing.md) | Test levels, style guide, coverage requirements |
 | [Linting Rules](guides/linting.md) | Ruff, MyPy, codespell, deptry configuration |
 | [Evaluation Guide](guides/evaluation.md) | Agent quality benchmarking with ADK eval |
-| [Dashboard UI](guides/dashboard_ui.md) | Observability Explorer dashboard usage and architecture |
 | [Frontend Testing](guides/frontend_testing.md) | Flutter test strategy with Provider-based injection |
 | [Project Selector](guides/project_selector.md) | GCP project picker implementation and data flow |
-| [Agent Graph Setup](guides/bigquery_agent_graph_setup.md) | BigQuery Property Graph visualization and pre-aggregation |
-| [Agent Ops Dashboard](guides/agent_ops_dashboard.md) | AgentOps Dashboard with KPIs, charts, model/tool tables, and agent logs |
 
 ### Deployment
 | Guide | Description |

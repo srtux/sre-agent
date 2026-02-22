@@ -1221,7 +1221,7 @@ npm run build  # Production build
 
 The dashboard is served as part of the FastAPI application in production.
 
-The AgentOps UI contains five tabs: Agents, Tools, Topology, Trajectory, and Dashboard. The **Dashboard** tab (5th tab) provides fleet-wide KPIs, interaction metrics charts, model/tool performance tables, and an agent log stream. It operates independently of the graph visualization tabs and uses the `DashboardFilterContext` for its own time range and agent selection state. See [Agent Dashboard Guide](../guides/agent_ops_dashboard.md) for detailed documentation on the Dashboard tab's panels and data hooks.
+The AgentOps UI contains five tabs: Agents, Tools, Topology, Trajectory, and Dashboard. The **Dashboard** tab (5th tab) provides fleet-wide KPIs, interaction metrics charts, model/tool performance tables, and an agent log stream. It operates independently of the graph visualization tabs and uses the `DashboardFilterContext` for its own time range and agent selection state. See [Agent Dashboard Guide](../agent_ops/dashboard.md) for detailed documentation on the Dashboard tab's panels and data hooks.
 
 ---
 

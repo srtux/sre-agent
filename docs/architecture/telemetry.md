@@ -123,10 +123,10 @@ While we prefer native ADK tracing for production, **Langfuse** is supported for
 
 The telemetry captured by the ADK and OTel instrumentation described above feeds directly into the AgentOps observability surfaces:
 
-- **Agent Graph**: Aggregates OTel spans from BigQuery into an interactive topology showing agent-tool delegation, error rates, and cost -- see [Agent Graph](../concepts/agent_graph.md)
-- **AgentOps Dashboard**: Provides fleet-wide KPIs, latency/QPS charts, and model/tool performance tables -- see [AgentOps Dashboard Guide](../guides/agent_ops_dashboard.md)
+- **Agent Graph**: Aggregates OTel spans from BigQuery into an interactive topology showing agent-tool delegation, error rates, and cost -- see [Agent Graph](../agent_ops/architecture.md)
+- **AgentOps Dashboard**: Provides fleet-wide KPIs, latency/QPS charts, and model/tool performance tables -- see [AgentOps Dashboard Guide](../agent_ops/dashboard.md)
 
-For the conceptual overview, see [Multi-Agent Observability](../concepts/multi_agent_observability.md).
+For the conceptual overview, see [Multi-Agent Observability](../agent_ops/observability_theory.md).
 
 ---
 *Last verified: 2026-02-21 -- Auto SRE Team*

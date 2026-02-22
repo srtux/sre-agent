@@ -48,7 +48,7 @@ Global filtering (time range, agent selection, group-by-agent) applies to all se
 
 **Best for**: Operational health monitoring, model utilization tracking, tool performance comparison, log exploration, fleet-wide trends.
 
-Full documentation: [AgentOps Dashboard Guide](../guides/agent_ops_dashboard.md)
+Full documentation: [AgentOps Dashboard Guide](../agent_ops/dashboard.md)
 
 ### Agent Self-Analysis Tools
 
@@ -174,7 +174,7 @@ Key capabilities:
 - **Global filtering**: Time range (1h/6h/24h/7d/30d), agent selection, group-by-agent toggle via `DashboardFilterContext`
 - **Virtualized rendering**: TanStack Table + TanStack Virtual for efficient handling of 1000+ row datasets
 
-For the full guide including data flow, dependencies, and test coverage, see [AgentOps Dashboard Guide](../guides/agent_ops_dashboard.md).
+For the full guide including data flow, dependencies, and test coverage, see [AgentOps Dashboard Guide](../agent_ops/dashboard.md).
 
 ---
 
@@ -336,7 +336,7 @@ For the self-healing loop (GitHub integration), configure `GITHUB_TOKEN` and `GI
 ## Related Documentation
 
 - [Agent Graph](agent_graph.md) -- Full data pipeline, BigQuery schema, visualization architecture, and use cases
-- [AgentOps Dashboard Guide](../guides/agent_ops_dashboard.md) -- Dashboard sections, data flow, and testing
+- [AgentOps Dashboard Guide](../agent_ops/dashboard.md) -- Dashboard sections, data flow, and testing
 - [Online Research & Self-Healing](online_research_and_self_healing.md) -- OODA loop, GitHub tools, and safety guardrails
 - [Observability and OpenTelemetry Concepts](observability.md) -- Foundational OTel concepts (traces, logs, metrics, changes)
 - [Agent Orchestration](agent_orchestration.md) -- Council of Experts architecture

@@ -93,7 +93,7 @@ Each node displays: token count, cost badge, latency, error rate, and subcall di
 
 ### Setup
 
-See [BigQuery Agent Graph Setup](../guides/bigquery_agent_graph_setup.md) for the complete BQ schema, Property Graph, and pre-aggregation setup.
+See [BigQuery Agent Graph Setup](../agent_ops/bigquery_setup.md) for the complete BQ schema, Property Graph, and pre-aggregation setup.
 
 ---
 

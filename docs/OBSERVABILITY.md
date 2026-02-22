@@ -171,9 +171,9 @@ Beyond the BigQuery-powered Agent Graph, the AgentOps Dashboard provides fleet-w
 The dashboard is the fifth tab in the AgentOps UI alongside Agents, Tools, Agent Graph, and Trajectory Flow.
 
 For the complete conceptual overview of multi-agent observability, see:
-- [Multi-Agent Observability Concepts](concepts/multi_agent_observability.md)
-- [AgentOps Dashboard Guide](guides/agent_ops_dashboard.md)
-- [Agent Graph Deep Dive](concepts/agent_graph.md)
+- [Multi-Agent Observability Concepts](agent_ops/observability_theory.md)
+- [AgentOps Dashboard Guide](agent_ops/dashboard.md)
+- [Agent Graph Deep Dive](agent_ops/architecture.md)
 
 ---
 *Last verified: 2026-02-21 -- Auto SRE Team*
