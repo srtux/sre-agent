@@ -15,6 +15,7 @@ interface SchemaStep {
   label: string;
   status: 'pending' | 'running' | 'success' | 'error';
   error?: string;
+  message?: string;
   retryable?: boolean;
 }
 
@@ -40,6 +41,8 @@ export default function Onboarding({ projectId, onSetup, loading: globalLoading,
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [schemaSteps, setSchemaSteps] = useState<SchemaStep[]>(SCHEMA_STEPS)
+  const [expandedStep, setExpandedStep] = useState<number | null>(null)
+  const [lroDetails, setLroDetails] = useState<any>(null)
 
   // Ref to prevent double-execution in StrictMode
   const hasStartedRef = useRef(false)
@@ -140,6 +143,7 @@ export default function Onboarding({ projectId, onSetup, loading: globalLoading,
         runSchemaSteps();
       } else if (res.data.status === 'creating') {
         safeSetState<string | null>(setLroName, res.data.operation.name);
+        safeSetState<any>(setLroDetails, res.data.operation);
         safeSetState<Phase>(setPhase, 'poll_lro');
         pollLro(res.data.operation.name);
       }
@@ -154,6 +158,8 @@ export default function Onboarding({ projectId, onSetup, loading: globalLoading,
       const res = await axios.get('/api/v1/graph/setup/lro_status', {
         params: { project_id: projectId, operation_name: opName }
       });
+
+      safeSetState(setLroDetails, res.data);
 
       if (res.data.done) {
         if (res.data.error) {
@@ -217,7 +223,7 @@ export default function Onboarding({ projectId, onSetup, loading: globalLoading,
       });
 
       try {
-        await axios.post(`/api/v1/graph/setup/schema/${step.name}`, {
+        const stepRes = await axios.post(`/api/v1/graph/setup/schema/${step.name}`, {
           project_id: projectId,
           trace_dataset: dataset,
           graph_dataset: 'agentops'
@@ -226,6 +232,7 @@ export default function Onboarding({ projectId, onSetup, loading: globalLoading,
         safeSetState(setSchemaSteps, prev => {
           const next = [...prev];
           next[i].status = 'success';
+          next[i].message = stepRes.data.message || 'Complete';
           localStorage.setItem(`agent_ops_schema_steps_${projectId}_${dataset}`, JSON.stringify(next));
           return next;
         });
@@ -339,6 +346,15 @@ export default function Onboarding({ projectId, onSetup, loading: globalLoading,
                 {phase === 'poll_lro' ? 'Provisioning BigQuery Dataset Link...' : 'Waiting for _AllSpans to propagate (Takes 1-2 mins)...'}
               </span>
             </div>
+            {phase === 'poll_lro' && lroDetails && (
+              <div style={styles.lroInfo}>
+                <div><strong>Operation:</strong> {lroDetails.name?.split('/').pop()}</div>
+                <div><strong>Status:</strong> {lroDetails.done ? 'Complete' : 'Running'}</div>
+                {lroDetails.metadata && (
+                  <div><strong>Started:</strong> {new Date(lroDetails.metadata.createTime).toLocaleTimeString()}</div>
+                )}
+              </div>
+            )}
             <div style={styles.progressBarBg}>
               <div style={styles.progressBarFill}></div>
             </div>
@@ -351,27 +367,40 @@ export default function Onboarding({ projectId, onSetup, loading: globalLoading,
             <div style={styles.terminalBody}>
               {schemaSteps.map((step, idx) => (
                 <div key={idx} style={{ marginBottom: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#E2E8F0' }}>
+                  <div
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#E2E8F0', cursor: 'pointer', padding: '4px', borderRadius: '4px', background: expandedStep === idx ? 'rgba(255,255,255,0.05)' : 'transparent' }}
+                    onClick={() => setExpandedStep(expandedStep === idx ? null : idx)}
+                  >
                     {renderIcon(step.status)}
-                    <span>{step.label}</span>
+                    <span style={{ flex: 1 }}>{step.label}</span>
+                    <span style={{ fontSize: '10px', color: '#64748B' }}>
+                      {expandedStep === idx ? '▲' : '▼'}
+                    </span>
                   </div>
-                  {step.error && (
-                    <div style={styles.schemaError}>
-                      <div style={{ color: '#EF4444', marginBottom: '8px' }}>{step.error}</div>
-                      {step.retryable && (
-                        <button
-                          style={styles.retryButton}
-                          onClick={() => {
-                            safeSetState(setSchemaSteps, prev => {
-                              const next = [...prev];
-                              next[idx].status = 'pending';
-                              return next;
-                            });
-                            runSchemaSteps();
-                          }}
-                        >
-                          Retry Failed Step
-                        </button>
+                  {expandedStep === idx && (
+                    <div style={{ ...styles.schemaDetails, marginTop: '4px', fontSize: '12px', marginLeft: '24px', color: '#94A3B8' }}>
+                      {step.status === 'pending' && <div>Waiting to execute...</div>}
+                      {step.status === 'running' && <div>Executing DDL in BigQuery...</div>}
+                      {step.status === 'success' && <div style={{ color: '#10B981' }}>{step.message || 'Operation successful'}</div>}
+                      {step.error && (
+                        <div style={styles.schemaError}>
+                          <div style={{ color: '#EF4444', marginBottom: '8px' }}>{step.error}</div>
+                          {step.retryable && (
+                            <button
+                              style={styles.retryButton}
+                              onClick={() => {
+                                safeSetState(setSchemaSteps, prev => {
+                                  const next = [...prev];
+                                  next[idx].status = 'pending';
+                                  return next;
+                                });
+                                runSchemaSteps();
+                              }}
+                            >
+                              Retry Failed Step
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   )}
@@ -526,10 +555,16 @@ const styles: Record<string, React.CSSProperties> = {
   schemaError: {
     background: 'rgba(239, 68, 68, 0.1)',
     borderLeft: '2px solid #EF4444',
-    margin: '8px 0 8px 20px',
+    margin: '8px 0',
     padding: '8px 12px',
     fontSize: '12px',
     borderRadius: '0 4px 4px 0'
+  },
+  schemaDetails: {
+    padding: '8px',
+    background: '#1E293B',
+    borderRadius: '4px',
+    border: '1px solid #334155'
   },
   retryButton: {
     padding: '6px 12px',
@@ -539,5 +574,16 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#F8FAFC',
     fontSize: '12px',
     cursor: 'pointer',
+  },
+  lroInfo: {
+    background: 'rgba(0,0,0,0.2)',
+    padding: '12px',
+    borderRadius: '8px',
+    border: '1px outset #334155',
+    color: '#94A3B8',
+    fontSize: '12px',
+    fontFamily: 'monospace',
+    marginBottom: '8px',
+    lineHeight: 1.5
   }
 }
