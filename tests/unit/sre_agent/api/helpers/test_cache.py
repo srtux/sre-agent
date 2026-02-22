@@ -5,8 +5,12 @@ import pytest
 from sre_agent.api.helpers import cache
 from sre_agent.api.helpers.cache import async_ttl_cache
 
-# Explicitly tell the module to allow caching during these tests
-cache.ENABLE_CACHE_DURING_TESTS = True
+
+@pytest.fixture(autouse=True)
+def enable_caching():
+    cache.ENABLE_CACHE_DURING_TESTS = True
+    yield
+    cache.ENABLE_CACHE_DURING_TESTS = False
 
 
 @pytest.mark.asyncio
