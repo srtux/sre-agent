@@ -2,8 +2,42 @@ import { renderHook, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createElement, type ReactNode } from 'react'
+import axios from 'axios'
 import { DashboardFilterProvider } from '../contexts/DashboardFilterContext'
 import { useDashboardMetrics, type DashboardMetricsData } from './useDashboardMetrics'
+
+vi.mock('axios')
+
+// Mock AgentContext so the hook can read projectId / serviceName
+vi.mock('../contexts/AgentContext', () => ({
+  useAgentContext: () => ({
+    projectId: 'test-project',
+    serviceName: 'sre-agent',
+    setServiceName: vi.fn(),
+    availableAgents: [],
+    loadingAgents: false,
+    errorAgents: null,
+  }),
+}))
+
+const mockKpis = {
+  kpis: {
+    totalSessions: 42,
+    avgTurns: 3.5,
+    rootInvocations: 28,
+    errorRate: 0.02,
+    totalSessionsTrend: 10.0,
+    avgTurnsTrend: -2.1,
+    rootInvocationsTrend: 5.0,
+    errorRateTrend: -0.5,
+  },
+}
+
+const mockTimeseries = {
+  latency: [{ timestamp: '2026-02-22T00:00:00Z', p50: 120, p95: 350 }],
+  qps: [{ timestamp: '2026-02-22T00:00:00Z', qps: 0.5, errorRate: 0.01 }],
+  tokens: [{ timestamp: '2026-02-22T00:00:00Z', input: 5000, output: 2000 }],
+}
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -21,6 +55,15 @@ function createWrapper() {
 describe('useDashboardMetrics', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(axios.get).mockImplementation(async (url: string) => {
+      if (typeof url === 'string' && url.includes('/dashboard/kpis')) {
+        return { data: mockKpis }
+      }
+      if (typeof url === 'string' && url.includes('/dashboard/timeseries')) {
+        return { data: mockTimeseries }
+      }
+      return { data: {} }
+    })
   })
 
   it('returns loading state initially', () => {
@@ -44,7 +87,7 @@ describe('useDashboardMetrics', () => {
     expect(data).toBeDefined()
   })
 
-  it('returns KPI metrics', async () => {
+  it('returns KPI metrics from API', async () => {
     const { result } = renderHook(() => useDashboardMetrics(), {
       wrapper: createWrapper(),
     })
@@ -54,17 +97,14 @@ describe('useDashboardMetrics', () => {
     })
 
     const { kpis } = result.current.data!
-    expect(typeof kpis.totalSessions).toBe('number')
-    expect(typeof kpis.avgTurns).toBe('number')
-    expect(typeof kpis.rootInvocations).toBe('number')
-    expect(typeof kpis.errorRate).toBe('number')
+    expect(kpis.totalSessions).toBe(42)
+    expect(kpis.avgTurns).toBe(3.5)
+    expect(kpis.rootInvocations).toBe(28)
+    expect(kpis.errorRate).toBe(0.02)
     expect(typeof kpis.totalSessionsTrend).toBe('number')
-    expect(typeof kpis.avgTurnsTrend).toBe('number')
-    expect(typeof kpis.rootInvocationsTrend).toBe('number')
-    expect(typeof kpis.errorRateTrend).toBe('number')
   })
 
-  it('returns latency time series', async () => {
+  it('returns latency time series from API', async () => {
     const { result } = renderHook(() => useDashboardMetrics(), {
       wrapper: createWrapper(),
     })
@@ -74,16 +114,13 @@ describe('useDashboardMetrics', () => {
     })
 
     const { latency } = result.current.data!
-    expect(latency.length).toBeGreaterThan(0)
-    const point = latency[0]
-    expect(point).toHaveProperty('timestamp')
-    expect(point).toHaveProperty('p50')
-    expect(point).toHaveProperty('p95')
-    expect(typeof point.p50).toBe('number')
-    expect(typeof point.p95).toBe('number')
+    expect(latency.length).toBe(1)
+    expect(latency[0]).toHaveProperty('timestamp')
+    expect(latency[0]).toHaveProperty('p50')
+    expect(latency[0]).toHaveProperty('p95')
   })
 
-  it('returns QPS time series', async () => {
+  it('returns QPS time series from API', async () => {
     const { result } = renderHook(() => useDashboardMetrics(), {
       wrapper: createWrapper(),
     })
@@ -93,14 +130,12 @@ describe('useDashboardMetrics', () => {
     })
 
     const { qps } = result.current.data!
-    expect(qps.length).toBeGreaterThan(0)
-    const point = qps[0]
-    expect(point).toHaveProperty('timestamp')
-    expect(point).toHaveProperty('qps')
-    expect(point).toHaveProperty('errorRate')
+    expect(qps.length).toBe(1)
+    expect(qps[0]).toHaveProperty('qps')
+    expect(qps[0]).toHaveProperty('errorRate')
   })
 
-  it('returns token usage time series', async () => {
+  it('returns token usage time series from API', async () => {
     const { result } = renderHook(() => useDashboardMetrics(), {
       wrapper: createWrapper(),
     })
@@ -110,12 +145,10 @@ describe('useDashboardMetrics', () => {
     })
 
     const { tokens } = result.current.data!
-    expect(tokens.length).toBeGreaterThan(0)
-    const point = tokens[0]
-    expect(point).toHaveProperty('timestamp')
-    expect(point).toHaveProperty('input')
-    expect(point).toHaveProperty('output')
-    expect(typeof point.input).toBe('number')
-    expect(typeof point.output).toBe('number')
+    expect(tokens.length).toBe(1)
+    expect(tokens[0]).toHaveProperty('input')
+    expect(tokens[0]).toHaveProperty('output')
+    expect(tokens[0].input).toBe(5000)
+    expect(tokens[0].output).toBe(2000)
   })
 })

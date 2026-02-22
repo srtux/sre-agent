@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
+import axios from 'axios'
 import { useDashboardFilters } from '../contexts/DashboardFilterContext'
+import { useAgentContext } from '../contexts/AgentContext'
 
 export interface KpiMetrics {
   totalSessions: number
@@ -37,80 +39,50 @@ export interface DashboardMetricsData {
   tokens: TokenPoint[]
 }
 
-const timeRangeToPoints: Record<string, number> = {
-  '1h': 12,
-  '6h': 36,
-  '24h': 48,
-  '7d': 84,
-  '30d': 120,
+const timeRangeToHours: Record<string, number> = {
+  '1h': 1,
+  '6h': 6,
+  '24h': 24,
+  '7d': 168,
+  '30d': 720,
 }
 
-const timeRangeToMs: Record<string, number> = {
-  '1h': 60 * 60 * 1000,
-  '6h': 6 * 60 * 60 * 1000,
-  '24h': 24 * 60 * 60 * 1000,
-  '7d': 7 * 24 * 60 * 60 * 1000,
-  '30d': 30 * 24 * 60 * 60 * 1000,
-}
-
-function generateTimestamps(pointCount: number, durationMs: number): string[] {
-  const now = Date.now()
-  const interval = durationMs / (pointCount - 1)
-  return Array.from({ length: pointCount }, (_, i) => {
-    return new Date(now - (pointCount - 1 - i) * interval).toISOString()
-  })
-}
-
-// TODO: Replace mock data with real API calls when backend endpoints are ready:
-//   POST /api/dashboards/agents/kpis — pass timeRange + selectedAgents
-//   POST /api/dashboards/agents/timeseries — pass timeRange + selectedAgents
 async function fetchDashboardMetrics(
-  timeRange: string,
+  projectId: string,
+  hours: number,
+  serviceName: string,
 ): Promise<DashboardMetricsData> {
-  await new Promise((resolve) => setTimeout(resolve, 400))
-
-  const pointCount = timeRangeToPoints[timeRange] ?? 48
-  const durationMs = timeRangeToMs[timeRange] ?? timeRangeToMs['24h']
-  const timestamps = generateTimestamps(pointCount, durationMs)
-
-  const kpis: KpiMetrics = {
-    totalSessions: 1800 + Math.round(600 * Math.sin(pointCount * 0.1)),
-    avgTurns: 5 + Math.round(2 * Math.sin(pointCount * 0.3) * 10) / 10,
-    rootInvocations: 1200 + Math.round(400 * Math.cos(pointCount * 0.2)),
-    errorRate: 0.045 + 0.035 * Math.sin(pointCount * 0.15),
-    totalSessionsTrend: 12.5,
-    avgTurnsTrend: -3.2,
-    rootInvocationsTrend: 5.8,
-    errorRateTrend: -1.4,
+  const params = {
+    project_id: projectId,
+    hours,
+    service_name: serviceName || undefined,
   }
 
-  const latency: LatencyPoint[] = timestamps.map((timestamp, i) => ({
-    timestamp,
-    p50: 160 + 40 * Math.sin(i * 0.5) + (i % 7) * 2,
-    p95: 475 + 125 * Math.sin(i * 0.3) + (i % 11) * 5,
-  }))
+  const [kpiRes, tsRes] = await Promise.all([
+    axios.get<{ kpis: KpiMetrics }>('/api/v1/graph/dashboard/kpis', { params }),
+    axios.get<{ latency: LatencyPoint[]; qps: QpsPoint[]; tokens: TokenPoint[] }>(
+      '/api/v1/graph/dashboard/timeseries',
+      { params },
+    ),
+  ])
 
-  const qps: QpsPoint[] = timestamps.map((timestamp, i) => ({
-    timestamp,
-    qps: 100 + 50 * Math.sin(i * 0.4) + (i % 5) * 3,
-    errorRate: 0.02 + 0.03 * Math.abs(Math.sin(i * 0.6)),
-  }))
-
-  const tokens: TokenPoint[] = timestamps.map((timestamp, i) => ({
-    timestamp,
-    input: 22500 + 7500 * Math.sin(i * 0.35) + (i % 9) * 200,
-    output: 14000 + 6000 * Math.sin(i * 0.45) + (i % 13) * 150,
-  }))
-
-  return { kpis, latency, qps, tokens }
+  return {
+    kpis: kpiRes.data.kpis,
+    latency: tsRes.data.latency,
+    qps: tsRes.data.qps,
+    tokens: tsRes.data.tokens,
+  }
 }
 
 export function useDashboardMetrics() {
-  const { timeRange, selectedAgents } = useDashboardFilters()
+  const { timeRange } = useDashboardFilters()
+  const { projectId, serviceName } = useAgentContext()
+  const hours = timeRangeToHours[timeRange] ?? 24
 
   return useQuery({
-    queryKey: ['dashboard-metrics', timeRange, selectedAgents],
-    queryFn: () => fetchDashboardMetrics(timeRange),
+    queryKey: ['dashboard-metrics', projectId, serviceName, timeRange],
+    queryFn: () => fetchDashboardMetrics(projectId, hours, serviceName),
+    enabled: !!projectId,
     staleTime: 30_000,
     refetchOnWindowFocus: false,
   })

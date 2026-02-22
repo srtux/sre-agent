@@ -4,6 +4,7 @@ import axios from 'axios';
 import type { RegistryAgent, AgentRegistryResponse } from '../types';
 
 interface AgentContextType {
+  projectId: string;
   serviceName: string;
   setServiceName: (name: string) => void;
   availableAgents: RegistryAgent[];
@@ -97,6 +98,7 @@ export function AgentProvider({ children, projectId }: { children: ReactNode, pr
   return (
     <AgentContext.Provider
       value={{
+        projectId,
         serviceName,
         setServiceName,
         availableAgents,

@@ -76,18 +76,39 @@ A full-width virtualized log table showing:
 
 ### Data Flow
 
-Currently, the dashboard uses mock data generators for development. The hooks (`useDashboardMetrics`, `useDashboardTables`) are designed to be swapped to real API calls:
+The dashboard queries real BigQuery data via the Agent Graph router. The React hooks (`useDashboardMetrics`, `useDashboardTables`) call these backend endpoints using axios and React Query:
 
-- `POST /api/dashboards/agents/kpis` — KPI metrics
-- `POST /api/dashboards/agents/timeseries` — Latency, QPS, token time series
-- `POST /api/dashboards/agents/models` — Model performance data
-- `POST /api/dashboards/agents/tools` — Tool performance data
+| Endpoint | Method | Description | Cache TTL |
+|----------|--------|-------------|-----------|
+| `/api/v1/graph/dashboard/kpis` | GET | KPI metrics with trend comparisons (current vs previous period) | 300s |
+| `/api/v1/graph/dashboard/timeseries` | GET | Latency (P50/P95), QPS, token usage time series | 300s |
+| `/api/v1/graph/dashboard/models` | GET | Per-model call counts, P95 latency, error rate, token usage | 300s |
+| `/api/v1/graph/dashboard/tools` | GET | Per-tool call counts, P95 latency, error rate | 300s |
+| `/api/v1/graph/dashboard/logs` | GET | Agent activity log stream with derived severity | 60s |
+
+All endpoints accept these query parameters:
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `project_id` | string | required | GCP project that owns the BigQuery dataset |
+| `dataset` | string | `agentops` | BigQuery dataset name |
+| `hours` | float | 24.0 | Look-back window (1–720 hours) |
+| `service_name` | string | optional | Filter by agent service name |
+
+The `/dashboard/logs` endpoint also accepts a `limit` parameter (100–5000, default 2000).
+
+### BigQuery Tables
+
+- **KPIs, Models, Tools, Logs**: Query `agent_spans_raw` (materialized view of OTel spans)
+- **Timeseries**: Query `agent_graph_hourly` (pre-aggregated hourly table)
+
+See [bq_schema.md](bq_schema.md) for full column definitions.
 
 ### Backend Caching
 
-The backend API routes for the Agent Graph (e.g. `/topology`, `/trajectories`, `/registry/agents`, `/registry/tools`) are decorated with a custom `@async_ttl_cache(ttl_seconds=300)` decorator found in `sre_agent/api/helpers/cache.py`.
+All dashboard endpoints are decorated with `@async_ttl_cache` (found in `sre_agent/api/helpers/cache.py`). The KPI, timeseries, models, and tools endpoints use a 300-second TTL. The logs endpoint uses a 60-second TTL for fresher data.
 
-This TTL memory cache significantly reduces the load on BigQuery by reusing aggregated analytics results for up to 5 minutes, aligning with the default 30-second `staleTime` and background refetch behaviors of the React Query frontend.
+This TTL memory cache significantly reduces the load on BigQuery by reusing aggregated analytics results, aligning with the default 30-second `staleTime` and background refetch behaviors of the React Query frontend.
 
 ### Dependencies
 
@@ -99,8 +120,21 @@ This TTL memory cache significantly reduces the load on BigQuery by reusing aggr
 
 ### Testing
 
-All dashboard components have comprehensive tests located alongside their source files:
+All dashboard components have comprehensive tests:
 
+**Backend** (pytest):
+```
+tests/unit/sre_agent/api/routers/test_agent_graph.py  # 26 dashboard tests
+  TestDashboardKpis       — 6 tests (success, empty, 404, 500, validation, service_name filter)
+  TestDashboardTimeseries — 4 tests (success, empty, 404, validation)
+  TestDashboardModels     — 4 tests (success, empty, 404, multiple models)
+  TestDashboardTools      — 4 tests (success, empty, 404, validation)
+  TestDashboardLogs       — 8 tests (success, severity mapping, limit, 404, validation)
+```
+
+Run with: `uv run pytest tests/unit/sre_agent/api/routers/test_agent_graph.py -k Dashboard`
+
+**Frontend** (vitest):
 ```
 src/contexts/DashboardFilterContext.test.tsx    # 8 tests
 src/hooks/useDashboardMetrics.test.ts           # 6 tests

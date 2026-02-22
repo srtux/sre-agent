@@ -3,6 +3,20 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import AgentDashboard from './AgentDashboard'
 
+// Mock AgentContext
+vi.mock('../../contexts/AgentContext', () => ({
+  useAgentContext: () => ({
+    projectId: 'test-project',
+    serviceName: 'sre-agent',
+    setServiceName: vi.fn(),
+    availableAgents: [
+      { serviceName: 'sre-agent', agentName: 'SRE Agent', totalSessions: 10 },
+    ],
+    loadingAgents: false,
+    errorAgents: null,
+  }),
+}))
+
 // Mock child components to isolate the layout test
 vi.mock('./DashboardToolbar', () => ({
   default: function MockToolbar() {
