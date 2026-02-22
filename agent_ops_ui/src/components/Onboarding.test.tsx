@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, act, fireEvent } from '@testing-library/react';
 import axios from 'axios';
 import Onboarding from './Onboarding';
@@ -12,6 +12,15 @@ describe('Onboarding Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockedAxios.isAxiosError.mockImplementation((e: unknown) => typeof e === 'object' && e !== null && 'isAxiosError' in e && (e as { isAxiosError: boolean }).isAxiosError === true);
+    const realSetTimeout = window.setTimeout;
+    vi.spyOn(window, 'setTimeout').mockImplementation((cb: any, ms?: number) => {
+      return realSetTimeout(cb, ms === 10000 ? 10 : ms) as any;
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.clearAllMocks();
   });
 
   it('completes fast-path setup when everything is verified', async () => {
@@ -62,13 +71,18 @@ describe('Onboarding Component', () => {
   });
 
   it('proceeds through link_dataset if BQ is missing', async () => {
+    let verifyCallCount = 0;
     mockedAxios.get.mockImplementation(async (url) => {
       if (url.includes('/check_bucket')) return { data: { exists: true, buckets: [{ name: 'projects/123/buckets/traces' }] } };
       if (url.includes('/verify')) {
-        const error = new Error('Not found') as Error & { response: { status: number }, isAxiosError: boolean };
-        error.response = { status: 404 };
-        error.isAxiosError = true;
-        throw error;
+        verifyCallCount++;
+        if (verifyCallCount === 1) {
+          const error = new Error('Not found') as Error & { response: { status: number }, isAxiosError: boolean };
+          error.response = { status: 404 };
+          error.isAxiosError = true;
+          throw error;
+        }
+        return { data: { verified: true } };
       }
       return { data: {} };
     });
@@ -90,6 +104,17 @@ describe('Onboarding Component', () => {
         bucket_id: 'traces'
       }));
     });
+
+    await waitFor(() => {
+      expect(mockedAxios.post).toHaveBeenCalledWith('/api/v1/graph/setup/link_dataset', expect.objectContaining({
+        bucket_id: 'traces'
+      }));
+    });
+
+    // At this point pollVerify should have been called and returned 404, scheduling a retry.
+    // Wait, in our mock, verifyCallCount 1 is in startAutoSetup.
+    // verifyCallCount 2 is in linkDataset success path (pollVerify).
+    // So it should succeed immediately. No timer needed!
 
     await waitFor(() => {
       const btn = screen.getByRole('button', { name: /Open Agent Graph/i });

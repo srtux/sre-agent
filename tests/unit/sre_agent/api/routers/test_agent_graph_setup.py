@@ -167,7 +167,9 @@ async def test_link_dataset_already_exists(client: AsyncClient):
         )
 
         assert response.status_code == 200
-        assert response.json()["status"] == "already_linked"
+        data = response.json()
+        assert data["status"] == "already_linked"
+        assert data["link_id"] == "fake_link_name"
 
 
 @pytest.mark.anyio

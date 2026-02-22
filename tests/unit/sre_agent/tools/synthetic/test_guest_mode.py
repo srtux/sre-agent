@@ -65,58 +65,53 @@ class TestGuestModeToolIntegration:
         from sre_agent.tools.clients.trace import fetch_trace
         from sre_agent.tools.synthetic.scenarios import TRACE_IDS
 
-        ctx = contextvars.copy_context()
-
-        async def _run() -> dict:
-            set_guest_mode(True)
+        set_guest_mode(True)
+        try:
             result = await fetch_trace(TRACE_IDS["checkout_slow_1"])
-            return result
-
-        result = await ctx.run(_run)
-        # Result is a BaseToolResponse (possibly dict after adk_tool normalization)
-        if hasattr(result, "status"):
-            assert result.status.value == "success" or str(result.status) == "success"
-        elif isinstance(result, dict):
-            assert result.get("status") == "success"
+            # Result is a BaseToolResponse (possibly dict after adk_tool normalization)
+            if hasattr(result, "status"):
+                assert (
+                    result.status.value == "success" or str(result.status) == "success"
+                )
+            elif isinstance(result, dict):
+                assert result.get("status") == "success"
+        finally:
+            set_guest_mode(False)
 
     @pytest.mark.asyncio
     async def test_list_alerts_in_guest_mode(self) -> None:
         """list_alerts should return synthetic alerts in guest mode."""
         from sre_agent.tools.clients.alerts import list_alerts
 
-        ctx = contextvars.copy_context()
-
-        async def _run() -> dict:
-            set_guest_mode(True)
-            return await list_alerts()
-
-        result = await ctx.run(_run)
-        if hasattr(result, "result"):
-            alerts = result.result
-        elif isinstance(result, dict):
-            alerts = result.get("result", [])
-        else:
-            alerts = []
-        assert isinstance(alerts, list)
-        assert len(alerts) >= 3
+        set_guest_mode(True)
+        try:
+            result = await list_alerts()
+            if hasattr(result, "result"):
+                alerts = result.result
+            elif isinstance(result, dict):
+                alerts = result.get("result", [])
+            else:
+                alerts = []
+            assert isinstance(alerts, list)
+            assert len(alerts) >= 3
+        finally:
+            set_guest_mode(False)
 
     @pytest.mark.asyncio
     async def test_list_log_entries_in_guest_mode(self) -> None:
         """list_log_entries should return synthetic logs in guest mode."""
         from sre_agent.tools.clients.logging import list_log_entries
 
-        ctx = contextvars.copy_context()
-
-        async def _run() -> dict:
-            set_guest_mode(True)
-            return await list_log_entries(filter_str="severity>=ERROR")
-
-        result = await ctx.run(_run)
-        if hasattr(result, "result"):
-            data = result.result
-        elif isinstance(result, dict):
-            data = result.get("result", {})
-        else:
-            data = {}
-        assert "entries" in data
-        assert len(data["entries"]) > 0
+        set_guest_mode(True)
+        try:
+            result = await list_log_entries(filter_str="severity>=ERROR")
+            if hasattr(result, "result"):
+                data = result.result
+            elif isinstance(result, dict):
+                data = result.get("result", {})
+            else:
+                data = {}
+            assert "entries" in data
+            assert len(data["entries"]) > 0
+        finally:
+            set_guest_mode(False)

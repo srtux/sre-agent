@@ -34,9 +34,11 @@ const SCHEMA_STEPS: SchemaStep[] = [
 
 export default function Onboarding({ projectId, onSetup, loading: globalLoading, error: globalError }: OnboardingProps) {
   const [phase, setPhase] = useState<Phase>('init')
-  const [dataset, setDataset] = useState('traces')
+  const [dataset, setDataset] = useState(() => {
+    return localStorage.getItem(`agent_ops_dataset_${projectId}`) || 'traces'
+  })
 
-  const [, setBucketId] = useState<string | null>(null)
+  const [bucketId, setBucketId] = useState<string | null>(null)
   const [, setLroName] = useState<string | null>(null)
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
@@ -139,8 +141,11 @@ export default function Onboarding({ projectId, onSetup, loading: globalLoading,
       });
 
       if (res.data.status === 'already_linked') {
-        safeSetState<Phase>(setPhase, 'schema_exec');
-        runSchemaSteps();
+        const lid = res.data.link_id || dataset;
+        setDataset(lid);
+        localStorage.setItem(`agent_ops_dataset_${projectId}`, lid);
+        safeSetState<Phase>(setPhase, 'poll_verify');
+        pollVerify(lid);
       } else if (res.data.status === 'creating') {
         safeSetState<string | null>(setLroName, res.data.operation.name);
         safeSetState<any>(setLroDetails, res.data.operation);
@@ -166,9 +171,9 @@ export default function Onboarding({ projectId, onSetup, loading: globalLoading,
           safeSetState<string | null>(setErrorMsg, `LRO Failed: ${res.data.error.message}`);
           safeSetState<Phase>(setPhase, 'manual_input');
         } else {
-          // LRO Done! Give BQ a few seconds to propagate
+          // LRO Done! Start propagation verify
           safeSetState<Phase>(setPhase, 'poll_verify');
-          setTimeout(pollVerify, 10000);
+          pollVerify();
         }
       } else {
         // Poll again in 3s
@@ -179,19 +184,21 @@ export default function Onboarding({ projectId, onSetup, loading: globalLoading,
     }
   }
 
-  const pollVerify = async () => {
+  const pollVerify = async (dsId?: string) => {
     if (!isComponentMounted.current) return;
+    const currentDs = dsId || dataset;
     try {
       await axios.get('/api/v1/graph/setup/verify', {
-        params: { project_id: projectId, dataset_id: dataset }
+        params: { project_id: projectId, dataset_id: currentDs }
       });
       // Verified!
+      localStorage.setItem(`agent_ops_dataset_${projectId}`, currentDs);
       safeSetState<Phase>(setPhase, 'schema_exec');
       runSchemaSteps();
     } catch (e) {
       if (axios.isAxiosError(e) && e.response?.status === 404) {
         // Still not found, wait and retry
-        setTimeout(pollVerify, 10000);
+        setTimeout(() => pollVerify(currentDs), 10000);
       } else {
         handleError(e);
       }
@@ -348,16 +355,40 @@ export default function Onboarding({ projectId, onSetup, loading: globalLoading,
             </div>
             {phase === 'poll_lro' && lroDetails && (
               <div style={styles.lroInfo}>
-                <div><strong>Operation:</strong> {lroDetails.name?.split('/').pop()}</div>
-                <div><strong>Status:</strong> {lroDetails.done ? 'Complete' : 'Running'}</div>
+                <div style={styles.lroRow}>
+                  <span style={styles.lroLabel}>Operation ID</span>
+                  <span style={styles.lroValue}>{lroDetails.name?.split('/').pop()}</span>
+                </div>
+                <div style={styles.lroRow}>
+                  <span style={styles.lroLabel}>Status</span>
+                  <span style={{ ...styles.lroValue, color: lroDetails.done ? '#10B981' : '#F59E0B' }}>
+                    {lroDetails.done ? 'Complete' : 'Provisioning...'}
+                  </span>
+                </div>
                 {lroDetails.metadata && (
-                  <div><strong>Started:</strong> {new Date(lroDetails.metadata.createTime).toLocaleTimeString()}</div>
+                  <div style={styles.lroRow}>
+                    <span style={styles.lroLabel}>Started</span>
+                    <span style={styles.lroValue}>{new Date(lroDetails.metadata.createTime).toLocaleTimeString()}</span>
+                  </div>
+                )}
+                {lroDetails.error && (
+                  <div style={{ ...styles.lroRow, borderTop: '1px solid rgba(239, 68, 68, 0.2)', paddingTop: '8px', marginTop: '8px' }}>
+                    <span style={{ ...styles.lroValue, color: '#EF4444' }}>{lroDetails.error.message}</span>
+                  </div>
                 )}
               </div>
             )}
             <div style={styles.progressBarBg}>
-              <div style={styles.progressBarFill}></div>
+              <div style={{ ...styles.progressBarFill, width: lroDetails?.done ? '100%' : '50%' }}></div>
             </div>
+            {lroDetails?.error && (
+              <button
+                style={{ ...styles.button, marginTop: '16px', background: '#EF4444' }}
+                onClick={() => linkDataset(bucketId || 'traces')}
+              >
+                Retry Link Creation
+              </button>
+            )}
           </div>
         )}
 
@@ -576,14 +607,28 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
   },
   lroInfo: {
-    background: 'rgba(0,0,0,0.2)',
-    padding: '12px',
+    background: 'rgba(15, 23, 42, 0.5)',
+    border: '1px solid rgba(51, 65, 85, 0.5)',
     borderRadius: '8px',
-    border: '1px outset #334155',
-    color: '#94A3B8',
-    fontSize: '12px',
+    padding: '12px',
+    marginBottom: '16px',
+    fontSize: '13px',
     fontFamily: 'monospace',
-    marginBottom: '8px',
-    lineHeight: 1.5
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px'
+  },
+  lroRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center'
+  },
+  lroLabel: {
+    color: '#64748B',
+    marginRight: '12px'
+  },
+  lroValue: {
+    color: '#E2E8F0',
+    textAlign: 'right'
   }
 }

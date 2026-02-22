@@ -153,13 +153,18 @@ async def link_dataset(req: LinkDatasetRequest) -> dict[str, Any]:
             links = resp.json().get("links", [])
             for link in links:
                 if link.get("name"):
-                    return {"status": "already_linked", "link": link}
+                    link_id = link["name"].split("/")[-1]
+                    return {
+                        "status": "already_linked",
+                        "link": link,
+                        "link_id": link_id,
+                    }
         except Exception as exc:
             logger.warning(f"Failed to list links, proceeding to create: {exc}")
 
         # 3. Create the link
         try:
-            link_id = "graph-traces-link"
+            link_id = re.sub(r"[^a-zA-Z0-9_]", "_", req.dataset_id)
             resp = await http_client.post(
                 f"{base_url}/links?linkId={link_id}",
                 headers=headers,

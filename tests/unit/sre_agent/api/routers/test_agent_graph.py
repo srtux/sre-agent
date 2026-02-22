@@ -125,10 +125,19 @@ class TestTopologyEndpoint:
             error_count=0,
             total_tokens=800,
         )
-        bq.query_and_wait.side_effect = [
-            _mock_query_result([node_row]),
-            _mock_query_result([edge_row]),
-        ]
+
+        def mock_query(query, *args, **kwargs):
+            if "target_id" in query or "destination_node_id" in query:
+                return _mock_query_result([edge_row])
+            if (
+                "execution_count" in query
+                or "node_type" in query
+                or "logical_node_id" in query
+            ):
+                return _mock_query_result([node_row])
+            return _mock_query_result([])
+
+        bq.query_and_wait.side_effect = mock_query
 
         resp = client.get(
             "/api/v1/graph/topology",
@@ -193,10 +202,13 @@ class TestTopologyEndpoint:
             error_count=2,
             total_tokens=3000,
         )
-        bq.query_and_wait.side_effect = [
-            _mock_query_result([]),
-            _mock_query_result([edge_row]),
-        ]
+
+        def mock_query(query, *args, **kwargs):
+            if "target_id" in query or "destination_node_id" in query:
+                return _mock_query_result([edge_row])
+            return _mock_query_result([])
+
+        bq.query_and_wait.side_effect = mock_query
 
         data = client.get(
             "/api/v1/graph/topology",
@@ -217,10 +229,7 @@ class TestTopologyEndpoint:
         """Hours < 1 should query agent_topology_nodes/edges views."""
         bq = MagicMock()
         mock_client_fn.return_value = bq
-        bq.query_and_wait.side_effect = [
-            _mock_query_result([]),
-            _mock_query_result([]),
-        ]
+        bq.query_and_wait.return_value = _mock_query_result([])
 
         client.get(
             "/api/v1/graph/topology",
@@ -501,10 +510,7 @@ class TestTopologyFiltering:
         """errors_only=true should add HAVING clause to SQL."""
         bq = MagicMock()
         mock_client_fn.return_value = bq
-        bq.query_and_wait.side_effect = [
-            _mock_query_result([]),
-            _mock_query_result([]),
-        ]
+        bq.query_and_wait.return_value = _mock_query_result([])
 
         client.get(
             "/api/v1/graph/topology",
@@ -522,10 +528,7 @@ class TestTopologyFiltering:
         """start_time parameter should be used in the time filter."""
         bq = MagicMock()
         mock_client_fn.return_value = bq
-        bq.query_and_wait.side_effect = [
-            _mock_query_result([]),
-            _mock_query_result([]),
-        ]
+        bq.query_and_wait.return_value = _mock_query_result([])
 
         resp = client.get(
             "/api/v1/graph/topology",
@@ -629,10 +632,13 @@ class TestTopologyFiltering:
             error_count=0,
             avg_duration_ms=345.6,
         )
-        bq.query_and_wait.side_effect = [
-            _mock_query_result([node_row]),
-            _mock_query_result([]),
-        ]
+
+        def mock_query(query, *args, **kwargs):
+            if "node_id" in query or "logical_node_id" in query:
+                return _mock_query_result([node_row])
+            return _mock_query_result([])
+
+        bq.query_and_wait.side_effect = mock_query
 
         data = client.get(
             "/api/v1/graph/topology",
@@ -666,11 +672,14 @@ class TestNodeDetailEndpoint:
         )
         error_row = _make_row(message="Connection timeout", count=3)
 
-        bq.query_and_wait.side_effect = [
-            _mock_query_result([metrics_row]),
-            _mock_query_result([error_row]),
-            _mock_query_result([]),  # payloads query
-        ]
+        def mock_query(query, *args, **kwargs):
+            if "COUNT(*) AS count" in query:
+                return _mock_query_result([error_row])
+            if "COUNT(*) AS total_invocations" in query:
+                return _mock_query_result([metrics_row])
+            return _mock_query_result([])
+
+        bq.query_and_wait.side_effect = mock_query
 
         resp = client.get(
             "/api/v1/graph/node/Agent%3A%3Aroot",
@@ -745,11 +754,13 @@ class TestNodeDetailEndpoint:
             p95=20.0,
             p99=30.0,
         )
-        bq.query_and_wait.side_effect = [
-            _mock_query_result([metrics_row]),
-            _mock_query_result([]),
-            _mock_query_result([]),  # payloads query
-        ]
+
+        def mock_query(query, *args, **kwargs):
+            if "COUNT(*) AS total_invocations" in query:
+                return _mock_query_result([metrics_row])
+            return _mock_query_result([])
+
+        bq.query_and_wait.side_effect = mock_query
 
         client.get(
             "/api/v1/graph/node/Tool%3A%3Asearch",
@@ -1080,11 +1091,13 @@ class TestNodeDetailPayloads:
             p95=20.0,
             p99=30.0,
         )
-        bq.query_and_wait.side_effect = [
-            _mock_query_result([metrics_row]),
-            _mock_query_result([]),
-            _mock_query_result([]),
-        ]
+
+        def mock_query(query, *args, **kwargs):
+            if "COUNT(*) AS total_invocations" in query:
+                return _mock_query_result([metrics_row])
+            return _mock_query_result([])
+
+        bq.query_and_wait.side_effect = mock_query
 
         client.get(
             "/api/v1/graph/node/Agent%3A%3Aroot",
@@ -1126,10 +1139,12 @@ class TestTrajectoriesLoopDetection:
             step_sequence=["A", "B", "A", "B", "A", "B"],
         )
 
-        bq.query_and_wait.side_effect = [
-            _mock_query_result([sankey_row]),
-            _mock_query_result([loop_row]),
-        ]
+        def mock_query(query, *args, **kwargs):
+            if "ARRAY_AGG" in query:
+                return _mock_query_result([loop_row])
+            return _mock_query_result([sankey_row])
+
+        bq.query_and_wait.side_effect = mock_query
 
         resp = client.get(
             "/api/v1/graph/trajectories",
@@ -1155,10 +1170,12 @@ class TestTrajectoriesLoopDetection:
             step_sequence=["A", "B", "C"],
         )
 
-        bq.query_and_wait.side_effect = [
-            _mock_query_result([]),  # sankey
-            _mock_query_result([loop_row]),
-        ]
+        def mock_query(query, *args, **kwargs):
+            if "ARRAY_AGG" in query:
+                return _mock_query_result([loop_row])
+            return _mock_query_result([])
+
+        bq.query_and_wait.side_effect = mock_query
 
         data = client.get(
             "/api/v1/graph/trajectories",
