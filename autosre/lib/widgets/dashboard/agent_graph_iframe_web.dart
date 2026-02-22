@@ -19,6 +19,7 @@ class AgentGraphIframePanel extends StatefulWidget {
 class _AgentGraphIframePanelState extends State<AgentGraphIframePanel> {
   late String _viewId;
   late String _currentProjectId;
+  html.IFrameElement? _iframeElement;
 
   @override
   void initState() {
@@ -33,24 +34,22 @@ class _AgentGraphIframePanelState extends State<AgentGraphIframePanel> {
 
     // ignore: undefined_prefixed_name
     ui_web.platformViewRegistry.registerViewFactory(_viewId, (int viewId) {
-      final iframe = html.IFrameElement()
+      _iframeElement = html.IFrameElement()
         ..id = _viewId
         ..src = src
         ..style.border = 'none'
         ..style.height = '100%'
         ..style.width = '100%';
-      return iframe;
+      return _iframeElement!;
     });
   }
 
   void _updateIframeSrc(String newProjectId) {
     if (newProjectId != _currentProjectId) {
       _currentProjectId = newProjectId;
-      final iframe =
-          html.document.getElementById(_viewId) as html.IFrameElement?;
-      if (iframe != null) {
+      if (_iframeElement != null) {
         final baseUrl = ServiceConfig.agentGraphBaseUrl;
-        iframe.src = '$baseUrl/graph/?project_id=$_currentProjectId';
+        _iframeElement!.src = '$baseUrl/graph/?project_id=$_currentProjectId';
       }
     }
   }

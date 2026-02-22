@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 import '../../services/project_service.dart';
 import '../../theme/app_theme.dart';
 
@@ -142,11 +143,12 @@ class _ProjectSelectorDropdownState extends State<ProjectSelectorDropdown>
     final offset = renderBox.localToGlobal(Offset.zero);
 
     return OverlayEntry(
-      builder: (context) => GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onTap: _closeDropdown,
-        child: Material(
-          color: Colors.transparent,
+      builder: (context) => PointerInterceptor(
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: _closeDropdown,
+          child: Material(
+            color: Colors.transparent,
           child: Stack(
             children: [
               Positioned(
@@ -168,6 +170,7 @@ class _ProjectSelectorDropdownState extends State<ProjectSelectorDropdown>
             ],
           ),
         ),
+      ),
       ),
     );
   }

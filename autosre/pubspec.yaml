@@ -68,6 +68,7 @@ dependencies:
   vector_math: ^2.2.0
   flutter_markdown: ^0.7.7+1
   fl_nodes: ^0.5.0+1
+  pointer_interceptor: ^0.10.1+2
 
 dev_dependencies:
   flutter_test:
