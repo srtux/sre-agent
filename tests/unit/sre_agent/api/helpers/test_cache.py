@@ -2,13 +2,11 @@ import asyncio
 
 import pytest
 
+from sre_agent.api.helpers import cache
 from sre_agent.api.helpers.cache import async_ttl_cache
 
-
-@pytest.fixture(autouse=True)
-def enable_cache(monkeypatch: pytest.MonkeyPatch):
-    """Enable cache behavior during testing by clearing the pytest indicator."""
-    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+# Explicitly tell the module to allow caching during these tests
+cache.ENABLE_CACHE_DURING_TESTS = True
 
 
 @pytest.mark.asyncio

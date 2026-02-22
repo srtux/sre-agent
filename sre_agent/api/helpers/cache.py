@@ -25,7 +25,12 @@ def async_ttl_cache(
         @wraps(func)
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             # Bypass cache entirely during tests to prevent inter-test state pollution
-            if os.environ.get("PYTEST_CURRENT_TEST"):
+            # Allow tests to explicitly declare they want the cache enabled via a global flag on the module
+            from sre_agent.api.helpers import cache as cache_mod
+
+            if os.environ.get("PYTEST_CURRENT_TEST") and not getattr(
+                cache_mod, "ENABLE_CACHE_DURING_TESTS", False
+            ):
                 return await func(*args, **kwargs)  # type: ignore
 
             # Create a simple string key from arguments
