@@ -519,7 +519,7 @@ class TestTopologyFiltering:
 
         calls = bq.query_and_wait.call_args_list
         # First query (nodes CTE) should have HAVING
-        assert "HAVING SUM(error_count) > 0" in calls[0][0][0]
+        assert "HAVING SUM(h.error_count) > 0" in calls[0][0][0]
 
     @patch("sre_agent.api.routers.agent_graph._get_bq_client")
     def test_start_time_param_accepted(

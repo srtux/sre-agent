@@ -268,8 +268,6 @@ async def get_topology(
         end_time = _validate_iso8601(end_time, "end_time")
 
     # Time filtering
-    errors_only_edge_having = "HAVING SUM(error_count) > 0" if errors_only else ""
-    errors_only_node_having = "HAVING SUM(error_count) > 0" if errors_only else ""
 
     service_name_clause = (
         f"AND service_name = '{_validate_identifier(service_name, 'service_name')}'"
@@ -305,10 +303,10 @@ async def get_topology(
                             AS avg_duration_ms,
                         SUM(error_count) AS error_count,
                         SUM(edge_tokens) AS total_tokens
-                    FROM `{project_id}.{dataset}.agent_graph_hourly`
+                    FROM `{project_id}.{dataset}.agent_graph_hourly` AS h
                     WHERE {time_filter} {service_name_clause}
                     GROUP BY source_id, source_type, target_id, target_type
-                    {errors_only_edge_having}
+                    {"HAVING SUM(h.error_count) > 0" if errors_only else ""}
                 ),
                 all_nodes AS (
                     SELECT source_id AS node_id, source_type AS node_type
@@ -334,7 +332,7 @@ async def get_topology(
                     LEFT JOIN edges e
                         ON n.node_id = e.target_id
                     GROUP BY n.node_id, n.node_type
-                    {errors_only_node_having}
+                    {"HAVING SUM(e.error_count) > 0" if errors_only else ""}
                 )
                 SELECT 'node' AS record_kind, * FROM node_metrics
             """
@@ -348,10 +346,10 @@ async def get_topology(
                         AS avg_duration_ms,
                     SUM(error_count) AS error_count,
                     SUM(edge_tokens) AS total_tokens
-                FROM `{project_id}.{dataset}.agent_graph_hourly`
+                FROM `{project_id}.{dataset}.agent_graph_hourly` AS h
                 WHERE {time_filter} {service_name_clause}
                 GROUP BY source_id, target_id
-                {errors_only_edge_having}
+                {"HAVING SUM(h.error_count) > 0" if errors_only else ""}
             """
 
             node_results, edge_results = await asyncio.gather(
@@ -388,10 +386,10 @@ async def get_topology(
                         SUM(total_duration_ms),
                         NULLIF(SUM(execution_count), 0)
                     ) AS avg_duration_ms
-                FROM `{project_id}.{dataset}.agent_topology_nodes`
+                FROM `{project_id}.{dataset}.agent_topology_nodes` AS n
                 WHERE {nodes_time_filter} {service_name_clause}
                 GROUP BY logical_node_id
-                {errors_only_node_having}
+                {"HAVING SUM(n.error_count) > 0" if errors_only else ""}
             """
             edges_query = f"""
                 SELECT
@@ -404,10 +402,10 @@ async def get_topology(
                     ) AS avg_duration_ms,
                     SUM(error_count) AS error_count,
                     SUM(total_tokens) AS total_tokens
-                FROM `{project_id}.{dataset}.agent_topology_edges`
+                FROM `{project_id}.{dataset}.agent_topology_edges` AS e
                 WHERE {edges_time_filter} {service_name_clause}
                 GROUP BY source_node_id, destination_node_id
-                {errors_only_edge_having}
+                {"HAVING SUM(e.error_count) > 0" if errors_only else ""}
             """
 
             node_results, edge_results = await asyncio.gather(

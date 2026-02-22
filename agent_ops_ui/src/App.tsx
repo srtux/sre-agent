@@ -324,6 +324,12 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
           Tools
         </button>
         <button
+          style={activeTab === 'dashboard' ? styles.tabActive : styles.tab}
+          onClick={() => setActiveTab('dashboard')}
+        >
+          Dashboard
+        </button>
+        <button
           style={activeTab === 'topology' ? styles.tabActive : styles.tab}
           onClick={() => {
             if (activeTab !== 'topology') fetchAll(false)
@@ -340,12 +346,6 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
           }}
         >
           Trajectory Flow
-        </button>
-        <button
-          style={activeTab === 'dashboard' ? styles.tabActive : styles.tab}
-          onClick={() => setActiveTab('dashboard')}
-        >
-          Dashboard
         </button>
       </div>
 
@@ -396,6 +396,10 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
                   />
                 )}
 
+                {activeTab === 'dashboard' && (
+                  <AgentDashboard />
+                )}
+
             {activeTab === 'topology' && (
               <>
                 {topologyData ? (
@@ -437,11 +441,7 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
                   </div>
                 )}
               </>
-            )}
-
-            {activeTab === 'dashboard' && (
-              <AgentDashboard />
-            )}
+                )}
           </div>
 
           <SidePanel
