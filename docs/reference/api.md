@@ -727,4 +727,4 @@ Returns detailed internal state for debugging (telemetry status, auth context, a
 | GET | `/api/debug` | health | No |
 
 ---
-*Last verified: 2026-02-15 — Auto SRE Team*
+*Last verified: 2026-02-21

@@ -706,5 +706,5 @@ To convert this documentation into an agent-usable playbook:
 
 ---
 
-*Last verified: 2026-02-15 -- Auto SRE Team*
+*Last verified: 2026-02-21
 *Source: Official Google Cloud Spanner Documentation*

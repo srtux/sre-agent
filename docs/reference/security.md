@@ -509,4 +509,4 @@ SRE_AGENT_EVAL_MODE=true  # Optional: use synthetic data
 | Directory traversal | Path sanitization + prefix check | Active |
 
 ---
-*Last verified: 2026-02-15 -- Auto SRE Team*
+*Last verified: 2026-02-21

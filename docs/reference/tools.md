@@ -421,4 +421,4 @@ The following table lists all tools exported from `sre_agent/tools/__init__.py`:
 | `reconstruct_agent_interaction` | `analysis.agent_trace.tools` | analysis |
 
 ---
-*Last verified: 2026-02-15 — Auto SRE Team*
+*Last verified: 2026-02-21

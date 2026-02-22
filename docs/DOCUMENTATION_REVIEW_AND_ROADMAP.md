@@ -24,12 +24,12 @@ All documents should reflect the same "last verified" date when they are in sync
 | `docs/EVALUATIONS.md` | 2026-02-15 | **Current** |
 | `docs/guides/development.md` | 2026-02-15 | **Current** |
 | `docs/guides/getting_started.md` | 2026-02-15 | **Current** |
-| `docs/guides/linting.md` | 2026-02-15 | **Current** |
+| `docs/testing/linting.md` | 2026-02-15 | **Current** |
 | `docs/concepts/online_research_and_self_healing.md` | 2026-02-14 | 1 day stale |
 | `docs/reference/api.md` | 2026-02-02 | **13 days stale** |
 | `docs/reference/tools.md` | 2026-02-02 | **13 days stale** |
 | `docs/reference/security.md` | 2026-02-02 | **13 days stale** |
-| `docs/guides/testing.md` | 2026-02-02 | **13 days stale** |
+| `docs/testing/testing.md` | 2026-02-02 | **13 days stale** |
 
 **Action**: Update all "Last verified" dates to 2026-02-15 after corrections are applied.
 
@@ -420,7 +420,7 @@ Add "Self-Healing" to the playbooks description in CLAUDE.md.
 Add a guide in `docs/guides/` describing the query language features, autocomplete, NL support.
 
 ### Fix F16 (New): Update stale reference docs
-Update `docs/reference/api.md`, `tools.md`, `security.md` and `docs/guides/testing.md` to reflect current codebase (196 test files, new tools, new API endpoints).
+Update `docs/reference/api.md`, `tools.md`, `security.md` and `docs/testing/testing.md` to reflect current codebase (196 test files, new tools, new API endpoints).
 
 ---
 

@@ -702,8 +702,8 @@ uv run poe delete          # Delete agent (--resource_id ID)
 | [Getting Started](docs/guides/getting_started.md) | Configuration and environment setup |
 | [Development Guide](docs/guides/development.md) | Development workflow and coding standards |
 | [System Architecture](docs/architecture/system_overview.md) | Deep dive into the Council of Experts |
-| [Testing Guide](docs/guides/testing.md) | Testing standards and conventions |
-| [Evaluation Guide](docs/guides/evaluation.md) | Agent performance measurement |
+| [Testing Guide](docs/testing/testing.md) | Testing standards and conventions |
+| [Evaluation Guide](docs/EVALUATIONS.md) | Agent performance measurement |
 | [Deployment Guide](docs/guides/deployment.md) | Deployment procedures and options |
 | [Security and Identity](docs/reference/security.md) | OAuth2, OIDC, and EUC implementation |
 | [Configuration Reference](docs/reference/configuration.md) | All environment variables and settings |
@@ -753,4 +753,4 @@ Apache-2.0. See [LICENSE](LICENSE) for details.
 
 ---
 
-_Last verified: 2026-02-15_
+_Last verified: 2026-02-21

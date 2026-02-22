@@ -43,6 +43,36 @@ async def get_version() -> dict[str, str]:
     return get_version_info()
 
 
+@router.get("/api/system/tools")
+async def get_system_tools() -> dict[str, Any]:
+    """Get the dynamic registry of all available agent tools.
+
+    This endpoint allows AI agents and clients to discover exactly
+    what tools the system possesses dynamically, without needing
+    to scrape the Python codebase.
+    """
+    from sre_agent.agent import TOOL_NAME_MAP
+
+    tools_list = []
+    for name, tool_func in TOOL_NAME_MAP.items():
+        # Get ADK tool schema representation if available, else fallback
+        docstring = getattr(tool_func, "__doc__", "No description available.")
+        if docstring:
+            docstring = docstring.strip().split("\n")[0]  # Just the first line
+
+        tools_list.append(
+            {
+                "name": name,
+                "description": docstring,
+            }
+        )
+
+    return {
+        "count": len(tools_list),
+        "tools": sorted(tools_list, key=lambda t: t["name"]),
+    }
+
+
 class LoginRequest(BaseModel):
     """Request model for the login endpoint."""
 

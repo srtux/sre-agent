@@ -176,4 +176,4 @@ For the complete conceptual overview of multi-agent observability, see:
 - [Agent Graph Deep Dive](agent_ops/architecture.md)
 
 ---
-*Last verified: 2026-02-21 -- Auto SRE Team*
+*Last verified: 2026-02-21

@@ -23,7 +23,7 @@ Sometimes the agent might get stuck, produce unexpected answers, or encounter pe
 ### 4. UI Rendering Issues (GenUI)
 
 - **Cause**: Generative UI rendering may fail for malformed tool output or unsupported data shapes.
-- **Fix**: Click the "Raw Response" toggle (if available) to see the text-only output. Check `docs/guides/debugging_genui.md` for detailed troubleshooting steps.
+- **Fix**: Click the "Raw Response" toggle (if available) to see the text-only output. Check `docs/debugging/debugging_genui.md` for detailed troubleshooting steps.
 
 ### 5. Slow or Timed-Out Investigations
 

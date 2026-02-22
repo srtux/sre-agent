@@ -262,4 +262,4 @@ For the complete conceptual overview, see [Multi-Agent Observability](multi_agen
 
 ---
 
-*Last verified: 2026-02-21 -- Auto SRE Team*
+*Last verified: 2026-02-21

@@ -165,4 +165,4 @@ uv run poe test-all
 5. **Test File Naming**: Flutter test files use the `<name>_test.dart` convention (not `test_<name>.dart` as in Python).
 
 ---
-*Last verified: 2026-02-15 -- Auto SRE Team*
+*Last verified: 2026-02-21

@@ -149,4 +149,4 @@ Backend emits `{"type": "dashboard", ...}` events via `api/helpers/tool_events.p
 - [AgentOps Dashboard](../agent_ops/dashboard.md): Fleet-wide agent performance monitoring.
 
 ---
-*Last verified: 2026-02-21 -- Auto SRE Team*
+*Last verified: 2026-02-21

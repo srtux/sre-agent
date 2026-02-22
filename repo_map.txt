@@ -1,0 +1,1153 @@
+Repo Map: sre-agent/
+
+├── adk-docs/
+│   ├── docs/
+│   │   ├── a2a/
+│   │   │   ├── index.md
+│   │   │   ├── intro.md
+│   │   │   ├── quickstart-consuming-go.md
+│   │   │   ├── quickstart-consuming.md
+│   │   │   ├── quickstart-exposing-go.md
+│   │   │   └── quickstart-exposing.md
+│   │   ├── agents/
+│   │   │   ├── models/ ...
+│   │   │   ├── workflow-agents/ ...
+│   │   │   ├── config.md
+│   │   │   ├── custom-agents.md
+│   │   │   ├── index.md
+│   │   │   ├── llm-agents.md
+│   │   │   └── multi-agents.md
+│   │   ├── api-reference/
+│   │   │   ├── agentconfig/ ...
+│   │   │   ├── cli/ ...
+│   │   │   ├── java/ ...
+│   │   │   ├── python/ ...
+│   │   │   ├── rest/ ...
+│   │   │   ├── typescript/ ...
+│   │   │   └── index.md
+│   │   ├── apps/
+│   │   │   └── index.md
+│   │   ├── artifacts/
+│   │   │   └── index.md
+│   │   ├── assets/
+│   │   │   ├── adk-api-server.png
+│   │   │   ├── adk-components.png
+│   │   │   ├── adk-eval-case.gif
+│   │   │   ├── adk-eval-config.gif
+│   │   │   ├── adk-interfaces.png
+│   │   │   ├── adk-lifecycle.png
+│   │   │   ├── adk-run.png
+│   │   │   ├── adk-social-card.png
+│   │   │   ├── adk-stack.png
+│   │   │   ├── adk-streaming-audio-dialog.png
+│   │   │   ├── adk-streaming-mic.png
+│   │   │   ├── adk-streaming-text.png
+│   │   │   ├── adk-streaming.png
+│   │   │   ├── adk-tool-mcp-fastmcp-adk-web-demo.png
+│   │   │   ├── adk-tool-mcp-filesystem-adk-web-demo.png
+│   │   │   ├── adk-tool-mcp-maps-adk-web-demo.png
+│   │   │   ├── adk-trace1.gif
+│   │   │   ├── adk-trace2.gif
+│   │   │   ├── adk-web-dev-ui-audio.png
+│   │   │   ├── adk-web-dev-ui-chat.png
+│   │   │   ├── adk-web-dev-ui-function-call.png
+│   │   │   ├── adk-web-dev-ui-trace.png
+│   │   │   ├── agent-development-kit.png
+│   │   │   ├── agent-evaluation.png
+│   │   │   ├── agent-gke-deployment.png
+│   │   │   ├── agent-tool-call.png
+│   │   │   ├── agent-types.png
+│   │   │   ├── agent-workflow.png
+│   │   │   ├── agentops-adk-trace-example.jpg
+│   │   │   ├── application-integration-overview.png
+│   │   │   ├── auth_part1.svg
+│   │   │   ├── auth_part2.svg
+│   │   │   ├── callback_flow.png
+│   │   │   ├── cloud-trace1.png
+│   │   │   ├── cloud-trace2.png
+│   │   │   ├── cloud-trace3.png
+│   │   │   ├── community-adk-course.jpg
+│   │   │   ├── community-adk-masterclass-hands-on.png
+│   │   │   ├── community-adk-masterclass.jpg
+│   │   │   ├── community-adk-news-jp.jpg
+│   │   │   ├── community-adk-training-hub.png
+│   │   │   ├── community-adk-vertex-ai-live-api.png
+│   │   │   ├── community-agent-development-kit.jpg
+│   │   │   ├── community-agent-directory.png
+│   │   │   ├── community-agent-tools-101.jpg
+│   │   │   ├── community-brand-search-optimization-agent.jpg
+│   │   │   ├── community-build-ai-agents-with-adk-for-java.png
+│   │   │   ├── community-building-intelligent-agents-with-adk.jpg
+│   │   │   ├── community-building-your-first-agent.jpg
+│   │   │   ├── community-data-science-agent.jpg
+│   │   │   ├── community-discover-adk-java.jpg
+│   │   │   ├── community-google-adk-for-java-experiments.jpg
+│   │   │   ├── community-master-agentic-ai-with-adk.jpg
+│   │   │   ├── community-shoppers-concierge-demo.jpg
+│   │   │   ├── confirmation-ui.png
+│   │   │   ├── context-compaction.svg
+│   │   │   ├── custom-agent-flow.png
+│   │   │   ├── custom-agent.png
+│   │   │   ├── custom_agent.svg
+│   │   │   ├── deploy-agent.png
+│   │   │   ├── evaluate_agent.png
+│   │   │   ├── event-loop.png
+│   │   │   ├── google_search_grd_adk_web.png
+│   │   │   ├── google_search_grd_dataflow.png
+│   │   │   ├── google_search_grd_resp.png
+│   │   │   ├── idx-logo.png
+│   │   │   ├── invocation-flow.png
+│   │   │   ├── loop-agent.png
+│   │   │   ├── monocle-vs-code-ext.png
+│   │   │   ├── multi-agent.png
+│   │   │   ├── oauth-tool-flow.png
+│   │   │   ├── parallel-agent.png
+│   │   │   ├── project-id.png
+│   │   │   ├── publish-integration.png
+│   │   │   ├── quickstart-flow-tool.png
+│   │   │   ├── quickstart-streaming-devui.png
+│   │   │   ├── quickstart-streaming-tool.png
+│   │   │   ├── quickstart.png
+│   │   │   ├── sequential-agent.png
+│   │   │   ├── session-state.png
+│   │   │   ├── session_lifecycle.png
+│   │   │   ├── shop_agent.png
+│   │   │   ├── use-connection-tool-template.png
+│   │   │   ├── vertex_ai_search_grd_adk_web.png
+│   │   │   ├── vertex_ai_search_grd_data_store.png
+│   │   │   ├── vertex_ai_search_grd_dataflow.png
+│   │   │   ├── visual-builder-start.png
+│   │   │   ├── visual-builder.png
+│   │   │   ├── weather-example.png
+│   │   │   ├── what-is-an-agent.png
+│   │   │   └── workflow-plugin-hooks.svg
+│   │   ├── callbacks/
+│   │   │   ├── design-patterns-and-best-practices.md
+│   │   │   ├── index.md
+│   │   │   └── types-of-callbacks.md
+│   │   ├── context/
+│   │   │   ├── caching.md
+│   │   │   ├── compaction.md
+│   │   │   └── index.md
+│   │   ├── deploy/
+│   │   │   ├── agent-engine/ ...
+│   │   │   ├── cloud-run.md
+│   │   │   ├── gke.md
+│   │   │   └── index.md
+│   │   ├── evaluate/
+│   │   │   ├── criteria.md
+│   │   │   ├── index.md
+│   │   │   └── user-sim.md
+│   │   ├── events/
+│   │   │   └── index.md
+│   │   ├── get-started/
+│   │   │   ├── streaming/ ...
+│   │   │   ├── about.md
+│   │   │   ├── go.md
+│   │   │   ├── index.md
+│   │   │   ├── installation.md
+│   │   │   ├── java.md
+│   │   │   ├── python.md
+│   │   │   ├── quickstart.md
+│   │   │   └── typescript.md
+│   │   ├── grounding/
+│   │   │   ├── google_search_grounding.md
+│   │   │   ├── index.md
+│   │   │   └── vertex_ai_search_grounding.md
+│   │   ├── integrations/
+│   │   │   ├── assets/ ...
+│   │   │   ├── ag-ui.md
+│   │   │   ├── agentops.md
+│   │   │   ├── api-registry.md
+│   │   │   ├── apigee-api-hub.md
+│   │   │   ├── application-integration.md
+│   │   │   ├── arize-ax.md
+│   │   │   ├── asana.md
+│   │   │   ├── atlassian.md
+│   │   │   ├── bigquery-agent-analytics.md
+│   │   │   ├── bigquery.md
+│   │   │   ├── bigtable.md
+│   │   │   ├── cartesia.md
+│   │   │   ├── chroma.md
+│   │   │   ├── cloud-trace.md
+│   │   │   ├── code-exec-agent-engine.md
+│   │   │   ├── code-execution.md
+│   │   │   ├── computer-use.md
+│   │   │   ├── data-agent.md
+│   │   │   ├── daytona.md
+│   │   │   ├── elevenlabs.md
+│   │   │   ├── express-mode.md
+│   │   │   ├── freeplay.md
+│   │   │   ├── github.md
+│   │   │   ├── gitlab.md
+│   │   │   ├── gke-code-executor.md
+│   │   │   ├── google-search.md
+│   │   │   ├── hugging-face.md
+│   │   │   ├── index.md
+│   │   │   ├── linear.md
+│   │   │   ├── mcp-toolbox-for-databases.md
+│   │   │   ├── mlflow.md
+│   │   │   ├── mongodb.md
+│   │   │   ├── monocle.md
+│   │   │   ├── n8n.md
+│   │   │   ├── notion.md
+│   │   │   ├── paypal.md
+│   │   │   ├── phoenix.md
+│   │   │   ├── postman.md
+│   │   │   ├── pubsub.md
+│   │   │   ├── qdrant.md
+│   │   │   ├── reflect-and-retry.md
+│   │   │   ├── spanner.md
+│   │   │   ├── stripe.md
+│   │   │   ├── vertex-ai-rag-engine.md
+│   │   │   ├── vertex-ai-search.md
+│   │   │   └── weave.md
+│   │   ├── javascript/
+│   │   │   └── copy-page.js
+│   │   ├── mcp/
+│   │   │   └── index.md
+│   │   ├── observability/
+│   │   │   └── logging.md
+│   │   ├── plugins/
+│   │   │   └── index.md
+│   │   ├── runtime/
+│   │   │   ├── api-server.md
+│   │   │   ├── command-line.md
+│   │   │   ├── event-loop.md
+│   │   │   ├── index.md
+│   │   │   ├── resume.md
+│   │   │   ├── runconfig.md
+│   │   │   └── web-interface.md
+│   │   ├── safety/
+│   │   │   └── index.md
+│   │   ├── sessions/
+│   │   │   ├── session/ ...
+│   │   │   ├── index.md
+│   │   │   ├── memory.md
+│   │   │   └── state.md
+│   │   ├── streaming/
+│   │   │   ├── dev-guide/ ...
+│   │   │   ├── configuration.md
+│   │   │   ├── index.md
+│   │   │   └── streaming-tools.md
+│   │   ├── stylesheets/
+│   │   │   ├── custom.css
+│   │   │   └── language-tags.css
+│   │   ├── tools/
+│   │   │   └── limitations.md
+│   │   ├── tools-custom/
+│   │   │   ├── authentication.md
+│   │   │   ├── confirmation.md
+│   │   │   ├── function-tools.md
+│   │   │   ├── index.md
+│   │   │   ├── mcp-tools.md
+│   │   │   ├── openapi-tools.md
+│   │   │   └── performance.md
+│   │   ├── tutorials/
+│   │   │   ├── agent-team.md
+│   │   │   ├── coding-with-ai.md
+│   │   │   └── index.md
+│   │   ├── visual-builder/
+│   │   │   └── index.md
+│   │   ├── community.md
+│   │   ├── contributing-guide.md
+│   │   ├── index.md
+│   │   └── release-notes.md
+│   ├── examples/
+│   │   ├── go/
+│   │   │   ├── a2a_basic/ ...
+│   │   │   ├── cloud-run/ ...
+│   │   │   ├── snippets/ ...
+│   │   │   ├── go.mod
+│   │   │   └── go.sum
+│   │   ├── java/
+│   │   │   ├── cloud-run/ ...
+│   │   │   ├── demos/ ...
+│   │   │   └── snippets/ ...
+│   │   ├── python/
+│   │   │   ├── agent-samples/ ...
+│   │   │   ├── notebooks/ ...
+│   │   │   ├── snippets/ ...
+│   │   │   └── tutorial/ ...
+│   │   └── typescript/
+│   │       └── snippets/ ...
+│   ├── overrides/
+│   │   ├── partials/
+│   │   │   ├── actions.html
+│   │   │   ├── header.html
+│   │   │   ├── nav.html
+│   │   │   └── source.html
+│   │   └── main.html
+│   ├── scripts/
+│   │   └── integrations.py
+│   ├── site/
+│   ├── tools/
+│   │   ├── feature-matrix/
+│   │   │   ├── go.mod
+│   │   │   ├── go.sum
+│   │   │   ├── main.go
+│   │   │   ├── prompt.md
+│   │   │   └── start.md
+│   │   ├── go-snippets/
+│   │   │   ├── check_go_snippets.sh
+│   │   │   ├── files_to_test.txt
+│   │   │   ├── README.md
+│   │   │   ├── runner.sh
+│   │   │   └── runner_test.sh
+│   │   └── python-cli-docs/
+│   │       └── generate.sh
+│   ├── CONTRIBUTING.md
+│   ├── LICENSE
+│   ├── llms-full.txt
+│   ├── llms.txt
+│   ├── mkdocs.yml
+│   ├── netlify.toml
+│   ├── README.md
+│   └── requirements.txt
+├── adk-python/
+│   ├── assets/
+│   │   ├── adk-web-dev-ui-function-call.png
+│   │   └── agent-development-kit.png
+│   ├── contributing/
+│   │   ├── dev/
+│   │   │   └── utils/ ...
+│   │   ├── samples/
+│   │   │   ├── a2a_auth/ ...
+│   │   │   ├── a2a_basic/ ...
+│   │   │   ├── a2a_human_in_loop/ ...
+│   │   │   ├── a2a_root/ ...
+│   │   │   ├── adk_answering_agent/ ...
+│   │   │   ├── adk_documentation/ ...
+│   │   │   ├── adk_issue_formatting_agent/ ...
+│   │   │   ├── adk_knowledge_agent/ ...
+│   │   │   ├── adk_pr_agent/ ...
+│   │   │   ├── adk_pr_triaging_agent/ ...
+│   │   │   ├── adk_stale_agent/ ...
+│   │   │   ├── adk_triaging_agent/ ...
+│   │   │   ├── agent_engine_code_execution/ ...
+│   │   │   ├── api_registry_agent/ ...
+│   │   │   ├── application_integration_agent/ ...
+│   │   │   ├── artifact_save_text/ ...
+│   │   │   ├── authn-adk-all-in-one/ ...
+│   │   │   ├── bigquery/ ...
+│   │   │   ├── bigquery_mcp/ ...
+│   │   │   ├── bigtable/ ...
+│   │   │   ├── built_in_multi_tools/ ...
+│   │   │   ├── cache_analysis/ ...
+│   │   │   ├── callbacks/ ...
+│   │   │   ├── code_execution/ ...
+│   │   │   ├── computer_use/ ...
+│   │   │   ├── context_offloading_with_artifact/ ...
+│   │   │   ├── core_basic_config/ ...
+│   │   │   ├── core_callback_config/ ...
+│   │   │   ├── core_custom_agent_config/ ...
+│   │   │   ├── core_generate_content_config_config/ ...
+│   │   │   ├── crewai_tool_kwargs/ ...
+│   │   │   ├── custom_code_execution/ ...
+│   │   │   ├── data_agent/ ...
+│   │   │   ├── fields_output_schema/ ...
+│   │   │   ├── fields_planner/ ...
+│   │   │   ├── generate_image/ ...
+│   │   │   ├── gepa/ ...
+│   │   │   ├── gke_agent_sandbox/ ...
+│   │   │   ├── google_api/ ...
+│   │   │   ├── google_search_agent/ ...
+│   │   │   ├── hello_world/ ...
+│   │   │   ├── hello_world_anthropic/ ...
+│   │   │   ├── hello_world_apigeellm/ ...
+│   │   │   ├── hello_world_app/ ...
+│   │   │   ├── hello_world_gemma/ ...
+│   │   │   ├── hello_world_gemma3_ollama/ ...
+│   │   │   ├── hello_world_litellm/ ...
+│   │   │   ├── hello_world_litellm_add_function_to_prompt/ ...
+│   │   │   ├── hello_world_ma/ ...
+│   │   │   ├── hello_world_ollama/ ...
+│   │   │   ├── hello_world_stream_fc_args/ ...
+│   │   │   ├── history_management/ ...
+│   │   │   ├── human_in_loop/ ...
+│   │   │   ├── human_tool_confirmation/ ...
+│   │   │   ├── integration_connector_euc_agent/ ...
+│   │   │   ├── interactions_api/ ...
+│   │   │   ├── jira_agent/ ...
+│   │   │   ├── json_passing_agent/ ...
+│   │   │   ├── langchain_structured_tool_agent/ ...
+│   │   │   ├── langchain_youtube_search_agent/ ...
+│   │   │   ├── litellm_inline_tool_call/ ...
+│   │   │   ├── litellm_streaming/ ...
+│   │   │   ├── litellm_structured_output/ ...
+│   │   │   ├── litellm_with_fallback_models/ ...
+│   │   │   ├── live_agent_api_server_example/ ...
+│   │   │   ├── live_bidi_debug_utils/ ...
+│   │   │   ├── live_bidi_streaming_multi_agent/ ...
+│   │   │   ├── live_bidi_streaming_single_agent/ ...
+│   │   │   ├── live_bidi_streaming_tools_agent/ ...
+│   │   │   ├── live_tool_callbacks_agent/ ...
+│   │   │   ├── logprobs/ ...
+│   │   │   ├── manual_ollama_test/ ...
+│   │   │   ├── mcp_dynamic_header_agent/ ...
+│   │   │   ├── mcp_in_agent_tool_remote/ ...
+│   │   │   ├── mcp_in_agent_tool_stdio/ ...
+│   │   │   ├── mcp_postgres_agent/ ...
+│   │   │   ├── mcp_progress_callback_agent/ ...
+│   │   │   ├── mcp_server_side_sampling/ ...
+│   │   │   ├── mcp_service_account_agent/ ...
+│   │   │   ├── mcp_sse_agent/ ...
+│   │   │   ├── mcp_stdio_notion_agent/ ...
+│   │   │   ├── mcp_stdio_server_agent/ ...
+│   │   │   ├── mcp_streamablehttp_agent/ ...
+│   │   │   ├── mcp_toolset_auth/ ...
+│   │   │   ├── memory/ ...
+│   │   │   ├── migrate_session_db/ ...
+│   │   │   ├── multi_agent_basic_config/ ...
+│   │   │   ├── multi_agent_llm_config/ ...
+│   │   │   ├── multi_agent_loop_config/ ...
+│   │   │   ├── multi_agent_seq_config/ ...
+│   │   │   ├── multimodal_tool_results/ ...
+│   │   │   ├── non_llm_sequential/ ...
+│   │   │   ├── oauth2_client_credentials/ ...
+│   │   │   ├── oauth_calendar_agent/ ...
+│   │   │   ├── output_schema_with_tools/ ...
+│   │   │   ├── parallel_functions/ ...
+│   │   │   ├── plugin_basic/ ...
+│   │   │   ├── plugin_debug_logging/ ...
+│   │   │   ├── plugin_reflect_tool_retry/ ...
+│   │   │   ├── postgres_session_service/ ...
+│   │   │   ├── pubsub/ ...
+│   │   │   ├── pydantic_argument/ ...
+│   │   │   ├── quickstart/ ...
+│   │   │   ├── rag_agent/ ...
+│   │   │   ├── rewind_session/ ...
+│   │   │   ├── runner_debug_example/ ...
+│   │   │   ├── session_state_agent/ ...
+│   │   │   ├── simple_sequential_agent/ ...
+│   │   │   ├── skills_agent/ ...
+│   │   │   ├── spanner/ ...
+│   │   │   ├── spanner_rag_agent/ ...
+│   │   │   ├── static_instruction/ ...
+│   │   │   ├── static_non_text_content/ ...
+│   │   │   ├── sub_agents_config/ ...
+│   │   │   ├── telemetry/ ...
+│   │   │   ├── token_usage/ ...
+│   │   │   ├── tool_agent_tool_config/ ...
+│   │   │   ├── tool_builtin_config/ ...
+│   │   │   ├── tool_functions_config/ ...
+│   │   │   ├── tool_human_in_the_loop_config/ ...
+│   │   │   ├── tool_mcp_stdio_notion_config/ ...
+│   │   │   ├── toolbox_agent/ ...
+│   │   │   ├── vertex_code_execution/ ...
+│   │   │   ├── workflow_agent_seq/ ...
+│   │   │   ├── workflow_triage/ ...
+│   │   │   ├── dummy_services.py
+│   │   │   ├── services.py
+│   │   │   └── services.yaml
+│   │   ├── adk_project_overview_and_architecture.md
+│   │   └── README.md
+│   ├── scripts/
+│   │   ├── db_migration.sh
+│   │   └── unittests.sh
+│   ├── src/
+│   │   └── google/
+│   │       └── adk/ ...
+│   ├── tests/
+│   │   ├── integration/
+│   │   │   ├── fixture/ ...
+│   │   │   ├── models/ ...
+│   │   │   ├── tools/ ...
+│   │   │   ├── utils/ ...
+│   │   │   ├── __init__.py
+│   │   │   ├── conftest.py
+│   │   │   ├── test_callback.py
+│   │   │   ├── test_context_variable.py
+│   │   │   ├── test_evaluate_agent_in_fixture.py
+│   │   │   ├── test_multi_agent.py
+│   │   │   ├── test_multi_turn.py
+│   │   │   ├── test_single_agent.py
+│   │   │   ├── test_sub_agent.py
+│   │   │   ├── test_system_instruction.py
+│   │   │   ├── test_tools.py
+│   │   │   ├── test_vertex_ai_search_grounding_streaming.py
+│   │   │   └── test_with_test_file.py
+│   │   ├── unittests/
+│   │   │   ├── a2a/ ...
+│   │   │   ├── agents/ ...
+│   │   │   ├── apps/ ...
+│   │   │   ├── artifacts/ ...
+│   │   │   ├── auth/ ...
+│   │   │   ├── cli/ ...
+│   │   │   ├── code_executors/ ...
+│   │   │   ├── evaluation/ ...
+│   │   │   ├── features/ ...
+│   │   │   ├── flows/ ...
+│   │   │   ├── memory/ ...
+│   │   │   ├── models/ ...
+│   │   │   ├── optimization/ ...
+│   │   │   ├── plugins/ ...
+│   │   │   ├── runners/ ...
+│   │   │   ├── sessions/ ...
+│   │   │   ├── skills/ ...
+│   │   │   ├── streaming/ ...
+│   │   │   ├── telemetry/ ...
+│   │   │   ├── tools/ ...
+│   │   │   ├── utils/ ...
+│   │   │   ├── __init__.py
+│   │   │   ├── conftest.py
+│   │   │   ├── test_runners.py
+│   │   │   └── testing_utils.py
+│   │   └── __init__.py
+│   ├── AGENTS.md
+│   ├── autoformat.sh
+│   ├── CHANGELOG.md
+│   ├── CONTRIBUTING.md
+│   ├── LICENSE
+│   ├── llms-full.txt
+│   ├── llms.txt
+│   ├── pylintrc
+│   ├── pyproject.toml
+│   └── README.md
+├── agent_ops_ui/
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── charts/ ...
+│   │   │   ├── dashboard/ ...
+│   │   │   ├── tables/ ...
+│   │   │   ├── BackEdge.tsx
+│   │   │   ├── GraphToolbar.test.tsx
+│   │   │   ├── GraphToolbar.tsx
+│   │   │   ├── Onboarding.test.tsx
+│   │   │   ├── Onboarding.tsx
+│   │   │   ├── RegistryPage.tsx
+│   │   │   ├── SidePanel.test.tsx
+│   │   │   ├── SidePanel.tsx
+│   │   │   ├── Sparkline.tsx
+│   │   │   ├── TimeRangeSelector.tsx
+│   │   │   ├── TopologyGraph.test.tsx
+│   │   │   ├── TopologyGraph.tsx
+│   │   │   ├── TrajectorySankey.test.tsx
+│   │   │   └── TrajectorySankey.tsx
+│   │   ├── contexts/
+│   │   │   ├── AgentContext.test.tsx
+│   │   │   ├── AgentContext.tsx
+│   │   │   ├── DashboardFilterContext.test.tsx
+│   │   │   └── DashboardFilterContext.tsx
+│   │   ├── hooks/
+│   │   │   ├── useDashboardMetrics.test.ts
+│   │   │   ├── useDashboardMetrics.ts
+│   │   │   ├── useDashboardTables.test.ts
+│   │   │   └── useDashboardTables.ts
+│   │   ├── utils/
+│   │   │   ├── sankeyUtils.test.ts
+│   │   │   ├── sankeyUtils.ts
+│   │   │   ├── topology.test.ts
+│   │   │   └── topology.ts
+│   │   ├── App.tsx
+│   │   ├── index.css
+│   │   ├── main.tsx
+│   │   ├── setupTests.ts
+│   │   ├── types.ts
+│   │   └── vite-env.d.ts
+│   ├── test-results/
+│   ├── eslint.config.js
+│   ├── index.html
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── tsconfig.app.json
+│   ├── tsconfig.json
+│   ├── tsconfig.tsbuildinfo
+│   └── vite.config.ts
+├── autosre/
+│   ├── integration_test/
+│   │   └── app_test.dart
+│   ├── lib/
+│   │   ├── agent/
+│   │   │   └── adk_content_generator.dart
+│   │   ├── features/
+│   │   │   ├── agent/ ...
+│   │   │   ├── dashboards/ ...
+│   │   │   ├── logs/ ...
+│   │   │   ├── metrics/ ...
+│   │   │   ├── shared/ ...
+│   │   │   └── traces/ ...
+│   │   ├── models/
+│   │   │   ├── adk_schema.dart
+│   │   │   ├── agent_models.dart
+│   │   │   ├── alert_models.dart
+│   │   │   ├── council_models.dart
+│   │   │   ├── metric_models.dart
+│   │   │   ├── time_range.dart
+│   │   │   ├── tool_models.dart
+│   │   │   └── trace_models.dart
+│   │   ├── pages/
+│   │   │   ├── conversation_controller.dart
+│   │   │   ├── conversation_page.dart
+│   │   │   ├── help_page.dart
+│   │   │   ├── login_page.dart
+│   │   │   └── tool_config_page.dart
+│   │   ├── services/
+│   │   │   ├── api_client.dart
+│   │   │   ├── auth_service.dart
+│   │   │   ├── connectivity_service.dart
+│   │   │   ├── dashboard_state.dart
+│   │   │   ├── dashboard_template_service.dart
+│   │   │   ├── data_utils.dart
+│   │   │   ├── explorer_query_service.dart
+│   │   │   ├── help_service.dart
+│   │   │   ├── project_service.dart
+│   │   │   ├── prompt_history_service.dart
+│   │   │   ├── saved_query_service.dart
+│   │   │   ├── service_config.dart
+│   │   │   ├── session_service.dart
+│   │   │   ├── tool_config_service.dart
+│   │   │   └── version_service.dart
+│   │   ├── theme/
+│   │   │   ├── app_theme.dart
+│   │   │   ├── chart_theme.dart
+│   │   │   └── design_tokens.dart
+│   │   ├── utils/
+│   │   │   ├── ansi_parser.dart
+│   │   │   └── isolate_helper.dart
+│   │   ├── widgets/
+│   │   │   ├── auth/ ...
+│   │   │   ├── canvas/ ...
+│   │   │   ├── common/ ...
+│   │   │   ├── conversation/ ...
+│   │   │   ├── dashboard/ ...
+│   │   │   ├── help/ ...
+│   │   │   ├── burn_rate_window_row.dart
+│   │   │   ├── error_placeholder.dart
+│   │   │   ├── glow_action_chip.dart
+│   │   │   ├── log_entries_viewer.dart
+│   │   │   ├── log_entry_card.dart
+│   │   │   ├── log_pattern_detail.dart
+│   │   │   ├── log_pattern_helpers.dart
+│   │   │   ├── log_pattern_painters.dart
+│   │   │   ├── log_pattern_row.dart
+│   │   │   ├── log_pattern_viewer.dart
+│   │   │   ├── postmortem_action_items.dart
+│   │   │   ├── postmortem_card.dart
+│   │   │   ├── postmortem_data.dart
+│   │   │   ├── postmortem_lessons.dart
+│   │   │   ├── postmortem_timeline.dart
+│   │   │   ├── session_panel.dart
+│   │   │   ├── slo_burn_rate_card.dart
+│   │   │   ├── slo_burn_rate_data.dart
+│   │   │   ├── status_toast.dart
+│   │   │   ├── syncfusion_metric_chart.dart
+│   │   │   ├── tech_grid_painter.dart
+│   │   │   ├── tool_log.dart
+│   │   │   ├── tool_log_helpers.dart
+│   │   │   ├── trace_waterfall.dart
+│   │   │   ├── tree_line_painter.dart
+│   │   │   └── unified_prompt_input.dart
+│   │   ├── app.dart
+│   │   ├── catalog.dart
+│   │   └── main.dart
+│   ├── macos/
+│   │   ├── Flutter/
+│   │   │   ├── ephemeral/ ...
+│   │   │   ├── Flutter-Debug.xcconfig
+│   │   │   ├── Flutter-Release.xcconfig
+│   │   │   └── GeneratedPluginRegistrant.swift
+│   │   ├── Runner/
+│   │   │   ├── Assets.xcassets/ ...
+│   │   │   ├── Base.lproj/ ...
+│   │   │   ├── Configs/ ...
+│   │   │   ├── AppDelegate.swift
+│   │   │   ├── DebugProfile.entitlements
+│   │   │   ├── Info.plist
+│   │   │   ├── MainFlutterWindow.swift
+│   │   │   └── Release.entitlements
+│   │   ├── Runner.xcodeproj/
+│   │   │   ├── project.xcworkspace/ ...
+│   │   │   ├── xcshareddata/ ...
+│   │   │   └── project.pbxproj
+│   │   ├── Runner.xcworkspace/
+│   │   │   ├── xcshareddata/ ...
+│   │   │   └── contents.xcworkspacedata
+│   │   └── RunnerTests/
+│   │       └── RunnerTests.swift
+│   ├── test/
+│   │   ├── features/
+│   │   │   └── logs/ ...
+│   │   ├── models/
+│   │   │   ├── adk_schema_test.dart
+│   │   │   ├── agent_activity_models_test.dart
+│   │   │   ├── council_models_test.dart
+│   │   │   ├── dart3_modernization_test.dart
+│   │   │   ├── model_copy_with_test.dart
+│   │   │   ├── model_equality_test.dart
+│   │   │   └── model_type_safety_test.dart
+│   │   ├── pages/
+│   │   │   └── help_page_test.dart
+│   │   ├── services/
+│   │   │   ├── api_client_test.dart
+│   │   │   ├── connectivity_service_test.dart
+│   │   │   └── dashboard_state_test.dart
+│   │   ├── widgets/
+│   │   │   ├── dashboard_defaults_test.dart
+│   │   │   ├── log_field_facets_test.dart
+│   │   │   ├── log_timeline_histogram_test.dart
+│   │   │   ├── sql_results_table_test.dart
+│   │   │   ├── trace_waterfall_test.dart
+│   │   │   ├── unified_time_picker_test.dart
+│   │   │   └── visual_data_explorer_test.dart
+│   │   ├── ansi_parser_test.dart
+│   │   ├── auth_guest_login_test.dart
+│   │   ├── auth_service_helper_test.dart
+│   │   ├── auth_service_logic_test.dart
+│   │   ├── auth_wrapper_test.dart
+│   │   ├── bigquery_sidebar_test.dart
+│   │   ├── catalog_renderer_test.dart
+│   │   ├── component_wrapper_test.dart
+│   │   ├── conversation_page_test.dart
+│   │   ├── council_panel_test.dart
+│   │   ├── dashboard_layout_test.dart
+│   │   ├── dashboard_resize_test.dart
+│   │   ├── fl_nodes_api_test.dart
+│   │   ├── fl_nodes_check.dart
+│   │   ├── flutter_test_config.dart
+│   │   ├── glow_action_chip_scroll_test.dart
+│   │   ├── glow_action_chip_test.dart
+│   │   ├── help_service_test.dart
+│   │   ├── prompt_history_service_test.dart
+│   │   ├── services_test.dart
+│   │   ├── test_helper.dart
+│   │   ├── unified_prompt_input_functional_test.dart
+│   │   ├── unified_prompt_input_test.dart
+│   │   └── widget_test.dart
+│   ├── web/
+│   │   ├── icons/
+│   │   │   ├── Icon-192.png
+│   │   │   ├── Icon-512.png
+│   │   │   ├── Icon-maskable-192.png
+│   │   │   └── Icon-maskable-512.png
+│   │   ├── favicon.png
+│   │   ├── index.html
+│   │   ├── manifest.json
+│   │   └── source_logo.png
+│   ├── analysis_options.yaml
+│   ├── devtools_options.yaml
+│   ├── pubspec.lock
+│   ├── pubspec.yaml
+│   ├── README.md
+│   └── sre_nexus.iml
+├── deploy/
+│   ├── k8s/
+│   │   ├── deployment.yaml
+│   │   └── service.yaml
+│   ├── deploy.py
+│   ├── deploy_all.py
+│   ├── deploy_gke.py
+│   ├── deploy_web.py
+│   ├── Dockerfile.unified
+│   ├── get_id.py
+│   ├── grant_permissions.py
+│   ├── README.md
+│   ├── run_eval.py
+│   ├── setup_agent_identity_iam.sh
+│   ├── setup_ca_agent.py
+│   └── verify_agent_identity.py
+├── docs/
+│   ├── agent_ops/
+│   │   ├── architecture.md
+│   │   ├── bigquery_setup.md
+│   │   ├── bq_schema.md
+│   │   ├── dashboard.md
+│   │   ├── dashboards_legacy.md
+│   │   ├── explorer_ui.md
+│   │   ├── observability_theory.md
+│   │   ├── README.md
+│   │   ├── setup.md
+│   │   └── visualization_setup.md
+│   ├── architecture/
+│   │   ├── AGENTS_AND_TOOLS.md
+│   │   ├── backend.md
+│   │   ├── decisions.md
+│   │   ├── frontend.md
+│   │   ├── help_system.md
+│   │   ├── project_structure.md
+│   │   ├── system_instruction_snapshot_v1.md
+│   │   ├── system_overview.md
+│   │   └── telemetry.md
+│   ├── authentication/
+│   │   ├── auth_learnings.md
+│   │   └── authentication.md
+│   ├── concepts/
+│   │   ├── agent_orchestration.md
+│   │   ├── autonomous_reliability.md
+│   │   ├── gcp_enhancements.md
+│   │   ├── memory.md
+│   │   ├── observability.md
+│   │   └── online_research_and_self_healing.md
+│   ├── debugging/
+│   │   ├── debugging_connectivity.md
+│   │   ├── debugging_genui.md
+│   │   └── debugging_telemetry_and_auth.md
+│   ├── guides/
+│   │   ├── dashboard_query_language.md
+│   │   ├── default_experience.md
+│   │   ├── deployment.md
+│   │   ├── development.md
+│   │   ├── getting_started.md
+│   │   ├── project_selector.md
+│   │   └── rendering_telemetry.md
+│   ├── help/
+│   │   ├── content/
+│   │   │   ├── changes.md
+│   │   │   ├── circuit_breaker.md
+│   │   │   ├── council.md
+│   │   │   ├── custom_tools.md
+│   │   │   ├── debugging_agent.md
+│   │   │   ├── deployment.md
+│   │   │   ├── incident_lifecycle.md
+│   │   │   ├── logs.md
+│   │   │   ├── metrics.md
+│   │   │   ├── model_info.md
+│   │   │   ├── rca.md
+│   │   │   ├── safety.md
+│   │   │   ├── telemetry_source.md
+│   │   │   └── traces.md
+│   │   └── manifest.json
+│   ├── images/
+│   │   ├── architecture.jpg
+│   │   ├── flow.jpg
+│   │   ├── login.png
+│   │   └── sam.png
+│   ├── infrastructure/
+│   │   └── DEPLOYMENT.md
+│   ├── knowledge/
+│   │   └── vertex_ai_sdk_notes.md
+│   ├── reference/
+│   │   ├── api.md
+│   │   ├── configuration.md
+│   │   ├── security.md
+│   │   └── tools.md
+│   ├── testing/
+│   │   ├── frontend_testing.md
+│   │   ├── linting.md
+│   │   └── testing.md
+│   ├── DOCUMENTATION_REVIEW_AND_ROADMAP.md
+│   ├── EVALUATIONS.md
+│   ├── IMPROVEMENTS.md
+│   ├── OBSERVABILITY.md
+│   ├── PROJECT_PLAN.md
+│   ├── README.md
+│   └── SPANNER_TROUBLESHOOTING_PLAYBOOK.md
+├── eval/
+│   ├── basic_capabilities.test.json
+│   ├── conftest.py
+│   ├── error_diagnosis.test.json
+│   ├── failure_modes.test.json
+│   ├── incident_investigation.test.json
+│   ├── kubernetes_debugging.test.json
+│   ├── metrics_analysis.test.json
+│   ├── multi_signal_correlation.test.json
+│   ├── README.md
+│   ├── slo_burn_rate.test.json
+│   ├── test_config.json
+│   ├── test_evaluate.py
+│   └── tool_selection.test.json
+├── openspec/
+│   ├── changes/
+│   │   └── setup-cicd-pipeline/
+│   │       ├── design.md
+│   │       ├── proposal.md
+│   │       ├── specs.md
+│   │       └── tasks.md
+│   ├── specs/
+│   │   ├── chat-agent.md
+│   │   └── tool-log.md
+│   └── config.yaml
+├── scripts/
+│   ├── analyze_health.py
+│   ├── migrate_default_sessions.py
+│   ├── setup_agent_graph_bq.sh
+│   ├── start_dev.py
+│   ├── start_unified.sh
+│   ├── test_langfuse.py
+│   └── update_docs_index.py
+├── sre_agent/
+│   ├── api/
+│   │   ├── helpers/
+│   │   │   ├── __init__.py
+│   │   │   ├── cache.py
+│   │   │   ├── dashboard_queue.py
+│   │   │   ├── memory_events.py
+│   │   │   └── tool_events.py
+│   │   ├── routers/
+│   │   │   ├── __init__.py
+│   │   │   ├── agent.py
+│   │   │   ├── agent_graph.py
+│   │   │   ├── agent_graph_setup.py
+│   │   │   ├── dashboards.py
+│   │   │   ├── health.py
+│   │   │   ├── help.py
+│   │   │   ├── permissions.py
+│   │   │   ├── preferences.py
+│   │   │   ├── sessions.py
+│   │   │   ├── system.py
+│   │   │   └── tools.py
+│   │   ├── __init__.py
+│   │   ├── app.py
+│   │   ├── dependencies.py
+│   │   ├── middleware.py
+│   │   └── README.md
+│   ├── core/
+│   │   ├── __init__.py
+│   │   ├── approval.py
+│   │   ├── circuit_breaker.py
+│   │   ├── context_compactor.py
+│   │   ├── graph_service.py
+│   │   ├── large_payload_handler.py
+│   │   ├── model_callbacks.py
+│   │   ├── policy_engine.py
+│   │   ├── prompt_composer.py
+│   │   ├── router.py
+│   │   ├── runner.py
+│   │   ├── runner_adapter.py
+│   │   ├── summarizer.py
+│   │   ├── TOKEN_MANAGEMENT.md
+│   │   └── tool_callbacks.py
+│   ├── council/
+│   │   ├── __init__.py
+│   │   ├── adaptive_classifier.py
+│   │   ├── critic.py
+│   │   ├── debate.py
+│   │   ├── intent_classifier.py
+│   │   ├── mode_router.py
+│   │   ├── orchestrator.py
+│   │   ├── panels.py
+│   │   ├── parallel_council.py
+│   │   ├── prompts.py
+│   │   ├── schemas.py
+│   │   ├── state.py
+│   │   ├── synthesizer.py
+│   │   └── tool_registry.py
+│   ├── memory/
+│   │   ├── __init__.py
+│   │   ├── callbacks.py
+│   │   ├── factory.py
+│   │   ├── local.py
+│   │   ├── manager.py
+│   │   ├── mistake_advisor.py
+│   │   ├── mistake_learner.py
+│   │   ├── mistake_store.py
+│   │   └── sanitizer.py
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── dashboard.py
+│   │   └── investigation.py
+│   ├── resources/
+│   │   ├── __init__.py
+│   │   └── gcp_metrics.py
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── agent_engine_client.py
+│   │   ├── dashboard_service.py
+│   │   ├── dashboard_templates.py
+│   │   ├── memory_manager.py
+│   │   ├── session.py
+│   │   └── storage.py
+│   ├── sub_agents/
+│   │   ├── __init__.py
+│   │   ├── _init_env.py
+│   │   ├── agent_debugger.py
+│   │   ├── alerts.py
+│   │   ├── logs.py
+│   │   ├── metrics.py
+│   │   ├── README.md
+│   │   ├── research.py
+│   │   ├── root_cause.py
+│   │   └── trace.py
+│   ├── tools/
+│   │   ├── analysis/
+│   │   │   ├── agent_trace/ ...
+│   │   │   ├── bigquery/ ...
+│   │   │   ├── correlation/ ...
+│   │   │   ├── logs/ ...
+│   │   │   ├── metrics/ ...
+│   │   │   ├── remediation/ ...
+│   │   │   ├── slo/ ...
+│   │   │   ├── trace/ ...
+│   │   │   ├── __init__.py
+│   │   │   ├── genui_adapter.py
+│   │   │   └── trace_comprehensive.py
+│   │   ├── bigquery/
+│   │   │   ├── __init__.py
+│   │   │   ├── ca_data_agent.py
+│   │   │   ├── client.py
+│   │   │   ├── queries.py
+│   │   │   └── schemas.py
+│   │   ├── clients/
+│   │   │   ├── __init__.py
+│   │   │   ├── alerts.py
+│   │   │   ├── app_telemetry.py
+│   │   │   ├── apphub.py
+│   │   │   ├── asset_inventory.py
+│   │   │   ├── dashboard.py
+│   │   │   ├── dependency_graph.py
+│   │   │   ├── factory.py
+│   │   │   ├── gcp_projects.py
+│   │   │   ├── gke.py
+│   │   │   ├── logging.py
+│   │   │   ├── monitoring.py
+│   │   │   ├── slo.py
+│   │   │   └── trace.py
+│   │   ├── common/
+│   │   │   ├── __init__.py
+│   │   │   ├── cache.py
+│   │   │   ├── debug.py
+│   │   │   ├── decorators.py
+│   │   │   ├── serialization.py
+│   │   │   └── telemetry.py
+│   │   ├── discovery/
+│   │   │   ├── __init__.py
+│   │   │   └── discovery_tool.py
+│   │   ├── exploration/
+│   │   │   ├── __init__.py
+│   │   │   └── explore_health.py
+│   │   ├── github/
+│   │   │   ├── __init__.py
+│   │   │   ├── client.py
+│   │   │   └── tools.py
+│   │   ├── mcp/
+│   │   │   ├── __init__.py
+│   │   │   ├── fallback.py
+│   │   │   ├── gcp.py
+│   │   │   └── mock_mcp.py
+│   │   ├── playbooks/
+│   │   │   ├── __init__.py
+│   │   │   ├── bigquery.py
+│   │   │   ├── cloud_run.py
+│   │   │   ├── cloud_sql.py
+│   │   │   ├── gce.py
+│   │   │   ├── gke.py
+│   │   │   ├── pubsub.py
+│   │   │   ├── registry.py
+│   │   │   ├── schemas.py
+│   │   │   └── self_healing.py
+│   │   ├── proactive/
+│   │   │   ├── __init__.py
+│   │   │   └── related_signals.py
+│   │   ├── sandbox/
+│   │   │   ├── __init__.py
+│   │   │   ├── executor.py
+│   │   │   ├── processors.py
+│   │   │   └── schemas.py
+│   │   ├── synthetic/
+│   │   │   ├── __init__.py
+│   │   │   ├── provider.py
+│   │   │   └── scenarios.py
+│   │   ├── __init__.py
+│   │   ├── config.py
+│   │   ├── investigation.py
+│   │   ├── memory.py
+│   │   ├── README.md
+│   │   ├── registry.py
+│   │   ├── reporting.py
+│   │   ├── research.py
+│   │   └── test_functions.py
+│   ├── __init__.py
+│   ├── agent.py
+│   ├── auth.py
+│   ├── exceptions.py
+│   ├── model_config.py
+│   ├── prompt.py
+│   ├── README.md
+│   ├── schema.py
+│   ├── suggestions.py
+│   └── version.py
+├── tests/
+│   ├── api/
+│   │   └── test_help.py
+│   ├── e2e/
+│   │   ├── test_agent_execution.py
+│   │   ├── test_agent_integration.py
+│   │   ├── test_analysis_e2e.py
+│   │   ├── test_api_flow.py
+│   │   ├── test_auth_flow.py
+│   │   ├── test_e2e_cujs.py
+│   │   ├── test_investigation_pipeline.py
+│   │   ├── test_mocks_e2e.py
+│   │   └── test_trace_selection.py
+│   ├── fixtures/
+│   │   ├── __init__.py
+│   │   └── synthetic_otel_data.py
+│   ├── integration/
+│   │   ├── test_api_pipeline.py
+│   │   ├── test_auth_integration.py
+│   │   ├── test_chat_persistence.py
+│   │   ├── test_council_pipeline.py
+│   │   ├── test_middleware_integration.py
+│   │   ├── test_playbook_data_integrity.py
+│   │   ├── test_schema_compliance.py
+│   │   └── test_session.py
+│   ├── server/
+│   │   ├── reproduce_session_access.py
+│   │   ├── test_cancellation.py
+│   │   ├── test_debug_ui_alias.py
+│   │   ├── test_genui_chat_events.py
+│   │   ├── test_metric_list_handling.py
+│   │   ├── test_server.py
+│   │   ├── test_session_rename.py
+│   │   └── test_widget_logic.py
+│   ├── sre_agent/
+│   │   ├── api/
+│   │   │   └── test_e2e_integration.py
+│   │   └── core/
+│   │       ├── __init__.py
+│   │       ├── test_adk_integration.py
+│   │       ├── test_approval.py
+│   │       ├── test_context_compactor.py
+│   │       ├── test_graph_service.py
+│   │       ├── test_policy_engine.py
+│   │       ├── test_prompt_composer.py
+│   │       ├── test_runner.py
+│   │       └── test_summarizer.py
+│   ├── unit/
+│   │   ├── deploy/
+│   │   │   ├── test_deploy.py
+│   │   │   └── test_deploy_all.py
+│   │   └── sre_agent/
+│   │       ├── api/ ...
+│   │       ├── core/ ...
+│   │       ├── council/ ...
+│   │       ├── memory/ ...
+│   │       ├── models/ ...
+│   │       ├── services/ ...
+│   │       ├── sub_agents/ ...
+│   │       ├── tools/ ...
+│   │       ├── test_agent_definition.py
+│   │       ├── test_agent_deployability.py
+│   │       ├── test_agent_project_id.py
+│   │       ├── test_agent_wrapper.py
+│   │       ├── test_auth.py
+│   │       ├── test_auth_encryption.py
+│   │       ├── test_auth_security.py
+│   │       ├── test_auth_session.py
+│   │       ├── test_context_credentials.py
+│   │       ├── test_council_result_extraction.py
+│   │       ├── test_dynamic_tool_filtering.py
+│   │       ├── test_mcp_integration.py
+│   │       ├── test_memory_integration.py
+│   │       ├── test_new_tools_registration.py
+│   │       ├── test_orchestration.py
+│   │       ├── test_schema.py
+│   │       ├── test_schema_compliance.py
+│   │       ├── test_suggestions.py
+│   │       ├── test_tool_configuration.py
+│   │       ├── test_tool_map_consistency.py
+│   │       └── test_version.py
+│   ├── __init__.py
+│   ├── conftest.py
+│   └── README.md
+├── AGENTS.md
+├── CLAUDE.md
+├── cloudbuild.yaml
+├── Dockerfile
+├── llm.txt
+├── pyproject.toml
+├── README.md
+├── repo_map.txt
+├── sample_allspans_full.json
+├── server.py
+└── uv.lock

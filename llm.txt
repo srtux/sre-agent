@@ -347,59 +347,72 @@ AGENTS.md            <- Universal AI agent standard (patterns, checklists, pitfa
 CLAUDE.md            <- Claude Code quick rules
 README.md            <- Project overview with architecture diagram
 docs/
-  README.md          <- Full documentation index with navigation
-  PROJECT_PLAN.md    <- Living roadmap (update after major changes)
-  EVALUATIONS.md     <- Eval standards and rubrics
-  OBSERVABILITY.md   <- Tracing and observability guide
-  architecture/
-    system_overview.md    <- High-level topology and component diagrams
-    project_structure.md  <- Detailed directory tree
-    backend.md            <- FastAPI, middleware, services
-    frontend.md           <- Flutter, state management, GenUI
-    telemetry.md          <- OTel instrumentation
-    decisions.md          <- Architectural decision records
-    help_system.md        <- In-app help system architecture
-    AGENTS_AND_TOOLS.md   <- Agent and tool catalog
+
+  DOCUMENTATION_REVIEW_AND_ROADMAP.md <- Documentation Review & Future Roadmap
+  EVALUATIONS.md            <- SRE Agent Evaluation Standards
+  IMPROVEMENTS.md           <- SRE Agent Improvements
+  OBSERVABILITY.md          <- Observability & Debugging Guide
+  PROJECT_PLAN.md           <- SRE Agent Project Plan & Living Log
+  README.md                 <- Auto SRE Documentation Index
+  SPANNER_TROUBLESHOOTING_PLAYBOOK.md <- Google Cloud Spanner Troubleshooting Playbook
   agent_ops/
-    README.md             <- AgentOps index
-    architecture.md       <- Agent Graph reasoning trajectories
-    bigquery_setup.md     <- BQ Property Graph setup
-    bq_schema.md          <- OTel payload extraction schemas
-    dashboard.md          <- AgentOps dashboard capabilities
-    dashboards_legacy.md  <- Perses dashboard fallback
-    explorer_ui.md        <- Observability Explorer usage
-    observability_theory.md <- Theory on graph and log operations
-    visualization_setup.md  <- Graph rendering logic
+    README.md               <- AgentOps Documentation
+    architecture.md         <- Agent Graph: Multi-Agent Observability for Reasoni...
+    bigquery_setup.md       <- BigQuery Setup for Agent Graph Visualization
+    bq_schema.md            <- Agent Graph BigQuery Schema Documentation
+    dashboard.md            <- Agent Dashboard
+    dashboards_legacy.md    <- Dashboards
+    explorer_ui.md          <- SRE Agent Observability Explorer
+    observability_theory.md <- Multi-Agent Observability
+    setup.md                <- Setting up Agent Graph Observability
+    visualization_setup.md  <- Agent Graph Visualization Setup
+  architecture/
+    AGENTS_AND_TOOLS.md     <- Auto SRE: Complete Agent & Tool Architecture
+    backend.md              <- Backend Documentation
+    decisions.md            <- Technical Decisions & Constraints
+    frontend.md             <- Frontend Documentation (Flutter)
+    help_system.md          <- AutoSRE Help Center: Architecture & DaC Guide
+    project_structure.md    <- Project Structure
+    system_instruction_snapshot_v1.md <- SRE Agent System Instruction Snapshot (v1)
+    system_overview.md      <- System Architecture
+    telemetry.md            <- Telemetry and Observability in SRE Agent
   authentication/
-    authentication.md     <- OAuth, session management, EUC
-    auth_learnings.md     <- Auth system evolution
+    auth_learnings.md       <- Authentication Architecture & Learnings
+    authentication.md       <- Authentication System Design
   concepts/
-    autonomous_reliability.md  <- "Unrolled Codex" event loop pattern
-    agent_orchestration.md     <- Council of Experts design
-    observability.md           <- Traces, spans, metrics deep dive
-    memory.md                  <- State management across sessions
-    online_research_and_self_healing.md <- Web search tools + self-healing architecture
-    gcp_enhancements.md        <- Future roadmap
+    agent_orchestration.md  <- Agent Engine & Reasoning
+    autonomous_reliability.md <- Autonomous Reliability Architecture
+    gcp_enhancements.md     <- GCP Integrations & Enhancements
+    memory.md               <- SRE Agent Memory Best Practices
+    observability.md        <- Observability and OpenTelemetry Concepts
+    online_research_and_self_healing.md <- Online Research & Self-Healing Agent Architecture
   debugging/
-    debugging_connectivity.md  <- Network troubleshooting
-    debugging_telemetry_and_auth.md  <- Trace/auth diagnosis
-    debugging_genui.md         <- Widget rendering issues
+    debugging_connectivity.md <- Debugging Connectivity Issues
+    debugging_genui.md      <- Debugging the GenUI/A2UI Protocol
+    debugging_telemetry_and_auth.md <- Debugging Telemetry and Authentication Issues
   guides/
-    getting_started.md         <- Setup and configuration
-    development.md             <- "Vibe Coding" handbook
-    deployment.md              <- Cloud Run and Agent Engine
-    project_selector.md        <- Project selection UX
-    dashboard_query_language.md <- MQL, PromQL, SQL capabilities
-    rendering_telemetry.md     <- GenUI/A2UI architecture
-  testing/
-    testing.md                 <- Testing strategy and style guide
-    frontend_testing.md        <- Flutter testing guide
-    linting.md                 <- Code quality policy
+    dashboard_query_language.md <- Dashboard Query Language Guide
+    default_experience.md   <- Default Dashboard Experience
+    deployment.md           <- AutoSRE Deployment Guide
+    development.md          <- Development Guide
+    getting_started.md      <- Getting Started with Auto SRE
+    project_selector.md     <- Project Selector
+    rendering_telemetry.md  <- Rendering Telemetry with GenUI (A2UI)
+  help/
+  images/
+  infrastructure/
+    DEPLOYMENT.md           <- Deployment Architecture
+  knowledge/
+    vertex_ai_sdk_notes.md  <- Vertex AI Agent Engine SDK Findings
   reference/
-    api.md                <- Agent API specification
-    configuration.md      <- Environment variable reference
-    tools.md              <- Complete tools catalog
-    security.md           <- Encryption, key management
+    api.md                  <- API Reference
+    configuration.md        <- Configuration Reference
+    security.md             <- Security & Encryption
+    tools.md                <- Tools & Analysis Guide
+  testing/
+    frontend_testing.md     <- Frontend Testing Guide (Flutter)
+    linting.md              <- Linting Strategy
+    testing.md              <- SRE Agent: Testing Strategy and Style Guide
 ```
 
 ## CODING RULES (MANDATORY)

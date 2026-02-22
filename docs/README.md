@@ -14,8 +14,8 @@ This is the central index for all Auto SRE documentation. Use this page to navig
 | Set up the project locally          | [Getting Started](guides/getting_started.md)                       |
 | Understand the architecture         | [System Overview](architecture/system_overview.md)                 |
 | Write or modify code                | [Development Guide](guides/development.md)                        |
-| Write or run tests                  | [Testing Strategy](guides/testing.md)                              |
-| Run or write agent evaluations      | [Evaluation Guide](guides/evaluation.md)                           |
+| Write or run tests                  | [Testing Strategy](testing/testing.md)                              |
+| Run or write agent evaluations      | [Evaluation Guide](../EVALUATIONS.md)                           |
 | Deploy to production                | [Deployment Guide](guides/deployment.md)                           |
 | Understand deployment architecture  | [Deployment Architecture](infrastructure/DEPLOYMENT.md)            |
 | Debug an issue                      | [Debugging Guides](#debugging)                                     |
@@ -49,7 +49,7 @@ System design documents explaining how Auto SRE is built.
 | [Project Structure](architecture/project_structure.md) | Detailed directory tree and module descriptions |
 | [Backend Architecture](architecture/backend.md) | FastAPI application, middleware stack, services layer |
 | [Frontend Architecture](architecture/frontend.md) | Flutter Web, state management, GenUI/A2UI protocol |
-| [Authentication](architecture/authentication.md) | OAuth2, session management, EUC propagation |
+| [Authentication](authentication/authentication.md) | OAuth2, session management, EUC propagation |
 | [Telemetry](architecture/telemetry.md) | OpenTelemetry instrumentation, Cloud Trace export |
 | [Architectural Decisions](architecture/decisions.md) | Historic record of design choices and rationale |
 | [Help System](architecture/help_system.md) | Context-aware help system architecture |
@@ -87,7 +87,7 @@ Philosophical and design documents explaining the "why" behind the architecture.
 | [Observability Deep Dive](concepts/observability.md) | Traces, spans, metrics analysis theory |
 | [Memory & State](concepts/memory.md) | How the agent persists context across sessions |
 | [Online Research & Self-Healing](concepts/online_research_and_self_healing.md) | Web search tools and autonomous self-improvement architecture |
-| [Auth Learnings](concepts/auth_learnings.md) | Evolution of the authentication system |
+| [Auth Learnings](authentication/auth_learnings.md) | Evolution of the authentication system |
 | [GCP Enhancements Roadmap](concepts/gcp_enhancements.md) | Vision for future capabilities |
 
 ---
@@ -101,11 +101,11 @@ Practical how-to instructions for developers.
 |-------|-------------|
 | [Getting Started](guides/getting_started.md) | Installation, configuration, first run |
 | [Development Guide](guides/development.md) | "Vibe Coding" handbook -- the full development workflow |
-| [Testing Strategy](guides/testing.md) | Test levels, style guide, coverage requirements |
-| [Linting Rules](guides/linting.md) | Ruff, MyPy, codespell, deptry configuration |
-| [Evaluation Guide](guides/evaluation.md) | Agent quality benchmarking with ADK eval |
-| [Frontend Testing](guides/frontend_testing.md) | Flutter test strategy with Provider-based injection |
+| [Testing Strategy](testing/testing.md) | Test levels, style guide, coverage requirements |
+| [Linting Rules](testing/linting.md) | Ruff, MyPy, codespell, deptry configuration |
+| [Frontend Testing](testing/frontend_testing.md) | Flutter test strategy with Provider-based injection |
 | [Project Selector](guides/project_selector.md) | GCP project picker implementation and data flow |
+| [Dashboard Query Language](guides/dashboard_query_language.md) | MQL, PromQL, SQL capabilities |
 
 ### Deployment
 | Guide | Description |
@@ -115,9 +115,9 @@ Practical how-to instructions for developers.
 ### Debugging
 | Guide | Description |
 |-------|-------------|
-| [Debugging Connectivity](guides/debugging_connectivity.md) | Network, API, and CORS troubleshooting |
-| [Debugging Telemetry & Auth](guides/debugging_telemetry_and_auth.md) | Missing traces, auth failures |
-| [Debugging GenUI](guides/debugging_genui.md) | Widget rendering and A2UI protocol issues |
+| [Debugging Connectivity](debugging/debugging_connectivity.md) | Network, API, and CORS troubleshooting |
+| [Debugging Telemetry & Auth](debugging/debugging_telemetry_and_auth.md) | Missing traces, auth failures |
+| [Debugging GenUI](debugging/debugging_genui.md) | Widget rendering and A2UI protocol issues |
 | [Rendering Telemetry](guides/rendering_telemetry.md) | GenUI/A2UI widget schemas and data flow |
 
 ---
@@ -170,7 +170,7 @@ Operational runbooks for specific GCP services.
 | Document | Description |
 |----------|-------------|
 | [Evaluation Standards](EVALUATIONS.md) | Dual-layer eval architecture, rubrics, anti-hallucination |
-| [Evaluation Guide](guides/evaluation.md) | Running evals locally and in CI/CD |
+| [Evaluation Guide](../EVALUATIONS.md) | Running evals locally and in CI/CD |
 | [Observability Guide](OBSERVABILITY.md) | Tracing and logging best practices |
 
 ---
@@ -266,10 +266,10 @@ If you are an LLM agent (Claude Code, Gemini, etc.), follow this reading order:
 3. **[Project Plan](PROJECT_PLAN.md)** -- Current roadmap and status
 4. **Relevant docs below** -- Based on your task:
    - Modifying tools? Read [Tools Catalog](reference/tools.md) + [Development Guide](guides/development.md)
-   - Writing tests? Read [Testing Strategy](guides/testing.md)
+   - Writing tests? Read [Testing Strategy](testing/testing.md)
    - Debugging? Read the appropriate [Debugging Guide](#debugging)
    - Deploying? Read [Deployment Guide](guides/deployment.md) + [Deployment Architecture](infrastructure/DEPLOYMENT.md)
    - Understanding the help system? Read [Help System Architecture](architecture/help_system.md) + [Help Content](#help-system-content)
 
 ---
-*Last verified: 2026-02-21 -- Auto SRE Team*
+*Last verified: 2026-02-21

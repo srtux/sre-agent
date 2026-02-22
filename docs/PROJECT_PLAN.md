@@ -80,7 +80,7 @@ Total: **105 new tests**, all passing.
 - [x] **Debate Pipeline**: Critic cross-examination loop using ADK `LoopAgent`. The critic challenges panel findings, identifies contradictions, and drives iterative refinement until confidence gating thresholds are met.
 - [x] **Investigation Modes**: Rule-based `IntentClassifier` selects from three modes:
     - **Fast**: Single-panel dispatch for narrowly scoped queries.
-    - **Standard**: Four parallel panels followed by synthesizer merge.
+    - **Standard**: Five parallel panels followed by synthesizer merge.
     - **Debate**: Panels + critic loop + confidence gating for high-severity incidents.
 - [x] **Slim Tools Feature Flag** (`SRE_AGENT_SLIM_TOOLS`): Reduces root agent from ~50 to ~20 orchestration tools. Council panels retain full domain-specific tool sets.
 - [x] **CouncilOrchestrator** (`sre_agent/council/orchestrator.py`): `BaseAgent` subclass managing mode selection, panel dispatch, debate loops, and synthesis. Activated via `SRE_AGENT_COUNCIL_ORCHESTRATOR` feature flag.
@@ -334,4 +334,4 @@ Grand total at Phase 3 completion: **2312 backend tests**, **74 Flutter tests** 
 *   **Documentation**: This file (`PROJECT_PLAN.md`) must be updated after every significant change or phase transition.
 
 ---
-*Last updated: 2026-02-15 -- Auto SRE Team*
+*Last updated: 2026-02-21 -- Auto SRE Team*

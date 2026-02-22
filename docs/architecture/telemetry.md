@@ -129,4 +129,4 @@ The telemetry captured by the ADK and OTel instrumentation described above feeds
 For the conceptual overview, see [Multi-Agent Observability](../agent_ops/observability_theory.md).
 
 ---
-*Last verified: 2026-02-21 -- Auto SRE Team*
+*Last verified: 2026-02-21

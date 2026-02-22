@@ -20,6 +20,23 @@ The SRE Agent uses a hybrid approach to balance developer velocity with producti
     *   `hallucinations_v1`: Zero tolerance for fabricated claims.
     *   `safety_v1`: Zero tolerance for unsafe outputs.
 
+#### Running Local Evaluations
+
+| Method | Command | Entry Point | How It Works |
+|--------|---------|-------------|--------------|
+| **pytest** | `uv run pytest eval/test_evaluate.py -v` | `eval/test_evaluate.py` | Uses `AgentEvaluator.evaluate_eval_set()` directly |
+| **poe eval** | `uv run poe eval` | `deploy/run_eval.py` | Uses `adk eval` CLI with temp file processing |
+
+Use the `poe` task to run the full suite via the `adk eval` CLI:
+```bash
+uv run poe eval
+```
+
+Or run specific test categories via pytest:
+```bash
+uv run pytest eval/test_evaluate.py::test_error_diagnosis -v
+```
+
 ### Layer 2: Cloud-Native Vertex AI Sync
 
 *   **Tool**: `vertexai.Client().evals` API (triggered via `uv run poe eval --sync`).
@@ -31,6 +48,17 @@ The SRE Agent uses a hybrid approach to balance developer velocity with producti
     *   `TOOL_USE_QUALITY`: Tool selection and invocation accuracy
     *   `HALLUCINATION`: Factual accuracy assessment
     *   `SAFETY`: Safety compliance evaluation
+
+#### Vertex AI Synchronization
+
+To sync local evaluation results with the **Vertex AI GenAI Evaluation Service**, use:
+
+```bash
+uv run poe eval --sync
+```
+
+*   **Prerequisites**: Set `EVAL_STORAGE_URI="gs://YOUR_BUCKET/sre-agent-evals"` in `.env`
+*   **Benefits**: Visualize historical quality trends, compare versions, and use agent-specific rubric metrics (`FINAL_RESPONSE_QUALITY`, `TOOL_USE_QUALITY`, `HALLUCINATION`, `SAFETY`) in the GCP console.
 
 ## 2. Evaluation Rubrics
 
@@ -192,4 +220,4 @@ Both `conftest.py` (pytest path) and `deploy/run_eval.py` (CLI path) replace pla
 This allows test scenarios to use realistic project names while running against any GCP project.
 
 ---
-*Last verified: 2026-02-15 -- Auto SRE Team*
+*Last verified: 2026-02-21

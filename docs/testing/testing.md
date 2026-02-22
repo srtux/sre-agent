@@ -54,7 +54,7 @@ We use `gemini-1.5-pro` to grade responses on:
 * **Root Cause Causality**: "Why" it happened vs just "What" happened.
 * **Actionability**: Clear, recommended shell commands or fixes.
 
-For implementation details, see **[docs/guides/evaluation.md](evaluation.md)**.
+For implementation details, see **[docs/../EVALUATIONS.md](evaluation.md)**.
 
 ---
 
@@ -291,7 +291,7 @@ uv run poe eval
 ---
 
 ## Frontend Testing
-For details on how to test the Flutter dashboard and use the `test_helper.dart` utility, see **[docs/guides/frontend_testing.md](frontend_testing.md)**.
+For details on how to test the Flutter dashboard and use the `test_helper.dart` utility, see **[docs/testing/frontend_testing.md](frontend_testing.md)**.
 
 ---
-*Last verified: 2026-02-15 -- Auto SRE Team*
+*Last verified: 2026-02-21
