@@ -959,6 +959,23 @@ wheels = [
 ]
 
 [[package]]
+name = "google-cloud-bigquery-logging"
+version = "1.8.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "google-api-core", extra = ["grpc"] },
+    { name = "google-auth" },
+    { name = "grpc-google-iam-v1" },
+    { name = "grpcio" },
+    { name = "proto-plus" },
+    { name = "protobuf" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/73/f5/f99313ffe938e35832cff2b461b78cf705a848ba43ccfab248948b2dc6c8/google_cloud_bigquery_logging-1.8.0.tar.gz", hash = "sha256:d8435c9912a08712a8703b583a3660b2f39f4361a8a02fd1a6849d292561055d", size = 22273, upload-time = "2026-01-15T13:15:45.203Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/66/de/ce4dae055b03249b06b17285a662b4b5767179b7517f77a73915e5b0681d/google_cloud_bigquery_logging-1.8.0-py3-none-any.whl", hash = "sha256:9d3f3ef848f5ed79fdef1105fbc2f5cf69f25d5270ae4976ca6484f4abb966cf", size = 23041, upload-time = "2026-01-09T14:53:29.441Z" },
+]
+
+[[package]]
 name = "google-cloud-bigquery-storage"
 version = "2.36.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3407,6 +3424,7 @@ dependencies = [
     { name = "google-adk" },
     { name = "google-auth" },
     { name = "google-cloud-aiplatform", extra = ["adk", "agent-engines"] },
+    { name = "google-cloud-bigquery-logging" },
     { name = "google-cloud-error-reporting" },
     { name = "google-cloud-firestore" },
     { name = "google-cloud-geminidataanalytics" },
@@ -3462,6 +3480,7 @@ requires-dist = [
     { name = "google-adk", specifier = ">=1.23.0" },
     { name = "google-auth", specifier = ">=2.18.1" },
     { name = "google-cloud-aiplatform", extras = ["adk", "agent-engines"], specifier = ">=1.112.0" },
+    { name = "google-cloud-bigquery-logging", specifier = ">=1.8.0" },
     { name = "google-cloud-error-reporting", specifier = ">=1.14.0" },
     { name = "google-cloud-firestore", specifier = ">=2.16.0" },
     { name = "google-cloud-geminidataanalytics", specifier = ">=0.10.0" },

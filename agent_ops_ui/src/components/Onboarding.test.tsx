@@ -41,7 +41,7 @@ describe('Onboarding Component', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /Open Agent Graph/i }));
     });
-    expect(mockOnSetup).toHaveBeenCalledWith('traces', 'sre-agent');
+    expect(mockOnSetup).toHaveBeenCalledWith('traces');
   });
 
   it('shows missing bucket prompt when check_bucket returns false', async () => {

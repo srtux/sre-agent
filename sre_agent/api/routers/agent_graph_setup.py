@@ -66,7 +66,7 @@ async def check_observability_bucket(project_id: str) -> dict[str, Any]:
         "x-goog-user-project": project_id,
     }
 
-    url = f"https://cloudobservability.googleapis.com/v1/projects/{project_id}/locations/global/observabilityBuckets"
+    url = f"https://observability.googleapis.com/v1/projects/{project_id}/locations/us/buckets"
 
     # We use httpx rather than google-api-core as the management plane client isn't fully published
     async with httpx.AsyncClient() as client:
@@ -80,7 +80,7 @@ async def check_observability_bucket(project_id: str) -> dict[str, Any]:
             resp.raise_for_status()
             data = resp.json()
 
-            buckets = data.get("observabilityBuckets", [])
+            buckets = data.get("buckets", [])
             # Search for the default trace bucket name, usually traces, but we can just see if there are any buckets
             has_bucket = len(buckets) > 0
 
@@ -141,23 +141,18 @@ async def link_dataset(req: LinkDatasetRequest) -> dict[str, Any]:
         "x-goog-user-project": req.project_id,
     }
 
-    base_url = f"https://cloudobservability.googleapis.com/v1/projects/{req.project_id}/locations/global/observabilityBuckets/{req.bucket_id}"
+    base_url = f"https://observability.googleapis.com/v1/projects/{req.project_id}/locations/us/buckets/{req.bucket_id}/datasets/Spans"
 
     async with httpx.AsyncClient() as http_client:
         # Check if already linked
         try:
             resp = await http_client.get(
-                f"{base_url}/observabilityLinks", headers=headers, timeout=10.0
+                f"{base_url}/links", headers=headers, timeout=10.0
             )
             resp.raise_for_status()
-            links = resp.json().get("observabilityLinks", [])
+            links = resp.json().get("links", [])
             for link in links:
-                target = (
-                    link.get("targetInfo", {})
-                    .get("bigqueryDataset", {})
-                    .get("dataset", "")
-                )
-                if target == f"projects/{req.project_id}/datasets/{req.dataset_id}":
+                if link.get("name"):
                     return {"status": "already_linked", "link": link}
         except Exception as exc:
             logger.warning(f"Failed to list links, proceeding to create: {exc}")
@@ -165,17 +160,10 @@ async def link_dataset(req: LinkDatasetRequest) -> dict[str, Any]:
         # 3. Create the link
         try:
             link_id = "graph-traces-link"
-            payload = {
-                "targetInfo": {
-                    "bigqueryDataset": {
-                        "dataset": f"projects/{req.project_id}/datasets/{req.dataset_id}"
-                    }
-                }
-            }
             resp = await http_client.post(
-                f"{base_url}/observabilityLinks?observabilityLinkId={link_id}",
+                f"{base_url}/links?linkId={link_id}",
                 headers=headers,
-                json=payload,
+                json={},
                 timeout=10.0,
             )
             resp.raise_for_status()
@@ -208,7 +196,7 @@ async def get_lro_status(project_id: str, operation_name: str) -> dict[str, Any]
         "x-goog-user-project": project_id,
     }
 
-    url = f"https://cloudobservability.googleapis.com/v1/{operation_name}"
+    url = f"https://observability.googleapis.com/v1/{operation_name}"
 
     async with httpx.AsyncClient() as client:
         try:
@@ -269,7 +257,6 @@ class SchemaStepRequest(BaseModel):
     project_id: str
     trace_dataset: str = "traces"
     graph_dataset: str = "agentops"
-    service_name: str = "sre-agent"
 
 
 @router.post("/schema/{step}")

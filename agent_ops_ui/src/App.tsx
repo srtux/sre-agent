@@ -221,30 +221,39 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
       const sankeyRes = results[1]
       const tsRes = results.length > 2 ? results[2] : null
 
+      let setupNeeded = false
       if (topoRes.status === 'fulfilled') {
         setTopologyData(topoRes.value.data)
         setNeedsSetup(false)
       } else if (!isSilent) {
         // Handle setup required
-        const err = topoRes.reason as import('axios').AxiosError<{ code?: string, detail?: string }>
-        const code = err?.response?.data?.code
-        const detail = err?.response?.data?.detail
+        const err = topoRes.reason as import('axios').AxiosError<{ code?: string, detail?: string | { code?: string, detail?: string } }>
+        const dataCode = err?.response?.data?.code
+        const dataDetail = err?.response?.data?.detail
+
+        // FastAPI wraps detail in an object if we pass a dict
+        const isDetailObject = dataDetail && typeof dataDetail === 'object'
+        const code = isDetailObject ? dataDetail.code : dataCode
+        const detailStr = isDetailObject ? dataDetail.detail : dataDetail
 
         if (code === 'NOT_SETUP') {
+          setupNeeded = true
           setNeedsSetup(true)
         } else {
-          setError(`Topology fetch failed: ${detail || err.message || String(err)}`)
+          setError(`Topology fetch failed: ${detailStr || err.message || String(err)}`)
         }
       }
 
       if (sankeyRes.status === 'fulfilled') {
         setSankeyData(sankeyRes.value.data)
       } else if (!isSilent) {
-        setError((prev) =>
-          prev
-            ? `${prev} | Trajectory fetch failed: ${sankeyRes.reason}`
-            : `Trajectory fetch failed: ${sankeyRes.reason}`,
-        )
+        if (!setupNeeded) {
+          setError((prevErr) =>
+            prevErr
+              ? `${prevErr} | Trajectory fetch failed: ${sankeyRes.reason}`
+              : `Trajectory fetch failed: ${sankeyRes.reason}`,
+          )
+        }
       }
 
       if (tsRes && tsRes.status === 'fulfilled') {
@@ -277,16 +286,14 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
     }
   }, [filters.projectId, serviceName, fetchAll, hasAutoLoaded])
 
-  const handleSetupDone = async (dataset: string, setupServiceName: string) => {
+  const handleSetupDone = async (dataset: string) => {
     localStorage.setItem('agent_graph_project_id', filters.projectId)
     localStorage.setItem('agent_graph_trace_dataset', dataset)
-    localStorage.setItem('agent_graph_service_name', setupServiceName)
 
     setFilters(prev => ({
       ...prev,
       traceDataset: dataset,
     }))
-    setServiceName(setupServiceName)
     setNeedsSetup(false)
     // fetchAll is triggered by serviceName dependency effect
   }

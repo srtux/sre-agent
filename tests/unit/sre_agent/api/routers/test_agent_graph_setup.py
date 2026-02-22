@@ -31,7 +31,7 @@ async def test_check_observability_bucket(client: AsyncClient):
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "observabilityBuckets": [
+            "buckets": [
                 {
                     "loggingSink": {
                         "destination": "storage.googleapis.com/test-bucket"
@@ -108,6 +108,12 @@ async def test_link_dataset(client: AsyncClient):
         }
         mock_instance.post = AsyncMock(return_value=mock_response)
 
+        # we need to mock the GET to /links in link_dataset
+        mock_get_response = MagicMock()
+        mock_get_response.status_code = 200
+        mock_get_response.json.return_value = {"links": []}
+        mock_instance.get = AsyncMock(return_value=mock_get_response)
+
         response = await client.post(
             "/api/v1/graph/setup/link_dataset",
             json={
@@ -146,6 +152,11 @@ async def test_link_dataset_already_exists(client: AsyncClient):
         )
         mock_instance.post = AsyncMock(return_value=mock_response)
 
+        mock_get_response = MagicMock()
+        mock_get_response.status_code = 200
+        mock_get_response.json.return_value = {"links": [{"name": "fake_link_name"}]}
+        mock_instance.get = AsyncMock(return_value=mock_get_response)
+
         response = await client.post(
             "/api/v1/graph/setup/link_dataset",
             json={
@@ -155,8 +166,8 @@ async def test_link_dataset_already_exists(client: AsyncClient):
             },
         )
 
-        assert response.status_code == 409
-        assert "Conflict" in response.json()["detail"]
+        assert response.status_code == 200
+        assert response.json()["status"] == "already_linked"
 
 
 @pytest.mark.anyio
@@ -200,7 +211,6 @@ async def test_execute_schema_step(client: AsyncClient):
                 "project_id": "test-project",
                 "trace_dataset": "traces",
                 "graph_dataset": "agentops",
-                "service_name": "test-service",
             },
         )
 

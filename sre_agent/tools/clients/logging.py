@@ -23,6 +23,12 @@ from sre_agent.tools.clients.factory import (
 from sre_agent.tools.common import adk_tool
 from sre_agent.tools.config import get_tool_config_manager
 
+try:
+    # Register BigQuery AuditData protobuf descriptors to prevent MessageToDict/grpc crashing
+    import google.cloud.bigquery_logging_v1  # noqa: F401
+except ImportError:
+    pass
+
 logger = logging.getLogger(__name__)
 
 

@@ -3,7 +3,7 @@ import axios from 'axios'
 
 interface OnboardingProps {
   projectId: string;
-  onSetup: (dataset: string, serviceName: string) => Promise<void>;
+  onSetup: (dataset: string) => Promise<void>;
   loading: boolean;
   error: string | null;
 }
@@ -34,7 +34,6 @@ const SCHEMA_STEPS: SchemaStep[] = [
 export default function Onboarding({ projectId, onSetup, loading: globalLoading, error: globalError }: OnboardingProps) {
   const [phase, setPhase] = useState<Phase>('init')
   const [dataset, setDataset] = useState('traces')
-  const [serviceName, setServiceName] = useState('sre-agent')
 
   const [, setBucketId] = useState<string | null>(null)
   const [, setLroName] = useState<string | null>(null)
@@ -182,8 +181,7 @@ export default function Onboarding({ projectId, onSetup, loading: globalLoading,
         await axios.post(`/api/v1/graph/setup/schema/${step.name}`, {
           project_id: projectId,
           trace_dataset: dataset,
-          graph_dataset: 'agentops',
-          service_name: serviceName
+          graph_dataset: 'agentops'
         });
 
         safeSetState(setSchemaSteps, prev => {
@@ -269,15 +267,6 @@ export default function Onboarding({ projectId, onSetup, loading: globalLoading,
                 placeholder="e.g. traces"
               />
             </div>
-            <div>
-              <label style={styles.label}>Service Name (Filter)</label>
-              <input
-                style={styles.input}
-                value={serviceName}
-                onChange={e => setServiceName(e.target.value)}
-                placeholder="e.g. sre-agent"
-              />
-            </div>
             <button
               style={styles.button}
               onClick={startAutoSetup}
@@ -351,7 +340,7 @@ export default function Onboarding({ projectId, onSetup, loading: globalLoading,
             <p style={styles.desc}>Agent graph data is now flowing into BigQuery.</p>
             <button
               style={{ ...styles.button, marginTop: '24px' }}
-              onClick={() => onSetup(dataset, serviceName)}
+              onClick={() => onSetup(dataset)}
               disabled={globalLoading}
             >
               {globalLoading ? 'Loading Graph...' : 'Open Agent Graph'}

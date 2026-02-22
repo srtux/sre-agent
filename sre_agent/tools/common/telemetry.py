@@ -229,6 +229,8 @@ def setup_telemetry(level: int = logging.INFO) -> None:
     # Silence chatty loggers
     for logger_name in [
         "google.auth",
+        "google.api_core",
+        "google.cloud",
         "urllib3",
         "grpc",
         "httpcore",
