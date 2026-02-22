@@ -2194,3 +2194,110 @@ class TestDashboardTraces:
         )
 
         assert resp.status_code == 404
+
+
+class TestSpanDetailsEndpoint:
+    """Tests for GET /trace/{trace_id}/span/{span_id}/details endpoint."""
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    @patch("sre_agent.api.routers.agent_graph._get_default_log_dataset")
+    def test_returns_span_details_with_logs(
+        self, mock_get_dataset: MagicMock, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        mock_get_dataset.return_value = "logs_dataset"
+
+        # Mock span data
+        span_row = _make_row(
+            status_code=2,
+            status_message="Error message",
+            events_json='[{"name": "exception", "attributes": {"exception.message": "boom", "exception.type": "RuntimeError"}}, {"name": "other_event"}]',
+            attributes_json='{"http.method": "GET"}'
+        )
+
+        # Mock log data
+        log_row = _make_row(
+            timestamp=None,
+            severity="INFO",
+            text_payload="Log message",
+            json_payload_str=None
+        )
+
+        def mock_query(query, *args, **kwargs):
+            if "_AllSpans" in query:
+                return _mock_query_result([span_row])
+            if "_AllLogs" in query:
+                return _mock_query_result([log_row])
+            return _mock_query_result([])
+
+        # query_and_wait is used for spans
+        bq.query_and_wait.side_effect = mock_query
+
+        with patch("anyio.to_thread.run_sync") as mock_run_sync:
+            mock_run_sync.side_effect = lambda fn, *args, **kwargs: fn(*args, **kwargs)
+
+            resp = client.get(
+                "/api/v1/graph/trace/8f4de13a30f76906a206f477cc6777a4/span/74e87600bb9ffefc/details",
+                params={"project_id": "test-project"}
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["traceId"] == "8f4de13a30f76906a206f477cc6777a4"
+        assert data["statusCode"] == 2
+        assert len(data["exceptions"]) == 1
+        assert data["exceptions"][0]["message"] == "boom"
+        assert data["attributes"]["http.method"] == "GET"
+        assert len(data["logs"]) == 1
+        assert data["logs"][0]["payload"] == "Log message"
+
+    @patch("sre_agent.api.routers.agent_graph._get_bq_client")
+    def test_span_not_found_returns_404(
+        self, mock_client_fn: MagicMock, client: TestClient
+    ) -> None:
+        bq = MagicMock()
+        mock_client_fn.return_value = bq
+        bq.query_and_wait.return_value = []
+
+        resp = client.get(
+            "/api/v1/graph/trace/8f4de13a30f76906a206f477cc6777a4/span/74e87600bb9ffefc/details",
+            params={"project_id": "test-project"}
+        )
+        assert resp.status_code == 404
+
+
+class TestLogDatasetDiscovery:
+    """Tests for _get_default_log_dataset helper."""
+
+    @patch("httpx.AsyncClient.get")
+    @patch("google.auth.default")
+    @patch("google.auth.transport.requests.Request")
+    @pytest.mark.anyio
+    async def test_discovers_dataset_from_logging_api(
+        self, mock_request: MagicMock, mock_auth: MagicMock, mock_get: MagicMock
+    ) -> None:
+        from sre_agent.api.routers.agent_graph import _get_default_log_dataset
+
+        mock_auth.return_value = (MagicMock(token="fake-token"), "project")
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "links": [
+                {"bigqueryDataset": {"datasetId": "projects/p/datasets/my_logs"}}
+            ]
+        }
+        mock_get.return_value = mock_resp
+
+        # Cache is bypassed automatically in pytest
+        
+        dataset = await _get_default_log_dataset("test-project")
+        assert dataset == "my_logs"
+
+        # Verify the URL
+        url = mock_get.call_args[0][0]
+        assert "locations/global/buckets/_Default/links" in url
+
+        # Verify the URL
+

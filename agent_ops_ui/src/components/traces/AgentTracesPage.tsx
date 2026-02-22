@@ -1,8 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useCallback, useMemo, useState } from 'react'
+import { ExternalLink } from 'lucide-react'
 import { useAgentContext } from '../../contexts/AgentContext'
 import { useDashboardTables, type AgentLogRow, type AgentSessionRow, type AgentTraceRow } from '../../hooks/useDashboardTables'
 import VirtualizedDataTable from '../tables/VirtualizedDataTable'
+import SpanDetailsView from './SpanDetailsView'
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
@@ -87,6 +89,8 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
   const { serviceName } = useAgentContext()
   const [activeTab, setActiveTab] = useState<TraceTab>('sessions')
   const [sessionFilter, setSessionFilter] = useState<string | null>(null)
+  const [traceFilter, setTraceFilter] = useState<string | null>(null)
+  const [expandedSpanId, setExpandedSpanId] = useState<string | null>(null)
   const { data, isLoading, isError } = useDashboardTables(hours, serviceName)
 
   const sessionData = useMemo(() => data?.agentSessions ?? [], [data?.agentSessions])
@@ -97,7 +101,13 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
     }
     return allTraces
   }, [data?.agentTraces, sessionFilter])
-  const spanData = useMemo(() => data?.agentLogs ?? [], [data?.agentLogs])
+  const spanData = useMemo(() => {
+    const allSpans = data?.agentLogs ?? []
+    if (traceFilter) {
+      return allSpans.filter(s => s.traceId === traceFilter)
+    }
+    return allSpans
+  }, [data?.agentLogs, traceFilter])
 
   const handleOpenTrace = useCallback((traceId: string) => {
     window.parent.postMessage(
@@ -139,7 +149,7 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
         cell: ({ row }: any) => {
           const session = row.original as AgentSessionRow
           return (
-            <span
+            <div
               onClick={() => {
                 setSessionFilter(session.sessionId)
                 setActiveTab('traces')
@@ -150,11 +160,23 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
                 color: '#06B6D4',
                 cursor: 'pointer',
                 textDecoration: 'underline',
+                padding: '12px 16px',
+                margin: '-12px -16px',
+                width: 'calc(100% + 32px)',
+                height: 'calc(100% + 24px)',
+                display: 'flex',
+                alignItems: 'center',
               }}
               title="Open session traces in Trace Explorer"
+              onMouseOver={(e) => {
+                e.currentTarget.style.background = 'rgba(6, 182, 212, 0.1)'
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.background = 'transparent'
+              }}
             >
               {session.sessionId}
-            </span>
+            </div>
           )
         },
       },
@@ -175,7 +197,7 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
       {
         accessorKey: 'totalTokens',
         header: 'Tokens',
-        size: 120,
+        size: 80,
         cell: ({ getValue }: any) => {
           const val = getValue() as number
           return <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>{val != null ? val : '-'}</span>
@@ -183,7 +205,48 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
       },
       {
         accessorKey: 'errorCount',
-        header: 'Errors',
+        header: 'Errs',
+        size: 70,
+        cell: ({ getValue }: any) => {
+          const errs = getValue() as number
+          return (
+            <span style={{ color: errs > 0 ? '#F87171' : 'inherit' }}>
+              {errs != null ? errs : '-'}
+            </span>
+          )
+        },
+      },
+      {
+        accessorKey: 'spanCount',
+        header: 'Spans',
+        size: 80,
+      },
+      {
+        accessorKey: 'llmCallCount',
+        header: 'LLMs',
+        size: 80,
+      },
+      {
+        accessorKey: 'toolCallCount',
+        header: 'Tools',
+        size: 80,
+      },
+      {
+        accessorKey: 'llmErrorCount',
+        header: 'LLM Errs',
+        size: 100,
+        cell: ({ getValue }: any) => {
+          const errs = getValue() as number
+          return (
+            <span style={{ color: errs > 0 ? '#F87171' : 'inherit' }}>
+              {errs != null ? errs : '-'}
+            </span>
+          )
+        },
+      },
+      {
+        accessorKey: 'toolErrorCount',
+        header: 'Tool Errs',
         size: 100,
         cell: ({ getValue }: any) => {
           const errs = getValue() as number
@@ -210,10 +273,10 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
         {
           accessorKey: 'resourceId',
           header: 'Resource ID',
-          size: 150,
+          size: 300,
           cell: ({ getValue }: any) => {
             const val = getValue() as string
-            return <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>{val || '-'}</span>
+            return <span title={val} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>{val || '-'}</span>
           }
         }
       )
@@ -251,19 +314,55 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
           const traceId = getValue() as string
           if (!traceId) return '-'
           return (
-            <span
-              onClick={() => handleOpenTrace(traceId)}
+            <div
+              onClick={(e) => {
+                e.stopPropagation()
+                setTraceFilter(traceId)
+                setActiveTab('spans')
+              }}
               style={{
                 fontFamily: "'JetBrains Mono', monospace",
                 fontSize: '12px',
                 color: '#06B6D4',
                 cursor: 'pointer',
-                textDecoration: 'underline',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                width: '100%',
+                height: '100%',
               }}
-              title="Open in Trace Explorer"
+              title="Filter spans by this trace"
             >
-              {traceId.slice(0, 12)}...
-            </span>
+              <span style={{ textDecoration: 'underline' }}>{traceId.slice(0, 12)}...</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleOpenTrace(traceId)
+                }}
+                style={{
+                  background: 'rgba(6, 182, 212, 0.1)',
+                  border: 'none',
+                  color: '#06B6D4',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  borderRadius: '4px',
+                  transition: 'all 0.2s',
+                }}
+                title="Open Waterfall in Trace Explorer"
+                onMouseOver={(e) => {
+                  e.currentTarget.style.color = '#F0F4F8'
+                  e.currentTarget.style.background = 'rgba(6, 182, 212, 0.3)'
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.color = '#06B6D4'
+                  e.currentTarget.style.background = 'rgba(6, 182, 212, 0.1)'
+                }}
+              >
+                <ExternalLink size={14} />
+              </button>
+            </div>
           )
         },
       },
@@ -287,7 +386,7 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
       {
         accessorKey: 'totalTokens',
         header: 'Tokens',
-        size: 120,
+        size: 80,
         cell: ({ getValue }: any) => {
           const val = getValue() as number
           return <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>{val != null ? val : '-'}</span>
@@ -295,7 +394,48 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
       },
       {
         accessorKey: 'errorCount',
-        header: 'Errors',
+        header: 'Errs',
+        size: 70,
+        cell: ({ getValue }: any) => {
+          const errs = getValue() as number
+          return (
+            <span style={{ color: errs > 0 ? '#F87171' : 'inherit' }}>
+              {errs != null ? errs : '-'}
+            </span>
+          )
+        },
+      },
+      {
+        accessorKey: 'spanCount',
+        header: 'Spans',
+        size: 80,
+      },
+      {
+        accessorKey: 'llmCallCount',
+        header: 'LLMs',
+        size: 80,
+      },
+      {
+        accessorKey: 'toolCallCount',
+        header: 'Tools',
+        size: 80,
+      },
+      {
+        accessorKey: 'llmErrorCount',
+        header: 'LLM Errs',
+        size: 100,
+        cell: ({ getValue }: any) => {
+          const errs = getValue() as number
+          return (
+            <span style={{ color: errs > 0 ? '#F87171' : 'inherit' }}>
+              {errs != null ? errs : '-'}
+            </span>
+          )
+        },
+      },
+      {
+        accessorKey: 'toolErrorCount',
+        header: 'Tool Errs',
         size: 100,
         cell: ({ getValue }: any) => {
           const errs = getValue() as number
@@ -322,10 +462,10 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
         {
           accessorKey: 'resourceId',
           header: 'Resource ID',
-          size: 150,
+          size: 300,
           cell: ({ getValue }: any) => {
             const val = getValue() as string
-            return <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>{val || '-'}</span>
+            return <span title={val} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>{val || '-'}</span>
           }
         }
       )
@@ -449,19 +589,55 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
           const traceId = getValue() as string
           if (!traceId) return '-'
           return (
-            <span
-              onClick={() => handleOpenTrace(traceId)}
+            <div
+              onClick={(e) => {
+                e.stopPropagation()
+                setTraceFilter(traceId)
+                setActiveTab('spans')
+              }}
               style={{
                 fontFamily: "'JetBrains Mono', monospace",
                 fontSize: '11px',
                 color: '#06B6D4',
                 cursor: 'pointer',
-                textDecoration: 'underline',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                width: '100%',
+                height: '100%',
               }}
-              title="Open in Trace Explorer"
+              title="Filter spans by this trace"
             >
-              {traceId.slice(0, 12)}...
-            </span>
+              <span style={{ textDecoration: 'underline' }}>{traceId.slice(0, 12)}...</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleOpenTrace(traceId)
+                }}
+                style={{
+                  background: 'rgba(6, 182, 212, 0.1)',
+                  border: 'none',
+                  color: '#06B6D4',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  borderRadius: '4px',
+                  transition: 'all 0.2s',
+                }}
+                title="Open Waterfall in Trace Explorer"
+                onMouseOver={(e) => {
+                  e.currentTarget.style.color = '#F0F4F8'
+                  e.currentTarget.style.background = 'rgba(6, 182, 212, 0.3)'
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.color = '#06B6D4'
+                  e.currentTarget.style.background = 'rgba(6, 182, 212, 0.1)'
+                }}
+              >
+                <ExternalLink size={14} />
+              </button>
+            </div>
           )
         },
       },
@@ -481,10 +657,10 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
         {
           accessorKey: 'resourceId',
           header: 'Resource ID',
-          size: 150,
+          size: 300,
           cell: ({ getValue }: any) => {
             const val = getValue() as string
-            return <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>{val || '-'}</span>
+            return <span title={val} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>{val || '-'}</span>
           }
         }
       )
@@ -510,6 +686,7 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
             style={{ ...styles.tabButton, ...(activeTab === 'traces' ? styles.tabActive : styles.tabInactive) }}
             onClick={() => {
               setSessionFilter(null)
+              setExpandedSpanId(null)
               setActiveTab('traces')
             }}
           >
@@ -517,7 +694,10 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
           </button>
           <button
             style={{ ...styles.tabButton, ...(activeTab === 'spans' ? styles.tabActive : styles.tabInactive) }}
-            onClick={() => setActiveTab('spans')}
+            onClick={() => {
+              setExpandedSpanId(null)
+              setActiveTab('spans')
+            }}
           >
             Spans
           </button>
@@ -528,6 +708,29 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
             <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#F0F4F8' }}>{sessionFilter}</span>
             <button
               onClick={() => setSessionFilter(null)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#06B6D4',
+                cursor: 'pointer',
+                fontSize: '12px',
+                padding: '2px 6px',
+                textDecoration: 'underline'
+              }}
+            >
+              Clear
+            </button>
+          </div>
+        )}
+        {activeTab === 'spans' && traceFilter && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#94A3B8' }}>
+            <span>Filtered by Trace:</span>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#F0F4F8' }}>{traceFilter}</span>
+            <button
+              onClick={() => {
+                setTraceFilter(null)
+                setExpandedSpanId(null)
+              }}
               style={{
                 background: 'transparent',
                 border: 'none',
@@ -581,10 +784,16 @@ export default function AgentTracesPage({ hours }: { hours: number }) {
             fullHeight
             enableSearch
             searchPlaceholder="Search spans..."
+            expandedRowId={expandedSpanId}
+            getRowId={(row) => row.timestamp + row.traceId + row.agentId}
             onRowClick={(row) => {
-              if (row.traceId) {
-                handleOpenTrace(row.traceId)
-              }
+              const rowId = row.timestamp + row.traceId + row.agentId
+              setExpandedSpanId(prev => prev === rowId ? null : rowId)
+            }}
+            renderExpandedRow={(row) => {
+              if (!row.traceId) return null
+              const rawSpanId = row.spanId || row.traceId
+              return <SpanDetailsView traceId={row.traceId} spanId={rawSpanId} />
             }}
           />
         )}
