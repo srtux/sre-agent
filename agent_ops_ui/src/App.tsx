@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import axios from 'axios'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import TopologyGraph from './components/TopologyGraph'
 import TrajectorySankey from './components/TrajectorySankey'
 import SidePanel from './components/SidePanel'
@@ -15,8 +16,18 @@ import type {
   TimeSeriesData,
 } from './types'
 import RegistryPage from './components/RegistryPage'
+import AgentDashboard from './components/dashboard/AgentDashboard'
 
-type Tab = 'agents' | 'tools' | 'topology' | 'trajectory'
+type Tab = 'agents' | 'tools' | 'topology' | 'trajectory' | 'dashboard'
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      refetchOnWindowFocus: false,
+    },
+  },
+})
 
 /** Parse a time_range string like "1h", "6h", "24h", "7d" into hours. */
 function parseTimeRange(raw: string): number | null {
@@ -323,17 +334,25 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
         >
           Trajectory Flow
         </button>
+        <button
+          style={activeTab === 'dashboard' ? styles.tabActive : styles.tab}
+          onClick={() => setActiveTab('dashboard')}
+        >
+          Dashboard
+        </button>
       </div>
 
-      <GraphToolbar
-        filters={{ ...filters, serviceName }}
-        onChange={setFilters}
-        onLoad={handleLoad}
-        loading={isLoading}
-        autoRefresh={autoRefresh}
-        onAutoRefreshChange={setAutoRefresh}
-        lastUpdated={lastUpdated}
-      />
+      {activeTab !== 'dashboard' && (
+        <GraphToolbar
+          filters={{ ...filters, serviceName }}
+          onChange={setFilters}
+          onLoad={handleLoad}
+          loading={isLoading}
+          autoRefresh={autoRefresh}
+          onAutoRefreshChange={setAutoRefresh}
+          lastUpdated={lastUpdated}
+        />
+      )}
 
       <div style={styles.content}>
         {error && !needsSetup && <div style={styles.error}>{error}</div>}
@@ -412,6 +431,10 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
                 )}
               </>
             )}
+
+            {activeTab === 'dashboard' && (
+              <AgentDashboard />
+            )}
           </div>
 
           <SidePanel
@@ -463,20 +486,22 @@ function App() {
 
     if (urlTraceId) {
       setActiveTab('trajectory')
-    } else if (urlTab === 'topology' || urlTab === 'trajectory' || urlTab === 'agents' || urlTab === 'tools') {
+    } else if (urlTab === 'topology' || urlTab === 'trajectory' || urlTab === 'agents' || urlTab === 'tools' || urlTab === 'dashboard') {
       setActiveTab(urlTab as Tab)
     }
   }, [])
 
   return (
-    <AgentProvider projectId={filters.projectId}>
-      <AppContent
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        filters={filters}
-        setFilters={setFilters}
-      />
-    </AgentProvider>
+    <QueryClientProvider client={queryClient}>
+      <AgentProvider projectId={filters.projectId}>
+        <AppContent
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          filters={filters}
+          setFilters={setFilters}
+        />
+      </AgentProvider>
+    </QueryClientProvider>
   )
 }
 
