@@ -64,28 +64,28 @@ const mockData: DashboardTablesData = {
       agentId: 'root-orchestrator',
       severity: 'INFO',
       message: 'Starting investigation for incident INC-4821',
-      traceId: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6',
+      traceId: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6', // pragma: allowlist secret
     },
     {
       timestamp: '2026-02-21T10:29:55.000Z',
       agentId: 'trace-analyst',
       severity: 'ERROR',
       message: 'Circuit breaker OPEN for tool fetch_metrics after 3 failures',
-      traceId: 'f1e2d3c4b5a6f7e8d9c0b1a2f3e4d5c6',
+      traceId: 'f1e2d3c4b5a6f7e8d9c0b1a2f3e4d5c6', // pragma: allowlist secret
     },
     {
       timestamp: '2026-02-21T10:29:50.000Z',
       agentId: 'metrics-analyst',
       severity: 'WARNING',
       message: 'Token budget 80% consumed, switching to fast model',
-      traceId: '1234567890abcdef1234567890abcdef',
+      traceId: '1234567890abcdef1234567890abcdef', // pragma: allowlist secret
     },
     {
       timestamp: '2026-02-21T10:29:45.000Z',
       agentId: 'council-synthesizer',
       severity: 'DEBUG',
       message: 'Synthesizer merged findings from 5 panels with confidence 0.87',
-      traceId: 'abcdef1234567890abcdef1234567890',
+      traceId: 'abcdef1234567890abcdef1234567890', // pragma: allowlist secret
     },
   ],
 }
@@ -119,7 +119,7 @@ describe('AgentLogsPanel', () => {
       isError: false,
     } as ReturnType<typeof useDashboardTables>)
 
-    renderWithProviders(<AgentLogsPanel />)
+    renderWithProviders(<AgentLogsPanel hours={24} />)
     expect(screen.getByText('Agent Logs')).toBeInTheDocument()
   })
 
@@ -130,7 +130,7 @@ describe('AgentLogsPanel', () => {
       isError: true,
     } as ReturnType<typeof useDashboardTables>)
 
-    renderWithProviders(<AgentLogsPanel />)
+    renderWithProviders(<AgentLogsPanel hours={24} />)
     expect(screen.getByText('Failed to load agent logs.')).toBeInTheDocument()
   })
 
@@ -141,7 +141,7 @@ describe('AgentLogsPanel', () => {
       isError: false,
     } as ReturnType<typeof useDashboardTables>)
 
-    renderWithProviders(<AgentLogsPanel />)
+    renderWithProviders(<AgentLogsPanel hours={24} />)
 
     expect(screen.getByText('root-orchestrator')).toBeInTheDocument()
     expect(screen.getByText('trace-analyst')).toBeInTheDocument()
@@ -156,7 +156,7 @@ describe('AgentLogsPanel', () => {
       isError: false,
     } as ReturnType<typeof useDashboardTables>)
 
-    renderWithProviders(<AgentLogsPanel />)
+    renderWithProviders(<AgentLogsPanel hours={24} />)
 
     expect(screen.getByText('INFO')).toBeInTheDocument()
     expect(screen.getByText('ERROR')).toBeInTheDocument()
@@ -171,7 +171,7 @@ describe('AgentLogsPanel', () => {
       isError: false,
     } as ReturnType<typeof useDashboardTables>)
 
-    renderWithProviders(<AgentLogsPanel />)
+    renderWithProviders(<AgentLogsPanel hours={24} />)
 
     expect(
       screen.getByText('Starting investigation for incident INC-4821'),
@@ -185,9 +185,9 @@ describe('AgentLogsPanel', () => {
       isError: false,
     } as ReturnType<typeof useDashboardTables>)
 
-    renderWithProviders(<AgentLogsPanel />)
+    renderWithProviders(<AgentLogsPanel hours={24} />)
 
-    // 'a1b2c3d4e5f6' is first 12 chars of first trace ID
+    // 'a1b2c3d4e5f6' is first 12 chars of first trace ID // pragma: allowlist secret
     expect(screen.getByText('a1b2c3d4e5f6...')).toBeInTheDocument()
   })
 
@@ -198,7 +198,7 @@ describe('AgentLogsPanel', () => {
       isError: false,
     } as ReturnType<typeof useDashboardTables>)
 
-    renderWithProviders(<AgentLogsPanel />)
+    renderWithProviders(<AgentLogsPanel hours={24} />)
 
     expect(screen.getByText('4 rows')).toBeInTheDocument()
   })

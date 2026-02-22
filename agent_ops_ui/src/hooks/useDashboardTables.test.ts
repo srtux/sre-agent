@@ -34,8 +34,8 @@ const mockTools = {
 
 const mockLogs = {
   agentLogs: [
-    { timestamp: '2026-02-22T12:00:00Z', agentId: 'sre_agent', severity: 'INFO', message: 'Agent::sre_agent | 500ms | 1000 tokens', traceId: 'abc123def456' },
-    { timestamp: '2026-02-22T11:00:00Z', agentId: 'trace_panel', severity: 'ERROR', message: 'Tool::fetch_traces | 2000ms | error=timeout', traceId: 'def456abc123' },
+    { timestamp: '2026-02-22T12:00:00Z', agentId: 'sre_agent', severity: 'INFO', message: 'Agent::sre_agent | 500ms | 1000 tokens', traceId: 'abc123def456' }, // pragma: allowlist secret
+    { timestamp: '2026-02-22T11:00:00Z', agentId: 'trace_panel', severity: 'ERROR', message: 'Tool::fetch_traces | 2000ms | error=timeout', traceId: 'def456abc123' }, // pragma: allowlist secret
   ],
 }
 
@@ -70,7 +70,7 @@ describe('useDashboardTables', () => {
   })
 
   it('returns loading state initially', () => {
-    const { result } = renderHook(() => useDashboardTables(), {
+    const { result } = renderHook(() => useDashboardTables(24), {
       wrapper: createWrapper(),
     })
     expect(result.current.isLoading).toBe(true)
@@ -78,7 +78,7 @@ describe('useDashboardTables', () => {
   })
 
   it('returns data with all three arrays after loading', async () => {
-    const { result } = renderHook(() => useDashboardTables(), {
+    const { result } = renderHook(() => useDashboardTables(24), {
       wrapper: createWrapper(),
     })
 
@@ -94,7 +94,7 @@ describe('useDashboardTables', () => {
   })
 
   it('model calls have correct shape', async () => {
-    const { result } = renderHook(() => useDashboardTables(), {
+    const { result } = renderHook(() => useDashboardTables(24), {
       wrapper: createWrapper(),
     })
 
@@ -114,7 +114,7 @@ describe('useDashboardTables', () => {
   })
 
   it('tool calls have correct shape', async () => {
-    const { result } = renderHook(() => useDashboardTables(), {
+    const { result } = renderHook(() => useDashboardTables(24), {
       wrapper: createWrapper(),
     })
 
@@ -131,7 +131,7 @@ describe('useDashboardTables', () => {
   })
 
   it('agent logs have correct shape', async () => {
-    const { result } = renderHook(() => useDashboardTables(), {
+    const { result } = renderHook(() => useDashboardTables(24), {
       wrapper: createWrapper(),
     })
 

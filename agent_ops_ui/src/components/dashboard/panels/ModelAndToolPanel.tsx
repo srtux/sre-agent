@@ -146,8 +146,8 @@ const toolColumns: ColumnDef<ToolCallRow, unknown>[] = [
 
 // --- Component ---
 
-export default function ModelAndToolPanel() {
-  const { data, isLoading, isError } = useDashboardTables()
+export default function ModelAndToolPanel({ hours }: { hours: number }) {
+  const { data, isLoading, isError } = useDashboardTables(hours)
 
   const modelData = useMemo(() => data?.modelCalls ?? [], [data?.modelCalls])
   const toolData = useMemo(() => data?.toolCalls ?? [], [data?.toolCalls])

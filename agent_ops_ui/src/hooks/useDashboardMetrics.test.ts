@@ -67,7 +67,7 @@ describe('useDashboardMetrics', () => {
   })
 
   it('returns loading state initially', () => {
-    const { result } = renderHook(() => useDashboardMetrics(), {
+    const { result } = renderHook(() => useDashboardMetrics(24), {
       wrapper: createWrapper(),
     })
     expect(result.current.isLoading).toBe(true)
@@ -75,7 +75,7 @@ describe('useDashboardMetrics', () => {
   })
 
   it('returns data after loading', async () => {
-    const { result } = renderHook(() => useDashboardMetrics(), {
+    const { result } = renderHook(() => useDashboardMetrics(24), {
       wrapper: createWrapper(),
     })
 
@@ -88,7 +88,7 @@ describe('useDashboardMetrics', () => {
   })
 
   it('returns KPI metrics from API', async () => {
-    const { result } = renderHook(() => useDashboardMetrics(), {
+    const { result } = renderHook(() => useDashboardMetrics(24), {
       wrapper: createWrapper(),
     })
 
@@ -105,7 +105,7 @@ describe('useDashboardMetrics', () => {
   })
 
   it('returns latency time series from API', async () => {
-    const { result } = renderHook(() => useDashboardMetrics(), {
+    const { result } = renderHook(() => useDashboardMetrics(24), {
       wrapper: createWrapper(),
     })
 
@@ -121,7 +121,7 @@ describe('useDashboardMetrics', () => {
   })
 
   it('returns QPS time series from API', async () => {
-    const { result } = renderHook(() => useDashboardMetrics(), {
+    const { result } = renderHook(() => useDashboardMetrics(24), {
       wrapper: createWrapper(),
     })
 
@@ -136,7 +136,7 @@ describe('useDashboardMetrics', () => {
   })
 
   it('returns token usage time series from API', async () => {
-    const { result } = renderHook(() => useDashboardMetrics(), {
+    const { result } = renderHook(() => useDashboardMetrics(24), {
       wrapper: createWrapper(),
     })
 

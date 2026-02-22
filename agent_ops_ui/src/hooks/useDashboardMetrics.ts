@@ -39,14 +39,6 @@ export interface DashboardMetricsData {
   tokens: TokenPoint[]
 }
 
-const timeRangeToHours: Record<string, number> = {
-  '1h': 1,
-  '6h': 6,
-  '24h': 24,
-  '7d': 168,
-  '30d': 720,
-}
-
 async function fetchDashboardMetrics(
   projectId: string,
   hours: number,
@@ -74,13 +66,13 @@ async function fetchDashboardMetrics(
   }
 }
 
-export function useDashboardMetrics() {
-  const { timeRange } = useDashboardFilters()
-  const { projectId, serviceName } = useAgentContext()
-  const hours = timeRangeToHours[timeRange] ?? 24
+export function useDashboardMetrics(hours: number) {
+  const { selectedAgents } = useDashboardFilters()
+  const { projectId } = useAgentContext()
+  const serviceName = selectedAgents.length > 0 ? selectedAgents[0] : ''
 
   return useQuery({
-    queryKey: ['dashboard-metrics', projectId, serviceName, timeRange],
+    queryKey: ['dashboard-metrics', projectId, serviceName, hours],
     queryFn: () => fetchDashboardMetrics(projectId, hours, serviceName),
     enabled: !!projectId,
     staleTime: 30_000,

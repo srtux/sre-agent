@@ -145,8 +145,8 @@ const logColumns: ColumnDef<AgentLogRow, unknown>[] = [
 
 // --- Component ---
 
-export default function AgentLogsPanel() {
-  const { data, isLoading, isError } = useDashboardTables()
+export default function AgentLogsPanel({ hours }: { hours: number }) {
+  const { data, isLoading, isError } = useDashboardTables(hours)
 
   const logData = useMemo(() => data?.agentLogs ?? [], [data?.agentLogs])
 

@@ -110,8 +110,8 @@ function SkeletonCards() {
   )
 }
 
-export default function KpiGrid() {
-  const { data, isLoading, isError } = useDashboardMetrics()
+export default function KpiGrid({ hours }: { hours: number }) {
+  const { data, isLoading, isError } = useDashboardMetrics(hours)
 
   if (isLoading) {
     return <SkeletonCards />

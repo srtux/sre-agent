@@ -84,7 +84,7 @@ describe('InteractionMetricsPanel', () => {
       isError: false,
     } as ReturnType<typeof useDashboardMetrics>)
 
-    renderWithProviders(<InteractionMetricsPanel />)
+    renderWithProviders(<InteractionMetricsPanel hours={24} />)
     const loadingCharts = screen.getAllByTestId('chart-loading')
     expect(loadingCharts).toHaveLength(3)
   })
@@ -96,7 +96,7 @@ describe('InteractionMetricsPanel', () => {
       isError: false,
     } as ReturnType<typeof useDashboardMetrics>)
 
-    renderWithProviders(<InteractionMetricsPanel />)
+    renderWithProviders(<InteractionMetricsPanel hours={24} />)
     expect(screen.getByText('Latency Over Time')).toBeInTheDocument()
     expect(screen.getByText('QPS & Error Rate')).toBeInTheDocument()
     expect(screen.getByText('Token Usage')).toBeInTheDocument()
@@ -109,7 +109,7 @@ describe('InteractionMetricsPanel', () => {
       isError: false,
     } as ReturnType<typeof useDashboardMetrics>)
 
-    renderWithProviders(<InteractionMetricsPanel />)
+    renderWithProviders(<InteractionMetricsPanel hours={24} />)
     expect(screen.getByTestId('series-P50')).toBeInTheDocument()
     expect(screen.getByTestId('series-P95')).toBeInTheDocument()
   })
@@ -121,7 +121,7 @@ describe('InteractionMetricsPanel', () => {
       isError: false,
     } as ReturnType<typeof useDashboardMetrics>)
 
-    renderWithProviders(<InteractionMetricsPanel />)
+    renderWithProviders(<InteractionMetricsPanel hours={24} />)
     expect(screen.getByTestId('series-QPS')).toBeInTheDocument()
     expect(screen.getByTestId('series-Error Rate')).toBeInTheDocument()
   })
@@ -133,7 +133,7 @@ describe('InteractionMetricsPanel', () => {
       isError: false,
     } as ReturnType<typeof useDashboardMetrics>)
 
-    renderWithProviders(<InteractionMetricsPanel />)
+    renderWithProviders(<InteractionMetricsPanel hours={24} />)
     expect(screen.getByTestId('series-Input Tokens')).toBeInTheDocument()
     expect(screen.getByTestId('series-Output Tokens')).toBeInTheDocument()
   })
@@ -151,7 +151,7 @@ describe('InteractionMetricsPanel', () => {
       isError: false,
     } as ReturnType<typeof useDashboardMetrics>)
 
-    renderWithProviders(<InteractionMetricsPanel />)
+    renderWithProviders(<InteractionMetricsPanel hours={24} />)
     // Charts should still render without series names
     const charts = screen.getAllByTestId('chart')
     expect(charts).toHaveLength(3)

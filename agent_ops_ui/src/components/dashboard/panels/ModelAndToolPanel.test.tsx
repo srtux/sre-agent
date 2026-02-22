@@ -120,7 +120,7 @@ describe('ModelAndToolPanel', () => {
       isError: false,
     } as ReturnType<typeof useDashboardTables>)
 
-    renderWithProviders(<ModelAndToolPanel />)
+    renderWithProviders(<ModelAndToolPanel hours={24} />)
     expect(screen.getByText('Model Usage')).toBeInTheDocument()
     expect(screen.getByText('Tool Performance')).toBeInTheDocument()
   })
@@ -132,7 +132,7 @@ describe('ModelAndToolPanel', () => {
       isError: true,
     } as ReturnType<typeof useDashboardTables>)
 
-    renderWithProviders(<ModelAndToolPanel />)
+    renderWithProviders(<ModelAndToolPanel hours={24} />)
     expect(screen.getByText('Failed to load model and tool data.')).toBeInTheDocument()
   })
 
@@ -143,7 +143,7 @@ describe('ModelAndToolPanel', () => {
       isError: false,
     } as ReturnType<typeof useDashboardTables>)
 
-    renderWithProviders(<ModelAndToolPanel />)
+    renderWithProviders(<ModelAndToolPanel hours={24} />)
 
     expect(screen.getByText('gemini-2.5-flash')).toBeInTheDocument()
     expect(screen.getByText('gemini-2.5-pro')).toBeInTheDocument()
@@ -158,7 +158,7 @@ describe('ModelAndToolPanel', () => {
       isError: false,
     } as ReturnType<typeof useDashboardTables>)
 
-    renderWithProviders(<ModelAndToolPanel />)
+    renderWithProviders(<ModelAndToolPanel hours={24} />)
 
     // 320ms should appear as "320ms"
     expect(screen.getByText('320ms')).toBeInTheDocument()
@@ -173,7 +173,7 @@ describe('ModelAndToolPanel', () => {
       isError: false,
     } as ReturnType<typeof useDashboardTables>)
 
-    renderWithProviders(<ModelAndToolPanel />)
+    renderWithProviders(<ModelAndToolPanel hours={24} />)
 
     // 7.50% should be red (model: gemini-2.5-pro errorRate 7.5)
     const highErrorEl = screen.getByText('7.50%')
@@ -192,7 +192,7 @@ describe('ModelAndToolPanel', () => {
       isError: false,
     } as ReturnType<typeof useDashboardTables>)
 
-    renderWithProviders(<ModelAndToolPanel />)
+    renderWithProviders(<ModelAndToolPanel hours={24} />)
 
     // Both tables have 2 rows each
     const rowCounts = screen.getAllByText('2 rows')

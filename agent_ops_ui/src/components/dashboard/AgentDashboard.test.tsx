@@ -60,27 +60,27 @@ describe('AgentDashboard', () => {
   })
 
   it('renders the KPI grid section', () => {
-    renderWithQuery(<AgentDashboard />)
+    renderWithQuery(<AgentDashboard hours={24} />)
     expect(screen.getByTestId('kpi-grid')).toBeInTheDocument()
   })
 
   it('renders the interaction metrics section', () => {
-    renderWithQuery(<AgentDashboard />)
+    renderWithQuery(<AgentDashboard hours={24} />)
     expect(screen.getByTestId('interaction-metrics')).toBeInTheDocument()
   })
 
   it('renders the model and tool panel section', () => {
-    renderWithQuery(<AgentDashboard />)
+    renderWithQuery(<AgentDashboard hours={24} />)
     expect(screen.getByTestId('model-tool-panel')).toBeInTheDocument()
   })
 
   it('renders the agent logs section', () => {
-    renderWithQuery(<AgentDashboard />)
+    renderWithQuery(<AgentDashboard hours={24} />)
     expect(screen.getByTestId('agent-logs-panel')).toBeInTheDocument()
   })
 
   it('renders all sections in correct order', () => {
-    renderWithQuery(<AgentDashboard />)
+    renderWithQuery(<AgentDashboard hours={24} />)
 
     const kpi = screen.getByTestId('kpi-grid')
     const metrics = screen.getByTestId('interaction-metrics')

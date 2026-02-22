@@ -37,14 +37,6 @@ export interface DashboardTablesData {
   agentLogs: AgentLogRow[]
 }
 
-const timeRangeToHours: Record<string, number> = {
-  '1h': 1,
-  '6h': 6,
-  '24h': 24,
-  '7d': 168,
-  '30d': 720,
-}
-
 async function fetchDashboardTables(
   projectId: string,
   hours: number,
@@ -77,13 +69,13 @@ async function fetchDashboardTables(
 
 // --- Hook ---
 
-export function useDashboardTables() {
-  const { timeRange } = useDashboardFilters()
-  const { projectId, serviceName } = useAgentContext()
-  const hours = timeRangeToHours[timeRange] ?? 24
+export function useDashboardTables(hours: number) {
+  const { selectedAgents } = useDashboardFilters()
+  const { projectId } = useAgentContext()
+  const serviceName = selectedAgents.length > 0 ? selectedAgents[0] : ''
 
   return useQuery({
-    queryKey: ['dashboard-tables', projectId, serviceName, timeRange],
+    queryKey: ['dashboard-tables', projectId, serviceName, hours],
     queryFn: () => fetchDashboardTables(projectId, hours, serviceName),
     enabled: !!projectId,
     staleTime: 30_000,

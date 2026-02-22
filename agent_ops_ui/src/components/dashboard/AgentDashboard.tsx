@@ -28,28 +28,28 @@ const styles: Record<string, React.CSSProperties> = {
 
 // --- Main dashboard ---
 
-export default function AgentDashboard() {
+export default function AgentDashboard({ hours }: { hours: number }) {
   return (
     <div style={styles.wrapper}>
       <div style={styles.grid}>
           {/* Row 1: KPIs */}
           <div style={styles.kpis}>
-            <KpiGrid />
+          <KpiGrid hours={hours} />
           </div>
 
           {/* Row 2: Interactions & Metrics (charts) */}
           <div style={styles.fullWidth}>
-            <InteractionMetricsPanel />
+          <InteractionMetricsPanel hours={hours} />
           </div>
 
           {/* Row 3: Model & Tool Stats (side-by-side tables) */}
           <div style={styles.fullWidth}>
-            <ModelAndToolPanel />
+          <ModelAndToolPanel hours={hours} />
           </div>
 
           {/* Row 4: Agent Logs (full-width) */}
           <div style={{ ...styles.fullWidth, minHeight: '300px', display: 'flex', flexDirection: 'column' }}>
-            <AgentLogsPanel />
+          <AgentLogsPanel hours={hours} />
           </div>
         </div>
     </div>

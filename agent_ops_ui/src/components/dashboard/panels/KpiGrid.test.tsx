@@ -51,7 +51,7 @@ describe('KpiGrid', () => {
       isError: false,
     } as ReturnType<typeof useDashboardMetrics>)
 
-    const { container } = renderWithProviders(<KpiGrid />)
+    const { container } = renderWithProviders(<KpiGrid hours={24} />)
     // Skeleton should render 4 placeholder cards
     const skeletonDivs = container.querySelectorAll('div')
     expect(skeletonDivs.length).toBeGreaterThan(0)
@@ -64,7 +64,7 @@ describe('KpiGrid', () => {
       isError: true,
     } as ReturnType<typeof useDashboardMetrics>)
 
-    renderWithProviders(<KpiGrid />)
+    renderWithProviders(<KpiGrid hours={24} />)
     expect(screen.getByText('Failed to load KPI metrics.')).toBeInTheDocument()
   })
 
@@ -75,7 +75,7 @@ describe('KpiGrid', () => {
       isError: false,
     } as ReturnType<typeof useDashboardMetrics>)
 
-    renderWithProviders(<KpiGrid />)
+    renderWithProviders(<KpiGrid hours={24} />)
 
     expect(screen.getByText('Total Sessions')).toBeInTheDocument()
     expect(screen.getByText('1,842')).toBeInTheDocument()
@@ -97,7 +97,7 @@ describe('KpiGrid', () => {
       isError: false,
     } as ReturnType<typeof useDashboardMetrics>)
 
-    renderWithProviders(<KpiGrid />)
+    renderWithProviders(<KpiGrid hours={24} />)
 
     expect(screen.getByText('+12.5%')).toBeInTheDocument()
     expect(screen.getByText('+5.8%')).toBeInTheDocument()
@@ -110,7 +110,7 @@ describe('KpiGrid', () => {
       isError: false,
     } as ReturnType<typeof useDashboardMetrics>)
 
-    renderWithProviders(<KpiGrid />)
+    renderWithProviders(<KpiGrid hours={24} />)
 
     expect(screen.getByText('-3.2%')).toBeInTheDocument()
     expect(screen.getByText('-1.4%')).toBeInTheDocument()

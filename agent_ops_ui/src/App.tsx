@@ -407,7 +407,7 @@ function AppContent({ activeTab, setActiveTab, filters, setFilters }: {
                 )}
 
                 {activeTab === 'dashboard' && (
-                  <AgentDashboard />
+                  <AgentDashboard hours={filters.hours} />
                 )}
 
             {activeTab === 'topology' && (

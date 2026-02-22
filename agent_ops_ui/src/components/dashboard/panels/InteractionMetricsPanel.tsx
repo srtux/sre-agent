@@ -2,19 +2,17 @@ import { useMemo } from 'react'
 import type { EChartsOption } from 'echarts'
 import EChartWrapper from '../../charts/EChartWrapper'
 import { useDashboardMetrics } from '../../../hooks/useDashboardMetrics'
-import { useDashboardFilters, type TimeRange } from '../../../contexts/DashboardFilterContext'
 
-function formatTimestamp(iso: string, timeRange: TimeRange): string {
+function formatTimestamp(iso: string, hours: number): string {
   const date = new Date(iso)
-  if (timeRange === '1h' || timeRange === '6h' || timeRange === '24h') {
+  if (hours <= 24) {
     return date.toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
   }
   return date.toLocaleString('en-US', { month: 'short', day: '2-digit' })
 }
 
-export default function InteractionMetricsPanel() {
-  const { timeRange } = useDashboardFilters()
-  const { data, isLoading } = useDashboardMetrics()
+export default function InteractionMetricsPanel({ hours }: { hours: number }) {
+  const { data, isLoading } = useDashboardMetrics(hours)
 
   const latencyOption = useMemo((): EChartsOption => {
     if (!data?.latency) return { series: [] }
@@ -23,7 +21,7 @@ export default function InteractionMetricsPanel() {
       legend: { top: 0, right: 0 },
       xAxis: {
         type: 'category',
-        data: data.latency.map(p => formatTimestamp(p.timestamp, timeRange)),
+        data: data.latency.map(p => formatTimestamp(p.timestamp, hours)),
         axisLabel: { rotate: 0 }
       },
       yAxis: { type: 'value', name: 'ms' },
@@ -46,7 +44,7 @@ export default function InteractionMetricsPanel() {
         }
       ]
     }
-  }, [data?.latency, timeRange])
+  }, [data?.latency, hours])
 
   const qpsOption = useMemo((): EChartsOption => {
     if (!data?.qps) return { series: [] }
@@ -55,7 +53,7 @@ export default function InteractionMetricsPanel() {
       grid: { right: 60 },
       xAxis: {
         type: 'category',
-        data: data.qps.map(p => formatTimestamp(p.timestamp, timeRange))
+        data: data.qps.map(p => formatTimestamp(p.timestamp, hours))
       },
       yAxis: [
         { type: 'value', name: 'QPS' },
@@ -87,7 +85,7 @@ export default function InteractionMetricsPanel() {
         }
       ]
     }
-  }, [data?.qps, timeRange])
+  }, [data?.qps, hours])
 
   const tokenOption = useMemo((): EChartsOption => {
     if (!data?.tokens) return { series: [] }
@@ -95,7 +93,7 @@ export default function InteractionMetricsPanel() {
       tooltip: { trigger: 'axis' },
       xAxis: {
         type: 'category',
-        data: data.tokens.map(p => formatTimestamp(p.timestamp, timeRange))
+        data: data.tokens.map(p => formatTimestamp(p.timestamp, hours))
       },
       yAxis: { type: 'value', name: 'Tokens' },
       series: [
@@ -117,7 +115,7 @@ export default function InteractionMetricsPanel() {
         }
       ]
     }
-  }, [data?.tokens, timeRange])
+  }, [data?.tokens, hours])
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>

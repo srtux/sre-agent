@@ -10,6 +10,7 @@ import {
   type Node,
   type Edge,
   type NodeProps,
+  type ReactFlowInstance,
   Handle,
   Position,
   Panel,
@@ -490,6 +491,7 @@ export default function TopologyGraph({
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('vertical')
   const [highlightedPath, setHighlightedPath] = useState<Set<string>>(new Set())
+  const [rfInstance, setRfInstance] = useState<ReactFlowInstance | null>(null)
 
   const topology = useMemo(() => {
     return GraphTopologyHelper.analyze(nodes, edges)
@@ -672,6 +674,16 @@ export default function TopologyGraph({
     doLayout(layoutMode)
   }, [doLayout, layoutMode])
 
+  useEffect(() => {
+    if (rfInstance && nodes.length > 0) {
+      // Small timeout to allow nodes to be laid out and rendered before fitting view
+      const timer = setTimeout(() => {
+        rfInstance.fitView({ padding: 0.1, duration: 800 })
+      }, 50)
+      return () => clearTimeout(timer)
+    }
+  }, [nodes, rfInstance])
+
   const handleNodeClick = useCallback(
     (_event: React.MouseEvent, node: Node) => {
       onNodeClick?.(node.id)
@@ -700,6 +712,7 @@ export default function TopologyGraph({
         onEdgeClick={handleEdgeClick}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
+        onInit={setRfInstance}
         fitView
         proOptions={{ hideAttribution: true }}
         colorMode="dark"
