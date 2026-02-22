@@ -263,7 +263,7 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     "create_logging_mcp_toolset": (".mcp.gcp", "create_logging_mcp_toolset"),
     "create_monitoring_mcp_toolset": (".mcp.gcp", "create_monitoring_mcp_toolset"),
     "get_project_id_with_fallback": (".mcp.gcp", "get_project_id_with_fallback"),
-    "mcp_execute_sql": (".mcp.gcp", "mcp_execute_sql"),
+    "gcp_execute_sql": (".mcp.gcp", "gcp_execute_sql"),
     "mcp_list_log_entries": (".mcp.gcp", "mcp_list_log_entries"),
     "mcp_list_timeseries": (".mcp.gcp", "mcp_list_timeseries"),
     "mcp_query_range": (".mcp.gcp", "mcp_query_range"),

@@ -55,7 +55,7 @@ _CIRCUIT_BREAKER_TOOL_PREFIXES: frozenset[str] = frozenset(
         "get_container_oom_events",
         "get_workload_health_summary",
         "list_gcp_projects",
-        "mcp_execute_sql",
+        "gcp_execute_sql",
         "mcp_list_log_entries",
         "mcp_list_timeseries",
         "mcp_query_range",

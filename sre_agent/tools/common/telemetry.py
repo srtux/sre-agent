@@ -326,7 +326,10 @@ def setup_google_cloud_otel() -> None:
             from opentelemetry.sdk.resources import Resource
 
             resource = Resource.create(
-                {"service.name": os.environ.get("OTEL_SERVICE_NAME", "sre-agent")}
+                {
+                    "service.name": os.environ.get("OTEL_SERVICE_NAME", "sre-agent"),
+                    "cloud.platform": "gcp.agent_engine",
+                }
             )
             tracer_provider = TracerProvider(resource=resource)
             trace.set_tracer_provider(tracer_provider)
@@ -489,7 +492,10 @@ def setup_langfuse_otel() -> None:
         tracer_provider = trace.get_tracer_provider()
         if not isinstance(tracer_provider, TracerProvider):
             resource = Resource.create(
-                {"service.name": os.environ.get("OTEL_SERVICE_NAME", "sre-agent")}
+                {
+                    "service.name": os.environ.get("OTEL_SERVICE_NAME", "sre-agent"),
+                    "cloud.platform": "gcp.agent_engine",
+                }
             )
             tracer_provider = TracerProvider(resource=resource)
             trace.set_tracer_provider(tracer_provider)

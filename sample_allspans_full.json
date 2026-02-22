@@ -1,0 +1,126 @@
+[
+  {
+    "apphub": {
+      "application": {
+        "container": null,
+        "id": null,
+        "location": null
+      },
+      "service": {
+        "criticality_type": null,
+        "environment_type": null,
+        "id": null
+      },
+      "workload": {
+        "criticality_type": null,
+        "environment_type": null,
+        "id": null
+      }
+    },
+    "attributes": null,
+    "dropped_attributes_count": "0",
+    "dropped_events_count": "0",
+    "dropped_links_count": "0",
+    "duration_nano": "175395239",
+    "end_time": "2026-02-13 13:36:29",
+    "end_time_unix_nano": "1770989789893837218",
+    "events": [
+      {
+        "attributes": "{\"exception.escaped\":\"False\",\"exception.message\":\"403 PERMISSION_DENIED. {'error': {'code': 403, 'message': \\\"Permission 'aiplatform.endpoints.predict' denied on resource '//aiplatform.googleapis.com/projects/cloud-logs-test-project/locations/us-central1/publishers/google/models/gemini-2.5-flash' (or it may not exist).\\\", 'status': 'PERMISSION_DENIED', 'details': [{'@type': 'type.googleapis.com/google.rpc.ErrorInfo', 'reason': 'IAM_PERMISSION_DENIED', 'domain': 'aiplatform.googleapis.com', 'metadata': {'resource': 'projects/cloud-logs-test-project/locations/us-central1/publishers/google/models/gemini-2.5-flash', 'permission': 'aiplatform.endpoints.predict'}}]}}\",\"exception.stacktrace\":\"Traceback (most recent call last):\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/opentelemetry/trace/__init__.py\\\", line 589, in use_span\\n    yield span\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/opentelemetry/sdk/trace/__init__.py\\\", line 1105, in start_as_current_span\\n    yield span\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/opentelemetry/trace/__init__.py\\\", line 454, in start_as_current_span\\n    yield span\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py\\\", line 819, in _call_llm_with_tracing\\n    async for llm_response in agen:\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py\\\", line 1067, in _run_and_handle_error\\n    raise model_error\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py\\\", line 1053, in _run_and_handle_error\\n    async for response in agen:\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/google/adk/models/google_llm.py\\\", line 262, in generate_content_async\\n    raise ce\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/google/adk/models/google_llm.py\\\", line 241, in generate_content_async\\n    response = await self.api_client.aio.models.generate_content(\\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/opentelemetry/instrumentation/google_genai/generate_content.py\\\", line 903, in instrumented_generate_content\\n    response = await wrapped_func(\\n               ^^^^^^^^^^^^^^^^^^^\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/google/genai/models.py\\\", line 7018, in generate_content\\n    return await self._generate_content(\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/google/genai/models.py\\\", line 5836, in _generate_content\\n    response = await self._api_client.async_request(\\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/google/genai/_api_client.py\\\", line 1432, in async_request\\n    result = await self._async_request(\\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/google/genai/_api_client.py\\\", line 1365, in _async_request\\n    return await self._async_retry(  # type: ignore[no-any-return]\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/tenacity/asyncio/__init__.py\\\", line 112, in __call__\\n    do = await self.iter(retry_state=retry_state)\\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/tenacity/asyncio/__init__.py\\\", line 157, in iter\\n    result = await action(retry_state)\\n             ^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/tenacity/_utils.py\\\", line 111, in inner\\n    return call(*args, **kwargs)\\n           ^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/tenacity/__init__.py\\\", line 413, in exc_check\\n    raise retry_exc.reraise()\\n          ^^^^^^^^^^^^^^^^^^^\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/tenacity/__init__.py\\\", line 184, in reraise\\n    raise self.last_attempt.result()\\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/usr/local/lib/python3.12/concurrent/futures/_base.py\\\", line 449, in result\\n    return self.__get_result()\\n           ^^^^^^^^^^^^^^^^^^^\\n  File \\\"/usr/local/lib/python3.12/concurrent/futures/_base.py\\\", line 401, in __get_result\\n    raise self._exception\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/tenacity/asyncio/__init__.py\\\", line 116, in __call__\\n    result = await fn(*args, **kwargs)\\n             ^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/google/genai/_api_client.py\\\", line 1345, in _async_request_once\\n    await errors.APIError.raise_for_async_response(client_response)\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/google/genai/errors.py\\\", line 203, in raise_for_async_response\\n    await cls.raise_error_async(status_code, response_json, response)\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/google/genai/errors.py\\\", line 225, in raise_error_async\\n    raise ClientError(status_code, response_json, response)\\ngoogle.genai.errors.ClientError: 403 PERMISSION_DENIED. {'error': {'code': 403, 'message': \\\"Permission 'aiplatform.endpoints.predict' denied on resource '//aiplatform.googleapis.com/projects/cloud-logs-test-project/locations/us-central1/publishers/google/models/gemini-2.5-flash' (or it may not exist).\\\", 'status': 'PERMISSION_DENIED', 'details': [{'@type': 'type.googleapis.com/google.rpc.ErrorInfo', 'reason': 'IAM_PERMISSION_DENIED', 'domain': 'aiplatform.googleapis.com', 'metadata': {'resource': 'projects/cloud-logs-test-project/locations/us-central1/publishers/google/models/gemini-2.5-flash', 'permission': 'aiplatform.endpoints.predict'}}]}}\\n\",\"exception.type\":\"google.genai.errors.ClientError\"}",
+        "dropped_attributes_count": "0",
+        "name": "exception",
+        "time": "2026-02-13 13:36:29",
+        "time_unix_nano": "1770989789893809088"
+      }
+    ],
+    "instrumentation_scope": {
+      "attributes": null,
+      "dropped_attributes_count": "0",
+      "name": "gcp.vertex.agent",
+      "version": "1.23.0"
+    },
+    "kind": "1",
+    "links": [],
+    "name": "call_llm",
+    "parent_span_id": "55a38d3e84f96bb2",
+    "receive_time": "2026-02-13 13:36:30",
+    "receive_time_unix_nano": "1770989790112024532",
+    "resource": {
+      "attributes": "{\"cloud.account.id\":\"summitt-gcp\",\"cloud.platform\":\"gcp.agent_engine\",\"cloud.provider\":\"gcp\",\"cloud.region\":\"us-central1\",\"cloud.resource_id\":\"//aiplatform.googleapis.com/projects/summitt-gcp/locations/us-central1/reasoningEngines/4168506966131343360\",\"gcp.project_id\":\"summitt-gcp\",\"service.instance.id\":\"0adb062f315145d28e1feae449d53ede-24\",\"service.name\":\"sre-agent\",\"telemetry.sdk.language\":\"python\",\"telemetry.sdk.name\":\"opentelemetry\",\"telemetry.sdk.version\":\"1.37.0\"}",
+      "dropped_attributes_count": "0"
+    },
+    "resource_schema_url": null,
+    "scope_schema_url": "https://opentelemetry.io/schemas/1.37.0",
+    "span_id": "1177dfb650c71486",
+    "start_time": "2026-02-13 13:36:29",
+    "start_time_unix_nano": "1770989789718441979",
+    "status": {
+      "code": "2",
+      "message": "ClientError: 403 PERMISSION_DENIED. {'error': {'code': 403, 'message': \"Permission 'aiplatform.endpoints.predict' denied on resource '//aiplatform.googleapis.com/projects/cloud-logs-test-project/locations/us-central1/publishers/google/models/gemini-2.5-flash' (or it may not exist).\", 'status': 'PERMISSION_DENIED', 'details': [{'@type': 'type.googleapis.com/google.rpc.ErrorInfo', 'reason': 'IAM_PERMISSION_DENIED', 'domain': 'aiplatform.googleapis.com', 'metadata': {'resource': 'projects/cloud-logs-test-project/locations/us-central1/publishers/google/models/gemini-2.5-flash', 'permission': 'aiplatform.endpoints.predict'}}]}}"
+    },
+    "trace_id": "e28ddd1a13f3da70f66baf1e23b1a535",
+    "trace_state": null
+  },
+  {
+    "apphub": {
+      "application": {
+        "container": null,
+        "id": null,
+        "location": null
+      },
+      "service": {
+        "criticality_type": null,
+        "environment_type": null,
+        "id": null
+      },
+      "workload": {
+        "criticality_type": null,
+        "environment_type": null,
+        "id": null
+      }
+    },
+    "attributes": null,
+    "dropped_attributes_count": "0",
+    "dropped_events_count": "0",
+    "dropped_links_count": "0",
+    "duration_nano": "149976047",
+    "end_time": "2026-02-13 13:28:52",
+    "end_time_unix_nano": "1770989332640189411",
+    "events": [
+      {
+        "attributes": "{\"exception.escaped\":\"False\",\"exception.message\":\"403 PERMISSION_DENIED. {'error': {'code': 403, 'message': \\\"Permission 'aiplatform.endpoints.predict' denied on resource '//aiplatform.googleapis.com/projects/cloud-logs-test-project/locations/global/publishers/google/models/gemini-2.5-flash' (or it may not exist).\\\", 'status': 'PERMISSION_DENIED', 'details': [{'@type': 'type.googleapis.com/google.rpc.ErrorInfo', 'reason': 'IAM_PERMISSION_DENIED', 'domain': 'aiplatform.googleapis.com', 'metadata': {'resource': 'projects/cloud-logs-test-project/locations/global/publishers/google/models/gemini-2.5-flash', 'permission': 'aiplatform.endpoints.predict'}}]}}\",\"exception.stacktrace\":\"Traceback (most recent call last):\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/opentelemetry/trace/__init__.py\\\", line 589, in use_span\\n    yield span\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/opentelemetry/sdk/trace/__init__.py\\\", line 1105, in start_as_current_span\\n    yield span\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/opentelemetry/trace/__init__.py\\\", line 454, in start_as_current_span\\n    yield span\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py\\\", line 819, in _call_llm_with_tracing\\n    async for llm_response in agen:\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py\\\", line 1067, in _run_and_handle_error\\n    raise model_error\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/google/adk/flows/llm_flows/base_llm_flow.py\\\", line 1053, in _run_and_handle_error\\n    async for response in agen:\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/google/adk/models/google_llm.py\\\", line 262, in generate_content_async\\n    raise ce\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/google/adk/models/google_llm.py\\\", line 241, in generate_content_async\\n    response = await self.api_client.aio.models.generate_content(\\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/opentelemetry/instrumentation/google_genai/generate_content.py\\\", line 903, in instrumented_generate_content\\n    response = await wrapped_func(\\n               ^^^^^^^^^^^^^^^^^^^\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/google/genai/models.py\\\", line 7018, in generate_content\\n    return await self._generate_content(\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/google/genai/models.py\\\", line 5836, in _generate_content\\n    response = await self._api_client.async_request(\\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/google/genai/_api_client.py\\\", line 1432, in async_request\\n    result = await self._async_request(\\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/google/genai/_api_client.py\\\", line 1365, in _async_request\\n    return await self._async_retry(  # type: ignore[no-any-return]\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/tenacity/asyncio/__init__.py\\\", line 112, in __call__\\n    do = await self.iter(retry_state=retry_state)\\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/tenacity/asyncio/__init__.py\\\", line 157, in iter\\n    result = await action(retry_state)\\n             ^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/tenacity/_utils.py\\\", line 111, in inner\\n    return call(*args, **kwargs)\\n           ^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/tenacity/__init__.py\\\", line 413, in exc_check\\n    raise retry_exc.reraise()\\n          ^^^^^^^^^^^^^^^^^^^\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/tenacity/__init__.py\\\", line 184, in reraise\\n    raise self.last_attempt.result()\\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/usr/local/lib/python3.12/concurrent/futures/_base.py\\\", line 449, in result\\n    return self.__get_result()\\n           ^^^^^^^^^^^^^^^^^^^\\n  File \\\"/usr/local/lib/python3.12/concurrent/futures/_base.py\\\", line 401, in __get_result\\n    raise self._exception\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/tenacity/asyncio/__init__.py\\\", line 116, in __call__\\n    result = await fn(*args, **kwargs)\\n             ^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/google/genai/_api_client.py\\\", line 1345, in _async_request_once\\n    await errors.APIError.raise_for_async_response(client_response)\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/google/genai/errors.py\\\", line 203, in raise_for_async_response\\n    await cls.raise_error_async(status_code, response_json, response)\\n  File \\\"/home/appuser/.cache/pypoetry/virtualenvs/reasoning-engine-assembly-service-MATOk_fk-py3.12/lib/python3.12/site-packages/google/genai/errors.py\\\", line 225, in raise_error_async\\n    raise ClientError(status_code, response_json, response)\\ngoogle.genai.errors.ClientError: 403 PERMISSION_DENIED. {'error': {'code': 403, 'message': \\\"Permission 'aiplatform.endpoints.predict' denied on resource '//aiplatform.googleapis.com/projects/cloud-logs-test-project/locations/global/publishers/google/models/gemini-2.5-flash' (or it may not exist).\\\", 'status': 'PERMISSION_DENIED', 'details': [{'@type': 'type.googleapis.com/google.rpc.ErrorInfo', 'reason': 'IAM_PERMISSION_DENIED', 'domain': 'aiplatform.googleapis.com', 'metadata': {'resource': 'projects/cloud-logs-test-project/locations/global/publishers/google/models/gemini-2.5-flash', 'permission': 'aiplatform.endpoints.predict'}}]}}\\n\",\"exception.type\":\"google.genai.errors.ClientError\"}",
+        "dropped_attributes_count": "0",
+        "name": "exception",
+        "time": "2026-02-13 13:28:52",
+        "time_unix_nano": "1770989332640166391"
+      }
+    ],
+    "instrumentation_scope": {
+      "attributes": null,
+      "dropped_attributes_count": "0",
+      "name": "gcp.vertex.agent",
+      "version": "1.23.0"
+    },
+    "kind": "1",
+    "links": [],
+    "name": "call_llm",
+    "parent_span_id": "d705b0d7b4fe837b",
+    "receive_time": "2026-02-13 13:28:52",
+    "receive_time_unix_nano": "1770989332847692070",
+    "resource": {
+      "attributes": "{\"cloud.account.id\":\"summitt-gcp\",\"cloud.platform\":\"gcp.agent_engine\",\"cloud.provider\":\"gcp\",\"cloud.region\":\"us-central1\",\"cloud.resource_id\":\"//aiplatform.googleapis.com/projects/summitt-gcp/locations/us-central1/reasoningEngines/4168506966131343360\",\"gcp.project_id\":\"summitt-gcp\",\"service.instance.id\":\"5ee34b1fa11f4e9484fa0b38cf2cba57-24\",\"service.name\":\"sre-agent\",\"telemetry.sdk.language\":\"python\",\"telemetry.sdk.name\":\"opentelemetry\",\"telemetry.sdk.version\":\"1.37.0\"}",
+      "dropped_attributes_count": "0"
+    },
+    "resource_schema_url": null,
+    "scope_schema_url": "https://opentelemetry.io/schemas/1.37.0",
+    "span_id": "c99e4110b26da4d6",
+    "start_time": "2026-02-13 13:28:52",
+    "start_time_unix_nano": "1770989332490213364",
+    "status": {
+      "code": "2",
+      "message": "ClientError: 403 PERMISSION_DENIED. {'error': {'code': 403, 'message': \"Permission 'aiplatform.endpoints.predict' denied on resource '//aiplatform.googleapis.com/projects/cloud-logs-test-project/locations/global/publishers/google/models/gemini-2.5-flash' (or it may not exist).\", 'status': 'PERMISSION_DENIED', 'details': [{'@type': 'type.googleapis.com/google.rpc.ErrorInfo', 'reason': 'IAM_PERMISSION_DENIED', 'domain': 'aiplatform.googleapis.com', 'metadata': {'resource': 'projects/cloud-logs-test-project/locations/global/publishers/google/models/gemini-2.5-flash', 'permission': 'aiplatform.endpoints.predict'}}]}}"
+    },
+    "trace_id": "a2b3cfb5978f19c888181fc899296b6f",
+    "trace_state": null
+  }
+]

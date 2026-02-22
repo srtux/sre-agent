@@ -191,9 +191,7 @@ async def test_lro_status(client: AsyncClient):
 async def test_execute_schema_step(client: AsyncClient):
     with patch("sre_agent.api.routers.agent_graph_setup.bigquery.Client") as mock_bq:
         mock_bq_instance = MagicMock()
-        mock_job = MagicMock()
-        mock_job.result = MagicMock()
-        mock_bq_instance.query.return_value = mock_job
+        mock_bq_instance.query_and_wait.return_value = []
         mock_bq.return_value = mock_bq_instance
 
         response = await client.post(
@@ -208,4 +206,4 @@ async def test_execute_schema_step(client: AsyncClient):
 
         assert response.status_code == 200
         assert response.json()["status"] == "success"
-        mock_bq_instance.query.assert_called()
+        mock_bq_instance.query_and_wait.assert_called()

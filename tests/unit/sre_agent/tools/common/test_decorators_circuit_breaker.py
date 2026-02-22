@@ -49,7 +49,7 @@ class TestCircuitBreakerToolSelection:
         assert _should_use_circuit_breaker("list_log_entries")
         assert _should_use_circuit_breaker("query_promql")
         assert _should_use_circuit_breaker("list_alerts")
-        assert _should_use_circuit_breaker("mcp_execute_sql")
+        assert _should_use_circuit_breaker("gcp_execute_sql")
 
     def test_analysis_tools_are_not_protected(self) -> None:
         """Pure analysis tools should not use circuit breaker."""
@@ -79,7 +79,7 @@ class TestCircuitBreakerToolSelection:
             "query_promql",
             "list_alerts",
             "list_metric_descriptors",
-            "mcp_execute_sql",
+            "gcp_execute_sql",
         }
         assert expected.issubset(_CIRCUIT_BREAKER_TOOL_PREFIXES)
 

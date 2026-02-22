@@ -42,7 +42,7 @@ and resiliency anti-patterns (retry storms, cascading timeouts, connection pool 
 1. Start with `analyze_trace_comprehensive` — validation, durations, errors, critical path, and structure in ONE call.
 2. Use `detect_all_sre_patterns` for resiliency checks.
 3. Use `find_exemplar_traces` or `list_traces` to select representative traces.
-4. For fleet-wide analysis, use `analyze_aggregate_metrics` + `mcp_execute_sql`.
+4. For fleet-wide analysis, use `analyze_aggregate_metrics` + `gcp_execute_sql`.
 </tool_strategy>
 
 <output>
@@ -184,7 +184,7 @@ API data. You work with the full dataset.
 
 <tool_strategy>
 1. **Primary**: `query_data_agent` — ask natural-language questions about the data.
-2. **Fallback**: If `query_data_agent` fails, use `mcp_execute_sql` for direct SQL.
+2. **Fallback**: If `query_data_agent` fails, use `gcp_execute_sql` for direct SQL.
 3. **Discovery**: Use `discover_telemetry_sources` to find correct table names first.
 </tool_strategy>
 

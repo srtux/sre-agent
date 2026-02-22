@@ -35,11 +35,9 @@ def _make_row(**kwargs: Any) -> MagicMock:
     return row
 
 
-def _mock_query_result(rows: list[MagicMock]) -> MagicMock:
+def _mock_query_result(rows: list[MagicMock]) -> list[MagicMock]:
     """Wrap rows in a mock query result that is iterable."""
-    result = MagicMock()
-    result.result.return_value = iter(rows)
-    return result
+    return rows
 
 
 class TestHelpers:
@@ -127,7 +125,7 @@ class TestTopologyEndpoint:
             error_count=0,
             total_tokens=800,
         )
-        bq.query.side_effect = [
+        bq.query_and_wait.side_effect = [
             _mock_query_result([node_row]),
             _mock_query_result([edge_row]),
         ]
@@ -159,10 +157,13 @@ class TestTopologyEndpoint:
             error_count=1,
             avg_duration_ms=200.0,
         )
-        bq.query.side_effect = [
-            _mock_query_result([node_row]),
-            _mock_query_result([]),
-        ]
+
+        def mock_query(query, *args, **kwargs):
+            if "agent_graph_hourly" in query and "source_id, source_type" in query:
+                return _mock_query_result([node_row])
+            return _mock_query_result([])
+
+        bq.query_and_wait.side_effect = mock_query
 
         data = client.get(
             "/api/v1/graph/topology",
@@ -192,7 +193,7 @@ class TestTopologyEndpoint:
             error_count=2,
             total_tokens=3000,
         )
-        bq.query.side_effect = [
+        bq.query_and_wait.side_effect = [
             _mock_query_result([]),
             _mock_query_result([edge_row]),
         ]
@@ -216,7 +217,7 @@ class TestTopologyEndpoint:
         """Hours < 1 should query agent_topology_nodes/edges views."""
         bq = MagicMock()
         mock_client_fn.return_value = bq
-        bq.query.side_effect = [
+        bq.query_and_wait.side_effect = [
             _mock_query_result([]),
             _mock_query_result([]),
         ]
@@ -227,9 +228,10 @@ class TestTopologyEndpoint:
         )
 
         # Verify the live view tables are queried, not hourly
-        calls = bq.query.call_args_list
-        assert "agent_topology_nodes" in calls[0][0][0]
-        assert "agent_topology_edges" in calls[1][0][0]
+        calls = bq.query_and_wait.call_args_list
+        queries = [call[0][0] for call in calls]
+        assert any("agent_topology_nodes" in q for q in queries)
+        assert any("agent_topology_edges" in q for q in queries)
 
     @patch("sre_agent.api.routers.agent_graph._get_bq_client")
     def test_bq_error_returns_500(
@@ -276,7 +278,7 @@ class TestTrajectoriesEndpoint:
             target_type="Tool",
             trace_count=42,
         )
-        bq.query.return_value = _mock_query_result([row])
+        bq.query_and_wait.return_value = _mock_query_result([row])
 
         resp = client.get(
             "/api/v1/graph/trajectories",
@@ -302,7 +304,7 @@ class TestTrajectoriesEndpoint:
             target_type="LLM",
             trace_count=10,
         )
-        bq.query.return_value = _mock_query_result([row])
+        bq.query_and_wait.return_value = _mock_query_result([row])
 
         data = client.get(
             "/api/v1/graph/trajectories",
@@ -328,7 +330,7 @@ class TestTrajectoriesEndpoint:
             target_type="Tool",
             trace_count=99,
         )
-        bq.query.return_value = _mock_query_result([row])
+        bq.query_and_wait.return_value = _mock_query_result([row])
 
         data = client.get(
             "/api/v1/graph/trajectories",
@@ -344,7 +346,7 @@ class TestTrajectoriesEndpoint:
         """Empty BigQuery result should return empty nodes and links."""
         bq = MagicMock()
         mock_client_fn.return_value = bq
-        bq.query.return_value = _mock_query_result([])
+        bq.query_and_wait.return_value = _mock_query_result([])
 
         data = client.get(
             "/api/v1/graph/trajectories",
@@ -499,7 +501,7 @@ class TestTopologyFiltering:
         """errors_only=true should add HAVING clause to SQL."""
         bq = MagicMock()
         mock_client_fn.return_value = bq
-        bq.query.side_effect = [
+        bq.query_and_wait.side_effect = [
             _mock_query_result([]),
             _mock_query_result([]),
         ]
@@ -509,7 +511,7 @@ class TestTopologyFiltering:
             params={"project_id": "test-project", "hours": 6, "errors_only": "true"},
         )
 
-        calls = bq.query.call_args_list
+        calls = bq.query_and_wait.call_args_list
         # First query (nodes CTE) should have HAVING
         assert "HAVING SUM(error_count) > 0" in calls[0][0][0]
 
@@ -520,7 +522,7 @@ class TestTopologyFiltering:
         """start_time parameter should be used in the time filter."""
         bq = MagicMock()
         mock_client_fn.return_value = bq
-        bq.query.side_effect = [
+        bq.query_and_wait.side_effect = [
             _mock_query_result([]),
             _mock_query_result([]),
         ]
@@ -561,7 +563,7 @@ class TestTopologyFiltering:
             error_count=3,
             total_tokens=500,
         )
-        bq.query.side_effect = [
+        bq.query_and_wait.side_effect = [
             _mock_query_result([]),
             _mock_query_result([edge_row]),
         ]
@@ -591,7 +593,7 @@ class TestTopologyFiltering:
             error_count=0,
             total_tokens=400,
         )
-        bq.query.side_effect = [
+        bq.query_and_wait.side_effect = [
             _mock_query_result([]),
             _mock_query_result([edge_row]),
         ]
@@ -621,7 +623,7 @@ class TestTopologyFiltering:
             error_count=0,
             avg_duration_ms=345.6,
         )
-        bq.query.side_effect = [
+        bq.query_and_wait.side_effect = [
             _mock_query_result([node_row]),
             _mock_query_result([]),
         ]
@@ -658,7 +660,7 @@ class TestNodeDetailEndpoint:
         )
         error_row = _make_row(message="Connection timeout", count=3)
 
-        bq.query.side_effect = [
+        bq.query_and_wait.side_effect = [
             _mock_query_result([metrics_row]),
             _mock_query_result([error_row]),
             _mock_query_result([]),  # payloads query
@@ -697,7 +699,7 @@ class TestNodeDetailEndpoint:
         mock_client_fn.return_value = bq
 
         empty_row = _make_row(total_invocations=0)
-        bq.query.return_value = _mock_query_result([empty_row])
+        bq.query_and_wait.return_value = _mock_query_result([empty_row])
 
         resp = client.get(
             "/api/v1/graph/node/Agent%3A%3Amissing",
@@ -737,7 +739,7 @@ class TestNodeDetailEndpoint:
             p95=20.0,
             p99=30.0,
         )
-        bq.query.side_effect = [
+        bq.query_and_wait.side_effect = [
             _mock_query_result([metrics_row]),
             _mock_query_result([]),
             _mock_query_result([]),  # payloads query
@@ -749,8 +751,8 @@ class TestNodeDetailEndpoint:
         )
 
         # All 3 calls should include a job_config with query_parameters
-        for call in bq.query.call_args_list:
-            job_config = call[1].get("job_config") or call.kwargs.get("job_config")
+        for call in bq.query_and_wait.call_args_list:
+            job_config = call.kwargs.get("job_config")
             assert job_config is not None
             assert len(job_config.query_parameters) > 0
 
@@ -791,7 +793,7 @@ class TestEdgeDetailEndpoint:
             input_tokens=3000,
             output_tokens=2000,
         )
-        bq.query.return_value = _mock_query_result([row])
+        bq.query_and_wait.return_value = _mock_query_result([row])
 
         resp = client.get(
             "/api/v1/graph/edge/Agent%3A%3Aroot/Tool%3A%3Asearch",
@@ -820,7 +822,7 @@ class TestEdgeDetailEndpoint:
         mock_client_fn.return_value = bq
 
         row = _make_row(call_count=None)
-        bq.query.return_value = _mock_query_result([row])
+        bq.query_and_wait.return_value = _mock_query_result([row])
 
         resp = client.get(
             "/api/v1/graph/edge/Agent%3A%3Aroot/Tool%3A%3Amissing",
@@ -837,7 +839,7 @@ class TestEdgeDetailEndpoint:
         mock_client_fn.return_value = bq
 
         row = _make_row(call_count=0)
-        bq.query.return_value = _mock_query_result([row])
+        bq.query_and_wait.return_value = _mock_query_result([row])
 
         resp = client.get(
             "/api/v1/graph/edge/Agent%3A%3Aroot/Tool%3A%3Aempty",
@@ -885,15 +887,15 @@ class TestEdgeDetailEndpoint:
             input_tokens=600,
             output_tokens=400,
         )
-        bq.query.return_value = _mock_query_result([row])
+        bq.query_and_wait.return_value = _mock_query_result([row])
 
         client.get(
             "/api/v1/graph/edge/Agent%3A%3Aroot/Tool%3A%3Asearch",
             params={"project_id": "test-project"},
         )
 
-        call = bq.query.call_args
-        job_config = call[1].get("job_config") or call.kwargs.get("job_config")
+        call = bq.query_and_wait.call_args
+        job_config = call.kwargs.get("job_config")
         assert job_config is not None
         param_names = [p.name for p in job_config.query_parameters]
         assert "source_id" in param_names
@@ -1028,11 +1030,16 @@ class TestNodeDetailPayloads:
             tool_output=None,
         )
 
-        bq.query.side_effect = [
-            _mock_query_result([metrics_row]),
-            _mock_query_result([]),  # errors
-            _mock_query_result([payload_row]),  # payloads
-        ]
+        def mock_query(query, *args, **kwargs):
+            if "COUNT(*)" in query and "total_invocations" in query:
+                return _mock_query_result([metrics_row])
+            if "status_code AS message" in query:
+                return _mock_query_result([])
+            if "JSON_VALUE(s.attributes" in query:
+                return _mock_query_result([payload_row])
+            return _mock_query_result([])
+
+        bq.query_and_wait.side_effect = mock_query
 
         resp = client.get(
             "/api/v1/graph/node/LLM%3A%3Agemini",
@@ -1067,7 +1074,7 @@ class TestNodeDetailPayloads:
             p95=20.0,
             p99=30.0,
         )
-        bq.query.side_effect = [
+        bq.query_and_wait.side_effect = [
             _mock_query_result([metrics_row]),
             _mock_query_result([]),
             _mock_query_result([]),
@@ -1082,7 +1089,7 @@ class TestNodeDetailPayloads:
         )
 
         # The third query (payloads) should reference the trace dataset
-        payload_call = bq.query.call_args_list[2]
+        payload_call = bq.query_and_wait.call_args_list[2]
         assert "my_traces._AllSpans" in payload_call[0][0]
 
 
@@ -1109,7 +1116,7 @@ class TestTrajectoriesLoopDetection:
             step_sequence=["A", "B", "A", "B", "A", "B"],
         )
 
-        bq.query.side_effect = [
+        bq.query_and_wait.side_effect = [
             _mock_query_result([sankey_row]),
             _mock_query_result([loop_row]),
         ]
@@ -1138,7 +1145,7 @@ class TestTrajectoriesLoopDetection:
             step_sequence=["A", "B", "C"],
         )
 
-        bq.query.side_effect = [
+        bq.query_and_wait.side_effect = [
             _mock_query_result([]),  # sankey
             _mock_query_result([loop_row]),
         ]
@@ -1171,7 +1178,7 @@ class TestTimeSeriesEndpoint:
             total_tokens=840,
             total_cost=0.001234,
         )
-        bq.query.return_value = _mock_query_result([row])
+        bq.query_and_wait.return_value = _mock_query_result([row])
 
         resp = client.get(
             "/api/v1/graph/timeseries",
@@ -1199,7 +1206,7 @@ class TestTimeSeriesEndpoint:
             total_tokens=840,
             total_cost=0.001234,
         )
-        bq.query.return_value = _mock_query_result([row])
+        bq.query_and_wait.return_value = _mock_query_result([row])
 
         data = client.get(
             "/api/v1/graph/timeseries",
@@ -1240,7 +1247,7 @@ class TestTimeSeriesEndpoint:
             total_tokens=600,
             total_cost=0.002,
         )
-        bq.query.return_value = _mock_query_result([row1, row2])
+        bq.query_and_wait.return_value = _mock_query_result([row1, row2])
 
         data = client.get(
             "/api/v1/graph/timeseries",
@@ -1276,7 +1283,7 @@ class TestTimeSeriesEndpoint:
             total_tokens=600,
             total_cost=0.002,
         )
-        bq.query.return_value = _mock_query_result([row1, row2])
+        bq.query_and_wait.return_value = _mock_query_result([row1, row2])
 
         data = client.get(
             "/api/v1/graph/timeseries",
@@ -1295,7 +1302,7 @@ class TestTimeSeriesEndpoint:
         """Empty BigQuery result should return empty series dict."""
         bq = MagicMock()
         mock_client_fn.return_value = bq
-        bq.query.return_value = _mock_query_result([])
+        bq.query_and_wait.return_value = _mock_query_result([])
 
         data = client.get(
             "/api/v1/graph/timeseries",
@@ -1353,7 +1360,7 @@ class TestTimeSeriesEndpoint:
         """start_time parameter should be used in the time filter."""
         bq = MagicMock()
         mock_client_fn.return_value = bq
-        bq.query.return_value = _mock_query_result([])
+        bq.query_and_wait.return_value = _mock_query_result([])
 
         resp = client.get(
             "/api/v1/graph/timeseries",
@@ -1382,14 +1389,14 @@ class TestTimeSeriesEndpoint:
         """SQL should reference time_bucket column."""
         bq = MagicMock()
         mock_client_fn.return_value = bq
-        bq.query.return_value = _mock_query_result([])
+        bq.query_and_wait.return_value = _mock_query_result([])
 
         client.get(
             "/api/v1/graph/timeseries",
             params={"project_id": "test-project", "hours": 6},
         )
 
-        sql = bq.query.call_args[0][0]
+        sql = bq.query_and_wait.call_args[0][0]
         assert "time_bucket" in sql
 
     @patch("sre_agent.api.routers.agent_graph._get_bq_client")
@@ -1399,14 +1406,14 @@ class TestTimeSeriesEndpoint:
         """Timeseries should issue exactly one BigQuery query."""
         bq = MagicMock()
         mock_client_fn.return_value = bq
-        bq.query.return_value = _mock_query_result([])
+        bq.query_and_wait.return_value = _mock_query_result([])
 
         client.get(
             "/api/v1/graph/timeseries",
             params={"project_id": "test-project", "hours": 24},
         )
 
-        assert bq.query.call_count == 1
+        assert bq.query_and_wait.call_count == 1
 
 
 class TestRegistryEndpoints:
@@ -1416,7 +1423,6 @@ class TestRegistryEndpoints:
         mock_get_client.return_value = mock_client
 
         # Mock the BigQuery RowIterator
-        mock_query_job = MagicMock()
         mock_row = MagicMock()
         mock_row.service_name = "test-service"
         mock_row.agent_id = "Agent::test-agent"
@@ -1429,8 +1435,7 @@ class TestRegistryEndpoints:
         mock_row.error_rate = 0.04
         mock_row.p50_duration_ms = 150.0
         mock_row.p95_duration_ms = 500.0
-        mock_query_job.result.return_value = [mock_row]
-        mock_client.query.return_value = mock_query_job
+        mock_client.query_and_wait.return_value = [mock_row]
 
         response = client.get(
             "/api/v1/graph/registry/agents?project_id=test-project&dataset=test_ds"
@@ -1452,8 +1457,6 @@ class TestRegistryEndpoints:
     def test_get_tool_registry_success(self, mock_get_client, client):
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
-
-        mock_query_job = MagicMock()
         mock_row = MagicMock()
         mock_row.service_name = "test-service"
         mock_row.tool_id = "Tool::search"
@@ -1463,8 +1466,7 @@ class TestRegistryEndpoints:
         mock_row.error_rate = 0.05
         mock_row.avg_duration_ms = 200.0
         mock_row.p95_duration_ms = 600.0
-        mock_query_job.result.return_value = [mock_row]
-        mock_client.query.return_value = mock_query_job
+        mock_client.query_and_wait.return_value = [mock_row]
 
         response = client.get(
             "/api/v1/graph/registry/tools?project_id=test-project&dataset=test_ds"

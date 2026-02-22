@@ -9,17 +9,13 @@ from sre_agent.tools.bigquery.client import BigQueryClient, _normalize_schema_fi
 
 @pytest.mark.asyncio
 async def test_execute_query_success(mock_tool_context):
-    """Test successful query execution via MCP."""
-    with patch("sre_agent.tools.bigquery.client.call_mcp_tool_with_retry") as mock_call:
-        mock_call.return_value = {
-            "status": "success",
-            "result": {
-                "structuredContent": {
-                    "rows": [{"f": [{"v": "val"}]}],
-                    "schema": {"fields": [{"name": "col1"}]},
-                }
-            },
-        }
+    """Test successful query execution via direct API."""
+    with patch.object(BigQueryClient, "_get_direct_client") as mock_get_client:
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_row = MagicMock()
+        mock_row.items.return_value = [("col1", "val")]
+        mock_client.query_and_wait.return_value = [mock_row]
 
         client = BigQueryClient(
             project_id="test-project", tool_context=mock_tool_context
@@ -28,40 +24,16 @@ async def test_execute_query_success(mock_tool_context):
 
         assert len(rows) == 1
         assert rows[0]["col1"] == "val"
-
-
-@pytest.mark.asyncio
-async def test_execute_query_list_result(mock_tool_context):
-    """Test successful query execution where result is a direct list."""
-    with patch("sre_agent.tools.bigquery.client.call_mcp_tool_with_retry") as mock_call:
-        mock_call.return_value = {"status": "success", "result": [{"col": "val"}]}
-
-        client = BigQueryClient(
-            project_id="test-project", tool_context=mock_tool_context
-        )
-        rows = await client.execute_query("SELECT 1")
-        assert len(rows) == 1
-        assert rows[0]["col"] == "val"
-
-
-@pytest.mark.asyncio
-async def test_execute_query_bad_data_format(mock_tool_context):
-    """Test query where data is neither dict nor list."""
-    with patch("sre_agent.tools.bigquery.client.call_mcp_tool_with_retry") as mock_call:
-        mock_call.return_value = {"status": "success", "result": 123}
-
-        client = BigQueryClient(
-            project_id="test-project", tool_context=mock_tool_context
-        )
-        rows = await client.execute_query("SELECT 1")
-        assert rows == []
+        mock_client.query_and_wait.assert_called_once_with("SELECT 1")
 
 
 @pytest.mark.asyncio
 async def test_execute_query_failure(mock_tool_context):
     """Test failed query execution."""
-    with patch("sre_agent.tools.bigquery.client.call_mcp_tool_with_retry") as mock_call:
-        mock_call.return_value = {"status": "error", "error": "Table not found"}
+    with patch.object(BigQueryClient, "_get_direct_client") as mock_get_client:
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_client.query_and_wait.side_effect = Exception("Table not found")
 
         client = BigQueryClient(
             project_id="test-project", tool_context=mock_tool_context
@@ -174,16 +146,14 @@ async def test_get_table_schema_no_project(mock_tool_context):
 @pytest.mark.asyncio
 async def test_get_json_keys_success(mock_tool_context):
     """Test successful JSON key inference."""
-    with patch("sre_agent.tools.bigquery.client.call_mcp_tool_with_retry") as mock_call:
-        mock_call.return_value = {
-            "status": "success",
-            "result": {
-                "structuredContent": {
-                    "rows": [{"f": [{"v": "key1"}]}, {"f": [{"v": "key2"}]}],
-                    "schema": {"fields": [{"name": "key"}]},
-                }
-            },
-        }
+    with patch.object(BigQueryClient, "_get_direct_client") as mock_get_client:
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_row1 = MagicMock()
+        mock_row1.items.return_value = [("key", "key1")]
+        mock_row2 = MagicMock()
+        mock_row2.items.return_value = [("key", "key2")]
+        mock_client.query_and_wait.return_value = [mock_row1, mock_row2]
 
         client = BigQueryClient(
             project_id="test-project", tool_context=mock_tool_context
@@ -192,16 +162,18 @@ async def test_get_json_keys_success(mock_tool_context):
 
         assert keys == ["key1", "key2"]
         # Verify SQL contains JSON_KEYS
-        args = mock_call.call_args[0][2]
-        assert "JSON_KEYS(col)" in args["query"]
-        assert "UNNEST" in args["query"]
+        args = mock_client.query_and_wait.call_args[0][0]
+        assert "JSON_KEYS(col)" in args
+        assert "UNNEST" in args
 
 
 @pytest.mark.asyncio
 async def test_get_json_keys_failure(mock_tool_context):
     """Test JSON key inference failure returns empty list."""
-    with patch("sre_agent.tools.bigquery.client.call_mcp_tool_with_retry") as mock_call:
-        mock_call.return_value = {"status": "error", "error": "Column not found"}
+    with patch.object(BigQueryClient, "_get_direct_client") as mock_get_client:
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_client.query_and_wait.side_effect = Exception("Column not found")
 
         client = BigQueryClient(
             project_id="test-project", tool_context=mock_tool_context

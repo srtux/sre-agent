@@ -358,7 +358,7 @@ TOOL_DEFINITIONS: list[ToolConfig] = [
         enabled=True,  # Enabled by default
     ),
     ToolConfig(
-        name="mcp_execute_sql",
+        name="gcp_execute_sql",
         display_name="MCP Execute SQL",
         description="Execute SQL queries via MCP BigQuery server",
         category=ToolCategory.MCP,

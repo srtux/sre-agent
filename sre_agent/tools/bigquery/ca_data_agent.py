@@ -224,7 +224,7 @@ async def query_data_agent(
                     f"CA Data Agent '{aid}' not found in project '{pid}'. "
                     "Create it with: python deploy/setup_ca_agent.py "
                     f"--project-id {pid}. "
-                    "FALLBACK: Use mcp_execute_sql for direct BigQuery analysis."
+                    "FALLBACK: Use gcp_execute_sql for direct BigQuery analysis."
                 ),
             )
 

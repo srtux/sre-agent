@@ -38,7 +38,7 @@ AGGREGATE_ANALYZER_PROMPT = f"""
 1. **Discovery**: Run `discover_telemetry_sources` to find the `_AllSpans` table.
 2. **Analysis (BigQuery)**:
    - Use `analyze_aggregate_metrics` to generate SQL for fleet-wide metrics.
-   - Use `mcp_execute_sql` to run the generated SQL.
+   - Use `gcp_execute_sql` to run the generated SQL.
    - Use BigQuery for initial analysis (faster than iterating with `fetch_trace`).
 3. **Selection**:
    - **Primary**: `find_exemplar_traces` to pick the worst offenders automatically.

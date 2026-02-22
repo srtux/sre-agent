@@ -108,7 +108,7 @@ async def add_finding_to_memory(
 @adk_tool
 async def record_tool_failure_pattern(
     tool_name: Annotated[
-        str, "Name of the tool that failed (e.g. mcp_execute_sql, logs_search)"
+        str, "Name of the tool that failed (e.g. gcp_execute_sql, logs_search)"
     ],
     error_message: Annotated[str, "The exact error message returned by the tool"],
     wrong_input: Annotated[str, "The input or syntax that caused the error"],
@@ -372,14 +372,14 @@ async def analyze_and_learn_from_traces(
                 f"{', focusing on errors' if focus_on_errors else ''}."
             ),
             "workflow": [
-                "1. Execute the SQL using mcp_execute_sql to list agent traces",
+                "1. Execute the SQL using gcp_execute_sql to list agent traces",
                 "2. Pick interesting trace IDs (errors or complex investigations)",
                 "3. Use detect_agent_anti_patterns to find inefficiencies",
                 "4. Use add_finding_to_memory to record lessons learned",
                 "5. Store patterns with complete_investigation if applicable",
             ],
             "next_steps": [
-                "Execute this query using mcp_execute_sql tool",
+                "Execute this query using gcp_execute_sql tool",
                 "Analyze the traces for patterns worth learning",
                 "Store insights using add_finding_to_memory",
             ],

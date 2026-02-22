@@ -44,6 +44,8 @@ from sre_agent.tools import (
     fetch_web_page,
     find_bottleneck_services,
     find_exemplar_traces,
+    # Aggregate / BigQuery tools (shared with trace panel)
+    gcp_execute_sql,
     generate_remediation_suggestions,
     get_alert,
     get_gcloud_commands,
@@ -63,8 +65,6 @@ from sre_agent.tools import (
     # Metrics panel tools
     list_time_series,
     list_traces,
-    # Aggregate / BigQuery tools (shared with trace panel)
-    mcp_execute_sql,
     mcp_list_timeseries,
     mcp_query_range,
     # Root cause / causal analysis
@@ -123,7 +123,7 @@ TRACE_PANEL_TOOLS: list[Any] = [
     detect_trend_changes,
     correlate_logs_with_trace,
     # Aggregate (BigQuery)
-    mcp_execute_sql,
+    gcp_execute_sql,
     analyze_aggregate_metrics,
     find_exemplar_traces,
     correlate_metrics_with_traces_via_exemplars,
@@ -187,7 +187,7 @@ DATA_PANEL_TOOLS: list[Any] = [
     # CA Data Agent (primary)
     query_data_agent,
     # Fallback: direct BigQuery
-    mcp_execute_sql,
+    gcp_execute_sql,
     discover_telemetry_sources,
     # Context
     list_time_series,
@@ -225,7 +225,7 @@ TRACE_ANALYST_TOOLS: list[Any] = [
 
 AGGREGATE_ANALYZER_TOOLS: list[Any] = [
     # BigQuery fleet analysis
-    mcp_execute_sql,
+    gcp_execute_sql,
     analyze_aggregate_metrics,
     find_exemplar_traces,
     discover_telemetry_sources,
@@ -248,7 +248,7 @@ LOG_ANALYST_TOOLS: list[Any] = [
     list_log_entries,
     analyze_bigquery_log_patterns,
     extract_log_patterns,
-    mcp_execute_sql,
+    gcp_execute_sql,
     discover_telemetry_sources,
     # Context
     list_time_series,

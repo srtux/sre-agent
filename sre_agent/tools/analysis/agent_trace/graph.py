@@ -153,11 +153,11 @@ async def get_agent_graph(
     # the BigQuery client. Since I am implementing this as a tool that
     # returns SQL for the user (or executor) to run, I will return the SQL.
     # HOWEVER, the implementation plan implies this tool should RETURN THE DATA.
-    # Most ADK tools return SQL for the user to executing using mcp_execute_sql,
+    # Most ADK tools return SQL for the user to executing using gcp_execute_sql,
     # but for a visualization tool, we likely want the data directly to pass to the frontend.
 
     # Let's check if we have a BigQuery client available to execute directly.
-    # The `mcp_execute_sql` tool exists, so we can potentially call it or just return instructions.
+    # The `gcp_execute_sql` tool exists, so we can potentially call it or just return instructions.
     # BUT, for the frontend to render it automatically, it expects JSON data, not SQL.
 
     # Returning the SQL for now as that follows the pattern of other tools in this directory.
@@ -205,7 +205,7 @@ async def get_agent_graph(
             ],
             "description": f"Agent Topology Graph query for {start_dt} to {end_dt}",
             "next_steps": [
-                "Execute the 'nodes' and 'edges' queries using mcp_execute_sql",
+                "Execute the 'nodes' and 'edges' queries using gcp_execute_sql",
                 "Visualize the results using the Agent Graph component",
             ],
         },

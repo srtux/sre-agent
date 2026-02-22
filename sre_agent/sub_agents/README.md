@@ -73,7 +73,7 @@ The SRE Agent uses a multi-stage analysis pipeline where specialized sub-agents 
 - **Model**: `gemini-2.5-pro` (deep) -- handles complex SQL generation
 - **Purpose**: Analyze fleet-wide patterns using BigQuery before diving into specific traces.
 - **Workflow**: Discover tables > Aggregate ("Which service has high error rates?") > Trend ("When did it start?") > Zoom In (specific trace IDs)
-- **Tools**: `mcp_execute_sql`, `analyze_aggregate_metrics`, `find_exemplar_traces`, `discover_telemetry_sources`, `list_traces`, `find_bottleneck_services`, `build_service_dependency_graph`, `list_log_entries`, `list_time_series`, `query_promql`, `detect_trend_changes`, `correlate_metrics_with_traces_via_exemplars`
+- **Tools**: `gcp_execute_sql`, `analyze_aggregate_metrics`, `find_exemplar_traces`, `discover_telemetry_sources`, `list_traces`, `find_bottleneck_services`, `build_service_dependency_graph`, `list_log_entries`, `list_time_series`, `query_promql`, `detect_trend_changes`, `correlate_metrics_with_traces_via_exemplars`
 
 #### `alert_analyst` (alerts.py)
 - **Role**: Alert Analyst -- rapid incident triage and classification specialist
@@ -96,7 +96,7 @@ The SRE Agent uses a multi-stage analysis pipeline where specialized sub-agents 
 - **Model**: `gemini-2.5-flash` (fast)
 - **Purpose**: Mine error patterns from massive log streams using BigQuery SQL and Drain3 algorithms. Correlates log clusters to trace IDs.
 - **Workflow**: Discover tables > Mine errors (`analyze_bigquery_log_patterns`) > Compare periods > Correlate with trace_id > Remediate
-- **Tools**: `list_log_entries`, `analyze_bigquery_log_patterns`, `extract_log_patterns`, `mcp_execute_sql`, `discover_telemetry_sources`, `list_time_series`, `compare_time_periods`, `generate_remediation_suggestions`, `estimate_remediation_risk`, `get_gcloud_commands`
+- **Tools**: `list_log_entries`, `analyze_bigquery_log_patterns`, `extract_log_patterns`, `gcp_execute_sql`, `discover_telemetry_sources`, `list_time_series`, `compare_time_periods`, `generate_remediation_suggestions`, `estimate_remediation_risk`, `get_gcloud_commands`
 
 #### `metrics_analyzer` (metrics.py)
 - **Role**: Metrics Analyzer -- time-series analysis, PromQL, and exemplar correlation specialist
@@ -133,7 +133,7 @@ The SRE Agent uses a multi-stage analysis pipeline where specialized sub-agents 
   - **Token Waste**: Output tokens >5x input tokens on intermediate LLM calls
   - **Long Reasoning Chains**: >8 consecutive LLM calls without tool use
   - **Redundant Tool Calls**: Same tool invoked repeatedly across trace
-- **Tools**: `list_agent_traces`, `reconstruct_agent_interaction`, `analyze_agent_token_usage`, `detect_agent_anti_patterns`, `fetch_trace`, `list_log_entries`, `list_traces`, `mcp_execute_sql`, `discover_telemetry_sources`, `get_current_time`, `get_investigation_summary`, `update_investigation_state`
+- **Tools**: `list_agent_traces`, `reconstruct_agent_interaction`, `analyze_agent_token_usage`, `detect_agent_anti_patterns`, `fetch_trace`, `list_log_entries`, `list_traces`, `gcp_execute_sql`, `discover_telemetry_sources`, `get_current_time`, `get_investigation_summary`, `update_investigation_state`
 - **Use when**: Debugging agent runs, analyzing token usage, finding agent anti-patterns, or investigating Vertex Agent Engine reasoning engine behavior
 
 ## Orchestration Functions

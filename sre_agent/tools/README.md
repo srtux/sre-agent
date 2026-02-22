@@ -287,7 +287,7 @@ MCP tools for heavy queries routed through BigQuery, Cloud Logging, and Cloud Mo
 
 | Tool | Source | Description |
 |------|--------|-------------|
-| `mcp_execute_sql` | `mcp/gcp.py` | Execute BigQuery SQL queries |
+| `gcp_execute_sql` | `mcp/gcp.py` | Execute BigQuery SQL queries |
 | `mcp_list_log_entries` | `mcp/gcp.py` | Query Cloud Logging via MCP |
 | `mcp_list_timeseries` | `mcp/gcp.py` | Query Cloud Monitoring time series via MCP |
 | `mcp_query_range` | `mcp/gcp.py` | PromQL range queries via MCP |

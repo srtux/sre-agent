@@ -1,4 +1,4 @@
-"""Tests for agent trace analysis tools (async, mock mcp_execute_sql)."""
+"""Tests for agent trace analysis tools (async, mock gcp_execute_sql)."""
 
 from unittest.mock import patch
 

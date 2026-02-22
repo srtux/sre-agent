@@ -1,5 +1,4 @@
 import logging
-import os
 from typing import Any
 
 from google.cloud import bigquery
@@ -38,7 +37,7 @@ class BigQueryClient:
         return bigquery.Client(project=self.project_id, credentials=creds)
 
     async def execute_query(self, query: str) -> list[dict[str, Any]]:
-        """Execute a SQL query using BigQuery MCP with direct fallback.
+        """Execute a SQL query using the direct BigQuery client with query_and_wait.
 
         Args:
             query: SQL query string.
@@ -50,102 +49,13 @@ class BigQueryClient:
             logger.error("No project ID for BigQuery execution")
             raise ValueError("No project ID")
 
-        # Configuration: Prefer MCP if enabled and not failing
-        use_mcp = os.environ.get("USE_BIGQUERY_MCP", "true").lower() == "true"
-
-        if use_mcp and self.tool_context:
-            try:
-                result = await call_mcp_tool_with_retry(
-                    create_bigquery_mcp_toolset,
-                    "execute_sql",
-                    {"query": query, "projectId": self.project_id},
-                    self.tool_context,
-                    project_id=self.project_id,
-                )
-
-                if result.get("status") == "success":
-                    data = result.get("result", {})
-                    if not isinstance(data, dict):
-                        return data if isinstance(data, list) else []
-
-                    structured = data.get("structuredContent", data)
-                    rows_data = (
-                        structured.get("rows", [])
-                        if isinstance(structured, dict)
-                        else structured
-                    )
-                    schema_data = (
-                        structured.get("schema", {}).get("fields", [])
-                        if isinstance(structured, dict)
-                        else []
-                    )
-
-                    if not schema_data or not isinstance(rows_data, list):
-                        return rows_data if isinstance(rows_data, list) else []
-
-                    # Parse BigQuery raw rows format
-                    parsed_rows = []
-                    field_names = [field.get("name") for field in schema_data]
-
-                    for row in rows_data:
-                        if isinstance(row, dict) and "f" in row:
-                            values = row.get("f", [])
-                            parsed_row = {}
-                            for col, val_dict in zip(field_names, values, strict=False):
-                                parsed_row[col] = (
-                                    val_dict.get("v")
-                                    if isinstance(val_dict, dict)
-                                    else val_dict
-                                )
-                            parsed_rows.append(parsed_row)
-                        else:
-                            parsed_rows.append(row)
-
-                    return parsed_rows
-                else:
-                    err = str(result.get("error", ""))
-                    # If it's a connection/session error, fall back to direct API
-                    if any(
-                        msg in err
-                        for msg in [
-                            "Connection closed",
-                            "Session terminated",
-                            "timeout",
-                            "400 Bad Request",
-                            "400",
-                        ]
-                    ):
-                        logger.warning(
-                            f"BigQuery MCP failed with transient error: {err}. Falling back to direct SDK."
-                        )
-                    else:
-                        logger.error(f"BigQuery MCP execution failed: {err}")
-                        raise RuntimeError(f"BigQuery execution failed: {err}")
-            except Exception as e:
-                err_str = str(e)
-                if any(
-                    msg in err_str
-                    for msg in [
-                        "Connection closed",
-                        "Session terminated",
-                        "timeout",
-                        "400 Bad Request",
-                    ]
-                ):
-                    logger.warning(
-                        f"BigQuery MCP connection or syntax error: {e}. Falling back to direct SDK."
-                    )
-                else:
-                    raise
-
-        # Direct API Fallback
         logger.info(
             f"💾 Executing BigQuery query directly for project {self.project_id}"
         )
         try:
             client = self._get_direct_client()
-            query_job = client.query(query)
-            results = query_job.result()
+            # Use query_and_wait to leverage Short Query Optimizations
+            results = client.query_and_wait(query)
             return [dict(row.items()) for row in results]
         except Exception as e:
             logger.error(f"Direct BigQuery execution failed: {e}", exc_info=True)

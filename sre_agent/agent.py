@@ -233,8 +233,8 @@ from .tools.mcp.gcp import (
     create_bigquery_mcp_toolset,
     create_logging_mcp_toolset,
     create_monitoring_mcp_toolset,
+    gcp_execute_sql,
     get_project_id_with_fallback,
-    mcp_execute_sql,
     mcp_get_table_info,
     mcp_list_dataset_ids,
     mcp_list_log_entries,
@@ -1177,7 +1177,7 @@ TOOL_NAME_MAP = {
     "analyze_agent_token_usage": analyze_agent_token_usage,
     "detect_agent_anti_patterns": detect_agent_anti_patterns,
     # MCP Tools
-    "mcp_execute_sql": mcp_execute_sql,
+    "gcp_execute_sql": gcp_execute_sql,
     "mcp_list_dataset_ids": mcp_list_dataset_ids,
     "mcp_list_table_ids": mcp_list_table_ids,
     "mcp_get_table_info": mcp_get_table_info,
@@ -1274,7 +1274,7 @@ base_tools: list[Any] = [
     # Discovery
     discover_telemetry_sources,
     # MCP Tools
-    mcp_execute_sql,
+    gcp_execute_sql,
     mcp_list_dataset_ids,
     mcp_list_table_ids,
     mcp_get_table_info,
@@ -1804,7 +1804,7 @@ async def get_agent_with_mcp_tools(
 
     Note: Due to ADK's design, sub-agents can only be bound to one parent agent.
     This function initializes MCP toolsets but returns the existing root_agent.
-    The MCP tools (mcp_execute_sql, mcp_list_log_entries, etc.) are already
+    The MCP tools (gcp_execute_sql, mcp_list_log_entries, etc.) are already
     included in the agent's tool set as wrapper functions.
 
     Args:

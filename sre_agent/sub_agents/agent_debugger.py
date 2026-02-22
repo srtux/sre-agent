@@ -14,11 +14,11 @@ from ..prompt import (
 from ..tools import (
     discover_telemetry_sources,
     fetch_trace,
+    gcp_execute_sql,
     get_current_time,
     get_investigation_summary,
     list_log_entries,
     list_traces,
-    mcp_execute_sql,
     update_investigation_state,
 )
 from ..tools.analysis.agent_trace.tools import (
@@ -58,7 +58,7 @@ Spans: agent invocations, LLM calls, tool executions, sub-agent delegations.
 <tool_strategy>
 1. `discover_telemetry_sources` — find BigQuery dataset with OTel data.
 2. `list_agent_traces` — find recent agent runs (filter by engine ID, agent name, error status).
-3. `mcp_execute_sql` — run generated SQL queries.
+3. `gcp_execute_sql` — run generated SQL queries.
 4. `reconstruct_agent_interaction` — get full span tree for a trace.
 5. `analyze_agent_token_usage` — understand cost and efficiency.
 6. `detect_agent_anti_patterns` — find optimization opportunities.
@@ -105,7 +105,7 @@ agent_debugger = LlmAgent(
         fetch_trace,
         list_log_entries,
         list_traces,
-        mcp_execute_sql,
+        gcp_execute_sql,
         discover_telemetry_sources,
         get_current_time,
         get_investigation_summary,

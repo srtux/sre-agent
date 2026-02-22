@@ -23,7 +23,7 @@ from sre_agent.tools.analysis.bigquery.otel import (
     find_exemplar_traces,
 )
 from sre_agent.tools.mcp.gcp import (
-    mcp_execute_sql,
+    gcp_execute_sql,
     mcp_list_log_entries,
     mcp_list_timeseries,
     mcp_query_range,
@@ -34,7 +34,7 @@ def test_new_tools_in_base_tools():
     """Verify that all newly added tools are in the base_tools list."""
     expected_tools = [
         # MCP Tools
-        mcp_execute_sql,
+        gcp_execute_sql,
         mcp_list_log_entries,
         mcp_list_timeseries,
         mcp_query_range,
@@ -66,7 +66,7 @@ def test_new_tools_in_base_tools():
 def test_new_tools_in_tool_name_map():
     """Verify that all newly added tools are in the TOOL_NAME_MAP."""
     expected_tool_names = [
-        "mcp_execute_sql",
+        "gcp_execute_sql",
         "mcp_list_log_entries",
         "mcp_list_timeseries",
         "mcp_query_range",
@@ -90,7 +90,7 @@ def test_new_tools_in_tool_name_map():
 
 def test_tool_name_map_consistency():
     """Verify that TOOL_NAME_MAP points to the correct functions."""
-    assert TOOL_NAME_MAP["mcp_execute_sql"] == mcp_execute_sql
+    assert TOOL_NAME_MAP["gcp_execute_sql"] == gcp_execute_sql
     assert TOOL_NAME_MAP["analyze_aggregate_metrics"] == analyze_aggregate_metrics
     assert TOOL_NAME_MAP["synthesize_report"] == synthesize_report
     assert TOOL_NAME_MAP["list_traces"] == list_traces

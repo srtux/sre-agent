@@ -31,4 +31,4 @@ def test_trace_tools_availability():
     tool_names = [tool.__name__ for tool in aggregate_analyzer.tools]
     assert "list_traces" in tool_names
     assert "find_exemplar_traces" in tool_names
-    assert "mcp_execute_sql" in tool_names
+    assert "gcp_execute_sql" in tool_names

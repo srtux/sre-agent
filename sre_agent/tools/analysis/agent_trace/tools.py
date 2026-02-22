@@ -114,7 +114,7 @@ async def list_agent_traces(
                 f"{', errors only' if error_only else ''}"
             ),
             "next_steps": [
-                "Execute this query using mcp_execute_sql tool",
+                "Execute this query using gcp_execute_sql tool",
                 "Pick a trace_id and use reconstruct_agent_interaction to visualize it",
                 "Use analyze_agent_token_usage for cost analysis across traces",
             ],
@@ -175,7 +175,7 @@ async def reconstruct_agent_interaction(
                 "gen_ai.tool.name, gen_ai.operation.name, etc.) to classify spans."
             ),
             "next_steps": [
-                "Execute the SQL using mcp_execute_sql",
+                "Execute the SQL using gcp_execute_sql",
                 "Analyze the agent interaction pattern from the results",
                 "Use detect_agent_anti_patterns for optimization suggestions",
             ],
@@ -247,10 +247,10 @@ async def analyze_agent_token_usage(
             "queries": queries,
             "description": (
                 f"Token and tool usage analysis for {len(trace_ids)} trace(s). "
-                "Execute each SQL query using mcp_execute_sql."
+                "Execute each SQL query using gcp_execute_sql."
             ),
             "next_steps": [
-                "Execute each token_usage_sql and tool_usage_sql using mcp_execute_sql",
+                "Execute each token_usage_sql and tool_usage_sql using gcp_execute_sql",
                 "Compare token consumption across agents and models",
                 "Identify high-cost tool invocations",
             ],
@@ -312,7 +312,7 @@ async def detect_agent_anti_patterns(
                 "redundant_tool_calls": "Same tool invoked >3 times across the trace",
             },
             "next_steps": [
-                "Execute the SQL using mcp_execute_sql",
+                "Execute the SQL using gcp_execute_sql",
                 "Inspect the span tree for the anti-patterns described above",
                 "Use reconstruct_agent_interaction for full visualization",
             ],

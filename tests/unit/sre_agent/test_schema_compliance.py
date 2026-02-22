@@ -109,7 +109,7 @@ def test_run_analysis_tools_signature_safe():
 def test_mcp_tools_signature_safe():
     """Specific regression test for MCP tools."""
     from sre_agent.tools.mcp.gcp import (
-        mcp_execute_sql,
+        gcp_execute_sql,
         mcp_list_log_entries,
         mcp_list_timeseries,
         mcp_query_range,
@@ -119,7 +119,7 @@ def test_mcp_tools_signature_safe():
         mcp_list_log_entries,
         mcp_list_timeseries,
         mcp_query_range,
-        mcp_execute_sql,
+        gcp_execute_sql,
     ]
 
     for tool in tools:

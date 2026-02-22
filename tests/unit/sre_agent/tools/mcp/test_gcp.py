@@ -10,8 +10,8 @@ import pytest
 from sre_agent.schema import ToolStatus
 from sre_agent.tools.mcp.gcp import (
     clear_mcp_tool_context,
+    gcp_execute_sql,
     get_project_id_with_fallback,
-    mcp_execute_sql,
     mcp_list_log_entries,
     mcp_list_timeseries,
     mcp_query_range,
@@ -105,14 +105,15 @@ async def test_mcp_query_range():
 
 
 @pytest.mark.asyncio
-async def test_mcp_execute_sql():
+async def test_gcp_execute_sql():
     mock_context = MagicMock()
     with patch(
-        "sre_agent.tools.mcp.gcp.call_mcp_tool_with_retry", new_callable=AsyncMock
-    ) as mock_call:
-        mock_call.return_value = {"status": ToolStatus.SUCCESS, "result": {"rows": []}}
-        result = await mcp_execute_sql(
+        "sre_agent.tools.bigquery.client.BigQueryClient.execute_query",
+        new_callable=AsyncMock,
+    ) as mock_execute:
+        mock_execute.return_value = []
+        result = await gcp_execute_sql(
             sql_query="SELECT 1", project_id="p1", tool_context=mock_context
         )
         assert result.status == ToolStatus.SUCCESS
-        assert "rows" in result.result
+        assert result.result == []

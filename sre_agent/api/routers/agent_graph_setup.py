@@ -302,7 +302,7 @@ async def execute_schema_step(step: str, req: SchemaStepRequest) -> dict[str, An
 
     def run_query(sql: str) -> None:
         try:
-            client.query(sql).result()
+            client.query_and_wait(sql)
         except Forbidden as exc:
             # Parse BigQuery permission errors
             roles = "roles/bigquery.admin or roles/bigquery.dataEditor"
@@ -407,7 +407,7 @@ async def execute_schema_step(step: str, req: SchemaStepRequest) -> dict[str, An
             FROM `{pd}.{gd}.agent_spans_raw` WHERE node_type != 'Glue' GROUP BY 1, 2, 3
             UNION ALL
             SELECT trace_id, session_id, 'User::session' AS logical_node_id, ANY_VALUE(service_name) AS service_name,
-              'User' AS node_type, 'session' AS node_label, COUNT(DISTINCT span_id) AS execution_count,
+              'User' AS node_type, 'session' AS node_label, APPROX_COUNT_DISTINCT(span_id) AS execution_count,
               SUM(duration_ms) AS total_duration_ms, SUM(input_tokens) AS total_input_tokens,
               SUM(output_tokens) AS total_output_tokens, COUNTIF(status_code = 'ERROR') AS error_count, MIN(start_time) AS start_time
             FROM `{pd}.{gd}.agent_spans_raw` WHERE node_type = 'Agent'
@@ -467,7 +467,7 @@ async def execute_schema_step(step: str, req: SchemaStepRequest) -> dict[str, An
               FROM sequenced_steps a JOIN sequenced_steps b ON a.trace_id = b.trace_id AND a.step_sequence + 1 = b.step_sequence
             )
             SELECT ANY_VALUE(service_name) AS service_name, source_node, source_type, source_label, target_node, target_type, target_label,
-              COUNT(DISTINCT trace_id) AS trace_count, SUM(source_duration_ms) AS total_source_duration_ms, SUM(target_duration_ms) AS total_target_duration_ms,
+              APPROX_COUNT_DISTINCT(trace_id) AS trace_count, SUM(source_duration_ms) AS total_source_duration_ms, SUM(target_duration_ms) AS total_target_duration_ms,
               SUM(source_tokens) AS total_source_tokens, SUM(target_tokens) AS total_target_tokens, COUNTIF(source_status = 'ERROR' OR target_status = 'ERROR') AS error_transition_count
             FROM trajectory_links GROUP BY 2, 3, 4, 5, 6, 7;
             """
@@ -517,9 +517,9 @@ async def execute_schema_step(step: str, req: SchemaStepRequest) -> dict[str, An
             ),
             CostPaths AS (
               SELECT re.*, COALESCE(input_tokens, 0) * CASE WHEN target_id LIKE '%flash%' THEN 0.00000015 WHEN target_id LIKE '%2.5-pro%' THEN 0.00000125 WHEN target_id LIKE '%1.5-pro%' THEN 0.00000125 ELSE 0.0000005 END + COALESCE(output_tokens, 0) * CASE WHEN target_id LIKE '%flash%' THEN 0.0000006 WHEN target_id LIKE '%2.5-pro%' THEN 0.00001 WHEN target_id LIKE '%1.5-pro%' THEN 0.000005 ELSE 0.000002 END AS span_cost
-              FROM RawEdges re
+              FROM CostPaths
             )
-            SELECT time_bucket, source_id, target_id, source_type, target_type, SUM(call_count) AS call_count, SUM(edge_error_count) AS error_count, SUM(total_tokens) AS edge_tokens, SUM(input_tokens) AS input_tokens, SUM(output_tokens) AS output_tokens, ROUND(SUM(span_cost), 6) AS total_cost, SUM(total_duration_ms) AS sum_duration_ms, ROUND(MAX(total_duration_ms), 2) AS max_p95_duration_ms, COUNT(DISTINCT session_id) AS unique_sessions, CAST(NULL AS STRING) AS sample_error, SUM(total_tokens) AS node_total_tokens, SUM(input_tokens) AS node_input_tokens, SUM(output_tokens) AS node_output_tokens, SUM(edge_error_count) > 0 AS node_has_error, SUM(total_duration_ms) AS node_sum_duration_ms, ROUND(MAX(total_duration_ms), 2) AS node_max_p95_duration_ms, SUM(edge_error_count) AS node_error_count, SUM(call_count) AS node_call_count, ROUND(SUM(span_cost), 6) AS node_total_cost, target_id AS node_description, SUM(IF(target_type = 'Tool', call_count, 0)) AS tool_call_count, SUM(IF(target_type = 'LLM', call_count, 0)) AS llm_call_count, SUM(COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)) AS downstream_total_tokens, ROUND(SUM(span_cost), 6) AS downstream_total_cost, SUM(IF(target_type = 'Tool', call_count, 0)) AS downstream_tool_call_count, SUM(IF(target_type = 'LLM', call_count, 0)) AS downstream_llm_call_count, ARRAY_AGG(DISTINCT session_id IGNORE NULLS) AS session_ids, ANY_VALUE(service_name) AS service_name
+            SELECT time_bucket, source_id, target_id, source_type, target_type, SUM(call_count) AS call_count, SUM(edge_error_count) AS error_count, SUM(total_tokens) AS edge_tokens, SUM(input_tokens) AS input_tokens, SUM(output_tokens) AS output_tokens, ROUND(SUM(span_cost), 6) AS total_cost, SUM(total_duration_ms) AS sum_duration_ms, ROUND(MAX(total_duration_ms), 2) AS max_p95_duration_ms, APPROX_COUNT_DISTINCT(session_id) AS unique_sessions, CAST(NULL AS STRING) AS sample_error, SUM(total_tokens) AS node_total_tokens, SUM(input_tokens) AS node_input_tokens, SUM(output_tokens) AS node_output_tokens, SUM(edge_error_count) > 0 AS node_has_error, SUM(total_duration_ms) AS node_sum_duration_ms, ROUND(MAX(total_duration_ms), 2) AS node_max_p95_duration_ms, SUM(edge_error_count) AS node_error_count, SUM(call_count) AS node_call_count, ROUND(SUM(span_cost), 6) AS node_total_cost, target_id AS node_description, SUM(IF(target_type = 'Tool', call_count, 0)) AS tool_call_count, SUM(IF(target_type = 'LLM', call_count, 0)) AS llm_call_count, SUM(COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)) AS downstream_total_tokens, ROUND(SUM(span_cost), 6) AS downstream_total_cost, SUM(IF(target_type = 'Tool', call_count, 0)) AS downstream_tool_call_count, SUM(IF(target_type = 'LLM', call_count, 0)) AS downstream_llm_call_count, ARRAY_AGG(DISTINCT session_id IGNORE NULLS) AS session_ids, ANY_VALUE(service_name) AS service_name
             FROM CostPaths GROUP BY time_bucket, source_id, target_id, source_type, target_type;
             """
             run_query(sql)
@@ -532,7 +532,7 @@ async def execute_schema_step(step: str, req: SchemaStepRequest) -> dict[str, An
               SELECT trace_id, session_id, TIMESTAMP_TRUNC(start_time, HOUR) as time_bucket, service_name, logical_node_id, duration_ms, input_tokens, output_tokens, status_code, node_label, node_type
               FROM `{pd}.{gd}.agent_spans_raw` WHERE node_type = 'Agent'
             )
-            SELECT time_bucket, service_name, logical_node_id AS agent_id, ANY_VALUE(node_label) AS agent_name, COUNT(DISTINCT session_id) AS total_sessions, COUNT(*) AS total_turns, SUM(input_tokens) AS total_input_tokens, SUM(output_tokens) AS total_output_tokens, COUNTIF(status_code = 'ERROR') AS error_count, APPROX_QUANTILES(duration_ms, 100)[OFFSET(50)] AS p50_duration_ms, APPROX_QUANTILES(duration_ms, 100)[OFFSET(95)] AS p95_duration_ms
+            SELECT time_bucket, service_name, logical_node_id AS agent_id, ANY_VALUE(node_label) AS agent_name, APPROX_COUNT_DISTINCT(session_id) AS total_sessions, COUNT(*) AS total_turns, SUM(input_tokens) AS total_input_tokens, SUM(output_tokens) AS total_output_tokens, COUNTIF(status_code = 'ERROR') AS error_count, APPROX_QUANTILES(duration_ms, 100)[OFFSET(50)] AS p50_duration_ms, APPROX_QUANTILES(duration_ms, 100)[OFFSET(95)] AS p95_duration_ms
             FROM ParsedAgents GROUP BY time_bucket, service_name, agent_id;
             """
             run_query(sql1)

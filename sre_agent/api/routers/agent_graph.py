@@ -5,6 +5,8 @@ for visualization in the React Flow topology view and Nivo Sankey
 trajectory diagrams.
 """
 
+import asyncio
+import functools
 import logging
 import os
 import re
@@ -13,6 +15,7 @@ from collections import defaultdict
 from typing import Any
 from urllib.parse import unquote
 
+import anyio
 from fastapi import APIRouter, HTTPException, Query
 from google.api_core.exceptions import NotFound
 from google.cloud import bigquery
@@ -335,7 +338,6 @@ async def get_topology(
                 )
                 SELECT 'node' AS record_kind, * FROM node_metrics
             """
-            node_rows = list(client.query(query).result())
 
             edges_query = f"""
                 SELECT
@@ -351,7 +353,13 @@ async def get_topology(
                 GROUP BY source_id, target_id
                 {errors_only_edge_having}
             """
-            edge_rows = list(client.query(edges_query).result())
+
+            node_results, edge_results = await asyncio.gather(
+                anyio.to_thread.run_sync(client.query_and_wait, query),
+                anyio.to_thread.run_sync(client.query_and_wait, edges_query),
+            )
+            node_rows = list(node_results)
+            edge_rows = list(edge_results)
 
         else:
             # Real-time views for sub-hour ranges or explicit start_time
@@ -401,8 +409,13 @@ async def get_topology(
                 GROUP BY source_node_id, destination_node_id
                 {errors_only_edge_having}
             """
-            node_rows = list(client.query(nodes_query).result())
-            edge_rows = list(client.query(edges_query).result())
+
+            node_results, edge_results = await asyncio.gather(
+                anyio.to_thread.run_sync(client.query_and_wait, nodes_query),
+                anyio.to_thread.run_sync(client.query_and_wait, edges_query),
+            )
+            node_rows = list(node_results)
+            edge_rows = list(edge_results)
 
         # Extract label from logical_node_id format "Type::label"
         def _extract_label(node_id: str | None) -> str:
@@ -568,12 +581,30 @@ async def get_trajectories(
                 source_type,
                 target_node,
                 target_type,
-                COUNT(DISTINCT trace_id) AS trace_count
+                APPROX_COUNT_DISTINCT(trace_id) AS trace_count
             FROM trajectory_links
             GROUP BY source_node, source_type, target_node, target_type
         """
 
-        rows = client.query(query).result()
+        # --- Loop detection ---
+        loop_query = f"""
+            SELECT
+                trace_id,
+                ARRAY_AGG(logical_node_id ORDER BY start_time ASC) AS step_sequence
+            FROM `{project_id}.{dataset}.agent_spans_raw`
+            WHERE node_type != 'Glue'
+              AND {time_filter}
+              {errors_only_clause}
+              {service_name_clause}
+            GROUP BY trace_id
+        """
+
+        results, loop_results_raw = await asyncio.gather(
+            anyio.to_thread.run_sync(client.query_and_wait, query),
+            anyio.to_thread.run_sync(client.query_and_wait, loop_query),
+        )
+        rows = list(results)
+        loop_rows = list(loop_results_raw)
 
         seen_nodes: dict[str, str] = {}
         links: list[dict[str, Any]] = []
@@ -599,21 +630,6 @@ async def get_trajectories(
             {"id": node_id, "nodeColor": _get_node_color(node_type)}
             for node_id, node_type in seen_nodes.items()
         ]
-
-        # --- Loop detection ---
-        loop_query = f"""
-            SELECT
-                trace_id,
-                ARRAY_AGG(logical_node_id ORDER BY start_time ASC) AS step_sequence
-            FROM `{project_id}.{dataset}.agent_spans_raw`
-            WHERE node_type != 'Glue'
-              AND {time_filter}
-              {errors_only_clause}
-              {service_name_clause}
-            GROUP BY trace_id
-        """
-
-        loop_rows = client.query(loop_query).result()
 
         loop_results: dict[str, list[dict[str, Any]]] = {}
         for row in loop_rows:
@@ -728,16 +744,6 @@ async def get_node_detail(
             ]
         )
 
-        metrics_rows = list(client.query(metrics_query, job_config=job_config).result())
-
-        if not metrics_rows or metrics_rows[0].total_invocations == 0:
-            raise HTTPException(
-                status_code=404,
-                detail=f"No data found for node '{node_id}' in the last {hours}h.",
-            )
-
-        m = metrics_rows[0]
-
         # --- Top errors ---
         errors_query = f"""
             SELECT
@@ -755,8 +761,6 @@ async def get_node_detail(
             LIMIT 3
         """
 
-        error_rows = list(client.query(errors_query, job_config=job_config).result())
-
         # --- Recent payloads (join raw MV back to source _AllSpans) ---
         payload_query = f"""
             SELECT
@@ -767,10 +771,10 @@ async def get_node_detail(
                 r.tool_type,
                 r.request_model,
                 r.finish_reasons,
-                JSON_VALUE(s.attributes, '$.\"gen_ai.prompt\"') AS prompt,
-                JSON_VALUE(s.attributes, '$.\"gen_ai.completion\"') AS completion,
-                JSON_VALUE(s.attributes, '$.\"tool.input\"') AS tool_input,
-                JSON_VALUE(s.attributes, '$.\"tool.output\"') AS tool_output
+                JSON_VALUE(s.attributes, '$."gen_ai.prompt"') AS prompt,
+                JSON_VALUE(s.attributes, '$."gen_ai.completion"') AS completion,
+                JSON_VALUE(s.attributes, '$."tool.input"') AS tool_input,
+                JSON_VALUE(s.attributes, '$."tool.output"') AS tool_output
             FROM `{project_id}.{dataset}.agent_spans_raw` r
             JOIN `{project_id}.{trace_dataset}._AllSpans` s
               ON r.span_id = s.span_id AND r.trace_id = s.trace_id
@@ -787,7 +791,32 @@ async def get_node_detail(
             LIMIT 10
         """
 
-        payload_rows = list(client.query(payload_query, job_config=job_config).result())
+        metrics_results, error_results, payload_results = await asyncio.gather(
+            anyio.to_thread.run_sync(
+                functools.partial(client.query_and_wait, job_config=job_config),
+                metrics_query,
+            ),
+            anyio.to_thread.run_sync(
+                functools.partial(client.query_and_wait, job_config=job_config),
+                errors_query,
+            ),
+            anyio.to_thread.run_sync(
+                functools.partial(client.query_and_wait, job_config=job_config),
+                payload_query,
+            ),
+        )
+
+        metrics_rows = list(metrics_results)
+        error_rows = list(error_results)
+        payload_rows = list(payload_results)
+
+        if not metrics_rows or metrics_rows[0].total_invocations == 0:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No data found for node '{node_id}' in the last {hours}h.",
+            )
+
+        m = metrics_rows[0]
 
         # Decompose node_id into type and label
         if "::" in node_id:
@@ -969,7 +998,7 @@ async def get_edge_detail(
             ]
         )
 
-        rows = list(client.query(query, job_config=job_config).result())
+        rows = list(client.query_and_wait(query, job_config=job_config))
 
         if not rows or rows[0].call_count is None or rows[0].call_count == 0:
             raise HTTPException(
@@ -1079,7 +1108,7 @@ async def get_timeseries(
             ORDER BY target_id, time_bucket ASC
         """
 
-        rows = list(client.query(query).result())
+        rows = list(client.query_and_wait(query))
 
         series: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for row in rows:
@@ -1188,7 +1217,7 @@ async def get_span_details(
             ]
         )
 
-        rows = list(client.query(query, job_config=job_config).result())
+        rows = list(client.query_and_wait(query, job_config=job_config))
 
         if not rows:
             raise HTTPException(status_code=404, detail="Span not found.")
@@ -1292,7 +1321,7 @@ async def get_agent_registry(
             ORDER BY total_sessions DESC
         """
 
-        rows = list(client.query(query).result())
+        rows = list(client.query_and_wait(query))
 
         agents: list[dict[str, Any]] = []
         for row in rows:
@@ -1393,7 +1422,7 @@ async def get_tool_registry(
             ORDER BY execution_count DESC
         """
 
-        rows = list(client.query(query).result())
+        rows = list(client.query_and_wait(query))
 
         tools: list[dict[str, Any]] = []
         for row in rows:

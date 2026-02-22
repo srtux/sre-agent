@@ -163,7 +163,6 @@ def create_bigquery_mcp_toolset(project_id: str | None = None) -> Any:
     function) to ensure proper MCP session lifecycle management.
 
     Tools exposed:
-        - execute_sql: Execute SQL queries
         - list_dataset_ids: List available datasets
         - list_table_ids: List tables in a dataset
         - get_table_info: Get table schema and metadata
@@ -211,7 +210,6 @@ def create_bigquery_mcp_toolset(project_id: str | None = None) -> Any:
     # Dynamic Tool Filtering: Filter MCP tools based on configuration
     manager = get_tool_config_manager()
     default_tools = [
-        "execute_sql",
         "list_dataset_ids",
         "list_table_ids",
         "get_table_info",
@@ -850,12 +848,12 @@ async def mcp_query_range(
 
 
 @adk_tool
-async def mcp_execute_sql(
+async def gcp_execute_sql(
     sql_query: str,
     project_id: str | None = None,
     tool_context: Any | None = None,
 ) -> BaseToolResponse:
-    """Execute a SQL query against BigQuery via MCP.
+    """Execute a SQL query against BigQuery directly.
 
     Use this tool to run analytical queries against trace and log data
     exported to BigQuery. This is essential for Stage 0 (Aggregate Analysis).
@@ -868,24 +866,21 @@ async def mcp_execute_sql(
     Returns:
         Query results or error.
     """
-    pid = project_id or get_project_id_with_fallback()
-    args = {
-        "query": sql_query,
-        "projectId": pid,
-    }
+    try:
+        from sre_agent.tools.bigquery.client import BigQueryClient
 
-    res = await call_mcp_tool_with_retry(
-        create_bigquery_mcp_toolset,
-        "execute_sql",
-        args,
-        tool_context,
-        project_id=project_id,
-    )
-    return BaseToolResponse(
-        status=res.get("status", ToolStatus.SUCCESS),
-        result=res.get("result"),
-        error=res.get("error"),
-    )
+        client = BigQueryClient(project_id=project_id, tool_context=tool_context)
+        rows = await client.execute_query(sql_query)
+        return BaseToolResponse(
+            status=ToolStatus.SUCCESS,
+            result=rows,
+        )
+    except Exception as e:
+        logger.exception("Failed to execute SQL query")
+        return BaseToolResponse(
+            status=ToolStatus.ERROR,
+            error=str(e),
+        )
 
 
 @adk_tool

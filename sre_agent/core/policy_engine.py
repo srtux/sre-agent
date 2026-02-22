@@ -288,8 +288,8 @@ TOOL_POLICIES: dict[str, ToolPolicy] = {
         description="Analyze log patterns via BigQuery",
     ),
     # MCP Tools
-    "mcp_execute_sql": ToolPolicy(
-        name="mcp_execute_sql",
+    "gcp_execute_sql": ToolPolicy(
+        name="gcp_execute_sql",
         access_level=ToolAccessLevel.READ_ONLY,
         category=ToolCategory.OBSERVABILITY,
         description="Execute SQL via MCP",
