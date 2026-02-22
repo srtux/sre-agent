@@ -467,10 +467,8 @@ function App() {
 
   const [filters, setFilters] = useState<GraphFilters>(() => {
     const params = new URLSearchParams(window.location.search)
-    console.log('[AgentOps DEBUG] App.tsx initialized! search string:', window.location.search)
 
     const urlProjectId = params.get('project_id')
-    console.log('[AgentOps DEBUG] Extracted urlProjectId during init:', urlProjectId)
     const urlTimeRange = params.get('time_range')
 
     let hours: number = 24
